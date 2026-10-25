@@ -431,3 +431,23 @@ This keeps cache identity explicit; warm/cold definitions are still to be frozen
 before baseline. Focused composer checks, lint and its type check pass. Final
 affected controller/proof/CLI/release/root checks passed: 121 tests. No full
 local suite, benchmark observation or optimization has run.
+
+The corrected native constructor on B returned `complete`, result SHA256
+`4ce3b1de1cbe2cad723952bdcbfbef84a1e774b01a6a94aa6ebf06229b4f0e1d`.
+Sequence 1 save/reopen also returned `complete`, result SHA256
+`78aefdb9bcf29e0eedddd5736185878fe2f7baafe66c76c076fcc2cc882d1ef9`.
+Both were authenticated through the real host controller. Sequence 2 pre-render
+capture was launched with request SHA256
+`7c35923bdf0f1fcff185ecc872b6101454e871c094903e7ef11c8f5dee48bb73`.
+The host command collecting sequence 2 and preparing/installing sequence 3 is
+still computing its real PCM prediction; no render has started. Collect that
+command/result before any further launch. Raw prior installed requests are
+retained in `out/issue312/installed-request-archive-v2`.
+
+The external full narration fixture finished successfully: 30 original rows,
+one complete alternate, 1,215 measured public spoken words and 13,935 actual
+timeline frames (581.205625 seconds). Repeated public passages and MFA onset
+limitations remain disclosed. No narration duration was stretched to a nominal
+length. The 801 subprocess / 55 probe counts in the three-row package setup
+confirm the media-tool counters observe real dispatches; the earlier package
+record predates those setup counters.
