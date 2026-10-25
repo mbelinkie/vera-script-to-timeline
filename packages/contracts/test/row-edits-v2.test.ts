@@ -320,6 +320,9 @@ describe("provisional Sorting trials", () => {
     expect(trial.movedRowIds).toEqual([a.id]);
     expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, null, b.id) }).ok).toBe(true);
     expect(trial.movedRowIds).toEqual([]);
+    expect(trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, null, a.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.undo().ok).toBe(true);
     expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(663) }).ok).toBe(true);
     expect(trial.movedRowIds).toEqual([b.id]);
     expect(trial.apply({ kind: "restore_stash", bundleId: id(663), destination: gap(null, a.id, c.id) }).ok).toBe(true);

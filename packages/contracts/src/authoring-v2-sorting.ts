@@ -1,5 +1,4 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
-import { canonicalJson } from "./compiler-core.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
@@ -12,6 +11,15 @@ const MAX_ACTIONS = 1000;
 const MAX_SAVED_CHARACTERS = 5_000_000;
 type Action = RowEditCommandV2 | { kind: "undo" };
 type Phase = "sorting" | "preview" | "accepted" | "discarded";
+
+function sameJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object" || Array.isArray(left) !== Array.isArray(right)) return false;
+  const a = left as Record<string, unknown>;
+  const b = right as Record<string, unknown>;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => Object.hasOwn(b, key) && sameJson(a[key], b[key]));
+}
 
 function positions(document: ScriptDocumentV2): Map<string, { key: string; sectionId?: string | null }> {
   const result = new Map<string, { key: string; sectionId?: string | null }>();
@@ -62,7 +70,8 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
   const originalPositions = positions(baseline);
   const session = createRowEditSessionV2(baseline);
   const actions: Action[] = [];
-  const selections: string[][] = [];
+  const markHistory: Set<string>[] = [];
+  let movedRows = new Set<string>();
   let phase: Phase = "sorting";
   let finalDocument: ScriptDocumentV2 | undefined;
   const failure = (code: string, message: string, document = session.document): RowEditResultV2 => ({
@@ -76,8 +85,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     get revision() { return finalDocument ? finalDocument.rowEditRevision ?? 0 : session.revision; },
     get movedRowIds() {
       if (!pending()) return [];
-      const current = positions(session.document);
-      return [...new Set(selections.flat())].filter((id) => originalPositions.get(id)?.key !== current.get(id)?.key);
+      return [...movedRows];
     },
     preview(): ScriptDocumentV2 {
       if (!pending()) throw new Error("The Sorting trial is closed.");
@@ -101,8 +109,10 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       const result = session.apply(command, expectedRevision);
       if (result.ok) {
         actions.push(structuredClone(command));
+        markHistory.push(movedRows);
+        const current = positions(result.document);
         // Only deliberately selected rows get marks; rows displaced by them do not.
-        selections.push([...selected]);
+        movedRows = new Set([...movedRows, ...selected].filter((id) => originalPositions.get(id)?.key !== current.get(id)?.key));
       }
       return result;
     },
@@ -110,20 +120,20 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before undoing a trial operation.");
       if (actions.length >= MAX_ACTIONS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const result = session.undo();
-      if (result.ok) { actions.push({ kind: "undo" }); selections.pop(); }
+      if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; }
       return result;
     },
     accept(canonical: ScriptDocumentV2): RowEditResultV2 & { changed: boolean } {
       if (!pending()) return { ...failure("SORTING_TRIAL_CLOSED", "This trial has already been accepted or discarded.", canonical), changed: false };
-      if (canonicalJson(canonical) !== canonicalJson(baseline)) return { ...failure("SORTING_BASELINE_CHANGED", "The saved script or Stash changed. Start a new trial from that document.", canonical), changed: false };
+      if (!sameJson(canonical, baseline)) return { ...failure("SORTING_BASELINE_CHANGED", "The saved script or Stash changed. Start a new trial from that document.", canonical), changed: false };
       const intended = session.document;
       const content = (document: ScriptDocumentV2) => {
         const copy = { ...document };
         delete copy.rowEditRevision;
         if (copy.stash?.length === 0) delete copy.stash;
-        return canonicalJson(copy);
+        return copy;
       };
-      const changed = content(intended) !== content(baseline);
+      const changed = !sameJson(content(intended), content(baseline));
       if (changed && (baseline.rowEditRevision ?? 0) === Number.MAX_SAFE_INTEGER) return { ...failure("ROW_REVISION_STALE", "The document revision cannot advance.", canonical), changed: false };
       phase = "accepted";
       const document = changed ? { ...intended, rowEditRevision: (baseline.rowEditRevision ?? 0) + 1 } : canonical;
