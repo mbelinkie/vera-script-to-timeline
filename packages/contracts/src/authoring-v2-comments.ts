@@ -25,7 +25,8 @@ type MessageInput = { messageId: string; body: string; mentionActorIds: string[]
 export type CommentOperationV2 = Attribution & (
   | ({ kind: "create"; threadId: string; anchor: CommentAnchorV2 } & MessageInput)
   | ({ kind: "reply"; threadId: string } & MessageInput)
-  | { kind: "resolve" | "reopen"; threadId: string }
+  | { kind: "resolve"; threadId: string }
+  | { kind: "reopen"; threadId: string }
   | { kind: "reattach"; threadId: string; anchor: CommentAnchorV2 }
   | { kind: "replace_document"; document: ScriptDocumentV2 }
 );
@@ -44,7 +45,7 @@ function record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 function fields(value: Record<string, unknown>, names: string) {
-  if (Object.keys(value).sort().join(" ") !== names.split(" ").sort().join(" ")) throw new Error("Unsupported operation fields.");
+  if (!sameAuthoringJsonV2(Object.keys(value).sort(), names.split(" ").sort())) throw new Error("Unsupported operation fields.");
 }
 function anchorInput(value: unknown): CommentAnchorV2 {
   const anchor = record(value);

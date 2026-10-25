@@ -25,8 +25,8 @@ function fixture() {
   const timing = structuredClone(dependencies.narrationTimingMaps[0]!);
   timing.blockId = second.id;
   timing.textHash = `sha256:${createHash("sha256").update(second.text).digest("hex")}`;
-  timing.tokens[0]!.tokenId = second.tokens[0]!.id;
-  timing.tokens[0]!.quotedText = second.text;
+  timing.tokens[0].tokenId = second.tokens[0].id;
+  timing.tokens[0].quotedText = second.text;
   timing.narrationAssetId = id(102);
   timing.audio!.narrationAssetId = id(102);
   timing.audio!.locator = "Builds/narration/world.wav";
@@ -59,7 +59,7 @@ it("keeps real narration projection, prompter bytes, compiler duration/timeline 
   let state = createCommentStateV2(document);
   const actorId = "public-synthetic-actor";
   const anchors: CommentAnchorV2[] = [
-    { kind: "text", blockId: first.id, startTokenId: first.tokens[0]!.id, endTokenId: first.tokens[0]!.id },
+    { kind: "text", blockId: first.id, startTokenId: first.tokens[0].id, endTokenId: first.tokens[0].id },
     { kind: "card", blockId: first.id, cardId: first.primaryVisualSequence!.slots[0]!.id },
     { kind: "block", blockId: second.id },
     { kind: "between_blocks", afterBlockId: first.id, beforeBlockId: second.id },

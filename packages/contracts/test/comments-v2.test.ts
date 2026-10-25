@@ -41,7 +41,7 @@ function apply(state: CommentStateV2, op: CommentOperationV2) {
   if (!result.ok) throw new Error(result.error);
   return result.state;
 }
-const create = (anchor: CommentAnchorV2, n: number): CommentOperationV2 => ({
+const create = (anchor: CommentAnchorV2, n: number): Extract<CommentOperationV2, { kind: "create" }> => ({
   id: `create-${n}`, actorId, kind: "create", threadId: `thread-${n}`, messageId: `message-${n}`,
   body: "Review this synthetic wording", mentionActorIds: [actorId], anchor,
 });
@@ -73,7 +73,7 @@ describe("bounded sequential S03 comments", () => {
     const edited = structuredClone(state.document);
     const row = edited.activeDraft.blocks[0] as NarrationBlockV2;
     row.text = "Hello blue world";
-    row.tokens[0]!.value = "Hello";
+    row.tokens[0].value = "Hello";
     row.version++;
     state = apply(state, { id: "text-edit", actorId, kind: "replace_document", document: edited });
     expect(state.threads[0]!.attachment.quotedText).toBe("blue world");
@@ -129,7 +129,7 @@ describe("bounded sequential S03 comments", () => {
     const row = changed.activeDraft.blocks[0] as NarrationBlockV2;
     row.text = "hello pink world";
     row.tokens[1]!.value = "pink";
-    row.primaryVisualSequence = null;
+    row.primaryVisualSequence!.slots[0]!.id = id(998);
     changed.activeDraft.blocks.pop();
     state = apply(state, { id: "rewrite", actorId, kind: "replace_document", document: changed });
     expect(state.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "stale", "stale"]);
