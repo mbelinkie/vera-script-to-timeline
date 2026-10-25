@@ -1,7 +1,7 @@
 # S03/S05 capability audit — #318
 
 Audit date: 2026-10-25. Source baseline: `6f5d73f4e96af6b7709c853c2af15c78bc5183aa`
-(`origin/main`, freshly fetched at launch). This report audits current retained
+(`origin/main`, freshly fetched at launch). Final integration baseline: `044011a1447713a0656ec382fc99e0ea0f64cf45`, including merged #310/PR #315; re-fetched before final push. This report audits current retained
 authoring and outbound-review promises; it does not resume design or certify
 the finished application. [Issue #318](https://github.com/mbelinkie/vera-script-to-timeline/issues/318)
 owns this finite audit. #33 and #147 are historical inputs, not current
@@ -70,6 +70,7 @@ or reopens #147's historical audit programme.
 | --- | --- | --- |
 | E1 | [authoring operations](../../packages/contracts/src/authoring-v2-edits.ts), [validation](../../packages/contracts/src/authoring-v2-validation.ts), [projection](../../packages/contracts/src/authoring-v2-projection.ts), [tests](../../packages/contracts/test/authoring-v2.test.ts) (#172) | Executable pure v2 sequence/anchor operations with optimistic versions and explicit diagnostics. No live collaboration, permission service or durable browser save. |
 | E2 | [row operations](../../packages/contracts/src/authoring-v2-rows.ts), [row tests](../../packages/contracts/test/row-edits-v2.test.ts), [actual consumer tests](../../packages/contracts/test/row-edit-consumers-v2.test.ts) (#307, PR #308) | Single/contiguous run/section move, exact gaps, ordered Stash serialization/restore, local Undo, active-Draft exclusion. Comments are opaque preserved payloads. No audible spanning-audio or transition adapter. |
+| E2b | [#310 handoff](../plans/issue-310-sorting-stash.md), [Sorting core](../../packages/contracts/src/authoring-v2-sorting.ts), [saved-Stash edits](../../packages/contracts/src/authoring-v2-stash.ts), [tests](../../packages/contracts/test/stash-edits-v2.test.ts), [merged PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315) | Provisional trial accept/discard/return, changed-baseline refusal, saved resume/marks/Undo and edited Stash consumer exclusion. Caller installs returned acceptance as one transaction; no storage service/collaboration. Limits 1,000 successful edits plus Undos/2,000 actions and 5,000,000 JS characters. |
 | E3 | [v2 compiler](../../packages/contracts/src/compiler-core-v2.ts), [compiler tests](../../packages/contracts/test/compiler-v2.test.ts), [prompter exporter](../../packages/contracts/src/prompter-export.ts) (#173/#37) | Deterministic timed supported placements/coverage/diagnostics and spoken-only export; not every source-acquisition or motion intent. Active row-audio intent and non-cut row-transition intent explicitly refuse. |
 | E4 | [#131](https://github.com/mbelinkie/vera-script-to-timeline/issues/131), [#141 accepted correction PR #151](https://github.com/mbelinkie/vera-script-to-timeline/pull/151), [#149 runtime discriminator summary](issue-149/workflow-reruns/final-summary.md) | #131 is synthetic/injected representation evidence, no Resolve call. #141 native move/trim used Studio 21.1.0 build 14; separate #149 discriminators used 21.1.1 build 10, not a blanket rerun. Bounded observation/refusal evidence is not finishing preservation or outbound creation. Mapping-mute readback did not prove rendered silence; lock tests did not prove all setters protected. |
 | E5 | [#145 plan](../plans/issue-145-generated-roundtrip.md), [accepted merged PR #274](https://github.com/mbelinkie/vera-script-to-timeline/pull/274), [v2 revision core](../../packages/contracts/src/issue-192-v2-revision-core.ts) and [tests](../../packages/contracts/test/issue-202-v2-revision-core.test.ts) | Accepted A visual boundary, B supported linked AV trim/reflow, C verified phrase omission + whole-row fresh speech/timing/rebuild, D unsafe refusal/rejection. Actual Studio/23.976 route; accessible public acceptance summary does not pin the Resolve build, so do not inherit another proof’s version. No new provider calls here. Not a generic row split/merge, arbitrary narration remap, or complete selective-update executor. |
@@ -101,7 +102,7 @@ envelope. U means the stated promise has no qualifying evidence; it is not a fin
 | A08 · S4 earlier noncontiguous group language in #125 | Original scope says contiguous/noncontiguous; latest Sorting brief explicitly describes contiguous section-bounded selection | U unresolved breadth, not a proven impossibility. E2 explicitly refuses noncontiguous IDs; #310 does not extend it. Do not label the later contiguous trial as proof of noncontiguous moves or silently add that older interaction to r10. | #125 must reconcile its control inventory before construction; a separate noncontiguous proof is needed only if retained as an active promise |
 | A09 · S4 outline summary/expansion/thumbnails/omission, return to detail | Long-copy summary preserves mixed OC/VO, endpoint visuals including X→Y→X, missing endpoints and overlay distinction; click expands real S03 read-only | M typed content + E10 presentation mechanics; exact r10 reuse/compact fit is unverified without its retained export. Neither density selected. Orange omission is not an authored cut. | #125; fixture and exact renderer comparison, no runtime campaign |
 | A10 · S4 Show Stash, bundle preview, restore, Undo | Saved rows excluded from Draft consumers; ordered bundle restored at explicit gap; preview does not restore; full content retained | M E2 actual serialization/compiler/prompter/media-needs tests. Cross-boundary opaque references/audio refuse when unsupported. Broader Ideas/Extras not implied. | #307 delivered; #78 broader workflow |
-| A11 · S4 trial Accept/Discard/Return, net Moved marks, normal Edit Stash | Canonical script AND saved Stash unchanged until accept; read-only during trial; resume with baseline guard; normal saved-content edits survive restore | U at pinned main. #310 owns exactly these focused mechanisms and is pending; its draft/test assertions are not delivered main evidence. No duplicate issue. | #310; #125 retains pause |
+| A11 · S4 trial Accept/Discard/Return, net Moved marks, normal Edit Stash | Canonical script AND saved Stash unchanged until accept; read-only during trial; resume with baseline guard; normal saved-content edits survive restore | M E2b delivered on final main via PR #315; original launch baseline lacked it. Canonical acceptance is caller-installed once; repeated/stale acceptance refuses. Local serialize/resume has explicit action/size limits and no multi-client merge/storage service. #125 still owns renderer and interaction integration. | #310 delivered; #125 retains other holds |
 | A12 · #125 text/card/block/between-block comments | Reply/mention/resolve/reopen, attribution, empty/error/long threads; edits/moves/deletion make ambiguous anchor stale with explicit reattach; no narration leakage | U service and anchor lifecycle. E2 only preserves opaque comment data. Capture membership tests do not prove authoring roles/comments. | #74/#72/#73; [#324](https://github.com/mbelinkie/vera-script-to-timeline/issues/324) bounded pre-design comment proof |
 | A13 · S7 authoring roles, revoked access, preview/release | Producer/Editor/Viewer controls; next-request revocation; approved checkpoint for release; Research access rechecked separately | U authoring service. Existing capture revocation tests prove capture scope only; no cross-project inherited permission. A disabled prototype button is not authorization. | #72/#76; #72/#76 must supply their own service evidence; [#324](https://github.com/mbelinkie/vera-script-to-timeline/issues/324) does not clear roles |
 | A14 · S2 Saved, history, checkpoints, offline/sync failed | Immediate typing, honest local/sync states; build freezes acknowledged revision; restore creates new head | W E10 says “Saved in this browser” only. U durable authoring sync/history; E1 optimistic versions are not Yjs/live session convergence. | #64/#73/#75/#76; no new generic storage research issue |
@@ -155,8 +156,9 @@ subsets, and the **measured** expandable transition-library controls. Design
 may represent their actual supported/refused states while application wiring
 remains unfinished. A full frontend is not required for those mechanisms.
 
-Pause new functional promises for provisional Sorting until #310 is delivered;
-for comment anchor-state promises until their bounded transform proof;
+The provisional Sorting and normal saved-Stash mechanisms are now proved by
+merged #310 within E2b limits; exact renderer/UI integration remains #125.
+Pause comment anchor-state promises until their bounded transform proof;
 for audible spanning cues, exact image motion, complete frozen selective
 execution and Resolve-only finishing preservation until the specific evidence
 below. Existing #119 owns Wide/Tight proof. #71 owns render integration and
@@ -182,7 +184,7 @@ without becoming backend investigation projects or losing their owners.
 
 Open **and closed** issue inventory was searched (all 234 returned issues at
 launch), then targeted searches covered motion/Dynamic Zoom, comments/anchors,
-spanning audio, finishing/preservation and noncontiguous moves. Reuse #310,
+spanning audio, finishing/preservation and noncontiguous moves. Reuse delivered #310,
 #292, #119, #319, #157 and the other owners above. The missing *pre-design*
 experiments below are narrower than downstream production issues whose
 dependencies currently consume the design. They must not depend on #125,
@@ -209,7 +211,7 @@ One authorized Opus/high CLI critique completed on 2026-10-25 with read-only too
 
 | Mechanism/affected controls | Hold / remaining ownership |
 | --- | --- |
-| Sorting trial/edit saved Stash A11 | #310; unchanged existing owner. |
+| Sorting trial/edit saved Stash A11 | #310 Closed/Done at final baseline; E2b domain mechanism clears this specific proof hold only. #125 owns UI. |
 | Comment stale/reattach A12 | [#324](https://github.com/mbelinkie/vera-script-to-timeline/issues/324) only; permissions/live session/durable sync A13/A14 remain unproved with #72/#73/#74/#64, not cleared by this experiment. |
 | Image motion A21 | [#325](https://github.com/mbelinkie/vera-script-to-timeline/issues/325); #164 consumes technical result, retains contract/taste scope. |
 | Audible spanning A06/B10 | [#326](https://github.com/mbelinkie/vera-script-to-timeline/issues/326) extracted from #100; #100 consumes result, owns production music. |
