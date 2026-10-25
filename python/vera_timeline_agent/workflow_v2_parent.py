@@ -17,6 +17,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+PARENT_STATE_ROOT = Path.home() / ".local/state/vera/resolve-delivery"
+
 
 def _read(path: Path) -> dict[str, Any]:
     if any(p.is_symlink() for p in (path, *path.absolute().parents)):
@@ -50,6 +52,35 @@ def _request(path: Path, expected: str) -> dict[str, Any]:
 
 def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
     """Dispatch once. Repeated calls only read the original operation."""
+    request_path = request_path.absolute()
+    request = _request(request_path, expected)
+    session = Path(request["evidenceDir"]) / "parent.json"
+    if session.exists():
+        return status(request_path, expected)
+    root = PARENT_STATE_ROOT
+    if any(p.is_symlink() for p in (root, *root.absolute().parents)):
+        raise ValueError("symbolic link in parent state directory")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (root / "dispatch.lock").open("a+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return status(request_path, expected)
+        active = root / "active.json"
+        if active.exists():
+            previous = _read(active)
+            prior = status(Path(previous["requestPath"]), previous["requestSha256"])
+            if prior["state"] != "terminal":
+                raise ValueError(
+                    "prior Resolve delivery is live or unresolved; inspect it"
+                )
+        return _dispatch(request_path, expected, python, active)
+
+
+def _dispatch(
+    request_path: Path, expected: str, python: Path, active: Path
+) -> dict[str, Any]:
+    """Reserve one worker while the host-wide dispatch lock is held."""
     from .workflow_v2_cli import LAUNCHER_NAME, _no_symlinks, _verify_release
 
     request_path = request_path.absolute()
@@ -84,6 +115,15 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
             raise ValueError(
                 "prior operation evidence retained; inspect it, never replay"
             )
+        # Reserve the host before dispatch, including uncertain spawn failures.
+        temporary = active.with_name(f".active-{uuid.uuid4().hex}.json")
+        _write(temporary, {"requestPath": str(request_path), "requestSha256": expected})
+        temporary.replace(active)
+        directory = os.open(active.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
         record = {
             "schemaVersion": "vera-delivery-parent/v1",
             "requestPath": str(request_path),

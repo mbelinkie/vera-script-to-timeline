@@ -36,6 +36,9 @@ be repeated. Both only inspect the existing operation. A wait expiration never
 kills, retries or replaces it. Repeating `start` also inspects the original
 reservation; it does not create a second worker. The normal launcher reserves
 its request digest before calling Resolve, protecting direct request replays.
+The host's private active reservation also blocks a different request while
+the previous one is live or unresolved. A terminal result permits a fresh
+attested target; an unknown or infrastructure-failed outcome needs inspection.
 
 | State | Meaning |
 | --- | --- |

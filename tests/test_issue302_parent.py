@@ -27,6 +27,13 @@ from vera_timeline_agent.studio_spike import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_parent_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        workflow_v2_parent, "PARENT_STATE_ROOT", tmp_path / "parent-state"
+    )
+
+
 def _case(tmp_path: Path) -> tuple[Path, str, Path, Path, dict[str, Any]]:
     release = tmp_path / "release"
     installed = release / "vera-delivery-v2"
@@ -62,6 +69,18 @@ def _patch_release_checks(monkeypatch: pytest.MonkeyPatch, manifest: Path) -> No
     monkeypatch.setattr(workflow_v2_cli, "_verify_release", lambda _release: manifest)
 
 
+def _patch_release_checks_for(
+    monkeypatch: pytest.MonkeyPatch, *manifests: Path
+) -> None:
+    manifest_by_release = {path.parent.parent.absolute(): path for path in manifests}
+    monkeypatch.setattr(workflow_v2_cli, "_no_symlinks", lambda _path: None)
+    monkeypatch.setattr(
+        workflow_v2_cli,
+        "_verify_release",
+        lambda release: manifest_by_release[Path(release).absolute()],
+    )
+
+
 def _patch_popen(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[list[list[str]], list[int]]:
@@ -80,6 +99,19 @@ def _patch_popen(
 def _close_fds(fds: list[int]) -> None:
     for fd in fds:
         os.close(fd)
+
+
+def _two_cases(
+    tmp_path: Path,
+) -> tuple[
+    tuple[Path, str, Path, Path, dict[str, Any]],
+    tuple[Path, str, Path, Path, dict[str, Any]],
+]:
+    first_root = tmp_path / "first-request"
+    second_root = tmp_path / "second-request"
+    first_root.mkdir()
+    second_root.mkdir()
+    return _case(first_root), _case(second_root)
 
 
 _PARENT_INVOCATION_ID = "1" * 32
@@ -126,6 +158,7 @@ def _completed_operation(
     parent_invocation_id: str | None = None,
 ) -> None:
     context = _context(expected, request)
+    session = workflow_v2_parent._read(evidence / "parent.json")
     if parent_invocation_id is not None:
         context["parentInvocationId"] = parent_invocation_id
     workflow_v2_parent._write(evidence / f"started-{expected}.json", context)
@@ -160,7 +193,7 @@ def _completed_operation(
         evidence / "parent-exit.json",
         {
             "returncode": returncode,
-            "monotonicFinished": 11.0,
+            "monotonicFinished": session["monotonicStarted"] + 1.0,
             "requestSha256": expected,
         },
     )
@@ -364,8 +397,105 @@ def test_only_one_concurrent_start_reserves_dispatch(
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
             reports = list(pool.map(lambda _index: start_together(), range(2)))
-        assert [report["state"] for report in reports] == ["live", "live"]
+        assert all(report["state"] in {"live", "unknown"} for report in reports)
         assert len(commands) == 1
+    finally:
+        _close_fds(held_fds)
+
+
+@pytest.mark.parametrize(
+    ("prior_state", "expected_state"),
+    [("live", "live"), ("unknown", "unknown"), ("failed", "failed")],
+)
+def test_new_request_waits_for_prior_host_operation_to_be_resolved(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    prior_state: str,
+    expected_state: str,
+) -> None:
+    first, second = _two_cases(tmp_path)
+    first_path, first_hash, first_manifest, first_evidence, first_request = first
+    second_path, second_hash, second_manifest, _second_evidence, _second_request = (
+        second
+    )
+    _patch_release_checks_for(monkeypatch, first_manifest, second_manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        workflow_v2_parent.start(first_path, first_hash, Path("ResolvePython"))
+        if prior_state in {"unknown", "failed"}:
+            _close_fds(held_fds)
+            held_fds.clear()
+        if prior_state == "failed":
+            invocation_id = workflow_v2_parent._read(first_evidence / "parent.json")[
+                "invocationId"
+            ]
+            _completed_operation(
+                first_evidence,
+                first_hash,
+                first_request,
+                bad_hash=True,
+                parent_invocation_id=invocation_id,
+            )
+
+        assert workflow_v2_parent.status(first_path, first_hash)["state"] == (
+            expected_state
+        )
+        with pytest.raises(ValueError, match="live or unresolved"):
+            workflow_v2_parent.start(second_path, second_hash, Path("ResolvePython"))
+        assert len(commands) == 1
+    finally:
+        _close_fds(held_fds)
+
+
+def test_new_request_is_allowed_after_prior_valid_terminal_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first, second = _two_cases(tmp_path)
+    first_path, first_hash, first_manifest, first_evidence, first_request = first
+    second_path, second_hash, second_manifest, _second_evidence, _second_request = (
+        second
+    )
+    _patch_release_checks_for(monkeypatch, first_manifest, second_manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        workflow_v2_parent.start(first_path, first_hash, Path("ResolvePython"))
+        _close_fds(held_fds)
+        held_fds.clear()
+        invocation_id = workflow_v2_parent._read(first_evidence / "parent.json")[
+            "invocationId"
+        ]
+        _completed_operation(
+            first_evidence,
+            first_hash,
+            first_request,
+            parent_invocation_id=invocation_id,
+        )
+        assert workflow_v2_parent.status(first_path, first_hash)["state"] == "terminal"
+
+        result = workflow_v2_parent.start(
+            second_path, second_hash, Path("ResolvePython")
+        )
+
+        assert result["state"] == "live"
+        assert len(commands) == 2
+    finally:
+        _close_fds(held_fds)
+
+
+def test_corrupt_active_host_pointer_fails_closed_before_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, expected, _manifest, _evidence, _request_value = _case(tmp_path)
+    state_root = workflow_v2_parent.PARENT_STATE_ROOT
+    state_root.mkdir(parents=True)
+    (state_root / "active.json").write_text("{not-json")
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        with pytest.raises(ValueError):
+            workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        assert commands == []
     finally:
         _close_fds(held_fds)
 
