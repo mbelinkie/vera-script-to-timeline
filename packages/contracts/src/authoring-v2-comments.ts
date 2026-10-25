@@ -71,7 +71,7 @@ function operationInput(value: unknown): CommentOperationV2 {
     if (key in op && !nonempty(op[key])) throw new Error(`${key} must be nonempty.`);
   }
   if ("anchor" in op) anchorInput(op.anchor);
-  if ("mentionActorIds" in op && (!Array.isArray(op.mentionActorIds) || !op.mentionActorIds.every(nonempty) || new Set(op.mentionActorIds).size !== op.mentionActorIds.length)) throw new Error("Mentions must be distinct stable actor IDs.");
+  if ("mentionActorIds" in op && (!Array.isArray(op.mentionActorIds) || !Array.from(op.mentionActorIds).every(nonempty) || new Set(op.mentionActorIds).size !== op.mentionActorIds.length)) throw new Error("Mentions must be distinct stable actor IDs.");
   return op as unknown as CommentOperationV2;
 }
 
@@ -110,7 +110,7 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== state.revision || expectedRevision === Number.MAX_SAFE_INTEGER) throw new Error("Stale comment revision.");
     const op = operationInput(input);
     if (state.history.some((prior) => prior.id === op.id)) throw new Error("Duplicate operation ID.");
-    const next = structuredClone(state);
+    const next = { ...state, document: structuredClone(state.document), threads: structuredClone(state.threads), history: [...state.history] };
     if (op.kind === "replace_document") {
       const document = createCommentStateV2(op.document).document;
       if (document.id !== state.document.id || document.projectId !== state.document.projectId) throw new Error("Document identity changed.");

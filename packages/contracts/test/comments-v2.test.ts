@@ -155,6 +155,7 @@ describe("bounded sequential S03 comments", () => {
       { id: "no-change", actorId, kind: "replace_document", document },
       { id: "wrong-document", actorId, kind: "replace_document", document: { ...document, id: id(9999) } },
       { ...reply, mentionActorIds: [actorId, actorId] },
+      { ...reply, mentionActorIds: Array<string>(1) },
       { ...reply, actorId: "" },
     ];
     invalid.forEach((operation) => {
