@@ -125,8 +125,9 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
 
 /** One immutable local transaction. A refusal returns the original input object. */
 export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
+  if (!command || typeof command !== "object") return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => item.code === "SCHEMA_INVALID" || item.code === "ENTITY_ID_DUPLICATE" || item.code === "BLOCK_ID_DUPLICATE")) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   const working = structuredClone(document);
   const blocks = working.activeDraft.blocks;
@@ -190,6 +191,18 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
 /** Serialized authoring drafts may contain unresolved intent; schema/identity corruption is refused. */
 export function serializeAuthoringDocumentV2(document: ScriptDocumentV2): string {
+  const ancestors = new Set<object>();
+  const isJson = (value: unknown): boolean => {
+    if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value !== "object" || ancestors.has(value)) return false;
+    if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype) return false;
+    ancestors.add(value);
+    const valid = Object.values(value).every(isJson);
+    ancestors.delete(value);
+    return valid;
+  };
+  if (!isJson(document)) throw new Error("Saved authoring data must be losslessly representable as JSON.");
   const result = deserializeAuthoringDocumentV2(JSON.stringify(document));
   if (!result.ok) throw new Error(result.diagnostics.map((item) => item.message).join("; "));
   return JSON.stringify(result.document);
