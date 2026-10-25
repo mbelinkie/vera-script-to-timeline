@@ -264,6 +264,8 @@ describe("provisional Sorting trials", () => {
     expect(trial.movedRowIds).toEqual([]);
     expect(trial.undoDepth).toBe(0);
     expect(trial.returnToSorting()).toBe(false);
+    expect(trial.undo().document).toEqual(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(633) }).document).toEqual(baseline);
     expect(trial.accept(baseline).ok).toBe(false);
     const other = createSortingTrialV2(baseline);
     const changed = { ...baseline, title: "An intervening author edit" };

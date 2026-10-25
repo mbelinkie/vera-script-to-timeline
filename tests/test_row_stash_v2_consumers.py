@@ -70,7 +70,8 @@ editedRow.tokens = editedRow.tokens.map((token) => ({
   startOffset: token.startOffset + prefix.length,
   endOffset: token.endOffset + prefix.length,
 }));
-const editedResult = applyStashRowEditV2(stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
+const editedResult = applyStashRowEditV2(
+  stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
   bundleId: input.bundleId,
   rowId: row.id,
   row: editedRow,
@@ -85,7 +86,8 @@ if (!stashedValidation.valid) {
 }
 
 const originalStashed = JSON.parse(JSON.stringify(stashedResult.document));
-const restoredResult = applyRowEditV2(originalStashed, originalStashed.rowEditRevision ?? 0, {
+const restoredResult = applyRowEditV2(
+  originalStashed, originalStashed.rowEditRevision ?? 0, {
   kind: "restore_stash",
   bundleId: input.bundleId,
   destination: {

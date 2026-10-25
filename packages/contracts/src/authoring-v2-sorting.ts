@@ -98,7 +98,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
   let movedRows = new Set<string>();
   let phase: Phase = "sorting";
   let finalDocument: ScriptDocumentV2 | undefined;
-  const failure = (code: string, message: string, document = session.document): RowEditResultV2 => ({
+  const failure = (code: string, message: string, document = finalDocument ? structuredClone(finalDocument) : session.document): RowEditResultV2 => ({
     ok: false, document, diagnostics: [{ code, message, jsonPath: "/activeDraft" }],
   });
   const pending = () => phase === "sorting" || phase === "preview";
