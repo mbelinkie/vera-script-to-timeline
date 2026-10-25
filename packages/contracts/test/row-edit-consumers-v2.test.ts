@@ -8,6 +8,7 @@ import {
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
 } from "@vera/contracts/authoring-v2";
+import { applyStashRowEditV2 } from "../src/authoring-v2-stash.js";
 import type {
   CompilerDependenciesV2,
   NarrationBlockV2,
@@ -149,14 +150,37 @@ describe("row-edit consumers", () => {
     expect(edit.document.stash?.[0]?.supportingItems).toEqual([supportingItem]);
     expect(edit.document.activeDraft.supportingItems).toEqual([]);
 
-    const exported = exportPrompter(edit.document, exportSettings);
+    const editedRow = structuredClone(row);
+    editedRow.text = "EDITED STASHED";
+    editedRow.tokens = [{
+      ...editedRow.tokens[0],
+      value: editedRow.text,
+      startOffset: 0,
+      endOffset: editedRow.text.length,
+    }];
+    const slot = editedRow.primaryVisualSequence!.slots[0]!;
+    if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected a visual content slot");
+    slot.payload.sourceUsage = { sourceInFrame: 24 };
+    slot.payload.framingPolicy = "cover";
+    const stashEdit = applyStashRowEditV2(edit.document, edit.document.rowEditRevision ?? 0, {
+      bundleId: id(9008),
+      rowId: row.id,
+      row: editedRow,
+    });
+    expect(stashEdit.ok).toBe(true);
+    if (!stashEdit.ok) return;
+    expect(stashEdit.document.stash?.[0]?.rows).toEqual([editedRow]);
+    expect(stashEdit.document.stash?.[0]?.supportingItems).toEqual([supportingItem]);
+
+    const exported = exportPrompter(stashEdit.document, exportSettings);
     expect(exported.ok).toBe(true);
     if (!exported.ok) return;
     expect(exported.sidecar.beats.map((beat) => beat.expectedText)).toEqual([activeRow.text]);
     expect(exported.text).not.toContain(row.text);
+    expect(exported.text).not.toContain(editedRow.text);
     expect(exported.text).not.toContain(supportingItem.content);
 
-    const compiled = compileTimelineV2(edit.document, dependencies);
+    const compiled = compileTimelineV2(stashEdit.document, dependencies);
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) return;
     expect(compiled.manifest.timeline.durationFrames).toBe(96);
@@ -165,7 +189,7 @@ describe("row-edit consumers", () => {
       (event.provenance.payloadId !== null && payloadIds(row).includes(event.provenance.payloadId)),
     )).toBe(false);
 
-    const needs = mediaNeeds(edit.document, dependencies);
+    const needs = mediaNeeds(stashEdit.document, dependencies);
     expect(needs.ok).toBe(true);
     if (!needs.ok) return;
     expect(needs.durationFrames).toBe(96);
@@ -220,6 +244,35 @@ describe("row-edit consumers", () => {
     expect(restoredCompile.manifest.timeline.durationFrames).toBe(originalCompile.manifest.timeline.durationFrames);
     expect(restoredNeeds.requirements).toEqual(originalNeeds.requirements);
     expect(restoredNeeds.durationFrames).toBe(originalNeeds.durationFrames);
+  });
+
+  it("makes restored edited text eligible again, requiring fresh narration timing rather than reusing stale audio", () => {
+    const { document, dependencies } = input();
+    const row = activeNarration(document);
+    const bundleId = id(9011);
+    const stashed = applyRowEditV2(document, 0, { kind: "stash_rows", rowIds: [row.id], bundleId });
+    expect(stashed.ok).toBe(true);
+    const editedRow = structuredClone(row);
+    editedRow.text = "goodbye";
+    editedRow.tokens[0] = { ...editedRow.tokens[0], value: "goodbye", endOffset: 7 };
+    editedRow.version++;
+    const edited = applyStashRowEditV2(stashed.document, 1, { bundleId, rowId: row.id, row: editedRow });
+    expect(edited.ok).toBe(true);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(edited.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const restored = applyRowEditV2(loaded.document, 2, { kind: "restore_stash", bundleId, destination: { sectionId: null, afterRowId: null, beforeRowId: null } });
+    expect(restored.ok).toBe(true);
+    expect(restored.document.activeDraft.blocks).toEqual([editedRow]);
+    const exported = exportPrompter(restored.document, exportSettings);
+    expect(exported.ok).toBe(true);
+    if (exported.ok) expect(exported.text).toContain("goodbye");
+    const compiled = compileTimelineV2(restored.document, dependencies);
+    const needs = mediaNeeds(restored.document, dependencies);
+    expect(compiled.ok).toBe(false);
+    expect(needs.ok).toBe(false);
+    if (!compiled.ok) expect(compiled.diagnostics.some((item) => item.code === "DOCUMENT_BINDING_MISMATCH"), JSON.stringify(compiled.diagnostics)).toBe(true);
+    if (!needs.ok) expect(needs.diagnostics.some((item) => item.code === "STALE_TIMING_MAP"), JSON.stringify(needs.diagnostics)).toBe(true);
   });
 
   it.each([
