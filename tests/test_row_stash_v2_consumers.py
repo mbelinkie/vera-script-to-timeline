@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 from vera_timeline_agent.narration.service import (
@@ -197,7 +198,7 @@ def _compile_with_python_bridge(
         "document": {"sha256": _sha256(document_path.read_bytes())},
         "dependencies": {"sha256": _sha256(dependencies_path.read_bytes())},
     }
-    return cast(dict[str, Any], PreparedProofBuildV2._compile(build))
+    return PreparedProofBuildV2._compile(build)
 
 
 def _narration_ids(document: dict[str, Any]) -> list[str]:
@@ -208,8 +209,8 @@ def _narration_ids(document: dict[str, Any]) -> list[str]:
         calls.append(block["id"])
         return SimpleNamespace(extra={}, failure_reason=None)
 
-    service.process_block = record
-    service.process_document(document)
+    with patch.object(service, "process_block", side_effect=record):
+        service.process_document(document)
     return calls
 
 

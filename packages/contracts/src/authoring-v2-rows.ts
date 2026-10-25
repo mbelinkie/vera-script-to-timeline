@@ -95,6 +95,12 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     if (!together) pair.state = "needs_review";
   }
   const spans = before.rowAudioSpans ?? [];
+  const flattenedCoverage = (document: ScriptDocumentV2, start: string, end: string): string[] | null => {
+    const rows = document.activeDraft.blocks.filter((row) => row.type !== "section");
+    const from = rows.findIndex((row) => row.id === start);
+    const to = rows.findIndex((row) => row.id === end);
+    return from >= 0 && to >= from ? rows.slice(from, to + 1).map((row) => row.id) : null;
+  };
   const covered = (parts: Section[], start: string, end: string): string[] | null => {
     const part = parts.find((part) => part.rows.some((row) => row.id === start));
     const from = part?.rows.findIndex((row) => row.id === start) ?? -1;
@@ -104,7 +110,10 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
   for (const [index, span] of spans.entries()) {
     const oldRows = covered(priorLocations, span.startRowId, span.endRowId);
     const nextRows = covered(nextLocations, span.startRowId, span.endRowId);
-    const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows);
+    const oldFlat = flattenedCoverage(before, span.startRowId, span.endRowId);
+    const nextFlat = flattenedCoverage(after, span.startRowId, span.endRowId);
+    if (!oldRows && !oldFlat) return diagnostic("AUDIO_REVIEW_REQUIRED", "This audio span has no ordered row coverage. Review it before editing rows.");
+    const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
     if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash") return problem();
@@ -183,9 +192,23 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };
   working.rowEditRevision = expectedRevision + 1;
   const after = validateScriptDocumentV2(working);
-  const signature = (item: AuthoringDiagnosticV2) => JSON.stringify([item.code, item.blockId, item.entityId, item.message]);
-  const existing = new Set(before.diagnostics.filter((item) => item.severity !== "warning").map(signature));
-  const errors = after.diagnostics.filter((item) => item.severity !== "warning" && !existing.has(signature(item)));
+  const signature = (document: ScriptDocumentV2, item: AuthoringDiagnosticV2) => {
+    const path = item.jsonPath.replace(/^\/activeDraft\/(blocks|supportingItems)\/(\d+)(?=\/|$)/, (_match: string, collection: "blocks" | "supportingItems", index: string) => `/activeDraft/${collection}/${document.activeDraft[collection][Number(index)]?.id ?? index}`);
+    return JSON.stringify([item.code, item.blockId, item.entityId, item.message, path]);
+  };
+  const existing = new Map<string, number>();
+  before.diagnostics.filter((item) => item.severity !== "warning").forEach((item) => {
+    const key = signature(document, item);
+    existing.set(key, (existing.get(key) ?? 0) + 1);
+  });
+  const errors = after.diagnostics.filter((item) => {
+    if (item.severity === "warning") return false;
+    const key = signature(working, item);
+    const count = existing.get(key) ?? 0;
+    if (count === 0) return true;
+    existing.set(key, count - 1);
+    return false;
+  });
   return errors.length ? { ok: false, document, diagnostics: errors } : { ok: true, document: working, diagnostics: [] };
 }
 
@@ -219,7 +242,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
 /** Session-owned history is independent of consumer views; no collaborative undo is implied. */
 export function createRowEditSessionV2(initial: ScriptDocumentV2) {
   let current = structuredClone(initial);
-  let revision = 0;
+  let revision = current.rowEditRevision ?? 0;
   const history: ScriptDocumentV2[] = [];
   return {
     get document() { return structuredClone(current); },
@@ -236,10 +259,11 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       return { ...result, document: structuredClone(result.document) };
     },
     undo(): RowEditResultV2 {
+      if (revision === Number.MAX_SAFE_INTEGER) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session revision cannot advance.");
       const previous = history.pop();
       if (!previous) return refused(structuredClone(current), "ROW_UNDO_EMPTY", "There is no row transaction to undo.");
-      current = previous;
       revision++;
+      current = { ...previous, rowEditRevision: revision };
       return { ok: true, document: structuredClone(current), diagnostics: [] };
     },
   };

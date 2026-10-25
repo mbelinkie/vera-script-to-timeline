@@ -676,11 +676,12 @@ describe("authoring v2 whole-row edits", () => {
       session.view("outline");
       session.view("stash");
       session.view("script");
-      expect(session.undo().document).toEqual(document);
+      const undone = { ...document, rowEditRevision: (document.rowEditRevision ?? 0) + 2 };
+      expect(session.undo().document).toEqual(undone);
       expect(session.undoDepth).toBe(0);
       const refused = session.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(first, null, a.id) });
       expect(refused.ok).toBe(false);
-      expect(session.document).toEqual(document);
+      expect(session.document).toEqual(undone);
       expect(session.undoDepth).toBe(0);
     }
   });
@@ -713,17 +714,54 @@ describe("authoring v2 whole-row edits", () => {
     expect(session.undoDepth).toBe(1);
     expect(session.undo().ok).toBe(true);
     expect(session.revision).toBe(2);
-    expect(session.document).toEqual(document);
+    expect(session.document).toEqual({ ...document, rowEditRevision: 2 });
     expect(session.undoDepth).toBe(0);
 
     const stale = session.apply({
       kind: "move_rows", rowIds: [b.id], destination: gap(sectionId, c.id, null),
     }, 1);
     expect(stale.ok).toBe(false);
-    expect(stale.document).toEqual(document);
+    expect(stale.document).toEqual({ ...document, rowEditRevision: 2 });
     expect(session.revision).toBe(2);
     expect(session.apply({
       kind: "move_rows", rowIds: [b.id], destination: gap(sectionId, c.id, null),
     }).ok).toBe(true);
+    expect(session.document.rowEditRevision).toBe(3);
+    expect(applyRowEditV2(session.document, 1, {
+      kind: "move_rows", rowIds: [b.id], destination: gap(sectionId, a.id, c.id),
+    }).ok).toBe(false);
+  });
+
+  it("does not let an old stale item hide a newly broken supporting anchor", () => {
+    const [a, b, c] = [row(500), row(501), row(502)];
+    const staleItem = citation(a);
+    staleItem.placement = { kind: "point", anchor: { kind: "word", anchor: { ...wordAnchor(a), tokenId: id(9998) } } };
+    const currentItem = { ...citation(b), id: id(520), placement: { kind: "point" as const, anchor: { kind: "between_blocks" as const, beforeBlockId: a.id, afterBlockId: b.id } } };
+    const document = documentWith([a, b, c], { supportingItems: [staleItem, currentItem] });
+    expect(validateScriptDocumentV2(document).diagnostics.filter((item) => item.code === "STALE_PLACEMENT_ANCHOR")).toHaveLength(1);
+    const result = applyRowEditV2(document, 0, { kind: "move_rows", rowIds: [b.id], destination: gap(null, c.id, null) });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((item) => item.code === "STALE_PLACEMENT_ANCHOR")).toBe(true);
+    expect(result.document).toBe(document);
+  });
+
+  it("refuses changes within unresolved cross-section and reversed audio coverage", () => {
+    const [a, b, x] = [row(530), row(531), row(532)];
+    const first = id(540), second = id(541), third = id(542);
+    const document = documentWith([section(540, "First"), a, section(541, "Second"), b, section(542, "Third"), x], {
+      rowAudioSpans: [audioSpan(550, a.id, b.id)],
+    });
+    const commands: RowEditCommandV2[] = [
+      { kind: "move_section", sectionId: third, destination: { afterSectionId: first, beforeSectionId: second } },
+      { kind: "move_rows", rowIds: [x.id], destination: gap(second, null, b.id) },
+    ];
+    for (const command of commands) {
+      const result = applyRowEditV2(document, 0, command);
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+      expect(result.document).toBe(document);
+    }
+    document.rowAudioSpans = [audioSpan(550, b.id, a.id)];
+    expect(applyRowEditV2(document, 0, commands[0]!).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
   });
 });
