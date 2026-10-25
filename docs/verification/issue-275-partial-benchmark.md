@@ -8,6 +8,8 @@ The run used the selected Inworld TTS-2 / Arthur route on a MacBookPro16,1 (Inte
 
 The six existing media-preparation receipts were reused from #300. Media preparation therefore remains unmeasured, and these are not fully cold media-preparation cases. No competing media task ran during the guarded Resolve attempts. Optional review rendering was not run.
 
+Package build and verification was the longest completed stage, at 74–83 seconds. This roughly 48-second segment cannot support a reliable 5–10-minute turnaround estimate, so none is offered. These are single observations per case, with two failed Resolve attempts for the fresh case; they are not production percentiles.
+
 | Case | Narration generation/cache | Automatic timing | Compile and media-needs | Package build and verification | Resolve |
 | --- | --- | --- | --- | --- | --- |
 | Fresh narration assets, resumed after the earlier compiler refusal | The two prior fresh-miss generation/normalization observations were 2.805 s and 6.782 s; no new provider call was made for this resume. | Retained audio remeasured with networking disabled: 2.976 s and 7.130 s. Both rows produced verified `qualified_linear_transform` evidence with zero sample correction. | 0.353 s / 0.046 s | 74.051 s; verified, 17 media artifacts and 6 preparation receipts | Two guarded attempts each hit the script tool's 60-second ceiling after creating a disposable project. Neither produced a timeline or final result record. |
