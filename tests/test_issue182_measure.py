@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import random
+import struct
 from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
@@ -114,7 +116,7 @@ def test_evidence_json_has_the_spec_shape(tmp_path: Path) -> None:
     assert verification["audibleEndUncertainty"] == {"numerator": 3, "denominator": 100}
     algorithm = verification["algorithm"]
     assert algorithm["id"] == "vera-polly-marks-energy-ends"
-    assert algorithm["version"] == "1"
+    assert algorithm["version"] == "2"
     assert algorithm["parameters"] == DEFAULT_PARAMETERS
     assert algorithm["parametersHash"] == parameters_hash(DEFAULT_PARAMETERS)
     assert verification["measurementArtifactLocator"] == LOCATOR
@@ -441,7 +443,7 @@ def test_parameters_hash_cross_language_vectors() -> None:
         "sha256:3a92e85a00e73199bcec8c5f6f98aaed74efcfb435a8e785198c59742e3610c1"
     )
     assert parameters_hash(DEFAULT_PARAMETERS) == (
-        "sha256:628c4c9e17822d9ed812b9cdbf31062eb71e1768d6946cc333f522a2b878ded4"
+        "sha256:f296db5363cd8b43ec89419d42ca0f68571c85bf819cd3c5778d45b028dee406"
     )
     with pytest.raises(MeasurementError):
         parameters_hash({"ratio": 0.9})
@@ -455,3 +457,47 @@ def test_parameters_hash_refuses_integer_like_keys(parameters: dict[str, Any]) -
     with pytest.raises(MeasurementError, match="integer-like"):
         parameters_hash(parameters)
     assert parameters_hash({"01": 1, "-1": 2, "a1": 3})
+
+
+@pytest.mark.parametrize("lag", [0, 1, -1])
+def test_same_rate_native_sample_onsets_are_never_nudged(
+    tmp_path: Path, lag: int
+) -> None:
+    cache, _, key = build_cache(tmp_path / "cache")
+    loaded = load_asset(cache, key)
+    rng = random.Random(297)
+    raw = [0] * 96 + [rng.randrange(-8000, 8001) for _ in range(79_968)] + [0] * 96
+    normalized = [round(sample * 0.5) for sample in raw]
+    if lag > 0:
+        normalized = [0] * lag + normalized[:-lag]
+    elif lag < 0:
+        normalized = normalized[-lag:] + [0] * -lag
+    wav = wav_bytes(normalized)
+    pcm = struct.pack(f"<{len(raw)}h", *raw)
+    native = (0, 1, 2, 3)
+    timing = timing_bytes((0, 0, 0, 0), mark_samples=native, sample_rate=48_000)
+    loaded = replace(
+        loaded,
+        wav_bytes=wav,
+        raw_pcm=pcm,
+        raw_sample_rate=48_000,
+        timing_bytes=timing,
+        asset=replace(
+            loaded.asset,
+            normalized_audio_hash=sha256_bytes(wav),
+            raw_audio_hash=sha256_bytes(pcm),
+            raw_timing_hash=sha256_bytes(timing),
+            duration_samples=len(normalized),
+        ),
+    )
+    if lag < 0:
+        with pytest.raises(MeasurementError, match="would be negative"):
+            measure_asset(loaded, frozen_block(), artifact_locator=LOCATOR)
+        return
+    result = measure_asset(loaded, frozen_block(), artifact_locator=LOCATOR)
+    assert [row["onsetSamples"] for row in result.artifact["tokens"]] == [
+        sample + lag for sample in native
+    ]
+    assert result.artifact["lag"]["samples"] == lag
+    assert result.artifact["lag"]["uncertaintySamples"] == 0
+    assert result.artifact["lag"]["method"] == "sample_correlation"

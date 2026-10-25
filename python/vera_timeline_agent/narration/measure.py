@@ -36,7 +36,7 @@ from vera_timeline_agent.narration.models import (
 )
 
 ALGORITHM_ID = "vera-polly-marks-energy-ends"
-ALGORITHM_VERSION = "1"
+ALGORITHM_VERSION = "2"
 METHOD = "measured_audio_boundaries/v1"
 ONSET_BASIS = "provider_word_marks_lag_verified"
 EVIDENCE_VERSION = "narration-boundary-evidence/v1"
@@ -53,6 +53,10 @@ DEFAULT_PARAMETERS: dict[str, Any] = {
     "lagSearchMs": 20,
     "lagToleranceMs": 2,
     "minLagCorrelationPermille": 900,
+    "lagSampleAnchorMs": 20,
+    "lagSampleProbeStride": 8,
+    "lagSamplePeakMarginPpm": 1000,
+    "lagSampleCheckMs": 5,
     "endWindowMs": 5,
     "endRelativeDropDb": 18,
     "endQuietDbfs": -42,
@@ -76,6 +80,9 @@ class Lag:
     milliseconds: float
     correlation: float
     integer_ms: int
+    method: str = "rms_envelope"
+    uncertainty_samples: int = 48
+    windows_verified: int = 0
 
 
 @dataclass(frozen=True)
@@ -242,18 +249,127 @@ def _pearson(a: Sequence[float], b: Sequence[float]) -> float | None:
     return cov / math.sqrt(var_a * var_b)
 
 
+def _sample_lag(
+    raw: Sequence[int], normalized: Sequence[int], parameters: Mapping[str, Any]
+) -> Lag:
+    """Verify one integer lag, without fitting or rounding a correlation peak.
+
+    Three disjoint regions must independently identify the same unique peak.
+    Sparse probes keep the exhaustive search cheap; every overlapping sample
+    is then checked in short dense windows, including single-sample neighbours.
+    Only positive gain/compression and silent padding are qualified here.
+    """
+
+    def refuse(reason: str) -> None:
+        raise MeasurementError([f"normalization timing not verified: {reason}"])
+
+    search = int(parameters["lagSearchMs"]) * SAMPLE_RATE // 1000
+    anchor = int(parameters["lagSampleAnchorMs"]) * SAMPLE_RATE // 1000
+    stride = int(parameters["lagSampleProbeStride"])
+    check = int(parameters["lagSampleCheckMs"]) * SAMPLE_RATE // 1000
+    margin = int(parameters["lagSamplePeakMarginPpm"]) / 1_000_000
+    minimum = int(parameters["minLagCorrelationPermille"]) / 1000
+    if min(search, anchor, stride, check) <= 0 or margin <= 0:
+        refuse("invalid sample verification parameters")
+    extent = min(len(raw), len(normalized))
+    third = extent // 3
+    if third < anchor + 2 * search:
+        refuse("audio too short for independent sample windows")
+    lags: list[int] = []
+    correlations: list[float] = []
+    for region in range(3):
+        starts = range(
+            region * third + search, (region + 1) * third - search - anchor + 1, anchor
+        )
+        start = max(starts, key=lambda pos: sum(x * x for x in raw[pos : pos + anchor]))
+        probe = raw[start : start + anchor : stride]
+        scores: dict[int, float] = {}
+        for candidate in range(-search, search + 1):
+            score = _pearson(
+                probe,
+                normalized[start + candidate : start + candidate + anchor : stride],
+            )
+            if score is not None:
+                scores[candidate] = score
+        if not scores:
+            refuse("sample windows have no audible variation")
+        best = max(scores, key=lambda candidate: scores[candidate])
+        peak = scores[best]
+        if abs(best) == search or peak < minimum:
+            refuse("sample correlation below threshold or at search boundary")
+        if any(peak - score < margin for lag, score in scores.items() if lag != best):
+            refuse("ambiguous sample correlation peak")
+        lags.append(best)
+        correlations.append(peak)
+    if len(set(lags)) != 1:
+        refuse(
+            "independent sample windows disagree (local drift or insertion/deletion)"
+        )
+    lag = lags[0]
+    if abs(lag) * 1000 > int(parameters["lagToleranceMs"]) * SAMPLE_RATE:
+        refuse("sample lag exceeds tolerance")
+
+    lo, hi = max(0, -lag), min(len(raw), len(normalized) - lag)
+    # Any unmatched material must be genuine silence, never deleted speech.
+    if (
+        any(raw[:lo])
+        or any(raw[hi:])
+        or any(normalized[: lo + lag])
+        or any(normalized[hi + lag :])
+    ):
+        refuse("unmatched non-silent samples outside the verified overlap")
+    windows = 0
+    for start in range(lo, hi, check):
+        stop = min(start + check, hi)
+        source = raw[start:stop]
+        target = normalized[start + lag : stop + lag]
+        if not any(source) and not any(target):
+            continue
+        score = _pearson(source, target)
+        if score is None or score < minimum:
+            refuse(
+                "local sample correlation failed "
+                "(silence, mismatch or unsupported transform)"
+            )
+        # One changed sample of clock must not hide inside a broad global peak.
+        for neighbour in (lag - 1, lag + 1):
+            if start + neighbour < 0 or stop + neighbour > len(normalized):
+                continue
+            other = _pearson(source, normalized[start + neighbour : stop + neighbour])
+            if other is not None and score - other <= 0.000001:
+                refuse("local sample lag is ambiguous or differs from global lag")
+        correlations.append(score)
+        windows += 1
+    if windows < 3:
+        refuse("insufficient independent audible sample windows")
+    return Lag(
+        lag,
+        lag * 1000 / SAMPLE_RATE,
+        min(correlations),
+        round(lag * 1000 / SAMPLE_RATE),
+        method="sample_correlation",
+        uncertainty_samples=0,
+        windows_verified=windows,
+    )
+
+
 def estimate_lag(
     raw_pcm: bytes,
     raw_rate: int,
     normalized: Sequence[int],
     parameters: Mapping[str, Any],
 ) -> Lag:
-    """Lag (normalized minus raw) from cross-correlating 5 ms RMS envelopes.
+    """Lag (normalized minus raw), verified at the native rate.
 
-    Window boundaries follow exact millisecond positions at each native rate,
-    so both envelopes share a 1 ms grid without resampling. A parabolic fit
-    refines the lag below 1 ms.
+    Same-rate 48 kHz PCM uses independent sample peaks and dense local checks.
+    Other supported rates retain 5 ms RMS envelopes on a shared 1 ms grid,
+    with a parabolic fit refining the lag below 1 ms.
     """
+
+    if raw_rate == SAMPLE_RATE:
+        if len(raw_pcm) % 2:
+            raise MeasurementError(["raw provider PCM has incomplete samples"])
+        return _sample_lag(_pcm_s16le(raw_pcm), normalized, parameters)
 
     window_ms = int(parameters["lagEnvelopeWindowMs"])
     hop_ms = int(parameters["lagEnvelopeHopMs"])
@@ -768,6 +884,9 @@ def measure_asset(
             "channels": asset.channels,
         },
         "lag": {
+            "method": lag.method,
+            "uncertaintySamples": lag.uncertainty_samples,
+            "windowsVerified": lag.windows_verified,
             "samples": lag.samples,
             "milliseconds": round(lag.milliseconds, 4),
             "integerMilliseconds": lag.integer_ms,

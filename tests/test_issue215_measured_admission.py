@@ -636,13 +636,23 @@ def test_package_admission_entry_points_accept_evidence_paths_only_for_matrix() 
 
 # ------------------------------------------------------- real campaign evidence
 
+
+def test_prior_measurement_algorithm_version_requires_remeasurement() -> None:
+    fixture = Measured()
+    fixture.row["verification"]["algorithm"]["version"] = "1"
+    with pytest.raises(ProofBuildError, match="algorithm identity differs"):
+        verify_measured_narration_evidence(
+            fixture.row, timing=fixture.timing, artifact=fixture.artifact
+        )
+
+
 CAMPAIGN = (
     Path.home() / "Library/Application Support/VERA/polly-campaign/issue182-20261020"
 )
 
 
 @pytest.mark.skipif(not CAMPAIGN.is_dir(), reason="#182 campaign evidence absent")
-def test_real_campaign_evidence_verifies() -> None:
+def test_old_real_campaign_evidence_requires_remeasurement() -> None:
     for run in ("baseline", "revised"):
         folder = CAMPAIGN / "out" / run / "narration-measurements"
         for evidence_path in sorted(folder.glob("*.boundary-evidence.json")):
@@ -657,12 +667,10 @@ def test_real_campaign_evidence_verifies() -> None:
                 / "timing.json"
             ).read_bytes()
             wav = (CAMPAIGN / "cache" / row["audio"]["locator"]).read_bytes()
-            assert (
+            with pytest.raises(ProofBuildError, match="algorithm identity differs"):
                 verify_measured_narration_evidence(
                     row,
                     timing=timing,
                     artifact=artifact,
                     audio_sha256=sha256_bytes(wav),
                 )
-                == row["verification"]["measurementArtifactHash"]
-            )
