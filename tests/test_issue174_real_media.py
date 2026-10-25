@@ -49,6 +49,7 @@ LOGGED_ORIGIN = Fraction(7)
 SOURCE_FRAME_COUNT = 330
 SOURCE_ID = "00000000-0000-4000-8000-000000000174"
 PACKAGE_ID = "00000000-0000-4000-8000-000000000175"
+BLOCK_ID = "00000000-0000-4000-8000-000000000176"
 
 
 def _wire(value: Fraction) -> dict[str, int]:
@@ -96,7 +97,7 @@ def issue174_descriptor(
     }
     return {
         "payloadId": SOURCE_ID,
-        "owner": {"kind": "visual_only_block", "blockId": SOURCE_ID},
+        "owner": {"kind": "visual_only_block", "blockId": BLOCK_ID},
         "mediaReferenceId": SOURCE_ID,
         "sourceSnapshot": {
             "system": "local_import",

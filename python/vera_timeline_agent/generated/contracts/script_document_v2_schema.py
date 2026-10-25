@@ -191,6 +191,50 @@ class WordAudibleEndAnchor(TypedDict):
     anchorVersion: EntityVersion
 
 
+class RowGapV2(TypedDict):
+    sectionId: EntityId | None
+    afterRowId: EntityId | None
+    beforeRowId: EntityId | None
+
+
+class RowTransitionIntentV2(TypedDict):
+    id: EntityId
+    fromRowId: EntityId
+    toRowId: EntityId
+    effect: str
+    settings: dict[str, Any]
+    state: Literal["active", "needs_review"]
+
+
+class RowAudioSourceV2(TypedDict):
+    mediaReferenceId: EntityId
+    artifactId: EntityId
+    artifactVersion: PositiveSafeInteger
+    contentHash: ContentHash
+
+
+class RowAudioReviewV2(TypedDict):
+    previousEndRowId: EntityId
+    previousSettings: dict[str, Any]
+    alert: Literal["Music now ends with this row. Review"]
+
+
+class RowAudioSpanIntentV2(TypedDict):
+    id: EntityId
+    startRowId: EntityId
+    endRowId: EntityId
+    source: RowAudioSourceV2
+    settings: dict[str, Any]
+    review: NotRequired[RowAudioReviewV2]
+
+
+class OpaqueRowReferenceV2(TypedDict):
+    id: EntityId
+    rowId: EntityId
+    kind: Literal["comment", "reference"]
+    anchor: dict[str, Any]
+
+
 class PresenterStillReference(TypedDict):
     mediaReferenceId: EntityId
     artifactId: EntityId
@@ -417,6 +461,18 @@ class VisualOnlyBlockV2(TypedDict):
     version: EntityVersion
 
 
+type StashedRowV2 = (
+    NarrationBlockV2 | DirectionBlock | VisualOnlyBlockV2 | NoteDraftBlock
+)
+
+
+class RowStashBundleV2(TypedDict):
+    id: EntityId
+    rows: list[StashedRowV2]
+    supportingItems: list[SupportingItemV2]
+    originalGap: NotRequired[RowGapV2]
+
+
 class ScriptSettings(TypedDict):
     presenterStillOverride: NotRequired[PresenterStillReference]
 
@@ -447,3 +503,8 @@ class ScriptDocumentV2(TypedDict):
     liveHeadSequence: NonNegativeSafeInteger
     liveStateVector: str
     liveContentHash: ContentHash
+    rowEditRevision: NotRequired[NonNegativeSafeInteger]
+    stash: NotRequired[list[RowStashBundleV2]]
+    rowTransitions: NotRequired[list[RowTransitionIntentV2]]
+    rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
+    rowReferences: NotRequired[list[OpaqueRowReferenceV2]]
