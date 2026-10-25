@@ -76,7 +76,7 @@ describe("#278 omitted-word visual boundary choice", () => {
       blockId: input.document.activeDraft.blocks.find((block) => block.type === "narration")!.id,
       boundaryOwnerId: input.boundaryOwnerId,
       tokenId: input.tokenId,
-      expectedSequenceVersion: expect.any(Number),
+      expectedSequenceVersion: input.document.activeDraft.blocks.find((block) => block.type === "narration")?.primaryVisualSequence?.version,
     });
     expect(inference.boundaryConflicts[0]!.choices.length).toBeGreaterThan(0);
     const { inferenceHash, ...inferenceBody } = inference;
@@ -125,7 +125,7 @@ describe("#278 omitted-word visual boundary choice", () => {
     const legal = inference.boundaryConflicts[0]!.choices[0]!;
     const narration = input.document.activeDraft.blocks.find((block) => block.type === "narration");
     if (narration?.type !== "narration") throw new Error("narration row missing");
-    const collapsedBoundary = { ...legal, tokenId: narration.tokens[0]!.id, affinity: "before" as const };
+    const collapsedBoundary = { ...legal, tokenId: narration.tokens[0].id, affinity: "before" };
     expect(inference.boundaryConflicts[0]!.choices).not.toContainEqual(collapsedBoundary);
     for (const boundaryChoice of [
       { ...legal, tokenId: input.tokenId },
