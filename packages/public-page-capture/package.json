@@ -15,7 +15,7 @@
     "lint": "eslint src test --max-warnings=0",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run",
-    "test:fast": "vitest run test/integrity.test.ts test/policy.test.ts"
+    "test:fast": "vitest run --exclude test/acceptance.test.ts --exclude test/commit.test.ts --exclude test/migration.test.ts --exclude test/service.test.ts --exclude test/worker-browser.test.ts --exclude test/worker-lifecycle.test.ts"
   },
   "dependencies": {
     "@vera/contracts": "0.0.0",
