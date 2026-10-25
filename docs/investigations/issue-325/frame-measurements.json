@@ -1,0 +1,893 @@
+{
+  "B": [
+    {
+      "frameFile": "001.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "002.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "003.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "004.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "005.png",
+      "nonblackBounds": [
+        278,
+        0,
+        1001,
+        719
+      ],
+      "focusDot": [
+        821.34,
+        215.34
+      ]
+    },
+    {
+      "frameFile": "006.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "007.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "008.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "009.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "010.png",
+      "nonblackBounds": [
+        279,
+        0,
+        1000,
+        719
+      ],
+      "focusDot": [
+        821.28,
+        215.55
+      ]
+    },
+    {
+      "frameFile": "011.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "012.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "013.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "014.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "015.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "016.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "017.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "018.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "019.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "020.png",
+      "nonblackBounds": [
+        278,
+        0,
+        1001,
+        719
+      ],
+      "focusDot": [
+        821.34,
+        215.34
+      ]
+    },
+    {
+      "frameFile": "021.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "022.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "023.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "024.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "025.png",
+      "nonblackBounds": [
+        278,
+        0,
+        1001,
+        719
+      ],
+      "focusDot": [
+        821.34,
+        215.34
+      ]
+    },
+    {
+      "frameFile": "026.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "027.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "028.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "029.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "030.png",
+      "nonblackBounds": [
+        278,
+        0,
+        1001,
+        719
+      ],
+      "focusDot": [
+        821.34,
+        215.34
+      ]
+    },
+    {
+      "frameFile": "031.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        1042.28,
+        40.24
+      ]
+    },
+    {
+      "frameFile": "032.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        1018.72,
+        58.96
+      ]
+    },
+    {
+      "frameFile": "033.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        997.27,
+        75.89
+      ]
+    },
+    {
+      "frameFile": "034.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        979.15,
+        90.55
+      ]
+    },
+    {
+      "frameFile": "035.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        963.4,
+        103.13
+      ]
+    },
+    {
+      "frameFile": "036.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        961.38,
+        104.17
+      ]
+    },
+    {
+      "frameFile": "037.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        961.38,
+        104.17
+      ]
+    },
+    {
+      "frameFile": "038.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        961.38,
+        104.17
+      ]
+    },
+    {
+      "frameFile": "039.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        961.38,
+        104.17
+      ]
+    },
+    {
+      "frameFile": "040.png",
+      "nonblackBounds": [
+        0,
+        0,
+        1279,
+        719
+      ],
+      "focusDot": [
+        961.38,
+        104.17
+      ]
+    }
+  ],
+  "D": [
+    {
+      "frameFile": "001.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "002.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "003.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "004.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "005.png",
+      "nonblackBounds": [
+        277,
+        0,
+        1002,
+        719
+      ],
+      "focusDot": [
+        823.25,
+        214.46
+      ]
+    },
+    {
+      "frameFile": "006.png",
+      "nonblackBounds": [
+        190,
+        0,
+        1089,
+        719
+      ],
+      "focusDot": [
+        865.84,
+        179.95
+      ]
+    },
+    {
+      "frameFile": "007.png",
+      "nonblackBounds": [
+        216,
+        0,
+        1063,
+        719
+      ],
+      "focusDot": [
+        852.4,
+        190.71
+      ]
+    },
+    {
+      "frameFile": "008.png",
+      "nonblackBounds": [
+        240,
+        0,
+        1039,
+        719
+      ],
+      "focusDot": [
+        840.99,
+        199.81
+      ]
+    },
+    {
+      "frameFile": "009.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "010.png",
+      "nonblackBounds": [
+        279,
+        0,
+        1000,
+        719
+      ],
+      "focusDot": [
+        821.65,
+        215.5
+      ]
+    },
+    {
+      "frameFile": "011.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "012.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "013.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "014.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "015.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "016.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "017.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "018.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "019.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    },
+    {
+      "frameFile": "020.png",
+      "nonblackBounds": null,
+      "focusDot": null
+    }
+  ],
+  "E": [
+    {
+      "frameFile": "001.png",
+      "nonblackBounds": [
+        0,
+        0,
+        864,
+        629
+      ],
+      "focusDot": [
+        640.55,
+        4.56
+      ]
+    },
+    {
+      "frameFile": "002.png",
+      "nonblackBounds": [
+        125,
+        0,
+        948,
+        689
+      ],
+      "focusDot": [
+        743.48,
+        113.0
+      ]
+    },
+    {
+      "frameFile": "003.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "004.png",
+      "nonblackBounds": [
+        376,
+        79,
+        1078,
+        719
+      ],
+      "focusDot": [
+        905.37,
+        289.51
+      ]
+    },
+    {
+      "frameFile": "005.png",
+      "nonblackBounds": [
+        468,
+        157,
+        1126,
+        719
+      ],
+      "focusDot": [
+        963.55,
+        353.52
+      ]
+    },
+    {
+      "frameFile": "006.png",
+      "nonblackBounds": [
+        0,
+        0,
+        864,
+        629
+      ],
+      "focusDot": [
+        640.55,
+        4.56
+      ]
+    },
+    {
+      "frameFile": "007.png",
+      "nonblackBounds": [
+        125,
+        0,
+        948,
+        689
+      ],
+      "focusDot": [
+        743.48,
+        113.0
+      ]
+    },
+    {
+      "frameFile": "008.png",
+      "nonblackBounds": [
+        261,
+        0,
+        1018,
+        719
+      ],
+      "focusDot": [
+        830.73,
+        208.26
+      ]
+    },
+    {
+      "frameFile": "009.png",
+      "nonblackBounds": [
+        376,
+        79,
+        1078,
+        719
+      ],
+      "focusDot": [
+        905.37,
+        289.51
+      ]
+    },
+    {
+      "frameFile": "010.png",
+      "nonblackBounds": [
+        472,
+        160,
+        1128,
+        719
+      ],
+      "focusDot": [
+        965.58,
+        357.17
+      ]
+    },
+    {
+      "frameFile": "011.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "012.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    },
+    {
+      "frameFile": "013.png",
+      "nonblackBounds": [
+        280,
+        0,
+        999,
+        719
+      ],
+      "focusDot": [
+        821.43,
+        215.79
+      ]
+    }
+  ]
+}
