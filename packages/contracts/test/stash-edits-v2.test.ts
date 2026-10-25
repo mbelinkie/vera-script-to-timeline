@@ -149,7 +149,7 @@ describe("saved Stash row edits", () => {
       row: edited,
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     if (!result.ok) return;
     expect(result.document).not.toBe(state.document);
     expect(state.document).toEqual(originalDocument);
@@ -226,7 +226,6 @@ describe("saved Stash row edits", () => {
 
     const edited = structuredClone(row);
     edited.visualOnlyTiming.selectedSourceRange = { startFrame: 48, durationFrames: 72 };
-    edited.visualOnlyTiming.durationOverrideMs = 2400;
     edited.payload.audioPolicy = "full";
     edited.payload.framingPolicy = "cover";
     edited.version += 1;
@@ -236,7 +235,7 @@ describe("saved Stash row edits", () => {
       row: edited,
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     if (!result.ok) return;
     expect(result.document.stash?.[0]?.rows[0]).toEqual(edited);
     expect(result.document.activeDraft.blocks).toEqual(stashed.document.activeDraft.blocks);

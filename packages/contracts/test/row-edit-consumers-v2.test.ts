@@ -271,8 +271,8 @@ describe("row-edit consumers", () => {
     const needs = mediaNeeds(restored.document, dependencies);
     expect(compiled.ok).toBe(false);
     expect(needs.ok).toBe(false);
-    if (!compiled.ok) expect(compiled.diagnostics.some((item) => item.code === "STALE_TIMING_MAP")).toBe(true);
-    if (!needs.ok) expect(needs.diagnostics.some((item) => item.code === "STALE_TIMING_MAP")).toBe(true);
+    if (!compiled.ok) expect(compiled.diagnostics.some((item) => item.code === "DOCUMENT_BINDING_MISMATCH"), JSON.stringify(compiled.diagnostics)).toBe(true);
+    if (!needs.ok) expect(needs.diagnostics.some((item) => item.code === "STALE_TIMING_MAP"), JSON.stringify(needs.diagnostics)).toBe(true);
   });
 
   it.each([

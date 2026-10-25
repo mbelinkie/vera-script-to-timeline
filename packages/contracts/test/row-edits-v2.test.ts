@@ -224,7 +224,7 @@ function gap(sectionId: string | null, afterRowId: string | null, beforeRowId: s
 
 describe("provisional Sorting trials", () => {
   it("keeps script and saved Stash canonical until one complete acceptance", () => {
-    const [a, b, c] = [richNarration(610), row(611), row(612)];
+    const [a, b, c] = [richNarration(610), row(630), row(650)];
     const initial = documentWith([a, b, c], { supportingItems: [citation(a)] });
     const saved = applyRowEditV2(initial, 0, { kind: "stash_rows", rowIds: [c.id], bundleId: id(620) }).document;
     const before = structuredClone(saved);

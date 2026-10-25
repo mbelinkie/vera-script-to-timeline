@@ -34,11 +34,27 @@ function positions(document: ScriptDocumentV2): Map<string, Position> {
   return result;
 }
 
-function atOriginalPosition(id: string, baseline: Map<string, Position>, current: Map<string, Position>): boolean {
-  const original = baseline.get(id), now = current.get(id);
-  return !!original && !!now && original.container === now.container && sameJson(original.beforeSections, now.beforeSections)
-    && [...baseline].every(([otherId, other]) => other.container !== original.container || current.get(otherId)?.container !== now.container
-      || (other.index < original.index) === (current.get(otherId)!.index < now.index));
+function originalRowPositions(baseline: Map<string, Position>, containers: Map<string, string[]>, current: Map<string, Position>): Set<string> {
+  const result = new Set<string>();
+  for (const [container, ids] of containers) {
+    const present = ids.filter((id) => current.get(id)?.container === container);
+    const first = present[0];
+    if (!first || !sameJson(baseline.get(first)!.beforeSections, current.get(first)!.beforeSections)) continue;
+    // Prefix maxima and suffix minima compare relative order once per container.
+    const suffixMin: number[] = [];
+    let minimum = Infinity;
+    for (let index = present.length - 1; index >= 0; index--) {
+      suffixMin[index] = minimum;
+      minimum = Math.min(minimum, current.get(present[index]!)!.index);
+    }
+    let maximum = -1;
+    present.forEach((id, index) => {
+      const position = current.get(id)!.index;
+      if (maximum < position && position < suffixMin[index]!) result.add(id);
+      maximum = Math.max(maximum, position);
+    });
+  }
+  return result;
 }
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
@@ -70,6 +86,12 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
   const baselineJson = serializeAuthoringDocumentV2(initial);
   const baseline = JSON.parse(baselineJson) as ScriptDocumentV2;
   const originalPositions = positions(baseline);
+  const containers = new Map<string, string[]>();
+  for (const [id, position] of originalPositions) {
+    const ids = containers.get(position.container) ?? [];
+    ids.push(id);
+    containers.set(position.container, ids);
+  }
   const session = createRowEditSessionV2(baseline);
   const actions: Action[] = [];
   const markHistory: Set<string>[] = [];
@@ -113,8 +135,9 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
         actions.push(structuredClone(command));
         markHistory.push(movedRows);
         const current = positions(result.document);
+        const unchanged = originalRowPositions(originalPositions, containers, current);
         // Only deliberately selected rows get marks; rows displaced by them do not.
-        movedRows = new Set([...movedRows, ...selected].filter((id) => !atOriginalPosition(id, originalPositions, current)));
+        movedRows = new Set([...movedRows, ...selected].filter((id) => !unchanged.has(id)));
       }
       return result;
     },
