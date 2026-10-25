@@ -80,10 +80,45 @@ Build the scenario map now, even though Claude will initially render only a
 small sample. A full scenario map prevents late discoveries; a full prototype
 is not required to obtain that coverage.
 
-If the design depends on VERA detecting, translating, or preserving something
-not yet established technically, stop. Request a bounded technical proof, or
-obtain an explicit Producer decision to design against a labeled assumption.
-Never let polished UI turn an unknown capability into an apparent promise.
+Apply the capability-evidence gate below before feature design. Labeling an
+unknown capability “simulated” does not clear it.
+
+### Capability evidence before design
+
+Producer direction, 2026-10-24: every feature under design must already work
+or have evidence that its required mechanism is possible. Before a new story
+or a material feature revision, add one compact matrix to its existing brief:
+
+`promised action → implementation/test or real capability proof → exact supported limits → missing proof issue`
+
+Reuse delivered evidence; a new report, full backend build or repeated test
+campaign is not required. Ordinary application-state/UI work can use existing
+domain operations and focused executable tests; a missing finished frontend
+is not itself a feasibility gap. External-application/service claims need
+actual runtime evidence for the specific operation, controls and relevant
+save/reopen/output behavior. API method lists, mocks, schemas, accepted HTML,
+and a different successful round-trip subset do not prove that capability.
+
+If a required capability is unknown, unsupported or only assumed, checkpoint
+and mark the design issue **Blocked** with a canonical dependency on the
+smallest bounded proof. Pause new feature-design/Claude edit prompts; preserve
+existing artifacts and owner claims. Resolve the proof, or ask for a concrete
+Producer scope reduction/deferral. A negative proof can finish its investigation
+but cannot make the promised feature design-ready unchanged. Re-check the
+matrix before resuming. Keep proofs independent of their consuming design to
+avoid circular prerequisites; do not require the whole production implementation
+that will later consume the design.
+
+Authority-index/naming-only work may state “no new functional promise” and
+continue; this is not an excuse to add unproved interactions. A simulation may
+demonstrate the UI of an already-proved capability, not substitute for proof.
+
+For transitions, verify script-declared type/duration/alignment and real
+effect-specific settings reach the intended Resolve boundary, survive reopen,
+and produce the intended picture without unrequested audio/timing changes.
+Inventory discovery, outbound creation and inbound observation are separate
+claims. Issue #292 owns the bounded proof; #145's accepted subset does not
+prove them. Apply equivalent specificity to other external feature promises.
 
 ### 2. Consult Claude before asking it to edit
 
@@ -250,7 +285,7 @@ Accepted visual precedents: [exact artifacts/components]
 Open design latitude: [what Claude may decide]
 Representative scenario: [smallest high-information example]
 Coverage map: [normal, edge/conflict, unavailable/failure]
-Technical facts and assumptions: [proven, unknown, explicitly assumed]
+Capability matrix: [promised action → working evidence/proof → limits → blocker]
 Related surfaces: [likely upstream/downstream effects]
 Exclusions and preserved artifacts: [hard boundary]
 Evaluation rubric: [how the Producer will compare options]
@@ -363,7 +398,7 @@ When a result is rejected, classify the failure before acting:
 - **Missing scenario:** update the coverage map, then reconsider the sample.
 - **Wrong mechanic:** consult and compare again.
 - **Good mechanic, weak execution:** issue a targeted revision.
-- **Technical contradiction:** request proof or an explicit assumption.
+- **Technical contradiction:** block for proof or a Producer scope reduction/deferral.
 - **Token interruption:** checkpoint and resume from the first unfinished task.
 
 ## What issue #123 taught us
@@ -388,7 +423,7 @@ smaller experiments, and a Producer gate before expansion.
 - [ ] The issue, specification, accepted artifact, and relevant neighboring flow were audited.
 - [ ] Sol has stated a recommendation and the most productive next step.
 - [ ] The scenario map covers normal, edge/conflict, unavailable, and failure behavior.
-- [ ] Technical facts, unknowns, and explicit assumptions are separated.
+- [ ] Every promised feature passes the capability-evidence gate; unresolved proof is a canonical design blocker, not a simulated promise.
 - [ ] The smallest representative sample and evaluation rubric are named.
 - [ ] Accepted artifacts and edit boundaries are explicit.
 - [ ] “What would make this fail?” has a concrete answer.
@@ -416,6 +451,6 @@ smaller experiments, and a Producer gate before expansion.
 - [ ] Every required scenario and viewport has retained evidence.
 - [ ] Shared and accepted surfaces passed regression checks.
 - [ ] Product goals, semantics, keyboard/accessibility behavior, and non-color meaning were reviewed.
-- [ ] Technical assumptions and product exceptions are still honest and visible.
+- [ ] Capability evidence still covers every promised action; unsupported behavior is explicitly deferred or removed by the Producer.
 - [ ] The Producer accepted the exact artifact or identified the first unacceptable state.
 - [ ] Remaining technical or design work is recorded without expanding this story.
