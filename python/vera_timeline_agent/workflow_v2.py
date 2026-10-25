@@ -1709,6 +1709,57 @@ def _event_source_provenance_matches(
     return direct_source_id == source_id
 
 
+def _derived_cfr_clock_matches(binding: Mapping[str, Any]) -> bool:
+    """Check the qualified #174 conversion clock without treating it as reuse."""
+    try:
+        mapping = binding["timeMapping"]
+        frame_map = mapping["sourceFrameMap"]
+        requested = binding["requestedRange"]
+        verification = binding["verification"]
+        profile, derivation = binding["profile"], binding["derivation"]
+        source_rate = Fraction(30000, 1001)
+        target_rate = Fraction(24000, 1001)
+
+        def rational(value: Mapping[str, Any]) -> Fraction:
+            return Fraction(value["numerator"], value["denominator"])
+
+        start = Fraction(requested["sourceInFrame"], 1) / source_rate
+        pre, post = rational(requested["preHandle"]), rational(requested["postHandle"])
+        duration = rational(requested["duration"])
+        mapping_hash = "sha256:" + _digest(
+            json.dumps(
+                {key: value for key, value in mapping.items() if key != "mappingHash"},
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode()
+        )
+        return bool(
+            binding.get("mode") == "derived_cfr"
+            and profile["profileVersion"] == "authoring-cfr/v1"
+            and mapping["mappingHash"] == mapping_hash
+            and frame_map["probeHash"] == binding["originalSource"]["probeHash"]
+            and frame_map["descriptorHash"] == binding["originalSource"]["probeHash"]
+            and rational(mapping["sourceRate"]) == source_rate
+            and rational(frame_map["decodedPackageFrameRate"]) == source_rate
+            and rational(mapping["deliveredRate"]) == target_rate
+            and rational(mapping["sourceOrigin"]) == start - pre
+            and start >= pre >= 0
+            and post >= 0
+            and duration > 0
+            and start + duration + post
+            <= Fraction(frame_map["decodedPackageFrameCount"], 1) / source_rate
+            and verification["decodedFrameCount"]
+            == math.ceil((pre + duration + post) * target_rate)
+            and derivation["sourceHash"] == binding["originalSource"]["contentHash"]
+            and derivation["outputHash"] == verification["deliveredHash"]
+            and derivation["toolHash"] == profile["toolHash"]
+            and derivation["profileHash"] == profile["profileHash"]
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return False
+
+
 def _fractional_source_range_matches(
     *,
     event: Mapping[str, Any],
@@ -1903,6 +1954,31 @@ def _fractional_source_range_matches(
             binding.get("verification") if isinstance(binding, Mapping) else None
         )
         provenance = manifest_event.get("provenance")
+        derived = isinstance(binding, Mapping) and binding.get("mode") == "derived_cfr"
+        source_clock_matches = (
+            _derived_cfr_clock_matches(cast(Mapping[str, Any], binding))
+            if derived
+            else (
+                isinstance(event_mapping, Mapping)
+                and isinstance(source_frame_map, Mapping)
+                and isinstance(verification, Mapping)
+                and event_mapping.get("sourceOrigin")
+                == {"numerator": 0, "denominator": 1}
+                and event_mapping.get("sourceRate") == expected_rate
+                and source_frame_map.get("decodedPackageFrameRate") == expected_rate
+                and verification.get("decodedFrameCount")
+                == source_frame_map.get("decodedPackageFrameCount")
+                and verification.get("probeHash") == source_frame_map.get("probeHash")
+                and verification.get("probeHash")
+                == source_frame_map.get("descriptorHash")
+            )
+        )
+        eof_integer_alias = (
+            derived
+            and isinstance(verification, Mapping)
+            and expected_end == verification.get("decodedFrameCount")
+            and actual_end == expected_end - 2
+        )
         if (
             manifest_start != expected_start
             or manifest_end != expected_end
@@ -1911,14 +1987,18 @@ def _fractional_source_range_matches(
             or not isinstance(source_mapping, Mapping)
             or not isinstance(event_mapping, Mapping)
             or not isinstance(binding, Mapping)
+            or (
+                derived
+                and manifest_source.get("originalHash")
+                != binding.get("originalSource", {}).get("contentHash")
+            )
             or binding.get("requirementKey") != source_requirement
             or binding.get("timeMapping") != source_mapping
             or event_mapping != source_mapping
             or event_mapping.get("sourceFrameMap") != source_frame_map
-            or event_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
+            or not source_clock_matches
             or event_mapping.get("deliveredOrigin")
             != {"numerator": 0, "denominator": 1}
-            or event_mapping.get("sourceRate") != expected_rate
             or event_mapping.get("deliveredRate") != expected_rate
             or not isinstance(verification, Mapping)
             or not isinstance(provenance, Mapping)
@@ -1926,13 +2006,8 @@ def _fractional_source_range_matches(
             or manifest_source.get("deliveredHash") != source.get("contentHash")
             or verification.get("deliveredHash") != source.get("contentHash")
             or verification.get("decodedFrameRate") != expected_rate
-            or source_frame_map.get("decodedPackageFrameRate") != expected_rate
             or type(verification.get("decodedFrameCount")) is not int
-            or verification.get("decodedFrameCount")
-            != source_frame_map.get("decodedPackageFrameCount")
             or type(verification.get("probeHash")) is not str
-            or verification.get("probeHash") != source_frame_map.get("probeHash")
-            or verification.get("probeHash") != source_frame_map.get("descriptorHash")
             or verification.get("probeHash")
             != manifest_source.get("deliveredProbeHash")
             or not isinstance(media_properties, Mapping)
@@ -1949,7 +2024,10 @@ def _fractional_source_range_matches(
             != {"numerator": 0, "denominator": 1}
             or actual_start not in {expected_start, expected_start - 1}
             or actual_start < 0
-            or actual_end not in {expected_end, expected_end - 1}
+            or (
+                actual_end not in {expected_end, expected_end - 1}
+                and not eof_integer_alias
+            )
             or not _native_speed_matches(speed, 100)
         ):
             return False

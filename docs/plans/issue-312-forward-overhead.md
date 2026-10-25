@@ -217,3 +217,30 @@ Evidence: `out/issue312/rehearsal-native-v1/`. At this checkpoint the operation
 was **live**, not verified, and must not be redispatched/replaced. Collect its
 existing terminal state once when work resumes. No installed #254 files or old
 target were overwritten. This is rehearsal, not a baseline/candidate timing.
+
+## Converted-picture rehearsal finding
+
+The first native parent finished in 83.596 seconds with `verification_failed`,
+`event-source-range`, and `partialTargetRetained: true`. Save/reopen ran; it is
+not a passed rehearsal. A getter-only capture of that exact retained target
+reproduced seven failing video events and no narration failures. All failures
+used actual #174 `derived_cfr` preparations from 30000/1001 to 24000/1001.
+The old native range verifier applied same-rate original-source probe/count/
+origin checks to those converted deliveries. Some converted EOF integer getters
+also returned exclusive-end minus two while precise source-time getters matched
+the delivered clock exactly.
+
+Added the narrow actual conversion clock check: require `authoring-cfr/v1`,
+the actual 30000/1001 source map, mapping digest, source origin/requested range,
+original probe/byte binding, derivation tool/profile/output bindings, exact
+delivered frame count/rate and source times within one sample. The extra EOF
+integer alias applies only at the verified converted file's endpoint and still
+requires the exact precise time. Existing same-rate checks remain unchanged.
+The captured 21-event getter replay now passes all events; 55 focused tests pass,
+including a regression that failed before the fix and refusals for time/count/
+origin/derivation/mapping/early-end drift. Lint/type checks pass.
+
+This fixes a concrete native verification failure; it is not a performance
+optimization commit. No baseline or target is frozen yet. The failed target
+stays retained; a separately attested fresh target/release must verify with
+the correction before any successful native rehearsal claim.
