@@ -108,26 +108,35 @@ def _completed_operation(
     status: str = "verified",
     returncode: int = 0,
     bad_hash: bool = False,
+    corrupt_result: bool = False,
+    missing_result: bool = False,
+    mismatch_context: bool = False,
 ) -> None:
     context = _context(expected, request)
     workflow_v2_parent._write(evidence / f"started-{expected}.json", context)
     report_path = evidence / f"result-{expected}.json"
-    workflow_v2_parent._write(
-        report_path,
-        {
-            "schemaVersion": "vera-injected-delivery-result/v2",
-            "status": status,
-            "verified": status == "verified",
-            "discrepancies": [] if status == "verified" else ["synthetic-failure"],
-            **context,
-        },
-    )
+    report = {
+        "schemaVersion": "vera-injected-delivery-result/v2",
+        "status": status,
+        "verified": status == "verified",
+        "discrepancies": [] if status == "verified" else ["synthetic-failure"],
+        **context,
+    }
+    if mismatch_context:
+        report["requestedTimelineName"] = "Different Timeline"
+    if corrupt_result:
+        report_path.write_bytes(b"{not-json")
+        report_path.chmod(0o400)
+    elif not missing_result:
+        workflow_v2_parent._write(report_path, report)
     workflow_v2_parent._write(
         evidence / f"hashes-{expected}.json",
         {
             "resultPath": str(report_path),
             "resultSha256": (
-                "0" * 64 if bad_hash else workflow_v2_parent._digest(report_path)
+                "0" * 64
+                if bad_hash or missing_result
+                else workflow_v2_parent._digest(report_path)
             ),
             **context,
         },
@@ -159,24 +168,32 @@ def test_launcher_names_attempt_evidence_with_request_digest(
             },
         ),
     )
-    monkeypatch.setattr(
-        workflow_v2_launcher,
-        "run_workflow_delivery_v2",
-        lambda *_args, **_kwargs: {
+
+    delivery_calls: list[None] = []
+
+    def run_delivery(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        delivery_calls.append(None)
+        return {
             "schemaVersion": "vera-injected-delivery-result/v2",
             "status": "preflight_passed",
             "verified": False,
             "discrepancies": [],
-        },
-    )
+        }
+
+    monkeypatch.setattr(workflow_v2_launcher, "run_workflow_delivery_v2", run_delivery)
 
     report_path = workflow_v2_launcher.run_installed_request_v2(
         object(), request_path, expected_request_sha256=expected
     )
+    with pytest.raises(FileExistsError):
+        workflow_v2_launcher.run_installed_request_v2(
+            object(), request_path, expected_request_sha256=expected
+        )
 
     assert report_path == evidence / f"result-{expected}.json"
     assert (evidence / f"started-{expected}.json").exists()
     assert (evidence / f"hashes-{expected}.json").exists()
+    assert len(delivery_calls) == 1
 
 
 def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
@@ -306,7 +323,16 @@ def test_workflow_failure_is_still_a_terminal_result(
     assert report["result"]["status"] == status
 
 
-@pytest.mark.parametrize("damage", ["missing-final", "corrupt-hash"])
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "missing-final",
+        "missing-result-json",
+        "corrupt-hash",
+        "corrupt-result-json",
+        "context-mismatch",
+    ],
+)
 def test_worker_exit_with_missing_or_bad_final_is_failed_and_never_replayed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -322,8 +348,14 @@ def test_worker_exit_with_missing_or_bad_final_is_failed_and_never_replayed(
             evidence / "parent-exit.json",
             {"returncode": 0, "monotonicFinished": 11.0, "requestSha256": expected},
         )
-    else:
+    elif damage == "corrupt-hash":
         _completed_operation(evidence, expected, request, bad_hash=True)
+    elif damage == "missing-result-json":
+        _completed_operation(evidence, expected, request, missing_result=True)
+    elif damage == "corrupt-result-json":
+        _completed_operation(evidence, expected, request, corrupt_result=True)
+    else:
+        _completed_operation(evidence, expected, request, mismatch_context=True)
 
     report = workflow_v2_parent.status(request_path, expected)
     _patch_release_checks(monkeypatch, manifest)
