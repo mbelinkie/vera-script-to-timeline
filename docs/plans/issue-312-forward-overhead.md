@@ -268,3 +268,27 @@ paired optimization measurements, fast gate, completed final Claude review,
 exact-head full green CI and protected merge/External closure. Neither a replay
 passing nor this checkpoint satisfies the actual native acceptance criteria.
 No timers, monitors, successor dispatch or automatic resume are authorized.
+
+## Explicit resume and corrected native rehearsal
+
+Matthew explicitly resumed #312. Merged freshly fetched `origin/main` through
+`bc193705`, preserving the current #254 native verification changes. The #325
+owner had explicitly released Resolve and CPU; a read-only native check found
+its retained project idle with no render running. The prior #312 guarded parent
+was terminal with the already recorded failure. The 55 focused converted-clock
+and workflow tests passed again after integration.
+
+Created a fresh current-source attestation and release rather than dispatching
+the stale prepared v2 request. Dispatched the corrected rehearsal once:
+
+- Request: `out/issue312/rehearsal-release-v3/vera-delivery-v2/request.json`
+- SHA256: `e841bc4699b30c7129359d48d436540eb3413f3471f850b3b08f7833dbd5c956`
+- Evidence: `out/issue312/rehearsal-native-v3/`
+- Guarded parent returned **live**, `verified: false`.
+
+This is still capability rehearsal, not a frozen baseline or successful
+verification. The native slot remains occupied until this exact request has a
+terminal result. On resume, collect its existing status once; do not start it
+again or replace an unknown/live operation. Old targets and installed releases
+remain retained. No monitoring loop or timer was created. All original scope
+listed above remains required before delivery.
