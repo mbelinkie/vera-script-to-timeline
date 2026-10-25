@@ -369,11 +369,11 @@ def prepare_replacement_row_v2(
     )
     authenticate("synthesis_authorization", authorization, binding)
     root = root.absolute()
-    _destination(root / "generation-inputs.json")
-    root.mkdir(parents=True, exist_ok=True)
     request_hash = identity_hash(binding["service"]["requestIdentity"])
     lock_key = identity_hash({"issue191Call": request_hash})[7:]
     with service.cache.lock(lock_key):
+        _destination(root / "generation-inputs.json")
+        root.mkdir(parents=True, exist_ok=True)
         publish_immutable_output(root / "generation-inputs.json", _bytes(binding))
         intent_path = (
             service.cache.root
