@@ -260,6 +260,9 @@ describe("provisional Sorting trials", () => {
     const discard = trial.discard(baseline);
     expect(discard).toMatchObject({ ok: true, document: baseline });
     expect(discard.document).toBe(baseline);
+    expect(trial.document).toEqual(baseline);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.undoDepth).toBe(0);
     expect(trial.returnToSorting()).toBe(false);
     expect(trial.accept(baseline).ok).toBe(false);
     const other = createSortingTrialV2(baseline);
@@ -280,8 +283,11 @@ describe("provisional Sorting trials", () => {
     expect(resumed.document).toEqual(trial.document);
     expect(resumed.movedRowIds).toEqual([a.id]);
     expect(resumed.undoDepth).toBe(1);
+    const saved = trial.serialize();
     expect(resumed.accept(baseline).document).toEqual(trial.accept(baseline).document);
-    const undone = resumeSortingTrialV2(trial.phase === "accepted" ? JSON.stringify({ format: "sorting-trial/v1", baseline, actions: [], phase: "sorting" }) : trial.serialize());
+    const undone = resumeSortingTrialV2(saved);
+    undone.returnToSorting();
+    expect(undone.undo().ok).toBe(true);
     expect(undone.accept(baseline)).toMatchObject({ ok: true, changed: false, document: baseline });
   });
 
@@ -293,7 +299,7 @@ describe("provisional Sorting trials", () => {
     const resumed = resumeSortingTrialV2(trial.serialize());
     const changed = structuredClone(baseline);
     if (surface === "script") changed.title = "changed";
-    if (surface === "stash") changed.stash![0]!.rows[0]!.orderKey = "changed";
+    if (surface === "stash") changed.stash![0]!.rows[0].orderKey = "changed";
     if (surface === "revision") changed.rowEditRevision = 17;
     if (surface === "live head") changed.liveHeadSequence = 1;
     const before = structuredClone(changed);
@@ -333,7 +339,7 @@ describe("provisional Sorting trials", () => {
     expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
     expect(trial.undoDepth).toBe(0);
     expect(trial.document).toEqual(baseline);
-    const saved = JSON.parse(trial.serialize());
+    const saved = JSON.parse(trial.serialize()) as { actions: unknown[] };
     saved.actions = [contentEdit];
     expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/SORTING_CONTENT_READ_ONLY/);
     saved.actions = [{ kind: "undo" }];
@@ -342,6 +348,24 @@ describe("provisional Sorting trials", () => {
     expect(() => resumeSortingTrialV2("null")).toThrow(/Invalid saved/);
     saved.actions = Array.from({ length: 1001 }, () => ({ kind: "undo" }));
     expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/Invalid saved/);
+  });
+
+  it("does not mark an undone move when a later row displaces it, and accepts a Stash/restore no-op honestly", () => {
+    const [a, b, c] = [row(690), row(691), row(692)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) });
+    trial.undo();
+    trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, null, a.id) });
+    expect(trial.movedRowIds).toEqual([b.id]);
+    trial.undo();
+    trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(693) });
+    trial.apply({ kind: "restore_stash", bundleId: id(693), destination: gap(null, a.id, c.id) });
+    expect(trial.movedRowIds).toEqual([]);
+    const accepted = trial.accept(baseline);
+    expect(accepted).toMatchObject({ ok: true, changed: false });
+    expect(accepted.document).toBe(baseline);
+    expect(trial.document).toEqual(baseline);
   });
 
   it("reuses transition/audio rules and refuses unsupported trial moves without adding history", () => {
@@ -360,6 +384,30 @@ describe("provisional Sorting trials", () => {
     expect(trial.undo().ok).toBe(true);
     expect(trial.document.rowAudioSpans).toEqual(baseline.rowAudioSpans);
     expect(trial.document.rowTransitions).toEqual(baseline.rowTransitions);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("clears a returned row's mark while retaining relationship review rather than silently reapplying effects", () => {
+    const [a, b, c] = [row(700), row(701), row(702)];
+    const baseline = documentWith([a, b, c], {
+      rowTransitions: [{ id: id(703), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 6 }, state: "active" }],
+    });
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, null, b.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.document.rowTransitions?.[0]?.state).toBe("needs_review");
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: true });
+  });
+
+  it("marks only the moved section's rows and clears them when that section returns", () => {
+    const [a, b, c] = [row(710), row(711), row(712)];
+    const baseline = documentWith([section(713, "First"), a, section(714, "Second"), b, section(715, "Third"), c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_section", sectionId: id(713), destination: { afterSectionId: id(715), beforeSectionId: null } }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([a.id]);
+    expect(trial.apply({ kind: "move_section", sectionId: id(713), destination: { afterSectionId: null, beforeSectionId: id(714) } }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
     expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
   });
 });

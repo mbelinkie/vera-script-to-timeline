@@ -276,6 +276,7 @@ export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export { createSortingTrialV2, resumeSortingTrialV2 } from "./authoring-v2-sorting.js";
+export { applyStashRowEditV2, type StashRowEditCommandV2, type StashedRowV2 } from "./authoring-v2-stash.js";
 export {
   applyRowEditV2,
   selectRowRangeV2,

@@ -46,6 +46,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 const { applyRowEditV2, validateScriptDocumentV2 } = await import(
   new URL("authoring-v2.ts", sourceDirectory)
 );
+const { applyStashRowEditV2 } = await import(
+  new URL("authoring-v2-stash.ts", sourceDirectory)
+);
 const input = JSON.parse(readFileSync(0, "utf8"));
 const document = input.document;
 const row = document.activeDraft.blocks.find((block) => block.type === "narration");
@@ -59,14 +62,30 @@ const stashedResult = applyRowEditV2(document, document.rowEditRevision ?? 0, {
 if (!stashedResult.ok) throw new Error(JSON.stringify(stashedResult.diagnostics));
 
 // Validate the JSON that a saved project would reload, not only the live result.
-const stashedSerialized = JSON.stringify(stashedResult.document);
+const editedRow = structuredClone(row);
+const prefix = "EDITED ";
+editedRow.text = prefix + editedRow.text;
+editedRow.tokens = editedRow.tokens.map((token) => ({
+  ...token,
+  startOffset: token.startOffset + prefix.length,
+  endOffset: token.endOffset + prefix.length,
+}));
+const editedResult = applyStashRowEditV2(stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
+  bundleId: input.bundleId,
+  rowId: row.id,
+  row: editedRow,
+});
+if (!editedResult.ok) throw new Error(JSON.stringify(editedResult.diagnostics));
+
+const stashedSerialized = JSON.stringify(editedResult.document);
 const stashed = JSON.parse(stashedSerialized);
 const stashedValidation = validateScriptDocumentV2(stashed);
 if (!stashedValidation.valid) {
   throw new Error(JSON.stringify(stashedValidation.diagnostics));
 }
 
-const restoredResult = applyRowEditV2(stashed, stashed.rowEditRevision ?? 0, {
+const originalStashed = JSON.parse(JSON.stringify(stashedResult.document));
+const restoredResult = applyRowEditV2(originalStashed, originalStashed.rowEditRevision ?? 0, {
   kind: "restore_stash",
   bundleId: input.bundleId,
   destination: {
@@ -88,6 +107,7 @@ process.stdout.write(JSON.stringify({
   stashedSerialized,
   restoredSerialized,
   rowId: row.id,
+  editedText: editedRow.text,
   bundleId: input.bundleId,
   mediaReferenceId: row.primaryVisualSequence.slots.flatMap((slot) => {
     if (slot.kind === "content" && slot.payload.kind === "visual") {
@@ -230,6 +250,7 @@ def test_saved_stash_is_ignored_by_python_narration_and_media_needs(
 
     assert stashed["stash"][0]["rows"][0]["id"] == row_id
     assert stashed["stash"][0]["rows"][0]["primaryVisualSequence"]
+    assert stashed["stash"][0]["rows"][0]["text"] == operation["editedText"]
     assert all(block["id"] != row_id for block in stashed["activeDraft"]["blocks"])
     assert _narration_ids(stashed) == []
     assert _narration_ids(restored) == [row_id]
