@@ -116,3 +116,32 @@ download, pinned rights/bytes and accepted offline timing. Use the concrete
 older injected #190 proof consumer restricts preparation profiles and is not a
 shortcut around #174 or receipt authentication. No fabricated timing, fake
 authority or manually authored inference may stand in for that real path.
+
+## Public speech input checkpoint
+
+Downloaded the first-party long WAV, exact transcript and rights page into
+ignored `out/issue312/public-speech-v1/`; no private media was accessed. The
+source is 615,969 mono PCM16 samples at 16 kHz (38.498 seconds), 81 transcript
+words. SHA256 pins:
+
+- WAV: `4fc321495965ba347e9c71b7680da2c81f06d4ebbe538ef8b4f4ce40970aaf8b`
+- Transcript: `1a13386dbb4ff8e9078d4d7888e699b1af953e6d9df40cc5687b98e28e04625d`
+- Retained rights HTML: `eb344693dab68b65e842880318ec7cd61049aba95b799a3ef74dfda360539cc0`
+
+The first-party declaration explicitly releases its in-house eSpeak NG/FFmpeg
+synthetic audio and text under CC0 1.0 for test-fixture redistribution. No new
+engine or service is installed. The existing MFA Python and English acoustic/
+G2P models are present. `issue312_speech.py` now verifies the pinned WAV and
+transcript, prepares the existing MFA segment input, refuses failed/partial/
+unordered/out-of-range intervals, and selects two complete sentence groups
+near 45 words only at a genuinely measured gap. It never fills missing times.
+The eventual report must disclose repeated public passages across the rows;
+an alternate replaces the complete row. Source segmentation and actual
+duration remain unqualified until alignment and six-row rehearsal succeed.
+
+Two pure refusal tests and changed-file type checks passed. Alignment, speech
+normalization/admission and video generation have not run. #283 now has the
+first short exclusive Resolve/media slot under Matthew's latest instruction;
+#312 waits for one explicit release without polling. The guarded #254 project
+and installed release are untouched. Current main (#315) was merged cleanly
+into this branch; current repository rules remain unchanged.
