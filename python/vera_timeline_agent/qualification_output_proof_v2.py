@@ -521,6 +521,7 @@ class QualificationOutputProofV2:
         return evidence
 
     def infer(self) -> Json:
+        """Expose machine inference and any legal, still-undecided C boundaries."""
         return self._pure({"mode": "infer", "evidence": self._evidence()})
 
     def _decision_claim_path(self, name: str) -> Path:
@@ -558,7 +559,12 @@ class QualificationOutputProofV2:
         )
 
     def decide_inference(self, decision: Json) -> Json:
-        """Accept/reject observed semantics before preparing replacement media."""
+        """Seal explicit semantics and any C boundary choice before media work.
+
+        The pure stage checks the choice against the inferred conflict before
+        any decision claim is retained. The complete decision and resulting
+        stage are sealed together and recomputed before regeneration/proposal.
+        """
         with self._decision_lock():
             _require(
                 not (self.root / "inference-decision.json").exists(),

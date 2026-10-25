@@ -5,6 +5,7 @@ import { compileTimelineV2 } from "./compiler-core-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+import { applyAcceptedOmissionV2 } from "./issue-189-v2-omission.js";
 import type {
   CompilerDependenciesV2,
   NarrationBoundaryEvidenceV1,
@@ -151,6 +152,15 @@ export interface QualificationOutputDecisionV1 {
   proposalHash: string;
   historyHash: string;
   outcome: "accept" | "reject";
+  boundaryChoice?: NonNullable<RevisionCommandsV2["boundary"]>;
+}
+
+export interface QualificationOutputBoundaryConflictV1 {
+  blockId: string;
+  boundaryOwnerId: string;
+  tokenId: string;
+  expectedSequenceVersion: number;
+  choices: NonNullable<RevisionCommandsV2["boundary"]>[];
 }
 
 export interface QualificationOutputInferenceV1 {
@@ -161,6 +171,7 @@ export interface QualificationOutputInferenceV1 {
   evidenceHash: string;
   caseEvidenceHashes: string[];
   commands: RevisionCommandsV2;
+  boundaryConflicts: QualificationOutputBoundaryConflictV1[];
   omission: { blockId: string; blockRevision: number; tokenIds: string[]; evidenceHash: string } | null;
   caseKinds: CaseKind[];
   inferenceHash: string;
@@ -1007,6 +1018,57 @@ function inferCase(document: ScriptDocumentV2, dependencies: CompilerDependencie
   return selected;
 }
 
+function visualBoundaryConflicts(document: ScriptDocumentV2, omission: NonNullable<QualificationOutputInferenceV1["omission"]>,
+  existingBoundary: RevisionCommandsV2["boundary"]): QualificationOutputBoundaryConflictV1[] {
+  const row = document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === omission.blockId);
+  const sequence = row?.type === "narration" ? row.primaryVisualSequence : undefined;
+  if (row?.type !== "narration" || !sequence) return [];
+  const removedTokenIds = new Set(omission.tokenIds);
+  const owners = sequence.slots.flatMap((slot) => {
+    const anchor = slot.kind === "return" ? slot.inpoint
+      : slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end" ? slot.boundaryBefore.anchor
+        : null;
+    return anchor?.blockId === row.id && removedTokenIds.has(anchor.tokenId) ? [{ boundaryOwnerId: slot.id, tokenId: anchor.tokenId }] : [];
+  });
+  return owners.map(({ boundaryOwnerId, tokenId }) => {
+    const choices: NonNullable<RevisionCommandsV2["boundary"]>[] = [];
+    if (existingBoundary === null && owners.length === 1) {
+      for (const token of row.tokens) for (const affinity of ["before", "after"] as const) {
+        if (removedTokenIds.has(token.id)) continue;
+        const choice = { kind: "move_word_boundary" as const, blockId: row.id, boundaryOwnerId,
+          tokenId: token.id, affinity, expectedSequenceVersion: sequence.version };
+        const { expectedSequenceVersion, ...edit } = choice;
+        const moved = applyVisualSequenceEditV2(document, expectedSequenceVersion, edit);
+        if (!moved.ok) continue;
+        const candidateDocument = moved.document;
+        if (!Number.isSafeInteger(candidateDocument.liveHeadSequence + 1)) continue;
+        candidateDocument.liveHeadSequence += 1;
+        candidateDocument.liveStateVector = "";
+        candidateDocument.liveContentHash = sha256CanonicalJson(
+          Object.fromEntries(Object.entries(candidateDocument).filter(([key]) => key !== "liveContentHash")),
+        );
+        const revisedRow = candidateDocument.activeDraft.blocks.find((block) => block.type === "narration" && block.id === row.id);
+        if (revisedRow?.type !== "narration") continue;
+        try {
+          applyAcceptedOmissionV2(candidateDocument, {
+            schemaVersion: "issue-189-v2-accepted-omission/v1",
+            expectedDocumentHash: sha256CanonicalJson(moved.document),
+            blockId: omission.blockId,
+            blockRevision: revisedRow.version,
+            tokenIds: omission.tokenIds,
+            evidenceHash: omission.evidenceHash,
+            decisionHash: sha256CanonicalJson({ boundaryChoice: choice }),
+          });
+          choices.push(choice);
+        } catch {
+          // The existing omission transform is the authority on whether every anchor survives.
+        }
+      }
+    }
+    return { blockId: row.id, boundaryOwnerId, tokenId, expectedSequenceVersion: sequence.version, choices };
+  });
+}
+
 /** Derive supported A/B/C proposals only from complete host-authenticated raw evidence. */
 export function inferQualificationOutputV2(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, evidence: QualificationOutputObservationBatchV1): QualificationOutputInferenceV1 {
   fact(validateScriptDocumentV2(document).valid, "invalid baseline script document");
@@ -1025,23 +1087,52 @@ export function inferQualificationOutputV2(document: ScriptDocumentV2, dependenc
   const omissions = cases.flatMap(({ inference }) => inference.omission ? [inference.omission] : []);
   fact(boundaries.length <= 1 && trims.length <= 1 && omissions.length <= 1, "duplicate semantic revision command");
   const commands: RevisionCommandsV2 = { boundary: boundaries[0] ?? null, trim: trims[0] ?? null, omission: null };
+  const boundaryConflicts = omissions.length === 0 ? [] : visualBoundaryConflicts(document, omissions[0]!, commands.boundary);
   const body = {
     schemaVersion: "qualification-output-inference/v1" as const, lane: LANE,
     documentHash: checked.documentHash, dependenciesHash: checked.dependenciesHash,
     evidenceHash: sha256CanonicalJson(checked.batch), caseEvidenceHashes: checked.cases.map((c) => sha256CanonicalJson(c.source)),
-    commands, omission: omissions[0] ?? null, caseKinds: kinds,
+    commands, boundaryConflicts, omission: omissions[0] ?? null, caseKinds: kinds,
     internalControls: "unverified" as const, geometryStability: "not_claimed" as const,
     controlStability: "not_claimed" as const, futureAuthority: false as const,
   };
   return { ...body, inferenceHash: sha256CanonicalJson(body) };
 }
 
-function validateDecision(value: unknown, proposalHash: string, history: string[]): QualificationOutputDecisionV1 {
-  const decision = shape(value, ["schemaVersion", "proposalHash", "historyHash", "outcome"], "explicit decision") as unknown as QualificationOutputDecisionV1;
+function validateBoundaryChoice(value: unknown): NonNullable<RevisionCommandsV2["boundary"]> {
+  const choice = shape(value, ["kind", "blockId", "boundaryOwnerId", "tokenId", "affinity", "expectedSequenceVersion"], "boundary choice");
+  fact(choice.kind === "move_word_boundary" && (choice.affinity === "before" || choice.affinity === "after"), "invalid boundary choice");
+  identity(choice.blockId, "boundary choice block ID");
+  identity(choice.boundaryOwnerId, "boundary choice owner ID");
+  identity(choice.tokenId, "boundary choice token ID");
+  integer(choice.expectedSequenceVersion, "boundary choice sequence version");
+  return choice as unknown as NonNullable<RevisionCommandsV2["boundary"]>;
+}
+
+function validateDecision(value: unknown, proposalHash: string, history: string[], inference?: QualificationOutputInferenceV1): QualificationOutputDecisionV1 {
+  const raw = record(value, "explicit decision");
+  const keys = Object.keys(raw).sort();
+  const expected = ["historyHash", "outcome", "proposalHash", "schemaVersion"];
+  fact(equal(keys, expected) || equal(keys, [...expected, "boundaryChoice"].sort()), "unsupported explicit decision fields");
+  const decision = structuredClone(raw) as unknown as QualificationOutputDecisionV1;
+  if (Object.hasOwn(raw, "boundaryChoice")) decision.boundaryChoice = validateBoundaryChoice(raw.boundaryChoice);
   fact(decision.schemaVersion === "qualification-output-decision/v1" && decision.proposalHash === proposalHash &&
     decision.historyHash === sha256CanonicalJson(history) && (decision.outcome === "accept" || decision.outcome === "reject"), "stale or unsupported explicit decision");
   fact(Array.isArray(history) && history.every((hash) => typeof hash === "string" && /^sha256:[a-f0-9]{64}$/u.test(hash)) &&
     new Set(history).size === history.length && !history.includes(proposalHash), "duplicate or malformed decision history");
+  if (inference === undefined) {
+    fact(decision.boundaryChoice === undefined, "boundary choice is only supported for an inference decision");
+  } else if (inference.boundaryConflicts.length === 0) {
+    fact(decision.boundaryChoice === undefined, "boundary choice supplied without an omission anchor conflict");
+  } else if (decision.outcome === "accept") {
+    fact(inference.boundaryConflicts.length === 1 && inference.commands.boundary === null && decision.boundaryChoice !== undefined &&
+      inference.boundaryConflicts[0]!.choices.some((choice) => equal(choice, decision.boundaryChoice)),
+    "accepted omission requires one exact legal boundary choice");
+  } else if (decision.boundaryChoice !== undefined) {
+    fact(inference.boundaryConflicts.length === 1 && inference.commands.boundary === null &&
+      inference.boundaryConflicts[0]!.choices.some((choice) => equal(choice, decision.boundaryChoice)),
+    "rejected omission contains an unsupported boundary choice");
+  }
   return decision;
 }
 
@@ -1049,14 +1140,23 @@ function acceptedCommands(document: ScriptDocumentV2, dependencies: CompilerDepe
   decision: QualificationOutputDecisionV1, preparedMedia: PreparedMediaBindingV1[]): RevisionCommandsV2 {
   fact(decision.outcome === "accept", "rejected inference cannot stage a revision");
   const commands: RevisionCommandsV2 = structuredClone(inference.commands);
+  if (inference.boundaryConflicts.length > 0) {
+    fact(inference.boundaryConflicts.length === 1 && commands.boundary === null && decision.boundaryChoice !== undefined &&
+      inference.boundaryConflicts[0]!.choices.some((choice) => equal(choice, decision.boundaryChoice)),
+    "accepted omission requires one exact legal boundary choice");
+    commands.boundary = structuredClone(decision.boundaryChoice);
+  }
   if (inference.omission !== null) {
     const beforeOmission = commands.boundary !== null || commands.trim !== null
       ? prepareRevisionInputsV2(document, dependencies, commands, preparedMedia)
       : { document };
+    const omissionRow = beforeOmission.document.activeDraft.blocks.find((block) => block.type === "narration" && block.id === inference.omission!.blockId);
+    fact(omissionRow?.type === "narration", "omission row missing after boundary transform");
     commands.omission = {
       schemaVersion: "issue-189-v2-accepted-omission/v1",
       expectedDocumentHash: sha256CanonicalJson(beforeOmission.document),
       ...inference.omission,
+      blockRevision: omissionRow.version,
       decisionHash: sha256CanonicalJson(decision),
     };
   }
@@ -1074,7 +1174,7 @@ function newRegenerationRequest(core: NonNullable<ReturnType<typeof prepareRevis
 export function stageQualificationOutputV2(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2,
   evidence: QualificationOutputObservationBatchV1, decisionValue: unknown, history: string[], preparedMedia: PreparedMediaBindingV1[] = []) {
   const inference = inferQualificationOutputV2(document, dependencies, evidence);
-  const decision = validateDecision(decisionValue, inference.inferenceHash, history);
+  const decision = validateDecision(decisionValue, inference.inferenceHash, history, inference);
   if (decision.outcome === "reject") return {
     schemaVersion: "qualification-output-stage/v1" as const, lane: LANE, inference, decision,
     decisionHash: sha256CanonicalJson(decision), outcome: "reject" as const, document, dependencies, regeneration: null,
@@ -1095,7 +1195,7 @@ export function stageQualificationOutputV2(document: ScriptDocumentV2, dependenc
 function checkedInferenceDecision(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2,
   evidence: QualificationOutputObservationBatchV1, value: unknown, history: string[]) {
   const inference = inferQualificationOutputV2(document, dependencies, evidence);
-  const decision = validateDecision(value, inference.inferenceHash, history);
+  const decision = validateDecision(value, inference.inferenceHash, history, inference);
   fact(decision.outcome === "accept", "only an accepted inference can create a revision proposal");
   return { inference, decision };
 }
