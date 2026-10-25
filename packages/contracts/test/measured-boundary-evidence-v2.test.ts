@@ -74,7 +74,7 @@ const omit = (value: object, keys: string[]) => Object.fromEntries(Object.entrie
 const measuredParameters = { windowMs: 5, hopMs: 5, relativeDb: -30 };
 const measuredVerification = (): NarrationBoundaryEvidenceV1["verification"] => ({
   method: "measured_audio_boundaries/v1",
-  algorithm: { id: "vera-polly-marks-energy-ends", version: "2", parametersHash: sha256CanonicalJson(measuredParameters), parameters: { ...measuredParameters } },
+  algorithm: { id: "vera-polly-marks-energy-ends", version: "3", parametersHash: sha256CanonicalJson(measuredParameters), parameters: { ...measuredParameters } },
   measurementArtifactLocator: "Measurements/synthetic-182.json", measurementArtifactHash: hash("measurement artifact"),
   onsetBasis: "provider_word_marks_lag_verified", onsetUncertainty: time(1, 100), audibleEndUncertainty: time(1, 200),
 });

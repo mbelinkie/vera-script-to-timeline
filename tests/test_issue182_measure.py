@@ -117,7 +117,7 @@ def test_evidence_json_has_the_spec_shape(tmp_path: Path) -> None:
     assert verification["audibleEndUncertainty"] == {"numerator": 3, "denominator": 100}
     algorithm = verification["algorithm"]
     assert algorithm["id"] == "vera-polly-marks-energy-ends"
-    assert algorithm["version"] == "2"
+    assert algorithm["version"] == "3"
     assert algorithm["parameters"] == DEFAULT_PARAMETERS
     assert algorithm["parametersHash"] == parameters_hash(DEFAULT_PARAMETERS)
     assert verification["measurementArtifactLocator"] == LOCATOR

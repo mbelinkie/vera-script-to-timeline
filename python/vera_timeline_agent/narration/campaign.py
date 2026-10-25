@@ -614,10 +614,13 @@ def _measure(options: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int
     evidence_path.write_bytes(canonical_json_bytes(result.evidence))
     stdout.write(f"measurement artifact: {artifact_path}\n")
     stdout.write(f"boundary evidence: {evidence_path}\n")
-    stdout.write(
-        f"lag: {result.artifact['lag']['milliseconds']} ms "
-        f"(correlation {result.artifact['lag']['correlation']})\n"
+    lag = result.artifact["lag"]
+    basis = (
+        lag["method"]
+        if lag["correlation"] is None
+        else f"correlation {lag['correlation']}"
     )
+    stdout.write(f"lag: {lag['milliseconds']} ms ({basis})\n")
     for row in result.artifact["tokens"]:
         end = (
             f"{row['audibleEndSamples'] / 48:.1f} ms"
