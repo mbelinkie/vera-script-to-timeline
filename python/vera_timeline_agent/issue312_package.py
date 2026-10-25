@@ -90,6 +90,8 @@ def prepare_package(
     source_set_path: Path,
     speech_rows_path: Path,
     output_root: Path,
+    *,
+    preparation_root: Path | None = None,
 ) -> Path:
     sources = json.loads(source_set_path.read_bytes())
     speech = json.loads(speech_rows_path.read_bytes())
@@ -336,7 +338,11 @@ def prepare_package(
         authorization = PreparationAuthorization(
             reference="issue312-public-synthetic-fixture",
             read_roots=(source_set_path.parent.absolute(),),
-            write_root=MATRIX_PREPARATION_ROOT / ("issue312-" + root.name),
+            write_root=(
+                preparation_root.absolute()
+                if preparation_root is not None
+                else MATRIX_PREPARATION_ROOT / ("issue312-" + root.name)
+            ),
             tool_hash=identity_hash(tools.fingerprint()),
         )
         preparations = {}
@@ -443,5 +449,13 @@ if __name__ == "__main__":
     parser.add_argument("--source-set", type=Path, required=True)
     parser.add_argument("--speech-rows", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--preparation-root", type=Path)
     args = parser.parse_args()
-    print(prepare_package(args.source_set, args.speech_rows, args.output))
+    print(
+        prepare_package(
+            args.source_set,
+            args.speech_rows,
+            args.output,
+            preparation_root=args.preparation_root,
+        )
+    )

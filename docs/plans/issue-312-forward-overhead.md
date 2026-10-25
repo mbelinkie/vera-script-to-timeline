@@ -402,3 +402,32 @@ Matthew for the one actual menu click and a `launched` reply; do not claim a
 captured UID or native retry until the existing request produces real evidence.
 No output constructor is currently live. Fixture setup and this capability
 debugging are outside the still-unstarted four-hour benchmark budget.
+
+## Fresh target identity and external native request
+
+On Matthew's `try again?` reply, the existing identity request had completed
+successfully: `identity_observed`, stable project UID
+`a581802b-f0fb-4482-9659-ba037eec7f71` and timeline UID
+`91d4486a-f5a1-4df1-ae3f-6aec6375a542`. A duplicate bootstrap collision refusal
+is retained alongside the successful result; it did not create another target
+or substitute evidence. The request was not redispatched after collection.
+
+Prepared fresh corrected output session `out/issue312/reverse-pristine-v2`,
+session SHA256 `b0956a8e5c14fc4aa357c573db5c2dd3e485c24478768933198aac11356e6fd2`.
+Its private external render root is the selected volume's
+`CodexRulz/vera-issue312/renders`. The exact new sequence-0 constructor request
+SHA256 is `a87f51d8b6654e82e1819fbf33a7324b449791c7c748fdfc95a8c69505b937b8`,
+native chain `c2807b3017dca2a70c75e5602852d9d0c545f5dc7a14775d446b51b5984fdb58`.
+Resolve was quit before installing the verified corrected output bundle;
+the identity bundle is retained in `issue312-installed-archive-v3`. The new
+constructor was selected once from the integration menu. Collect its exact
+result before changing requests or claiming success; an absent or live result
+never permits reassembly. B was still saved and empty before this dispatch.
+
+The fixture composer now accepts an explicit preparation-cache root, so the
+full forward campaign can keep cold and warm issue-owned #174 caches on the
+external disk. The reverse companion continues using its approved matrix root.
+This keeps cache identity explicit; warm/cold definitions are still to be frozen
+before baseline. Focused composer checks, lint and its type check pass. Final
+affected controller/proof/CLI/release/root checks passed: 121 tests. No full
+local suite, benchmark observation or optimization has run.
