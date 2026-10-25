@@ -27,6 +27,10 @@ from issue215_generated_fixture import (
     write_stereo_wav,
 )
 from vera_timeline_agent import qualification_output_native_v2 as native
+from vera_timeline_agent.narration.measure import ALGORITHM_VERSION
+from vera_timeline_agent.qualification_output_package_v2 import (
+    QualificationPackageError,
+)
 
 CAMPAIGN = (
     Path.home() / "Library/Application Support/VERA/polly-campaign/issue182-20261020"
@@ -134,8 +138,18 @@ def test_campaign_tamper_is_refused(tmp_path: Path) -> None:
 
 
 @needs_campaign
-def test_a_c_package_admits_measured_narration(tmp_path: Path) -> None:
+def test_a_c_package_admits_current_measurement_or_refuses_archived_version(
+    tmp_path: Path,
+) -> None:
     campaign = load_campaign(CAMPAIGN)
+    if campaign.evidence["verification"]["algorithm"]["version"] != ALGORITHM_VERSION:
+        with pytest.raises(
+            QualificationPackageError, match="algorithm identity differs"
+        ):
+            prepare_narration_case(
+                campaign, tmp_path, label="C", output_name="C-generated"
+            )
+        return
     result = prepare_narration_case(
         campaign, tmp_path, label="C", output_name="C-generated"
     )

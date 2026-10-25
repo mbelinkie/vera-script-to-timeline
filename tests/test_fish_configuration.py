@@ -10,6 +10,7 @@ from vera_timeline_agent.narration import cli
 from vera_timeline_agent.narration.cache import NarrationCache
 from vera_timeline_agent.narration.configuration import (
     FISH_PROFILE_ID,
+    INWORLD_PROFILE_ID,
     MATTHEW_PROFILE_ID,
     MW1_REFERENCE_ID,
     default_profile,
@@ -54,15 +55,22 @@ class PreparedOnlyProvider:
 def test_profiles_and_pricing_keep_provider_billing_units() -> None:
     polly = voice_profile(MATTHEW_PROFILE_ID)
     fish = voice_profile(FISH_PROFILE_ID)
+    inworld = voice_profile(INWORLD_PROFILE_ID)
     text = "é🐟"
 
     assert (polly.profile_id, polly.provider) == (MATTHEW_PROFILE_ID, "aws_polly")
     assert (fish.provider, fish.voice_id) == ("fish_audio", MW1_REFERENCE_ID)
+    assert (inworld.provider, inworld.engine) == ("inworld", "inworld-tts-2")
     polly_pricing, fish_pricing = pricing_for(polly), pricing_for(fish)
     assert (polly_pricing.unit, polly_pricing.units(text)) == ("characters", 2)
     assert (fish_pricing.unit, fish_pricing.units(text)) == ("utf8_bytes", 6)
     paid_fish = pricing_for(replace(fish, engine="s2.1-pro"))
     assert paid_fish.estimate(text) == pytest.approx(6 * 15 / 1_000_000)
+    inworld_pricing = pricing_for(inworld)
+    assert (inworld_pricing.unit, inworld_pricing.units(text)) == ("utf16_units", 3)
+    assert inworld_pricing.estimate(text) == pytest.approx(3 * 25 / 1_000_000)
+    flash_pricing = pricing_for(replace(inworld, engine="inworld-tts-2-flash"))
+    assert flash_pricing.estimate(text) == pytest.approx(3 * 15 / 1_000_000)
 
 
 def test_fish_input_and_preflight_bind_native_settings_and_terms() -> None:
