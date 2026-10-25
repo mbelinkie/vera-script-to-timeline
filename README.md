@@ -70,7 +70,8 @@ npm run validate:fast
 ```
 
 This keeps generated-currentness, all lint and type checks, fast TypeScript
-unit coverage, and non-slow Python tests on two workers. Long compiler CLI,
+unit coverage, and Python tests that are non-slow or explicitly marked as fast
+unit coverage inside a slow module, on two workers. Long compiler CLI,
 media-probing, browser, and embedded-database integration coverage stays in
 the complete GitHub Actions gate; run an affected integration file directly
 while working. `slow` marks real or synthetic media analysis, repeated

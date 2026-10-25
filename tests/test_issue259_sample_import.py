@@ -1156,6 +1156,7 @@ def test_unavailable_settings_readback_is_recorded_but_never_supported(
 # ----------------------------------------------------------------------------
 
 
+@pytest.mark.fast
 def test_import_release_is_separate_and_tamper_evident(tmp_path: Path) -> None:
     root = tmp_path / "release"
     manifest = workflow_v2_cli.build_sample_import_release_v2(root)
@@ -1188,6 +1189,7 @@ def test_import_release_is_separate_and_tamper_evident(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.fast
 def test_delivery_script_inventory_matches_cli_release() -> None:
     script = Path(__file__).parents[1] / "integrations/resolve/VERA Delivery v2.py"
     environment: dict[str, tuple[str, ...]] = {}
@@ -1224,6 +1226,7 @@ def test_delivery_script_inventory_matches_cli_release() -> None:
     )
 
 
+@pytest.mark.fast
 def test_import_dispatch_retains_request_pin_and_precision_dispatch_unchanged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1260,6 +1263,7 @@ def test_import_dispatch_retains_request_pin_and_precision_dispatch_unchanged(
     assert len(calls) == 2
 
 
+@pytest.mark.fast
 def test_cli_import_commands_are_wired(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
