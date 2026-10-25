@@ -12,6 +12,10 @@ from typing import Any
 import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import workflow_v2
+from vera_timeline_agent.studio_spike import (
+    StudioSpikeError,
+    _still_source_frame_duration,
+)
 from vera_timeline_agent.v2_package import verify_v2_package
 from vera_timeline_agent.workflow_package import SOURCE_PINS
 
@@ -570,6 +574,7 @@ def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any
     adapter.expected_events = {}
     adapter.expected_stamps = {}
     adapter.expected_properties = {}
+    adapter.expected_source_ranges = {}
     adapter.timeline_marker_stamps = {}
     adapter.expected_markers = {}
     adapter._verify_bins = lambda _discrepancies: None
@@ -728,18 +733,8 @@ def test_public_builder_handoff_preserves_root_child_overlay_return(
     workflow_v2._validate_composition(manifest, view, tracks)
 
 
-def test_fractional_rate_preflight_is_read_only_and_build_refuses_before_adapter(
-    tmp_path: Path,
-) -> None:
-    attestation, digest, _ = _make_package(tmp_path, fractional=True)
-    adapter = _FakeAdapter()
-    preflight = workflow_v2.run_workflow_delivery_v2(
-        object(), attestation, digest, adapter_factory=lambda _resolve: adapter
-    )
-    assert preflight["status"] == "preflight_passed"
-    assert "timelineFrameRate" not in adapter.settings
-    assert "nativeRateLimitation" in preflight
-
+def test_unsupported_fractional_build_refuses_before_adapter(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path, frame_rate=(30000, 1001))
     called = False
 
     def forbidden(_resolve: Any) -> Any:
@@ -757,6 +752,85 @@ def test_fractional_rate_preflight_is_read_only_and_build_refuses_before_adapter
         adapter_factory=forbidden,
     )
     assert result["status"] == "stopped_safely"
+    assert called is False
+
+
+def test_23976_build_runs_guarded_save_reopen_and_readback(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path, fractional=True)
+    preflight_adapter = _FakeAdapter()
+    preflight = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: preflight_adapter,
+    )
+    assert preflight["status"] == "preflight_passed"
+    assert preflight["nativeRateQualified"] is True
+    assert "nativeRateLimitation" not in preflight
+    assert preflight_adapter.settings["timelineFrameRate"] == "23.976"
+
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: adapter,
+    )
+
+    assert result["status"] == "verified"
+    assert result["nativeRateQualified"] is True
+    assert adapter.settings["timelineFrameRate"] == "23.976"
+    assert adapter.calls[:5] == [
+        "connected_facts",
+        "probe",
+        "collision",
+        "create_project",
+        "target",
+    ]
+    assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
+
+
+def test_23976_native_rate_is_opt_in_and_defaults_to_refusal(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, fractional=True)
+    preflight_adapter = _FakeAdapter()
+    preflight = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        adapter_factory=lambda _resolve: preflight_adapter,
+    )
+    assert preflight["status"] == "preflight_passed"
+    assert preflight["nativeRateQualified"] is False
+    assert preflight["nativeRateLimitation"] == (
+        "24000/1001 is not natively qualified."
+    )
+    assert "timelineFrameRate" not in preflight_adapter.settings
+
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("default fractional build reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=forbidden,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["nativeRateQualified"] is False
     assert called is False
 
 
@@ -1076,15 +1150,26 @@ def test_unsupported_picture_treatment_fails_before_adapter(tmp_path: Path) -> N
 
 
 def test_video_source_with_still_treatment_gets_still_composition_properties() -> None:
+    calls: list[str] = []
+
     class Item:
         def __init__(self) -> None:
             self.properties: dict[str, Any] = {}
+            self.property_calls: list[dict[str, Any]] = []
 
         def AddMarker(self, *_args: Any) -> bool:
             return True
 
         def SetProperties(self, properties: dict[str, Any]) -> bool:
-            self.properties = dict(properties)
+            calls.append("scaling" if "Scaling" in properties else "properties")
+            self.property_calls.append(dict(properties))
+            self.properties.update(properties)
+            if "Scaling" in properties:
+                self.properties["AnchorPointX"] = 1119.12568
+                self.properties["AnchorPointY"] = 629.507
+            for key in ("AnchorPointX", "AnchorPointY"):
+                if key in properties:
+                    self.properties[key] = properties[key] * 1.1657559198542806
             return True
 
         def GetProperties(self) -> dict[str, Any]:
@@ -1105,7 +1190,7 @@ def test_video_source_with_still_treatment_gets_still_composition_properties() -
         workflow_v2.PublicResolveAdapter
     )
     adapter.resolve = SimpleNamespace(SCALE_FIT="fit", COMPOSITE_NORMAL="normal")
-    adapter.assert_current_target = lambda: None
+    adapter.assert_current_target = lambda: calls.append("target")
     adapter.media_by_source = {"source": object()}
     adapter.pool = pool
     adapter._v2_sources = {"source": {"kind": "video"}}
@@ -1114,6 +1199,7 @@ def test_video_source_with_still_treatment_gets_still_composition_properties() -
     adapter.expected_events = {}
     adapter.expected_stamps = {}
     adapter.expected_properties = {}
+    adapter.expected_source_ranges = {}
     adapter.timeline_marker_stamps = {}
     event = {
         "id": "still-event",
@@ -1142,6 +1228,116 @@ def test_video_source_with_still_treatment_gets_still_composition_properties() -
     assert pool.infos[0]["mediaType"] == 1
     assert item.properties["Scaling"] == "fit"
     assert item.properties["CompositeMode"] == "normal"
+    assert item.property_calls[0] == {"Scaling": "fit"}
+    assert item.property_calls[1]["AnchorPointX"] == 0
+    assert item.property_calls[1]["AnchorPointY"] == 0
+    assert item.properties["AnchorPointX"] == 0
+    assert item.properties["AnchorPointY"] == 0
+    assert calls == ["target", "target", "scaling", "target", "properties"]
+
+
+@pytest.mark.parametrize(
+    ("duration", "source_fps", "timeline_rate", "expected"),
+    [
+        (142, "24", {"numerator": 24000, "denominator": 1001}, 143),
+        (142, "24", {"numerator": 25, "denominator": 1}, 137),
+    ],
+)
+def test_still_source_frame_duration_uses_exact_rate_conversion(
+    duration: int,
+    source_fps: str,
+    timeline_rate: dict[str, int],
+    expected: int,
+) -> None:
+    assert _still_source_frame_duration(duration, source_fps, timeline_rate) == expected
+
+
+def test_still_source_frame_duration_refuses_unknown_fps() -> None:
+    with pytest.raises(StudioSpikeError, match="frame rate is unavailable"):
+        _still_source_frame_duration(
+            142, None, {"numerator": 24000, "denominator": 1001}
+        )
+
+
+def test_still_media_placement_converts_duration_but_preserves_start() -> None:
+    class Media:
+        def __init__(self) -> None:
+            self.marked: tuple[int, int] | None = None
+
+        def GetClipProperty(self, _name: str) -> str:
+            return "24"
+
+        def SetMarkInOut(self, start: int, end: int, _kind: str) -> bool:
+            self.marked = (start, end)
+            return True
+
+        def ClearMarkInOut(self, _kind: str) -> bool:
+            self.marked = None
+            return True
+
+    class Item:
+        def __init__(self) -> None:
+            self.properties: dict[str, Any] = {}
+
+        def AddMarker(self, *_args: Any) -> bool:
+            return True
+
+        def SetProperties(self, properties: dict[str, Any]) -> bool:
+            self.properties.update(properties)
+            return True
+
+        def GetProperties(self) -> dict[str, Any]:
+            return dict(self.properties)
+
+    class Pool:
+        def __init__(self, item: Item) -> None:
+            self.item = item
+            self.infos: list[dict[str, Any]] = []
+
+        def AppendToTimeline(self, infos: list[dict[str, Any]]) -> list[Item]:
+            self.infos = infos
+            return [self.item]
+
+    media, item = Media(), Item()
+    pool = Pool(item)
+    adapter: Any = workflow_v2.PublicResolveAdapter.__new__(
+        workflow_v2.PublicResolveAdapter
+    )
+    adapter.resolve = SimpleNamespace(SCALE_FIT="fit", COMPOSITE_NORMAL="normal")
+    adapter.assert_current_target = lambda: None
+    adapter.media_by_source = {"source": media}
+    adapter.pool = pool
+    adapter._v2_sources = {"source": {"kind": "still"}}
+    adapter._v2_tracks = ({"id": "video-track", "kind": "video", "index": 1},)
+    adapter._v2_timeline = {
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {"numerator": 24000, "denominator": 1001},
+    }
+    adapter.expected_events = {}
+    adapter.expected_stamps = {}
+    adapter.expected_properties = {}
+    adapter.expected_source_ranges = {}
+    adapter.timeline_marker_stamps = {}
+    event = {
+        "id": "still-event",
+        "kind": "primary_visual",
+        "sourceId": "source",
+        "trackId": "video-track",
+        "trackKind": "video",
+        "recordRange": {"startFrame": 0, "durationFrames": 142},
+        "sourceRange": {"startFrame": 3, "durationFrames": 142},
+        "v2Event": {"eventId": "still-event"},
+        "gainDb": None,
+        "pictureTreatment": None,
+    }
+
+    adapter.place_event(event)
+
+    assert pool.infos[0]["startFrame"] == 3
+    assert pool.infos[0]["endFrame"] == 146
+    assert media.marked is None
+    assert adapter.expected_source_ranges[event["id"]] == (3, 145)
 
 
 def test_failed_save_retains_named_partial_target(tmp_path: Path) -> None:

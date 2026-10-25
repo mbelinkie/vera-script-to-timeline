@@ -20,7 +20,7 @@ from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
-from .studio_spike import _project_settings
+from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
 )
@@ -88,6 +88,8 @@ _CONTENT_HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _TARGET_SUFFIX = re.compile(r"[0-9a-f]{12}\Z")
 _SUPPORTED_INTEGER_RATES = {(24, 1), (25, 1), (30, 1)}
+_QUALIFIED_FRACTIONAL_RATE = (24000, 1001)
+_SUPPORTED_PACKAGE_RATES = {*_SUPPORTED_INTEGER_RATES, _QUALIFIED_FRACTIONAL_RATE}
 _MARKER_COLORS = {
     "BLUE": "Blue",
     "CYAN": "Cyan",
@@ -1090,9 +1092,9 @@ def _validate_semantics(manifest: Mapping[str, Any], view: Mapping[str, Any]) ->
         raise WorkflowV2Error("timeline dimensions are invalid")
     if not _positive_int(timeline.get("audioSampleRate")):
         raise WorkflowV2Error("timeline sample rate is invalid")
-    # Fractional rates remain package/preflight evidence only; no native
-    # approximation is ever derived from the float used by the v1 helper.
-    if rate not in _SUPPORTED_INTEGER_RATES and rate != (24000, 1001):
+    # Keep the exact fractional rate available for read-only preflight even when
+    # this caller has not qualified native creation for it.
+    if rate not in _SUPPORTED_PACKAGE_RATES:
         raise WorkflowV2Error(
             "native delivery does not support this rational frame rate"
         )
@@ -1100,13 +1102,25 @@ def _validate_semantics(manifest: Mapping[str, Any], view: Mapping[str, Any]) ->
         raise WorkflowV2Error("native view timeline differs from the manifest")
 
 
-def _native_rate_supported(timeline: Mapping[str, Any]) -> bool:
-    return _frame_rate(timeline) in _SUPPORTED_INTEGER_RATES
+def _native_rate_supported(
+    timeline: Mapping[str, Any], *, allow_fractional_native: bool = False
+) -> bool:
+    rate = _frame_rate(timeline)
+    return rate in _SUPPORTED_INTEGER_RATES or (
+        allow_fractional_native is True and rate == _QUALIFIED_FRACTIONAL_RATE
+    )
 
 
-def _native_settings(timeline: Mapping[str, Any], *, preflight: bool) -> dict[str, str]:
+def _native_settings(
+    timeline: Mapping[str, Any],
+    *,
+    preflight: bool,
+    allow_fractional_native: bool = False,
+) -> dict[str, str]:
     settings = _project_settings(timeline)
-    if preflight and not _native_rate_supported(timeline):
+    if preflight and not _native_rate_supported(
+        timeline, allow_fractional_native=allow_fractional_native
+    ):
         settings.pop("timelineFrameRate", None)
     return settings
 
@@ -1138,6 +1152,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_events: dict[str, Mapping[str, Any]] = {}
         self.expected_stamps: dict[str, str] = {}
         self.expected_properties: dict[str, dict[str, Any]] = {}
+        self.expected_source_ranges: dict[str, tuple[int, int]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
 
@@ -1168,6 +1183,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         marked = False
         try:
             if still_media:
+                source_duration = _still_source_frame_duration(
+                    source_duration,
+                    media.GetClipProperty("FPS"),
+                    self._v2_timeline["frameRate"],
+                )
                 if not media.SetMarkInOut(
                     source_start, source_start + source_duration, "video"
                 ):
@@ -1214,8 +1234,6 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 raise WorkflowV2Error(
                     "Resolve does not expose required still-composition constants"
                 )
-            width = cast(int, self._v2_timeline["width"])
-            height = cast(int, self._v2_timeline["height"])
             expected_properties = {
                 "Scaling": scale_fit,
                 "CompositeEnabled": True,
@@ -1227,14 +1245,30 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 "ZoomX": 1.0,
                 "ZoomY": 1.0,
                 "RotationAngle": 0.0,
-                "AnchorPointX": width / 2,
-                "AnchorPointY": height / 2,
+                # Resolve expresses the neutral anchor as an offset from centre.
+                "AnchorPointX": 0.0,
+                "AnchorPointY": 0.0,
                 "FlipX": False,
                 "FlipY": False,
             }
         if expected_properties:
-            if not item.SetProperties(expected_properties):
-                raise WorkflowV2Error("Resolve rejected v2 event properties")
+            if "Scaling" in expected_properties:
+                self.assert_current_target()
+                if not item.SetProperties({"Scaling": expected_properties["Scaling"]}):
+                    raise WorkflowV2Error("Resolve rejected v2 event scaling")
+                remaining_properties = {
+                    key: value
+                    for key, value in expected_properties.items()
+                    if key != "Scaling"
+                }
+                if remaining_properties:
+                    self.assert_current_target()
+                    if not item.SetProperties(remaining_properties):
+                        raise WorkflowV2Error("Resolve rejected v2 event properties")
+            else:
+                self.assert_current_target()
+                if not item.SetProperties(expected_properties):
+                    raise WorkflowV2Error("Resolve rejected v2 event properties")
             actual = item.GetProperties()
             if not isinstance(actual, Mapping) or any(
                 not _property_equal(actual.get(key), value)
@@ -1245,6 +1279,10 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_events[event_id] = event
         self.expected_stamps[event_id] = custom_data
         self.expected_properties[event_id] = expected_properties
+        self.expected_source_ranges[event_id] = (
+            source_start,
+            source_start + source_duration - 1,
+        )
 
     def add_v2_marker(self, marker: Mapping[str, Any]) -> None:
         self.assert_current_target()
@@ -1346,14 +1384,18 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             discrepancies.append("event-record-range")
                         source_range = event.get("sourceRange")
                         if source_range is not None:
-                            if item.GetSourceStartFrame() != source_range["startFrame"]:
+                            expected_source_range = self.expected_source_ranges.get(
+                                event_id,
+                                (
+                                    source_range["startFrame"],
+                                    source_range["startFrame"]
+                                    + source_range["durationFrames"]
+                                    - 1,
+                                ),
+                            )
+                            if item.GetSourceStartFrame() != expected_source_range[0]:
                                 discrepancies.append("event-source-start")
-                            if (
-                                item.GetSourceEndFrame()
-                                != source_range["startFrame"]
-                                + source_range["durationFrames"]
-                                - 1
-                            ):
+                            if item.GetSourceEndFrame() != expected_source_range[1]:
                                 discrepancies.append("event-source-end")
                         media_item = item.GetMediaPoolItem()
                         actual_media_id = (
@@ -1481,6 +1523,7 @@ def run_workflow_delivery_v2(
     authorize_new_nonproduction: bool = False,
     external_scripting: str | None = None,
     adapter_factory: Callable[[Any], Any] | None = None,
+    allow_fractional_native: bool = False,
 ) -> dict[str, Any]:
     """Preflight or create one authorized new nonproduction Resolve project."""
     result: dict[str, Any] = {
@@ -1519,10 +1562,12 @@ def run_workflow_delivery_v2(
                 "timelineName": attestation["timelineName"],
                 "verification": attestation["verification"],
                 "packageVerifiedAt": attestation["verifiedAt"],
-                "nativeRateQualified": _native_rate_supported(timeline),
+                "nativeRateQualified": _native_rate_supported(
+                    timeline, allow_fractional_native=allow_fractional_native
+                ),
             }
         )
-        if not _native_rate_supported(timeline) and action == "build":
+        if not result["nativeRateQualified"] and action == "build":
             raise WorkflowV2Error(
                 "fractional-rate native creation awaits separate qualification"
             )
@@ -1561,7 +1606,11 @@ def run_workflow_delivery_v2(
             )
         if resolve is None:
             raise WorkflowV2Error("Resolve did not inject an API object")
-        settings = _native_settings(timeline, preflight=(action == "preflight"))
+        settings = _native_settings(
+            timeline,
+            preflight=(action == "preflight"),
+            allow_fractional_native=allow_fractional_native,
+        )
         factory = adapter_factory or PublicResolveAdapter
         stage = "Resolve connection preflight"
         adapter = factory(resolve)
@@ -1587,7 +1636,7 @@ def run_workflow_delivery_v2(
         if action == "preflight":
             result["status"] = "preflight_passed"
             result["message"] = "The immutable v2 package passed read-only preflight."
-            if not _native_rate_supported(timeline):
+            if not result["nativeRateQualified"]:
                 result["nativeRateLimitation"] = "24000/1001 is not natively qualified."
             return result
 

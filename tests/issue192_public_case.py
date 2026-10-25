@@ -860,7 +860,12 @@ class FixedFrameProvider:
 
 class ExactFrameNormalizer(FakeNormalizer):
     def normalize_pcm(
-        self, audio_bytes: bytes, *, sample_rate: int, channels: int
+        self,
+        audio_bytes: bytes,
+        *,
+        sample_rate: int,
+        channels: int,
+        audit_clock: bool = False,
     ) -> NormalizationResult:
         assert sample_rate == 48000 and channels == 1
         return self.result(

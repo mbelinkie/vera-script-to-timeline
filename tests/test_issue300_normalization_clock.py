@@ -389,3 +389,100 @@ def test_real_clock_qualifies_ambiguous_same_rate_audio_and_emits_artifact(
     assert lag["samples"] == 0
     assert lag["transformVerification"]["clock"] == normalized.clock
     assert lag["transformVerification"]["method"] == "reproduced_pcm"
+
+
+@pytest.mark.parametrize("version", ["8.1.2-vendor", "8.1.2-static", "8.1.2-0+deb13u1"])
+def test_suffixed_ffmpeg_build_is_not_qualified(
+    version: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    normalizer = Normalizer()
+    monkeypatch.setattr(
+        normalizer,
+        "_run",
+        lambda command: subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                f"ffmpeg version {version} Copyright\n"
+                "acompressor loudnorm aresample pcm_s24le"
+            ),
+            stderr="",
+        ),
+    )
+    with pytest.raises(MediaToolError, match="unqualified FFmpeg version"):
+        normalizer._verify_clock(_clock_trace(), source_samples=8, padding_samples=0)
+
+
+def test_unavailable_audit_filter_preserves_independently_verified_legacy_route(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from test_issue297_sample_lag import _speech_like
+    from vera_timeline_agent.narration.normalize import ClockQualificationError
+
+    samples = _speech_like()
+    raw = struct.pack(f"<{len(samples)}h", *samples)
+    output = wav_bytes([round(sample * 0.72) for sample in samples])
+    loaded = _loaded_for_replay(tmp_path, raw, output)
+    calls = []
+
+    class MissingAudit:
+        tool_fingerprint = TOOL
+
+        def __init__(self, *, profile_id: str) -> None:
+            pass
+
+        def normalize_pcm(
+            self,
+            audio: bytes,
+            *,
+            sample_rate: int,
+            channels: int,
+            audit_clock: bool = False,
+        ) -> SimpleNamespace:
+            calls.append(audit_clock)
+            if audit_clock:
+                raise ClockQualificationError("clock audit unavailable")
+            return SimpleNamespace(wav_bytes=output)
+
+    monkeypatch.setattr(measure_module, "Normalizer", MissingAudit)
+    lag = measure_module._verify_normalization_transform(loaded, None)
+    assert calls == [True, False]
+    assert lag.method == "sample_correlation"
+    assert lag.samples == 0
+
+
+def test_failed_audit_run_has_bounded_qualification_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import subprocess
+
+    from vera_timeline_agent.narration.normalize import ClockQualificationError
+
+    normalizer = Normalizer()
+
+    def run(command: list[str]) -> subprocess.CompletedProcess[str]:
+        if "measured_I=" in command[command.index("-af") + 1]:
+            raise MediaToolError("private verbose frame trace should stay in cause")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="",
+            stderr=json.dumps(
+                {
+                    "input_i": -20,
+                    "input_tp": -10,
+                    "input_lra": 1,
+                    "input_thresh": -30,
+                    "target_offset": 0,
+                }
+            ),
+        )
+
+    monkeypatch.setattr(normalizer, "_run", run)
+    with pytest.raises(ClockQualificationError, match=r"^clock audit unavailable$"):
+        normalizer.normalize_pcm(
+            b"\x01\x00" * 48_000, sample_rate=RATE, channels=1, audit_clock=True
+        )

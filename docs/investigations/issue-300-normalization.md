@@ -48,9 +48,36 @@ for historical documents, while package admission requires the current version.
 
 Both retained rows originally refused sample-correlation admission. They now
 pass qualified-clock measurement and evidence verification locally, with exact
-PCM replay and no provider transport. One authored after-word picture boundary
-has supported end evidence; the other remains absent under the unchanged
-acoustic quiet-gap rule. That is a real authored timing limitation requiring a
-product choice. No structural provider end, next onset or frame edge is emitted
-as its audible end. This repair alone does not complete #300 or unblock #275.
+PCM replay and no provider transport. Repeating measurement produces equivalent
+canonical evidence without synthesis or changing the historical caches.
+
+The original document contains four word anchors, not five. Its original timing
+map reproduces no stale anchors; native onset-only projection reproduces two:
+both request after-word boundaries. The reported five stale anchors therefore
+cannot be reproduced from the retained pair, and no fifth anchor is invented.
+Measured evidence resolves one; the other has no supported audible end under
+the unchanged acoustic quiet-gap rule. The Producer explicitly approved moving
+that one picture boundary to the following word's onset in a new document
+snapshot. This is an authored product decision, not a fabricated audible end.
+Text, visual order and whole-row narration remain intact; the original snapshot
+is preserved. No structural provider end or frame edge becomes acoustic evidence.
+
+| Retained placement | Cause and resolution |
+| --- | --- |
+| Row-start picture | No word anchor; stale preparation duration refreshed normally. |
+| First word anchor | Exact token/onset binding already valid. |
+| Second word anchor | Missing acoustic end; Producer approved the following onset. |
+| Third word anchor | Exact token/onset binding already valid. |
+| Fourth word anchor | Acoustic end is supported after measurement admission. |
+
+The remaining preparation discrepancy was an obsolete duration binding, resolved
+through the ordinary local media-preparation function. All six requirements then
+resolve; compilation and package verification contain eleven events with no
+blocking diagnostics. Three temporary presenter-still notices remain expected.
+The exact timeline rate is 24000/1001. The ordinary installed delivery route
+admits that rate, while historical proof callers retain their default refusal.
+Still media uses its actual source frame rate when calculating Resolve's source
+duration; scaling is applied before anchor properties because changing scaling
+can reset those properties in Resolve.
+
 Private inputs, identifiers and artifact locations are excluded from this file.

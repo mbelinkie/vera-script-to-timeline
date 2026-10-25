@@ -71,9 +71,7 @@ class Normalizer:
                 result = self._run(command)
                 outputs.append(result.stdout + result.stderr)
                 if command == [self.ffmpeg, "-version"]:
-                    match = re.match(
-                        r"ffmpeg version (\d+\.\d+\.\d+)(?:\s|[-_])", result.stdout
-                    )
+                    match = re.match(r"ffmpeg version (\d+\.\d+\.\d+)\s", result.stdout)
                     self._version = match[1] if match else None
             needed = ("acompressor", "loudnorm", "aresample", "pcm_s24le")
             combined = "\n".join(outputs)
@@ -309,41 +307,46 @@ class Normalizer:
                 second_filter = (
                     "ashowinfo@clock_input," + second_filter + ",ashowinfo@clock_output"
                 )
-            second = self._run(
-                [
-                    self.ffmpeg,
-                    *(["-loglevel", "verbose"] if audit_clock else []),
-                    "-hide_banner",
-                    "-nostdin",
-                    "-f",
-                    "s16le",
-                    "-ar",
-                    str(sample_rate),
-                    "-ac",
-                    "1",
-                    "-i",
-                    str(source),
-                    "-af",
-                    second_filter,
-                    "-map_metadata",
-                    "-1",
-                    "-map_chapters",
-                    "-1",
-                    "-fflags",
-                    "+bitexact",
-                    "-flags:a",
-                    "+bitexact",
-                    "-c:a",
-                    "pcm_s24le",
-                    "-ar",
-                    str(OUTPUT_SAMPLE_RATE),
-                    "-ac",
-                    "1",
-                    "-rf64",
-                    "never",
-                    str(output),
-                ]
-            )
+            try:
+                second = self._run(
+                    [
+                        self.ffmpeg,
+                        *(["-loglevel", "verbose"] if audit_clock else []),
+                        "-hide_banner",
+                        "-nostdin",
+                        "-f",
+                        "s16le",
+                        "-ar",
+                        str(sample_rate),
+                        "-ac",
+                        "1",
+                        "-i",
+                        str(source),
+                        "-af",
+                        second_filter,
+                        "-map_metadata",
+                        "-1",
+                        "-map_chapters",
+                        "-1",
+                        "-fflags",
+                        "+bitexact",
+                        "-flags:a",
+                        "+bitexact",
+                        "-c:a",
+                        "pcm_s24le",
+                        "-ar",
+                        str(OUTPUT_SAMPLE_RATE),
+                        "-ac",
+                        "1",
+                        "-rf64",
+                        "never",
+                        str(output),
+                    ]
+                )
+            except MediaToolError as error:
+                if audit_clock:
+                    raise ClockQualificationError("clock audit unavailable") from error
+                raise
             verified = self.verify_wav(output, analyze=False)
             integrated, true_peak, loudness_range = self._analyze(output)
             expected_samples = max(resampled_samples, MINIMUM_DURATION_SAMPLES)

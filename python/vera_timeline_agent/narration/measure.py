@@ -500,7 +500,7 @@ def _verify_normalization_transform(
         raise MeasurementError(
             [
                 "normalization timing not verified: "
-                f"current transform cannot be qualified: {error}"
+                "current transform cannot be reproduced"
             ]
         ) from error
     if lag is None:
