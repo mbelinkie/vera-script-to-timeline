@@ -140,6 +140,44 @@ export function validateScriptDocumentV2(
     validateSupportingItem(item, document, path, diagnostics, overlayIds);
   }
 
+  // All saved surfaces share identity, but parked authoring problems do not block the Draft.
+  const registerTree = (value: unknown, path: string): void => {
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      const childPath = `${path}/${key}`;
+      if ((key === "id" || key === "payloadId") && typeof child === "string") {
+        if (ids.get(child) !== childPath) addId(child, childPath);
+      } else registerTree(child, childPath);
+    }
+  };
+  registerTree(document.activeDraft, "/activeDraft");
+  const allRows = new Set(document.activeDraft.blocks.filter((row) => row.type !== "section").map((row) => row.id));
+  const surfaces = [document.activeDraft.blocks];
+  for (const [bundleIndex, bundle] of (document.stash ?? []).entries()) {
+    const path = `/stash/${bundleIndex}`;
+    registerTree(bundle, path);
+    bundle.rows.forEach((row) => allRows.add(row.id));
+    surfaces.push(bundle.rows);
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({ ...item, severity: "warning" as const, jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`) })));
+  }
+  const referenceProblem = (id: string, path: string): void => {
+    diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A saved row relationship names a missing row or invalid active pair.", jsonPath: path, entityId: id });
+  };
+  const adjacent = (from: string, to: string): boolean => surfaces.some((rows) => rows.some((row, index) => row.id === from && rows[index + 1]?.id === to && row.type !== "section" && rows[index + 1]?.type !== "section"));
+  for (const [index, pair] of (document.rowTransitions ?? []).entries()) {
+    addId(pair.id, `/rowTransitions/${index}/id`);
+    if (!allRows.has(pair.fromRowId) || !allRows.has(pair.toRowId) || pair.state === "active" && !adjacent(pair.fromRowId, pair.toRowId)) referenceProblem(pair.id, `/rowTransitions/${index}`);
+  }
+  for (const [index, span] of (document.rowAudioSpans ?? []).entries()) {
+    addId(span.id, `/rowAudioSpans/${index}/id`);
+    if (!allRows.has(span.startRowId) || !allRows.has(span.endRowId)) referenceProblem(span.id, `/rowAudioSpans/${index}`);
+  }
+  for (const [index, reference] of (document.rowReferences ?? []).entries()) {
+    addId(reference.id, `/rowReferences/${index}/id`);
+    if (!allRows.has(reference.rowId)) referenceProblem(reference.id, `/rowReferences/${index}`);
+  }
+
   return {
     valid: diagnostics.every((diagnostic) => diagnostic.severity === "warning"),
     diagnostics,

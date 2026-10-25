@@ -1,14 +1,28 @@
 #!/usr/bin/env node
 
 import { lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  exportPrompter,
-  type PrompterExportSettings,
-} from "./prompter-export.ts";
+import type { PrompterExportSettings } from "./prompter-export.ts";
 import type { ValidationDiagnostic } from "./script-validator.js";
+
+const sourceDirectory = new URL("./", import.meta.url).href;
+const sourceHooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    return nextResolve(
+      context.parentURL?.startsWith(sourceDirectory) &&
+        specifier.startsWith("./") &&
+        specifier.endsWith(".js")
+        ? `${specifier.slice(0, -3)}.ts`
+        : specifier,
+      context,
+    );
+  },
+});
+const { exportPrompter } = await import("./prompter-export.ts");
+sourceHooks.deregister();
 
 export const PROMPTER_EXPORT_EXIT = {
   ok: 0,

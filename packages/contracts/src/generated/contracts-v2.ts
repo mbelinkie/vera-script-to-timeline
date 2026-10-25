@@ -599,6 +599,23 @@ export interface ScriptDocumentV2 {
    */
   liveStateVector: string;
   liveContentHash: string;
+  /**
+   * Local optimistic whole-row revision; absent means zero. Does not acknowledge or advance the collaborative live head.
+   */
+  rowEditRevision?: number;
+  /**
+   * Saved whole-row scratchpad, separate from Ideas/Extras and never build-eligible. Array and row order are authoritative.
+   */
+  stash?: RowStashBundleV2[];
+  /**
+   * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
+   */
+  rowTransitions?: RowTransitionIntentV2[];
+  /**
+   * Saved starting-row audio intent only. Runtime delivery is unavailable; never infer audible timing from row order.
+   */
+  rowAudioSpans?: RowAudioSpanIntentV2[];
+  rowReferences?: OpaqueRowReferenceV2[];
 }
 export interface ScriptSettings {
   presenterStillOverride?: PresenterStillReference;
@@ -868,6 +885,64 @@ export interface PointPlacement {
         kind: "audible_word_end";
         anchor: WordAudibleEndAnchor;
       };
+}
+export interface RowStashBundleV2 {
+  id: string;
+  /**
+   * @minItems 1
+   */
+  rows: [
+    NarrationBlockV2 | DirectionBlock | VisualOnlyBlockV2 | NoteDraftBlock,
+    ...(NarrationBlockV2 | DirectionBlock | VisualOnlyBlockV2 | NoteDraftBlock)[],
+  ];
+  supportingItems: SupportingItemV2[];
+  originalGap?: RowGapV2;
+}
+export interface RowGapV2 {
+  sectionId: string | null;
+  afterRowId: string | null;
+  beforeRowId: string | null;
+}
+export interface RowTransitionIntentV2 {
+  id: string;
+  fromRowId: string;
+  toRowId: string;
+  effect: string;
+  settings: {
+    [k: string]: unknown;
+  };
+  state: "active" | "needs_review";
+}
+export interface RowAudioSpanIntentV2 {
+  id: string;
+  startRowId: string;
+  endRowId: string;
+  source: RowAudioSourceV2;
+  settings: {
+    [k: string]: unknown;
+  };
+  review?: RowAudioReviewV2;
+}
+export interface RowAudioSourceV2 {
+  mediaReferenceId: string;
+  artifactId: string;
+  artifactVersion: number;
+  contentHash: string;
+}
+export interface RowAudioReviewV2 {
+  previousEndRowId: string;
+  previousSettings: {
+    [k: string]: unknown;
+  };
+  alert: "Music now ends with this row. Review";
+}
+export interface OpaqueRowReferenceV2 {
+  id: string;
+  rowId: string;
+  kind: "comment" | "reference";
+  anchor: {
+    [k: string]: unknown;
+  };
 }
 /**
  * Narrow project-level authoring defaults with immutable presenter-still identity.

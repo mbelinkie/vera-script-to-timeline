@@ -276,6 +276,16 @@ export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export {
+  applyRowEditV2,
+  selectRowRangeV2,
+  createRowEditSessionV2,
+  serializeAuthoringDocumentV2,
+  deserializeAuthoringDocumentV2,
+  type RowEditCommandV2,
+  type RowEditResultV2,
+  type RowGapV2,
+} from "./authoring-v2-rows.js";
+export {
   placementAnchorKeyV2,
   resolveTimedPlacementV2,
 } from "./authoring-v2-placement.js";
