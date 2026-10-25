@@ -41,6 +41,18 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _native_evidence(root: Path) -> bool:
+    return any(
+        any(root.glob(pattern))
+        for pattern in (
+            "started-*.json",
+            "result-*.json",
+            "hashes-*.json",
+            "bootstrap-*.json",
+        )
+    )
+
+
 def _request(path: Path, expected: str) -> dict[str, Any]:
     value = _read(path)
     if _digest(path) != expected:
@@ -65,12 +77,22 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            return status(request_path, expected)
+            if session.exists():
+                return status(request_path, expected)
+            return {
+                "state": "busy",
+                "verified": False,
+                "detail": "another parent is dispatching; retry start",
+            }
         active = root / "active.json"
         if active.exists():
             previous = _read(active)
+            if set(previous) != {"requestPath", "requestSha256"} or any(
+                not isinstance(value, str) or not value for value in previous.values()
+            ):
+                raise ValueError("invalid active parent identity")
             prior = status(Path(previous["requestPath"]), previous["requestSha256"])
-            if prior["state"] != "terminal":
+            if prior["state"] not in {"terminal", "not_started"}:
                 raise ValueError(
                     "prior Resolve delivery is live or unresolved; inspect it"
                 )
@@ -111,7 +133,11 @@ def _dispatch(
             return status(request_path, expected)
         if session.exists():
             return status(request_path, expected, locked=True)
-        if any(evidence.glob("started-*.json")) or any(evidence.glob("result-*.json")):
+        if (
+            _native_evidence(evidence)
+            or (evidence / "parent-exit.json").exists()
+            or (evidence / "parent-console.log").exists()
+        ):
             raise ValueError(
                 "prior operation evidence retained; inspect it, never replay"
             )
@@ -157,6 +183,8 @@ def _dispatch(
                     "returncode": 1,
                     "monotonicFinished": time.monotonic(),
                     "requestSha256": expected,
+                    "parentInvocationId": record["invocationId"],
+                    "launcherEntered": False,
                 },
             )
             raise
@@ -185,7 +213,7 @@ def status(
         if not locked:
             with (evidence / "parent.lock").open("r") as lock:
                 try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
                 except BlockingIOError:
                     return {
                         **response,
@@ -199,6 +227,13 @@ def status(
         if type(end) not in (int, float) or not math.isfinite(end) or end < begin:
             raise ValueError("invalid parent completion clock")
         response.update(state="failed", elapsedSeconds=end - begin)
+        if (
+            exit_record["returncode"] != 0
+            and exit_record.get("launcherEntered") is False
+            and exit_record.get("parentInvocationId") == session["invocationId"]
+            and not _native_evidence(evidence)
+        ):
+            return {**response, "state": "not_started"}
         report_path = evidence / f"result-{expected}.json"
         hashes = _read(evidence / f"hashes-{expected}.json")
         report = _read(report_path)
@@ -259,6 +294,7 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
     # File execution keeps the bootstrap's clean-runtime guard intact.
     record = _read(session_path)
     code = 1
+    launcher_entered = False
     try:
         import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
 
@@ -268,6 +304,7 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
         if _digest(Path(record["requestPath"])) != record["requestSha256"]:
             raise ValueError("request changed before worker launch")
         os.environ["VERA_DELIVERY_PARENT_ID"] = record["invocationId"]
+        launcher_entered = True
         runpy.run_path(
             str(launcher), run_name="__main__", init_globals={"resolve": resolve}
         )
@@ -278,6 +315,8 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
             {
                 "returncode": code,
                 "requestSha256": record["requestSha256"],
+                "parentInvocationId": record["invocationId"],
+                "launcherEntered": launcher_entered,
                 "monotonicFinished": time.monotonic(),
             },
         )
@@ -306,7 +345,7 @@ def main() -> int:
             report = wait(args.request, args.request_sha256, args.wait_seconds)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, KeyError, TypeError) as error:
         print(json.dumps({"state": "unknown", "verified": False, "detail": str(error)}))
         return 2
 

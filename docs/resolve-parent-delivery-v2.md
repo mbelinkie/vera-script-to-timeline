@@ -37,13 +37,16 @@ kills, retries or replaces it. Repeating `start` also inspects the original
 reservation; it does not create a second worker. The normal launcher reserves
 its request digest before calling Resolve, protecting direct request replays.
 The host's private active reservation also blocks a different request while
-the previous one is live or unresolved. A terminal result permits a fresh
-attested target; an unknown or infrastructure-failed outcome needs inspection.
+the previous one is live or unresolved. A terminal result or confirmed
+`not_started` outcome permits a fresh attested target; an unknown or
+infrastructure-failed outcome needs inspection.
 
 | State | Meaning |
 | --- | --- |
+| `busy` | Another dispatch holds the short host lock; this request has no reservation. Retry start. |
 | `live` | The worker still holds its inherited operation lock. |
 | `unknown` | Liveness or completion cannot be established. Inspect retained evidence; do not start another write. |
+| `not_started` | The child failed before entering the guarded script. This request stays consumed; a fresh request is allowed. |
 | `failed` | The worker exited but lacks valid final evidence, or failed itself. Resolve's partial outcome needs inspection; do not replay. |
 | `terminal` | The worker exited and the normal result, start and hash records match this request. Read the result's status: terminal can include a failed build. |
 

@@ -6,10 +6,11 @@ import fcntl
 import hashlib
 import json
 import os
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -397,7 +398,7 @@ def test_only_one_concurrent_start_reserves_dispatch(
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
             reports = list(pool.map(lambda _index: start_together(), range(2)))
-        assert all(report["state"] in {"live", "unknown"} for report in reports)
+        assert all(report["state"] in {"live", "unknown", "busy"} for report in reports)
         assert len(commands) == 1
     finally:
         _close_fds(held_fds)
@@ -483,18 +484,144 @@ def test_new_request_is_allowed_after_prior_valid_terminal_result(
         _close_fds(held_fds)
 
 
+def test_confirmed_prelaunch_failure_burns_request_and_releases_host_for_new_one(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first, second = _two_cases(tmp_path)
+    first_path, first_hash, first_manifest, first_evidence, _first_request = first
+    second_path, second_hash, second_manifest, _second_evidence, _second_request = (
+        second
+    )
+    _patch_release_checks_for(monkeypatch, first_manifest, second_manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    resolve_scripting = ModuleType("DaVinciResolveScript")
+    resolve_scripting.scriptapp = lambda _name: None  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "DaVinciResolveScript", resolve_scripting)
+    try:
+        workflow_v2_parent.start(first_path, first_hash, Path("ResolvePython"))
+        _close_fds(held_fds)
+        held_fds.clear()
+
+        with (first_evidence / "parent.lock").open("a+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            child_lock_fd = os.dup(lock.fileno())
+        with pytest.raises(RuntimeError, match="Resolve is not reachable"):
+            workflow_v2_parent._worker(
+                first_evidence / "parent.json", child_lock_fd, Path("unused-launcher")
+            )
+
+        failure = workflow_v2_parent._read(first_evidence / "parent-exit.json")
+        assert failure["returncode"] != 0
+        assert failure["launcherEntered"] is False
+        assert (
+            failure["parentInvocationId"]
+            == workflow_v2_parent._read(first_evidence / "parent.json")["invocationId"]
+        )
+        assert workflow_v2_parent.status(first_path, first_hash)["state"] == (
+            "not_started"
+        )
+
+        retry_same_request = workflow_v2_parent.start(
+            first_path, first_hash, Path("ResolvePython")
+        )
+        assert retry_same_request["state"] == "not_started"
+        assert len(commands) == 1
+
+        new_request = workflow_v2_parent.start(
+            second_path, second_hash, Path("ResolvePython")
+        )
+        assert new_request["state"] == "live"
+        assert len(commands) == 2
+    finally:
+        _close_fds(held_fds)
+
+
+@pytest.mark.parametrize(
+    "native_artifact",
+    [
+        "started-orphan.json",
+        "result-orphan.json",
+        "hashes-orphan.json",
+        "bootstrap-orphan.json",
+    ],
+)
+def test_prelaunch_failure_with_native_evidence_is_not_not_started(
+    tmp_path: Path,
+    native_artifact: str,
+) -> None:
+    request_path, expected, _manifest, evidence, _request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    session = workflow_v2_parent._read(evidence / "parent.json")
+    (evidence / native_artifact).write_text("{}")
+    workflow_v2_parent._write(
+        evidence / "parent-exit.json",
+        {
+            "returncode": 1,
+            "monotonicFinished": session["monotonicStarted"] + 1.0,
+            "requestSha256": expected,
+            "parentInvocationId": session["invocationId"],
+            "launcherEntered": False,
+        },
+    )
+
+    report = workflow_v2_parent.status(request_path, expected)
+
+    assert report["state"] == "failed"
+
+
+def test_orphan_hashes_before_first_start_refuse_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_path, expected, manifest, evidence, _request = _case(tmp_path)
+    evidence.mkdir()
+    (evidence / "hashes-orphan.json").write_text("{}")
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        with pytest.raises(ValueError, match="prior operation evidence"):
+            workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        assert commands == []
+        assert not (evidence / "parent.json").exists()
+    finally:
+        _close_fds(held_fds)
+
+
+@pytest.mark.parametrize(
+    "active_json",
+    ["{not-json", "{}", "null", '{"requestPath":null,"requestSha256":null}'],
+)
 def test_corrupt_active_host_pointer_fails_closed_before_dispatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    active_json: str,
 ) -> None:
     request_path, expected, _manifest, _evidence, _request_value = _case(tmp_path)
     state_root = workflow_v2_parent.PARENT_STATE_ROOT
     state_root.mkdir(parents=True)
-    (state_root / "active.json").write_text("{not-json")
+    (state_root / "active.json").write_text(active_json)
     commands, held_fds = _patch_popen(monkeypatch)
     try:
-        with pytest.raises(ValueError):
-            workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        monkeypatch.setattr(
+            workflow_v2_parent.sys,
+            "argv",
+            [
+                "workflow_v2_parent.py",
+                "start",
+                "--request",
+                str(request_path),
+                "--request-sha256",
+                expected,
+                "--python",
+                "ResolvePython",
+            ],
+        )
+        assert workflow_v2_parent.main() == 2
+        response = json.loads(capsys.readouterr().out)
+        assert response["state"] == "unknown"
+        assert response["detail"]
         assert commands == []
     finally:
         _close_fds(held_fds)
@@ -515,6 +642,9 @@ def test_status_distinguishes_live_unknown_and_terminal_results(
     success = workflow_v2_parent.status(request_path, expected)
     assert success["state"] == "terminal"
     assert success["verified"] is True
+    with (evidence / "parent.lock").open("r") as shared_lock:
+        fcntl.flock(shared_lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        assert workflow_v2_parent.status(request_path, expected)["state"] == "terminal"
 
 
 @pytest.mark.parametrize("status", ["mutation_failed", "verification_failed"])
