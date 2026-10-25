@@ -24,6 +24,8 @@ const ids = {
   session: "40000000-0000-4000-8000-000000000004",
   sourceA: "40000000-0000-4000-8000-000000000005",
   sourceB: "40000000-0000-4000-8000-000000000006",
+  sessionB: "40000000-0000-4000-8000-000000000008",
+  sourceC: "40000000-0000-4000-8000-000000000009",
 } as const;
 
 const documentRef = {
@@ -72,6 +74,17 @@ function project() {
   );
 }
 
+function addSecondSession(current: ReturnType<typeof project>) {
+  return addShootSession(current, {
+    id: ids.sessionB, name: "Closing shoot", processingProfileVersion: "shoot/v1",
+    frozenPrompter: {
+      sourceDocument: documentRef,
+      prompterExportSha256: `sha256:${"b".repeat(64)}`,
+      beatMapSha256: `sha256:${"c".repeat(64)}`,
+    },
+  });
+}
+
 describe("immutable shoot registration", () => {
   it("hashes and inspects a temporary synthetic camera master with ffprobe", async () => {
     const root = await temporaryRoot();
@@ -105,11 +118,16 @@ describe("immutable shoot registration", () => {
     const registered = await registerMaster(project(), ids.session, {
       id: ids.sourceA, path: first, library, probe: () => Promise.resolve(probe),
     });
+    const repeated = await registerMaster(registered.project, ids.session, {
+      id: ids.sourceA, path: first, library, probe: () => Promise.resolve(probe),
+    });
+    expect(repeated.duplicate).toBe(true);
+    expect(repeated.project).toEqual(registered.project);
     const multiFile = await registerMaster(registered.project, ids.session, {
       id: ids.sourceB, path: second, library, probe: () => Promise.resolve(probe),
     });
     const duplicate = await registerMaster(multiFile.project, ids.session, {
-      id: "40000000-0000-4000-8000-000000000008", path: first, library, probe: () => Promise.resolve(probe),
+      id: ids.sourceC, path: first, library, probe: () => Promise.resolve(probe),
     });
 
     expect(duplicate.duplicate).toBe(true);
@@ -117,6 +135,96 @@ describe("immutable shoot registration", () => {
     expect(duplicate.project.sessions[0]?.frozenPrompter.beatMapSha256).toBe(`sha256:${"c".repeat(64)}`);
     expect(JSON.stringify(duplicate.project)).not.toContain(root);
     expect(duplicate.source.locator).toEqual({ libraryId: ids.libraryA, relativePath: "A-cam.mov" });
+  });
+
+  it("refuses a different master reusing a source ID in another session without mutating the project", async () => {
+    const root = await temporaryRoot();
+    const first = join(root, "first.mov");
+    const second = join(root, "second.mov");
+    await writeFile(first, "authorized synthetic master one");
+    await writeFile(second, "authorized synthetic master two");
+    const library = { libraryId: ids.libraryA, rootPath: root };
+    const registered = await registerMaster(project(), ids.session, {
+      id: ids.sourceA, path: first, library, probe: () => Promise.resolve(probe),
+    });
+    const beforeSameSessionRetry = structuredClone(registered.project);
+    await expect(registerMaster(registered.project, ids.session, {
+      id: ids.sourceA, path: second, library, probe: () => Promise.resolve(probe),
+    })).rejects.toThrow("already registered for different media");
+    expect(registered.project).toEqual(beforeSameSessionRetry);
+
+    const withSecondSession = addSecondSession(registered.project);
+    const secondSource = await registerMaster(withSecondSession, ids.sessionB, {
+      id: ids.sourceB, path: second, library, probe: () => Promise.resolve(probe),
+    });
+    const beforeRefusedRegistration = structuredClone(secondSource.project);
+
+    await expect(registerMaster(secondSource.project, ids.sessionB, {
+      id: ids.sourceA, path: second, library, probe: () => Promise.resolve(probe),
+    })).rejects.toThrow("already registered in another shoot session");
+    expect(secondSource.project).toEqual(beforeRefusedRegistration);
+    expect(secondSource.project.sessions.map(({ sources }) => sources.length)).toEqual([1, 1]);
+
+    const ambiguous = structuredClone(secondSource.project);
+    ambiguous.sessions[1]!.sources[0]!.id = ids.sourceA;
+    await expect(resolveMasterForJob(ambiguous, {
+      projectId: ids.project, sourceId: ids.sourceA, purpose: "transcription",
+    }, [library])).rejects.toThrow("ambiguous source ID");
+
+    const rootB = await temporaryRoot();
+    await writeFile(join(rootB, "first-relocated.mov"), "authorized synthetic master one");
+    await writeFile(join(rootB, "second-relocated.mov"), "authorized synthetic master two");
+    const ambiguousForB = configureProjectLocalLibrary(ambiguous, ids.libraryB);
+    const beforeAmbiguousRelink = structuredClone(ambiguousForB);
+    await expect(relinkFromLibrary(ambiguousForB, {
+      libraryId: ids.libraryB, rootPath: rootB,
+    })).rejects.toThrow("ambiguous source IDs");
+    expect(ambiguousForB).toEqual(beforeAmbiguousRelink);
+  });
+
+  it("appends library-B relink evidence for identical masters registered in separate sessions", async () => {
+    const rootA = await temporaryRoot();
+    const first = join(rootA, "first.mov");
+    const second = join(rootA, "second.mov");
+    await writeFile(first, "authorized shared master");
+    await writeFile(second, "authorized shared master");
+    const libraryA = { libraryId: ids.libraryA, rootPath: rootA };
+    const firstRegistration = await registerMaster(project(), ids.session, {
+      id: ids.sourceA, path: first, library: libraryA, probe: () => Promise.resolve(probe),
+    });
+    const secondSession = addSecondSession(firstRegistration.project);
+    const secondRegistration = await registerMaster(secondSession, ids.sessionB, {
+      id: ids.sourceB, path: second, library: libraryA, probe: () => Promise.resolve(probe),
+    });
+    expect(secondRegistration.duplicate).toBe(false);
+
+    const rootB = await temporaryRoot();
+    const relinkedPath = join(rootB, "shared-relocated.mov");
+    await writeFile(relinkedPath, "authorized shared master");
+    const relinked = await relinkFromLibrary(
+      configureProjectLocalLibrary(secondRegistration.project, ids.libraryB),
+      { libraryId: ids.libraryB, rootPath: rootB },
+      "2026-09-13T00:00:00.000Z",
+    );
+
+    expect(relinked.relinked).toEqual([ids.sourceA, ids.sourceB]);
+    expect(relinked.project.sessions.map(({ id }) => id)).toEqual([ids.session, ids.sessionB]);
+    expect(relinked.project.sessions.flatMap(({ sources }) => sources.map(({ id }) => id))).toEqual([ids.sourceA, ids.sourceB]);
+    for (const source of relinked.project.sessions.flatMap(({ sources }) => sources)) {
+      expect(source.locator?.libraryId).toBe(ids.libraryA);
+      expect(source.relinkHistory).toEqual([expect.objectContaining({
+        locator: { libraryId: ids.libraryB, relativePath: "shared-relocated.mov" },
+        mediaHash: source.mediaHash,
+        observedAt: "2026-09-13T00:00:00.000Z",
+      })]);
+    }
+    const libraries = [{ libraryId: ids.libraryB, rootPath: rootB }];
+    await expect(resolveMasterForJob(relinked.project, {
+      projectId: ids.project, sourceId: ids.sourceA, purpose: "proxy",
+    }, libraries)).resolves.toMatchObject({ sourceId: ids.sourceA, path: relinkedPath });
+    await expect(resolveMasterForJob(relinked.project, {
+      projectId: ids.project, sourceId: ids.sourceB, purpose: "proxy",
+    }, libraries)).resolves.toMatchObject({ sourceId: ids.sourceB, path: relinkedPath });
   });
 
   it("does not publish a source when probing fails or lacks supported video", async () => {
