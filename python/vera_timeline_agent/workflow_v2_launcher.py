@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -111,7 +110,8 @@ def run_installed_request_v2(
     ):
         raise ValueError("evidence must be outside the package with no symbolic links")
     evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
-    run_id = uuid.uuid4().hex
+    # Reserve this exact request once, including when a caller loses its reply.
+    run_id = request_sha256
     context = {
         "requestSha256": request_sha256,
         "releaseSha256": request["releaseSha256"],
