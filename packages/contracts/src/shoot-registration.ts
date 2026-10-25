@@ -147,8 +147,11 @@ export async function relinkFromLibrary(
   if (project.mediaLibrary.kind !== "project_local" || project.mediaLibrary.libraryId !== library.libraryId) throw new Error("Relink requires the configured project-local library.");
   const next = structuredClone(project);
   const known = new Map<string, ShootSource[]>();
+  const sourceIds = new Set<string>();
   for (const session of next.sessions) {
     for (const source of session.sources) {
+      if (sourceIds.has(source.id)) throw new Error("Cannot relink a project with ambiguous source IDs.");
+      sourceIds.add(source.id);
       const matches = known.get(source.mediaHash) ?? [];
       matches.push(source);
       known.set(source.mediaHash, matches);

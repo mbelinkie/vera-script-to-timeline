@@ -170,6 +170,16 @@ describe("immutable shoot registration", () => {
     await expect(resolveMasterForJob(ambiguous, {
       projectId: ids.project, sourceId: ids.sourceA, purpose: "transcription",
     }, [library])).rejects.toThrow("ambiguous source ID");
+
+    const rootB = await temporaryRoot();
+    await writeFile(join(rootB, "first-relocated.mov"), "authorized synthetic master one");
+    await writeFile(join(rootB, "second-relocated.mov"), "authorized synthetic master two");
+    const ambiguousForB = configureProjectLocalLibrary(ambiguous, ids.libraryB);
+    const beforeAmbiguousRelink = structuredClone(ambiguousForB);
+    await expect(relinkFromLibrary(ambiguousForB, {
+      libraryId: ids.libraryB, rootPath: rootB,
+    })).rejects.toThrow("ambiguous source IDs");
+    expect(ambiguousForB).toEqual(beforeAmbiguousRelink);
   });
 
   it("appends library-B relink evidence for identical masters registered in separate sessions", async () => {
