@@ -59,6 +59,37 @@
     },
     "liveContentHash": {
       "$ref": "#/$defs/ContentHash"
+    },
+    "rowEditRevision": {
+      "$ref": "#/$defs/NonNegativeSafeInteger",
+      "description": "Local optimistic whole-row revision; absent means zero. Does not acknowledge or advance the collaborative live head."
+    },
+    "stash": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RowStashBundleV2"
+      },
+      "description": "Saved whole-row scratchpad, separate from Ideas/Extras and never build-eligible. Array and row order are authoritative."
+    },
+    "rowTransitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RowTransitionIntentV2"
+      },
+      "description": "Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery."
+    },
+    "rowAudioSpans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RowAudioSpanIntentV2"
+      },
+      "description": "Saved starting-row audio intent only. Runtime delivery is unavailable; never infer audible timing from row order."
+    },
+    "rowReferences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OpaqueRowReferenceV2"
+      }
     }
   },
   "$defs": {
@@ -2223,6 +2254,235 @@
         },
         "anchorVersion": {
           "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "StashedRowV2": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/NarrationBlockV2"
+        },
+        {
+          "$ref": "#/$defs/DirectionBlock"
+        },
+        {
+          "$ref": "#/$defs/VisualOnlyBlockV2"
+        },
+        {
+          "$ref": "#/$defs/NoteDraftBlock"
+        }
+      ]
+    },
+    "RowGapV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sectionId",
+        "afterRowId",
+        "beforeRowId"
+      ],
+      "properties": {
+        "sectionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "afterRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beforeRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RowStashBundleV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rows",
+        "supportingItems"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/StashedRowV2"
+          }
+        },
+        "supportingItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SupportingItemV2"
+          }
+        },
+        "originalGap": {
+          "$ref": "#/$defs/RowGapV2"
+        }
+      }
+    },
+    "RowTransitionIntentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fromRowId",
+        "toRowId",
+        "effect",
+        "settings",
+        "state"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "fromRowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "toRowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "effect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "state": {
+          "enum": [
+            "active",
+            "needs_review"
+          ]
+        }
+      }
+    },
+    "RowAudioSourceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mediaReferenceId",
+        "artifactId",
+        "artifactVersion",
+        "contentHash"
+      ],
+      "properties": {
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "artifactId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "artifactVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "contentHash": {
+          "$ref": "#/$defs/ContentHash"
+        }
+      }
+    },
+    "RowAudioReviewV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "previousEndRowId",
+        "previousSettings",
+        "alert"
+      ],
+      "properties": {
+        "previousEndRowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "previousSettings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "alert": {
+          "const": "Music now ends with this row. Review"
+        }
+      }
+    },
+    "RowAudioSpanIntentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "startRowId",
+        "endRowId",
+        "source",
+        "settings"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "startRowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "endRowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "source": {
+          "$ref": "#/$defs/RowAudioSourceV2"
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "review": {
+          "$ref": "#/$defs/RowAudioReviewV2"
+        }
+      }
+    },
+    "OpaqueRowReferenceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rowId",
+        "kind",
+        "anchor"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "rowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "enum": [
+            "comment",
+            "reference"
+          ]
+        },
+        "anchor": {
+          "type": "object",
+          "additionalProperties": true
         }
       }
     }

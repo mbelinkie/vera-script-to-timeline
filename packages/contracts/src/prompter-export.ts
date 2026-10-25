@@ -18,6 +18,8 @@ import type {
   ScriptDocumentV1,
   TextAnchorRange,
 } from "./generated/contracts.js";
+import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "./authoring-v2.js";
 import {
   type ValidationDiagnostic,
   validateScriptDocument,
@@ -49,11 +51,24 @@ interface ResolvedBeat extends ResolvedRange {
 }
 
 interface BlockPlan {
-  block: NarrationBlock;
+  block: PrompterNarration;
+  blockIndex: number;
   states: Array<HostVisibilitySpan["state"]>;
   annotations: ResolvedAnnotation[];
   beats: ResolvedBeat[];
   navigationCues: string[];
+}
+
+type PrompterNarration = Pick<
+  NarrationBlock,
+  "id" | "text" | "tokens" | "annotations" | "performanceBeats"
+>;
+
+interface SourceDocumentIdentity {
+  id: string;
+  projectId: string;
+  liveHeadSequence: number;
+  liveContentHash: string;
 }
 
 const DERIVED_BEAT_NAMESPACE = "a540f252-f01d-5f07-b6a4-88d6f8a02a58";
@@ -90,6 +105,19 @@ export function exportPrompter(
     };
   }
 
+  if (isV2Document(input)) {
+    const validation = validateScriptDocumentV2(input);
+    if (!validation.valid) {
+      return { ok: false, diagnostics: validation.diagnostics };
+    }
+    const document = input;
+    const planResult = planBlocksV2(document, settings);
+    if (planResult.diagnostics.length > 0) {
+      return { ok: false, diagnostics: planResult.diagnostics };
+    }
+    return createExport(document, planResult.plans, settings);
+  }
+
   const validation = validateScriptDocument(input);
   if (!validation.valid) {
     return { ok: false, diagnostics: validation.diagnostics };
@@ -103,6 +131,14 @@ export function exportPrompter(
     }] };
   }
   const plans = planBlocks(document, settings);
+  return createExport(document, plans, settings);
+}
+
+function createExport(
+  document: SourceDocumentIdentity,
+  plans: BlockPlan[],
+  settings: PrompterExportSettings,
+): PrompterExportResult {
   const identityDiagnostics: ValidationDiagnostic[] = [];
   const seenIds = new Set<string>();
   for (const plan of plans) {
@@ -111,7 +147,7 @@ export function exportPrompter(
       if (seenIds.has(id)) identityDiagnostics.push({
         code: "PERFORMANCE_BEAT_ID_DUPLICATE",
         message: "Explicit and derived performance beats must have distinct UUID identities.",
-        jsonPath: `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(plan.block)}/performanceBeats/${index}`,
+        jsonPath: `/activeDraft/blocks/${plan.blockIndex}/performanceBeats/${index}`,
         blockId: plan.block.id, entityId: beat.id, entityKind: "performance_beat",
       });
       seenIds.add(id);
@@ -152,19 +188,17 @@ function planBlocks(
 ): BlockPlan[] {
   const plans: BlockPlan[] = [];
   let pendingSections: string[] = [];
-  for (const block of document.activeDraft.blocks) {
+  for (const [blockIndex, block] of document.activeDraft.blocks.entries()) {
     if (block.type === "section") {
       pendingSections.push(block.title);
       continue;
     }
     if (block.type !== "narration" || block.state !== "active") continue;
 
-    const beats =
-      (block.performanceBeats?.length ?? 0) > 0
-        ? resolveExplicitBeats(block, block.performanceBeats!)
-        : deriveSentenceBeats(document, block);
+    const beats = planBeats(document, block);
     plans.push({
       block,
+      blockIndex,
       states: resolveVisibility(block),
       annotations: (block.annotations ?? []).map((annotation) => ({
         annotation,
@@ -180,16 +214,84 @@ function planBlocks(
   return plans;
 }
 
+function planBlocksV2(
+  document: ScriptDocumentV2,
+  settings: PrompterExportSettings,
+): { plans: BlockPlan[]; diagnostics: ValidationDiagnostic[] } {
+  const projection = projectPrimarySequenceV2(document);
+  const projectedRows = new Map(projection.rows.map((row) => [row.blockId, row]));
+  const plans: BlockPlan[] = [];
+  const diagnostics: ValidationDiagnostic[] = [];
+  let pendingSections: string[] = [];
+
+  for (const [blockIndex, block] of document.activeDraft.blocks.entries()) {
+    if (block.type === "section") {
+      pendingSections.push(block.title);
+      continue;
+    }
+    if (block.type !== "narration" || block.state !== "active") continue;
+
+    const row = projectedRows.get(block.id);
+    if (row === undefined || row.tokens.length !== block.tokens.length) {
+      diagnostics.push({
+        code: "PROMPTER_HOST_PROJECTION_INVALID",
+        message: "The active narration row could not be projected to host visibility.",
+        jsonPath: `/activeDraft/blocks/${blockIndex}/primaryVisualSequence`,
+        blockId: block.id,
+      });
+      continue;
+    }
+    const unsupportedToken = row.tokens.find(
+      (token) => token.hostState !== "on_camera" && token.hostState !== "voiceover",
+    );
+    if (unsupportedToken !== undefined) {
+      diagnostics.push({
+        code: "PROMPTER_HOST_VISIBILITY_UNRESOLVED",
+        message: "Prompter export requires every active narration token to resolve to on-camera or voiceover.",
+        jsonPath: `/activeDraft/blocks/${blockIndex}/primaryVisualSequence`,
+        blockId: block.id,
+        entityId: unsupportedToken.tokenId,
+      });
+      continue;
+    }
+
+    const projectedBlock: PrompterNarration = block;
+    plans.push({
+      block: projectedBlock,
+      blockIndex,
+      states: row.tokens.map((token) => token.hostState as HostVisibilitySpan["state"]),
+      annotations: (block.annotations ?? []).map((annotation) => ({
+        annotation,
+        ...resolveRange(projectedBlock, annotation.range),
+      })),
+      beats: planBeats(document, projectedBlock),
+      navigationCues: settings.includeSectionNavigation ? pendingSections : [],
+    });
+    pendingSections = [];
+  }
+
+  return { plans, diagnostics };
+}
+
+function planBeats(
+  document: Pick<SourceDocumentIdentity, "id" | "liveHeadSequence">,
+  block: PrompterNarration,
+): ResolvedBeat[] {
+  return (block.performanceBeats?.length ?? 0) > 0
+    ? resolveExplicitBeats(block, block.performanceBeats!)
+    : deriveSentenceBeats(document, block);
+}
+
 function resolveExplicitBeats(
-  block: NarrationBlock,
+  block: PrompterNarration,
   beats: PerformanceBeat[],
 ): ResolvedBeat[] {
   return beats.map((beat) => ({ id: beat.id, ...resolveRange(block, beat.range) }));
 }
 
 function deriveSentenceBeats(
-  document: ScriptDocumentV1,
-  block: NarrationBlock,
+  document: Pick<SourceDocumentIdentity, "id" | "liveHeadSequence">,
+  block: PrompterNarration,
 ): ResolvedBeat[] {
   const beats: ResolvedBeat[] = [];
   let start = 0;
@@ -217,10 +319,15 @@ function deriveSentenceBeats(
   return beats;
 }
 
+function isV2Document(input: unknown): input is ScriptDocumentV2 {
+  return typeof input === "object" && input !== null &&
+    "schemaVersion" in input && input.schemaVersion === "script-document/v2";
+}
+
 // Frozen, token-aligned sentence rule: no locale/ICU/provider dependency.
 // Punctuation may be inside or outside the spoken token. Tokens are atomic;
 // explicit authored beats override this default segmentation.
-function isSentenceEnd(block: NarrationBlock, index: number): boolean {
+function isSentenceEnd(block: PrompterNarration, index: number): boolean {
   const next = block.tokens[index + 1]!;
   const end = textStart(block, index + 1);
   const prefix = block.text.slice(0, end).trimEnd();
@@ -232,7 +339,7 @@ function isSentenceEnd(block: NarrationBlock, index: number): boolean {
   return true;
 }
 
-function textStart(block: NarrationBlock, tokenIndex: number): number {
+function textStart(block: PrompterNarration, tokenIndex: number): number {
   if (tokenIndex === 0) return 0;
   const offset = block.tokens[tokenIndex]!.startOffset;
   const gap = block.text.slice(block.tokens[tokenIndex - 1]!.endOffset, offset);
@@ -241,7 +348,7 @@ function textStart(block: NarrationBlock, tokenIndex: number): number {
 }
 
 function resolveRange(
-  block: NarrationBlock,
+  block: PrompterNarration,
   range: TextAnchorRange,
 ): ResolvedRange {
   const tokenIndex = new Map(
