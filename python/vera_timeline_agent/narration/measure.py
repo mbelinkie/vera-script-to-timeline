@@ -26,7 +26,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import accumulate
-from typing import Any, cast
+from typing import Any, Never, cast
 
 from vera_timeline_agent.narration.cache import CacheError, NarrationCache
 from vera_timeline_agent.narration.models import (
@@ -260,7 +260,7 @@ def _sample_lag(
     Only positive gain/compression and silent padding are qualified here.
     """
 
-    def refuse(reason: str) -> None:
+    def refuse(reason: str) -> Never:
         raise MeasurementError([f"normalization timing not verified: {reason}"])
 
     search = int(parameters["lagSearchMs"]) * SAMPLE_RATE // 1000
@@ -278,10 +278,12 @@ def _sample_lag(
     lags: list[int] = []
     correlations: list[float] = []
     for region in range(3):
-        starts = range(
+        anchor_starts = range(
             region * third + search, (region + 1) * third - search - anchor + 1, anchor
         )
-        start = max(starts, key=lambda pos: sum(x * x for x in raw[pos : pos + anchor]))
+        start = max(
+            anchor_starts, key=lambda pos: sum(x * x for x in raw[pos : pos + anchor])
+        )
         probe = raw[start : start + anchor : stride]
         scores: dict[int, float] = {}
         for candidate in range(-search, search + 1):
@@ -319,27 +321,35 @@ def _sample_lag(
     ):
         refuse("unmatched non-silent samples outside the verified overlap")
     windows = 0
-    for start in range(lo, hi, check):
-        stop = min(start + check, hi)
-        source = raw[start:stop]
-        target = normalized[start + lag : stop + lag]
-        if not any(source) and not any(target):
-            continue
-        score = _pearson(source, target)
-        if score is None or score < minimum:
-            refuse(
-                "local sample correlation failed "
-                "(silence, mismatch or unsupported transform)"
-            )
-        # One changed sample of clock must not hide inside a broad global peak.
-        for neighbour in (lag - 1, lag + 1):
-            if start + neighbour < 0 or stop + neighbour > len(normalized):
+    # Half-overlapping windows also straddle the original grid's boundaries.
+    # Sub-millisecond detail catches brief edits diluted by a 5 ms window.
+    for width in (check, max(3, check // 6)):
+        starts = sorted(
+            set(range(lo, hi - width + 1, max(1, width // 2))) | {max(lo, hi - width)}
+        )
+        for start in starts:
+            stop = min(start + width, hi)
+            source = raw[start:stop]
+            target = normalized[start + lag : stop + lag]
+            if not any(source) and not any(target):
                 continue
-            other = _pearson(source, normalized[start + neighbour : stop + neighbour])
-            if other is not None and score - other <= 0.000001:
-                refuse("local sample lag is ambiguous or differs from global lag")
-        correlations.append(score)
-        windows += 1
+            score = _pearson(source, target)
+            if score is None or score < minimum:
+                refuse(
+                    "local sample correlation failed "
+                    "(silence, mismatch or unsupported transform)"
+                )
+            # One changed sample of clock must not hide inside a broad peak.
+            for neighbour in (lag - 1, lag + 1):
+                if start + neighbour < 0 or stop + neighbour > len(normalized):
+                    continue
+                other = _pearson(
+                    source, normalized[start + neighbour : stop + neighbour]
+                )
+                if other is not None and score - other <= 0.000001:
+                    refuse("local sample lag is ambiguous or differs from global lag")
+            correlations.append(score)
+            windows += 1
     if windows < 3:
         refuse("insufficient independent audible sample windows")
     return Lag(

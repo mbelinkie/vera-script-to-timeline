@@ -26,6 +26,7 @@ def _speech_like(
     sample_count: int = SAMPLE_COUNT,
     *,
     pad_silence: bool = True,
+    fade_edges: bool = True,
 ) -> list[int]:
     """Return deterministic, band-limited noise with a varying speech-like gain."""
     rng = random.Random(seed)
@@ -60,6 +61,8 @@ def _speech_like(
         output.append(round(sample * gain * 54_000))
     if pad_silence:
         return [0] * padding + output + [0] * padding
+    if not fade_edges:
+        return output
     fade_samples = RATE // 100
     for i in range(fade_samples):
         fade = 0.5 - 0.5 * math.cos(math.pi * i / fade_samples)
@@ -160,6 +163,42 @@ def test_local_insert_then_delete_inside_one_check_window_is_refused() -> None:
     assert normalized[delete_at:] == raw[delete_at:]
     with pytest.raises(MeasurementError):
         _estimate(raw, normalized)
+
+
+def test_local_insert_then_delete_across_check_boundary_is_refused() -> None:
+    raw = _speech_like()
+    check_samples = RATE * 5 // 1000
+    boundary = (SAMPLE_COUNT // 2 // check_samples) * check_samples
+    insert_at = boundary - 20
+    delete_at = boundary + 20
+    normalized = raw.copy()
+    normalized.insert(insert_at, normalized[insert_at])
+    del normalized[delete_at]
+
+    assert len(normalized) == len(raw)
+    assert insert_at // check_samples == boundary // check_samples - 1
+    assert delete_at // check_samples == boundary // check_samples
+    assert normalized[:insert_at] == raw[:insert_at]
+    assert normalized[delete_at:] == raw[delete_at:]
+    with pytest.raises(MeasurementError):
+        _estimate(raw, normalized)
+
+
+@pytest.mark.parametrize("sample_count", [RATE * 9 // 10 + 1, RATE * 9 // 10 + 2])
+def test_nonzero_final_sample_and_odd_length_preserve_true_zero_lag(
+    sample_count: int,
+) -> None:
+    raw = _speech_like(sample_count=sample_count, pad_silence=False, fade_edges=False)
+    normalized = [round(sample * 0.63) for sample in raw]
+
+    assert len(raw) == sample_count
+    assert all(raw[-5:])
+    lag = _estimate(raw, normalized)
+
+    assert lag.samples == 0
+    assert lag.method == "sample_correlation"
+    assert lag.uncertainty_samples == 0
+    assert lag.windows_verified >= 3
 
 
 @pytest.mark.parametrize("edit", ["insertion", "deletion"])
