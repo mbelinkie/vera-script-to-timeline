@@ -1,6 +1,6 @@
 # Sorting A — focused revision after r12
 
-Prepared revision brief, consulted through the Claude CLI. Do not submit it to the design app yet. The whole revision remains held while #337 and #326 lack their required proof, unless Matthew explicitly defers the affected scope. Presentation corrections below do not lift that gate.
+Prepared revision brief, consulted through the Claude CLI and submitted to Claude Design on Matthew's explicit instruction on 2026-10-26. Receipt was verified: Claude read the complete attachment and began listing project files. The whole design revision remains held while #337 and #326 lack their required proof, unless Matthew explicitly defers the affected scope. Submission and presentation corrections do not lift that gate.
 
 ## Decision and scope
 

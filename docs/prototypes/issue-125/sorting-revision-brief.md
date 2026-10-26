@@ -19,8 +19,11 @@ It supersedes the earlier comparison notes below where they differ:
 
 One tools-disabled Opus/high CLI product consultation on the full r13 draft
 completed on 2026-10-26. The prepared prompt incorporates the resulting
-clarifications. No r13 request has been sent to Claude Design and no export,
-timer or automatic submission is authorized by this brief.
+clarifications. On Matthew's subsequent explicit “Send it” instruction, the
+complete r13 prompt was attached and sent in a fresh Claude Design chat in the
+existing project. Receipt was verified through Claude's reading activity.
+The cover message retained the proof limits and requested no export. Submission
+did not lift the design hold; no timer or automatic submission was created.
 
 The design revision remains held on the required #337 Stash and #326 music
 proofs, unless Matthew explicitly defers the affected scope. New clip rows are
