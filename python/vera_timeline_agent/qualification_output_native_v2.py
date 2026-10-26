@@ -5013,9 +5013,17 @@ def _construct(
     av_link_pairs = _constructor_av_link_pairs(view, request.get("profile", ""))
     required_track_counts = _required_track_counts(view)
     start_frame = _check_empty_target(project, timeline, required_track_counts)
+    settings = _project_settings(manifest)
+    expected_rate = settings.pop("timelineFrameRate")
+    _require(
+        _setting_matches(
+            "timelineFrameRate", expected_rate, project.GetSetting("timelineFrameRate")
+        ),
+        "target project timeline frame rate differs; configure it before "
+        "creating the timeline",
+    )
     _normalize_target_start_timecode(timeline, start_frame, state)
     pool = project.GetMediaPool()
-    settings = _project_settings(manifest)
     _set_project_settings(project, settings, state)
     sources = view["sources"]
     source_paths = [str(_admitted_media_path(admitted, source)) for source in sources]
