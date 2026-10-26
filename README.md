@@ -69,11 +69,15 @@ During development, run:
 npm run validate:fast
 ```
 
-This keeps generated-currentness, all lint and type checks, all TypeScript
-tests, and non-slow Python tests on two workers. `slow` marks real media
-rendering/probing and repeated external-process integration. Run the affected
-slow test files directly when you change those integrations. Classification
-and timing evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
+This keeps generated-currentness, all lint and type checks, fast TypeScript
+unit coverage, and Python tests that are non-slow or explicitly marked as fast
+unit coverage inside a slow module, on two workers. Long compiler CLI,
+media-probing, browser, and embedded-database integration coverage stays in
+the complete GitHub Actions gate; run an affected integration file directly
+while working. `slow` marks real or synthetic media analysis, repeated
+external-process integration, and other tests taking more than about five
+seconds.
+Classification and timing evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
 
 The full gate is:
 

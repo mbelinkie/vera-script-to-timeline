@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import io
 import math
+import shutil
 import wave
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,8 @@ from vera_timeline_agent.roundtrip_build import (
     _receipt_bytes,
     load_operator_json,
 )
+
+pytestmark = pytest.mark.slow
 
 N = 80
 FRAME = 1920
@@ -113,8 +116,7 @@ def _receipt(root: Path, name: str, observation: str, output: str) -> None:
     )
 
 
-@pytest.fixture
-def case(tmp_path: Path) -> tuple[Path, str, list[list[float]]]:
+def _build_case(tmp_path: Path) -> tuple[Path, str, list[list[float]]]:
     samples = [
         [
             round(4000 * math.sin(2 * math.pi * frequency * i / 48000)) / 32768
@@ -189,6 +191,23 @@ def case(tmp_path: Path) -> tuple[Path, str, list[list[float]]]:
     (tmp_path / "edited.wav").write_bytes(_wav(_program(samples, edited["routes"])))
     _receipt(tmp_path, "calibration.json", "baseline.json", "reference.wav")
     _receipt(tmp_path, "render.json", "observation-a.json", "edited.wav")
+    return tmp_path, baseline_hash, samples
+
+
+@pytest.fixture(scope="session")
+def case_template(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[Path, str, list[list[float]]]:
+    return _build_case(tmp_path_factory.mktemp("issue-144-audio-template"))
+
+
+@pytest.fixture
+def case(
+    tmp_path: Path,
+    case_template: tuple[Path, str, list[list[float]]],
+) -> tuple[Path, str, list[list[float]]]:
+    template, baseline_hash, samples = case_template
+    shutil.copytree(template, tmp_path, dirs_exist_ok=True)
     return tmp_path, baseline_hash, samples
 
 

@@ -1,0 +1,898 @@
+{
+  "runtime": {
+    "product": "DaVinci Resolve Studio",
+    "version": "21.1.1.10",
+    "route": "external scripting + native Resolve_OTIO metadata import",
+    "resolution": [
+      1280,
+      720
+    ],
+    "fps": 24,
+    "project": "VERA325 Native Zoom 20261025 A"
+  },
+  "B": [
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 96.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": false,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "dynamicZoomEase",
+              "Parameter Value": 1,
+              "Variant Type": "UInt"
+            },
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "dynamicZoomEase",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            },
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "dynamicZoomEase",
+              "Parameter Value": 3,
+              "Variant Type": "UInt"
+            },
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 3,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": false,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 3,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    }
+  ],
+  "E_reopened": [
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    -0.25,
+                    0.2
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.25,
+                    -0.2
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.1,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 96.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": true,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    -0.25,
+                    0.2
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.25,
+                    -0.2
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.1,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [
+            {
+              "Default Parameter Value": 0,
+              "Parameter ID": "scale",
+              "Parameter Value": 2,
+              "Variant Type": "UInt"
+            }
+          ],
+          "Type": 22
+        }
+      ]
+    },
+    {
+      "durationFrames": 48.0,
+      "effects": [
+        {
+          "Display Type": 1,
+          "Effect Name": "Dynamic Zoom",
+          "Enabled": false,
+          "Name": "Dynamic Zoom",
+          "Parameters": [
+            {
+              "Default Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Key Frames": {
+                "-85400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                },
+                "-86400": {
+                  "Value": [
+                    0.0,
+                    0.0
+                  ],
+                  "Variant Type": "POINTF"
+                }
+              },
+              "Parameter ID": "dynamicZoomCenter",
+              "Parameter Value": [
+                0.0,
+                0.0
+              ],
+              "Variant Type": "POINTF"
+            },
+            {
+              "Default Parameter Value": 1.0,
+              "Key Frames": {
+                "-85400": {
+                  "Value": 1.0,
+                  "Variant Type": "Double"
+                },
+                "-86400": {
+                  "Value": 0.8,
+                  "Variant Type": "Double"
+                }
+              },
+              "Parameter ID": "dynamicZoomScale",
+              "Parameter Value": 1.0,
+              "Variant Type": "Double",
+              "maxValue": 100.0,
+              "minValue": 0.01
+            }
+          ],
+          "Type": 59
+        },
+        {
+          "Display Type": 1,
+          "Effect Name": "Retime and Scaling",
+          "Enabled": true,
+          "Name": "Retime and Scaling",
+          "Parameters": [],
+          "Type": 22
+        }
+      ]
+    }
+  ],
+  "appendRequestedFrames": [
+    48,
+    96,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48
+  ],
+  "appendActualFrames": [
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120
+  ],
+  "backgroundRequest": {
+    "BackgroundColor": "#204080",
+    "returned": false,
+    "propertiesUnchanged": true
+  },
+  "extremeCenters": {
+    "start": [
+      -180,
+      144
+    ],
+    "end": [
+      180,
+      -144
+    ],
+    "result": "retained by readback; endpoints and quarter frames black; midpoint visible"
+  },
+  "defaults": {
+    "invalidValue": "scaleToFill",
+    "invalidReturned": false,
+    "validValue": "scaleToCrop",
+    "earlierUseProjectChanged": true,
+    "frozenBAllFramesUnchanged": true
+  },
+  "renderJobStatusNotSufficient": "first job Complete but zero frames/no output after switching timeline immediately; rerender on fixed timeline produced432 frames",
+  "reopen": "SaveProject, CloseProject, LoadProject (not process restart)"
+}

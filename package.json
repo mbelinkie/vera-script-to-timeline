@@ -23,6 +23,7 @@
     "lint:typescript": "eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present",
     "typecheck:typescript": "npm run typecheck --workspaces --if-present",
     "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence && npm run test:agent-safety",
+    "test:typescript:fast": "node scripts/verify-fast-workspaces.mjs && npm run test:fast --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence && npm run test:agent-safety",
     "check:typescript": "npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript",
     "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
     "typecheck:python": "uv run --frozen mypy python tests",
@@ -33,8 +34,8 @@
     "export:prompter": "node packages/contracts/src/prompter-export-cli.ts",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
-    "test:python:fast": "uv run --frozen pytest -m \"not slow\" -n 2",
-    "validate:fast": "npm run check:contracts-generated && npm run check:typescript && npm run lint:python && npm run typecheck:python && npm run test:python:fast"
+    "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 2",
+    "validate:fast": "npm run check:contracts-generated && npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript:fast && npm run lint:python && npm run typecheck:python && npm run test:python:fast"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

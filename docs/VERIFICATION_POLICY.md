@@ -14,9 +14,12 @@ find problems, not to produce paperwork.
 
 1. **While working.** Run focused tests for what you changed, then
    `npm run validate:fast`. That runs generated-contract currentness, all lint
-   and type checks, all TypeScript tests and the non-`slow` Python tests on two
-   workers, in a few minutes. If you changed code that `slow` tests cover, run
-   only those test files, for example
+   and type checks, fast TypeScript unit tests and the Python tests that are
+   non-`slow` or explicitly `fast` inside a slow module on two workers, in a
+   few minutes. Long compiler CLI, media-probing, browser
+   and embedded-database integration tests remain in the full cloud gate; run
+   an affected integration file locally. If you changed code that `slow` tests
+   cover, run only those test files, for example
    `uv run --frozen pytest tests/test_issue174_real_media.py`. When a change
    crosses the TypeScript/Python boundary or touches a shared helper, run the
    tests on both sides of that boundary early; that is where late failures
