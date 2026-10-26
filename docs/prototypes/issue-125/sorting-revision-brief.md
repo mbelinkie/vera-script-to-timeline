@@ -1,9 +1,10 @@
 # Sorting revisions after r10
 
-Status: preparation only, 2026-10-25. Neither A nor B has been selected.
-No request for this batch has been sent to Claude Design. Matthew directed
-that consultation use Opus through the CLI until tomorrow; no export is
-required. No timer or automatic submission is authorized by this document.
+Status: preparation only; updated 2026-10-26 with the music-bed example.
+Neither A nor B has been selected. No request for this batch has been sent to
+Claude Design. Matthew separately authorized one Opus CLI consultation on the
+full prompt on 2026-10-26; refinements are incorporated. No design submission,
+export, timer or automatic submission is authorized by this document.
 The unsent request is [prepared separately](claude-sorting-revision-prompt.md).
 
 Continue the actual [r10 shared artifact](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=Shared+S03+Review+Foundation+-+issue+137+r10.dc.html)
@@ -60,6 +61,23 @@ earlier sources. This brief supersedes their sorting behavior only where stated.
    closing it restores the outline/sidebar positions. This preview choice was
    explicitly selected by Matthew. Normal authoring must also access Stash
    and permit editing its full content. Stash remains distinct from Ideas/Extras.
+10. Show music beds connecting rows with a thin line in a dedicated RIGHT
+    gutter outside ending thumbnails, with clear start/end marks. The fixture
+    supplies Quiet piano across the amber-lantern, chalk-crescent and paper-
+    signal-frame rows. Moving that complete group intact preserves the bed.
+    Moving only the ending row elsewhere in the same section shortens it to
+    the end of its starting row; the unchanged middle row loses coverage too.
+    Put a warning icon at that new endpoint:
+    **Music shortened by this move**, with its previous ending identified by
+    row content and retained settings. Preview while dragging; cancellation
+    removes the preview; Undo restores the original span and clears the warning.
+    Distinguish music, omission, moved marks and insertion cues without relying
+    on color. Matthew adopted this addition on 2026-10-26.
+    Continue the line through an expanded row's height in Sorting, including
+    when Stash folds away. Do not add it to the reused normal-script/Stash
+    preview renderer unless already supported there. Ten readable collapsed
+    rows remains the target; report an unmet target without shrinking text or
+    removing thumbnails/excerpts.
 
 ## Implementation recommendations
 
@@ -84,7 +102,7 @@ earlier sources. This brief supersedes their sorting behavior only where stated.
   Leaving/reopening should preserve a recoverable trial, never silently accept
   or discard it. If the canonical document changes, refuse stale acceptance,
   retain the trial, and offer review/discard; no automatic merge or overwrite.
-  These storage/recovery details require the focused proof below.
+  Use the bounded #310 storage/recovery handoff below.
 
 ## Opus CLI consultation
 
@@ -112,15 +130,16 @@ product critique, not a code review or a Claude Design request. Main disposition
 | Row/group/section move, saved ordered Stash/restore, local Undo | #307 / merged PR #308; real row-edit and consumer tests | Reuse; no new proof campaign for already tested behavior. |
 | Long-copy excerpts, OC styling, endpoint thumbnails, omission marker, left handle | Existing typed content and ordinary presentation changes | Check fixtures and rendered pointer/keyboard behavior; no provider or Resolve work. |
 | Exact expanded/previewed S03 row | Accepted S03 renderer is source authority | Reuse it in read-only mode; compare actual structure/rendering. The r10 navigation stand-in is insufficient. |
-| Trial Accept/Discard, stale accept, recovery | #307 provides isolated cloned state and local history | [#310](https://github.com/mbelinkie/vera-script-to-timeline/issues/310): focused tests for canonical acceptance and recoverable pending trials; these are not delivered by #307. |
-| Edit saved Stash content | #307 proves saved bundles and restore, not this editing flow | [#310](https://github.com/mbelinkie/vera-script-to-timeline/issues/310): edits to full saved content and restoration/build exclusion without losing identities. |
+| Trial Accept/Discard, stale accept, recovery | #310 / merged PR #315; focused trial and consumer tests | Reuse the [bounded handoff](../../plans/issue-310-sorting-stash.md); canonical installation is one caller transaction, local serialization has explicit limits, and no storage service/collaboration merge is delivered. |
+| Edit saved Stash content | #310 / merged PR #315; saved-content editing, restore and real consumer tests | Reuse the handoff's identity/attachment and exclusion limits; this is not automatic text tokenization or anchor repair. |
+| Music-bed line, intact group, same-section ending-row move, cancellation and Undo | #307/#310 audio-intent operations and row-edit tests; fixture specifies the exact cases | Show existing span/review metadata and preview without mutation. Other unsupported span edits retain explicit review/refusal. Rendered layout/accessibility/density checks remain for the future design pass. |
 | Audio/transition intent and runtime delivery | Exact #307 handoff and #292 limits | Keep supported intent/refusal states. No new audible trim, fade, mix, delivery, or implicit Resolve update. |
 
-The new bounded proof owner is #310, recorded as a canonical dependency of
-#125. It remains Inbox; no implementation was dispatched by this preparation.
-It depends on delivered #307, not on the design it informs or its downstream
-implementation. Consultation and prompt preparation can continue while the
-new functional design request waits for the proof.
+The bounded #310 proof is now Closed, delivered through merged PR #315 with
+successful Validate. Its handoff supplements #307; it does not authorize a
+design restart or lift unrelated capability/Producer holds. This preparation
+dispatches no implementation or design request. The separately authorized
+CLI-only prompt consultation does not lift any design hold.
 
 Acceptance checks for the eventual revision:
 
@@ -135,6 +154,12 @@ Acceptance checks for the eventual revision:
   selection remains usable, the next expansion preserves position, and the
   narrow viewport/sidebar conflict is resolved explicitly.
 - The left range handle, keyboard alternative, session marks and Undo agree.
+- With Quiet piano present, both layouts still target ten fully visible
+  collapsed rows at both viewports. Verify the right gutter outside thumbnails,
+  start/end marks, intact group move without warning, supported ending-row
+  move with warning at the starting row's new music endpoint, keyboard/click
+  explanation, drag cancellation and Undo. These rendered checks are pending
+  the future authorized design pass; no audio playback is claimed.
 - Trial move/Stash/restore → read-only script preview → Return retains trial;
   Accept applies it once; Discard leaves the starting script/Stash intact.
   No-change, interrupted session and stale acceptance have honest outcomes.

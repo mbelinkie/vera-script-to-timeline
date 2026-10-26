@@ -1,11 +1,16 @@
 # Prepared Sorting revision prompt — NOT SENT
 
-Prepared 2026-10-25. Matthew directed CLI-only Opus consultation until tomorrow.
-Do not submit automatically. Before sending, recheck the capability matrix in
+Prepared 2026-10-25; music-bed instructions added 2026-10-26. This update
+does not authorize design submission. Matthew separately authorized one Opus
+CLI consultation on the full prompt on 2026-10-26; refinements are included.
+Do not submit automatically.
+Before sending, recheck the capability matrix in
 [the revision brief](sorting-revision-brief.md), resolve its missing proofs,
 and attach that brief plus [the fixed long-row copy](sorting-long-rows.md).
 Do not assume Claude Design can read local repository paths. Supply both files
 with the eventual request. No export is requested.
+Sender note: this header is internal handoff context, not part of the design
+message. Send only the prompt below, with the two referenced attachments.
 
 ## Prompt for the next focused comparison
 
@@ -51,6 +56,14 @@ Apply these corrections to the comparison:
    clear it when returned to their original place, including through Undo.
    Do not mark every displaced neighbor. A section move marks the section.
    Keep moved/restored status distinct from omission and selection.
+7. Show the attached **Quiet piano** music bed as a thin continuous line in a
+   dedicated RIGHT gutter, outside ending thumbnails, with clear start/end
+   marks. It spans the amber-lantern, chalk-crescent and paper-signal-frame
+   rows. Preserve it in both layouts without reducing the ten-row target.
+   When a covered row expands, the line continues through its expanded height
+   in the same right gutter, including when Stash folds away. This line belongs
+   to Sorting; do not add it to Back to script or the Stash preview unless the
+   actual reused S03 renderer already provides it.
 
 Keep the first comparison focused on context and density. Also retain three
 small no-omission/overlay controls outside the 20 long rows: one short On Camera
@@ -81,6 +94,22 @@ components. Do not create a separate approximation of S03:
 - In normal authoring, Show Stash must also lead to full-width editing of saved
   rows. Clearly retain exclusion from the active script/build. During a trial,
   explain that content editing resumes after accepting or discarding sorting.
+- Demonstrate the music-bed cases specified in the fixture, resetting between
+  cases. Moving all three covered rows together preserves the bed without a
+  warning. Moving only its ending row after the paper-lanterns row, within
+  the same section, shortens the bed to the end of its starting amber-lantern
+  row. The bed now covers ONLY amber-lantern; chalk-crescent is no longer
+  covered even though it did not move, per the proved starting-row rule.
+  Put a warning icon at THAT new endpoint, even though the starting row
+  did not move. Clicking or keyboard-activating it says **Music shortened by
+  this move** and identifies the previous ending by the row's content.
+  Retain the original endpoint/settings for review. Preview the interruption
+  while dragging without committing it; cancellation clears that preview.
+  After dropping, Undo restores the bed, row order and warning-free line.
+  Keep music warnings distinct from the orange omission marker, selection,
+  moved marks and drop line using shape/labels as well as color. Use rows
+  outside the bed for Stash tests; retain explicit review/refusal for other
+  unsupported audio-span edits, rather than simulating their success.
 - Preserve the existing attachment, transition-review and audio intent limits
   in the attached brief. New joins are cuts; separated original transition
   pairs need explicit review/reapplication. No implicit Resolve update and no
@@ -88,11 +117,18 @@ components. Do not create a separate approximation of S03:
 
 Verify both **1280×800 and 1024×768**. Report fully visible collapsed row counts
 for A and B, aiming for at least ten without unreadably tiny text. Expanded
-states do not need ten rows. Test mixed OC/VO, identical excerpts, single/multi
+states do not need ten rows. If the gutter prevents ten readable collapsed
+rows, report the actual count and unmet target; do not shrink text, remove
+thumbnails/excerpts or claim a pass to recover the count.
+Test mixed OC/VO, identical excerpts, single/multi
 visuals, missing thumbnails, omission in grayscale, gutter versus summary
 clicks, the left group handle and keyboard focus. Check Stash empty/populated
-and sidebar/expanded-row width. Do not claim a prototype proves production
-mechanisms; use the attached evidence and state any mismatch.
+and sidebar/expanded-row width. Verify the music line/endpoints, intact versus
+interrupted moves, warning explanation, drag cancellation and Undo in both
+layouts at both viewports; report their collapsed density with the music
+gutter present. These rendered checks await the future authorized design pass;
+the fixture supplies no audio asset or playback. Do not claim a prototype
+proves production mechanisms; use the attached evidence and state any mismatch.
 
 Recommend A or B based on context retained per screen, recognition failures,
 and expansion cost. Report the hardest case for each. STOP after the focused

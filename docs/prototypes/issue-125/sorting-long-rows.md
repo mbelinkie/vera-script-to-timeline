@@ -29,6 +29,50 @@ Manifest: 20 fictional narration rows in four fixture sections of five. Text is 
 | s19 | Night and Signals | Voiceover | Voiceover (visual: empty chair beside a dark window, single foreground visual) | — | empty chair beside a dark window | none |
 | s20 | Night and Signals | Voiceover → On Camera → Voiceover | Voiceover (visual: row of paper lanterns) → On Camera (visual: presenter on camera) → Voiceover (visual: quiet table with one lantern) | — | row of paper lanterns | none |
 
+## Music-bed metadata
+
+One fictional **Quiet piano** bed belongs to the Night and Signals section.
+It starts at the beginning of the amber-lantern row (s16), continues through
+the chalk-crescent row (s17), and ends at the end of the paper-signal-frame row
+(s18). These IDs identify fixture content only; show the bed name and row
+content in the UI. There is no audio asset, playback or claimed duration.
+The bed adds no narration or foreground visual and changes no OC/VO spans.
+
+Use the same bed in both Line and Strip, with these independent demonstrations
+starting from the original fixture each time:
+
+- **Intact group:** move s16–s18 together after s20 (paper-lanterns), preserving their internal
+  order. The continuous bed follows that group, retaining its endpoints and
+  settings without an interruption warning.
+- **Interrupted endpoint:** move only s18 after s20 (paper-lanterns) within Night and Signals.
+  The bed remains attached to s16 and now ends with s16. Put the warning at
+  that new endpoint, not on the moved s18. Clicking it says **Music shortened
+  by this move** and identifies its previous ending using the paper-signal-
+  frame row's content; retain that original endpoint and settings for review.
+  The bed now covers ONLY amber-lantern (s16); chalk-crescent (s17) is no
+  longer covered even though it did not move, per the proved starting-row rule.
+- **Preview/cancel/Undo:** preview the proposed shortening and warning during
+  dragging without changing the trial. Cancel restores the original continuous
+  line without a warning. After dropping, Undo restores the original row order,
+  bed endpoints/settings and warning-free line.
+
+Render a thin line with start/end marks in a dedicated right gutter outside
+the ending thumbnails. Distinguish it and its warning icon from text/visual
+omission, selection, moved marks and the insertion line without relying on
+color; support keyboard inspection of the same explanation. Retain the ten-
+collapsed-row target at 1280×800 and 1024×768 in both layouts.
+When a covered row expands in Sorting, extend the continuous line through
+its height in the same gutter, including when Stash folds away. Do not add
+this line to Back to script or Stash preview unless the reused S03 renderer
+already provides it. If ten readable collapsed rows cannot fit, report the
+actual count and unmet target; keep text size, thumbnails and excerpts intact.
+
+These examples reuse the supported audio-intent cases from #307/#310; they
+do not prove audible trimming or delivery. Other partial/interior moves,
+overlapping beds, broken cross-section spans or Stash operations touching the
+bed retain their existing explicit review/refusal behavior. Use rows outside
+this bed for the separate Stash/restore demonstration.
+
 ## Stress-case index
 
 - Three rows share the exact same 18-word opening, with clearly different topic-bearing middles and endings: s01, s02, s03.
@@ -39,6 +83,8 @@ Manifest: 20 fictional narration rows in four fixture sections of five. Text is 
 - Same-looking first and last planned views with multiple visual beats: s01, s07, s11, s13. Two rows share a first visual and have different last visuals: s01 and s02 share the harbor entrance overview first; s01 ends on that view and s02 ends on the tide notebook.
 - Unavailable thumbnail: s10.
 - s08 and s09 do not share a first-visual pairing; s09 is all on-camera, so its only foreground visual is the presenter.
+- Music bed spanning three rows, intact group movement, interrupted ending,
+  drag cancellation and Undo: Quiet piano, s16–s18; see the metadata above.
 
 ## Full narration text
 
