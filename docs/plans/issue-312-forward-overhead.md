@@ -477,3 +477,33 @@ the fixed protocol through sequence-6 post capture and same-MOV PCM comparison.
 No job/CI monitoring loop or timer was created. All host commands have finished;
 there is no continuing fixture/test process. Original native targets, source
 assets, caches, installed bundles and operation evidence remain retained.
+
+## Luna testing handoff — 2026-10-25
+
+The bounded pristine chain has now completed sequence 5 (`poll_render`) and
+sequence 6 (`capture_post`). Host finalization returned `compared_consistent`;
+the actual same-MOV comparison artifact is
+`~/Library/Application Support/VERA/qualification-output-host/v1/attempts/c2807b3017dca2a70c75e5602852d9d0c545f5dc7a14775d446b51b5984fdb58/artifacts/9e962e7f5050770e669059e6bc6cd4d91c5aef533873838100f2e3dfa74ceba7`.
+This is bounded output consistency evidence, not completed issue acceptance.
+The installed request is the consumed sequence-6 request; never relaunch it.
+
+Edited-session preparation also finished successfully:
+`out/issue312/reverse-edited-v2/session.json`, SHA256
+`a3b3898a76f2f165ed19c9653db81c12294baad0fd3033c4002dffcb4f69bbb4`.
+No host process remains running. Resolve is on the Edit page of target B.
+Only page/zoom/scroll navigation has occurred: the required boundary edit has
+not yet been made. Through the actual editor, move the boundary between the
+first two held slates from frame 327 to frame 351 (+24); keep program end 1407
+and narration/other clips unchanged. Then run the edited session's normal
+observe/save/reopen/render/comparison stages, inference and accepted revision,
+followed by the fresh rebuilt target. Preserve the installed pinned runtime
+until these chains finish. CUA must refresh its documentation and current UI
+state before further interaction.
+
+Matthew requested Luna testing to preserve usage, stopping Sol's active work
+and regular check-ins. Continue in this same chat with Luna Max, using focused
+checks and serial Resolve operation. Check in every 30 minutes with progress
+and the next concrete step; avoid repeated tests, CI watching, or rerunning
+completed evidence. Full fixture freeze, baseline, optimization and comparison
+campaign remain outstanding; no speedup has been measured. The earlier
+6–10-hour estimate was remaining active work, not a completion promise.
