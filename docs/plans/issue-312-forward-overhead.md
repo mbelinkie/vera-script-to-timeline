@@ -451,3 +451,29 @@ limitations remain disclosed. No narration duration was stretched to a nominal
 length. The 801 subprocess / 55 probe counts in the three-row package setup
 confirm the media-tool counters observe real dispatches; the earlier package
 record predates those setup counters.
+
+The pre-render capture finished `complete` and its host ingestion committed the
+real PCM prediction. Result SHA256:
+`863d5f8710cf3e0d8311c36bf7fcadf9bda7fa58f2dc826d9fd2ef6ed158429f`.
+The host then prepared/installed sequence 3 (`queue_render`), request SHA256
+`521edee688b8f9a49d0feb6ac5978c16ce9f0a629f5af75da34b3f3419b6546e`.
+Native queueing completed, authenticated result SHA256
+`b364a75b57a2c79ced5335c70d1f310cc061a229a3418652373babe1f020cabf`.
+
+Sequence 4 (`start_render`) was prepared/installed and launched once, request
+SHA256 `bf8b652ba84816bc47ab32fd93e0bcfca6747ded0f25ce79cbd499ee94d406ce`.
+Its native result is **complete**, SHA256
+`5bc6da95683ad8a9b6e02d7944127519f586f885bad7ea6ad490998c6e0d0ef2`.
+Actual job ID: `8a8cc217-31a6-4ae1-93d8-54d11d42fe86`. The approved MOV is
+on the external volume at `vera-issue312/renders/` under this exact native chain,
+filename `cab600090a56024a0fa0553bf8af25e39495dfe930ae60416a706c20c21dca30.mov`.
+
+**Render start is not render completion or passed output comparison.** The
+installed request remains the consumed sequence-4 request. Do not launch it
+again, change target, quit Resolve or replace the reviewed runtime while this
+render is outstanding. On resume, authenticate the existing sequence-4 result,
+prepare/install the normal sequence-5 bounded completion request, and continue
+the fixed protocol through sequence-6 post capture and same-MOV PCM comparison.
+No job/CI monitoring loop or timer was created. All host commands have finished;
+there is no continuing fixture/test process. Original native targets, source
+assets, caches, installed bundles and operation evidence remain retained.
