@@ -346,26 +346,45 @@ def prepare_package(
             tool_hash=identity_hash(tools.fingerprint()),
         )
         preparations = {}
+        prepared_by_inputs: dict[str, Any] = {}
         with span("forward.preparation"):
             for descriptor in deps["occurrenceResolutions"]:
                 need = next(
                     n for n in needs if n["payloadId"] == descriptor["payloadId"]
                 )
-                prepared = prepare_media(
-                    occurrence_paths[descriptor["payloadId"]],
-                    descriptor,
-                    need["requestedRange"],
-                    cast(RationalRate, wire(RATE)),
-                    authorization=authorization,
-                    video_stream_index=0,
-                    audio_stream_index=None,
-                    tools=tools,
+                preparation_inputs = identity_hash(
+                    {
+                        "mediaReferenceId": descriptor["mediaReferenceId"],
+                        "sourceSnapshot": descriptor["sourceSnapshot"],
+                        "sourceFrameMap": descriptor["sourceFrameMap"],
+                        "videoStreamIndex": 0,
+                        "audioStreamIndex": None,
+                        "requestedRange": need["requestedRange"],
+                        "targetRate": wire(RATE),
+                    }
                 )
-                descriptor["preparedMediaRequirementKey"] = prepared.binding[
-                    "requirementKey"
-                ]
-                deps["preparedMedia"].append(prepared.binding)
-                preparations[prepared.binding["requirementKey"]] = prepared
+                prepared = prepared_by_inputs.get(preparation_inputs)
+                if prepared is None:
+                    prepared = prepare_media(
+                        occurrence_paths[descriptor["payloadId"]],
+                        descriptor,
+                        need["requestedRange"],
+                        cast(RationalRate, wire(RATE)),
+                        authorization=authorization,
+                        video_stream_index=0,
+                        audio_stream_index=None,
+                        tools=tools,
+                    )
+                    prepared_by_inputs[preparation_inputs] = prepared
+                requirement_key = prepared.binding["requirementKey"]
+                descriptor["preparedMediaRequirementKey"] = requirement_key
+                # Multiple occurrences may intentionally share one source,
+                # range, and authenticated preparation requirement. Keep each
+                # occurrence's reference, but publish one binding per key so
+                # the compiler's dependency collection remains unique.
+                if requirement_key not in preparations:
+                    deps["preparedMedia"].append(prepared.binding)
+                    preparations[requirement_key] = prepared
         _write(deps_path, deps)
         compiled = _compile(doc_path, deps_path)["result"]
         if compiled["report"]["status"] != "ready":
