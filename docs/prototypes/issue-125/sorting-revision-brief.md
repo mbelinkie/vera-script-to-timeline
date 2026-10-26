@@ -1,17 +1,34 @@
-# Sorting revisions after r10
+# Sorting revision brief
 
-Status: preparation only; updated 2026-10-26 with the music-bed example.
-Neither A nor B has been selected. No request for this batch has been sent to
-Claude Design. Matthew separately authorized one Opus CLI consultation on the
-full prompt on 2026-10-26; refinements are incorporated. No design submission,
-export, timer or automatic submission is authorized by this document.
-The unsent request is [prepared separately](claude-sorting-revision-prompt.md).
+## Current direction — after r12, 2026-10-26
 
-Continue the actual [r10 shared artifact](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=Shared+S03+Review+Foundation+-+issue+137+r10.dc.html)
-and its `S03 Outline Sorting Comparison r10.dc.html` surface. Preserve r10 and
-earlier sources. This brief supersedes their sorting behavior only where stated.
+Matthew selected **A · Line**. The next prepared request is the
+[focused r13 prompt](claude-sorting-r13-prompt.md), following the rendered
+[r12 comparison](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+Outline+Sorting+Comparison+r12.dc.html).
+It supersedes the earlier comparison notes below where they differ:
 
-## Settled Producer direction
+- One orange ellipsis replaces the vertical text-omission line in A.
+- Thumbnails stay on the right, with a consistent cluster footprint; On Camera
+  remains neutral and bold script words retain their camera meaning.
+- Two fictional Full-audio clips each occupy their own row with empty narration.
+  Sorting shows quoted source speech with a proposed “Original audio” label;
+  expansion keeps the transcript on the right clip card.
+- Add Section in Stash is requested as an organization exception to read-only
+  content. Its changes share pending Accept/Discard and chronological Undo.
+- Preserve B and prior artifacts as history; no further comparison is requested.
+
+One tools-disabled Opus/high CLI product consultation on the full r13 draft
+completed on 2026-10-26. The prepared prompt incorporates the resulting
+clarifications. No r13 request has been sent to Claude Design and no export,
+timer or automatic submission is authorized by this brief.
+
+The design revision remains held on the required #337 Stash and #326 music
+proofs, unless Matthew explicitly defers the affected scope. New clip rows are
+fixture presentation under existing source-clip audio behavior, not a new media API
+or audio operation. They start outside the Quiet piano span and do not count
+as user sorting changes.
+
+## Earlier comparison direction — historical where superseded above
 
 1. Use the same [20 long narration rows](sorting-long-rows.md) in both density
    treatments. The copy is fixed test material, not a script Claude must write
