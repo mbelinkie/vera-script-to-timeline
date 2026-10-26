@@ -66,7 +66,12 @@ earlier sources. This brief supersedes their sorting behavior only where stated.
     supplies Quiet piano across the amber-lantern, chalk-crescent and paper-
     signal-frame rows. Moving that complete group intact preserves the bed.
     Moving only the ending row elsewhere in the same section shortens it to
-    the end of its starting row; the unchanged middle row loses coverage too.
+    the end of the unchanged chalk-crescent row, where the original covered
+    sequence first breaks. Preserve the consecutive original covered rows in
+    their original order from the bed's starting row. Thus A–B–C–D–E changed
+    to A–B–C–E–D ends after C, with no restart on the separated tail or new
+    coverage across unrelated rows. This 2026-10-26 Producer correction
+    supersedes the earlier starting-row-only fallback and CLI clarification.
     Put a warning icon at that new endpoint:
     **Music shortened by this move**, with its previous ending identified by
     row content and retained settings. Preview while dragging; cancellation
@@ -132,7 +137,7 @@ product critique, not a code review or a Claude Design request. Main disposition
 | Exact expanded/previewed S03 row | Accepted S03 renderer is source authority | Reuse it in read-only mode; compare actual structure/rendering. The r10 navigation stand-in is insufficient. |
 | Trial Accept/Discard, stale accept, recovery | #310 / merged PR #315; focused trial and consumer tests | Reuse the [bounded handoff](../../plans/issue-310-sorting-stash.md); canonical installation is one caller transaction, local serialization has explicit limits, and no storage service/collaboration merge is delivered. |
 | Edit saved Stash content | #310 / merged PR #315; saved-content editing, restore and real consumer tests | Reuse the handoff's identity/attachment and exclusion limits; this is not automatic text tokenization or anchor repair. |
-| Music-bed line, intact group, same-section ending-row move, cancellation and Undo | #307/#310 audio-intent operations and row-edit tests; fixture specifies the exact cases | Show existing span/review metadata and preview without mutation. Other unsupported span edits retain explicit review/refusal. Rendered layout/accessibility/density checks remain for the future design pass. |
+| Music-bed line, intact group, first-interruption shortening, cancellation and Undo | #307/#310 prove intact moves, prior-endpoint retention and Undo, but the former shortening always ends at the starting row | [#326](https://github.com/mbelinkie/vera-script-to-timeline/issues/326) must prove the corrected first-interruption rule before functional construction. The fixture records intended behavior, not completed proof. Rendered layout/accessibility/density checks also remain pending. |
 | Audio/transition intent and runtime delivery | Exact #307 handoff and #292 limits | Keep supported intent/refusal states. No new audible trim, fade, mix, delivery, or implicit Resolve update. |
 
 The bounded #310 proof is now Closed, delivered through merged PR #315 with
@@ -140,6 +145,8 @@ successful Validate. Its handoff supplements #307; it does not authorize a
 design restart or lift unrelated capability/Producer holds. This preparation
 dispatches no implementation or design request. The separately authorized
 CLI-only prompt consultation does not lift any design hold.
+The later music correction adds an unresolved #326 capability requirement;
+the old starting-row-only result must not be presented as equivalent evidence.
 
 Acceptance checks for the eventual revision:
 
@@ -157,7 +164,8 @@ Acceptance checks for the eventual revision:
 - With Quiet piano present, both layouts still target ten fully visible
   collapsed rows at both viewports. Verify the right gutter outside thumbnails,
   start/end marks, intact group move without warning, supported ending-row
-  move with warning at the starting row's new music endpoint, keyboard/click
+  move with warning after the last uninterrupted covered row (chalk-crescent
+  in this fixture), the five-row D/E swap ending after C, keyboard/click
   explanation, drag cancellation and Undo. These rendered checks are pending
   the future authorized design pass; no audio playback is claimed.
 - Trial move/Stash/restore → read-only script preview → Return retains trial;

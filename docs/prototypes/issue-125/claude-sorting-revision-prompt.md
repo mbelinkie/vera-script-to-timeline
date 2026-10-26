@@ -3,6 +3,9 @@
 Prepared 2026-10-25; music-bed instructions added 2026-10-26. This update
 does not authorize design submission. Matthew separately authorized one Opus
 CLI consultation on the full prompt on 2026-10-26; refinements are included.
+The subsequent Producer correction to music interruption supersedes that
+consultation's starting-row-only wording. Corrected behavior still needs #326
+proof before construction; no additional Claude call was made for this change.
 Do not submit automatically.
 Before sending, recheck the capability matrix in
 [the revision brief](sorting-revision-brief.md), resolve its missing proofs,
@@ -97,12 +100,17 @@ components. Do not create a separate approximation of S03:
 - Demonstrate the music-bed cases specified in the fixture, resetting between
   cases. Moving all three covered rows together preserves the bed without a
   warning. Moving only its ending row after the paper-lanterns row, within
-  the same section, shortens the bed to the end of its starting amber-lantern
-  row. The bed now covers ONLY amber-lantern; chalk-crescent is no longer
-  covered even though it did not move, per the proved starting-row rule.
-  Put a warning icon at THAT new endpoint, even though the starting row
-  did not move. Clicking or keyboard-activating it says **Music shortened by
+  the same section, keeps music through amber-lantern AND chalk-crescent,
+  ending after chalk-crescent where its original sequence is interrupted.
+  Put a warning icon at THAT new endpoint, even though that row did not move.
+  Clicking or keyboard-activating it says **Music shortened by
   this move** and identifies the previous ending by the row's content.
+  General rule: the bed follows its starting row and continues through its
+  consecutive original covered rows in their original order until the first
+  broken join. A–B–C–D–E reordered to A–B–C–E–D ends after C, not after A.
+  Do not restart music on the separated tail or extend it across unrelated
+  rows. This Producer correction requires the #326 handoff; the old #307/#310
+  starting-row fallback is not evidence for this new result.
   Retain the original endpoint/settings for review. Preview the interruption
   while dragging without committing it; cancellation clears that preview.
   After dropping, Undo restores the bed, row order and warning-free line.

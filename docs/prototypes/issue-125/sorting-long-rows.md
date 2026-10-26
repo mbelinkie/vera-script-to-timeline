@@ -45,12 +45,12 @@ starting from the original fixture each time:
   order. The continuous bed follows that group, retaining its endpoints and
   settings without an interruption warning.
 - **Interrupted endpoint:** move only s18 after s20 (paper-lanterns) within Night and Signals.
-  The bed remains attached to s16 and now ends with s16. Put the warning at
+  The bed remains attached to s16, continues through s17, and now ends with
+  s17 where the original covered sequence is interrupted. Put the warning at
   that new endpoint, not on the moved s18. Clicking it says **Music shortened
   by this move** and identifies its previous ending using the paper-signal-
   frame row's content; retain that original endpoint and settings for review.
-  The bed now covers ONLY amber-lantern (s16); chalk-crescent (s17) is no
-  longer covered even though it did not move, per the proved starting-row rule.
+  Chalk-crescent keeps its music coverage. Do not collapse the bed to s16.
 - **Preview/cancel/Undo:** preview the proposed shortening and warning during
   dragging without changing the trial. Cancel restores the original continuous
   line without a warning. After dropping, Undo restores the original row order,
@@ -67,8 +67,18 @@ this line to Back to script or Stash preview unless the reused S03 renderer
 already provides it. If ten readable collapsed rows cannot fit, report the
 actual count and unmet target; keep text size, thumbnails and excerpts intact.
 
-These examples reuse the supported audio-intent cases from #307/#310; they
-do not prove audible trimming or delivery. Other partial/interior moves,
+The Producer corrected the interruption rule on 2026-10-26: follow the bed's
+starting row, keep the consecutive original covered rows in their original
+order from that start, and stop at the first broken join. For an original
+A–B–C–D–E bed changed to A–B–C–E–D, stop after C and warn there. The letters
+are explanatory only, not visible row labels. No music restarts on the
+separated tail or extends over unrelated rows.
+
+#307/#310 prove the former starting-row-only fallback, not this corrected
+first-interruption result. [#326](https://github.com/mbelinkie/vera-script-to-timeline/issues/326)
+must prove the corrected movement rule before these interactions are depicted
+as working; the fixture is an adopted requirement, not executable evidence.
+No audible trimming or delivery is established. Other partial/interior moves,
 overlapping beds, broken cross-section spans or Stash operations touching the
 bed retain their existing explicit review/refusal behavior. Use rows outside
 this bed for the separate Stash/restore demonstration.
