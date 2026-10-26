@@ -1,6 +1,6 @@
 # Sorting A — focused revision after r12
 
-Prepared revision brief, consulted through the Claude CLI and submitted to Claude Design on Matthew's explicit instruction on 2026-10-26. Receipt was verified: Claude read the complete attachment and began listing project files. The whole design revision remains held while #337 and #326 lack their required proof, unless Matthew explicitly defers the affected scope. Submission and presentation corrections do not lift that gate.
+Prepared revision brief, consulted through the Claude CLI and submitted to Claude Design on Matthew's explicit instruction on 2026-10-26. Correction: the former whole-revision hold was too broad. Build the bounded r13 presentation/fixture changes in sections 1–2 using existing supported behavior. The #337 Stash interactions and #326 changed-span music operations remain pending their executable proof; do not depict those as working. This pass introduces no new functional promise for either held capability.
 
 ## Decision and scope
 
@@ -48,7 +48,7 @@ Treat section creation, naming, membership and order as part of the same pending
 
 Saved rows remain independent. Stashing several rows creates neither a mandatory bundle nor an automatic section. Explicit multiselection can restore multiple rows together. Keep Show Stash and its saved-row count; section headings do not add to that count.
 
-**Capability hold:** #337 is still open. Its executable handoff must cover independent restore, Stash sections, local Undo and pending-change behavior before these interactions are shown as working. Do not fake active Add Section, silently retain the obsolete bundle behavior or substitute a backend investigation. Until proof is available, retain this requirement in the brief, preserve the existing artifact, and do not start this revision. A future authorized revision must not expose the old mandatory-bundle restore as the adopted interaction. Identify remaining limitations outside the product frame.
+**Capability hold, limited to this section:** #337 is still open. Its executable handoff must cover independent restore, Stash sections, local Undo and pending-change behavior before these interactions are shown as working. Do not fake active Add Section, reintroduce obsolete bundle restoration or substitute a backend investigation. Retain these requirements for the later proved interaction pass. Preserve r12's supported Stash behavior in r13; its removed restore/section operations remain unavailable. Record the pending scope outside the product frame. This does not block sections 1–2 or revisions to their existing presentation.
 
 ## Preserve established behavior
 
