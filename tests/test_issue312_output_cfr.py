@@ -40,11 +40,13 @@ def converted_output_case(tmp_path: Path) -> tuple[Any, Any, Any, Any]:
     item.stamp = native._event_stamp(event)
     item.source_start_frame, item.source_end_frame = 0, 212
     item.media.frame_count = 214
-    item.GetSourceStartTime = lambda: 0.0
-    item.GetSourceEndTime = lambda: 214 * 1001 / 24000
-    item.GetDuration = lambda _: 214
-    item.GetEnd = lambda _: 214
-    timeline.GetEndFrame = lambda: 214
+    item_override: Any = item
+    timeline_override: Any = timeline
+    item_override.GetSourceStartTime = lambda: 0.0
+    item_override.GetSourceEndTime = lambda: 214 * 1001 / 24000
+    item_override.GetDuration = lambda _: 214
+    item_override.GetEnd = lambda _: 214
+    timeline_override.GetEndFrame = lambda: 214
     request["profile"] = native.MATRIX_PROFILE
     return resolve, request, admitted, item
 
