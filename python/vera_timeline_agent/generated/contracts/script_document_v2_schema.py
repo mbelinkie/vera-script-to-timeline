@@ -197,6 +197,12 @@ class RowGapV2(TypedDict):
     beforeRowId: EntityId | None
 
 
+class StashSectionV2(TypedDict):
+    id: EntityId
+    title: str
+    rowIds: list[EntityId]
+
+
 class RowTransitionIntentV2(TypedDict):
     id: EntityId
     fromRowId: EntityId
@@ -505,6 +511,7 @@ class ScriptDocumentV2(TypedDict):
     liveContentHash: ContentHash
     rowEditRevision: NotRequired[NonNegativeSafeInteger]
     stash: NotRequired[list[RowStashBundleV2]]
+    stashSections: NotRequired[list[StashSectionV2]]
     rowTransitions: NotRequired[list[RowTransitionIntentV2]]
     rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
     rowReferences: NotRequired[list[OpaqueRowReferenceV2]]

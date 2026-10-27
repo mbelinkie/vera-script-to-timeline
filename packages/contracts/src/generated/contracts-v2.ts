@@ -608,6 +608,10 @@ export interface ScriptDocumentV2 {
    */
   stash?: RowStashBundleV2[];
   /**
+   * Optional user-created Stash headings and their ordered saved-row membership.
+   */
+  stashSections?: StashSectionV2[];
+  /**
    * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
    */
   rowTransitions?: RowTransitionIntentV2[];
@@ -902,6 +906,11 @@ export interface RowGapV2 {
   sectionId: string | null;
   afterRowId: string | null;
   beforeRowId: string | null;
+}
+export interface StashSectionV2 {
+  id: string;
+  title: string;
+  rowIds: string[];
 }
 export interface RowTransitionIntentV2 {
   id: string;
