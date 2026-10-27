@@ -149,6 +149,20 @@ describe("row-edit consumers", () => {
     expect(edit.document.stash?.[0]?.rows).toEqual([row]);
     expect(edit.document.stash?.[0]?.supportingItems).toEqual([supportingItem]);
     expect(edit.document.activeDraft.supportingItems).toEqual([]);
+    expect(edit.document.stashSections).toBeUndefined();
+
+    const sectioned = applyRowEditV2(edit.document, 1, {
+      kind: "create_stash_section",
+      sectionId: id(9011),
+      title: "Research",
+    });
+    expect(sectioned.ok).toBe(true);
+    const organized = applyRowEditV2(sectioned.document, 2, {
+      kind: "move_stash_rows",
+      rowIds: [row.id],
+      sectionId: id(9011),
+    });
+    expect(organized.ok).toBe(true);
 
     const editedRow = structuredClone(row);
     editedRow.text = "EDITED STASHED";
@@ -162,7 +176,7 @@ describe("row-edit consumers", () => {
     if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected a visual content slot");
     slot.payload.sourceUsage = { sourceInFrame: 24 };
     slot.payload.framingPolicy = "cover";
-    const stashEdit = applyStashRowEditV2(edit.document, edit.document.rowEditRevision ?? 0, {
+    const stashEdit = applyStashRowEditV2(organized.document, organized.document.rowEditRevision ?? 0, {
       bundleId: id(9008),
       rowId: row.id,
       row: editedRow,
@@ -179,6 +193,7 @@ describe("row-edit consumers", () => {
     expect(exported.text).not.toContain(row.text);
     expect(exported.text).not.toContain(editedRow.text);
     expect(exported.text).not.toContain(supportingItem.content);
+    expect(exported.text).not.toContain("Research");
 
     const compiled = compileTimelineV2(stashEdit.document, dependencies);
     expect(compiled.ok).toBe(true);
@@ -209,10 +224,23 @@ describe("row-edit consumers", () => {
 
     const row = activeNarration(document);
     const bundleId = id(9010);
-    const stashed = applyRowEditV2(document, 0, {
+    const stashedRows = applyRowEditV2(document, 0, {
       kind: "stash_rows",
       rowIds: [row.id],
       bundleId,
+    });
+    expect(stashedRows.ok).toBe(true);
+    if (!stashedRows.ok) return;
+    const sectioned = applyRowEditV2(stashedRows.document, 1, {
+      kind: "create_stash_section",
+      sectionId: id(9012),
+      title: "Saved clips",
+    });
+    expect(sectioned.ok).toBe(true);
+    const stashed = applyRowEditV2(sectioned.document, 2, {
+      kind: "move_stash_rows",
+      rowIds: [row.id],
+      sectionId: id(9012),
     });
     expect(stashed.ok).toBe(true);
     if (!stashed.ok) return;
@@ -222,8 +250,8 @@ describe("row-edit consumers", () => {
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
     const restored = applyRowEditV2(loaded.document, loaded.document.rowEditRevision ?? 0, {
-      kind: "restore_stash",
-      bundleId,
+      kind: "restore_stash_rows",
+      rowIds: [row.id],
       destination: { sectionId: null, afterRowId: null, beforeRowId: null },
     });
     expect(restored.ok).toBe(true);

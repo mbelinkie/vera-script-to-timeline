@@ -71,6 +71,13 @@
       },
       "description": "Saved whole-row scratchpad, separate from Ideas/Extras and never build-eligible. Array and row order are authoritative."
     },
+    "stashSections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StashSectionV2"
+      },
+      "description": "Optional user-created Stash headings and their ordered saved-row membership."
+    },
     "rowTransitions": {
       "type": "array",
       "items": {
@@ -2341,6 +2348,31 @@
         },
         "originalGap": {
           "$ref": "#/$defs/RowGapV2"
+        }
+      }
+    },
+    "StashSectionV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "rowIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rowIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
         }
       }
     },
