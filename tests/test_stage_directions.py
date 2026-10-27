@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
+from vera_timeline_agent.generated.contracts.script_document_v2_schema import (
+    NarrationBlockV2,
+)
 from vera_timeline_agent.narration.compiler_dependencies_v2 import (
     narration_v2_dependency_from_asset,
 )
@@ -23,7 +24,7 @@ BLOCK_ID = "10000000-0000-4000-8000-000000000001"
 TEXT = "The 🌍 [softly] waits"
 
 
-def mixed_block() -> dict[str, Any]:
+def mixed_block() -> NarrationBlockV2:
     return {
         "type": "narration",
         "id": BLOCK_ID,

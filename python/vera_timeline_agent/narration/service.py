@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -60,7 +61,7 @@ class ServiceConfig:
     def pricing(self) -> PricingPolicy:
         return self.pricing_policy or pricing_for(self.profile)
 
-    def request_for(self, block: dict[str, Any]) -> SynthesisRequest:
+    def request_for(self, block: Mapping[str, Any]) -> SynthesisRequest:
         block_id = block.get("id")
         revision = block.get("version")
         text = block.get("text")
@@ -77,7 +78,7 @@ class ServiceConfig:
             isinstance(token, dict) and token.get("spoken") is False for token in tokens
         )
         source_text_hash = None
-        if has_directions:
+        if has_directions and isinstance(tokens, list):
             if not any(
                 isinstance(token, dict) and token.get("spoken") is not False
                 for token in tokens
