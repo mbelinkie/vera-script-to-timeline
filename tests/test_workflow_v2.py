@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from fractions import Fraction
 from pathlib import Path
+from threading import Lock
 from types import SimpleNamespace
 from typing import Any
 
@@ -670,6 +671,33 @@ def test_parallel_inventory_rejects_symbolic_link(tmp_path: Path) -> None:
 
     with pytest.raises(workflow_v2.WorkflowV2Error, match="symbolic link"):
         workflow_v2._inventory(tmp_path)
+
+
+def test_parallel_inventory_rechecks_path_after_lstat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for index in range(8):
+        (tmp_path / f"file-{index:02d}.bin").write_bytes(bytes([index]))
+    original = workflow_v2._hash_regular
+    changed = False
+    change_lock = Lock()
+
+    def replace_with_symlink(
+        path: Path, label: str, *, read_buffer: bytearray | None = None
+    ) -> tuple[str, int]:
+        nonlocal changed
+        with change_lock:
+            if not changed:
+                path.unlink()
+                path.symlink_to(tmp_path / "file-07.bin")
+                changed = True
+        return original(path, label, read_buffer=read_buffer)
+
+    monkeypatch.setattr(workflow_v2, "_hash_regular", replace_with_symlink)
+
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="symbolic link"):
+        workflow_v2._inventory(tmp_path)
+    assert changed is True
 
 
 def test_hash_regular_rejects_fstat_drift(
