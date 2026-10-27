@@ -181,8 +181,24 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
-    const parked = validateScriptDocumentV2({ ...document, stash: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({ ...item, severity: "warning" as const, jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`) })));
+  }
+  const stashedRowIds = new Set((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
+  const sectionedRowIds = new Set<string>();
+  for (const [sectionIndex, section] of (document.stashSections ?? []).entries()) {
+    const path = `/stashSections/${sectionIndex}`;
+    addId(section.id, `${path}/id`);
+    for (const [rowIndex, rowId] of section.rowIds.entries()) {
+      if (!stashedRowIds.has(rowId) || sectionedRowIds.has(rowId)) {
+        diagnostics.push({
+          code: "ROW_REFERENCE_INVALID",
+          message: "A Stash section names a missing saved row or assigns a row to multiple sections.",
+          jsonPath: `${path}/rowIds/${rowIndex}`,
+          entityId: rowId,
+        });
+      } else sectionedRowIds.add(rowId);
+    }
   }
   const referenceProblem = (id: string, path: string): void => {
     diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A saved row relationship names a missing row or invalid active pair.", jsonPath: path, entityId: id });

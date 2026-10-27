@@ -28,8 +28,11 @@ function positions(document: ScriptDocumentV2): Map<string, Position> {
       result.set(block.id, { container: `draft:${sectionId ?? ""}`, index: index++, beforeSections, sectionId });
     }
   }
-  for (const bundle of document.stash ?? []) {
-    bundle.rows.forEach((row, index) => result.set(row.id, { container: `stash:${bundle.id}`, index, beforeSections: [] }));
+  const stashRows = (document.stash ?? []).flatMap((bundle) => bundle.rows);
+  const sectioned = new Set((document.stashSections ?? []).flatMap((section) => section.rowIds));
+  stashRows.filter((row) => !sectioned.has(row.id)).forEach((row, index) => result.set(row.id, { container: "stash:", index, beforeSections: [] }));
+  for (const section of document.stashSections ?? []) {
+    section.rowIds.forEach((rowId, index) => result.set(rowId, { container: `stash:${section.id}`, index, beforeSections: [] }));
   }
   return result;
 }
@@ -64,17 +67,22 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     move_section: ["kind", "sectionId", "destination"],
     stash_rows: ["kind", "rowIds", "bundleId"],
     restore_stash: ["kind", "bundleId", "destination"],
+    restore_stash_rows: ["kind", "rowIds", "destination"],
+    create_stash_section: ["kind", "sectionId", "title"],
+    move_stash_rows: ["kind", "rowIds", "sectionId"],
   };
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   if (!allowed || Object.keys(command).length !== allowed.length || !Object.keys(command).every((key) => allowed.includes(key))) return false;
   const value = command as Record<string, unknown>;
-  if (kind === "move_rows" || kind === "stash_rows") {
+  if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows") {
     if (!Array.isArray(value.rowIds) || !value.rowIds.every((id: unknown) => typeof id === "string")) return false;
   }
   if ((kind === "stash_rows" || kind === "restore_stash") && typeof value.bundleId !== "string") return false;
   if (kind === "move_section" && typeof value.sectionId !== "string") return false;
   if (kind === "stash_rows") return true;
+  if (kind === "create_stash_section") return typeof value.sectionId === "string" && typeof value.title === "string";
+  if (kind === "move_stash_rows") return value.sectionId === null || typeof value.sectionId === "string";
   const gap = value.destination;
   if (!gap || typeof gap !== "object" || Array.isArray(gap)) return false;
   const gapKeys = kind === "move_section" ? ["afterSectionId", "beforeSectionId"] : ["sectionId", "afterRowId", "beforeRowId"];
@@ -127,9 +135,10 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
-      const selected = command.kind === "move_rows" || command.kind === "stash_rows" ? command.rowIds
+      const selected = command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "restore_stash_rows" || command.kind === "move_stash_rows" ? command.rowIds
         : command.kind === "restore_stash" ? beforeDocument.stash?.find((bundle) => bundle.id === command.bundleId)?.rows.map((row) => row.id) ?? []
-        : [...before].filter(([, location]) => location.sectionId === command.sectionId).map(([id]) => id);
+        : command.kind === "move_section" ? [...before].filter(([, location]) => location.sectionId === command.sectionId).map(([id]) => id)
+        : [];
       const result = session.apply(command, expectedRevision);
       if (result.ok) {
         actions.push(structuredClone(command));

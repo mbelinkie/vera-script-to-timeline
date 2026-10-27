@@ -10,7 +10,10 @@ export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string }
-  | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 };
+  | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 }
+  | { kind: "restore_stash_rows"; rowIds: string[]; destination: RowGapV2 }
+  | { kind: "create_stash_section"; sectionId: string; title: string }
+  | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null };
 
 export interface RowEditResultV2 {
   ok: boolean;
@@ -86,6 +89,31 @@ function locations(document: ScriptDocumentV2): Section[] {
   return [...sections(document.activeDraft.blocks), ...(document.stash ?? []).map((bundle) => ({ id: bundle.id, start: 0, end: bundle.rows.length, rows: bundle.rows }))];
 }
 
+function stashRowsInVisibleOrder(document: ScriptDocumentV2): Row[] {
+  const rows = (document.stash ?? []).flatMap((bundle) => bundle.rows);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const sectioned = new Set((document.stashSections ?? []).flatMap((section) => section.rowIds));
+  return [
+    ...rows.filter((row) => !sectioned.has(row.id)),
+    ...(document.stashSections ?? []).flatMap((section) => section.rowIds.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [row] : [];
+    })),
+  ];
+}
+
+function moveStashRowsToSection(document: ScriptDocumentV2, rowIds: string[], sectionId: string | null, visibleOrder: string[]): void {
+  const selected = new Set(rowIds);
+  const target = sectionId === null ? undefined : document.stashSections?.find((section) => section.id === sectionId);
+  for (const section of document.stashSections ?? []) {
+    if (section !== target) section.rowIds = section.rowIds.filter((id) => !selected.has(id));
+  }
+  if (target) {
+    const existing = new Set(target.rowIds);
+    target.rowIds.push(...visibleOrder.filter((id) => selected.has(id) && !existing.has(id)));
+  }
+}
+
 function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, command: RowEditCommandV2, moved: Set<string>): AuthoringDiagnosticV2 | null {
   const priorLocations = locations(before);
   const nextLocations = locations(after);
@@ -116,7 +144,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || oldFlat?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
-    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash") return problem();
+    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows") return problem();
     const overlaps = spans.some((other, otherIndex) => otherIndex !== index && covered(priorLocations, other.startRowId, other.endRowId)?.some((id) => oldRows.includes(id)));
     if (overlaps) return problem();
     if (JSON.stringify(oldRows) === JSON.stringify(nextRows)) continue;
@@ -140,15 +168,79 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   const working = structuredClone(document);
   const blocks = working.activeDraft.blocks;
-  let moved: Row[];
-  if (command.kind === "restore_stash") {
+  let moved: Row[] = [];
+  if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
-    const bundleIndex = working.stash?.findIndex((bundle) => bundle.id === command.bundleId) ?? -1;
-    if (index === null || bundleIndex < 0) return refused(document, "ROW_DESTINATION_INVALID", "Choose an existing bundle and an exact current section gap.");
-    const bundle = working.stash!.splice(bundleIndex, 1)[0]!;
-    moved = bundle.rows;
+    if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
+    if (command.kind === "restore_stash") {
+      const bundleIndex = working.stash?.findIndex((bundle) => bundle.id === command.bundleId) ?? -1;
+      if (bundleIndex < 0) return refused(document, "ROW_DESTINATION_INVALID", "Choose an existing Stash bundle.");
+      const bundle = working.stash!.splice(bundleIndex, 1)[0]!;
+      moved = bundle.rows;
+      const movedIds = new Set(moved.map((row) => row.id));
+      for (const section of working.stashSections ?? []) section.rowIds = section.rowIds.filter((id) => !movedIds.has(id));
+      working.activeDraft.supportingItems.push(...bundle.supportingItems);
+    } else {
+      if (!Array.isArray(command.rowIds) || command.rowIds.length === 0 || command.rowIds.some((id) => typeof id !== "string") || new Set(command.rowIds).size !== command.rowIds.length) {
+        return refused(document, "ROW_SELECTION_INVALID", "Select one or more distinct saved rows.");
+      }
+      const selected = new Set(command.rowIds);
+      const stashRows = stashRowsInVisibleOrder(working);
+      moved = stashRows.filter((row) => selected.has(row.id));
+      if (moved.length !== selected.size) return refused(document, "ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
+
+      const restoredItems: SupportingItemV2[] = [];
+      const allRows = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)];
+      for (const bundle of working.stash ?? []) {
+        const selectedInBundle = bundle.rows.filter((row) => selected.has(row.id));
+        if (selectedInBundle.length === 0) continue;
+        if (selectedInBundle.length === bundle.rows.length) {
+          restoredItems.push(...bundle.supportingItems);
+          bundle.supportingItems = [];
+          continue;
+        }
+        const selectedBundleIds = new Set(selectedInBundle.map((row) => row.id));
+        const remainingBundleIds = new Set(bundle.rows.filter((row) => !selected.has(row.id)).map((row) => row.id));
+        const remainingItems: SupportingItemV2[] = [];
+        for (const item of bundle.supportingItems) {
+          const references = supportingRows(item, allRows);
+          if (item.placement.kind === "timed") {
+            if (!item.placement.start || !item.placement.end) {
+              return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "Review duration-ended supporting items before restoring part of their saved rows.");
+            }
+            const placementOnly = { ...item };
+            delete placementOnly.displayAttachment;
+            const placementReferences = supportingRows(placementOnly, bundle.rows);
+            const positions = bundle.rows.flatMap((row, index) => placementReferences.has(row.id) ? [index] : []);
+            if (positions.length > 1) {
+              // Timed endpoints also cover the saved rows between them, not only their anchor rows.
+              for (let position = Math.min(...positions); position <= Math.max(...positions); position += 1) {
+                references.add(bundle.rows[position]!.id);
+              }
+            }
+          }
+          const touchesSelected = [...references].some((id) => selectedBundleIds.has(id));
+          const touchesRemaining = [...references].some((id) => remainingBundleIds.has(id));
+          if (!references.size || touchesSelected && touchesRemaining) {
+            return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "A supporting item crosses the selected row boundary or has no row anchor. Review its anchors before restoring these rows.");
+          }
+          if (touchesSelected) restoredItems.push(item);
+          else remainingItems.push(item);
+        }
+        bundle.supportingItems = remainingItems;
+      }
+      if (working.stash) {
+        working.stash = working.stash.filter((bundle) => {
+          const remainingRows = bundle.rows.filter((row) => !selected.has(row.id));
+          if (remainingRows.length === 0) return false;
+          if (remainingRows.length !== bundle.rows.length) bundle.rows = [remainingRows[0]!, ...remainingRows.slice(1)];
+          return true;
+        });
+      }
+      for (const section of working.stashSections ?? []) section.rowIds = section.rowIds.filter((id) => !selected.has(id));
+      working.activeDraft.supportingItems.push(...restoredItems);
+    }
     blocks.splice(index, 0, ...moved);
-    working.activeDraft.supportingItems.push(...bundle.supportingItems);
   } else if (command.kind === "move_section") {
     const section = sections(blocks).find((part) => part.id === command.sectionId && part.id !== null);
     const headings = blocks.filter((block) => block.type === "section");
@@ -186,8 +278,25 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       working.activeDraft.supportingItems = working.activeDraft.supportingItems.filter((item) => !items.includes(item));
       (working.stash ??= []).push({ id: command.bundleId, rows: [rows[0]!, ...rows.slice(1)], supportingItems: items, originalGap });
     }
+  } else if (command.kind === "create_stash_section") {
+    if (typeof command.sectionId !== "string" || !command.sectionId || typeof command.title !== "string" || !command.title) {
+      return refused(document, "STASH_SECTION_INVALID", "Provide a section ID and a non-empty title.");
+    }
+    (working.stashSections ??= []).push({ id: command.sectionId, title: command.title, rowIds: [] });
+  } else if (command.kind === "move_stash_rows") {
+    if (!Array.isArray(command.rowIds) || command.rowIds.length === 0 || command.rowIds.some((id) => typeof id !== "string") || new Set(command.rowIds).size !== command.rowIds.length) {
+      return refused(document, "ROW_SELECTION_INVALID", "Select one or more distinct saved rows.");
+    }
+    const selected = new Set(command.rowIds);
+    const stashRows = stashRowsInVisibleOrder(working);
+    moved = stashRows.filter((row) => selected.has(row.id));
+    if (moved.length !== selected.size) return refused(document, "ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
+    if (command.sectionId !== null && !(working.stashSections ?? []).some((section) => section.id === command.sectionId)) {
+      return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    }
+    moveStashRowsToSection(working, moved.map((row) => row.id), command.sectionId, stashRows.map((row) => row.id));
   } else return refused(document, "ROW_COMMAND_INVALID", "Unknown row edit command.");
-  if (JSON.stringify(blocks) === JSON.stringify(document.activeDraft.blocks)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave row order unchanged.");
+  if (JSON.stringify(working) === JSON.stringify(document)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave Stash and Draft unchanged.");
   const relationshipProblem = updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };
   working.rowEditRevision = expectedRevision + 1;
