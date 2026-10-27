@@ -99,6 +99,7 @@ _TARGET_SUFFIX = re.compile(r"[0-9a-f]{12}\Z")
 _SUPPORTED_INTEGER_RATES = {(24, 1), (25, 1), (30, 1)}
 _QUALIFIED_FRACTIONAL_RATE = (24000, 1001)
 _SUPPORTED_PACKAGE_RATES = {*_SUPPORTED_INTEGER_RATES, _QUALIFIED_FRACTIONAL_RATE}
+_HASH_READ_BYTES = 8 * 1024 * 1024
 _MARKER_COLORS = {
     "BLUE": "Blue",
     "CYAN": "Cyan",
@@ -227,7 +228,7 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
         if not stat.S_ISREG(before.st_mode):
             raise WorkflowV2Error(f"{label} is not a regular file")
         while True:
-            chunk = os.read(descriptor, 1024 * 1024)
+            chunk = os.read(descriptor, _HASH_READ_BYTES)
             if not chunk:
                 break
             digest.update(chunk)

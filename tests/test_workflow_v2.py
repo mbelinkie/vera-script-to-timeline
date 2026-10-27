@@ -597,6 +597,17 @@ def test_strict_json_rejects_overflowing_float_exponent() -> None:
         workflow_v2._strict_object(b'{"value":1e999}', "test JSON")
 
 
+def test_hash_regular_preserves_digest_across_8mib_boundary(tmp_path: Path) -> None:
+    path = tmp_path / "boundary.bin"
+    payload = b"0123456789abcdef" * (workflow_v2._HASH_READ_BYTES // 16)
+    path.write_bytes(payload + b"!")
+
+    digest, size = workflow_v2._hash_regular(path, "boundary file")
+
+    assert size == len(payload) + 1
+    assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) -> None:
     attestation, digest, value = _make_package(tmp_path)
     linked = tmp_path / "linked.json"
