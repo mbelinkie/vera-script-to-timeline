@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +13,7 @@ import { applyStashRowEditV2 } from "../src/authoring-v2-stash.js";
 import type {
   CompilerDependenciesV2,
   NarrationBlockV2,
+  NarrationTokenTimingMapV2,
   RowAudioSpanIntentV2,
   RowTransitionIntentV2,
   ScriptDocumentV2,
@@ -125,6 +127,40 @@ function mediaNeeds(document: ScriptDocumentV2, dependencies: CompilerDependenci
     sourceDescriptors: dependencies.occurrenceResolutions,
     frameRate: dependencies.timeline.frameRate,
   });
+}
+
+function digest(value: string): string {
+  return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
+}
+
+function updateSpokenTiming(
+  document: ScriptDocumentV2,
+  row: NarrationBlockV2,
+  dependencies: CompilerDependenciesV2,
+): void {
+  const spokenTokens = row.tokens.filter((token) => token.spoken !== false);
+  const timing = dependencies.narrationTimingMaps[0]!;
+  timing.blockId = row.id;
+  timing.blockRevision = row.version;
+  timing.textHash = digest(row.text);
+  timing.timingHash = digest(`${row.text}:${spokenTokens.map((token) => token.id).join(",")}`);
+  timing.audio!.timingHash = timing.timingHash;
+  timing.tokens = spokenTokens.map((token, index) => ({
+    tokenId: token.id,
+    startOffset: token.startOffset,
+    endOffset: token.endOffset,
+    quotedText: token.value,
+    startTime: { numerator: index, denominator: 1 },
+    audibleEnd: { numerator: index + 1, denominator: 1 },
+    endBasis: "evidenced_audible_end",
+  })) as NarrationTokenTimingMapV2["tokens"];
+  timing.audio!.durationSamples = spokenTokens.length * 48_000;
+  dependencies.document.textHash = digest(
+    document.activeDraft.blocks
+      .filter((block): block is NarrationBlockV2 => block.type === "narration")
+      .map((block) => block.text)
+      .join("\n"),
+  );
 }
 
 describe("row-edit consumers", () => {
@@ -276,12 +312,19 @@ describe("row-edit consumers", () => {
 
   it("restores only the selected row to consumers while its saved neighbor remains excluded", () => {
     const { document, dependencies } = input();
+    const active = activeNarration(document);
+    active.text = "She [softly] waits";
+    active.tokens = [
+      { id: id(9401), value: "She", startOffset: 0, endOffset: 3 },
+      { id: id(9402), value: "softly", startOffset: 5, endOffset: 11, spoken: false },
+      { id: id(9403), value: "waits", startOffset: 13, endOffset: 18 },
+    ];
+    updateSpokenTiming(document, active, dependencies);
     const originalExport = exportPrompter(document, exportSettings);
     const originalCompile = compileTimelineV2(document, dependencies);
     const originalNeeds = mediaNeeds(document, dependencies);
     expect(originalExport.ok && originalCompile.ok && originalNeeds.ok).toBe(true);
     if (!originalExport.ok || !originalCompile.ok || !originalNeeds.ok) return;
-    const active = activeNarration(document);
     const parked = stashedRow();
     const parkedCitation = citation(parked);
     document.activeDraft.blocks.push(parked);
@@ -301,11 +344,18 @@ describe("row-edit consumers", () => {
     if (!restored.ok) return;
     expect(restored.document.stash?.[0]?.rows).toEqual([parked]);
     expect(restored.document.stash?.[0]?.supportingItems).toEqual([parkedCitation]);
+    const restoredRow = activeNarration(restored.document);
+    expect(restoredRow.tokens[1]).toMatchObject({ value: "softly", spoken: false });
     const exported = exportPrompter(restored.document, exportSettings);
     const compiled = compileTimelineV2(restored.document, dependencies);
     const needs = mediaNeeds(restored.document, dependencies);
     expect(exported.ok && compiled.ok && needs.ok).toBe(true);
     if (!exported.ok || !compiled.ok || !needs.ok) return;
+    expect(exported.sidecar.beats.map((beat) => beat.expectedText)).toEqual(["She waits"]);
+    expect(exported.text).not.toContain("softly");
+    expect(dependencies.narrationTimingMaps[0]?.tokens.map((token) => token.tokenId)).toEqual([
+      id(9401), id(9403),
+    ]);
     expect(exported.text).toBe(originalExport.text);
     expect(exported.sidecarJson).toBe(originalExport.sidecarJson);
     expect(compiled.manifest.events).toEqual(originalCompile.manifest.events);
