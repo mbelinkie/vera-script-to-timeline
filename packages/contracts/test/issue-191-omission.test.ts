@@ -220,6 +220,9 @@ function enrichedDocument(): ScriptDocumentV2 {
 describe("Issue 191 v2 accepted omission", () => {
   it("deterministically removes one phrase, updates only enclosing ranges, and requests a whole-row replacement", () => {
     const input = enrichedDocument();
+    const sourceRow = input.activeDraft.blocks[0]!;
+    if (sourceRow.type !== "narration") throw new Error("missing source narration");
+    sourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
     const originalInput = canonicalJson(input);
     const originalSequence = canonicalJson(input.activeDraft.blocks[0]!.type === "narration" ? input.activeDraft.blocks[0]!.primaryVisualSequence : null);
     const originalOtherRow = canonicalJson(input.activeDraft.blocks[1]);
@@ -233,6 +236,7 @@ describe("Issue 191 v2 accepted omission", () => {
       [0, 5], [6, 11], [12, 17], [18, 22], [23, 30],
     ]);
     expect(row.version).toBe(2);
+    expect(row.stashOrigin?.returnEligible).toBe(false);
     expect(canonicalJson(row.primaryVisualSequence)).toBe(originalSequence);
     expect(row.annotations?.[0]?.range.quotedText).toBe("Alpha Bravo Delta Echo");
     expect(row.annotations?.[0]?.range.anchorVersion).toBe(2);
@@ -270,6 +274,9 @@ describe("Issue 191 v2 accepted omission", () => {
     expect(canonicalJson(input)).toBe(originalInput);
 
     const repeatInput = enrichedDocument();
+    const repeatSourceRow = repeatInput.activeDraft.blocks[0]!;
+    if (repeatSourceRow.type !== "narration") throw new Error("missing repeat source narration");
+    repeatSourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
     const repeat = applyAcceptedOmissionV2(repeatInput, editFor(repeatInput));
     expect(repeat.documentJson).toBe(result.documentJson);
     expect(canonicalJson(repeat.regeneration)).toBe(canonicalJson(result.regeneration));

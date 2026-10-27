@@ -167,6 +167,18 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     expect(proposal.comparisonText).not.toContain("decodedPackageFrameCount");
     expect(canonicalJson(input)).toBe(bytes);
   });
+  it("clears compact return eligibility when a linked visual-only trim is prepared", () => {
+    const input = specimen();
+    const source = input.document.activeDraft.blocks.find((block) => block.id === id(50));
+    if (source?.type !== "visual_only") throw new Error("missing visual-only trim row");
+    source.stashOrigin = { kind: "clip", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
+    const request = commands();
+    request.boundary = null;
+    const prepared = prepareRevisionInputsV2(input.document, input.dependencies, request, patches(input).slice(1));
+    const trimmed = prepared.document.activeDraft.blocks.find((block) => block.id === id(50));
+    if (trimmed?.type !== "visual_only") throw new Error("missing prepared visual-only trim row");
+    expect(trimmed.stashOrigin?.returnEligible).toBe(false);
+  });
   for (const d1 of [187, 200, 213]) it(`composes actual fresh compiled D1=${d1}, preserves neighbors and parked state`, () => {
     const { input, command, handoff, preparedMedia } = cCase(d1); const bytes = canonicalJson(input);
     const proposal = createRevisionProposalV2(input.document, input.dependencies, { commands: command, preparedMedia, handoff });
