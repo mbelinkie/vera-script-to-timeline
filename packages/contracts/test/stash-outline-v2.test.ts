@@ -132,6 +132,24 @@ describe("mixed Stash outline contract", () => {
     if (saved.ok) expect(saved.document.stashOutline).toEqual(result.document.stashOutline);
   });
 
+  it("creates, saves, and places a plain Stash note before the first active row exists", () => {
+    const note = narration(105000);
+    const created = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(105001), row: note,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(created.document));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    const placed = applyRowEditV2(saved.document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.activeDraft.blocks.map((block) => block.id)).toEqual([note.id]);
+    expect(outline(placed.document)).toEqual([]);
+  });
+
   it("upgrades legacy section order once and keeps the mixed outline as the ordering source", () => {
     const unsectioned = narration(140000);
     const sectioned = narration(150000);
@@ -229,6 +247,174 @@ describe("mixed Stash outline contract", () => {
       { rowId: child.id, kind: "clip", parentRowId: null, sectionId: null },
     ]);
   });
+
+  it("returns an active parent's child to its anchored root gap when Stash has other roots", () => {
+    const before = narration(360000);
+    const parent = narration(370000);
+    const child = clip(380000);
+    const after = narration(390000);
+    let document = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(400000), row: before,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 1, {
+      kind: "create_stash_note", bundleId: id(400001), row: parent,
+      sectionId: null, parentRowId: null, afterRowId: before.id,
+    }).document;
+    document = applyRowEditV2(document, 2, {
+      kind: "create_stash_clip", bundleId: id(400002), row: child,
+      sectionId: null, parentRowId: parent.id, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 3, {
+      kind: "create_stash_note", bundleId: id(400003), row: after,
+      sectionId: null, parentRowId: null, afterRowId: parent.id,
+    }).document;
+    const placed = applyRowEditV2(document, 4, {
+      kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const childReturned = applyRowEditV2(placed.document, 5, {
+      kind: "stash_rows", rowIds: [child.id], bundleId: id(400004),
+    });
+    expect(childReturned.ok, JSON.stringify(childReturned.diagnostics)).toBe(true);
+    expect(outline(childReturned.document).map((entry) => entry.rowId)).toEqual([before.id, child.id, after.id]);
+    expect(childReturned.document.activeDraft.blocks.map((block) => block.id)).toEqual([parent.id]);
+    const parentReturned = applyRowEditV2(childReturned.document, 6, {
+      kind: "stash_rows", rowIds: [parent.id], bundleId: id(400005),
+    });
+    expect(parentReturned.ok, JSON.stringify(parentReturned.diagnostics)).toBe(true);
+    expect(outline(parentReturned.document).map((entry) => entry.rowId)).toEqual([before.id, parent.id, child.id, after.id]);
+  });
+
+  it("returns children into an empty outline and preserves their parent gap when the parent returns later", () => {
+    const before = narration(410000);
+    const parent = narration(420000);
+    const child = clip(430000);
+    let document = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(440000), row: before,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 1, {
+      kind: "create_stash_note", bundleId: id(440001), row: parent,
+      sectionId: null, parentRowId: null, afterRowId: before.id,
+    }).document;
+    document = applyRowEditV2(document, 2, {
+      kind: "create_stash_clip", bundleId: id(440002), row: child,
+      sectionId: null, parentRowId: parent.id, afterRowId: null,
+    }).document;
+    const placed = applyRowEditV2(document, 3, {
+      kind: "place_stash_rows", rowIds: [before.id, parent.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(outline(placed.document)).toEqual([]);
+    const childReturned = applyRowEditV2(placed.document, 4, {
+      kind: "stash_rows", rowIds: [child.id], bundleId: id(440003),
+    });
+    expect(childReturned.ok, JSON.stringify(childReturned.diagnostics)).toBe(true);
+    expect(outline(childReturned.document).map((entry) => entry.rowId)).toEqual([child.id]);
+    const parentReturned = applyRowEditV2(childReturned.document, 5, {
+      kind: "stash_rows", rowIds: [before.id, parent.id], bundleId: id(440004),
+    });
+    expect(parentReturned.ok, JSON.stringify(parentReturned.diagnostics)).toBe(true);
+    expect(outline(parentReturned.document).map((entry) => entry.rowId)).toEqual([before.id, parent.id, child.id]);
+  });
+
+  it("returns one child at the active parent's source gap before its active sibling", () => {
+    const before = narration(450000);
+    const parent = narration(460000);
+    const firstChild = clip(470000);
+    const secondChild = clip(480000);
+    let document = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(490000), row: before,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 1, {
+      kind: "create_stash_note", bundleId: id(490001), row: parent,
+      sectionId: null, parentRowId: null, afterRowId: before.id,
+    }).document;
+    document = applyRowEditV2(document, 2, {
+      kind: "create_stash_clip", bundleId: id(490002), row: firstChild,
+      sectionId: null, parentRowId: parent.id, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 3, {
+      kind: "create_stash_clip", bundleId: id(490003), row: secondChild,
+      sectionId: null, parentRowId: parent.id, afterRowId: firstChild.id,
+    }).document;
+    document = applyRowEditV2(document, 4, {
+      kind: "create_stash_note", bundleId: id(490004), row: narration(495000),
+      sectionId: null, parentRowId: null, afterRowId: parent.id,
+    }).document;
+    const placed = applyRowEditV2(document, 5, {
+      kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const firstReturned = applyRowEditV2(placed.document, 6, {
+      kind: "stash_rows", rowIds: [firstChild.id], bundleId: id(490005),
+    });
+    expect(firstReturned.ok, JSON.stringify(firstReturned.diagnostics)).toBe(true);
+    expect(outline(firstReturned.document).map((entry) => entry.rowId)).toEqual([before.id, firstChild.id, id(495000)]);
+    expect(firstReturned.document.activeDraft.blocks.map((block) => block.id)).toEqual([parent.id, secondChild.id]);
+    const secondReturned = applyRowEditV2(firstReturned.document, 7, {
+      kind: "stash_rows", rowIds: [secondChild.id], bundleId: id(490006),
+    });
+    expect(secondReturned.ok, JSON.stringify(secondReturned.diagnostics)).toBe(true);
+    expect(outline(secondReturned.document).map((entry) => entry.rowId)).toEqual([before.id, firstChild.id, secondChild.id, id(495000)]);
+    const parentReturned = applyRowEditV2(secondReturned.document, 8, {
+      kind: "stash_rows", rowIds: [parent.id], bundleId: id(490007),
+    });
+    expect(parentReturned.ok, JSON.stringify(parentReturned.diagnostics)).toBe(true);
+    expect(outline(parentReturned.document).map((entry) => entry.rowId)).toEqual([before.id, parent.id, firstChild.id, secondChild.id, id(495000)]);
+  });
+
+  for (const reverseActiveOrder of [false, true]) {
+    it(`returns a selected child batch at its active parent's root gap${reverseActiveOrder ? " despite reversed active order" : ""}`, () => {
+      const firstId = reverseActiveOrder ? 510000 : 500000;
+      const before = narration(firstId);
+      const parent = narration(firstId + 1);
+      const firstChild = clip(firstId + 2);
+      const secondChild = clip(firstId + 3);
+      let document = applyRowEditV2(documentWith(), 0, {
+        kind: "create_stash_note", bundleId: id(firstId + 10), row: before,
+        sectionId: null, parentRowId: null, afterRowId: null,
+      }).document;
+      document = applyRowEditV2(document, 1, {
+        kind: "create_stash_note", bundleId: id(firstId + 11), row: parent,
+        sectionId: null, parentRowId: null, afterRowId: before.id,
+      }).document;
+      document = applyRowEditV2(document, 2, {
+        kind: "create_stash_clip", bundleId: id(firstId + 12), row: firstChild,
+        sectionId: null, parentRowId: parent.id, afterRowId: null,
+      }).document;
+      document = applyRowEditV2(document, 3, {
+        kind: "create_stash_clip", bundleId: id(firstId + 13), row: secondChild,
+        sectionId: null, parentRowId: parent.id, afterRowId: firstChild.id,
+      }).document;
+      const placed = applyRowEditV2(document, 4, {
+        kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null, null),
+      });
+      expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+      let active = placed.document;
+      if (reverseActiveOrder) {
+        const reordered = applyRowEditV2(active, 5, {
+          kind: "move_rows", rowIds: [secondChild.id], destination: gap(null, parent.id, firstChild.id),
+        });
+        expect(reordered.ok, JSON.stringify(reordered.diagnostics)).toBe(true);
+        active = reordered.document;
+      }
+      const childBatch = reverseActiveOrder ? [secondChild.id, firstChild.id] : [firstChild.id, secondChild.id];
+      const returned = applyRowEditV2(active, reverseActiveOrder ? 6 : 5, {
+        kind: "stash_rows", rowIds: childBatch, bundleId: id(firstId + 14),
+      });
+      expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+      expect(outline(returned.document).map((entry) => entry.rowId)).toEqual([before.id, firstChild.id, secondChild.id]);
+      expect(returned.document.activeDraft.blocks.map((block) => block.id)).toEqual([parent.id]);
+      const parentReturned = applyRowEditV2(returned.document, reverseActiveOrder ? 7 : 6, {
+        kind: "stash_rows", rowIds: [parent.id], bundleId: id(firstId + 15),
+      });
+      expect(parentReturned.ok, JSON.stringify(parentReturned.diagnostics)).toBe(true);
+      expect(outline(parentReturned.document).map((entry) => entry.rowId)).toEqual([before.id, parent.id, firstChild.id, secondChild.id]);
+    });
+  }
 
   it("keeps multiple independently returned children in source order before returning their parent", () => {
     const parent = narration(900000);
@@ -623,6 +809,37 @@ describe("mixed Stash outline contract", () => {
       { rowId: unsectionedB.id, kind: "note", parentRowId: null, sectionId },
     ]);
     expect(moved.document.stashSections).toEqual([{ id: sectionId, title: "Research", rowIds: [] }]);
+  });
+
+  it("leaves already-targeted roots and their children in place when moving another root", () => {
+    const sectionId = id(760100);
+    const existing = narration(760200);
+    const child = clip(760300);
+    const other = narration(760400);
+    let document = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_section", sectionId, title: "Research",
+    }).document;
+    document = applyRowEditV2(document, 1, {
+      kind: "create_stash_note", bundleId: id(760500), row: existing,
+      sectionId, parentRowId: null, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 2, {
+      kind: "create_stash_clip", bundleId: id(760600), row: child,
+      sectionId, parentRowId: existing.id, afterRowId: null,
+    }).document;
+    document = applyRowEditV2(document, 3, {
+      kind: "create_stash_note", bundleId: id(760700), row: other,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    const moved = applyRowEditV2(document, 4, {
+      kind: "move_stash_rows", rowIds: [existing.id, other.id], sectionId,
+    });
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    expect(outline(moved.document)).toEqual([
+      { rowId: existing.id, kind: "note", parentRowId: null, sectionId },
+      { rowId: child.id, kind: "clip", parentRowId: existing.id, sectionId },
+      { rowId: other.id, kind: "note", parentRowId: null, sectionId },
+    ]);
   });
 
   it("refuses to split a nested branch across Stash sections and preserves kinds on a complete move", () => {

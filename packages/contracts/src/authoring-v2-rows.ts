@@ -289,9 +289,7 @@ function orderReturningSiblings(entries: StashOutlineEntryV2[], plans: StashRetu
   return order;
 }
 
-function insertReturningSiblingGroup(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], plans: StashReturnPlan[]): boolean {
-  const order = orderReturningSiblings(entries, plans);
-  if (!order) return false;
+function insertReturningSiblingGroup(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], plans: StashReturnPlan[], order: string[]): boolean {
   const planById = new Map(plans.map((plan) => [plan.entry.rowId, plan]));
   for (let index = 0; index < order.length; index += 1) {
     const plan = planById.get(order[index]!);
@@ -318,35 +316,55 @@ function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: Stash
   const result = structuredClone(entries);
   const originalParents = outlineMap(entries);
   const resultingKinds = new Map(rows.map((row) => [row.id, row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
+  const activeParentContexts = new Map<string, { row: Row; origin: StashOriginV2 | undefined; returnedChildIds: Set<string> }>();
+  for (const row of rows) {
+    const parentRowId = row.stashOrigin?.parentRowId;
+    if (!parentRowId || activeParentContexts.has(parentRowId)) continue;
+    const parent = document.activeDraft.blocks.find((block) => block.id === parentRowId && block.type !== "section");
+    if (parent && parent.type !== "section") activeParentContexts.set(parentRowId, {
+      row: parent,
+      origin: parent.stashOrigin ? { ...parent.stashOrigin } : undefined,
+      returnedChildIds: new Set(),
+    });
+  }
   const pending: StashReturnPlan[] = [];
   for (const [activeOrder, row] of rows.entries()) {
     const origin: StashOriginV2 | undefined = row.stashOrigin;
     const kind = origin?.returnEligible && origin.kind !== "row" ? origin.kind : "row";
     let parentRowId = origin?.parentRowId ?? null;
-    const afterSiblingRowId = origin?.afterSiblingRowId ?? null;
-    const beforeSiblingRowId = origin?.beforeSiblingRowId ?? null;
+    let afterSiblingRowId = origin?.afterSiblingRowId ?? null;
+    let beforeSiblingRowId = origin?.beforeSiblingRowId ?? null;
+    const sectionId = origin?.sectionId ?? null;
     let appendToSection = origin === undefined;
     if (parentRowId !== null) {
       if (selected.has(parentRowId)) {
         if (resultingKinds.get(parentRowId) !== "note") return null;
       } else if (document.activeDraft.blocks.some((block) => block.id === parentRowId && block.type !== "section")) {
-        const activeParent = document.activeDraft.blocks.find((block) => block.id === parentRowId);
-        parentRowId = null;
-        appendToSection = !entries.some((entry) => entry.parentRowId === null && entry.sectionId === (origin?.sectionId ?? null));
-        if (activeParent?.type !== "section" && activeParent?.stashOrigin) {
-          const parentOrigin = activeParent.stashOrigin;
-          if (parentOrigin.afterSiblingRowId === null && parentOrigin.beforeSiblingRowId === null) {
-            parentOrigin.beforeSiblingRowId = row.id;
-          } else if (parentOrigin.beforeSiblingRowId !== null && origin?.beforeSiblingRowId === parentOrigin.beforeSiblingRowId) {
-            parentOrigin.beforeSiblingRowId = row.id;
-          }
+        const originalParentRowId = parentRowId;
+        const parentContext = activeParentContexts.get(originalParentRowId);
+        const parentOrigin = parentContext?.origin;
+        if (parentOrigin && parentOrigin.sectionId !== sectionId) return null;
+        const currentRoots = entries.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+        const currentRootIds = new Set(currentRoots.map((entry) => entry.rowId));
+        const returningSiblingIds = new Set(rows
+          .filter((candidate) => candidate.id !== row.id && candidate.stashOrigin?.parentRowId === originalParentRowId && candidate.stashOrigin.sectionId === sectionId)
+          .map((candidate) => candidate.id));
+        const isTopLevelAnchor = (anchor: string | null): boolean => anchor !== null && (currentRootIds.has(anchor) || returningSiblingIds.has(anchor));
+        if (parentOrigin) {
+          const resolvedAfter = isTopLevelAnchor(afterSiblingRowId);
+          const resolvedBefore = isTopLevelAnchor(beforeSiblingRowId);
+          if (!resolvedAfter) afterSiblingRowId = parentOrigin.afterSiblingRowId;
+          if (!resolvedBefore && !(resolvedAfter && afterSiblingRowId === parentOrigin.beforeSiblingRowId)) beforeSiblingRowId = parentOrigin.beforeSiblingRowId;
+          if (!resolvedAfter && resolvedBefore && beforeSiblingRowId === parentOrigin.afterSiblingRowId) afterSiblingRowId = null;
         }
+        parentRowId = null;
+        appendToSection = currentRoots.length === 0;
+        parentContext?.returnedChildIds.add(row.id);
       } else {
         const parent = originalParents.get(parentRowId);
         if (!parent || parent.kind !== "note") return null;
       }
     }
-    const sectionId = origin?.sectionId ?? null;
     if (!sectionExists(document, sectionId)) return null;
     const selectedParent = selected.has(origin?.parentRowId ?? "") ? rows.find((candidate) => candidate.id === origin!.parentRowId) : undefined;
     if (selectedParent?.stashOrigin && selectedParent.stashOrigin.sectionId !== sectionId) return null;
@@ -365,7 +383,18 @@ function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: Stash
     const ready = pending.find((plan) => plan.entry.parentRowId === null || result.some((entry) => entry.rowId === plan.entry.parentRowId));
     if (!ready) return null;
     const groupPlans = pending.filter((plan) => plan.entry.parentRowId === ready.entry.parentRowId && plan.entry.sectionId === ready.entry.sectionId);
-    if (!insertReturningSiblingGroup(document, result, groupPlans)) return null;
+    const order = orderReturningSiblings(result, groupPlans);
+    if (!order) return null;
+    for (const context of activeParentContexts.values()) {
+      const firstReturnedChild = order.find((rowId) => context.returnedChildIds.has(rowId));
+      if (!firstReturnedChild || !context.row.stashOrigin) continue;
+      const oldBefore = context.origin?.beforeSiblingRowId ?? null;
+      const oldBeforeIndex = oldBefore === null ? -1 : order.indexOf(oldBefore);
+      if (oldBefore === null || oldBeforeIndex < 0 || order.indexOf(firstReturnedChild) < oldBeforeIndex) {
+        context.row.stashOrigin.beforeSiblingRowId = firstReturnedChild;
+      }
+    }
+    if (!insertReturningSiblingGroup(document, result, groupPlans, order)) return null;
     for (const plan of groupPlans) pending.splice(pending.indexOf(plan), 1);
   }
   return result;
@@ -597,6 +626,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     moved = stashRows.filter((row) => selected.has(row.id));
     if (moved.length !== selected.size) return refused(document, "ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
     if (command.sectionId !== null && typeof command.sectionId !== "string") return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    const byId = outlineMap(ensureStashOutline(working));
+    moved = moved.filter((row) => byId.get(row.id)?.sectionId !== command.sectionId);
     const moveError = moveOutlineRowsToSection(working, moved.map((row) => row.id), command.sectionId);
     if (moveError) return refused(document, "STASH_SECTION_NOT_FOUND", moveError);
   } else if (command.kind === "create_stash_note" || command.kind === "create_stash_clip") {
