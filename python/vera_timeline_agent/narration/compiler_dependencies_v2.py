@@ -21,6 +21,8 @@ from vera_timeline_agent.narration.compiler_dependencies import (
     narration_dependency_from_asset,
 )
 from vera_timeline_agent.narration.models import NarrationAudioAsset, sha256_bytes
+from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
+from vera_timeline_agent.narration.stage_directions import spoken_tokens
 
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 _TOKENIZATION_VERSION = "script-document/v2-frozen-tokens"
@@ -90,7 +92,9 @@ def narration_v2_dependency_from_asset(
             "word_timing_required: provider has no word starts"
         )
 
-    token_rows = _validated_tokens(text_utf16, tokens)
+    if any(isinstance(token, Mapping) and token.get("spoken") is False for token in tokens):
+        mask_stage_directions(frozen_block)
+    token_rows = _validated_tokens(text_utf16, cast(list[NarrationToken], spoken_tokens(frozen_block)))
     word_marks = [mark for mark in timing["marks"] if mark["kind"] == "word"]
     raw_words = {
         (mark["start_utf16"], mark["end_utf16"]): mark

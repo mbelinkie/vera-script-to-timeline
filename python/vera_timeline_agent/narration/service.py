@@ -41,6 +41,7 @@ from vera_timeline_agent.narration.provider import (
     SpeechProviderError,
     SpeechSynthesisProvider,
 )
+from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
 
 
 @dataclass(frozen=True)
@@ -69,10 +70,26 @@ class ServiceConfig:
             raise ValueError(
                 "active narration block requires string id/text and integer version"
             )
+        tokens = block.get("tokens")
+        has_directions = isinstance(tokens, list) and any(
+            isinstance(token, dict) and token.get("spoken") is False
+            for token in tokens
+        )
+        source_text_hash = None
+        if has_directions:
+            if not any(
+                isinstance(token, dict) and token.get("spoken") is not False
+                for token in tokens
+            ):
+                raise ValueError("direction-only narration has no spoken text to synthesize")
+            spoken_text = mask_stage_directions(block)
+            source_text_hash = sha256_bytes(text.encode("utf-8"))
+        else:
+            spoken_text = text
         return SynthesisRequest(
             block_id=block_id,
             block_revision=revision,
-            text=text,
+            text=spoken_text,
             profile=self.profile,
             settings=self.settings,
             pronunciations=self.pronunciations,
@@ -80,6 +97,7 @@ class ServiceConfig:
             data_policy_attestation=self.data_policy_attestation,
             max_cost_usd=self.max_cost_usd,
             pricing_policy_version=self.pricing.version,
+            source_text_hash=source_text_hash,
         )
 
 
@@ -445,7 +463,7 @@ class NarrationService:
             block_revision=request.block_revision,
             kind="temp_synthetic",
             status=status,
-            text_hash=sha256_bytes(request.text.encode("utf-8")),
+            text_hash=request.source_text_hash or sha256_bytes(request.text.encode("utf-8")),
             provider_input_hash=sha256_bytes(provider_input)
             if raw is not None
             else None,

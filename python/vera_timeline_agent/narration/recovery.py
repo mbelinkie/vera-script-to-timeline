@@ -27,6 +27,8 @@ from vera_timeline_agent.narration.compiler_dependencies import (
 from vera_timeline_agent.narration.compiler_dependencies_v2 import _validated_tokens
 from vera_timeline_agent.narration.measure import parameters_hash, rational
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
+from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
+from vera_timeline_agent.narration.stage_directions import spoken_tokens
 
 _SAMPLE_RATE = 48_000
 _PREPARED_RATE = 16_000
@@ -437,8 +439,10 @@ def _frozen_block(
         raise RecoveryError("frozen narration tokens are required")
     try:
         utf16 = text.encode("utf-16-le")
-        tokens = _validated_tokens(utf16, cast(list[NarrationToken], raw_tokens))
-    except (UnicodeEncodeError, NarrationDependencyError) as error:
+        if any(isinstance(token, Mapping) and token.get("spoken") is False for token in raw_tokens):
+            mask_stage_directions(block)
+        tokens = _validated_tokens(utf16, cast(list[NarrationToken], spoken_tokens(block)))
+    except (UnicodeEncodeError, NarrationDependencyError, ValueError) as error:
         raise RecoveryError("frozen narration tokens do not match text") from error
     return (
         block_id,

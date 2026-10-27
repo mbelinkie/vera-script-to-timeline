@@ -30,6 +30,8 @@ from vera_timeline_agent.narration.fish import FishError, _source_words, timing_
 from vera_timeline_agent.narration.fish_stream import parse_timestamp_stream
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 from vera_timeline_agent.narration.normalize import Normalizer
+from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
+from vera_timeline_agent.narration.stage_directions import spoken_tokens
 from vera_timeline_agent.narration.recovery import (
     RecoveryError,
     RecoverySource,
@@ -65,6 +67,8 @@ def retained_source(
     if len(blocks) != 1:
         raise RecoveryError("one matching frozen narration block is required")
     block = blocks[0]
+    tokens = spoken_tokens(block)
+    provider_text = mask_stage_directions(block) if any(token.get("spoken") is False for token in block["tokens"]) else block["text"]
     if (
         block["version"] != asset["block_revision"]
         or sha256_bytes(block["text"].encode()) != asset["text_hash"]
@@ -81,7 +85,7 @@ def retained_source(
     if abs(end - Fraction(len(raw) // 2, 44100)) > Fraction(1, 20):
         raise RecoveryError("retained alignment duration differs from audio")
     try:
-        timing_marks(block["text"], snapshots, len(raw) // 2)
+        timing_marks(provider_text, snapshots, len(raw) // 2)
     except FishError as error:
         # All source-coverage checks precede this particular refusal. Other
         # defects require their own recovery proof, not permissive remapping.
@@ -91,15 +95,15 @@ def retained_source(
             ) from error
     else:
         raise RecoveryError("retained native timing is already usable")
-    spans = _source_words(block["text"])
+    spans = _source_words(provider_text)
     expected = [
         (
-            len(block["text"][:a].encode("utf-16-le")) // 2,
-            len(block["text"][:b].encode("utf-16-le")) // 2,
+            len(provider_text[:a].encode("utf-16-le")) // 2,
+            len(provider_text[:b].encode("utf-16-le")) // 2,
         )
         for a, b in spans
     ]
-    if expected != [(t["startOffset"], t["endOffset"]) for t in block["tokens"]]:
+    if expected != [(t["startOffset"], t["endOffset"]) for t in tokens]:
         raise RecoveryError("native source spans differ from frozen token inventory")
     return asset, block, response, raw
 
@@ -111,7 +115,8 @@ def prepare_candidate(
     prepared = prepare_recovery_audio(source.normalized_wav_bytes)
     (out / "engine.wav").write_bytes(prepared.wav_bytes)
     words: list[dict[str, Any]] = []
-    for index, token in enumerate(source.block["tokens"]):
+    tokens = spoken_tokens(source.block)
+    for index, token in enumerate(tokens):
         pieces = normalise_token(token["value"], "en")
         if not pieces:
             raise RecoveryError("a frozen token has no supported spoken form")
@@ -183,7 +188,7 @@ def prepare_candidate(
     if [(w.get("i"), w.get("sub", 0)) for w in result["words"]] != expected:
         raise RecoveryError("MFA omitted, duplicated or reordered transcript units")
     mapped = []
-    for index, token in enumerate(source.block["tokens"]):
+    for index, token in enumerate(spoken_tokens(source.block)):
         parts = [w for w in result["words"] if w["i"] == index]
         if not parts or any(w["status"] != "aligned" for w in parts):
             raise RecoveryError("MFA abstained on a required frozen word")

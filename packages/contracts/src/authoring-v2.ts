@@ -280,6 +280,22 @@ export {
 } from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export {
+  applyStageDirectionEditV2,
+  undoStageDirectionEditV2,
+  type StageDirectionEditCommandV2,
+  type StageDirectionEditResultV2,
+  type StageDirectionUndoV2,
+} from "./authoring-v2-stage-direction-edits.js";
+export {
+  inspectStageDirectionsV2,
+  maskStageDirectionsV2,
+  spokenNarrationViewV2,
+  spokenTokensV2,
+  type StageDirectionIssueV2,
+  type StageDirectionRunV2,
+  type SpokenNarrationViewV2,
+} from "./authoring-v2-stage-directions.js";
 export { createSortingTrialV2, resumeSortingTrialV2 } from "./authoring-v2-sorting.js";
 export { applyStashRowEditV2, type StashRowEditCommandV2, type StashedRowV2 } from "./authoring-v2-stash.js";
 export {

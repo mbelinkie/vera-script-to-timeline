@@ -285,7 +285,7 @@
       }
     },
     "NarrationToken": {
-      "description": "Stable spoken-token identity plus UTF-16 offsets into NarrationBlockV2.text; text and offset agreement remains semantic validation.",
+      "description": "Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a paired stage-direction token.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -301,6 +301,9 @@
         "value": {
           "type": "string",
           "minLength": 1
+        },
+        "spoken": {
+          "type": "boolean"
         },
         "startOffset": {
           "$ref": "#/$defs/NonNegativeSafeInteger"
