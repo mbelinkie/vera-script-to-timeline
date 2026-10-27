@@ -146,7 +146,7 @@ export function defaultDirectionNarrationRowV2(input: NarrationBlockV2): Narrati
   const mixed = row.tokens.some((token) => token.spoken === false) && !allDirection;
   if (mixed) return null;
   if (allDirection) return row;
-  const first = row.tokens[0]!;
+  const first = row.tokens[0];
   const last = row.tokens.at(-1)!;
   if (
     !Number.isSafeInteger(first.startOffset) || !Number.isSafeInteger(last.endOffset) ||

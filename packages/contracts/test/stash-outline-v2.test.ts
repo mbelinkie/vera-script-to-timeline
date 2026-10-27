@@ -91,8 +91,8 @@ describe("mixed Stash outline contract", () => {
   it("stores default-direction notes, explicit mixed notes, and standalone footage in saved-row payloads", () => {
     const plain = narration(100000);
     const authored = narration(110000);
-    const first = authored.tokens[0]!;
-    const second = authored.tokens[1]!;
+    const first = authored.tokens[0];
+    const second = authored.tokens[1];
     authored.text = `[${first.value}] ${second.value}`;
     authored.tokens = [
       { ...first, startOffset: 1, endOffset: first.value.length + 1, spoken: false },
@@ -325,7 +325,7 @@ describe("mixed Stash outline contract", () => {
     const placed = applyRowEditV2(created.document, 1, { kind: "place_stash_rows", rowIds: [source.id], destination: gap(null, null, null) });
     expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
     const row = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
-    const token = row.tokens[0]!;
+    const token = row.tokens[0];
     const visualEdit = applyVisualSequenceEditV2(placed.document, row.primaryVisualSequence!.version, {
       kind: "insert_sequential",
       blockId: row.id,
