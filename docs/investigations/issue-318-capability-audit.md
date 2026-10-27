@@ -7,6 +7,11 @@ the finished application. [Issue #318](https://github.com/mbelinkie/vera-script-
 owns this finite audit. #33 and #147 are historical inputs, not current
 capability certificates.
 
+For later reconciled native findings and reuse boundaries, consult the
+[Resolve knowledge guide](../RESOLVE_KNOWLEDGE_GUIDE.md#318-action-crosswalk).
+This historical matrix's design feasibility holds remain in force; later
+partial proofs clear only their explicitly demonstrated subset.
+
 ## Evidence rules
 
 - **W — working:** executable implementation supports the stated bounded claim.
