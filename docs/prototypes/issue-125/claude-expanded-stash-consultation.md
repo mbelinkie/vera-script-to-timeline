@@ -151,3 +151,41 @@ operation is needed for this consultation.
    needs comparison; do not generate new numbered pages, full-app designs or exports.
 
 Stop after critique. No design-app submission or implementation.
+
+## CLI consultation outcome and disposition
+
+One tools-disabled Opus/high subscription consultation completed 2026-10-27.
+It received this textual brief only; no live artifact inspection or edits.
+
+- Carry forward: #125 needs a coherent compact sidebar contract, including the
+  location of Add note, basic indent/outdent entry, count meaning, placement
+  results and the rule during pending Sorting. A later full planning workspace
+  must reuse that contract. This is a recommended split, not a newly approved
+  deferral or permission to render unproved operations.
+- Carry forward as unresolved: note speech/direction defaults, hierarchy on
+  return to Stash, and whether note/clip conversion participates in Sorting's
+  Accept/Discard session. Existing row operations do not prove these additions.
+- Carry forward as proof needs: note/clip/branch conversion and atomic Undo;
+  paired direction editing/Undo; keyboard placement; active-output exclusion.
+  Reuse existing row evidence without claiming that it covers the new types.
+- Correct a reviewer misreading: the parent itself already becomes the first
+  row. The unresolved issue is its text's speech/direction meaning, not whether
+  it is included. Separate clip descendants become their own rows; automatic
+  attachment to a neighboring narration row is not adopted.
+- Do not adopt the reviewer's claim that hierarchy recovery necessarily means
+  permanent mandatory bundles. Provenance-based recovery and independent rows
+  are technically compatible; product intent remains unresolved. One-way
+  conversion with exact immediate Undo is a recommendation, not settled policy.
+- Do not silently adopt recommendations that plain notes/unmatched brackets are
+  spoken, that only saved rows count, that missing clips are placeable, or that
+  note/clip placement is disabled during Sorting. Defaults require a Producer
+  decision; any missing-media action stays within existing supported limits.
+- Do not accept the suggestion to skip comparison merely because the items
+  share a list. Compact mixed-item hierarchy and input mechanics are not yet
+  Producer-selected. After decisions/proof, use the required focused comparison
+  if information hierarchy or interactions remain open, then one bounded pilot
+  at both viewports. No full Stash redesign is authorized by this consultation.
+
+No Claude Design submission, numbered artifact, export, new issue, dispatch,
+production implementation or capability clearance resulted. The adopted source
+remains #62; these reviewer recommendations do not change it.
