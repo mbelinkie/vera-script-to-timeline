@@ -204,6 +204,21 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         const remainingItems: SupportingItemV2[] = [];
         for (const item of bundle.supportingItems) {
           const references = supportingRows(item, allRows);
+          if (item.placement.kind === "timed") {
+            if (!item.placement.start || !item.placement.end) {
+              return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "Review duration-ended supporting items before restoring part of their saved rows.");
+            }
+            const placementOnly = { ...item };
+            delete placementOnly.displayAttachment;
+            const placementReferences = supportingRows(placementOnly, bundle.rows);
+            const positions = bundle.rows.flatMap((row, index) => placementReferences.has(row.id) ? [index] : []);
+            if (positions.length > 1) {
+              // Timed endpoints also cover the saved rows between them, not only their anchor rows.
+              for (let position = Math.min(...positions); position <= Math.max(...positions); position += 1) {
+                references.add(bundle.rows[position]!.id);
+              }
+            }
+          }
           const touchesSelected = [...references].some((id) => selectedBundleIds.has(id));
           const touchesRemaining = [...references].some((id) => remainingBundleIds.has(id));
           if (!references.size || touchesSelected && touchesRemaining) {

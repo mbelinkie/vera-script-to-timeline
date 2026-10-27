@@ -1108,6 +1108,35 @@ describe("independent Stash rows and optional sections", () => {
     expect(audioRefusal.document).toBe(audioProtected);
   });
 
+  it.each([[1], [0, 2]])("refuses splitting a timed supporting range around middle saved rows (%j)", (...selection: number[]) => {
+    const savedRows = [richNarration(50000), richNarration(60000), richNarration(70000)];
+    const first = savedRows[0]!;
+    const last = savedRows[2]!;
+    const support: SupportingItemV2 = {
+      ...citation(first, 9800),
+      role: "audio_cue",
+      placement: {
+        kind: "timed",
+        start: { kind: "word", anchor: wordAnchor(first) },
+        end: { kind: "word", anchor: wordAnchor(last) },
+      },
+    };
+    const initial = documentWith(savedRows, { supportingItems: [support] });
+    const stashed = applyRowEditV2(initial, 0, {
+      kind: "stash_rows", rowIds: savedRows.map((row) => row.id), bundleId: id(9801),
+    });
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
+    const before = structuredClone(stashed.document);
+    const restored = applyRowEditV2(stashed.document, 1, {
+      kind: "restore_stash_rows", rowIds: selection.map((index) => savedRows[index]!.id),
+      destination: gap(null, null, null),
+    });
+    expect(restored.ok).toBe(false);
+    expect(restored.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(restored.document).toBe(stashed.document);
+    expect(restored.document).toEqual(before);
+  });
+
   it("allows Stash organization in Sorting while retaining local Undo and content-read-only behavior", () => {
     const [a, b] = [row(740), row(741)];
     const stashed = applyRowEditV2(documentWith([a, b]), 0, { kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(9540) }).document;

@@ -274,6 +274,45 @@ describe("row-edit consumers", () => {
     expect(restoredNeeds.durationFrames).toBe(originalNeeds.durationFrames);
   });
 
+  it("restores only the selected row to consumers while its saved neighbor remains excluded", () => {
+    const { document, dependencies } = input();
+    const originalExport = exportPrompter(document, exportSettings);
+    const originalCompile = compileTimelineV2(document, dependencies);
+    const originalNeeds = mediaNeeds(document, dependencies);
+    expect(originalExport.ok && originalCompile.ok && originalNeeds.ok).toBe(true);
+    if (!originalExport.ok || !originalCompile.ok || !originalNeeds.ok) return;
+    const active = activeNarration(document);
+    const parked = stashedRow();
+    const parkedCitation = citation(parked);
+    document.activeDraft.blocks.push(parked);
+    document.activeDraft.supportingItems.push(parkedCitation);
+    const saved = applyRowEditV2(document, 0, {
+      kind: "stash_rows", rowIds: [active.id, parked.id], bundleId: id(9040),
+    });
+    expect(saved.ok).toBe(true);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(saved.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const restored = applyRowEditV2(loaded.document, 1, {
+      kind: "restore_stash_rows", rowIds: [active.id],
+      destination: { sectionId: null, afterRowId: null, beforeRowId: null },
+    });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.document.stash?.[0]?.rows).toEqual([parked]);
+    expect(restored.document.stash?.[0]?.supportingItems).toEqual([parkedCitation]);
+    const exported = exportPrompter(restored.document, exportSettings);
+    const compiled = compileTimelineV2(restored.document, dependencies);
+    const needs = mediaNeeds(restored.document, dependencies);
+    expect(exported.ok && compiled.ok && needs.ok).toBe(true);
+    if (!exported.ok || !compiled.ok || !needs.ok) return;
+    expect(exported.text).toBe(originalExport.text);
+    expect(exported.sidecarJson).toBe(originalExport.sidecarJson);
+    expect(compiled.manifest.events).toEqual(originalCompile.manifest.events);
+    expect(needs.requirements).toEqual(originalNeeds.requirements);
+    expect(needs.requirements.some((item) => payloadIds(parked).includes(item.payloadId))).toBe(false);
+  });
+
   it("makes restored edited text eligible again, requiring fresh narration timing rather than reusing stale audio", () => {
     const { document, dependencies } = input();
     const row = activeNarration(document);
