@@ -35,10 +35,21 @@ be able to think in an outline without constructing two-column rows first.
   retains its complete content, identity and attachments within supported limits.
 - A text note becomes a row whose text preserves its spoken/direction meaning.
   A note can mix prospective spoken text and nonspoken directions.
+- Producer clarification: plain notes become nonspoken stage directions by
+  default, keeping planning material distinct from narration. Preserve explicit
+  spoken intent where the writer has already converted it; do not adopt the
+  CLI reviewer's plain-notes-are-spoken recommendation.
 - Dragging a parent note moves the parent and descendants together into a group
   of rows in outline order. Text and clip descendants become corresponding rows.
   Indentation never automatically creates script sections. This placement does
   not authorize a permanent mandatory bundle of script rows.
+- Returning converted material to Stash without editing it restores its outline
+  form. Once authored changes have been made, it returns as a script row. Keep
+  origin/hierarchy information sufficient for the untouched return; this is not
+  permission to link all future script-row moves as a mandatory bundle. Whether
+  the row has been edited is part of Undo: fully Undoing the edit restores its
+  previous outline-return eligibility. Ordinary manual rewriting back to the
+  original words is not automatically declared equivalent to Undo.
 - Square brackets mark nonspoken stage directions. Parentheses remain ordinary
   spoken text. For an existing paired direction, deleting either delimiter
   removes its partner, retains the enclosed words and converts them to speech.
@@ -49,10 +60,14 @@ be able to think in an outline without constructing two-column rows first.
 - Content remaining in Stash is excluded from the active script's ordinary
   narration, prompter, build and exports. Placement does not silently repair
   timing/media/transition relationships or update Resolve.
-- Saved rows remain independently restorable; organizing Stash sections is an
-  exception to Sorting's content-edit restrictions. Existing Sorting preview,
-  Accept/Return/Discard behavior remains. Do not silently enable general note
-  authoring during a pending Sorting session.
+- Saved rows remain independently restorable. Producer clarification: notes and
+  clips CAN be placed from Stash during pending Sorting. Do not depict placement
+  as blocked merely because #310 currently lacks conversion support; record the
+  missing proof. Any expanded script row in Sorting supports full authoring, not
+  only newly placed notes. Writing and organization share the same pending
+  session: Accept keeps both, Discard reverses both. Existing script-format
+  preview remains read-only; Return to Sorting retains the pending edits. Do not
+  imply that Discard undoes irreversible external media/service operations.
 - Product copy uses content rather than row numbers. Bold continues to mean
   On Camera. Comments retain one discussion per target and the selected sidebar;
   do not add planning-specific comment semantics here.
@@ -72,6 +87,11 @@ Do not claim to have inspected their appearance or invent measured layout facts.
   saved-row Stash operations, local Undo, Sorting preview/Accept/Discard and
   editing saved row content outside Sorting. These are not proofs of nested
   planning notes or clip/note-to-row conversion.
+- #310 specifically allows only structural commands in a pending Sorting
+  session. The newly required conversion/untouched outline return, and proposed
+  content editing with transactional Accept/Discard, need expanded executable
+  proof; the old read-only rule is an implementation limit, not a reason to
+  override the Producer's new placement requirement.
 - Open #337 owns independent saved-row restore and optional Stash sections.
   It does not currently cover note hierarchies or the new conversions.
 - #324 provides a bounded comment-anchor baseline, not a new cross-app service.
@@ -109,17 +129,24 @@ sidebar honest, identify the minimal addition rather than silently postponing it
 
 ### Unresolved product decisions — do not make them for the Producer
 
-1. A new planning note's default appearance and spoken/direction meaning. Earlier
-   default-direction marking was discussed before bracket-based writing. Do not
-   assume every plain outline note is narration or automatically wrap all notes
-   in brackets without resolving this conflict.
+1. The compact appearance/input of default-direction notes. Their default
+   nonspoken meaning is now settled; do not ask the Producer to choose speech
+   versus directions again. Exact bracket affordance during note entry must fit
+   that default without making every reminder look like a full script row.
 2. Incomplete bracket typing/paste, literal/escaped or nested brackets, and when
    typing commits a direction. Existing-pair deletion does not settle these.
-3. Whether/how hierarchy is recovered when converted rows return to Stash,
-   partial branch placement, and empty-parent behavior. Existing script rows
-   remain independent; do not invent persistent bundles or sections.
+3. Untouched converted material DOES recover its outline form; edited material
+   returns as a row. Undo restores previous outline-return eligibility. Still
+   unresolved: what counts as an authored change (including settings/attachments), partial
+   branch return placement and empty-parent behavior. Existing script rows remain
+   independent; do not invent persistent mandatory bundles or script sections.
 4. What the Stash count means with notes, clips and rows together. The earlier
    count of saved rows cannot silently become a misleading total.
+5. Full editing of any expanded script row during Sorting is now adopted; all
+   session writing/organization stays pending together, with read-only
+   script-format review and atomic Accept/Discard. This is no longer a product
+   question, but its expanded domain/session proof is still missing. Do not
+   describe the older structural-only session as sufficient evidence.
 
 ### Smallest representative scenario and evaluation
 
@@ -152,7 +179,13 @@ operation is needed for this consultation.
 
 Stop after critique. No design-app submission or implementation.
 
-## CLI consultation outcome and disposition
+## Initial CLI consultation outcome and disposition
+
+Historical consultation below preceded the Producer clarifications now included
+in the prompt above. It is not authority to reopen settled defaults, block Stash
+placement or general script-row editing during Sorting, or assume outline
+hierarchy is never recovered. Adopted later decisions also supersede its
+statements that Undo eligibility and full-authoring/Accept/Discard are unresolved.
 
 One tools-disabled Opus/high subscription consultation completed 2026-10-27.
 It received this textual brief only; no live artifact inspection or edits.
