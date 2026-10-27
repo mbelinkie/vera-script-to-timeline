@@ -1,6 +1,7 @@
-import type { ScriptDocumentV2, RowGapV2, SupportingItemV2 } from "./generated/contracts-v2.js";
+import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, NarrationBlockV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { defaultDirectionNarrationRowV2 } from "./authoring-v2-stage-direction-edits.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -13,7 +14,11 @@ export type RowEditCommandV2 =
   | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 }
   | { kind: "restore_stash_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "create_stash_section"; sectionId: string; title: string }
-  | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null };
+  | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null }
+  | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
+  | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "set_stash_outline"; entries: StashOutlineEntryV2[] }
+  | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2 };
 
 export interface RowEditResultV2 {
   ok: boolean;
@@ -92,6 +97,10 @@ function locations(document: ScriptDocumentV2): Section[] {
 function stashRowsInVisibleOrder(document: ScriptDocumentV2): Row[] {
   const rows = (document.stash ?? []).flatMap((bundle) => bundle.rows);
   const byId = new Map(rows.map((row) => [row.id, row]));
+  if (document.stashOutline) return document.stashOutline.flatMap((entry) => {
+    const row = byId.get(entry.rowId);
+    return row ? [row] : [];
+  });
   const sectioned = new Set((document.stashSections ?? []).flatMap((section) => section.rowIds));
   return [
     ...rows.filter((row) => !sectioned.has(row.id)),
@@ -102,16 +111,234 @@ function stashRowsInVisibleOrder(document: ScriptDocumentV2): Row[] {
   ];
 }
 
-function moveStashRowsToSection(document: ScriptDocumentV2, rowIds: string[], sectionId: string | null, visibleOrder: string[]): void {
+/** Upgrade legacy row/section order only when a command first writes the mixed outline. */
+function ensureStashOutline(document: ScriptDocumentV2): StashOutlineEntryV2[] {
+  if (document.stashOutline) return document.stashOutline;
+  const sectionForRow = new Map((document.stashSections ?? []).flatMap((section) => section.rowIds.map((rowId) => [rowId, section.id] as const)));
+  document.stashOutline = stashRowsInVisibleOrder(document).map((row) => ({
+    rowId: row.id,
+    kind: "row",
+    parentRowId: null,
+    sectionId: sectionForRow.get(row.id) ?? null,
+  }));
+  if (document.stashSections) document.stashSections = document.stashSections.map((section) => ({ ...section, rowIds: [] }));
+  return document.stashOutline;
+}
+
+function outlineMap(entries: StashOutlineEntryV2[]): Map<string, StashOutlineEntryV2> {
+  return new Map(entries.map((entry) => [entry.rowId, entry]));
+}
+
+function isOutlineDescendant(entry: StashOutlineEntryV2, ancestorRowId: string, byId: Map<string, StashOutlineEntryV2>): boolean {
+  let parentRowId = entry.parentRowId;
+  while (parentRowId !== null) {
+    if (parentRowId === ancestorRowId) return true;
+    parentRowId = byId.get(parentRowId)?.parentRowId ?? null;
+  }
+  return false;
+}
+
+function outlineSubtreeEnd(entries: StashOutlineEntryV2[], rootRowId: string): number {
+  const byId = outlineMap(entries);
+  let end = entries.findIndex((entry) => entry.rowId === rootRowId);
+  for (let index = end + 1; index < entries.length; index += 1) {
+    if (isOutlineDescendant(entries[index]!, rootRowId, byId)) end = index;
+  }
+  return end;
+}
+
+function outlineInsertionIndex(
+  document: ScriptDocumentV2,
+  entries: StashOutlineEntryV2[],
+  parentRowId: string | null,
+  sectionId: string | null,
+  afterRowId: string | null,
+): number | null {
+  const siblings = entries.filter((entry) => entry.parentRowId === parentRowId && entry.sectionId === sectionId);
+  if (afterRowId !== null) {
+    if (!siblings.some((entry) => entry.rowId === afterRowId)) return null;
+    return outlineSubtreeEnd(entries, afterRowId) + 1;
+  }
+  const lastSibling = siblings.at(-1);
+  if (lastSibling) return outlineSubtreeEnd(entries, lastSibling.rowId) + 1;
+  if (parentRowId !== null) {
+    const parentIndex = entries.findIndex((entry) => entry.rowId === parentRowId);
+    return parentIndex < 0 ? null : parentIndex + 1;
+  }
+  const sectionOrder = (id: string | null) => id === null ? -1 : (document.stashSections ?? []).findIndex((section) => section.id === id);
+  const targetOrder = sectionOrder(sectionId);
+  const nextSection = entries.findIndex((entry) => entry.parentRowId === null && sectionOrder(entry.sectionId) > targetOrder);
+  return nextSection < 0 ? entries.length : nextSection;
+}
+
+function stashRowById(document: ScriptDocumentV2, rowId: string): Row | undefined {
+  return document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === rowId);
+}
+
+function sectionExists(document: ScriptDocumentV2, sectionId: string | null): boolean {
+  return sectionId === null || (document.stashSections ?? []).some((section) => section.id === sectionId);
+}
+
+function outlineSiblingIndex(entries: StashOutlineEntryV2[], rowId: string): number {
+  const entry = entries.find((item) => item.rowId === rowId)!;
+  return entries.slice(0, entries.indexOf(entry)).filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId).length;
+}
+
+function insertOutlineAtSlot(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], entry: StashOutlineEntryV2, slot: number | null): boolean {
+  const siblings = entries.filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId);
+  const target = slot ?? siblings.length;
+  if (!Number.isSafeInteger(target) || target < 0 || target > siblings.length) return false;
+  let index: number;
+  if (target < siblings.length) index = entries.findIndex((item) => item.rowId === siblings[target]!.rowId);
+  else if (siblings.length) index = outlineSubtreeEnd(entries, siblings.at(-1)!.rowId) + 1;
+  else index = outlineInsertionIndex(document, entries, entry.parentRowId, entry.sectionId, null) ?? -1;
+  if (index < 0) return false;
+  entries.splice(index, 0, entry);
+  return true;
+}
+
+function selectedOutlineSubtree(entries: StashOutlineEntryV2[], roots: string[]): StashOutlineEntryV2[] | null {
+  if (!Array.isArray(roots) || roots.length === 0 || roots.some((rowId) => typeof rowId !== "string") || new Set(roots).size !== roots.length) return null;
+  const byId = outlineMap(entries);
+  if (roots.some((rowId) => !byId.has(rowId))) return null;
+  const rootSet = new Set(roots);
+  if (roots.some((rowId) => {
+    let parentRowId = byId.get(rowId)!.parentRowId;
+    while (parentRowId !== null) {
+      if (rootSet.has(parentRowId)) return true;
+      parentRowId = byId.get(parentRowId)?.parentRowId ?? null;
+    }
+    return false;
+  })) return null;
+  return entries.filter((entry) => rootSet.has(entry.rowId) || roots.some((rootRowId) => isOutlineDescendant(entry, rootRowId, byId)));
+}
+
+interface StashReturnPlan {
+  entry: StashOutlineEntryV2;
+  slot: number | null;
+  selectedParent: boolean;
+}
+
+function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[]): StashOutlineEntryV2[] | null {
+  const selected = new Set(rows.map((row) => row.id));
+  const result = structuredClone(entries);
+  const originalParents = outlineMap(entries);
+  const resultingKinds = new Map(rows.map((row) => [row.id, row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
+  const plans: StashReturnPlan[] = [];
+  for (const row of rows) {
+    const origin: StashOriginV2 | undefined = row.stashOrigin;
+    const kind = origin?.returnEligible && origin.kind !== "row" ? origin.kind : "row";
+    let parentRowId = origin?.parentRowId ?? null;
+    let slot = origin ? origin.siblingIndex : null;
+    let selectedParent = false;
+    if (parentRowId !== null) {
+      if (selected.has(parentRowId)) {
+        selectedParent = true;
+        if (resultingKinds.get(parentRowId) !== "note") return null;
+      } else if (document.activeDraft.blocks.some((block) => block.id === parentRowId && block.type !== "section")) {
+        parentRowId = null;
+        slot = null;
+      } else {
+        const parent = originalParents.get(parentRowId);
+        if (!parent || parent.kind !== "note") return null;
+      }
+    }
+    const sectionId = origin?.sectionId ?? null;
+    if (!sectionExists(document, sectionId)) return null;
+    const selectedParentEntry = selectedParent ? rows.find((candidate) => candidate.id === parentRowId) : undefined;
+    if (selectedParentEntry?.stashOrigin && selectedParentEntry.stashOrigin.sectionId !== sectionId) return null;
+    const existingParent = parentRowId === null ? undefined : originalParents.get(parentRowId);
+    if (existingParent && existingParent.sectionId !== sectionId) return null;
+    plans.push({
+      entry: { rowId: row.id, kind, parentRowId, sectionId },
+      slot,
+      selectedParent,
+    });
+  }
+  const pending = [...plans];
+  while (pending.length > 0) {
+    const ready = pending.filter((plan) => !plan.selectedParent || result.some((entry) => entry.rowId === plan.entry.parentRowId));
+    if (ready.length === 0) return null;
+    ready.sort((left, right) => {
+      const parent = (left.entry.parentRowId ?? "").localeCompare(right.entry.parentRowId ?? "");
+      if (parent !== 0) return parent;
+      if (left.slot !== null && right.slot !== null && left.slot !== right.slot) return left.slot - right.slot;
+      if (left.slot === null && right.slot !== null) return 1;
+      if (left.slot !== null && right.slot === null) return -1;
+      return rows.findIndex((row) => row.id === left.entry.rowId) - rows.findIndex((row) => row.id === right.entry.rowId);
+    });
+    for (const plan of ready) {
+      if (!insertOutlineAtSlot(document, result, plan.entry, plan.slot)) return null;
+      pending.splice(pending.indexOf(plan), 1);
+    }
+  }
+  return result;
+}
+
+function takeStashRows(document: ScriptDocumentV2, selected: Set<string>, visibleOrder: string[]): { rows: Row[] } | AuthoringDiagnosticV2 {
+  const moved = visibleOrder.filter((rowId) => selected.has(rowId)).map((rowId) => stashRowById(document, rowId)).filter((row): row is Row => row !== undefined);
+  if (moved.length !== selected.size) return diagnostic("ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
+  const restoredItems: SupportingItemV2[] = [];
+  const allRows = [...document.activeDraft.blocks, ...(document.stash ?? []).flatMap((bundle) => bundle.rows)];
+  for (const bundle of document.stash ?? []) {
+    const selectedInBundle = bundle.rows.filter((row) => selected.has(row.id));
+    if (selectedInBundle.length === 0) continue;
+    if (selectedInBundle.length === bundle.rows.length) {
+      restoredItems.push(...bundle.supportingItems);
+      bundle.supportingItems = [];
+      continue;
+    }
+    const selectedBundleIds = new Set(selectedInBundle.map((row) => row.id));
+    const remainingBundleIds = new Set(bundle.rows.filter((row) => !selected.has(row.id)).map((row) => row.id));
+    const remainingItems: SupportingItemV2[] = [];
+    for (const item of bundle.supportingItems) {
+      const references = supportingRows(item, allRows);
+      if (item.placement.kind === "timed") {
+        if (!item.placement.start || !item.placement.end) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "Review duration-ended supporting items before restoring part of their saved rows.");
+        const placementOnly = { ...item };
+        delete placementOnly.displayAttachment;
+        const placementReferences = supportingRows(placementOnly, bundle.rows);
+        const positions = bundle.rows.flatMap((row, index) => placementReferences.has(row.id) ? [index] : []);
+        if (positions.length > 1) {
+          for (let position = Math.min(...positions); position <= Math.max(...positions); position += 1) references.add(bundle.rows[position]!.id);
+        }
+      }
+      const touchesSelected = [...references].some((id) => selectedBundleIds.has(id));
+      const touchesRemaining = [...references].some((id) => remainingBundleIds.has(id));
+      if (!references.size || touchesSelected && touchesRemaining) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A supporting item crosses the selected row boundary or has no row anchor. Review its anchors before restoring these rows.");
+      if (touchesSelected) restoredItems.push(item);
+      else remainingItems.push(item);
+    }
+    bundle.supportingItems = remainingItems;
+  }
+  if (document.stash) {
+    document.stash = document.stash.flatMap((bundle) => {
+      const rows = bundle.rows.filter((row) => !selected.has(row.id));
+      return rows.length ? [{ ...bundle, rows: [rows[0]!, ...rows.slice(1)] }] : [];
+    });
+  }
+  for (const section of document.stashSections ?? []) section.rowIds = section.rowIds.filter((rowId) => !selected.has(rowId));
+  if (document.stashOutline) document.stashOutline = document.stashOutline.filter((entry) => !selected.has(entry.rowId));
+  document.activeDraft.supportingItems.push(...restoredItems);
+  return { rows: moved };
+}
+
+function moveOutlineRowsToSection(document: ScriptDocumentV2, rowIds: string[], sectionId: string | null): string | null {
+  const entries = ensureStashOutline(document);
   const selected = new Set(rowIds);
-  const target = sectionId === null ? undefined : document.stashSections?.find((section) => section.id === sectionId);
-  for (const section of document.stashSections ?? []) {
-    if (section !== target) section.rowIds = section.rowIds.filter((id) => !selected.has(id));
+  const byId = outlineMap(entries);
+  if (sectionId !== null && !sectionExists(document, sectionId)) return "Choose an existing Stash section or the unsectioned Stash area.";
+  for (const entry of entries) {
+    if (!selected.has(entry.rowId)) continue;
+    if (entry.parentRowId !== null && !selected.has(entry.parentRowId) && byId.get(entry.parentRowId)?.sectionId !== sectionId) {
+      return "Move a nested item only with its parent section or move its complete branch.";
+    }
+    if (entry.sectionId !== sectionId && entries.some((child) => isOutlineDescendant(child, entry.rowId, byId) && !selected.has(child.rowId))) {
+      return "Move a nested item only with its complete branch.";
+    }
   }
-  if (target) {
-    const existing = new Set(target.rowIds);
-    target.rowIds.push(...visibleOrder.filter((id) => selected.has(id) && !existing.has(id)));
-  }
+  for (const entry of entries) if (selected.has(entry.rowId)) entry.sectionId = sectionId;
+  return null;
 }
 
 function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, command: RowEditCommandV2, moved: Set<string>): AuthoringDiagnosticV2 | null {
@@ -144,7 +371,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || oldFlat?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
-    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows") return problem();
+    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows" || command.kind === "place_stash_rows") return problem();
     const overlaps = spans.some((other, otherIndex) => otherIndex !== index && covered(priorLocations, other.startRowId, other.endRowId)?.some((id) => oldRows.includes(id)));
     if (overlaps) return problem();
     if (JSON.stringify(oldRows) === JSON.stringify(nextRows)) continue;
@@ -172,13 +399,19 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
+    const outline = ensureStashOutline(working);
     if (command.kind === "restore_stash") {
       const bundleIndex = working.stash?.findIndex((bundle) => bundle.id === command.bundleId) ?? -1;
       if (bundleIndex < 0) return refused(document, "ROW_DESTINATION_INVALID", "Choose an existing Stash bundle.");
-      const bundle = working.stash!.splice(bundleIndex, 1)[0]!;
-      moved = bundle.rows;
+      const bundle = working.stash![bundleIndex]!;
+      const bundleIds = new Set(bundle.rows.map((row) => row.id));
+      moved = outline.filter((entry) => bundleIds.has(entry.rowId)).map((entry) => stashRowById(working, entry.rowId)!).filter(Boolean);
       const movedIds = new Set(moved.map((row) => row.id));
+      const compactOrNested = outline.some((entry) => movedIds.has(entry.rowId) && (entry.kind !== "row" || entry.parentRowId !== null || outline.some((child) => isOutlineDescendant(child, entry.rowId, outlineMap(outline)))));
+      if (compactOrNested) return refused(document, "STASH_OUTLINE_PLACEMENT_REQUIRED", "Use place_stash_rows for compact or nested Stash items so their source positions are preserved.");
+      working.stash!.splice(bundleIndex, 1);
       for (const section of working.stashSections ?? []) section.rowIds = section.rowIds.filter((id) => !movedIds.has(id));
+      working.stashOutline = outline.filter((entry) => !movedIds.has(entry.rowId));
       working.activeDraft.supportingItems.push(...bundle.supportingItems);
     } else {
       if (!Array.isArray(command.rowIds) || command.rowIds.length === 0 || command.rowIds.some((id) => typeof id !== "string") || new Set(command.rowIds).size !== command.rowIds.length) {
@@ -186,59 +419,17 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const selected = new Set(command.rowIds);
       const stashRows = stashRowsInVisibleOrder(working);
+      const byId = outlineMap(outline);
+      const compactOrNested = command.rowIds.some((rowId) => {
+        const entry = byId.get(rowId);
+        return !entry || entry.kind !== "row" || entry.parentRowId !== null || outline.some((child) => isOutlineDescendant(child, rowId, byId));
+      });
+      if (compactOrNested) return refused(document, "STASH_OUTLINE_PLACEMENT_REQUIRED", "Use place_stash_rows for compact or nested Stash items so their source positions are preserved.");
       moved = stashRows.filter((row) => selected.has(row.id));
       if (moved.length !== selected.size) return refused(document, "ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
-
-      const restoredItems: SupportingItemV2[] = [];
-      const allRows = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)];
-      for (const bundle of working.stash ?? []) {
-        const selectedInBundle = bundle.rows.filter((row) => selected.has(row.id));
-        if (selectedInBundle.length === 0) continue;
-        if (selectedInBundle.length === bundle.rows.length) {
-          restoredItems.push(...bundle.supportingItems);
-          bundle.supportingItems = [];
-          continue;
-        }
-        const selectedBundleIds = new Set(selectedInBundle.map((row) => row.id));
-        const remainingBundleIds = new Set(bundle.rows.filter((row) => !selected.has(row.id)).map((row) => row.id));
-        const remainingItems: SupportingItemV2[] = [];
-        for (const item of bundle.supportingItems) {
-          const references = supportingRows(item, allRows);
-          if (item.placement.kind === "timed") {
-            if (!item.placement.start || !item.placement.end) {
-              return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "Review duration-ended supporting items before restoring part of their saved rows.");
-            }
-            const placementOnly = { ...item };
-            delete placementOnly.displayAttachment;
-            const placementReferences = supportingRows(placementOnly, bundle.rows);
-            const positions = bundle.rows.flatMap((row, index) => placementReferences.has(row.id) ? [index] : []);
-            if (positions.length > 1) {
-              // Timed endpoints also cover the saved rows between them, not only their anchor rows.
-              for (let position = Math.min(...positions); position <= Math.max(...positions); position += 1) {
-                references.add(bundle.rows[position]!.id);
-              }
-            }
-          }
-          const touchesSelected = [...references].some((id) => selectedBundleIds.has(id));
-          const touchesRemaining = [...references].some((id) => remainingBundleIds.has(id));
-          if (!references.size || touchesSelected && touchesRemaining) {
-            return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "A supporting item crosses the selected row boundary or has no row anchor. Review its anchors before restoring these rows.");
-          }
-          if (touchesSelected) restoredItems.push(item);
-          else remainingItems.push(item);
-        }
-        bundle.supportingItems = remainingItems;
-      }
-      if (working.stash) {
-        working.stash = working.stash.filter((bundle) => {
-          const remainingRows = bundle.rows.filter((row) => !selected.has(row.id));
-          if (remainingRows.length === 0) return false;
-          if (remainingRows.length !== bundle.rows.length) bundle.rows = [remainingRows[0]!, ...remainingRows.slice(1)];
-          return true;
-        });
-      }
-      for (const section of working.stashSections ?? []) section.rowIds = section.rowIds.filter((id) => !selected.has(id));
-      working.activeDraft.supportingItems.push(...restoredItems);
+      const taken = takeStashRows(working, selected, stashRows.map((row) => row.id));
+      if ("code" in taken) return { ok: false, document, diagnostics: [taken] };
+      moved = taken.rows;
     }
     blocks.splice(index, 0, ...moved);
   } else if (command.kind === "move_section") {
@@ -263,6 +454,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       blocks.splice(from, rows.length);
       blocks.splice(index > from ? index - rows.length : index, 0, ...rows);
     } else {
+      if (typeof command.bundleId !== "string" || !command.bundleId || (working.stash ?? []).some((bundle) => bundle.id === command.bundleId)) {
+        return refused(document, "ROW_COMMAND_INVALID", "Provide an unused Stash bundle ID.");
+      }
       const selected = new Set(rows.map((row) => row.id));
       const items: SupportingItemV2[] = [];
       for (const item of working.activeDraft.supportingItems) {
@@ -274,14 +468,20 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       const section = sections(blocks).find((part) => part.rows.includes(rows[0]!))!;
       const rowIndex = section.rows.indexOf(rows[0]!);
       const originalGap: RowGapV2 = { sectionId: section.id, afterRowId: section.rows[rowIndex - 1]?.id ?? null, beforeRowId: section.rows[rowIndex + rows.length]?.id ?? null };
+      const outline = ensureStashOutline(working);
+      const returnedOutline = planStashReturn(working, rows, outline);
+      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
       blocks.splice(from, rows.length);
       working.activeDraft.supportingItems = working.activeDraft.supportingItems.filter((item) => !items.includes(item));
+      for (const row of rows) delete row.stashOrigin;
       (working.stash ??= []).push({ id: command.bundleId, rows: [rows[0]!, ...rows.slice(1)], supportingItems: items, originalGap });
+      working.stashOutline = returnedOutline;
     }
   } else if (command.kind === "create_stash_section") {
     if (typeof command.sectionId !== "string" || !command.sectionId || typeof command.title !== "string" || !command.title) {
       return refused(document, "STASH_SECTION_INVALID", "Provide a section ID and a non-empty title.");
     }
+    ensureStashOutline(working);
     (working.stashSections ??= []).push({ id: command.sectionId, title: command.title, rowIds: [] });
   } else if (command.kind === "move_stash_rows") {
     if (!Array.isArray(command.rowIds) || command.rowIds.length === 0 || command.rowIds.some((id) => typeof id !== "string") || new Set(command.rowIds).size !== command.rowIds.length) {
@@ -291,11 +491,81 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const stashRows = stashRowsInVisibleOrder(working);
     moved = stashRows.filter((row) => selected.has(row.id));
     if (moved.length !== selected.size) return refused(document, "ROW_SELECTION_INVALID", "Every selected row must still be in Stash.");
-    if (command.sectionId !== null && !(working.stashSections ?? []).some((section) => section.id === command.sectionId)) {
-      return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    if (command.sectionId !== null && typeof command.sectionId !== "string") return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    const moveError = moveOutlineRowsToSection(working, moved.map((row) => row.id), command.sectionId);
+    if (moveError) return refused(document, "STASH_SECTION_NOT_FOUND", moveError);
+  } else if (command.kind === "create_stash_note" || command.kind === "create_stash_clip") {
+    if (
+      !command || typeof command.bundleId !== "string" || !command.bundleId ||
+      !command.row || typeof command.row !== "object" ||
+      command.row.stashOrigin !== undefined ||
+      typeof command.sectionId !== "string" && command.sectionId !== null ||
+      typeof command.parentRowId !== "string" && command.parentRowId !== null ||
+      typeof command.afterRowId !== "string" && command.afterRowId !== null
+    ) return refused(document, "STASH_COMPACT_COMMAND_INVALID", "Provide a new saved note or clip and an exact Stash outline location.");
+    if ((working.stash ?? []).some((bundle) => bundle.id === command.bundleId)) return refused(document, "ROW_COMMAND_INVALID", "Provide an unused Stash bundle ID.");
+    if (blocks.some((block) => block.id === command.row.id) || stashRowById(working, command.row.id)) return refused(document, "ROW_ID_DUPLICATE", "A compact Stash item needs a new saved-row ID.");
+    ensureStashOutline(working);
+    const entries = working.stashOutline!;
+    if (!sectionExists(working, command.sectionId)) return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    if (command.parentRowId !== null) {
+      const parent = entries.find((entry) => entry.rowId === command.parentRowId);
+      if (!parent || parent.kind !== "note" || parent.sectionId !== command.sectionId) return refused(document, "STASH_OUTLINE_PARENT_INVALID", "Nest an item under a saved note in the same Stash section.");
     }
-    moveStashRowsToSection(working, moved.map((row) => row.id), command.sectionId, stashRows.map((row) => row.id));
+    const insertAt = outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
+    if (insertAt === null) return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current sibling in the same Stash outline location.");
+    let row: Row;
+    let kind: StashOutlineEntryV2["kind"];
+    if (command.kind === "create_stash_note") {
+      if (command.row.type !== "narration" || command.mode !== undefined && command.mode !== "default_direction" && command.mode !== "authored") {
+        return refused(document, "STASH_NOTE_CONTENT_INVALID", "A Stash note needs a narration row and a supported authored-content mode.");
+      }
+      const note = command.mode === "authored" ? structuredClone(command.row) : defaultDirectionNarrationRowV2(command.row);
+      if (!note) return refused(document, "STASH_NOTE_CONTENT_INVALID", "The note's token range cannot be wrapped as one stage direction; authored mixed content must be explicit.");
+      row = note;
+      kind = "note";
+    } else {
+      if (command.row.type !== "visual_only" || command.row.payload.pictureKind !== "clip") return refused(document, "STASH_CLIP_CONTENT_INVALID", "A compact Stash clip needs a standalone footage row.");
+      row = structuredClone(command.row);
+      kind = "clip";
+    }
+    entries.splice(insertAt, 0, { rowId: row.id, kind, parentRowId: command.parentRowId, sectionId: command.sectionId });
+    (working.stash ??= []).push({ id: command.bundleId, rows: [row], supportingItems: [] });
+  } else if (command.kind === "set_stash_outline") {
+    if (!Array.isArray(command.entries)) return refused(document, "STASH_OUTLINE_COMMAND_INVALID", "Provide the complete ordered Stash outline.");
+    const current = ensureStashOutline(working);
+    const currentKinds = outlineMap(current);
+    if (command.entries.some((entry) => !entry || typeof entry !== "object" || currentKinds.get(entry.rowId)?.kind !== entry.kind) || command.entries.length !== current.length) {
+      return refused(document, "STASH_OUTLINE_KIND_IMMUTABLE", "Organizing the outline cannot create, remove, or reclassify saved rows.");
+    }
+    working.stashOutline = structuredClone(command.entries);
+  } else if (command.kind === "place_stash_rows") {
+    const index = gapIndex(blocks, command.destination);
+    if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
+    const entries = ensureStashOutline(working);
+    const subtree = selectedOutlineSubtree(entries, command.rowIds);
+    if (!subtree) return refused(document, "ROW_SELECTION_INVALID", "Select distinct Stash outline items without selecting a descendant twice; each selected item's descendants move with it.");
+    const selected = new Set(subtree.map((entry) => entry.rowId));
+    const origins = new Map(subtree.map((entry) => [entry.rowId, {
+      kind: entry.kind,
+      parentRowId: entry.parentRowId,
+      sectionId: entry.sectionId,
+      siblingIndex: outlineSiblingIndex(entries, entry.rowId),
+      returnEligible: true,
+    } satisfies StashOriginV2] as const));
+    for (const entry of subtree) {
+      const row = stashRowById(working, entry.rowId);
+      if (row) row.stashOrigin = origins.get(entry.rowId)!;
+    }
+    const stashOrder = stashRowsInVisibleOrder(working).map((row) => row.id);
+    const taken = takeStashRows(working, selected, stashOrder);
+    if ("code" in taken) return { ok: false, document, diagnostics: [taken] };
+    moved = taken.rows;
+    blocks.splice(index, 0, ...moved);
   } else return refused(document, "ROW_COMMAND_INVALID", "Unknown row edit command.");
+  if (working.stashSections?.length === 0) delete working.stashSections;
+  if (working.stashOutline?.length === 0 && !working.stashSections?.length) delete working.stashOutline;
+  if (working.stash?.length === 0 && document.stash === undefined) delete working.stash;
   if (JSON.stringify(working) === JSON.stringify(document)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave Stash and Draft unchanged.");
   const relationshipProblem = updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };

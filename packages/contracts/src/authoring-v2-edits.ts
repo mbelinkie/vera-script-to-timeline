@@ -12,6 +12,7 @@ import {
   boundaryForWordAnchorV2,
 } from "./authoring-v2-validation.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 import type {
   AuthoringDiagnosticV2,
   VisualDestinationV2,
@@ -73,6 +74,10 @@ export function applyVisualSequenceEditV2(
   const working = structuredClone(document);
   const mutation = applyCommand(working, expectedSequenceVersion, command);
   if (mutation.diagnostics.length > 0) return failure(document, mutation.diagnostics);
+  for (const blockId of mutation.blockIds) {
+    const row = working.activeDraft.blocks.find((block) => block.id === blockId);
+    if (row && row.type !== "section") markStashOriginEditedV2(row);
+  }
 
   const afterValidation = validateScriptDocumentV2(working);
   const newErrors = newlyIntroducedErrors(
