@@ -6,6 +6,9 @@ It owns structured script authoring, narrative order, per-video media usage,
 voiceover and graphics intent, deterministic timeline compilation, build
 history, and DaVinci Resolve delivery.
 
+For established Resolve behavior and the limits of earlier experiments, start
+with the [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md).
+
 The two products remain independently deployable. They integrate through
 versioned, authorized APIs and verified artifact descriptors rather than shared
 databases or UI dependencies.

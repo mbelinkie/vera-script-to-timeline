@@ -3,6 +3,8 @@
 Read `AGENTS.md`. It applies to Claude exactly as it does to Codex. Then read
 `docs/VERIFICATION_POLICY.md` before testing or merging. In short:
 
+For backend issues, follow AGENTS.md's [knowledge reuse rule](docs/RESOLVE_KNOWLEDGE_GUIDE.md).
+
 - Matthew (the Producer) is not a developer. Decide technical matters
   yourself; ask him only about product behaviour, taste, money, his data, or
   steps only he can physically do.
