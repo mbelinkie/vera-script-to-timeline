@@ -2448,7 +2448,8 @@
         "kind",
         "parentRowId",
         "sectionId",
-        "siblingIndex",
+        "afterSiblingRowId",
+        "beforeSiblingRowId",
         "returnEligible"
       ],
       "properties": {
@@ -2480,8 +2481,25 @@
             }
           ]
         },
-        "siblingIndex": {
-          "$ref": "#/$defs/NonNegativeSafeInteger"
+        "afterSiblingRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beforeSiblingRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "returnEligible": {
           "type": "boolean"

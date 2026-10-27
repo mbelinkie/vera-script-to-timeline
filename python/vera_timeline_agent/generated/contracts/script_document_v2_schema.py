@@ -197,7 +197,8 @@ class StashOriginV2(TypedDict):
     kind: Literal["note", "clip", "row"]
     parentRowId: EntityId | None
     sectionId: EntityId | None
-    siblingIndex: NonNegativeSafeInteger
+    afterSiblingRowId: EntityId | None
+    beforeSiblingRowId: EntityId | None
     returnEligible: bool
 
 

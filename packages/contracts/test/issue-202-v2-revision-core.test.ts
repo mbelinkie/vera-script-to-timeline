@@ -171,7 +171,7 @@ describe("#202 pure explicit commands (synthetic, no native/provider authenticat
     const input = specimen();
     const source = input.document.activeDraft.blocks.find((block) => block.id === id(50));
     if (source?.type !== "visual_only") throw new Error("missing visual-only trim row");
-    source.stashOrigin = { kind: "clip", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
+    source.stashOrigin = { kind: "clip", parentRowId: null, sectionId: null, afterSiblingRowId: null, beforeSiblingRowId: null, returnEligible: true };
     const request = commands();
     request.boundary = null;
     const prepared = prepareRevisionInputsV2(input.document, input.dependencies, request, patches(input).slice(1));

@@ -222,7 +222,7 @@ describe("Issue 191 v2 accepted omission", () => {
     const input = enrichedDocument();
     const sourceRow = input.activeDraft.blocks[0]!;
     if (sourceRow.type !== "narration") throw new Error("missing source narration");
-    sourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
+    sourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, afterSiblingRowId: null, beforeSiblingRowId: null, returnEligible: true };
     const originalInput = canonicalJson(input);
     const originalSequence = canonicalJson(input.activeDraft.blocks[0]!.type === "narration" ? input.activeDraft.blocks[0]!.primaryVisualSequence : null);
     const originalOtherRow = canonicalJson(input.activeDraft.blocks[1]);
@@ -276,7 +276,7 @@ describe("Issue 191 v2 accepted omission", () => {
     const repeatInput = enrichedDocument();
     const repeatSourceRow = repeatInput.activeDraft.blocks[0]!;
     if (repeatSourceRow.type !== "narration") throw new Error("missing repeat source narration");
-    repeatSourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, siblingIndex: 0, returnEligible: true };
+    repeatSourceRow.stashOrigin = { kind: "note", parentRowId: null, sectionId: null, afterSiblingRowId: null, beforeSiblingRowId: null, returnEligible: true };
     const repeat = applyAcceptedOmissionV2(repeatInput, editFor(repeatInput));
     expect(repeat.documentJson).toBe(result.documentJson);
     expect(canonicalJson(repeat.regeneration)).toBe(canonicalJson(result.regeneration));

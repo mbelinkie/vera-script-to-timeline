@@ -179,22 +179,15 @@ function sectionExists(document: ScriptDocumentV2, sectionId: string | null): bo
   return sectionId === null || (document.stashSections ?? []).some((section) => section.id === sectionId);
 }
 
-function outlineSiblingIndex(entries: StashOutlineEntryV2[], rowId: string): number {
-  const entry = entries.find((item) => item.rowId === rowId)!;
-  return entries.slice(0, entries.indexOf(entry)).filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId).length;
-}
-
-function insertOutlineAtSlot(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], entry: StashOutlineEntryV2, slot: number | null): boolean {
+function outlineSiblingAnchors(entries: StashOutlineEntryV2[], rowId: string): { afterSiblingRowId: string | null; beforeSiblingRowId: string | null } | null {
+  const entry = entries.find((item) => item.rowId === rowId);
+  if (!entry) return null;
   const siblings = entries.filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId);
-  const target = slot ?? siblings.length;
-  if (!Number.isSafeInteger(target) || target < 0 || target > siblings.length) return false;
-  let index: number;
-  if (target < siblings.length) index = entries.findIndex((item) => item.rowId === siblings[target]!.rowId);
-  else if (siblings.length) index = outlineSubtreeEnd(entries, siblings.at(-1)!.rowId) + 1;
-  else index = outlineInsertionIndex(document, entries, entry.parentRowId, entry.sectionId, null) ?? -1;
-  if (index < 0) return false;
-  entries.splice(index, 0, entry);
-  return true;
+  const index = siblings.findIndex((item) => item.rowId === rowId);
+  return {
+    afterSiblingRowId: siblings[index - 1]?.rowId ?? null,
+    beforeSiblingRowId: siblings[index + 1]?.rowId ?? null,
+  };
 }
 
 function selectedOutlineSubtree(entries: StashOutlineEntryV2[], roots: string[]): StashOutlineEntryV2[] | null {
@@ -215,8 +208,109 @@ function selectedOutlineSubtree(entries: StashOutlineEntryV2[], roots: string[])
 
 interface StashReturnPlan {
   entry: StashOutlineEntryV2;
-  slot: number | null;
-  selectedParent: boolean;
+  afterSiblingRowId: string | null;
+  beforeSiblingRowId: string | null;
+  appendToSection: boolean;
+  activeOrder: number;
+}
+
+function orderReturningSiblings(entries: StashOutlineEntryV2[], plans: StashReturnPlan[]): string[] | null {
+  if (plans.length === 0) return [];
+  const parentRowId = plans[0]!.entry.parentRowId;
+  const sectionId = plans[0]!.entry.sectionId;
+  if (plans.some((plan) => plan.entry.parentRowId !== parentRowId || plan.entry.sectionId !== sectionId)) return null;
+  const current = entries.filter((entry) => entry.parentRowId === parentRowId && entry.sectionId === sectionId);
+  const ids = [...current.map((entry) => entry.rowId), ...plans.map((plan) => plan.entry.rowId)];
+  const nodeIds = new Set(ids);
+  if (nodeIds.size !== ids.length) return null;
+  const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
+  const incoming = new Map(ids.map((id) => [id, 0]));
+  const addEdge = (before: string, after: string): void => {
+    if (before === after || !nodeIds.has(before) || !nodeIds.has(after)) return;
+    const edges = outgoing.get(before)!;
+    if (edges.has(after)) return;
+    edges.add(after);
+    incoming.set(after, incoming.get(after)! + 1);
+  };
+  for (let index = 1; index < current.length; index += 1) addEdge(current[index - 1]!.rowId, current[index]!.rowId);
+
+  for (const plan of plans) {
+    const { afterSiblingRowId: after, beforeSiblingRowId: before } = plan;
+    if (after === plan.entry.rowId || before === plan.entry.rowId) return null;
+    const hasAfter = after !== null && nodeIds.has(after);
+    const hasBefore = before !== null && nodeIds.has(before);
+    const historicalAnchors = Number(after !== null) + Number(before !== null);
+    if (historicalAnchors > 0 && !hasAfter && !hasBefore && !plan.appendToSection) return null;
+    if (hasAfter) addEdge(after, plan.entry.rowId);
+    if (hasBefore) addEdge(plan.entry.rowId, before);
+
+    if (hasAfter && hasBefore && current.some((entry) => entry.rowId === after) && current.some((entry) => entry.rowId === before)) {
+      const afterIndex = current.findIndex((entry) => entry.rowId === after);
+      const beforeIndex = current.findIndex((entry) => entry.rowId === before);
+      if (beforeIndex !== afterIndex + 1) return null;
+    }
+    if (!plan.appendToSection && Number(hasAfter) + Number(hasBefore) === 1) {
+      if (hasAfter && current.some((entry) => entry.rowId === after) && !hasBefore) {
+        const index = current.findIndex((entry) => entry.rowId === after);
+        const next = current[index + 1];
+        if (next) addEdge(plan.entry.rowId, next.rowId);
+      } else if (hasBefore && current.some((entry) => entry.rowId === before) && !hasAfter) {
+        const index = current.findIndex((entry) => entry.rowId === before);
+        const previous = current[index - 1];
+        if (previous) addEdge(previous.rowId, plan.entry.rowId);
+      }
+    }
+  }
+
+  const appended = plans.filter((plan) => plan.appendToSection).sort((left, right) => left.activeOrder - right.activeOrder);
+  if (appended.length > 0) {
+    if (current.length > 0) for (const plan of appended) addEdge(current.at(-1)!.rowId, plan.entry.rowId);
+    for (let index = 1; index < appended.length; index += 1) addEdge(appended[index - 1]!.entry.rowId, appended[index]!.entry.rowId);
+  }
+
+  const remaining = new Set(ids);
+  const order: string[] = [];
+  while (remaining.size > 0) {
+    const ready = [...remaining].filter((id) => incoming.get(id) === 0);
+    if (ready.length !== 1) return null;
+    const next = ready[0]!;
+    order.push(next);
+    remaining.delete(next);
+    for (const child of outgoing.get(next)!) incoming.set(child, incoming.get(child)! - 1);
+  }
+  for (const plan of plans) {
+    if (plan.appendToSection) continue;
+    const index = order.indexOf(plan.entry.rowId);
+    const hasAfter = plan.afterSiblingRowId !== null && nodeIds.has(plan.afterSiblingRowId);
+    const hasBefore = plan.beforeSiblingRowId !== null && nodeIds.has(plan.beforeSiblingRowId);
+    if (hasAfter && order[index - 1] !== plan.afterSiblingRowId) return null;
+    if (hasBefore && order[index + 1] !== plan.beforeSiblingRowId) return null;
+  }
+  return order;
+}
+
+function insertReturningSiblingGroup(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], plans: StashReturnPlan[]): boolean {
+  const order = orderReturningSiblings(entries, plans);
+  if (!order) return false;
+  const planById = new Map(plans.map((plan) => [plan.entry.rowId, plan]));
+  for (let index = 0; index < order.length; index += 1) {
+    const plan = planById.get(order[index]!);
+    if (!plan) continue;
+    const isSibling = (entry: StashOutlineEntryV2): boolean => entry.parentRowId === plan.entry.parentRowId && entry.sectionId === plan.entry.sectionId;
+    const previous = order.slice(0, index).reverse().find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
+    const next = order.slice(index + 1).find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
+    const parentIndex = plan.entry.parentRowId === null ? -1 : entries.findIndex((entry) => entry.rowId === plan.entry.parentRowId);
+    const insertAt = previous
+      ? outlineSubtreeEnd(entries, previous) + 1
+      : next
+        ? entries.findIndex((entry) => entry.rowId === next)
+        : parentIndex >= 0
+          ? outlineSubtreeEnd(entries, plan.entry.parentRowId!) + 1
+          : outlineInsertionIndex(document, entries, null, plan.entry.sectionId, null) ?? -1;
+    if (insertAt < 0) return false;
+    entries.splice(insertAt, 0, plan.entry);
+  }
+  return true;
 }
 
 function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[]): StashOutlineEntryV2[] | null {
@@ -224,20 +318,29 @@ function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: Stash
   const result = structuredClone(entries);
   const originalParents = outlineMap(entries);
   const resultingKinds = new Map(rows.map((row) => [row.id, row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
-  const plans: StashReturnPlan[] = [];
-  for (const row of rows) {
+  const pending: StashReturnPlan[] = [];
+  for (const [activeOrder, row] of rows.entries()) {
     const origin: StashOriginV2 | undefined = row.stashOrigin;
     const kind = origin?.returnEligible && origin.kind !== "row" ? origin.kind : "row";
     let parentRowId = origin?.parentRowId ?? null;
-    let slot = origin ? origin.siblingIndex : null;
-    let selectedParent = false;
+    const afterSiblingRowId = origin?.afterSiblingRowId ?? null;
+    const beforeSiblingRowId = origin?.beforeSiblingRowId ?? null;
+    let appendToSection = origin === undefined;
     if (parentRowId !== null) {
       if (selected.has(parentRowId)) {
-        selectedParent = true;
         if (resultingKinds.get(parentRowId) !== "note") return null;
       } else if (document.activeDraft.blocks.some((block) => block.id === parentRowId && block.type !== "section")) {
+        const activeParent = document.activeDraft.blocks.find((block) => block.id === parentRowId);
         parentRowId = null;
-        slot = null;
+        appendToSection = !entries.some((entry) => entry.parentRowId === null && entry.sectionId === (origin?.sectionId ?? null));
+        if (activeParent?.type !== "section" && activeParent?.stashOrigin) {
+          const parentOrigin = activeParent.stashOrigin;
+          if (parentOrigin.afterSiblingRowId === null && parentOrigin.beforeSiblingRowId === null) {
+            parentOrigin.beforeSiblingRowId = row.id;
+          } else if (parentOrigin.beforeSiblingRowId !== null && origin?.beforeSiblingRowId === parentOrigin.beforeSiblingRowId) {
+            parentOrigin.beforeSiblingRowId = row.id;
+          }
+        }
       } else {
         const parent = originalParents.get(parentRowId);
         if (!parent || parent.kind !== "note") return null;
@@ -245,32 +348,25 @@ function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: Stash
     }
     const sectionId = origin?.sectionId ?? null;
     if (!sectionExists(document, sectionId)) return null;
-    const selectedParentEntry = selectedParent ? rows.find((candidate) => candidate.id === parentRowId) : undefined;
-    if (selectedParentEntry?.stashOrigin && selectedParentEntry.stashOrigin.sectionId !== sectionId) return null;
+    const selectedParent = selected.has(origin?.parentRowId ?? "") ? rows.find((candidate) => candidate.id === origin!.parentRowId) : undefined;
+    if (selectedParent?.stashOrigin && selectedParent.stashOrigin.sectionId !== sectionId) return null;
     const existingParent = parentRowId === null ? undefined : originalParents.get(parentRowId);
     if (existingParent && existingParent.sectionId !== sectionId) return null;
-    plans.push({
+    pending.push({
       entry: { rowId: row.id, kind, parentRowId, sectionId },
-      slot,
-      selectedParent,
+      afterSiblingRowId,
+      beforeSiblingRowId,
+      appendToSection,
+      activeOrder,
     });
   }
-  const pending = [...plans];
+
   while (pending.length > 0) {
-    const ready = pending.filter((plan) => !plan.selectedParent || result.some((entry) => entry.rowId === plan.entry.parentRowId));
-    if (ready.length === 0) return null;
-    ready.sort((left, right) => {
-      const parent = (left.entry.parentRowId ?? "").localeCompare(right.entry.parentRowId ?? "");
-      if (parent !== 0) return parent;
-      if (left.slot !== null && right.slot !== null && left.slot !== right.slot) return left.slot - right.slot;
-      if (left.slot === null && right.slot !== null) return 1;
-      if (left.slot !== null && right.slot === null) return -1;
-      return rows.findIndex((row) => row.id === left.entry.rowId) - rows.findIndex((row) => row.id === right.entry.rowId);
-    });
-    for (const plan of ready) {
-      if (!insertOutlineAtSlot(document, result, plan.entry, plan.slot)) return null;
-      pending.splice(pending.indexOf(plan), 1);
-    }
+    const ready = pending.find((plan) => plan.entry.parentRowId === null || result.some((entry) => entry.rowId === plan.entry.parentRowId));
+    if (!ready) return null;
+    const groupPlans = pending.filter((plan) => plan.entry.parentRowId === ready.entry.parentRowId && plan.entry.sectionId === ready.entry.sectionId);
+    if (!insertReturningSiblingGroup(document, result, groupPlans)) return null;
+    for (const plan of groupPlans) pending.splice(pending.indexOf(plan), 1);
   }
   return result;
 }
@@ -327,9 +423,10 @@ function moveOutlineRowsToSection(document: ScriptDocumentV2, rowIds: string[], 
   const entries = ensureStashOutline(document);
   const selected = new Set(rowIds);
   const byId = outlineMap(entries);
+  const selectedEntries = entries.filter((entry) => selected.has(entry.rowId));
+  if (selectedEntries.length !== selected.size) return "Every selected row must still appear in the Stash outline.";
   if (sectionId !== null && !sectionExists(document, sectionId)) return "Choose an existing Stash section or the unsectioned Stash area.";
-  for (const entry of entries) {
-    if (!selected.has(entry.rowId)) continue;
+  for (const entry of selectedEntries) {
     if (entry.parentRowId !== null && !selected.has(entry.parentRowId) && byId.get(entry.parentRowId)?.sectionId !== sectionId) {
       return "Move a nested item only with its parent section or move its complete branch.";
     }
@@ -337,7 +434,16 @@ function moveOutlineRowsToSection(document: ScriptDocumentV2, rowIds: string[], 
       return "Move a nested item only with its complete branch.";
     }
   }
-  for (const entry of entries) if (selected.has(entry.rowId)) entry.sectionId = sectionId;
+  if (selectedEntries.every((entry) => entry.sectionId === sectionId)) return null;
+  const moving = selectedEntries.map((entry) => ({ ...entry, sectionId }));
+  const remaining = entries.filter((entry) => !selected.has(entry.rowId));
+  const targetRoots = remaining.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+  const insertionIndex = targetRoots.length
+    ? outlineSubtreeEnd(remaining, targetRoots.at(-1)!.rowId) + 1
+    : outlineInsertionIndex(document, remaining, null, sectionId, null);
+  if (insertionIndex === null || insertionIndex < 0) return "The destination Stash section has no unambiguous outline slot.";
+  remaining.splice(insertionIndex, 0, ...moving);
+  document.stashOutline = remaining;
   return null;
 }
 
@@ -404,8 +510,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       const bundleIndex = working.stash?.findIndex((bundle) => bundle.id === command.bundleId) ?? -1;
       if (bundleIndex < 0) return refused(document, "ROW_DESTINATION_INVALID", "Choose an existing Stash bundle.");
       const bundle = working.stash![bundleIndex]!;
-      const bundleIds = new Set(bundle.rows.map((row) => row.id));
-      moved = outline.filter((entry) => bundleIds.has(entry.rowId)).map((entry) => stashRowById(working, entry.rowId)!).filter(Boolean);
+      moved = [...bundle.rows];
       const movedIds = new Set(moved.map((row) => row.id));
       const compactOrNested = outline.some((entry) => movedIds.has(entry.rowId) && (entry.kind !== "row" || entry.parentRowId !== null || outline.some((child) => isOutlineDescendant(child, entry.rowId, outlineMap(outline)))));
       if (compactOrNested) return refused(document, "STASH_OUTLINE_PLACEMENT_REQUIRED", "Use place_stash_rows for compact or nested Stash items so their source positions are preserved.");
@@ -520,12 +625,20 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       if (command.row.type !== "narration" || command.mode !== undefined && command.mode !== "default_direction" && command.mode !== "authored") {
         return refused(document, "STASH_NOTE_CONTENT_INVALID", "A Stash note needs a narration row and a supported authored-content mode.");
       }
-      const note = command.mode === "authored" ? structuredClone(command.row) : defaultDirectionNarrationRowV2(command.row);
+      let note: NarrationBlockV2 | null;
+      try {
+        note = command.mode === "authored" ? structuredClone(command.row) : defaultDirectionNarrationRowV2(command.row);
+      } catch {
+        return refused(document, "STASH_NOTE_CONTENT_INVALID", "A Stash note needs a complete narration row with usable text tokens.");
+      }
       if (!note) return refused(document, "STASH_NOTE_CONTENT_INVALID", "The note's token range cannot be wrapped as one stage direction; authored mixed content must be explicit.");
       row = note;
       kind = "note";
     } else {
-      if (command.row.type !== "visual_only" || command.row.payload.pictureKind !== "clip") return refused(document, "STASH_CLIP_CONTENT_INVALID", "A compact Stash clip needs a standalone footage row.");
+      const payload = (command.row as unknown as { payload?: unknown }).payload;
+      if (command.row.type !== "visual_only" || !payload || typeof payload !== "object" || Array.isArray(payload) || (payload as { pictureKind?: unknown }).pictureKind !== "clip") {
+        return refused(document, "STASH_CLIP_CONTENT_INVALID", "A compact Stash clip needs a standalone footage row.");
+      }
       row = structuredClone(command.row);
       kind = "clip";
     }
@@ -546,13 +659,18 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const subtree = selectedOutlineSubtree(entries, command.rowIds);
     if (!subtree) return refused(document, "ROW_SELECTION_INVALID", "Select distinct Stash outline items without selecting a descendant twice; each selected item's descendants move with it.");
     const selected = new Set(subtree.map((entry) => entry.rowId));
-    const origins = new Map(subtree.map((entry) => [entry.rowId, {
-      kind: entry.kind,
-      parentRowId: entry.parentRowId,
-      sectionId: entry.sectionId,
-      siblingIndex: outlineSiblingIndex(entries, entry.rowId),
-      returnEligible: true,
-    } satisfies StashOriginV2] as const));
+    const origins = new Map<string, StashOriginV2>();
+    for (const entry of subtree) {
+      const anchors = outlineSiblingAnchors(entries, entry.rowId);
+      if (!anchors) return refused(document, "ROW_SELECTION_INVALID", "Each selected row needs a current Stash outline location.");
+      origins.set(entry.rowId, {
+        kind: entry.kind,
+        parentRowId: entry.parentRowId,
+        sectionId: entry.sectionId,
+        ...anchors,
+        returnEligible: true,
+      });
+    }
     for (const entry of subtree) {
       const row = stashRowById(working, entry.rowId);
       if (row) row.stashOrigin = origins.get(entry.rowId)!;

@@ -819,7 +819,8 @@ export interface StashOriginV2 {
   kind: "note" | "clip" | "row";
   parentRowId: string | null;
   sectionId: string | null;
-  siblingIndex: number;
+  afterSiblingRowId: string | null;
+  beforeSiblingRowId: string | null;
   returnEligible: boolean;
 }
 export interface DirectionBlock {

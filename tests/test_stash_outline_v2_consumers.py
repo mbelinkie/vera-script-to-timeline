@@ -118,6 +118,8 @@ apply({
   parentRowId: null,
   afterRowId: null,
 });
+const noteBundle = document.stash?.find((bundle) => bundle.id === input.noteBundleId);
+if (!noteBundle) throw new Error("The compact note bundle is missing.");
 apply({
   kind: "create_stash_clip",
   bundleId: input.clipBundleId,
@@ -126,6 +128,21 @@ apply({
   parentRowId: input.noteRow.id,
   afterRowId: null,
 });
+apply({
+  kind: "create_stash_note",
+  bundleId: input.citationNoteBundleId,
+  row: input.citationNoteRow,
+  sectionId: input.sectionId,
+  parentRowId: null,
+  afterRowId: input.noteRow.id,
+  mode: "authored",
+});
+const citationNoteBundle = document.stash?.find(
+  (bundle) => bundle.id === input.citationNoteBundleId,
+);
+if (!citationNoteBundle) throw new Error("The citation note bundle is missing.");
+// Seed persisted row-local data; this proof does not add citation authoring.
+citationNoteBundle.supportingItems.push(input.citation);
 apply({
   kind: "set_stash_outline",
   entries: [
@@ -139,6 +156,12 @@ apply({
       rowId: input.clipRow.id,
       kind: "clip",
       parentRowId: input.noteRow.id,
+      sectionId: input.sectionId,
+    },
+    {
+      rowId: input.citationNoteRow.id,
+      kind: "note",
+      parentRowId: null,
       sectionId: input.sectionId,
     },
     {
@@ -162,7 +185,7 @@ if (JSON.stringify(mixedSavedConsumers) !== JSON.stringify(baselineConsumers)) {
 // NARRATION_DURATION_UNKNOWN, so the compiler proof stays on the saved outline.
 apply({
   kind: "place_stash_rows",
-  rowIds: [input.noteRow.id],
+  rowIds: [input.noteRow.id, input.citationNoteRow.id],
   destination: {
     sectionId: null,
     afterRowId: input.activeRowId,
@@ -173,7 +196,7 @@ const placedSerialized = savedSnapshot();
 
 apply({
   kind: "stash_rows",
-  rowIds: [input.noteRow.id, input.clipRow.id],
+  rowIds: [input.noteRow.id, input.clipRow.id, input.citationNoteRow.id],
   bundleId: input.returnBundleId,
 });
 const returnedSerialized = savedSnapshot();
@@ -263,6 +286,35 @@ def _input_payload() -> dict[str, Any]:
         }
     ]
     note_row["orderKey"] = "a0"
+    citation_note_row = _clone_with_unique_ids(active_row, 9700)
+    citation_note_row["text"] = "citation-only"
+    citation_note_row["tokens"] = [
+        {
+            **citation_note_row["tokens"][0],
+            "value": citation_note_row["text"],
+            "startOffset": 0,
+            "endOffset": len(citation_note_row["text"]),
+        }
+    ]
+    citation_note_row["orderKey"] = "a0"
+    note_token = citation_note_row["tokens"][0]
+    citation_anchor = {
+        "blockId": citation_note_row["id"],
+        "tokenId": note_token["id"],
+        "affinity": "before",
+        "quotedWord": note_token["value"],
+        "anchorVersion": 1,
+    }
+    citation_attachment = {"kind": "word", "anchor": citation_anchor}
+    citation = {
+        "id": _id(9600),
+        "version": 1,
+        "orderKey": "stash-citation",
+        "role": "citation",
+        "content": "Citation stored with the authored Stash note",
+        "placement": {"kind": "point", "anchor": citation_attachment},
+        "displayAttachment": citation_attachment,
+    }
 
     clip_document = json.loads(CLIP_FIXTURE.read_text(encoding="utf-8"))["document"]
     clip_row = next(
@@ -282,11 +334,14 @@ def _input_payload() -> dict[str, Any]:
         "activeRowId": active_row_id,
         "savedRow": saved_row,
         "noteRow": note_row,
+        "citationNoteRow": citation_note_row,
+        "citation": citation,
         "clipRow": clip_row,
         "savedRowBundleId": _id(9500),
         "noteBundleId": _id(9501),
         "clipBundleId": _id(9502),
         "returnBundleId": _id(9503),
+        "citationNoteBundleId": _id(9504),
     }
 
 
@@ -335,6 +390,7 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
 
     note_id = payload["noteRow"]["id"]
     clip_id = payload["clipRow"]["id"]
+    citation_note_id = payload["citationNoteRow"]["id"]
     saved_row_id = payload["savedRow"]["id"]
     active_row_id = payload["activeRowId"]
     section_id = payload["sectionId"]
@@ -352,6 +408,12 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
             "sectionId": section_id,
         },
         {
+            "rowId": citation_note_id,
+            "kind": "note",
+            "parentRowId": None,
+            "sectionId": section_id,
+        },
+        {
             "rowId": saved_row_id,
             "kind": "row",
             "parentRowId": None,
@@ -363,6 +425,16 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
     assert saved["stashSections"] == [
         {"id": section_id, "title": "Saved ideas", "rowIds": []}
     ]
+    saved_note_bundle = next(
+        bundle for bundle in saved["stash"] if bundle["id"] == payload["noteBundleId"]
+    )
+    assert saved_note_bundle["supportingItems"] == []
+    citation_note_bundle = next(
+        bundle
+        for bundle in saved["stash"]
+        if bundle["id"] == payload["citationNoteBundleId"]
+    )
+    assert citation_note_bundle["supportingItems"] == [payload["citation"]]
     assert saved["activeDraft"] == operation["baselineActiveDraft"]
     assert section_id not in {block["id"] for block in saved["activeDraft"]["blocks"]}
     assert _narration_ids(saved) == [active_row_id]
@@ -376,14 +448,16 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
     consumers = operation["mixedSavedConsumers"]
     for hidden_text in (
         payload["noteRow"]["text"],
+        payload["citationNoteRow"]["text"],
         payload["savedRow"]["text"],
         "Saved ideas",
     ):
         assert hidden_text not in consumers["prompterText"]
         assert hidden_text not in consumers["prompterSidecarJson"]
-    hidden_row_ids = {note_id, clip_id, saved_row_id}
+    hidden_row_ids = {note_id, clip_id, citation_note_id, saved_row_id}
     hidden_payload_ids = _payload_ids(payload["noteRow"])
     hidden_payload_ids.update(_payload_ids(payload["clipRow"]))
+    hidden_payload_ids.update(_payload_ids(payload["citationNoteRow"]))
     hidden_payload_ids.update(_payload_ids(payload["savedRow"]))
     assert all(
         event.get("provenance", {}).get("blockId") not in hidden_row_ids
@@ -398,22 +472,36 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
     active_blocks = placed["activeDraft"]["blocks"]
     active_ids = [block["id"] for block in active_blocks]
     assert section_id not in active_ids
-    assert active_ids == [active_row_id, note_id, clip_id]
-    assert placed["stashOutline"] == [expected_outline[2]]
+    assert active_ids == [active_row_id, note_id, clip_id, citation_note_id]
+    assert placed["stashOutline"] == [expected_outline[3]]
     assert placed["stashSections"] == saved["stashSections"]
 
     placed_note = next(block for block in active_blocks if block["id"] == note_id)
     assert placed_note["type"] == "narration"
     assert placed_note["tokens"]
     assert all(token.get("spoken") is False for token in placed_note["tokens"])
+    assert placed["activeDraft"]["supportingItems"] == [payload["citation"]]
 
     placed_clip = next(block for block in active_blocks if block["id"] == clip_id)
     assert placed_clip["type"] == "visual_only"
     assert placed_clip["payload"] == payload["clipRow"]["payload"]
     assert placed_clip["visualOnlyTiming"] == payload["clipRow"]["visualOnlyTiming"]
-    assert _narration_ids(placed) == [active_row_id]
+    placed_citation_note = next(
+        block for block in active_blocks if block["id"] == citation_note_id
+    )
+    assert placed_citation_note["type"] == "narration"
+    assert all(
+        token.get("spoken") is not False for token in placed_citation_note["tokens"]
+    )
+    assert _narration_ids(placed) == [active_row_id, citation_note_id]
 
     assert returned["stashOutline"] == expected_outline
     assert returned["stashSections"] == saved["stashSections"]
     assert returned["activeDraft"] == operation["baselineActiveDraft"]
+    assert returned["activeDraft"]["supportingItems"] == []
+    assert any(
+        payload["citation"] in bundle["supportingItems"]
+        and citation_note_id in {row["id"] for row in bundle["rows"]}
+        for bundle in returned["stash"]
+    )
     assert _narration_ids(returned) == [active_row_id]

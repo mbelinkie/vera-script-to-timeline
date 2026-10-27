@@ -231,8 +231,6 @@ export function applyStageDirectionEditV2(
   markStashOriginEditedV2(row);
   refreshTextRangeQuotes(working, row);
   if (workingLocation.stashed) {
-    const outlineEntry = working.stashOutline?.find((entry) => entry.rowId === row.id);
-    if (outlineEntry?.kind === "note") outlineEntry.kind = "row";
     const revision = working.rowEditRevision ?? 0;
     if (!Number.isSafeInteger(revision) || revision >= Number.MAX_SAFE_INTEGER) return failure(document, "STAGE_DIRECTION_VERSION_STALE", "The saved row revision cannot advance.", command.blockId);
     working.rowEditRevision = revision + 1;

@@ -78,8 +78,6 @@ export function applyStashRowEditV2(
     working = structuredClone(document);
     const workingBundle = working.stash!.find((candidate) => candidate.id === command.bundleId)!;
     workingBundle.rows[rowIndex] = replacement;
-    const outlineEntry = working.stashOutline?.find((entry) => entry.rowId === current.id);
-    if (outlineEntry && outlineEntry.kind !== "row") outlineEntry.kind = "row";
     working.rowEditRevision = expectedRevision + 1;
   } catch {
     return refused(document, "STASH_ROW_JSON_INVALID", "The edited row must be losslessly representable as saved JSON.");
