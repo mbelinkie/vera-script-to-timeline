@@ -13,12 +13,14 @@ import os
 import platform
 import re
 import stat
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
+from threading import local
 from typing import Any, TypeGuard, cast
 
 from .performance_v2 import (
@@ -100,6 +102,7 @@ _SUPPORTED_INTEGER_RATES = {(24, 1), (25, 1), (30, 1)}
 _QUALIFIED_FRACTIONAL_RATE = (24000, 1001)
 _SUPPORTED_PACKAGE_RATES = {*_SUPPORTED_INTEGER_RATES, _QUALIFIED_FRACTIONAL_RATE}
 _HASH_READ_BYTES = 8 * 1024 * 1024
+_HASH_MAX_WORKERS = 4
 _MARKER_COLORS = {
     "BLUE": "Blue",
     "CYAN": "Cyan",
@@ -260,14 +263,13 @@ def _hash_regular(
 def _inventory(root: Path) -> list[dict[str, Any]]:
     increment("package.inventories")
     _regular_absolute(root, "package", directory=True)
-    entries: list[dict[str, Any]] = []
     try:
         paths = sorted(
             root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()
         )
     except OSError as error:
         raise WorkflowV2Error("package inventory could not be read") from error
-    read_buffer: bytearray | None = None
+    regular_paths: list[Path] = []
     for path in paths:
         try:
             info = path.lstat()
@@ -279,9 +281,50 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
             continue
         if not stat.S_ISREG(info.st_mode):
             raise WorkflowV2Error("package contains a non-regular entry")
-        if read_buffer is None:
-            read_buffer = bytearray(_HASH_READ_BYTES)
-        digest, size = _hash_regular(path, "package entry", read_buffer=read_buffer)
+        regular_paths.append(path)
+    if not regular_paths:
+        raise WorkflowV2Error("package is empty")
+
+    entries: list[dict[str, Any]] = []
+    if len(regular_paths) <= _HASH_MAX_WORKERS:
+        read_buffer = bytearray(_HASH_READ_BYTES)
+        hashed: Iterator[tuple[str, int]] = (
+            _hash_regular(path, "package entry", read_buffer=read_buffer)
+            for path in regular_paths
+        )
+    else:
+        worker_buffers = local()
+
+        def hash_in_worker(path: Path) -> tuple[str, int]:
+            read_buffer = getattr(worker_buffers, "read_buffer", None)
+            if read_buffer is None:
+                read_buffer = bytearray(_HASH_READ_BYTES)
+                worker_buffers.read_buffer = read_buffer
+            return _hash_regular(path, "package entry", read_buffer=read_buffer)
+
+        executor = ThreadPoolExecutor(
+            max_workers=min(_HASH_MAX_WORKERS, len(regular_paths))
+        )
+        hashed = executor.map(hash_in_worker, regular_paths)
+        try:
+            for path, (digest, size) in zip(regular_paths, hashed, strict=True):
+                # ContextVars do not cross worker threads.  Aggregate only
+                # successful results in the parent so the run's counters stay
+                # exact without sharing a mutable Recorder or read buffer.
+                increment("hash.bytes", size)
+                increment("hash.files")
+                entries.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "sha256": digest,
+                        "sizeBytes": size,
+                    }
+                )
+        finally:
+            executor.shutdown(wait=True)
+        return entries
+
+    for path, (digest, size) in zip(regular_paths, hashed, strict=True):
         entries.append(
             {
                 "path": path.relative_to(root).as_posix(),
@@ -289,8 +332,6 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
                 "sizeBytes": size,
             }
         )
-    if not entries:
-        raise WorkflowV2Error("package is empty")
     return entries
 
 

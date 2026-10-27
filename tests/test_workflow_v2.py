@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -13,6 +14,7 @@ from typing import Any
 import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import workflow_v2
+from vera_timeline_agent.performance_v2 import recording_context
 from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     _still_source_frame_duration,
@@ -630,6 +632,73 @@ def test_inventory_reuses_one_hash_read_buffer(
     assert len(inventory) == 2
     assert len(buffers) == 2
     assert len(set(buffers)) == 1
+
+
+def test_parallel_inventory_preserves_order_digests_and_counters(
+    tmp_path: Path,
+) -> None:
+    payloads = {
+        f"file-{index:02d}.bin": bytes([index + 1]) * (index * 17 + 1)
+        for index in range(8)
+    }
+    for name, payload in payloads.items():
+        (tmp_path / name).write_bytes(payload)
+
+    with recording_context() as recorder:
+        inventory = workflow_v2._inventory(tmp_path)
+
+    expected = [
+        {
+            "path": name,
+            "sha256": hashlib.sha256(payloads[name]).hexdigest(),
+            "sizeBytes": len(payloads[name]),
+        }
+        for name in sorted(payloads)
+    ]
+    assert inventory == expected
+    assert recorder.snapshot()["counters"] == {
+        "hash.bytes": sum(map(len, payloads.values())),
+        "hash.files": len(payloads),
+        "package.inventories": 1,
+    }
+
+
+def test_parallel_inventory_rejects_symbolic_link(tmp_path: Path) -> None:
+    for index in range(5):
+        (tmp_path / f"file-{index:02d}.bin").write_bytes(bytes([index]))
+    (tmp_path / "linked.bin").symlink_to(tmp_path / "file-00.bin")
+
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="symbolic link"):
+        workflow_v2._inventory(tmp_path)
+
+
+def test_hash_regular_rejects_fstat_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "drifting.bin"
+    path.write_bytes(b"drift me")
+    original_fstat = os.fstat
+    calls = 0
+
+    def drifting_fstat(descriptor: int) -> object:
+        nonlocal calls
+        result = original_fstat(descriptor)
+        calls += 1
+        if calls == 2:
+            return SimpleNamespace(
+                st_dev=result.st_dev,
+                st_ino=result.st_ino,
+                st_mode=result.st_mode,
+                st_size=result.st_size + 1,
+            )
+        return result
+
+    monkeypatch.setattr(os, "fstat", drifting_fstat)
+
+    with pytest.raises(
+        workflow_v2.WorkflowV2Error, match="changed while it was hashed"
+    ):
+        workflow_v2._hash_regular(path, "drifting file")
 
 
 def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) -> None:
