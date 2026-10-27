@@ -227,13 +227,20 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
             raise WorkflowV2Error(f"{label} is not a regular file")
-        while True:
-            chunk = os.read(descriptor, _HASH_READ_BYTES)
-            if not chunk:
-                break
-            digest.update(chunk)
-            total += len(chunk)
-            increment("hash.bytes", len(chunk))
+        read_buffer = bytearray(_HASH_READ_BYTES)
+        read_view = memoryview(read_buffer)
+        read_stream = os.fdopen(descriptor, "rb", buffering=0, closefd=False)
+        try:
+            while True:
+                count = read_stream.readinto(read_buffer)
+                if not count:
+                    break
+                digest.update(read_view[:count])
+                total += count
+                increment("hash.bytes", count)
+        finally:
+            read_view.release()
+            read_stream.close()
         after = os.fstat(descriptor)
         if (before.st_dev, before.st_ino, before.st_size) != (
             after.st_dev,
