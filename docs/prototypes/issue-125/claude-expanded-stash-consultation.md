@@ -1,0 +1,153 @@
+# Expanded Stash — CLI consultation brief
+
+Prepared 2026-10-27. Consultation only; not submitted to Claude Design.
+
+Canonical adopted behavior and test inventory: [#62 amendment](https://github.com/mbelinkie/vera-script-to-timeline/issues/62#issuecomment-6447015057), IDs S03-STASH-001–007 and S03-TEXT-001–004. #125 consumes this record; do not create a second competing feature inventory.
+
+## Prompt
+
+Act as an adversarial product co-designer. Critique this expanded Stash brief
+before any visual construction. Do not edit files or build a prototype. The
+question is how much #125 must settle now, given that later supporting design
+belongs to #59. Challenge that boundary if it would force an S03 redesign.
+
+### User and purpose
+
+A writer starts with a compact outline of ideas, reminders, prospective VO and
+clips, then gradually turns that material into a script. The same Stash also
+holds script rows temporarily removed from the active script. The writer must
+be able to think in an outline without constructing two-column rows first.
+
+### Adopted product behavior — preserve it
+
+- One unified Stash contains compact text notes, standalone clips and complete
+  script rows. Existing Stash sections remain an organization tool. Separate
+  user-facing Ideas and Extras surfaces are superseded.
+- Notes support indented, collapsible subnotes. Notes are compact outline
+  entries, not miniature full script rows. Complete saved rows use compact
+  summaries; clips use a compact clip representation. No attached-footage note
+  category is required.
+- Stash is accessible from normal authoring and Sorting. Reuse the existing
+  Show Stash sidebar, wide inspection and ordinary-authoring editing direction.
+  Do not reconstruct accepted S03 rows, Sorting or comments.
+- Dragging an item to an explicit script gap moves it out of Stash. It does not
+  leave a checked-off original. A clip becomes a footage row; an existing row
+  retains its complete content, identity and attachments within supported limits.
+- A text note becomes a row whose text preserves its spoken/direction meaning.
+  A note can mix prospective spoken text and nonspoken directions.
+- Dragging a parent note moves the parent and descendants together into a group
+  of rows in outline order. Text and clip descendants become corresponding rows.
+  Indentation never automatically creates script sections. This placement does
+  not authorize a permanent mandatory bundle of script rows.
+- Square brackets mark nonspoken stage directions. Parentheses remain ordinary
+  spoken text. For an existing paired direction, deleting either delimiter
+  removes its partner, retains the enclosed words and converts them to speech.
+  Make stage direction wraps selected words. Undo reverses the text/classification
+  change together. This writing control belongs in normal script and Stash.
+- Quotes are not a parser or requirement for prospective VO. Do not infer spoken
+  status from literal quotation marks. Do not add a new script text type.
+- Content remaining in Stash is excluded from the active script's ordinary
+  narration, prompter, build and exports. Placement does not silently repair
+  timing/media/transition relationships or update Resolve.
+- Saved rows remain independently restorable; organizing Stash sections is an
+  exception to Sorting's content-edit restrictions. Existing Sorting preview,
+  Accept/Return/Discard behavior remains. Do not silently enable general note
+  authoring during a pending Sorting session.
+- Product copy uses content rather than row numbers. Bold continues to mean
+  On Camera. Comments retain one discussion per target and the selected sidebar;
+  do not add planning-specific comment semantics here.
+
+### Current authority and capability limits
+
+Current visual references, not a mandate to edit: the existing VERA design
+project's S03 Outline Sorting Comparison r14 working successor and S03 Comments
+Placement Comparison r1.dc.html (selected S03-C r2 sidebar surface), based on
+Shared S03 Review Foundation r11. Reuse actual latest sources when construction
+is separately authorized; do not reconstruct them from this brief.
+
+This consultation receives a textual brief, not those HTML files or screenshots.
+Do not claim to have inspected their appearance or invent measured layout facts.
+
+- #307/#310 provide executable evidence for bounded row/section moves,
+  saved-row Stash operations, local Undo, Sorting preview/Accept/Discard and
+  editing saved row content outside Sorting. These are not proofs of nested
+  planning notes or clip/note-to-row conversion.
+- Open #337 owns independent saved-row restore and optional Stash sections.
+  It does not currently cover note hierarchies or the new conversions.
+- #324 provides a bounded comment-anchor baseline, not a new cross-app service.
+- Corrected first-interruption music behavior remains under open #326. Do not
+  expand that interaction or use old starting-row-only shortening as equivalent.
+- Stage directions exist in the product model and rendered examples. A working
+  create/convert/pair-delete interaction was not found in the retained S03 source.
+  These new editing/Undo promises still need exact executable proof.
+- #59 owns later supporting planning/collaboration design; #77/#78 are existing
+  later implementation placeholders requiring reconciliation with unified Stash.
+  #62 owns the complete behavior inventory, #125 S03-facing design and #126 its
+  later alignment. These owners are not prerequisites for their own proofs.
+
+No new working depiction of an unproved operation is authorized by calling it
+simulated. This is consultation and prompt preparation only. Identify the minimum
+missing proof; do not demand a finished backend or repeat delivered row proofs.
+
+### Proposed scope split — critique this
+
+In #125 now: settle the S03-facing contract and smallest representative
+integration treatment: mixed compact sidebar contents, identifying a note versus
+a clip versus a saved row, inspection/access from normal writing and Sorting,
+explicit placement and parent-branch result, spoken/direction editing affordance,
+and how existing pending Sorting restrictions constrain those actions. Establish
+the required states and exact proof gaps before asking for working construction.
+
+Later #59: full focused planning workspace and comprehensive outline-authoring
+flow (create/edit, indent/outdent, section/branch organization), broader role,
+collaboration/save/offline/error states, reusing #125's chosen S03 contract.
+Production UI/persistence/conversion implementation remains separate.
+
+This split is a recommendation, not a Producer-approved scope deferral. If an
+essential creation/organization interaction must be settled now to make the
+sidebar honest, identify the minimal addition rather than silently postponing it.
+
+### Unresolved product decisions — do not make them for the Producer
+
+1. A new planning note's default appearance and spoken/direction meaning. Earlier
+   default-direction marking was discussed before bracket-based writing. Do not
+   assume every plain outline note is narration or automatically wrap all notes
+   in brackets without resolving this conflict.
+2. Incomplete bracket typing/paste, literal/escaped or nested brackets, and when
+   typing commits a direction. Existing-pair deletion does not settle these.
+3. Whether/how hierarchy is recovered when converted rows return to Stash,
+   partial branch placement, and empty-parent behavior. Existing script rows
+   remain independent; do not invent persistent bundles or sections.
+4. What the Stash count means with notes, clips and rows together. The earlier
+   count of saved rows cannot silently become a misleading total.
+
+### Smallest representative scenario and evaluation
+
+Use one Stash section containing:
+- Parent note: Explain the sensor.
+- Child: a prospective spoken sentence, This instrument measures the water every
+  thirty seconds, plus the direction [hold up the notebook].
+- Child: standalone Sensor housing at the waterline clip.
+- An unrelated saved script row with an existing comment and citation.
+
+Evaluate compact recognition without expanding every item; insertion of one note,
+one clip and the parent branch; preserving the unrelated row's contents; and the
+return-to-Stash/hierarchy ambiguity. Include empty Stash, a missing clip, keyboard
+placement, cancellation/Undo and an already pending Sorting session. Use
+1280×800 and 1024×768 when eventually comparing layouts; preserve the adopted
+ten-row Sorting density target. No audio asset, playback, actual build or Resolve
+operation is needed for this consultation.
+
+### Requested response — keep it bounded
+
+1. At most six substantive problems, each with a concrete user sequence and the
+   smallest correction. Separate adopted requirements from recommendations.
+2. Recommend the exact #125-versus-#59 boundary, including anything that cannot
+   safely be deferred. State whether full Stash design is being smuggled into #125.
+3. Give the three most consequential Producer questions, with a recommended
+   answer and tradeoff for each. Do not treat your answers as adopted.
+4. Recommend the smallest focused comparison/pilot after decisions and proof.
+   Propose materially different compact treatments only if the hierarchy really
+   needs comparison; do not generate new numbered pages, full-app designs or exports.
+
+Stop after critique. No design-app submission or implementation.
