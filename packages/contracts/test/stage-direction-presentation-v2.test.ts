@@ -14,6 +14,10 @@ describe("stage-direction prompter spacing", () => {
     ["[Beat] [Pause] Hello.", "Hello."],
     ["Hello [Beat] [Pause]", "Hello"],
     ["Hello [Beat] [Pause], world", "Hello, world"],
+    ['He said "go [beat]" now', 'He said "go" now'],
+    ['"[sighs] Not now"', '"Not now"'],
+    ["“[sighs] Not now [beat]”", "“Not now”"],
+    ["Hello\n[Beat] Now", "Hello\nNow"],
   ])("removes directions without stray spacing: %s", (text, expected) => {
     const fixture = JSON.parse(readFileSync(new URL("../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url), "utf8")) as { document: ScriptDocumentV2 };
     const row = fixture.document.activeDraft.blocks.find((block) => block.type === "narration")!;

@@ -73,9 +73,9 @@ export function spokenNarrationViewV2(row: NarrationBlockV2): SpokenNarrationVie
     let end = closeOffset + 1;
     while (/[ \t]/u.test(row.text[end] ?? "")) end += 1;
     if (/^[ \t]*$/u.test(row.text.slice(0, start))) start = 0;
-    else if (end === row.text.length || /[,.!?;:)\]}]/u.test(row.text[end] ?? "")) {
+    else if (end === row.text.length || /[,.!?;:)\]}"'”’]/u.test(row.text[end] ?? "")) {
       while (/[ \t]/u.test(row.text[start - 1] ?? "")) start -= 1;
-    } else if (!/[ \t]/u.test(row.text[start - 1] ?? "")) end = closeOffset + 1;
+    } else if (!/[ \t\r\n"'“‘]/u.test(row.text[start - 1] ?? "")) end = closeOffset + 1;
     return { start, end };
   }).reduce<{ start: number; end: number }[]>((merged, range) => {
     const prior = merged.at(-1);
@@ -84,7 +84,7 @@ export function spokenNarrationViewV2(row: NarrationBlockV2): SpokenNarrationVie
     return merged;
   }, []);
   for (const range of removals) {
-    if (range.end === row.text.length || /[,.!?;:)\]}]/u.test(row.text[range.end] ?? "")) {
+    if (range.end === row.text.length || /[,.!?;:)\]}"'”’]/u.test(row.text[range.end] ?? "")) {
       while (/[ \t]/u.test(row.text[range.start - 1] ?? "")) range.start -= 1;
     }
   }
