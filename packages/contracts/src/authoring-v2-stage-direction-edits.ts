@@ -20,8 +20,6 @@ export interface StageDirectionEditResultV2 {
   undo?: StageDirectionUndoV2;
 }
 
-type Row = ScriptDocumentV2["activeDraft"]["blocks"][number];
-
 interface RowLocation {
   row: NarrationBlockV2;
   stashed: boolean;
@@ -59,7 +57,7 @@ function selectedTokens(row: NarrationBlockV2, startOffset: number, endOffset: n
   const endIndex = row.tokens.findIndex((token) => token.endOffset === contentEnd);
   if (startIndex < 0 || endIndex < startIndex) return null;
   if (row.tokens.slice(startIndex, endIndex + 1).some((token) => token.startOffset < contentStart || token.endOffset > contentEnd)) return null;
-  if (/[\[\]]/u.test(row.text.slice(contentStart, contentEnd))) return null;
+  if (/[[\]]/u.test(row.text.slice(contentStart, contentEnd))) return null;
   return { startIndex, endIndexExclusive: endIndex + 1, hasPair };
 }
 

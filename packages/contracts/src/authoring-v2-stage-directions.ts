@@ -35,7 +35,7 @@ export function inspectStageDirectionsV2(row: NarrationBlockV2): {
     while (
       index < row.tokens.length &&
       row.tokens[index]!.spoken === false &&
-      !/[\[\]]/u.test(row.text.slice(row.tokens[index - 1]!.endOffset, row.tokens[index]!.startOffset))
+      !/[[\]]/u.test(row.text.slice(row.tokens[index - 1]!.endOffset, row.tokens[index]!.startOffset))
     ) index += 1;
     const endTokenIndexExclusive = index;
     const first = row.tokens[startTokenIndex]!;
@@ -47,7 +47,7 @@ export function inspectStageDirectionsV2(row: NarrationBlockV2): {
       continue;
     }
     if (
-      /[\[\]]/u.test(row.text.slice(first.startOffset, last.endOffset)) ||
+      /[[\]]/u.test(row.text.slice(first.startOffset, last.endOffset)) ||
       row.text[openOffset - 1] === "[" ||
       row.text[closeOffset + 1] === "]"
     ) {

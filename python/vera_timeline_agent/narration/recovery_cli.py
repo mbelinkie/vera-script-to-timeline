@@ -30,14 +30,16 @@ from vera_timeline_agent.narration.fish import FishError, _source_words, timing_
 from vera_timeline_agent.narration.fish_stream import parse_timestamp_stream
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 from vera_timeline_agent.narration.normalize import Normalizer
-from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
-from vera_timeline_agent.narration.stage_directions import spoken_tokens
 from vera_timeline_agent.narration.recovery import (
     RecoveryError,
     RecoverySource,
     admit_local_acoustic_recovery,
     prepare_recovery_audio,
 )
+from vera_timeline_agent.narration.stage_directions import (
+    masked_text as mask_stage_directions,
+)
+from vera_timeline_agent.narration.stage_directions import spoken_tokens
 
 
 def _json(path: Path, value: object) -> None:
@@ -68,7 +70,11 @@ def retained_source(
         raise RecoveryError("one matching frozen narration block is required")
     block = blocks[0]
     tokens = spoken_tokens(block)
-    provider_text = mask_stage_directions(block) if any(token.get("spoken") is False for token in block["tokens"]) else block["text"]
+    provider_text = (
+        mask_stage_directions(block)
+        if any(token.get("spoken") is False for token in block["tokens"])
+        else block["text"]
+    )
     if (
         block["version"] != asset["block_revision"]
         or sha256_bytes(block["text"].encode()) != asset["text_hash"]

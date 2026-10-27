@@ -6,7 +6,11 @@ import pytest
 from vera_timeline_agent.narration.compiler_dependencies_v2 import (
     narration_v2_dependency_from_asset,
 )
-from vera_timeline_agent.narration.measure import _frozen_tokens
+from vera_timeline_agent.narration.measure import (
+    MeasurementError,
+    _frozen_tokens,
+    _self_check,
+)
 from vera_timeline_agent.narration.models import (
     NarrationAudioAsset,
     canonical_json_bytes,
@@ -147,9 +151,7 @@ def test_timing_and_measurement_projections_drop_direction_tokens() -> None:
     block = mixed_block()
     timing = timing_record()
 
-    dependency = narration_v2_dependency_from_asset(
-        ready_asset(timing), timing, block
-    )
+    dependency = narration_v2_dependency_from_asset(ready_asset(timing), timing, block)
     reasons: list[str] = []
     measured_tokens = _frozen_tokens(block, reasons)
 
@@ -180,3 +182,16 @@ def test_direction_only_block_is_rejected_before_synthesis_request() -> None:
 
     with pytest.raises(ValueError, match="direction-only narration"):
         ServiceConfig().request_for(block)
+
+    with pytest.raises(ValueError, match="direction-only narration"):
+        narration_v2_dependency_from_asset(
+            ready_asset(timing_record()), timing_record(), block
+        )
+
+    reasons: list[str] = []
+    assert _frozen_tokens(block, reasons) == []
+    assert "direction-only narration" in reasons[0]
+    with pytest.raises(MeasurementError, match="at least one spoken token"):
+        _self_check(
+            {"audio": {"durationSamples": 48_000, "sampleRate": 48_000}, "tokens": []}
+        )

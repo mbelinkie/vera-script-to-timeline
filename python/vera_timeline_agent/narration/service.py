@@ -41,7 +41,9 @@ from vera_timeline_agent.narration.provider import (
     SpeechProviderError,
     SpeechSynthesisProvider,
 )
-from vera_timeline_agent.narration.stage_directions import masked_text as mask_stage_directions
+from vera_timeline_agent.narration.stage_directions import (
+    masked_text as mask_stage_directions,
+)
 
 
 @dataclass(frozen=True)
@@ -72,8 +74,7 @@ class ServiceConfig:
             )
         tokens = block.get("tokens")
         has_directions = isinstance(tokens, list) and any(
-            isinstance(token, dict) and token.get("spoken") is False
-            for token in tokens
+            isinstance(token, dict) and token.get("spoken") is False for token in tokens
         )
         source_text_hash = None
         if has_directions:
@@ -81,7 +82,9 @@ class ServiceConfig:
                 isinstance(token, dict) and token.get("spoken") is not False
                 for token in tokens
             ):
-                raise ValueError("direction-only narration has no spoken text to synthesize")
+                raise ValueError(
+                    "direction-only narration has no spoken text to synthesize"
+                )
             spoken_text = mask_stage_directions(block)
             source_text_hash = sha256_bytes(text.encode("utf-8"))
         else:
@@ -463,7 +466,8 @@ class NarrationService:
             block_revision=request.block_revision,
             kind="temp_synthetic",
             status=status,
-            text_hash=request.source_text_hash or sha256_bytes(request.text.encode("utf-8")),
+            text_hash=request.source_text_hash
+            or sha256_bytes(request.text.encode("utf-8")),
             provider_input_hash=sha256_bytes(provider_input)
             if raw is not None
             else None,
