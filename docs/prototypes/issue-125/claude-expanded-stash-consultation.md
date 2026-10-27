@@ -50,6 +50,11 @@ be able to think in an outline without constructing two-column rows first.
   the row has been edited is part of Undo: fully Undoing the edit restores its
   previous outline-return eligibility. Ordinary manual rewriting back to the
   original words is not automatically declared equivalent to Undo.
+- Producer clarification on partial return: an untouched child whose parent is
+  still in the script returns as a top-level note in its original Stash section.
+  No placeholder parent or new section is created, and no unselected parent or
+  sibling is pulled from the script. If the parent is already in Stash, return
+  the untouched child to its original nested slot.
 - Square brackets mark nonspoken stage directions. Parentheses remain ordinary
   spoken text. For an existing paired direction, deleting either delimiter
   removes its partner, retains the enclosed words and converts them to speech.
@@ -78,6 +83,10 @@ be able to think in an outline without constructing two-column rows first.
   Selective acceptance needs separate executable proof, including newly created
   or deleted rows and relationship/attachment consequences; full-result #310
   acceptance alone does not establish this behavior.
+- Producer classification: deleting a script row is an EDIT. Keep edits, undo
+  sorting preserves deletion; Keep sorting, undo edits restores the row. Preserve
+  existing deletion confirmation/Undo and quiet orphaned discussions. Deleting a
+  script row never deletes source media.
 - Product copy uses content rather than row numbers. Bold continues to mean
   On Camera. Comments retain one discussion per target and the selected sidebar;
   do not add planning-specific comment semantics here.
@@ -147,18 +156,19 @@ sidebar honest, identify the minimal addition rather than silently postponing it
    typing commits a direction. Existing-pair deletion does not settle these.
 3. Untouched converted material DOES recover its outline form; edited material
    returns as a row. Undo restores previous outline-return eligibility. Still
-   unresolved: what counts as an authored change (including settings/attachments), partial
-   branch return placement and empty-parent behavior. Existing script rows remain
-   independent; do not invent persistent mandatory bundles or script sections.
+   unresolved: fine input/attachment boundaries, complete mixed-branch recovery
+   interactions and empty-parent behavior. The parent-present versus parent-absent
+   child-return rule above is settled. Existing script rows remain independent;
+   do not invent persistent mandatory bundles or script sections.
 4. What the Stash count means with notes, clips and rows together. The earlier
    count of saved rows cannot silently become a misleading total.
 5. Full editing of any expanded script row during Sorting is now adopted; all
    session writing/organization stays pending together, with read-only
    script-format review, default Accept-all and the selective-acceptance dropdown
    above. This is no longer a product question, but its expanded domain/session
-   proof is still missing. Selective outcomes for newly created/deleted targets
-   and partial branch recovery need consistent dispositions before construction;
-   the edited-note-to-Stash case is settled. Do not describe the older
+   proof is still missing. Row deletion is an edit, and the edited-note-to-Stash
+   and child-return cases are settled. Remaining dependency/conflict results need
+   consistent dispositions before construction. Do not describe the older
    structural-only session as sufficient evidence.
 
 ### Smallest representative scenario and evaluation
