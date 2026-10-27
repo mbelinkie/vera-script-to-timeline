@@ -664,11 +664,12 @@ export interface SectionBlock {
   version: number;
 }
 /**
- * Stable spoken-token identity plus UTF-16 offsets into NarrationBlockV2.text; text and offset agreement remains semantic validation.
+ * Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a paired stage-direction token.
  */
 export interface NarrationToken {
   id: string;
   value: string;
+  spoken?: boolean;
   startOffset: number;
   endOffset: number;
 }

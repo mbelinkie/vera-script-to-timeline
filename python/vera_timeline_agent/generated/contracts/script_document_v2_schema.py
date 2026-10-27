@@ -45,6 +45,7 @@ class SectionBlock(TypedDict):
 class NarrationToken(TypedDict):
     id: EntityId
     value: str
+    spoken: NotRequired[bool]
     startOffset: NonNegativeSafeInteger
     endOffset: PositiveSafeInteger
 

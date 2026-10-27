@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -41,6 +42,12 @@ from vera_timeline_agent.narration.provider import (
     SpeechProviderError,
     SpeechSynthesisProvider,
 )
+from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+)
+from vera_timeline_agent.narration.stage_directions import (
+    masked_text as mask_stage_directions,
+)
 
 
 @dataclass(frozen=True)
@@ -57,7 +64,7 @@ class ServiceConfig:
     def pricing(self) -> PricingPolicy:
         return self.pricing_policy or pricing_for(self.profile)
 
-    def request_for(self, block: dict[str, Any]) -> SynthesisRequest:
+    def request_for(self, block: Mapping[str, Any]) -> SynthesisRequest:
         block_id = block.get("id")
         revision = block.get("version")
         text = block.get("text")
@@ -69,10 +76,24 @@ class ServiceConfig:
             raise ValueError(
                 "active narration block requires string id/text and integer version"
             )
+        tokens = block.get("tokens")
+        if is_direction_only(block):
+            raise ValueError(
+                "direction-only narration has no spoken text to synthesize"
+            )
+        has_directions = isinstance(tokens, list) and any(
+            isinstance(token, dict) and token.get("spoken") is False for token in tokens
+        )
+        source_text_hash = None
+        if has_directions and isinstance(tokens, list):
+            spoken_text = mask_stage_directions(block)
+            source_text_hash = sha256_bytes(text.encode("utf-8"))
+        else:
+            spoken_text = text
         return SynthesisRequest(
             block_id=block_id,
             block_revision=revision,
-            text=text,
+            text=spoken_text,
             profile=self.profile,
             settings=self.settings,
             pronunciations=self.pronunciations,
@@ -80,6 +101,7 @@ class ServiceConfig:
             data_policy_attestation=self.data_policy_attestation,
             max_cost_usd=self.max_cost_usd,
             pricing_policy_version=self.pricing.version,
+            source_text_hash=source_text_hash,
         )
 
 
@@ -142,6 +164,7 @@ class NarrationService:
             if isinstance(block, dict)
             and block.get("type") == "narration"
             and block.get("state") == "active"
+            and not is_direction_only(block)
         ]
         blocks.sort(
             key=lambda block: (str(block.get("orderKey", "")), str(block.get("id", "")))
@@ -445,7 +468,8 @@ class NarrationService:
             block_revision=request.block_revision,
             kind="temp_synthetic",
             status=status,
-            text_hash=sha256_bytes(request.text.encode("utf-8")),
+            text_hash=request.source_text_hash
+            or sha256_bytes(request.text.encode("utf-8")),
             provider_input_hash=sha256_bytes(provider_input)
             if raw is not None
             else None,

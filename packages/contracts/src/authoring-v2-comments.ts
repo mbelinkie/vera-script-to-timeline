@@ -1,6 +1,7 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "./authoring-v2-rows.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { commentQuoteV2 } from "./authoring-v2-stage-directions.js";
 
 export type CommentAnchorV2 =
   | { kind: "text"; blockId: string; startTokenId: string; endTokenId: string }
@@ -91,7 +92,7 @@ function attachment(document: ScriptDocumentV2, anchor: CommentAnchorV2): Commen
     if (start < 0 || end < start) return null;
     const tokens = block.tokens.slice(start, end + 1);
     if (tokens.some((token, index) => !Number.isSafeInteger(token.startOffset) || !Number.isSafeInteger(token.endOffset) || token.startOffset < 0 || token.endOffset <= token.startOffset || token.endOffset > block.text.length || block.text.slice(token.startOffset, token.endOffset) !== token.value || index > 0 && token.startOffset < tokens[index - 1]!.endOffset)) return null;
-    return { anchor: structuredClone(anchor), status: "attached", tokens: tokens.map(({ id, value }) => ({ id, value })), quotedText: block.text.slice(tokens[0]!.startOffset, tokens.at(-1)!.endOffset) };
+    return { anchor: structuredClone(anchor), status: "attached", tokens: tokens.map(({ id, value }) => ({ id, value })), quotedText: commentQuoteV2(block, tokens[0]!.startOffset, tokens.at(-1)!.endOffset) };
   }
   if (anchor.kind === "card" && !(block.type === "narration" && block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId))) return null;
   return { anchor: structuredClone(anchor), status: "attached", tokens: [], quotedText: null };
@@ -119,7 +120,17 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
       for (const thread of next.threads) {
         if (thread.attachment.status === "stale") continue;
         const current = attachment(document, thread.attachment.anchor);
-        if (!current || !sameAuthoringJsonV2(current.tokens, thread.attachment.tokens) || current.quotedText !== thread.attachment.quotedText) thread.attachment.status = "stale";
+        const anchor = thread.attachment.anchor;
+        const previousBlock = anchor.kind === "text" ? state.document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
+        const nextBlock = anchor.kind === "text" ? document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
+        const classificationOnly = previousBlock?.type === "narration" && nextBlock?.type === "narration" &&
+          previousBlock.text === nextBlock.text && sameAuthoringJsonV2(
+            previousBlock.tokens.map((token) => ({ ...token, spoken: null })),
+            nextBlock.tokens.map((token) => ({ ...token, spoken: null })),
+          );
+        if (!current || !sameAuthoringJsonV2(current.tokens, thread.attachment.tokens) ||
+          current.quotedText !== thread.attachment.quotedText && !classificationOnly) thread.attachment.status = "stale";
+        else thread.attachment.quotedText = current.quotedText;
       }
     } else {
       let thread = next.threads.find((thread) => thread.id === op.threadId);

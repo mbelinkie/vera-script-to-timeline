@@ -33,6 +33,7 @@ import {
 } from "./authoring-v2-validation.js";
 
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 
 type ProjectionTiming = NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1;
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -100,6 +101,7 @@ function projectRow(
     });
     return emptyRow(row.id, diagnostics);
   }
+  const spokenTokens = spokenTokensV2(row);
 
   const occurrenceOrders = buildOccurrenceOrders(document, row, options, diagnostics);
   const orderById = new Map(occurrenceOrders.map((item) => [item.id, item]));
@@ -115,7 +117,7 @@ function projectRow(
     const nextRoot = group.nextRootIndex === undefined ? undefined : sequence.slots[group.nextRootIndex];
     const end = nextRoot?.kind === "content"
       ? slotStart(nextRoot, row)
-      : row.tokens.length;
+      : spokenTokens.length;
     rootIntervals.set(group.root.id, { start, end });
     for (let index = 0; index < group.children.length; index += 1) {
       const child = group.children[index]!;
@@ -163,7 +165,7 @@ function projectRow(
     });
   });
 
-  const tokens: ProjectedTokenV2[] = row.tokens.map((token, tokenIndex) => {
+  const tokens: ProjectedTokenV2[] = spokenTokens.map((token, tokenIndex) => {
     const rootGroup = activeRootAt(groups, row, tokenIndex);
     const rootInterval = rootGroup ? rootIntervals.get(rootGroup.root.id) : undefined;
     if (!rootGroup || !rootInterval || rootInterval.start === null || rootInterval.end === null) {
@@ -351,7 +353,7 @@ function observedTime(timing: ProjectionTiming, row: NarrationBlockV2, tokenId: 
     const mark = timing.tokens.find((item) => item.tokenId === tokenId);
     return wireFraction(affinity === "before" ? mark?.onset : mark?.audibleEnd);
   }
-  const index = row.tokens.findIndex((item) => item.id === tokenId);
+  const index = spokenTokensV2(row).findIndex((item) => item.id === tokenId);
   const mark = timing.tokens[index];
   return wireFraction(affinity === "before" ? mark?.startTime : mark?.endBasis === "evidenced_audible_end" ? mark.audibleEnd : undefined);
 }
@@ -474,7 +476,7 @@ function pointIndex(
     const after = document.activeDraft.blocks.findIndex((block) => block.id === point.afterBlockId);
     const rowIndex = document.activeDraft.blocks.findIndex((block) => block.id === row.id);
     if (before === rowIndex - 1 && after === rowIndex) return 0;
-    if (before === rowIndex && after === rowIndex + 1) return row.tokens.length;
+    if (before === rowIndex && after === rowIndex + 1) return spokenTokensV2(row).length;
     return null;
   }
   if (visiting.has(point.eventId) || point.eventId === event.id) return null;
@@ -616,10 +618,11 @@ function estimateMediaCuts(
     );
     const cutTime = add(startTime, sourceDuration);
     const nextToken = tokenTimes.findIndex((time) => compare(time.end, cutTime) > 0);
+    const spokenTokens = spokenTokensV2(row);
     const windowStart = nextToken < 0
-      ? row.tokens.length
-      : Math.max(0, Math.min(nextToken - 2, row.tokens.length - 5));
-    const window = nextToken < 0 ? [] : row.tokens.slice(windowStart, Math.min(windowStart + 5, row.tokens.length)).map((token) => token.id);
+      ? spokenTokens.length
+      : Math.max(0, Math.min(nextToken - 2, spokenTokens.length - 5));
+    const window = nextToken < 0 ? [] : spokenTokens.slice(windowStart, Math.min(windowStart + 5, spokenTokens.length)).map((token) => token.id);
     const cutWire = fractionToWire(cutTime);
     if (!cutWire) {
       diagnostics.push({
@@ -632,12 +635,15 @@ function estimateMediaCuts(
       });
       continue;
     }
+    const hasStageDirections = row.tokens.some((token) => token.spoken === false);
     const hashInput = JSON.stringify({
       policy: "media_cut_estimate/v1",
       blockId: row.id,
       blockVersion: row.version,
       text: row.text,
-      tokens: row.tokens.map((token) => [token.id, token.value, token.startOffset, token.endOffset]),
+      tokens: row.tokens.map((token) => hasStageDirections
+        ? [token.id, token.value, token.startOffset, token.endOffset, token.spoken !== false]
+        : [token.id, token.value, token.startOffset, token.endOffset]),
       controllerSlotId: controller.id,
       payloadId: payload.payloadId,
       boundaryBefore: controller.boundaryBefore,
@@ -663,14 +669,15 @@ function estimateMediaCuts(
 }
 
 function validPreviewTiming(row: NarrationBlockV2, timing: NarrationTokenTimingMapV2): boolean {
+  const spokenTokens = spokenTokensV2(row);
   if (
     timing.blockRevision !== row.version ||
     timing.textHash !== sha256(row.text) ||
     !/^sha256:[a-f0-9]{64}$/u.test(timing.timingHash) ||
     !["audible_word_marks", "next_word_derived"].includes(timing.precision) ||
-    timing.tokens.length !== row.tokens.length
+    timing.tokens.length !== spokenTokens.length
   ) return false;
-  return row.tokens.every((token, index) => {
+  return spokenTokens.every((token, index) => {
     const timed = timing.tokens[index];
     const end = timingEnd(timing, index);
     return timed?.tokenId === token.id &&
@@ -687,7 +694,7 @@ function validPreviewTiming(row: NarrationBlockV2, timing: NarrationTokenTimingM
 }
 
 function previewTokenTimes(row: NarrationBlockV2, timing: NarrationTokenTimingMapV2): { start: BigFraction; end: BigFraction }[] {
-  return row.tokens.map((_, index) => {
+  return spokenTokensV2(row).map((_, index) => {
     const timed = timing.tokens[index]!;
     const start = fraction(BigInt(timed.startTime.numerator), BigInt(timed.startTime.denominator));
     const endWire = timingEnd(timing, index);
@@ -704,7 +711,7 @@ function timingEnd(timing: NarrationTokenTimingMapV2, index: number): RationalTi
 }
 
 function fallbackTokenTimes(row: NarrationBlockV2): { start: BigFraction; end: BigFraction }[] {
-  return row.tokens.map((_, index) => ({
+  return spokenTokensV2(row).map((_, index) => ({
     start: fraction(BigInt(index * 400), 1000n),
     end: fraction(BigInt((index + 1) * 400), 1000n),
   }));
