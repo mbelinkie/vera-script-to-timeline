@@ -18,6 +18,16 @@ partial-pair selections refuse without changing the document. General typing
 and paste-event handling is not implemented; callers submit the bounded edit
 commands.
 
+## Regression evidence
+
+The TypeScript tests cover paired edits, both delimiter deletions, stable
+references, save/reload and Undo, spoken-only Prompter/projection, stale timing
+rejection, a fresh spoken-token timing map and direction-only duration refusal.
+The Python tests exercise provider masking, spoken-only timing/measurement
+projection and direction-only refusal before synthesis or timing evidence.
+These are contract and service checks; they do not establish a finished editor
+or Resolve interaction.
+
 ## Consumer behavior and limits
 
 Prompter, projection, timing evidence, compilation and narration measurement
