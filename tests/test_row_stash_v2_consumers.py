@@ -61,13 +61,15 @@ const stashedResult = applyRowEditV2(document, document.rowEditRevision ?? 0, {
 });
 if (!stashedResult.ok) throw new Error(JSON.stringify(stashedResult.diagnostics));
 
-const sectionResult = applyRowEditV2(stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
+const sectionResult = applyRowEditV2(
+  stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
   kind: "create_stash_section",
   sectionId: input.stashSectionId,
   title: "Saved clips",
 });
 if (!sectionResult.ok) throw new Error(JSON.stringify(sectionResult.diagnostics));
-const organizedResult = applyRowEditV2(sectionResult.document, sectionResult.document.rowEditRevision ?? 0, {
+const organizedResult = applyRowEditV2(
+  sectionResult.document, sectionResult.document.rowEditRevision ?? 0, {
   kind: "move_stash_rows",
   rowIds: [row.id],
   sectionId: input.stashSectionId,
