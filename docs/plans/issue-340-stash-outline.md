@@ -8,7 +8,7 @@
 { rowId, kind: "note" | "clip" | "row", parentRowId, sectionId }
 ```
 
-`rowId` references the existing saved row identity. Note and clip content remains in the existing saved-row payloads; `kind` controls compact presentation and consumer exclusion, while `row` means ordinary full-row presentation. A note may contain clips or notes; a clip cannot be a parent. Children stay in the parent's section. Each subtree appears contiguously in deterministic preorder. In canonical mode, `stashSections` remains present as needed for section titles, but each `rowIds` value is `[]`.
+`rowId` references the existing saved row identity. Note and clip content remains in the existing saved-row payloads; `kind` controls compact presentation, while `row` means ordinary full-row presentation. Membership in Stash excludes all of these payloads from active-script consumers. A note may contain clips or notes; a clip cannot be a parent. Children stay in the parent's section. Each subtree appears contiguously in deterministic preorder. In canonical mode, `stashSections` remains present as needed for section titles, but each `rowIds` value is `[]`.
 
 Older documents without `stashOutline` remain valid. The first outline write upgrades their visible order deterministically: unsectioned rows first, followed by each existing section's rows in section order. The upgrade then clears the legacy `rowIds` arrays.
 
@@ -30,4 +30,4 @@ The Sorting trial may organize the existing outline and place existing branches.
 
 ## Refusal boundaries
 
-Validation requires unique outline row references, exact coverage of all saved rows, valid section references, empty canonical section row lists, note-only parents, same-section parent/child relationships, no cycles, and valid preorder. Operations refuse missing destinations, ambiguous original sibling slots, partial cross-section branches, and unsupported audio/attachment cases atomically. A note that cannot be converted by the bounded #341 default-direction helper must be created with explicit authored mode or left as an ordinary row. The implementation adds no UI, persistent bundle, duplicate payload model, or new authoring service.
+Validation requires unique outline row references, exact coverage of all saved rows, valid section references, empty canonical section row lists, note-only parents, same-section parent/child relationships, no cycles, and valid preorder. Operations refuse missing destinations, ambiguous original sibling slots, partial cross-section branches, and unsupported audio/attachment cases atomically. A note that cannot be converted by the bounded #341 default-direction helper must be created with explicit authored mode or left as an ordinary row. The implementation adds no UI, mandatory bundle interaction, duplicate payload model, or new authoring service.
