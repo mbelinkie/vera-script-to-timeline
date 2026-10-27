@@ -214,7 +214,9 @@ def _read_regular(path: Path, label: str, *, max_bytes: int | None = None) -> by
         os.close(descriptor)
 
 
-def _hash_regular(path: Path, label: str) -> tuple[str, int]:
+def _hash_regular(
+    path: Path, label: str, *, read_buffer: bytearray | None = None
+) -> tuple[str, int]:
     _regular_absolute(path, label, directory=False)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -227,7 +229,8 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
             raise WorkflowV2Error(f"{label} is not a regular file")
-        read_buffer = bytearray(_HASH_READ_BYTES)
+        if read_buffer is None:
+            read_buffer = bytearray(_HASH_READ_BYTES)
         read_view = memoryview(read_buffer)
         read_stream = os.fdopen(descriptor, "rb", buffering=0, closefd=False)
         try:
@@ -264,6 +267,7 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
         )
     except OSError as error:
         raise WorkflowV2Error("package inventory could not be read") from error
+    read_buffer: bytearray | None = None
     for path in paths:
         try:
             info = path.lstat()
@@ -275,7 +279,9 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
             continue
         if not stat.S_ISREG(info.st_mode):
             raise WorkflowV2Error("package contains a non-regular entry")
-        digest, size = _hash_regular(path, "package entry")
+        if read_buffer is None:
+            read_buffer = bytearray(_HASH_READ_BYTES)
+        digest, size = _hash_regular(path, "package entry", read_buffer=read_buffer)
         entries.append(
             {
                 "path": path.relative_to(root).as_posix(),

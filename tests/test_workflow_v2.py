@@ -608,6 +608,30 @@ def test_hash_regular_preserves_digest_across_8mib_boundary(tmp_path: Path) -> N
     assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def test_inventory_reuses_one_hash_read_buffer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "first.bin").write_bytes(b"first")
+    (tmp_path / "second.bin").write_bytes(b"second")
+    original = workflow_v2._hash_regular
+    buffers: list[int] = []
+
+    def wrapped(
+        path: Path, label: str, *, read_buffer: bytearray | None = None
+    ) -> tuple[str, int]:
+        assert read_buffer is not None
+        buffers.append(id(read_buffer))
+        return original(path, label, read_buffer=read_buffer)
+
+    monkeypatch.setattr(workflow_v2, "_hash_regular", wrapped)
+
+    inventory = workflow_v2._inventory(tmp_path)
+
+    assert len(inventory) == 2
+    assert len(buffers) == 2
+    assert len(set(buffers)) == 1
+
+
 def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) -> None:
     attestation, digest, value = _make_package(tmp_path)
     linked = tmp_path / "linked.json"
