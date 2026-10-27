@@ -2,10 +2,13 @@
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_issue209_native import _approval, _context
 from vera_timeline_agent import qualification_output_native_v2 as native
+from vera_timeline_agent import qualification_output_package_v2 as package
+from vera_timeline_agent import qualification_output_proof_v2 as proof
 from vera_timeline_agent.qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
     OutputConsistencyError,
@@ -28,8 +31,11 @@ def test_external_location_is_private_per_target_and_cannot_be_replaced(
     assert native.render_parent(context) == root / default.name
     location = state / "targets" / default.name / "render-location.json"
     assert location.stat().st_mode & 0o777 == 0o400
-    with pytest.raises(FileExistsError):
-        native.register_render_root(context, root)
+    native.register_render_root(context, root)
+    other = tmp_path / "other"
+    other.mkdir(mode=0o700)
+    with pytest.raises(OutputConsistencyError, match="render root differs"):
+        native.register_render_root(context, other)
     edited = json.loads(json.dumps(context))
     edited["phase"] = "edited"
     projection = {
@@ -61,6 +67,35 @@ def test_render_location_refuses_links_and_existing_operations(
     (parent / "operations").mkdir(parents=True)
     with pytest.raises(OutputConsistencyError, match="operation already exists"):
         native.register_render_root(context, root)
+
+
+def test_revised_session_checks_inherited_root_before_reservation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    preflight = tmp_path / "preflight.json"
+    preflight.write_bytes(b"{}")
+    baseline = SimpleNamespace(context={"target": {"timelineUid": "old"}})
+    fake_proof = SimpleNamespace(
+        prepare_revised_preflight=lambda: preflight, baseline=baseline
+    )
+    monkeypatch.setattr(proof, "QualificationOutputProofV2", lambda *_: fake_proof)
+    monkeypatch.setattr(
+        package, "admit_qualification_revision_v2", lambda *_args, **_kwargs: object()
+    )
+
+    def unavailable(_context: object) -> Path:
+        raise OutputConsistencyError("private owned render root required")
+
+    monkeypatch.setattr(native, "render_parent", unavailable)
+    with pytest.raises(OutputConsistencyError, match="private owned render root"):
+        proof.prepare_revised_output_session(
+            tmp_path / "revised",
+            proof_session=tmp_path / "proof",
+            proof_sha256="0" * 64,
+            package_root=tmp_path / "package",
+            preparation_paths={},
+            target={"timelineUid": "new"},
+        )
 
 
 def test_approval_pins_selected_volume_and_refuses_location_drift(

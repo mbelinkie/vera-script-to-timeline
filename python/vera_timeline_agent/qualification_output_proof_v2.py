@@ -1455,6 +1455,10 @@ def prepare_revised_output_session(
         revised_preflight_sha256=preflight_sha256,
         narration_evidence_paths=narration_evidence_paths,
     )
+    # Validate the inherited volume before consuming the revision's one-use reservation.
+    from .qualification_output_native_v2 import render_parent
+
+    render_parent(proof.baseline.context)
     invocation_id = str(uuid.uuid4())
     # A new directory or target cannot reset this accepted revision's effects.
     reservation_root = proof.baseline.journal.directory / "proof-rebuilds"

@@ -741,8 +741,12 @@ def register_render_root(context: dict[str, Any], root: Path) -> None:
     _path(str(directory), "native target")
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     _require(not (directory / "operations").exists(), "native operation already exists")
+    location = directory / "render-location.json"
+    if location.exists() or location.is_symlink():
+        _require(render_parent(context).parent == root, "render root differs")
+        return
     _publish(
-        directory / "render-location.json",
+        location,
         {
             "schemaVersion": "qualification-output-render-location/v1",
             "chainKey": key,
