@@ -120,7 +120,17 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
       for (const thread of next.threads) {
         if (thread.attachment.status === "stale") continue;
         const current = attachment(document, thread.attachment.anchor);
-        if (!current || !sameAuthoringJsonV2(current.tokens, thread.attachment.tokens) || current.quotedText !== thread.attachment.quotedText) thread.attachment.status = "stale";
+        const anchor = thread.attachment.anchor;
+        const previousBlock = anchor.kind === "text" ? state.document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
+        const nextBlock = anchor.kind === "text" ? document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
+        const classificationOnly = previousBlock?.type === "narration" && nextBlock?.type === "narration" &&
+          previousBlock.text === nextBlock.text && sameAuthoringJsonV2(
+            previousBlock.tokens.map((token) => ({ ...token, spoken: null })),
+            nextBlock.tokens.map((token) => ({ ...token, spoken: null })),
+          );
+        if (!current || !sameAuthoringJsonV2(current.tokens, thread.attachment.tokens) ||
+          current.quotedText !== thread.attachment.quotedText && !classificationOnly) thread.attachment.status = "stale";
+        else thread.attachment.quotedText = current.quotedText;
       }
     } else {
       let thread = next.threads.find((thread) => thread.id === op.threadId);

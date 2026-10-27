@@ -2,6 +2,7 @@ import type { NarrationBlockV2, ScriptDocumentV2 } from "./generated/contracts-v
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { inspectStageDirectionsV2 } from "./authoring-v2-stage-directions.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 export type StageDirectionEditCommandV2 =
   | { kind: "make_stage_direction" | "make_spoken"; blockId: string; startOffset: number; endOffset: number }
@@ -11,6 +12,8 @@ export interface StageDirectionUndoV2 {
   expectedBlockVersion: number;
   /** Exact prior row state; Undo restores literal brackets and all row attachments too. */
   rowSnapshot: NarrationBlockV2;
+  /** Exact post-edit row state; later row-local edits make this Undo stale. */
+  expectedRowSnapshot: NarrationBlockV2;
 }
 
 export interface StageDirectionEditResultV2 {
@@ -31,6 +34,28 @@ function diagnostic(code: string, message: string, blockId?: string): AuthoringD
 
 function failure(document: ScriptDocumentV2, code: string, message: string, blockId?: string): StageDirectionEditResultV2 {
   return { ok: false, document, diagnostics: [diagnostic(code, message, blockId)] };
+}
+
+const fatalDocumentErrors = new Set(["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID"]);
+
+function newlyIntroducedErrors(
+  before: AuthoringDiagnosticV2[],
+  after: AuthoringDiagnosticV2[],
+): AuthoringDiagnosticV2[] {
+  const priorCounts = new Map<string, number>();
+  for (const item of before) {
+    if (item.severity === "warning") continue;
+    const key = `${item.code}\0${item.entityId ?? ""}`;
+    priorCounts.set(key, (priorCounts.get(key) ?? 0) + 1);
+  }
+  const seenCounts = new Map<string, number>();
+  return after.filter((item) => {
+    if (item.severity === "warning") return false;
+    const key = `${item.code}\0${item.entityId ?? ""}`;
+    const seen = (seenCounts.get(key) ?? 0) + 1;
+    seenCounts.set(key, seen);
+    return seen > (priorCounts.get(key) ?? 0);
+  });
 }
 
 function locateRow(document: ScriptDocumentV2, blockId: string): RowLocation | null {
@@ -128,7 +153,8 @@ export function applyStageDirectionEditV2(
   command: StageDirectionEditCommandV2,
 ): StageDirectionEditResultV2 {
   const before = validateScriptDocumentV2(document);
-  if (!before.valid) return { ok: false, document, diagnostics: before.diagnostics };
+  const fatalBefore = before.diagnostics.filter((item) => fatalDocumentErrors.has(item.code));
+  if (fatalBefore.length > 0) return { ok: false, document, diagnostics: fatalBefore };
   if (!command || typeof command !== "object" || typeof command.blockId !== "string") {
     return failure(document, "STAGE_DIRECTION_COMMAND_INVALID", "Provide a stage-direction text edit.");
   }
@@ -187,12 +213,13 @@ export function applyStageDirectionEditV2(
     working.rowEditRevision = revision + 1;
   }
   const after = validateScriptDocumentV2(working);
-  if (!after.valid) return { ok: false, document, diagnostics: after.diagnostics };
+  const newErrors = newlyIntroducedErrors(before.diagnostics, after.diagnostics);
+  if (newErrors.length > 0) return { ok: false, document, diagnostics: newErrors };
   return {
     ok: true,
     document: working,
     diagnostics: [],
-    undo: { expectedBlockVersion: row.version, rowSnapshot },
+    undo: { expectedBlockVersion: row.version, rowSnapshot, expectedRowSnapshot: structuredClone(row) },
   };
 }
 
@@ -203,15 +230,22 @@ export function undoStageDirectionEditV2(
 ): StageDirectionEditResultV2 {
   if (!undo || typeof undo !== "object") return failure(document, "STAGE_DIRECTION_UNDO_INVALID", "Provide a stage-direction Undo record.");
   const before = validateScriptDocumentV2(document);
-  if (!before.valid) return { ok: false, document, diagnostics: before.diagnostics };
+  const fatalBefore = before.diagnostics.filter((item) => fatalDocumentErrors.has(item.code));
+  if (fatalBefore.length > 0) return { ok: false, document, diagnostics: fatalBefore };
   const snapshot = undo.rowSnapshot;
   if (!snapshot || snapshot.type !== "narration" || typeof snapshot.id !== "string") {
     return failure(document, "STAGE_DIRECTION_UNDO_INVALID", "The Undo record has no prior narration row state.");
+  }
+  if (!undo.expectedRowSnapshot || undo.expectedRowSnapshot.type !== "narration" || undo.expectedRowSnapshot.id !== snapshot.id) {
+    return failure(document, "STAGE_DIRECTION_UNDO_INVALID", "The Undo record has no expected post-edit narration row state.", snapshot.id);
   }
   const location = locateRow(document, snapshot.id);
   if (!location) return failure(document, "STAGE_DIRECTION_ROW_MISSING", "The narration row changed before Undo.", snapshot.id);
   if (!Number.isSafeInteger(undo.expectedBlockVersion) || undo.expectedBlockVersion !== location.row.version || location.row.version >= Number.MAX_SAFE_INTEGER) {
     return failure(document, "STAGE_DIRECTION_VERSION_STALE", "The narration row changed after this text edit, or its version cannot advance.", snapshot.id);
+  }
+  if (!sameAuthoringJsonV2(location.row, undo.expectedRowSnapshot)) {
+    return failure(document, "STAGE_DIRECTION_UNDO_STALE", "The narration row changed after this text edit; Undo would overwrite later edits.", snapshot.id);
   }
 
   const working = structuredClone(document);
@@ -235,11 +269,16 @@ export function undoStageDirectionEditV2(
   }
   refreshTextRangeQuotes(working, restored);
   const after = validateScriptDocumentV2(working);
-  if (!after.valid) return { ok: false, document, diagnostics: after.diagnostics };
+  const newErrors = newlyIntroducedErrors(before.diagnostics, after.diagnostics);
+  if (newErrors.length > 0) return { ok: false, document, diagnostics: newErrors };
   return {
     ok: true,
     document: working,
     diagnostics: [],
-    undo: { expectedBlockVersion: restored.version, rowSnapshot: structuredClone(location.row) },
+    undo: {
+      expectedBlockVersion: restored.version,
+      rowSnapshot: structuredClone(location.row),
+      expectedRowSnapshot: structuredClone(restored),
+    },
   };
 }

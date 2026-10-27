@@ -179,6 +179,37 @@ describe("paired stage-direction operations", () => {
     expect(restoredComments.state.threads[0]!.attachment).toMatchObject({ status: "attached", quotedText: "blue" });
   });
 
+  it("keeps a full-span comment attached through pasted-pair classification and Undo", () => {
+    const { document, row } = documentWithText("wait [pause] here", ["wait", "pause", "here"]);
+    let comments = createCommentStateV2(document);
+    const created = applyCommentOperationV2(comments, 0, {
+      id: "comment-create-pair", actorId: "actor", kind: "create", threadId: "thread-pair", messageId: "message-pair",
+      body: "Keep the exact line", mentionActorIds: [],
+      anchor: { kind: "text", blockId: row.id, startTokenId: row.tokens[0].id, endTokenId: row.tokens[2]!.id },
+    });
+    if (!created.ok) throw new Error(created.error);
+    comments = created.state;
+
+    const edit = applyStageDirectionEditV2(comments.document, row.version, {
+      kind: "make_stage_direction", blockId: row.id, startOffset: 5, endOffset: 12,
+    });
+    requireSuccess(edit);
+    const updated = applyCommentOperationV2(comments, 1, {
+      id: "comment-update-pair", actorId: "actor", kind: "replace_document", document: edit.document,
+    });
+    if (!updated.ok) throw new Error(updated.error);
+    comments = updated.state;
+    expect(comments.threads[0]!.attachment).toMatchObject({ status: "attached", quotedText: "wait pause here" });
+
+    const undone = undoStageDirectionEditV2(edit.document, edit.undo!);
+    requireSuccess(undone);
+    const restored = applyCommentOperationV2(comments, 2, {
+      id: "comment-update-pair-undo", actorId: "actor", kind: "replace_document", document: undone.document,
+    });
+    if (!restored.ok) throw new Error(restored.error);
+    expect(restored.state.threads[0]!.attachment).toMatchObject({ status: "attached", quotedText: "wait [pause] here" });
+  });
+
   it("deletes either marker of a recognized pair together and restores the marked state on Undo", () => {
     for (const offset of [6, 11]) {
       const { document, row } = documentWithText("hello [blue] world", ["hello", "blue", "world"]);
@@ -264,6 +295,102 @@ describe("paired stage-direction operations", () => {
     expect((spokenMove.document.activeDraft.blocks[0] as NarrationBlockV2).primaryVisualSequence!.slots[1]).toMatchObject({
       boundaryBefore: { kind: "spoken_word", anchor: { tokenId: editedRow.tokens[2]!.id, quotedWord: "world" } },
     });
+  });
+
+  it("refuses Undo after a later visual-boundary edit and preserves that edit", () => {
+    const { document, row } = documentWithText("hello blue world now", ["hello", "blue", "world", "now"]);
+    const sequence = row.primaryVisualSequence!;
+    const inserted = applyVisualSequenceEditV2(document, sequence.version, {
+      kind: "insert_sequential",
+      blockId: row.id,
+      boundary: { blockId: row.id, tokenId: row.tokens[2]!.id, affinity: "before", quotedWord: "world", anchorVersion: 1 },
+      slotId: id(910),
+      payload: { kind: "on_camera", presenterChoiceId: null },
+    });
+    requireSuccess(inserted);
+    const beforeDirection = inserted.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const edit = applyStageDirectionEditV2(inserted.document, beforeDirection.version, {
+      kind: "make_stage_direction", blockId: row.id, startOffset: 6, endOffset: 10,
+    });
+    requireSuccess(edit);
+    const editedRow = edit.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const boundaryMove = applyVisualSequenceEditV2(edit.document, editedRow.primaryVisualSequence!.version, {
+      kind: "move_word_boundary", blockId: row.id, boundaryOwnerId: id(910), tokenId: editedRow.tokens[3]!.id, affinity: "before",
+    });
+    requireSuccess(boundaryMove);
+
+    const beforeUndo = structuredClone(boundaryMove.document);
+    const undone = undoStageDirectionEditV2(boundaryMove.document, edit.undo!);
+    expect(undone.ok).toBe(false);
+    expect(undone.diagnostics.map((item) => item.code)).toContain("STAGE_DIRECTION_UNDO_STALE");
+    expect(undone.document).toEqual(beforeUndo);
+    expect((undone.document.activeDraft.blocks[0] as NarrationBlockV2).tokens[1]!.spoken).toBe(false);
+    expect((undone.document.activeDraft.blocks[0] as NarrationBlockV2).primaryVisualSequence!.slots[1]).toMatchObject({
+      boundaryBefore: { kind: "spoken_word", anchor: { tokenId: editedRow.tokens[3]!.id, quotedWord: "now" } },
+    });
+  });
+
+  it("allows text editing and Undo with an unrelated missing cutaway return point", () => {
+    const { document, row } = documentWithText("hello blue world now", ["hello", "blue", "world", "now"]);
+    const sequence = row.primaryVisualSequence!;
+    const base = sequence.slots[0]!;
+    if (base.kind !== "content") throw new Error("Expected the fixture's base content slot.");
+    const cutaway = applyVisualSequenceEditV2(document, sequence.version, {
+      kind: "insert_cutaway",
+      blockId: row.id,
+      boundary: { blockId: row.id, tokenId: row.tokens[1]!.id, affinity: "before", quotedWord: "blue", anchorVersion: 1 },
+      parentSlotId: base.id,
+      slotId: id(920),
+      returnSlotId: id(921),
+      payload: { kind: "on_camera", presenterChoiceId: null },
+    });
+    requireSuccess(cutaway);
+    expect(validateScriptDocumentV2(cutaway.document).diagnostics.map((item) => item.code)).toContain("RETURN_INPOINT_MISSING");
+
+    const cutawayRow = cutaway.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const edit = applyStageDirectionEditV2(cutaway.document, cutawayRow.version, {
+      kind: "make_stage_direction", blockId: row.id,
+      startOffset: cutawayRow.tokens[2]!.startOffset, endOffset: cutawayRow.tokens[2]!.endOffset,
+    });
+    requireSuccess(edit);
+    expect(validateScriptDocumentV2(edit.document).diagnostics.map((item) => item.code)).toContain("RETURN_INPOINT_MISSING");
+
+    const undone = undoStageDirectionEditV2(edit.document, edit.undo!);
+    requireSuccess(undone);
+    expect(validateScriptDocumentV2(undone.document).diagnostics.map((item) => item.code)).toContain("RETURN_INPOINT_MISSING");
+    expect((undone.document.activeDraft.blocks[0] as NarrationBlockV2).text).toBe(row.text);
+  });
+
+  it("refuses classification when a text anchor ends at a direction token excluded by affinity", () => {
+    for (const kind of ["annotation", "performanceBeat"] as const) {
+      const { document, row } = documentWithText("hello blue world", ["hello", "blue", "world"]);
+      const range = {
+        blockId: row.id,
+        startTokenId: row.tokens[0].id,
+        endTokenId: row.tokens[1]!.id,
+        startAffinity: "before" as const,
+        endAffinity: "before" as const,
+        quotedText: "hello ",
+        anchorVersion: 1,
+      };
+      const referenceId = id(kind === "annotation" ? 930 : 931);
+      if (kind === "annotation") {
+        row.annotations = [{
+          id: referenceId, kind: "performance_note", range, value: "Emphasize", includeInPrompter: true, version: 1,
+        }];
+      } else {
+        row.performanceBeats = [{ id: referenceId, range, version: 1 }];
+      }
+      expect(validateScriptDocumentV2(document).valid).toBe(true);
+      const before = structuredClone(document);
+
+      const edit = applyStageDirectionEditV2(document, row.version, {
+        kind: "make_stage_direction", blockId: row.id, startOffset: 6, endOffset: 10,
+      });
+      expect(edit.ok).toBe(false);
+      expect(edit.diagnostics.some((item) => item.code === "STAGE_DIRECTION_REFERENCE_INVALID" && item.entityId === referenceId)).toBe(true);
+      expect(edit.document).toEqual(before);
+    }
   });
 
   it("rejects old timings after classification and uses only newly measured spoken tokens and duration", () => {

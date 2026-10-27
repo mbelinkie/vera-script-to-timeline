@@ -672,6 +672,7 @@ function textRangeIncludesDirection(range: TextAnchorRange, row: NarrationBlockV
   const start = row.tokens.findIndex((token) => token.id === range.startTokenId);
   const end = row.tokens.findIndex((token) => token.id === range.endTokenId);
   if (start < 0 || end < start) return false;
+  if (row.tokens[start]!.spoken === false || row.tokens[end]!.spoken === false) return true;
   const from = start + Number(range.startAffinity === "after");
   const to = end + Number(range.endAffinity === "after");
   return row.tokens.slice(from, to).some((token) => token.spoken === false);

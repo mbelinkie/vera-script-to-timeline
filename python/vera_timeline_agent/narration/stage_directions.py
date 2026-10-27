@@ -17,6 +17,20 @@ def spoken_tokens(block: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     ]
 
 
+def is_direction_only(block: Mapping[str, Any]) -> bool:
+    tokens = block.get("tokens")
+    return (
+        isinstance(tokens, list)
+        and any(
+            isinstance(token, dict) and token.get("spoken") is False for token in tokens
+        )
+        and not any(
+            isinstance(token, dict) and token.get("spoken") is not False
+            for token in tokens
+        )
+    )
+
+
 def masked_text(block: Mapping[str, Any]) -> str:
     """Return provider text with recognized directions blanked at equal UTF-16 width."""
 

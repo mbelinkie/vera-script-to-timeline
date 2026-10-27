@@ -69,10 +69,25 @@ export function spokenNarrationViewV2(row: NarrationBlockV2): SpokenNarrationVie
   if (issues.length > 0) throw new Error(issues[0]!.message);
 
   const removals = runs.map(({ openOffset, closeOffset }) => {
+    let start = openOffset;
     let end = closeOffset + 1;
-    if (/[ \t]/u.test(row.text[openOffset - 1] ?? "") && /[ \t]/u.test(row.text[end] ?? "")) end += 1;
-    return { start: openOffset, end };
-  });
+    while (/[ \t]/u.test(row.text[end] ?? "")) end += 1;
+    if (/^[ \t]*$/u.test(row.text.slice(0, start))) start = 0;
+    else if (end === row.text.length || /[,.!?;:)\]}]/u.test(row.text[end] ?? "")) {
+      while (/[ \t]/u.test(row.text[start - 1] ?? "")) start -= 1;
+    } else if (!/[ \t]/u.test(row.text[start - 1] ?? "")) end = closeOffset + 1;
+    return { start, end };
+  }).reduce<{ start: number; end: number }[]>((merged, range) => {
+    const prior = merged.at(-1);
+    if (prior && range.start <= prior.end) prior.end = Math.max(prior.end, range.end);
+    else merged.push(range);
+    return merged;
+  }, []);
+  for (const range of removals) {
+    if (range.end === row.text.length || /[,.!?;:)\]}]/u.test(row.text[range.end] ?? "")) {
+      while (/[ \t]/u.test(row.text[range.start - 1] ?? "")) range.start -= 1;
+    }
+  }
   let text = "";
   let cursor = 0;
   for (const removal of removals) {

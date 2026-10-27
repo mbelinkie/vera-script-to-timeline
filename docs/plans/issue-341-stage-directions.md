@@ -6,7 +6,8 @@
 `delete_direction_delimiter` for narration rows in the active draft or Stash.
 Commands use UTF-16 offsets aligned to whole frozen tokens. A successful edit
 returns an atomic row-snapshot Undo; stale versions and invalid selections
-leave the input document unchanged.
+leave the input document unchanged. Undo also refuses atomically if any part of
+the row changed after the edit, including a later visual-boundary edit.
 
 Make Direction brackets only the selected spoken range and marks only those
 tokens `spoken: false`. A complete existing pair, including a pasted pair, is
@@ -31,12 +32,14 @@ or Resolve interaction.
 ## Consumer behavior and limits
 
 Prompter, projection, timing evidence, compilation and narration measurement
-consume only spoken tokens. Classification changes the row revision and text
-hash, so old timing evidence is stale; replacement maps must match the current
-spoken-token IDs and offsets. Direction-only text supplies no narration audio
-or fabricated zero duration. The compiler must obtain duration from an
-independently supported route; if none is available, it refuses with
-`NARRATION_DURATION_UNKNOWN`.
+consume only spoken tokens. Classification always changes the row revision.
+Wrapping or unwrapping changes the text hash; explicitly classifying an
+existing pasted pair leaves text and hash unchanged. In either case the row
+revision and spoken-token projection checks make old timing evidence stale.
+Replacement maps must match the current spoken-token IDs and offsets.
+Direction-only text supplies no narration audio or fabricated zero duration.
+The compiler must obtain duration from an independently supported route; if
+none is available, it refuses with `NARRATION_DURATION_UNKNOWN`.
 
 This API does not convert `NoteDraftBlock` rows or implement a typing/paste UI.
 The #340 note-conversion path must create nonspoken direction content
