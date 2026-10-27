@@ -68,6 +68,16 @@ be able to think in an outline without constructing two-column rows first.
   session: Accept keeps both, Discard reverses both. Existing script-format
   preview remains read-only; Return to Sorting retains the pending edits. Do not
   imply that Discard undoes irreversible external media/service operations.
+- Producer follow-up: Accept remains the default and keeps all changes. An
+  adjacent dropdown contains only Keep edits, undo sorting and Keep sorting,
+  undo edits. Discard all is a separate button, never a dropdown item. Edits-only
+  restores original placement while retaining
+  authored edits. Specifically, a note taken from Stash, edited in the script,
+  then accepted as edits-only returns to Stash as an edited script row. Do not
+  restore its old note content, lose the edits or leave it in the active script.
+  Selective acceptance needs separate executable proof, including newly created
+  or deleted rows and relationship/attachment consequences; full-result #310
+  acceptance alone does not establish this behavior.
 - Product copy uses content rather than row numbers. Bold continues to mean
   On Camera. Comments retain one discussion per target and the selected sidebar;
   do not add planning-specific comment semantics here.
@@ -144,9 +154,12 @@ sidebar honest, identify the minimal addition rather than silently postponing it
    count of saved rows cannot silently become a misleading total.
 5. Full editing of any expanded script row during Sorting is now adopted; all
    session writing/organization stays pending together, with read-only
-   script-format review and atomic Accept/Discard. This is no longer a product
-   question, but its expanded domain/session proof is still missing. Do not
-   describe the older structural-only session as sufficient evidence.
+   script-format review, default Accept-all and the selective-acceptance dropdown
+   above. This is no longer a product question, but its expanded domain/session
+   proof is still missing. Selective outcomes for newly created/deleted targets
+   and partial branch recovery need consistent dispositions before construction;
+   the edited-note-to-Stash case is settled. Do not describe the older
+   structural-only session as sufficient evidence.
 
 ### Smallest representative scenario and evaluation
 
