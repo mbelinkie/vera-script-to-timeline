@@ -513,11 +513,20 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const oldSection = priorLocations.find((part) => part.rows.some((row) => row.id === span.startRowId));
     const newStartSection = nextLocations.find((part) => part.rows.some((row) => row.id === span.startRowId));
     const newEndSection = nextLocations.find((part) => part.rows.some((row) => row.id === span.endRowId));
-    const endpointMove = command.kind === "move_rows" && moved.size === 1 && (moved.has(span.startRowId) || moved.has(span.endRowId));
-    if (!endpointMove || oldSection?.id !== newStartSection?.id || oldSection?.id !== newEndSection?.id) return problem();
+    const withinSectionMove = command.kind === "move_rows" && [...moved].every((id) =>
+      priorLocations.find((part) => part.rows.some((row) => row.id === id))?.id === oldSection?.id &&
+      nextLocations.find((part) => part.rows.some((row) => row.id === id))?.id === oldSection?.id);
+    if (!withinSectionMove || !newStartSection || oldSection?.id !== newStartSection.id || oldSection?.id !== newEndSection?.id) return problem();
+    const startIndex = newStartSection.rows.findIndex((row) => row.id === span.startRowId);
+    let retainedEndRowId = span.startRowId;
+    for (let offset = 1; offset < oldRows.length; offset++) {
+      if (newStartSection.rows[startIndex + offset]?.id !== oldRows[offset]) break;
+      retainedEndRowId = oldRows[offset]!;
+    }
     const target = after.rowAudioSpans![index]!;
-    target.review ??= { previousEndRowId: span.endRowId, previousSettings: structuredClone(span.settings), alert: "Music now ends with this row. Review" };
-    target.endRowId = target.startRowId;
+    target.review ??= { previousEndRowId: span.endRowId, previousSettings: structuredClone(span.settings), alert: "Music shortened by this move" };
+    target.review.alert = "Music shortened by this move";
+    target.endRowId = retainedEndRowId;
   }
   return null;
 }

@@ -221,7 +221,9 @@ class RowAudioSourceV2(TypedDict):
 class RowAudioReviewV2(TypedDict):
     previousEndRowId: EntityId
     previousSettings: dict[str, Any]
-    alert: Literal["Music now ends with this row. Review"]
+    alert: Literal[
+        "Music now ends with this row. Review", "Music shortened by this move"
+    ]
 
 
 class RowAudioSpanIntentV2(TypedDict):

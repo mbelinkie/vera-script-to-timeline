@@ -622,7 +622,7 @@ export interface ScriptDocumentV2 {
    */
   rowTransitions?: RowTransitionIntentV2[];
   /**
-   * Saved starting-row audio intent only. Runtime delivery is unavailable; never infer audible timing from row order.
+   * Saved row-span audio intent only. Runtime delivery is unavailable; never infer audible timing from row order.
    */
   rowAudioSpans?: RowAudioSpanIntentV2[];
   rowReferences?: OpaqueRowReferenceV2[];
@@ -966,7 +966,7 @@ export interface RowAudioReviewV2 {
   previousSettings: {
     [k: string]: unknown;
   };
-  alert: "Music now ends with this row. Review";
+  alert: "Music now ends with this row. Review" | "Music shortened by this move";
 }
 export interface OpaqueRowReferenceV2 {
   id: string;

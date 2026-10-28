@@ -760,8 +760,11 @@ transitions. RK-40 does not supersede those product refusals.
 
 The [2026-10-26 #326 correction](https://github.com/mbelinkie/vera-script-to-timeline/issues/326)
 supersedes #307/#310's starting-row-only broken-span rule: retain the consecutive
-original prefix and stop at its first interrupted join. That revised domain
-rule and audible result remain unproved. #326 owns that proof, #100 production
+original prefix and stop at its first interrupted join. The
+[#326 domain correction and proof packet](investigations/issue-326-music-proof-plan.md)
+cover same-section row moves, endpoint review, legacy saved alerts and Undo.
+The audible result remains unproved; this adds no qualified runtime route.
+#326 owns that proof, #100 production
 audio; #327 owns finishing preservation, #328 frozen selective execution/retry,
 and #104/#157 production composition. #35's tested generic job stages (synthetic
 executors) do not prove O09's item-level atomic plan or a native continuation.

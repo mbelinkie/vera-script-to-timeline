@@ -383,13 +383,38 @@ describe("provisional Sorting trials", () => {
     expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(685) }).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
     expect(trial.undoDepth).toBe(0);
     expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
-    expect(trial.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music now ends with this row. Review");
+    expect(trial.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music shortened by this move");
     expect(trial.document.rowTransitions?.[0]).toMatchObject({ state: "needs_review", settings: { frames: 5 } });
     expect(baseline.rowAudioSpans?.[0]?.review).toBeUndefined();
     expect(trial.undo().ok).toBe(true);
     expect(trial.document.rowAudioSpans).toEqual(baseline.rowAudioSpans);
     expect(trial.document.rowTransitions).toEqual(baseline.rowTransitions);
     expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("previews and cancels shortening, then exactly undoes it in Sorting", () => {
+    const [a, b, c, d, e] = [row(686), row(687), row(688), row(689), row(690)];
+    const baseline = documentWith([a, b, c, d, e], { rowAudioSpans: [audioSpan(691, a.id, e.id)] });
+    const command: RowEditCommandV2 = {
+      kind: "move_rows", rowIds: [e.id], destination: gap(null, c.id, d.id),
+    };
+    const cancelled = createSortingTrialV2(baseline);
+    expect(cancelled.apply(command).ok).toBe(true);
+    const preview = cancelled.preview();
+    expect(preview.rowAudioSpans?.[0]).toMatchObject({ endRowId: c.id, review: { previousEndRowId: e.id, alert: "Music shortened by this move" } });
+    expect(baseline.rowAudioSpans?.[0]).toEqual(audioSpan(691, a.id, e.id));
+    expect(cancelled.discard(baseline)).toMatchObject({ ok: true, document: baseline });
+    expect(cancelled.document).toEqual(baseline);
+
+    const undoTrial = createSortingTrialV2(baseline);
+    expect(undoTrial.apply(command).ok).toBe(true);
+    undoTrial.preview();
+    expect(undoTrial.returnToSorting()).toBe(true);
+    expect(undoTrial.undo().ok).toBe(true);
+    expect(undoTrial.document).toEqual({ ...baseline, rowEditRevision: 2 });
+    expect(undoTrial.document.rowAudioSpans).toEqual(baseline.rowAudioSpans);
+    expect(undoTrial.undoDepth).toBe(0);
+    expect(undoTrial.accept(baseline)).toMatchObject({ ok: true, changed: false, document: baseline });
   });
 
   it("clears a returned row's mark while retaining relationship review rather than silently reapplying effects", () => {
@@ -805,7 +830,7 @@ describe("authoring v2 whole-row edits", () => {
     expect(result.document.rowAudioSpans).toEqual([span]);
   });
 
-  it("preserves the old audio endpoint and settings when one endpoint move needs review", () => {
+  it("keeps the original prefix when moving the audio end row interrupts its coverage", () => {
     const [a, b, c, d, e] = [row(170), row(171), row(172), row(173), row(174)];
     const sectionId = id(175);
     const span = audioSpan(176, b.id, d.id, { volume: 0.55, ducking: "voice" });
@@ -820,11 +845,11 @@ describe("authoring v2 whole-row edits", () => {
     expect(result.ok).toBe(true);
     expect(result.document.rowAudioSpans).toEqual([{
       ...span,
-      endRowId: b.id,
+      endRowId: c.id,
       review: {
         previousEndRowId: d.id,
         previousSettings: span.settings,
-        alert: "Music now ends with this row. Review",
+        alert: "Music shortened by this move",
       },
     }]);
   });
@@ -848,12 +873,122 @@ describe("authoring v2 whole-row edits", () => {
       review: {
         previousEndRowId: d.id,
         previousSettings: span.settings,
-        alert: "Music now ends with this row. Review",
+        alert: "Music shortened by this move",
       },
     }]);
   });
 
-  it("refuses partial, cross-section, overlapping, and stashed audio-span edits", () => {
+  it("ends ABCDE→ABCED music at C, the first interrupted original join", () => {
+    const [a, b, c, d, e] = [row(300), row(301), row(302), row(303), row(304)];
+    const sectionId = id(305);
+    const span = audioSpan(8_000, a.id, e.id, { gainDb: -12, fade: "in" });
+    const document = documentWith([section(305, "First"), a, b, c, d, e], { rowAudioSpans: [span] });
+
+    const result = applyRowEditV2(document, 0, {
+      kind: "move_rows", rowIds: [e.id], destination: gap(sectionId, c.id, d.id),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(rows(result.document)).toEqual([a.id, b.id, c.id, e.id, d.id]);
+    expect(result.document.rowAudioSpans).toEqual([{
+      ...span,
+      endRowId: c.id,
+      review: {
+        previousEndRowId: e.id,
+        previousSettings: span.settings,
+        alert: "Music shortened by this move",
+      },
+    }]);
+  });
+
+  it("keeps #125 music through chalk-crescent when only paper-signal-frame moves past two rows", () => {
+    const [start, chalkCrescent, paperSignalFrame, unrelatedOne, unrelatedTwo] = [
+      row(310), row(311), row(312), row(313), row(314),
+    ];
+    const sectionId = id(315);
+    const span = audioSpan(8_010, start.id, paperSignalFrame.id);
+    const document = documentWith([
+      section(315, "First"), start, chalkCrescent, paperSignalFrame, unrelatedOne, unrelatedTwo,
+    ], { rowAudioSpans: [span] });
+
+    const result = applyRowEditV2(document, 0, {
+      kind: "move_rows",
+      rowIds: [paperSignalFrame.id],
+      destination: gap(sectionId, unrelatedTwo.id, null),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(rows(result.document)).toEqual([start.id, chalkCrescent.id, unrelatedOne.id, unrelatedTwo.id, paperSignalFrame.id]);
+    expect(result.document.rowAudioSpans).toEqual([{
+      ...span,
+      endRowId: chalkCrescent.id,
+      review: {
+        previousEndRowId: paperSignalFrame.id,
+        previousSettings: span.settings,
+        alert: "Music shortened by this move",
+      },
+    }]);
+  });
+
+  it("shortens at the first break from a moved middle row, unrelated insertion, or group", () => {
+    const [a, b, c, d, e, x, y] = [
+      row(320), row(321), row(322), row(323), row(324), row(325), row(326),
+    ];
+    const sectionId = id(327);
+    const span = audioSpan(8_020, a.id, e.id, { gainDb: -18, loop: true });
+    const cases = [
+      {
+        document: documentWith([section(327, "First"), a, b, c, d, e, x], { rowAudioSpans: [span] }),
+        command: { kind: "move_rows" as const, rowIds: [c.id], destination: gap(sectionId, e.id, x.id) },
+        expectedRows: [a.id, b.id, d.id, e.id, c.id, x.id],
+        expectedEnd: b.id,
+      },
+      {
+        document: documentWith([section(327, "First"), a, b, c, d, e, x], { rowAudioSpans: [span] }),
+        command: { kind: "move_rows" as const, rowIds: [x.id], destination: gap(sectionId, a.id, b.id) },
+        expectedRows: [a.id, x.id, b.id, c.id, d.id, e.id],
+        expectedEnd: a.id,
+      },
+      {
+        document: documentWith([section(327, "First"), a, b, c, d, e, x, y], { rowAudioSpans: [span] }),
+        command: { kind: "move_rows" as const, rowIds: [x.id, y.id], destination: gap(sectionId, a.id, b.id) },
+        expectedRows: [a.id, x.id, y.id, b.id, c.id, d.id, e.id],
+        expectedEnd: a.id,
+      },
+    ];
+
+    for (const { document, command, expectedRows, expectedEnd } of cases) {
+      const result = applyRowEditV2(document, 0, command);
+      expect(result.ok).toBe(true);
+      expect(rows(result.document)).toEqual(expectedRows);
+      expect(result.document.rowAudioSpans).toEqual([{
+        ...span,
+        endRowId: expectedEnd,
+        review: {
+          previousEndRowId: e.id,
+          previousSettings: span.settings,
+          alert: "Music shortened by this move",
+        },
+      }]);
+    }
+  });
+
+  it("leaves an unaffected span unchanged when an unrelated row moves outside it", () => {
+    const [a, b, c, x] = [row(330), row(331), row(332), row(333)];
+    const sectionId = id(334);
+    const span = audioSpan(8_030, a.id, b.id);
+    const document = documentWith([section(334, "First"), a, b, c, x], { rowAudioSpans: [span] });
+
+    const result = applyRowEditV2(document, 0, {
+      kind: "move_rows", rowIds: [x.id], destination: gap(sectionId, null, a.id),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(rows(result.document)).toEqual([x.id, a.id, b.id, c.id]);
+    expect(result.document.rowAudioSpans).toEqual([span]);
+  });
+
+  it("shortens partial and in-span insertion moves, but still refuses cross-section, overlap, and Stash edits", () => {
     const [a, b, c, d, e, f] = [row(190), row(191), row(192), row(193), row(194), row(195)];
     const firstSectionId = id(196);
     const secondSectionId = id(197);
@@ -861,29 +996,158 @@ describe("authoring v2 whole-row edits", () => {
       section(196, "First"), a, b, c, d, e,
       section(197, "Second"), f,
     ], { rowAudioSpans });
-    const partial = applyRowEditV2(makeDocument([audioSpan(198, b.id, d.id)]), 0, {
+    const partialDocument = makeDocument([audioSpan(198, b.id, d.id)]);
+    const partial = applyRowEditV2(partialDocument, 0, {
       kind: "move_rows", rowIds: [c.id], destination: gap(firstSectionId, e.id, null),
     });
-    const insertion = applyRowEditV2(makeDocument([audioSpan(199, b.id, d.id)]), 0, {
+    const insertionDocument = makeDocument([audioSpan(199, b.id, d.id)]);
+    const insertion = applyRowEditV2(insertionDocument, 0, {
       kind: "move_rows", rowIds: [e.id], destination: gap(firstSectionId, b.id, c.id),
     });
-    const crossSection = applyRowEditV2(makeDocument([audioSpan(200, b.id, d.id)]), 0, {
+    const crossSectionDocument = makeDocument([audioSpan(200, b.id, d.id)]);
+    const crossSection = applyRowEditV2(crossSectionDocument, 0, {
       kind: "move_rows", rowIds: [d.id], destination: gap(secondSectionId, f.id, null),
     });
-    const overlap = applyRowEditV2(makeDocument([
+    const overlapDocument = makeDocument([
       audioSpan(201, b.id, d.id), audioSpan(202, c.id, e.id),
-    ]), 0, {
+    ]);
+    const overlap = applyRowEditV2(overlapDocument, 0, {
       kind: "move_rows", rowIds: [d.id], destination: gap(firstSectionId, e.id, null),
     });
-    const stashed = applyRowEditV2(makeDocument([audioSpan(203, b.id, d.id)]), 0, {
+    const stashDocument = makeDocument([audioSpan(203, b.id, d.id)]);
+    const stashed = applyRowEditV2(stashDocument, 0, {
       kind: "stash_rows", rowIds: [c.id], bundleId: id(204),
     });
 
-    for (const result of [partial, insertion, crossSection, overlap, stashed]) {
+    expect(partial.ok).toBe(true);
+    expect(rows(partial.document)).toEqual([a.id, b.id, d.id, e.id, c.id, f.id]);
+    expect(partial.document.rowAudioSpans).toEqual([{
+      ...partialDocument.rowAudioSpans![0]!,
+      endRowId: b.id,
+      review: { previousEndRowId: d.id, previousSettings: partialDocument.rowAudioSpans![0]!.settings, alert: "Music shortened by this move" },
+    }]);
+
+    expect(insertion.ok).toBe(true);
+    expect(rows(insertion.document)).toEqual([a.id, b.id, e.id, c.id, d.id, f.id]);
+    expect(insertion.document.rowAudioSpans).toEqual([{
+      ...insertionDocument.rowAudioSpans![0]!,
+      endRowId: b.id,
+      review: { previousEndRowId: d.id, previousSettings: insertionDocument.rowAudioSpans![0]!.settings, alert: "Music shortened by this move" },
+    }]);
+
+    for (const { document, result } of [
+      { document: crossSectionDocument, result: crossSection },
+      { document: overlapDocument, result: overlap },
+      { document: stashDocument, result: stashed },
+    ]) {
       expect(result.ok).toBe(false);
       expect(result.diagnostics.map(({ code }) => code)).toContain("AUDIO_REVIEW_REQUIRED");
-      expect(result.document).toEqual(makeDocument(result.document.rowAudioSpans ?? []));
+      expect(result.document).toEqual(document);
     }
+  });
+
+  it("refuses a middle-row crossing or unrelated insertion from another section", () => {
+    const [a, b, c, d, e, outside] = [row(340), row(341), row(342), row(343), row(344), row(345)];
+    const firstSectionId = id(346);
+    const secondSectionId = id(347);
+    const span = audioSpan(8_040, a.id, e.id);
+    const crossing = documentWith([
+      section(346, "First"), a, b, c, d, e,
+      section(347, "Second"), outside,
+    ], { rowAudioSpans: [span] });
+    const crossed = applyRowEditV2(crossing, 0, {
+      kind: "move_rows", rowIds: [c.id], destination: gap(secondSectionId, outside.id, null),
+    });
+    const insertion = documentWith([
+      section(346, "First"), a, b, c, d, e,
+      section(347, "Second"), outside,
+    ], { rowAudioSpans: [span] });
+    const inserted = applyRowEditV2(insertion, 0, {
+      kind: "move_rows", rowIds: [outside.id], destination: gap(firstSectionId, b.id, c.id),
+    });
+
+    for (const [document, result] of [[crossing, crossed], [insertion, inserted]] as const) {
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+      expect(result.document).toBe(document);
+    }
+  });
+
+  it("retains the first review source, endpoint, and settings across repeated shortening without regrowing", () => {
+    const [a, b, c, d, e] = [row(350), row(351), row(352), row(353), row(354)];
+    const sectionId = id(355);
+    const settings = { gainDb: -12, fadeInFrames: 8, mix: "under-voice" };
+    const span = audioSpan(8_050, a.id, e.id, settings);
+    const baseline = documentWith([section(355, "First"), a, b, c, d, e], { rowAudioSpans: [span] });
+    const first = applyRowEditV2(baseline, 0, {
+      kind: "move_rows", rowIds: [e.id], destination: gap(sectionId, c.id, d.id),
+    });
+    expect(first.ok).toBe(true);
+    const firstSpan = first.document.rowAudioSpans![0]!;
+    expect(firstSpan.endRowId).toBe(c.id);
+    expect(firstSpan.review).toEqual({ previousEndRowId: e.id, previousSettings: settings, alert: "Music shortened by this move" });
+
+    const second = applyRowEditV2(first.document, first.document.rowEditRevision ?? 0, {
+      kind: "move_rows", rowIds: [c.id], destination: gap(sectionId, d.id, null),
+    });
+    expect(second.ok).toBe(true);
+    expect(second.document.rowAudioSpans?.[0]).toEqual({
+      ...span,
+      endRowId: b.id,
+      review: { previousEndRowId: e.id, previousSettings: settings, alert: "Music shortened by this move" },
+    });
+
+    const restoredJoin = applyRowEditV2(second.document, second.document.rowEditRevision ?? 0, {
+      kind: "move_rows", rowIds: [c.id], destination: gap(sectionId, b.id, e.id),
+    });
+    expect(restoredJoin.ok).toBe(true);
+    expect(rows(restoredJoin.document)).toEqual([a.id, b.id, c.id, e.id, d.id]);
+    expect(restoredJoin.document.rowAudioSpans?.[0]).toEqual({
+      ...span,
+      endRowId: b.id,
+      review: { previousEndRowId: e.id, previousSettings: settings, alert: "Music shortened by this move" },
+    });
+  });
+
+  it.each(["Music now ends with this row. Review", "Music shortened by this move"] as const)("round-trips the %s saved review alert", (alert) => {
+    const [a, b, c] = [row(360), row(361), row(362)];
+    const span = audioSpan(8_060, a.id, b.id, { gainDb: -6 });
+    const reviewed = {
+      ...span,
+      review: { previousEndRowId: c.id, previousSettings: span.settings, alert },
+    };
+    const document = documentWith([a, b, c], { rowAudioSpans: [reviewed] });
+
+    const restored = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(document));
+
+    expect(restored.ok).toBe(true);
+    if (restored.ok) expect(restored.document.rowAudioSpans).toEqual([reviewed]);
+  });
+
+  it("does not create row history for stale or cross-section audio-span refusals", () => {
+    const [a, b, c, d, e, outside] = [row(370), row(371), row(372), row(373), row(374), row(375)];
+    const secondSectionId = id(377);
+    const baseline = documentWith([
+      section(376, "First"), a, b, c, d, e,
+      section(377, "Second"), outside,
+    ], { rowAudioSpans: [audioSpan(8_070, a.id, e.id)] });
+    const session = createRowEditSessionV2(baseline);
+    const command: RowEditCommandV2 = {
+      kind: "move_rows", rowIds: [c.id], destination: gap(secondSectionId, outside.id, null),
+    };
+
+    const stale = session.apply(command, 1);
+    expect(stale.ok).toBe(false);
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(session.undoDepth).toBe(0);
+    expect(session.document).toEqual(baseline);
+
+    const refused = session.apply(command);
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(session.undoDepth).toBe(0);
+    expect(session.document).toEqual(baseline);
+    expect(session.undo().diagnostics[0]?.code).toBe("ROW_UNDO_EMPTY");
   });
 
   it("undoes every command atomically, including saved relationships, alerts and references", () => {
@@ -910,7 +1174,7 @@ describe("authoring v2 whole-row edits", () => {
       const result = session.apply(command);
       expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
       expect(session.undoDepth).toBe(1);
-      if (command.kind === "move_rows") expect(session.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music now ends with this row. Review");
+      if (command.kind === "move_rows") expect(session.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music shortened by this move");
       session.view("outline");
       session.view("stash");
       session.view("script");
