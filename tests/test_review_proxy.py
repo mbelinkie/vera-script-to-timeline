@@ -30,12 +30,20 @@ class _FakeTools:
         self.version = "v1"
         self.proxy_calls = 0
         self.commands: list[list[str]] = []
+        self.check_count = 0
+        self.cancel_on_check: int | None = None
+
+    def check_cancel(self) -> None:
+        self.check_count += 1
+        if self.cancel_on_check == self.check_count:
+            raise ReviewProxyError("cancelled", "attempt retained without publication")
 
     def fingerprint(self) -> dict[str, Any]:
         return {"fixtureTool": "ffmpeg/ffprobe-v1", "version": self.version}
 
     def run(self, command: list[str], *, timeout: float = 600) -> bytes:
         del timeout
+        self.check_cancel()
         self.commands.append(command)
         if "-show_streams" in command:
             streams: list[dict[str, Any]] = [{"index": 0, "codec_type": "video"}]
@@ -509,6 +517,46 @@ def test_proxy_mapping_reuse_and_corruption_refusal(
     with pytest.raises(ReviewProxyError, match="missing or corrupt"):
         run_review_stage(source, "proxy", cache_root=cache, output_path=marker)
     assert tools.proxy_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("cancel_on_check", "pointer_published"),
+    [(2, False), (3, True)],
+)
+def test_cancellation_refuses_cache_or_job_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cancel_on_check: int,
+    pointer_published: bool,
+) -> None:
+    tools = _FakeTools()
+    source = _review_source(
+        tmp_path / "cancelled-master.mp4",
+        monkeypatch,
+        tools,
+        profile=ReviewProfile(mode="always"),
+        proxy_spec={
+            "width": 1280,
+            "height": 720,
+            "profile": "Constrained Baseline",
+        },
+    )
+    tools.check_count = 0
+    tools.cancel_on_check = cancel_on_check
+    cache = tmp_path / "cache"
+    marker = tmp_path / "job" / "proxy"
+
+    with pytest.raises(ReviewProxyError, match="cancelled"):
+        run_review_stage(source, "proxy", cache_root=cache, output_path=marker)
+
+    pointer = (
+        cache
+        / source.generation_identity.removeprefix("sha256:")
+        / "proxy"
+        / "published.json"
+    )
+    assert pointer.exists() is pointer_published
+    assert not marker.exists()
 
 
 def test_audio_before_video_is_trimmed_and_subsample_offset_refused(

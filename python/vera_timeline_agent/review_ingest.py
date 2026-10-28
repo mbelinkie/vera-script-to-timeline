@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
+import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -35,6 +37,7 @@ Json = dict[str, Any]
 ReviewPlaybackVideo = Literal["proxy", "master"]
 ReviewPlaybackAudio = Literal["audio-stage", "absent"]
 REVIEW_STAGES: tuple[ReviewStage, ...] = ("proxy", "audio", "waveform")
+_LEASE_BUSY_RETRIES = 2
 
 
 class ReviewIngestError(BuildJobError):
@@ -190,7 +193,7 @@ def _read_fraction(value: object, label: str) -> Fraction:
         or type(value.get("denominator")) is not int
         or value["denominator"] <= 0
     ):
-        raise ReviewIngestError(f"invalid {label} in verified frame mapping")
+        raise ReviewIngestError(f"invalid {label} rational")
     return Fraction(value["numerator"], value["denominator"])
 
 
@@ -282,9 +285,16 @@ class ReviewIngestAdapter:
         return stage  # type: ignore[return-value]
 
     def _inspect_registered_source(
-        self, project_id: str, source_id: str, generation_identity: str
+        self,
+        project_id: str,
+        source_id: str,
+        generation_identity: str,
+        *,
+        tools: MediaTools | None = None,
     ) -> tuple[RegisteredMaster, ReviewSource]:
-        registration, source = self._inspect_registered_master(project_id, source_id)
+        registration, source = self._inspect_registered_master(
+            project_id, source_id, tools=tools
+        )
         if source.generation_identity != _review_identity(generation_identity):
             raise ReviewIngestError(
                 "registered master generation identity differs from the ingest job"
@@ -292,7 +302,11 @@ class ReviewIngestAdapter:
         return registration, source
 
     def _inspect_registered_master(
-        self, project_id: str, source_id: str
+        self,
+        project_id: str,
+        source_id: str,
+        *,
+        tools: MediaTools | None = None,
     ) -> tuple[RegisteredMaster, ReviewSource]:
         registration = self.resolve_master(project_id, source_id)
         if registration is None:
@@ -314,7 +328,7 @@ class ReviewIngestAdapter:
             profile=self.profile,
             video_stream_index=registration.video_stream_index,
             audio_stream_index=registration.audio_stream_index,
-            tools=self.tools,
+            tools=self.tools if tools is None else tools,
         )
         if source.inspection.content_hash != registration.content_hash:
             raise ReviewIngestError(
@@ -325,11 +339,12 @@ class ReviewIngestAdapter:
     def verified_stage(self, context: StageContext) -> StageResult | None:
         """Re-check the derivative and durable marker for the active stage."""
         stage = self._validate_context(context)
-        with self._lease_heartbeat(context):
+        with self._lease_heartbeat(context) as tools:
             _, source = self._inspect_registered_source(
                 context.project_id,
                 context.source_id or "",
                 context.generation_identity or "",
+                tools=tools,
             )
             result = verify_review_stage(
                 source,
@@ -346,11 +361,12 @@ class ReviewIngestAdapter:
 
     def execute(self, context: StageContext) -> None:
         stage = self._validate_context(context)
-        with self._lease_heartbeat(context):
+        with self._lease_heartbeat(context) as tools:
             _, source = self._inspect_registered_source(
                 context.project_id,
                 context.source_id or "",
                 context.generation_identity or "",
+                tools=tools,
             )
             result = run_review_stage(
                 source,
@@ -361,24 +377,27 @@ class ReviewIngestAdapter:
             self._check_result(result, stage, source.generation_identity)
 
     @contextmanager
-    def _lease_heartbeat(self, context: StageContext) -> Iterator[None]:
-        """Renew the active store lease while inspection or media work is blocked."""
-        context.renew_lease()
+    def _lease_heartbeat(self, context: StageContext) -> Iterator[MediaTools]:
+        """Renew the lease and cancel media tools as soon as renewal is unsafe."""
+        cancelled = Event()
+        stopped = Event()
+        errors: list[Exception] = []
+        self._renew_lease_with_retry(context, stopped)
         job = self.store.status(context.project_id, context.job_id)
         deadline = job.get("leaseUntil")
         if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
             raise ReviewIngestError("active ingest lease has no deadline")
         remaining = deadline - self.store.clock()
         interval = max(0.001, min(30.0, remaining / 3))
-        stopped = Event()
-        errors: list[Exception] = []
+        tools = self._tools_for_cancellation(cancelled)
 
         def renew_until_stopped() -> None:
             while not stopped.wait(interval):
                 try:
-                    context.renew_lease()
+                    self._renew_lease_with_retry(context, stopped)
                 except Exception as error:
                     errors.append(error)
+                    cancelled.set()
                     stopped.set()
                     return
 
@@ -389,7 +408,7 @@ class ReviewIngestAdapter:
         )
         heartbeat.start()
         try:
-            yield
+            yield tools
         except BaseException:
             stopped.set()
             heartbeat.join()
@@ -399,6 +418,44 @@ class ReviewIngestAdapter:
             heartbeat.join()
             if errors:
                 raise errors[0]
+
+    def _renew_lease_with_retry(self, context: StageContext, stopped: Event) -> None:
+        for retry in range(_LEASE_BUSY_RETRIES + 1):
+            if stopped.is_set():
+                return
+            try:
+                context.renew_lease()
+                return
+            except sqlite3.OperationalError as error:
+                if not self._is_sqlite_busy(error) or retry >= _LEASE_BUSY_RETRIES:
+                    raise
+                job = self.store.status(context.project_id, context.job_id)
+                deadline = job.get("leaseUntil")
+                if (
+                    job.get("activeStage") != context.stage
+                    or job.get("leaseEpoch") != context.lease_epoch
+                    or isinstance(deadline, bool)
+                    or not isinstance(deadline, (int, float))
+                    or deadline <= self.store.clock()
+                ):
+                    raise ReviewIngestError(
+                        "lease renewal failed after the active lease expired"
+                    ) from error
+                if stopped.wait(min(0.01 * (retry + 1), deadline - self.store.clock())):
+                    return
+
+    @staticmethod
+    def _is_sqlite_busy(error: sqlite3.OperationalError) -> bool:
+        message = str(error).lower()
+        return "busy" in message or "locked" in message
+
+    def _tools_for_cancellation(self, cancelled: Event) -> MediaTools:
+        if self.tools is None:
+            return MediaTools(cancel=cancelled)
+        tools = copy.copy(self.tools)
+        tools.commands = list(self.tools.commands)
+        tools.cancel = cancelled
+        return tools
 
     def verified_handoff(self, project_id: str, job_id: str) -> VerifiedReviewHandoff:
         """Return playback paths only after all stage artifacts are re-verified."""
@@ -636,6 +693,8 @@ class ReviewIngestAdapter:
         numeric = (
             "sampleRate",
             "channels",
+            "sourceAudioFrames",
+            "sourceVideoFrameCount",
             "outputAudioFrames",
             "audioOffsetSamples",
             "sourceSamplesSkipped",
@@ -654,13 +713,54 @@ class ReviewIngestAdapter:
         if (
             evidence["sampleRate"] <= 0
             or evidence["channels"] <= 0
+            or evidence["sourceAudioFrames"] <= 0
+            or evidence["sourceVideoFrameCount"] <= 0
             or evidence["outputAudioFrames"] <= 0
         ):
             raise ReviewIngestError("audio timing evidence has invalid PCM dimensions")
-        if not isinstance(evidence.get("sourceVideoOrigin"), dict) or not isinstance(
-            evidence.get("sourceAudioOrigin"), dict
+        offset = _read_fraction(evidence.get("audioOffsetFromVideo"), "audio offset")
+        video_origin = _read_fraction(
+            evidence.get("sourceVideoOrigin"), "source video origin"
+        )
+        audio_origin = _read_fraction(
+            evidence.get("sourceAudioOrigin"), "source audio origin"
+        )
+        offset_samples = offset * evidence["sampleRate"]
+        if (
+            offset_samples.denominator != 1
+            or offset_samples.numerator != evidence["audioOffsetSamples"]
         ):
-            raise ReviewIngestError("audio timing evidence has no master origin")
+            raise ReviewIngestError(
+                "audio timing evidence has inconsistent signed sample offset"
+            )
+        if audio_origin - video_origin != offset:
+            raise ReviewIngestError(
+                "audio timing evidence origins do not match their offset"
+            )
+        if evidence["leadingSilenceSamples"] != max(
+            0, evidence["audioOffsetSamples"]
+        ) or evidence["sourceSamplesSkipped"] != max(
+            0, -evidence["audioOffsetSamples"]
+        ):
+            raise ReviewIngestError(
+                "audio timing evidence does not match the signed offset"
+            )
+        if (
+            evidence["leadingSilenceSamples"]
+            + evidence["sourceSamplesCopied"]
+            + evidence["trailingSilenceSamples"]
+            != evidence["outputAudioFrames"]
+        ):
+            raise ReviewIngestError(
+                "audio timing evidence does not fill the output frame count"
+            )
+        if (
+            evidence["sourceSamplesSkipped"] + evidence["sourceSamplesCopied"]
+            > evidence["sourceAudioFrames"]
+        ):
+            raise ReviewIngestError(
+                "audio timing evidence exceeds the source sample count"
+            )
 
     @staticmethod
     def _check_result(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sqlite3
 import subprocess
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
@@ -15,7 +16,11 @@ import pytest
 import vera_timeline_agent.review_ingest as review_ingest
 import vera_timeline_agent.review_proxy as review_proxy
 from vera_timeline_agent.build_jobs import BuildJobStore, IngestRequest, StageContext
-from vera_timeline_agent.media_preparation import MediaInspection, MediaTools, file_hash
+from vera_timeline_agent.media_preparation import (
+    MediaInspection,
+    MediaTools,
+    file_hash,
+)
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.review_ingest import (
     RegisteredMaster,
@@ -446,6 +451,101 @@ def test_adapter_renews_lease_while_media_stage_is_blocked(
     assert any(event["kind"] == "lease_renewed" for event in events)
 
 
+def test_adapter_cancels_media_when_lease_renewal_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "master.mp4"
+    master.write_bytes(b"synthetic master bytes")
+    tools = BlockingCancellationTools()
+    monkeypatch.setattr(
+        review_proxy,
+        "inspect_media",
+        lambda path, **_: synthetic_media_inspection(path),
+    )
+    monkeypatch.setattr(
+        review_ingest, "inspect_review_source", review_proxy.inspect_review_source
+    )
+    monkeypatch.setattr(
+        review_ingest, "verify_review_stage", lambda *args, **kwargs: None
+    )
+
+    def block_in_media_stage(source: Any, stage: str, **kwargs: Any) -> StageResult:
+        del stage, kwargs
+        source.tools.run(["synthetic-long-stage"])
+        raise AssertionError("cancelled media stage returned normally")
+
+    monkeypatch.setattr(review_ingest, "run_review_stage", block_in_media_stage)
+    store = BuildJobStore(tmp_path / "jobs")
+    adapter = ReviewIngestAdapter(
+        store,
+        cache_root=store.root / "review-cache",
+        resolve_master=lambda project_id, source_id: RegisteredMaster(
+            project_id,
+            source_id,
+            master,
+            file_hash(master),
+            video_stream_index=0,
+            audio_stream_index=1,
+        ),
+        tools=tools,
+    )
+    job_id = adapter.submit_ingest("project-a", "source-a", "cancel-on-stale-lease")
+    original_renew = BuildJobStore._renew
+
+    def reject_renewal_after_media_starts(
+        store: BuildJobStore, lease: Any, lease_seconds: float
+    ) -> None:
+        if tools.command_started.is_set():
+            raise ReviewIngestError("renewal rejected: lease is stale")
+        original_renew(store, lease, lease_seconds)
+
+    monkeypatch.setattr(BuildJobStore, "_renew", reject_renewal_after_media_starts)
+    outcomes: list[bool] = []
+    worker = Thread(
+        target=lambda: outcomes.append(
+            store.run_one("project-a", job_id, "worker-a", adapter, lease_seconds=0.3)
+        )
+    )
+    worker.start()
+    assert tools.command_started.wait(timeout=5)
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert tools.cancel_observed.is_set()
+    assert outcomes == [False]
+    status = store.status("project-a", job_id)
+    assert status["status"] == "failed"
+    assert "cancelled" in str(status["lastError"])
+    assert not (store.artifacts / job_id / "proxy" / "output").exists()
+
+
+def test_lease_renewal_bounds_retries_for_sqlite_busy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "master.mp4"
+    master.write_bytes(b"synthetic master bytes")
+    proxy = SyntheticReviewProxy(master)
+    store = BuildJobStore(tmp_path / "jobs")
+    job_id = store.submit_ingest(request())
+    adapter = adapter_for(store, master, proxy, monkeypatch)
+    attempts = 0
+
+    def always_busy(store: BuildJobStore, lease: Any, lease_seconds: float) -> None:
+        nonlocal attempts
+        del store, lease, lease_seconds
+        attempts += 1
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(BuildJobStore, "_renew", always_busy)
+
+    assert not store.run_one(
+        "project-a", job_id, "worker-a", adapter, lease_seconds=0.3
+    )
+    assert attempts == 3
+    assert proxy.runs == {"proxy": 0, "audio": 0, "waveform": 0}
+    assert store.status("project-a", job_id)["status"] == "failed"
+
+
 def test_adapter_rejects_wrong_registered_project_or_source_before_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -525,6 +625,36 @@ class SyntheticTools(MediaTools):
                     ]
                 }
             ).encode()
+        return b""
+
+
+class BlockingCancellationTools(MediaTools):
+    def __init__(self) -> None:
+        super().__init__(ffmpeg="synthetic-ffmpeg", ffprobe="synthetic-ffprobe")
+        self.command_started = Event()
+        self.cancel_observed = Event()
+
+    def fingerprint(self) -> dict[str, Any]:
+        return {"fixtureTools": "blocking-cancellation-tools/v1"}
+
+    def run(self, command: list[str], *, timeout: float = 600) -> bytes:
+        del timeout
+        if "-show_streams" in command:
+            return json.dumps(
+                {
+                    "streams": [
+                        {"index": 0, "codec_type": "video"},
+                        {"index": 1, "codec_type": "audio"},
+                    ]
+                }
+            ).encode()
+        if command == ["synthetic-long-stage"]:
+            self.command_started.set()
+            if self.cancel is None or not self.cancel.wait(timeout=5):
+                raise TimeoutError("lease cancellation was not delivered")
+            self.cancel_observed.set()
+            self.check_cancel()
+            raise AssertionError("cancelled media tool returned normally")
         return b""
 
 
@@ -1076,3 +1206,47 @@ def test_handoff_accepts_negative_audio_offset_with_crop_evidence(
     assert handoff.audio_timing["leadingSilenceSamples"] == 0
     assert handoff.audio_timing["sourceSamplesCopied"] == 47520
     assert handoff.audio_timing["trailingSilenceSamples"] == 480
+
+
+def test_audio_timing_handoff_rejects_inconsistent_signed_offset_equations() -> None:
+    valid: dict[str, Any] = {
+        "status": "aligned",
+        "sampleRate": 48000,
+        "channels": 2,
+        "sourceAudioFrames": 48000,
+        "sourceVideoFrameCount": 24,
+        "outputAudioFrames": 48000,
+        "sourceAudioOrigin": {"numerator": -1, "denominator": 100},
+        "sourceVideoOrigin": {"numerator": 0, "denominator": 1},
+        "audioOffsetFromVideo": {"numerator": -1, "denominator": 100},
+        "audioOffsetSamples": -480,
+        "sourceSamplesSkipped": 480,
+        "leadingSilenceSamples": 0,
+        "sourceSamplesCopied": 47520,
+        "trailingSilenceSamples": 480,
+    }
+    ReviewIngestAdapter._validate_audio_timing(valid)
+
+    invalid_cases: tuple[tuple[str, object, str], ...] = (
+        ("sourceSamplesSkipped", -1, "negative count"),
+        ("sourceSamplesSkipped", 479, "signed offset"),
+        ("leadingSilenceSamples", 1, "signed offset"),
+        ("audioOffsetSamples", -479, "signed sample offset"),
+        (
+            "audioOffsetFromVideo",
+            {"numerator": -479, "denominator": 48000},
+            "signed sample offset",
+        ),
+        (
+            "sourceAudioOrigin",
+            {"numerator": -1, "denominator": 99},
+            "origins do not match",
+        ),
+        ("sourceSamplesCopied", 47519, "fill the output frame count"),
+        ("trailingSilenceSamples", 479, "fill the output frame count"),
+        ("sourceAudioFrames", 47999, "exceeds the source sample count"),
+    )
+    for field_name, value, message in invalid_cases:
+        evidence = {**valid, field_name: value}
+        with pytest.raises(ReviewIngestError, match=message):
+            ReviewIngestAdapter._validate_audio_timing(evidence)

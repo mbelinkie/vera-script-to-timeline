@@ -1363,6 +1363,7 @@ def run_review_stage(
                     False,
                     receipt,
                 )
+            source.tools.check_cancel()
             pointer = _publish_pointer(stage_root, result)
             # Verify the newly committed bundle through the same path used on retry.
             verified = _load_bundle(
@@ -1377,6 +1378,7 @@ def run_review_stage(
             pointer = _json_file(stage_root / "published.json", "published_conflict")
             result = _result_with_output(result, output_path, reused=True)
         _verify_current(source)
+        source.tools.check_cancel()
         _atomic_no_replace(output_path, _job_marker(source, stage, pointer))
         return result
 
