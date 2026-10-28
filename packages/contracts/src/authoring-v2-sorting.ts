@@ -208,7 +208,12 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
           : command.kind === "restore_stash" ? beforeDocument.stash?.find((bundle) => bundle.id === command.bundleId)?.rows.map((row) => row.id) ?? []
             : command.kind === "move_section" ? [...before].filter(([, location]) => location.sectionId === command.sectionId).map(([id]) => id)
               : [];
-      const result = session.apply(command, expectedRevision);
+      let result: RowEditResultV2;
+      try {
+        result = session.apply(command, expectedRevision);
+      } catch {
+        return failure("SORTING_COMMAND_INVALID", "Provide an authoring command containing valid saved JSON values.");
+      }
       if (result.ok) {
         projectionHistory.push(projection);
         projection = updateSortingProjectionV2(projection, beforeDocument, result.document, command);

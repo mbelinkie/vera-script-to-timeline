@@ -216,6 +216,9 @@ describe("content-editable Sorting", () => {
     expect(trial.apply({ kind: "create_row", row: row(700), destination: gap(null, null, id(9999)) }).ok).toBe(false);
     expect(trial.apply({ kind: "edit_row", rowId: id(9999), row: row(700) }).ok).toBe(false);
     expect(trial.apply({ kind: "delete_rows", rowIds: [id(100)] }, -1).ok).toBe(false);
+    const invalidClip = { ...clip(710), invalid: () => "not saved JSON" };
+    expect(trial.apply({ kind: "create_stash_clip", row: invalidClip, bundleId: id(8500), sectionId: null, parentRowId: null, afterRowId: null }).diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
+    expect(trial.document).toEqual(pending);
     expect(trial.accept(baseline, "all", { state: createCommentStateV2(stale), id: "bad", actorId: "producer" }).ok).toBe(false);
     expect(trial.phase).toBe("sorting");
     expect(trial.document).toEqual(pending);

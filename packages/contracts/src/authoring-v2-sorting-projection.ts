@@ -420,7 +420,7 @@ function moveRow(document: ScriptDocumentV2, rowId: string, slot: RowSlot): bool
   return true;
 }
 
-function uniqueOrder(nodes: string[], constraints: [string, string][]): string[] | null {
+function uniqueOrder(nodes: string[], constraints: [string, string][], ignoredIds: ReadonlySet<string> = new Set()): string[] | null {
   const present = new Set(nodes);
   if (present.size !== nodes.length) return null;
   const outgoing = new Map(nodes.map((id) => [id, new Set<string>()]));
@@ -436,16 +436,19 @@ function uniqueOrder(nodes: string[], constraints: [string, string][]): string[]
   const result: string[] = [];
   while (remaining.size > 0) {
     const ready = [...remaining].filter((id) => incoming.get(id) === 0);
-    if (ready.length !== 1) return null;
-    const next = ready[0]!;
-    result.push(next);
-    remaining.delete(next);
-    for (const child of outgoing.get(next)!) incoming.set(child, incoming.get(child)! - 1);
+    const hiddenReady = ready.filter((id) => ignoredIds.has(id));
+    const next = hiddenReady.length > 0 ? hiddenReady : ready;
+    if (next.length === 0 || hiddenReady.length === 0 && next.length !== 1) return null;
+    for (const id of next) {
+      result.push(id);
+      remaining.delete(id);
+      for (const child of outgoing.get(id)!) incoming.set(child, incoming.get(child)! - 1);
+    }
   }
   return result;
 }
 
-function restoreDraftBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[]): boolean {
+function restoreDraftBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string>): boolean {
   interface Segment { sectionId: string | null; heading?: Extract<Block, { type: "section" }>; rows: Row[] }
   const segments: Segment[] = [{ sectionId: null, rows: [] }];
   for (const block of document.activeDraft.blocks) {
@@ -472,9 +475,8 @@ function restoreDraftBatch(document: ScriptDocumentV2, rows: Map<string, Row>, t
       if (slot.surface !== "draft" || slot.sectionId !== segment.sectionId) return false;
       if (slot.afterRowId !== null) constraints.push([slot.afterRowId, tombstone.rowId]);
       if (slot.beforeRowId !== null) constraints.push([tombstone.rowId, slot.beforeRowId]);
-      if (slot.afterRowId === null && slot.beforeRowId === null && segment.rows.length > 0) return false;
     }
-    const order = uniqueOrder(nodes, constraints);
+    const order = uniqueOrder(nodes, constraints, ignoredIds);
     if (!order) return false;
     const byId = new Map(segment.rows.map((row) => [row.id, row]));
     for (const tombstone of group) {
@@ -490,7 +492,7 @@ function restoreDraftBatch(document: ScriptDocumentV2, rows: Map<string, Row>, t
   return true;
 }
 
-function restoreStashSiblingBatch(document: ScriptDocumentV2, rows: Map<string, Row>, group: Tombstone[]): boolean {
+function restoreStashSiblingBatch(document: ScriptDocumentV2, rows: Map<string, Row>, group: Tombstone[], ignoredIds: ReadonlySet<string>): boolean {
   const first = group[0]!.slot;
   if (first.surface !== "stash") return false;
   const sectionId = first.entry.sectionId;
@@ -511,9 +513,8 @@ function restoreStashSiblingBatch(document: ScriptDocumentV2, rows: Map<string, 
     }
     if (slot.afterSiblingRowId !== null) constraints.push([slot.afterSiblingRowId, tombstone.rowId]);
     if (slot.beforeSiblingRowId !== null) constraints.push([tombstone.rowId, slot.beforeSiblingRowId]);
-    if (slot.afterSiblingRowId === null && slot.beforeSiblingRowId === null && siblings.length > 0) return false;
   }
-  const order = uniqueOrder(nodes, constraints);
+  const order = uniqueOrder(nodes, constraints, ignoredIds);
   if (!order) return false;
 
   const chunks = new Map<string, StashOutlineEntryV2[]>();
@@ -568,7 +569,7 @@ function restoreStashSiblingBatch(document: ScriptDocumentV2, rows: Map<string, 
   return true;
 }
 
-function restoreStashBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[]): boolean {
+function restoreStashBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string>): boolean {
   const pending = [...tombstones];
   while (pending.length > 0) {
     const entries = effectiveOutline(document);
@@ -583,7 +584,7 @@ function restoreStashBatch(document: ScriptDocumentV2, rows: Map<string, Row>, t
       groups.set(key, group);
     }
     for (const group of groups.values()) {
-      if (!restoreStashSiblingBatch(document, rows, group)) return false;
+      if (!restoreStashSiblingBatch(document, rows, group, ignoredIds)) return false;
       const restoredIds = new Set(group.map((item) => item.rowId));
       for (let index = pending.length - 1; index >= 0; index -= 1) if (restoredIds.has(pending[index]!.rowId)) pending.splice(index, 1);
     }
@@ -595,12 +596,38 @@ function stashParentReady(slot: RowSlot, entries: StashOutlineEntryV2[]): boolea
   return slot.surface === "stash" && (slot.entry.parentRowId === null || entries.some((entry) => entry.rowId === slot.entry.parentRowId));
 }
 
-function restoreTombstoneBatches(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[]): boolean {
+function restoreTombstoneBatches(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string> = new Set()): boolean {
   const draft = tombstones.filter((item) => item.slot.surface === "draft");
   const stash = tombstones.filter((item) => item.slot.surface === "stash");
-  if (draft.length > 0 && !restoreDraftBatch(document, rows, draft)) return false;
-  if (stash.length > 0 && !restoreStashBatch(document, rows, stash)) return false;
+  if (draft.length > 0 && !restoreDraftBatch(document, rows, draft, ignoredIds)) return false;
+  if (stash.length > 0 && !restoreStashBatch(document, rows, stash, ignoredIds)) return false;
   return true;
+}
+
+function slotRowReferences(slot: RowSlot): string[] {
+  if (slot.surface === "draft") return [slot.afterRowId, slot.beforeRowId].filter((id): id is string => id !== null);
+  return [slot.entry.parentRowId, slot.afterSiblingRowId, slot.beforeSiblingRowId].filter((id): id is string => id !== null);
+}
+
+function deletedBirthDependencies(state: SortingProjectionV2, slots: RowSlot[], dependencyPlacement: "birth" | "last"): Birth[] {
+  const births = new Map(state.births.map((birth) => [birth.rowId, birth]));
+  const needed = new Set<string>();
+  const pending = slots.flatMap(slotRowReferences);
+  while (pending.length > 0) {
+    const rowId = pending.pop()!;
+    const birth = births.get(rowId);
+    if (!birth || birth.present || needed.has(rowId)) continue;
+    needed.add(rowId);
+    pending.push(...slotRowReferences(dependencyPlacement === "birth" ? birth.slot : birth.lastSlot));
+  }
+  return state.births.filter((birth) => needed.has(birth.rowId));
+}
+
+function editsOnlyBirths(state: SortingProjectionV2): Birth[] {
+  const present = state.births.filter((birth) => birth.present);
+  const dependencies = deletedBirthDependencies(state, present.map((birth) => birth.slot), "birth");
+  const selected = new Set([...present, ...dependencies].map((birth) => birth.rowId));
+  return state.births.filter((birth) => selected.has(birth.rowId));
 }
 
 function contentRow(row: Row): Row {
@@ -774,11 +801,19 @@ export function projectSortingDocumentV2(
     const droppedIds = new Set<string>();
 
     if (mode === "edits_only") {
-      for (const birth of state.births) {
+      const birthsToRestore = editsOnlyBirths(state);
+      const restoreRows = new Map(baselineRows);
+      for (const birth of birthsToRestore) {
         const row = currentRows.get(birth.rowId) ?? (!birth.present ? birth.row : undefined);
         if (!row) return refuse(current, "SORTING_PROJECTION_ROW_MISSING", `New row ${birth.rowId} has no content snapshot for the selected result.`);
-        if (!addRow(output, row, birth.slot)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A new row's original section, Stash parent, or exact birth gap no longer exists.");
+        restoreRows.set(birth.rowId, structuredClone(row));
       }
+      const birthPlacements = birthsToRestore.map((birth) => ({ rowId: birth.rowId, slot: birth.slot }));
+      const ignoredIds = new Set([
+        ...state.tombstones.map((tombstone) => tombstone.rowId),
+        ...state.births.filter((birth) => !birth.present).map((birth) => birth.rowId),
+      ]);
+      if (!restoreTombstoneBatches(output, restoreRows, birthPlacements, ignoredIds)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A new row's original section, Stash parent, or exact birth gap no longer exists.");
       for (const tombstone of state.tombstones) {
         if (removeRow(output, tombstone.rowId)) droppedIds.add(tombstone.rowId);
       }
@@ -786,22 +821,20 @@ export function projectSortingDocumentV2(
         if (!birth.present && removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
       }
     } else {
-      const missingBirths = state.births.filter((birth) => !birth.present && !currentRows.has(birth.rowId));
-      while (missingBirths.length > 0) {
-        let restored = false;
-        for (let index = 0; index < missingBirths.length; index += 1) {
-          const birth = missingBirths[index]!;
-          if (!addRow(output, birth.row, birth.lastSlot)) continue;
-          missingBirths.splice(index--, 1);
-          restored = true;
-        }
-        if (!restored) return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "A deleted new row is still needed as an exact placement anchor, but its last slot is unavailable.");
-      }
       const ghostByRow = new Map(state.ghostFallbacks.map((fallback) => [fallback.rowId, fallback.slot]));
       const tombstones = state.tombstones.map((item) => ghostByRow.has(item.rowId)
         ? { ...item, slot: structuredClone(ghostByRow.get(item.rowId)!) }
         : item);
-      if (!restoreTombstoneBatches(output, baselineRows, tombstones)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or exact slot no longer exists.");
+      const neededBirths = deletedBirthDependencies(state, tombstones.map((item) => item.slot), "last");
+      const restoreRows = new Map(baselineRows);
+      for (const birth of state.births) {
+        const row = currentRows.get(birth.rowId);
+        if (row) restoreRows.set(birth.rowId, structuredClone(row));
+      }
+      for (const birth of neededBirths) if (!restoreRows.has(birth.rowId)) restoreRows.set(birth.rowId, structuredClone(birth.row));
+      const birthPlacements = neededBirths.map((birth) => ({ rowId: birth.rowId, slot: birth.lastSlot }));
+      const ignoredIds = new Set(state.births.map((birth) => birth.rowId));
+      if (!restoreTombstoneBatches(output, restoreRows, [...tombstones, ...birthPlacements], ignoredIds)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or exact slot no longer exists.");
       for (const birth of state.births) {
         if (removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
       }
