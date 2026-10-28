@@ -560,10 +560,7 @@ def test_audio_offset_and_waveform_derivatives_are_bound_and_reused(
     assert playback["videoMuted"] is True
     assert playback["proxyHasAudio"] is False
     assert playback["audioSource"] == "audio-stage"
-    assert (
-        playback["audioSynchronization"]
-        == "aligned-audio-stage-at-video-origin/v1"
-    )
+    assert playback["audioSynchronization"] == "aligned-audio-stage-at-video-origin/v1"
     assert "-an" in tools.commands[-1]
     assert proxy.artifact_path is not None
     assert proxy.receipt["totalOutputBytes"] == proxy.artifact_path.stat().st_size

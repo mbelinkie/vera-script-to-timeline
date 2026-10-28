@@ -153,9 +153,7 @@ def main() -> int:
         "--fixture-dir",
         type=Path,
         required=True,
-        help=(
-            "absolute temp-directory child created by issue44_fixture.py"
-        ),
+        help=("absolute temp-directory child created by issue44_fixture.py"),
     )
     parser.add_argument(
         "--resume",

@@ -1213,7 +1213,7 @@ def _proxy_stage(source: ReviewSource, directory: Path) -> tuple[str | None, Jso
     evidence = {
         "decision": decision,
         "frameMap": None,
-            "proxyHasAudio": False,
+        "proxyHasAudio": False,
         "reviewPlayback": _review_playback(source, decision),
     }
     if not decision["required"]:
