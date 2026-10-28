@@ -197,7 +197,7 @@ export async function resolveMasterForJob(
   project: ShootRegistrationProjectV1,
   job: JobAccess,
   libraries: LibraryRoot[],
-): Promise<{ sourceId: string; path: string; inspection: SourceInspection }> {
+): Promise<{ sourceId: string; mediaHash: string; path: string; inspection: SourceInspection }> {
   if (job.projectId !== project.projectId) throw new Error("Job does not authorize this project.");
   const matchingSources = project.sessions.flatMap(({ sources }) => sources).filter(({ id }) => id === job.sourceId);
   if (matchingSources.length === 0) throw new Error("Job does not authorize this source.");
@@ -213,7 +213,7 @@ export async function resolveMasterForJob(
     if (library === undefined) continue;
     const path = resolve(library.rootPath, locator.relativePath);
     try {
-      if ((await stat(path)).isFile() && await hashFile(path) === source.mediaHash) return { sourceId: source.id, path, inspection: source.inspection };
+      if ((await stat(path)).isFile() && await hashFile(path) === source.mediaHash) return { sourceId: source.id, mediaHash: source.mediaHash, path, inspection: source.inspection };
     } catch { /* Try older verified locator without exposing a filesystem error. */ }
   }
   throw new Error("Source has no verified locator for job access.");
