@@ -18,31 +18,73 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  classify:
+    name: Classify PR changes
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      result: ${{ steps.classify.outputs.result }}
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          VERA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          VERA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-docs-only.mjs
+
   validate:
     name: TypeScript and Python
-    if: ${{ github.event_name != 'push' }}
+    needs: [classify, docs-only]
+    if: ${{ !cancelled() && github.event_name != 'push' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
+      - name: Verify PR validation selection
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          VERA_CLASSIFY_RESULT: ${{ needs.classify.result }}
+          VERA_ROUTE: ${{ needs.classify.outputs.result }}
+          VERA_DOCS_RESULT: ${{ needs.docs-only.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERA_CLASSIFY_RESULT" == "success" ]]
+          case "$VERA_ROUTE" in
+            docs) [[ "$VERA_DOCS_RESULT" == "success" ]] ;;
+            full) [[ "$VERA_DOCS_RESULT" == "skipped" ]] ;;
+            *) echo "Unknown validation route: $VERA_ROUTE" >&2; exit 1 ;;
+          esac
+
       - name: Check out repository
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Pin npm
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: npm install --global npm@11.17.0
 
       - name: Install TypeScript dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: npm ci
 
       # Capture tests launch Chromium directly; npm ci installs Playwright but
       # does not provision its browser binary or Linux system dependencies.
       - name: Install Chromium for capture tests
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: npx playwright install --with-deps chromium
 
       # Ubuntu restricts user namespaces for downloaded Chromium builds.
@@ -50,6 +92,7 @@ jobs:
       # the capture worker still requires chromiumSandbox: true.
       # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
       - name: Permit sandbox namespaces for CI Chromium
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: |
           printf '%s\n' \
             'abi <abi/4.0>,' \
@@ -60,6 +103,7 @@ jobs:
           sudo apparmor_parser -r /etc/apparmor.d/vera-playwright
 
       - name: Set up uv and Python
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: 0.12.5
@@ -67,17 +111,20 @@ jobs:
           enable-cache: true
 
       - name: Install Python dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: uv sync --frozen
 
       # Slice 1.2 narration normalization already requires the system FFmpeg
       # executable; install it explicitly because ubuntu-24.04 does not include
       # it in PATH on a clean runner.
       - name: Install FFmpeg
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
 
       # Frozen fixture tests skip when FFprobe is absent; fail before the gate
       # instead of letting a missing tool become a silent skip.
       - name: Preflight required media tools
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         id: preflight
         run: |
           command -v ffmpeg
@@ -88,6 +135,7 @@ jobs:
       # JUnit, durations and the teed log are reporting-only; they do not change
       # test selection. pipefail keeps the gate's exit status authoritative.
       - name: Run repository validation
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         id: validate
         shell: bash
         env:
@@ -103,13 +151,14 @@ jobs:
           VITEST_MAX_WORKERS=1 npm run validate 2>&1 | tee "$RUNNER_TEMP/vera-evidence/validate.log"
 
       - name: Verify lockfiles remain unchanged
+        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
         id: lockfiles
         run: git diff --exit-code -- package-lock.json uv.lock
 
       # Runs after failures too, so evidence is retained; a successful
       # collection or upload never changes an earlier failed step's result.
       - name: Collect validation evidence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full')) }}
         env:
           VERA_OUTCOME_PREFLIGHT: ${{ steps.preflight.outcome }}
           VERA_OUTCOME_VALIDATE: ${{ steps.validate.outcome }}
@@ -120,12 +169,35 @@ jobs:
       # Only the sanitized manifest is published; raw JUnit, the teed log,
       # worktree contents and caches are not. Treat this artifact as public.
       - name: Upload validation evidence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full')) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vera-validation-evidence-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/vera-evidence/manifest.json
           if-no-files-found: warn
+
+  docs-only:
+    name: Docs only
+    needs: classify
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.classify.result == 'success' && needs.classify.outputs.result == 'docs' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check changed documentation whitespace
+        env:
+          VERA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          VERA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERA_BASE_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          [[ "$VERA_HEAD_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          git diff --check "$VERA_BASE_SHA...$VERA_HEAD_SHA"
 
   main-smoke:
     name: Main smoke
