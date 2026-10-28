@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyRowEditV2,
   createRowEditSessionV2,
+  createSortingTrialV2,
+  resumeSortingTrialV2,
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
   selectRowRangeV2,
@@ -151,12 +153,12 @@ function noteDraft(value: number): NoteDraftBlock {
   return { type: "note_draft", id: id(value), orderKey: `note-${value}`, text: "Keep this note with the row run.", state: "excluded", version: 1 };
 }
 
-function citation(block: NarrationBlockV2): SupportingItemV2 {
+function citation(block: NarrationBlockV2, value = 9000): SupportingItemV2 {
   const anchor = wordAnchor(block);
   return {
-    id: id(9000),
+    id: id(value),
     version: 1,
-    orderKey: "citation-1",
+    orderKey: value === 9000 ? "citation-1" : `citation-${value}`,
     role: "citation",
     content: "Source attached to this row",
     placement: { kind: "point", anchor: { kind: "word", anchor } },
@@ -219,6 +221,227 @@ function rows(document: ScriptDocumentV2): string[] {
 function gap(sectionId: string | null, afterRowId: string | null, beforeRowId: string | null) {
   return { sectionId, afterRowId, beforeRowId };
 }
+
+describe("provisional Sorting trials", () => {
+  it("keeps script and saved Stash canonical until one complete acceptance", () => {
+    const [a, b, c] = [richNarration(610), row(630), row(650)];
+    const initial = documentWith([a, b, c], { supportingItems: [citation(a)] });
+    const saved = applyRowEditV2(initial, 0, { kind: "stash_rows", rowIds: [c.id], bundleId: id(620) }).document;
+    const before = structuredClone(saved);
+    const trial = createSortingTrialV2(saved);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(621) }).ok).toBe(true);
+    expect(trial.apply({ kind: "restore_stash", bundleId: id(620), destination: gap(null, b.id, null) }).ok).toBe(true);
+    const intended = trial.document;
+    const preview = trial.preview();
+    expect(preview).toEqual(intended);
+    preview.title = "Mutating a read-only snapshot cannot edit the trial";
+    expect(trial.document).toEqual(intended);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(622) }).diagnostics[0]?.code).toBe("SORTING_READ_ONLY");
+    expect(trial.returnToSorting()).toBe(true);
+    expect(trial.document).toEqual(intended);
+    expect(saved).toEqual(before);
+    const accepted = trial.accept(saved);
+    expect(accepted).toMatchObject({ ok: true, changed: true });
+    expect(accepted.document).toEqual({ ...intended, rowEditRevision: 2 });
+    expect(accepted.document.stash?.[0]?.rows).toEqual([a]);
+    expect(accepted.document.stash?.[0]?.supportingItems).toEqual([citation(a)]);
+    expect(rows(accepted.document)).toEqual([b.id, c.id]);
+    expect(trial.accept(accepted.document)).toMatchObject({ ok: false, changed: false, diagnostics: [{ code: "SORTING_TRIAL_CLOSED" }] });
+    expect(saved).toEqual(before);
+  });
+
+  it("discards both trial surfaces and leaves even a changed canonical document untouched", () => {
+    const [a, b] = [row(630), row(631)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(632) }).ok).toBe(true);
+    trial.preview();
+    const discard = trial.discard(baseline);
+    expect(discard).toMatchObject({ ok: true, document: baseline });
+    expect(discard.document).toBe(baseline);
+    expect(trial.document).toEqual(baseline);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.returnToSorting()).toBe(false);
+    expect(trial.undo().document).toEqual(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(633) }).document).toEqual(baseline);
+    expect(trial.accept(baseline).ok).toBe(false);
+    const other = createSortingTrialV2(baseline);
+    const changed = { ...baseline, title: "An intervening author edit" };
+    expect(other.discard(changed).document).toBe(changed);
+  });
+
+  it("round-trips a pending preview and Undo history by replaying real row operations", () => {
+    const [a, b, c] = [row(640), row(641), row(642)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(643) }).ok).toBe(true);
+    expect(trial.undo().ok).toBe(true);
+    trial.preview();
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.phase).toBe("preview");
+    expect(resumed.document).toEqual(trial.document);
+    expect(resumed.movedRowIds).toEqual([a.id]);
+    expect(resumed.undoDepth).toBe(1);
+    const saved = trial.serialize();
+    expect(resumed.accept(baseline).document).toEqual(trial.accept(baseline).document);
+    const undone = resumeSortingTrialV2(saved);
+    undone.returnToSorting();
+    expect(undone.undo().ok).toBe(true);
+    expect(undone.accept(baseline)).toMatchObject({ ok: true, changed: false, document: baseline });
+  });
+
+  it.each(["script", "stash", "revision", "live head"])("refuses acceptance after a changed %s baseline, including after resume", (surface) => {
+    const [a, b, c] = [row(650), row(651), row(652)];
+    const baseline = applyRowEditV2(documentWith([a, b, c]), 0, { kind: "stash_rows", rowIds: [c.id], bundleId: id(653) }).document;
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    const changed = structuredClone(baseline);
+    if (surface === "script") changed.title = "changed";
+    if (surface === "stash") changed.stash![0]!.rows[0].orderKey = "changed";
+    if (surface === "revision") changed.rowEditRevision = 17;
+    if (surface === "live head") changed.liveHeadSequence = 1;
+    const before = structuredClone(changed);
+    const intended = resumed.document;
+    const result = resumed.accept(changed);
+    expect(result).toMatchObject({ ok: false, changed: false, diagnostics: [{ code: "SORTING_BASELINE_CHANGED" }] });
+    expect(result.document).toBe(changed);
+    expect(changed).toEqual(before);
+    expect(resumed.document).toEqual(intended);
+    expect(resumed.phase).toBe("sorting");
+  });
+
+  it("clears net deliberate moved marks at the original position, after Undo and Stash/restore", () => {
+    const [a, b, c] = [row(660), row(661), row(662)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([a.id]);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, null, b.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, null, a.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(663) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.apply({ kind: "restore_stash", bundleId: id(663), destination: gap(null, a.id, c.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([b.id]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("keeps trial content read-only and refuses corrupt or oversized saved trials", () => {
+    const [a, b] = [row(670), row(671)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;
+    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.document).toEqual(baseline);
+    const saved = JSON.parse(trial.serialize()) as { actions: unknown[] };
+    saved.actions = [contentEdit];
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/SORTING_CONTENT_READ_ONLY/);
+    saved.actions = [{ kind: "undo" }];
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/ROW_UNDO_EMPTY/);
+    expect(() => resumeSortingTrialV2("x".repeat(5_000_001))).toThrow(/size limit/);
+    expect(() => resumeSortingTrialV2("null")).toThrow(/Invalid saved/);
+    saved.actions = Array.from({ length: 2001 }, () => ({ kind: "undo" }));
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/Invalid saved/);
+  });
+
+  it("does not mark an undone move when a later row displaces it, and accepts a Stash/restore no-op honestly", () => {
+    const [a, b, c] = [row(690), row(691), row(692)];
+    const baseline = documentWith([a, b, c]);
+    const trial = createSortingTrialV2(baseline);
+    trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) });
+    trial.undo();
+    trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, null, a.id) });
+    expect(trial.movedRowIds).toEqual([b.id]);
+    trial.undo();
+    trial.apply({ kind: "stash_rows", rowIds: [b.id], bundleId: id(693) });
+    trial.apply({ kind: "restore_stash", bundleId: id(693), destination: gap(null, a.id, c.id) });
+    expect(trial.movedRowIds).toEqual([]);
+    const accepted = trial.accept(baseline);
+    expect(accepted).toMatchObject({ ok: true, changed: false });
+    expect(accepted.document).toBe(baseline);
+    expect(trial.document).toEqual(baseline);
+  });
+
+  it("reuses transition/audio rules and refuses unsupported trial moves without adding history", () => {
+    const [a, b, c] = [row(680), row(681), row(682)];
+    const baseline = documentWith([a, b, c], {
+      rowAudioSpans: [audioSpan(683, a.id, b.id)],
+      rowTransitions: [{ id: id(684), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 5 }, state: "active" }],
+    });
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(685) }).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.document.rowAudioSpans?.[0]?.review?.alert).toBe("Music now ends with this row. Review");
+    expect(trial.document.rowTransitions?.[0]).toMatchObject({ state: "needs_review", settings: { frames: 5 } });
+    expect(baseline.rowAudioSpans?.[0]?.review).toBeUndefined();
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.document.rowAudioSpans).toEqual(baseline.rowAudioSpans);
+    expect(trial.document.rowTransitions).toEqual(baseline.rowTransitions);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("clears a returned row's mark while retaining relationship review rather than silently reapplying effects", () => {
+    const [a, b, c] = [row(700), row(701), row(702)];
+    const baseline = documentWith([a, b, c], {
+      rowTransitions: [{ id: id(703), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 6 }, state: "active" }],
+    });
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, null, b.id) }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.document.rowTransitions?.[0]?.state).toBe("needs_review");
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: true });
+  });
+
+  it("marks only the moved section's rows and clears them when that section returns", () => {
+    const [a, b, c] = [row(710), row(711), row(712)];
+    const baseline = documentWith([section(713, "First"), a, section(714, "Second"), b, section(715, "Third"), c]);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "move_section", sectionId: id(713), destination: { afterSectionId: id(715), beforeSectionId: null } }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([a.id]);
+    expect(trial.apply({ kind: "move_section", sectionId: id(713), destination: { afterSectionId: null, beforeSectionId: id(714) } }).ok).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
+
+  it("keeps a deliberate move marked when other moves restore only its numeric row index", () => {
+    const [a, b, c] = [row(720), row(721), row(722)];
+    const trial = createSortingTrialV2(documentWith([a, b, c]));
+    expect(trial.apply({ kind: "move_rows", rowIds: [b.id], destination: gap(null, c.id, null) }).ok).toBe(true);
+    expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination: gap(null, b.id, null) }).ok).toBe(true);
+    expect(rows(trial.document)).toEqual([c.id, b.id, a.id]);
+    expect(trial.movedRowIds).toEqual([b.id, a.id]);
+  });
+
+  it("keeps Undo and resume available when the bounded edit limit is reached", () => {
+    const [a, b] = [row(730), row(731)];
+    const baseline = documentWith([a, b]);
+    const trial = createSortingTrialV2(baseline);
+    for (let index = 0; index < 1000; index++) {
+      const destination = index % 2 === 0 ? gap(null, b.id, null) : gap(null, null, b.id);
+      expect(trial.apply({ kind: "move_rows", rowIds: [a.id], destination }).ok).toBe(true);
+    }
+    expect(trial.apply({ kind: "stash_rows", rowIds: [a.id], bundleId: id(732) }).diagnostics[0]?.code).toBe("SORTING_TRIAL_LIMIT");
+    expect(trial.undoDepth).toBe(1000);
+    expect(trial.undo().ok).toBe(true);
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.document).toEqual(trial.document);
+    expect(resumed.undoDepth).toBe(999);
+    expect(resumed.undo().ok).toBe(true);
+  });
+});
 
 describe("authoring v2 whole-row edits", () => {
   it("moves one row within its section and marks separated pair intents for review", () => {
@@ -519,7 +742,7 @@ describe("authoring v2 whole-row edits", () => {
     standalone.id = id(601);
     expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });
     const stashed = applyRowEditV2(document, 0, { kind: "stash_rows", rowIds: [standalone.id], bundleId: id(602) });
-    expect(stashed.ok).toBe(true);
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
     expect(validateScriptDocumentV2(stashed.document)).toEqual({ valid: true, diagnostics: [] });
   });
 
@@ -784,5 +1007,158 @@ describe("authoring v2 whole-row edits", () => {
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
     expect(result.document).toBe(acrossBoundary);
+  });
+});
+
+describe("independent Stash rows and optional sections", () => {
+  it("restores one selected row from a saved section, retains its neighbors and atomically undoes", () => {
+    const [before, a, b, c, after] = [row(100), richNarration(1000), richNarration(10000), richNarration(20000), row(40000)];
+    const attachments = [citation(a, 9301), citation(b, 9302), citation(c, 9303)];
+    const initial = documentWith([before, a, b, c, after], {
+      supportingItems: attachments,
+      rowTransitions: [{ id: id(9600), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 5 }, state: "active" }],
+    });
+    const stashed = applyRowEditV2(initial, 0, { kind: "stash_rows", rowIds: [a.id, b.id, c.id], bundleId: id(9500) });
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
+    expect(stashed.document.stashSections).toBeUndefined();
+
+    const setup = createRowEditSessionV2(stashed.document);
+    expect(setup.apply({ kind: "create_stash_section", sectionId: id(9400), title: "Research" }).ok).toBe(true);
+    expect(setup.apply({ kind: "move_stash_rows", rowIds: [a.id, b.id, c.id], sectionId: id(9400) }).ok).toBe(true);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(setup.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(loaded.document.stashOutline).toEqual([a, b, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
+
+    const session = createRowEditSessionV2(loaded.document);
+    const restored = session.apply({
+      kind: "restore_stash_rows",
+      rowIds: [b.id],
+      destination: gap(null, before.id, after.id),
+    });
+    expect(restored.ok).toBe(true);
+    expect(rows(restored.document)).toEqual([before.id, b.id, after.id]);
+    expect(restored.document.activeDraft.supportingItems).toEqual([attachments[1]]);
+    expect(restored.document.rowTransitions).toEqual([{ id: id(9600), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 5 }, state: "needs_review" }]);
+    expect(restored.document.stash?.[0]?.rows).toEqual([a, c]);
+    expect(restored.document.stash?.[0]?.supportingItems).toEqual([attachments[0], attachments[2]]);
+    expect(restored.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(restored.document.stashOutline).toEqual([a, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
+
+    expect(session.undo().ok).toBe(true);
+    expect(rows(session.document)).toEqual([before.id, after.id]);
+    expect(session.document.activeDraft.supportingItems).toEqual([]);
+    expect(session.document.stash?.[0]?.rows).toEqual([a, b, c]);
+    expect(session.document.stash?.[0]?.supportingItems).toEqual(attachments);
+    expect(session.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(session.document.stashOutline).toEqual([a, b, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
+  });
+
+  it("restores explicit multi-selection in visible order without restoring an unselected neighbor", () => {
+    const [before, a, b, c, after] = [row(720), row(721), row(722), row(723), row(724)];
+    const stashed = applyRowEditV2(documentWith([before, a, b, c, after]), 0, {
+      kind: "stash_rows", rowIds: [a.id, b.id, c.id], bundleId: id(9520),
+    });
+    const sectioned = applyRowEditV2(stashed.document, 1, { kind: "create_stash_section", sectionId: id(9420), title: "Later" });
+    const assigned = applyRowEditV2(sectioned.document, 2, { kind: "move_stash_rows", rowIds: [a.id, b.id, c.id], sectionId: id(9420) });
+    expect(assigned.ok).toBe(true);
+
+    const restored = applyRowEditV2(assigned.document, 3, {
+      kind: "restore_stash_rows",
+      rowIds: [c.id, a.id],
+      destination: gap(null, before.id, after.id),
+    });
+    expect(restored.ok).toBe(true);
+    expect(rows(restored.document)).toEqual([before.id, a.id, c.id, after.id]);
+    expect(restored.document.stash?.[0]?.rows).toEqual([b]);
+    expect(restored.document.stashSections).toEqual([{ id: id(9420), title: "Later", rowIds: [] }]);
+    expect(restored.document.stashOutline).toEqual([{ rowId: b.id, kind: "row", parentRowId: null, sectionId: id(9420) }]);
+  });
+
+  it("refuses stale or invalid membership changes without mutating the saved document", () => {
+    const [a, b] = [row(730), row(731)];
+    const stashed = applyRowEditV2(documentWith([a, b]), 0, { kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(9530) });
+    const created = applyRowEditV2(stashed.document, 1, { kind: "create_stash_section", sectionId: id(9430), title: "Later" });
+    const before = structuredClone(created.document);
+    const stale = applyRowEditV2(created.document, 1, { kind: "move_stash_rows", rowIds: [a.id], sectionId: id(9430) });
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(stale.document).toBe(created.document);
+    const missingSection = applyRowEditV2(created.document, 2, { kind: "move_stash_rows", rowIds: [a.id], sectionId: id(9431) });
+    expect(missingSection.diagnostics[0]?.code).toBe("STASH_SECTION_NOT_FOUND");
+    expect(missingSection.document).toBe(created.document);
+    const duplicateSelection = applyRowEditV2(created.document, 2, {
+      kind: "restore_stash_rows",
+      rowIds: [a.id, a.id],
+      destination: gap(null, null, null),
+    });
+    expect(duplicateSelection.diagnostics[0]?.code).toBe("ROW_SELECTION_INVALID");
+    expect(duplicateSelection.document).toBe(created.document);
+    expect(created.document).toEqual(before);
+
+    const invalid = structuredClone(created.document);
+    invalid.stashSections![0]!.rowIds = [id(9999)];
+    expect(validateScriptDocumentV2(invalid).diagnostics.some((item) => item.code === "ROW_REFERENCE_INVALID")).toBe(true);
+    const invalidSaved = deserializeAuthoringDocumentV2(JSON.stringify(invalid));
+    expect(invalidSaved.ok).toBe(false);
+    if (!invalidSaved.ok) expect(invalidSaved.diagnostics.some((item) => item.code === "ROW_REFERENCE_INVALID")).toBe(true);
+
+    const audioProtected = documentWith([], { rowAudioSpans: [audioSpan(9550, a.id, b.id)] });
+    audioProtected.stash = [{ id: id(9549), rows: [a, b], supportingItems: [] }];
+    const audioRefusal = applyRowEditV2(audioProtected, 0, {
+      kind: "restore_stash_rows",
+      rowIds: [a.id],
+      destination: gap(null, null, null),
+    });
+    expect(audioRefusal.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(audioRefusal.document).toBe(audioProtected);
+  });
+
+  it.each([[1], [0, 2]])("refuses splitting a timed supporting range around middle saved rows (%j)", (...selection: number[]) => {
+    const savedRows = [richNarration(50000), richNarration(60000), richNarration(70000)];
+    const first = savedRows[0]!;
+    const last = savedRows[2]!;
+    const support: SupportingItemV2 = {
+      ...citation(first, 9800),
+      role: "audio_cue",
+      placement: {
+        kind: "timed",
+        start: { kind: "word", anchor: wordAnchor(first) },
+        end: { kind: "word", anchor: wordAnchor(last) },
+      },
+    };
+    const initial = documentWith(savedRows, { supportingItems: [support] });
+    const stashed = applyRowEditV2(initial, 0, {
+      kind: "stash_rows", rowIds: savedRows.map((row) => row.id), bundleId: id(9801),
+    });
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
+    const before = structuredClone(stashed.document);
+    const restored = applyRowEditV2(stashed.document, 1, {
+      kind: "restore_stash_rows", rowIds: selection.map((index) => savedRows[index]!.id),
+      destination: gap(null, null, null),
+    });
+    expect(restored.ok).toBe(false);
+    expect(restored.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(restored.document).toBe(stashed.document);
+    expect(restored.document).toEqual(before);
+  });
+
+  it("allows Stash organization in Sorting while retaining local Undo and content-read-only behavior", () => {
+    const [a, b] = [row(740), row(741)];
+    const stashed = applyRowEditV2(documentWith([a, b]), 0, { kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(9540) }).document;
+    const trial = createSortingTrialV2(stashed);
+    expect(trial.apply({ kind: "create_stash_section", sectionId: id(9440), title: "Later" }).ok).toBe(true);
+    expect(trial.apply({ kind: "move_stash_rows", rowIds: [a.id, b.id], sectionId: id(9440) }).ok).toBe(true);
+    expect(trial.apply({ kind: "restore_stash_rows", rowIds: [b.id], destination: gap(null, null, null) }).ok).toBe(true);
+    expect(trial.document.activeDraft.blocks.map((block) => block.id)).toEqual([b.id]);
+    expect(trial.undo().ok).toBe(true);
+    expect(trial.document.stash?.[0]?.rows).toEqual([a, b]);
+    expect(trial.document.stashSections).toEqual([{ id: id(9440), title: "Later", rowIds: [] }]);
+    expect(trial.document.stashOutline).toEqual([a, b].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9440) })));
+    expect(trial.preview()).toEqual(trial.document);
+    expect(trial.returnToSorting()).toBe(true);
+    const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;
+    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.accept(stashed)).toMatchObject({ ok: true, changed: true });
   });
 });

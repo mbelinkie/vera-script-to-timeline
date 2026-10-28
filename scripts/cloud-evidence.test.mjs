@@ -789,6 +789,23 @@ test("the workflow defines every required step, the exact command and the artifa
   for (const match of workflow.matchAll(/uses: (\S+)/g)) assert.match(match[1], /@[0-9a-f]{40}$/);
 });
 
+test("PR and manual events run the full gate; main pushes run bounded smoke checks", () => {
+  const workflow = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".github", "workflows", "validate.yml"), "utf8");
+  assert.match(workflow, /^on:\n {2}pull_request:\n {2}push:\n {4}branches:\n {6}- main\n {2}workflow_dispatch:\n/m);
+
+  const fullStart = workflow.indexOf("  validate:\n");
+  const smokeStart = workflow.indexOf("  main-smoke:\n");
+  assert.ok(fullStart >= 0 && smokeStart > fullStart, "workflow must keep the full job before the push smoke job");
+  const fullJob = workflow.slice(fullStart, smokeStart);
+  const smokeJob = workflow.slice(smokeStart);
+  assert.match(fullJob, /^ {4}if: \$\{\{ github\.event_name != 'push' \}\}$/m);
+  assert.match(smokeJob, /^ {4}if: \$\{\{ github\.event_name == 'push' \}\}$/m);
+  assert.match(smokeJob, /^ {10}node --test scripts\/cloud-evidence\.test\.mjs scripts\/agent-safety\.test\.mjs$/m);
+  assert.match(smokeJob, /^ {10}uv run --no-project --python 3\.12\.14 python -m compileall -q python$/m);
+  assert.doesNotMatch(smokeJob, /npm run validate(?::fast)?\b/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+});
+
 function branchPages(endpoint, runs, pageSize) {
   const pages = [];
   for (let index = 0; index * pageSize < runs.length; index += 1) {

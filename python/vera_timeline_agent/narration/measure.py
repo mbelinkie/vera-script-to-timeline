@@ -42,6 +42,9 @@ from vera_timeline_agent.narration.normalize import (
     MediaToolError,
     Normalizer,
 )
+from vera_timeline_agent.narration.stage_directions import (
+    masked_text as mask_stage_directions,
+)
 
 ALGORITHM_ID = "vera-polly-marks-energy-ends"
 ALGORITHM_VERSION = "3"
@@ -723,6 +726,13 @@ def _frozen_tokens(
     if not isinstance(text, str) or not isinstance(tokens, list) or not tokens:
         reasons.append("frozen narration block needs text and tokens")
         return []
+    if any(
+        isinstance(token, Mapping) and token.get("spoken") is False for token in tokens
+    ):
+        try:
+            mask_stage_directions(block)
+        except ValueError as error:
+            reasons.append(str(error))
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
     previous_end = 0
@@ -748,9 +758,13 @@ def _frozen_tokens(
             reasons.append(f"frozen token {token_id} range/text is inconsistent")
             continue
         previous_end = end
+        if token.get("spoken") is False:
+            continue
         rows.append(
             {"id": token_id, "startOffset": start, "endOffset": end, "value": value}
         )
+    if not rows and not reasons:
+        reasons.append("direction-only narration has no spoken tokens to measure")
     return rows
 
 
@@ -1103,6 +1117,10 @@ def _self_check(evidence: Mapping[str, Any]) -> None:
     """Mirror the consumer's ordering rules so we never emit evidence it refuses."""
 
     audio = evidence["audio"]
+    if not evidence["tokens"]:
+        raise MeasurementError(
+            ["measured narration evidence needs at least one spoken token"]
+        )
     duration = Fraction(audio["durationSamples"], audio["sampleRate"])
     prior_onset: Fraction | None = None
     prior_end: Fraction | None = None
