@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
 Mode = Literal["free", "studio"]
+JobKind = Literal["build", "ingest"]
 CORE_STAGES = (
     "generating_speech",
     "resolving_media",
@@ -36,6 +37,7 @@ STUDIO_STAGES = (
     "uploading",
 )
 ALL_STAGES = CORE_STAGES + STUDIO_STAGES
+INGEST_STAGES = ("proxy", "audio", "waveform")
 
 
 class BuildJobError(RuntimeError):
@@ -102,6 +104,35 @@ class BuildRequest:
 
 
 @dataclass(frozen=True)
+class IngestRequest:
+    """Immutable identity for generating proxy, audio, and waveform artifacts.
+
+    ``generation_identity`` is the caller-computed SHA-256 of the source bytes,
+    versioned profile, and actual tool identities. ``source_id`` is stable if
+    the source media moves; source location and validation remain caller-owned.
+    """
+
+    project_id: str
+    source_id: str
+    generation_identity: str
+    idempotency_key: str
+
+    def validate(self) -> None:
+        for label, value in (
+            ("project ID", self.project_id),
+            ("source ID", self.source_id),
+            ("idempotency key", self.idempotency_key),
+        ):
+            if not value or len(value) > 256 or value.strip() != value:
+                raise BuildJobError(f"invalid {label}")
+        if len(self.generation_identity) != 64 or any(
+            character not in "0123456789abcdef"
+            for character in self.generation_identity
+        ):
+            raise BuildJobError("generation identity must be a lowercase SHA-256")
+
+
+@dataclass(frozen=True)
 class StageContext:
     project_id: str
     job_id: str
@@ -113,6 +144,9 @@ class StageContext:
     lease_epoch: int
     report_progress: Callable[[str], None] = field(repr=False)
     renew_lease: Callable[[], None] = field(repr=False)
+    job_kind: JobKind = "build"
+    source_id: str | None = None
+    generation_identity: str | None = None
 
 
 class StageAdapter(Protocol):
@@ -132,6 +166,9 @@ class _Lease:
     epoch: int
     attempt_id: int
     worker: str
+    job_kind: JobKind
+    source_id: str | None
+    generation_identity: str | None
 
 
 class BuildJobStore:
@@ -155,8 +192,11 @@ class BuildJobStore:
                 PRAGMA synchronous=FULL;
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL DEFAULT 'build',
                     project_id TEXT NOT NULL,
                     snapshot_id TEXT NOT NULL,
+                    source_id TEXT,
+                    generation_identity TEXT,
                     idempotency_key TEXT NOT NULL,
                     request_hash TEXT NOT NULL,
                     mode TEXT NOT NULL,
@@ -204,6 +244,23 @@ class BuildJobStore:
                 );
                 """
             )
+        # Hold the schema write lock across inspection and ALTERs so concurrent
+        # processes cannot both observe a missing column and add it twice.
+        with self._connection(write=True) as connection:
+            # Existing build databases predate the ingest job fields.
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(jobs)")
+            }
+            for name, declaration in (
+                ("kind", "TEXT NOT NULL DEFAULT 'build'"),
+                ("source_id", "TEXT"),
+                ("generation_identity", "TEXT"),
+            ):
+                if name not in columns:
+                    connection.execute(
+                        f"ALTER TABLE jobs ADD COLUMN {name} {declaration}"
+                    )
 
     @contextmanager
     def _connection(self, *, write: bool = False) -> Iterator[sqlite3.Connection]:
@@ -253,41 +310,26 @@ class BuildJobStore:
 
     def submit(self, request: BuildRequest) -> str:
         request.validate()
-        request_hash = hashlib.sha256(
-            json.dumps(asdict(request), sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
-        now = self.clock()
-        with self._connection(write=True) as connection:
-            existing = connection.execute(
-                "SELECT id, request_hash FROM jobs "
-                "WHERE project_id=? AND idempotency_key=?",
-                (request.project_id, request.idempotency_key),
-            ).fetchone()
-            if existing is not None:
-                if existing["request_hash"] != request_hash:
-                    raise BuildJobError(
-                        "idempotency key belongs to a different request"
-                    )
-                return str(existing["id"])
-            job_id = uuid.uuid4().hex
-            connection.execute(
-                """INSERT INTO jobs(id, project_id, snapshot_id, idempotency_key,
-                   request_hash, mode, status, created_at, updated_at)
-                   VALUES(?,?,?,?,?,?,?,?,?)""",
-                (
-                    job_id,
-                    request.project_id,
-                    request.snapshot_id,
-                    request.idempotency_key,
-                    request_hash,
-                    request.mode,
-                    "queued",
-                    now,
-                    now,
-                ),
-            )
-            for position, name in enumerate(ALL_STAGES):
-                requested = position < len(CORE_STAGES) or (
+        return self._submit(
+            request=request,
+            kind="build",
+            project_id=request.project_id,
+            idempotency_key=request.idempotency_key,
+            snapshot_id=request.snapshot_id,
+            source_id=None,
+            generation_identity=None,
+            mode=request.mode,
+            stages=self._build_stages(request),
+        )
+
+    @staticmethod
+    def _build_stages(request: BuildRequest) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (
+                name,
+                "requested"
+                if position < len(CORE_STAGES)
+                or (
                     request.mode == "studio"
                     and (
                         position < 7
@@ -298,12 +340,95 @@ class BuildJobStore:
                         or (name == "uploading" and request.delivery)
                     )
                 )
+                else "skipped",
+            )
+            for position, name in enumerate(ALL_STAGES)
+        )
+
+    def submit_ingest(self, request: IngestRequest) -> str:
+        """Queue a durable ingest job for the supplied immutable generation.
+
+        Media adapters are passed to ``run_one`` and dispatch on
+        ``StageContext.stage`` (``proxy``, ``audio``, or ``waveform``). The
+        context carries ``source_id`` and ``generation_identity``; adapters
+        resolve and validate the current source location themselves.
+        """
+        request.validate()
+        return self._submit(
+            request=request,
+            kind="ingest",
+            project_id=request.project_id,
+            idempotency_key=request.idempotency_key,
+            snapshot_id="",
+            source_id=request.source_id,
+            generation_identity=request.generation_identity,
+            mode="ingest",
+            stages=tuple((name, "requested") for name in INGEST_STAGES),
+        )
+
+    def _submit(
+        self,
+        *,
+        request: BuildRequest | IngestRequest,
+        kind: JobKind,
+        project_id: str,
+        idempotency_key: str,
+        snapshot_id: str,
+        source_id: str | None,
+        generation_identity: str | None,
+        mode: str,
+        stages: tuple[tuple[str, str], ...],
+    ) -> str:
+        request_hash = hashlib.sha256(
+            json.dumps(asdict(request), sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        now = self.clock()
+        with self._connection(write=True) as connection:
+            existing = connection.execute(
+                "SELECT id, request_hash FROM jobs "
+                "WHERE project_id=? AND idempotency_key=?",
+                (project_id, idempotency_key),
+            ).fetchone()
+            if existing is not None:
+                if existing["request_hash"] != request_hash:
+                    raise BuildJobError(
+                        "idempotency key belongs to a different request"
+                    )
+                return str(existing["id"])
+            job_id = uuid.uuid4().hex
+            connection.execute(
+                """INSERT INTO jobs(id, kind, project_id, snapshot_id, source_id,
+                   generation_identity, idempotency_key, request_hash, mode, status,
+                   created_at, updated_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    job_id,
+                    kind,
+                    project_id,
+                    snapshot_id,
+                    source_id,
+                    generation_identity,
+                    idempotency_key,
+                    request_hash,
+                    mode,
+                    "queued",
+                    now,
+                    now,
+                ),
+            )
+            for position, (name, status) in enumerate(stages):
                 connection.execute(
                     "INSERT INTO stages(job_id, position, name, status) "
                     "VALUES(?,?,?,?)",
-                    (job_id, position, name, "requested" if requested else "skipped"),
+                    (job_id, position, name, status),
                 )
-            self._event(connection, job_id, now, "submitted", "job queued")
+            self._event(
+                connection,
+                job_id,
+                now,
+                "submitted",
+                f"{kind} job queued",
+            )
             return job_id
 
     def status(self, project_id: str, job_id: str) -> dict[str, Any]:
@@ -327,7 +452,10 @@ class BuildJobStore:
             return {
                 "id": job_id,
                 "projectId": project_id,
+                "kind": job["kind"],
                 "snapshotId": job["snapshot_id"],
+                "sourceId": job["source_id"],
+                "generationIdentity": job["generation_identity"],
                 "mode": job["mode"],
                 "status": job["status"],
                 "cancelRequested": bool(job["cancel_requested"]),
@@ -541,6 +669,9 @@ class BuildJobStore:
                 epoch,
                 attempt_id,
                 worker,
+                cast(JobKind, str(job["kind"])),
+                cast(str | None, job["source_id"]),
+                cast(str | None, job["generation_identity"]),
             )
 
     def _has_lease(self, job: sqlite3.Row, lease: _Lease, now: float) -> bool:
@@ -710,6 +841,9 @@ class BuildJobStore:
             lease_epoch=lease.epoch,
             report_progress=lambda message: self._progress(lease, message),
             renew_lease=lambda: self._renew(lease, lease_seconds),
+            job_kind=lease.job_kind,
+            source_id=lease.source_id,
+            generation_identity=lease.generation_identity,
         )
         try:
             if not adapter.reconcile(context):

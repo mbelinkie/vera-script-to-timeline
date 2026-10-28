@@ -221,7 +221,7 @@ describe("immutable shoot registration", () => {
     const libraries = [{ libraryId: ids.libraryB, rootPath: rootB }];
     await expect(resolveMasterForJob(relinked.project, {
       projectId: ids.project, sourceId: ids.sourceA, purpose: "proxy",
-    }, libraries)).resolves.toMatchObject({ sourceId: ids.sourceA, path: relinkedPath });
+    }, libraries)).resolves.toMatchObject({ sourceId: ids.sourceA, mediaHash: relinked.project.sessions[0]!.sources[0]!.mediaHash, path: relinkedPath });
     await expect(resolveMasterForJob(relinked.project, {
       projectId: ids.project, sourceId: ids.sourceB, purpose: "proxy",
     }, libraries)).resolves.toMatchObject({ sourceId: ids.sourceB, path: relinkedPath });
