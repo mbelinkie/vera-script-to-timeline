@@ -1,5 +1,8 @@
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
+import { createSortingProjectionV2, updateSortingProjectionV2, projectSortingDocumentV2 } from "./authoring-v2-sorting-projection.js";
+import { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
+import type { CommentStateV2 } from "./authoring-v2-comments.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
@@ -12,6 +15,8 @@ const MAX_EDITS = 1000;
 const MAX_SAVED_CHARACTERS = 5_000_000;
 type Action = RowEditCommandV2 | { kind: "undo" };
 type Phase = "sorting" | "preview" | "accepted" | "discarded";
+export type SortingAcceptanceV2 = "all" | "edits_only" | "sorting_only";
+export type SortingResultV2 = RowEditResultV2 & { changed: boolean; comments?: CommentStateV2 };
 
 interface Position { container: string; index: number; beforeSections: string[]; sectionId?: string | null }
 function positions(document: ScriptDocumentV2): Map<string, Position> {
@@ -83,7 +88,7 @@ function originalRowPositions(baseline: Map<string, Position>, containers: Map<s
 }
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
-  if (!command || typeof command !== "object") return false;
+  if (!command || typeof command !== "object" || Array.isArray(command)) return false;
   const keys: Record<string, string[]> = {
     move_rows: ["kind", "rowIds", "destination"],
     move_section: ["kind", "sectionId", "destination"],
@@ -94,13 +99,32 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     move_stash_rows: ["kind", "rowIds", "sectionId"],
     set_stash_outline: ["kind", "entries"],
     place_stash_rows: ["kind", "rowIds", "destination"],
+    edit_row: ["kind", "rowId", "row"],
+    create_row: ["kind", "row", "destination"],
+    delete_rows: ["kind", "rowIds"],
+    create_stash_note: ["kind", "bundleId", "row", "sectionId", "parentRowId", "afterRowId"],
+    create_stash_clip: ["kind", "bundleId", "row", "sectionId", "parentRowId", "afterRowId"],
+    make_stage_direction: ["kind", "blockId", "startOffset", "endOffset"],
+    make_spoken: ["kind", "blockId", "startOffset", "endOffset"],
+    delete_direction_delimiter: ["kind", "blockId", "offset"],
   };
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
-  if (!allowed || Object.keys(command).length !== allowed.length || !Object.keys(command).every((key) => allowed.includes(key))) return false;
   const value = command as Record<string, unknown>;
-  if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows" || kind === "place_stash_rows") {
+  const optional = kind === "create_stash_note" ? ["mode"] : [];
+  if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
+  if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
+  if (kind === "edit_row") return typeof value.rowId === "string";
+  if (kind === "make_stage_direction" || kind === "make_spoken" || kind === "delete_direction_delimiter") {
+    return typeof value.blockId === "string" && (kind === "delete_direction_delimiter" ? Number.isSafeInteger(value.offset) : Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset));
+  }
+  if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows" || kind === "place_stash_rows" || kind === "delete_rows") {
     if (!Array.isArray(value.rowIds) || !value.rowIds.every((id: unknown) => typeof id === "string")) return false;
+  }
+  if (kind === "delete_rows") return true;
+  if (kind === "create_stash_note" || kind === "create_stash_clip") {
+    return typeof value.bundleId === "string" && [value.sectionId, value.parentRowId, value.afterRowId].every((id) => id === null || typeof id === "string") &&
+      (!Object.hasOwn(value, "mode") || value.mode === "default_direction" || value.mode === "authored");
   }
   if ((kind === "stash_rows" || kind === "restore_stash") && typeof value.bundleId !== "string") return false;
   if (kind === "move_section" && typeof value.sectionId !== "string") return false;
@@ -135,6 +159,8 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     containers.set(position.container, ids);
   }
   const session = createRowEditSessionV2(baseline);
+  let projection = createSortingProjectionV2(baseline);
+  const projectionHistory: typeof projection[] = [];
   const actions: Action[] = [];
   const markHistory: Set<string>[] = [];
   let movedRows = new Set<string>();
@@ -165,7 +191,11 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     },
     apply(command: RowEditCommandV2, expectedRevision = session.revision): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial order.");
-      if (!commandAllowed(command)) return failure("SORTING_CONTENT_READ_ONLY", "Only row move, Stash and outline organization commands are available during a trial.");
+      if (!commandAllowed(command)) return failure("SORTING_COMMAND_INVALID", "Provide a supported, complete row authoring or organization command.");
+      if ((command.kind === "create_row" || command.kind === "create_stash_note" || command.kind === "create_stash_clip") &&
+        (originalPositions.has(command.row.id) || projection.births.some((birth) => birth.rowId === command.row.id))) {
+        return failure("SORTING_ROW_ID_REUSED", "Create material with a fresh row identity; use Undo to restore a deleted row.");
+      }
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
@@ -180,6 +210,8 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
               : [];
       const result = session.apply(command, expectedRevision);
       if (result.ok) {
+        projectionHistory.push(projection);
+        projection = updateSortingProjectionV2(projection, beforeDocument, result.document, command);
         actions.push(structuredClone(command));
         markHistory.push(movedRows);
         const current = positions(result.document);
@@ -192,13 +224,16 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     undo(): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before undoing a trial operation.");
       const result = session.undo();
-      if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; }
+      if (result.ok) { actions.push({ kind: "undo" }); movedRows = markHistory.pop()!; projection = projectionHistory.pop()!; }
       return result;
     },
-    accept(canonical: ScriptDocumentV2): RowEditResultV2 & { changed: boolean } {
+    accept(canonical: ScriptDocumentV2, outcome: SortingAcceptanceV2 = "all", comments?: SortingCommentContextV2): SortingResultV2 {
       if (!pending()) return { ...failure("SORTING_TRIAL_CLOSED", "This trial has already been accepted or discarded.", canonical), changed: false };
       if (!sameJson(canonical, baseline)) return { ...failure("SORTING_BASELINE_CHANGED", "The saved script or Stash changed. Start a new trial from that document.", canonical), changed: false };
-      const intended = session.document;
+      if (!["all", "edits_only", "sorting_only"].includes(outcome)) return { ...failure("SORTING_OUTCOME_INVALID", "Choose all changes, edits only, or sorting only.", canonical), changed: false };
+      const projected = outcome === "all" ? { ok: true, document: session.document, diagnostics: [] } : projectSortingDocumentV2(projection, session.document, outcome);
+      if (!projected.ok) return { ...projected, document: canonical, changed: false };
+      const intended = projected.document;
       const content = (document: ScriptDocumentV2) => {
         const copy = { ...document };
         delete copy.rowEditRevision;
@@ -207,16 +242,20 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       };
       const changed = !sameJson(content(intended), content(baseline));
       if (changed && (baseline.rowEditRevision ?? 0) === Number.MAX_SAFE_INTEGER) return { ...failure("ROW_REVISION_STALE", "The document revision cannot advance.", canonical), changed: false };
-      phase = "accepted";
       const document = changed ? { ...intended, rowEditRevision: (baseline.rowEditRevision ?? 0) + 1 } : canonical;
+      const discussion = comments ? resolveSortingCommentsV2(canonical, document, comments) : undefined;
+      if (discussion && !discussion.ok) return { ...failure("SORTING_COMMENTS_INVALID", discussion.error, canonical), changed: false };
+      phase = "accepted";
       finalDocument = structuredClone(document);
-      return { ok: true, document, diagnostics: [], changed };
+      return { ok: true, document, diagnostics: [], changed, ...(discussion?.ok ? { comments: discussion.state } : {}) };
     },
-    discard(canonical: ScriptDocumentV2): RowEditResultV2 {
+    discard(canonical: ScriptDocumentV2, comments?: SortingCommentContextV2): RowEditResultV2 & { comments?: CommentStateV2 } {
       if (!pending()) return failure("SORTING_TRIAL_CLOSED", "This trial has already been accepted or discarded.", canonical);
+      const discussion = comments ? resolveSortingCommentsV2(canonical, canonical, comments) : undefined;
+      if (discussion && !discussion.ok) return failure("SORTING_COMMENTS_INVALID", discussion.error, canonical);
       phase = "discarded";
       finalDocument = structuredClone(canonical);
-      return { ok: true, document: canonical, diagnostics: [] };
+      return { ok: true, document: canonical, diagnostics: [], ...(discussion?.ok ? { comments: discussion.state } : {}) };
     },
     serialize(): string {
       if (!pending()) throw new Error("Only a pending Sorting trial can be saved.");
@@ -228,7 +267,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
   return trial;
 }
 
-/** Replay the same public row operations; saved content cannot bypass the trial's read-only rule. */
+/** Replay complete public operations so local Undo and projection provenance survive reload. */
 export function resumeSortingTrialV2(json: string): ReturnType<typeof createSortingTrialV2> {
   if (json.length > MAX_SAVED_CHARACTERS) throw new Error("The saved Sorting trial exceeds the bounded local size limit.");
   const saved = JSON.parse(json) as { format: string; baseline: ScriptDocumentV2; actions: Action[]; phase: Phase };

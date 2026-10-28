@@ -296,7 +296,8 @@ export {
   type StageDirectionRunV2,
   type SpokenNarrationViewV2,
 } from "./authoring-v2-stage-directions.js";
-export { createSortingTrialV2, resumeSortingTrialV2 } from "./authoring-v2-sorting.js";
+export { createSortingTrialV2, resumeSortingTrialV2, type SortingAcceptanceV2, type SortingResultV2 } from "./authoring-v2-sorting.js";
+export { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
 export { applyStashRowEditV2, type StashRowEditCommandV2, type StashedRowV2 } from "./authoring-v2-stash.js";
 export {
   applyRowEditV2,
