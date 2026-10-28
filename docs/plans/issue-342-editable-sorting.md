@@ -105,3 +105,29 @@ narration requires fresh timing/audio; compiler output rules are unchanged.
 No production UI, storage service, collaboration merge, native Resolve/media
 operation, provider, upload or paid service is included. No persisted schema or
 generated contract changes are required; existing compiler goldens stay intact.
+
+## Verification and publication handoff
+
+The #342 product implementation was checked at `edd7b896` with focused public
+TypeScript operations, 65 independent create/delete sequences, all three
+affected Python consumer files, and the complete local fast gate with
+`VITEST_MAX_WORKERS=2` (1,903 Python fast tests). Adversarial Claude review and
+targeted delta reviews are complete; concrete findings were fixed. The local
+worker limit changes concurrency only, without changing assertions, timeout
+limits or test coverage. #349 tracks the measured local verification slowdown.
+
+The branch subsequently integrated #118's document-only framing contract and
+#350's delivered CI policy. Those merges do not change the reviewed Sorting
+code or its consumers. The Producer additionally authorized a lightweight gate
+for strictly docs-only changes. Its assigned CI implementation and steward's
+targeted review remain a separate pending delta. This mixed code/docs #342 PR
+still requires the full
+`TypeScript and Python` PR gate; main's smoke and the docs-only path cannot
+substitute for it. The documentation in #291/#316/#317 remains in its own PRs.
+
+Publication stays held until the steward releases the single CI slot. At that
+point, verify the final integrated CI delta and current main, publish the PR,
+and require full successful CI on the exact current head before merging. Only
+then complete Automated acceptance, provide #125 this exact API/limit handoff
+and update #62's canonical inventory. These local checks do not establish
+merged delivery or unblock design construction by themselves.
