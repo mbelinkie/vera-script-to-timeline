@@ -97,7 +97,7 @@
       "items": {
         "$ref": "#/$defs/RowAudioSpanIntentV2"
       },
-      "description": "Saved starting-row audio intent only. Runtime delivery is unavailable; never infer audible timing from row order."
+      "description": "Saved row-span audio intent only. Runtime delivery is unavailable; never infer audible timing from row order."
     },
     "rowReferences": {
       "type": "array",
@@ -2584,7 +2584,10 @@
           "additionalProperties": true
         },
         "alert": {
-          "const": "Music now ends with this row. Review"
+          "enum": [
+            "Music now ends with this row. Review",
+            "Music shortened by this move"
+          ]
         }
       }
     },
