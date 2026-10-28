@@ -14,7 +14,9 @@
     "./prompter-export": "./src/prompter-export.ts",
     "./template-library": "./src/template-library.ts",
     "./ev24-lower-third": "./src/ev24-lower-third.ts",
-    "./shoot-registration": "./src/shoot-registration.ts"
+    "./shoot-registration": "./src/shoot-registration.ts",
+    "./presenter-framing": "./src/presenter-framing.ts",
+    "./presenter-framing-request": "./src/presenter-framing-request.ts"
   },
   "scripts": {
     "lint": "eslint src test --max-warnings=0",
