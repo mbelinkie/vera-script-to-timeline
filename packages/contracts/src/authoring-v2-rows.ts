@@ -1,7 +1,10 @@
 import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, NarrationBlockV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
-import { defaultDirectionNarrationRowV2 } from "./authoring-v2-stage-direction-edits.js";
+import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
+import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
+import { preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -18,7 +21,11 @@ export type RowEditCommandV2 =
   | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
   | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
   | { kind: "set_stash_outline"; entries: StashOutlineEntryV2[] }
-  | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2 };
+  | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2 }
+  | { kind: "edit_row"; rowId: string; row: Row }
+  | { kind: "create_row"; row: Row; destination: RowGapV2 }
+  | { kind: "delete_rows"; rowIds: string[] }
+  | StageDirectionEditCommandV2;
 
 export interface RowEditResultV2 {
   ok: boolean;
@@ -41,6 +48,106 @@ function sections(blocks: Block[]): Section[] {
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({ code, message, jsonPath: "/activeDraft" });
 const refused = (document: ScriptDocumentV2, code: string, message: string): RowEditResultV2 => ({ ok: false, document, diagnostics: [diagnostic(code, message)] });
+
+function plainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  try {
+    if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+    return Reflect.ownKeys(value).every((key) => typeof key === "string" && "value" in Object.getOwnPropertyDescriptor(value, key)!);
+  } catch {
+    return false;
+  }
+}
+
+function exactKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  const ownKeys = Reflect.ownKeys(value);
+  return ownKeys.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function isJsonValue(value: unknown, ancestors = new Set<object>()): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value !== "object" || ancestors.has(value)) return false;
+  try {
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype || Object.getOwnPropertySymbols(value).length > 0 || Object.getOwnPropertyNames(value).length !== value.length + 1) return false;
+      ancestors.add(value);
+      const valid = value.every((item, index) => Object.hasOwn(value, index) && isJsonValue(item, ancestors));
+      ancestors.delete(value);
+      return valid;
+    }
+    if (Object.getPrototypeOf(value) !== Object.prototype || Object.getOwnPropertySymbols(value).length > 0) return false;
+    ancestors.add(value);
+    const valid = Reflect.ownKeys(value).every((key) => {
+      if (typeof key !== "string") return false;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return !!descriptor?.enumerable && "value" in descriptor && isJsonValue(descriptor.value, ancestors);
+    });
+    ancestors.delete(value);
+    return valid;
+  } catch {
+    ancestors.delete(value);
+    return false;
+  }
+}
+
+function rowPayload(value: unknown): value is Row {
+  return plainObject(value) && isJsonValue(value) && typeof value.id === "string" && value.id.length > 0 &&
+    ["narration", "direction", "visual_only", "note_draft"].includes(String(value.type));
+}
+
+function rowGapPayload(value: unknown): value is RowGapV2 {
+  return plainObject(value) && exactKeys(value, ["sectionId", "afterRowId", "beforeRowId"]) &&
+    (value.sectionId === null || typeof value.sectionId === "string") &&
+    (value.afterRowId === null || typeof value.afterRowId === "string") &&
+    (value.beforeRowId === null || typeof value.beforeRowId === "string");
+}
+
+function rowIdsPayload(value: unknown): value is string[] {
+  if (!Array.isArray(value)) return false;
+  try {
+    if (Object.getPrototypeOf(value) !== Array.prototype || Object.getOwnPropertySymbols(value).length > 0 || Object.getOwnPropertyNames(value).length !== value.length + 1) return false;
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (!descriptor?.enumerable || !("value" in descriptor) || typeof descriptor.value !== "string" || descriptor.value.length === 0) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isStageDirectionKind(kind: unknown): kind is StageDirectionEditCommandV2["kind"] {
+  return kind === "make_stage_direction" || kind === "make_spoken" || kind === "delete_direction_delimiter";
+}
+
+function validStageDirectionCommand(value: unknown): value is StageDirectionEditCommandV2 {
+  if (!plainObject(value) || typeof value.blockId !== "string" || value.blockId.length === 0) return false;
+  if (value.kind === "delete_direction_delimiter") return exactKeys(value, ["kind", "blockId", "offset"]) && Number.isSafeInteger(value.offset);
+  return (value.kind === "make_stage_direction" || value.kind === "make_spoken") &&
+    exactKeys(value, ["kind", "blockId", "startOffset", "endOffset"]) &&
+    Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset);
+}
+
+function validAuthoredRowCommand(value: unknown): boolean {
+  try {
+    if (!plainObject(value)) return false;
+    if (value.kind === "edit_row") {
+      return exactKeys(value, ["kind", "rowId", "row"]) && typeof value.rowId === "string" && value.rowId.length > 0 &&
+        rowPayload(value.row) && value.row.id === value.rowId;
+    }
+    if (value.kind === "create_row") {
+      return exactKeys(value, ["kind", "row", "destination"]) && rowPayload(value.row) &&
+        !Object.hasOwn(value.row, "stashOrigin") && rowGapPayload(value.destination);
+    }
+    if (value.kind === "delete_rows") {
+      return exactKeys(value, ["kind", "rowIds"]) && rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 /** Range selection clamps to the anchor's section, in document order. */
 export function selectRowRangeV2(document: ScriptDocumentV2, anchorRowId: string, focusRowId: string): { rowIds: string[]; boundaryReached: boolean; diagnostics: AuthoringDiagnosticV2[] } {
@@ -522,12 +629,147 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
   return null;
 }
 
+function audioSpanTouchesRows(document: ScriptDocumentV2, selected: Set<string>): boolean {
+  const activeRows = document.activeDraft.blocks.filter((block): block is Row => block.type !== "section");
+  const places = locations(document);
+  return (document.rowAudioSpans ?? []).some((span) => {
+    if (selected.has(span.startRowId) || selected.has(span.endRowId)) return true;
+    const samePlace = places.find((part) => part.rows.some((row) => row.id === span.startRowId) && part.rows.some((row) => row.id === span.endRowId));
+    if (samePlace) {
+      const start = samePlace.rows.findIndex((row) => row.id === span.startRowId);
+      const end = samePlace.rows.findIndex((row) => row.id === span.endRowId);
+      if (samePlace.rows.slice(Math.min(start, end), Math.max(start, end) + 1).some((row) => selected.has(row.id))) return true;
+    }
+    const start = activeRows.findIndex((row) => row.id === span.startRowId);
+    const end = activeRows.findIndex((row) => row.id === span.endRowId);
+    return start >= 0 && end >= 0 && activeRows.slice(Math.min(start, end), Math.max(start, end) + 1).some((row) => selected.has(row.id));
+  });
+}
+
+function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] } | AuthoringDiagnosticV2 {
+  const activeRows = working.activeDraft.blocks.filter((block): block is Row => block.type !== "section");
+  const stashedRows = (working.stash ?? []).flatMap((bundle) => bundle.rows);
+  const activeIds = new Set(activeRows.map((row) => row.id));
+  const stashIds = new Set(stashedRows.map((row) => row.id));
+  const activeSelected = rowIds.filter((rowId) => activeIds.has(rowId));
+  const stashSelected = rowIds.filter((rowId) => stashIds.has(rowId));
+  if (activeSelected.length + stashSelected.length !== rowIds.length || activeSelected.length > 0 && stashSelected.length > 0) {
+    return diagnostic("ROW_SELECTION_INVALID", "Delete existing rows from Draft or Stash in separate edits.");
+  }
+
+  const selected = new Set(rowIds);
+  const removedRows = [...activeRows, ...stashedRows].filter((row) => selected.has(row.id));
+  if (audioSpanTouchesRows(working, selected)) return diagnostic("AUDIO_REVIEW_REQUIRED", "A saved row audio span touches these rows. Review or remove that audio intent before deleting them.");
+
+  for (const pair of working.rowTransitions ?? []) {
+    const fromSelected = selected.has(pair.fromRowId);
+    const toSelected = selected.has(pair.toRowId);
+    if (fromSelected !== toSelected) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A row transition links a selected row to a surviving row. Review or remove that transition before deleting these rows.");
+  }
+
+  const survivingRows = [...activeRows, ...stashedRows].filter((row) => !selected.has(row.id));
+  for (const row of survivingRows) {
+    const origin = row.stashOrigin;
+    if (origin && [origin.parentRowId, origin.afterSiblingRowId, origin.beforeSiblingRowId].some((rowId) => rowId !== null && selected.has(rowId))) {
+      return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A surviving row's Stash return location uses a selected row. Review that saved relationship before deleting these rows.");
+    }
+  }
+  if (activeSelected.length > 0 && (working.stash ?? []).some((bundle) =>
+    bundle.rows.some((row) => !selected.has(row.id)) &&
+    (selected.has(bundle.originalGap?.afterRowId ?? "") || selected.has(bundle.originalGap?.beforeRowId ?? "")))) {
+    return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A saved Stash row uses a selected row as its restore boundary. Restore or review that saved relationship before deleting these rows.");
+  }
+
+  if (stashSelected.length > 0) {
+    const outline = ensureStashOutline(working);
+    const byId = outlineMap(outline);
+    if (stashSelected.some((rowId) => !byId.has(rowId))) return diagnostic("ROW_SELECTION_INVALID", "Every selected row must still appear in the Stash outline.");
+    if (outline.some((entry) => stashSelected.some((root) => isOutlineDescendant(entry, root, byId)) && !selected.has(entry.rowId))) {
+      return diagnostic("STASH_OUTLINE_BRANCH_REQUIRED", "Select a complete Stash branch before deleting a parent row.");
+    }
+  }
+
+  const allRows = [...working.activeDraft.blocks, ...stashedRows];
+  const filterSupportingItems = (items: SupportingItemV2[]): SupportingItemV2[] | null => {
+    const retained: SupportingItemV2[] = [];
+    for (const item of items) {
+      const references = supportingRows(item, allRows);
+      const touchesSelected = [...references].some((rowId) => selected.has(rowId));
+      if (!touchesSelected) {
+        retained.push(item);
+        continue;
+      }
+      if ([...references].some((rowId) => !selected.has(rowId))) return null;
+    }
+    return retained;
+  };
+  const activeItems = filterSupportingItems(working.activeDraft.supportingItems);
+  if (!activeItems) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A supporting item crosses the selected row boundary. Review its anchors before deleting these rows.");
+  const bundleItems = new Map<string, SupportingItemV2[]>();
+  for (const bundle of working.stash ?? []) {
+    const items = filterSupportingItems(bundle.supportingItems);
+    if (!items) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A saved supporting item crosses the selected row boundary. Review its anchors before deleting these rows.");
+    if (bundle.rows.every((row) => selected.has(row.id)) && items.length > 0) {
+      return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A saved supporting item has no safe row anchor in the deleted Stash bundle. Review it before deleting these rows.");
+    }
+    bundleItems.set(bundle.id, items);
+  }
+
+  working.activeDraft.supportingItems = activeItems;
+  for (const bundle of working.stash ?? []) bundle.supportingItems = bundleItems.get(bundle.id)!;
+  if (working.rowTransitions) working.rowTransitions = working.rowTransitions.filter((pair) => !(selected.has(pair.fromRowId) && selected.has(pair.toRowId)));
+  if (working.rowReferences) working.rowReferences = working.rowReferences.filter((reference) => !selected.has(reference.rowId));
+  if (working.rowTransitions?.length === 0) delete working.rowTransitions;
+  if (working.rowReferences?.length === 0) delete working.rowReferences;
+  if (activeSelected.length > 0) {
+    working.activeDraft.blocks = working.activeDraft.blocks.filter((block) => !selected.has(block.id));
+  } else {
+    if (working.stash) working.stash = working.stash.flatMap((bundle) => {
+      const rows = bundle.rows.filter((row) => !selected.has(row.id));
+      return rows.length ? [{ ...bundle, rows: [rows[0]!, ...rows.slice(1)] }] : [];
+    });
+    for (const section of working.stashSections ?? []) section.rowIds = section.rowIds.filter((rowId) => !selected.has(rowId));
+    if (working.stashOutline) working.stashOutline = working.stashOutline.filter((entry) => !selected.has(entry.rowId));
+  }
+  return { rows: removedRows };
+}
+
 /** One immutable local transaction. A refusal returns the original input object. */
 export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
-  if (!command || typeof command !== "object") return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
+  if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
+  try {
+    if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
+    if (isStageDirectionKind(command.kind) && !validStageDirectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete stage-direction edit command.");
+  } catch {
+    return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
+  }
   const before = validateScriptDocumentV2(document);
   if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
+
+  if (isStageDirectionKind(command.kind)) {
+    const stageCommand = command as unknown as StageDirectionEditCommandV2;
+    const row = document.activeDraft.blocks.find((block): block is NarrationBlockV2 => block.id === stageCommand.blockId && block.type === "narration") ??
+      document.stash?.flatMap((bundle) => bundle.rows).find((item): item is NarrationBlockV2 => item.id === stageCommand.blockId && item.type === "narration");
+    const edited = applyStageDirectionEditV2(document, row?.version ?? -1, stageCommand);
+    if (!edited.ok) return { ok: false, document, diagnostics: edited.diagnostics };
+    const serialized = serializedDocument({ ...edited.document, rowEditRevision: expectedRevision + 1 });
+    return serialized
+      ? { ok: true, document: serialized, diagnostics: [] }
+      : refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON.");
+  }
+
+  if (command.kind === "edit_row") {
+    const bundle = document.stash?.find((candidate) => candidate.rows.some((row) => row.id === command.rowId));
+    if (bundle) {
+      try {
+        return applyStashRowEditV2(document, expectedRevision, { bundleId: bundle.id, rowId: command.rowId, row: command.row });
+      } catch {
+        return refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON.");
+      }
+    }
+  }
+
   const working = structuredClone(document);
   const blocks = working.activeDraft.blocks;
   let moved: Row[] = [];
@@ -611,6 +853,31 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       (working.stash ??= []).push({ id: command.bundleId, rows: [rows[0]!, ...rows.slice(1)], supportingItems: items, originalGap });
       working.stashOutline = returnedOutline;
     }
+  } else if (command.kind === "edit_row") {
+    const index = blocks.findIndex((block) => block.type !== "section" && block.id === command.rowId);
+    if (index < 0) return refused(document, "ROW_NOT_FOUND", "Choose an existing Draft or Stash row to edit.");
+    const current = blocks[index] as Row;
+    let replacement: Row;
+    try { replacement = structuredClone(command.row); }
+    catch { return refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON."); }
+    if (replacement.id !== current.id || replacement.type !== current.type) return refused(document, "ROW_IDENTITY_INVALID", "An authored row edit must preserve the row's existing ID and type.");
+    const currentContent = structuredClone(current);
+    const replacementContent = structuredClone(replacement);
+    delete currentContent.stashOrigin;
+    delete replacementContent.stashOrigin;
+    if (sameAuthoringJsonV2(currentContent, replacementContent)) return refused(document, "ROW_EDIT_NO_CHANGE", "The row already has this content.");
+    blocks[index] = preserveStashOriginAfterEditV2(current, replacement);
+  } else if (command.kind === "create_row") {
+    const index = gapIndex(blocks, command.destination);
+    if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
+    const row = structuredClone(command.row);
+    if ([...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)].some((existing) => existing.id === row.id)) return refused(document, "ROW_ID_DUPLICATE", "A new row needs an unused row ID.");
+    blocks.splice(index, 0, row);
+    moved = [row];
+  } else if (command.kind === "delete_rows") {
+    const deleted = deleteRows(working, command.rowIds);
+    if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
+    moved = deleted.rows;
   } else if (command.kind === "create_stash_section") {
     if (typeof command.sectionId !== "string" || !command.sectionId || typeof command.title !== "string" || !command.title) {
       return refused(document, "STASH_SECTION_INVALID", "Provide a section ID and a non-empty title.");
@@ -737,7 +1004,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     existing.set(key, count - 1);
     return false;
   });
-  return errors.length ? { ok: false, document, diagnostics: errors } : { ok: true, document: working, diagnostics: [] };
+  if (errors.length) return { ok: false, document, diagnostics: errors };
+  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") {
+    const saved = serializedDocument(working);
+    return saved
+      ? { ok: true, document: saved, diagnostics: [] }
+      : refused(document, "ROW_CONTENT_INVALID", "The row edit must be losslessly representable as valid saved JSON.");
+  }
+  return { ok: true, document: working, diagnostics: [] };
 }
 
 /** Serialized authoring drafts may contain unresolved intent; schema/identity corruption is refused. */
@@ -757,6 +1031,14 @@ export function serializeAuthoringDocumentV2(document: ScriptDocumentV2): string
   const result = deserializeAuthoringDocumentV2(JSON.stringify(document));
   if (!result.ok) throw new Error(result.diagnostics.map((item) => item.message).join("; "));
   return JSON.stringify(result.document);
+}
+
+function serializedDocument(document: ScriptDocumentV2): ScriptDocumentV2 | null {
+  try {
+    return JSON.parse(serializeAuthoringDocumentV2(document)) as ScriptDocumentV2;
+  } catch {
+    return null;
+  }
 }
 
 export function deserializeAuthoringDocumentV2(json: string): { ok: true; document: ScriptDocumentV2 } | { ok: false; diagnostics: AuthoringDiagnosticV2[] } {

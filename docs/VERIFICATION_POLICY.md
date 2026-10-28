@@ -32,17 +32,28 @@ find problems, not to produce paperwork.
    read and follow [docs/CLAUDE_REVIEW_PLAYBOOK.md](CLAUDE_REVIEW_PLAYBOOK.md),
    including its exemptions and targeted delta-review rule. This applies to
    in-flight and future issues and supersedes older issue/plan review rituals.
-3. **Full suite in the cloud.** The GitHub Actions `Validate` workflow runs the
-   complete `npm run validate` on every pull request and manual dispatch. The
-   `TypeScript and Python` job on a PR is the full regression gate. Pushes to
-   `main` run a short `Main smoke` job with existing Node unit tests and a
-   Python syntax check; it does not replace the PR gate. Standard runners are
-   free for this public repository. Do not run the full `npm run validate` on
-   the Producer's Mac: it takes one to three hours, occupies the machine and
-   duplicates CI.
+3. **Pull request validation in the cloud.** The GitHub Actions `Validate`
+   workflow classifies every PR before selecting exactly one validation gate.
+   A PR uses `Docs only` only when every changed path is an allowlisted root
+   Markdown file (`README.md`, `AGENTS.md`, `CLAUDE.md`, `DECISIONS.md`, or
+   `CONTEXT.md`) or `docs/**/*.md`, and every present file version is a regular
+   non-executable file. That job checks changed documentation with
+   `git diff --check`. Any source, test, workflow, contract, fixture,
+   dependency, unsupported, mixed, or empty change uses the complete
+   `npm run validate` job. Markdown files named as runtime or test inputs also
+   use the full gate. If Git cannot determine the pull request range,
+   classification fails. Manual dispatch always runs the full gate.
+   The required `TypeScript and Python` check reports whether the selected job
+   passed. Pushes to `main` still run the short `Main smoke` job with existing
+   Node unit tests and a Python syntax check; it does not replace PR
+   validation. Standard runners are free for this public repository. Do not
+   run the full `npm run validate` on the Producer's Mac: it takes one to three
+   hours, occupies the machine and duplicates CI.
 4. **Merge.** Bring the branch up to date with `main`, then merge when local
-   fast checks pass and the PR's `TypeScript and Python` check is green. An
-   issue is not done until its work is merged into `main`. Do not watch CI.
+   fast checks pass and the PR's required `TypeScript and Python` check is
+   green. For a docs-only PR, that check confirms `Docs only` passed; all other
+   PRs confirm the complete suite passed. An issue is not done until its work
+   is merged into `main`. Do not watch CI.
    Push, then do other work or end the turn and come back. If CI fails,
    reproduce just the failing tests locally, fix and push. If the post-merge
    `Main smoke` fails, fix forward through a PR.

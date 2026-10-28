@@ -13,10 +13,11 @@ For backend issues, follow AGENTS.md's [knowledge reuse rule](docs/RESOLVE_KNOWL
   draft PR, and keep the branch short-lived. Never work in the main project
   folder; it stays on `main`. "Done" means merged into `main`.
 - Locally, run focused tests and `npm run validate:fast`. Never run the full
-  `npm run validate` on the Mac; GitHub Actions runs it on every pull request
-  and manual dispatch. Pushes to `main` run a short smoke check. The PR's
-  `TypeScript and Python` check is the full gate; the main smoke does not replace
-  it.
+  `npm run validate` on the Mac. GitHub Actions runs it for every pull request
+  except PRs containing only allowlisted plain root/docs Markdown, which run
+  `Docs only` (`git diff --check`). Manual dispatch always runs the full suite.
+  The required `TypeScript and Python` check confirms the selected PR job passed.
+  Pushes to `main` keep the short smoke check.
 - For Claude CLI reviews, read and follow `docs/CLAUDE_REVIEW_PLAYBOOK.md`,
   including on in-flight issues. Merge when CI is green; fix later bugs forward.
 - Close Automated issues yourself after merging (`npm run roadmap -- complete`).

@@ -956,7 +956,7 @@ describe("mixed Stash outline contract", () => {
       kind: "set_stash_outline",
       entries: [...outline(sectioned)].reverse(),
     }).ok).toBe(true);
-    expect(trial.apply({ kind: "create_stash_note", bundleId: id(470000), row: narration(470100), sectionId: null, parentRowId: null, afterRowId: null }).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.apply({ kind: "create_stash_note", bundleId: id(470000), row: narration(470100), sectionId: null, parentRowId: null, afterRowId: null }).ok).toBe(true);
     const selectedRoot = trial.document.stashOutline![0]!.rowId;
     expect(trial.apply({ kind: "place_stash_rows", rowIds: [selectedRoot], destination: gap(null, null, null) }).ok).toBe(true);
     const resumed = resumeSortingTrialV2(trial.serialize());
