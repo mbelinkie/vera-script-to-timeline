@@ -515,35 +515,85 @@ def test_adapter_cancels_media_when_lease_renewal_is_rejected(
     assert outcomes == [False]
     status = store.status("project-a", job_id)
     assert status["status"] == "failed"
-    assert "cancelled" in str(status["lastError"])
+    assert "renewal rejected: lease is stale" in str(status["lastError"])
     assert not (store.artifacts / job_id / "proxy" / "output").exists()
 
 
-def test_lease_renewal_bounds_retries_for_sqlite_busy(
+def test_lease_renewal_retries_only_immediate_sqlite_busy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     master = tmp_path / "master.mp4"
     master.write_bytes(b"synthetic master bytes")
     proxy = SyntheticReviewProxy(master)
     store = BuildJobStore(tmp_path / "jobs")
-    job_id = store.submit_ingest(request())
     adapter = adapter_for(store, master, proxy, monkeypatch)
     attempts = 0
 
-    def always_busy(store: BuildJobStore, lease: Any, lease_seconds: float) -> None:
+    def renew_once_after_busy() -> None:
         nonlocal attempts
-        del store, lease, lease_seconds
+        attempts += 1
+        if attempts == 1:
+            raise sqlite3.OperationalError("database is locked")
+
+    context = StageContext(
+        project_id="project-a",
+        job_id="test-job",
+        snapshot_id="test-snapshot",
+        stage="proxy",
+        stage_key="test-key",
+        output_path=tmp_path / "output",
+        attempt_id=1,
+        lease_epoch=1,
+        report_progress=lambda _message: None,
+        renew_lease=renew_once_after_busy,
+        job_kind="ingest",
+        source_id="source-a",
+        generation_identity=GENERATION,
+    )
+    stopped = Event()
+    deadline = [store.clock() + 60]
+    adapter._renew_lease_with_retry(
+        context,
+        stopped,
+        lease_deadline=deadline,
+        lease_duration=60,
+    )
+    assert attempts == 2
+
+    attempts = 0
+
+    def always_busy() -> None:
+        nonlocal attempts
         attempts += 1
         raise sqlite3.OperationalError("database is locked")
 
-    monkeypatch.setattr(BuildJobStore, "_renew", always_busy)
+    bounded_context = replace(context, renew_lease=always_busy)
+    with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+        adapter._renew_lease_with_retry(
+            bounded_context,
+            Event(),
+            lease_deadline=[store.clock() + 60],
+            lease_duration=60,
+        )
+    assert attempts == 2
 
-    assert not store.run_one(
-        "project-a", job_id, "worker-a", adapter, lease_seconds=0.3
-    )
-    assert attempts == 3
-    assert proxy.runs == {"proxy": 0, "audio": 0, "waveform": 0}
-    assert store.status("project-a", job_id)["status"] == "failed"
+    attempts = 0
+
+    def slow_busy() -> None:
+        nonlocal attempts
+        attempts += 1
+        sleep(review_ingest._LEASE_BUSY_RETRY_WINDOW_SECONDS * 2)
+        raise sqlite3.OperationalError("database is locked")
+
+    slow_context = replace(context, renew_lease=slow_busy)
+    with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+        adapter._renew_lease_with_retry(
+            slow_context,
+            Event(),
+            lease_deadline=[store.clock() + 60],
+            lease_duration=60,
+        )
+    assert attempts == 1
 
 
 def test_adapter_rejects_wrong_registered_project_or_source_before_dispatch(

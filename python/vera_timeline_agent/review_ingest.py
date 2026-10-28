@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from threading import Event, Thread
+from time import monotonic
 from typing import Any, Literal
 
 from vera_timeline_agent.build_jobs import (
@@ -37,7 +38,8 @@ Json = dict[str, Any]
 ReviewPlaybackVideo = Literal["proxy", "master"]
 ReviewPlaybackAudio = Literal["audio-stage", "absent"]
 REVIEW_STAGES: tuple[ReviewStage, ...] = ("proxy", "audio", "waveform")
-_LEASE_BUSY_RETRIES = 2
+_LEASE_BUSY_RETRIES = 1
+_LEASE_BUSY_RETRY_WINDOW_SECONDS = 0.05
 
 
 class ReviewIngestError(BuildJobError):
@@ -382,19 +384,28 @@ class ReviewIngestAdapter:
         cancelled = Event()
         stopped = Event()
         errors: list[Exception] = []
-        self._renew_lease_with_retry(context, stopped)
+        context.renew_lease()
         job = self.store.status(context.project_id, context.job_id)
         deadline = job.get("leaseUntil")
         if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
             raise ReviewIngestError("active ingest lease has no deadline")
         remaining = deadline - self.store.clock()
+        if remaining <= 0:
+            raise ReviewIngestError("active ingest lease has expired")
         interval = max(0.001, min(30.0, remaining / 3))
+        lease_deadline = [float(deadline)]
+        lease_duration = remaining
         tools = self._tools_for_cancellation(cancelled)
 
         def renew_until_stopped() -> None:
             while not stopped.wait(interval):
                 try:
-                    self._renew_lease_with_retry(context, stopped)
+                    self._renew_lease_with_retry(
+                        context,
+                        stopped,
+                        lease_deadline=lease_deadline,
+                        lease_duration=lease_duration,
+                    )
                 except Exception as error:
                     errors.append(error)
                     cancelled.set()
@@ -409,9 +420,12 @@ class ReviewIngestAdapter:
         heartbeat.start()
         try:
             yield tools
-        except BaseException:
+        except BaseException as operation_error:
+            was_cancelled = cancelled.is_set()
             stopped.set()
             heartbeat.join()
+            if was_cancelled and errors:
+                raise errors[0] from operation_error
             raise
         else:
             stopped.set()
@@ -419,29 +433,32 @@ class ReviewIngestAdapter:
             if errors:
                 raise errors[0]
 
-    def _renew_lease_with_retry(self, context: StageContext, stopped: Event) -> None:
+    def _renew_lease_with_retry(
+        self,
+        context: StageContext,
+        stopped: Event,
+        *,
+        lease_deadline: list[float],
+        lease_duration: float,
+    ) -> None:
+        retry_window_started = monotonic()
         for retry in range(_LEASE_BUSY_RETRIES + 1):
             if stopped.is_set():
                 return
+            renewal_started = self.store.clock()
             try:
                 context.renew_lease()
+                lease_deadline[0] = renewal_started + lease_duration
                 return
             except sqlite3.OperationalError as error:
                 if not self._is_sqlite_busy(error) or retry >= _LEASE_BUSY_RETRIES:
                     raise
-                job = self.store.status(context.project_id, context.job_id)
-                deadline = job.get("leaseUntil")
-                if (
-                    job.get("activeStage") != context.stage
-                    or job.get("leaseEpoch") != context.lease_epoch
-                    or isinstance(deadline, bool)
-                    or not isinstance(deadline, (int, float))
-                    or deadline <= self.store.clock()
-                ):
-                    raise ReviewIngestError(
-                        "lease renewal failed after the active lease expired"
-                    ) from error
-                if stopped.wait(min(0.01 * (retry + 1), deadline - self.store.clock())):
+                elapsed = monotonic() - retry_window_started
+                retry_budget = _LEASE_BUSY_RETRY_WINDOW_SECONDS - elapsed
+                remaining_lease = lease_deadline[0] - self.store.clock()
+                if retry_budget <= 0 or remaining_lease <= 0:
+                    raise
+                if stopped.wait(min(0.01, retry_budget, remaining_lease)):
                     return
 
     @staticmethod
