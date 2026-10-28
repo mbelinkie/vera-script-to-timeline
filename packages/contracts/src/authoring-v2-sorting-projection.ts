@@ -872,6 +872,10 @@ export function projectSortingDocumentV2(
       const slot = outputSlots.get(rowId)!;
       const priorSlot = baselineSlots.get(rowId);
       const layoutOrigin = latestRow?.stashOrigin ?? state.tombstones.find((tombstone) => tombstone.rowId === rowId)?.origin;
+      if (mode === "sorting_only" && slot.surface === "draft" && layoutOrigin &&
+        [layoutOrigin.parentRowId, layoutOrigin.afterSiblingRowId, layoutOrigin.beforeSiblingRowId].some((id) => id !== null && state.births.some((birth) => birth.rowId === id))) {
+        return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "The row's Stash return location depends on a new row that sorting-only removes.");
+      }
       const normalized = normalizeRowForLocation(selectedRow, rowId, slot, baseline, priorSlot, changed || !!birth && !!latestRow && !sameJson(contentRow(birth.row), contentRow(latestRow)), mode, layoutOrigin);
       replaceRow(output, rowId, normalized);
     }

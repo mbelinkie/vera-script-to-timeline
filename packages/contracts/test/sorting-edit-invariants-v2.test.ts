@@ -121,40 +121,38 @@ function commandsFor(caseIndex: number): RowEditCommandV2[] {
 }
 
 describe("Sorting row-edit invariants", () => {
-  it("keeps content-only acceptance outcomes consistent across bounded public command sequences", () => {
+  it.each(Array.from({ length: 65 }, (_, index) => index))("keeps content-only acceptance outcomes consistent for sequence %i", (caseIndex) => {
     // These 64 deterministic cases vary exact insertion gaps, fresh row IDs,
     // single/adjacent-pair deletions, and whether deletion comes before or
     // after creation. The final case deletes all three baseline rows before
     // creating at the empty-list null/null gap. Every operation goes through
     // the public trial API.
-    for (let caseIndex = 0; caseIndex < 65; caseIndex += 1) {
-      const baseline = caseIndex === 64 ? document([100, 200, 300]) : document();
-      const trial = createSortingTrialV2(baseline);
-      const commands: RowEditCommandV2[] = caseIndex === 64
-        ? [
-          { kind: "delete_rows", rowIds: [id(100), id(200), id(300)] },
-          { kind: "create_row", row: row(80_000), destination: gap(null, null) },
-        ]
-        : commandsFor(caseIndex);
-      for (const command of commands) {
-        const result = trial.apply(command);
-        expect(result.ok, `case ${caseIndex}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
-      }
-
-      const saved = trial.serialize();
-      const all = resumeSortingTrialV2(saved).accept(baseline);
-      const editsOnly = resumeSortingTrialV2(saved).accept(baseline, "edits_only");
-      const sortingOnly = resumeSortingTrialV2(saved).accept(baseline, "sorting_only");
-
-      for (const [outcome, result] of [["all", all], ["edits_only", editsOnly], ["sorting_only", sortingOnly]] as const) {
-        expect(result.ok, `case ${caseIndex}, ${outcome}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
-        if (!result.ok) throw new Error(`case ${caseIndex}, ${outcome} was refused`);
-        expect(validateScriptDocumentV2(result.document).valid, `case ${caseIndex}, invalid ${outcome} result`).toBe(true);
-      }
-
-      if (!all.ok || !editsOnly.ok || !sortingOnly.ok) throw new Error(`case ${caseIndex} acceptance failed`);
-      expect(comparable(editsOnly.document), `case ${caseIndex}: edits_only differs from default all`).toEqual(comparable(all.document));
-      expect(comparable(sortingOnly.document), `case ${caseIndex}: sorting_only differs from baseline`).toEqual(comparable(baseline));
+    const baseline = caseIndex === 64 ? document([100, 200, 300]) : document();
+    const trial = createSortingTrialV2(baseline);
+    const commands: RowEditCommandV2[] = caseIndex === 64
+      ? [
+        { kind: "delete_rows", rowIds: [id(100), id(200), id(300)] },
+        { kind: "create_row", row: row(80_000), destination: gap(null, null) },
+      ]
+      : commandsFor(caseIndex);
+    for (const command of commands) {
+      const result = trial.apply(command);
+      expect(result.ok, `case ${caseIndex}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
     }
+
+    const saved = trial.serialize();
+    const all = resumeSortingTrialV2(saved).accept(baseline);
+    const editsOnly = resumeSortingTrialV2(saved).accept(baseline, "edits_only");
+    const sortingOnly = resumeSortingTrialV2(saved).accept(baseline, "sorting_only");
+
+    for (const [outcome, result] of [["all", all], ["edits_only", editsOnly], ["sorting_only", sortingOnly]] as const) {
+      expect(result.ok, `case ${caseIndex}, ${outcome}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
+      if (!result.ok) throw new Error(`case ${caseIndex}, ${outcome} was refused`);
+      expect(validateScriptDocumentV2(result.document).valid, `case ${caseIndex}, invalid ${outcome} result`).toBe(true);
+    }
+
+    if (!all.ok || !editsOnly.ok || !sortingOnly.ok) throw new Error(`case ${caseIndex} acceptance failed`);
+    expect(comparable(editsOnly.document), `case ${caseIndex}: edits_only differs from default all`).toEqual(comparable(all.document));
+    expect(comparable(sortingOnly.document), `case ${caseIndex}: sorting_only differs from baseline`).toEqual(comparable(baseline));
   });
 });

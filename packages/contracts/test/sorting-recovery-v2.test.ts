@@ -95,6 +95,22 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it.each([false, true])("refuses a return origin whose new parent sorting-only removes (deleted: %s)", (deleted) => {
+    const baseline = applyDocument(document(), { kind: "stash_rows", rowIds: [id(100)], bundleId: id(5200) });
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "create_stash_note", row: row(5300), bundleId: id(5201), sectionId: null, parentRowId: null, afterRowId: id(100), mode: "authored" });
+    const entries = trial.document.stashOutline!;
+    apply(trial, { kind: "set_stash_outline", entries: [entries.find((entry) => entry.rowId === id(5300))!, { ...entries.find((entry) => entry.rowId === id(100))!, parentRowId: id(5300) }] });
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(100)], destination: gap(id(400), null) });
+    if (deleted) apply(trial, { kind: "delete_rows", rowIds: [id(100)] });
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    const pending = resumed.document;
+    expect(resumed.accept(baseline, "sorting_only")).toMatchObject({ ok: false, changed: false, document: baseline, diagnostics: [{ code: "SORTING_PROJECTION_DEPENDENCY_INVALID" }] });
+    expect(resumed.document).toEqual(pending);
+    expect(resumed.phase).toBe("sorting");
+    expect(resumed.accept(baseline).ok).toBe(true);
+  });
+
   it.each([false, true] as const)("keeps the chosen Stash return section through sorting-only after an edit (deleted=%s)", (deleteAfterEdit) => {
     const sectionA = id(5002);
     const sectionB = id(5003);
