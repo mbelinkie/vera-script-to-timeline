@@ -155,15 +155,6 @@ class SlotRelation3(TypedDict):
 type SlotRelation = SlotRelation1 | SlotRelation2 | SlotRelation3
 
 
-class DirectionBlock(TypedDict):
-    type: Literal["direction"]
-    id: EntityId
-    orderKey: str
-    text: str
-    buildBehavior: Literal["none", "timeline_marker"]
-    version: EntityVersion
-
-
 class SelectedSourceRange(TypedDict):
     startFrame: NonNegativeSafeInteger
     durationFrames: PositiveSafeInteger
@@ -173,15 +164,6 @@ class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
     selectedSourceRange: NotRequired[SelectedSourceRange]
-
-
-class NoteDraftBlock(TypedDict):
-    type: Literal["note_draft"]
-    id: EntityId
-    orderKey: str
-    text: str
-    state: Literal["excluded"]
-    version: EntityVersion
 
 
 class WordAudibleEndAnchor(TypedDict):
@@ -202,6 +184,22 @@ class StashSectionV2(TypedDict):
     id: EntityId
     title: str
     rowIds: list[EntityId]
+
+
+class StashOutlineEntryV2(TypedDict):
+    rowId: EntityId
+    kind: Literal["note", "clip", "row"]
+    parentRowId: EntityId | None
+    sectionId: EntityId | None
+
+
+class StashOriginV2(TypedDict):
+    kind: Literal["note", "clip", "row"]
+    parentRowId: EntityId | None
+    sectionId: EntityId | None
+    afterSiblingRowId: EntityId | None
+    beforeSiblingRowId: EntityId | None
+    returnEligible: bool
 
 
 class RowTransitionIntentV2(TypedDict):
@@ -445,6 +443,17 @@ class NarrationBlockV2(TypedDict):
     timingPolicy: Literal["narration_spine"]
     state: Literal["active", "excluded"]
     notes: list[str]
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
+
+
+class DirectionBlock(TypedDict):
+    type: Literal["direction"]
+    id: EntityId
+    orderKey: str
+    text: str
+    buildBehavior: Literal["none", "timeline_marker"]
+    stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
 
 
@@ -465,6 +474,17 @@ class VisualOnlyBlockV2(TypedDict):
     orderKey: str
     payload: StandaloneVisualPayloadV2
     visualOnlyTiming: VisualOnlyTimingV2
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
+
+
+class NoteDraftBlock(TypedDict):
+    type: Literal["note_draft"]
+    id: EntityId
+    orderKey: str
+    text: str
+    state: Literal["excluded"]
+    stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
 
 
@@ -513,6 +533,7 @@ class ScriptDocumentV2(TypedDict):
     rowEditRevision: NotRequired[NonNegativeSafeInteger]
     stash: NotRequired[list[RowStashBundleV2]]
     stashSections: NotRequired[list[StashSectionV2]]
+    stashOutline: NotRequired[list[StashOutlineEntryV2]]
     rowTransitions: NotRequired[list[RowTransitionIntentV2]]
     rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
     rowReferences: NotRequired[list[OpaqueRowReferenceV2]]

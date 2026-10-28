@@ -271,12 +271,21 @@ def test_saved_stash_is_ignored_by_python_narration_and_media_needs(
     assert stashed["stash"][0]["rows"][0]["primaryVisualSequence"]
     assert stashed["stash"][0]["rows"][0]["text"] == operation["editedText"]
     assert stashed["stashSections"] == [
-        {"id": operation["stashSectionId"], "title": "Saved clips", "rowIds": [row_id]}
+        {"id": operation["stashSectionId"], "title": "Saved clips", "rowIds": []}
+    ]
+    assert stashed["stashOutline"] == [
+        {
+            "rowId": row_id,
+            "kind": "row",
+            "parentRowId": None,
+            "sectionId": operation["stashSectionId"],
+        }
     ]
     assert all(block["id"] != row_id for block in stashed["activeDraft"]["blocks"])
     assert restored["stashSections"] == [
         {"id": operation["stashSectionId"], "title": "Saved clips", "rowIds": []}
     ]
+    assert restored["stashOutline"] == []
     assert _narration_ids(stashed) == []
     assert _narration_ids(restored) == [row_id]
 

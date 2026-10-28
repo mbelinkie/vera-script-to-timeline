@@ -78,6 +78,13 @@
       },
       "description": "Optional user-created Stash headings and their ordered saved-row membership."
     },
+    "stashOutline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StashOutlineEntryV2"
+      },
+      "description": "Optional canonical mixed Stash order and note-parent relationships. When present, every saved row appears exactly once and stashSections rowIds are empty."
+    },
     "rowTransitions": {
       "type": "array",
       "items": {
@@ -1802,6 +1809,9 @@
             "minLength": 1
           }
         },
+        "stashOrigin": {
+          "$ref": "#/$defs/StashOriginV2"
+        },
         "version": {
           "$ref": "#/$defs/EntityVersion"
         }
@@ -1863,6 +1873,9 @@
             "none",
             "timeline_marker"
           ]
+        },
+        "stashOrigin": {
+          "$ref": "#/$defs/StashOriginV2"
         },
         "version": {
           "$ref": "#/$defs/EntityVersion"
@@ -2136,6 +2149,9 @@
         "visualOnlyTiming": {
           "$ref": "#/$defs/VisualOnlyTimingV2"
         },
+        "stashOrigin": {
+          "$ref": "#/$defs/StashOriginV2"
+        },
         "version": {
           "$ref": "#/$defs/EntityVersion"
         }
@@ -2232,6 +2248,9 @@
         },
         "state": {
           "const": "excluded"
+        },
+        "stashOrigin": {
+          "$ref": "#/$defs/StashOriginV2"
         },
         "version": {
           "$ref": "#/$defs/EntityVersion"
@@ -2376,6 +2395,114 @@
           "items": {
             "$ref": "#/$defs/EntityId"
           }
+        }
+      }
+    },
+    "StashOutlineEntryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rowId",
+        "kind",
+        "parentRowId",
+        "sectionId"
+      ],
+      "properties": {
+        "rowId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "note",
+            "clip",
+            "row"
+          ]
+        },
+        "parentRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sectionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "StashOriginV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "parentRowId",
+        "sectionId",
+        "afterSiblingRowId",
+        "beforeSiblingRowId",
+        "returnEligible"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "note",
+            "clip",
+            "row"
+          ]
+        },
+        "parentRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sectionId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "afterSiblingRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beforeSiblingRowId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "returnEligible": {
+          "type": "boolean"
         }
       }
     },
