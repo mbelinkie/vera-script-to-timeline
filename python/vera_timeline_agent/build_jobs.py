@@ -38,6 +38,8 @@ STUDIO_STAGES = (
 )
 ALL_STAGES = CORE_STAGES + STUDIO_STAGES
 INGEST_STAGES = ("proxy", "audio", "waveform")
+_SQLITE_BUSY_TIMEOUT_SECONDS = 30.0
+_SQLITE_BUSY_RETRY_SECONDS = 0.01
 
 
 class BuildJobError(RuntimeError):
@@ -186,11 +188,12 @@ class BuildJobStore:
         self.database = self.root / "build-jobs.sqlite3"
         self.clock = clock
         with self._connection() as connection:
-            connection.executescript(
-                """
-                PRAGMA journal_mode=WAL;
-                PRAGMA synchronous=FULL;
-                CREATE TABLE IF NOT EXISTS jobs (
+            self._enable_wal(connection)
+        # Hold the schema write lock across table creation, inspection and ALTERs
+        # so concurrent processes cannot race to create or migrate the schema.
+        with self._connection(write=True) as connection:
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
                     kind TEXT NOT NULL DEFAULT 'build',
                     project_id TEXT NOT NULL,
@@ -210,8 +213,10 @@ class BuildJobStore:
                     created_at REAL NOT NULL,
                     updated_at REAL NOT NULL,
                     UNIQUE(project_id, idempotency_key)
-                );
-                CREATE TABLE IF NOT EXISTS stages (
+                )"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS stages (
                     job_id TEXT NOT NULL REFERENCES jobs(id),
                     position INTEGER NOT NULL,
                     name TEXT NOT NULL,
@@ -221,8 +226,10 @@ class BuildJobStore:
                     size INTEGER,
                     completed_at REAL,
                     PRIMARY KEY(job_id, name)
-                );
-                CREATE TABLE IF NOT EXISTS attempts (
+                )"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS attempts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     job_id TEXT NOT NULL REFERENCES jobs(id),
                     stage TEXT NOT NULL,
@@ -232,8 +239,10 @@ class BuildJobStore:
                     started_at REAL NOT NULL,
                     finished_at REAL,
                     detail TEXT
-                );
-                CREATE TABLE IF NOT EXISTS events (
+                )"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     job_id TEXT NOT NULL REFERENCES jobs(id),
                     at REAL NOT NULL,
@@ -241,12 +250,8 @@ class BuildJobStore:
                     stage TEXT,
                     epoch INTEGER,
                     message TEXT NOT NULL
-                );
-                """
+                )"""
             )
-        # Hold the schema write lock across inspection and ALTERs so concurrent
-        # processes cannot both observe a missing column and add it twice.
-        with self._connection(write=True) as connection:
             # Existing build databases predate the ingest job fields.
             columns = {
                 str(row["name"])
@@ -264,7 +269,11 @@ class BuildJobStore:
 
     @contextmanager
     def _connection(self, *, write: bool = False) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database, timeout=30, isolation_level=None)
+        connection = sqlite3.connect(
+            self.database,
+            timeout=_SQLITE_BUSY_TIMEOUT_SECONDS,
+            isolation_level=None,
+        )
         connection.row_factory = sqlite3.Row
         try:
             connection.execute("PRAGMA synchronous=FULL")
@@ -280,6 +289,25 @@ class BuildJobStore:
             raise
         finally:
             connection.close()
+
+    @staticmethod
+    def _enable_wal(connection: sqlite3.Connection) -> None:
+        """Retry SQLite's transient busy result while concurrent stores enable WAL."""
+        deadline = time.monotonic() + _SQLITE_BUSY_TIMEOUT_SECONDS
+        while True:
+            try:
+                row = connection.execute("PRAGMA journal_mode=WAL").fetchone()
+                if row is None or str(row[0]).lower() != "wal":
+                    raise BuildJobError("SQLite did not enable WAL journal mode")
+                return
+            except sqlite3.OperationalError as error:
+                message = str(error).lower()
+                if "locked" not in message and "busy" not in message:
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                time.sleep(min(_SQLITE_BUSY_RETRY_SECONDS, remaining))
 
     @staticmethod
     def _job(
