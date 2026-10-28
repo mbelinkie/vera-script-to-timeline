@@ -66,10 +66,15 @@ its moved mark but does not silently reactivate an effect needing review, so
 acceptance can honestly report a relationship-state change at the original
 row order. Undo restores the previous relationship state exactly.
 
-The adopted broken audio-span move follows its starting row, retains previous
-settings/endpoints and uses “Music now ends with this row. Review”. Unsettled
-audio-span operations still refuse. Real playback, trimming, mixing, fades,
-arbitrary transition discovery and Resolve/media mutations remain unavailable.
+The #326 correction supersedes the original starting-row-only shortening:
+within-section row moves retain the consecutive original covered prefix from
+the starting row and stop at its first interrupted join. The new endpoint
+carries “Music shortened by this move”, retaining the first prior endpoint
+and settings for review. Legacy saved alerts remain readable. Overlap, broken
+cross-section, Stash and invalid coverage still refuse. Real playback,
+trimming, mixing, fades, arbitrary transition discovery and Resolve/media
+mutations remain unavailable; see the
+[proof boundary](../investigations/issue-326-music-proof-plan.md).
 
 Executable coverage: `row-edits-v2.test.ts`, `stash-edits-v2.test.ts`,
 `row-edit-consumers-v2.test.ts`, and `tests/test_row_stash_v2_consumers.py`;

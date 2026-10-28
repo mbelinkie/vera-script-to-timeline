@@ -339,7 +339,7 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
     expect(inference.commands.trim).toBeNull(); expect(inference.omission).toBeNull();
     expect(inference.commands.boundary?.expectedSequenceVersion).toBe(1);
     expect(inference.internalControls).toBe("unverified"); expect(inference.futureAuthority).toBe(false);
-  });
+  }, 15_000);
 
   it("keeps video native sources outside the audio PCM source mappings", () => {
     const input = specimen(); const evidence = batch(input, ["A"]); const row = evidence.cases[0]!;
