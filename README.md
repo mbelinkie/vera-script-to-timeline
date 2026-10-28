@@ -93,11 +93,15 @@ TypeScript lint, strict typechecking, and tests in every npm workspace, followed
 by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
 available) metadata. The GitHub Actions `Validate` workflow runs this exact
-command for every pull request and manual dispatch. The PR's `TypeScript and
-Python` job is the full regression gate. Pushes to `main` run a short smoke
-check with existing Node tests and Python syntax compilation; that smoke does
-not replace the full PR gate. Don't run the full command on the reference Intel
-Mac during normal work, because it takes one to three hours there.
+command for every pull request except those containing only allowlisted plain
+Markdown files at the repository root or under `docs/`. Those PRs use the
+`Docs only` check, which runs `git diff --check` on changed documentation. All
+other PRs and every manual dispatch run the full gate. The required
+`TypeScript and Python` result confirms the selected PR gate passed. Pushes to
+`main` keep a short smoke check with existing Node tests and Python syntax
+compilation; that smoke does not replace PR validation. Don't run the full
+command on the reference Intel Mac during normal work, because it takes one to
+three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone

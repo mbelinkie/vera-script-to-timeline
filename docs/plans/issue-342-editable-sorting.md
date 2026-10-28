@@ -119,8 +119,11 @@ limits or test coverage. #349 tracks the measured local verification slowdown.
 The branch subsequently integrated #118's document-only framing contract and
 #350's delivered CI policy. Those merges do not change the reviewed Sorting
 code or its consumers. The Producer additionally authorized a lightweight gate
-for strictly docs-only changes. Its assigned CI implementation and steward's
-targeted review remain a separate pending delta. This mixed code/docs #342 PR
+for strictly docs-only changes. Its CI implementation passed 54 focused Node
+checks, targeted ESLint and YAML parsing. The required Claude delta review
+identified runtime/test Markdown exclusions, undecodable-path routing and
+cancelled-run handling; all three findings were fixed before publication.
+This mixed code/docs #342 PR
 still requires the full
 `TypeScript and Python` PR gate; main's smoke and the docs-only path cannot
 substitute for it. The documentation in #291/#316/#317 remains in its own PRs.
