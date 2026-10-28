@@ -80,6 +80,10 @@ the choice in one line in the PR, and keep going.
 - Do feasibility checks against the real application early when an
   external-application assumption could sink a design. Simulated tests do not
   prove what Resolve can do.
+- Prefer Resolve's native capabilities over custom reimplementations. Check
+  the installed edition/version and supported automation/import route first;
+  verify the needed behavior in the real application, including save/reopen.
+  Build a custom fallback only for a demonstrated gap and explain that gap.
 - Before starting a backend issue, consult the relevant [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md)
   entries and reuse their supported conclusions. Before a live Resolve test, cite
   finding IDs and the unanswered question, changed assumption or affected regression;
