@@ -42,6 +42,22 @@ _MAX_HEIGHT = 720
 _SOURCE_BITRATE_THRESHOLD = 12_000_000
 _PROXY_MAX_BITRATE = 8_000_000
 _AUDIO_WINDOW_MS = 100
+_BROWSER_MP4_BRANDS = frozenset(
+    {
+        "isom",
+        "iso2",
+        "iso3",
+        "iso4",
+        "iso5",
+        "iso6",
+        "mp41",
+        "mp42",
+        "avc1",
+        "m4v",
+        "msnv",
+        "dash",
+    }
+)
 
 
 class ReviewProxyError(MediaPreparationError):
@@ -290,13 +306,18 @@ def _browser_safe_source(source: ReviewSource) -> bool:
 
 def _browser_safe_video(source: ReviewSource) -> bool:
     video = source.inspection.video
-    container = set(
-        str(source.inspection.probe.get("format", {}).get("format_name", "")).split(",")
+    format_data = source.inspection.probe.get("format", {})
+    container = set(str(format_data.get("format_name", "")).split(","))
+    tags = format_data.get("tags", {})
+    major_brand = (
+        str(tags.get("major_brand", "")).strip().lower()
+        if isinstance(tags, dict)
+        else ""
     )
     profile = str(video.get("profile", "")).lower()
     return (
-        source.path.suffix.lower() == ".mp4"
-        and "mp4" in container
+        "mp4" in container
+        and major_brand in _BROWSER_MP4_BRANDS
         and video.get("codec_name") == "h264"
         and any(name in profile for name in ("baseline", "main", "high"))
     ) and (

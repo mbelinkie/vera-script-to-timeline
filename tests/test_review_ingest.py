@@ -7,7 +7,9 @@ import subprocess
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, cast
+from threading import Event, Thread
+from time import sleep
+from typing import Any
 
 import pytest
 import vera_timeline_agent.review_ingest as review_ingest
@@ -97,6 +99,7 @@ class SyntheticReviewProxy:
         source_rate: Fraction = Fraction(25),
         source_pts_origin: Fraction = Fraction(0),
         source_frame_count: int = 24,
+        audio_offset_samples: int = 480,
     ) -> None:
         self.master = master
         self.original_bytes = master.read_bytes()
@@ -106,6 +109,7 @@ class SyntheticReviewProxy:
         self.source_rate = source_rate
         self.source_pts_origin = source_pts_origin
         self.source_frame_count = source_frame_count
+        self.audio_offset_samples = audio_offset_samples
         self.results: dict[tuple[str, str], StageResult] = {}
         self.runs: dict[str, int] = {"proxy": 0, "audio": 0, "waveform": 0}
         self.verifications: dict[str, int] = {"proxy": 0, "audio": 0, "waveform": 0}
@@ -116,18 +120,15 @@ class SyntheticReviewProxy:
         self.inspect_calls += 1
         content = path.read_bytes()
         changed = content != self.original_bytes
-        return cast(
-            SyntheticSource,
-            SyntheticSource(
-                path.resolve(),
-                SyntheticInspection(
-                    f"sha256:{hashlib.sha256(content).hexdigest()}",
-                    rate=self.source_rate,
-                    pts_origin=self.source_pts_origin,
-                    video_frames=[{} for _ in range(self.source_frame_count)],
-                ),
-                f"sha256:{'b' * 64}" if changed else REVIEW_GENERATION,
+        return SyntheticSource(
+            path.resolve(),
+            SyntheticInspection(
+                f"sha256:{hashlib.sha256(content).hexdigest()}",
+                rate=self.source_rate,
+                pts_origin=self.source_pts_origin,
+                video_frames=[{} for _ in range(self.source_frame_count)],
             ),
+            f"sha256:{'b' * 64}" if changed else REVIEW_GENERATION,
         )
 
     def run(
@@ -195,6 +196,12 @@ class SyntheticReviewProxy:
                 },
             }
         elif stage == "audio":
+            offset_samples = self.audio_offset_samples
+            source_skip = max(0, -offset_samples)
+            leading_silence = max(0, offset_samples)
+            copied_samples = min(48000 - source_skip, 48000 - leading_silence)
+            trailing_silence = 48000 - leading_silence - copied_samples
+            audio_offset = Fraction(offset_samples, 48000)
             evidence = {
                 "status": "aligned",
                 "sampleRate": 48000,
@@ -203,14 +210,14 @@ class SyntheticReviewProxy:
                 "sourceAudioFrames": 48000,
                 "outputAudioFrames": 48000,
                 "sourceVideoFrameCount": 24,
-                "sourceAudioOrigin": {"numerator": 1, "denominator": 100},
+                "sourceAudioOrigin": self._wire_fraction(audio_offset),
                 "sourceVideoOrigin": {"numerator": 0, "denominator": 1},
-                "audioOffsetFromVideo": {"numerator": 1, "denominator": 100},
-                "audioOffsetSamples": 480,
-                "sourceSamplesSkipped": 0,
-                "leadingSilenceSamples": 480,
-                "sourceSamplesCopied": 47520,
-                "trailingSilenceSamples": 0,
+                "audioOffsetFromVideo": self._wire_fraction(audio_offset),
+                "audioOffsetSamples": offset_samples,
+                "sourceSamplesSkipped": source_skip,
+                "leadingSilenceSamples": leading_silence,
+                "sourceSamplesCopied": copied_samples,
+                "trailingSilenceSamples": trailing_silence,
             }
         else:
             evidence = {"status": "ready", "audioHash": "audio-hash", "windowMs": 100}
@@ -383,9 +390,60 @@ def test_restart_reconciles_published_marker_and_handoff_has_verified_playback(
     assert proxy.inspect_calls > before_handoff_inspections
     assert proxy.verifications == {"proxy": 3, "audio": 3, "waveform": 3}
 
-    cast(Path, handoff.proxy_path).write_bytes(b"tampered proxy")
+    assert handoff.proxy_path is not None
+    handoff.proxy_path.write_bytes(b"tampered proxy")
     with pytest.raises(ReviewIngestError, match="derivative is corrupt"):
         restarted_adapter.verified_handoff("project-a", job_id)
+
+
+def test_adapter_renews_lease_while_media_stage_is_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "master.mp4"
+    master.write_bytes(b"synthetic master bytes")
+    proxy = SyntheticReviewProxy(master)
+    store = BuildJobStore(tmp_path / "jobs")
+    job_id = store.submit_ingest(request())
+    adapter = adapter_for(store, master, proxy, monkeypatch)
+    original_run = proxy.run
+    entered = Event()
+    release = Event()
+
+    def slow_run(*args: Any, **kwargs: Any) -> StageResult:
+        entered.set()
+        if not release.wait(timeout=5):
+            raise TimeoutError("lease heartbeat test timed out")
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(review_ingest, "run_review_stage", slow_run)
+    results: list[bool] = []
+    errors: list[BaseException] = []
+
+    def run_first_worker() -> None:
+        try:
+            results.append(
+                store.run_one(
+                    "project-a", job_id, "worker-a", adapter, lease_seconds=0.09
+                )
+            )
+        except BaseException as error:
+            errors.append(error)
+
+    worker = Thread(target=run_first_worker)
+    worker.start()
+    assert entered.wait(timeout=5)
+    sleep(0.18)
+    assert not store.run_one(
+        "project-a", job_id, "worker-b", adapter, lease_seconds=0.09
+    )
+    release.set()
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert errors == []
+    assert results == [True]
+    events = store.status("project-a", job_id)["events"]
+    assert any(event["kind"] == "lease_renewed" for event in events)
 
 
 def test_adapter_rejects_wrong_registered_project_or_source_before_dispatch(
@@ -448,12 +506,13 @@ def test_adapter_rejects_generation_change_and_unusable_master_handoff(
         unsafe_adapter.verified_handoff("project-a", unsafe_job_id)
 
 
-class SyntheticTools:
-    ffmpeg = "synthetic-ffmpeg"
-    ffprobe = "synthetic-ffprobe"
+class SyntheticTools(MediaTools):
+    def __init__(self) -> None:
+        super().__init__(ffmpeg="synthetic-ffmpeg", ffprobe="synthetic-ffprobe")
+        self.version = "synthetic-media-tools/v1"
 
-    def fingerprint(self) -> dict[str, str]:
-        return {"fixtureTools": "synthetic-media-tools/v1"}
+    def fingerprint(self) -> dict[str, Any]:
+        return {"fixtureTools": self.version}
 
     def run(self, command: list[str], *, timeout: float = 600) -> bytes:
         del timeout
@@ -570,7 +629,7 @@ def test_adapter_normalizes_review_hash_and_binds_registered_content(
             video_stream_index=0,
             audio_stream_index=1,
         ),
-        tools=tools,  # type: ignore[arg-type]
+        tools=tools,
     )
     job_id = adapter.submit_ingest("project-a", "source-a", "actual-source-flow")
     assert store.status("project-a", job_id)["generationIdentity"] == job_generation
@@ -589,7 +648,7 @@ def test_adapter_normalizes_review_hash_and_binds_registered_content(
             video_stream_index=0,
             audio_stream_index=1,
         ),
-        tools=tools,  # type: ignore[arg-type]
+        tools=tools,
     )
     with pytest.raises(ReviewIngestError, match="content hash differs"):
         wrong_hash_adapter.submit_ingest(
@@ -606,6 +665,60 @@ def test_adapter_normalizes_review_hash_and_binds_registered_content(
     assert handoff.generation_identity == job_generation
     assert handoff.master_content_hash == file_hash(master)
     assert handoff.audio_source == "audio-stage"
+
+
+def test_generation_scopes_idempotency_and_old_resume_refuses_tool_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "registered-master.mp4"
+    master.write_bytes(b"synthetic source for tool generation change")
+    tools = SyntheticTools()
+    inspected = synthetic_media_inspection(master)
+    monkeypatch.setattr(
+        review_proxy, "inspect_media", lambda *args, **kwargs: inspected
+    )
+    monkeypatch.setattr(
+        review_ingest, "inspect_review_source", review_proxy.inspect_review_source
+    )
+    proxy = SyntheticReviewProxy(master)
+    monkeypatch.setattr(review_ingest, "run_review_stage", proxy.run)
+    monkeypatch.setattr(review_ingest, "verify_review_stage", proxy.verify)
+    store = BuildJobStore(tmp_path / "tool-change-jobs")
+    adapter = ReviewIngestAdapter(
+        store,
+        cache_root=store.root / "review-cache",
+        resolve_master=lambda project_id, source_id: RegisteredMaster(
+            project_id,
+            source_id,
+            master,
+            file_hash(master),
+            video_stream_index=0,
+            audio_stream_index=1,
+        ),
+        tools=tools,
+    )
+
+    old_job = adapter.submit_ingest("project-a", "source-a", "same-caller-key")
+    old_generation = store.status("project-a", old_job)["generationIdentity"]
+    assert adapter.submit_ingest("project-a", "source-a", "same-caller-key") == old_job
+    assert store.run_one("project-a", old_job, "worker-a", adapter)
+
+    tools.version = "synthetic-media-tools/v2"
+    new_job = adapter.submit_ingest("project-a", "source-a", "same-caller-key")
+    new_generation = store.status("project-a", new_job)["generationIdentity"]
+    assert new_job != old_job
+    assert new_generation != old_generation
+
+    assert not store.run_one("project-a", old_job, "worker-a", adapter)
+    stale = store.status("project-a", old_job)
+    assert stale["status"] == "failed"
+    assert "generation identity differs" in str(stale["lastError"])
+    assert store.resume("project-a", old_job) == "queued"
+    assert not store.run_one("project-a", old_job, "worker-a", adapter)
+    resumed = store.status("project-a", old_job)
+    assert resumed["status"] == "failed"
+    assert "generation identity differs" in str(resumed["lastError"])
+    assert adapter.submit_ingest("project-a", "source-a", "same-caller-key") == new_job
 
 
 @pytest.mark.slow
@@ -844,6 +957,52 @@ def test_map_proxy_frame_range_uses_verified_nonzero_origin_and_exact_rate(
         adapter.map_proxy_frame_range("project-a", job_id, 2, 5)
 
 
+def test_verified_session_maps_ranges_without_rescanning_and_includes_final_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "master.mp4"
+    master.write_bytes(b"synthetic master bytes")
+    rate = Fraction(24000, 1001)
+    origin = Fraction(13, 7)
+    proxy = SyntheticReviewProxy(
+        master,
+        source_rate=rate,
+        source_pts_origin=origin,
+        source_frame_count=24,
+    )
+    store = BuildJobStore(tmp_path / "jobs")
+    job_id = store.submit_ingest(request())
+    adapter = adapter_for(store, master, proxy, monkeypatch)
+    for _ in range(3):
+        assert store.run_one("project-a", job_id, "worker-a", adapter)
+
+    session = adapter.open_verified_review_session("project-a", job_id)
+    calls_at_open = proxy.inspect_calls
+    verifications_at_open = dict(proxy.verifications)
+    assert session.video_source == "proxy"
+    assert session.video_muted is True
+    assert session.audio_source == "audio-stage"
+
+    session.map_proxy_frame_range(0, 1)
+    mapping = session.map_proxy_frame_range(23, 24)
+
+    assert proxy.inspect_calls == calls_at_open
+    assert proxy.verifications == verifications_at_open
+    assert mapping["frameRange"] == {"startInclusive": 23, "endExclusive": 24}
+    assert mapping["endBoundary"]["reviewFrameIndex"] == 24
+    assert mapping["endBoundary"]["sourceFrameIndex"] == 24
+    relative = Fraction(24, 1) / rate
+    source_pts = origin + relative
+    assert mapping["endBoundary"]["relativeTimeSeconds"] == {
+        "numerator": relative.numerator,
+        "denominator": relative.denominator,
+    }
+    assert mapping["endBoundary"]["sourcePtsSeconds"] == {
+        "numerator": source_pts.numerator,
+        "denominator": source_pts.denominator,
+    }
+
+
 def test_map_master_frame_range_uses_verified_source_facts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -896,3 +1055,24 @@ def test_map_master_frame_range_uses_verified_source_facts(
             "denominator": end_source_pts.denominator,
         }
     )
+
+
+def test_handoff_accepts_negative_audio_offset_with_crop_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "master.mp4"
+    master.write_bytes(b"synthetic master bytes")
+    proxy = SyntheticReviewProxy(master, audio_offset_samples=-480)
+    store = BuildJobStore(tmp_path / "jobs")
+    job_id = store.submit_ingest(request())
+    adapter = adapter_for(store, master, proxy, monkeypatch)
+    for _ in range(3):
+        assert store.run_one("project-a", job_id, "worker-a", adapter)
+
+    handoff = adapter.verified_handoff("project-a", job_id)
+    assert handoff.audio_timing is not None
+    assert handoff.audio_timing["audioOffsetSamples"] == -480
+    assert handoff.audio_timing["sourceSamplesSkipped"] == 480
+    assert handoff.audio_timing["leadingSilenceSamples"] == 0
+    assert handoff.audio_timing["sourceSamplesCopied"] == 47520
+    assert handoff.audio_timing["trailingSilenceSamples"] == 480

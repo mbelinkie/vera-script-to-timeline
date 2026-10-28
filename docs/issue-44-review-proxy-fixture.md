@@ -37,12 +37,16 @@ source, cache, or partial output.
 ## Run verified local ingest
 
 To exercise the real review-ingest adapter with a quick synthetic sample, make
-a 12-frame fixture using the same generation command with `--frames 12`, then
-run:
+a separate empty temp target for the 12-frame fixture, then run:
 
 ```sh
+TMP_ROOT="$(python3 -c 'import tempfile; print(tempfile.gettempdir())')"
+SHORT_TARGET_DIR="$(mktemp -d "$TMP_ROOT/vera-issue44-smoke-12.XXXXXX")"
+python3 scripts/issue44_fixture.py \
+  --output-dir "$SHORT_TARGET_DIR" --frames 12
+printf 'Fixture directory: %s\n' "$SHORT_TARGET_DIR"
 ./.venv/bin/python scripts/issue44_ingest_fixture.py \
-  --fixture-dir "$TARGET_DIR"
+  --fixture-dir "$SHORT_TARGET_DIR"
 ```
 
 The ingest command accepts only an explicit absolute fixture directory directly
@@ -53,13 +57,18 @@ reads the master without writing to it, and the script checks its content hash
 again before printing the handoff. The script does not upload or delete files.
 
 The job database, stage outputs, and review cache persist under
-`$TARGET_DIR/.issue44-ingest/`. Repeating the same command reuses the same job
-and idempotency key. If a stage ends in `waiting` or `failed`, rerun with
-`--resume` to retry that job. If the process stopped while a stage was active,
-the JSON failure includes the lease expiry; rerun after it expires. Long stage
-calls renew their lease while running. Success prints one JSON verified
-handoff to stdout; failures print JSON status and the visible error to stderr
-and return a nonzero exit code.
+`$SHORT_TARGET_DIR/.issue44-ingest/`. Keep the printed fixture path and rerun
+only the ingest command with that same path to reuse the existing job. Running
+the whole example again intentionally creates a fresh fixture and state
+directory. The CLI passes a stable request key; the adapter scopes it to the
+inspected generation. If the source, profile, or tool identity changes while
+using the same state directory, the adapter creates a distinct job and
+preserves the prior job and its artifacts. If a stage ends in `waiting` or
+`failed`, rerun with `--resume` to retry that job for the same generation. If
+the process stopped while a stage was active, the JSON failure includes the
+lease expiry; rerun after it expires. Long stage calls renew their lease while
+running. Success prints one JSON verified handoff to stdout; failures print
+JSON status and the visible error to stderr and return a nonzero exit code.
 
 The handoff contains `video_path`, `video_source`, `video_muted`, `frame_map`,
 `audio_path`, `audio_source`, `audio_timing`, and verified per-stage paths and

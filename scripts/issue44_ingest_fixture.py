@@ -8,8 +8,6 @@ import dataclasses
 import json
 import sys
 import tempfile
-import threading
-from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -23,54 +21,13 @@ from vera_timeline_agent.review_ingest import (
 
 PROJECT_ID = "issue44-fixture"
 SOURCE_ID = "numbered-master"
+# The adapter scopes this stable request key to its inspected generation.
 IDEMPOTENCY_KEY = "issue44-fixture-ingest-v1"
-LEASE_SECONDS = 300.0
-RENEW_INTERVAL_SECONDS = 30.0
 PAGE_TITLE = "Issue 44 local proxy playback check"
 
 
 class FixtureError(RuntimeError):
     """The selected directory is not a safe generated fixture."""
-
-
-class LeaseHeartbeat:
-    """Keep a long local FFmpeg stage from losing its durable worker lease."""
-
-    def __init__(self, adapter: ReviewIngestAdapter) -> None:
-        self.adapter = adapter
-
-    def _call(self, callback: Callable[[Any], Any], context: Any) -> Any:
-        stop = threading.Event()
-        renewal_errors: list[Exception] = []
-
-        def renew() -> None:
-            while not stop.wait(RENEW_INTERVAL_SECONDS):
-                try:
-                    context.renew_lease()
-                except Exception as error:
-                    renewal_errors.append(error)
-                    stop.set()
-                    return
-
-        heartbeat = threading.Thread(target=renew, daemon=True)
-        heartbeat.start()
-        try:
-            result = callback(context)
-        finally:
-            stop.set()
-            heartbeat.join()
-        if renewal_errors:
-            raise RuntimeError(f"could not renew ingest lease: {renewal_errors[0]}")
-        return result
-
-    def reconcile(self, context: Any) -> bool:
-        result = self._call(self.adapter.reconcile, context)
-        if not isinstance(result, bool):
-            raise TypeError("review ingest reconcile must return a boolean")
-        return result
-
-    def execute(self, context: Any) -> None:
-        self._call(self.adapter.execute, context)
 
 
 def fixture_directory(value: Path) -> Path:
@@ -193,18 +150,12 @@ def main() -> int:
             )
 
         store = BuildJobStore(state_root)
-        adapter = LeaseHeartbeat(
-            ReviewIngestAdapter(
-                store,
-                cache_root=cache_root,
-                resolve_master=resolve_master,
-            )
+        adapter = ReviewIngestAdapter(
+            store,
+            cache_root=cache_root,
+            resolve_master=resolve_master,
         )
-        job_id = adapter.adapter.submit_ingest(
-            PROJECT_ID,
-            SOURCE_ID,
-            IDEMPOTENCY_KEY,
-        )
+        job_id = adapter.submit_ingest(PROJECT_ID, SOURCE_ID, IDEMPOTENCY_KEY)
         status = store.status(PROJECT_ID, job_id)
         if status["status"] in ("waiting", "failed"):
             if not args.resume:
@@ -231,7 +182,6 @@ def main() -> int:
                 job_id,
                 "issue44-fixture-cli",
                 adapter,
-                lease_seconds=LEASE_SECONDS,
             )
             status = store.status(PROJECT_ID, job_id)
             if status["status"] == "complete":
@@ -250,7 +200,7 @@ def main() -> int:
                 file=sys.stderr,
             )
 
-        handoff = adapter.adapter.verified_handoff(PROJECT_ID, job_id)
+        handoff = adapter.verified_handoff(PROJECT_ID, job_id)
         master_hash_after = file_hash(master)
         if master_hash_after != master_hash_before:
             raise FixtureError(

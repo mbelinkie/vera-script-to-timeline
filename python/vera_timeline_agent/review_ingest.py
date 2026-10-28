@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any, Literal
 
 from vera_timeline_agent.build_jobs import (
@@ -95,6 +97,76 @@ class VerifiedReviewHandoff:
     stages: tuple[VerifiedReviewStage, ...]
 
 
+@dataclass(frozen=True)
+class VerifiedReviewSession:
+    """Immutable source/mapping snapshot verified when the session is opened.
+
+    Range mapping does not re-read media. Open a new session to revalidate the
+    current registered source and derivative artifacts.
+    """
+
+    project_id: str
+    source_id: str
+    generation_identity: str
+    master_path: Path
+    master_content_hash: str
+    source_probe_hash: str
+    video_source: ReviewPlaybackVideo
+    video_path: Path
+    video_muted: Literal[True]
+    proxy_path: Path | None
+    audio_source: ReviewPlaybackAudio
+    audio_path: Path | None
+    waveform_path: Path | None
+    source_rate: Fraction
+    source_pts_origin: Fraction
+    source_frame_count: int
+    review_pts_origin: Fraction
+    proxy_to_master_offset: Fraction
+    mapping_hash: str | None
+
+    def map_proxy_frame_range(self, start_frame: int, end_frame: int) -> Json:
+        if type(start_frame) is not int or type(end_frame) is not int:
+            raise ReviewIngestError("frame range bounds must be integers")
+        if not 0 <= start_frame < end_frame <= self.source_frame_count:
+            raise ReviewIngestError(
+                "frame range must be a non-empty half-open source range"
+            )
+        if self.source_rate <= 0 or self.source_frame_count <= 0:
+            raise ReviewIngestError("verified source frame facts are invalid")
+
+        def boundary(frame_index: int) -> Json:
+            relative_time = Fraction(frame_index, 1) / self.source_rate
+            review_pts = self.review_pts_origin + relative_time
+            source_pts = review_pts + self.proxy_to_master_offset
+            return {
+                "reviewFrameIndex": frame_index,
+                "sourceFrameIndex": frame_index,
+                "relativeTimeSeconds": _wire_fraction(relative_time),
+                "reviewPtsSeconds": _wire_fraction(review_pts),
+                "sourcePtsSeconds": _wire_fraction(source_pts),
+            }
+
+        return {
+            "method": "frame-index-identity/v1",
+            "projectId": self.project_id,
+            "sourceId": self.source_id,
+            "generationIdentity": self.generation_identity,
+            "sourceContentHash": self.master_content_hash,
+            "sourceProbeHash": self.source_probe_hash,
+            "videoSource": self.video_source,
+            "mappingHash": self.mapping_hash,
+            "frameRange": {
+                "startInclusive": start_frame,
+                "endExclusive": end_frame,
+            },
+            "sourceRate": _wire_fraction(self.source_rate),
+            "sourcePtsOrigin": _wire_fraction(self.source_pts_origin),
+            "startBoundary": boundary(start_frame),
+            "endBoundary": boundary(end_frame),
+        }
+
+
 def _valid_identity(value: object) -> bool:
     return (
         isinstance(value, str)
@@ -166,12 +238,18 @@ class ReviewIngestAdapter:
         generation_identity = source.generation_identity.removeprefix("sha256:")
         if not _valid_identity(generation_identity):
             raise ReviewIngestError("inspected review generation identity is invalid")
+        request_scope = hashlib.sha256(
+            f"review-ingest/v1\0{project_id}\0{source_id}\0{idempotency_key}".encode()
+        ).hexdigest()
+        store_idempotency_key = (
+            f"review-ingest/v1:{request_scope}:{generation_identity}"
+        )
         return self.store.submit_ingest(
             IngestRequest(
                 project_id,
                 source_id,
                 generation_identity,
-                idempotency_key,
+                store_idempotency_key,
             )
         )
 
@@ -247,38 +325,80 @@ class ReviewIngestAdapter:
     def verified_stage(self, context: StageContext) -> StageResult | None:
         """Re-check the derivative and durable marker for the active stage."""
         stage = self._validate_context(context)
-        _, source = self._inspect_registered_source(
-            context.project_id,
-            context.source_id or "",
-            context.generation_identity or "",
-        )
-        result = verify_review_stage(
-            source,
-            stage,
-            cache_root=self.cache_root,
-            output_path=context.output_path,
-        )
-        if result is not None:
-            self._check_result(result, stage, source.generation_identity)
-        return result
+        with self._lease_heartbeat(context):
+            _, source = self._inspect_registered_source(
+                context.project_id,
+                context.source_id or "",
+                context.generation_identity or "",
+            )
+            result = verify_review_stage(
+                source,
+                stage,
+                cache_root=self.cache_root,
+                output_path=context.output_path,
+            )
+            if result is not None:
+                self._check_result(result, stage, source.generation_identity)
+            return result
 
     def reconcile(self, context: StageContext) -> bool:
         return self.verified_stage(context) is not None
 
     def execute(self, context: StageContext) -> None:
         stage = self._validate_context(context)
-        _, source = self._inspect_registered_source(
-            context.project_id,
-            context.source_id or "",
-            context.generation_identity or "",
+        with self._lease_heartbeat(context):
+            _, source = self._inspect_registered_source(
+                context.project_id,
+                context.source_id or "",
+                context.generation_identity or "",
+            )
+            result = run_review_stage(
+                source,
+                stage,
+                cache_root=self.cache_root,
+                output_path=context.output_path,
+            )
+            self._check_result(result, stage, source.generation_identity)
+
+    @contextmanager
+    def _lease_heartbeat(self, context: StageContext) -> Iterator[None]:
+        """Renew the active store lease while inspection or media work is blocked."""
+        context.renew_lease()
+        job = self.store.status(context.project_id, context.job_id)
+        deadline = job.get("leaseUntil")
+        if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
+            raise ReviewIngestError("active ingest lease has no deadline")
+        remaining = deadline - self.store.clock()
+        interval = max(0.001, min(30.0, remaining / 3))
+        stopped = Event()
+        errors: list[Exception] = []
+
+        def renew_until_stopped() -> None:
+            while not stopped.wait(interval):
+                try:
+                    context.renew_lease()
+                except Exception as error:
+                    errors.append(error)
+                    stopped.set()
+                    return
+
+        heartbeat = Thread(
+            target=renew_until_stopped,
+            name=f"review-ingest-lease-{context.job_id}-{context.stage}",
+            daemon=True,
         )
-        result = run_review_stage(
-            source,
-            stage,
-            cache_root=self.cache_root,
-            output_path=context.output_path,
-        )
-        self._check_result(result, stage, source.generation_identity)
+        heartbeat.start()
+        try:
+            yield
+        except BaseException:
+            stopped.set()
+            heartbeat.join()
+            raise
+        else:
+            stopped.set()
+            heartbeat.join()
+            if errors:
+                raise errors[0]
 
     def verified_handoff(self, project_id: str, job_id: str) -> VerifiedReviewHandoff:
         """Return playback paths only after all stage artifacts are re-verified."""
@@ -434,22 +554,17 @@ class ReviewIngestAdapter:
             stages=stages,
         )
 
-    def map_proxy_frame_range(
-        self, project_id: str, job_id: str, start_frame: int, end_frame: int
-    ) -> Json:
-        """Map a half-open review-frame range using only a fresh verified handoff."""
+    def open_verified_review_session(
+        self, project_id: str, job_id: str
+    ) -> VerifiedReviewSession:
+        """Revalidate the ingest once and open an immutable mapping snapshot."""
         handoff = self.verified_handoff(project_id, job_id)
-        if type(start_frame) is not int or type(end_frame) is not int:
-            raise ReviewIngestError("frame range bounds must be integers")
-        if not 0 <= start_frame < end_frame <= handoff.source_frame_count:
-            raise ReviewIngestError(
-                "frame range must be a non-empty half-open source range"
-            )
         rate = handoff.source_rate
         origin = handoff.source_pts_origin
         if rate <= 0 or handoff.source_frame_count <= 0:
             raise ReviewIngestError("verified source frame facts are invalid")
 
+        mapping_hash: str | None = None
         if handoff.video_source == "proxy":
             frame_map = handoff.frame_map
             if not isinstance(frame_map, dict):
@@ -472,6 +587,9 @@ class ReviewIngestAdapter:
             proxy_to_master = _read_fraction(
                 frame_map.get("proxyToMasterOffset"), "proxy-to-master offset"
             )
+            mapping_hash = frame_map.get("mappingHash")
+            if not isinstance(mapping_hash, str):
+                raise ReviewIngestError("verified proxy mapping has no identity hash")
             if review_origin + proxy_to_master != origin:
                 raise ReviewIngestError(
                     "proxy PTS offset does not map to the master origin"
@@ -483,36 +601,35 @@ class ReviewIngestAdapter:
                 )
             review_origin = origin
             proxy_to_master = Fraction(0)
+        return VerifiedReviewSession(
+            project_id=handoff.project_id,
+            source_id=handoff.source_id,
+            generation_identity=handoff.generation_identity,
+            master_path=handoff.master_path,
+            master_content_hash=handoff.master_content_hash,
+            source_probe_hash=handoff.source_probe_hash,
+            video_source=handoff.video_source,
+            video_path=handoff.video_path,
+            video_muted=handoff.video_muted,
+            proxy_path=handoff.proxy_path,
+            audio_source=handoff.audio_source,
+            audio_path=handoff.audio_path,
+            waveform_path=handoff.waveform_path,
+            source_rate=rate,
+            source_pts_origin=origin,
+            source_frame_count=handoff.source_frame_count,
+            review_pts_origin=review_origin,
+            proxy_to_master_offset=proxy_to_master,
+            mapping_hash=mapping_hash,
+        )
 
-        def boundary(frame_index: int) -> Json:
-            relative_time = Fraction(frame_index, 1) / rate
-            review_pts = review_origin + relative_time
-            source_pts = review_pts + proxy_to_master
-            return {
-                "reviewFrameIndex": frame_index,
-                "sourceFrameIndex": frame_index,
-                "relativeTimeSeconds": _wire_fraction(relative_time),
-                "reviewPtsSeconds": _wire_fraction(review_pts),
-                "sourcePtsSeconds": _wire_fraction(source_pts),
-            }
-
-        return {
-            "method": "frame-index-identity/v1",
-            "projectId": handoff.project_id,
-            "sourceId": handoff.source_id,
-            "generationIdentity": handoff.generation_identity,
-            "sourceContentHash": handoff.master_content_hash,
-            "sourceProbeHash": handoff.source_probe_hash,
-            "videoSource": handoff.video_source,
-            "frameRange": {
-                "startInclusive": start_frame,
-                "endExclusive": end_frame,
-            },
-            "sourceRate": _wire_fraction(rate),
-            "sourcePtsOrigin": _wire_fraction(origin),
-            "startBoundary": boundary(start_frame),
-            "endBoundary": boundary(end_frame),
-        }
+    def map_proxy_frame_range(
+        self, project_id: str, job_id: str, start_frame: int, end_frame: int
+    ) -> Json:
+        """Verify for one request; use a session for interactive ranges."""
+        return self.open_verified_review_session(
+            project_id, job_id
+        ).map_proxy_frame_range(start_frame, end_frame)
 
     @staticmethod
     def _validate_audio_timing(evidence: Json) -> None:
@@ -528,7 +645,11 @@ class ReviewIngestAdapter:
         )
         if any(type(evidence.get(name)) is not int for name in numeric):
             raise ReviewIngestError("audio timing evidence is incomplete")
-        if any(evidence[name] < 0 for name in numeric if name != "sampleRate"):
+        if any(
+            evidence[name] < 0
+            for name in numeric
+            if name not in {"sampleRate", "audioOffsetSamples"}
+        ):
             raise ReviewIngestError("audio timing evidence contains a negative count")
         if (
             evidence["sampleRate"] <= 0

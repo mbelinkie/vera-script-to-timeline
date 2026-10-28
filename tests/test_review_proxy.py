@@ -27,11 +27,12 @@ class _FakeTools:
     def __init__(self, *, audio: bool = False, audio_frames: int = 2400) -> None:
         self.audio = audio
         self.audio_frames = audio_frames
+        self.version = "v1"
         self.proxy_calls = 0
         self.commands: list[list[str]] = []
 
     def fingerprint(self) -> dict[str, Any]:
-        return {"fixtureTool": "ffmpeg/ffprobe-v1"}
+        return {"fixtureTool": "ffmpeg/ffprobe-v1", "version": self.version}
 
     def run(self, command: list[str], *, timeout: float = 600) -> bytes:
         del timeout
@@ -77,6 +78,7 @@ def _inspection(
     audio_layout: str = "mono",
     audio_origin: Fraction = Fraction(0),
     audio_frames_count: int = 2400,
+    major_brand: str = "isom",
     frames_override: list[dict[str, Any]] | None = None,
 ) -> MediaInspection:
     pts_step = Fraction(1, 1) / rate / time_base
@@ -146,6 +148,7 @@ def _inspection(
         "streams": [video] + ([selected_audio] if selected_audio else []),
         "format": {
             "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "tags": {"major_brand": major_brand},
             "bit_rate": str(bitrate or 0),
             "duration": str(float(Fraction(frame_count, 1) / rate)),
         },
@@ -241,6 +244,37 @@ def test_profile_modes_thresholds_and_browser_safety(
     )
     assert profile_decision(never)["required"] is False
     assert profile_decision(always)["required"] is True
+
+
+def test_master_container_check_and_identity_ignore_path_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tools = _FakeTools()
+    source_spec = {"width": 640, "height": 360, "bitrate": 1_000_000}
+    mp4 = _review_source(
+        tmp_path / "master.mp4", monkeypatch, tools, source_spec=source_spec
+    )
+    mov = _review_source(
+        tmp_path / "relocated.mov", monkeypatch, tools, source_spec=source_spec
+    )
+
+    assert mp4.inspection.content_hash == mov.inspection.content_hash
+    assert mp4.inspection.probe_hash == mov.inspection.probe_hash
+    assert mp4.generation_identity == mov.generation_identity
+    assert profile_decision(mp4) == profile_decision(mov)
+    assert profile_decision(mov)["masterBrowserSafe"] is True
+    assert profile_decision(mov)["required"] is False
+
+    quicktime = _review_source(
+        tmp_path / "quicktime.mp4",
+        monkeypatch,
+        tools,
+        source_spec={**source_spec, "major_brand": "qt  "},
+    )
+    decision = profile_decision(quicktime)
+    assert decision["required"] is True
+    assert decision["reason"] == "browser_compatibility"
+    assert decision["masterVideoBrowserSafe"] is False
 
 
 def test_review_playback_gates_unsafe_master_and_accounts_for_safe_master(
@@ -367,10 +401,21 @@ def test_source_identity_and_changed_source_refusal(
     )
     assert threshold.generation_identity != always.generation_identity
 
+    tools.version = "v2"
+    new_tool_identity = _review_source(path, monkeypatch, tools)
+    assert new_tool_identity.generation_identity != threshold.generation_identity
+    with pytest.raises(ReviewProxyError, match="tool identity changed"):
+        run_review_stage(
+            threshold,
+            "proxy",
+            cache_root=tmp_path / "cache",
+            output_path=tmp_path / "job" / "proxy",
+        )
+
     path.write_bytes(b"changed synthetic master")
     with pytest.raises(ReviewProxyError, match="source changed"):
         run_review_stage(
-            threshold,
+            new_tool_identity,
             "proxy",
             cache_root=tmp_path / "cache",
             output_path=tmp_path / "job" / "proxy",
