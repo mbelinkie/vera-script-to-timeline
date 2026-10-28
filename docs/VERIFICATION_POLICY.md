@@ -33,15 +33,19 @@ find problems, not to produce paperwork.
    including its exemptions and targeted delta-review rule. This applies to
    in-flight and future issues and supersedes older issue/plan review rituals.
 3. **Full suite in the cloud.** The GitHub Actions `Validate` workflow runs the
-   complete `npm run validate` on every pull request and push to `main`.
-   Standard runners are free for this public repository. A green `Validate`
-   check on the PR **is** the full regression gate. Do not run the full `npm run validate` on
+   complete `npm run validate` on every pull request and manual dispatch. The
+   `TypeScript and Python` job on a PR is the full regression gate. Pushes to
+   `main` run a short `Main smoke` job with existing Node unit tests and a
+   Python syntax check; it does not replace the PR gate. Standard runners are
+   free for this public repository. Do not run the full `npm run validate` on
    the Producer's Mac: it takes one to three hours, occupies the machine and
    duplicates CI.
 4. **Merge.** Bring the branch up to date with `main`, then merge when local
-   fast checks pass and the PR's `Validate` check is green. An issue is not
-   done until its work is merged into `main`. Do not watch CI. Push, then do other work or end the turn and come
-   back. If CI fails, reproduce just the failing tests locally, fix and push.
+   fast checks pass and the PR's `TypeScript and Python` check is green. An
+   issue is not done until its work is merged into `main`. Do not watch CI.
+   Push, then do other work or end the turn and come back. If CI fails,
+   reproduce just the failing tests locally, fix and push. If the post-merge
+   `Main smoke` fails, fix forward through a PR.
 5. **Real-application checks.** Only when the issue changes DaVinci Resolve,
    Fusion or media behaviour that CI cannot exercise. Keep them short and
    targeted. Run them yourself through the available tooling where you can.

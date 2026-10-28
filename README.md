@@ -63,8 +63,8 @@ corresponding lockfile change with the dependency change.
 
 Testing, review and merge rules are in
 [the verification policy](docs/VERIFICATION_POLICY.md). In short: run fast
-checks locally, let GitHub Actions run the full suite, and merge when CI is
-green.
+checks locally, let GitHub Actions run the full suite for pull requests, and
+merge when the full PR check is green.
 
 During development, run:
 
@@ -92,10 +92,12 @@ It first proves that checked-in contract types are byte-current, then runs
 TypeScript lint, strict typechecking, and tests in every npm workspace, followed
 by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
-available) metadata. The GitHub Actions `Validate` workflow installs from both
-lockfiles and runs this exact command on every pull request and push to `main`;
-a green `Validate` check is the full regression gate. Don't run it on the
-reference Intel Mac during normal work, because it takes one to three hours there.
+available) metadata. The GitHub Actions `Validate` workflow runs this exact
+command for every pull request and manual dispatch. The PR's `TypeScript and
+Python` job is the full regression gate. Pushes to `main` run a short smoke
+check with existing Node tests and Python syntax compilation; that smoke does
+not replace the full PR gate. Don't run the full command on the reference Intel
+Mac during normal work, because it takes one to three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone

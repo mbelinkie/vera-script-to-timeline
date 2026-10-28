@@ -14,7 +14,9 @@ For backend issues, follow AGENTS.md's [knowledge reuse rule](docs/RESOLVE_KNOWL
   folder; it stays on `main`. "Done" means merged into `main`.
 - Locally, run focused tests and `npm run validate:fast`. Never run the full
   `npm run validate` on the Mac; GitHub Actions runs it on every pull request
-  and push to `main`. A green `Validate` check on the PR is the full gate.
+  and manual dispatch. Pushes to `main` run a short smoke check. The PR's
+  `TypeScript and Python` check is the full gate; the main smoke does not replace
+  it.
 - For Claude CLI reviews, read and follow `docs/CLAUDE_REVIEW_PLAYBOOK.md`,
   including on in-flight issues. Merge when CI is green; fix later bugs forward.
 - Close Automated issues yourself after merging (`npm run roadmap -- complete`).
