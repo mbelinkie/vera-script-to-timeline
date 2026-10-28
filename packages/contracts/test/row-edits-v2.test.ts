@@ -336,17 +336,17 @@ describe("provisional Sorting trials", () => {
     expect(trial.accept(baseline)).toMatchObject({ ok: true, changed: false });
   });
 
-  it("keeps trial content read-only and refuses corrupt or oversized saved trials", () => {
+  it("refuses unsupported commands and corrupt or oversized saved trials", () => {
     const [a, b] = [row(670), row(671)];
     const baseline = documentWith([a, b]);
     const trial = createSortingTrialV2(baseline);
     const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;
-    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
     expect(trial.undoDepth).toBe(0);
     expect(trial.document).toEqual(baseline);
     const saved = JSON.parse(trial.serialize()) as { actions: unknown[] };
     saved.actions = [contentEdit];
-    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/SORTING_CONTENT_READ_ONLY/);
+    expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/SORTING_COMMAND_INVALID/);
     saved.actions = [{ kind: "undo" }];
     expect(() => resumeSortingTrialV2(JSON.stringify(saved))).toThrow(/ROW_UNDO_EMPTY/);
     expect(() => resumeSortingTrialV2("x".repeat(5_000_001))).toThrow(/size limit/);
@@ -1407,7 +1407,7 @@ describe("independent Stash rows and optional sections", () => {
     expect(restored.document).toEqual(before);
   });
 
-  it("allows Stash organization in Sorting while retaining local Undo and content-read-only behavior", () => {
+  it("allows Stash organization in Sorting while retaining local Undo and rejecting unsupported commands", () => {
     const [a, b] = [row(740), row(741)];
     const stashed = applyRowEditV2(documentWith([a, b]), 0, { kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(9540) }).document;
     const trial = createSortingTrialV2(stashed);
@@ -1422,7 +1422,7 @@ describe("independent Stash rows and optional sections", () => {
     expect(trial.preview()).toEqual(trial.document);
     expect(trial.returnToSorting()).toBe(true);
     const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;
-    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_CONTENT_READ_ONLY");
+    expect(trial.apply(contentEdit).diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
     expect(trial.accept(stashed)).toMatchObject({ ok: true, changed: true });
   });
 });

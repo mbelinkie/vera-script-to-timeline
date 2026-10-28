@@ -80,6 +80,10 @@ the choice in one line in the PR, and keep going.
 - Do feasibility checks against the real application early when an
   external-application assumption could sink a design. Simulated tests do not
   prove what Resolve can do.
+- Prefer Resolve's native capabilities over custom reimplementations. Check
+  the installed edition/version and supported automation/import route first;
+  verify the needed behavior in the real application, including save/reopen.
+  Build a custom fallback only for a demonstrated gap and explain that gap.
 - Before starting a backend issue, consult the relevant [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md)
   entries and reuse their supported conclusions. Before a live Resolve test, cite
   finding IDs and the unanswered question, changed assumption or affected regression;
@@ -179,10 +183,13 @@ until there is a result or a question that needs him.
   test reveals a genuinely helpful technical lesson, send the context to the
   Codex task **VERA Engineering Lessons**
   (`threadId: 01a0627e-a2ea-7ab1-8975-9a85c5e8b4e9`, `hostId: local`) with
-  `send_message_to_thread`. Ask it for one brief plain-language explainer for a
-  non-engineer: the actual mechanism, why it exists, what it prevents, and the
-  VERA work that exposed it. Include the source issue. At most one lesson per
-  meaningful milestone; skip forced or repetitive ones.
+  `send_message_to_thread`. Send source material, not a finished lecture:
+  named libraries/tools and their roles, exact source paths or commit links,
+  the source issue, and actual outcomes with limitations. The lessons task
+  owns its current teaching brief and selects useful five-minute, tool-focused
+  explanations for a non-engineer. Keep private workplace context and mappings
+  in that task, never in this repository, GitHub, CI or reviewer inputs. At most
+  one handoff per meaningful milestone; skip forced or repetitive ones.
 
 ## Shell commands
 
