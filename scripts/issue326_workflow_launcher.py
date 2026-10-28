@@ -32,6 +32,9 @@ except Exception as error:
     mutations = getattr(error, "native_mutation_attempts", None)
     if mutations:
         result["nativeMutationAttempts"] = mutations
+    partial_evidence = getattr(error, "partial_evidence", None)
+    if type(partial_evidence) is dict:
+        result["partialEvidence"] = partial_evidence
 with result_path.open("x") as stream:
     json.dump(
         {"request": request, "requestSha256": request_sha256, "result": result},

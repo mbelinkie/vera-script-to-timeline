@@ -458,6 +458,56 @@ def test_import_checks_all_pinned_inputs_before_calling_resolve(tmp_path: Path) 
     assert project.GetTimelineCount() == 0
 
 
+def test_import_refuses_a_missing_source_before_calling_resolve(tmp_path: Path) -> None:
+    request, sidecar = _case(tmp_path)
+    resolve, project, calls = _native(request, sidecar)
+    Path(sidecar["music"]["sourcePath"]).unlink()
+
+    with pytest.raises(ValueError, match="not an existing absolute file"):
+        probe.run(resolve, request)
+
+    assert calls == []
+    assert project.GetTimelineCount() == 0
+
+
+def test_import_refuses_an_invalid_music_extent_before_calling_resolve(
+    tmp_path: Path,
+) -> None:
+    request, sidecar = _case(tmp_path)
+    resolve, project, calls = _native(request, sidecar)
+    sidecar["music"]["expectedNative"]["events"][-1]["durationFrames"] = 0
+    sidecar_path = Path(request["sidecarPath"])
+    sidecar_path.write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
+    request["sidecarSha256"] = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="invalid extent"):
+        probe.run(resolve, request)
+
+    assert calls == []
+    assert project.GetTimelineCount() == 0
+
+
+def test_sidecar_accepts_the_eleven_second_frame_bound(tmp_path: Path) -> None:
+    request, sidecar = _case(tmp_path)
+    placeholder = next(
+        row
+        for row in sidecar["music"]["expectedNative"]["events"]
+        if row["kind"] == "placeholder"
+    )
+    placeholder["recordStartFrame"] = 216
+    sidecar_path = Path(request["sidecarPath"])
+    sidecar_path.write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
+    request["sidecarSha256"] = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+
+    payload, _ = probe._sidecar(request)
+
+    assert payload["caseId"] == "word-end-b"
+    assert max(
+        row["recordStartFrame"] + row["durationFrames"]
+        for row in payload["music"]["expectedNative"]["events"]
+    ) == probe.MAX_RENDER_FRAMES == 264
+
+
 def test_import_adds_one_new_named_timeline_and_reads_back_every_event(
     tmp_path: Path,
 ) -> None:
@@ -595,11 +645,13 @@ def test_render_starts_only_the_new_owned_job_and_restores_music_occurrence(
     parent.mkdir()
     old_job = {
         "JobId": "old-ready-job",
-        "TimelineName": timeline.GetName(),
+        "TimelineName": "VERA326_MUSIC_duration_end_b_original",
         "IsExportVideo": False,
         "IsExportAudio": True,
-        "TargetDir": str(parent / "prior-operation"),
-        "OutputFilename": "vera326-word-end-b-narration-prior-operation.wav",
+        "TargetDir": str(
+            tmp_path / "prior-case" / "native-renders" / "prior-operation"
+        ),
+        "OutputFilename": "vera326-duration-end-b-narration-prior-operation.wav",
     }
     project.render_jobs.append(old_job)
     project.render_statuses["old-ready-job"] = {
@@ -635,8 +687,114 @@ def test_render_starts_only_the_new_owned_job_and_restores_music_occurrence(
     assert result["musicClipEnabledAfterRestore"] is True
     assert result["musicClipEnabledAfterRender"] is True
     assert timeline.GetItemListInTrack("audio", 2)[0].GetClipEnabled() is True
+    assert project.render_presets == []
     assert Path(result["outputPath"]).is_file()
     assert result["renderJobStatus"]["JobStatus"] == "Complete"
+
+
+def test_render_timeout_preserves_partial_evidence_without_restoring_active_clip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request, sidecar = _case(tmp_path)
+    resolve, project, _ = _native(request, sidecar)
+    timeline = _Timeline(
+        "timeline-1",
+        "VERA326_MUSIC_word_end_b_1",
+        sidecar["music"]["expectedNative"]["events"],
+    )
+    project.timelines.append(timeline)
+    parent = tmp_path / "renders"
+    parent.mkdir()
+    output = parent / "word-end-b-render-timeout-test-1"
+    request.update(
+        action="render",
+        operationId=output.name,
+        timelineId=timeline.GetUniqueId(),
+        timelineName=timeline.GetName(),
+        includeMusic=False,
+        bitDepth=16,
+        renderDirectory=str(output),
+    )
+    monkeypatch.setattr(
+        probe.shutil,
+        "disk_usage",
+        lambda _path: type("DiskUsage", (), {"free": probe.MIN_FREE_BYTES})(),
+    )
+    active = {"value": False}
+    start_rendering = project.StartRendering
+
+    def start_and_stay_active(job_ids: list[str], interactive: bool) -> bool:
+        started = start_rendering(job_ids, interactive)
+        project.render_statuses[job_ids[0]] = {
+            "JobStatus": "Rendering",
+            "CompletionPercentage": 60,
+        }
+        active["value"] = True
+        return started
+
+    monkeypatch.setattr(project, "StartRendering", start_and_stay_active)
+    monkeypatch.setattr(project, "IsRenderingInProgress", lambda: active["value"])
+    ticks = iter((0.0, 0.0, 2.0))
+    monkeypatch.setattr(probe.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(probe, "RENDER_TIMEOUT_SECONDS", 1)
+
+    with pytest.raises(probe.ProbeFailure, match="did not finish") as error:
+        probe.run(resolve, request)
+
+    evidence = error.value.partial_evidence
+    assert evidence is not None
+    assert evidence["status"] == "failed"
+    assert evidence["renderJobId"] == "job-1"
+    assert evidence["renderDirectory"] == str(output)
+    assert evidence["renderJobStatus"]["JobStatus"] == "Rendering"
+    assert evidence["musicClipEnabledAfterRestore"] is None
+    assert evidence["renderStillActive"] is True
+    assert timeline.GetItemListInTrack("audio", 2)[0].GetClipEnabled() is False
+
+
+def test_workflow_launcher_writes_partial_probe_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import runpy
+
+    native_root = tmp_path / ".local/share/vera/issue-326-native"
+    native_root.mkdir(parents=True)
+    operation = "launcher-partial-evidence-test-1"
+    partial = {
+        "status": "failed",
+        "renderJobId": "job-1",
+        "renderDirectory": str(tmp_path / "render-output"),
+        "renderJobStatus": {"JobStatus": "Rendering"},
+        "musicClipEnabledAfterRestore": None,
+        "renderStillActive": True,
+    }
+    attempts = ["project.StartRendering"]
+    source = tmp_path / "failing_probe.py"
+    source.write_text(
+        "def run(resolve, request):\n"
+        "    error = RuntimeError('render timeout')\n"
+        f"    error.native_mutation_attempts = {attempts!r}\n"
+        f"    error.partial_evidence = {partial!r}\n"
+        "    raise error\n",
+        encoding="utf-8",
+    )
+    request = {
+        "operationId": operation,
+        "action": "render",
+        "script": str(source),
+        "scriptSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+    }
+    (native_root / "request.json").write_text(json.dumps(request), encoding="utf-8")
+    launcher = Path(__file__).resolve().parents[1] / "scripts/issue326_workflow_launcher.py"
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    runpy.run_path(str(launcher), init_globals={"resolve": object()})
+
+    result = json.loads((native_root / f"{operation}.result.json").read_bytes())[
+        "result"
+    ]
+    assert result["nativeMutationAttempts"] == attempts
+    assert result["partialEvidence"] == partial
 
 
 def test_render_refuses_before_writes_without_occurrence_enable_readback(

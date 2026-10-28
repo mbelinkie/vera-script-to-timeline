@@ -14,7 +14,7 @@ PRODUCT = "DaVinci Resolve Studio"
 VERSION = "21.1.1.10"
 PROJECT_PREFIX = "VERA326_MUSIC_"
 SIDECAR_SCHEMA = "issue326-music-probe/v1"
-MAX_RENDER_FRAMES = 240  # Ten seconds at the pinned 24 fps project rate.
+MAX_RENDER_FRAMES = 264  # Eleven seconds at the pinned 24 fps project rate.
 MIN_FREE_BYTES = 40 * 1024**3
 RENDER_TIMEOUT_SECONDS = 45
 _TERMINAL_JOBS = {"Complete", "Failed", "Cancelled"}
@@ -23,9 +23,17 @@ _TERMINAL_JOBS = {"Complete", "Failed", "Cancelled"}
 class ProbeFailure(ValueError):
     """A refusal after a native mutation attempt, with the calls retained."""
 
-    def __init__(self, message: str, native_mutation_attempts: list[str]) -> None:
+    def __init__(
+        self,
+        message: str,
+        native_mutation_attempts: list[str],
+        partial_evidence: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.native_mutation_attempts = list(native_mutation_attempts)
+        self.partial_evidence = (
+            dict(partial_evidence) if partial_evidence is not None else None
+        )
 
 
 def _require(condition: bool, message: str) -> None:
@@ -318,7 +326,7 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         > MAX_RENDER_FRAMES
     ):
         raise ValueError(
-            "sidecar timeline is outside the bounded 24 fps / ten-second probe"
+            "sidecar timeline is outside the bounded 24 fps / eleven-second probe"
         )
 
     inventory = request.get("fileInventory")
@@ -964,35 +972,20 @@ def _render(
     if None in prior_ids:
         raise ValueError("existing render job identity is unreadable")
     retained_ready_jobs: list[dict[str, Any]] = []
+    # Ready jobs stay queued; StartRendering below receives only the new job ID.
     for job_id in prior_ids:
         status = project.GetRenderJobStatus(job_id)
         if type(status) is not dict:
             raise ValueError("existing render job status is unreadable")
         if status.get("JobStatus") in _TERMINAL_JOBS:
             continue
+        if status.get("JobStatus") != "Ready":
+            raise ValueError("an existing render job is neither terminal nor Ready")
         old_job = next(row for row in prior_jobs if _job_id(row) == job_id)
-        old_target = Path(str(old_job.get("TargetDir", ""))).resolve()
-        owned_ready_wav = (
-            status.get("JobStatus") == "Ready"
-            and old_job.get("TimelineName") == timeline.GetName()
-            and old_job.get("IsExportVideo") is False
-            and old_job.get("IsExportAudio") is True
-            and old_target.parent == output_dir.parent.resolve()
-            and str(old_job.get("OutputFilename", "")).startswith(
-                f"vera326-{sidecar['caseId']}-"
-            )
-            and str(old_job.get("OutputFilename", "")).endswith(".wav")
-        )
-        if not owned_ready_wav:
-            raise ValueError("an existing render job is not terminal")
         retained_ready_jobs.append({"job": old_job, "status": status})
 
     current_format = project.GetCurrentRenderFormatAndCodec()
     current_mode = project.GetCurrentRenderMode()
-    preset_name = f"VERA326_RESTORE_{request['operationId']}"
-    presets = project.GetRenderPresetList()
-    if type(presets) not in {list, tuple} or preset_name in presets:
-        raise ValueError("unique render-settings recovery preset is unavailable")
     output_dir.mkdir(mode=0o700)
     render_label = "mixed" if include_music else "narration"
     custom_name = f"vera326-{sidecar['caseId']}-{render_label}-{request['operationId']}"
@@ -1001,7 +994,6 @@ def _render(
     clip_disable_return: Any = None
     clip_enabled_after_disable: Any = None
     clip_enabled_after_restore: Any = None
-    preset_saved = False
     active = False
     job_id: str | None = None
     job: dict[str, Any] | None = None
@@ -1012,17 +1004,6 @@ def _render(
     failure: Exception | None = None
     evidence: dict[str, Any] = {}
     try:
-        saved_preset = _attempt(
-            attempts, "project", project, "SaveAsNewRenderPreset", preset_name
-        )
-        preset_saved = (
-            saved_preset is True
-            and project.GetRenderPresetList().count(preset_name) == 1
-        )
-        if not preset_saved:
-            raise ValueError(
-                "Resolve did not save the unique render-settings recovery preset"
-            )
         if not include_music:
             clip_disable_attempted = True
             clip_disable_return = _attempt(
@@ -1129,8 +1110,6 @@ def _render(
             "renderJobStatus": status,
             "startRenderingReturn": start_return,
             "settings": settings,
-            "restorePresetName": preset_name,
-            "restorePresetRetained": True,
         }
     except Exception as error:
         failure = error
@@ -1153,7 +1132,6 @@ def _render(
             "musicClipDisableReturn": clip_disable_return,
             "musicClipEnabledAfterDisable": clip_enabled_after_disable,
             "musicClipEnabledAfterRestore": clip_enabled_after_restore,
-            "restorePresetName": preset_name if preset_saved else None,
             "error": str(error),
             "renderStillActive": active,
         }
@@ -1178,6 +1156,13 @@ def _render(
                 "; ".join(restore_errors)
                 + (f"; original failure: {failure}" if failure else "")
             )
+        if failure is not None:
+            evidence.update(
+                status="failed",
+                error=str(failure),
+                renderStillActive=active,
+                musicClipEnabledAfterRestore=clip_enabled_after_restore,
+            )
         if failure is None:
             after, _ = _readback(project, timeline, sidecar)
             _same_narration(before, after)
@@ -1194,7 +1179,7 @@ def _render(
                 evidence["musicClipEnabledAfterRestore"] = clip_enabled_after_restore
     if failure is not None:
         if attempts:
-            raise ProbeFailure(str(failure), attempts) from failure
+            raise ProbeFailure(str(failure), attempts, evidence) from failure
         raise failure
     return evidence
 
