@@ -2,9 +2,11 @@
 
 Status as of 2026-10-28: this issue branch implements the first-interruption
 domain correction; local verification is recorded below. This packet records
-the smallest later proof seam and consumer limits. No package or native result
-is claimed; native and CI publication remain held by the Steward. #326 remains
-open until the original external criteria and merged delivery are satisfied.
+the bounded proof seam and consumer limits. Host preparation and native
+placement/readback have passed for the word-end case. Native decoded-output
+proof is still pending; publication remains held in the shared CI queue. #326
+remains open until the original external criteria and merged delivery are
+satisfied.
 
 ## Reuse and exact current boundary
 
@@ -106,8 +108,21 @@ its retained endpoint-only restriction still refused required middle-row and
 insertion moves. Its generated tests also used incorrect public APIs. This
 proves successful completion under those request conditions, not a controlled
 quality comparison: task size, reasoning effort, output budget and JSON format
-all differed from the first attempt. Cumulative verified usage across #118
-and #326 is $0.24759834, within the unchanged $1 trial cap.
+all differed from the first attempt.
+
+A later bounded automatic repair trial used one DeepSeek worker with deterministic
+edit/test/failure feedback, frozen tests and type checks, high Thinking and a
+65,536-token output ceiling. Its first repair passed 49/51 tests; feeding the
+two remaining failures back produced 51/51 plus typecheck on the second repair.
+Codex did not edit the candidate or tests between those rounds. The two repairs
+cost $0.08604288 and took 521 seconds. This is evidence for the bounded repair
+process, not general correctness: the candidate was not substituted for the
+smaller independently corrected implementation, and a legacy-alert edge remains
+outside that frozen test set. Seven fully accounted requests across #118/#326
+total $0.33364122. The Producer subsequently authorized a $10 cumulative cap,
+including historical usage; no extra requests were made to use that allowance.
+The private reusable controller and its 23 offline tests add no provider or
+credential integration to this repository.
 
 ## Local checkpoint verification
 
@@ -117,6 +132,12 @@ all lint/type checks and fast TypeScript tests pass (contracts: 663 tests).
 Compiler code and goldens are unchanged; existing compiler/media-needs
 refusals remain exercised by the fast tests.
 
+The focused slow host-preparation integration test passed once (142 seconds).
+It verifies the production compiler refusal, span-free real compile/package
+verification and the derived OTIO source/record ranges. The four focused audio
+checker tests also passed, including rejection of a one-second trim error and
+a six-frame-short cue; those synthetic checks qualify the checker, not Resolve.
+
 `validate:fast` exited 1: Python passed 1,902/1,903 tests, with
 `test_actual_capability_bootstrap_returns_and_retains_refusal[loaded]`
 in `test_issue208_review_fixes.py` failing on a wall/monotonic clock mismatch
@@ -125,41 +146,96 @@ are unchanged by #326. The exact failed test passed on one isolated rerun
 (2.35 s), without source or assertion changes. This is not a green aggregate
 run; retain the original failure when assessing release readiness.
 
-Claude review remains pending the final issue diff. Cloud Validate,
-publication and all native/media proof remain pending under the Steward's
-holds. This local checkpoint does not close #326 or unblock its consuming
+Claude review remains pending the final issue diff. Cloud Validate and
+publication remain queued; native decoded-output proof is still pending. A
+read-only injected Workflow Integration check reached the new empty issue-owned
+project on Studio 21.1.1 build 10 with injected Python 3.14.7. The external
+connector remained unreachable, and its scripting preference was not inferred
+or changed. This checkpoint does not close #326 or unblock its consuming
 audible promises.
 
-## Smallest later probe and consumer handoff
+## Bounded probe and current evidence
 
-1. Use one public, generated, hash-bound distinguishable tone file and a saved
-   synthetic document. Exercise one word-ended cue and one duration-ended
-   variation over two synthetic narration/visual rows, then the five-row
-   interruption case. Include intact run reorder and a neighboring duration
-   change. Preserve narration row timing and internal cuts.
-2. Bridge the saved span through a clearly labeled **probe-only** consumer into
-   the smallest versioned audio-only package event/track that #177 can attest,
-   deliver and read back. Bind the cue's file hash, source sample range,
-   computed record extent, row-span identity and settings. Do not relabel the
-   existing visual `source_audio` event as a music cue. #100 remains owner of
-   production library, typed cue settings and UI integration.
-3. Build only a new disposable project/timeline. Save, close, reopen, verify
-   event identity, record/source range and gain/fade settings, then render and
-   decode the output to compare cue start/end/trim and unaffected narration
-   timing. Record the actual Resolve edition/build and route. Reuse only
-   relevant #178/#249 findings; their source-audio cases do not transfer.
-4. Exercise one audio-only semantic change as a single unit. The current row
-   transaction is atomic in memory; `studio_assembly.py` creates a project and
-   can retain a partial target after mutation failure, so it does not provide
-   general native all-or-none update semantics
-   ([assembly boundary](../../python/vera_timeline_agent/studio_assembly.py#L180-L206)).
-   Report the tested unit precisely. Do not claim a reusable selective-plan
-   runner; #128's outbound selection/retry mechanism is separately owned by
-   #328, and #35 job stages do not supply it.
-5. If the route cannot bind saved intent to package, native readback and decoded
-   output, or cannot keep a failed audio-only unit from being treated as
-   committed, record that as the exact negative limit. Do not substitute a
-   manually placed timeline or remove the feature promise.
+The host preparer binds a saved synthetic authoring snapshot, raw snapshot hash,
+live content hash, active row span, compiler inputs, package manifest, build
+ID and source hashes in `music-probe.json`. It first confirms that the
+production compiler refuses active `rowAudioSpans` with
+`ROW_AUDIO_RUNTIME_UNAVAILABLE`. It then compiles a refreshed, span-free
+probe-only copy through the real compile CLI and unchanged v2 package builder
+and verifier. The span remains in the evidence snapshot; the music event is
+added only to a derived OTIO track after base-package verification. It does not
+claim that production compilation or `source_audio` supports music.
+
+The six defined probe cases use 24 fps, 48 kHz mono PCM and five narration
+rows. Each narration row has a distinct 220–440 Hz tone at 0.12 peak; the
+12-second music source has 24 successive half-second tones (620–1540 Hz) at
+0.4 peak, begins at source sample 48,000, is requested at −12 dB, and has
+six-frame fades at both ends.
+
+| Case | Edit or endpoint | Expected music record range | Source sample range |
+| --- | --- | --- | --- |
+| `word-end-b` | Word-end endpoint in B | 0–84 frames | 48,000–216,000 |
+| `duration-end-b` | Duration endpoint in B | 0–96 frames | 48,000–240,000 |
+| `neighbor-duration-change` | A grows to 72 frames before B | 0–120 frames | 48,000–288,000 |
+| `intact-reorder` | Move intact A–B after C | 48–144 frames | 48,000–240,000 |
+| `abc-ed-first-interruption` | Move E between C and D; retain A–B–C | 0–144 frames | 48,000–336,000 |
+| `issue125-ending-row-moved` | Move the ending row past unrelated rows; retain the chalk-crescent middle row | 0–96 frames | 48,000–240,000 |
+
+For the first native word-end case, Studio 21.1.1.10 with injected Python
+3.14.7 imported 11 expected events (10 base events plus one music event).
+Their source hashes, paths and record ranges matched the sidecar; the music
+was on audio track 2 at record frames 0–84 and source frames 24–108. The five
+narration clips remained unchanged. Single-frame PNG visuals held as expected.
+The requested −12 dB level and six-frame fades read back. An invalid
+`SetProperties` key returned false without changing the timeline. Saving,
+closing and reopening preserved the same project and timeline identity.
+
+This native evidence establishes placement, readback and reopen behavior only.
+Rendering and decode have not yet established audible cue start, end, trim,
+gain, fades or narration equivalence. The declared fade curve is linear, but
+Resolve's actual default fade curve remains unqualified until decoded output is
+compared.
+
+### Run guide
+
+Prepare one case or all six in an absolute disposable output directory:
+
+```sh
+uv run python scripts/issue326_prepare_music_probe.py \
+  --out <absolute-disposable-directory> --case word-end-b
+```
+
+Repeat `--case` to choose multiple cases; omit it to prepare all six. The host
+preparer requires the pinned Node 24.19.0 runtime. The native entry point is
+`scripts/issue326_workflow_launcher.py`, run through the injected Resolve
+Workflow Integration route with a hash-pinned request. It dispatches the
+probe-only `inspect`, `import`, `diagnose`, `readback`, `save_reopen`,
+`configure` and `render` operations; it is not a production delivery adapter.
+Pair a narration-only baseline render with the music render for each case and
+check them with:
+
+```sh
+uv run python scripts/issue326_check_music_audio.py \
+  --probe <case-directory>/music-probe.json \
+  --baseline-wav <baseline.wav> --mixed-wav <mixed.wav>
+```
+
+The decoder checks source-time tones, cue bounds, sustained gain, six-frame
+fade envelopes and narration against baseline. Its tone schedule detects
+replacement and source shifts of 50 ms or more; short-lived level changes may
+be averaged. Fade-curve error is diagnostic because Resolve may apply another
+curve. Synthetic tones do not qualify arbitrary music or ducking behavior.
+
+### Remaining evidence and consumer handoff
+
+The actual native baseline/mixed renders and decoded comparison remain the
+next gate. Until they pass, there is no audible proof. Report any failed
+mutation at the tested unit; the in-memory row transaction is atomic, while
+`studio_assembly.py` can retain a partial project after mutation failure
+([assembly boundary](../../python/vera_timeline_agent/studio_assembly.py#L180-L206)).
+This probe does not establish general native all-or-none update semantics or a
+reusable selective-plan runner; #128's outbound selection/retry mechanism is
+separately owned by #328, and #35 job stages do not supply it.
 
 Consumer handoff: #125 can present the endpoint and review alert from the saved
 domain result while this runtime hold remains. #128 can treat one cue add,

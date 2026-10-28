@@ -745,7 +745,7 @@ bounded safe changes.
 
 ### RK-42 — Saved row intent and native probes are not normal product delivery
 
-**Proved domain mechanisms; runtime unsupported/unproved.**
+**Proved domain mechanisms and one bounded native music probe; production runtime unsupported.**
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -763,7 +763,17 @@ supersedes #307/#310's starting-row-only broken-span rule: retain the consecutiv
 original prefix and stop at its first interrupted join. The
 [#326 domain correction and proof packet](investigations/issue-326-music-proof-plan.md)
 cover same-section row moves, endpoint review, legacy saved alerts and Undo.
-The audible result remains unproved; this adds no qualified runtime route.
+The first #326 word-ended probe now binds saved synthetic intent through a
+span-free real compile/package and separate derived music OTIO to Studio
+**21.1.1 build 10**, injected Python **3.14.7**. It imported/read back 11 events,
+set −12 dB and six-frame fades, rejected an invalid property update without
+changing audio, and saved/closed/reopened the same target. Paired PCM16/48 kHz
+native WAVs verified the one-second source trim, 84-frame cue, time-coded
+music sequence and unchanged narration. The stereo-framed export carried the
+measured fixture signal only in channel 1; stereo routing remains unqualified.
+The default fade envelope was close to linear in measured windows; arbitrary
+curves and sub-50 ms source changes are not qualified. The duration/reorder
+variants remain pending. This probe does not add a production runtime route.
 #326 owns that proof, #100 production
 audio; #327 owns finishing preservation, #328 frozen selective execution/retry,
 and #104/#157 production composition. #35's tested generic job stages (synthetic
