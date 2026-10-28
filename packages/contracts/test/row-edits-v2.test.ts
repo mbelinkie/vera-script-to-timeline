@@ -1028,7 +1028,8 @@ describe("independent Stash rows and optional sections", () => {
     const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(setup.document));
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
-    expect(loaded.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [a.id, b.id, c.id] }]);
+    expect(loaded.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(loaded.document.stashOutline).toEqual([a, b, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
 
     const session = createRowEditSessionV2(loaded.document);
     const restored = session.apply({
@@ -1042,14 +1043,16 @@ describe("independent Stash rows and optional sections", () => {
     expect(restored.document.rowTransitions).toEqual([{ id: id(9600), fromRowId: a.id, toRowId: b.id, effect: "crossfade", settings: { frames: 5 }, state: "needs_review" }]);
     expect(restored.document.stash?.[0]?.rows).toEqual([a, c]);
     expect(restored.document.stash?.[0]?.supportingItems).toEqual([attachments[0], attachments[2]]);
-    expect(restored.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [a.id, c.id] }]);
+    expect(restored.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(restored.document.stashOutline).toEqual([a, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
 
     expect(session.undo().ok).toBe(true);
     expect(rows(session.document)).toEqual([before.id, after.id]);
     expect(session.document.activeDraft.supportingItems).toEqual([]);
     expect(session.document.stash?.[0]?.rows).toEqual([a, b, c]);
     expect(session.document.stash?.[0]?.supportingItems).toEqual(attachments);
-    expect(session.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [a.id, b.id, c.id] }]);
+    expect(session.document.stashSections).toEqual([{ id: id(9400), title: "Research", rowIds: [] }]);
+    expect(session.document.stashOutline).toEqual([a, b, c].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9400) })));
   });
 
   it("restores explicit multi-selection in visible order without restoring an unselected neighbor", () => {
@@ -1069,7 +1072,8 @@ describe("independent Stash rows and optional sections", () => {
     expect(restored.ok).toBe(true);
     expect(rows(restored.document)).toEqual([before.id, a.id, c.id, after.id]);
     expect(restored.document.stash?.[0]?.rows).toEqual([b]);
-    expect(restored.document.stashSections).toEqual([{ id: id(9420), title: "Later", rowIds: [b.id] }]);
+    expect(restored.document.stashSections).toEqual([{ id: id(9420), title: "Later", rowIds: [] }]);
+    expect(restored.document.stashOutline).toEqual([{ rowId: b.id, kind: "row", parentRowId: null, sectionId: id(9420) }]);
   });
 
   it("refuses stale or invalid membership changes without mutating the saved document", () => {
@@ -1095,7 +1099,9 @@ describe("independent Stash rows and optional sections", () => {
     const invalid = structuredClone(created.document);
     invalid.stashSections![0]!.rowIds = [id(9999)];
     expect(validateScriptDocumentV2(invalid).diagnostics.some((item) => item.code === "ROW_REFERENCE_INVALID")).toBe(true);
-    expect(deserializeAuthoringDocumentV2(JSON.stringify(invalid))).toMatchObject({ ok: false, diagnostics: [{ code: "ROW_REFERENCE_INVALID" }] });
+    const invalidSaved = deserializeAuthoringDocumentV2(JSON.stringify(invalid));
+    expect(invalidSaved.ok).toBe(false);
+    if (!invalidSaved.ok) expect(invalidSaved.diagnostics.some((item) => item.code === "ROW_REFERENCE_INVALID")).toBe(true);
 
     const audioProtected = documentWith([], { rowAudioSpans: [audioSpan(9550, a.id, b.id)] });
     audioProtected.stash = [{ id: id(9549), rows: [a, b], supportingItems: [] }];
@@ -1147,7 +1153,8 @@ describe("independent Stash rows and optional sections", () => {
     expect(trial.document.activeDraft.blocks.map((block) => block.id)).toEqual([b.id]);
     expect(trial.undo().ok).toBe(true);
     expect(trial.document.stash?.[0]?.rows).toEqual([a, b]);
-    expect(trial.document.stashSections).toEqual([{ id: id(9440), title: "Later", rowIds: [a.id, b.id] }]);
+    expect(trial.document.stashSections).toEqual([{ id: id(9440), title: "Later", rowIds: [] }]);
+    expect(trial.document.stashOutline).toEqual([a, b].map((savedRow) => ({ rowId: savedRow.id, kind: "row", parentRowId: null, sectionId: id(9440) })));
     expect(trial.preview()).toEqual(trial.document);
     expect(trial.returnToSorting()).toBe(true);
     const contentEdit = { kind: "edit_stash_row", row: a } as unknown as RowEditCommandV2;

@@ -3,6 +3,7 @@ import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 
 export type StashedRowV2 = RowStashBundleV2["rows"][number];
 
@@ -63,15 +64,20 @@ export function applyStashRowEditV2(
     return refused(document, "STASH_ROW_IDENTITY_INVALID", "A saved row edit must preserve the row's existing ID and type.");
   }
 
-  if (sameAuthoringJsonV2(current, command.row)) {
+  const authoredCurrent = structuredClone(current);
+  const authoredReplacement = structuredClone(command.row);
+  delete authoredCurrent.stashOrigin;
+  delete authoredReplacement.stashOrigin;
+  if (sameAuthoringJsonV2(authoredCurrent, authoredReplacement)) {
     return refused(document, "STASH_ROW_EDIT_NO_CHANGE", "The saved row already has this content.");
   }
+  const replacement = preserveStashOriginAfterEditV2(current, structuredClone(command.row));
 
   let working: ScriptDocumentV2;
   try {
     working = structuredClone(document);
     const workingBundle = working.stash!.find((candidate) => candidate.id === command.bundleId)!;
-    workingBundle.rows[rowIndex] = structuredClone(command.row);
+    workingBundle.rows[rowIndex] = replacement;
     working.rowEditRevision = expectedRevision + 1;
   } catch {
     return refused(document, "STASH_ROW_JSON_INVALID", "The edited row must be losslessly representable as saved JSON.");

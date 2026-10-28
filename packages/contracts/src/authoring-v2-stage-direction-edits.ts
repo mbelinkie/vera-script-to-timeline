@@ -2,6 +2,7 @@ import type { NarrationBlockV2, ScriptDocumentV2 } from "./generated/contracts-v
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { inspectStageDirectionsV2 } from "./authoring-v2-stage-directions.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 export type StageDirectionEditCommandV2 =
@@ -135,6 +136,27 @@ function insertMarkers(row: NarrationBlockV2, startIndex: number, endIndexExclus
   for (let index = startIndex; index < endIndexExclusive; index += 1) row.tokens[index]!.spoken = false;
 }
 
+/** Initialize a plain note as one explicit #341 direction run, preserving frozen token IDs. */
+export function defaultDirectionNarrationRowV2(input: NarrationBlockV2): NarrationBlockV2 | null {
+  const row = structuredClone(input);
+  if (!row.tokens.length) return null;
+  const stageDirections = inspectStageDirectionsV2(row);
+  if (stageDirections.issues.length > 0) return null;
+  const allDirection = row.tokens.every((token) => token.spoken === false);
+  const mixed = row.tokens.some((token) => token.spoken === false) && !allDirection;
+  if (mixed) return null;
+  if (allDirection) return row;
+  const first = row.tokens[0];
+  const last = row.tokens.at(-1)!;
+  if (
+    !Number.isSafeInteger(first.startOffset) || !Number.isSafeInteger(last.endOffset) ||
+    first.startOffset < 0 || last.endOffset <= first.startOffset || last.endOffset > row.text.length ||
+    /[[\]]/u.test(row.text.slice(first.startOffset, last.endOffset))
+  ) return null;
+  insertMarkers(row, 0, row.tokens.length);
+  return row;
+}
+
 function removeMarkers(row: NarrationBlockV2, startIndex: number, endIndexExclusive: number, openOffset: number, closeOffset: number): void {
   row.text = `${row.text.slice(0, openOffset)}${row.text.slice(openOffset + 1, closeOffset)}${row.text.slice(closeOffset + 1)}`;
   for (const token of row.tokens) {
@@ -206,6 +228,7 @@ export function applyStageDirectionEditV2(
 
   if (row.version >= Number.MAX_SAFE_INTEGER) return failure(document, "STAGE_DIRECTION_VERSION_STALE", "The narration row version cannot advance.", command.blockId);
   row.version += 1;
+  markStashOriginEditedV2(row);
   refreshTextRangeQuotes(working, row);
   if (workingLocation.stashed) {
     const revision = working.rowEditRevision ?? 0;

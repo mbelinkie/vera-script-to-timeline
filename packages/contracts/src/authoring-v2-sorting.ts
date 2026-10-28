@@ -29,12 +29,34 @@ function positions(document: ScriptDocumentV2): Map<string, Position> {
     }
   }
   const stashRows = (document.stash ?? []).flatMap((bundle) => bundle.rows);
-  const sectioned = new Set((document.stashSections ?? []).flatMap((section) => section.rowIds));
-  stashRows.filter((row) => !sectioned.has(row.id)).forEach((row, index) => result.set(row.id, { container: "stash:", index, beforeSections: [] }));
-  for (const section of document.stashSections ?? []) {
-    section.rowIds.forEach((rowId, index) => result.set(rowId, { container: `stash:${section.id}`, index, beforeSections: [] }));
+  if (document.stashOutline) {
+    for (const entry of document.stashOutline) {
+      const index = document.stashOutline.filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId && document.stashOutline!.indexOf(item) < document.stashOutline!.indexOf(entry)).length;
+      result.set(entry.rowId, { container: `stash:${entry.sectionId ?? ""}:${entry.parentRowId ?? ""}`, index, beforeSections: [], sectionId: entry.sectionId });
+    }
+  } else {
+    const sectioned = new Set((document.stashSections ?? []).flatMap((section) => section.rowIds));
+    stashRows.filter((row) => !sectioned.has(row.id)).forEach((row, index) => result.set(row.id, { container: "stash::", index, beforeSections: [], sectionId: null }));
+    for (const section of document.stashSections ?? []) {
+      section.rowIds.forEach((rowId, index) => result.set(rowId, { container: `stash:${section.id}:`, index, beforeSections: [], sectionId: section.id }));
+    }
   }
   return result;
+}
+
+function selectedOutlineRows(document: ScriptDocumentV2, roots: string[]): string[] {
+  if (!document.stashOutline) return roots;
+  const byId = new Map(document.stashOutline.map((entry) => [entry.rowId, entry]));
+  const selectedRoots = new Set(roots);
+  const descendant = (rowId: string, root: string): boolean => {
+    let parent = byId.get(rowId)?.parentRowId ?? null;
+    while (parent !== null) {
+      if (parent === root) return true;
+      parent = byId.get(parent)?.parentRowId ?? null;
+    }
+    return false;
+  };
+  return document.stashOutline.filter((entry) => selectedRoots.has(entry.rowId) || roots.some((root) => descendant(entry.rowId, root))).map((entry) => entry.rowId);
 }
 
 function originalRowPositions(baseline: Map<string, Position>, containers: Map<string, string[]>, current: Map<string, Position>): Set<string> {
@@ -70,12 +92,14 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     restore_stash_rows: ["kind", "rowIds", "destination"],
     create_stash_section: ["kind", "sectionId", "title"],
     move_stash_rows: ["kind", "rowIds", "sectionId"],
+    set_stash_outline: ["kind", "entries"],
+    place_stash_rows: ["kind", "rowIds", "destination"],
   };
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   if (!allowed || Object.keys(command).length !== allowed.length || !Object.keys(command).every((key) => allowed.includes(key))) return false;
   const value = command as Record<string, unknown>;
-  if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows") {
+  if (kind === "move_rows" || kind === "stash_rows" || kind === "restore_stash_rows" || kind === "move_stash_rows" || kind === "place_stash_rows") {
     if (!Array.isArray(value.rowIds) || !value.rowIds.every((id: unknown) => typeof id === "string")) return false;
   }
   if ((kind === "stash_rows" || kind === "restore_stash") && typeof value.bundleId !== "string") return false;
@@ -83,6 +107,16 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   if (kind === "stash_rows") return true;
   if (kind === "create_stash_section") return typeof value.sectionId === "string" && typeof value.title === "string";
   if (kind === "move_stash_rows") return value.sectionId === null || typeof value.sectionId === "string";
+  if (kind === "set_stash_outline") {
+    return Array.isArray(value.entries) && value.entries.every((entry: unknown) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const item = entry as Record<string, unknown>;
+      return Object.keys(item).length === 4 && Object.hasOwn(item, "rowId") && Object.hasOwn(item, "kind") &&
+        Object.hasOwn(item, "parentRowId") && Object.hasOwn(item, "sectionId") &&
+        typeof item.rowId === "string" && ["note", "clip", "row"].includes(item.kind as string) &&
+        (item.parentRowId === null || typeof item.parentRowId === "string") && (item.sectionId === null || typeof item.sectionId === "string");
+    });
+  }
   const gap = value.destination;
   if (!gap || typeof gap !== "object" || Array.isArray(gap)) return false;
   const gapKeys = kind === "move_section" ? ["afterSectionId", "beforeSectionId"] : ["sectionId", "afterRowId", "beforeRowId"];
@@ -131,14 +165,19 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     },
     apply(command: RowEditCommandV2, expectedRevision = session.revision): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial order.");
-      if (!commandAllowed(command)) return failure("SORTING_CONTENT_READ_ONLY", "Only row move, Stash and restore commands are available during a trial.");
+      if (!commandAllowed(command)) return failure("SORTING_CONTENT_READ_ONLY", "Only row move, Stash and outline organization commands are available during a trial.");
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
       const selected = command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "restore_stash_rows" || command.kind === "move_stash_rows" ? command.rowIds
-        : command.kind === "restore_stash" ? beforeDocument.stash?.find((bundle) => bundle.id === command.bundleId)?.rows.map((row) => row.id) ?? []
-        : command.kind === "move_section" ? [...before].filter(([, location]) => location.sectionId === command.sectionId).map(([id]) => id)
-        : [];
+        : command.kind === "place_stash_rows" ? selectedOutlineRows(beforeDocument, command.rowIds)
+          : command.kind === "set_stash_outline" ? beforeDocument.stashOutline ? beforeDocument.stashOutline.flatMap((entry) => {
+            const next = command.entries.find((item) => item.rowId === entry.rowId);
+            return next && (next.kind !== entry.kind || next.parentRowId !== entry.parentRowId || next.sectionId !== entry.sectionId || beforeDocument.stashOutline!.findIndex((item) => item.rowId === entry.rowId) !== command.entries.findIndex((item) => item.rowId === entry.rowId)) ? [entry.rowId] : [];
+          }) : command.entries.map((entry) => entry.rowId)
+          : command.kind === "restore_stash" ? beforeDocument.stash?.find((bundle) => bundle.id === command.bundleId)?.rows.map((row) => row.id) ?? []
+            : command.kind === "move_section" ? [...before].filter(([, location]) => location.sectionId === command.sectionId).map(([id]) => id)
+              : [];
       const result = session.apply(command, expectedRevision);
       if (result.ok) {
         actions.push(structuredClone(command));

@@ -12,6 +12,7 @@ import type {
   WordInpointAnchor,
 } from "./generated/contracts-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const JOINING_GAP = /^[ \t\r\n]+$/u;
@@ -475,6 +476,7 @@ export function applyAcceptedOmissionV2(
   requireFact(firstKept !== undefined, "empty narration after omission");
   revisedRow.tokens = [firstKept, ...kept.slice(1)];
   revisedRow.version = next(originalRow.version, "narration row version");
+  markStashOriginEditedV2(revisedRow);
   rewriteAnchors(document, revisedRow);
 
   document.liveHeadSequence = next(input.liveHeadSequence, "live head sequence");

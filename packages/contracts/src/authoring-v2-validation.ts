@@ -14,6 +14,7 @@ import type {
   NarrationBlockV2,
   ReturnSlot,
   ScriptDocumentV2,
+  StashOutlineEntryV2,
   SupportingItemV2,
   TextAnchorRange,
   TimedPlacement,
@@ -181,10 +182,11 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
-    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({ ...item, severity: "warning" as const, jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`) })));
   }
   const stashedRowIds = new Set((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
+  const stashedRowsById = new Map((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
   const sectionedRowIds = new Set<string>();
   for (const [sectionIndex, section] of (document.stashSections ?? []).entries()) {
     const path = `/stashSections/${sectionIndex}`;
@@ -198,6 +200,51 @@ export function validateScriptDocumentV2(
           entityId: rowId,
         });
       } else sectionedRowIds.add(rowId);
+    }
+  }
+  if (document.stashOutline !== undefined) {
+    const outlineById = new Map<string, StashOutlineEntryV2>();
+    for (const [index, entry] of document.stashOutline.entries()) {
+      const path = `/stashOutline/${index}`;
+      const row = stashedRowsById.get(entry.rowId);
+      if (!row || outlineById.has(entry.rowId)) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A Stash outline entry must name a distinct saved row.", jsonPath: `${path}/rowId`, entityId: entry.rowId });
+      } else outlineById.set(entry.rowId, entry);
+      if (entry.sectionId !== null && !(document.stashSections ?? []).some((section) => section.id === entry.sectionId)) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A Stash outline entry names a missing section.", jsonPath: `${path}/sectionId`, entityId: entry.sectionId });
+      }
+      if (entry.kind === "note" && row?.type !== "narration" || entry.kind === "clip" && !(row?.type === "visual_only" && row.payload.pictureKind === "clip")) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A compact Stash note or clip must use its matching saved-row payload.", jsonPath: `${path}/kind`, entityId: entry.rowId });
+      }
+      if (entry.parentRowId !== null && (entry.parentRowId === entry.rowId || !stashedRowIds.has(entry.parentRowId))) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A nested Stash item must name a different saved parent row.", jsonPath: `${path}/parentRowId`, entityId: entry.parentRowId });
+      }
+    }
+    for (const [index, section] of (document.stashSections ?? []).entries()) {
+      if (section.rowIds.length > 0) diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Canonical Stash outline documents keep section rowIds empty.", jsonPath: `/stashSections/${index}/rowIds` });
+    }
+    for (const rowId of stashedRowIds) {
+      if (!outlineById.has(rowId)) diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Every saved Stash row must appear exactly once in the canonical outline.", jsonPath: "/stashOutline", entityId: rowId });
+    }
+    for (const [index, entry] of document.stashOutline.entries()) {
+      if (entry.parentRowId === null) continue;
+      const parent = outlineById.get(entry.parentRowId);
+      if (!parent || parent.kind !== "note" || parent.sectionId !== entry.sectionId) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Nested Stash items require a note parent in the same section.", jsonPath: `/stashOutline/${index}/parentRowId`, entityId: entry.parentRowId });
+      }
+    }
+    const expectedPreorder: string[] = [];
+    const appendChildren = (parentRowId: string | null, ancestors: Set<string>): void => {
+      for (const entry of document.stashOutline!) {
+        if (entry.parentRowId !== parentRowId) continue;
+        if (ancestors.has(entry.rowId)) continue;
+        expectedPreorder.push(entry.rowId);
+        appendChildren(entry.rowId, new Set([...ancestors, entry.rowId]));
+      }
+    };
+    appendChildren(null, new Set());
+    if (expectedPreorder.length !== document.stashOutline.length || expectedPreorder.some((rowId, index) => rowId !== document.stashOutline![index]!.rowId)) {
+      diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "The Stash outline must be a deterministic depth-first preorder without cycles.", jsonPath: "/stashOutline" });
     }
   }
   const referenceProblem = (id: string, path: string): void => {
