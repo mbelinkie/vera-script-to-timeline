@@ -4,6 +4,7 @@ import { canonicalJson, sha256CanonicalJson } from "./compiler-core.js";
 import { compileTimelineV2 } from "./compiler-core-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 import { applyAcceptedOmissionV2, type AcceptedOmissionV2 } from "./issue-189-v2-omission.js";
 import { finalizeReplacementV2, type RowHandoffV2, type RowRequestV2 } from "./issue-189-v2-replacement.js";
 import type { CompilerDependenciesV2, OccurrenceMediaResolutionV2, PreparedMediaBindingV1, ScriptDocumentV2, TimelineManifestV2, TimelineEventV2 } from "./generated/contracts-v2.js";
@@ -103,6 +104,7 @@ export function prepareRevisionInputsV2(
         endFrame: trim.expectedSelectedRange.startFrame + trim.expectedSelectedRange.durationFrames }), "trim occurrence owner/range differs");
     block.visualOnlyTiming.selectedSourceRange = { startFrame: trim.expectedSelectedRange.startFrame, durationFrames: trim.durationFrames };
     block.version = next(block.version);
+    markStashOriginEditedV2(block);
     descriptor.selectedSourceRange = { startFrame: trim.expectedSelectedRange.startFrame, endFrame: trim.expectedSelectedRange.startFrame + trim.durationFrames };
     affected.add(block.id);
   }

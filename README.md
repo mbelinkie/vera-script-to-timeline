@@ -6,6 +6,9 @@ It owns structured script authoring, narrative order, per-video media usage,
 voiceover and graphics intent, deterministic timeline compilation, build
 history, and DaVinci Resolve delivery.
 
+For established Resolve behavior and the limits of earlier experiments, start
+with the [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md).
+
 The two products remain independently deployable. They integrate through
 versioned, authorized APIs and verified artifact descriptors rather than shared
 databases or UI dependencies.
@@ -60,8 +63,8 @@ corresponding lockfile change with the dependency change.
 
 Testing, review and merge rules are in
 [the verification policy](docs/VERIFICATION_POLICY.md). In short: run fast
-checks locally, let GitHub Actions run the full suite, and merge when CI is
-green.
+checks locally, let GitHub Actions run the full suite for pull requests, and
+merge when the full PR check is green.
 
 During development, run:
 
@@ -69,11 +72,15 @@ During development, run:
 npm run validate:fast
 ```
 
-This keeps generated-currentness, all lint and type checks, all TypeScript
-tests, and non-slow Python tests on two workers. `slow` marks real media
-rendering/probing and repeated external-process integration. Run the affected
-slow test files directly when you change those integrations. Classification
-and timing evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
+This keeps generated-currentness, all lint and type checks, fast TypeScript
+unit coverage, and Python tests that are non-slow or explicitly marked as fast
+unit coverage inside a slow module, on two workers. Long compiler CLI,
+media-probing, browser, and embedded-database integration coverage stays in
+the complete GitHub Actions gate; run an affected integration file directly
+while working. `slow` marks real or synthetic media analysis, repeated
+external-process integration, and other tests taking more than about five
+seconds.
+Classification and timing evidence are in [the #184 plan](docs/plans/issue-184-fast-validation.md).
 
 The full gate is:
 
@@ -85,10 +92,12 @@ It first proves that checked-in contract types are byte-current, then runs
 TypeScript lint, strict typechecking, and tests in every npm workspace, followed
 by Python Ruff lint/format checks, strict mypy, and pytest. Pytest validates the
 fixture descriptor, exact media inventory, sizes, hashes, and (when FFprobe is
-available) metadata. The GitHub Actions `Validate` workflow installs from both
-lockfiles and runs this exact command on every pull request and push to `main`;
-a green `Validate` check is the full regression gate. Don't run it on the
-reference Intel Mac during normal work, because it takes one to three hours there.
+available) metadata. The GitHub Actions `Validate` workflow runs this exact
+command for every pull request and manual dispatch. The PR's `TypeScript and
+Python` job is the full regression gate. Pushes to `main` run a short smoke
+check with existing Node tests and Python syntax compilation; that smoke does
+not replace the full PR gate. Don't run the full command on the reference Intel
+Mac during normal work, because it takes one to three hours there.
 
 An environment without FFprobe does **not** claim metadata verification: the
 FFprobe-specific pytest checks are reported as skipped, and the standalone

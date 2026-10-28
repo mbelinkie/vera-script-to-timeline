@@ -78,9 +78,10 @@ class SynthesisRequest:
     data_policy_attestation: str | None = None
     pricing_policy_version: str = "aws-polly-neural-2026-08-25"
     max_cost_usd: float = 1.0
+    source_text_hash: Hash | None = None
 
     def identity(self, provider_input: bytes, adapter_version: str) -> dict[str, Any]:
-        return {
+        identity = {
             "recordVersion": "synthesis-key/v1",
             "textHash": sha256_bytes(self.text.encode("utf-8")),
             "providerInputHash": sha256_bytes(provider_input),
@@ -92,6 +93,9 @@ class SynthesisRequest:
             "adapterVersion": adapter_version,
             "pricingPolicyVersion": self.pricing_policy_version,
         }
+        if self.source_text_hash is not None:
+            identity["sourceTextHash"] = self.source_text_hash
+        return identity
 
 
 @dataclass(frozen=True)

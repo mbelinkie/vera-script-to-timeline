@@ -11,6 +11,8 @@ import {
   wordBoundaryOrderV2,
   boundaryForWordAnchorV2,
 } from "./authoring-v2-validation.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 import type {
   AuthoringDiagnosticV2,
   VisualDestinationV2,
@@ -72,6 +74,10 @@ export function applyVisualSequenceEditV2(
   const working = structuredClone(document);
   const mutation = applyCommand(working, expectedSequenceVersion, command);
   if (mutation.diagnostics.length > 0) return failure(document, mutation.diagnostics);
+  for (const blockId of mutation.blockIds) {
+    const row = working.activeDraft.blocks.find((block) => block.id === blockId);
+    if (row && row.type !== "section") markStashOriginEditedV2(row);
+  }
 
   const afterValidation = validateScriptDocumentV2(working);
   const newErrors = newlyIntroducedErrors(
@@ -198,7 +204,7 @@ function insertCutaway(
   if (!group) return refused("CUTAWAY_GROUP_INVALID", "The parent cutaway group cannot be resolved.", blockId, parentSlotId);
   const nextRoot = group.nextRootIndex === undefined ? undefined : sequence.slots[group.nextRootIndex] as RootSlot;
   if (nextRoot?.boundaryBefore.kind === "previous_media_end") return refused("CUTAWAY_BOUNDARY_UNRESOLVED", "A child cannot be inserted across an unresolved media-end root boundary.", blockId, slotId);
-  const nextRootStart = nextRoot ? boundaryIndex(nextRoot, row) : row.tokens.length;
+  const nextRootStart = nextRoot ? boundaryIndex(nextRoot, row) : spokenTokensV2(row).length;
   if (nextRootStart === null || selected >= nextRootStart) return refused("CUTAWAY_OUTSIDE_PARENT", "The cutaway word must be before the next root boundary.", blockId, slotId);
 
   const childSlots = group.children;
@@ -318,7 +324,7 @@ function moveBoundary(
   const row = findRow(document, blockId);
   const sequence = row?.primaryVisualSequence;
   if (!row || !sequence) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", blockId);
-  const tokenIndex = row.tokens.findIndex((token) => token.id === tokenId);
+  const tokenIndex = spokenTokensV2(row).findIndex((token) => token.id === tokenId);
   if (tokenIndex < 0) return refused("BOUNDARY_TOKEN_MISSING", "Choose an existing stable spoken-token ID.", blockId, boundaryOwnerId);
   const ownerIndex = sequence.slots.findIndex((slot) => slot.id === boundaryOwnerId);
   const owner = sequence.slots[ownerIndex];
@@ -572,7 +578,7 @@ function setPlayoutPolicy(
     const startIndex = boundaryIndex(slot, row);
     const selectedIndex = wordBoundaryOrderV2(nextBoundary, row);
     const followingRoot = roots[position + 2]?.root;
-    let followingIndex: number | null = row.tokens.length;
+    let followingIndex: number | null = spokenTokensV2(row).length;
     if (followingRoot?.boundaryBefore.kind === "previous_media_end") {
       const remainsControlledByCompleteClip =
         next.root.playoutPolicy === "complete_logged_clip" &&
@@ -747,7 +753,7 @@ function nextBoundaryAfter(
     const word = boundaryIndex(slot, row);
     if (word !== null) return { index: word };
   }
-  return { index: row.tokens.length };
+  return { index: spokenTokensV2(row).length };
 }
 
 function boundaryIndex(slot: ContentSlot | ReturnSlot, row: NarrationBlockV2): number | null {

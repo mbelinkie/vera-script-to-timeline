@@ -28,6 +28,7 @@ from vera_timeline_agent.narration.service import (
     ServiceConfig,
     voice_profile,
 )
+from vera_timeline_agent.narration.stage_directions import is_direction_only
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
@@ -119,7 +120,9 @@ def _active_blocks(document: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         block
         for block in blocks
-        if block.get("type") == "narration" and block.get("state") == "active"
+        if block.get("type") == "narration"
+        and block.get("state") == "active"
+        and not is_direction_only(block)
     ]
 
 

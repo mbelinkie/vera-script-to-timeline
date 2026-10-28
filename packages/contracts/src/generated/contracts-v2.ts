@@ -28,6 +28,7 @@ export type NarrationBlockV2 = {
   timingPolicy: "narration_spine";
   state: "active" | "excluded";
   notes: string[];
+  stashOrigin?: StashOriginV2;
   version: number;
 };
 export type NarratedVisualPayloadV2 = {
@@ -119,6 +120,7 @@ export type VisualOnlyBlockV2 = {
   orderKey: string;
   payload: StandaloneVisualPayloadV2;
   visualOnlyTiming: VisualOnlyTimingV2;
+  stashOrigin?: StashOriginV2;
   version: number;
 };
 export type StandaloneVisualPayloadV2 = {
@@ -608,6 +610,14 @@ export interface ScriptDocumentV2 {
    */
   stash?: RowStashBundleV2[];
   /**
+   * Optional user-created Stash headings and their ordered saved-row membership.
+   */
+  stashSections?: StashSectionV2[];
+  /**
+   * Optional canonical mixed Stash order and note-parent relationships. When present, every saved row appears exactly once and stashSections rowIds are empty.
+   */
+  stashOutline?: StashOutlineEntryV2[];
+  /**
    * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
    */
   rowTransitions?: RowTransitionIntentV2[];
@@ -660,11 +670,12 @@ export interface SectionBlock {
   version: number;
 }
 /**
- * Stable spoken-token identity plus UTF-16 offsets into NarrationBlockV2.text; text and offset agreement remains semantic validation.
+ * Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a paired stage-direction token.
  */
 export interface NarrationToken {
   id: string;
   value: string;
+  spoken?: boolean;
   startOffset: number;
   endOffset: number;
 }
@@ -804,12 +815,21 @@ export interface OverlayEventV2 {
   timing: TimedPlacement;
   version: number;
 }
+export interface StashOriginV2 {
+  kind: "note" | "clip" | "row";
+  parentRowId: string | null;
+  sectionId: string | null;
+  afterSiblingRowId: string | null;
+  beforeSiblingRowId: string | null;
+  returnEligible: boolean;
+}
 export interface DirectionBlock {
   type: "direction";
   id: string;
   orderKey: string;
   text: string;
   buildBehavior: "none" | "timeline_marker";
+  stashOrigin?: StashOriginV2;
   version: number;
 }
 export interface VisualOnlyTimingV2 {
@@ -826,6 +846,7 @@ export interface NoteDraftBlock {
   orderKey: string;
   text: string;
   state: "excluded";
+  stashOrigin?: StashOriginV2;
   version: number;
 }
 export interface UnplacedPlacement {
@@ -902,6 +923,17 @@ export interface RowGapV2 {
   sectionId: string | null;
   afterRowId: string | null;
   beforeRowId: string | null;
+}
+export interface StashSectionV2 {
+  id: string;
+  title: string;
+  rowIds: string[];
+}
+export interface StashOutlineEntryV2 {
+  rowId: string;
+  kind: "note" | "clip" | "row";
+  parentRowId: string | null;
+  sectionId: string | null;
 }
 export interface RowTransitionIntentV2 {
   id: string;

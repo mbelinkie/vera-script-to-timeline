@@ -14,6 +14,7 @@ import type {
   NarrationBlockV2,
   ReturnSlot,
   ScriptDocumentV2,
+  StashOutlineEntryV2,
   SupportingItemV2,
   TextAnchorRange,
   TimedPlacement,
@@ -23,6 +24,7 @@ import type {
   AuthoringDiagnosticV2,
   AuthoringValidationResultV2,
 } from "./authoring-v2.js";
+import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 
 type DraftBlock = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -83,6 +85,14 @@ export function validateScriptDocumentV2(
     if (block.type !== "narration") continue;
 
     validateTokens(block, path, diagnostics, addId);
+    const stageDirections = inspectStageDirectionsV2(block);
+    stageDirections.issues.forEach((issue) => diagnostics.push({
+      code: "STAGE_DIRECTION_PAIR_INVALID",
+      message: issue.message,
+      jsonPath: `${path}/tokens/${issue.tokenIndex}`,
+      blockId: block.id,
+      ...(block.tokens[issue.tokenIndex] ? { entityId: block.tokens[issue.tokenIndex]!.id } : {}),
+    }));
     block.annotations?.forEach((annotation, annotationIndex) => {
       addId(annotation.id, `${path}/annotations/${annotationIndex}/id`, block.id);
       validateTextRange(
@@ -92,6 +102,13 @@ export function validateScriptDocumentV2(
         diagnostics,
         block.id,
       );
+      if (textRangeIncludesDirection(annotation.range, block)) diagnostics.push({
+        code: "STAGE_DIRECTION_REFERENCE_INVALID",
+        message: "Prompter annotations must target spoken tokens; direction text cannot carry a word-bound performance cue.",
+        jsonPath: `${path}/annotations/${annotationIndex}/range`,
+        blockId: block.id,
+        entityId: annotation.id,
+      });
     });
     block.performanceBeats?.forEach((beat, beatIndex) => {
       addId(beat.id, `${path}/performanceBeats/${beatIndex}/id`, block.id);
@@ -102,6 +119,13 @@ export function validateScriptDocumentV2(
         diagnostics,
         block.id,
       );
+      if (textRangeIncludesDirection(beat.range, block)) diagnostics.push({
+        code: "STAGE_DIRECTION_REFERENCE_INVALID",
+        message: "Recording performance beats cannot include nonspoken direction tokens.",
+        jsonPath: `${path}/performanceBeats/${beatIndex}/range`,
+        blockId: block.id,
+        entityId: beat.id,
+      });
     });
 
     const sequence = block.primaryVisualSequence;
@@ -158,8 +182,70 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
-    const parked = validateScriptDocumentV2({ ...document, stash: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({ ...item, severity: "warning" as const, jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`) })));
+  }
+  const stashedRowIds = new Set((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
+  const stashedRowsById = new Map((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
+  const sectionedRowIds = new Set<string>();
+  for (const [sectionIndex, section] of (document.stashSections ?? []).entries()) {
+    const path = `/stashSections/${sectionIndex}`;
+    addId(section.id, `${path}/id`);
+    for (const [rowIndex, rowId] of section.rowIds.entries()) {
+      if (!stashedRowIds.has(rowId) || sectionedRowIds.has(rowId)) {
+        diagnostics.push({
+          code: "ROW_REFERENCE_INVALID",
+          message: "A Stash section names a missing saved row or assigns a row to multiple sections.",
+          jsonPath: `${path}/rowIds/${rowIndex}`,
+          entityId: rowId,
+        });
+      } else sectionedRowIds.add(rowId);
+    }
+  }
+  if (document.stashOutline !== undefined) {
+    const outlineById = new Map<string, StashOutlineEntryV2>();
+    for (const [index, entry] of document.stashOutline.entries()) {
+      const path = `/stashOutline/${index}`;
+      const row = stashedRowsById.get(entry.rowId);
+      if (!row || outlineById.has(entry.rowId)) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A Stash outline entry must name a distinct saved row.", jsonPath: `${path}/rowId`, entityId: entry.rowId });
+      } else outlineById.set(entry.rowId, entry);
+      if (entry.sectionId !== null && !(document.stashSections ?? []).some((section) => section.id === entry.sectionId)) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A Stash outline entry names a missing section.", jsonPath: `${path}/sectionId`, entityId: entry.sectionId });
+      }
+      if (entry.kind === "note" && row?.type !== "narration" || entry.kind === "clip" && !(row?.type === "visual_only" && row.payload.pictureKind === "clip")) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A compact Stash note or clip must use its matching saved-row payload.", jsonPath: `${path}/kind`, entityId: entry.rowId });
+      }
+      if (entry.parentRowId !== null && (entry.parentRowId === entry.rowId || !stashedRowIds.has(entry.parentRowId))) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A nested Stash item must name a different saved parent row.", jsonPath: `${path}/parentRowId`, entityId: entry.parentRowId });
+      }
+    }
+    for (const [index, section] of (document.stashSections ?? []).entries()) {
+      if (section.rowIds.length > 0) diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Canonical Stash outline documents keep section rowIds empty.", jsonPath: `/stashSections/${index}/rowIds` });
+    }
+    for (const rowId of stashedRowIds) {
+      if (!outlineById.has(rowId)) diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Every saved Stash row must appear exactly once in the canonical outline.", jsonPath: "/stashOutline", entityId: rowId });
+    }
+    for (const [index, entry] of document.stashOutline.entries()) {
+      if (entry.parentRowId === null) continue;
+      const parent = outlineById.get(entry.parentRowId);
+      if (!parent || parent.kind !== "note" || parent.sectionId !== entry.sectionId) {
+        diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "Nested Stash items require a note parent in the same section.", jsonPath: `/stashOutline/${index}/parentRowId`, entityId: entry.parentRowId });
+      }
+    }
+    const expectedPreorder: string[] = [];
+    const appendChildren = (parentRowId: string | null, ancestors: Set<string>): void => {
+      for (const entry of document.stashOutline!) {
+        if (entry.parentRowId !== parentRowId) continue;
+        if (ancestors.has(entry.rowId)) continue;
+        expectedPreorder.push(entry.rowId);
+        appendChildren(entry.rowId, new Set([...ancestors, entry.rowId]));
+      }
+    };
+    appendChildren(null, new Set());
+    if (expectedPreorder.length !== document.stashOutline.length || expectedPreorder.some((rowId, index) => rowId !== document.stashOutline![index]!.rowId)) {
+      diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "The Stash outline must be a deterministic depth-first preorder without cycles.", jsonPath: "/stashOutline" });
+    }
   }
   const referenceProblem = (id: string, path: string): void => {
     diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A saved row relationship names a missing row or invalid active pair.", jsonPath: path, entityId: id });
@@ -190,7 +276,7 @@ export function isWordAnchorCurrentV2(
 ): boolean {
   if (anchor.blockId !== row.id) return false;
   const matches = row.tokens.filter((token) => token.id === anchor.tokenId);
-  if (matches.length !== 1) return false;
+  if (matches.length !== 1 || matches[0]!.spoken === false) return false;
   const token = matches[0]!;
   return token.value === anchor.quotedWord &&
     Number.isSafeInteger(token.startOffset) &&
@@ -206,7 +292,7 @@ export function wordIndexV2(
   row: NarrationBlockV2,
 ): number | null {
   if (!isWordAnchorCurrentV2(anchor, row)) return null;
-  return row.tokens.findIndex((token) => token.id === anchor.tokenId);
+  return spokenTokensV2(row).findIndex((token) => token.id === anchor.tokenId);
 }
 
 /** Ordering distinguishes two edges on the same frozen token. */
@@ -237,7 +323,7 @@ export function wordAnchorForTokenV2(
   anchorVersion: number,
   affinity: "before" | "after" = "before",
 ): WordBoundaryAnchorV2 | null {
-  const token = row.tokens.find((candidate) => candidate.id === tokenId);
+  const token = spokenTokensV2(row).find((candidate) => candidate.id === tokenId);
   return token
     ? {
         blockId: row.id,
@@ -643,6 +729,16 @@ function validateTextRange(
       ...(owner ? { entityId: owner } : {}),
     });
   }
+}
+
+function textRangeIncludesDirection(range: TextAnchorRange, row: NarrationBlockV2): boolean {
+  const start = row.tokens.findIndex((token) => token.id === range.startTokenId);
+  const end = row.tokens.findIndex((token) => token.id === range.endTokenId);
+  if (start < 0 || end < start) return false;
+  if (row.tokens[start]!.spoken === false || row.tokens[end]!.spoken === false) return true;
+  const from = start + Number(range.startAffinity === "after");
+  const to = end + Number(range.endAffinity === "after");
+  return row.tokens.slice(from, to).some((token) => token.spoken === false);
 }
 
 function validateTimedAnchors(

@@ -84,6 +84,14 @@ the choice in one line in the PR, and keep going.
   the installed edition/version and supported automation/import route first;
   verify the needed behavior in the real application, including save/reopen.
   Build a custom fallback only for a demonstrated gap and explain that gap.
+- Before starting a backend issue, consult the relevant [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md)
+  entries and reuse their supported conclusions. Before a live Resolve test, cite
+  finding IDs and the unanswered question, changed assumption or affected regression;
+  test only that delta. Current target authorization, freshness and integrity checks
+  still apply. Update or supersede material findings/corrections in the same PR with
+  evidence and tested conditions. If no entry applies, record the new question;
+  if no knowledge changed, no new entry is needed. A new ticket or version alone
+  calls for assessment, not wholesale requalification.
 - Anything irreversible in the real world (deleting, uploading or sharing the
   Producer's media or the research project's data) happens only through the
   product's own flows, never as an agent side effect.

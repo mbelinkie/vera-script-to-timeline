@@ -4,6 +4,7 @@ import * as formatsModule from "ajv-formats";
 import dependenciesSchema from "../../../contracts/compiler-dependencies-v2.schema.json" with { type: "json" };
 import documentSchema from "../../../contracts/script-document-v2.schema.json" with { type: "json" };
 import { sha256CanonicalJson } from "./compiler-core.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import type { NarrationBlockV2, NarrationBoundaryEvidenceV1, RationalTime } from "./generated/contracts-v2.js";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -56,10 +57,11 @@ export function boundaryEvidenceProblemV2(row: NarrationBlockV2, input: unknown)
   let priorIndex = -1;
   let priorOnset: RationalTime | undefined;
   let priorEnd: RationalTime | undefined;
+  const spokenTokenIds = new Set(spokenTokensV2(row).map((token) => token.id));
   for (const mark of evidence.tokens) {
     const index = row.tokens.findIndex((token) => token.id === mark.tokenId);
     const token = row.tokens[index];
-    if (!token || index <= priorIndex || token.startOffset !== mark.startOffset || token.endOffset !== mark.endOffset || token.value !== mark.quotedText || row.text.slice(mark.startOffset, mark.endOffset) !== mark.quotedText) return stale("Every supplied observation must match a unique frozen token ID, order, UTF-16 range and exact quote.");
+    if (!token || !spokenTokenIds.has(token.id) || index <= priorIndex || token.startOffset !== mark.startOffset || token.endOffset !== mark.endOffset || token.value !== mark.quotedText || row.text.slice(mark.startOffset, mark.endOffset) !== mark.quotedText) return stale("Every supplied observation must match a unique frozen spoken-token ID, order, UTF-16 range and exact quote.");
     const onset = mark.onset; const end = mark.audibleEnd;
     if (onset && (!reduced(onset) || compare(onset, duration) >= 0 || priorOnset && compare(onset, priorOnset) <= 0 || priorEnd && compare(priorEnd, onset) > 0) ||
         end && (!reduced(end) || end.numerator === 0 || compare(end, duration) > 0 || priorEnd && compare(end, priorEnd) <= 0 || onset && compare(onset, end) >= 0 || priorOnset && compare(priorOnset, end) >= 0)) {
