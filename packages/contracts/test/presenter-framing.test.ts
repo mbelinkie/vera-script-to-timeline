@@ -27,7 +27,7 @@ function deepFreeze<T>(value: T): T {
 }
 
 function mutableFixture(): MutableProfile {
-  return structuredClone(fixture) as MutableProfile;
+  return structuredClone(fixture);
 }
 
 function objectAtPath(value: object, path: string[]): Record<string, unknown> {
@@ -151,7 +151,10 @@ describe("presenter framing profile boundary", () => {
   });
 
   it.each(missingKeyCases)("$name", ({ path }) => {
-    expect(() => validatePresenterFramingProfile(rehashedCandidate((candidate) => deleteAtPath(candidate, path)))).toThrow();
+    const candidate = rehashedCandidate((profile) => deleteAtPath(profile, path));
+    // Rehashing restores this excluded field; remove it after that helper runs.
+    if (path.length === 1 && path[0] === "profileHash") deleteAtPath(candidate, path);
+    expect(() => validatePresenterFramingProfile(candidate)).toThrow();
   });
 
   it.each(exactKeyObjects)("rejects an unknown key in the $name object", ({ path }) => {

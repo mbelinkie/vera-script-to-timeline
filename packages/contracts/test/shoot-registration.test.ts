@@ -282,7 +282,7 @@ describe("immutable shoot registration", () => {
 });
 
 describe("project-library reconfiguration authorization", () => {
-  it("invalidates stale source access until a hash-verified relink through the configured library", async () => {
+  it.each(["proxy", "framing"] as const)("invalidates stale %s source access until a hash-verified relink through the configured library", async (purpose) => {
     const rootA = await temporaryRoot();
     const masterA = join(rootA, "master.mov");
     await writeFile(masterA, "authorized synthetic master");
@@ -292,7 +292,7 @@ describe("project-library reconfiguration authorization", () => {
       library: { libraryId: ids.libraryA, rootPath: rootA },
       probe: () => Promise.resolve(probe),
     });
-    const job = { projectId: ids.project, sourceId: ids.sourceA, purpose: "proxy" } as const;
+    const job = { projectId: ids.project, sourceId: ids.sourceA, purpose };
 
     await expect(resolveMasterForJob(registered.project, job, [
       { libraryId: ids.libraryA, rootPath: rootA },
