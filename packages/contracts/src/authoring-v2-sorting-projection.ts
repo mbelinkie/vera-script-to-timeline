@@ -30,6 +30,7 @@ interface Birth {
   rowId: string;
   row: Row;
   slot: RowSlot;
+  lastSlot: RowSlot;
   present: boolean;
   bundleOriginalGap?: RowStashBundleV2["originalGap"];
 }
@@ -234,6 +235,7 @@ export function updateSortingProjectionV2(
       rowId,
       row: structuredClone(row),
       slot: structuredClone(slot),
+      lastSlot: structuredClone(slot),
       present: true,
       ...(slot.surface === "stash" && slot.bundleOriginalGap ? { bundleOriginalGap: structuredClone(slot.bundleOriginalGap) } : {}),
     });
@@ -244,6 +246,8 @@ export function updateSortingProjectionV2(
     const birthIndex = next.births.findIndex((birth) => birth.rowId === rowId);
     if (birthIndex >= 0) {
       next.births[birthIndex]!.present = false;
+      const lastSlot = beforeSlots.get(rowId);
+      if (lastSlot) next.births[birthIndex]!.lastSlot = structuredClone(lastSlot);
       continue;
     }
     if (baselineRows.has(rowId) && !next.tombstones.some((tombstone) => tombstone.rowId === rowId)) {
@@ -260,7 +264,11 @@ export function updateSortingProjectionV2(
     const oldSlot = beforeSlots.get(rowId);
     const newSlot = afterSlots.get(rowId);
     if (!oldSlot || !newSlot || sameSlot(oldSlot, newSlot)) continue;
-    if (bornIds.has(rowId)) continue;
+    if (bornIds.has(rowId)) {
+      const birth = next.births.find((item) => item.rowId === rowId);
+      if (birth) birth.lastSlot = structuredClone(newSlot);
+      continue;
+    }
     const stable = next.stableSlots.find((item) => item.rowId === rowId)?.slot ?? oldSlot;
     const ghostTarget = commandGhostTarget || command.kind === "set_stash_outline" && slotDependsOnBirth(newSlot, bornIds);
     if (ghostTarget) {
@@ -766,24 +774,37 @@ export function projectSortingDocumentV2(
     const droppedIds = new Set<string>();
 
     if (mode === "edits_only") {
+      for (const birth of state.births) {
+        const row = currentRows.get(birth.rowId) ?? (!birth.present ? birth.row : undefined);
+        if (!row) return refuse(current, "SORTING_PROJECTION_ROW_MISSING", `New row ${birth.rowId} has no content snapshot for the selected result.`);
+        if (!addRow(output, row, birth.slot)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A new row's original section, Stash parent, or exact birth gap no longer exists.");
+      }
       for (const tombstone of state.tombstones) {
         if (removeRow(output, tombstone.rowId)) droppedIds.add(tombstone.rowId);
       }
       for (const birth of state.births) {
-        if (!birth.present) continue;
-        const row = currentRows.get(birth.rowId);
-        if (!row) continue;
-        if (!addRow(output, row, birth.slot)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A new row's original section, Stash parent, or exact birth gap no longer exists.");
+        if (!birth.present && removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
       }
     } else {
-      for (const birth of state.births) {
-        if (removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
+      const missingBirths = state.births.filter((birth) => !birth.present && !currentRows.has(birth.rowId));
+      while (missingBirths.length > 0) {
+        let restored = false;
+        for (let index = 0; index < missingBirths.length; index += 1) {
+          const birth = missingBirths[index]!;
+          if (!addRow(output, birth.row, birth.lastSlot)) continue;
+          missingBirths.splice(index--, 1);
+          restored = true;
+        }
+        if (!restored) return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "A deleted new row is still needed as an exact placement anchor, but its last slot is unavailable.");
       }
       const ghostByRow = new Map(state.ghostFallbacks.map((fallback) => [fallback.rowId, fallback.slot]));
       const tombstones = state.tombstones.map((item) => ghostByRow.has(item.rowId)
         ? { ...item, slot: structuredClone(ghostByRow.get(item.rowId)!) }
         : item);
       if (!restoreTombstoneBatches(output, baselineRows, tombstones)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or exact slot no longer exists.");
+      for (const birth of state.births) {
+        if (removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
+      }
       const restoredFromFallback = new Set(tombstones.filter((item) => ghostByRow.has(item.rowId)).map((item) => item.rowId));
       const pendingFallbacks = state.ghostFallbacks.filter((fallback) => !restoredFromFallback.has(fallback.rowId) && outputRowsHas(output, fallback.rowId));
       while (pendingFallbacks.length > 0) {

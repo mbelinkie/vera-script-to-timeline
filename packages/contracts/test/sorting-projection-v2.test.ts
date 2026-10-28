@@ -146,6 +146,72 @@ describe("Sorting selective projections", () => {
     expect(edits.document.rowReferences).toBeUndefined();
   });
 
+  it("keeps a surviving birth when edits-only removes its deleted birth anchor", () => {
+    const first = row(80);
+    const second = row(81);
+    const anchor = row(82);
+    const born = row(83);
+    const baseline = { ...document(), activeDraft: { blocks: [first, second, anchor], supportingItems: [] } };
+    let state = createSortingProjectionV2(baseline);
+    let current: ScriptDocumentV2 = baseline;
+    const create: RowEditCommandV2 = { kind: "create_row", row: born, destination: gap(anchor.id, null) };
+    const withBirth = apply(current, create);
+    state = updateSortingProjectionV2(state, current, withBirth, create);
+    current = withBirth;
+    const remove: RowEditCommandV2 = { kind: "delete_rows", rowIds: [anchor.id] };
+    const deletedAnchor = apply(current, remove);
+    state = updateSortingProjectionV2(state, current, deletedAnchor, remove);
+
+    const projected = projectSortingDocumentV2(state, deletedAnchor, "edits_only");
+    expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
+    expect(projected.document.activeDraft.blocks.map((block) => block.id)).toEqual([first.id, second.id, born.id]);
+  });
+
+  it("restores a deleted baseline row while its neighboring birth is still present", () => {
+    const first = row(84);
+    const deleted = row(85);
+    const last = row(86);
+    const born = row(87);
+    const baseline = { ...document(), activeDraft: { blocks: [first, deleted, last], supportingItems: [] } };
+    let state = createSortingProjectionV2(baseline);
+    const create: RowEditCommandV2 = { kind: "create_row", row: born, destination: gap(first.id, deleted.id) };
+    const withBirth = apply(baseline, create);
+    state = updateSortingProjectionV2(state, baseline, withBirth, create);
+    const remove: RowEditCommandV2 = { kind: "delete_rows", rowIds: [deleted.id] };
+    const current = apply(withBirth, remove);
+    state = updateSortingProjectionV2(state, withBirth, current, remove);
+
+    const projected = projectSortingDocumentV2(state, current, "sorting_only");
+    expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
+    expect(projected.document.activeDraft.blocks.map((block) => block.id)).toEqual([first.id, deleted.id, last.id]);
+  });
+
+  it("keeps a later birth after omitting an earlier deleted birth", () => {
+    const first = row(88);
+    const second = row(89);
+    const last = row(90);
+    const firstBirth = row(91);
+    const secondBirth = row(92);
+    const baseline = { ...document(), activeDraft: { blocks: [first, second, last], supportingItems: [] } };
+    let state = createSortingProjectionV2(baseline);
+    let current: ScriptDocumentV2 = baseline;
+    const createFirst: RowEditCommandV2 = { kind: "create_row", row: firstBirth, destination: gap(last.id, null) };
+    const withFirst = apply(current, createFirst);
+    state = updateSortingProjectionV2(state, current, withFirst, createFirst);
+    current = withFirst;
+    const createSecond: RowEditCommandV2 = { kind: "create_row", row: secondBirth, destination: gap(last.id, firstBirth.id) };
+    const withBoth = apply(current, createSecond);
+    state = updateSortingProjectionV2(state, current, withBoth, createSecond);
+    current = withBoth;
+    const remove: RowEditCommandV2 = { kind: "delete_rows", rowIds: [firstBirth.id] };
+    const deleted = apply(current, remove);
+    state = updateSortingProjectionV2(state, current, deleted, remove);
+
+    const projected = projectSortingDocumentV2(state, deleted, "edits_only");
+    expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
+    expect(projected.document.activeDraft.blocks.map((block) => block.id)).toEqual([first.id, second.id, last.id, secondBirth.id]);
+  });
+
   it("restores Stash rows deleted in separate operations to their original bundle order", () => {
     const first = row(69);
     const second = row(72);
