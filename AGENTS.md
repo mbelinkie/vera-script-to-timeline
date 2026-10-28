@@ -80,6 +80,14 @@ the choice in one line in the PR, and keep going.
 - Do feasibility checks against the real application early when an
   external-application assumption could sink a design. Simulated tests do not
   prove what Resolve can do.
+- Before starting a backend issue, consult the relevant [Resolve knowledge guide](docs/RESOLVE_KNOWLEDGE_GUIDE.md)
+  entries and reuse their supported conclusions. Before a live Resolve test, cite
+  finding IDs and the unanswered question, changed assumption or affected regression;
+  test only that delta. Current target authorization, freshness and integrity checks
+  still apply. Update or supersede material findings/corrections in the same PR with
+  evidence and tested conditions. If no entry applies, record the new question;
+  if no knowledge changed, no new entry is needed. A new ticket or version alone
+  calls for assessment, not wholesale requalification.
 - Anything irreversible in the real world (deleting, uploading or sharing the
   Producer's media or the research project's data) happens only through the
   product's own flows, never as an agent side effect.

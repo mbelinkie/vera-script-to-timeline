@@ -12,6 +12,7 @@ import type {
   WordInpointAnchor,
 } from "./generated/contracts-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
 
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const JOINING_GAP = /^[ \t\r\n]+$/u;
@@ -70,7 +71,7 @@ function narrationRow(document: ScriptDocumentV2, blockId: string): NarrationBlo
 }
 
 function tokenIndex(row: NarrationBlockV2, tokenId: string): number {
-  return row.tokens.findIndex((token) => token.id === tokenId);
+  return row.tokens.findIndex((token) => token.id === tokenId && token.spoken !== false);
 }
 
 function isTextRange(value: unknown): value is TextAnchorRange {
@@ -101,6 +102,7 @@ function checkWordAnchor(
   requireFact(
     row !== undefined &&
       token !== undefined &&
+      token.spoken !== false &&
       token.value === anchor.quotedWord &&
       row.text.slice(token.startOffset, token.endOffset) === token.value,
     "stale word anchor is unsupported",
@@ -394,6 +396,7 @@ export function applyAcceptedOmissionV2(
 
   const originalRow = narrationRow(input, edit.blockId);
   requireFact(originalRow?.state === "active", "active narration row required");
+  requireFact(originalRow.tokens.every((token) => token.spoken !== false), "accepted omission of a row with stage directions is unsupported");
   requireFact(originalRow.version === edit.blockRevision, "stale narration row revision");
   requireFact(
     isUnicodeScalarText(originalRow.text) && originalRow.tokens.every((token) => isUnicodeScalarText(token.value)),
@@ -473,6 +476,7 @@ export function applyAcceptedOmissionV2(
   requireFact(firstKept !== undefined, "empty narration after omission");
   revisedRow.tokens = [firstKept, ...kept.slice(1)];
   revisedRow.version = next(originalRow.version, "narration row version");
+  markStashOriginEditedV2(revisedRow);
   rewriteAnchors(document, revisedRow);
 
   document.liveHeadSequence = next(input.liveHeadSequence, "live head sequence");

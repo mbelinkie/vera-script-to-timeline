@@ -20,6 +20,7 @@ import type {
 } from "./generated/contracts.js";
 import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "./authoring-v2.js";
+import { spokenNarrationViewV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import {
   type ValidationDiagnostic,
   validateScriptDocument,
@@ -61,8 +62,8 @@ interface BlockPlan {
 
 type PrompterNarration = Pick<
   NarrationBlock,
-  "id" | "text" | "tokens" | "annotations" | "performanceBeats"
->;
+  "id" | "text" | "annotations" | "performanceBeats"
+> & { tokens: NarrationBlock["tokens"][number][] };
 
 interface SourceDocumentIdentity {
   id: string;
@@ -232,7 +233,10 @@ function planBlocksV2(
     if (block.type !== "narration" || block.state !== "active") continue;
 
     const row = projectedRows.get(block.id);
-    if (row === undefined || row.tokens.length !== block.tokens.length) {
+    const spokenTokens = spokenTokensV2(block);
+    // A direction-only narration row has no prompter line; keep pending section navigation for the next spoken row.
+    if (spokenTokens.length === 0) continue;
+    if (row === undefined || row.tokens.length !== spokenTokens.length) {
       diagnostics.push({
         code: "PROMPTER_HOST_PROJECTION_INVALID",
         message: "The active narration row could not be projected to host visibility.",
@@ -255,7 +259,7 @@ function planBlocksV2(
       continue;
     }
 
-    const projectedBlock: PrompterNarration = block;
+    const projectedBlock: PrompterNarration = { ...block, ...spokenNarrationViewV2(block) };
     plans.push({
       block: projectedBlock,
       blockIndex,

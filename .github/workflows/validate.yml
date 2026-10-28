@@ -5,20 +5,22 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 # A newer push to the same pull request supersedes its older, now-obsolete
-# revision. Push runs are keyed by commit so post-merge integration runs are
-# never cancelled or replaced. Cancelled runs remain non-passing evidence.
+# revision. Other events are keyed by event and commit so manual full runs do
+# not replace main push smoke runs. Main push runs are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('push-{0}', github.sha) }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
     name: TypeScript and Python
+    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
@@ -124,3 +126,29 @@ jobs:
           name: vera-validation-evidence-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/vera-evidence/manifest.json
           if-no-files-found: warn
+
+  main-smoke:
+    name: Main smoke
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: 0.12.5
+          python-version: 3.12.14
+
+      - name: Run focused smoke checks
+        run: |
+          node --test scripts/cloud-evidence.test.mjs scripts/agent-safety.test.mjs
+          uv run --no-project --python 3.12.14 python -m compileall -q python

@@ -46,6 +46,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 const { applyRowEditV2, validateScriptDocumentV2 } = await import(
   new URL("authoring-v2.ts", sourceDirectory)
 );
+const { applyStashRowEditV2 } = await import(
+  new URL("authoring-v2-stash.ts", sourceDirectory)
+);
 const input = JSON.parse(readFileSync(0, "utf8"));
 const document = input.document;
 const row = document.activeDraft.blocks.find((block) => block.type === "narration");
@@ -58,17 +61,50 @@ const stashedResult = applyRowEditV2(document, document.rowEditRevision ?? 0, {
 });
 if (!stashedResult.ok) throw new Error(JSON.stringify(stashedResult.diagnostics));
 
+const sectionResult = applyRowEditV2(
+  stashedResult.document, stashedResult.document.rowEditRevision ?? 0, {
+  kind: "create_stash_section",
+  sectionId: input.stashSectionId,
+  title: "Saved clips",
+});
+if (!sectionResult.ok) throw new Error(JSON.stringify(sectionResult.diagnostics));
+const organizedResult = applyRowEditV2(
+  sectionResult.document, sectionResult.document.rowEditRevision ?? 0, {
+  kind: "move_stash_rows",
+  rowIds: [row.id],
+  sectionId: input.stashSectionId,
+});
+if (!organizedResult.ok) throw new Error(JSON.stringify(organizedResult.diagnostics));
+
 // Validate the JSON that a saved project would reload, not only the live result.
-const stashedSerialized = JSON.stringify(stashedResult.document);
+const editedRow = structuredClone(row);
+const prefix = "EDITED ";
+editedRow.text = prefix + editedRow.text;
+editedRow.tokens = editedRow.tokens.map((token) => ({
+  ...token,
+  startOffset: token.startOffset + prefix.length,
+  endOffset: token.endOffset + prefix.length,
+}));
+const editedResult = applyStashRowEditV2(
+  organizedResult.document, organizedResult.document.rowEditRevision ?? 0, {
+  bundleId: input.bundleId,
+  rowId: row.id,
+  row: editedRow,
+});
+if (!editedResult.ok) throw new Error(JSON.stringify(editedResult.diagnostics));
+
+const stashedSerialized = JSON.stringify(editedResult.document);
 const stashed = JSON.parse(stashedSerialized);
 const stashedValidation = validateScriptDocumentV2(stashed);
 if (!stashedValidation.valid) {
   throw new Error(JSON.stringify(stashedValidation.diagnostics));
 }
 
-const restoredResult = applyRowEditV2(stashed, stashed.rowEditRevision ?? 0, {
-  kind: "restore_stash",
-  bundleId: input.bundleId,
+const sectionedStashed = JSON.parse(JSON.stringify(organizedResult.document));
+const restoredResult = applyRowEditV2(
+  sectionedStashed, sectionedStashed.rowEditRevision ?? 0, {
+  kind: "restore_stash_rows",
+  rowIds: [row.id],
   destination: {
     sectionId: input.sectionId,
     afterRowId: null,
@@ -88,7 +124,9 @@ process.stdout.write(JSON.stringify({
   stashedSerialized,
   restoredSerialized,
   rowId: row.id,
+  editedText: editedRow.text,
   bundleId: input.bundleId,
+  stashSectionId: input.stashSectionId,
   mediaReferenceId: row.primaryVisualSequence.slots.flatMap((slot) => {
     if (slot.kind === "content" && slot.payload.kind === "visual") {
       return [slot.payload.source];
@@ -163,6 +201,7 @@ def _apply_stash_and_restore(
     payload = {
         "document": document,
         "bundleId": _id(9003),
+        "stashSectionId": _id(9004),
         "sectionId": section_id,
         "placeholderRowId": placeholder_row_id,
     }
@@ -230,7 +269,23 @@ def test_saved_stash_is_ignored_by_python_narration_and_media_needs(
 
     assert stashed["stash"][0]["rows"][0]["id"] == row_id
     assert stashed["stash"][0]["rows"][0]["primaryVisualSequence"]
+    assert stashed["stash"][0]["rows"][0]["text"] == operation["editedText"]
+    assert stashed["stashSections"] == [
+        {"id": operation["stashSectionId"], "title": "Saved clips", "rowIds": []}
+    ]
+    assert stashed["stashOutline"] == [
+        {
+            "rowId": row_id,
+            "kind": "row",
+            "parentRowId": None,
+            "sectionId": operation["stashSectionId"],
+        }
+    ]
     assert all(block["id"] != row_id for block in stashed["activeDraft"]["blocks"])
+    assert restored["stashSections"] == [
+        {"id": operation["stashSectionId"], "title": "Saved clips", "rowIds": []}
+    ]
+    assert restored["stashOutline"] == []
     assert _narration_ids(stashed) == []
     assert _narration_ids(restored) == [row_id]
 

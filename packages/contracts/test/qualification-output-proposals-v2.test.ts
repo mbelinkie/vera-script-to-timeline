@@ -539,7 +539,7 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
 
       const gap = campaignInput();
       gap.evidence.tokens.splice(3, 1);
-      expect(() => infer(gap)).toThrow(/cover every frozen token/);
+      expect(() => infer(gap)).toThrow(/cover every spoken frozen token/);
 
       const input = campaignInput();
       const mutations: ((support: Record<string, unknown>) => void)[] = [

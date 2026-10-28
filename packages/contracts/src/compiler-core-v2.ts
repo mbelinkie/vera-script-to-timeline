@@ -41,6 +41,7 @@ import type { WordBoundaryAnchorV2 } from "./authoring-v2.js";
 import { boundaryEvidenceOutputFieldsV2, boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGraphicContentsV2 } from "./graphic-provenance-compiler.js";
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -332,8 +333,9 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
       preserveKnownSpine(block, map);
       continue;
     }
-    if (map.tokens.length !== block.tokens.length || map.tokens.some((timing, i) => {
-      const token = block.tokens[i];
+    const spokenTokens = spokenTokensV2(block);
+    if (map.tokens.length !== spokenTokens.length || map.tokens.some((timing, i) => {
+      const token = spokenTokens[i];
       return !token || timing.tokenId !== token.id || timing.startOffset !== token.startOffset || timing.endOffset !== token.endOffset || timing.quotedText !== token.value;
     })) {
       diagnostics.push(diagnostic("STALE_TIMING_MAP", "Timing entries must match frozen token IDs, UTF-16 offsets, and exact text.", target, undefined, ["refresh_timing"]));
@@ -960,7 +962,8 @@ function wordRelationAt(
   row: TimedRow,
   time: Fraction,
 ): { wordRelation: NonNullable<BoundaryEvidenceV2["wordRelation"]>; relatedTokenId: string | null } {
-  const words = row.block.tokens.flatMap((token) => {
+  const spokenTokens = spokenTokensV2(row.block);
+  const words = spokenTokens.flatMap((token) => {
     const timing = row.tokenTimes.get(token.id);
     return timing ? [{ tokenId: token.id, ...timing }] : [];
   });
@@ -975,7 +978,7 @@ function wordRelationAt(
   for (let index = 0; index + 1 < words.length; index += 1) {
     const previous = words[index]!;
     const next = words[index + 1]!;
-    if (next.start && (!("verification" in row.map) || row.block.tokens.findIndex((token) => token.id === next.tokenId) === row.block.tokens.findIndex((token) => token.id === previous.tokenId) + 1) && previous.evidenced && previous.end && compare(previous.end, time) <= 0 && compare(time, next.start) < 0 && compare(previous.end, next.start) < 0) {
+    if (next.start && (!("verification" in row.map) || spokenTokens.findIndex((token) => token.id === next.tokenId) === spokenTokens.findIndex((token) => token.id === previous.tokenId) + 1) && previous.evidenced && previous.end && compare(previous.end, time) <= 0 && compare(time, next.start) < 0 && compare(previous.end, next.start) < 0) {
       return { wordRelation: "between_words", relatedTokenId: null };
     }
   }

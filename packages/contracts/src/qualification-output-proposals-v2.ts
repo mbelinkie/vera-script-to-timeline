@@ -5,6 +5,7 @@ import { compileTimelineV2 } from "./compiler-core-v2.js";
 import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { applyAcceptedOmissionV2 } from "./issue-189-v2-omission.js";
 import type {
   CompilerDependenciesV2,
@@ -714,7 +715,7 @@ function inferBoundaryCase(document: ScriptDocumentV2, dependencies: CompilerDep
     if (row.type !== "narration" || !row.primaryVisualSequence) continue;
     for (const slot of row.primaryVisualSequence.slots) {
       if (slot.kind !== "content") continue;
-      for (const token of row.tokens) for (const affinity of ["before", "after"] as const) {
+      for (const token of spokenTokensV2(row)) for (const affinity of ["before", "after"] as const) {
         const edit = { kind: "move_word_boundary" as const, blockId: row.id, boundaryOwnerId: slot.id, tokenId: token.id, affinity };
         const applied = applyVisualSequenceEditV2(document, row.primaryVisualSequence.version, edit);
         if (!applied.ok) continue;
@@ -917,8 +918,9 @@ function deriveOmissionSupport(document: ScriptDocumentV2, dependencies: Compile
   fact(problem === null, `narration boundary evidence refused: ${problem?.message}`);
   const verification = boundary.verification;
   fact(verification.method === "measured_audio_boundaries/v1", "measured narration boundary evidence required for omission inference");
-  fact(boundary.tokens.length === row.tokens.length && boundary.tokens.every((mark, index) => mark.tokenId === row.tokens[index]!.id),
-    "measured evidence must cover every frozen token of the row in order");
+  const spokenTokens = spokenTokensV2(row);
+  fact(boundary.tokens.length === spokenTokens.length && boundary.tokens.every((mark, index) => mark.tokenId === spokenTokens[index]!.id),
+    "measured evidence must cover every spoken frozen token of the row in order");
   const audio = boundary.audio;
   fact(audio.sampleRate === 48000 && audio.channels === 1 && audio.durationSamples > 0, "48 kHz mono narration audio evidence required");
 
@@ -1037,7 +1039,7 @@ function visualBoundaryConflicts(document: ScriptDocumentV2, omission: NonNullab
   return owners.map(({ boundaryOwnerId, tokenId }) => {
     const choices: NonNullable<RevisionCommandsV2["boundary"]>[] = [];
     if (existingBoundary === null && owners.length === 1) {
-      for (const token of row.tokens) for (const affinity of ["before", "after"] as const) {
+      for (const token of spokenTokensV2(row)) for (const affinity of ["before", "after"] as const) {
         if (removedTokenIds.has(token.id)) continue;
         const choice = { kind: "move_word_boundary" as const, blockId: row.id, boundaryOwnerId,
           tokenId: token.id, affinity, expectedSequenceVersion: sequence.version };
