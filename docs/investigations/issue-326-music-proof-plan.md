@@ -2,9 +2,13 @@
 
 Status as of 2026-10-28: the first-interruption domain correction is implemented.
 All six defined cases passed native placement, save/reopen and paired-WAV
-decode. The final local fast aggregate is pending. The probe does not add a
-production music runtime. #326 remains open until its acceptance evidence is
-complete and delivery is merged.
+decode. Local fast checks completed in stages: generated-contract currentness,
+TypeScript lint/typecheck and fast suites, Ruff, MyPy and Python fast tests all
+passed. A prior interrupted run had no terminal diagnostic. Two tests now have
+finite 15-second Vitest limits under suite load; their assertions are unchanged.
+Python fast tests took 305.50 seconds; existing speed follow-ups #335 and #349
+cover the runtime. The probe does not add a production music runtime. #326
+remains open until its acceptance evidence is complete and delivery is merged.
 
 ## Domain change and product boundary
 
@@ -135,8 +139,13 @@ uv run --frozen python scripts/issue326_check_music_audio.py \
 The focused host-preparation integration test passed once (142 seconds), as did
 the four focused audio-checker tests, four native-probe route tests and the
 264-frame boundary test. The row-edit tests (51), contracts typecheck and two
-generated-Python contract tests passed. The final `npm run validate:fast` is
-pending; it includes the non-slow native-probe route tests.
+generated-Python contract tests passed. Fast checks completed in stages rather
+than one successful `npm run validate:fast` process: the contracts fast suite
+passed all 33 files and 663 tests, along with the other TypeScript workspace and
+root tests; Ruff, MyPy and the Python fast suite then passed (1,920 tests). The
+Python fast suite took 305.50 seconds. Two suite-loaded Vitest tests now have
+15-second limits with assertions preserved; existing issues #335 and #349
+track validation speed.
 
 ## Limits and consumer handoff
 

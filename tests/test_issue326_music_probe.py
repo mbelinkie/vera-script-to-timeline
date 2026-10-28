@@ -7,6 +7,7 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
 import opentimelineio as otio  # type: ignore[import-untyped]
@@ -45,9 +46,9 @@ def _prepare(root: Path, *cases: str) -> None:
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
 
 
-def _sidecar(root: Path, case: str) -> dict[str, object]:
+def _sidecar(root: Path, case: str) -> dict[str, Any]:
     path = root / "cases" / case / "music-probe.json"
-    return json.loads(path.read_bytes())
+    return cast(dict[str, Any], json.loads(path.read_bytes()))
 
 
 def test_word_end_and_first_interruption_use_compiler_package_and_native_otio(

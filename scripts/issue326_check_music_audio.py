@@ -356,7 +356,7 @@ def check_render(
             item["mixedMusic"][channel] / route_scale[channel]
             for channel in active_channels
         ]
-        return median(active)
+        return float(median(active))
 
     fade_in = [
         normalized_level(item)

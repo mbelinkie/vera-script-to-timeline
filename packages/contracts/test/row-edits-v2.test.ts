@@ -465,7 +465,7 @@ describe("provisional Sorting trials", () => {
     expect(resumed.document).toEqual(trial.document);
     expect(resumed.undoDepth).toBe(999);
     expect(resumed.undo().ok).toBe(true);
-  });
+  }, 15_000);
 });
 
 describe("authoring v2 whole-row edits", () => {

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -164,7 +166,7 @@ class _Item:
         self.set_properties_calls: list[dict[str, Any]] = []
 
     def GetUniqueId(self) -> str:
-        return self.row["eventId"]
+        return cast(str, self.row["eventId"])
 
     def GetMediaPoolItem(self) -> _Media:
         return _Media(self.row["sourcePath"])
@@ -172,31 +174,33 @@ class _Item:
     def GetSourceStartFrame(self) -> int:
         if self.row["kind"] == "placeholder":
             return 6
-        return self.row["sourceInFrame"]
+        return cast(int, self.row["sourceInFrame"])
 
     def GetSourceEndFrame(self) -> int:
         if self.row["kind"] == "narration":
-            return self.row["sourceInFrame"] + self.row["durationFrames"] - 1
+            return cast(int, self.row["sourceInFrame"] + self.row["durationFrames"] - 1)
         if self.row["kind"] == "placeholder":
             return 6
-        return self.row["sourceInFrame"] + self.row["durationFrames"]
+        return cast(int, self.row["sourceInFrame"] + self.row["durationFrames"])
 
     def GetSourceStartTime(self) -> float:
-        return self.row["sourceInFrame"] / 24
+        return cast(float, self.row["sourceInFrame"] / 24)
 
     def GetSourceEndTime(self) -> float:
         if self.row["kind"] == "placeholder":
             return 1 / 24
-        return (self.row["sourceInFrame"] + self.row["durationFrames"]) / 24
+        return cast(
+            float, (self.row["sourceInFrame"] + self.row["durationFrames"]) / 24
+        )
 
     def GetStart(self) -> int:
-        return self.row["recordStartFrame"]
+        return cast(int, self.row["recordStartFrame"])
 
     def GetEnd(self) -> int:
-        return self.row["recordStartFrame"] + self.row["durationFrames"]
+        return cast(int, self.row["recordStartFrame"] + self.row["durationFrames"])
 
     def GetDuration(self) -> int:
-        return self.row["durationFrames"]
+        return cast(int, self.row["durationFrames"])
 
     def GetProperties(self) -> dict[str, Any]:
         return dict(self.properties)
@@ -502,10 +506,14 @@ def test_sidecar_accepts_the_eleven_second_frame_bound(tmp_path: Path) -> None:
     payload, _ = probe._sidecar(request)
 
     assert payload["caseId"] == "word-end-b"
-    assert max(
-        row["recordStartFrame"] + row["durationFrames"]
-        for row in payload["music"]["expectedNative"]["events"]
-    ) == probe.MAX_RENDER_FRAMES == 264
+    assert (
+        max(
+            row["recordStartFrame"] + row["durationFrames"]
+            for row in payload["music"]["expectedNative"]["events"]
+        )
+        == probe.MAX_RENDER_FRAMES
+        == 264
+    )
 
 
 def test_import_adds_one_new_named_timeline_and_reads_back_every_event(
@@ -669,7 +677,7 @@ def test_render_starts_only_the_new_owned_job_and_restores_music_occurrence(
         renderDirectory=str(output),
     )
     monkeypatch.setattr(
-        probe.shutil,
+        shutil,
         "disk_usage",
         lambda _path: type("DiskUsage", (), {"free": probe.MIN_FREE_BYTES})(),
     )
@@ -716,7 +724,7 @@ def test_render_timeout_preserves_partial_evidence_without_restoring_active_clip
         renderDirectory=str(output),
     )
     monkeypatch.setattr(
-        probe.shutil,
+        shutil,
         "disk_usage",
         lambda _path: type("DiskUsage", (), {"free": probe.MIN_FREE_BYTES})(),
     )
@@ -735,8 +743,8 @@ def test_render_timeout_preserves_partial_evidence_without_restoring_active_clip
     monkeypatch.setattr(project, "StartRendering", start_and_stay_active)
     monkeypatch.setattr(project, "IsRenderingInProgress", lambda: active["value"])
     ticks = iter((0.0, 0.0, 2.0))
-    monkeypatch.setattr(probe.time, "monotonic", lambda: next(ticks))
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(probe, "RENDER_TIMEOUT_SECONDS", 1)
 
     with pytest.raises(probe.ProbeFailure, match="did not finish") as error:
@@ -786,7 +794,11 @@ def test_workflow_launcher_writes_partial_probe_evidence(
         "scriptSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
     }
     (native_root / "request.json").write_text(json.dumps(request), encoding="utf-8")
-    launcher = Path(__file__).resolve().parents[1] / "scripts/issue326_workflow_launcher.py"
+    launcher = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "issue326_workflow_launcher.py"
+    )
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     runpy.run_path(str(launcher), init_globals={"resolve": object()})
 
@@ -808,7 +820,7 @@ def test_render_refuses_before_writes_without_occurrence_enable_readback(
         sidecar["music"]["expectedNative"]["events"],
     )
     music_item = timeline.GetItemListInTrack("audio", 2)[0]
-    music_item.GetClipEnabled = None  # type: ignore[method-assign]
+    music_item.GetClipEnabled = None  # type: ignore[assignment]
     project.timelines.append(timeline)
     parent = tmp_path / "renders"
     parent.mkdir()

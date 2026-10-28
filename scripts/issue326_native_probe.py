@@ -8,7 +8,7 @@ import math
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 PRODUCT = "DaVinci Resolve Studio"
 VERSION = "21.1.1.10"
@@ -131,7 +131,7 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         payload = json.loads(sidecar_path.read_bytes())
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError("pinned sidecar is unreadable JSON") from error
-    if type(payload) is not dict:
+    if not isinstance(payload, dict):
         raise ValueError("pinned sidecar root is not an object")
     if payload.get("schemaVersion") != SIDECAR_SCHEMA:
         raise ValueError("sidecar schema is outside the #326 probe")
@@ -139,22 +139,26 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("sidecar is not marked probe-only")
     if request.get("caseId") not in (None, payload.get("caseId")):
         raise ValueError("request case does not match the pinned sidecar")
-    if (
-        type(payload.get("base")) is not dict
-        or type(payload.get("base", {}).get("verification")) is not dict
-    ):
+    base = payload.get("base")
+    if not isinstance(base, dict) or not isinstance(base.get("verification"), dict):
         raise ValueError("sidecar does not pin a verified base package")
-    base = payload["base"]
     snapshot = payload.get("authoringSnapshot")
+    if not isinstance(snapshot, dict):
+        raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
     effective_snapshot = payload.get("effectiveAuthoringSnapshot")
+    if not isinstance(effective_snapshot, dict):
+        raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
     manifest = base.get("manifest")
+    if not isinstance(manifest, dict):
+        raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
     base_otio = base.get("otio")
+    if not isinstance(base_otio, dict):
+        raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
     derived = payload.get("derivedOtio")
+    if not isinstance(derived, dict):
+        raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
     music = payload.get("music")
-    if any(
-        type(row) is not dict
-        for row in (snapshot, effective_snapshot, manifest, base_otio, derived, music)
-    ):
+    if not isinstance(music, dict):
         raise ValueError("sidecar is missing pinned source, manifest, or OTIO records")
 
     otio_path = _pinned_file(
@@ -198,21 +202,20 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         pinned = _pinned_file(str(path), digest, "base package")
         required[str(pinned)] = _hash_value(digest, "base package")
 
+    expected_native = music.get("expectedNative")
     expected = (
-        music.get("expectedNative", {}).get("events")
-        if type(music.get("expectedNative")) is dict
-        else None
+        expected_native.get("events") if isinstance(expected_native, dict) else None
     )
-    if type(expected) is not list or not expected:
+    if not isinstance(expected, list) or not expected:
         raise ValueError("sidecar has no native event expectation")
     music_events = [
-        row for row in expected if type(row) is dict and row.get("kind") == "music"
+        row for row in expected if isinstance(row, dict) and row.get("kind") == "music"
     ]
     if len(music_events) != 1:
         raise ValueError("sidecar must identify exactly one music occurrence")
     event_ids: set[str] = set()
     for row in expected:
-        if type(row) is not dict:
+        if not isinstance(row, dict):
             raise ValueError("native event expectation is malformed")
         event_id = row.get("eventId")
         if type(event_id) is not str or not event_id or event_id in event_ids:
@@ -267,9 +270,11 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     range_samples = music.get("sourceRangeSamples")
     record_range = music.get("recordRange")
     fade = music.get("fade")
-    if any(
-        type(row) is not dict
-        for row in (source_record, range_samples, record_range, fade)
+    if (
+        not isinstance(source_record, dict)
+        or not isinstance(range_samples, dict)
+        or not isinstance(record_range, dict)
+        or not isinstance(fade, dict)
     ):
         raise ValueError("music source, record range, or fade is malformed")
     if (
@@ -319,7 +324,7 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         )
     timeline = payload.get("timeline")
     if (
-        type(timeline) is not dict
+        not isinstance(timeline, dict)
         or timeline.get("frameRate") != {"numerator": 24, "denominator": 1}
         or timeline.get("audioSampleRate") != 48000
         or max(row["recordStartFrame"] + row["durationFrames"] for row in expected)
@@ -331,20 +336,22 @@ def _sidecar(request: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
 
     inventory = request.get("fileInventory")
     if inventory is not None:
-        if type(inventory) is not list:
+        if not isinstance(inventory, list):
             raise ValueError("fileInventory must be a list")
-        pinned: dict[str, str] = {}
+        inventory_hashes: dict[str, str] = {}
         for row in inventory:
-            if type(row) is not dict:
+            if not isinstance(row, dict):
                 raise ValueError("fileInventory row is malformed")
             path = _absolute_file(row.get("path"), "inventory")
             digest = _hash_value(row.get("sha256"), f"inventory {path}")
-            if str(path) in pinned:
+            if str(path) in inventory_hashes:
                 raise ValueError("fileInventory contains a duplicate path")
             if _sha256(path) != digest:
                 raise ValueError(f"fileInventory bytes changed: {path}")
-            pinned[str(path)] = digest
-        if any(pinned.get(path) != digest for path, digest in required.items()):
+            inventory_hashes[str(path)] = digest
+        if any(
+            inventory_hashes.get(path) != digest for path, digest in required.items()
+        ):
             raise ValueError(
                 "fileInventory omits or changes a sidecar-referenced input"
             )
@@ -395,7 +402,7 @@ def _expected_source_duration(event: dict[str, Any]) -> int:
         and Path(event["sourcePath"]).suffix.lower() == ".png"
     ):
         return 1
-    return event["durationFrames"]
+    return cast(int, event["durationFrames"])
 
 
 def _file_path(item: Any, event_id: str) -> str:
@@ -630,9 +637,7 @@ def _diagnostic_readback(
                     try:
                         row["clipEnabled"] = item.GetClipEnabled()
                     except Exception as error:
-                        row["clipEnabledError"] = (
-                            f"{type(error).__name__}: {error}"
-                        )
+                        row["clipEnabledError"] = f"{type(error).__name__}: {error}"
                     try:
                         row["audioProperties"] = item.GetProperties()
                     except Exception as error:
@@ -973,16 +978,16 @@ def _render(
         raise ValueError("existing render job identity is unreadable")
     retained_ready_jobs: list[dict[str, Any]] = []
     # Ready jobs stay queued; StartRendering below receives only the new job ID.
-    for job_id in prior_ids:
-        status = project.GetRenderJobStatus(job_id)
-        if type(status) is not dict:
+    for prior_job_id in prior_ids:
+        prior_status = project.GetRenderJobStatus(prior_job_id)
+        if type(prior_status) is not dict:
             raise ValueError("existing render job status is unreadable")
-        if status.get("JobStatus") in _TERMINAL_JOBS:
+        if prior_status.get("JobStatus") in _TERMINAL_JOBS:
             continue
-        if status.get("JobStatus") != "Ready":
+        if prior_status.get("JobStatus") != "Ready":
             raise ValueError("an existing render job is neither terminal nor Ready")
-        old_job = next(row for row in prior_jobs if _job_id(row) == job_id)
-        retained_ready_jobs.append({"job": old_job, "status": status})
+        old_job = next(row for row in prior_jobs if _job_id(row) == prior_job_id)
+        retained_ready_jobs.append({"job": old_job, "status": prior_status})
 
     current_format = project.GetCurrentRenderFormatAndCodec()
     current_mode = project.GetCurrentRenderMode()
