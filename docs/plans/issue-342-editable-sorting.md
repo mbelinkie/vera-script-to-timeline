@@ -47,7 +47,11 @@ with moves whose sole destination was a discarded new row. Unedited converted
 notes/clips retain their original content and outline-return eligibility.
 
 The projection retains creation/deletion and placement provenance separately
-from the visible document. A missing exact birth/deletion slot, missing parent
+from the visible document. Excluded rows can provide temporary ordering anchors;
+only surviving rows are published, and their relative order must be unique.
+Sorting-only preserves the chosen organization’s Stash return location, including
+for a deleted converted row, while restoring baseline content and eligibility.
+A missing exact birth/deletion slot, missing parent
 or section, incompatible parent kind, or unsafe attachment split refuses the
 whole selective result. The pending document and Undo history remain available.
 An edited parent that must become an ordinary Stash row cannot silently retain

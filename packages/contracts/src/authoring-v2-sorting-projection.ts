@@ -38,6 +38,7 @@ interface Birth {
 interface Tombstone {
   rowId: string;
   slot: RowSlot;
+  origin?: StashOriginV2;
 }
 
 interface StoredSlot {
@@ -252,7 +253,8 @@ export function updateSortingProjectionV2(
     }
     if (baselineRows.has(rowId) && !next.tombstones.some((tombstone) => tombstone.rowId === rowId)) {
       const slot = beforeSlots.get(rowId);
-      if (slot) next.tombstones.push({ rowId, slot: structuredClone(slot) });
+      const origin = beforeRows.get(rowId)?.stashOrigin;
+      if (slot) next.tombstones.push({ rowId, slot: structuredClone(slot), ...(origin ? { origin: structuredClone(origin) } : {}) });
     }
   }
 
@@ -659,17 +661,20 @@ function normalizeRowForLocation(
   baselineSlot: RowSlot | undefined,
   changed: boolean,
   mode: "edits_only" | "sorting_only",
+  layoutOrigin?: StashOriginV2,
 ): Row {
   const result = structuredClone(row);
   if (slot.surface === "stash") {
     delete result.stashOrigin;
   } else if (mode === "sorting_only") {
-    if (baselineSlot?.surface === "stash") result.stashOrigin = originForSlot(baselineSlot);
-    else {
-      const original = rowMap(baseline).get(rowId);
-      if (original?.stashOrigin) result.stashOrigin = structuredClone(original.stashOrigin);
-      else delete result.stashOrigin;
-    }
+    const original = rowMap(baseline).get(rowId);
+    const origin = layoutOrigin ?? original?.stashOrigin ?? (baselineSlot?.surface === "stash" ? originForSlot(baselineSlot) : undefined);
+    if (origin) result.stashOrigin = {
+      ...structuredClone(origin),
+      kind: baselineSlot?.surface === "stash" ? baselineSlot.entry.kind : original?.stashOrigin?.kind ?? origin.kind,
+      returnEligible: baselineSlot?.surface === "stash" ? true : original?.stashOrigin?.returnEligible ?? true,
+    };
+    else delete result.stashOrigin;
   } else {
     const original = rowMap(baseline).get(rowId);
     if (original?.stashOrigin) result.stashOrigin = { ...original.stashOrigin, returnEligible: changed ? false : original.stashOrigin.returnEligible };
@@ -866,7 +871,8 @@ export function projectSortingDocumentV2(
 
       const slot = outputSlots.get(rowId)!;
       const priorSlot = baselineSlots.get(rowId);
-      const normalized = normalizeRowForLocation(selectedRow, rowId, slot, baseline, priorSlot, changed || !!birth && !!latestRow && !sameJson(contentRow(birth.row), contentRow(latestRow)), mode);
+      const layoutOrigin = latestRow?.stashOrigin ?? state.tombstones.find((tombstone) => tombstone.rowId === rowId)?.origin;
+      const normalized = normalizeRowForLocation(selectedRow, rowId, slot, baseline, priorSlot, changed || !!birth && !!latestRow && !sameJson(contentRow(birth.row), contentRow(latestRow)), mode, layoutOrigin);
       replaceRow(output, rowId, normalized);
     }
 
