@@ -12,14 +12,21 @@ function fixture() {
   const state = initialState(99);
   state.paused = null;
   state.entries = [1, 2].map((pr) => ({ pr, submitted: B, head: B, ready: true, owner: "owner" }));
-  const calls = [], comments = [], runs = [];
+  const calls = [], comments = [], runs = [], pageCalls = [];
+  const rules = [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: STATUS, integration_id: null }] } }];
   const pulls = new Map([1, 2].map((pr) => [pr, { number: pr, state: "open", draft: false, merged: false, base: { ref: "main", repo: { full_name: repository } }, head: { sha: B, ref: `feature-${pr}`, repo: { full_name: repository } } }]));
   let main = A, revision = 0;
   const github = {
     repository,
     async loadState() { return { sha: String(revision), state: clone(state) }; },
     async saveState(next) { Object.assign(state, clone(next)); revision += 1; return { sha: String(revision), state: clone(state) }; },
-    async pages(url) { if (url.endsWith("/commits")) return []; assert.match(url, /issues\/99\/comments/); return clone(comments); },
+    async pages(url) {
+      pageCalls.push(url);
+      if (url.endsWith("/commits")) return [];
+      if (url.endsWith("/rules/branches/main")) return clone(rules);
+      assert.match(url, /issues\/99\/comments/);
+      return clone(comments);
+    },
     async api(method, url, body) {
       const suffix = url.replace(`/repos/${repository}`, "");
       calls.push({ method, suffix, body: clone(body) });
@@ -27,7 +34,11 @@ function fixture() {
       if (suffix === "/git/ref/heads/main") return { object: { sha: main } };
       if (suffix.startsWith("/git/ref/heads/feature-")) return { object: { sha: pulls.get(Number(suffix.split("-").at(-1))).head.sha } };
       if (suffix.includes("/collaborators/")) return { permission: suffix.includes("outsider") ? "read" : "write" };
-      if (suffix === "/branches/main/protection/required_status_checks") return { strict: true, contexts: [STATUS] };
+      if (suffix === "/branches/main/protection/required_status_checks") {
+        const error = new Error("administration read unavailable");
+        error.status = 403;
+        throw error;
+      }
       if (suffix.startsWith("/actions/workflows/validate.yml/runs")) {
         const status = new URL(`https://example.com${suffix}`).searchParams.get("status");
         return { workflow_runs: clone(status ? runs.filter((r) => r.status === status) : runs) };
@@ -60,7 +71,7 @@ function fixture() {
     runs.length = 0;
     runs.push({ id: n + 1000, display_title: expected.title, workflow_id: 7, head_sha: expected.workflowHead, event: "workflow_dispatch", path: ".github/workflows/validate.yml", run_attempt: 1, status: "completed", conclusion: "success", html_url: `https://github.com/owner/repo/actions/runs/${n + 1000}`, actor: { login: "github-actions[bot]" } });
   }
-  return { queue, github, state, calls, comments, runs, pulls, load, pass, setMain: (sha) => { main = sha; } };
+  return { queue, github, state, calls, comments, runs, rules, pageCalls, pulls, load, pass, setMain: (sha) => { main = sha; } };
 }
 
 test("queue command grammar binds readiness to a full SHA and distinct validation intent", () => {
@@ -161,9 +172,41 @@ test("manual run blocks dispatch; unprotected main blocks automatic delivery", a
   const f = fixture(); await f.load(); f.runs.push({ id: 4, status: "in_progress" });
   await f.queue.advance(); assert.equal(f.state.active, null); assert.equal(f.state.paused, null);
   f.runs.length = 0;
-  const api = f.github.api.bind(f.github);
-  f.github.api = (method, url, body) => url.endsWith("/required_status_checks") ? Promise.resolve({ strict: false, contexts: [] }) : api(method, url, body);
+  const pages = f.github.pages.bind(f.github);
+  f.github.pages = (url) => url.endsWith("/rules/branches/main")
+    ? Promise.resolve([{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } }])
+    : pages(url);
   await assert.rejects(f.queue.advance(), /Main must require strict/);
+});
+
+test("readable effective rules authorize protection when the classic endpoint returns 403", async () => {
+  const f = fixture();
+  const oldEndpoint = `/repos/${repository}/branches/main/protection/required_status_checks`;
+  await assert.rejects(f.github.api("GET", oldEndpoint), (error) => error.status === 403);
+  const oldEndpointCalls = f.calls.filter((call) => call.suffix === "/branches/main/protection/required_status_checks").length;
+
+  await f.queue.protection();
+
+  assert.equal(f.pageCalls.at(-1), `/repos/${repository}/rules/branches/main`);
+  assert.equal(f.calls.filter((call) => call.suffix === "/branches/main/protection/required_status_checks").length, oldEndpointCalls);
+});
+
+test("protection fails closed when strict status and queue context are absent or split", async () => {
+  const invalidRules = [
+    [],
+    [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } }],
+    [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: "TypeScript and Python" }] } }],
+    [
+      { type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: "TypeScript and Python" }] } },
+      { type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } },
+    ],
+  ];
+
+  for (const rules of invalidRules) {
+    const f = fixture();
+    f.rules.splice(0, f.rules.length, ...rules);
+    await assert.rejects(f.queue.protection(), /Main must require strict/);
+  }
 });
 
 test("changed base blocks merge even for the exact green head", async () => {
