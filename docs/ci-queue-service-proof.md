@@ -6,3 +6,6 @@ second test-only candidate validates against the newly merged main.
 
 The control issue and workflow links record the actual results. This candidate
 does not claim the queue has passed acceptance or authorize other PRs to merge.
+
+A later documentation-only entry verifies that a controlled failure preserves
+waiting work and releases it only after explicit repair and resume.
