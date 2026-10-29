@@ -173,14 +173,22 @@ class FakeTimeline:
         return True
 
     def GetIsTrackLocked(self, kind: str, index: int) -> bool:
+        if self.project.current_only_lock_getter and self.project.current is not self:
+            return False
         return self.locks.get((kind, index), False)
 
 
 class FakeProject:
     def __init__(
-        self, context: dict[str, Any], events: list[str], *, auto_select: bool = False
+        self,
+        context: dict[str, Any],
+        events: list[str],
+        *,
+        auto_select: bool = False,
+        current_only_lock_getter: bool = False,
     ) -> None:
         self.context, self.events, self.auto_select = context, events, auto_select
+        self.current_only_lock_getter = current_only_lock_getter
         self.uid = "resolve-project-uid"
         self.timelines: list[FakeTimeline] = []
         self.current: FakeTimeline | None = None
@@ -409,11 +417,17 @@ def _build(
     context_override: dict[str, Any] | None = None,
     auto_select: bool = False,
     single_wide: bool = False,
+    current_only_lock_getter: bool = False,
 ) -> tuple[Any, ...]:
     profile = json.loads((_FIXTURES / "profile.json").read_text())
     context = context_override if context_override is not None else profile["context"]
     events: list[str] = []
-    project = FakeProject(context, events, auto_select=auto_select)
+    project = FakeProject(
+        context,
+        events,
+        auto_select=auto_select,
+        current_only_lock_getter=current_only_lock_getter,
+    )
     pool = FakeMediaPool(project, events, auto_select=auto_select)
     picture = ResolvedPresenterMedia(
         "registered-project",
@@ -518,6 +532,23 @@ def test_builds_locked_continuous_master_and_separate_framing_target() -> None:
     for index, event in enumerate(events):
         if event.startswith("mutate:"):
             assert events[index - 1] == "guard"
+
+
+def test_final_lock_readback_selects_master_and_restores_generated_timeline() -> None:
+    result, project, _pool, events, *_rest = _build(current_only_lock_getter=True)
+
+    assert project.GetCurrentTimeline() is result.generated_timeline
+    assert all(
+        result.master_timeline.locks.get(track) is True
+        for track in result.protected_master_tracks
+    )
+    assert result.master_timeline.GetIsTrackLocked("video", 1) is False
+    assert result.generated_timeline.GetIsTrackLocked("video", 1) is False
+    selection_indices = [
+        index for index, event in enumerate(events) if event == "mutate:select-timeline"
+    ]
+    assert len(selection_indices) >= 4
+    assert all(events[index - 1] == "guard" for index in selection_indices)
 
 
 def test_accepts_a_single_profile_treatment() -> None:

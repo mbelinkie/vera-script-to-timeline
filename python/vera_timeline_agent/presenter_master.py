@@ -980,11 +980,25 @@ def prepare_presenter_master(
             raise PresenterMasterError(
                 "generated dialogue differs from the appended handle"
             )
-        for kind, index in protected:
-            if master.GetIsTrackLocked(kind, index) is not True:
+        _guard(project, project_uid, generated_uid, current_target_guard)
+        _select(project, master, project_uid, current_target_guard)
+        try:
+            if not _json_equal(context_reader(master), profile["context"]):
                 raise PresenterMasterError(
-                    "Presenter Master track lock did not persist"
+                    "Presenter Master context changed before lock verification"
                 )
+            for kind, index in protected:
+                if master.GetIsTrackLocked(kind, index) is not True:
+                    raise PresenterMasterError(
+                        "Presenter Master track lock did not persist"
+                    )
+        finally:
+            _select(project, generated, project_uid, current_target_guard)
+        _guard(project, project_uid, generated_uid, current_target_guard)
+        if not _json_equal(context_reader(generated), profile["context"]):
+            raise PresenterMasterError(
+                "generated framing context changed during lock verification"
+            )
         return PresenterMasterBuild(
             master,
             master_uid,
