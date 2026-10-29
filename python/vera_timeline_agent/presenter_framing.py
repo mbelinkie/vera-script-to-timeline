@@ -74,6 +74,7 @@ class NativeSaveReopen:
         self._project_name = project_name
         self._timeline_uid = timeline_uid
         self._used = False
+        self._reopened = False
 
     def _current_project(self) -> Any:
         get_current = getattr(self._project_manager, "GetCurrentProject", None)
@@ -187,6 +188,55 @@ class NativeSaveReopen:
                     "Resolve could not select the target timeline"
                 )
         self._current_project()
+        self._reopened = True
+
+    def reopened_items_for(
+        self, targets: Sequence[PresenterPictureTarget]
+    ) -> dict[str, Any]:
+        """Read exact target handles from this reopened timeline's video tracks."""
+        if not self._reopened:
+            raise PresenterFramingError("native project has not been reopened")
+        expected = {target.timeline_item_uid: target for target in targets}
+        if not targets or len(expected) != len(targets):
+            raise PresenterFramingError("reopened target item UIDs are invalid")
+        if any(target.owning_timeline_uid != self._timeline_uid for target in targets):
+            raise PresenterFramingError("reopened target timeline binding differs")
+
+        project = self._current_project()
+        timeline = project.GetCurrentTimeline()
+        get_track_count = getattr(timeline, "GetTrackCount", None)
+        get_track_items = getattr(timeline, "GetItemListInTrack", None)
+        if not callable(get_track_count) or not callable(get_track_items):
+            raise PresenterFramingError("reopened video tracks are unavailable")
+        track_count = get_track_count("video")
+        if (
+            isinstance(track_count, bool)
+            or not isinstance(track_count, int)
+            or track_count < 0
+        ):
+            raise PresenterFramingError("reopened video track count is invalid")
+
+        items_by_uid: dict[str, Any] = {}
+        for index in range(1, track_count + 1):
+            for item in get_track_items("video", index) or []:
+                get_uid = getattr(item, "GetUniqueId", None)
+                uid = get_uid() if callable(get_uid) else None
+                if not isinstance(uid, str) or not uid:
+                    raise PresenterFramingError(
+                        "reopened presenter item UID is unavailable"
+                    )
+                if uid in items_by_uid:
+                    raise PresenterFramingError("reopened video item UID is duplicated")
+                items_by_uid[uid] = item
+        if not set(expected).issubset(items_by_uid):
+            raise PresenterFramingError("reopened video item UID set differs")
+        if any(items_by_uid[uid] is target.item for uid, target in expected.items()):
+            raise PresenterFramingError("reopened timeline returned a pre-close item")
+        self._current_project()
+        return {
+            target.event_id: items_by_uid[target.timeline_item_uid]
+            for target in targets
+        }
 
 
 @dataclass(frozen=True)
@@ -721,16 +771,11 @@ class PresenterFramingAdapter:
         expected_context: Mapping[str, Any],
         properties_by_id: Mapping[str, Mapping[str, bool | int | float]],
         save_close_reopen: NativeSaveReopen,
-        lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
     ) -> _CycleResult:
         event_ids = tuple(target.event_id for target in targets)
         try:
-            if type(save_close_reopen) is not NativeSaveReopen or not callable(
-                lookup_reopened
-            ):
-                raise PresenterFramingError(
-                    "native save/reopen and lookup port are required"
-                )
+            if type(save_close_reopen) is not NativeSaveReopen:
+                raise PresenterFramingError("native save/reopen is required")
             save_close_reopen.require_available(targets[0].owning_timeline_uid)
             self._require_timeline_owner(targets[0])
             self._require_context(expected_context)
@@ -791,10 +836,8 @@ class PresenterFramingAdapter:
             mutation_started = True
             save_close_reopen()
             self._require_timeline_owner(targets[0])
-            reopened = lookup_reopened(event_ids)
+            reopened = save_close_reopen.reopened_items_for(targets)
             self._require_timeline_owner(targets[0])
-            if not isinstance(reopened, Mapping) or set(reopened) != set(event_ids):
-                raise PresenterFramingError("reopened presenter lookup differs")
             self._require_context(expected_context)
             observed: dict[str, dict[str, bool | int | float]] = {}
             for target in targets:
@@ -813,7 +856,8 @@ class PresenterFramingAdapter:
                 )
             return _CycleResult(
                 "complete",
-                "Exact presenter properties survived save, reopen, and lookup.",
+                "Exact presenter properties survived native save, reopen, "
+                "and UID lookup.",
                 event_ids,
                 tuple(color_limitations),
                 observed,
@@ -834,7 +878,6 @@ class PresenterFramingAdapter:
         expected_pin: Mapping[str, Any],
         targets: Sequence[PresenterPictureTarget],
         save_close_reopen: NativeSaveReopen,
-        lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
     ) -> FramingResult:
         """Apply the pinned pair to explicit labeled items; never alter placement."""
         profile_pin: dict[str, Any] | None = None
@@ -862,7 +905,6 @@ class PresenterFramingAdapter:
             expected_context=checked_profile["context"],
             properties_by_id=properties,
             save_close_reopen=save_close_reopen,
-            lookup_reopened=lookup_reopened,
         )
         status: Literal["applied_verified", "pending", "blocked"] = (
             "applied_verified" if cycle.status == "complete" else cycle.status
@@ -882,7 +924,6 @@ class PresenterFramingAdapter:
         is_disposable_timeline: bool,
         samples: Mapping[str, PresenterPictureTarget],
         save_close_reopen: NativeSaveReopen,
-        lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
         transforms: Mapping[str, Mapping[str, int | float]] | None = None,
     ) -> CalibrationResult:
         """Capture authored tuples, or set explicit synthetic-check values."""
@@ -935,7 +976,6 @@ class PresenterFramingAdapter:
             expected_context=context,
             properties_by_id=properties,
             save_close_reopen=save_close_reopen,
-            lookup_reopened=lookup_reopened,
         )
         if cycle.status != "complete":
             return CalibrationResult(

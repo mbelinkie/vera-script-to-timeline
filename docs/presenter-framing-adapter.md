@@ -33,6 +33,8 @@ returns master frame bounds and the exact mapping evidence. The request pins
 that evidence for every interval and checks source identity, generation and
 exact boundaries. Direct master playback retains #44's `mappingHash: null`;
 the framing request's `mappingEvidenceHash` separately hashes retained evidence.
+`mappingEvidenceContentJson` retains the exact canonical evidence bytes for
+Python to verify without reproducing JavaScript number formatting.
 Synthetic tests exercise the delivered verifier and mapper without media tools.
 
 `snapshotPresenterFramingCalibration` creates the first paired snapshot or the
@@ -51,7 +53,9 @@ timeline. Verified operations require the concrete, single-use
 `NativeSaveReopen` lifecycle, bound to that project and timeline. It invokes
 Resolve's SaveProject, CloseProject and LoadProject, checks native identities,
 and restores the expected timeline when necessary. A generic no-op callback
-cannot qualify an operation. Mock lifecycle coverage still requires live proof.
+cannot qualify an operation. Reopened items are fetched from that timeline's
+video tracks by UID, with original pre-close handles rejected; unrelated
+B-roll items are left alone. Mock lifecycle coverage still requires live proof.
 
 DeepSeek supplied the bounded `snapshotPresenterFramingCalibration` implementation
 against frozen tests. The controller retained its response after rejecting a
@@ -82,6 +86,9 @@ whole project is read-only. Hidden presenter intervals remain present on V1.
 The caller adds the independent B-roll overlay and runs the framing adapter
 against the returned generated target items.
 
+The builder also requires the caller's independently retained expected request
+hash and profile pin; self-consistent embedded values alone are insufficient.
+
 The standalone builder currently accepts explicitly reviewed synthetic identity
 color inputs and an independently prepared dialogue artifact. It applies no
 grade or audio processor. Picture and dialogue media frame rates must match the
@@ -103,6 +110,12 @@ table. Do not use those values as production defaults.
 - Connect the builder to the registered synthetic inputs and run its protected
   Master/separate-generated-target workflow in the disposable real project.
   Verify its track locks and preserved old targets after save/reopen.
+- Qualify the post-close project handoff before claiming a completed lifecycle.
+  `NativeSaveReopen` currently refuses any remaining current project after close.
+  [#141's retained close refusal](investigations/issue-141/operator-record.md#native-close-refusal-september-30)
+  observed a different current project but did not establish that it was an
+  empty/default or otherwise authorized project. Do not assume it is safe to
+  replace that project; resolve this bounded native question in #119.
 - Qualify the unanswered RK-19/#118 delta: non-neutral native transform
   calibration, immediate and save/reopen readback, exact raster matching,
   distinct rendered crops, advancing source frames at direct boundaries and

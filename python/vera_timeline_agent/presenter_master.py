@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import uuid
@@ -12,14 +13,24 @@ from typing import Any, Literal
 
 from .narration.models import sha256_bytes
 from .presenter_framing import (
+    PresenterFramingError,
     PresenterPictureTarget,
     ValidatedSourceTimeInterval,
     _json_equal,
     _strict_json_object,
     validate_profile_snapshot,
 )
+from .presenter_framing_mapping import (
+    PresenterFramingMappingError,
+    _validate_mapping_evidence,
+)
 
 _HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")
+_RESOLVE_NTSC_RATES = {
+    "23.976": Fraction(24_000, 1_001),
+    "29.97": Fraction(30_000, 1_001),
+    "59.94": Fraction(60_000, 1_001),
+}
 
 
 class PresenterMasterError(RuntimeError):
@@ -96,6 +107,35 @@ def _rate(value: object, label: str) -> Fraction:
     return Fraction(*value)
 
 
+def _strict_json_value(payload: bytes, label: str) -> Any:
+    def pairs(values: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in values:
+            if key in result:
+                raise PresenterMasterError(f"{label} has duplicate JSON keys")
+            result[key] = value
+        return result
+
+    def invalid_constant(value: str) -> None:
+        raise PresenterMasterError(f"{label} has a non-finite value: {value}")
+
+    def finite_float(value: str) -> float:
+        result = float(value)
+        if not math.isfinite(result):
+            raise PresenterMasterError(f"{label} has a non-finite number")
+        return result
+
+    try:
+        return json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=pairs,
+            parse_constant=invalid_constant,
+            parse_float=finite_float,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PresenterMasterError(f"{label} is not UTF-8 JSON") from error
+
+
 def _preflight(
     request: Mapping[str, Any],
     *,
@@ -103,6 +143,8 @@ def _preflight(
     picture: ResolvedPresenterMedia,
     dialogue: ResolvedPresenterMedia,
     observed_context: Mapping[str, Any],
+    expected_profile_pin: Mapping[str, Any],
+    expected_request_hash: str,
 ) -> tuple[
     dict[str, Any], list[dict[str, Any]], ValidatedSourceTimeInterval, dict[str, Any]
 ]:
@@ -113,6 +155,8 @@ def _preflight(
     ):
         raise PresenterMasterError("unsupported presenter framing request")
     request_hash = _hash(request.get("requestHash"), "request hash")
+    if request_hash != _hash(expected_request_hash, "expected request hash"):
+        raise PresenterMasterError("request differs from its independent hash pin")
     content_json = request.get("requestContentJson")
     if not isinstance(content_json, str):
         raise PresenterMasterError(
@@ -188,17 +232,17 @@ def _preflight(
     raw_profile = request.get("profile")
     if not isinstance(raw_profile, Mapping):
         raise PresenterMasterError("paired framing profile is required")
-    profile_pin = {
-        key: raw_profile.get(key) for key in ("id", "version", "profileHash")
-    }
     profile_content = request.get("profileContentJson")
     if not isinstance(profile_content, (str, bytes)):
         raise PresenterMasterError("exact profile content bytes are required")
-    profile = validate_profile_snapshot(
-        raw_profile,
-        canonical_content_json=profile_content,
-        expected_pin=profile_pin,
-    )
+    try:
+        profile = validate_profile_snapshot(
+            raw_profile,
+            canonical_content_json=profile_content,
+            expected_pin=expected_profile_pin,
+        )
+    except PresenterFramingError as error:
+        raise PresenterMasterError(str(error)) from error
     if not _json_equal(profile["context"], observed_context):
         raise PresenterMasterError(
             "live source/timeline/Resolve context differs from the pinned profile"
@@ -232,19 +276,41 @@ def _preflight(
 
     intervals = request.get("intervals")
     mappings = request.get("mappingEvidence")
+    mapping_content_json = request.get("mappingEvidenceContentJson")
     if (
         not isinstance(intervals, list)
         or not intervals
         or not isinstance(mappings, list)
         or len(mappings) != len(intervals)
+        or not isinstance(mapping_content_json, str)
     ):
         raise PresenterMasterError(
             "exact presenter intervals and mapping handoffs are required"
         )
-    _hash(request.get("mappingEvidenceHash"), "mapping evidence hash")
+    mapping_hash = _hash(request.get("mappingEvidenceHash"), "mapping evidence hash")
+    try:
+        mapping_bytes = mapping_content_json.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise PresenterMasterError(
+            "mapping evidence content is not valid UTF-8"
+        ) from error
+    canonical_mappings = _strict_json_value(
+        mapping_bytes, "canonical presenter mapping evidence"
+    )
+    if (
+        not isinstance(canonical_mappings, list)
+        or not _json_equal(canonical_mappings, mappings)
+        or sha256_bytes(mapping_bytes) != mapping_hash
+    ):
+        raise PresenterMasterError(
+            "canonical mapping bytes, evidence, or mapping hash differ"
+        )
+    mappings = canonical_mappings
     normalized: list[dict[str, Any]] = []
     ids: set[str] = set()
     generation: str | None = None
+    first_mapping_identity: tuple[str, str, object] | None = None
+    source_rate = profile["context"]["sourceRaster"]["frameRate"]
     for index, (value, evidence) in enumerate(zip(intervals, mappings, strict=True)):
         if not isinstance(value, Mapping) or not isinstance(evidence, Mapping):
             raise PresenterMasterError("presenter interval mapping evidence is absent")
@@ -276,22 +342,43 @@ def _preflight(
             raise PresenterMasterError(
                 "presenter intervals are not source/record contiguous"
             )
-        if (
-            evidence.get("method") != "frame-index-identity/v1"
-            or evidence.get("projectId") != project_id
-            or evidence.get("sourceId") != request.get("sourceId")
-            or evidence.get("sourceContentHash") != request.get("sourceHash")
-            or evidence.get("frameRange")
-            != {"startInclusive": source_start, "endExclusive": source_end}
-            or not isinstance(evidence.get("generationIdentity"), str)
-            or not _HASH.fullmatch(str(evidence.get("sourceProbeHash")))
-        ):
+        try:
+            _validate_mapping_evidence(
+                evidence,
+                project_id=project_id,
+                expected_source_id=request["sourceId"],
+                expected_source_content_hash=request["sourceHash"],
+                review_interval=ValidatedSourceTimeInterval(source_start, source_end),
+            )
+        except (PresenterFramingMappingError, KeyError) as error:
             raise PresenterMasterError(
                 "prepared mapping evidence differs from the interval identity/range"
+            ) from error
+        if (
+            evidence["startBoundary"]["sourceFrameIndex"] != source_start
+            or evidence["endBoundary"]["sourceFrameIndex"] != source_end
+            or not _json_equal(evidence.get("sourceRate"), source_rate)
+            or not isinstance(evidence.get("sourceProbeHash"), str)
+            or not _HASH.fullmatch(evidence["sourceProbeHash"])
+            or "mappingHash" not in evidence
+        ):
+            raise PresenterMasterError(
+                "prepared mapping source boundaries, rate, or probe are invalid"
             )
         if generation is None:
             generation = evidence["generationIdentity"]
         elif evidence["generationIdentity"] != generation:
+            raise PresenterMasterError(
+                "presenter intervals use different mapping generations"
+            )
+        identity = (
+            evidence["sourceProbeHash"],
+            evidence["generationIdentity"],
+            evidence["mappingHash"],
+        )
+        if first_mapping_identity is None:
+            first_mapping_identity = identity
+        elif identity != first_mapping_identity:
             raise PresenterMasterError(
                 "presenter intervals use different mapping generations"
             )
@@ -386,7 +473,13 @@ def _identity(media: ResolvedPresenterMedia) -> tuple[str, str]:
             "resolved media-pool identity/path differs from registration"
         )
     try:
-        if Fraction(str(get_prop("FPS"))) != _rate(media.source_frame_rate, media.kind):
+        fps_label = str(get_prop("FPS"))
+        resolve_rate = (
+            _RESOLVE_NTSC_RATES[fps_label]
+            if fps_label in _RESOLVE_NTSC_RATES
+            else Fraction(fps_label)
+        )
+        if resolve_rate != _rate(media.source_frame_rate, media.kind):
             raise PresenterMasterError(
                 "Resolve media frame rate differs from its independent registration"
             )
@@ -569,6 +662,8 @@ def prepare_presenter_master(
     upstream_color_operation: Literal["identity_synthetic_reviewed"],
     current_target_guard: Callable[[str | None], None],
     context_reader: Callable[[Any | None], Mapping[str, Any]],
+    expected_profile_pin: Mapping[str, Any],
+    expected_request_hash: str,
 ) -> PresenterMasterBuild:
     """Create new locked source and separate unlocked framing timelines.
 
@@ -602,6 +697,8 @@ def prepare_presenter_master(
         picture=picture_media,
         dialogue=dialogue_media,
         observed_context=context_reader(original),
+        expected_profile_pin=expected_profile_pin,
+        expected_request_hash=expected_request_hash,
     )
     picture_id, _ = _identity(picture_media)
     dialogue_id, _ = _identity(dialogue_media)

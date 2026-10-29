@@ -110,6 +110,7 @@ export function createPresenterFramingRequest(input: PresenterFramingRequestInpu
     sourceId: source.id,
     sourceHash: source.mediaHash,
     mappingEvidence: input.mappingEvidence,
+    mappingEvidenceContentJson: canonicalJson(input.mappingEvidence),
     mappingEvidenceHash: sha256CanonicalJson(input.mappingEvidence),
     reviewedColor: input.reviewedColor,
     profile,

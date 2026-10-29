@@ -62,6 +62,8 @@ describe("registered synthetic presenter framing requests", () => {
     ]);
     expect(built.intervals[2]!.sourceStart).toBe(1150);
     expect(built.dialogue).toEqual(input.dialogue);
+    expect(JSON.parse(built.mappingEvidenceContentJson)).toEqual(input.mappingEvidence);
+    expect(built.mappingEvidenceHash).toBe(sha256CanonicalJson(JSON.parse(built.mappingEvidenceContentJson)));
     expect(built.requestHash).toBe(sha256CanonicalJson(JSON.parse(built.requestContentJson)));
     expect(canonicalJson(input)).toBe(before);
   });

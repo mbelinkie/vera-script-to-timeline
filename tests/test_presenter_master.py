@@ -13,6 +13,7 @@ from vera_timeline_agent.presenter_framing import ValidatedSourceTimeInterval
 from vera_timeline_agent.presenter_master import (
     PresenterMasterError,
     ResolvedPresenterMedia,
+    _identity,
     prepare_presenter_master,
 )
 
@@ -48,7 +49,12 @@ def _ts_canonical(value: Any) -> str:
 
 class FakeMedia:
     def __init__(
-        self, media_id: str, path: str, unique_id: str, rate: tuple[int, int]
+        self,
+        media_id: str,
+        path: str,
+        unique_id: str,
+        rate: tuple[int, int],
+        fps_label: str | None = None,
     ) -> None:
         self.media_id, self.path, self.unique_id, self.rate = (
             media_id,
@@ -56,6 +62,7 @@ class FakeMedia:
             unique_id,
             rate,
         )
+        self.fps_label = fps_label
 
     def GetMediaId(self) -> str:
         return self.media_id
@@ -67,7 +74,7 @@ class FakeMedia:
         if name == "File Path":
             return self.path
         if name == "FPS":
-            return str(Fraction(*self.rate))
+            return self.fps_label or str(Fraction(*self.rate))
         raise AssertionError(name)
 
 
@@ -297,13 +304,39 @@ def _request(*, context: dict[str, Any], single_wide: bool = False) -> dict[str,
             "videoSource": "master",
             "mappingHash": None,
             "generationIdentity": _GENERATION,
+            "sourceRate": profile["context"]["sourceRaster"]["frameRate"],
             "frameRange": {
                 "startInclusive": row["sourceStart"],
                 "endExclusive": row["sourceEnd"],
             },
+            "startBoundary": {
+                "sourceFrameIndex": row["sourceStart"],
+                "reviewFrameIndex": row["sourceStart"],
+                "reviewPtsSeconds": {
+                    "numerator": row["sourceStart"],
+                    "denominator": 25,
+                },
+                "sourcePtsSeconds": {
+                    "numerator": row["sourceStart"],
+                    "denominator": 25,
+                },
+            },
+            "endBoundary": {
+                "sourceFrameIndex": row["sourceEnd"],
+                "reviewFrameIndex": row["sourceEnd"],
+                "reviewPtsSeconds": {
+                    "numerator": row["sourceEnd"],
+                    "denominator": 25,
+                },
+                "sourcePtsSeconds": {
+                    "numerator": row["sourceEnd"],
+                    "denominator": 25,
+                },
+            },
         }
         for row in picture_intervals
     ]
+    mapping_content = _ts_canonical(mapping)
     payload = {
         "schemaVersion": "presenter-framing-request/v1",
         "status": "requested",
@@ -313,7 +346,8 @@ def _request(*, context: dict[str, Any], single_wide: bool = False) -> dict[str,
         "sourceId": "registered-presenter",
         "sourceHash": _MEDIA_HASH,
         "mappingEvidence": mapping,
-        "mappingEvidenceHash": f"sha256:{'9' * 64}",
+        "mappingEvidenceContentJson": mapping_content,
+        "mappingEvidenceHash": sha256_bytes(mapping_content.encode("utf-8")),
         "reviewedColor": {
             "profileHash": _COLOR_HASH,
             "reviewEvidenceHash": _REVIEW_HASH,
@@ -340,6 +374,21 @@ def _request(*, context: dict[str, Any], single_wide: bool = False) -> dict[str,
         "requestContentJson": content,
         "requestHash": sha256_bytes(content.encode()),
     }
+
+
+def _profile_pin() -> dict[str, Any]:
+    profile = json.loads((_FIXTURES / "profile.json").read_text())
+    return {key: profile[key] for key in ("id", "version", "profileHash")}
+
+
+def _seal_request(request: dict[str, Any]) -> None:
+    payload = {
+        key: value
+        for key, value in request.items()
+        if key not in {"requestHash", "requestContentJson"}
+    }
+    request["requestContentJson"] = _ts_canonical(payload)
+    request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
 
 
 def _build(
@@ -393,6 +442,8 @@ def _build(
         upstream_color_operation="identity_synthetic_reviewed",
         current_target_guard=guard,
         context_reader=context_reader,
+        expected_profile_pin=_profile_pin(),
+        expected_request_hash=request["requestHash"],
     )
     return result, project, pool, events, picture, dialogue, request
 
@@ -457,6 +508,48 @@ def test_accepts_a_single_profile_treatment() -> None:
 
 
 @pytest.mark.parametrize(
+    ("fps_label", "registered_rate"),
+    [
+        ("23.976", (24_000, 1_001)),
+        ("29.97", (30_000, 1_001)),
+        ("59.94", (60_000, 1_001)),
+    ],
+)
+def test_identity_normalizes_only_known_resolve_ntsc_labels(
+    fps_label: str, registered_rate: tuple[int, int]
+) -> None:
+    media = ResolvedPresenterMedia(
+        "project",
+        "source",
+        _MEDIA_HASH,
+        "/synthetic/media.mov",
+        "media",
+        registered_rate,
+        "video",
+        FakeMedia("media", "/synthetic/media.mov", "uid", registered_rate, fps_label),
+    )
+
+    assert _identity(media) == ("media", "uid")
+
+
+def test_identity_refuses_decimal_rate_that_does_not_match_registration() -> None:
+    registered_rate = (24_000, 1_001)
+    media = ResolvedPresenterMedia(
+        "project",
+        "source",
+        _MEDIA_HASH,
+        "/synthetic/media.mov",
+        "media",
+        registered_rate,
+        "video",
+        FakeMedia("media", "/synthetic/media.mov", "uid", registered_rate, "24.0"),
+    )
+
+    with pytest.raises(PresenterMasterError, match="frame rate differs"):
+        _identity(media)
+
+
+@pytest.mark.parametrize(
     "failure",
     [
         "context",
@@ -465,6 +558,16 @@ def test_accepts_a_single_profile_treatment() -> None:
         "fractional_audio",
         "audio_fps",
         "embedded_audio",
+        "request_hash",
+        "profile_pin",
+        "mapping_rate",
+        "mapping_boundary",
+        "mapping_generation",
+        "stale_mapping_hash",
+        "mapping_proxy_without_hash",
+        "mapping_hash_missing",
+        "mapping_duplicate_keys",
+        "mapping_nonfinite",
     ],
 )
 def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
@@ -500,42 +603,14 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
     request = _request(context=profile["context"])
     if failure == "request":
         request["intervals"][1]["sourceStart"] = 1051
-        payload = {
-            key: value
-            for key, value in request.items()
-            if key not in {"requestHash", "requestContentJson"}
-        }
-        request["requestContentJson"] = _ts_canonical(payload)
-        request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
     elif failure == "non_boolean_visibility":
         request["intervals"][1]["visible"] = "false"
-        payload = {
-            key: value
-            for key, value in request.items()
-            if key not in {"requestHash", "requestContentJson"}
-        }
-        request["requestContentJson"] = _ts_canonical(payload)
-        request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
     elif failure == "fractional_audio":
         request["dialogue"]["sourceStartSample"] = 1
         request["dialogue"]["sourceEndSample"] = 192001
-        payload = {
-            key: value
-            for key, value in request.items()
-            if key not in {"requestHash", "requestContentJson"}
-        }
-        request["requestContentJson"] = _ts_canonical(payload)
-        request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
     elif failure == "embedded_audio":
         dialogue = replace(dialogue, media_hash=picture.media_hash)
         request["dialogue"]["mediaHash"] = picture.media_hash
-        payload = {
-            key: value
-            for key, value in request.items()
-            if key not in {"requestHash", "requestContentJson"}
-        }
-        request["requestContentJson"] = _ts_canonical(payload)
-        request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
     elif failure == "audio_fps":
         dialogue = ResolvedPresenterMedia(
             "registered-project",
@@ -549,6 +624,42 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
                 "media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (24, 1)
             ),
         )
+    elif failure == "mapping_rate":
+        request["mappingEvidence"][0]["sourceRate"] = {
+            "numerator": 24,
+            "denominator": 1,
+        }
+        mapping_content = _ts_canonical(request["mappingEvidence"])
+        request["mappingEvidenceContentJson"] = mapping_content
+        request["mappingEvidenceHash"] = sha256_bytes(mapping_content.encode())
+    elif failure == "mapping_boundary":
+        request["mappingEvidence"][0]["startBoundary"]["sourceFrameIndex"] += 1
+        mapping_content = _ts_canonical(request["mappingEvidence"])
+        request["mappingEvidenceContentJson"] = mapping_content
+        request["mappingEvidenceHash"] = sha256_bytes(mapping_content.encode())
+    elif failure == "mapping_generation":
+        request["mappingEvidence"][1]["generationIdentity"] = "3" * 64
+        mapping_content = _ts_canonical(request["mappingEvidence"])
+        request["mappingEvidenceContentJson"] = mapping_content
+        request["mappingEvidenceHash"] = sha256_bytes(mapping_content.encode())
+    elif failure == "stale_mapping_hash":
+        request["mappingEvidenceContentJson"] += " "
+    elif failure == "mapping_proxy_without_hash":
+        request["mappingEvidence"][0]["videoSource"] = "proxy"
+        mapping_content = _ts_canonical(request["mappingEvidence"])
+        request["mappingEvidenceContentJson"] = mapping_content
+        request["mappingEvidenceHash"] = sha256_bytes(mapping_content.encode())
+    elif failure == "mapping_hash_missing":
+        del request["mappingEvidence"][0]["mappingHash"]
+        mapping_content = _ts_canonical(request["mappingEvidence"])
+        request["mappingEvidenceContentJson"] = mapping_content
+        request["mappingEvidenceHash"] = sha256_bytes(mapping_content.encode())
+    elif failure == "mapping_duplicate_keys":
+        request["mappingEvidenceContentJson"] = '[{"duplicate":1,"duplicate":2}]'
+    elif failure == "mapping_nonfinite":
+        request["mappingEvidenceContentJson"] = "[NaN]"
+
+    _seal_request(request)
 
     def guard(expected_uid: str | None) -> None:
         assert (
@@ -566,6 +677,14 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
             upstream_color_operation="identity_synthetic_reviewed",
             current_target_guard=guard,
             context_reader=lambda _timeline: context,
+            expected_profile_pin=(
+                {**_profile_pin(), "profileHash": _PROCESS_HASH}
+                if failure == "profile_pin"
+                else _profile_pin()
+            ),
+            expected_request_hash=(
+                _DIALOGUE_HASH if failure == "request_hash" else request["requestHash"]
+            ),
         )
     assert len(project.timelines) == 1
     assert not pool.appends

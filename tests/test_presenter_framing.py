@@ -146,11 +146,23 @@ class MockMediaItem:
 
 
 class MockNativeTimeline:
-    def __init__(self, uid: str) -> None:
+    def __init__(self, uid: str, video_items: tuple[Any, ...] = ()) -> None:
         self.uid = uid
+        self.video_tracks = [list(video_items)] if video_items else []
+        self.on_video_items_read: Callable[[], None] | None = None
 
     def GetUniqueId(self) -> str:
         return self.uid
+
+    def GetTrackCount(self, kind: str) -> int:
+        return len(self.video_tracks) if kind == "video" else 0
+
+    def GetItemListInTrack(self, kind: str, index: int) -> list[Any]:
+        if kind != "video":
+            return []
+        if self.on_video_items_read is not None:
+            self.on_video_items_read()
+        return self.video_tracks[index - 1]
 
 
 class MockNativeProject:
@@ -161,10 +173,15 @@ class MockNativeProject:
         name: str,
         timeline_uids: tuple[str, ...],
         current_timeline_uid: str | None,
+        video_items_by_timeline: Mapping[str, tuple[Any, ...]] | None = None,
     ) -> None:
         self.uid = uid
         self.name = name
-        self.timelines = [MockNativeTimeline(value) for value in timeline_uids]
+        items_by_timeline = video_items_by_timeline or {}
+        self.timelines = [
+            MockNativeTimeline(value, items_by_timeline.get(value, ()))
+            for value in timeline_uids
+        ]
         self.current_timeline = next(
             (
                 timeline
@@ -207,6 +224,13 @@ class MockNativeProjectManager:
         project_name: str = "Presenter Project",
         timeline_uid: str = "timeline-owner",
         reopened_timeline_uid: str | None = None,
+        targets: tuple[PresenterPictureTarget, ...] = (),
+        reopened_stale_handles: bool = False,
+        switch_timeline_on_video_read: bool = False,
+        property_mismatch: str | None = None,
+        identity_mismatch: str | None = None,
+        name_mismatch: str | None = None,
+        record_mismatch: str | None = None,
     ) -> None:
         self.calls = calls if calls is not None else []
         self.project_uid = project_uid
@@ -215,11 +239,21 @@ class MockNativeProjectManager:
         self.reopened_timeline_uid = (
             timeline_uid if reopened_timeline_uid is None else reopened_timeline_uid
         )
+        self.targets = targets
+        self.reopened_stale_handles = reopened_stale_handles
+        self.switch_timeline_on_video_read = switch_timeline_on_video_read
+        self.property_mismatch = property_mismatch
+        self.identity_mismatch = identity_mismatch
+        self.name_mismatch = name_mismatch
+        self.record_mismatch = record_mismatch
         self.current_project: MockNativeProject | None = MockNativeProject(
             uid=project_uid,
             name=project_name,
             timeline_uids=self.timeline_uids,
             current_timeline_uid=timeline_uid,
+            video_items_by_timeline={
+                timeline_uid: tuple(target.item for target in targets)
+            },
         )
         self.loaded_project: MockNativeProject | None = None
 
@@ -241,13 +275,34 @@ class MockNativeProjectManager:
         self.calls.append(("LoadProject", name))
         if name != self.project_name:
             return None
+        items = []
+        for target in self.targets:
+            item = (
+                target.item if self.reopened_stale_handles else target.item.reopened()
+            )
+            if self.property_mismatch == target.event_id:
+                item.properties["ZoomX"] += 0.00000001
+            if self.identity_mismatch == target.event_id:
+                item.media.media_id = "wrong-media-id"
+            if self.name_mismatch == target.event_id:
+                item.name = "unrelated clip name"
+            if self.record_mismatch == target.event_id:
+                item.record_start += 1
+            items.append(item)
         self.current_project = MockNativeProject(
             uid=self.project_uid,
             name=name,
             timeline_uids=self.timeline_uids,
             current_timeline_uid=self.reopened_timeline_uid,
+            video_items_by_timeline={self.timeline_uids[0]: tuple(items)},
         )
         self.loaded_project = self.current_project
+        if self.switch_timeline_on_video_read:
+            target_timeline = self.current_project.GetTimelineByIndex(1)
+            other_timeline = self.current_project.GetTimelineByIndex(2)
+            target_timeline.on_video_items_read = lambda: setattr(
+                self.current_project, "current_timeline", other_timeline
+            )
         return self.current_project
 
 
@@ -319,15 +374,29 @@ def _adapter(
 
 
 def _native_reopen(
+    targets: tuple[PresenterPictureTarget, ...] = (),
     *,
     timeline_uid: str = "timeline-owner",
     calls: list[Any] | None = None,
     reopened_timeline_uid: str | None = None,
+    reopened_stale_handles: bool = False,
+    switch_timeline_on_video_read: bool = False,
+    property_mismatch: str | None = None,
+    identity_mismatch: str | None = None,
+    name_mismatch: str | None = None,
+    record_mismatch: str | None = None,
 ) -> NativeSaveReopen:
     manager = MockNativeProjectManager(
         calls=calls,
         timeline_uid=timeline_uid,
         reopened_timeline_uid=reopened_timeline_uid,
+        targets=targets,
+        reopened_stale_handles=reopened_stale_handles,
+        switch_timeline_on_video_read=switch_timeline_on_video_read,
+        property_mismatch=property_mismatch,
+        identity_mismatch=identity_mismatch,
+        name_mismatch=name_mismatch,
+        record_mismatch=record_mismatch,
     )
     return NativeSaveReopen(
         project_manager=manager,
@@ -335,27 +404,6 @@ def _native_reopen(
         project_name=manager.project_name,
         timeline_uid=timeline_uid,
     )
-
-
-def _reopened_lookup(
-    targets: tuple[PresenterPictureTarget, ...],
-    *,
-    mismatch: str | None = None,
-    identity_mismatch: str | None = None,
-    name_mismatch: str | None = None,
-) -> Callable[[tuple[str, ...]], dict[str, MockTimelineItem]]:
-    def lookup(event_ids: tuple[str, ...]) -> dict[str, MockTimelineItem]:
-        assert event_ids == tuple(target.event_id for target in targets)
-        result = {target.event_id: target.item.reopened() for target in targets}
-        if mismatch is not None:
-            result[mismatch].properties["ZoomX"] += 0.00000001
-        if identity_mismatch is not None:
-            result[identity_mismatch].media.media_id = "wrong-media-id"
-        if name_mismatch is not None:
-            result[name_mismatch].name = "unrelated clip name"
-        return result
-
-    return lookup
 
 
 def _canonical_profile_content(content: Mapping[str, Any]) -> bytes:
@@ -394,8 +442,7 @@ def test_profile_hash_pin_context_and_decimal_values_block_before_mutation() -> 
         canonical_content_json=content_bytes,
         expected_pin=bad_pin,
         targets=[item],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((item,)),
+        save_close_reopen=_native_reopen((item,)),
     )
     assert hash_result.status == "blocked"
     assert not item.item.set_calls
@@ -408,8 +455,7 @@ def test_profile_hash_pin_context_and_decimal_values_block_before_mutation() -> 
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[item],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((item,)),
+        save_close_reopen=_native_reopen((item,)),
     )
     assert context_result.status == "blocked"
     assert not item.item.set_calls
@@ -541,8 +587,7 @@ def test_apply_is_target_only_exact_and_reports_missing_color_limitations() -> N
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=targets,
-        save_close_reopen=_native_reopen(calls=saves),
-        lookup_reopened=_reopened_lookup(targets),
+        save_close_reopen=_native_reopen(targets, calls=saves),
     )
 
     assert result.status == "applied_verified"
@@ -602,7 +647,6 @@ def test_apply_rejects_noop_and_subclass_lifecycle_before_any_setter() -> None:
             expected_pin=pin,
             targets=(target,),
             save_close_reopen=lifecycle,  # type: ignore[arg-type]
-            lookup_reopened=_reopened_lookup((target,)),
         )
         assert result.status == "blocked"
         assert "native save/reopen" in result.message
@@ -630,8 +674,7 @@ def test_apply_refuses_targets_when_another_timeline_is_current() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,), timeline_uid="timeline-a"),
     )
 
     assert result.status == "blocked"
@@ -663,8 +706,7 @@ def test_targets_must_share_owner_and_have_distinct_item_uids() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(wide, tight),
-        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
-        lookup_reopened=_reopened_lookup((wide, tight)),
+        save_close_reopen=_native_reopen((wide, tight), timeline_uid="timeline-a"),
     )
     assert mixed_owner.status == "blocked"
     assert "share one owning timeline" in mixed_owner.message
@@ -683,8 +725,9 @@ def test_targets_must_share_owner_and_have_distinct_item_uids() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(wide, duplicate_uid),
-        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
-        lookup_reopened=_reopened_lookup((wide, duplicate_uid)),
+        save_close_reopen=_native_reopen(
+            (wide, duplicate_uid), timeline_uid="timeline-a"
+        ),
     )
     assert duplicate.status == "blocked"
     assert "item UID is duplicated" in duplicate.message
@@ -718,8 +761,7 @@ def test_each_mutation_rechecks_the_target_timeline() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
 
     assert result.status == "pending"
@@ -729,7 +771,7 @@ def test_each_mutation_rechecks_the_target_timeline() -> None:
     assert target.item.set_calls == []
 
 
-def test_reopened_lookup_is_bracketed_by_owner_checks() -> None:
+def test_reopened_native_scan_rechecks_current_project_timeline() -> None:
     profile, _, content_bytes, pin = _fixture()
     current_timeline = ["timeline-owner"]
     adapter, _ = _adapter(
@@ -743,25 +785,62 @@ def test_reopened_lookup_is_bracketed_by_owner_checks() -> None:
         lambda: 0,
     )
 
-    def switch_timeline_in_lookup(
-        event_ids: tuple[str, ...],
-    ) -> dict[str, MockTimelineItem]:
-        reopened = _reopened_lookup((target,))(event_ids)
-        current_timeline[0] = "timeline-other"
-        return reopened
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=_native_reopen((target,), switch_timeline_on_video_read=True),
+    )
+
+    assert result.status == "pending"
+    assert "current native timeline identity differs" in result.message
+    assert result.observed_properties is None
+
+
+def test_reopened_native_scan_rejects_preclose_item_handles() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    adapter, _ = _adapter(profile)
+    target = _target(
+        "presenter-a",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: 0,
+    )
 
     result = adapter.apply(
         profile=profile,
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=switch_timeline_in_lookup,
+        save_close_reopen=_native_reopen((target,), reopened_stale_handles=True),
     )
 
     assert result.status == "pending"
-    assert "different current timeline" in result.message
+    assert "pre-close item" in result.message
     assert result.observed_properties is None
+
+
+def test_reopened_native_scan_preserves_unrelated_broll_items() -> None:
+    target = _target(
+        "presenter-a", "wide", ValidatedSourceTimeInterval(100, 125), lambda: 0
+    )
+    broll = _target("broll", "wide", ValidatedSourceTimeInterval(0, 25), lambda: 0)
+    manager = MockNativeProjectManager(targets=(target,))
+    lifecycle = NativeSaveReopen(
+        project_manager=manager,
+        project_uid="native-project",
+        project_name="Presenter Project",
+        timeline_uid="timeline-owner",
+    )
+    lifecycle()
+    assert manager.loaded_project is not None
+    timeline = manager.loaded_project.GetCurrentTimeline()
+    timeline.video_tracks.append([broll.item])
+    reopened = lifecycle.reopened_items_for((target,))
+    assert set(reopened) == {"presenter-a"}
+    assert reopened["presenter-a"] is not target.item
+    assert broll.item.set_calls == []
 
 
 def test_native_reopen_selects_expected_timeline_and_cannot_replay() -> None:
@@ -820,8 +899,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
     assert label_result.status == "blocked"
     assert not target.item.set_calls
@@ -833,8 +911,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
     assert interval_result.status == "blocked"
     assert not target.item.set_calls
@@ -846,8 +923,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
     assert identity_result.status == "blocked"
     assert "media identity differs" in identity_result.message
@@ -860,8 +936,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
     assert type_result.status == "blocked"
     assert "item or media identity differs" in type_result.message
@@ -884,8 +959,7 @@ def test_item_name_must_read_back_after_setter_and_after_reopen() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[unretained],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((unretained,)),
+        save_close_reopen=_native_reopen((unretained,)),
     )
     assert immediate.status == "pending"
     assert "authoritative item name differs" in immediate.message
@@ -897,8 +971,7 @@ def test_item_name_must_read_back_after_setter_and_after_reopen() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[reopened_target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup(
+        save_close_reopen=_native_reopen(
             (reopened_target,), name_mismatch="presenter-b"
         ),
     )
@@ -916,8 +989,7 @@ def test_reopen_mismatch_stays_pending_and_never_claims_verified() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,), mismatch="presenter-a"),
+        save_close_reopen=_native_reopen((target,), property_mismatch="presenter-a"),
     )
     assert result.status == "pending"
     assert "readback differs" in result.message
@@ -929,8 +1001,7 @@ def test_reopen_mismatch_stays_pending_and_never_claims_verified() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[identity_target],
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup(
+        save_close_reopen=_native_reopen(
             (identity_target,), identity_mismatch="presenter-b"
         ),
     )
@@ -965,8 +1036,7 @@ def test_calibration_reads_both_raw_tuples_without_rewriting_prior() -> None:
         is_disposable_timeline=True,
         samples={"wide": wide, "tight": tight},
         transforms={"wide": transforms["wide"], "tight": transforms["tight"]},
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((wide, tight)),
+        save_close_reopen=_native_reopen((wide, tight)),
     )
 
     assert calibration.status == "sample_readback_complete", calibration.message
@@ -991,8 +1061,7 @@ def test_calibration_requires_a_disposable_studio_pair() -> None:
         is_disposable_timeline=False,
         samples={"wide": wide, "tight": tight},
         transforms={"wide": content["wide"], "tight": content["tight"]},
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((wide, tight)),
+        save_close_reopen=_native_reopen((wide, tight)),
     )
     assert result.status == "blocked"
     assert not wide.item.set_calls
@@ -1037,8 +1106,7 @@ def test_calibration_captures_authored_tuples_and_refuses_non_neutral_samples() 
     result = adapter.calibrate_disposable_samples(
         is_disposable_timeline=True,
         samples={"wide": wide, "tight": tight},
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((wide, tight)),
+        save_close_reopen=_native_reopen((wide, tight)),
     )
     assert result.status == "sample_readback_complete"
     assert result.observed_transforms == {
@@ -1069,8 +1137,7 @@ def test_calibration_captures_authored_tuples_and_refuses_non_neutral_samples() 
     blocked = adapter.calibrate_disposable_samples(
         is_disposable_timeline=True,
         samples={"wide": bad_wide, "tight": bad_tight},
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((bad_wide, bad_tight)),
+        save_close_reopen=_native_reopen((bad_wide, bad_tight)),
     )
     assert blocked.status == "blocked"
     assert "neutral invariants differ" in blocked.message
@@ -1094,25 +1161,18 @@ def test_apply_refuses_a_moved_item_and_reopen_record_drift() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=_reopened_lookup((target,)),
+        save_close_reopen=_native_reopen((target,)),
     )
     assert blocked.status == "blocked"
     assert target.item.set_calls == []
     target.item.record_start -= 1
-
-    def moved_after_reopen(event_ids: tuple[str, ...]) -> dict[str, MockTimelineItem]:
-        reopened = _reopened_lookup((target,))(event_ids)
-        reopened[target.event_id].record_start += 1
-        return reopened
 
     pending = adapter.apply(
         profile=profile,
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=_native_reopen(),
-        lookup_reopened=moved_after_reopen,
+        save_close_reopen=_native_reopen((target,), record_mismatch="record-check"),
     )
     assert pending.status == "pending"
     assert "record interval" in pending.message
