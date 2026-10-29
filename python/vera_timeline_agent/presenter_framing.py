@@ -317,6 +317,7 @@ class PresenterPictureTarget:
     key: FramingKey
     source_interval: ValidatedSourceTimeInterval
     record_interval: ValidatedSourceTimeInterval
+    source_frame_count: int
     timeline_item_uid: str
     media_id: str
     item: Any
@@ -636,6 +637,15 @@ def _validate_targets(
             raise PresenterFramingError("target source-time interval is not validated")
         if not isinstance(target.record_interval, ValidatedSourceTimeInterval):
             raise PresenterFramingError("target record interval is not validated")
+        if (
+            isinstance(target.source_frame_count, bool)
+            or not isinstance(target.source_frame_count, int)
+            or not 0 < target.source_frame_count <= _MAX_SAFE_INTEGER
+            or target.source_interval.end_frame > target.source_frame_count
+        ):
+            raise PresenterFramingError(
+                "target registered source frame count is invalid"
+            )
         if target.source_interval.end_frame - target.source_interval.start_frame != (
             target.record_interval.end_frame - target.record_interval.start_frame
         ):
@@ -723,13 +733,28 @@ class PresenterFramingAdapter:
             raise PresenterFramingError("presenter item identity is unavailable")
         media_item = media_pool_method()
         media_id_method = getattr(media_item, "GetMediaId", None)
+        get_clip_property = getattr(media_item, "GetClipProperty", None)
         if (
             item_uid_method() != target.timeline_item_uid
             or item_type_method() != "video"
             or not callable(media_id_method)
             or media_id_method() != target.media_id
+            or not callable(get_clip_property)
         ):
             raise PresenterFramingError("presenter item or media identity differs")
+        native_frame_count = get_clip_property("Frames")
+        if isinstance(native_frame_count, str) and re.fullmatch(
+            r"[0-9]+", native_frame_count
+        ):
+            native_frame_count = int(native_frame_count)
+        if (
+            isinstance(native_frame_count, bool)
+            or not isinstance(native_frame_count, int)
+            or native_frame_count != target.source_frame_count
+        ):
+            raise PresenterFramingError(
+                "presenter source frame count differs from its registered source"
+            )
 
         start_method = getattr(item, "GetSourceStartFrame", None)
         end_method = getattr(item, "GetSourceEndFrame", None)
@@ -740,14 +765,16 @@ class PresenterFramingAdapter:
         actual_start = start_method()
         actual_end = end_method()
         interval = target.source_interval
-        # Studio 21.1.1.10 readback from AppendToTimeline is half-open here.
+        # Interior ranges read back their exclusive boundary; at EOF Resolve
+        # reports the final valid frame index instead of the exclusive count.
+        expected_end = min(interval.end_frame, target.source_frame_count - 1)
         if (
             isinstance(actual_start, bool)
             or not isinstance(actual_start, int)
             or isinstance(actual_end, bool)
             or not isinstance(actual_end, int)
             or actual_start != interval.start_frame
-            or actual_end != interval.end_frame
+            or actual_end != expected_end
         ):
             raise PresenterFramingError("presenter target source interval differs")
         start = item.GetStart(False)

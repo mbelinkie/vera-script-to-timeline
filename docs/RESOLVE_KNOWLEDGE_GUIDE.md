@@ -516,17 +516,34 @@ affected decoded-frame and sound delta. Temporary still output proves neither
 Wide/Tight transforms on continuous presenter footage nor general motion/focus;
 #118/#119 retain those unresolved production capabilities.
 
-**#119 source-range delta — bounded native observation.** On Studio **21.1.1
-build 10** with External Scripting **Local**, a synthetic 1920×1080 square-pixel
-24 fps video item appended with source `startFrame=10,endFrame=40` returned
-`GetSourceStartFrame()=10`, `GetSourceEndFrame()=40`,
+**#119 source-range delta — bounded native observations.** On Studio **21.1.1
+build 10** with External Scripting **Local**, an interior synthetic 1920×1080
+square-pixel 24 fps video item appended with source `startFrame=10,endFrame=40`
+returned `GetSourceStartFrame()=10`, `GetSourceEndFrame()=40`,
 `GetStart(False)=0`, `GetDuration(False)=30`, and `GetEnd(False)=30`. A separate
 synthetic 48 kHz WAV item at Resolve-reported 24 fps, appended with the same
 source bounds and record frame 40, returned source `10/40`, record `40/70`, and
-duration 30. `GetSourceEndFrame()` is exclusive on this tested #119
-`AppendToTimeline` path. This corrects #119’s synthetic inclusive-end
-assumption only; it does not revise the retained #141/#144 endpoint evidence or
-qualify any non-neutral transform or rendered crop.
+duration 30. At an interior boundary, this #119 `AppendToTimeline` path reports
+the exclusive source end.
+
+A later full-source append exposed a narrow EOF case. On the same build, a
+registered synthetic H.264 source at 24 fps and its synchronized 48 kHz WAV were
+each appended with `startFrame=0,endFrame=240,recordFrame=0`. Resolve returned
+`GetStart(False/True)=0/0.0`, `GetEnd(False/True)=240/240.0`,
+`GetDuration(False/True)=240/240.0`, and source start/end `0/239` for both
+items. The video MediaPoolItem reported `Frames=240`, `End=239`,
+`Duration=00:00:10:00`, `FPS=24.0`, `PAR=Square`; the WAV reported
+`Duration=00:00:10:00`, `FPS=24.0`, `Sample Rate=48000`, with blank `Frames` and
+`End`. Independent ffprobe evidence reported video `nb_frames=240` and WAV
+`duration_ts=480000` at `time_base=1/48000`; the processed-dialogue record pins
+the same 480,000 sample frames. Thus Resolve displays the final valid source
+frame index at an interval that reaches EOF, while retaining the exact 240-frame
+duration and record range. #119 now carries an independently resolved total
+source-frame count, checks it against native video frame count or audio duration
+and sample-rate evidence, and accepts `sourceEnd=frameCount-1` only when the
+requested exclusive end equals that exact count. Interior `end-1` readback
+remains invalid. This correction is scoped to #119; it does not revise the
+retained #141/#144 endpoint evidence or qualify any transform or rendered crop.
 
 ## Waiting, recovery and current operations
 

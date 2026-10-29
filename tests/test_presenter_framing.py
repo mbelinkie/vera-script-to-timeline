@@ -47,6 +47,7 @@ class MockTimelineItem:
         color: str | None,
         guard_count: Any,
         media_id: str,
+        source_frame_count: int,
         properties: Mapping[str, Any] | None = None,
         color_supported: bool = True,
         name_write_success: bool = True,
@@ -68,7 +69,7 @@ class MockTimelineItem:
         self.record_start = interval.start_frame
         self.record_duration = interval.end_frame - interval.start_frame
         self.uid = f"timeline-{event_id}"
-        self.media = MockMediaItem(media_id)
+        self.media = MockMediaItem(media_id, source_frame_count)
         self.properties = dict(properties or {})
         self.set_calls: list[dict[str, Any]] = []
         self.guard_counts: list[int] = []
@@ -138,11 +139,17 @@ class MockTimelineItem:
 
 
 class MockMediaItem:
-    def __init__(self, media_id: str) -> None:
+    def __init__(self, media_id: str, source_frame_count: int) -> None:
         self.media_id = media_id
+        self.source_frame_count = source_frame_count
 
     def GetMediaId(self) -> str:
         return self.media_id
+
+    def GetClipProperty(self, name: str) -> str:
+        if name == "Frames":
+            return str(self.source_frame_count)
+        raise AssertionError(name)
 
 
 class MockNativeTimeline:
@@ -346,6 +353,7 @@ def _target(
     properties: Mapping[str, Any] | None = None,
     owning_timeline_uid: str = "timeline-owner",
     timeline_item_uid: str | None = None,
+    source_frame_count: int | None = None,
 ) -> PresenterPictureTarget:
     media_id = (
         media_id_override if media_id_override is not None else f"media-{event_id}"
@@ -356,6 +364,9 @@ def _target(
         key=key,  # type: ignore[arg-type]
         source_interval=interval,
         record_interval=interval,
+        source_frame_count=(
+            interval.end_frame + 1 if source_frame_count is None else source_frame_count
+        ),
         timeline_item_uid=(
             f"timeline-{event_id}" if timeline_item_uid is None else timeline_item_uid
         ),
@@ -367,6 +378,11 @@ def _target(
             color=color,
             guard_count=guard_count,
             media_id=media_id,
+            source_frame_count=(
+                interval.end_frame + 1
+                if source_frame_count is None
+                else source_frame_count
+            ),
             color_supported=color_supported,
             name_write_success=name_write_success,
             name_retained=name_retained,
@@ -1077,7 +1093,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
     assert interval_result.status == "blocked"
     assert not target.item.set_calls
 
-    target.item.source_end = interval.end_frame
+    target = _target("presenter-a", "wide", interval, lambda: 0)
     target.item.media.media_id = "wrong-media-id"
     identity_result = adapter.apply(
         profile=profile,
@@ -1101,6 +1117,55 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
     )
     assert type_result.status == "blocked"
     assert "item or media identity differs" in type_result.message
+    assert not target.item.set_calls
+
+
+def test_normalizes_only_the_registered_source_eof_to_resolve_last_frame() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    adapter, _ = _adapter(profile)
+    interval = ValidatedSourceTimeInterval(100, 125)
+    target = _target(
+        "presenter-eof",
+        "wide",
+        interval,
+        lambda: 0,
+        source_frame_count=125,
+    )
+    target.item.source_end = 124
+
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=[target],
+        save_close_reopen=_native_reopen((target,)),
+    )
+
+    assert result.status == "applied_verified"
+    assert result.event_ids == ("presenter-eof",)
+
+
+def test_target_interval_may_not_exceed_registered_source_frame_count() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    adapter, _ = _adapter(profile)
+    target = _target(
+        "presenter-too-long",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: 0,
+        source_frame_count=124,
+    )
+
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=[target],
+        save_close_reopen=_native_reopen((target,)),
+    )
+
+    assert result.status == "blocked"
+    assert "frame count" in result.message
     assert not target.item.set_calls
 
 

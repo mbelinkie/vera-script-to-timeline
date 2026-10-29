@@ -86,11 +86,19 @@ handles. Resolve's native project UID is checked separately from the logical
 registration project ID. It verifies the exact `requestContentJson` bytes and
 hash before creating timelines, checks handle identity/path/rate against the
 resolved inputs, creates a new continuous Master and a separate generated
-framing target, and verifies source/record placement. Every Master video/audio
-track is locked and read back. This protects tracks; it is not a claim that the
-whole project is read-only. Hidden presenter intervals remain present on V1.
-The caller adds the independent B-roll overlay and runs the framing adapter
-against the returned generated target items.
+framing target, and verifies source/record placement. Each resolved media handle
+also carries the positive total source-frame count from its independent source
+evidence. Resolve's video `Frames` property must match that count. For audio,
+the caller pins the count from processed sample evidence and the adapter checks
+the native duration, frame rate, and sample rate. Source intervals cannot exceed
+the count. Item readback keeps the exclusive source end at interior boundaries;
+when an interval ends exactly at EOF, Resolve reports the last valid frame
+(`source_frame_count - 1`) while record duration remains exact. The adapter
+accepts that endpoint only with the matching source count and exact duration.
+Every Master video/audio track is locked and read back. This protects tracks;
+it is not a claim that the whole project is read-only. Hidden presenter
+intervals remain present on V1. The caller adds the independent B-roll overlay
+and runs the framing adapter against the returned generated target items.
 
 The builder also requires the caller's independently retained expected request
 hash and profile pin; self-consistent embedded values alone are insufficient.
@@ -115,7 +123,11 @@ table. Do not use those values as production defaults.
   acceptance and Closed/Done before #119 delivery.
 - Connect the builder to the registered synthetic inputs and run its protected
   Master/separate-generated-target workflow in the disposable real project.
-  Verify its track locks and preserved old targets after save/reopen.
+  Verify its track locks and preserved old targets after save/reopen. The first
+  live builder attempt created and saved a partial Master before the full-file
+  endpoint readback rejected the boundary. Preserve that partial timeline; a
+  subsequent attempt must create a fresh uniquely named Master and leave it
+  intact.
 - Studio 21.1.1 build 10 live evidence on 2026-10-29: closing the synthetic
   calibration project created a new `Untitled Project` with a different UID.
   A read-only inventory of that exact project showed no current timeline, zero

@@ -54,6 +54,7 @@ class FakeMedia:
         path: str,
         unique_id: str,
         rate: tuple[int, int],
+        source_frame_count: int,
         fps_label: str | None = None,
     ) -> None:
         self.media_id, self.path, self.unique_id, self.rate = (
@@ -62,6 +63,7 @@ class FakeMedia:
             unique_id,
             rate,
         )
+        self.source_frame_count = source_frame_count
         self.fps_label = fps_label
 
     def GetMediaId(self) -> str:
@@ -75,6 +77,18 @@ class FakeMedia:
             return self.path
         if name == "FPS":
             return self.fps_label or str(Fraction(*self.rate))
+        if name == "Frames":
+            return str(self.source_frame_count)
+        if name == "Duration":
+            rate = Fraction(*self.rate)
+            if rate.denominator != 1:
+                raise AssertionError("fractional audio rate has no test duration")
+            seconds, frames = divmod(self.source_frame_count, rate.numerator)
+            hours, seconds = divmod(seconds, 3600)
+            minutes, seconds = divmod(seconds, 60)
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
+        if name == "Sample Rate":
+            return "48000"
         raise AssertionError(name)
 
 
@@ -104,8 +118,7 @@ class FakeTimelineItem:
         return value
 
     def GetSourceEndFrame(self) -> int:
-        value: int = self.info["endFrame"]
-        return value
+        return min(self.info["endFrame"], self.media.source_frame_count - 1)
 
 
 class FakeTimeline:
@@ -409,8 +422,11 @@ def _build(
         "/synthetic/presenter.mov",
         "media-picture",
         (25, 1),
+        1100,
         "video",
-        FakeMedia("media-picture", "/synthetic/presenter.mov", "picture-uid", (25, 1)),
+        FakeMedia(
+            "media-picture", "/synthetic/presenter.mov", "picture-uid", (25, 1), 1100
+        ),
     )
     dialogue = ResolvedPresenterMedia(
         "registered-project",
@@ -419,8 +435,11 @@ def _build(
         "/synthetic/dialogue.wav",
         "media-dialogue",
         (25, 1),
+        110,
         "audio",
-        FakeMedia("media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (25, 1)),
+        FakeMedia(
+            "media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (25, 1), 110
+        ),
     )
 
     def guard(expected_uid: str | None) -> None:
@@ -527,8 +546,11 @@ def test_identity_normalizes_only_known_resolve_ntsc_labels(
         "/synthetic/media.mov",
         "media",
         registered_rate,
+        240,
         "video",
-        FakeMedia("media", "/synthetic/media.mov", "uid", registered_rate, fps_label),
+        FakeMedia(
+            "media", "/synthetic/media.mov", "uid", registered_rate, 240, fps_label
+        ),
     )
 
     assert _identity(media) == ("media", "uid")
@@ -543,11 +565,42 @@ def test_identity_refuses_decimal_rate_that_does_not_match_registration() -> Non
         "/synthetic/media.mov",
         "media",
         registered_rate,
+        240,
         "video",
-        FakeMedia("media", "/synthetic/media.mov", "uid", registered_rate, "24.0"),
+        FakeMedia("media", "/synthetic/media.mov", "uid", registered_rate, 240, "24.0"),
     )
 
     with pytest.raises(PresenterMasterError, match="frame rate differs"):
+        _identity(media)
+
+
+@pytest.mark.parametrize(
+    ("kind", "registered_count", "native_count"),
+    [("video", 1101, 1100), ("audio", 111, 110)],
+)
+def test_identity_requires_native_media_to_match_registered_source_frame_count(
+    kind: str, registered_count: int, native_count: int
+) -> None:
+    rate = (25, 1)
+    media = ResolvedPresenterMedia(
+        "project",
+        "source",
+        _MEDIA_HASH,
+        "/synthetic/media.mov",
+        "media",
+        rate,
+        registered_count,
+        kind,  # type: ignore[arg-type]
+        FakeMedia(
+            "media",
+            "/synthetic/media.mov",
+            "uid",
+            rate,
+            native_count,
+        ),
+    )
+
+    with pytest.raises(PresenterMasterError, match="source frame count differs"):
         _identity(media)
 
 
@@ -589,8 +642,11 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
         "/synthetic/presenter.mov",
         "media-picture",
         (25, 1),
+        1100,
         "video",
-        FakeMedia("media-picture", "/synthetic/presenter.mov", "picture-uid", (25, 1)),
+        FakeMedia(
+            "media-picture", "/synthetic/presenter.mov", "picture-uid", (25, 1), 1100
+        ),
     )
     dialogue = ResolvedPresenterMedia(
         "registered-project",
@@ -599,8 +655,11 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
         "/synthetic/dialogue.wav",
         "media-dialogue",
         (25, 1),
+        110,
         "audio",
-        FakeMedia("media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (25, 1)),
+        FakeMedia(
+            "media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (25, 1), 110
+        ),
     )
     request = _request(context=profile["context"])
     if failure == "request":
@@ -621,9 +680,14 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
             "/synthetic/dialogue.wav",
             "media-dialogue",
             (24, 1),
+            110,
             "audio",
             FakeMedia(
-                "media-dialogue", "/synthetic/dialogue.wav", "dialogue-uid", (24, 1)
+                "media-dialogue",
+                "/synthetic/dialogue.wav",
+                "dialogue-uid",
+                (24, 1),
+                110,
             ),
         )
     elif failure == "mapping_rate":

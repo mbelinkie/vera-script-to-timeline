@@ -5,10 +5,12 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .presenter_framing import ValidatedSourceTimeInterval
-from .review_ingest import ReviewIngestAdapter
+
+if TYPE_CHECKING:
+    from .review_ingest import ReviewIngestAdapter
 
 Json = dict[str, Any]
 _HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")

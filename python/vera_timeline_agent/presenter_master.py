@@ -55,6 +55,7 @@ class ResolvedPresenterMedia:
     path: str
     media_id: str
     source_frame_rate: tuple[int, int]
+    source_frame_count: int
     kind: Literal["video", "audio"]
     item: Any
 
@@ -107,6 +108,31 @@ def _rate(value: object, label: str) -> Fraction:
             f"{label} frame rate must be an exact positive rational"
         )
     return Fraction(*value)
+
+
+def _positive_frame_count(value: object, label: str) -> int:
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
+        value = int(value)
+    count = _frame(value, label)
+    if count == 0:
+        raise PresenterMasterError(f"{label} must be positive")
+    return count
+
+
+def _audio_duration_frame_count(value: object, rate: Fraction) -> int:
+    match = (
+        re.fullmatch(r"([0-9]+):([0-9]{2}):([0-9]{2}):([0-9]{2})", value)
+        if isinstance(value, str)
+        else None
+    )
+    if match is None or rate.denominator != 1:
+        raise PresenterMasterError(
+            "Resolve audio duration cannot independently confirm its source frame count"
+        )
+    hours, minutes, seconds, frames = (int(part) for part in match.groups())
+    if minutes >= 60 or seconds >= 60 or frames >= rate.numerator:
+        raise PresenterMasterError("Resolve audio duration is invalid")
+    return ((hours * 60 + minutes) * 60 + seconds) * rate.numerator + frames
 
 
 def _strict_json_value(payload: bytes, label: str) -> Any:
@@ -198,6 +224,12 @@ def _preflight(
         raise PresenterMasterError(
             "a registered presenter video and separate dialogue audio are required"
         )
+    picture_frame_count = _positive_frame_count(
+        picture.source_frame_count, "registered presenter source frame count"
+    )
+    dialogue_frame_count = _positive_frame_count(
+        dialogue.source_frame_count, "registered dialogue source frame count"
+    )
     dialogue_request = request.get("dialogue")
     if not isinstance(dialogue_request, Mapping):
         raise PresenterMasterError(
@@ -337,6 +369,10 @@ def _preflight(
             raise PresenterMasterError(
                 "presenter interval identity or exact range is invalid"
             )
+        if source_end > picture_frame_count:
+            raise PresenterMasterError(
+                "presenter interval exceeds its registered source frame count"
+            )
         if index and (
             normalized[-1]["recordEnd"] != record_start
             or normalized[-1]["sourceEnd"] != source_start
@@ -452,6 +488,23 @@ def _preflight(
     source_interval = ValidatedSourceTimeInterval(
         source_start_frame.numerator, source_end_frame.numerator
     )
+    if source_interval.end_frame > dialogue_frame_count:
+        raise PresenterMasterError(
+            "dialogue interval exceeds its registered source frame count"
+        )
+    try:
+        native_sample_rate = _positive_frame_count(
+            dialogue.item.GetClipProperty("Sample Rate"),
+            "Resolve dialogue sample rate",
+        )
+    except (AttributeError, TypeError) as error:
+        raise PresenterMasterError(
+            "Resolve dialogue sample rate is unavailable"
+        ) from error
+    if native_sample_rate != sample_rate:
+        raise PresenterMasterError(
+            "Resolve dialogue sample rate differs from its synchronization evidence"
+        )
     provenance = {
         "reviewedColor": reviewed_color,
         "dialogueHashes": dialogue_hashes,
@@ -487,6 +540,23 @@ def _identity(media: ResolvedPresenterMedia) -> tuple[str, str]:
             )
     except (ValueError, ZeroDivisionError) as error:
         raise PresenterMasterError("Resolve media frame rate is unavailable") from error
+    source_frame_count = _positive_frame_count(
+        media.source_frame_count, "registered source frame count"
+    )
+    if media.kind == "video":
+        native_frame_count = _positive_frame_count(
+            get_prop("Frames"), "Resolve video frame count"
+        )
+    elif media.kind == "audio":
+        native_frame_count = _audio_duration_frame_count(
+            get_prop("Duration"), resolve_rate
+        )
+    else:
+        raise PresenterMasterError("resolved media kind is unsupported")
+    if native_frame_count != source_frame_count:
+        raise PresenterMasterError(
+            "Resolve source frame count differs from independent registration"
+        )
     uid = get_uid()
     if not isinstance(uid, str) or not uid:
         raise PresenterMasterError("resolved media-pool unique identity is unavailable")
@@ -607,10 +677,11 @@ def _read_item(
         or not math.isfinite(duration)
         or duration != record.end_frame - record.start_frame
         or item.GetSourceStartFrame() != source.start_frame
-        or item.GetSourceEndFrame() != source.end_frame
+        or item.GetSourceEndFrame()
+        != min(source.end_frame, media.source_frame_count - 1)
     ):
         raise PresenterMasterError(
-            "Resolve item identity or half-open source/record range differs"
+            "Resolve item identity or source/record range readback differs"
         )
     uid = item.GetUniqueId()
     if not isinstance(uid, str) or not uid:
@@ -882,6 +953,7 @@ def prepare_presenter_master(
                     key=row["framingKey"],
                     source_interval=source_range,
                     record_interval=record_range,
+                    source_frame_count=picture_media.source_frame_count,
                     timeline_item_uid=item_uid,
                     media_id=picture_id,
                     item=item,
