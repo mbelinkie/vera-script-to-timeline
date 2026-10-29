@@ -784,6 +784,18 @@ audio; #327 owns finishing preservation, #328 frozen selective execution/retry,
 and #104/#157 production composition. #35's tested generic job stages (synthetic
 executors) do not prove O09's item-level atomic plan or a native continuation.
 
+The [#328 selective outbound mechanism](investigations/issue-328-selective-outbound.md)
+adds a real immutable semantic plan, selected/skipped/blocked dispositions,
+ordered receipts, durable uncertainty, same-attempt recovery, and atomic final
+baseline advancement. Its instrumented domain and local-file tests include a
+structural multi-edit and spanning-audio selection identity. These prove the
+host mechanism, not native execution of those payloads. The cut-only native
+bridge uses that same executor, but actual continuation/reopen evidence remains
+pending while the existing Resolve process is unavailable to scripting. No
+target was created during that blocked preflight; it is not a negative result
+for the supported cut-only route. #328 remains open for its original native
+criterion and delivery gates.
+
 **Reuse/delta:** reuse existing pure operations and their explicit refusals.
 Check only the new audible/finishing/atomic-execution seam through the same saved
 intent and actual product path. A mock receipt or independently hand-placed

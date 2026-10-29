@@ -67,5 +67,26 @@ qualify their capabilities and preserve or refuse affected unknown work.
 
 ## Results
 
-Implementation and verification are in progress. No native success is claimed
-by the domain tests or by the existence of this harness.
+The reusable domain executor, selection/plan operations, file journal and
+native bridge are implemented. The 42 focused TypeScript tests and ten offline
+Python bridge tests pass. Native continuation is **pending**: the existing Resolve process
+was present, but Local scripting could not connect and the supported launcher
+timed out. No synthetic media or target was created by this proof. Existing
+application state was preserved. This is not negative capability evidence for
+the append route, nor a completed External result.
+
+One bounded DeepSeek task over the frozen 26-case suite cost approximately
+USD0.205 in three rounds. Although its final candidate passed that suite and
+TypeScript, independent inspection rejected it: it changed a returned skipped
+outcome to unattempted and admitted an unsafe uncertain-recovery path. The
+delivered executor is the owner's replacement, with independent readback of
+saved completions, current-target checks after reconciliation, immutable
+results, and a final whole-prefix verification before baseline advancement.
+
+Two test corrections preserve stronger behavioral assertions: the explicitly
+skipped change remains skipped after failure of the last selected item, and a
+waiting concurrent caller must cause **no adapter activity** rather than
+requiring the active caller to use an arbitrary fixed number of observations.
+The original frozen suite and model outputs remain separate from the delivered
+tests. Neither the model score nor the offline fake-Resolve tests establish
+actual native continuation or finishing/audio capabilities.

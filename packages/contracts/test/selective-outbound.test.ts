@@ -375,12 +375,13 @@ describe("selective outbound execution", () => {
       (error: unknown) => { throw error; },
     );
     await Promise.race([insideApply, waitingForExecution]);
+    const eventsBeforeSecond = [...adapter.events];
     const second = executeOutbound(store, adapter);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(store.activeExclusive).toBe(1);
     expect(store.maxActiveExclusive).toBe(1);
-    expect(adapter.events.filter((event) => event === "observe")).toHaveLength(1);
+    expect(adapter.events).toEqual(eventsBeforeSecond);
     release();
     const results = await Promise.all([first, second]);
 
@@ -405,7 +406,8 @@ describe("selective outbound execution", () => {
     const { store, adapter } = makeExecution();
     adapter.options.throwBeforeOnce = "cut-selected";
     const first = await executeOutbound(store, adapter);
-    expect(first.outcomes.map((item) => item.status)).toEqual(["verified", "verified", "failed", "unattempted", "blocked"]);
+    expect(first.outcomes.map((item) => item.status)).toEqual(["verified", "verified", "failed", "skipped", "blocked"]);
+    expect(first).toEqual(store.current());
     adapter.events.length = 0;
 
     await executeOutbound(store, adapter);

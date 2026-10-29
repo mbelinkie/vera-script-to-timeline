@@ -587,6 +587,10 @@ def _guard(
     project = manager.GetCurrentProject()
     _require(project is not None, "no current project")
     _require(
+        project.IsRenderingInProgress() is False,
+        "Resolve is rendering or render state is unknown",
+    )
+    _require(
         project.GetUniqueId() == session["projectUid"]
         and project.GetName() == session["projectName"],
         "current project identity changed",
@@ -690,6 +694,11 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
             "operation directory overlaps a source",
         )
     manager = resolve.GetProjectManager()
+    prior = manager.GetCurrentProject()
+    _require(
+        prior is None or prior.IsRenderingInProgress() is False,
+        "prior project is rendering or render state is unknown",
+    )
     names = manager.GetProjectListInCurrentFolder()
     _require(
         type(names) in {list, tuple} and project_name not in names,

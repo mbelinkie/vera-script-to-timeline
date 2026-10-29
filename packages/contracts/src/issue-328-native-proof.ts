@@ -70,7 +70,7 @@ function adapter(session: Session, hash: string, failAtBoundary: boolean, store:
 }
 async function setup(directory: string, python: string, bridge: string, red: string, blue: string): Promise<void> {
   // A consumed setup directory is retained even after a timeout: never create a replacement blindly.
-  await mkdir(directory);
+  await mkdir(directory, { mode: 0o700 });
   await writeFile(resolve(directory, "setup-started.json"), JSON.stringify({ version: 1 }), { flag: "wx" });
   const sources = await Promise.all([red, blue].map(async (path, index) => ({
     id: index === 0 ? "red" : "blue", path: resolve(path),
@@ -78,10 +78,12 @@ async function setup(directory: string, python: string, bridge: string, red: str
   })));
   const session: Session = { python: resolve(python), bridge: resolve(bridge),
     bridgeSha256: createHash("sha256").update(await readFile(NATIVE_BRIDGE)).digest("hex"), native: {} };
-  const result = command(session, "setup", {
+  const request = {
     operationId: randomUUID(), projectName: `VERA_328_${randomUUID().slice(0, 8)}`,
     sourceRevision: "issue328-public-synthetic-v1", operationDir: directory, sources,
-  });
+  };
+  await writeFile(resolve(directory, "setup-request.json"), JSON.stringify({ ...request, bridgeSha256: session.bridgeSha256 }), { flag: "wx", mode: 0o600 });
+  const result = command(session, "setup", request);
   if (!result.session || !result.observation) throw new Error("Native setup incomplete; inspect retained target before any new setup");
   session.native = result.session;
   await writeFile(resolve(directory, "session.json"), JSON.stringify(session), { flag: "wx", mode: 0o600 });

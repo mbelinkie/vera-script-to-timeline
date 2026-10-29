@@ -68,7 +68,7 @@ function immutable<T>(value: T): T {
 function validateChanges(changes: readonly OutboundChange[]): void {
   if (new Set(changes.map((change) => change.id)).size !== changes.length ||
       new Set(changes.map((change) => change.order)).size !== changes.length ||
-      changes.some((change) => !change.id || !Number.isSafeInteger(change.order) || change.order < 0 ||
+      changes.some((change) => typeof change.id !== "string" || !change.id || !Number.isSafeInteger(change.order) || change.order < 0 ||
         !["structural", "spanning-audio", "cut"].includes(change.kind) || !change.edits.length ||
         !(change.blocked === null || (typeof change.blocked === "string" && change.blocked.length > 0)) ||
         change.edits.some((edit) => Object.values(edit).some((value) =>
@@ -86,7 +86,7 @@ export function selectOutbound(changes: readonly OutboundChange[], ids: readonly
 }
 export function freezeOutbound(changes: readonly OutboundChange[], selection: Selection, context: { source: string; target: string; baseline: string }): OutboundPlan {
   selectOutbound(changes, selection.changeIds);
-  if (!selection.changeIds.length || !context.source || !context.target || !context.baseline) throw new Error("Selection and context required");
+  if (!selection.changeIds.length || [context.source, context.target, context.baseline].some((value) => typeof value !== "string" || !value)) throw new Error("Selection and context required");
   const body = {
     version: 1 as const, ...context,
     changes: structuredClone([...changes]).sort((a, b) => a.order - b.order).map((change) => ({ change,
@@ -114,14 +114,14 @@ export function loadOutbound(json: string): OutboundAttempt {
   let stopped = false;
   for (const [index, item] of value.plan.changes.entries()) {
     const outcome = value.outcomes[index];
-    if (!outcome || outcome.change !== item.change.id) throw new Error("Changed outcome order");
+    if (!outcome || outcome.change !== item.change.id || !(outcome.error === null || typeof outcome.error === "string")) throw new Error("Changed or invalid outcome");
     if (item.disposition !== "selected") {
       if (outcome.status !== item.disposition || outcome.receipt !== null || outcome.error !== null) throw new Error("Invalid excluded outcome");
       continue;
     }
     if (outcome.status === "verified") {
       const receipt = outcome.receipt;
-      if (stopped || !receipt || receipt.plan !== hash || receipt.change !== item.change.id || receipt.target !== body.target || receipt.before !== current || !receipt.after || outcome.error !== null) throw new Error("Stale or reordered receipt");
+      if (stopped || !receipt || receipt.plan !== hash || receipt.change !== item.change.id || receipt.target !== body.target || receipt.before !== current || typeof receipt.after !== "string" || !receipt.after || receipt.after === current || outcome.error !== null) throw new Error("Stale or reordered receipt");
       current = receipt.after;
     } else {
       if (!["unattempted", "failed", "uncertain"].includes(outcome.status) || outcome.receipt !== null || (stopped && outcome.status !== "unattempted")) throw new Error("Invalid pending outcome");
@@ -134,7 +134,86 @@ export function loadOutbound(json: string): OutboundAttempt {
 }
 
 export async function executeOutbound(store: OutboundStore, adapter: OutboundAdapter): Promise<OutboundAttempt> {
-  void store;
-  void adapter;
-  throw new Error("Executor not implemented");
+  return store.exclusive(async () => {
+    let attempt = loadOutbound(JSON.stringify(await store.load()));
+    const observe = async () => {
+      const value = await adapter.observe();
+      if (value.source !== attempt.plan.source || value.target !== attempt.plan.target || typeof value.fingerprint !== "string" || !value.fingerprint) {
+        throw new Error("Source or target changed");
+      }
+      return value;
+    };
+    const initial = await observe();
+    const pending = attempt.outcomes.find((outcome) => !["verified", "skipped", "blocked"].includes(outcome.status));
+    if (initial.fingerprint !== attempt.current && pending?.status !== "uncertain") throw new Error("Target content changed");
+    for (const [index, outcome] of attempt.outcomes.entries()) {
+      if (outcome.status === "verified" && !await adapter.verify(outcome.receipt!, attempt.plan.changes[index]!.change)) {
+        throw new Error("Previously verified receipt no longer reads back");
+      }
+    }
+    if (attempt.completed) {
+      if ((await observe()).fingerprint !== attempt.current) throw new Error("Completed target changed");
+      return attempt;
+    }
+    const save = async (index: number, status: Outcome["status"], receipt: Receipt | null, error: string | null) => {
+      const outcomes = attempt.outcomes.map((outcome, position) => position === index ? { change: outcome.change, status, receipt, error } : outcome);
+      const current = status === "verified" ? receipt!.after : attempt.current;
+      const completed = outcomes.every((outcome) => ["verified", "skipped", "blocked"].includes(outcome.status));
+      const next = loadOutbound(JSON.stringify({ ...attempt, outcomes, current, completed, baseline: completed ? current : attempt.plan.baseline }));
+      await store.save(next);
+      attempt = next;
+    };
+    const verify = async (receipt: Receipt, change: OutboundChange) => {
+      if (!receipt || receipt.plan !== attempt.plan.hash || receipt.change !== change.id || receipt.target !== attempt.plan.target ||
+          receipt.before !== attempt.current || typeof receipt.after !== "string" || !receipt.after || receipt.after === receipt.before ||
+          !await adapter.verify(receipt, change) || (await observe()).fingerprint !== receipt.after) {
+        throw new Error("Receipt is stale or did not verify");
+      }
+      // Recheck the whole selected prefix before the atomic baseline commit.
+      const last = attempt.plan.changes.every((item, index) => item.disposition !== "selected" ||
+        item.change.id === change.id || attempt.outcomes[index]!.status === "verified");
+      if (last) {
+        for (const [index, outcome] of attempt.outcomes.entries()) {
+          if (outcome.status === "verified" && !await adapter.verify(outcome.receipt!, attempt.plan.changes[index]!.change)) {
+            throw new Error("Earlier selected work changed before completion");
+          }
+        }
+        if ((await observe()).fingerprint !== receipt.after) throw new Error("Target changed before completion");
+      }
+    };
+    for (const [index, item] of attempt.plan.changes.entries()) {
+      const outcome = attempt.outcomes[index]!;
+      if (item.disposition !== "selected" || outcome.status === "verified") continue;
+      const key = `${attempt.plan.hash}:${item.change.id}`;
+      if (outcome.status === "failed" || outcome.status === "uncertain") {
+        const recovered = await adapter.reconcile(item.change, key);
+        if (recovered === "unknown") throw new Error("Native outcome remains unknown");
+        if (recovered !== "not-applied") {
+          await verify(recovered, item.change);
+          await save(index, "verified", recovered, null);
+          continue;
+        }
+      }
+      if ((await observe()).fingerprint !== attempt.current) throw new Error("Target content changed before apply");
+      await save(index, "uncertain", null, null);
+      let receipt: Receipt;
+      try {
+        receipt = await adapter.apply(item.change, key);
+      } catch (error) {
+        let status: "failed" | "uncertain" = "uncertain";
+        try {
+          if (await adapter.reconcile(item.change, key) === "not-applied" && (await observe()).fingerprint === attempt.current) status = "failed";
+        } catch { /* An unreadable native result remains uncertain. */ }
+        await save(index, status, null, error instanceof Error ? error.message : "Native apply failed");
+        return attempt;
+      }
+      try { await verify(receipt, item.change); }
+      catch (error) {
+        await save(index, "uncertain", null, error instanceof Error ? error.message : "Native verification failed");
+        return attempt;
+      }
+      await save(index, "verified", receipt, null);
+    }
+    return attempt;
+  });
 }

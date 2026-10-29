@@ -227,6 +227,9 @@ class Project:
     def GetUniqueId(self) -> str:
         return self.uid
 
+    def IsRenderingInProgress(self) -> bool:
+        return self.state.rendering
+
     def SetSetting(self, key: str, value: str) -> bool:
         self.settings[key] = value
         return True
@@ -323,6 +326,7 @@ class State:
         self.bad_append_readback = False
         self.drop_append_result = False
         self.change_ids_on_load = False
+        self.rendering = False
         self._timeline_id = 0
         self._item_id = 0
 
@@ -377,6 +381,23 @@ def _command(action: str, session: dict[str, Any], **fields: Any) -> dict[str, A
         "session": session,
         **fields,
     }
+
+
+def test_active_render_refuses_an_append_without_starting_it(tmp_path: Path) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    state.rendering = True
+    with pytest.raises(ValueError, match="render"):
+        bridge.handle_command(
+            _command(
+                "apply",
+                setup["session"],
+                planSha256="a" * 64,
+                change=dict(bridge.CHANGES[0]),
+                currentTargetFingerprint=setup["observation"]["fingerprint"],
+            ),
+            resolve,
+        )
+    assert not list(Path(setup["session"]["operationDir"]).glob("*.started.json"))
 
 
 def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) -> None:
