@@ -119,5 +119,5 @@ export function createPresenterFramingRequest(input: PresenterFramingRequestInpu
     })),
     dialogue,
   });
-  return { ...payload, requestHash: sha256CanonicalJson(payload) };
+  return { ...payload, requestContentJson: canonicalJson(payload), requestHash: sha256CanonicalJson(payload) };
 }

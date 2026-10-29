@@ -81,6 +81,7 @@ class PresenterPictureTarget:
     event_id: str
     key: FramingKey
     source_interval: ValidatedSourceTimeInterval
+    record_interval: ValidatedSourceTimeInterval
     timeline_item_uid: str
     media_id: str
     item: Any
@@ -389,6 +390,14 @@ def _validate_targets(
             raise PresenterFramingError("target item and media ids are required")
         if not isinstance(target.source_interval, ValidatedSourceTimeInterval):
             raise PresenterFramingError("target source-time interval is not validated")
+        if not isinstance(target.record_interval, ValidatedSourceTimeInterval):
+            raise PresenterFramingError("target record interval is not validated")
+        if target.source_interval.end_frame - target.source_interval.start_frame != (
+            target.record_interval.end_frame - target.record_interval.start_frame
+        ):
+            raise PresenterFramingError(
+                "target source/record intervals require exact 1:1 frames"
+            )
         if target.event_id in seen_ids or id(target.item) in seen_items:
             raise PresenterFramingError("presenter target is duplicated")
         seen_ids.add(target.event_id)
@@ -480,6 +489,13 @@ class PresenterFramingAdapter:
             or actual_end != interval.end_frame - 1
         ):
             raise PresenterFramingError("presenter target source interval differs")
+        start = item.GetStart(False)
+        duration = item.GetDuration(False)
+        record = target.record_interval
+        if not _property_matches(start, record.start_frame) or not _property_matches(
+            duration, record.end_frame - record.start_frame
+        ):
+            raise PresenterFramingError("presenter target record interval differs")
 
     @staticmethod
     def _require_label(item: Any, target: PresenterPictureTarget) -> None:

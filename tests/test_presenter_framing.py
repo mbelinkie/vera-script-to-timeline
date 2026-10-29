@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,8 @@ class MockTimelineItem:
         self.name_retained = name_retained
         self.source_start = interval.start_frame
         self.source_end = interval.end_frame - 1
+        self.record_start = interval.start_frame
+        self.record_duration = interval.end_frame - interval.start_frame
         self.uid = f"timeline-{event_id}"
         self.media = MockMediaItem(media_id)
         self.properties = dict(properties or {})
@@ -106,6 +108,12 @@ class MockTimelineItem:
 
     def GetSourceEndFrame(self) -> int:
         return self.source_end
+
+    def GetStart(self, _subframe: bool = False) -> int:
+        return self.record_start
+
+    def GetDuration(self, _subframe: bool = False) -> int:
+        return self.record_duration
 
     def SetProperties(self, properties: dict[str, Any]) -> bool:
         self.set_calls.append(copy.deepcopy(properties))
@@ -156,6 +164,7 @@ def _target(
         event_id,
         key,  # type: ignore[arg-type]
         interval,
+        interval,
         f"timeline-{event_id}",
         media_id,
         MockTimelineItem(
@@ -200,7 +209,7 @@ def _reopened_lookup(
     mismatch: str | None = None,
     identity_mismatch: str | None = None,
     name_mismatch: str | None = None,
-) -> Any:
+) -> Callable[[tuple[str, ...]], dict[str, MockTimelineItem]]:
     def lookup(event_ids: tuple[str, ...]) -> dict[str, MockTimelineItem]:
         assert event_ids == tuple(target.event_id for target in targets)
         result = {target.event_id: target.item.reopened() for target in targets}
@@ -702,6 +711,45 @@ def test_calibration_captures_authored_tuples_and_refuses_non_neutral_samples() 
     assert not bad_wide.item.set_calls
     assert not bad_tight.item.set_calls
     assert bad_wide.item.name.startswith("Generated presenter")
+
+
+def test_apply_refuses_a_moved_item_and_reopen_record_drift() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    adapter, guard_count = _adapter(profile)
+    target = _target(
+        "record-check",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: guard_count[0],
+    )
+    target.item.record_start += 1
+    blocked = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=lambda: None,
+        lookup_reopened=_reopened_lookup((target,)),
+    )
+    assert blocked.status == "blocked"
+    assert target.item.set_calls == []
+    target.item.record_start -= 1
+
+    def moved_after_reopen(event_ids: tuple[str, ...]) -> dict[str, MockTimelineItem]:
+        reopened = _reopened_lookup((target,))(event_ids)
+        reopened[target.event_id].record_start += 1
+        return reopened
+
+    pending = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=lambda: None,
+        lookup_reopened=moved_after_reopen,
+    )
+    assert pending.status == "pending"
+    assert "record interval" in pending.message
 
 
 def test_free_handoff_is_pure_and_blocked_without_qualified_controls() -> None:

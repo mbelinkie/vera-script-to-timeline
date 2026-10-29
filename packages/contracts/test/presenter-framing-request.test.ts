@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { canonicalJson } from "../src/compiler-core.js";
+import { canonicalJson, sha256CanonicalJson } from "../src/compiler-core.js";
 import type { ShootRegistrationProjectV1 } from "../src/generated/contracts.js";
 import { presenterFramingProfileHash, type PresenterFramingProfileSnapshot } from "../src/presenter-framing.js";
 import { createPresenterFramingRequest, type PresenterFramingRequestInput } from "../src/presenter-framing-request.js";
@@ -62,6 +62,7 @@ describe("registered synthetic presenter framing requests", () => {
     ]);
     expect(built.intervals[2]!.sourceStart).toBe(1150);
     expect(built.dialogue).toEqual(input.dialogue);
+    expect(built.requestHash).toBe(sha256CanonicalJson(JSON.parse(built.requestContentJson)));
     expect(canonicalJson(input)).toBe(before);
   });
 

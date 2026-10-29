@@ -87,3 +87,42 @@ table. Do not use those values as production defaults.
 
 No Resolve operation, media render, publication, or CI run is authorized by
 this document. The issue's coordinated resource holds still apply.
+
+## Next bounded native delta
+
+Use RK-19 and the smallest proof specified in #118. The unanswered questions are
+non-neutral continuous-video transforms, exact retained raster context,
+save/reopen persistence, source-frame continuity, protected master handling,
+and the separate Free Inspector mapping. Reuse prior qualification conclusions;
+do not repeat the transparent-still campaign.
+
+After the Steward releases the native/media window, first check actual Resolve
+ownership and outstanding operations. Use a new uniquely named disposable
+project and synthetic media only. Record the application's actual product,
+version and build. Register the continuous picture through #43 and open a
+verified #44 mapping session. Retain explicit reviewed synthetic identity-color
+and processed-dialogue inputs with synchronization evidence; a registration
+record alone is insufficient dialogue evidence.
+
+Start with two disposable calibration samples using the same source interval.
+Capture the authored raw values and neutral invariants, then verify immediate
+readback and save/reopen readback. These samples qualify the property path;
+repeating an interval for calibration does not prove continuous playback.
+
+Use a separate generated timeline for continuity: direct Wide-to-Tight with
+adjacent record/source frames, followed by a Wide/B-roll/Tight-return case.
+Keep the presenter source advancing beneath B-roll, with one processed-dialogue
+item spanning the full sequence. Compare observed native source ranges and media
+identities to the #44 mapping. Verify clip names, record clip-color limitations,
+and verify the master track locks. Render only after exact native readback
+passes. Decoded frame samples must show the two distinct crops and advancing
+source content across the direct boundary and return; compare the continuous
+audio and B-roll to their baseline. Save/reopen and repeat readback. Build from
+a revised calibration into new targets and confirm prior artifact bytes and
+timeline semantics remain unchanged.
+
+The Free check is separate: use the actual supported import route and edition,
+retain authored choices and names, qualify the raw-property-to-Inspector
+controls/values for the exact context, and follow the resulting pinned checklist.
+Without that positive mapping evidence the implementation must stay `blocked`.
+An API stub, Studio-only import, or mock cannot establish Free manual completion.
