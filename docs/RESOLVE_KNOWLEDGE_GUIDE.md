@@ -836,6 +836,32 @@ audio; #327 owns finishing preservation, #328 frozen selective execution/retry,
 and #104/#157 production composition. #35's tested generic job stages (synthetic
 executors) do not prove O09's item-level atomic plan or a native continuation.
 
+The [#328 selective outbound mechanism](investigations/issue-328-selective-outbound.md)
+adds a real immutable semantic plan, selected/skipped/blocked dispositions,
+ordered receipts, durable uncertainty, same-attempt recovery, and atomic final
+baseline advancement. Its instrumented domain and local-file tests include a
+structural multi-edit and spanning-audio selection identity. These prove the
+host mechanism, not native execution of those payloads. The cut-only native
+bridge uses that same executor. On Studio **21.1.1 build 10**, external **Local**
+through bundled ResolvePython, its two selected 24-frame cut appends passed:
+item 1 verified, injected boundary failure retained the old baseline, and a new
+process reloaded the journal and completed item 2 on the identical plan/target.
+Save/close/reopen preserved project, timelines, sources and exact geometry;
+repeating completion changed no journal/native-operation bytes and added no
+clip. The original stayed unchanged and current. Append request end 24 yielded
+24 frames, with full-source EOF readback 23; the prior end-23 request yielded
+23 frames and was retained as a stopped setup. Numeric native frame rate 24.0
+is compared exactly as a number. The real default after closing is an empty
+`Untitled Project`; its exact UID, full settings map and empty inventories
+(including gallery stills/color groups) are checked twice before creation/loading. The
+settings/gallery/color-group guard was separately checked through actual startup/reopen,
+then the completed proof target was restored with its fingerprint unchanged.
+Fresh snapshot provenance remains a sole-operator precondition; arbitrary
+preexisting or mislabeled default-project snapshots are outside this proof. These are cut-only, full-source, single-operator
+results, not interior-endpoint, arbitrary structural/audio/finishing, live-RPC
+kill recovery, or rendered-output qualification. #328 retains its PR delivery
+gates; #104/#157 own product composition.
+
 **Reuse/delta:** reuse existing pure operations and their explicit refusals.
 Check only the new audible/finishing/atomic-execution seam through the same saved
 intent and actual product path. A mock receipt or independently hand-placed
