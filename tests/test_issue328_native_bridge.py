@@ -95,8 +95,10 @@ class Timeline:
     def SetStartTimecode(self, timecode: str) -> bool:
         return timecode == "00:00:00:00"
 
-    def DuplicateTimeline(self) -> Timeline:
-        return self.state.project.pool.DuplicateTimeline(self)
+    def DuplicateTimeline(self, name: str) -> Timeline:
+        duplicate = self.state.project.pool.DuplicateTimeline(self)
+        duplicate.name = name
+        return duplicate
 
     def GetTrackCount(self, kind: str) -> int:
         return 1 if kind in {"video", "audio"} else 0

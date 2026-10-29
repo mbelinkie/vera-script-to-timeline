@@ -767,15 +767,15 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
         ],
         "original timeline is not one exact 24-frame red video occurrence",
     )
-    target = original.DuplicateTimeline()
+    target = original.DuplicateTimeline(target_name)
     _require(
         target is not None and target.GetUniqueId() != original.GetUniqueId(),
         "DuplicateTimeline did not create an independent target",
     )
     _set_current(project, original)
     _require(
-        target.SetName(target_name) is True and target.GetName() == target_name,
-        "could not name duplicated target",
+        target.GetName() == target_name,
+        "duplicated target name differs",
     )
     _require(len(_timeline_rows(project)) == 2, "setup created an unexpected timeline")
     _set_current(project, target)
