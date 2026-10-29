@@ -779,6 +779,7 @@ def prepare_presenter_master(
             targets.append(
                 PresenterPictureTarget(
                     event_id=row["eventId"],
+                    owning_timeline_uid=generated_uid,
                     key=row["framingKey"],
                     source_interval=source_range,
                     record_interval=record_range,

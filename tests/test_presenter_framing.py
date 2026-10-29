@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from vera_timeline_agent.narration.models import sha256_bytes
 from vera_timeline_agent.presenter_framing import (
+    NativeSaveReopen,
     PresenterFramingAdapter,
     PresenterFramingError,
     PresenterFramingIntent,
@@ -144,6 +145,112 @@ class MockMediaItem:
         return self.media_id
 
 
+class MockNativeTimeline:
+    def __init__(self, uid: str) -> None:
+        self.uid = uid
+
+    def GetUniqueId(self) -> str:
+        return self.uid
+
+
+class MockNativeProject:
+    def __init__(
+        self,
+        *,
+        uid: str,
+        name: str,
+        timeline_uids: tuple[str, ...],
+        current_timeline_uid: str | None,
+    ) -> None:
+        self.uid = uid
+        self.name = name
+        self.timelines = [MockNativeTimeline(value) for value in timeline_uids]
+        self.current_timeline = next(
+            (
+                timeline
+                for timeline in self.timelines
+                if timeline.uid == current_timeline_uid
+            ),
+            None,
+        )
+        self.selected_timeline_uids: list[str] = []
+
+    def GetUniqueId(self) -> str:
+        return self.uid
+
+    def GetName(self) -> str:
+        return self.name
+
+    def GetCurrentTimeline(self) -> MockNativeTimeline | None:
+        return self.current_timeline
+
+    def GetTimelineCount(self) -> int:
+        return len(self.timelines)
+
+    def GetTimelineByIndex(self, index: int) -> MockNativeTimeline:
+        return self.timelines[index - 1]
+
+    def SetCurrentTimeline(self, timeline: MockNativeTimeline) -> bool:
+        if timeline not in self.timelines:
+            return False
+        self.current_timeline = timeline
+        self.selected_timeline_uids.append(timeline.uid)
+        return True
+
+
+class MockNativeProjectManager:
+    def __init__(
+        self,
+        *,
+        calls: list[Any] | None = None,
+        project_uid: str = "native-project",
+        project_name: str = "Presenter Project",
+        timeline_uid: str = "timeline-owner",
+        reopened_timeline_uid: str | None = None,
+    ) -> None:
+        self.calls = calls if calls is not None else []
+        self.project_uid = project_uid
+        self.project_name = project_name
+        self.timeline_uids = (timeline_uid, "timeline-other")
+        self.reopened_timeline_uid = (
+            timeline_uid if reopened_timeline_uid is None else reopened_timeline_uid
+        )
+        self.current_project: MockNativeProject | None = MockNativeProject(
+            uid=project_uid,
+            name=project_name,
+            timeline_uids=self.timeline_uids,
+            current_timeline_uid=timeline_uid,
+        )
+        self.loaded_project: MockNativeProject | None = None
+
+    def GetCurrentProject(self) -> MockNativeProject | None:
+        return self.current_project
+
+    def SaveProject(self) -> bool:
+        self.calls.append(("SaveProject",))
+        return True
+
+    def CloseProject(self, project: MockNativeProject) -> bool:
+        self.calls.append(("CloseProject", project.GetUniqueId()))
+        if self.current_project is not project:
+            return False
+        self.current_project = None
+        return True
+
+    def LoadProject(self, name: str) -> MockNativeProject | None:
+        self.calls.append(("LoadProject", name))
+        if name != self.project_name:
+            return None
+        self.current_project = MockNativeProject(
+            uid=self.project_uid,
+            name=name,
+            timeline_uids=self.timeline_uids,
+            current_timeline_uid=self.reopened_timeline_uid,
+        )
+        self.loaded_project = self.current_project
+        return self.current_project
+
+
 def _target(
     event_id: str,
     key: str,
@@ -156,18 +263,23 @@ def _target(
     name_retained: bool = True,
     media_id_override: str | None = None,
     properties: Mapping[str, Any] | None = None,
+    owning_timeline_uid: str = "timeline-owner",
+    timeline_item_uid: str | None = None,
 ) -> PresenterPictureTarget:
     media_id = (
         media_id_override if media_id_override is not None else f"media-{event_id}"
     )
     return PresenterPictureTarget(
-        event_id,
-        key,  # type: ignore[arg-type]
-        interval,
-        interval,
-        f"timeline-{event_id}",
-        media_id,
-        MockTimelineItem(
+        event_id=event_id,
+        owning_timeline_uid=owning_timeline_uid,
+        key=key,  # type: ignore[arg-type]
+        source_interval=interval,
+        record_interval=interval,
+        timeline_item_uid=(
+            f"timeline-{event_id}" if timeline_item_uid is None else timeline_item_uid
+        ),
+        media_id=media_id,
+        item=MockTimelineItem(
             event_id=event_id,
             key=key,
             interval=interval,
@@ -187,6 +299,7 @@ def _adapter(
     *,
     edition: str = "studio",
     guard_calls: list[str] | None = None,
+    current_timeline_uid_reader: Callable[[], str | None] | None = None,
 ) -> tuple[PresenterFramingAdapter, list[int]]:
     guard_count = [0]
     checks = guard_calls if guard_calls is not None else []
@@ -197,10 +310,31 @@ def _adapter(
 
     adapter = PresenterFramingAdapter(
         current_target_check=check_target,
+        current_timeline_uid_reader=current_timeline_uid_reader
+        or (lambda: "timeline-owner"),
         context_reader=lambda: profile["context"],
         edition=edition,  # type: ignore[arg-type]
     )
     return adapter, guard_count
+
+
+def _native_reopen(
+    *,
+    timeline_uid: str = "timeline-owner",
+    calls: list[Any] | None = None,
+    reopened_timeline_uid: str | None = None,
+) -> NativeSaveReopen:
+    manager = MockNativeProjectManager(
+        calls=calls,
+        timeline_uid=timeline_uid,
+        reopened_timeline_uid=reopened_timeline_uid,
+    )
+    return NativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid=timeline_uid,
+    )
 
 
 def _reopened_lookup(
@@ -260,7 +394,7 @@ def test_profile_hash_pin_context_and_decimal_values_block_before_mutation() -> 
         canonical_content_json=content_bytes,
         expected_pin=bad_pin,
         targets=[item],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((item,)),
     )
     assert hash_result.status == "blocked"
@@ -274,7 +408,7 @@ def test_profile_hash_pin_context_and_decimal_values_block_before_mutation() -> 
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[item],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((item,)),
     )
     assert context_result.status == "blocked"
@@ -400,14 +534,14 @@ def test_apply_is_target_only_exact_and_reports_missing_color_limitations() -> N
     broll = _target("broll-1", "wide", wide_interval, lambda: guard_count[0])
     dialogue = _target("dialogue-1", "wide", wide_interval, lambda: guard_count[0])
     targets = (wide, tight)
-    saves: list[tuple[str, int]] = []
+    saves: list[Any] = []
 
     result = adapter.apply(
         profile=profile,
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=targets,
-        save_close_reopen=lambda: saves.append(("save-reopen", guard_count[0])),
+        save_close_reopen=_native_reopen(calls=saves),
         lookup_reopened=_reopened_lookup(targets),
     )
 
@@ -418,7 +552,11 @@ def test_apply_is_target_only_exact_and_reports_missing_color_limitations() -> N
     )
     assert result.profile_pin == pin
     assert result.profile_pin is not pin
-    assert saves == [("save-reopen", 8)]
+    assert saves == [
+        ("SaveProject",),
+        ("CloseProject", "native-project"),
+        ("LoadProject", "Presenter Project"),
+    ]
     assert len(wide.item.set_calls) == len(tight.item.set_calls) == 1
     assert wide.item.name == "OC WIDE presenter-a"
     assert tight.item.name == "OC TIGHT presenter-b"
@@ -434,11 +572,239 @@ def test_apply_is_target_only_exact_and_reports_missing_color_limitations() -> N
     assert dialogue.item.set_calls == []
     assert broll.item.name.startswith("Generated presenter")
     assert dialogue.item.name.startswith("Generated presenter")
-    assert guard_calls.count("current_target") == 9
+    assert guard_calls.count("current_target") == 10
 
     result.profile_pin["version"] = 99
     assert pin["version"] == 3
     assert (FIXTURES / "profile-content.json").read_bytes() == content_bytes
+
+
+def test_apply_rejects_noop_and_subclass_lifecycle_before_any_setter() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    interval = ValidatedSourceTimeInterval(100, 125)
+
+    class ExtendedNativeSaveReopen(NativeSaveReopen):
+        pass
+
+    manager = MockNativeProjectManager()
+    subclass_lifecycle = ExtendedNativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid="timeline-owner",
+    )
+    for lifecycle in (lambda: None, subclass_lifecycle):
+        adapter, _ = _adapter(profile)
+        target = _target("presenter-a", "wide", interval, lambda: 0)
+        result = adapter.apply(
+            profile=profile,
+            canonical_content_json=content_bytes,
+            expected_pin=pin,
+            targets=(target,),
+            save_close_reopen=lifecycle,  # type: ignore[arg-type]
+            lookup_reopened=_reopened_lookup((target,)),
+        )
+        assert result.status == "blocked"
+        assert "native save/reopen" in result.message
+        assert target.item.name == "Generated presenter presenter-a"
+        assert target.item.set_calls == []
+
+
+def test_apply_refuses_targets_when_another_timeline_is_current() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    current_timeline = ["timeline-b"]
+    adapter, _ = _adapter(
+        profile,
+        current_timeline_uid_reader=lambda: current_timeline[0],
+    )
+    target = _target(
+        "presenter-a",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: 0,
+        owning_timeline_uid="timeline-a",
+    )
+
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
+        lookup_reopened=_reopened_lookup((target,)),
+    )
+
+    assert result.status == "blocked"
+    assert "different current timeline" in result.message
+    assert target.item.name == "Generated presenter presenter-a"
+    assert target.item.set_calls == []
+
+
+def test_targets_must_share_owner_and_have_distinct_item_uids() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    adapter, _ = _adapter(profile)
+    interval = ValidatedSourceTimeInterval(100, 125)
+    wide = _target(
+        "presenter-a",
+        "wide",
+        interval,
+        lambda: 0,
+        owning_timeline_uid="timeline-a",
+    )
+    tight = _target(
+        "presenter-b",
+        "tight",
+        interval,
+        lambda: 0,
+        owning_timeline_uid="timeline-b",
+    )
+    mixed_owner = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(wide, tight),
+        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
+        lookup_reopened=_reopened_lookup((wide, tight)),
+    )
+    assert mixed_owner.status == "blocked"
+    assert "share one owning timeline" in mixed_owner.message
+    assert wide.item.name == "Generated presenter presenter-a"
+    assert tight.item.name == "Generated presenter presenter-b"
+
+    duplicate_uid = _target(
+        "presenter-c",
+        "tight",
+        interval,
+        lambda: 0,
+        timeline_item_uid=wide.timeline_item_uid,
+    )
+    duplicate = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(wide, duplicate_uid),
+        save_close_reopen=_native_reopen(timeline_uid="timeline-a"),
+        lookup_reopened=_reopened_lookup((wide, duplicate_uid)),
+    )
+    assert duplicate.status == "blocked"
+    assert "item UID is duplicated" in duplicate.message
+    assert wide.item.name == "Generated presenter presenter-a"
+    assert duplicate_uid.item.name == "Generated presenter presenter-c"
+
+
+def test_each_mutation_rechecks_the_target_timeline() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    current_timeline = ["timeline-owner"]
+    adapter, _ = _adapter(
+        profile,
+        current_timeline_uid_reader=lambda: current_timeline[0],
+    )
+    target = _target(
+        "presenter-a",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: 0,
+    )
+    set_name = target.item.SetName
+
+    def switch_timeline_during_name_write(name: str) -> bool:
+        accepted = set_name(name)
+        current_timeline[0] = "timeline-other"
+        return accepted
+
+    target.item.SetName = switch_timeline_during_name_write
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=_native_reopen(),
+        lookup_reopened=_reopened_lookup((target,)),
+    )
+
+    assert result.status == "pending"
+    assert "different current timeline" in result.message
+    assert target.item.name == "OC WIDE presenter-a"
+    assert target.item.clip_color is None
+    assert target.item.set_calls == []
+
+
+def test_reopened_lookup_is_bracketed_by_owner_checks() -> None:
+    profile, _, content_bytes, pin = _fixture()
+    current_timeline = ["timeline-owner"]
+    adapter, _ = _adapter(
+        profile,
+        current_timeline_uid_reader=lambda: current_timeline[0],
+    )
+    target = _target(
+        "presenter-a",
+        "wide",
+        ValidatedSourceTimeInterval(100, 125),
+        lambda: 0,
+    )
+
+    def switch_timeline_in_lookup(
+        event_ids: tuple[str, ...],
+    ) -> dict[str, MockTimelineItem]:
+        reopened = _reopened_lookup((target,))(event_ids)
+        current_timeline[0] = "timeline-other"
+        return reopened
+
+    result = adapter.apply(
+        profile=profile,
+        canonical_content_json=content_bytes,
+        expected_pin=pin,
+        targets=(target,),
+        save_close_reopen=_native_reopen(),
+        lookup_reopened=switch_timeline_in_lookup,
+    )
+
+    assert result.status == "pending"
+    assert "different current timeline" in result.message
+    assert result.observed_properties is None
+
+
+def test_native_reopen_selects_expected_timeline_and_cannot_replay() -> None:
+    manager = MockNativeProjectManager(reopened_timeline_uid="timeline-other")
+    lifecycle = NativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid="timeline-owner",
+    )
+
+    lifecycle.require_available("timeline-owner")
+    lifecycle()
+
+    assert manager.loaded_project is not None
+    assert manager.loaded_project.selected_timeline_uids == ["timeline-owner"]
+    assert manager.current_project is manager.loaded_project
+    calls_before_replay = list(manager.calls)
+    with pytest.raises(PresenterFramingError, match="already been used"):
+        lifecycle()
+    assert manager.calls == calls_before_replay
+
+
+def test_native_reopen_failure_is_single_use() -> None:
+    class SaveFailureManager(MockNativeProjectManager):
+        def SaveProject(self) -> bool:
+            super().SaveProject()
+            return False
+
+    manager = SaveFailureManager()
+    lifecycle = NativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid="timeline-owner",
+    )
+
+    with pytest.raises(PresenterFramingError, match="SaveProject failed"):
+        lifecycle()
+    calls_after_failure = list(manager.calls)
+    with pytest.raises(PresenterFramingError, match="already been used"):
+        lifecycle()
+    assert manager.calls == calls_after_failure
 
 
 def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -> None:
@@ -454,7 +820,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,)),
     )
     assert label_result.status == "blocked"
@@ -467,7 +833,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,)),
     )
     assert interval_result.status == "blocked"
@@ -480,7 +846,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,)),
     )
     assert identity_result.status == "blocked"
@@ -494,7 +860,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,)),
     )
     assert type_result.status == "blocked"
@@ -518,7 +884,7 @@ def test_item_name_must_read_back_after_setter_and_after_reopen() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[unretained],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((unretained,)),
     )
     assert immediate.status == "pending"
@@ -531,7 +897,7 @@ def test_item_name_must_read_back_after_setter_and_after_reopen() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[reopened_target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup(
             (reopened_target,), name_mismatch="presenter-b"
         ),
@@ -550,7 +916,7 @@ def test_reopen_mismatch_stays_pending_and_never_claims_verified() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,), mismatch="presenter-a"),
     )
     assert result.status == "pending"
@@ -563,7 +929,7 @@ def test_reopen_mismatch_stays_pending_and_never_claims_verified() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=[identity_target],
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup(
             (identity_target,), identity_mismatch="presenter-b"
         ),
@@ -599,7 +965,7 @@ def test_calibration_reads_both_raw_tuples_without_rewriting_prior() -> None:
         is_disposable_timeline=True,
         samples={"wide": wide, "tight": tight},
         transforms={"wide": transforms["wide"], "tight": transforms["tight"]},
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((wide, tight)),
     )
 
@@ -625,7 +991,7 @@ def test_calibration_requires_a_disposable_studio_pair() -> None:
         is_disposable_timeline=False,
         samples={"wide": wide, "tight": tight},
         transforms={"wide": content["wide"], "tight": content["tight"]},
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((wide, tight)),
     )
     assert result.status == "blocked"
@@ -671,7 +1037,7 @@ def test_calibration_captures_authored_tuples_and_refuses_non_neutral_samples() 
     result = adapter.calibrate_disposable_samples(
         is_disposable_timeline=True,
         samples={"wide": wide, "tight": tight},
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((wide, tight)),
     )
     assert result.status == "sample_readback_complete"
@@ -703,7 +1069,7 @@ def test_calibration_captures_authored_tuples_and_refuses_non_neutral_samples() 
     blocked = adapter.calibrate_disposable_samples(
         is_disposable_timeline=True,
         samples={"wide": bad_wide, "tight": bad_tight},
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((bad_wide, bad_tight)),
     )
     assert blocked.status == "blocked"
@@ -728,7 +1094,7 @@ def test_apply_refuses_a_moved_item_and_reopen_record_drift() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=_reopened_lookup((target,)),
     )
     assert blocked.status == "blocked"
@@ -745,7 +1111,7 @@ def test_apply_refuses_a_moved_item_and_reopen_record_drift() -> None:
         canonical_content_json=content_bytes,
         expected_pin=pin,
         targets=(target,),
-        save_close_reopen=lambda: None,
+        save_close_reopen=_native_reopen(),
         lookup_reopened=moved_after_reopen,
     )
     assert pending.status == "pending"

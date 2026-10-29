@@ -44,6 +44,15 @@ adapter verifies native item/media identities, source intervals, exact clip name
 and optional clip colors. TypeScript owns profile creation and versioning;
 Python consumes its pinned bytes. These operations add no visual qualification.
 
+Each presenter target carries its owning timeline UID. The adapter requires a
+current-timeline UID reader and checks ownership before each write and after
+reopening, so an old build's item handles cannot be reused on a new current
+timeline. Verified operations require the concrete, single-use
+`NativeSaveReopen` lifecycle, bound to that project and timeline. It invokes
+Resolve's SaveProject, CloseProject and LoadProject, checks native identities,
+and restores the expected timeline when necessary. A generic no-op callback
+cannot qualify an operation. Mock lifecycle coverage still requires live proof.
+
 DeepSeek supplied the bounded `snapshotPresenterFramingCalibration` implementation
 against frozen tests. The controller retained its response after rejecting a
 multiline declaration where an exact signature was required. Parent integration

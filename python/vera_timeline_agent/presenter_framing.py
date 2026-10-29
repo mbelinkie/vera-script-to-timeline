@@ -53,6 +53,142 @@ class PresenterFramingError(ValueError):
     """A framing target, profile pin, or native readback is not trustworthy."""
 
 
+class NativeSaveReopen:
+    """Save, close, and reopen one exact native Resolve project and timeline."""
+
+    def __init__(
+        self,
+        *,
+        project_manager: Any,
+        project_uid: str,
+        project_name: str,
+        timeline_uid: str,
+    ) -> None:
+        if any(
+            not isinstance(value, str) or not value or value != value.strip()
+            for value in (project_uid, project_name, timeline_uid)
+        ):
+            raise PresenterFramingError("native reopen identity is required")
+        self._project_manager = project_manager
+        self._project_uid = project_uid
+        self._project_name = project_name
+        self._timeline_uid = timeline_uid
+        self._used = False
+
+    def _current_project(self) -> Any:
+        get_current = getattr(self._project_manager, "GetCurrentProject", None)
+        if not callable(get_current):
+            raise PresenterFramingError("native project manager is unavailable")
+        project = get_current()
+        get_uid = getattr(project, "GetUniqueId", None)
+        get_name = getattr(project, "GetName", None)
+        get_timeline = getattr(project, "GetCurrentTimeline", None)
+        if (
+            project is None
+            or not callable(get_uid)
+            or not callable(get_name)
+            or not callable(get_timeline)
+            or get_uid() != self._project_uid
+            or get_name() != self._project_name
+        ):
+            raise PresenterFramingError("current native project identity differs")
+        timeline = get_timeline()
+        get_timeline_uid = getattr(timeline, "GetUniqueId", None)
+        if (
+            timeline is None
+            or not callable(get_timeline_uid)
+            or get_timeline_uid() != self._timeline_uid
+        ):
+            raise PresenterFramingError("current native timeline identity differs")
+        return project
+
+    def require_available(self, timeline_uid: str) -> None:
+        """Validate one-use admission and the expected live target before writes."""
+        if self._used:
+            raise PresenterFramingError("native save/reopen has already been used")
+        if timeline_uid != self._timeline_uid:
+            raise PresenterFramingError("native reopen timeline binding differs")
+        if not all(
+            callable(getattr(self._project_manager, name, None))
+            for name in (
+                "GetCurrentProject",
+                "SaveProject",
+                "CloseProject",
+                "LoadProject",
+            )
+        ):
+            raise PresenterFramingError("native save/reopen methods are unavailable")
+        self._current_project()
+
+    def __call__(self) -> None:
+        if self._used:
+            raise PresenterFramingError("native save/reopen has already been used")
+        self._used = True
+
+        project = self._current_project()
+        save_project = getattr(self._project_manager, "SaveProject", None)
+        close_project = getattr(self._project_manager, "CloseProject", None)
+        load_project = getattr(self._project_manager, "LoadProject", None)
+        if (
+            not callable(save_project)
+            or not callable(close_project)
+            or not callable(load_project)
+        ):
+            raise PresenterFramingError("native save/reopen methods are unavailable")
+        if save_project() is not True:
+            raise PresenterFramingError("Resolve SaveProject failed")
+
+        project = self._current_project()
+        if close_project(project) is not True:
+            raise PresenterFramingError("Resolve CloseProject failed")
+        get_current = self._project_manager.GetCurrentProject
+        if get_current() is not None:
+            raise PresenterFramingError("Resolve left a current project after close")
+
+        reopened = load_project(self._project_name)
+        if reopened is None:
+            raise PresenterFramingError("Resolve LoadProject failed")
+        if (
+            reopened.GetUniqueId() != self._project_uid
+            or reopened.GetName() != self._project_name
+        ):
+            raise PresenterFramingError("reopened native project identity differs")
+        current = get_current()
+        if (
+            current is None
+            or current.GetUniqueId() != self._project_uid
+            or current.GetName() != self._project_name
+        ):
+            raise PresenterFramingError("manager current project identity differs")
+
+        current_timeline = current.GetCurrentTimeline()
+        get_timeline_uid = getattr(current_timeline, "GetUniqueId", None)
+        if not callable(get_timeline_uid) or get_timeline_uid() != self._timeline_uid:
+            count_method = getattr(current, "GetTimelineCount", None)
+            timeline_method = getattr(current, "GetTimelineByIndex", None)
+            set_current = getattr(current, "SetCurrentTimeline", None)
+            if (
+                not callable(count_method)
+                or not callable(timeline_method)
+                or not callable(set_current)
+            ):
+                raise PresenterFramingError("reopened target timeline is unavailable")
+            count = count_method()
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise PresenterFramingError("reopened timeline list is invalid")
+            matches = []
+            for index in range(1, count + 1):
+                timeline = timeline_method(index)
+                timeline_uid = getattr(timeline, "GetUniqueId", lambda: None)()
+                if timeline_uid == self._timeline_uid:
+                    matches.append(timeline)
+            if len(matches) != 1 or set_current(matches[0]) is not True:
+                raise PresenterFramingError(
+                    "Resolve could not select the target timeline"
+                )
+        self._current_project()
+
+
 @dataclass(frozen=True)
 class ValidatedSourceTimeInterval:
     """Caller-validated half-open source-frame interval [start_frame, end_frame)."""
@@ -79,6 +215,7 @@ class PresenterPictureTarget:
     """One explicitly selected generated presenter picture item."""
 
     event_id: str
+    owning_timeline_uid: str
     key: FramingKey
     source_interval: ValidatedSourceTimeInterval
     record_interval: ValidatedSourceTimeInterval
@@ -367,7 +504,9 @@ def _validate_targets(
         raise PresenterFramingError("explicit presenter targets are required")
     result = tuple(targets)
     seen_ids: set[str] = set()
+    seen_item_uids: set[str] = set()
     seen_items: set[int] = set()
+    owner_uids: set[str] = set()
     for target in result:
         if not isinstance(target, PresenterPictureTarget):
             raise PresenterFramingError(
@@ -384,10 +523,17 @@ def _validate_targets(
         if (
             not isinstance(target.timeline_item_uid, str)
             or not target.timeline_item_uid
+            or not isinstance(target.owning_timeline_uid, str)
+            or not target.owning_timeline_uid.strip()
+            or target.owning_timeline_uid != target.owning_timeline_uid.strip()
             or not isinstance(target.media_id, str)
             or not target.media_id
         ):
-            raise PresenterFramingError("target item and media ids are required")
+            raise PresenterFramingError(
+                "target timeline, item, and media ids are required"
+            )
+        if target.timeline_item_uid in seen_item_uids:
+            raise PresenterFramingError("presenter target item UID is duplicated")
         if not isinstance(target.source_interval, ValidatedSourceTimeInterval):
             raise PresenterFramingError("target source-time interval is not validated")
         if not isinstance(target.record_interval, ValidatedSourceTimeInterval):
@@ -401,7 +547,11 @@ def _validate_targets(
         if target.event_id in seen_ids or id(target.item) in seen_items:
             raise PresenterFramingError("presenter target is duplicated")
         seen_ids.add(target.event_id)
+        seen_item_uids.add(target.timeline_item_uid)
         seen_items.add(id(target.item))
+        owner_uids.add(target.owning_timeline_uid)
+    if len(owner_uids) != 1:
+        raise PresenterFramingError("presenter targets must share one owning timeline")
     return result
 
 
@@ -429,14 +579,20 @@ class PresenterFramingAdapter:
         self,
         *,
         current_target_check: Callable[[], None],
+        current_timeline_uid_reader: Callable[[], str | None],
         context_reader: Callable[[], Mapping[str, Any]],
         edition: Literal["studio", "free", "unknown"],
     ) -> None:
-        if not callable(current_target_check) or not callable(context_reader):
+        if (
+            not callable(current_target_check)
+            or not callable(current_timeline_uid_reader)
+            or not callable(context_reader)
+        ):
             raise PresenterFramingError("live target and context checks are required")
         if edition not in {"studio", "free", "unknown"}:
             raise PresenterFramingError("Resolve edition is unknown")
         self._current_target_check = current_target_check
+        self._current_timeline_uid_reader = current_timeline_uid_reader
         self._context_reader = context_reader
         self._edition = edition
 
@@ -444,6 +600,13 @@ class PresenterFramingAdapter:
         live = _validate_context(self._context_reader())
         if dict(live) != dict(expected):
             raise PresenterFramingError("live Resolve context differs from profile")
+
+    def _require_timeline_owner(self, target: PresenterPictureTarget) -> None:
+        self._current_target_check()
+        if self._current_timeline_uid_reader() != target.owning_timeline_uid:
+            raise PresenterFramingError(
+                "presenter target belongs to a different current timeline"
+            )
 
     @staticmethod
     def _require_item_identity(item: Any, target: PresenterPictureTarget) -> None:
@@ -557,16 +720,19 @@ class PresenterFramingAdapter:
         targets: tuple[PresenterPictureTarget, ...],
         expected_context: Mapping[str, Any],
         properties_by_id: Mapping[str, Mapping[str, bool | int | float]],
-        save_close_reopen: Callable[[], None],
+        save_close_reopen: NativeSaveReopen,
         lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
     ) -> _CycleResult:
         event_ids = tuple(target.event_id for target in targets)
         try:
-            if not callable(save_close_reopen) or not callable(lookup_reopened):
+            if type(save_close_reopen) is not NativeSaveReopen or not callable(
+                lookup_reopened
+            ):
                 raise PresenterFramingError(
-                    "save/reopen and lookup callbacks are required"
+                    "native save/reopen and lookup port are required"
                 )
-            self._current_target_check()
+            save_close_reopen.require_available(targets[0].owning_timeline_uid)
+            self._require_timeline_owner(targets[0])
             self._require_context(expected_context)
             for target in targets:
                 self._require_item_identity(target.item, target)
@@ -577,10 +743,10 @@ class PresenterFramingAdapter:
         color_limitations: list[str] = []
         try:
             for target in targets:
-                self._current_target_check()
                 self._require_item_identity(target.item, target)
                 expected_name = f"OC {target.key.upper()} {target.event_id}"
                 name_setter = target.item.SetName
+                self._require_timeline_owner(target)
                 mutation_started = True
                 if name_setter(expected_name) is not True:
                     raise PresenterFramingError("Resolve rejected presenter item name")
@@ -588,7 +754,7 @@ class PresenterFramingAdapter:
 
                 color_setter = getattr(target.item, "SetClipColor", None)
                 if callable(color_setter):
-                    self._current_target_check()
+                    self._require_timeline_owner(target)
                     mutation_started = True
                     try:
                         if color_setter(_COLORS[target.key]) is not True:
@@ -609,7 +775,7 @@ class PresenterFramingAdapter:
                         f"{target.event_id}: {target.key} clip color was not retained"
                     )
 
-                self._current_target_check()
+                self._require_timeline_owner(target)
                 item_properties = properties_by_id[target.event_id]
                 setter = getattr(target.item, "SetProperties", None)
                 if not callable(setter):
@@ -621,11 +787,12 @@ class PresenterFramingAdapter:
                     raise PresenterFramingError("Resolve rejected presenter properties")
                 self._require_properties(target.item, item_properties)
 
-            self._current_target_check()
+            self._require_timeline_owner(targets[0])
             mutation_started = True
             save_close_reopen()
-            self._current_target_check()
+            self._require_timeline_owner(targets[0])
             reopened = lookup_reopened(event_ids)
+            self._require_timeline_owner(targets[0])
             if not isinstance(reopened, Mapping) or set(reopened) != set(event_ids):
                 raise PresenterFramingError("reopened presenter lookup differs")
             self._require_context(expected_context)
@@ -666,7 +833,7 @@ class PresenterFramingAdapter:
         canonical_content_json: bytes | str,
         expected_pin: Mapping[str, Any],
         targets: Sequence[PresenterPictureTarget],
-        save_close_reopen: Callable[[], None],
+        save_close_reopen: NativeSaveReopen,
         lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
     ) -> FramingResult:
         """Apply the pinned pair to explicit labeled items; never alter placement."""
@@ -714,7 +881,7 @@ class PresenterFramingAdapter:
         *,
         is_disposable_timeline: bool,
         samples: Mapping[str, PresenterPictureTarget],
-        save_close_reopen: Callable[[], None],
+        save_close_reopen: NativeSaveReopen,
         lookup_reopened: Callable[[tuple[str, ...]], Mapping[str, Any]],
         transforms: Mapping[str, Mapping[str, int | float]] | None = None,
     ) -> CalibrationResult:
