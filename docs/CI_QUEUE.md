@@ -2,30 +2,21 @@
 
 ## Status
 
-The queue controller is implemented and **inactive during rollout**. Its
-control issue is [#361](https://github.com/mbelinkie/vera-script-to-timeline/issues/361)
-and its durable state branch is initialized. Delivery is paused and
-`VERA_CI_QUEUE_ENABLED` is false while the completion-handoff repair below is verified.
-Keep ordinary PR validation active until the controlled rollout passes.
+The queue is **active**. Its control issue is [#361](https://github.com/mbelinkie/vera-script-to-timeline/issues/361),
+its durable state is `queue.json` on `vera-ci-queue-state`, and
+`VERA_CI_QUEUE_ENABLED` is `true`. Strict main protection requires the queue
+status, including for admins.
 
-The completion-job repair is implemented. Its live proof is still pending.
+The bounded live proof passed on 2026-10-29: docs-only and full validation,
+protected automatic merges, serial smoke handoffs, persistent failure pause,
+rejected repeated attempt, retained waiting work, and explicit repaired-head
+recovery. All four synthetic PRs were delivered and the queue became empty
+and unpaused. See [the actual service results](ci-queue-service-proof.md).
 
-At the read-only assessment for this change, the repository was public and
-owned by a personal GitHub account. `main` had no required status checks or
-rulesets. The controller stops if `main` does not have strict protection that
-requires its queue status.
-
-A live rollout's protection read returned 403 from the classic administration
-endpoint with `GITHUB_TOKEN`; the queue persisted a pause and retained both
-waiting entries without merging either PR.
-The controller now reads effective rules through `GET /rules/branches/main`,
-the metadata-readable [rules for a branch API](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch).
-The repaired controller read that rule successfully, integrated current main
-into proof PR #362, and dispatched its exact candidate. The
-[docs-only validation passed](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/40929884235),
-but its bot-dispatched completion did not create a `workflow_run` controller
-run. The PR stayed unmerged and #363 stayed waiting. Delivery is disabled
-while the explicit completion handoff is repaired; neither proof PR is delivered.
+After local checks, required review and acceptance prerequisites are complete,
+post `/queue ready <PR> <40-character-head-SHA>` as one comment on the control
+issue. A draft can use `/queue validate` without authorizing merge. Delivery
+finishes only after main smoke succeeds; issue closure remains with its owner.
 
 ## Why the project uses an Actions controller
 
@@ -65,6 +56,11 @@ validation run. The `Validate` workflow's own `workflow_dispatch` job check does
 not appear as a PR check or satisfy a required PR status, even when it tests the
 same SHA. [GitHub required-check behavior](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks) ·
 [GitHub commit-status API](https://docs.github.com/en/rest/commits/statuses)
+
+The controller verifies strict protection using effective active rules from
+the metadata-readable [rules for a branch API](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch).
+The classic protection endpoint requires administration access unavailable to
+`GITHUB_TOKEN`.
 
 When activating the queue, create an active repository ruleset that targets
 only `main`, requires strict status checks for `VERA queue validation`, and has
@@ -198,9 +194,9 @@ identity.
 
 ## Activation and bounded rollout proof
 
-Activation requires one coordinated, human-supervised GitHub Actions window.
-The controller starts in a paused state and broad intake remains disabled until
-this proof is complete:
+Initial activation requires one coordinated, human-supervised GitHub Actions
+window. The controller initializes paused; keep intake limited to synthetic
+rollout candidates until this proof is complete:
 
 1. Merge the controller and validation workflows to `main`. Create the
    dedicated public control issue described above.
@@ -238,9 +234,9 @@ this proof is complete:
    this external GitHub behavior is proven; unit tests alone do not establish
    it.
 
-Coordinate this window with the Producer; do not run a full validation outside
-the scheduled rollout. The queue has not passed this external proof in this
-change, so it remains inactive.
+This initial proof is complete; [observed results](ci-queue-service-proof.md)
+record the candidates, validation routes, smoke, failure and recovery. For a
+future rollout, coordinate its validation window with the Producer.
 
 ## Disabling the queue
 

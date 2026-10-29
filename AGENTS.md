@@ -109,7 +109,10 @@ Follow [docs/VERIFICATION_POLICY.md](docs/VERIFICATION_POLICY.md):
   [docs/CLAUDE_REVIEW_PLAYBOOK.md](docs/CLAUDE_REVIEW_PLAYBOOK.md).
   It governs current and future issues, including those with older review instructions.
 - The full suite runs only in GitHub Actions; never run it on the Mac.
-- Merge when CI is green.
+- The CI queue is active. After merge prerequisites are complete, submit the
+  exact ready head through [docs/CI_QUEUE.md](docs/CI_QUEUE.md). The queue
+  validates, merges and confirms smoke; use manual delivery only after its
+  documented disable/fallback procedure.
 - Fix bugs forward.
 
 ## Branches: everything lands on `main`

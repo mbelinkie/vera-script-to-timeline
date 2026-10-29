@@ -52,7 +52,8 @@ find problems, not to produce paperwork.
    dispatches smoke on the merge SHA. A dispatch-created job check does not
    satisfy a required PR check. `/queue validate` can validate a draft without
    authorizing merge. Activation, fallback, and recovery are documented in
-   [the CI queue guide](CI_QUEUE.md); the queue is currently inactive.
+   [the CI queue guide](CI_QUEUE.md); the queue is active following its bounded
+   live proof. Submit ready PRs through its control issue.
 
    Pushes to `main` still run the short `Main smoke` job with existing Node
    unit tests and a Python syntax check; it does not replace PR validation.

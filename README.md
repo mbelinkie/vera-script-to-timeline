@@ -63,8 +63,8 @@ corresponding lockfile change with the dependency change.
 
 Testing, review and merge rules are in
 [the verification policy](docs/VERIFICATION_POLICY.md). The CI queue is
-currently inactive. Its activation, exact-SHA validation, merge, recovery, and
-fallback steps are documented in [the CI queue guide](docs/CI_QUEUE.md).
+active following its bounded live proof. Its exact-SHA validation, merge,
+recovery, and fallback steps are documented in [the CI queue guide](docs/CI_QUEUE.md).
 
 During development, run:
 
