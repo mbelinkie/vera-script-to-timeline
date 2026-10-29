@@ -1,0 +1,62 @@
+{
+  "context": {
+    "adapter": {
+      "release": "synthetic-adapter-release:v1",
+      "sourceIdentity": "synthetic-adapter-source:test-only"
+    },
+    "resolve": {
+      "apiContext": "synthetic-captured-api-context:script-properties",
+      "build": "10",
+      "product": "DaVinci Resolve Studio",
+      "version": "21.1.1"
+    },
+    "sourceRaster": {
+      "frameRate": {
+        "denominator": 1,
+        "numerator": 25
+      },
+      "height": 1080,
+      "orientation": "synthetic-captured-orientation:0-degrees",
+      "pixelAspect": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "scalingContext": "synthetic-captured-source-scaling-context:scale-full-frame",
+      "width": 1920
+    },
+    "timelineRaster": {
+      "frameRate": {
+        "denominator": 1,
+        "numerator": 25
+      },
+      "height": 1080,
+      "pixelAspect": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "width": 1920
+    }
+  },
+  "invariants": {
+    "AnchorPointX": 0,
+    "AnchorPointY": 0,
+    "DynamicZoomEnabled": false,
+    "FlipX": false,
+    "FlipY": false,
+    "RotationAngle": 0,
+    "TransformEnabled": true
+  },
+  "schemaVersion": "presenter-framing-profile-snapshot/v1",
+  "tight": {
+    "Pan": -0.5,
+    "Tilt": 0.75,
+    "ZoomX": 1.35,
+    "ZoomY": 1.35
+  },
+  "wide": {
+    "Pan": 0.125,
+    "Tilt": -0.25,
+    "ZoomX": 1,
+    "ZoomY": 1
+  }
+}
