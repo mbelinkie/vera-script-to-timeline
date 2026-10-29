@@ -353,12 +353,43 @@ def _project_settings(project: Any) -> None:
         )
 
 
+def _normalize_settings_numbers(value: Any) -> Any:
+    if type(value) is float and math.isfinite(value) and value.is_integer():
+        return int(value)
+    if type(value) is dict:
+        return {key: _normalize_settings_numbers(item) for key, item in value.items()}
+    if type(value) is list:
+        return [_normalize_settings_numbers(item) for item in value]
+    return value
+
+
+def _settings_map(value: Any, label: str) -> dict[str, Any]:
+    _require(
+        type(value) is dict and all(type(key) is str for key in value),
+        f"{label} must be a readable settings object",
+    )
+    _canonical(_normalize_settings_numbers(value))
+    return cast(dict[str, Any], value)
+
+
+def _same_empty_project_observation(
+    left: tuple[str, dict[str, Any]] | None,
+    right: tuple[str, dict[str, Any]] | None,
+) -> bool:
+    if left is None or right is None:
+        return left is right
+    return left[0] == right[0] and _canonical(
+        _normalize_settings_numbers(left[1])
+    ) == _canonical(_normalize_settings_numbers(right[1]))
+
+
 def _assert_empty_project(
     manager: Any,
     *,
     expected_uid: str | None = None,
+    expected_settings: dict[str, Any] | None = None,
     closed_uid: str | None = None,
-) -> str | None:
+) -> tuple[str, dict[str, Any]] | None:
     project = manager.GetCurrentProject()
     if project is None:
         return None
@@ -373,8 +404,19 @@ def _assert_empty_project(
     )
     if expected_uid is not None:
         _require(uid == expected_uid, "empty project identity differs from opt-in")
+        _require(
+            expected_settings is not None,
+            "empty project settings snapshot is required with UID opt-in",
+        )
     if closed_uid is not None:
         _require(uid != closed_uid, "empty project reused the closed project identity")
+    settings = _settings_map(project.GetSetting(), "current project settings")
+    if expected_settings is not None:
+        _require(
+            _canonical(_normalize_settings_numbers(settings))
+            == _canonical(_normalize_settings_numbers(expected_settings)),
+            "empty project settings differ from snapshot",
+        )
     _require(
         project.IsRenderingInProgress() is False,
         "empty project is rendering",
@@ -406,7 +448,21 @@ def _assert_empty_project(
         type(folders) in {list, tuple} and len(folders) == 0,
         "empty project has root subfolders or an unreadable folder inventory",
     )
-    return uid
+    gallery = project.GetGallery()
+    _require(gallery is not None, "Resolve gallery is unavailable")
+    albums = gallery.GetGalleryStillAlbums()
+    _require(
+        type(albums) in {list, tuple},
+        "gallery still albums are unreadable",
+    )
+    for album in albums:
+        _require(album is not None, "gallery still album is unreadable")
+        stills = album.GetStills()
+        _require(
+            type(stills) in {list, tuple} and len(stills) == 0,
+            "empty project has gallery stills or an unreadable album",
+        )
+    return uid, settings
 
 
 def _timeline_rows(project: Any) -> list[Any]:
@@ -855,9 +911,23 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
         "operation directory is unavailable",
     )
     sources = _source_specs(request.get("sources"))
+    has_empty_project_uid = "expectedEmptyProjectUid" in request
+    has_empty_project_settings = "expectedEmptyProjectSettings" in request
+    _require(
+        has_empty_project_uid == has_empty_project_settings,
+        "empty project UID and settings snapshot must be provided together",
+    )
     expected_empty_uid = (
         _string(request.get("expectedEmptyProjectUid"), "expected empty project id")
-        if "expectedEmptyProjectUid" in request
+        if has_empty_project_uid
+        else None
+    )
+    expected_empty_settings = (
+        _settings_map(
+            request.get("expectedEmptyProjectSettings"),
+            "expected empty project settings",
+        )
+        if has_empty_project_settings
         else None
     )
     for source in sources:
@@ -873,8 +943,22 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
         type(names) in {list, tuple} and project_name not in names,
         "project name already exists or inventory is unreadable",
     )
-    _assert_empty_project(manager, expected_uid=expected_empty_uid)
-    _assert_empty_project(manager, expected_uid=expected_empty_uid)
+    empty_snapshot = _assert_empty_project(
+        manager,
+        expected_uid=expected_empty_uid,
+        expected_settings=expected_empty_settings,
+    )
+    _require(
+        _same_empty_project_observation(
+            empty_snapshot,
+            _assert_empty_project(
+                manager,
+                expected_uid=expected_empty_uid,
+                expected_settings=expected_empty_settings,
+            ),
+        ),
+        "empty project identity or settings changed between observations",
+    )
     project = manager.CreateProject(project_name)
     _require(project is not None, "Resolve could not create the unique #328 project")
     _require(project.GetName() == project_name, "created project name differs")
@@ -1309,11 +1393,15 @@ def _reopen(resolve: Any, session: dict[str, Any]) -> dict[str, Any]:
         )
         _require(manager.SaveProject() is True, "SaveProject failed")
         _require(manager.CloseProject(project) is True, "CloseProject failed")
-        empty_uid = _assert_empty_project(manager, closed_uid=session["projectUid"])
+        empty_snapshot = _assert_empty_project(
+            manager, closed_uid=session["projectUid"]
+        )
         _require(
-            _assert_empty_project(manager, closed_uid=session["projectUid"])
-            == empty_uid,
-            "empty project identity changed between observations",
+            _same_empty_project_observation(
+                empty_snapshot,
+                _assert_empty_project(manager, closed_uid=session["projectUid"]),
+            ),
+            "empty project identity or settings changed between observations",
         )
         reopened = manager.LoadProject(session["projectName"])
         _require(reopened is not None, "LoadProject failed")

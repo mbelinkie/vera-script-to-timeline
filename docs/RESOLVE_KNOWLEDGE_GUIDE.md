@@ -800,8 +800,10 @@ clip. The original stayed unchanged and current. Append request end 24 yielded
 24 frames, with full-source EOF readback 23; the prior end-23 request yielded
 23 frames and was retained as a stopped setup. Numeric native frame rate 24.0
 is compared exactly as a number. The real default after closing is an empty
-`Untitled Project`; its exact UID and empty inventories are checked twice
-before creation/loading. These are cut-only, full-source, single-operator
+`Untitled Project`; its exact UID, full settings map and empty inventories
+(including gallery stills) are checked twice before creation/loading. The
+settings/gallery guard was separately checked through actual startup/reopen,
+then the completed proof target was restored with its fingerprint unchanged. These are cut-only, full-source, single-operator
 results, not interior-endpoint, arbitrary structural/audio/finishing, live-RPC
 kill recovery, or rendered-output qualification. #328 retains its PR delivery
 gates; #104/#157 own product composition.

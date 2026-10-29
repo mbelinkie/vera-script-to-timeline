@@ -18,6 +18,7 @@ type BridgeResult = {
   originalUnchanged?: boolean;
   originalCurrent?: boolean;
 };
+type EmptyProjectSnapshot = { uid: string; settings: Record<string, unknown> };
 const NATIVE_PYTHON = "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Resources/ResolvePython/ResolvePython";
 const NATIVE_BRIDGE = fileURLToPath(new URL("../../../scripts/issue328_native_bridge.py", import.meta.url));
 type Session = { python: string; bridge: string; bridgeSha256: string; native: Record<string, unknown> };
@@ -68,7 +69,18 @@ function adapter(session: Session, hash: string, failAtBoundary: boolean, store:
     },
   };
 }
-async function setup(directory: string, python: string, bridge: string, red: string, blue: string, expectedEmptyProjectUid?: string): Promise<void> {
+async function emptyProjectSnapshot(path: string): Promise<EmptyProjectSnapshot> {
+  const value = JSON.parse(await readFile(path, "utf8")) as unknown;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Empty-project snapshot must be a JSON object");
+  const snapshot = value as Record<string, unknown>;
+  if (Object.keys(snapshot).length !== 2 || typeof snapshot.uid !== "string" || !snapshot.uid ||
+      !snapshot.settings || typeof snapshot.settings !== "object" || Array.isArray(snapshot.settings)) {
+    throw new Error("Empty-project snapshot requires exactly uid and settings fields");
+  }
+  return { uid: snapshot.uid, settings: snapshot.settings as Record<string, unknown> };
+}
+async function setup(directory: string, python: string, bridge: string, red: string, blue: string, emptyProjectSnapshotPath?: string): Promise<void> {
+  const emptySnapshot = emptyProjectSnapshotPath === undefined ? undefined : await emptyProjectSnapshot(emptyProjectSnapshotPath);
   // A consumed setup directory is retained even after a timeout: never create a replacement blindly.
   await mkdir(directory, { mode: 0o700 });
   await writeFile(resolve(directory, "setup-started.json"), JSON.stringify({ version: 1 }), { flag: "wx" });
@@ -81,7 +93,10 @@ async function setup(directory: string, python: string, bridge: string, red: str
   const request = {
     operationId: randomUUID(), projectName: `VERA_328_${randomUUID().slice(0, 8)}`,
     sourceRevision: "issue328-public-synthetic-v1", operationDir: directory, sources,
-    ...(expectedEmptyProjectUid === undefined ? {} : { expectedEmptyProjectUid }),
+    ...(emptySnapshot === undefined ? {} : {
+      expectedEmptyProjectUid: emptySnapshot.uid,
+      expectedEmptyProjectSettings: emptySnapshot.settings,
+    }),
   };
   await writeFile(resolve(directory, "setup-request.json"), JSON.stringify({ ...request, bridgeSha256: session.bridgeSha256 }), { flag: "wx", mode: 0o600 });
   const result = command(session, "setup", request);
@@ -102,10 +117,10 @@ async function setup(directory: string, python: string, bridge: string, red: str
 }
 async function main(): Promise<void> {
   const [action, location, ...args] = process.argv.slice(2);
-  if (!location || !["setup", "partial", "retry", "reopen"].includes(action ?? "")) throw new Error("Use setup DIRECTORY PYTHON BRIDGE RED BLUE [EXPECTED_EMPTY_PROJECT_UID], or partial|retry|reopen DIRECTORY");
+  if (!location || !["setup", "partial", "retry", "reopen"].includes(action ?? "")) throw new Error("Use setup DIRECTORY PYTHON BRIDGE RED BLUE [EMPTY_PROJECT_SNAPSHOT_JSON], or partial|retry|reopen DIRECTORY");
   const directory = resolve(location);
   if (action === "setup") {
-    if (args.length !== 4 && args.length !== 5) throw new Error("Setup requires explicit Python, bridge, two public synthetic sources, and an optional empty-project UID opt-in");
+    if (args.length !== 4 && args.length !== 5) throw new Error("Setup requires explicit Python, bridge, two public synthetic sources, and an optional empty-project snapshot JSON path");
     await setup(directory, args[0]!, args[1]!, args[2]!, args[3]!, args[4]);
     return;
   }

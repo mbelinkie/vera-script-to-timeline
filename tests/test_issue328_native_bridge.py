@@ -162,6 +162,22 @@ class Folder:
         return list(self.project.subfolders)
 
 
+class GalleryAlbum:
+    def __init__(self, stills: list[Any] | None = None) -> None:
+        self.stills = [] if stills is None else stills
+
+    def GetStills(self) -> list[Any]:
+        return list(self.stills)
+
+
+class Gallery:
+    def __init__(self, state: State) -> None:
+        self.state = state
+
+    def GetGalleryStillAlbums(self) -> list[GalleryAlbum]:
+        return list(self.state.gallery_still_albums)
+
+
 class Pool:
     def __init__(self, state: State, project: Project) -> None:
         self.state = state
@@ -250,7 +266,7 @@ class Project:
         self.uid = uid
         self.timelines: list[Timeline] = []
         self.current: Timeline | None = None
-        self.settings: dict[str, str] = {}
+        self.settings: dict[str, Any] = {}
         self.media_items: list[Media] = []
         self.subfolders: list[Any] = []
         self.render_jobs: list[Any] = []
@@ -272,11 +288,14 @@ class Project:
         self.settings[key] = value
         return True
 
-    def GetSetting(self, key: str) -> str | None:
-        return self.settings.get(key)
+    def GetSetting(self, key: str | None = None) -> Any:
+        return self.settings.get(key) if key is not None else dict(self.settings)
 
     def GetMediaPool(self) -> Pool:
         return self.pool
+
+    def GetGallery(self) -> Gallery:
+        return Gallery(self.state)
 
     def GetTimelineCount(self) -> int:
         return len(self.timelines)
@@ -371,6 +390,7 @@ class State:
         ]
         self.project: Project
         self.saved_project: Project | None = None
+        self.gallery_still_albums: list[GalleryAlbum] = []
         self.audio_on_empty = False
         self.bad_append_readback = False
         self.drop_append_result = False
@@ -440,10 +460,18 @@ def _empty_project_setup_inputs(
 ) -> tuple[Resolve, dict[str, Any], State, Project]:
     resolve, request, _hashes, state = _setup_inputs(tmp_path)
     project = Project(state, bridge.EMPTY_PROJECT_NAME, uid)
+    project.settings = {
+        **bridge.SETTINGS,
+        "timelineFrameRate": 24.0,
+        "timelineColorSpace": "Rec.709",
+    }
     state.project = project
     resolve.manager.current = project
     resolve.manager.names.append(bridge.EMPTY_PROJECT_NAME)
     request["expectedEmptyProjectUid"] = uid
+    snapshot_settings = dict(project.settings)
+    snapshot_settings["timelineFrameRate"] = 24
+    request["expectedEmptyProjectSettings"] = snapshot_settings
     return resolve, request, state, project
 
 
@@ -509,8 +537,10 @@ def test_setup_admits_only_the_opted_in_empty_untitled_project(
         ("clip", "empty project has root media clips"),
         ("folder", "empty project has root subfolders"),
         ("wrong-uid", "empty project identity differs from opt-in"),
+        ("settings", "empty project settings differ from snapshot"),
         ("render-job", "empty project has render jobs"),
         ("rendering", "empty project is rendering"),
+        ("gallery-still", "empty project has gallery stills"),
     ],
 )
 def test_setup_refuses_unsafe_opted_in_untitled_project(
@@ -523,10 +553,14 @@ def test_setup_refuses_unsafe_opted_in_untitled_project(
         project.subfolders.append(object())
     elif hazard == "wrong-uid":
         project.uid = "another-empty-project"
+    elif hazard == "settings":
+        project.settings["timelineColorSpace"] = "Rec.2020"
     elif hazard == "render-job":
         project.render_jobs.append({"JobId": "queued"})
-    else:
+    elif hazard == "rendering":
         state.rendering = True
+    else:
+        state.gallery_still_albums.append(GalleryAlbum([object()]))
 
     with pytest.raises(ValueError, match=message):
         bridge.handle_command(request, resolve)
@@ -537,6 +571,7 @@ def test_setup_refuses_unsafe_opted_in_untitled_project(
 def test_setup_refuses_untitled_project_without_uid_opt_in(tmp_path: Path) -> None:
     resolve, request, _state, _project = _empty_project_setup_inputs(tmp_path)
     del request["expectedEmptyProjectUid"]
+    del request["expectedEmptyProjectSettings"]
 
     with pytest.raises(ValueError, match="explicit empty-project identity opt-in"):
         bridge.handle_command(request, resolve)
@@ -561,6 +596,30 @@ def test_setup_rechecks_empty_project_immediately_before_creation(
         resolve.manager, "GetCurrentProject", change_on_second_observation
     )
     with pytest.raises(ValueError, match="not the exact empty Untitled Project"):
+        bridge.handle_command(request, resolve)
+    assert observations == 2
+    assert "VERA_328_deadbeef" not in resolve.manager.names
+
+
+def test_setup_rejects_settings_change_between_observations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, request, _state, project = _empty_project_setup_inputs(tmp_path)
+    get_setting = project.GetSetting
+    observations = 0
+
+    def change_settings_on_second_observation(
+        key: str | None = None,
+    ) -> Any:
+        nonlocal observations
+        if key is None:
+            observations += 1
+            if observations == 2:
+                project.settings["timelineColorSpace"] = "Rec.2020"
+        return get_setting(key)
+
+    monkeypatch.setattr(project, "GetSetting", change_settings_on_second_observation)
+    with pytest.raises(ValueError, match="settings differ from snapshot"):
         bridge.handle_command(request, resolve)
     assert observations == 2
     assert "VERA_328_deadbeef" not in resolve.manager.names
@@ -878,7 +937,9 @@ def test_reopen_refuses_empty_project_identity_change_between_observations(
         resolve.manager, "GetCurrentProject", change_uid_on_second_empty_observation
     )
     monkeypatch.setattr(resolve.manager, "LoadProject", count_load)
-    with pytest.raises(ValueError, match="identity changed between observations"):
+    with pytest.raises(
+        ValueError, match="identity or settings changed between observations"
+    ):
         bridge.handle_command(_command("reopen", session, planSha256="d" * 64), resolve)
     assert observed_uids[:2] == ["untitled-project", "changed-empty-project"]
     assert load_calls == 0

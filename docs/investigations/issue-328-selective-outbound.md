@@ -66,10 +66,13 @@ share a host lock and recheck the current target before appending; Resolve's
 current-timeline append API is not an atomic guard against a person switching
 timelines between calls. No concurrent manual editing is qualified. Setup
 accepts no loaded project, or an explicitly opted-in UID for the exact
-empty `Untitled Project`. Two fresh checks require no timelines/current timeline,
-root clips/subfolders, render jobs or active render before creation. After close,
-reopen similarly requires the same new empty-project UID on both checks before
-loading the saved issue-owned project. It cannot unload another nonempty project. Each append requires a successful `SaveProject` acknowledgment and
+empty `Untitled Project`, paired with a freshly captured full settings map
+in a local `{uid, settings}` JSON snapshot. Two fresh checks require the same
+settings, no timelines/current timeline, root clips/subfolders, gallery stills,
+render jobs or active render before creation. After close, reopen similarly
+requires the same new empty-project UID and full settings on both checks before
+loading the saved issue-owned project. Finite whole-number floats normalize to
+integers only for JSON transport; other values and all keys remain exact. It cannot unload another nonempty project. Each append requires a successful `SaveProject` acknowledgment and
 fresh in-memory readback before its finished receipt. This acknowledgment is not
 an independent disk-persistence proof; the actual close/load check is separate.
 
@@ -91,7 +94,7 @@ qualify their capabilities and preserve or refuse affected unknown work.
 
 ## Results
 
-The 43 focused TypeScript tests and 36 offline Python bridge tests pass. The
+The 43 focused TypeScript tests and 39 offline Python bridge tests pass. The
 actual native continuation passed on **DaVinci Resolve Studio 21.1.1 build 10**,
 Intel Mac, external scripting **Local**, through bundled ResolvePython. This is
 the delta against RK-17's selected-timeline readback, RK-20's no-replay recovery,
@@ -128,6 +131,18 @@ the measured exclusive request endpoint. This run does not render/decode the
 native timeline, kill a live native RPC, qualify interior source endpoints, or
 prove arbitrary structural, audio or finishing operations. Those limits remain
 separate from the positive cut-only continuation result.
+
+
+The final fast gate passed on `71f56411`, including 1,988 Python cases. A bounded
+Claude delta review found that an otherwise empty default project could still
+hold edited settings or gallery stills. The follow-up binds the full fresh
+settings snapshot and rejects stills; 39 focused bridge tests, Ruff, contracts
+TypeScript typecheck and ESLint passed. The affected native admission and reopen
+checks then passed on a separate synthetic guard-only target. The original
+completed proof project was restored and independently observed with the same
+final fingerprint and original current. The frozen attempt was not rewritten
+to accept a changed bridge hash. This rechecks only the new admission guard;
+the earlier cut/receipt mechanism and its evidence are unchanged.
 
 One bounded DeepSeek task over the frozen 26-case suite cost approximately
 USD0.205 in three rounds. Although its final candidate passed that suite and
