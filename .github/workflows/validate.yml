@@ -1,53 +1,108 @@
 name: Validate
 
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.mode != 'manual' && format('vera-queue:{0}:{1}:{2}:{3}', inputs.transaction, inputs.mode, inputs.candidate, inputs.base) || format('Validate {0}', github.sha) }}
+
 on:
   pull_request:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Validation route
+        required: true
+        type: choice
+        options:
+          - manual
+          - pr
+          - smoke
+        default: manual
+      candidate:
+        description: Exact candidate commit SHA for queue runs
+        required: false
+        type: string
+      base:
+        description: Exact base commit SHA for queue runs
+        required: false
+        type: string
+      transaction:
+        description: Queue transaction identifier
+        required: false
+        type: string
 
 permissions:
   contents: read
 
-# A newer push to the same pull request supersedes its older, now-obsolete
-# revision. Other events are keyed by event and commit so manual full runs do
-# not replace main push smoke runs. Main push runs are never cancelled.
+# Disabled-queue runs retain their original independent keys. Enabled-queue
+# publications have no jobs and cannot displace pending validation/smoke.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.sha) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ vars.VERA_CI_QUEUE_ENABLED == 'true' && (github.event_name == 'pull_request' && format('publication-{0}', github.run_id) || 'vera-validation-slot') || format('legacy-{0}', github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.sha)) }}
+  cancel-in-progress: ${{ vars.VERA_CI_QUEUE_ENABLED != 'true' && github.event_name == 'pull_request' }}
 
 jobs:
   classify:
     name: Classify PR changes
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ (github.event_name == 'pull_request' && vars.VERA_CI_QUEUE_ENABLED != 'true') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'pr') }}
     runs-on: ubuntu-24.04
     outputs:
       result: ${{ steps.classify.outputs.result }}
 
     steps:
+      - name: Validate queue inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          VERA_CANDIDATE_SHA: ${{ inputs.candidate }}
+          VERA_BASE_SHA: ${{ inputs.base }}
+          VERA_TRANSACTION: ${{ inputs.transaction }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$VERA_CANDIDATE_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          [[ "$VERA_BASE_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          [[ "$VERA_TRANSACTION" =~ ^[A-Za-z0-9._-]{1,64}$ ]]
+
       - name: Check out repository history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          path: trusted
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out candidate history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate || github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Classify changed paths
         id: classify
+        working-directory: candidate
         env:
-          VERA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          VERA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/ci-docs-only.mjs
+          VERA_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base || github.event.pull_request.base.sha }}
+          VERA_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate || github.event.pull_request.head.sha }}
+        run: GITHUB_EVENT_NAME=pull_request node ../trusted/scripts/ci-docs-only.mjs
 
   validate:
     name: TypeScript and Python
     needs: [classify, docs-only]
-    if: ${{ !cancelled() && github.event_name != 'push' }}
+    if: ${{ !cancelled() && ((github.event_name == 'pull_request' && vars.VERA_CI_QUEUE_ENABLED != 'true') || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'manual' || inputs.mode == 'pr'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      VERA_RUN_FULL: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'manual') || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+    defaults:
+      run:
+        working-directory: candidate
 
     steps:
       - name: Verify PR validation selection
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'pr')) }}
+        working-directory: ${{ github.workspace }}
         env:
           VERA_CLASSIFY_RESULT: ${{ needs.classify.result }}
           VERA_ROUTE: ${{ needs.classify.outputs.result }}
@@ -63,28 +118,33 @@ jobs:
           esac
 
       - name: Check out repository
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate || github.sha }}
+          path: candidate
+          persist-credentials: false
 
       - name: Set up Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: .nvmrc
-          cache: npm
+          node-version-file: candidate/.nvmrc
+          cache: ${{ github.event_name != 'workflow_dispatch' && 'npm' || '' }}
+          cache-dependency-path: candidate/package-lock.json
 
       - name: Pin npm
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: npm install --global npm@11.17.0
 
       - name: Install TypeScript dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: npm ci
 
       # Capture tests launch Chromium directly; npm ci installs Playwright but
       # does not provision its browser binary or Linux system dependencies.
       - name: Install Chromium for capture tests
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: npx playwright install --with-deps chromium
 
       # Ubuntu restricts user namespaces for downloaded Chromium builds.
@@ -92,7 +152,7 @@ jobs:
       # the capture worker still requires chromiumSandbox: true.
       # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
       - name: Permit sandbox namespaces for CI Chromium
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: |
           printf '%s\n' \
             'abi <abi/4.0>,' \
@@ -103,28 +163,28 @@ jobs:
           sudo apparmor_parser -r /etc/apparmor.d/vera-playwright
 
       - name: Set up uv and Python
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: 0.12.5
           python-version: 3.12.14
-          enable-cache: true
+          enable-cache: ${{ github.event_name != 'workflow_dispatch' }}
 
       - name: Install Python dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: uv sync --frozen
 
       # Slice 1.2 narration normalization already requires the system FFmpeg
       # executable; install it explicitly because ubuntu-24.04 does not include
       # it in PATH on a clean runner.
       - name: Install FFmpeg
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
 
       # Frozen fixture tests skip when FFprobe is absent; fail before the gate
       # instead of letting a missing tool become a silent skip.
       - name: Preflight required media tools
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         id: preflight
         run: |
           command -v ffmpeg
@@ -135,7 +195,7 @@ jobs:
       # JUnit, durations and the teed log are reporting-only; they do not change
       # test selection. pipefail keeps the gate's exit status authoritative.
       - name: Run repository validation
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         id: validate
         shell: bash
         env:
@@ -151,14 +211,14 @@ jobs:
           VITEST_MAX_WORKERS=1 npm run validate 2>&1 | tee "$RUNNER_TEMP/vera-evidence/validate.log"
 
       - name: Verify lockfiles remain unchanged
-        if: ${{ github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full') }}
+        if: ${{ env.VERA_RUN_FULL == 'true' }}
         id: lockfiles
         run: git diff --exit-code -- package-lock.json uv.lock
 
       # Runs after failures too, so evidence is retained; a successful
       # collection or upload never changes an earlier failed step's result.
       - name: Collect validation evidence
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full')) }}
+        if: ${{ !cancelled() && env.VERA_RUN_FULL == 'true' }}
         env:
           VERA_OUTCOME_PREFLIGHT: ${{ steps.preflight.outcome }}
           VERA_OUTCOME_VALIDATE: ${{ steps.validate.outcome }}
@@ -169,7 +229,7 @@ jobs:
       # Only the sanitized manifest is published; raw JUnit, the teed log,
       # worktree contents and caches are not. Treat this artifact as public.
       - name: Upload validation evidence
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.classify.result == 'success' && needs.classify.outputs.result == 'full')) }}
+        if: ${{ !cancelled() && env.VERA_RUN_FULL == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vera-validation-evidence-attempt-${{ github.run_attempt }}
@@ -179,19 +239,25 @@ jobs:
   docs-only:
     name: Docs only
     needs: classify
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.classify.result == 'success' && needs.classify.outputs.result == 'docs' }}
+    if: ${{ !cancelled() && ((github.event_name == 'pull_request' && vars.VERA_CI_QUEUE_ENABLED != 'true') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'pr')) && needs.classify.result == 'success' && needs.classify.outputs.result == 'docs' }}
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: candidate
 
     steps:
-      - name: Check out repository history
+      - name: Check out candidate history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate || github.sha }}
+          path: candidate
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check changed documentation whitespace
         env:
-          VERA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          VERA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VERA_BASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base || github.event.pull_request.base.sha }}
+          VERA_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate || github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -201,18 +267,40 @@ jobs:
 
   main-smoke:
     name: Main smoke
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'smoke') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: candidate
 
     steps:
+      - name: Validate queue inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        working-directory: ${{ github.workspace }}
+        env:
+          VERA_CANDIDATE_SHA: ${{ inputs.candidate }}
+          VERA_BASE_SHA: ${{ inputs.base }}
+          VERA_TRANSACTION: ${{ inputs.transaction }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$VERA_CANDIDATE_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          [[ "$VERA_BASE_SHA" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+          [[ "$VERA_TRANSACTION" =~ ^[A-Za-z0-9._-]{1,64}$ ]]
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate || github.sha }}
+          path: candidate
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: .nvmrc
+          node-version-file: candidate/.nvmrc
 
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
@@ -223,4 +311,5 @@ jobs:
       - name: Run focused smoke checks
         run: |
           node --test scripts/cloud-evidence.test.mjs scripts/agent-safety.test.mjs
+          node --test scripts/ci-queue*.test.mjs
           uv run --no-project --python 3.12.14 python -m compileall -q python
