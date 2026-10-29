@@ -419,6 +419,7 @@ def _build(
     auto_select: bool = False,
     single_wide: bool = False,
     current_only_lock_getter: bool = False,
+    switch_during_lock_context: bool = False,
 ) -> tuple[Any, ...]:
     profile = json.loads((_FIXTURES / "profile.json").read_text())
     context = context_override if context_override is not None else profile["context"]
@@ -463,6 +464,12 @@ def _build(
         events.append("guard")
 
     def context_reader(_timeline: Any) -> dict[str, Any]:
+        if (
+            switch_during_lock_context
+            and len(project.timelines) == 3
+            and _timeline is project.timelines[1]
+        ):
+            project.current = project.timelines[0]
         return context
 
     request = _request(context=profile["context"], single_wide=single_wide)
@@ -533,6 +540,11 @@ def test_builds_locked_continuous_master_and_separate_framing_target() -> None:
     for index, event in enumerate(events):
         if event.startswith("mutate:"):
             assert events[index - 1] == "guard"
+
+
+def test_final_lock_readback_refuses_timeline_switch_and_preserves_failure() -> None:
+    with pytest.raises(PresenterMasterError, match="restoring Generated also failed"):
+        _build(current_only_lock_getter=True, switch_during_lock_context=True)
 
 
 def test_final_lock_readback_selects_master_and_restores_generated_timeline() -> None:

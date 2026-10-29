@@ -982,18 +982,33 @@ def prepare_presenter_master(
             )
         _guard(project, project_uid, generated_uid, current_target_guard)
         _select(project, master, project_uid, current_target_guard)
+        verification_error: Exception | None = None
         try:
             if not _json_equal(context_reader(master), profile["context"]):
                 raise PresenterMasterError(
                     "Presenter Master context changed before lock verification"
                 )
             for kind, index in protected:
+                _guard(project, project_uid, master_uid, current_target_guard)
                 if master.GetIsTrackLocked(kind, index) is not True:
                     raise PresenterMasterError(
                         "Presenter Master track lock did not persist"
                     )
+            _guard(project, project_uid, master_uid, current_target_guard)
+        except Exception as error:
+            verification_error = error
+            raise
         finally:
-            _select(project, generated, project_uid, current_target_guard)
+            try:
+                _guard(project, project_uid, master_uid, current_target_guard)
+                _select(project, generated, project_uid, current_target_guard)
+            except Exception as restore_error:
+                if verification_error is not None:
+                    raise PresenterMasterError(
+                        f"{verification_error}; restoring Generated also failed: "
+                        f"{restore_error}"
+                    ) from verification_error
+                raise
         _guard(project, project_uid, generated_uid, current_target_guard)
         if not _json_equal(context_reader(generated), profile["context"]):
             raise PresenterMasterError(
