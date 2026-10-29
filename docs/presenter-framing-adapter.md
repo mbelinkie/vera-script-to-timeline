@@ -98,12 +98,14 @@ table. Do not use those values as production defaults.
   calibration, immediate and save/reopen readback, exact raster matching,
   distinct rendered crops, advancing source frames at direct boundaries and
   cutaway returns, unchanged B-roll/dialogue, grouping and old-build invariance.
-- Qualify the exact Free Inspector mapping and retained manual checklist
-  separately. Missing mapping must remain blocked; Studio values and temporary
-  preview scales cannot be guessed into Inspector instructions.
+- Free Inspector qualification and the retained manual checklist are deferred
+  to #355 by Producer direction on 2026-10-28; they do not block #119 delivery.
+  Missing mapping must remain blocked; Studio values and temporary preview
+  scales cannot be guessed into Inspector instructions.
 - Complete focused/fast checks, required Claude review, and the current-head
   full cloud gate after the Steward releases publication. Final merge and
-  External closure require the positive native and Free criteria above.
+  External closure require the positive Studio/native criteria above. Free
+  manual completion remains explicitly unverified pending #355.
 
 No Resolve operation, media render, publication, or CI run is authorized by
 this document. The issue's coordinated resource holds still apply.
@@ -141,7 +143,7 @@ audio and B-roll to their baseline. Save/reopen and repeat readback. Build from
 a revised calibration into new targets and confirm prior artifact bytes and
 timeline semantics remain unchanged.
 
-The Free check is separate: use the actual supported import route and edition,
+The deferred Free check (#355) uses the actual supported import route and edition:
 retain authored choices and names, qualify the raw-property-to-Inspector
 controls/values for the exact context, and follow the resulting pinned checklist.
 Without that positive mapping evidence the implementation must stay `blocked`.
