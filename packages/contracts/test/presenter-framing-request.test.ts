@@ -28,16 +28,26 @@ function request(): PresenterFramingRequestInput {
   const hash = `sha256:${"d".repeat(64)}`;
   const rate = profile.context.timelineRaster.frameRate;
   const sampleRate = 48000;
-  return { registration, sessionId: session.id, sourceId: source.id, profile, observedContext: structuredClone(profile.context),
-    mappingHash: hash, reviewedColor: { profileHash: hash, reviewEvidenceHash: hash },
-    intervals: [
+  const intervals = [
       { eventId: "first", framingKey: "wide", recordStart: 0, recordEnd: 75, sourceStart: 1000, sourceEnd: 1075, visible: true },
       { eventId: "covered", framingKey: "wide", recordStart: 75, recordEnd: 150, sourceStart: 1075, sourceEnd: 1150, visible: false },
       { eventId: "return", framingKey: "tight", recordStart: 150, recordEnd: 250, sourceStart: 1150, sourceEnd: 1250, visible: true },
-    ],
+  ] satisfies PresenterFramingRequestInput["intervals"];
+  return { registration, sessionId: session.id, sourceId: source.id, profile, observedContext: structuredClone(profile.context),
+    mappingEvidence: intervals.map((interval) => mappingFor(registration.projectId, source.id, source.mediaHash, rate, interval.sourceStart, interval.sourceEnd)),
+    reviewedColor: { profileHash: hash, reviewEvidenceHash: hash }, intervals,
     dialogue: { eventId: "dialogue", mediaHash: hash, processingProfileHash: hash, synchronizationEvidenceHash: hash,
       recordStart: 0, recordEnd: 250, sourceStartSample: 96000, sourceEndSample: 96000 + 250 * sampleRate * rate.denominator / rate.numerator, sampleRate },
   };
+}
+
+function mappingFor(projectId: string, sourceId: string, sourceContentHash: string, sourceRate: unknown, start: number, end: number) {
+  return { method: "frame-index-identity/v1", projectId, sourceId, sourceContentHash, sourceRate,
+    generationIdentity: "e".repeat(64), sourceProbeHash: `sha256:${"f".repeat(64)}`,
+    videoSource: "master", mappingHash: null,
+    frameRange: { startInclusive: start, endExclusive: end },
+    startBoundary: { sourceFrameIndex: start, reviewFrameIndex: start },
+    endBoundary: { sourceFrameIndex: end, reviewFrameIndex: end } };
 }
 
 describe("registered synthetic presenter framing requests", () => {
@@ -58,9 +68,23 @@ describe("registered synthetic presenter framing requests", () => {
   it("accepts an exact direct Wide to Tight boundary without restarting the master", () => {
     const input = request();
     input.intervals.splice(1, 1);
+    input.mappingEvidence.splice(1, 1);
     input.intervals[0]!.recordEnd = 150;
     input.intervals[0]!.sourceEnd = 1150;
+    input.mappingEvidence[0] = mappingFor(input.registration.projectId, input.sourceId, input.registration.sessions[0]!.sources[0]!.mediaHash, (input.profile as PresenterFramingProfileSnapshot).context.sourceRaster.frameRate, 1000, 1150);
     expect(createPresenterFramingRequest(input).intervals[1]!.sourceStart).toBe(1150);
+  });
+
+  it("requires the actual mapping handoff for each registered source interval", () => {
+    const input = request();
+    input.mappingEvidence[1] = { ...(input.mappingEvidence[1] as object), sourceContentHash: `sha256:${"0".repeat(64)}` };
+    expect(() => createPresenterFramingRequest(input)).toThrow(/mapping/u);
+    const missing = request();
+    missing.mappingEvidence = [];
+    expect(() => createPresenterFramingRequest(missing)).toThrow(/mapping/u);
+    const stale = request();
+    stale.mappingEvidence[1] = { ...(stale.mappingEvidence[1] as object), generationIdentity: "a".repeat(64) };
+    expect(() => createPresenterFramingRequest(stale)).toThrow(/generation/u);
   });
 
   it.each(["recordStart", "sourceStart"] as const)("rejects a skipped/repeated %s frame", (key) => {

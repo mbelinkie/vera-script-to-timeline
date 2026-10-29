@@ -26,9 +26,31 @@ request. Names use `OC WIDE <eventId>` / `OC TIGHT <eventId>` and auxiliary Blue
 Orange colors. It returns `requested`, never a claim of native completion.
 
 The initial native item boundary supports exact 1:1 source/timeline frames at
-matching rates. It refuses retiming. The supplied mapping hash and intervals are
-inputs, not a replacement for #44's mapping service. #44's actual delivered
-mapping must be bound and tested before final #119 integration.
+matching rates. It refuses retiming. The Python `presenter_framing_mapping`
+bridge calls #44's public `ReviewIngestAdapter.map_proxy_frame_range`, which
+revalidates the registered source and derivative receipts before mapping. It
+returns master frame bounds and the exact mapping evidence. The request pins
+that evidence for every interval and checks source identity, generation and
+exact boundaries. Direct master playback retains #44's `mappingHash: null`;
+the framing request's `mappingEvidenceHash` separately hashes retained evidence.
+Synthetic tests exercise the delivered verifier and mapper without media tools.
+
+`snapshotPresenterFramingCalibration` creates the first paired snapshot or the
+next version from completed sample readback. It preserves prior snapshots and
+uses the existing canonical hash and validator. The Python adapter captures
+already-authored raw properties from two disposable samples, then checks their
+immediate and reopened readback. It can also apply explicit test tuples. The
+adapter verifies native item/media identities, source intervals, exact clip names
+and optional clip colors. TypeScript owns profile creation and versioning;
+Python consumes its pinned bytes. These operations add no visual qualification.
+
+DeepSeek supplied the bounded `snapshotPresenterFramingCalibration` implementation
+against frozen tests. The controller retained its response after rejecting a
+multiline declaration where an exact signature was required. Parent integration
+normalized that declaration, corrected three TypeScript casts and added an
+explicit `unknown` annotation for prototype inspection. Its 19 focused behavior
+checks passed; package typecheck and lint passed after those parent changes.
+This provenance is code-generation evidence only.
 
 The checked-in profile fixture contains synthetic test values and synthetic
 context labels. It is neither a calibrated look nor an Inspector conversion
@@ -36,8 +58,9 @@ table. Do not use those values as production defaults.
 
 ## Remaining delivery gates
 
-- Bind and test the actual #44 mapping handoff after #44 is merged, green,
-  Producer-accepted and Closed/Done.
+- Finish end-to-end build integration of the #44 bridge. Its code is merged
+  and the bridge has focused synthetic coverage; #44 still needs Producer
+  acceptance and Closed/Done before #119 delivery.
 - Construct a new disposable protected Presenter Master using a registered
   continuous synthetic picture, explicitly reviewed upstream color and an
   independently synchronized processed-dialogue artifact. Preserve old targets.

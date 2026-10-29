@@ -14,9 +14,7 @@ from vera_timeline_agent.presenter_framing import (
     PresenterFramingIntent,
     PresenterPictureTarget,
     ValidatedSourceTimeInterval,
-    finalize_profile_revision,
     free_manual_handoff,
-    prepare_profile_revision,
     validate_profile_snapshot,
 )
 
@@ -565,10 +563,8 @@ def test_reopen_mismatch_stays_pending_and_never_claims_verified() -> None:
     assert "media identity differs" in identity_result.message
 
 
-def test_calibration_reads_both_raw_tuples_and_revises_without_rewriting_prior() -> (
-    None
-):
-    profile, content, content_bytes, pin = _fixture()
+def test_calibration_reads_both_raw_tuples_without_rewriting_prior() -> None:
+    profile, content, _, _ = _fixture()
     prior_profile_bytes = (FIXTURES / "profile.json").read_bytes()
     prior_content_bytes = (FIXTURES / "profile-content.json").read_bytes()
     adapter, guard_count = _adapter(profile)
@@ -606,35 +602,8 @@ def test_calibration_reads_both_raw_tuples_and_revises_without_rewriting_prior()
     assert wide.item.set_calls[0]["RotationAngle"] == 0
     assert tight.item.set_calls[0]["DynamicZoomEnabled"] is False
 
-    candidate = prepare_profile_revision(
-        profile,
-        prior_content_json=content_bytes,
-        prior_pin=pin,
-        calibration=calibration,
-    )
-    assert candidate.content["id"] == profile["id"]
-    assert candidate.content["version"] == profile["version"] + 1
-    new_content = {
-        key: candidate.content[key]
-        for key in ("schemaVersion", "context", "invariants", "wide", "tight")
-    }
-    new_content_bytes = _canonical_profile_content(new_content)
-    revision = finalize_profile_revision(
-        candidate, canonical_content_json=new_content_bytes
-    )
-    assert revision.prior_snapshot == profile
-    assert revision.prior_content_json == prior_content_bytes
-    assert revision.snapshot["id"] == profile["id"]
-    assert revision.snapshot["version"] == profile["version"] + 1
-    assert revision.snapshot["wide"]["Pan"] == 0.25
-    assert revision.snapshot["profileHash"] == sha256_bytes(new_content_bytes)
-    assert revision.content_json == new_content_bytes
     assert (FIXTURES / "profile.json").read_bytes() == prior_profile_bytes
     assert (FIXTURES / "profile-content.json").read_bytes() == prior_content_bytes
-
-    candidate.content["version"] = profile["version"]
-    with pytest.raises(PresenterFramingError, match="increment"):
-        finalize_profile_revision(candidate, canonical_content_json=new_content_bytes)
 
 
 def test_calibration_requires_a_disposable_studio_pair() -> None:

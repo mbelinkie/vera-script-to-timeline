@@ -155,8 +155,113 @@ export function validatePresenterFramingProfile(value: unknown): PresenterFramin
 
 /** Pin captured raw sample values; this creates data, not native qualification. */
 export function snapshotPresenterFramingCalibration(calibration: unknown, prior: PresenterFramingProfileSnapshot | null, id: string): PresenterFramingProfileSnapshot {
-  void calibration;
-  void prior;
-  void id;
-  throw new Error("not implemented");
+  function isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    const prototype: unknown = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  }
+
+  function assertExactRecord(
+    value: unknown,
+    keys: readonly string[],
+    label: string,
+  ): Record<string, unknown> {
+    if (!isPlainObject(value)) throw new Error(`Invalid ${label} object.`);
+    const ownKeys = Reflect.ownKeys(value);
+    if (
+      ownKeys.length !== keys.length ||
+      ownKeys.some((key) => typeof key !== "string" || !keys.includes(key))
+    ) {
+      throw new Error(`Unexpected or missing ${label} fields.`);
+    }
+    for (const key of keys) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+        throw new Error(`Invalid ${label} field ${key}.`);
+      }
+    }
+    return value;
+  }
+
+  const cal = assertExactRecord(
+    calibration,
+    ["status", "message", "context", "observed_transforms", "color_limitations"],
+    "calibration result",
+  );
+
+  if (cal.status !== "sample_readback_complete") {
+    throw new Error("Unsupported calibration status.");
+  }
+  if (typeof cal.message !== "string") {
+    throw new Error("Invalid calibration message.");
+  }
+  if (
+    !Array.isArray(cal.color_limitations) ||
+    !cal.color_limitations.every((item) => typeof item === "string")
+  ) {
+    throw new Error("Invalid color limitations.");
+  }
+
+  if (!isPlainObject(cal.context)) {
+    throw new Error("Missing captured context.");
+  }
+  const context = cal.context as unknown as PresenterFramingContext;
+
+  const observedTransforms = assertExactRecord(
+    cal.observed_transforms,
+    ["wide", "tight"],
+    "observed transforms",
+  );
+  const wideValue = observedTransforms.wide;
+  const tightValue = observedTransforms.tight;
+  if (!isPlainObject(wideValue) || !isPlainObject(tightValue)) {
+    throw new Error("Malformed transform tuple.");
+  }
+  const wide = wideValue as unknown as PresenterFramingTransform;
+  const tight = tightValue as unknown as PresenterFramingTransform;
+
+  const neutrals: PresenterFramingInvariants = {
+    TransformEnabled: true,
+    DynamicZoomEnabled: false,
+    RotationAngle: 0,
+    AnchorPointX: 0,
+    AnchorPointY: 0,
+    FlipX: false,
+    FlipY: false,
+  };
+
+  let version = 1;
+  if (prior !== null) {
+    const priorValidated = validatePresenterFramingProfile(prior);
+    if (priorValidated.id !== id) {
+      throw new Error("Supplied identity does not match prior profile.");
+    }
+    const nextVersion = priorValidated.version + 1;
+    if (!Number.isSafeInteger(nextVersion)) {
+      throw new Error("Profile version overflow.");
+    }
+    version = nextVersion;
+  }
+
+  const snapshotWithoutHash = {
+    schemaVersion: "presenter-framing-profile-snapshot/v1" as const,
+    id,
+    version,
+    context,
+    invariants: neutrals,
+    wide,
+    tight,
+  };
+
+  const profileHash = presenterFramingProfileHash({
+    ...snapshotWithoutHash,
+    profileHash: "",
+  });
+
+  const candidate: PresenterFramingProfileSnapshot = {
+    ...snapshotWithoutHash,
+    profileHash,
+  };
+
+  return validatePresenterFramingProfile(candidate);
 }
