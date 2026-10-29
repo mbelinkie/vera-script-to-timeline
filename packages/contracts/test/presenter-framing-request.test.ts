@@ -110,6 +110,9 @@ describe("registered synthetic presenter framing requests", () => {
     const noSync = request();
     noSync.dialogue.synchronizationEvidenceHash = "";
     expect(() => createPresenterFramingRequest(noSync)).toThrow(/evidence/u);
+    const embedded = request();
+    embedded.dialogue.mediaHash = embedded.registration.sessions[0]!.sources[0]!.mediaHash;
+    expect(() => createPresenterFramingRequest(embedded)).toThrow(/independent/u);
   });
 
   it("refuses retiming and incomplete or duration-shifted dialogue", () => {

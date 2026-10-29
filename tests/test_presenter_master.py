@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -457,7 +458,14 @@ def test_accepts_a_single_profile_treatment() -> None:
 
 @pytest.mark.parametrize(
     "failure",
-    ["context", "request", "non_boolean_visibility", "fractional_audio", "audio_fps"],
+    [
+        "context",
+        "request",
+        "non_boolean_visibility",
+        "fractional_audio",
+        "audio_fps",
+        "embedded_audio",
+    ],
 )
 def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
     failure: str,
@@ -511,6 +519,16 @@ def test_refuses_bad_context_evidence_or_ranges_before_timeline_creation(
     elif failure == "fractional_audio":
         request["dialogue"]["sourceStartSample"] = 1
         request["dialogue"]["sourceEndSample"] = 192001
+        payload = {
+            key: value
+            for key, value in request.items()
+            if key not in {"requestHash", "requestContentJson"}
+        }
+        request["requestContentJson"] = _ts_canonical(payload)
+        request["requestHash"] = sha256_bytes(request["requestContentJson"].encode())
+    elif failure == "embedded_audio":
+        dialogue = replace(dialogue, media_hash=picture.media_hash)
+        request["dialogue"]["mediaHash"] = picture.media_hash
         payload = {
             key: value
             for key, value in request.items()

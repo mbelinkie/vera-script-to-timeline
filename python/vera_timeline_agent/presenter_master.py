@@ -165,6 +165,13 @@ def _preflight(
         )
     _hash(picture.media_hash, "presenter media hash")
     _hash(dialogue.media_hash, "dialogue media hash")
+    if (
+        picture.media_hash == dialogue.media_hash
+        or picture.media_id == dialogue.media_id
+    ):
+        raise PresenterMasterError(
+            "processed dialogue must be an independent immutable audio artifact"
+        )
     if not all(
         (
             picture.path,

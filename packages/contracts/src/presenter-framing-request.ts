@@ -56,6 +56,7 @@ export function createPresenterFramingRequest(input: PresenterFramingRequestInpu
   const hash = (value: unknown) => typeof value === "string" && /^sha256:[a-f0-9]{64}$/u.test(value);
   if (![source.mediaHash, input.reviewedColor.profileHash, input.reviewedColor.reviewEvidenceHash,
     input.dialogue.mediaHash, input.dialogue.processingProfileHash, input.dialogue.synchronizationEvidenceHash].every(hash)) throw new Error("Missing immutable source, mapping, reviewed color or dialogue evidence.");
+  if (input.dialogue.mediaHash === source.mediaHash) throw new Error("Processed dialogue must be an independent immutable audio artifact.");
   const frame = (value: number) => Number.isSafeInteger(value) && value >= 0;
   const eventId = (value: string) => value.length > 0 && !/\s/u.test(value);
   const ids = new Set<string>();
