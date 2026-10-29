@@ -116,52 +116,38 @@ The checked-in profile fixture contains synthetic test values and synthetic
 context labels. It is neither a calibrated look nor an Inspector conversion
 table. Do not use those values as production defaults.
 
-## Remaining delivery gates
+## Qualification and remaining delivery gates
 
-- Finish end-to-end build integration of the #44 bridge. Its code is merged
-  and the bridge has focused synthetic coverage; #44 still needs Producer
-  acceptance and Closed/Done before #119 delivery.
-- Connect the builder to the registered synthetic inputs and run its protected
-  Master/separate-generated-target workflow in the disposable real project.
-  Verify its track locks and preserved old targets after save/reopen. The first
-  live builder attempt created and saved a partial Master before the full-file
-  endpoint readback rejected the boundary. Preserve that partial timeline; a
-  subsequent attempt must create a fresh uniquely named Master and leave it
-  intact.
-- Studio 21.1.1 build 10 live evidence on 2026-10-29: closing the synthetic
-  calibration project created a new `Untitled Project` with a different UID.
-  A read-only inventory of that exact project showed no current timeline, zero
-  timelines, zero root clips, zero subfolders, and zero render jobs; its UID and
-  name stayed the same across the inventory. The first calibration lifecycle
-  stopped before reopening because its expected handoff UID was stale. A
-  separate, explicitly authorized recovery reopened the synthetic target and
-  confirmed both sample tuples persisted. A new calibration lifecycle then
-  completed save/reopen readback. `NativeSaveReopen` admits a post-close project
-  only when its name is exactly the expected `Untitled Project`, its UID differs
-  from the target, and Resolve directly reports no current timeline, timelines,
-  root clips, subfolders, or render jobs; it rechecks the current UID/name just
-  before loading the saved target. Missing APIs, changed identity, or any content
-  reject the handoff. The earlier pending result remains pending; it was not
-  retroactively marked complete. This narrows the current-build observation in
-  [#141's retained close-refusal record](investigations/issue-141/operator-record.md#native-close-refusal-september-30),
-  which did not establish that its different current project was empty.
-- Qualify the unanswered RK-19/#118 delta: non-neutral native transform
-  calibration, immediate and save/reopen readback, exact raster matching,
-  distinct rendered crops, advancing source frames at direct boundaries and
-  cutaway returns, unchanged B-roll/dialogue, grouping and old-build invariance.
-- Free Inspector qualification and the retained manual checklist are deferred
-  to #355 by Producer direction on 2026-10-28; they do not block #119 delivery.
-  Missing mapping must remain blocked; Studio values and temporary preview
-  scales cannot be guessed into Inspector instructions.
-- Complete focused/fast checks, required Claude review, and the current-head
-  full cloud gate after the Steward releases publication. Final merge and
-  External closure require the positive Studio/native criteria above. Free
-  manual completion remains explicitly unverified pending #355.
+[Studio qualification](verification/issue-119/STUDIO_QUALIFICATION.md) records
+completed synthetic calibration, protected Master/generated builds, exact
+save/reopen readback, v2 decoded source-frame continuity and distinct crops,
+unchanged PCM/B-roll, v3 profile revision with prior-build preservation, and
+actual Edit-page color bulk selection on Studio 21.1.1 build 10. The #44 bridge
+was exercised using real UUID registration and verified ingest/mapping evidence;
+#44 is Producer-accepted and Closed/Done.
+
+Closing the synthetic project creates a fresh empty `Untitled Project` UID.
+The concrete lifecycle admits only the opted-in exact name, a different UID,
+and direct empty timeline/media-folder/render-job inventories. It repeats the
+full inventory and identity check immediately before loading the saved target.
+Unknown/nonempty handoffs remain refused. Earlier failed lifecycles and partial
+timelines were preserved, rather than retroactively certified or replayed.
+
+Free Inspector qualification/checklist remain deferred to #355 and blocked.
+Matthew also deferred choosing production crops to real-footage integration;
+synthetic qualification tuples are never production defaults. All other Studio
+mechanical criteria retain their original scope.
+
+Local fast checks passed (2,028 Python tests plus TypeScript/lint/type checks).
+The final review's Master-current guard correction passed 42 focused Master
+tests, lint and mypy. Current final-head cloud validation and merge remain
+required before External closure. The published draft's earlier cloud result
+cannot qualify a later code revision.
 
 No Resolve operation, media render, publication, or CI run is authorized by
 this document. The issue's coordinated resource holds still apply.
 
-## Next bounded native delta
+## Retained native qualification protocol
 
 Use RK-19 and the smallest proof specified in #118. The unanswered questions are
 non-neutral continuous-video transforms, exact retained raster context,
