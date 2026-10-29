@@ -66,14 +66,21 @@ share a host lock and recheck the current target before appending; Resolve's
 current-timeline append API is not an atomic guard against a person switching
 timelines between calls. No concurrent manual editing is qualified. Setup
 requires no project currently loaded, so it cannot unload another project's
-unsaved work. Each append must save and read back before its finished receipt.
+unsaved work. Each append requires a successful `SaveProject` acknowledgment and
+fresh in-memory readback before its finished receipt. This acknowledgment is not
+an independent disk-persistence proof; the actual close/load check is separate.
 
 A killed or timed-out command may leave the duplicate selected or the project
 closed. It remains an unknown operation, with no baseline promotion or automatic
 cleanup/replay; inspect the application and retained records before any further
-native work. A signal handler calling more native APIs would not establish that
-an earlier native call had drained. Source-end convention and the final actual
+native work. A durable host marker blocks subsequent bridge commands before
+connection after an interrupted process; the executor cannot automatically
+reconcile against a potentially live earlier RPC. A signal handler calling more
+native APIs would not establish that an earlier native call had drained. Source-end convention and the final actual
 save/reopen remain native qualification checks, not widened fake-test tolerances.
+Whether the installed application exposes a no-current-project state or needs a
+confirmed-empty default project is also an unanswered preflight fact. No default
+project exception is admitted without actual safe-state evidence.
 
 This experiment introduces no transitions, audio processing, rendering, source
 replacement or arbitrary human finishing. It does not prove that those
@@ -83,7 +90,7 @@ qualify their capabilities and preserve or refuse affected unknown work.
 ## Results
 
 The reusable domain executor, selection/plan operations, file journal and
-native bridge are implemented. The 43 focused TypeScript tests and 21 offline
+native bridge are implemented. The 43 focused TypeScript tests and 23 offline
 Python bridge tests pass. Native continuation is **pending**: the existing Resolve process
 was present, but Local scripting could not connect and the supported launcher
 timed out. No synthetic media or target was created by this proof. Existing

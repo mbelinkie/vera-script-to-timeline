@@ -36,6 +36,9 @@ def _native_lock() -> Iterator[None]:
     if not _PROCESS_LOCK.acquire(blocking=False):
         raise ValueError("another #328 native bridge command is running")
     descriptor: int | None = None
+    marker_path = NATIVE_LOCK_PATH.with_suffix(".active.json")
+    marker_owned = False
+    normal_unwind = False
     try:
         NATIVE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(
@@ -54,13 +57,45 @@ def _native_lock() -> Iterator[None]:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise ValueError("another #328 native bridge command is running") from error
-        yield
+        _require(
+            not marker_path.exists() and not marker_path.is_symlink(),
+            "unresolved native bridge operation marker exists; inspect before retry",
+        )
+        try:
+            _write_journal(
+                marker_path,
+                {
+                    "schemaVersion": "vera-issue-328-native-active/v1",
+                    "pid": os.getpid(),
+                },
+            )
+        except FileExistsError as error:
+            raise ValueError(
+                "unresolved native bridge operation marker exists; inspect before retry"
+            ) from error
+        marker_owned = True
+        try:
+            yield
+        except Exception:
+            normal_unwind = True
+            raise
+        else:
+            normal_unwind = True
     finally:
         try:
-            if descriptor is not None:
-                os.close(descriptor)
+            if marker_owned and normal_unwind:
+                os.unlink(marker_path)
+                directory_descriptor = os.open(marker_path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_descriptor)
+                finally:
+                    os.close(directory_descriptor)
         finally:
-            _PROCESS_LOCK.release()
+            try:
+                if descriptor is not None:
+                    os.close(descriptor)
+            finally:
+                _PROCESS_LOCK.release()
 
 
 class NativeChange(TypedDict):

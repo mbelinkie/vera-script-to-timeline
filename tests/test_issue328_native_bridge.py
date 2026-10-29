@@ -6,6 +6,8 @@ import fcntl
 import hashlib
 import os
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -432,6 +434,52 @@ def test_host_lock_covers_setup_and_refuses_nested_commands() -> None:
         bridge.handle_command(setup_request, resolve)
     assert resolve.manager.GetCurrentProject() is None
     assert resolve.manager.names == []
+
+
+def test_abrupt_process_exit_leaves_marker_and_blocks_before_connect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    child_code = (
+        "import os, sys\n"
+        "from pathlib import Path\n"
+        "from scripts import issue328_native_bridge as bridge\n"
+        "bridge.NATIVE_LOCK_PATH = Path(sys.argv[1])\n"
+        "with bridge._native_lock():\n"
+        "    os._exit(23)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", child_code, str(bridge.NATIVE_LOCK_PATH)],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 23
+    marker_path = bridge.NATIVE_LOCK_PATH.with_suffix(".active.json")
+    assert marker_path.is_file()
+    connect_called = False
+
+    def unexpected_connect() -> Any:
+        nonlocal connect_called
+        connect_called = True
+        raise AssertionError("Resolve must not be contacted while marker exists")
+
+    monkeypatch.setattr(bridge, "_connect", unexpected_connect)
+    with pytest.raises(ValueError, match="unresolved native bridge operation marker"):
+        bridge.handle_command({"schemaVersion": bridge.SCHEMA, "action": "observe"})
+    assert not connect_called
+    assert marker_path.is_file()
+
+
+def test_normal_exception_cleans_marker_but_interrupt_retains_it() -> None:
+    request = {"schemaVersion": bridge.SCHEMA, "action": "observe"}
+    with pytest.raises(ValueError, match="session is missing"):
+        bridge.handle_command(request, Resolve(State({})))
+    marker_path = bridge.NATIVE_LOCK_PATH.with_suffix(".active.json")
+    assert not marker_path.exists()
+    with pytest.raises(KeyboardInterrupt), bridge._native_lock():
+        raise KeyboardInterrupt
+    assert marker_path.is_file()
 
 
 def test_active_render_refuses_an_append_without_starting_it(tmp_path: Path) -> None:
