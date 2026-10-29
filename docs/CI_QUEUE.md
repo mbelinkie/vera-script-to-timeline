@@ -2,15 +2,24 @@
 
 ## Status
 
-The queue controller is implemented and **not activated**. This documentation
-work does not create its control issue, initialize its state branch, change
-repository settings, or enable `VERA_CI_QUEUE_ENABLED`. Keep ordinary PR
-validation active until the controlled rollout below passes.
+The queue controller is implemented and **inactive during rollout**. Its
+control issue is [#361](https://github.com/mbelinkie/vera-script-to-timeline/issues/361)
+and its durable state branch is initialized. Delivery is paused and
+`VERA_CI_QUEUE_ENABLED` is false while the permissions repair below is verified.
+Keep ordinary PR validation active until the controlled rollout passes.
 
 At the read-only assessment for this change, the repository was public and
 owned by a personal GitHub account. `main` had no required status checks or
 rulesets. The controller stops if `main` does not have strict protection that
 requires its queue status.
+
+A live rollout's protection read returned 403 from the classic administration
+endpoint with `GITHUB_TOKEN`; the queue persisted a pause and retained both
+waiting entries without merging either PR.
+The controller now reads effective rules through `GET /rules/branches/main`,
+the metadata-readable [rules for a branch API](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch).
+This resolves the permission mismatch, but a queue run using this route is still
+pending, so the queue remains inactive.
 
 ## Why the project uses an Actions controller
 
@@ -44,13 +53,17 @@ not appear as a PR check or satisfy a required PR status, even when it tests the
 same SHA. [GitHub required-check behavior](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks) ·
 [GitHub commit-status API](https://docs.github.com/en/rest/commits/statuses)
 
-When activating the queue, configure `main` with strict required status checks,
-require `VERA queue validation`, include administrators, and allow merge
-commits. Do not require both `VERA queue validation` and `TypeScript and
-Python`: dispatch-created job checks cannot satisfy the latter on a PR. Keep the
-`TypeScript and Python` job in `Validate` for the inactive PR path and manual
-fallback. When the queue is disabled, switch the required context back to
-`TypeScript and Python` before resuming manual delivery.
+When activating the queue, create an active repository ruleset that targets
+only `main`, requires strict status checks for `VERA queue validation`, and has
+no bypass actors. Its `required_status_checks` rule sets
+`strict_required_status_checks_policy: true`. If classic branch protection is
+retained, it must require the same context and include administrators. Allow
+merge commits. Do not require
+both `VERA queue validation` and `TypeScript and Python`: dispatch-created job
+checks cannot satisfy the latter on a PR. Keep the `TypeScript and Python` job
+in `Validate` for the inactive PR path and manual fallback. When the queue is
+disabled, switch the required context in the ruleset and any retained classic
+protection back to `TypeScript and Python` before resuming manual delivery.
 
 GitHub normally suppresses follow-on workflow runs for events caused by
 `GITHUB_TOKEN`; `workflow_dispatch` and `repository_dispatch` are exceptions.
@@ -168,9 +181,11 @@ this proof is complete:
 
 1. Merge the controller and validation workflows to `main`. Create the
    dedicated public control issue described above.
-2. Configure strict `main` protection with `VERA queue validation` required,
-   administrators included, and merge commits enabled. Verify that the expected
-   status source is GitHub Actions where GitHub offers source selection.
+2. Configure an active repository ruleset targeting only `main`, with strict
+   `VERA queue validation` required and no bypass actors. If classic branch
+   protection is retained, require that same context and include administrators.
+   Allow merge commits. Verify the expected status source is GitHub Actions
+   where GitHub offers source selection.
 3. Initialize the durable state once from `main` using the control issue number:
 
    ```sh
@@ -210,8 +225,8 @@ change, so it remains inactive.
    active transaction and preserve state.
 2. Set `VERA_CI_QUEUE_ENABLED` to `false`. Ordinary PR classification and
    validation resume.
-3. Switch strict `main` protection back to the required `TypeScript and Python`
-   context, including administrators. Keep merge commits allowed.
+3. Switch the ruleset and any retained classic branch protection back to the
+   required `TypeScript and Python` context. Keep merge commits allowed.
 4. Run `Validate` manually with mode `manual` for a forced full gate. Also wait
    for a fresh ordinary `pull_request` validation on the current head: the
    manual dispatch check does not satisfy the PR's required status. A reviewed

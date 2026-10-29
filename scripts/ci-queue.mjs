@@ -172,8 +172,13 @@ export class Queue {
   }
 
   async protection() {
-    const protection = await this.api("GET", "/branches/main/protection/required_status_checks");
-    if (protection.strict !== true || !protection.contexts?.includes(STATUS)) {
+    const rules = await this.pages("/rules/branches/main");
+    const protectedQueueStatus = rules.some((rule) =>
+      rule.type === "required_status_checks" &&
+      rule.parameters?.strict_required_status_checks_policy === true &&
+      rule.parameters.required_status_checks?.some((check) => check.context === STATUS),
+    );
+    if (!protectedQueueStatus) {
       throw new Error(`Main must require strict ${STATUS} status before enabling delivery`);
     }
   }
