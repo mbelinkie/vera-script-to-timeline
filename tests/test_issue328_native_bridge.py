@@ -270,6 +270,7 @@ class Project:
         self.media_items: list[Media] = []
         self.subfolders: list[Any] = []
         self.render_jobs: list[Any] = []
+        self.color_groups: list[Any] = []
         self.pool = Pool(state, self)
 
     def GetName(self) -> str:
@@ -290,6 +291,9 @@ class Project:
 
     def GetSetting(self, key: str | None = None) -> Any:
         return self.settings.get(key) if key is not None else dict(self.settings)
+
+    def GetColorGroupsList(self) -> list[Any]:
+        return list(self.color_groups)
 
     def GetMediaPool(self) -> Pool:
         return self.pool
@@ -541,6 +545,7 @@ def test_setup_admits_only_the_opted_in_empty_untitled_project(
         ("render-job", "empty project has render jobs"),
         ("rendering", "empty project is rendering"),
         ("gallery-still", "empty project has gallery stills"),
+        ("color-group", "empty project has color groups"),
     ],
 )
 def test_setup_refuses_unsafe_opted_in_untitled_project(
@@ -559,6 +564,8 @@ def test_setup_refuses_unsafe_opted_in_untitled_project(
         project.render_jobs.append({"JobId": "queued"})
     elif hazard == "rendering":
         state.rendering = True
+    elif hazard == "color-group":
+        project.color_groups.append(object())
     else:
         state.gallery_still_albums.append(GalleryAlbum([object()]))
 

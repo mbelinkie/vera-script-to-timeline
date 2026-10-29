@@ -434,6 +434,11 @@ def _assert_empty_project(
         project.GetCurrentTimeline() is None,
         "empty project has a current timeline",
     )
+    groups = project.GetColorGroupsList()
+    _require(
+        type(groups) in {list, tuple} and len(groups) == 0,
+        "empty project has color groups or an unreadable group inventory",
+    )
     pool = project.GetMediaPool()
     _require(pool is not None, "empty project media pool is missing")
     root = pool.GetRootFolder()
