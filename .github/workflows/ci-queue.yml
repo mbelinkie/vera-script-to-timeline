@@ -27,11 +27,11 @@ permissions:
   actions: write
   statuses: write
 
-# GitHub may replace a pending event. Each run reconciles durable commands and
-# run state, rather than depending on delivery of every individual event.
+# Queue every controller event so an unfinished validation cannot lose its
+# trusted completion handoff.
 concurrency:
   group: vera-ci-queue-controller
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   reconcile:

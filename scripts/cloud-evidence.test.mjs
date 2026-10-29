@@ -808,7 +808,7 @@ test("the workflow defines every required step, the exact command and the artifa
   assert.match(workflow, /name: vera-validation-evidence-attempt-\$\{\{ github\.run_attempt \}\}/);
   assert.match(workflow, /path: \$\{\{ runner\.temp \}\}\/vera-evidence\/manifest\.json$/m);
   assert.match(workflow, /^permissions:\n {2}contents: read\n/m);
-  for (const match of workflow.matchAll(/uses: (\S+)/g)) assert.match(match[1], /@[0-9a-f]{40}$/);
+  for (const match of workflow.matchAll(/^\s+(?:-\s+)?uses: (\S+)/gm)) assert.match(match[1], /@[0-9a-f]{40}$/);
 });
 
 test("queue workflow dispatch selects exact candidate validation or smoke while retaining the legacy PR path", () => {
@@ -839,7 +839,9 @@ test("queue workflow dispatch selects exact candidate validation or smoke while 
 
   const validateJob = workflow.slice(validateStart, docsStart);
   const docsJob = workflow.slice(docsStart, smokeStart);
-  const smokeJob = workflow.slice(smokeStart);
+  const callbackStart = workflow.indexOf("  queue-completion:\n");
+  const smokeJob = workflow.slice(smokeStart, callbackStart);
+  const callbackJob = workflow.slice(callbackStart);
   assert.match(validateJob, /^ {4}name: TypeScript and Python$/m);
   assert.match(validateJob, /needs: \[classify, docs-only\]/);
   assert.match(validateJob, /Verify PR validation selection/);
@@ -862,9 +864,20 @@ test("queue workflow dispatch selects exact candidate validation or smoke while 
   assert.match(smokeJob, /^ {10}node --test scripts\/cloud-evidence\.test\.mjs scripts\/agent-safety\.test\.mjs$/m);
   assert.match(smokeJob, /^ {10}uv run --no-project --python 3\.12\.14 python -m compileall -q python$/m);
   assert.doesNotMatch(smokeJob, /npm run validate(?::fast)?\b/);
+  assert.match(callbackJob, /^ {4}needs: \[classify, validate, docs-only, main-smoke\]$/m);
+  assert.match(callbackJob, /always\(\) && vars\.VERA_CI_QUEUE_ENABLED == 'true'/);
+  assert.match(callbackJob, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(callbackJob, /github\.ref == 'refs\/heads\/main' && github\.actor == 'github-actions\[bot\]'/);
+  assert.match(callbackJob, /inputs\.mode == 'pr' \|\| inputs\.mode == 'smoke'/);
+  assert.match(callbackJob, /group: vera-ci-queue-controller\n {6}queue: max/);
+  assert.match(callbackJob, /^ {4}permissions:\n {6}contents: write\n {6}pull-requests: write\n {6}issues: write\n {6}actions: write\n {6}statuses: write$/m);
+  assert.match(callbackJob, /ref: main\n {10}persist-credentials: false/);
+  assert.match(callbackJob, /node-version-file: \.nvmrc/);
+  assert.match(callbackJob, /run: node scripts\/ci-queue\.mjs/);
   assert.match(workflow, /vars\.VERA_CI_QUEUE_ENABLED == 'true' && \(github\.event_name == 'pull_request' && format\('publication-\{0\}', github\.run_id\) \|\| 'vera-validation-slot'\)/);
   assert.match(workflow, /format\('legacy-\{0\}', github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\)/);
   assert.match(workflow, /cancel-in-progress: \$\{\{ vars\.VERA_CI_QUEUE_ENABLED != 'true' && github\.event_name == 'pull_request' \}\}/);
+  assert.match(workflow, /queue: \$\{\{ vars\.VERA_CI_QUEUE_ENABLED == 'true' && 'max' \|\| 'single' \}\}/);
   assert.match(validateJob, /cache: \$\{\{ github\.event_name != 'workflow_dispatch' && 'npm' \|\| '' \}\}/);
   assert.match(validateJob, /enable-cache: \$\{\{ github\.event_name != 'workflow_dispatch' \}\}/);
 });
