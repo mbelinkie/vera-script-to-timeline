@@ -8,8 +8,7 @@ and its durable state branch is initialized. Delivery is paused and
 `VERA_CI_QUEUE_ENABLED` is false while the completion-handoff repair below is verified.
 Keep ordinary PR validation active until the controlled rollout passes.
 
-Work is paused at the Producer's request. The completion-job design described
-below is proposed; its code and live proof are not implemented yet.
+The completion-job repair is implemented. Its live proof is still pending.
 
 At the read-only assessment for this change, the repository was public and
 owned by a personal GitHub account. `main` had no required status checks or
@@ -53,7 +52,10 @@ the exact candidate with `contents: read` and checkout credentials disabled.
 Its final completion job runs on a separate runner, checks out only trusted
 default-branch code, and receives the controller's write permissions. Candidate
 jobs never receive those permissions. Both controller entry points share one
-concurrency group for durable state updates.
+concurrency group for durable state updates, with `queue: max` so ordinary
+pending events do not replace the completion job. GitHub permits up to 100
+pending jobs or runs in this group; overflow or a canceled completion requires
+explicit inspection and reconciliation. [GitHub concurrency behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
 
 ## Required status and workflow behavior
 
@@ -102,8 +104,11 @@ candidate, base, and completed gate jobs match its saved transaction. One global
 the queue is enabled. While disabled, the workflow keeps its original per-PR
 and per-event/SHA concurrency keys. Enabled-queue PR publications have no jobs
 and use their own concurrency key, so branch backups cannot replace a pending
-queue validation or smoke. GitHub retains at most one pending run in a concurrency group, so a
-missing or ambiguous expected run pauses the queue instead of being inferred.
+queue validation or smoke. The enabled validation slot also uses `queue: max`,
+so a manual run cannot replace the pending queue smoke or candidate while its
+predecessor's completion job exits. The disabled legacy path keeps its original
+single-pending behavior and PR cancellation. Missing or ambiguous expected runs
+pause the queue instead of being inferred; the same 100-pending limit applies.
 Run-history reconciliation is capped at 100 pages; exhausting that bound also
 pauses for explicit maintenance rather than treating unread history as passing.
 

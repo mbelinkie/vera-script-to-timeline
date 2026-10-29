@@ -12,6 +12,13 @@ const runKey = (run) => `${run.id}:${run.run_attempt ?? 1}`;
 const started = (run) => Date.parse(run.run_started_at ?? run.created_at);
 const privileged = new Set(["admin", "maintain", "write"]);
 const closesIssue = /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?):?\s+(?:(?:[\w.-]+\/[\w.-]+)?#[0-9]+|https:\/\/github\.com\/)/i;
+const completionJob = "Queue completion";
+const completionGates = {
+  "Classify PR changes": { pr: ["success"], smoke: ["skipped"] },
+  "TypeScript and Python": { pr: ["success"], smoke: ["skipped"] },
+  "Docs only": { pr: ["success", "skipped"], smoke: ["skipped"] },
+  "Main smoke": { pr: ["skipped"], smoke: ["success"] },
+};
 
 export function initialState(controlIssue) {
   if (!Number.isSafeInteger(controlIssue) || controlIssue < 1) throw new Error("Invalid control issue");
@@ -71,6 +78,7 @@ export class Queue {
     this.now = now;
     this.uuid = uuid;
     this.enabled = enabled;
+    this.completionRun = null;
   }
 
   api(method, suffix, body) { return this.github.api(method, `${this.root}${suffix}`, body); }
@@ -142,11 +150,88 @@ export class Queue {
       const batch = await this.api("GET", `/actions/workflows/validate.yml/runs?per_page=100&page=${page}`);
       if (!Array.isArray(batch.workflow_runs)) throw new Error("Cannot identify validation runs");
       result.push(...batch.workflow_runs.filter((run) => !(this.enabled && run.event === "pull_request") && !result.some((old) => old.id === run.id)));
-      if (batch.workflow_runs.length < 100) return result;
+      if (batch.workflow_runs.length < 100) {
+        if (this.completionRun) {
+          const matches = result.filter((run) => run.id === this.completionRun.id && run.run_attempt === this.completionRun.run_attempt);
+          if (matches.length !== 1) throw new Error("Cannot identify the active queue completion run");
+          // The enclosing run stays in progress until this verified handoff job exits.
+          result[result.indexOf(matches[0])] = this.completionRun;
+        }
+        return result;
+      }
       // Reruns keep old IDs/creation times. A page boundary cannot prove there
       // are no recent failed attempts later in history.
     }
     throw new Error("Validation run listing exceeded bound");
+  }
+
+  async jobs(runId, runAttempt) {
+    const jobs = [];
+    for (let page = 1; page <= 100; page += 1) {
+      const result = await this.api("GET", `/actions/runs/${runId}/attempts/${runAttempt}/jobs?per_page=100&page=${page}`);
+      if (!Array.isArray(result?.jobs)) throw new Error("Cannot identify queue completion jobs");
+      jobs.push(...result.jobs);
+      if (result.jobs.length < 100) return jobs;
+    }
+    throw new Error("Queue completion job listing exceeded bound");
+  }
+
+  async prepareCompletion(context, event) {
+    const { job, workflowRef, ref, repository, runId: rawRunId, runAttempt: rawRunAttempt, mode } = context ?? {};
+    const runId = /^[1-9][0-9]*$/.test(rawRunId ?? "") ? Number(rawRunId) : NaN;
+    const runAttempt = /^[1-9][0-9]*$/.test(rawRunAttempt ?? "") ? Number(rawRunAttempt) : NaN;
+    if (job !== "queue-completion" || workflowRef !== `${this.github.repository}/.github/workflows/validate.yml@refs/heads/main` ||
+        ref !== "refs/heads/main" || repository !== this.github.repository || !this.enabled ||
+        !Number.isSafeInteger(runId) || !Number.isSafeInteger(runAttempt) || !["pr", "smoke"].includes(mode) || event?.inputs?.mode !== mode) {
+      throw new Error("Invalid trusted queue completion context");
+    }
+
+    const active = this.state.active;
+    if (!active?.expected) return null;
+    const run = await this.api("GET", `/actions/runs/${runId}/attempts/${runAttempt}`);
+    if (run?.display_title !== active.expected.title) return null;
+    const expectedPhase = mode === "pr" ? "validating" : "smoke";
+    if (active.phase !== expectedPhase || run.id !== runId || run.run_attempt !== runAttempt || run.status !== "in_progress" || run.conclusion !== null) {
+      throw new Error("Queue completion run does not match the active transaction");
+    }
+
+    const assessment = assessRun(active.expected, [{ ...run, status: "completed", conclusion: "success" }], this.now());
+    if (assessment.kind !== "passed") throw new Error(`Queue completion identity: ${assessment.reason ?? assessment.kind}`);
+
+    const runs = await this.runs();
+    const matches = runs.filter((candidate) => candidate.display_title === active.expected.title);
+    if (matches.length !== 1 || matches[0].id !== runId || matches[0].run_attempt !== runAttempt) {
+      throw new Error("Queue completion run identity is ambiguous");
+    }
+    active.runUrl = assessment.url;
+
+    const jobs = await this.jobs(runId, runAttempt);
+    const byName = new Map();
+    const ids = new Set();
+    for (const jobResult of jobs) {
+      if (!Number.isSafeInteger(jobResult.id) || jobResult.id < 1 || ids.has(jobResult.id) || jobResult.run_id !== runId ||
+          (jobResult.run_attempt !== undefined && jobResult.run_attempt !== runAttempt) || byName.has(jobResult.name)) {
+        throw new Error("Queue completion jobs have an invalid or duplicate identity");
+      }
+      ids.add(jobResult.id);
+      byName.set(jobResult.name, jobResult);
+    }
+    if (byName.size !== Object.keys(completionGates).length + 1 || byName.size !== jobs.length) {
+      throw new Error("Queue completion jobs are missing or unexpected");
+    }
+    for (const [name, outcomes] of Object.entries(completionGates)) {
+      const gate = byName.get(name);
+      if (!gate || gate.status !== "completed" || !outcomes[mode].includes(gate.conclusion)) {
+        throw new Error(`Queue completion gate did not pass: ${name}`);
+      }
+    }
+    const callback = byName.get(completionJob);
+    if (!callback || callback.run_id !== runId || callback.status !== "in_progress" || callback.conclusion !== null) {
+      throw new Error("Queue completion job is not the active callback");
+    }
+
+    // All gate jobs passed; the enclosing run cannot report that until this callback exits.
+    return { ...run, status: "completed", conclusion: "success" };
   }
 
   async idle() {
@@ -400,7 +485,7 @@ export class Queue {
     }
   }
 
-  async run({ eventName, event, action, controlIssue, actor }) {
+  async run({ eventName, event, action, controlIssue, actor, completion }) {
     const loaded = await this.github.loadState();
     if (!loaded) {
       if (eventName !== "workflow_dispatch" || action !== "init" || !await this.authorize(actor)) throw new Error("Queue uninitialized; authorized init required");
@@ -415,9 +500,21 @@ export class Queue {
     this.sha = loaded.sha;
     this.state = validateState(loaded.state);
     if (eventName === "issue_comment" && event.issue?.number !== this.state.controlIssue) return;
-    if (eventName === "workflow_dispatch" && !await this.authorize(actor)) throw new Error("Unauthorized queue control");
+    if (eventName === "workflow_dispatch" && !completion && !await this.authorize(actor)) throw new Error("Unauthorized queue control");
     try {
-      await this.commands();
+      if (eventName === "workflow_dispatch") {
+        if (completion) {
+          this.completionRun = await this.prepareCompletion(completion, event);
+          if (!this.completionRun) return;
+          await this.commands();
+        } else {
+          await this.commands();
+        }
+      } else {
+        await this.commands();
+      }
+      const completionTitle = this.completionRun?.display_title;
+      if (completionTitle && this.state.active?.expected?.title !== completionTitle) return;
       const run = event.workflow_run;
       if (eventName === "workflow_run" && run && !this.state.processedRuns.includes(runKey(run))) {
         this.state.processedRuns.push(runKey(run));
@@ -432,6 +529,8 @@ export class Queue {
       await this.advance();
     } catch (error) {
       await this.pause(error.message);
+    } finally {
+      this.completionRun = null;
     }
     await this.alert();
   }
@@ -441,7 +540,24 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const github = new GitHub({ repository: process.env.GITHUB_REPOSITORY, token: process.env.GITHUB_TOKEN });
     const queue = new Queue(github, { enabled: process.env.VERA_CI_QUEUE_ENABLED === "true" });
-    await queue.run({ eventName: process.env.GITHUB_EVENT_NAME, event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")), action: process.env.VERA_QUEUE_ACTION, controlIssue: process.env.VERA_QUEUE_ISSUE, actor: process.env.GITHUB_ACTOR });
+    const eventName = process.env.GITHUB_EVENT_NAME;
+    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+    await queue.run({
+      eventName,
+      event,
+      action: process.env.VERA_QUEUE_ACTION,
+      controlIssue: process.env.VERA_QUEUE_ISSUE,
+      actor: process.env.GITHUB_ACTOR,
+      ...(process.env.GITHUB_JOB === "queue-completion" ? { completion: {
+        job: process.env.GITHUB_JOB,
+        workflowRef: process.env.GITHUB_WORKFLOW_REF,
+        ref: process.env.GITHUB_REF,
+        repository: process.env.GITHUB_REPOSITORY,
+        runId: process.env.GITHUB_RUN_ID,
+        runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+        mode: event.inputs?.mode,
+      } } : {}),
+    });
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
