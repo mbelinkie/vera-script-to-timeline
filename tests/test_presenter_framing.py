@@ -793,7 +793,7 @@ def test_each_mutation_rechecks_the_target_timeline() -> None:
     set_name = target.item.SetName
 
     def switch_timeline_during_name_write(name: str) -> bool:
-        accepted = set_name(name)
+        accepted: bool = set_name(name)
         current_timeline[0] = "timeline-other"
         return accepted
 
@@ -878,6 +878,7 @@ def test_reopened_native_scan_preserves_unrelated_broll_items() -> None:
     lifecycle()
     assert manager.loaded_project is not None
     timeline = manager.loaded_project.GetCurrentTimeline()
+    assert timeline is not None
     timeline.video_tracks.append([broll.item])
     reopened = lifecycle.reopened_items_for((target,))
     assert set(reopened) == {"presenter-a"}

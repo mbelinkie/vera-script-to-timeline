@@ -118,7 +118,8 @@ class FakeTimelineItem:
         return value
 
     def GetSourceEndFrame(self) -> int:
-        return min(self.info["endFrame"], self.media.source_frame_count - 1)
+        end: int = self.info["endFrame"]
+        return min(end, self.media.source_frame_count - 1)
 
 
 class FakeTimeline:
