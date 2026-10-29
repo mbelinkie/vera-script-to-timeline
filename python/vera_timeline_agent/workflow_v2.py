@@ -13,14 +13,24 @@ import os
 import platform
 import re
 import stat
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
+from threading import local
 from typing import Any, TypeGuard, cast
 
+from .performance_v2 import (
+    OPAQUE_NATIVE,
+    delivery_record,
+    increment,
+    measured,
+    native_handle,
+    span,
+)
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -91,6 +101,8 @@ _TARGET_SUFFIX = re.compile(r"[0-9a-f]{12}\Z")
 _SUPPORTED_INTEGER_RATES = {(24, 1), (25, 1), (30, 1)}
 _QUALIFIED_FRACTIONAL_RATE = (24000, 1001)
 _SUPPORTED_PACKAGE_RATES = {*_SUPPORTED_INTEGER_RATES, _QUALIFIED_FRACTIONAL_RATE}
+_HASH_READ_BYTES = 8 * 1024 * 1024
+_HASH_MAX_WORKERS = 4
 _MARKER_COLORS = {
     "BLUE": "Blue",
     "CYAN": "Cyan",
@@ -205,7 +217,9 @@ def _read_regular(path: Path, label: str, *, max_bytes: int | None = None) -> by
         os.close(descriptor)
 
 
-def _hash_regular(path: Path, label: str) -> tuple[str, int]:
+def _hash_regular(
+    path: Path, label: str, *, read_buffer: bytearray | None = None
+) -> tuple[str, int]:
     _regular_absolute(path, label, directory=False)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -218,12 +232,21 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
             raise WorkflowV2Error(f"{label} is not a regular file")
-        while True:
-            chunk = os.read(descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-            total += len(chunk)
+        if read_buffer is None:
+            read_buffer = bytearray(_HASH_READ_BYTES)
+        read_view = memoryview(read_buffer)
+        read_stream = os.fdopen(descriptor, "rb", buffering=0, closefd=False)
+        try:
+            while True:
+                count = read_stream.readinto(read_buffer)
+                if not count:
+                    break
+                digest.update(read_view[:count])
+                total += count
+                increment("hash.bytes", count)
+        finally:
+            read_view.release()
+            read_stream.close()
         after = os.fstat(descriptor)
         if (before.st_dev, before.st_ino, before.st_size) != (
             after.st_dev,
@@ -231,20 +254,22 @@ def _hash_regular(path: Path, label: str) -> tuple[str, int]:
             after.st_size,
         ) or total != before.st_size:
             raise WorkflowV2Error(f"{label} changed while it was hashed")
+        increment("hash.files")
         return digest.hexdigest(), total
     finally:
         os.close(descriptor)
 
 
 def _inventory(root: Path) -> list[dict[str, Any]]:
+    increment("package.inventories")
     _regular_absolute(root, "package", directory=True)
-    entries: list[dict[str, Any]] = []
     try:
         paths = sorted(
             root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()
         )
     except OSError as error:
         raise WorkflowV2Error("package inventory could not be read") from error
+    regular_paths: list[Path] = []
     for path in paths:
         try:
             info = path.lstat()
@@ -256,7 +281,50 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
             continue
         if not stat.S_ISREG(info.st_mode):
             raise WorkflowV2Error("package contains a non-regular entry")
-        digest, size = _hash_regular(path, "package entry")
+        regular_paths.append(path)
+    if not regular_paths:
+        raise WorkflowV2Error("package is empty")
+
+    entries: list[dict[str, Any]] = []
+    if len(regular_paths) <= _HASH_MAX_WORKERS:
+        read_buffer = bytearray(_HASH_READ_BYTES)
+        hashed: Iterator[tuple[str, int]] = (
+            _hash_regular(path, "package entry", read_buffer=read_buffer)
+            for path in regular_paths
+        )
+    else:
+        worker_buffers = local()
+
+        def hash_in_worker(path: Path) -> tuple[str, int]:
+            read_buffer = getattr(worker_buffers, "read_buffer", None)
+            if read_buffer is None:
+                read_buffer = bytearray(_HASH_READ_BYTES)
+                worker_buffers.read_buffer = read_buffer
+            return _hash_regular(path, "package entry", read_buffer=read_buffer)
+
+        executor = ThreadPoolExecutor(
+            max_workers=min(_HASH_MAX_WORKERS, len(regular_paths))
+        )
+        hashed = executor.map(hash_in_worker, regular_paths)
+        try:
+            for path, (digest, size) in zip(regular_paths, hashed, strict=True):
+                # ContextVars do not cross worker threads.  Aggregate only
+                # successful results in the parent so the run's counters stay
+                # exact without sharing a mutable Recorder or read buffer.
+                increment("hash.bytes", size)
+                increment("hash.files")
+                entries.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "sha256": digest,
+                        "sizeBytes": size,
+                    }
+                )
+        finally:
+            executor.shutdown(wait=True)
+        return entries
+
+    for path, (digest, size) in zip(regular_paths, hashed, strict=True):
         entries.append(
             {
                 "path": path.relative_to(root).as_posix(),
@@ -264,8 +332,6 @@ def _inventory(root: Path) -> list[dict[str, Any]]:
                 "sizeBytes": size,
             }
         )
-    if not entries:
-        raise WorkflowV2Error("package is empty")
     return entries
 
 
@@ -428,6 +494,7 @@ def _load_attestation(path: Path, expected_sha256: str) -> tuple[dict[str, Any],
     return value, root
 
 
+@measured("delivery.package_validation")
 def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackageV2:
     """Load a closed v2 handoff after independently rehashing all package bytes."""
     attestation_path = Path(path)
@@ -1697,6 +1764,57 @@ def _event_source_provenance_matches(
     return direct_source_id == source_id
 
 
+def _derived_cfr_clock_matches(binding: Mapping[str, Any]) -> bool:
+    """Check the qualified #174 conversion clock without treating it as reuse."""
+    try:
+        mapping = binding["timeMapping"]
+        frame_map = mapping["sourceFrameMap"]
+        requested = binding["requestedRange"]
+        verification = binding["verification"]
+        profile, derivation = binding["profile"], binding["derivation"]
+        source_rate = Fraction(30000, 1001)
+        target_rate = Fraction(24000, 1001)
+
+        def rational(value: Mapping[str, Any]) -> Fraction:
+            return Fraction(value["numerator"], value["denominator"])
+
+        start = Fraction(requested["sourceInFrame"], 1) / source_rate
+        pre, post = rational(requested["preHandle"]), rational(requested["postHandle"])
+        duration = rational(requested["duration"])
+        mapping_hash = "sha256:" + _digest(
+            json.dumps(
+                {key: value for key, value in mapping.items() if key != "mappingHash"},
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode()
+        )
+        return bool(
+            binding.get("mode") == "derived_cfr"
+            and profile["profileVersion"] == "authoring-cfr/v1"
+            and mapping["mappingHash"] == mapping_hash
+            and frame_map["probeHash"] == binding["originalSource"]["probeHash"]
+            and frame_map["descriptorHash"] == binding["originalSource"]["probeHash"]
+            and rational(mapping["sourceRate"]) == source_rate
+            and rational(frame_map["decodedPackageFrameRate"]) == source_rate
+            and rational(mapping["deliveredRate"]) == target_rate
+            and rational(mapping["sourceOrigin"]) == start - pre
+            and start >= pre >= 0
+            and post >= 0
+            and duration > 0
+            and start + duration + post
+            <= Fraction(frame_map["decodedPackageFrameCount"], 1) / source_rate
+            and verification["decodedFrameCount"]
+            == math.ceil((pre + duration + post) * target_rate)
+            and derivation["sourceHash"] == binding["originalSource"]["contentHash"]
+            and derivation["outputHash"] == verification["deliveredHash"]
+            and derivation["toolHash"] == profile["toolHash"]
+            and derivation["profileHash"] == profile["profileHash"]
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return False
+
+
 def _fractional_source_range_matches(
     *,
     event: Mapping[str, Any],
@@ -1891,6 +2009,31 @@ def _fractional_source_range_matches(
             binding.get("verification") if isinstance(binding, Mapping) else None
         )
         provenance = manifest_event.get("provenance")
+        derived = isinstance(binding, Mapping) and binding.get("mode") == "derived_cfr"
+        source_clock_matches = (
+            _derived_cfr_clock_matches(cast(Mapping[str, Any], binding))
+            if derived
+            else (
+                isinstance(event_mapping, Mapping)
+                and isinstance(source_frame_map, Mapping)
+                and isinstance(verification, Mapping)
+                and event_mapping.get("sourceOrigin")
+                == {"numerator": 0, "denominator": 1}
+                and event_mapping.get("sourceRate") == expected_rate
+                and source_frame_map.get("decodedPackageFrameRate") == expected_rate
+                and verification.get("decodedFrameCount")
+                == source_frame_map.get("decodedPackageFrameCount")
+                and verification.get("probeHash") == source_frame_map.get("probeHash")
+                and verification.get("probeHash")
+                == source_frame_map.get("descriptorHash")
+            )
+        )
+        eof_integer_alias = (
+            derived
+            and isinstance(verification, Mapping)
+            and expected_end == verification.get("decodedFrameCount")
+            and actual_end == expected_end - 2
+        )
         if (
             manifest_start != expected_start
             or manifest_end != expected_end
@@ -1899,14 +2042,18 @@ def _fractional_source_range_matches(
             or not isinstance(source_mapping, Mapping)
             or not isinstance(event_mapping, Mapping)
             or not isinstance(binding, Mapping)
+            or (
+                derived
+                and manifest_source.get("originalHash")
+                != binding.get("originalSource", {}).get("contentHash")
+            )
             or binding.get("requirementKey") != source_requirement
             or binding.get("timeMapping") != source_mapping
             or event_mapping != source_mapping
             or event_mapping.get("sourceFrameMap") != source_frame_map
-            or event_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
+            or not source_clock_matches
             or event_mapping.get("deliveredOrigin")
             != {"numerator": 0, "denominator": 1}
-            or event_mapping.get("sourceRate") != expected_rate
             or event_mapping.get("deliveredRate") != expected_rate
             or not isinstance(verification, Mapping)
             or not isinstance(provenance, Mapping)
@@ -1914,13 +2061,8 @@ def _fractional_source_range_matches(
             or manifest_source.get("deliveredHash") != source.get("contentHash")
             or verification.get("deliveredHash") != source.get("contentHash")
             or verification.get("decodedFrameRate") != expected_rate
-            or source_frame_map.get("decodedPackageFrameRate") != expected_rate
             or type(verification.get("decodedFrameCount")) is not int
-            or verification.get("decodedFrameCount")
-            != source_frame_map.get("decodedPackageFrameCount")
             or type(verification.get("probeHash")) is not str
-            or verification.get("probeHash") != source_frame_map.get("probeHash")
-            or verification.get("probeHash") != source_frame_map.get("descriptorHash")
             or verification.get("probeHash")
             != manifest_source.get("deliveredProbeHash")
             or not isinstance(media_properties, Mapping)
@@ -1937,7 +2079,10 @@ def _fractional_source_range_matches(
             != {"numerator": 0, "denominator": 1}
             or actual_start not in {expected_start, expected_start - 1}
             or actual_start < 0
-            or actual_end not in {expected_end, expected_end - 1}
+            or (
+                actual_end not in {expected_end, expected_end - 1}
+                and not eof_integer_alias
+            )
             or not _native_speed_matches(speed, 100)
         ):
             return False
@@ -1957,6 +2102,7 @@ def _fractional_source_range_matches(
         return False
 
 
+@delivery_record
 def run_workflow_delivery_v2(
     resolve: Any,
     attestation_path: Path,
@@ -2069,8 +2215,10 @@ def run_workflow_delivery_v2(
         )
         factory = adapter_factory or PublicResolveAdapter
         stage = "Resolve connection preflight"
-        adapter = factory(resolve)
-        connected = adapter.connected_facts()
+        adapter = factory(native_handle(resolve))
+        with span("delivery.connection", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            connected = adapter.connected_facts()
         result["connected"] = (
             asdict(connected)
             if hasattr(connected, "__dataclass_fields__")
@@ -2084,9 +2232,13 @@ def run_workflow_delivery_v2(
             not in SUPPORTED_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
-        result["manualCompletion"] = list(adapter.probe(settings))
+        with span("delivery.probe", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
-        adapter.check_project_name_available(attestation["projectName"])
+        with span("delivery.collision_check", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            adapter.check_project_name_available(attestation["projectName"])
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed during preflight")
         if action == "preflight":
@@ -2117,9 +2269,13 @@ def run_workflow_delivery_v2(
             if current != package:
                 raise WorkflowV2Error("package changed before a native operation")
             if mutation_started:
-                adapter.assert_current_target()
+                with span("delivery.target_guard", OPAQUE_NATIVE):
+                    increment("native.adapterCalls")
+                    adapter.assert_current_target()
             mutation_started = True
-            return method(*arguments)
+            with span(f"delivery.native.{label}", OPAQUE_NATIVE):
+                increment("native.adapterCalls")
+                return method(*arguments)
 
         mutate(
             adapter.create_project, attestation["projectName"], label="create project"
@@ -2152,7 +2308,9 @@ def run_workflow_delivery_v2(
         )
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed after native save and reopen")
-        discrepancies = tuple(adapter.verify(view))
+        with span("delivery.readback", OPAQUE_NATIVE):
+            increment("native.adapterCalls")
+            discrepancies = tuple(adapter.verify(view))
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"

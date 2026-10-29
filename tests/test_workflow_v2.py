@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from fractions import Fraction
 from pathlib import Path
+from threading import Lock
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import workflow_v2
+from vera_timeline_agent.performance_v2 import recording_context
 from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     _still_source_frame_duration,
@@ -597,6 +600,135 @@ def test_strict_json_rejects_overflowing_float_exponent() -> None:
         workflow_v2._strict_object(b'{"value":1e999}', "test JSON")
 
 
+def test_hash_regular_preserves_digest_across_8mib_boundary(tmp_path: Path) -> None:
+    path = tmp_path / "boundary.bin"
+    payload = b"0123456789abcdef" * (workflow_v2._HASH_READ_BYTES // 16)
+    path.write_bytes(payload + b"!")
+
+    digest, size = workflow_v2._hash_regular(path, "boundary file")
+
+    assert size == len(payload) + 1
+    assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_inventory_reuses_one_hash_read_buffer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "first.bin").write_bytes(b"first")
+    (tmp_path / "second.bin").write_bytes(b"second")
+    original = workflow_v2._hash_regular
+    buffers: list[int] = []
+
+    def wrapped(
+        path: Path, label: str, *, read_buffer: bytearray | None = None
+    ) -> tuple[str, int]:
+        assert read_buffer is not None
+        buffers.append(id(read_buffer))
+        return original(path, label, read_buffer=read_buffer)
+
+    monkeypatch.setattr(workflow_v2, "_hash_regular", wrapped)
+
+    inventory = workflow_v2._inventory(tmp_path)
+
+    assert len(inventory) == 2
+    assert len(buffers) == 2
+    assert len(set(buffers)) == 1
+
+
+def test_parallel_inventory_preserves_order_digests_and_counters(
+    tmp_path: Path,
+) -> None:
+    payloads = {
+        f"file-{index:02d}.bin": bytes([index + 1]) * (index * 17 + 1)
+        for index in range(8)
+    }
+    for name, payload in payloads.items():
+        (tmp_path / name).write_bytes(payload)
+
+    with recording_context() as recorder:
+        inventory = workflow_v2._inventory(tmp_path)
+
+    expected = [
+        {
+            "path": name,
+            "sha256": hashlib.sha256(payloads[name]).hexdigest(),
+            "sizeBytes": len(payloads[name]),
+        }
+        for name in sorted(payloads)
+    ]
+    assert inventory == expected
+    assert recorder.snapshot()["counters"] == {
+        "hash.bytes": sum(map(len, payloads.values())),
+        "hash.files": len(payloads),
+        "package.inventories": 1,
+    }
+
+
+def test_parallel_inventory_rejects_symbolic_link(tmp_path: Path) -> None:
+    for index in range(5):
+        (tmp_path / f"file-{index:02d}.bin").write_bytes(bytes([index]))
+    (tmp_path / "linked.bin").symlink_to(tmp_path / "file-00.bin")
+
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="symbolic link"):
+        workflow_v2._inventory(tmp_path)
+
+
+def test_parallel_inventory_rechecks_path_after_lstat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for index in range(8):
+        (tmp_path / f"file-{index:02d}.bin").write_bytes(bytes([index]))
+    original = workflow_v2._hash_regular
+    changed = False
+    change_lock = Lock()
+
+    def replace_with_symlink(
+        path: Path, label: str, *, read_buffer: bytearray | None = None
+    ) -> tuple[str, int]:
+        nonlocal changed
+        with change_lock:
+            if not changed:
+                path.unlink()
+                path.symlink_to(tmp_path / "file-07.bin")
+                changed = True
+        return original(path, label, read_buffer=read_buffer)
+
+    monkeypatch.setattr(workflow_v2, "_hash_regular", replace_with_symlink)
+
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="symbolic link"):
+        workflow_v2._inventory(tmp_path)
+    assert changed is True
+
+
+def test_hash_regular_rejects_fstat_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "drifting.bin"
+    path.write_bytes(b"drift me")
+    original_fstat = os.fstat
+    calls = 0
+
+    def drifting_fstat(descriptor: int) -> object:
+        nonlocal calls
+        result = original_fstat(descriptor)
+        calls += 1
+        if calls == 2:
+            return SimpleNamespace(
+                st_dev=result.st_dev,
+                st_ino=result.st_ino,
+                st_mode=result.st_mode,
+                st_size=result.st_size + 1,
+            )
+        return result
+
+    monkeypatch.setattr(os, "fstat", drifting_fstat)
+
+    with pytest.raises(
+        workflow_v2.WorkflowV2Error, match="changed while it was hashed"
+    ):
+        workflow_v2._hash_regular(path, "drifting file")
+
+
 def test_loader_rejects_attestation_symlink_and_package_drift(tmp_path: Path) -> None:
     attestation, digest, value = _make_package(tmp_path)
     linked = tmp_path / "linked.json"
@@ -794,6 +926,18 @@ def test_23976_build_runs_guarded_save_reopen_and_readback(tmp_path: Path) -> No
         "target",
     ]
     assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
+    performance = result["performance"]
+    # create_project also checks its target internally, inside its opaque span.
+    assert performance["counters"]["native.adapterCalls"] == len(adapter.calls) - 1
+    assert performance["counters"]["hash.bytes"] > 0
+    validations = next(
+        item
+        for item in performance["spans"]
+        if item["name"] == "delivery.package_validation"
+    )
+    # Initial/preflight/final loads plus every native mutation remain observable.
+    mutations = len(adapter.calls) - adapter.calls.count("target") - 4
+    assert validations["calls"] == mutations + 3
 
 
 def test_23976_native_rate_is_opt_in_and_defaults_to_refusal(
