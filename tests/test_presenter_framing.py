@@ -1001,6 +1001,30 @@ def test_native_reopen_allows_only_an_empty_named_handoff() -> None:
     assert queued_manager.loaded_project is None
 
 
+def test_native_reopen_rechecks_empty_inventory_before_load() -> None:
+    handoff = MockNativeProject(
+        uid="empty-then-edited",
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+    )
+    handoff.on_render_job_list = lambda: setattr(handoff, "root_clips", ("new-clip",))
+    manager = MockNativeProjectManager(post_close_project=handoff)
+    lifecycle = NativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+    with pytest.raises(
+        PresenterFramingError, match="changed the empty handoff project"
+    ):
+        lifecycle()
+    assert manager.loaded_project is None
+    assert handoff.root_clips == ("new-clip",)
+
+
 def test_native_reopen_failure_is_single_use() -> None:
     class SaveFailureManager(MockNativeProjectManager):
         def SaveProject(self) -> bool:

@@ -111,10 +111,10 @@ class NativeSaveReopen:
             raise PresenterFramingError("current native timeline identity differs")
         return project
 
-    def _is_expected_empty_handoff(self, project: Any) -> bool:
+    def _empty_handoff_identity(self, project: Any) -> tuple[str, str] | None:
         expected_name = self._empty_handoff_name
         if expected_name is None:
-            return False
+            return None
         try:
             handoff_uid = project.GetUniqueId()
             timeline_count = project.GetTimelineCount()
@@ -128,18 +128,19 @@ class NativeSaveReopen:
                 or not isinstance(timeline_count, int)
                 or timeline_count != 0
             ):
-                return False
+                return None
             pool = project.GetMediaPool()
             root = pool.GetRootFolder()
             clips = root.GetClipList()
             folders = root.GetSubFolderList()
             jobs = project.GetRenderJobList()
-            return all(
+            empty = all(
                 isinstance(values, (list, tuple)) and not values
                 for values in (clips, folders, jobs)
             )
+            return (handoff_uid, expected_name) if empty else None
         except Exception:
-            return False
+            return None
 
     def require_available(self, timeline_uid: str) -> None:
         """Validate one-use admission and the expected live target before writes."""
@@ -182,23 +183,13 @@ class NativeSaveReopen:
             raise PresenterFramingError("Resolve CloseProject failed")
         get_current = self._project_manager.GetCurrentProject
         current_after_close = get_current()
-        if current_after_close is not None and not self._is_expected_empty_handoff(
-            current_after_close
-        ):
-            raise PresenterFramingError(
-                "Resolve left an unverified current project after close"
-            )
         if current_after_close is not None:
-            handoff_identity = (
-                current_after_close.GetUniqueId(),
-                current_after_close.GetName(),
-            )
-            current_before_load = get_current()
-            if (
-                current_before_load is None
-                or current_before_load.GetUniqueId() != handoff_identity[0]
-                or current_before_load.GetName() != handoff_identity[1]
-            ):
+            handoff_identity = self._empty_handoff_identity(current_after_close)
+            if handoff_identity is None:
+                raise PresenterFramingError(
+                    "Resolve left an unverified current project after close"
+                )
+            if self._empty_handoff_identity(get_current()) != handoff_identity:
                 raise PresenterFramingError(
                     "Resolve changed the empty handoff project before reopen"
                 )
