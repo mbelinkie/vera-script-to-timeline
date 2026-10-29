@@ -58,7 +58,7 @@ export interface RegisterMasterInput {
 export interface JobAccess {
   projectId: string;
   sourceId: string;
-  purpose: "proxy" | "transcription";
+  purpose: "proxy" | "transcription" | "framing";
 }
 
 export interface RegisterMasterResult {
