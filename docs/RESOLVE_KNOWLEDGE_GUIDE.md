@@ -1,11 +1,14 @@
 # Resolve knowledge guide
 
 Reconciled 2026-10-27 for [#338](https://github.com/mbelinkie/vera-script-to-timeline/issues/338).
+Amended 2026-10-29 for [#119](https://github.com/mbelinkie/vera-script-to-timeline/issues/119); see the [native framing qualification](verification/issue-119/STUDIO_QUALIFICATION.md).
 Source baseline: `068bee17402c90e4678351b2a390be6c9d4c7b47`.
 This is a collection of bounded findings, not a new runtime certification.
 The [source ledger](RESOLVE_KNOWLEDGE_SOURCES.md) records collection coverage.
 Collection read tracked reports, implementation/tests and linked issue/PR
 records; it reran no native experiment. Private raw evidence was not inspected.
+The #119 amendment below is separate: it uses retained issue-owned receipts
+and a live API/UI observation from the stated Resolve build.
 
 ## How to use and maintain this guide
 
@@ -513,8 +516,8 @@ later admission change alone does not rerun that fixture.
 **Reuse/delta:** preserve source pixels, contain geometry, live root topology
 and exact warning/record bindings. A changed alpha/composition seam needs the
 affected decoded-frame and sound delta. Temporary still output proves neither
-Wide/Tight transforms on continuous presenter footage nor general motion/focus;
-#118/#119 retain those unresolved production capabilities.
+production framing quality nor general motion/focus; #118/#119 retain those
+unresolved production capabilities.
 
 **#119 source-range delta — bounded native observations.** On Studio **21.1.1
 build 10** with External Scripting **Local**, an interior synthetic 1920×1080
@@ -544,6 +547,26 @@ and sample-rate evidence, and accepts `sourceEnd=frameCount-1` only when the
 requested exclusive end equals that exact count. Interior `end-1` readback
 remains invalid. This correction is scoped to #119; it does not revise the
 retained #141/#144 endpoint evidence or qualify any transform or rendered crop.
+
+**#119 Wide/Tight delta — bounded native API and UI observations.** On the same
+Studio build and Local scripting route, a new synthetic 1920×1080, square-pixel,
+24 fps profile v3 was calibrated, pinned, applied to new Master/Generated
+timelines, saved, closed and reopened. Resolve returned the exact test-only
+tuples: Wide `ZoomX/Y=1.22, Pan=-18, Tilt=6`; Tight `ZoomX/Y=1.65, Pan=14,
+Tilt=-7`. The 240-frame generated timeline contains contiguous Wide `[0,48)`,
+Tight `[48,120)`, and Wide `[120,240)` picture segments, with a 240-frame
+dialogue item and B-roll at record frames `[96,120)`. The final picture
+segment's source end reads frame 239 at the 240-frame EOF, under the endpoint
+rule above. The new Master video/audio tracks read back locked after framing.
+Resolve's Edit page also selected both Wide clips with Timeline → Select Clips
+→ By Clip Color → Blue, and the Tight clip with Orange. Existing v2 targets,
+profile and request bytes remained unchanged across the v3 apply.
+
+This proves test-tuple storage/readback and practical color-group selection on
+this synthetic project only. No v3 render or decoded-image comparison was run;
+visual quality and production/creative acceptance remain unqualified. The
+[bounded run report](verification/issue-119/STUDIO_QUALIFICATION.md) records
+the full limits and conditions.
 
 ## Waiting, recovery and current operations
 
