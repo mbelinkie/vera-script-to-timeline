@@ -516,6 +516,18 @@ affected decoded-frame and sound delta. Temporary still output proves neither
 Wide/Tight transforms on continuous presenter footage nor general motion/focus;
 #118/#119 retain those unresolved production capabilities.
 
+**#119 source-range delta — bounded native observation.** On Studio **21.1.1
+build 10** with External Scripting **Local**, a synthetic 1920×1080 square-pixel
+24 fps video item appended with source `startFrame=10,endFrame=40` returned
+`GetSourceStartFrame()=10`, `GetSourceEndFrame()=40`,
+`GetStart(False)=0`, `GetDuration(False)=30`, and `GetEnd(False)=30`. A separate
+synthetic 48 kHz WAV item at Resolve-reported 24 fps, appended with the same
+source bounds and record frame 40, returned source `10/40`, record `40/70`, and
+duration 30. `GetSourceEndFrame()` is exclusive on this tested #119
+`AppendToTimeline` path. This corrects #119’s synthetic inclusive-end
+assumption only; it does not revise the retained #141/#144 endpoint evidence or
+qualify any non-neutral transform or rendered crop.
+
 ## Waiting, recovery and current operations
 
 ### RK-20 — Resume waiting; never replay an uncertain mutation

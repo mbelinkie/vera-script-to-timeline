@@ -63,6 +63,7 @@ class NativeSaveReopen:
         project_uid: str,
         project_name: str,
         timeline_uid: str,
+        empty_handoff_name: str | None = None,
     ) -> None:
         if any(
             not isinstance(value, str) or not value or value != value.strip()
@@ -73,6 +74,13 @@ class NativeSaveReopen:
         self._project_uid = project_uid
         self._project_name = project_name
         self._timeline_uid = timeline_uid
+        if empty_handoff_name is not None and (
+            not isinstance(empty_handoff_name, str)
+            or not empty_handoff_name
+            or empty_handoff_name != empty_handoff_name.strip()
+        ):
+            raise PresenterFramingError("empty handoff name is invalid")
+        self._empty_handoff_name = empty_handoff_name
         self._used = False
         self._reopened = False
 
@@ -102,6 +110,36 @@ class NativeSaveReopen:
         ):
             raise PresenterFramingError("current native timeline identity differs")
         return project
+
+    def _is_expected_empty_handoff(self, project: Any) -> bool:
+        expected_name = self._empty_handoff_name
+        if expected_name is None:
+            return False
+        try:
+            handoff_uid = project.GetUniqueId()
+            timeline_count = project.GetTimelineCount()
+            if (
+                not isinstance(handoff_uid, str)
+                or not handoff_uid
+                or handoff_uid == self._project_uid
+                or project.GetName() != expected_name
+                or project.GetCurrentTimeline() is not None
+                or isinstance(timeline_count, bool)
+                or not isinstance(timeline_count, int)
+                or timeline_count != 0
+            ):
+                return False
+            pool = project.GetMediaPool()
+            root = pool.GetRootFolder()
+            clips = root.GetClipList()
+            folders = root.GetSubFolderList()
+            jobs = project.GetRenderJobList()
+            return all(
+                isinstance(values, (list, tuple)) and not values
+                for values in (clips, folders, jobs)
+            )
+        except Exception:
+            return False
 
     def require_available(self, timeline_uid: str) -> None:
         """Validate one-use admission and the expected live target before writes."""
@@ -143,8 +181,27 @@ class NativeSaveReopen:
         if close_project(project) is not True:
             raise PresenterFramingError("Resolve CloseProject failed")
         get_current = self._project_manager.GetCurrentProject
-        if get_current() is not None:
-            raise PresenterFramingError("Resolve left a current project after close")
+        current_after_close = get_current()
+        if current_after_close is not None and not self._is_expected_empty_handoff(
+            current_after_close
+        ):
+            raise PresenterFramingError(
+                "Resolve left an unverified current project after close"
+            )
+        if current_after_close is not None:
+            handoff_identity = (
+                current_after_close.GetUniqueId(),
+                current_after_close.GetName(),
+            )
+            current_before_load = get_current()
+            if (
+                current_before_load is None
+                or current_before_load.GetUniqueId() != handoff_identity[0]
+                or current_before_load.GetName() != handoff_identity[1]
+            ):
+                raise PresenterFramingError(
+                    "Resolve changed the empty handoff project before reopen"
+                )
 
         reopened = load_project(self._project_name)
         if reopened is None:
@@ -692,14 +749,14 @@ class PresenterFramingAdapter:
         actual_start = start_method()
         actual_end = end_method()
         interval = target.source_interval
-        # Resolve's public item end is inclusive; the caller supplies [start, end).
+        # Studio 21.1.1.10 readback from AppendToTimeline is half-open here.
         if (
             isinstance(actual_start, bool)
             or not isinstance(actual_start, int)
             or isinstance(actual_end, bool)
             or not isinstance(actual_end, int)
             or actual_start != interval.start_frame
-            or actual_end != interval.end_frame - 1
+            or actual_end != interval.end_frame
         ):
             raise PresenterFramingError("presenter target source interval differs")
         start = item.GetStart(False)

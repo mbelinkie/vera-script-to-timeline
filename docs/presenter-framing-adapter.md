@@ -37,6 +37,12 @@ the framing request's `mappingEvidenceHash` separately hashes retained evidence.
 Python to verify without reproducing JavaScript number formatting.
 Synthetic tests exercise the delivered verifier and mapper without media tools.
 
+Live Studio 21.1.1 build 10 readback on a 24 fps synthetic video and a 48 kHz
+synthetic WAV confirms `AppendToTimeline` source intervals are half-open for
+this adapter path: source frames `[10,40)` read back as start 10, end 40, and
+duration 30. Keep this conclusion scoped to the tested #119 route; historical
+workflow endpoint conventions remain unchanged.
+
 `snapshotPresenterFramingCalibration` creates the first paired snapshot or the
 next version from completed sample readback. It preserves prior snapshots and
 uses the existing canonical hash and validator. The Python adapter captures
@@ -110,12 +116,23 @@ table. Do not use those values as production defaults.
 - Connect the builder to the registered synthetic inputs and run its protected
   Master/separate-generated-target workflow in the disposable real project.
   Verify its track locks and preserved old targets after save/reopen.
-- Qualify the post-close project handoff before claiming a completed lifecycle.
-  `NativeSaveReopen` currently refuses any remaining current project after close.
-  [#141's retained close refusal](investigations/issue-141/operator-record.md#native-close-refusal-september-30)
-  observed a different current project but did not establish that it was an
-  empty/default or otherwise authorized project. Do not assume it is safe to
-  replace that project; resolve this bounded native question in #119.
+- Studio 21.1.1 build 10 live evidence on 2026-10-29: closing the synthetic
+  calibration project created a new `Untitled Project` with a different UID.
+  A read-only inventory of that exact project showed no current timeline, zero
+  timelines, zero root clips, zero subfolders, and zero render jobs; its UID and
+  name stayed the same across the inventory. The first calibration lifecycle
+  stopped before reopening because its expected handoff UID was stale. A
+  separate, explicitly authorized recovery reopened the synthetic target and
+  confirmed both sample tuples persisted. A new calibration lifecycle then
+  completed save/reopen readback. `NativeSaveReopen` admits a post-close project
+  only when its name is exactly the expected `Untitled Project`, its UID differs
+  from the target, and Resolve directly reports no current timeline, timelines,
+  root clips, subfolders, or render jobs; it rechecks the current UID/name just
+  before loading the saved target. Missing APIs, changed identity, or any content
+  reject the handoff. The earlier pending result remains pending; it was not
+  retroactively marked complete. This narrows the current-build observation in
+  [#141's retained close-refusal record](investigations/issue-141/operator-record.md#native-close-refusal-september-30),
+  which did not establish that its different current project was empty.
 - Qualify the unanswered RK-19/#118 delta: non-neutral native transform
   calibration, immediate and save/reopen readback, exact raster matching,
   distinct rendered crops, advancing source frames at direct boundaries and

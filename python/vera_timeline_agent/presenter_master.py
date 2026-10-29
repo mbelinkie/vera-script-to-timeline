@@ -607,10 +607,10 @@ def _read_item(
         or not math.isfinite(duration)
         or duration != record.end_frame - record.start_frame
         or item.GetSourceStartFrame() != source.start_frame
-        or item.GetSourceEndFrame() != source.end_frame - 1
+        or item.GetSourceEndFrame() != source.end_frame
     ):
         raise PresenterMasterError(
-            "Resolve item identity or inclusive source/record range differs"
+            "Resolve item identity or half-open source/record range differs"
         )
     uid = item.GetUniqueId()
     if not isinstance(uid, str) or not uid:

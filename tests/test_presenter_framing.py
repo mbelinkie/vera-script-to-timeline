@@ -64,7 +64,7 @@ class MockTimelineItem:
         self.name_write_success = name_write_success
         self.name_retained = name_retained
         self.source_start = interval.start_frame
-        self.source_end = interval.end_frame - 1
+        self.source_end = interval.end_frame
         self.record_start = interval.start_frame
         self.record_duration = interval.end_frame - interval.start_frame
         self.uid = f"timeline-{event_id}"
@@ -174,6 +174,9 @@ class MockNativeProject:
         timeline_uids: tuple[str, ...],
         current_timeline_uid: str | None,
         video_items_by_timeline: Mapping[str, tuple[Any, ...]] | None = None,
+        root_clips: tuple[Any, ...] = (),
+        root_folders: tuple[Any, ...] = (),
+        render_jobs: tuple[Any, ...] = (),
     ) -> None:
         self.uid = uid
         self.name = name
@@ -191,6 +194,10 @@ class MockNativeProject:
             None,
         )
         self.selected_timeline_uids: list[str] = []
+        self.root_clips = root_clips
+        self.root_folders = root_folders
+        self.render_jobs = render_jobs
+        self.on_render_job_list: Callable[[], None] | None = None
 
     def GetUniqueId(self) -> str:
         return self.uid
@@ -206,6 +213,23 @@ class MockNativeProject:
 
     def GetTimelineByIndex(self, index: int) -> MockNativeTimeline:
         return self.timelines[index - 1]
+
+    def GetMediaPool(self) -> MockNativeProject:
+        return self
+
+    def GetRootFolder(self) -> MockNativeProject:
+        return self
+
+    def GetClipList(self) -> tuple[Any, ...]:
+        return self.root_clips
+
+    def GetSubFolderList(self) -> tuple[Any, ...]:
+        return self.root_folders
+
+    def GetRenderJobList(self) -> tuple[Any, ...]:
+        if self.on_render_job_list is not None:
+            self.on_render_job_list()
+        return self.render_jobs
 
     def SetCurrentTimeline(self, timeline: MockNativeTimeline) -> bool:
         if timeline not in self.timelines:
@@ -231,6 +255,7 @@ class MockNativeProjectManager:
         identity_mismatch: str | None = None,
         name_mismatch: str | None = None,
         record_mismatch: str | None = None,
+        post_close_project: MockNativeProject | None = None,
     ) -> None:
         self.calls = calls if calls is not None else []
         self.project_uid = project_uid
@@ -246,6 +271,7 @@ class MockNativeProjectManager:
         self.identity_mismatch = identity_mismatch
         self.name_mismatch = name_mismatch
         self.record_mismatch = record_mismatch
+        self.post_close_project = post_close_project
         self.current_project: MockNativeProject | None = MockNativeProject(
             uid=project_uid,
             name=project_name,
@@ -268,7 +294,7 @@ class MockNativeProjectManager:
         self.calls.append(("CloseProject", project.GetUniqueId()))
         if self.current_project is not project:
             return False
-        self.current_project = None
+        self.current_project = self.post_close_project
         return True
 
     def LoadProject(self, name: str) -> MockNativeProject | None:
@@ -864,6 +890,117 @@ def test_native_reopen_selects_expected_timeline_and_cannot_replay() -> None:
     assert manager.calls == calls_before_replay
 
 
+def test_native_reopen_allows_only_an_empty_named_handoff() -> None:
+    handoff = MockNativeProject(
+        uid="empty-project",
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+    )
+    manager = MockNativeProjectManager(post_close_project=handoff)
+    lifecycle = NativeSaveReopen(
+        project_manager=manager,
+        project_uid=manager.project_uid,
+        project_name=manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+
+    lifecycle()
+
+    assert manager.loaded_project is not None
+    assert manager.current_project is manager.loaded_project
+    assert handoff.GetTimelineCount() == 0
+
+    unknown = MockNativeProject(
+        uid="unknown-project",
+        name="Other Project",
+        timeline_uids=("other-timeline",),
+        current_timeline_uid="other-timeline",
+    )
+    blocked_manager = MockNativeProjectManager(post_close_project=unknown)
+    blocked_lifecycle = NativeSaveReopen(
+        project_manager=blocked_manager,
+        project_uid=blocked_manager.project_uid,
+        project_name=blocked_manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+    with pytest.raises(PresenterFramingError, match="unverified current project"):
+        blocked_lifecycle()
+    assert blocked_manager.current_project is unknown
+    assert blocked_manager.loaded_project is None
+
+    same_target_uid = MockNativeProject(
+        uid=manager.project_uid,
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+    )
+    same_uid_manager = MockNativeProjectManager(post_close_project=same_target_uid)
+    same_uid_lifecycle = NativeSaveReopen(
+        project_manager=same_uid_manager,
+        project_uid=same_uid_manager.project_uid,
+        project_name=same_uid_manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+    with pytest.raises(PresenterFramingError, match="unverified current project"):
+        same_uid_lifecycle()
+    assert same_uid_manager.current_project is same_target_uid
+    assert same_uid_manager.loaded_project is None
+
+    handoff_to_check = MockNativeProject(
+        uid="empty-during-check",
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+    )
+    switched = MockNativeProject(
+        uid="switched-after-check",
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+    )
+    switched_manager = MockNativeProjectManager(post_close_project=handoff_to_check)
+    handoff_to_check.on_render_job_list = lambda: setattr(
+        switched_manager, "current_project", switched
+    )
+    switched_lifecycle = NativeSaveReopen(
+        project_manager=switched_manager,
+        project_uid=switched_manager.project_uid,
+        project_name=switched_manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+    with pytest.raises(
+        PresenterFramingError, match="changed the empty handoff project"
+    ):
+        switched_lifecycle()
+    assert switched_manager.current_project is switched
+    assert switched_manager.loaded_project is None
+
+    queued = MockNativeProject(
+        uid="empty-project",
+        name="Untitled Project",
+        timeline_uids=(),
+        current_timeline_uid=None,
+        render_jobs=("render-job",),
+    )
+    queued_manager = MockNativeProjectManager(post_close_project=queued)
+    queued_lifecycle = NativeSaveReopen(
+        project_manager=queued_manager,
+        project_uid=queued_manager.project_uid,
+        project_name=queued_manager.project_name,
+        timeline_uid="timeline-owner",
+        empty_handoff_name="Untitled Project",
+    )
+    with pytest.raises(PresenterFramingError, match="unverified current project"):
+        queued_lifecycle()
+    assert queued_manager.current_project is queued
+    assert queued_manager.loaded_project is None
+
+
 def test_native_reopen_failure_is_single_use() -> None:
     class SaveFailureManager(MockNativeProjectManager):
         def SaveProject(self) -> bool:
@@ -905,7 +1042,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
     assert not target.item.set_calls
 
     target = _target("presenter-a", "wide", interval, lambda: 0)
-    target.item.source_end = 123
+    target.item.source_end = interval.end_frame - 1
     interval_result = adapter.apply(
         profile=profile,
         canonical_content_json=content_bytes,
@@ -916,7 +1053,7 @@ def test_marker_only_name_or_wrong_source_identity_refuses_before_properties() -
     assert interval_result.status == "blocked"
     assert not target.item.set_calls
 
-    target.item.source_end = interval.end_frame - 1
+    target.item.source_end = interval.end_frame
     target.item.media.media_id = "wrong-media-id"
     identity_result = adapter.apply(
         profile=profile,

@@ -104,7 +104,7 @@ class FakeTimelineItem:
         return value
 
     def GetSourceEndFrame(self) -> int:
-        value: int = self.info["endFrame"] - 1
+        value: int = self.info["endFrame"]
         return value
 
 
