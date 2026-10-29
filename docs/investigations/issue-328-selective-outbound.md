@@ -65,8 +65,11 @@ The proof requires one exclusive Resolve operator. Its own bridge commands
 share a host lock and recheck the current target before appending; Resolve's
 current-timeline append API is not an atomic guard against a person switching
 timelines between calls. No concurrent manual editing is qualified. Setup
-requires no project currently loaded, so it cannot unload another project's
-unsaved work. Each append requires a successful `SaveProject` acknowledgment and
+accepts no loaded project, or an explicitly opted-in UID for the exact
+empty `Untitled Project`. Two fresh checks require no timelines/current timeline,
+root clips/subfolders, render jobs or active render before creation. After close,
+reopen similarly requires the same new empty-project UID on both checks before
+loading the saved issue-owned project. It cannot unload another nonempty project. Each append requires a successful `SaveProject` acknowledgment and
 fresh in-memory readback before its finished receipt. This acknowledgment is not
 an independent disk-persistence proof; the actual close/load check is separate.
 
@@ -76,11 +79,10 @@ cleanup/replay; inspect the application and retained records before any further
 native work. A durable host marker blocks subsequent bridge commands before
 connection after an interrupted process; the executor cannot automatically
 reconcile against a potentially live earlier RPC. A signal handler calling more
-native APIs would not establish that an earlier native call had drained. Source-end convention and the final actual
-save/reopen remain native qualification checks, not widened fake-test tolerances.
-Whether the installed application exposes a no-current-project state or needs a
-confirmed-empty default project is also an unanswered preflight fact. No default
-project exception is admitted without actual safe-state evidence.
+native APIs would not establish that an earlier native call had drained. The qualified full-source append requests `[0,24)`; its 24-frame source EOF
+reads back as source end 23 while record end is 24 and duration is 24. This is
+a bounded EOF convention, not permission to accept arbitrary endpoint drift.
+Both source files independently decode to 24 frames at 24 fps, 640×360, video only.
 
 This experiment introduces no transitions, audio processing, rendering, source
 replacement or arbitrary human finishing. It does not prove that those
@@ -89,13 +91,43 @@ qualify their capabilities and preserve or refuse affected unknown work.
 
 ## Results
 
-The reusable domain executor, selection/plan operations, file journal and
-native bridge are implemented. The 43 focused TypeScript tests and 23 offline
-Python bridge tests pass. Native continuation is **pending**: the existing Resolve process
-was present, but Local scripting could not connect and the supported launcher
-timed out. No synthetic media or target was created by this proof. Existing
-application state was preserved. This is not negative capability evidence for
-the append route, nor a completed External result.
+The 43 focused TypeScript tests and 36 offline Python bridge tests pass. The
+actual native continuation passed on **DaVinci Resolve Studio 21.1.1 build 10**,
+Intel Mac, external scripting **Local**, through bundled ResolvePython. This is
+the delta against RK-17's selected-timeline readback, RK-20's no-replay recovery,
+and RK-42's distinction between domain intent and native execution.
+
+The synthetic project `VERA_328_c291b4cd` retained project UID
+`11bea5e8-1061-41e9-8e30-2a55609478fe`, original UID
+`d87329af-8651-4bf2-a357-299e2a191d05`, and duplicate target UID
+`96f288b5-7167-4ebb-9935-61a809796be4` through save/close/reopen.
+The frozen plan hash remained
+`ee5a81438531e9bfd3f2a8e1aba2762b6e1c7e3f629fb6eab6115916b126ca3d`.
+
+| Stage | Native target | Attempt / baseline |
+| --- | --- | --- |
+| Setup | Red `[0,24)` duplicate | Two selected cut appends; original baseline |
+| Injected failure before item 2 | Red `[0,24)`, blue `[24,48)` | Blue verified, red failed; original baseline retained |
+| New-process journal reload and retry | Adds red `[48,72)` on the same target | Both verified; baseline advances to final fingerprint |
+| Save/close/reopen | Same project, original, target and source identities; exact geometry | Original unchanged and current |
+| Repeat completed retry | Still exactly three clips | Attempt and every native operation record byte-identical |
+
+The baseline stayed `4a526bf8…` after the boundary failure, while current target
+fingerprint was `ee8ac669…`; completion atomically set both to `d46713ea…`.
+An independent final API read found one 24-frame red clip on the original and
+exactly three 24-frame red/blue/red clips on the duplicate, with source start 0,
+source end 23, record starts 0/24/48 and record ends 24/48/72. No active render
+remained. The previously released #119 project was saved and preserved.
+
+Two earlier setup attempts remain retained: the first stopped before import
+because native frame rate was numeric `24.0`, and the second stopped after a
+23-frame initial cut exposed the exclusive append argument convention. The
+fix compares exact numeric settings and requests end frame 24; neither stopped
+target was reused or deleted. The offline append fake was corrected to model
+the measured exclusive request endpoint. This run does not render/decode the
+native timeline, kill a live native RPC, qualify interior source endpoints, or
+prove arbitrary structural, audio or finishing operations. Those limits remain
+separate from the positive cut-only continuation result.
 
 One bounded DeepSeek task over the frozen 26-case suite cost approximately
 USD0.205 in three rounds. Although its final candidate passed that suite and

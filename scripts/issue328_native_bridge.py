@@ -20,6 +20,7 @@ from typing import Any, TypedDict, cast
 SCHEMA = "vera-issue-328-native-command/v1"
 SOURCE_REVISION = "issue328-public-synthetic-v1"
 PROJECT_PREFIX = "VERA_328_"
+EMPTY_PROJECT_NAME = "Untitled Project"
 NATIVE_LOCK_PATH = (
     Path.home() / ".local/state/vera/resolve-delivery/issue328-native.lock"
 )
@@ -347,8 +348,65 @@ def _source_readback(project: Any, expected: list[dict[str, Any]]) -> dict[str, 
 def _project_settings(project: Any) -> None:
     for name, expected in SETTINGS.items():
         _require(
-            str(project.GetSetting(name)) == expected, f"project setting {name} differs"
+            _integer(float(str(project.GetSetting(name))), name) == int(expected),
+            f"project setting {name} differs",
         )
+
+
+def _assert_empty_project(
+    manager: Any,
+    *,
+    expected_uid: str | None = None,
+    closed_uid: str | None = None,
+) -> str | None:
+    project = manager.GetCurrentProject()
+    if project is None:
+        return None
+    uid = _string(project.GetUniqueId(), "current project id")
+    _require(
+        project.GetName() == EMPTY_PROJECT_NAME,
+        "current project is not the exact empty Untitled Project",
+    )
+    _require(
+        expected_uid is not None or closed_uid is not None,
+        "an open project requires explicit empty-project identity opt-in",
+    )
+    if expected_uid is not None:
+        _require(uid == expected_uid, "empty project identity differs from opt-in")
+    if closed_uid is not None:
+        _require(uid != closed_uid, "empty project reused the closed project identity")
+    _require(
+        project.IsRenderingInProgress() is False,
+        "empty project is rendering",
+    )
+    jobs = project.GetRenderJobList()
+    _require(
+        type(jobs) in {list, tuple} and len(jobs) == 0,
+        "empty project has render jobs or an unreadable render queue",
+    )
+    _require(
+        _integer(project.GetTimelineCount(), "timeline count") == 0,
+        "empty project has timelines",
+    )
+    _require(
+        project.GetCurrentTimeline() is None,
+        "empty project has a current timeline",
+    )
+    pool = project.GetMediaPool()
+    _require(pool is not None, "empty project media pool is missing")
+    root = pool.GetRootFolder()
+    _require(root is not None, "empty project root media folder is missing")
+    clips = root.GetClipList()
+    _require(
+        type(clips) in {list, tuple} and len(clips) == 0,
+        "empty project has root media clips or an unreadable clip inventory",
+    )
+    folders = root.GetSubFolderList()
+    _require(
+        type(folders) in {list, tuple} and len(folders) == 0,
+        "empty project has root subfolders or an unreadable folder inventory",
+    )
+    return uid
 
 
 def _timeline_rows(project: Any) -> list[Any]:
@@ -797,6 +855,11 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
         "operation directory is unavailable",
     )
     sources = _source_specs(request.get("sources"))
+    expected_empty_uid = (
+        _string(request.get("expectedEmptyProjectUid"), "expected empty project id")
+        if "expectedEmptyProjectUid" in request
+        else None
+    )
     for source in sources:
         source_path = Path(source["path"]).resolve()
         _require(
@@ -805,16 +868,13 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
             "operation directory overlaps a source",
         )
     manager = resolve.GetProjectManager()
-    prior = manager.GetCurrentProject()
-    _require(
-        prior is None,
-        "setup requires Resolve to have no project open",
-    )
     names = manager.GetProjectListInCurrentFolder()
     _require(
         type(names) in {list, tuple} and project_name not in names,
         "project name already exists or inventory is unreadable",
     )
+    _assert_empty_project(manager, expected_uid=expected_empty_uid)
+    _assert_empty_project(manager, expected_uid=expected_empty_uid)
     project = manager.CreateProject(project_name)
     _require(project is not None, "Resolve could not create the unique #328 project")
     _require(project.GetName() == project_name, "created project name differs")
@@ -850,7 +910,7 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
     original_append = {
         "mediaPoolItem": red,
         "startFrame": 0,
-        "endFrame": 23,
+        "endFrame": 24,
         "recordFrame": 0,
         "trackIndex": 1,
         "mediaType": 1,
@@ -1018,7 +1078,7 @@ def _apply(
                 {
                     "mediaPoolItem": media,
                     "startFrame": 0,
-                    "endFrame": change["durationFrames"] - 1,
+                    "endFrame": change["durationFrames"],
                     "recordFrame": change["recordFrame"],
                     "trackIndex": 1,
                     "mediaType": 1,
@@ -1249,6 +1309,12 @@ def _reopen(resolve: Any, session: dict[str, Any]) -> dict[str, Any]:
         )
         _require(manager.SaveProject() is True, "SaveProject failed")
         _require(manager.CloseProject(project) is True, "CloseProject failed")
+        empty_uid = _assert_empty_project(manager, closed_uid=session["projectUid"])
+        _require(
+            _assert_empty_project(manager, closed_uid=session["projectUid"])
+            == empty_uid,
+            "empty project identity changed between observations",
+        )
         reopened = manager.LoadProject(session["projectName"])
         _require(reopened is not None, "LoadProject failed")
         _require(

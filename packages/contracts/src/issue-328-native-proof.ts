@@ -68,7 +68,7 @@ function adapter(session: Session, hash: string, failAtBoundary: boolean, store:
     },
   };
 }
-async function setup(directory: string, python: string, bridge: string, red: string, blue: string): Promise<void> {
+async function setup(directory: string, python: string, bridge: string, red: string, blue: string, expectedEmptyProjectUid?: string): Promise<void> {
   // A consumed setup directory is retained even after a timeout: never create a replacement blindly.
   await mkdir(directory, { mode: 0o700 });
   await writeFile(resolve(directory, "setup-started.json"), JSON.stringify({ version: 1 }), { flag: "wx" });
@@ -81,6 +81,7 @@ async function setup(directory: string, python: string, bridge: string, red: str
   const request = {
     operationId: randomUUID(), projectName: `VERA_328_${randomUUID().slice(0, 8)}`,
     sourceRevision: "issue328-public-synthetic-v1", operationDir: directory, sources,
+    ...(expectedEmptyProjectUid === undefined ? {} : { expectedEmptyProjectUid }),
   };
   await writeFile(resolve(directory, "setup-request.json"), JSON.stringify({ ...request, bridgeSha256: session.bridgeSha256 }), { flag: "wx", mode: 0o600 });
   const result = command(session, "setup", request);
@@ -101,11 +102,11 @@ async function setup(directory: string, python: string, bridge: string, red: str
 }
 async function main(): Promise<void> {
   const [action, location, ...args] = process.argv.slice(2);
-  if (!location || !["setup", "partial", "retry", "reopen"].includes(action ?? "")) throw new Error("Use setup DIRECTORY PYTHON BRIDGE RED BLUE, or partial|retry|reopen DIRECTORY");
+  if (!location || !["setup", "partial", "retry", "reopen"].includes(action ?? "")) throw new Error("Use setup DIRECTORY PYTHON BRIDGE RED BLUE [EXPECTED_EMPTY_PROJECT_UID], or partial|retry|reopen DIRECTORY");
   const directory = resolve(location);
   if (action === "setup") {
-    if (args.length !== 4) throw new Error("Setup requires explicit Python, bridge and two public synthetic sources");
-    await setup(directory, args[0]!, args[1]!, args[2]!, args[3]!);
+    if (args.length !== 4 && args.length !== 5) throw new Error("Setup requires explicit Python, bridge, two public synthetic sources, and an optional empty-project UID opt-in");
+    await setup(directory, args[0]!, args[1]!, args[2]!, args[3]!, args[4]);
     return;
   }
   if (args.length) throw new Error("Unexpected arguments");

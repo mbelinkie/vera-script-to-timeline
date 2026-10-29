@@ -790,11 +790,21 @@ ordered receipts, durable uncertainty, same-attempt recovery, and atomic final
 baseline advancement. Its instrumented domain and local-file tests include a
 structural multi-edit and spanning-audio selection identity. These prove the
 host mechanism, not native execution of those payloads. The cut-only native
-bridge uses that same executor, but actual continuation/reopen evidence remains
-pending while the existing Resolve process is unavailable to scripting. No
-target was created during that blocked preflight; it is not a negative result
-for the supported cut-only route. #328 remains open for its original native
-criterion and delivery gates.
+bridge uses that same executor. On Studio **21.1.1 build 10**, external **Local**
+through bundled ResolvePython, its two selected 24-frame cut appends passed:
+item 1 verified, injected boundary failure retained the old baseline, and a new
+process reloaded the journal and completed item 2 on the identical plan/target.
+Save/close/reopen preserved project, timelines, sources and exact geometry;
+repeating completion changed no journal/native-operation bytes and added no
+clip. The original stayed unchanged and current. Append request end 24 yielded
+24 frames, with full-source EOF readback 23; the prior end-23 request yielded
+23 frames and was retained as a stopped setup. Numeric native frame rate 24.0
+is compared exactly as a number. The real default after closing is an empty
+`Untitled Project`; its exact UID and empty inventories are checked twice
+before creation/loading. These are cut-only, full-source, single-operator
+results, not interior-endpoint, arbitrary structural/audio/finishing, live-RPC
+kill recovery, or rendered-output qualification. #328 retains its PR delivery
+gates; #104/#157 own product composition.
 
 **Reuse/delta:** reuse existing pure operations and their explicit refusals.
 Check only the new audible/finishing/atomic-execution seam through the same saved

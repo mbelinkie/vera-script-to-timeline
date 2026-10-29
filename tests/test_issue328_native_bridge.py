@@ -149,22 +149,26 @@ class TimelineMedia:
 
 
 class Folder:
-    def __init__(self, state: State) -> None:
-        self.state = state
+    def __init__(self, project: Project) -> None:
+        self.project = project
 
     def GetClipList(self) -> list[Any]:
         timeline_items = [
-            timeline.GetMediaPoolItem() for timeline in self.state.project.timelines
+            timeline.GetMediaPoolItem() for timeline in self.project.timelines
         ]
-        return [*self.state.media, *timeline_items]
+        return [*self.project.media_items, *timeline_items]
+
+    def GetSubFolderList(self) -> list[Any]:
+        return list(self.project.subfolders)
 
 
 class Pool:
-    def __init__(self, state: State) -> None:
+    def __init__(self, state: State, project: Project) -> None:
         self.state = state
+        self.project = project
 
     def GetRootFolder(self) -> Folder:
-        return Folder(self.state)
+        return Folder(self.project)
 
     def ImportMedia(self, paths: list[str]) -> list[Media]:
         by_path = {
@@ -172,7 +176,9 @@ class Pool:
             for item in self.state.media
             for path in [item.props["File Path"]]
         }
-        return [by_path[str(Path(path).resolve())] for path in paths]
+        imported = [by_path[str(Path(path).resolve())] for path in paths]
+        self.project.media_items = imported
+        return imported
 
     def CreateEmptyTimeline(self, name: str) -> Timeline:
         timeline = Timeline(self.state, name, self.state.next_timeline_uid())
@@ -217,7 +223,7 @@ class Pool:
         spec = values[0]
         if spec["trackIndex"] != 1 or spec["mediaType"] not in {1, 2}:
             return []
-        duration = spec["endFrame"] - spec["startFrame"] + 1
+        duration = spec["endFrame"] - spec["startFrame"]
         start = spec["startFrame"]
         if self.state.bad_append_readback:
             start += 1
@@ -245,7 +251,10 @@ class Project:
         self.timelines: list[Timeline] = []
         self.current: Timeline | None = None
         self.settings: dict[str, str] = {}
-        self.pool = Pool(state)
+        self.media_items: list[Media] = []
+        self.subfolders: list[Any] = []
+        self.render_jobs: list[Any] = []
+        self.pool = Pool(state, self)
 
     def GetName(self) -> str:
         return self.name
@@ -255,6 +264,9 @@ class Project:
 
     def IsRenderingInProgress(self) -> bool:
         return self.state.rendering
+
+    def GetRenderJobList(self) -> list[Any]:
+        return list(self.render_jobs)
 
     def SetSetting(self, key: str, value: str) -> bool:
         self.settings[key] = value
@@ -313,12 +325,20 @@ class ProjectManager:
         if project is not self.current:
             return False
         self.current = None
+        if self.state.spawn_empty_project_on_close:
+            self.current = Project(
+                self.state,
+                bridge.EMPTY_PROJECT_NAME,
+                self.state.empty_project_uid,
+            )
+            self.current.render_jobs = list(self.state.empty_project_render_jobs)
         return True
 
     def LoadProject(self, name: str) -> Project | None:
         if self.state.saved_project is None or name != self.state.saved_project.name:
             return None
         self.current = self.state.saved_project
+        self.state.project = self.current
         if self.state.change_ids_on_load:
             self.current.timelines[1].uid = "changed-target-id"
         return self.current
@@ -356,6 +376,9 @@ class State:
         self.drop_append_result = False
         self.change_ids_on_load = False
         self.rendering = False
+        self.spawn_empty_project_on_close = False
+        self.empty_project_uid = "untitled-project"
+        self.empty_project_render_jobs: list[Any] = []
         self.save_project_ok = True
         self.save_count = 0
         self._timeline_id = 0
@@ -370,7 +393,9 @@ class State:
         return f"item-{self._item_id}"
 
 
-def _case(tmp_path: Path) -> tuple[Resolve, dict[str, Any], dict[str, str], State]:
+def _setup_inputs(
+    tmp_path: Path,
+) -> tuple[Resolve, dict[str, Any], dict[str, str], State]:
     source_dir = tmp_path / "sources"
     source_dir.mkdir()
     operation_dir = tmp_path / "operation"
@@ -401,8 +426,25 @@ def _case(tmp_path: Path) -> tuple[Resolve, dict[str, Any], dict[str, str], Stat
             for name in ("red", "blue")
         ],
     }
+    return resolve, request, hashes, state
+
+
+def _case(tmp_path: Path) -> tuple[Resolve, dict[str, Any], dict[str, str], State]:
+    resolve, request, hashes, state = _setup_inputs(tmp_path)
     setup = bridge.handle_command(request, resolve)
     return resolve, setup, hashes, state
+
+
+def _empty_project_setup_inputs(
+    tmp_path: Path, uid: str = "opted-in-empty-project"
+) -> tuple[Resolve, dict[str, Any], State, Project]:
+    resolve, request, _hashes, state = _setup_inputs(tmp_path)
+    project = Project(state, bridge.EMPTY_PROJECT_NAME, uid)
+    state.project = project
+    resolve.manager.current = project
+    resolve.manager.names.append(bridge.EMPTY_PROJECT_NAME)
+    request["expectedEmptyProjectUid"] = uid
+    return resolve, request, state, project
 
 
 def _command(action: str, session: dict[str, Any], **fields: Any) -> dict[str, Any]:
@@ -434,6 +476,94 @@ def test_host_lock_covers_setup_and_refuses_nested_commands() -> None:
         bridge.handle_command(setup_request, resolve)
     assert resolve.manager.GetCurrentProject() is None
     assert resolve.manager.names == []
+
+
+def test_setup_admits_only_the_opted_in_empty_untitled_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, request, _state, project = _empty_project_setup_inputs(tmp_path)
+    observations = 0
+    get_current_project = resolve.manager.GetCurrentProject
+    create_project = resolve.manager.CreateProject
+
+    def observe_current() -> Project | None:
+        nonlocal observations
+        observations += 1
+        return get_current_project()
+
+    def create_after_two_observations(name: str) -> Project | None:
+        assert observations == 2
+        return create_project(name)
+
+    monkeypatch.setattr(resolve.manager, "GetCurrentProject", observe_current)
+    monkeypatch.setattr(resolve.manager, "CreateProject", create_after_two_observations)
+    result = bridge.handle_command(request, resolve)
+
+    assert result["session"]["projectUid"] == "project-1"
+    assert project.GetName() == bridge.EMPTY_PROJECT_NAME
+
+
+@pytest.mark.parametrize(
+    ("hazard", "message"),
+    [
+        ("clip", "empty project has root media clips"),
+        ("folder", "empty project has root subfolders"),
+        ("wrong-uid", "empty project identity differs from opt-in"),
+        ("render-job", "empty project has render jobs"),
+        ("rendering", "empty project is rendering"),
+    ],
+)
+def test_setup_refuses_unsafe_opted_in_untitled_project(
+    tmp_path: Path, hazard: str, message: str
+) -> None:
+    resolve, request, state, project = _empty_project_setup_inputs(tmp_path)
+    if hazard == "clip":
+        project.media_items.append(state.media[0])
+    elif hazard == "folder":
+        project.subfolders.append(object())
+    elif hazard == "wrong-uid":
+        project.uid = "another-empty-project"
+    elif hazard == "render-job":
+        project.render_jobs.append({"JobId": "queued"})
+    else:
+        state.rendering = True
+
+    with pytest.raises(ValueError, match=message):
+        bridge.handle_command(request, resolve)
+    assert resolve.manager.GetCurrentProject() is project
+    assert "VERA_328_deadbeef" not in resolve.manager.names
+
+
+def test_setup_refuses_untitled_project_without_uid_opt_in(tmp_path: Path) -> None:
+    resolve, request, _state, _project = _empty_project_setup_inputs(tmp_path)
+    del request["expectedEmptyProjectUid"]
+
+    with pytest.raises(ValueError, match="explicit empty-project identity opt-in"):
+        bridge.handle_command(request, resolve)
+    assert "VERA_328_deadbeef" not in resolve.manager.names
+
+
+def test_setup_rechecks_empty_project_immediately_before_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, request, _state, project = _empty_project_setup_inputs(tmp_path)
+    observations = 0
+    get_current_project = resolve.manager.GetCurrentProject
+
+    def change_on_second_observation() -> Project | None:
+        nonlocal observations
+        observations += 1
+        if observations == 2:
+            project.name = "Changed Project"
+        return get_current_project()
+
+    monkeypatch.setattr(
+        resolve.manager, "GetCurrentProject", change_on_second_observation
+    )
+    with pytest.raises(ValueError, match="not the exact empty Untitled Project"):
+        bridge.handle_command(request, resolve)
+    assert observations == 2
+    assert "VERA_328_deadbeef" not in resolve.manager.names
 
 
 def test_abrupt_process_exit_leaves_marker_and_blocks_before_connect(
@@ -676,6 +806,82 @@ def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) 
         "originalUnchanged": True,
         "originalCurrent": True,
     }
+
+
+@pytest.mark.parametrize(
+    ("uid_matches_closed", "render_jobs", "message"),
+    [
+        (False, [], None),
+        (True, [], "reused the closed project identity"),
+        (False, [{"JobId": "queued"}], "has render jobs"),
+    ],
+)
+def test_reopen_checks_default_empty_project_before_loading(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uid_matches_closed: bool,
+    render_jobs: list[Any],
+    message: str | None,
+) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    session = setup["session"]
+    state.spawn_empty_project_on_close = True
+    state.empty_project_uid = (
+        session["projectUid"] if uid_matches_closed else "new-empty-project"
+    )
+    state.empty_project_render_jobs = render_jobs
+    load_calls = 0
+    load_project = resolve.manager.LoadProject
+
+    def record_load(name: str) -> Project | None:
+        nonlocal load_calls
+        load_calls += 1
+        return load_project(name)
+
+    monkeypatch.setattr(resolve.manager, "LoadProject", record_load)
+    command = _command("reopen", session, planSha256="c" * 64)
+    if message is None:
+        result = bridge.handle_command(command, resolve)
+        assert result["verified"] is True
+        assert load_calls == 1
+    else:
+        with pytest.raises(ValueError, match=message):
+            bridge.handle_command(command, resolve)
+        assert load_calls == 0
+
+
+def test_reopen_refuses_empty_project_identity_change_between_observations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    session = setup["session"]
+    state.spawn_empty_project_on_close = True
+    get_current_project = resolve.manager.GetCurrentProject
+    load_project = resolve.manager.LoadProject
+    load_calls = 0
+    observed_uids: list[str] = []
+
+    def change_uid_on_second_empty_observation() -> Project | None:
+        project = get_current_project()
+        if project is not None and project.GetName() == bridge.EMPTY_PROJECT_NAME:
+            if len(observed_uids) == 1:
+                project.uid = "changed-empty-project"
+            observed_uids.append(project.uid)
+        return project
+
+    def count_load(name: str) -> Project | None:
+        nonlocal load_calls
+        load_calls += 1
+        return load_project(name)
+
+    monkeypatch.setattr(
+        resolve.manager, "GetCurrentProject", change_uid_on_second_empty_observation
+    )
+    monkeypatch.setattr(resolve.manager, "LoadProject", count_load)
+    with pytest.raises(ValueError, match="identity changed between observations"):
+        bridge.handle_command(_command("reopen", session, planSha256="d" * 64), resolve)
+    assert observed_uids[:2] == ["untitled-project", "changed-empty-project"]
+    assert load_calls == 0
 
 
 def test_native_whole_frame_floats_are_accepted_but_requests_stay_integer(
@@ -951,7 +1157,7 @@ def test_setup_refuses_duplicate_project_and_audio_baseline(tmp_path: Path) -> N
     prior_project = Project(prior_state, "already-open", "prior-project")
     prior_resolve.manager.current = prior_project
     prior_resolve.manager.names.append("already-open")
-    with pytest.raises(ValueError, match="no project open"):
+    with pytest.raises(ValueError, match="not the exact empty Untitled Project"):
         bridge.handle_command(request, prior_resolve)
     assert prior_resolve.manager.GetCurrentProject() is prior_project
     assert prior_resolve.manager.names == ["already-open"]
@@ -1014,3 +1220,16 @@ def test_reopen_rejects_changed_timeline_identity(tmp_path: Path) -> None:
         bridge.handle_command(
             _command("reopen", setup["session"], planSha256="e" * 64), resolve
         )
+
+
+def test_project_settings_accepts_native_numeric_fps_without_relaxing_rate() -> None:
+    class NativeSettings:
+        def __init__(self, fps: float) -> None:
+            self.fps = fps
+
+        def GetSetting(self, key: str) -> Any:
+            return self.fps if key == "timelineFrameRate" else bridge.SETTINGS[key]
+
+    bridge._project_settings(NativeSettings(24.0))
+    with pytest.raises(ValueError):
+        bridge._project_settings(NativeSettings(23.976))
