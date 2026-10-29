@@ -331,3 +331,13 @@ test("a coalesced failed rerun beyond the first history page still pauses delive
   assert.match(f.state.paused.reason, /Validate failed/);
   assert.equal(f.state.active, null);
 });
+
+test("removing a waiting entry preserves the active transaction", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance();
+  const transaction = f.state.active.id;
+  await f.queue.command({ action: "remove", pr: 2 }, "owner");
+  assert.deepEqual(f.state.entries.map((entry) => entry.pr), [1]);
+  assert.equal(f.state.active.id, transaction);
+  await assert.rejects(f.queue.command({ action: "remove", pr: 1 }, "owner"), /Active entry cannot be removed/);
+  assert.equal(f.state.active.id, transaction);
+});
