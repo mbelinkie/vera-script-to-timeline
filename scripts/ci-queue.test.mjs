@@ -12,14 +12,22 @@ function fixture() {
   const state = initialState(99);
   state.paused = null;
   state.entries = [1, 2].map((pr) => ({ pr, submitted: B, head: B, ready: true, owner: "owner" }));
-  const calls = [], comments = [], runs = [];
+  const calls = [], comments = [], runs = [], pageCalls = [];
+  let completionApi = { run: null, jobs: [] }, nextRunId = 8000, nextJobId = 9000;
+  const rules = [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: STATUS, integration_id: null }] } }];
   const pulls = new Map([1, 2].map((pr) => [pr, { number: pr, state: "open", draft: false, merged: false, base: { ref: "main", repo: { full_name: repository } }, head: { sha: B, ref: `feature-${pr}`, repo: { full_name: repository } } }]));
   let main = A, revision = 0;
   const github = {
     repository,
     async loadState() { return { sha: String(revision), state: clone(state) }; },
     async saveState(next) { Object.assign(state, clone(next)); revision += 1; return { sha: String(revision), state: clone(state) }; },
-    async pages(url) { if (url.endsWith("/commits")) return []; assert.match(url, /issues\/99\/comments/); return clone(comments); },
+    async pages(url) {
+      pageCalls.push(url);
+      if (url.endsWith("/commits")) return [];
+      if (url.endsWith("/rules/branches/main")) return clone(rules);
+      assert.match(url, /issues\/99\/comments/);
+      return clone(comments);
+    },
     async api(method, url, body) {
       const suffix = url.replace(`/repos/${repository}`, "");
       calls.push({ method, suffix, body: clone(body) });
@@ -27,11 +35,22 @@ function fixture() {
       if (suffix === "/git/ref/heads/main") return { object: { sha: main } };
       if (suffix.startsWith("/git/ref/heads/feature-")) return { object: { sha: pulls.get(Number(suffix.split("-").at(-1))).head.sha } };
       if (suffix.includes("/collaborators/")) return { permission: suffix.includes("outsider") ? "read" : "write" };
-      if (suffix === "/branches/main/protection/required_status_checks") return { strict: true, contexts: [STATUS] };
+      if (suffix === "/branches/main/protection/required_status_checks") {
+        const error = new Error("administration read unavailable");
+        error.status = 403;
+        throw error;
+      }
       if (suffix.startsWith("/actions/workflows/validate.yml/runs")) {
         const status = new URL(`https://example.com${suffix}`).searchParams.get("status");
         return { workflow_runs: clone(status ? runs.filter((r) => r.status === status) : runs) };
       }
+      const runAttempt = /^\/actions\/runs\/(\d+)\/attempts\/(\d+)$/.exec(suffix);
+      if (runAttempt) {
+        assert.equal(Number(runAttempt[1]), completionApi.run?.id);
+        assert.equal(Number(runAttempt[2]), completionApi.run?.run_attempt);
+        return clone(completionApi.run);
+      }
+      if (/^\/actions\/runs\/\d+\/attempts\/\d+\/jobs\?/.test(suffix)) return { jobs: clone(completionApi.jobs) };
       if (suffix === "/actions/workflows/validate.yml") return { id: 7, path: ".github/workflows/validate.yml", state: "active" };
       if (suffix.endsWith("/dispatches")) return null;
       if (suffix.startsWith("/compare/")) return { status: "ahead" };
@@ -60,7 +79,49 @@ function fixture() {
     runs.length = 0;
     runs.push({ id: n + 1000, display_title: expected.title, workflow_id: 7, head_sha: expected.workflowHead, event: "workflow_dispatch", path: ".github/workflows/validate.yml", run_attempt: 1, status: "completed", conclusion: "success", html_url: `https://github.com/owner/repo/actions/runs/${n + 1000}`, actor: { login: "github-actions[bot]" } });
   }
-  return { queue, github, state, calls, comments, runs, pulls, load, pass, setMain: (sha) => { main = sha; } };
+  async function complete(mode, { run: runOverrides = {}, context: contextOverrides = {}, jobs: jobsTransform = (jobs) => jobs, externalRun } = {}) {
+    const expected = state.active.expected;
+    const id = nextRunId++;
+    const run = {
+      id,
+      display_title: expected.title,
+      workflow_id: expected.workflowId,
+      head_sha: expected.workflowHead,
+      event: "workflow_dispatch",
+      path: ".github/workflows/validate.yml",
+      run_attempt: 1,
+      status: "in_progress",
+      conclusion: null,
+      html_url: `https://github.com/${repository}/actions/runs/${id}`,
+      actor: { login: "github-actions[bot]" },
+      ...clone(runOverrides),
+    };
+    const outcomes = mode === "pr"
+      ? { "Classify PR changes": "success", "TypeScript and Python": "success", "Docs only": "skipped", "Main smoke": "skipped" }
+      : { "Classify PR changes": "skipped", "TypeScript and Python": "skipped", "Docs only": "skipped", "Main smoke": "success" };
+    const jobs = Object.entries(outcomes).map(([name, conclusion]) => ({
+      id: nextJobId++, run_id: id, run_attempt: 1, name, status: "completed", conclusion,
+    }));
+    jobs.push({ id: nextJobId++, run_id: id, run_attempt: 1, name: "Queue completion", status: "in_progress", conclusion: null });
+    completionApi = { run, jobs: jobsTransform(jobs) };
+    runs.push(run);
+    if (externalRun) runs.push(clone(externalRun));
+    const completion = {
+      job: "queue-completion",
+      workflowRef: `${repository}/.github/workflows/validate.yml@refs/heads/main`,
+      ref: "refs/heads/main",
+      repository,
+      runId: String(id),
+      runAttempt: "1",
+      mode,
+      ...contextOverrides,
+    };
+    await queue.run({ eventName: "workflow_dispatch", event: { inputs: { mode } }, actor: "github-actions[bot]", completion });
+    run.status = "completed";
+    run.conclusion = "success";
+    return { run, jobs: completionApi.jobs, completion };
+  }
+  return { queue, github, state, calls, comments, runs, rules, pageCalls, pulls, load, pass, complete, setMain: (sha) => { main = sha; } };
 }
 
 test("queue command grammar binds readiness to a full SHA and distinct validation intent", () => {
@@ -90,6 +151,92 @@ test("two entries use one exact validation, protected merge, smoke, then next ba
   assert.equal(f.state.active.base, D);
   assert.equal(f.state.completed.length, 1);
   assert.equal(f.calls.filter((c) => c.suffix.endsWith("/dispatches")).length, 3);
+});
+
+test("trusted PR completion uses gate jobs and hands off once while its workflow is in progress", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance();
+  const callback = await f.complete("pr");
+  assert.equal(callback.run.status, "completed");
+  assert.equal(f.state.active.phase, "smoke");
+  assert.equal(f.pulls.get(1).merged, true);
+  assert.equal(f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length, 2);
+  await f.queue.run({ eventName: "workflow_dispatch", event: { inputs: { mode: "pr" } }, actor: "github-actions[bot]", completion: callback.completion });
+  assert.equal(f.state.active.phase, "smoke");
+  assert.equal(f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length, 2);
+});
+
+test("trusted smoke completion records delivery then starts the next entry on the merged base", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance(); await f.complete("pr");
+  const callback = await f.complete("smoke");
+  assert.equal(callback.run.status, "completed");
+  assert.equal(f.state.completed.length, 1);
+  assert.equal(f.state.completed[0].mergeSha, D);
+  assert.equal(f.state.active.pr, 2);
+  assert.equal(f.state.active.base, D);
+  assert.equal(f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length, 3);
+});
+
+test("failed, missing, or unfinished gate jobs fail closed and retain waiting entries", async () => {
+  for (const jobs of [
+    (items) => items.map((job) => job.name === "TypeScript and Python" ? { ...job, conclusion: "failure" } : job),
+    (items) => items.filter((job) => job.name !== "Docs only"),
+    (items) => items.map((job) => job.name === "Docs only" ? { ...job, status: "in_progress" } : job),
+    (items) => [...items, { ...items[0], id: 99999, name: "Unknown" }],
+  ]) {
+    const f = fixture(); await f.load(); await f.queue.advance();
+    const callback = await f.complete("pr", { jobs });
+    assert.ok(f.state.paused);
+    assert.equal(f.state.active.phase, "validating");
+    assert.equal(f.state.entries.length, 2);
+    assert.equal(f.calls.some((call) => call.suffix.endsWith("/merge")), false);
+    assert.ok(f.comments.some((comment) => comment.body.includes(callback.run.html_url)));
+  }
+});
+
+test("forged completion identity fails closed without using callback job claims", async () => {
+  for (const overrides of [
+    { run: { actor: { login: "owner" } } },
+    { context: { workflowRef: `${repository}/.github/workflows/ci-queue.yml@refs/heads/main` } },
+    { run: { run_attempt: 2 }, context: { runAttempt: "2" } },
+  ]) {
+    const f = fixture(); await f.load(); await f.queue.advance();
+    await f.complete("pr", overrides);
+    assert.ok(f.state.paused);
+    assert.equal(f.state.active.phase, "validating");
+    assert.equal(f.state.entries.length, 2);
+    assert.equal(f.calls.some((call) => call.suffix.endsWith("/merge")), false);
+  }
+});
+
+test("stale completion cannot advance a newer transaction", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance();
+  const callback = await f.complete("pr");
+  const dispatches = f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length;
+  await f.queue.run({
+    eventName: "workflow_dispatch", event: { inputs: { mode: "pr" } }, actor: "github-actions[bot]",
+    completion: callback.completion,
+  });
+  assert.equal(f.state.active.phase, "smoke");
+  assert.equal(f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length, dispatches);
+});
+
+test("unrelated running manual validation blocks a trusted completion handoff", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance();
+  await f.complete("pr", { externalRun: { id: 8300, event: "workflow_dispatch", status: "in_progress" } });
+  assert.equal(f.state.active.phase, "validating");
+  assert.equal(f.pulls.get(1).merged, false);
+  assert.equal(f.calls.some((call) => call.suffix.endsWith("/merge")), false);
+  assert.equal(f.state.paused, null);
+});
+
+test("pending authorized pause is applied before a trusted completion can merge", async () => {
+  const f = fixture(); await f.load(); await f.queue.advance();
+  f.comments.push({ id: 1, body: "/queue pause", user: { login: "owner" } });
+  await f.complete("pr");
+  assert.ok(f.state.paused);
+  assert.equal(f.state.active.phase, "validating");
+  assert.equal(f.pulls.get(1).merged, false);
+  assert.equal(f.calls.some((call) => call.suffix.endsWith("/merge")), false);
 });
 
 test("author push after readiness stops before dispatch and preserves waiting entries", async () => {
@@ -161,9 +308,41 @@ test("manual run blocks dispatch; unprotected main blocks automatic delivery", a
   const f = fixture(); await f.load(); f.runs.push({ id: 4, status: "in_progress" });
   await f.queue.advance(); assert.equal(f.state.active, null); assert.equal(f.state.paused, null);
   f.runs.length = 0;
-  const api = f.github.api.bind(f.github);
-  f.github.api = (method, url, body) => url.endsWith("/required_status_checks") ? Promise.resolve({ strict: false, contexts: [] }) : api(method, url, body);
+  const pages = f.github.pages.bind(f.github);
+  f.github.pages = (url) => url.endsWith("/rules/branches/main")
+    ? Promise.resolve([{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } }])
+    : pages(url);
   await assert.rejects(f.queue.advance(), /Main must require strict/);
+});
+
+test("readable effective rules authorize protection when the classic endpoint returns 403", async () => {
+  const f = fixture();
+  const oldEndpoint = `/repos/${repository}/branches/main/protection/required_status_checks`;
+  await assert.rejects(f.github.api("GET", oldEndpoint), (error) => error.status === 403);
+  const oldEndpointCalls = f.calls.filter((call) => call.suffix === "/branches/main/protection/required_status_checks").length;
+
+  await f.queue.protection();
+
+  assert.equal(f.pageCalls.at(-1), `/repos/${repository}/rules/branches/main`);
+  assert.equal(f.calls.filter((call) => call.suffix === "/branches/main/protection/required_status_checks").length, oldEndpointCalls);
+});
+
+test("protection fails closed when strict status and queue context are absent or split", async () => {
+  const invalidRules = [
+    [],
+    [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } }],
+    [{ type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: "TypeScript and Python" }] } }],
+    [
+      { type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: "TypeScript and Python" }] } },
+      { type: "required_status_checks", parameters: { strict_required_status_checks_policy: false, required_status_checks: [{ context: STATUS }] } },
+    ],
+  ];
+
+  for (const rules of invalidRules) {
+    const f = fixture();
+    f.rules.splice(0, f.rules.length, ...rules);
+    await assert.rejects(f.queue.protection(), /Main must require strict/);
+  }
 });
 
 test("changed base blocks merge even for the exact green head", async () => {
@@ -236,7 +415,7 @@ test("privileged workflow executes only default branch code and no candidate art
   assert.match(workflow, /pull_request_target:/);
   assert.match(workflow, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
   assert.match(workflow, /persist-credentials: false/);
-  assert.match(workflow, /group: vera-ci-queue-controller\n {2}cancel-in-progress: false/);
+  assert.match(workflow, /group: vera-ci-queue-controller\n {2}queue: max/);
   assert.doesNotMatch(workflow, /download-artifact|cache:|npm ci|pull_request\.head|schedule:/);
   assert.match(workflow, /run: node scripts\/ci-queue\.mjs/);
   assert.match(workflow, /workflows: \[Validate\]/);
