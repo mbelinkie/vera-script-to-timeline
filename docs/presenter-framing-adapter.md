@@ -52,6 +52,16 @@ explicit `unknown` annotation for prototype inspection. Its 19 focused behavior
 checks passed; package typecheck and lint passed after those parent changes.
 This provenance is code-generation evidence only.
 
+For a captured Python `CalibrationResult` serialized with `dataclasses.asdict`,
+the profile CLI reads `{ "calibration": ..., "prior": null, "id": "<UUID>" }`
+from stdin. Supply the exact prior snapshot instead of `null` for a revision.
+Run `node packages/contracts/src/presenter-framing-profile-cli.ts` with the
+repository's pinned Node runtime. Its stdout contains `profile` and the exact
+`profileContentJson` string. It writes no files or native targets. The caller
+stores a new immutable artifact and passes both returned fields to Python;
+it must not overwrite a prior build. The process-level bridge test checks this
+TypeScript-to-Python numeric/hash boundary using the real CLI.
+
 The checked-in profile fixture contains synthetic test values and synthetic
 context labels. It is neither a calibrated look nor an Inspector conversion
 table. Do not use those values as production defaults.
