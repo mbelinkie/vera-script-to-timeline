@@ -20,10 +20,10 @@ For backend issues, follow AGENTS.md's [knowledge reuse rule](docs/RESOLVE_KNOWL
   `VERA queue validation` status. The queue's dispatch job check is not a
   required PR check. Pushes to `main` keep the short smoke check. Read
   [docs/CI_QUEUE.md](docs/CI_QUEUE.md) before operating or changing the queue;
-  it is currently inactive and must pass its documented external rollout proof
-  before broad intake.
+  it is active and its bounded external rollout proof passed. Submit the exact
+  ready head after all non-CI prerequisites; the queue handles merge and smoke.
 - For Claude CLI reviews, read and follow `docs/CLAUDE_REVIEW_PLAYBOOK.md`,
-  including on in-flight issues. Merge when CI is green; fix later bugs forward.
+  including on in-flight issues. Use queue delivery; fix later bugs forward.
 - Close Automated issues yourself after merging (`npm run roadmap -- complete`).
   Ask Matthew only for Producer (taste or product) judgments, with a short
   checklist.
