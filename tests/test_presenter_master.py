@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
@@ -13,6 +14,7 @@ from vera_timeline_agent.presenter_framing import ValidatedSourceTimeInterval
 from vera_timeline_agent.presenter_master import (
     PresenterMasterError,
     ResolvedPresenterMedia,
+    _audio_duration_frame_count,
     _identity,
     prepare_presenter_master,
 )
@@ -81,9 +83,7 @@ class FakeMedia:
             return str(self.source_frame_count)
         if name == "Duration":
             rate = Fraction(*self.rate)
-            if rate.denominator != 1:
-                raise AssertionError("fractional audio rate has no test duration")
-            seconds, frames = divmod(self.source_frame_count, rate.numerator)
+            seconds, frames = divmod(self.source_frame_count, math.ceil(rate))
             hours, seconds = divmod(seconds, 3600)
             minutes, seconds = divmod(seconds, 60)
             return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
@@ -554,6 +554,57 @@ def test_identity_normalizes_only_known_resolve_ntsc_labels(
     )
 
     assert _identity(media) == ("media", "uid")
+
+
+@pytest.mark.parametrize("rate", [(24000, 1001), (30000, 1001), (60000, 1001)])
+def test_fractional_rate_dialogue_identity_uses_nominal_timecode(
+    rate: tuple[int, int],
+) -> None:
+    media = ResolvedPresenterMedia(
+        "project",
+        "source",
+        _DIALOGUE_HASH,
+        "/synthetic/dialogue.wav",
+        "media",
+        rate,
+        240,
+        "audio",
+        FakeMedia("media", "/synthetic/dialogue.wav", "uid", rate, 240),
+    )
+    assert _identity(media) == ("media", "uid")
+
+
+@pytest.mark.parametrize(
+    ("label", "rate", "expected"),
+    [
+        ("00:01:00;02", (30000, 1001), 1800),
+        ("00:10:00;00", (30000, 1001), 17982),
+        ("01:00:00;00", (30000, 1001), 107892),
+        ("00:01:00;04", (60000, 1001), 3600),
+        ("00:01:00;08", (120000, 1001), 7200),
+    ],
+)
+def test_audio_duration_drop_frame_counts(
+    label: str, rate: tuple[int, int], expected: int
+) -> None:
+    assert _audio_duration_frame_count(label, Fraction(*rate)) == expected
+
+
+@pytest.mark.parametrize(
+    ("label", "rate"),
+    [
+        ("00:01:00;00", (30000, 1001)),
+        ("00:01:00;03", (60000, 1001)),
+        ("00:00:01;00", (24000, 1001)),
+        ("00:00:01;00", (30, 1)),
+        ("00:00:00:24", (24000, 1001)),
+    ],
+)
+def test_audio_duration_refuses_invalid_timecode(
+    label: str, rate: tuple[int, int]
+) -> None:
+    with pytest.raises(PresenterMasterError):
+        _audio_duration_frame_count(label, Fraction(*rate))
 
 
 def test_identity_refuses_decimal_rate_that_does_not_match_registration() -> None:

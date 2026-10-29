@@ -121,18 +121,32 @@ def _positive_frame_count(value: object, label: str) -> int:
 
 def _audio_duration_frame_count(value: object, rate: Fraction) -> int:
     match = (
-        re.fullmatch(r"([0-9]+):([0-9]{2}):([0-9]{2}):([0-9]{2})", value)
+        re.fullmatch(r"([0-9]+):([0-9]{2}):([0-9]{2})([:;])([0-9]{2,3})", value)
         if isinstance(value, str)
         else None
     )
-    if match is None or rate.denominator != 1:
+    if match is None or (
+        rate.denominator != 1 and rate not in _RESOLVE_NTSC_RATES.values()
+    ):
         raise PresenterMasterError(
             "Resolve audio duration cannot independently confirm its source frame count"
         )
-    hours, minutes, seconds, frames = (int(part) for part in match.groups())
-    if minutes >= 60 or seconds >= 60 or frames >= rate.numerator:
+    hours, minutes, seconds = (int(part) for part in match.groups()[:3])
+    separator, frame_label = match.groups()[3:]
+    frames = int(frame_label)
+    nominal_rate = math.ceil(rate)
+    if minutes >= 60 or seconds >= 60 or frames >= nominal_rate:
         raise PresenterMasterError("Resolve audio duration is invalid")
-    return ((hours * 60 + minutes) * 60 + seconds) * rate.numerator + frames
+    total_minutes = hours * 60 + minutes
+    count = (total_minutes * 60 + seconds) * nominal_rate + frames
+    if separator == ";":
+        if rate != Fraction(nominal_rate * 1000, 1001) or nominal_rate % 30:
+            raise PresenterMasterError("Resolve drop-frame duration rate is invalid")
+        dropped = nominal_rate // 15
+        if minutes % 10 and seconds == 0 and frames < dropped:
+            raise PresenterMasterError("Resolve audio duration uses a dropped label")
+        count -= dropped * (total_minutes - total_minutes // 10)
+    return count
 
 
 def _strict_json_value(payload: bytes, label: str) -> Any:
