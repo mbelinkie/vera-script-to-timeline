@@ -811,19 +811,29 @@ test("the workflow defines every required step, the exact command and the artifa
   for (const match of workflow.matchAll(/uses: (\S+)/g)) assert.match(match[1], /@[0-9a-f]{40}$/);
 });
 
-test("PR changes select one docs-only or full job and preserve manual/full and main smoke behavior", () => {
+test("queue workflow dispatch selects exact candidate validation or smoke while retaining the legacy PR path", () => {
   const workflow = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".github", "workflows", "validate.yml"), "utf8");
   assert.match(workflow, /^on:\n {2}pull_request:\n {2}push:\n {4}branches:\n {6}- main\n {2}workflow_dispatch:\n/m);
+  assert.match(workflow, /mode:\n {8}description: Validation route\n {8}required: true\n {8}type: choice\n {8}options:\n {10}- manual\n {10}- pr\n {10}- smoke/);
+  assert.match(workflow, /format\('vera-queue:\{0\}:\{1\}:\{2\}:\{3\}', inputs\.transaction, inputs\.mode, inputs\.candidate, inputs\.base\)/);
+  assert.match(workflow, /vars\.VERA_CI_QUEUE_ENABLED != 'true'/);
+  assert.match(workflow, /^permissions:\n {2}contents: read\n/m);
+  assert.doesNotMatch(workflow, /^ {2}[a-z-]+: write$/m);
+  assert.equal([...workflow.matchAll(/uses: actions\/checkout@/g)].length, [...workflow.matchAll(/persist-credentials: false/g)].length);
 
   const classifyStart = workflow.indexOf("  classify:\n");
   const validateStart = workflow.indexOf("  validate:\n");
   const docsStart = workflow.indexOf("  docs-only:\n");
   const smokeStart = workflow.indexOf("  main-smoke:\n");
   assert.ok(classifyStart >= 0 && validateStart > classifyStart && docsStart > validateStart && smokeStart > docsStart);
+  const classifyJob = workflow.slice(classifyStart, validateStart);
   assert.match(workflow, /fetch-depth: 0/);
-  assert.match(workflow, /VERA_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
-  assert.match(workflow, /VERA_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
-  assert.match(workflow, /run: node scripts\/ci-docs-only\.mjs/);
+  assert.match(classifyJob, /ref: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.sha \|\| github\.sha \}\}\n {10}path: trusted/);
+  assert.match(classifyJob, /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.candidate \|\| github\.sha \}\}\n {10}path: candidate/);
+  assert.match(classifyJob, /VERA_BASE_SHA: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.base \|\| github\.event\.pull_request\.base\.sha \}\}/);
+  assert.match(classifyJob, /VERA_HEAD_SHA: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.candidate \|\| github\.event\.pull_request\.head\.sha \}\}/);
+  assert.match(classifyJob, /run: GITHUB_EVENT_NAME=pull_request node \.\.\/trusted\/scripts\/ci-docs-only\.mjs/);
+  assert.match(classifyJob, /\[\[ "\$GITHUB_REF" == "refs\/heads\/main" \]\]/);
   assert.match(workflow, /git diff --check "\$VERA_BASE_SHA\.\.\.\$VERA_HEAD_SHA"/);
   assert.doesNotMatch(workflow, /paths-ignore:/);
 
@@ -833,19 +843,30 @@ test("PR changes select one docs-only or full job and preserve manual/full and m
   assert.match(validateJob, /^ {4}name: TypeScript and Python$/m);
   assert.match(validateJob, /needs: \[classify, docs-only\]/);
   assert.match(validateJob, /Verify PR validation selection/);
-  assert.match(validateJob, /if: \$\{\{ !cancelled\(\) && github\.event_name != 'push' \}\}/);
-  assert.match(validateJob, /if: \$\{\{ !cancelled\(\) && github\.event_name == 'pull_request' \}\}/);
+  assert.match(validateJob, /if: \$\{\{ !cancelled\(\) && \(\(github\.event_name == 'pull_request' && vars\.VERA_CI_QUEUE_ENABLED != 'true'\)/);
+  assert.match(validateJob, /VERA_RUN_FULL: \$\{\{ \(github\.event_name == 'workflow_dispatch' && inputs\.mode == 'manual'\)/);
+  assert.match(validateJob, /if: \$\{\{ !cancelled\(\) && \(github\.event_name == 'pull_request' \|\| \(github\.event_name == 'workflow_dispatch' && inputs\.mode == 'pr'\)\) \}\}/);
   assert.match(validateJob, /needs\.classify\.outputs\.result == 'full'/);
-  assert.match(validateJob, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(validateJob, /env\.VERA_RUN_FULL == 'true'/);
+  assert.match(validateJob, /ref: \$\{\{ inputs\.candidate \|\| github\.sha \}\}\n {10}path: candidate/);
   assert.match(validateJob, /needs\.docs-only\.result/);
   assert.match(docsJob, /if: \$\{\{ !cancelled\(\)/);
   assert.match(docsJob, /needs\.classify\.outputs\.result == 'docs'/);
+  assert.match(docsJob, /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.candidate \|\| github\.sha \}\}\n {10}path: candidate/);
+  assert.match(docsJob, /VERA_BASE_SHA: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.base \|\| github\.event\.pull_request\.base\.sha \}\}/);
+  assert.match(docsJob, /VERA_HEAD_SHA: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.candidate \|\| github\.event\.pull_request\.head\.sha \}\}/);
   assert.match(docsJob, /git diff --check/);
-  assert.match(smokeJob, /^ {4}if: \$\{\{ github\.event_name == 'push' \}\}$/m);
+  assert.match(smokeJob, /^ {4}if: \$\{\{ github\.event_name == 'push' \|\| \(github\.event_name == 'workflow_dispatch' && inputs\.mode == 'smoke'\) \}\}$/m);
+  assert.match(smokeJob, /ref: \$\{\{ inputs\.candidate \|\| github\.sha \}\}\n {10}path: candidate/);
+  assert.match(smokeJob, /node-version-file: candidate\/\.nvmrc/);
   assert.match(smokeJob, /^ {10}node --test scripts\/cloud-evidence\.test\.mjs scripts\/agent-safety\.test\.mjs$/m);
   assert.match(smokeJob, /^ {10}uv run --no-project --python 3\.12\.14 python -m compileall -q python$/m);
   assert.doesNotMatch(smokeJob, /npm run validate(?::fast)?\b/);
-  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(workflow, /vars\.VERA_CI_QUEUE_ENABLED == 'true' && \(github\.event_name == 'pull_request' && format\('publication-\{0\}', github\.run_id\) \|\| 'vera-validation-slot'\)/);
+  assert.match(workflow, /format\('legacy-\{0\}', github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\)/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ vars\.VERA_CI_QUEUE_ENABLED != 'true' && github\.event_name == 'pull_request' \}\}/);
+  assert.match(validateJob, /cache: \$\{\{ github\.event_name != 'workflow_dispatch' && 'npm' \|\| '' \}\}/);
+  assert.match(validateJob, /enable-cache: \$\{\{ github\.event_name != 'workflow_dispatch' \}\}/);
 });
 
 test("runtime Markdown denylist covers every tracked Markdown path literal", () => {

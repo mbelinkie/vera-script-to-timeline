@@ -32,31 +32,45 @@ find problems, not to produce paperwork.
    read and follow [docs/CLAUDE_REVIEW_PLAYBOOK.md](CLAUDE_REVIEW_PLAYBOOK.md),
    including its exemptions and targeted delta-review rule. This applies to
    in-flight and future issues and supersedes older issue/plan review rituals.
-3. **Pull request validation in the cloud.** The GitHub Actions `Validate`
-   workflow classifies every PR before selecting exactly one validation gate.
-   A PR uses `Docs only` only when every changed path is an allowlisted root
-   Markdown file (`README.md`, `AGENTS.md`, `CLAUDE.md`, `DECISIONS.md`, or
-   `CONTEXT.md`) or `docs/**/*.md`, and every present file version is a regular
-   non-executable file. That job checks changed documentation with
-   `git diff --check`. Any source, test, workflow, contract, fixture,
-   dependency, unsupported, mixed, or empty change uses the complete
+3. **Pull request validation in the cloud.** While the CI queue is inactive,
+   the GitHub Actions `Validate` workflow classifies each PR before selecting
+   exactly one gate. A PR uses `Docs only` only when every changed path is an
+   allowlisted root Markdown file (`README.md`, `AGENTS.md`, `CLAUDE.md`,
+   `DECISIONS.md`, or `CONTEXT.md`) or `docs/**/*.md`, and every present file
+   version is a regular non-executable file. That job checks changed
+   documentation with `git diff --check`. Any source, test, workflow, contract,
+   fixture, dependency, unsupported, mixed, or empty change uses the complete
    `npm run validate` job. Markdown files named as runtime or test inputs also
    use the full gate. If Git cannot determine the pull request range,
    classification fails. Manual dispatch always runs the full gate.
-   The required `TypeScript and Python` check reports whether the selected job
-   passed. Pushes to `main` still run the short `Main smoke` job with existing
-   Node unit tests and a Python syntax check; it does not replace PR
-   validation. Standard runners are free for this public repository. Do not
-   run the full `npm run validate` on the Producer's Mac: it takes one to three
-   hours, occupies the machine and duplicates CI.
-4. **Merge.** Bring the branch up to date with `main`, then merge when local
-   fast checks pass and the PR's required `TypeScript and Python` check is
-   green. For a docs-only PR, that check confirms `Docs only` passed; all other
-   PRs confirm the complete suite passed. An issue is not done until its work
-   is merged into `main`. Do not watch CI.
-   Push, then do other work or end the turn and come back. If CI fails,
-   reproduce just the failing tests locally, fix and push. If the post-merge
-   `Main smoke` fails, fix forward through a PR.
+
+   When the CI queue is active, use its control issue and exact-SHA validation
+   process. Ordinary PR validation jobs are disabled; a ready entry runs the
+   same trusted classifier and selects `Docs only` or the full gate. The
+   controller posts the required `VERA queue validation` commit status on the
+   candidate SHA, merges only after its identity and base checks pass, then
+   dispatches smoke on the merge SHA. A dispatch-created job check does not
+   satisfy a required PR check. `/queue validate` can validate a draft without
+   authorizing merge. Activation, fallback, and recovery are documented in
+   [the CI queue guide](CI_QUEUE.md); the queue is currently inactive.
+
+   Pushes to `main` still run the short `Main smoke` job with existing Node
+   unit tests and a Python syntax check; it does not replace PR validation.
+   Standard runners are free for this public repository. Do not run the full
+   `npm run validate` on the Producer's Mac: it takes one to three hours,
+   occupies the machine and duplicates CI.
+4. **Merge.** While the queue is inactive, bring the branch up to date with
+   `main`, then merge when local fast checks pass and the PR's required
+   `TypeScript and Python` check is green. For a docs-only PR, that check
+   confirms `Docs only` passed; all other PRs confirm the complete suite
+   passed. When the queue is active, submit the exact ready head through the
+   control issue. The controller merges after required status and identity
+   checks pass, then confirms delivery only after smoke succeeds. An issue is
+   not done until its work is merged into `main`.
+   Do not poll Actions; follow the documented queue notification and recovery
+   path when the queue is active. If ordinary CI fails, reproduce just the
+   failing tests locally, fix and push. If a post-merge smoke fails, fix forward
+   through a PR.
 5. **Real-application checks.** Only when the issue changes DaVinci Resolve,
    Fusion or media behaviour that CI cannot exercise. Keep them short and
    targeted. Run them yourself through the available tooling where you can.
