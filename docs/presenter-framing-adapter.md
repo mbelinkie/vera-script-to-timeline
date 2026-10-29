@@ -62,6 +62,26 @@ stores a new immutable artifact and passes both returned fields to Python;
 it must not overwrite a prior build. The process-level bridge test checks this
 TypeScript-to-Python numeric/hash boundary using the real CLI.
 
+`prepare_presenter_master` consumes the request and caller-resolved media-pool
+handles. Resolve's native project UID is checked separately from the logical
+registration project ID. It verifies the exact `requestContentJson` bytes and
+hash before creating timelines, checks handle identity/path/rate against the
+resolved inputs, creates a new continuous Master and a separate generated
+framing target, and verifies source/record placement. Every Master video/audio
+track is locked and read back. This protects tracks; it is not a claim that the
+whole project is read-only. Hidden presenter intervals remain present on V1.
+The caller adds the independent B-roll overlay and runs the framing adapter
+against the returned generated target items.
+
+The standalone builder currently accepts explicitly reviewed synthetic identity
+color inputs and an independently prepared dialogue artifact. It applies no
+grade or audio processor. Picture and dialogue media frame rates must match the
+timeline on this bounded path; sample offsets must convert to exact integral
+source frames, with no rounding. A different audio placement route needs native
+qualification. Registration/ingest verification belongs to #43/#44 and the caller;
+passing a media handle does not replace those source checks. Track locks,
+placement and media APIs are covered by mocks here and still require live proof.
+
 The checked-in profile fixture contains synthetic test values and synthetic
 context labels. It is neither a calibrated look nor an Inspector conversion
 table. Do not use those values as production defaults.
@@ -71,9 +91,9 @@ table. Do not use those values as production defaults.
 - Finish end-to-end build integration of the #44 bridge. Its code is merged
   and the bridge has focused synthetic coverage; #44 still needs Producer
   acceptance and Closed/Done before #119 delivery.
-- Construct a new disposable protected Presenter Master using a registered
-  continuous synthetic picture, explicitly reviewed upstream color and an
-  independently synchronized processed-dialogue artifact. Preserve old targets.
+- Connect the builder to the registered synthetic inputs and run its protected
+  Master/separate-generated-target workflow in the disposable real project.
+  Verify its track locks and preserved old targets after save/reopen.
 - Qualify the unanswered RK-19/#118 delta: non-neutral native transform
   calibration, immediate and save/reopen readback, exact raster matching,
   distinct rendered crops, advancing source frames at direct boundaries and
