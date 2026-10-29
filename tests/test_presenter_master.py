@@ -512,7 +512,9 @@ def test_accepts_a_single_profile_treatment() -> None:
     [
         ("23.976", (24_000, 1_001)),
         ("29.97", (30_000, 1_001)),
+        ("47.952", (48_000, 1_001)),
         ("59.94", (60_000, 1_001)),
+        ("119.88", (120_000, 1_001)),
     ],
 )
 def test_identity_normalizes_only_known_resolve_ntsc_labels(

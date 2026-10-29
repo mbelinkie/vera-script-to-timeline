@@ -29,7 +29,9 @@ _HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _RESOLVE_NTSC_RATES = {
     "23.976": Fraction(24_000, 1_001),
     "29.97": Fraction(30_000, 1_001),
+    "47.952": Fraction(48_000, 1_001),
     "59.94": Fraction(60_000, 1_001),
+    "119.88": Fraction(120_000, 1_001),
 }
 
 
