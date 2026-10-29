@@ -39,8 +39,9 @@ blocked, rather than being accepted back into the source.
 the native proof. It serializes ownership with an exclusive directory lock,
 fsyncs a complete replacement, then atomically renames it. It refuses a new
 plan, verified-receipt replacement, uncertainty reset, or completed-attempt
-replacement. An abandoned lock or replacement file requires inspection; it is
-never cleared automatically.
+replacement. An abandoned lock requires inspection and is never cleared
+automatically. Each replacement has a unique name; interrupted replacement
+files remain retained without blocking a later authorized save.
 
 ## Evidence boundaries
 
@@ -55,10 +56,24 @@ The separate native harness is
 The supported experiment is two 24-frame video-only cut appends to one
 duplicate of an issue-owned synthetic timeline, with failure before append 2
 and a saved/reloaded retry. The original timeline stays unchanged and current
-at command boundaries. Per-append start/result records prevent replay after an
-unknown native call. Native receipts bind exact project/timeline identity,
+at normal command boundaries. Per-append start/result records prevent replay
+after an unknown native call. Native receipts bind exact project/timeline identity,
 media hashes, source bounds and timeline geometry. Reopening must retain both
 the duplicate and the original.
+
+The proof requires one exclusive Resolve operator. Its own bridge commands
+share a host lock and recheck the current target before appending; Resolve's
+current-timeline append API is not an atomic guard against a person switching
+timelines between calls. No concurrent manual editing is qualified. Setup
+requires no project currently loaded, so it cannot unload another project's
+unsaved work. Each append must save and read back before its finished receipt.
+
+A killed or timed-out command may leave the duplicate selected or the project
+closed. It remains an unknown operation, with no baseline promotion or automatic
+cleanup/replay; inspect the application and retained records before any further
+native work. A signal handler calling more native APIs would not establish that
+an earlier native call had drained. Source-end convention and the final actual
+save/reopen remain native qualification checks, not widened fake-test tolerances.
 
 This experiment introduces no transitions, audio processing, rendering, source
 replacement or arbitrary human finishing. It does not prove that those
@@ -68,7 +83,7 @@ qualify their capabilities and preserve or refuse affected unknown work.
 ## Results
 
 The reusable domain executor, selection/plan operations, file journal and
-native bridge are implemented. The 42 focused TypeScript tests and ten offline
+native bridge are implemented. The 43 focused TypeScript tests and 21 offline
 Python bridge tests pass. Native continuation is **pending**: the existing Resolve process
 was present, but Local scripting could not connect and the supported launcher
 timed out. No synthetic media or target was created by this proof. Existing

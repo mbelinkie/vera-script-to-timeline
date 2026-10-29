@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
+import os
 import stat
 from pathlib import Path
 from typing import Any
@@ -10,6 +12,11 @@ from typing import Any
 import pytest
 
 from scripts import issue328_native_bridge as bridge
+
+
+@pytest.fixture(autouse=True)
+def _private_native_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bridge, "NATIVE_LOCK_PATH", tmp_path / "native.lock")
 
 
 class Media:
@@ -42,6 +49,7 @@ class Item:
         self.start = start
         self.duration = duration
         self.source_start = source_start
+        self.enabled = True
 
     def GetUniqueId(self) -> str:
         return self.uid
@@ -67,6 +75,9 @@ class Item:
     def GetLeftOffset(self) -> float:
         return float(self.source_start)
 
+    def GetClipEnabled(self) -> bool:
+        return self.enabled
+
 
 class Timeline:
     def __init__(self, state: State, name: str, uid: str) -> None:
@@ -75,6 +86,10 @@ class Timeline:
         self.uid = uid
         self.video: list[Item] = []
         self.audio: list[Item] = []
+        self.video_track_count = 1
+        self.audio_track_count = 1
+        self.subtitle_track_count = 0
+        self.enabled_tracks: dict[tuple[str, int], bool] = {}
 
     def GetName(self) -> str:
         return self.name
@@ -101,7 +116,14 @@ class Timeline:
         return duplicate
 
     def GetTrackCount(self, kind: str) -> int:
-        return 1 if kind in {"video", "audio"} else 0
+        return {
+            "video": self.video_track_count,
+            "audio": self.audio_track_count,
+            "subtitle": self.subtitle_track_count,
+        }.get(kind, 0)
+
+    def GetIsTrackEnabled(self, kind: str, index: int) -> bool:
+        return self.enabled_tracks.get((kind, index), True)
 
     def GetItemListInTrack(self, kind: str, index: int) -> list[Item] | None:
         if index != 1:
@@ -279,7 +301,10 @@ class ProjectManager:
         return self.current
 
     def SaveProject(self) -> bool:
+        if not self.state.save_project_ok:
+            return False
         self.state.saved_project = self.current
+        self.state.save_count += 1
         return self.current is not None
 
     def CloseProject(self, project: Project) -> bool:
@@ -329,6 +354,8 @@ class State:
         self.drop_append_result = False
         self.change_ids_on_load = False
         self.rendering = False
+        self.save_project_ok = True
+        self.save_count = 0
         self._timeline_id = 0
         self._item_id = 0
 
@@ -385,6 +412,28 @@ def _command(action: str, session: dict[str, Any], **fields: Any) -> dict[str, A
     }
 
 
+def test_host_lock_covers_setup_and_refuses_nested_commands() -> None:
+    resolve = Resolve(State({}))
+    setup_request = {"schemaVersion": bridge.SCHEMA, "action": "setup"}
+    with bridge._native_lock():
+        pass
+    descriptor = os.open(bridge.NATIVE_LOCK_PATH, os.O_RDWR)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(ValueError, match="another #328 native bridge command"):
+            bridge.handle_command(setup_request, resolve)
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+    with (
+        bridge._native_lock(),
+        pytest.raises(ValueError, match="another #328 native bridge command"),
+    ):
+        bridge.handle_command(setup_request, resolve)
+    assert resolve.manager.GetCurrentProject() is None
+    assert resolve.manager.names == []
+
+
 def test_active_render_refuses_an_append_without_starting_it(tmp_path: Path) -> None:
     resolve, setup, _hashes, state = _case(tmp_path)
     state.rendering = True
@@ -402,8 +451,68 @@ def test_active_render_refuses_an_append_without_starting_it(tmp_path: Path) -> 
     assert not list(Path(setup["session"]["operationDir"]).glob("*.started.json"))
 
 
-def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("changed_state", "message"),
+    [
+        ("project", "current project identity changed before append"),
+        ("timeline", "current timeline identity changed before append"),
+    ],
+)
+def test_apply_rechecks_active_identity_immediately_before_append(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changed_state: str,
+    message: str,
+) -> None:
     resolve, setup, _hashes, _state = _case(tmp_path)
+    project = _current_project(resolve)
+    original, target = project.timelines
+    append = project.pool.AppendToTimeline
+    append_count = 0
+
+    def count_append(values: list[dict[str, Any]]) -> list[Item]:
+        nonlocal append_count
+        append_count += 1
+        return append(values)
+
+    monkeypatch.setattr(project.pool, "AppendToTimeline", count_append)
+    assert_active = bridge._assert_active
+
+    def change_identity_then_check(
+        manager: ProjectManager,
+        project_uid: str,
+        project_name: str,
+        timeline_uid: str,
+        timeline_name: str,
+    ) -> None:
+        if changed_state == "project":
+            project.uid = "changed-project-id"
+        else:
+            project.current = original
+        assert_active(manager, project_uid, project_name, timeline_uid, timeline_name)
+
+    monkeypatch.setattr(bridge, "_assert_active", change_identity_then_check)
+    session = setup["session"]
+    with pytest.raises(ValueError, match=message):
+        bridge.handle_command(
+            _command(
+                "apply",
+                session,
+                planSha256="9" * 64,
+                change=dict(bridge.CHANGES[0]),
+                currentTargetFingerprint=setup["observation"]["fingerprint"],
+            ),
+            resolve,
+        )
+    assert append_count == 0
+    assert len(original.video) == 1
+    assert len(target.video) == 1
+    assert _current_timeline(project).GetUniqueId() == session["originalUid"]
+
+
+def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    assert state.save_count == 1
     session = setup["session"]
     baseline = setup["observation"]["fingerprint"]
     assert (
@@ -445,6 +554,7 @@ def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) 
         ),
         resolve,
     )["receipt"]
+    assert state.save_count == 2
     assert blue == {
         "plan": plan,
         "change": "append-blue",
@@ -481,6 +591,7 @@ def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) 
         ),
         resolve,
     )["receipt"]
+    assert state.save_count == 3
     assert bridge.handle_command(
         _command("verify", session, planSha256=plan, change=blue_change, receipt=blue),
         resolve,
@@ -510,6 +621,7 @@ def test_setup_and_two_appends_bind_receipts_and_survive_reopen(tmp_path: Path) 
     reopened = bridge.handle_command(
         _command("reopen", session, planSha256=plan), resolve
     )
+    assert state.save_count == 4
     assert reopened == {
         "verified": True,
         "observation": {**setup["observation"], "fingerprint": red["after"]},
@@ -700,6 +812,41 @@ def test_apply_readback_mismatch_keeps_started_record_and_no_receipt(
     )
 
 
+def test_save_failure_leaves_started_only_unknown_attempt(tmp_path: Path) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    session = setup["session"]
+    plan = "8" * 64
+    state.save_project_ok = False
+    request = _command(
+        "apply",
+        session,
+        planSha256=plan,
+        change=dict(bridge.CHANGES[0]),
+        currentTargetFingerprint=setup["observation"]["fingerprint"],
+    )
+    with pytest.raises(ValueError, match="SaveProject failed"):
+        bridge.handle_command(request, resolve)
+    started = Path(session["operationDir"]) / f"{plan}-append-blue.started.json"
+    finished = Path(session["operationDir"]) / f"{plan}-append-blue.finished.json"
+    assert started.is_file()
+    assert not finished.exists()
+    assert (
+        bridge.handle_command(
+            _command(
+                "reconcile",
+                session,
+                planSha256=plan,
+                change=dict(bridge.CHANGES[0]),
+                currentTargetFingerprint=setup["observation"]["fingerprint"],
+            ),
+            resolve,
+        )["reconciliation"]
+        == "unknown"
+    )
+    with pytest.raises(ValueError, match="known-before"):
+        bridge.handle_command(request, resolve)
+
+
 def test_source_change_and_wrong_project_are_refused(tmp_path: Path) -> None:
     resolve, setup, _hashes, state = _case(tmp_path)
     session = setup["session"]
@@ -751,10 +898,65 @@ def test_setup_refuses_duplicate_project_and_audio_baseline(tmp_path: Path) -> N
     with pytest.raises(ValueError, match="already exists"):
         bridge.handle_command(request, duplicate_resolve)
 
+    prior_state = State(paths)
+    prior_resolve = Resolve(prior_state)
+    prior_project = Project(prior_state, "already-open", "prior-project")
+    prior_resolve.manager.current = prior_project
+    prior_resolve.manager.names.append("already-open")
+    with pytest.raises(ValueError, match="no project open"):
+        bridge.handle_command(request, prior_resolve)
+    assert prior_resolve.manager.GetCurrentProject() is prior_project
+    assert prior_resolve.manager.names == ["already-open"]
+    assert prior_state.saved_project is None
+
     audio_state = State(paths)
     audio_state.audio_on_empty = True
     with pytest.raises(ValueError, match="one exact 24-frame red video occurrence"):
         bridge.handle_command(request, Resolve(audio_state))
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        ("disabled-clip", "disabled clip"),
+        ("disabled-track", "video track 1 is disabled"),
+        ("subtitle-track", "subtitle tracks are unsupported"),
+        ("extra-video-track", "exactly one video track"),
+        ("extra-audio-track", "unsupported audio track count"),
+        ("audio-clip", "target contains unexpected geometry"),
+    ],
+)
+def test_observe_refuses_outside_the_cut_only_track_profile(
+    tmp_path: Path, profile: str, message: str
+) -> None:
+    resolve, setup, _hashes, state = _case(tmp_path)
+    target = _current_project(resolve).timelines[1]
+    if profile == "disabled-clip":
+        target.video[0].enabled = False
+    elif profile == "disabled-track":
+        target.enabled_tracks[("video", 1)] = False
+    elif profile == "subtitle-track":
+        target.subtitle_track_count = 1
+    elif profile == "extra-video-track":
+        target.video_track_count = 2
+    elif profile == "extra-audio-track":
+        target.audio_track_count = 2
+    else:
+        target.audio.append(Item(state.next_item_uid(), state.media[0], 24, 24))
+    with pytest.raises(ValueError, match=message):
+        bridge.handle_command(_command("observe", setup["session"]), resolve)
+
+
+def test_empty_audio_track_profile_allows_zero_tracks(tmp_path: Path) -> None:
+    resolve, setup, _hashes, _state = _case(tmp_path)
+    for timeline in _current_project(resolve).timelines:
+        timeline.audio_track_count = 0
+    assert (
+        bridge.handle_command(_command("observe", setup["session"]), resolve)[
+            "observation"
+        ]
+        == setup["observation"]
+    )
 
 
 def test_reopen_rejects_changed_timeline_identity(tmp_path: Path) -> None:

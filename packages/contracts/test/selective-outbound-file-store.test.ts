@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, expect, it } from "vitest";
@@ -65,4 +65,12 @@ it("refuses a new journal that claims work has already started", async () => {
   await store.exclusive(async () => {
     await expect(store.save({ ...attempt, outcomes: attempt.outcomes.map((outcome) => ({ ...outcome, status: "uncertain" as const })) })).rejects.toThrow("before native work");
   });
+});
+it("retains an interrupted replacement without blocking a fresh atomic save", async () => {
+  const { path, store, attempt } = await fixture();
+  const interrupted = `${path}.interrupted.next`;
+  await writeFile(interrupted, "partial replacement");
+  await store.exclusive(() => store.save(attempt));
+  expect(await store.load()).toEqual(attempt);
+  expect(await readFile(interrupted, "utf8")).toBe("partial replacement");
 });

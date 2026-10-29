@@ -1,4 +1,5 @@
 import { mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { loadOutbound } from "./selective-outbound.ts";
 import type { OutboundAttempt, OutboundStore } from "./selective-outbound.ts";
@@ -38,7 +39,7 @@ export function outboundFileStore(path: string): OutboundStore {
       } else if (attempt.outcomes.some((outcome) => !["unattempted", "skipped", "blocked"].includes(outcome.status))) {
         throw new Error("A new journal must start before native work");
       }
-      const temporary = `${path}.next`;
+      const temporary = `${path}.${randomUUID()}.next`;
       const file = await open(temporary, "wx", 0o600);
       try { await file.writeFile(bytes); await file.sync(); }
       finally { await file.close(); }

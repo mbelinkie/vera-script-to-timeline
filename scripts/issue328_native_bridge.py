@@ -2,25 +2,65 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib
 import json
 import math
 import os
 import re
+import stat
 import sys
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
 SCHEMA = "vera-issue-328-native-command/v1"
 SOURCE_REVISION = "issue328-public-synthetic-v1"
 PROJECT_PREFIX = "VERA_328_"
+NATIVE_LOCK_PATH = (
+    Path.home() / ".local/state/vera/resolve-delivery/issue328-native.lock"
+)
 SETTINGS = {
     "timelineFrameRate": "24",
     "timelineResolutionWidth": "640",
     "timelineResolutionHeight": "360",
 }
+_PROCESS_LOCK = threading.Lock()
+
+
+@contextmanager
+def _native_lock() -> Iterator[None]:
+    if not _PROCESS_LOCK.acquire(blocking=False):
+        raise ValueError("another #328 native bridge command is running")
+    descriptor: int | None = None
+    try:
+        NATIVE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(
+            NATIVE_LOCK_PATH,
+            os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+        metadata = os.fstat(descriptor)
+        _require(stat.S_ISREG(metadata.st_mode), "native bridge lock is not a file")
+        _require(
+            not hasattr(os, "getuid") or metadata.st_uid == os.getuid(),
+            "native bridge lock is owned by another user",
+        )
+        os.fchmod(descriptor, 0o600)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError("another #328 native bridge command is running") from error
+        yield
+    finally:
+        try:
+            if descriptor is not None:
+                os.close(descriptor)
+        finally:
+            _PROCESS_LOCK.release()
 
 
 class NativeChange(TypedDict):
@@ -320,6 +360,30 @@ def _set_current(project: Any, timeline: Any) -> None:
     )
 
 
+def _assert_active(
+    manager: Any,
+    project_uid: str,
+    project_name: str,
+    timeline_uid: str,
+    timeline_name: str,
+) -> None:
+    project = manager.GetCurrentProject()
+    _require(
+        project is not None
+        and project.GetUniqueId() == project_uid
+        and project.GetName() == project_name,
+        "current project identity changed before append",
+    )
+    current = project.GetCurrentTimeline()
+    _require(
+        current is not None
+        and current.GetUniqueId() == timeline_uid
+        and current.GetName() == timeline_name,
+        "current timeline identity changed before append",
+    )
+    _timeline(project, timeline_uid, timeline_name)
+
+
 def _geometry(
     project: Any, timeline: Any, media_by_source: dict[str, Any]
 ) -> list[dict[str, Any]]:
@@ -328,20 +392,32 @@ def _geometry(
         and project.GetCurrentTimeline().GetUniqueId() == timeline.GetUniqueId(),
         "timeline must be selected before active readback",
     )
+    video_count = _integer(timeline.GetTrackCount("video"), "video track count")
+    audio_count = _integer(timeline.GetTrackCount("audio"), "audio track count")
+    subtitle_count = _integer(
+        timeline.GetTrackCount("subtitle"), "subtitle track count"
+    )
+    _require(video_count == 1, "timeline must have exactly one video track")
+    _require(audio_count in {0, 1}, "timeline has an unsupported audio track count")
+    _require(subtitle_count == 0, "subtitle tracks are unsupported")
     rows: list[dict[str, Any]] = []
     item_ids: set[str] = set()
     for track_kind in ("video", "audio"):
-        count = _integer(
-            timeline.GetTrackCount(track_kind), f"{track_kind} track count"
-        )
-        _require(count >= 0, f"{track_kind} track count is invalid")
+        count = video_count if track_kind == "video" else audio_count
         for track_index in range(1, count + 1):
+            _require(
+                timeline.GetIsTrackEnabled(track_kind, track_index) is True,
+                f"{track_kind} track {track_index} is disabled",
+            )
             items = timeline.GetItemListInTrack(track_kind, track_index)
             _require(
                 type(items) in {list, tuple},
                 f"{track_kind} track {track_index} readback is unavailable",
             )
             for item in items:
+                _require(
+                    item.GetClipEnabled() is True, "timeline contains a disabled clip"
+                )
                 item_uid = _string(item.GetUniqueId(), "timeline item id")
                 _require(item_uid not in item_ids, "duplicate timeline item identity")
                 item_ids.add(item_uid)
@@ -696,8 +772,8 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
     manager = resolve.GetProjectManager()
     prior = manager.GetCurrentProject()
     _require(
-        prior is None or prior.IsRenderingInProgress() is False,
-        "prior project is rendering or render state is unknown",
+        prior is None,
+        "setup requires Resolve to have no project open",
     )
     names = manager.GetProjectListInCurrentFolder()
     _require(
@@ -736,18 +812,22 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
     )
     _set_current(project, original)
     red = readback["bySource"]["red"]
-    placed = pool.AppendToTimeline(
-        [
-            {
-                "mediaPoolItem": red,
-                "startFrame": 0,
-                "endFrame": 23,
-                "recordFrame": 0,
-                "trackIndex": 1,
-                "mediaType": 1,
-            }
-        ]
+    original_append = {
+        "mediaPoolItem": red,
+        "startFrame": 0,
+        "endFrame": 23,
+        "recordFrame": 0,
+        "trackIndex": 1,
+        "mediaType": 1,
+    }
+    _assert_active(
+        manager,
+        _string(project.GetUniqueId(), "project id"),
+        project_name,
+        _string(original.GetUniqueId(), "original timeline id"),
+        original_name,
     )
+    placed = pool.AppendToTimeline([original_append])
     _require(
         type(placed) in {list, tuple} and len(placed) == 1,
         "original red occurrence did not append once",
@@ -818,9 +898,35 @@ def _setup(request: dict[str, Any], resolve: Any) -> dict[str, Any]:
     }
     session = _session(session)
     readback = _source_readback(project, session["sources"])
+    try:
+        _restore_original(project, original, readback["bySource"], original_geometry)
+        _assert_active(
+            manager,
+            session["projectUid"],
+            session["projectName"],
+            session["originalUid"],
+            session["originalName"],
+        )
+        _require(manager.SaveProject() is True, "SaveProject failed")
+        _set_current(project, target)
+        _assert_active(
+            manager,
+            session["projectUid"],
+            session["projectName"],
+            session["targetUid"],
+            session["targetName"],
+        )
+        saved_readback = _source_readback(project, session["sources"])
+        saved_geometry = _geometry(project, target, saved_readback["bySource"])
+        _require(
+            saved_geometry == target_geometry,
+            "saved target differs from its setup baseline",
+        )
+    finally:
+        _restore_original(project, original, readback["bySource"], original_geometry)
     return {
         "session": session,
-        "observation": _observation(session, target_geometry, readback),
+        "observation": _observation(session, saved_geometry, saved_readback),
     }
 
 
@@ -865,6 +971,13 @@ def _apply(
         )
         pool = project.GetMediaPool()
         media = readback["bySource"][change["sourceId"]]
+        _assert_active(
+            resolve.GetProjectManager(),
+            session["projectUid"],
+            session["projectName"],
+            session["targetUid"],
+            session["targetName"],
+        )
         placed = pool.AppendToTimeline(
             [
                 {
@@ -886,12 +999,39 @@ def _apply(
             after == after_geometry,
             "AppendToTimeline readback differs from the exact expected append",
         )
+        original = _timeline(project, session["originalUid"], session["originalName"])
+        _restore_original(
+            project, original, readback["bySource"], session["originalGeometry"]
+        )
+        manager = resolve.GetProjectManager()
+        _assert_active(
+            manager,
+            session["projectUid"],
+            session["projectName"],
+            session["originalUid"],
+            session["originalName"],
+        )
+        _require(manager.SaveProject() is True, "SaveProject failed")
+        _set_current(project, target)
+        _assert_active(
+            manager,
+            session["projectUid"],
+            session["projectName"],
+            session["targetUid"],
+            session["targetName"],
+        )
+        saved_readback = _source_readback(project, session["sources"])
+        saved_geometry = _geometry(project, target, saved_readback["bySource"])
+        _require(
+            saved_geometry == after_geometry,
+            "saved target differs from the exact expected append",
+        )
         receipt = {
             "plan": plan,
             "change": change["id"],
             "target": f"{session['projectUid']}:{session['targetUid']}",
             "before": before_fingerprint,
-            "after": _fingerprint(after),
+            "after": _fingerprint(saved_geometry),
         }
         _write_journal(
             finished_path,
@@ -1065,6 +1205,13 @@ def _reopen(resolve: Any, session: dict[str, Any]) -> dict[str, Any]:
             "target geometry is not a known append prefix",
         )
         _set_current(project, original)
+        _assert_active(
+            manager,
+            session["projectUid"],
+            session["projectName"],
+            session["originalUid"],
+            session["originalName"],
+        )
         _require(manager.SaveProject() is True, "SaveProject failed")
         _require(manager.CloseProject(project) is True, "CloseProject failed")
         reopened = manager.LoadProject(session["projectName"])
@@ -1143,7 +1290,9 @@ def _reopen(resolve: Any, session: dict[str, Any]) -> dict[str, Any]:
         raise
 
 
-def handle_command(request: Any, resolve: Any | None = None) -> dict[str, Any]:
+def _handle_command_unlocked(
+    request: Any, resolve: Any | None = None
+) -> dict[str, Any]:
     _require(
         type(request) is dict and request.get("schemaVersion") == SCHEMA,
         "unsupported command schema",
@@ -1178,6 +1327,11 @@ def handle_command(request: Any, resolve: Any | None = None) -> dict[str, Any]:
         _plan_hash(request.get("planSha256"))
         return _reopen(resolve, session)
     raise ValueError("unsupported native bridge action")
+
+
+def handle_command(request: Any, resolve: Any | None = None) -> dict[str, Any]:
+    with _native_lock():
+        return _handle_command_unlocked(request, resolve)
 
 
 def main() -> None:
