@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local proxy playback experiment · #91</title>
+<style>
+  body{font:16px system-ui;margin:24px auto;padding:0 20px;max-width:1080px;color:#17191e;background:#eef0f4}
+  h1{font-size:23px}button,select{font:inherit;padding:8px;margin:4px}label{display:inline-block;margin:8px}
+  #stage{position:relative;width:min(720px,100%);aspect-ratio:16/9;background:#111;overflow:hidden}
+  video{position:absolute;width:100%;height:100%;object-fit:contain;visibility:hidden}
+  video.active{visibility:visible}#status{font-weight:600;min-height:1.5em}#seek{width:80%}
+  pre{white-space:pre-wrap;font:12px ui-monospace;background:white;padding:12px;max-height:340px;overflow:auto}
+  #live{font:14px ui-monospace} :focus-visible{outline:3px solid #3366bb}
+</style>
+<h1>Live proxy assembly · diagnostic experiment</h1>
+<p>Existing local proxy video + verified audio. No encoded composite, backend, upload or Resolve operation.</p>
+<label>Sequence <select id="sequence"><option value="partial">A → partial B → A</option><option value="distant">A → distant A → earlier A</option><option value="continuous">Continuous A → B → A (same recording)</option></select></label>
+<label><input type="checkbox" id="gray" checked> Show source B in black and white</label>
+<label><input type="checkbox" id="audioOnly" checked> Audio-only assembly preview</label>
+<label>Audio <select id="mode"><option value="scheduled">Scheduled Web Audio</option><option value="native">Independent media elements (control)</option></select></label>
+<button id="load">Load local proxies</button>
+<p id="status" role="status">Not loaded</p>
+<div id="stage" aria-label="Proxy preview"></div>
+<p id="live">—</p>
+<button id="play" disabled>Play</button><button id="pause" disabled>Pause</button>
+<button id="run" disabled>Run measured playback</button><button id="cancel" disabled>Cancel measurements</button>
+<button id="stall" disabled>Simulate unready next segment</button>
+<p><label>Assembly position <input id="seek" type="range" min="0" max="8" step="0.01" value="0" disabled></label></p>
+<button id="before" disabled>Seek before first join</button><button id="after" disabled>Seek after first join</button>
+<p>Wide/Tight are CSS preview transforms only; this does not qualify Resolve framing. Synthetic frame counters/tone test mechanics, not real performance taste.</p>
+<h2>Measurement report</h2><pre id="report" aria-live="polite">{}</pre>
+<script type="module" src="/player.mjs"></script>
+</html>
