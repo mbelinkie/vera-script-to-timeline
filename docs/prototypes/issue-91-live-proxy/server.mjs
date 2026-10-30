@@ -145,6 +145,7 @@ export async function createExperimentServer({ aPath, bPath, audioAPath, audioBP
     ['/', { path: resolve(ROOT, 'player.html') }],
     ['/player.mjs', { path: resolve(ROOT, 'player.mjs') }],
     ['/assembly.mjs', { path: resolve(ROOT, 'assembly.mjs') }],
+    ['/meter.mjs', { path: resolve(ROOT, 'meter.mjs') }],
     ['/media/a', a], ['/media/b', b],
     ...(audioA ? [['/audio/a', audioA]] : []),
     ...(audioB ? [['/audio/b', audioB]] : []),

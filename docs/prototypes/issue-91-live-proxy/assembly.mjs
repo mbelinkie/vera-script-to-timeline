@@ -21,6 +21,11 @@ export function position(parts, time) {
 }
 
 export const cases = {
+  continuous: assemble([
+    { source: "a", in: 1, out: 3, framing: "wide" },
+    { source: "b", in: 3, out: 5, framing: "wide" },
+    { source: "a", in: 5, out: 7, framing: "wide" },
+  ]),
   partial: assemble([
     { source: "a", in: 1, out: 4, framing: "wide" },
     { source: "b", in: 2, out: 4, framing: "tight" },

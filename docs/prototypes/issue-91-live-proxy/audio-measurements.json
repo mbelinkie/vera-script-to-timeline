@@ -1,0 +1,83 @@
+{
+  "measured_on": "2026-10-30",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "source_condition": "Two separate byte-identical files; existing #44 numbered-frame 440 Hz tone proxy and aligned WAV handoffs. Audio-only shared-clock assembly; no composite encoding.",
+  "measurement": "AudioWorklet graph output, not physical speaker capture. Missing-input silence checked by focused negative-control test.",
+  "cases": [
+    {
+      "case": "continuous",
+      "duration": 6,
+      "complete": true,
+      "audioOnly": true,
+      "videoElements": 0,
+      "decodedAudioBytes": 230630400,
+      "audioOutput": {
+        "blocks": 2251,
+        "expectedFrames": 288000,
+        "longestSilenceMs": 0,
+        "observedFrames": 288000,
+        "silentBlocks": 0,
+        "windowComplete": true
+      }
+    },
+    {
+      "case": "partial",
+      "duration": 8,
+      "complete": true,
+      "audioOnly": true,
+      "videoElements": 0,
+      "decodedAudioBytes": 230630400,
+      "audioOutput": {
+        "blocks": 3001,
+        "expectedFrames": 384000,
+        "longestSilenceMs": 0,
+        "observedFrames": 384000,
+        "silentBlocks": 0,
+        "windowComplete": true
+      }
+    },
+    {
+      "case": "distant",
+      "duration": 6,
+      "complete": true,
+      "audioOnly": true,
+      "videoElements": 0,
+      "decodedAudioBytes": 230630400,
+      "audioOutput": {
+        "blocks": 2251,
+        "expectedFrames": 288000,
+        "longestSilenceMs": 0,
+        "observedFrames": 288000,
+        "silentBlocks": 0,
+        "windowComplete": true
+      }
+    }
+  ],
+  "limits": [
+    "No seamless assembled-video qualification",
+    "No real presenter proxy produced: normal source inspection rejected missing/changing decoded SDR metadata",
+    "No word matching, take approval, persisted assembly or Resolve output",
+    "Both ten-minute WAVs decoded whole; long-media resource use not qualified"
+  ],
+  "ui_checks": {
+    "distant_join_seeks": [
+      {
+        "assembly": 1.9,
+        "source": "a",
+        "sourceTime": 2.9
+      },
+      {
+        "assembly": 2.1,
+        "source": "a",
+        "sourceTime": 8.1
+      }
+    ],
+    "play_pause": "Observed pause at assembly 2.8553 s; slider retained rounded 2.86 s in a later read",
+    "keyboard_seek": {
+      "assembly": 0.01,
+      "source": "a",
+      "sourceTime": 1.01
+    },
+    "cancel_after_prior_success": "Measurement cancelled at 0.6113 s; no complete:true field retained"
+  }
+}

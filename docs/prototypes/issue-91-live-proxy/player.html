@@ -14,7 +14,9 @@
 </style>
 <h1>Live proxy assembly · diagnostic experiment</h1>
 <p>Existing local proxy video + verified audio. No encoded composite, backend, upload or Resolve operation.</p>
-<label>Sequence <select id="sequence"><option value="partial">A → partial B → A</option><option value="distant">A → distant A → earlier A</option></select></label>
+<label>Sequence <select id="sequence"><option value="partial">A → partial B → A</option><option value="distant">A → distant A → earlier A</option><option value="continuous">Continuous A → B → A (same recording)</option></select></label>
+<label><input type="checkbox" id="gray" checked> Show source B in black and white</label>
+<label><input type="checkbox" id="audioOnly" checked> Audio-only assembly preview</label>
 <label>Audio <select id="mode"><option value="scheduled">Scheduled Web Audio</option><option value="native">Independent media elements (control)</option></select></label>
 <button id="load">Load local proxies</button>
 <p id="status" role="status">Not loaded</p>
