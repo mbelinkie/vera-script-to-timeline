@@ -1,7 +1,7 @@
 #!/bin/zsh
 #
-# Double-click in Finder to generate and open the live VERA progress
-# dashboard. Keep this file in the root of the VERA repository (next to
+# Double-click in Finder to generate and open the auto-refreshing VERA
+# progress dashboard. Keep this file in the root of the VERA repository (next to
 # package.json).
 #
 # Set VERA_PROGRESS_NO_OPEN=1 to generate the dashboard without opening it.
@@ -130,17 +130,21 @@ fi
 echo "Using Node $(node -v) and npm $(npm -v)"
 echo
 
-arguments=()
-if [[ "${VERA_PROGRESS_NO_OPEN:-0}" != "1" ]]; then
-  arguments=(-- --open)
-fi
-
-npm run progress "${arguments[@]}" \
-  || fail "The live VERA progress dashboard could not be generated. See the output above."
-
-echo
 if [[ "${VERA_PROGRESS_NO_OPEN:-0}" == "1" ]]; then
-  echo "✓ Live VERA progress for both boards generated."
+  npm run progress \
+    || fail "The VERA progress dashboard could not be generated. See the output above."
+  echo
+  echo "✓ VERA progress snapshot generated."
 else
-  echo "✓ Live VERA progress for both boards opened in your browser."
+  echo "Starting live dashboard. Keep this Terminal window open for updates."
+  echo "Press Ctrl+C when you're finished."
+  echo
+  # The live server remains in the foreground intentionally. Launch success,
+  # refresh status and any errors are reported by the Node process itself.
+  npm run progress -- --serve --open
+  result=$?
+  if (( result != 0 && result != 130 && result != 143 )); then
+    fail "The live VERA progress dashboard stopped unexpectedly. See the output above."
+  fi
+  echo "Dashboard server stopped."
 fi
