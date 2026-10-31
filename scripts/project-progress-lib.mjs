@@ -152,6 +152,38 @@ function optionalText(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+// GitHub CLI JSON flattens custom Project fields onto each item. Accept either
+// the display name or the CLI camelCase spelling; absent fields are optional.
+function projectField(item, name) {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const key = Object.keys(item).find((candidate) =>
+    candidate.toLowerCase().replace(/[^a-z0-9]/g, "") === normalized);
+  return key === undefined ? null : item[key];
+}
+
+function readQueueOrder(item) {
+  const raw = projectField(item, "Queue Order");
+  if (raw === null || raw === undefined || raw === "") return { value: null, invalid: false };
+  const value = Number(typeof raw === "object" && raw !== null ? raw.number ?? raw.value : raw);
+  return Number.isSafeInteger(value) && value > 0
+    ? { value, invalid: false }
+    : { value: null, invalid: true };
+}
+
+function readMilestoneOrder(item) {
+  const raw = projectField(item, "Milestone Order");
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = Number(typeof raw === "object" && raw !== null ? raw.number ?? raw.value : raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
+function issueLocation(url) {
+  const match = /^https:\/\/github\.com\/([^/?#]+)\/([^/?#]+)\/issues\/(\d+)(?:[/?#]|$)/i.exec(url ?? "");
+  if (!match) return null;
+  return { owner: match[1], repo: match[2], number: Number(match[3]),
+    url: `https://github.com/${match[1]}/${match[2]}/issues/${match[3]}` };
+}
+
 function parseItem(item) {
   if (item.content?.type !== "Issue") {
     throw new Error(`Project item ${item.title ?? "(untitled)"} must be a GitHub Issue`);
@@ -164,10 +196,21 @@ function parseItem(item) {
     throw new Error(`Project issue #${number} has unsupported project status: ${item.status}`);
   }
   const labels = Array.isArray(item.labels) ? item.labels : [];
+  const queue = readQueueOrder(item);
   return {
     number,
     title,
     url,
+    repository: issueLocation(url)?.repo ?? null,
+    queueOrder: queue.value,
+    queueOrderInvalid: queue.invalid,
+    programMilestone: optionalText((() => {
+      const field = projectField(item, "Program Milestone");
+      return typeof field === "object" && field !== null ? field.name ?? field.value : field;
+    })()),
+    milestoneOrder: readMilestoneOrder(item),
+    // Optional fixture-only dependencies; real data comes from the GitHub API.
+    blockedBy: Array.isArray(item.blockedBy) ? item.blockedBy : null,
     status: item.status,
     type: onePrefixedLabel(labels, "type:", number),
     model: onePrefixedLabel(labels, "model:", number),
@@ -190,6 +233,12 @@ function parseHistoricalRecord(item, index) {
     number: `historical-${item.content.id ?? item.id ?? index}`,
     title: item.content.title ?? item.title,
     url: "",
+    repository: null,
+    queueOrder: null,
+    queueOrderInvalid: false,
+    programMilestone: null,
+    milestoneOrder: null,
+    blockedBy: null,
     status: "Done",
     type: "historical",
     model: "n/a",
@@ -218,8 +267,11 @@ export function parseProjectItems(projectDocument) {
   const items = projectDocument.items.map((item, index) => {
     if (isHistoricalRecord(item)) return parseHistoricalRecord(item, index);
     const parsed = parseItem(item);
-    if (seen.has(parsed.number)) throw new Error(`Duplicate project issue #${parsed.number}`);
-    seen.add(parsed.number);
+    // Issue numbers are only unique *within* a repository, not across a
+    // cross-repository GitHub Project. Compare canonical URLs instead.
+    const key = issueLocation(parsed.url)?.url.toLowerCase() ?? `number:${parsed.number}`;
+    if (seen.has(key)) throw new Error(`Duplicate project issue #${parsed.number}`);
+    seen.add(key);
     return parsed;
   });
 
@@ -477,12 +529,239 @@ function formatGeneratedAt(date) {
   }).format(date);
 }
 
+// A GitHub-wide queue assembled from both existing Projects, with issues
+// de-duplicated by URL. The dashboard audits, but never silently changes, rank.
+export function buildSharedRoadmap(models, dependencySnapshot = {}) {
+  const projects = Array.isArray(models) ? models : [models];
+  const byUrl = new Map();
+  const warnings = [];
+  for (const model of projects) {
+    for (const item of model.workItems ?? []) {
+      const location = issueLocation(item.url);
+      if (!location || item.type === "historical") continue;
+      const key = location.url.toLowerCase();
+      const candidate = { ...item, ...location, projectTitle: model.projectTitle ?? "VERA", key };
+      const previous = byUrl.get(key);
+      if (!previous) { byUrl.set(key, candidate); continue; }
+      // A shared master Project may contain an issue also present on its
+      // original research board. A rank on one board wins over an empty rank.
+      if (previous.queueOrder !== null && candidate.queueOrder !== null
+        && previous.queueOrder !== candidate.queueOrder) {
+        warnings.push(`Conflicting Queue Order for ${location.owner}/${location.repo}#${location.number} across Projects.`);
+      }
+      if (previous.programMilestone && candidate.programMilestone
+        && previous.programMilestone !== candidate.programMilestone) {
+        warnings.push(`Conflicting Program Milestone for ${location.owner}/${location.repo}#${location.number}.`);
+      }
+      if (previous.size && candidate.size && previous.size.toLowerCase() !== candidate.size.toLowerCase()) {
+        warnings.push(`Conflicting Size for ${location.owner}/${location.repo}#${location.number} across Projects.`);
+      }
+      if (previous.queueOrder === null && candidate.queueOrder !== null) {
+        // Retain size from the issue's original board when the master board
+        // supplies the queue position but has not been sized yet.
+        byUrl.set(key, { ...previous, ...candidate, size: candidate.size ?? previous.size,
+          blockedBy: candidate.blockedBy ?? previous.blockedBy });
+      } else {
+        if (!previous.size && candidate.size) previous.size = candidate.size;
+        if (!previous.programMilestone && candidate.programMilestone) {
+          previous.programMilestone = candidate.programMilestone;
+          previous.milestoneOrder = candidate.milestoneOrder;
+        }
+      }
+    }
+  }
+
+  const all = [...byUrl.values()];
+  const queue = all.filter((item) => item.queueOrder !== null)
+    .sort((a, b) => a.queueOrder - b.queueOrder || a.key.localeCompare(b.key));
+  const queuedByKey = new Map(queue.map((item) => [item.key, item]));
+  const usedOrder = new Map();
+  for (const item of queue) {
+    if (usedOrder.has(item.queueOrder)) {
+      warnings.push(`Queue #${item.queueOrder} is assigned to both ${usedOrder.get(item.queueOrder)} and ${item.owner}/${item.repo}#${item.number}.`);
+    } else usedOrder.set(item.queueOrder, `${item.owner}/${item.repo}#${item.number}`);
+  }
+
+  const providedDependencies = dependencySnapshot.dependencies ?? {};
+  const verified = new Set((dependencySnapshot.verified ?? []).map((value) => value.toLowerCase()));
+  const unavailable = new Set();
+  const dependencyErrors = [...(dependencySnapshot.errors ?? [])];
+  for (const item of queue) {
+    const entry = providedDependencies[item.key] ?? providedDependencies[item.url]
+      ?? item.blockedBy;
+    const hasFixture = Array.isArray(item.blockedBy);
+    const known = Array.isArray(entry) && (verified.has(item.key) || hasFixture);
+    if (!known) unavailable.add(item.key);
+    item.dependenciesVerified = known;
+    item.dependencies = (Array.isArray(entry) ? entry : []).map((dep) => {
+      const url = typeof dep === "string" ? dep : dep.url ?? dep.html_url;
+      const location = issueLocation(url);
+      const prerequisite = location ? queuedByKey.get(location.url.toLowerCase()) : null;
+      const bad = !prerequisite || prerequisite.queueOrder >= item.queueOrder;
+      if (bad) warnings.push(`${item.owner}/${item.repo}#${item.number} at #${item.queueOrder} depends on ${location ? `${location.owner}/${location.repo}#${location.number}` : String(url)} ${prerequisite ? `at #${prerequisite.queueOrder}` : "which has no queue position"}.`);
+      return {
+        url: location?.url ?? null,
+        label: location ? `${location.repo}#${location.number}` : "Unknown issue",
+        queueOrder: prerequisite?.queueOrder ?? null,
+        isOpen: prerequisite ? prerequisite.status !== "Done" : (dep?.state === "OPEN" || dep?.state === "open"),
+        invalid: bad,
+      };
+    });
+  }
+
+  const invalidRankCount = all.filter((item) => item.queueOrderInvalid).length;
+  if (invalidRankCount) warnings.push(`${invalidRankCount} issues have an invalid Queue Order (must be a positive integer).`);
+  const unassignedMilestones = queue.filter((item) => !item.programMilestone).length;
+  if (unassignedMilestones) warnings.push(`${unassignedMilestones} queued issues have no Program Milestone.`);
+
+  const milestoneMap = new Map();
+  for (const item of all) {
+    if (!item.programMilestone) continue;
+    const name = item.programMilestone;
+    if (!milestoneMap.has(name)) milestoneMap.set(name, { name, items: [], order: Infinity, earliestQueue: Infinity });
+    const milestone = milestoneMap.get(name);
+    milestone.items.push(item);
+    if (item.milestoneOrder !== null && Number.isFinite(milestone.order)
+      && milestone.order !== item.milestoneOrder) {
+      warnings.push(`Program Milestone ${name} has conflicting Milestone Order values: ${milestone.order} and ${item.milestoneOrder}.`);
+    }
+    if (item.milestoneOrder !== null) milestone.order = Math.min(milestone.order, item.milestoneOrder);
+    if (item.queueOrder !== null) milestone.earliestQueue = Math.min(milestone.earliestQueue, item.queueOrder);
+  }
+  const milestones = [...milestoneMap.values()].map((milestone) => {
+    const done = milestone.items.filter((item) => item.status === "Done").length;
+    return { ...milestone, done, total: milestone.items.length,
+      percent: milestone.items.length ? Math.round(100 * done / milestone.items.length) : 0 };
+  }).sort((a, b) => a.order - b.order || a.earliestQueue - b.earliestQueue || a.name.localeCompare(b.name));
+  return {
+    queue, milestones, warnings, dependencyErrors,
+    unverifiedCount: unavailable.size,
+    unqueuedCount: all.filter((item) => item.status !== "Done" && item.queueOrder === null).length,
+    duplicateCount: projects.reduce((n, model) => n + (model.workItems?.filter((i) => issueLocation(i.url)).length ?? 0), 0) - all.length,
+  };
+}
+
+// Native GitHub issue dependencies (including across repositories) are read
+// through GraphQL in bounded batches. Read-only; failures are surfaced instead
+// of being mistaken for an empty dependency graph.
+export async function fetchNativeDependencies(repositoryRoot, models, options = {}) {
+  const items = buildSharedRoadmap(models).queue;
+  const dependencies = {};
+  const verified = [];
+  const errors = [];
+  const fetchGraphql = options.queryGraphql ?? (async (query) => {
+    const { stdout } = await execFileAsync("gh", ["api", "graphql", "-f", `query=${query}`],
+      { cwd: repositoryRoot, maxBuffer: 10 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  });
+  // Keep individual GraphQL documents small, and do not silently claim to have
+  // audited issues if a request fails or returns a partial dependency list.
+  const BATCH_SIZE = 15;
+  for (let start = 0; start < items.length; start += BATCH_SIZE) {
+    const batch = items.slice(start, start + BATCH_SIZE);
+    const fields = batch.map((item, index) =>
+      `i${index}: repository(owner:${JSON.stringify(item.owner)},name:${JSON.stringify(item.repo)}) { issue(number:${item.number}) { blockedBy(first:50) { totalCount pageInfo { hasNextPage } nodes { url state } } } }`);
+    try {
+      const data = await fetchGraphql(`query VeraQueueDependencies { ${fields.join(" ")} }`);
+      if (data.errors?.length) throw new Error(data.errors.map((entry) => entry.message).join("; "));
+      for (const [index, item] of batch.entries()) {
+        const result = data.data?.[`i${index}`]?.issue?.blockedBy;
+        if (!result || !Array.isArray(result.nodes) || result.pageInfo?.hasNextPage
+          || result.totalCount !== result.nodes.length) {
+          errors.push(`Dependency list incomplete for ${item.owner}/${item.repo}#${item.number}.`);
+          continue;
+        }
+        dependencies[item.key] = result.nodes;
+        verified.push(item.key);
+      }
+    } catch (error) {
+      errors.push(`Dependency check failed for ${batch.length} queued issues: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { dependencies, verified, errors };
+}
+
+// The existing GitHub Project Size field is a relative estimate, not a time
+// commitment. Keep unfamiliar custom options visible rather than inventing
+// an interpretation. Normalize common abbreviations for easy scanning.
+function describeSize(value) {
+  const raw = optionalText(value);
+  if (!raw) return { key: "unsized", label: "Unassigned", display: "Unassigned", sort: 99 };
+  const definitions = [
+    ["XS", "Extra small", ["XS", "EXTRA SMALL", "EXTRA-SMALL"]],
+    ["S", "Small", ["S", "SMALL"]],
+    ["M", "Medium", ["M", "MEDIUM"]],
+    ["L", "Large", ["L", "LARGE"]],
+    ["XL", "Extra large", ["XL", "EXTRA LARGE", "EXTRA-LARGE", "VERY LARGE"]],
+    ["XXL", "Huge", ["XXL", "HUGE", "EXTRA EXTRA LARGE"]],
+  ];
+  const upper = raw.toUpperCase();
+  for (const [index, [short, name, aliases]] of definitions.entries()) {
+    if (aliases.includes(upper)) return { key: short.toLowerCase(), label: name,
+      display: `${short} · ${name}`, sort: index };
+  }
+  return { key: `custom:${raw.toLowerCase()}`, label: raw, display: raw, sort: 90 };
+}
+
+function renderSharedRoadmap(roadmap) {
+  const warnings = [...roadmap.warnings, ...roadmap.dependencyErrors];
+  const completeAudit = roadmap.queue.length > 0 && roadmap.unverifiedCount === 0;
+  const audit = roadmap.queue.length === 0
+    ? "No queue entries yet. Add Queue Order to GitHub Project issues to begin."
+    : !completeAudit
+      ? `${roadmap.unverifiedCount} queued issues not dependency-verified. Do not assume the order is valid.`
+      : warnings.length > 0
+        ? `${warnings.length} queue or milestone configuration problem(s) detected.`
+        : "All queued issue dependencies are ordered correctly.";
+  const issueLink = (item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.repo)}#${item.number}: ${escapeHtml(item.title)}</a>`;
+  const milestoneMarkup = roadmap.milestones.length
+    ? roadmap.milestones.map((m) => `<article class="milestone"><div class="milestone-name">${escapeHtml(m.name)}<b>${m.done}/${m.total}</b></div><div class="track" role="img" aria-label="${escapeHtml(m.name)} ${m.percent}% complete"><span class="milestone-fill" style="width:${m.percent}%"></span></div><p>${m.percent}% complete</p></article>`).join("")
+    : '<p class="empty">No program milestones assigned yet. Set the Program Milestone field on GitHub Project items.</p>';
+  const sizeChoices = [...new Map(roadmap.queue.map((item) => {
+    const size = describeSize(item.size);
+    return [size.key, size];
+  })).values()].sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+  const queueRows = roadmap.queue.map((item) => {
+    const size = describeSize(item.size);
+    const deps = item.dependenciesVerified
+      ? item.dependencies.length
+        ? item.dependencies.map((d) => `${d.url ? `<a href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.label)}</a>` : escapeHtml(d.label)}${d.invalid ? ' <strong class="queue-bad">Out of order</strong>' : d.isOpen ? ' <span class="queue-wait">Open</span>' : ''}`).join(", ")
+        : "None"
+      : '<span class="queue-wait">Not verified</span>';
+    return `<tr data-repository="${escapeHtml(item.repo.toLowerCase())}" data-queue-status="${escapeHtml(item.status)}" data-queue-size="${escapeHtml(size.key)}"><td class="order">${item.queueOrder}</td><td>${issueLink(item)}</td><td>${escapeHtml(item.projectTitle)}</td><td>${escapeHtml(item.status)}</td><td><span class="queue-size${size.key === "unsized" ? " queue-size-missing" : ""}" title="${escapeHtml(size.label)}">${escapeHtml(size.display)}</span></td><td>${escapeHtml(item.programMilestone ?? "Unassigned")}</td><td>${deps}</td></tr>`;
+  }).join("");
+  return `<section class="shared-roadmap" aria-labelledby="master-roadmap-title">
+    <div class="section-head"><h2 id="master-roadmap-title">Master execution queue</h2><span class="queue-note">Across both GitHub Projects · read-only</span></div>
+    <div class="queue-kpis"><span><b>${roadmap.queue.length}</b> ordered issues</span><span><b>${roadmap.unqueuedCount}</b> unqueued active issues</span><span><b>${roadmap.milestones.length}</b> milestones</span></div>
+    <p class="audit${warnings.length || !completeAudit ? ' audit-warning' : ''}">${escapeHtml(audit)}</p>
+    ${warnings.length ? `<details class="queue-warnings"><summary>Review ${warnings.length} issue(s) and warning(s)</summary><ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></details>` : ""}
+    <div class="section-head"><h2>Program milestones</h2></div><div class="milestones">${milestoneMarkup}</div>
+    <div class="queue-filter"><label for="queue-repo">Repository</label><select id="queue-repo"><option value="all">All repositories</option>${[...new Set(roadmap.queue.map((item) => item.repo))].sort().map((repo) => `<option value="${escapeHtml(repo.toLowerCase())}">${escapeHtml(repo)}</option>`).join("")}</select><label for="queue-state">Status</label><select id="queue-state"><option value="all">All statuses</option><option value="active">Not done</option><option value="done">Done</option></select><label for="queue-size">Size</label><select id="queue-size"><option value="all">All sizes</option>${sizeChoices.map((size) => `<option value="${escapeHtml(size.key)}">${escapeHtml(size.display)}</option>`).join("")}</select><span id="queue-visible" class="queue-note"></span></div>
+    <div class="queue-table-wrap"><table class="queue-table"><thead><tr><th scope="col">Queue</th><th scope="col">Issue</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Size</th><th scope="col">Program milestone</th><th scope="col">Blocked by</th></tr></thead><tbody>${queueRows || '<tr><td colspan="7" class="empty">Nothing queued yet. Existing board progress remains below.</td></tr>'}</tbody></table></div>
+    <p class="queue-note">Size is a relative scope estimate from GitHub Projects, not a calendar-time prediction. Missing sizes show as Unassigned.</p>
+  </section>`;
+}
+
 export function renderDashboard(models, options = {}) {
   const projects = Array.isArray(models) ? models : [models];
-  const totalWork = projects.reduce((total, model) => total + model.totalWork, 0);
-  const doneCount = projects.reduce((total, model) => total + model.doneCount, 0);
+  const roadmap = buildSharedRoadmap(projects, options.dependencySnapshot);
+  // The same GitHub Issue can appear on both Projects. Count it once in the
+  // program-wide total, while each board retains its own original totals.
+  const counted = new Set();
+  let totalWork = 0;
+  let doneCount = 0;
+  for (const [index, model] of projects.entries()) {
+    for (const item of model.workItems ?? []) {
+      const key = issueLocation(item.url)?.url.toLowerCase() ?? `${index}:${item.number}`;
+      if (counted.has(key)) continue;
+      counted.add(key);
+      totalWork += 1;
+      if (item.status === "Done") doneCount += 1;
+    }
+  }
   const scope = projects.length === 2 ? " across both boards" : projects.length > 2 ? ` across ${projects.length} boards` : "";
   const updated = options.generatedAt ? `. Updated ${escapeHtml(formatGeneratedAt(options.generatedAt))}` : "";
+  const live = options.live === true;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -508,6 +787,41 @@ export function renderDashboard(models, options = {}) {
     h1 { margin:0; font-size:1.75rem; font-weight:600; letter-spacing:-.01em; }
     .top p { margin:0; color:var(--muted); }
     .top p b { color:var(--ink); font-weight:600; }
+    .live-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 16px; }
+    .live-status { font-size:.85rem; color:var(--muted); }
+    .live-status.warn { color:var(--warn); }
+    .live-refresh { border:1px solid var(--line); border-radius:6px; padding:7px 12px; background:var(--surface); color:var(--ink); font:inherit; cursor:pointer; }
+    .live-refresh:hover:not(:disabled) { border-color:var(--muted); }
+    .live-refresh:disabled { opacity:.6; cursor:wait; }
+    .queue-kpis { display:flex; gap:8px 22px; flex-wrap:wrap; color:var(--muted); margin:10px 0; }
+    .queue-kpis b { color:var(--ink); }
+    .audit { margin:12px 0 4px; padding:10px 14px; background:var(--surface); border:1px solid var(--line); border-radius:8px; color:var(--done); }
+    .audit-warning { color:var(--warn); }
+    .queue-warnings { padding:8px 14px; border:1px solid var(--line); border-radius:8px; margin:8px 0; }
+    .queue-warnings summary { cursor:pointer; color:var(--warn); }
+    .queue-warnings li { margin:5px 0; overflow-wrap:anywhere; }
+    .milestones { display:grid; grid-template-columns:repeat(auto-fit, minmax(235px, 1fr)); gap:12px; }
+    .milestone { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; }
+    .milestone-name { display:flex; justify-content:space-between; gap:8px; font-weight:600; margin-bottom:12px; }
+    .milestone-name b { color:var(--muted); white-space:nowrap; }
+    .milestone-fill { background:var(--done); border-radius:3px; height:100%; }
+    .milestone p { margin:6px 0 0; color:var(--muted); font-size:.8rem; }
+    .queue-filter { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:24px 0 12px; font-size:.85rem; }
+    .queue-filter select { border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); padding:6px; margin-right:12px; }
+    .queue-note { color:var(--muted); font-size:.8rem; }
+    .queue-table-wrap { overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:8px; }
+    .queue-table { border-collapse:collapse; width:100%; font-size:.85rem; }
+    .queue-table th { text-align:left; color:var(--muted); font-weight:600; white-space:nowrap; }
+    .queue-table td, .queue-table th { border-bottom:1px solid var(--line); padding:10px 12px; vertical-align:top; }
+    .queue-table tr:last-child td { border-bottom:none; }
+    .queue-table a { text-decoration:none; }
+    .queue-table a:hover { text-decoration:underline; }
+    .queue-table .order { font-weight:700; }
+    .queue-size { font-weight:600; white-space:nowrap; }
+    .queue-size-missing { color:var(--warn); font-weight:400; }
+    .queue-bad { color:var(--blocked); }
+    .queue-wait { color:var(--warn); }
+
     .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:20px; }
     .grid.single { grid-template-columns:minmax(0, 1fr); }
     .board { padding:22px 24px 18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
@@ -582,6 +896,12 @@ export function renderDashboard(models, options = {}) {
       <h1 id="page-title">VERA progress</h1>
       <p><b>${doneCount} of ${totalWork}</b> work items done${scope}${updated}</p>
     </header>
+    ${live ? `<div class="live-controls" aria-live="polite">
+      <button id="refresh-now" type="button" class="live-refresh">Refresh now</button>
+      <span class="live-status" id="live-status">Checking dashboard connection…</span>
+    </div>` : ""}
+    ${renderSharedRoadmap(roadmap)}
+    <div class="section-head"><h2>Board progress</h2></div>
     <section class="grid${projects.length === 1 ? " single" : ""}" aria-label="Board progress">${projects.map(renderBoardCard).join("")}
     </section>
     <div class="section-head">
@@ -594,6 +914,26 @@ export function renderDashboard(models, options = {}) {
   <script>
     const toggle = document.querySelector('.toggle-all');
     const rows = [...document.querySelectorAll('details.ws')];
+    const queueRepo = document.getElementById('queue-repo');
+    const queueState = document.getElementById('queue-state');
+    const queueSize = document.getElementById('queue-size');
+    const queueVisible = document.getElementById('queue-visible');
+    const queueRows = [...document.querySelectorAll('tr[data-queue-status]')];
+    function filterQueue() {
+      let count = 0;
+      for (const row of queueRows) {
+        const visibleRepo = queueRepo.value === 'all' || row.dataset.repository === queueRepo.value;
+        const visibleStatus = queueState.value === 'all' || (queueState.value === 'done' ? row.dataset.queueStatus === 'Done' : row.dataset.queueStatus !== 'Done');
+        const visibleSize = queueSize.value === 'all' || row.dataset.queueSize === queueSize.value;
+        row.hidden = !(visibleRepo && visibleStatus && visibleSize);
+        if (!row.hidden) count += 1;
+      }
+      queueVisible.textContent = count + ' shown';
+    }
+    queueRepo.addEventListener('change', filterQueue);
+    queueState.addEventListener('change', filterQueue);
+    queueSize.addEventListener('change', filterQueue);
+    filterQueue();
     function syncToggle() {
       const allOpen = rows.length > 0 && rows.every((row) => row.open);
       toggle.textContent = allOpen ? 'Collapse all' : 'Expand all';
@@ -605,6 +945,66 @@ export function renderDashboard(models, options = {}) {
     });
     for (const row of rows) row.addEventListener('toggle', syncToggle);
   </script>
+  ${live ? `<script>
+    (() => {
+      const statusNode = document.getElementById('live-status');
+      const button = document.getElementById('refresh-now');
+      const loadedVersion = Number(document.documentElement.dataset.snapshotVersion || 0);
+      let requestInFlight = false;
+
+      function displayStatus(status) {
+        const when = new Date(status.updatedAt).toLocaleString();
+        const interval = Math.round(status.refreshIntervalSeconds / 60);
+        const message = status.error
+          ? 'Refresh failed; showing snapshot from ' + when + '. ' + status.error
+          : status.refreshing
+            ? 'Checking GitHub… Last successful update: ' + when
+            : 'Updated ' + when + ' · Auto-check every ' + interval + ' min while open';
+        statusNode.textContent = message;
+        statusNode.classList.toggle('warn', Boolean(status.error));
+        if (status.version > loadedVersion) window.location.reload();
+      }
+
+      async function checkStatus() {
+        if (document.hidden || requestInFlight) return;
+        requestInFlight = true;
+        try {
+          const reply = await fetch('/status', { cache: 'no-store' });
+          if (!reply.ok) throw new Error('Status endpoint unavailable');
+          displayStatus(await reply.json());
+        } catch {
+          statusNode.textContent = 'Connection lost. Showing last downloaded snapshot.';
+          statusNode.classList.add('warn');
+        } finally {
+          requestInFlight = false;
+        }
+      }
+
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        button.textContent = 'Refreshing…';
+        statusNode.textContent = 'Checking GitHub…';
+        try {
+          const reply = await fetch('/refresh', {
+            method: 'POST',
+            headers: { 'X-VERA-Refresh': '1' },
+            cache: 'no-store',
+          });
+          displayStatus(await reply.json());
+        } catch {
+          statusNode.textContent = 'Refresh failed. Check the local dashboard server.';
+          statusNode.classList.add('warn');
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Refresh now';
+        }
+      });
+      document.addEventListener('visibilitychange', checkStatus);
+      window.addEventListener('focus', checkStatus);
+      setInterval(checkStatus, 20_000);
+      void checkStatus();
+    })();
+  </script>` : ""}
 </body>
 </html>
 `;
@@ -662,7 +1062,12 @@ export async function writeDashboard(repositoryRoot, outputPath, options = {}) {
     projectData: options.projectData ?? projectDataByNumber[projectConfig.projectNumber],
     codeStats: options.codeStats ?? options.codeStatsByNumber?.[projectConfig.projectNumber],
   })));
-  const html = renderDashboard(models, { generatedAt: options.generatedAt ?? new Date() });
+  const dependencySnapshot = options.dependencySnapshot ?? (
+    liveProjectConfigs.length > 0 ? await fetchNativeDependencies(repositoryRoot, models) : undefined
+  );
+  const html = renderDashboard(models, {
+    generatedAt: options.generatedAt ?? new Date(), live: options.live, dependencySnapshot,
+  });
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");
   return models;
@@ -685,6 +1090,7 @@ export function terminalSummary(models, outputPath) {
         `    ${model.remainingCount} remaining: ${activeCount} active/review, ${model.statusCounts.Blocked} Blocked, ${model.statusCounts.Ready} Ready`,
       ];
     }),
+    `  Master queue: ${buildSharedRoadmap(projects).queue.length} positioned issues, ${buildSharedRoadmap(projects).milestones.length} program milestones`,
     `  Dashboard: ${outputPath}`,
   ].join("\n");
 }
