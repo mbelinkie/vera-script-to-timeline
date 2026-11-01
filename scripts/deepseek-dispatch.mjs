@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 export const REPO = 'mbelinkie/vera-script-to-timeline';
 export const COMMAND = '/deepseek dispatch';
-export const APPROVAL_LABELS = ['chat-reviewed', 'deepseek-ready'];
+export const APPROVAL_LABELS = ['chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'];
 
 export function requestFromEvent(event, allowedActors = []) {
   if (event?.repository?.full_name !== REPO) throw new Error('Wrong repository');
@@ -32,6 +32,13 @@ export function verifyCurrentIssue(issue, expectedIssue) {
   const labels = new Set((issue.labels || []).map(x => typeof x === 'string' ? x : x.name));
   for (const label of APPROVAL_LABELS) {
     if (!labels.has(label)) throw new Error('Missing required label: ' + label);
+  }
+  // Explicit opt-in is insufficient for work classified as design or non-DeepSeek.
+  // Fail closed on conflicting classification; a human must re-triage the ticket.
+  const prohibited = ['type:design', 'type:ux', 'type:research', 'type:product',
+    'execution:codex', 'execution:design', 'execution:human', 'deepseek-excluded'];
+  for (const label of prohibited) {
+    if (labels.has(label)) throw new Error('DeepSeek excluded by classification: ' + label);
   }
   if (labels.has('chat-review-pending')) throw new Error('Chat review still pending');
   if (labels.has('needs:model-escalation')) throw new Error('Model escalation still required');
