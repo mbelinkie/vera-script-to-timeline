@@ -15,7 +15,7 @@ function goodEvent() {
 function goodIssue() {
   return {
     number: 396, state: 'open', body: '## DeepSeek Handoff\nApproved public task only.',
-    labels: ['chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'].map(name => ({ name }))
+    labels: ['type:implementation', 'chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'].map(name => ({ name }))
   };
 }
 
@@ -51,6 +51,11 @@ test('reject unreviewed, pending, closed, or mismatched issue', () => {
     x => { x.labels.push({ name: 'chat-review-pending' }); },
     ...['type:design', 'type:ux', 'type:research', 'type:product', 'execution:codex', 'execution:design', 'execution:human', 'deepseek-excluded'].map(name => x => { x.labels.push({ name }); }),
     x => { x.labels.push({ name: 'needs:model-escalation' }); },
+    x => { x.labels.push({ name: 'owner:codex' }); },
+    x => { x.labels.push({ name: 'owner:claude' }); },
+    x => { x.labels = x.labels.filter(l => l.name !== 'type:implementation'); },
+    x => { x.labels.push({ name: 'type:bug' }); },
+    x => { x.labels = x.labels.map(l => l.name === 'type:implementation' ? { name: 'type:investigation' } : l); },
     x => { x.body = ''; },
     x => { x.state = 'closed'; },
     x => { x.number = 999; },
