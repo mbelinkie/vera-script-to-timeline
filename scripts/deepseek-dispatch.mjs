@@ -1,6 +1,5 @@
 // GitHub issue-comment -> preinstalled private DeepSeek repair controller.
 // This trusted dispatcher never calls a model or merges a PR.
-import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -40,7 +39,7 @@ export function verifyCurrentIssue(issue, expectedIssue) {
 export function taskCap(value) {
   // This is an additional per-task ceiling, NOT a replacement for the
   // private controller's required cumulative USD10 campaign ledger.
-  if (!value || !/^\\d+(?:\\.\\d{1,4})?$/.test(value)) {
+  if (!value || !/^\d+(?:\.\d{1,4})?$/.test(value)) {
     throw new Error('Set VERA_DEEPSEEK_TASK_CAP_USD to a positive number');
   }
   const cap = Number(value);
