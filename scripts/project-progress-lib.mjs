@@ -154,8 +154,10 @@ function optionalText(value) {
 
 export function executionStatus(labels = []) {
   const set = new Set(labels);
-  if (["deepseek-excluded", "type:design", "type:ux", "type:research", "type:product",
-    "execution:design", "execution:human", "execution:codex"].some(label => set.has(label))) return "Not DeepSeek";
+  const types = [...set].filter(label => label.startsWith("type:"));
+  if (["deepseek-excluded", "execution:design", "execution:human", "execution:codex",
+    "owner:codex", "owner:claude"].some(label => set.has(label)) ||
+      types.length !== 1 || !["type:implementation", "type:bug"].includes(types[0])) return "Not DeepSeek";
   if (["deepseek-dispatch", "deepseek-eligible", "deepseek-ready", "chat-reviewed"].every(label => set.has(label)) &&
       !set.has("chat-review-pending") && !set.has("needs:model-escalation")) return "DeepSeek authorized";
   if (set.has("deepseek-eligible")) return "DeepSeek eligible";
