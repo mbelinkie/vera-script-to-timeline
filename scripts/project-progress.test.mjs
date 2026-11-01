@@ -70,7 +70,7 @@ test("parses the authoritative board without counting goals as work", () => {
     number: 2, title: "Package writer and verification", url: "https://example.test/2",
     repository: null, queueOrder: null, queueOrderInvalid: false,
     programMilestone: null, milestoneOrder: null, blockedBy: null,
-    status: "Done", type: "implementation", model: "terra", effort: "high",
+    status: "Done", type: "implementation", model: "terra", effort: "high", chatReviewLabels: [],
     priority: "P0", size: "L", workstream: "Packaging", acceptance: "Producer",
   });
 });

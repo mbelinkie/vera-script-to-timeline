@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertChatReviewApproved } from "./chat-review-lib.mjs";
 import {
   assertGraphqlBudget,
   formatGraphqlRateLimitReport,
@@ -34,7 +35,7 @@ const ISSUE_PROJECT_QUERY = `query RoadmapIssue($owner: String!, $name: String!,
     issue(number: $number) {
       id number title url state body
       labels(first: 100) { nodes { id name description color } }
-      comments(last: 100) { nodes { body } pageInfo { hasPreviousPage startCursor } }
+      comments(last: 100) { nodes { body author { login } url } pageInfo { hasPreviousPage startCursor } }
       projectItems(first: 100) {
         nodes {
           id
@@ -69,7 +70,7 @@ const ISSUE_COMMENT_PAGE_QUERY = `query RoadmapIssueComments($owner: String!, $n
   repository(owner: $owner, name: $name) {
     issue(number: $number) {
       comments(last: 100, before: $before) {
-        nodes { body }
+        nodes { body author { login } url }
         pageInfo { hasPreviousPage startCursor }
       }
     }
@@ -653,6 +654,7 @@ async function main() {
     validateRouting(labelsOf(issue), model, effort);
     if (item.status !== "Ready") throw new Error(`Issue must be Ready before claim; current status is ${item.status ?? "unknown"}`);
     validateReadyRequirements(settings, issue);
+    assertChatReviewApproved(issue);
     assertClaimAvailable(issue.comments);
     const claim = {
       state: "active",

@@ -3,6 +3,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import {
+  CHAT_APPROVAL_LABEL, CHAT_PENDING_LABEL, chatStateForItem,
+  fetchChatReviewSnapshot, reviewChatUrl, reviewPrompt, parseIssueUrl,
+} from "./chat-review-lib.mjs";
+import {
   assertGraphqlBudget,
   parseGraphqlRateLimitResponse,
 } from "./roadmap-rate-limit.mjs";
@@ -215,6 +219,7 @@ function parseItem(item) {
     type: onePrefixedLabel(labels, "type:", number),
     model: onePrefixedLabel(labels, "model:", number),
     effort: onePrefixedLabel(labels, "effort:", number),
+    chatReviewLabels: labels.filter((label) => [CHAT_APPROVAL_LABEL, CHAT_PENDING_LABEL].includes(label)),
     priority: optionalText(item.priority),
     size: optionalText(item.size),
     workstream: optionalText(item.workstream),
@@ -243,6 +248,7 @@ function parseHistoricalRecord(item, index) {
     type: "historical",
     model: "n/a",
     effort: "n/a",
+    chatReviewLabels: [],
     priority: optionalText(item.priority),
     size: optionalText(item.size),
     workstream: optionalText(item.workstream),
@@ -390,6 +396,18 @@ function renderTrack(statusCounts, label, { large = false } = {}) {
   return `<div class="track${large ? " track-lg" : ""}" role="img" aria-label="${escapeHtml(`${label}: ${description}`)}">${segments}</div>`;
 }
 
+function reviewControls(item) {
+  if (!item.url || !issueLocation(item.url)) return "";
+  try { parseIssueUrl(item.url); } catch { return ""; }
+  const state = item.chatReview ?? chatStateForItem(item);
+  const names = { "approved": "Chat approved", "in-review": "Chat review pending", "not-reviewed": "Not Chat reviewed", "outdated": "Chat review outdated", "unverified": "Review unverified" };
+  const name = names[state.status] ?? "Review unverified";
+  const evidence = state.status === "approved" && state.url?.startsWith("https://github.com/")
+    ? `<a href="${escapeHtml(state.url)}" target="_blank" rel="noopener noreferrer">View signed review</a>` : "";
+  const action = state.status === "approved" ? "" : `<a class="chat-action" href="${escapeHtml(reviewChatUrl(item.url))}" target="_blank" rel="noopener noreferrer">Review in ChatGPT</a><button class="chat-copy" type="button" data-review-prompt="${escapeHtml(reviewPrompt(item.url))}" aria-label="Copy Chat review prompt for issue ${escapeHtml(item.number)}">Copy prompt</button>`;
+  return `<div class="chat-review-controls"><span class="chat-status chat-${escapeHtml(state.status)}">${escapeHtml(name)}</span>${evidence}${action}</div>`;
+}
+
 function renderIssue(item, options = {}) {
   const title = item.type === "historical"
     ? escapeHtml(item.title)
@@ -412,6 +430,7 @@ function renderIssue(item, options = {}) {
               <div class="issue-body">
                 <div class="issue-line">${titleMarkup}<span class="issue-status">${escapeHtml(item.status)}</span></div>
                 <div class="meta">${meta}</div>
+                ${reviewControls(item)}
               </div>
             </li>`;
 }
@@ -728,7 +747,7 @@ function renderSharedRoadmap(roadmap) {
         ? item.dependencies.map((d) => `${d.url ? `<a href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.label)}</a>` : escapeHtml(d.label)}${d.invalid ? ' <strong class="queue-bad">Out of order</strong>' : d.isOpen ? ' <span class="queue-wait">Open</span>' : ''}`).join(", ")
         : "None"
       : '<span class="queue-wait">Not verified</span>';
-    return `<tr data-repository="${escapeHtml(item.repo.toLowerCase())}" data-queue-status="${escapeHtml(item.status)}" data-queue-size="${escapeHtml(size.key)}"><td class="order">${item.queueOrder}</td><td>${issueLink(item)}</td><td>${escapeHtml(item.projectTitle)}</td><td>${escapeHtml(item.status)}</td><td><span class="queue-size${size.key === "unsized" ? " queue-size-missing" : ""}" title="${escapeHtml(size.label)}">${escapeHtml(size.display)}</span></td><td>${escapeHtml(item.programMilestone ?? "Unassigned")}</td><td>${deps}</td></tr>`;
+    return `<tr data-repository="${escapeHtml(item.repo.toLowerCase())}" data-queue-status="${escapeHtml(item.status)}" data-queue-size="${escapeHtml(size.key)}" data-queue-chat="${escapeHtml(item.chatReview?.status ?? "not-reviewed")}"><td class="order">${item.queueOrder}</td><td>${issueLink(item)}</td><td>${escapeHtml(item.projectTitle)}</td><td>${escapeHtml(item.status)}</td><td><span class="queue-size${size.key === "unsized" ? " queue-size-missing" : ""}" title="${escapeHtml(size.label)}">${escapeHtml(size.display)}</span></td><td>${escapeHtml(item.programMilestone ?? "Unassigned")}</td><td>${deps}</td><td>${reviewControls(item)}</td></tr>`;
   }).join("");
   return `<section class="shared-roadmap" aria-labelledby="master-roadmap-title">
     <div class="section-head"><h2 id="master-roadmap-title">Master execution queue</h2><span class="queue-note">Across both GitHub Projects · read-only</span></div>
@@ -736,15 +755,21 @@ function renderSharedRoadmap(roadmap) {
     <p class="audit${warnings.length || !completeAudit ? ' audit-warning' : ''}">${escapeHtml(audit)}</p>
     ${warnings.length ? `<details class="queue-warnings"><summary>Review ${warnings.length} issue(s) and warning(s)</summary><ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></details>` : ""}
     <div class="section-head"><h2>Program milestones</h2></div><div class="milestones">${milestoneMarkup}</div>
-    <div class="queue-filter"><label for="queue-repo">Repository</label><select id="queue-repo"><option value="all">All repositories</option>${[...new Set(roadmap.queue.map((item) => item.repo))].sort().map((repo) => `<option value="${escapeHtml(repo.toLowerCase())}">${escapeHtml(repo)}</option>`).join("")}</select><label for="queue-state">Status</label><select id="queue-state"><option value="all">All statuses</option><option value="active">Not done</option><option value="done">Done</option></select><label for="queue-size">Size</label><select id="queue-size"><option value="all">All sizes</option>${sizeChoices.map((size) => `<option value="${escapeHtml(size.key)}">${escapeHtml(size.display)}</option>`).join("")}</select><span id="queue-visible" class="queue-note"></span></div>
-    <div class="queue-table-wrap"><table class="queue-table"><thead><tr><th scope="col">Queue</th><th scope="col">Issue</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Size</th><th scope="col">Program milestone</th><th scope="col">Blocked by</th></tr></thead><tbody>${queueRows || '<tr><td colspan="7" class="empty">Nothing queued yet. Existing board progress remains below.</td></tr>'}</tbody></table></div>
+    <div class="queue-filter"><label for="queue-repo">Repository</label><select id="queue-repo"><option value="all">All repositories</option>${[...new Set(roadmap.queue.map((item) => item.repo))].sort().map((repo) => `<option value="${escapeHtml(repo.toLowerCase())}">${escapeHtml(repo)}</option>`).join("")}</select><label for="queue-state">Status</label><select id="queue-state"><option value="all">All statuses</option><option value="active">Not done</option><option value="done">Done</option></select><label for="queue-size">Size</label><select id="queue-size"><option value="all">All sizes</option>${sizeChoices.map((size) => `<option value="${escapeHtml(size.key)}">${escapeHtml(size.display)}</option>`).join("")}</select><label for="queue-chat">Chat review</label><select id="queue-chat"><option value="all">All reviews</option><option value="not-reviewed">Not reviewed</option><option value="in-review">Pending Producer</option><option value="approved">Approved</option><option value="outdated">Outdated</option><option value="unverified">Unverified</option></select><span id="queue-visible" class="queue-note"></span></div>
+    <div class="queue-table-wrap"><table class="queue-table"><thead><tr><th scope="col">Queue</th><th scope="col">Issue</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Size</th><th scope="col">Program milestone</th><th scope="col">Blocked by</th><th scope="col">Chat review</th></tr></thead><tbody>${queueRows || '<tr><td colspan="8" class="empty">Nothing queued yet. Existing board progress remains below.</td></tr>'}</tbody></table></div>
     <p class="queue-note">Size is a relative scope estimate from GitHub Projects, not a calendar-time prediction. Missing sizes show as Unassigned.</p>
   </section>`;
 }
 
 export function renderDashboard(models, options = {}) {
   const projects = Array.isArray(models) ? models : [models];
+  const audit = options.chatReviewSnapshot ?? { states: {}, errors: [] };
+  // Apply status consistently to the per-board cards and the shared queue.
+  for (const model of projects) for (const item of [...(model.workItems ?? []), ...(model.goals ?? [])]) {
+    item.chatReview = chatStateForItem(item, audit.states);
+  }
   const roadmap = buildSharedRoadmap(projects, options.dependencySnapshot);
+  roadmap.dependencyErrors.push(...(audit.errors ?? []));
   // The same GitHub Issue can appear on both Projects. Count it once in the
   // program-wide total, while each board retains its own original totals.
   const counted = new Set();
@@ -793,6 +818,15 @@ export function renderDashboard(models, options = {}) {
     .live-refresh { border:1px solid var(--line); border-radius:6px; padding:7px 12px; background:var(--surface); color:var(--ink); font:inherit; cursor:pointer; }
     .live-refresh:hover:not(:disabled) { border-color:var(--muted); }
     .live-refresh:disabled { opacity:.6; cursor:wait; }
+    .chat-review-controls { display:flex; align-items:center; flex-wrap:wrap; gap:5px 9px; margin:3px 0; font-size:.78rem; }
+    .chat-status { color:var(--muted); }
+    .chat-approved { color:var(--done); font-weight:600; }
+    .chat-outdated, .chat-unverified { color:var(--warn); font-weight:600; }
+    .chat-action, .chat-copy { font:inherit; color:var(--focus); }
+    .chat-copy { cursor:pointer; border:1px solid var(--line); border-radius:4px; padding:2px 5px; background:var(--surface); }
+    .chat-copy:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    .chat-copy-status { margin-left:5px; color:var(--muted); }
+    tr[hidden] { display:none; }
     .queue-kpis { display:flex; gap:8px 22px; flex-wrap:wrap; color:var(--muted); margin:10px 0; }
     .queue-kpis b { color:var(--ink); }
     .audit { margin:12px 0 4px; padding:10px 14px; background:var(--surface); border:1px solid var(--line); border-radius:8px; color:var(--done); }
@@ -917,6 +951,7 @@ export function renderDashboard(models, options = {}) {
     const queueRepo = document.getElementById('queue-repo');
     const queueState = document.getElementById('queue-state');
     const queueSize = document.getElementById('queue-size');
+    const queueChat = document.getElementById('queue-chat');
     const queueVisible = document.getElementById('queue-visible');
     const queueRows = [...document.querySelectorAll('tr[data-queue-status]')];
     function filterQueue() {
@@ -925,7 +960,8 @@ export function renderDashboard(models, options = {}) {
         const visibleRepo = queueRepo.value === 'all' || row.dataset.repository === queueRepo.value;
         const visibleStatus = queueState.value === 'all' || (queueState.value === 'done' ? row.dataset.queueStatus === 'Done' : row.dataset.queueStatus !== 'Done');
         const visibleSize = queueSize.value === 'all' || row.dataset.queueSize === queueSize.value;
-        row.hidden = !(visibleRepo && visibleStatus && visibleSize);
+        const visibleChat = queueChat.value === 'all' || row.dataset.queueChat === queueChat.value;
+        row.hidden = !(visibleRepo && visibleStatus && visibleSize && visibleChat);
         if (!row.hidden) count += 1;
       }
       queueVisible.textContent = count + ' shown';
@@ -933,7 +969,27 @@ export function renderDashboard(models, options = {}) {
     queueRepo.addEventListener('change', filterQueue);
     queueState.addEventListener('change', filterQueue);
     queueSize.addEventListener('change', filterQueue);
+    queueChat.addEventListener('change', filterQueue);
     filterQueue();
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('.chat-copy');
+      if (!button) return;
+      const prompt = button.dataset.reviewPrompt;
+      try {
+        await navigator.clipboard.writeText(prompt);
+        button.textContent = 'Copied!';
+      } catch {
+        // file:// and insecure contexts may disallow Clipboard API.
+        const fallback = document.createElement('textarea');
+        fallback.value = prompt;
+        fallback.rows = 8;
+        fallback.style.width = '100%';
+        fallback.setAttribute('aria-label', 'Select and copy Chat review prompt');
+        button.insertAdjacentElement('afterend', fallback);
+        fallback.focus(); fallback.select();
+        button.textContent = 'Select and copy text below';
+      }
+    });
     function syncToggle() {
       const allOpen = rows.length > 0 && rows.every((row) => row.open);
       toggle.textContent = allOpen ? 'Collapse all' : 'Expand all';
@@ -1062,11 +1118,14 @@ export async function writeDashboard(repositoryRoot, outputPath, options = {}) {
     projectData: options.projectData ?? projectDataByNumber[projectConfig.projectNumber],
     codeStats: options.codeStats ?? options.codeStatsByNumber?.[projectConfig.projectNumber],
   })));
+  const chatReviewSnapshot = options.chatReviewSnapshot ?? (
+    liveProjectConfigs.length > 0 ? await fetchChatReviewSnapshot(repositoryRoot, models) : { states: {}, errors: [] }
+  );
   const dependencySnapshot = options.dependencySnapshot ?? (
     liveProjectConfigs.length > 0 ? await fetchNativeDependencies(repositoryRoot, models) : undefined
   );
   const html = renderDashboard(models, {
-    generatedAt: options.generatedAt ?? new Date(), live: options.live, dependencySnapshot,
+    generatedAt: options.generatedAt ?? new Date(), live: options.live, dependencySnapshot, chatReviewSnapshot,
   });
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");

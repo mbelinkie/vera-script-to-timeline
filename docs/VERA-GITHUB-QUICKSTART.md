@@ -32,3 +32,7 @@
 **Not implemented yet:** Changing queue order, inserting surprise detours, auto-renumbering, and enforcing dependency-safe writes **on GitHub**. The dashboard detects invalid ordering, but it does not fix it. Those write operations need to be added to the existing `scripts/roadmap.mjs` automation or a GitHub Action before the queue is self-maintaining.
 
 For implementation details, see [VERA-GITHUB-SETUP.md](./VERA-GITHUB-SETUP.md).
+
+## Producer-gated Chat review
+
+The dashboard also includes a **Chat review** state, filter, and a **Review in ChatGPT** link with **Copy prompt** fallback. A click starts an interactive conversation; **it does not approve the issue**. Only explicit Producer sign-off can produce a verified `chat-reviewed` record. Title/body changes make that record outdated; Codex's `roadmap claim` command rejects issues without a current verified Producer approval. See [VERA-CHAT-REVIEW.md](./VERA-CHAT-REVIEW.md) for GitHub label setup, interactive signoff, and the dispatch-gate boundaries.
