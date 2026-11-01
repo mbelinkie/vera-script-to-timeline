@@ -4,11 +4,23 @@ This is an **add-on to the existing private DeepSeek repair controller**, not a 
 
 **Current status (2026-11-01):** This is still draft [PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397), **not merged** into `main`. The existing Cloudflare GitHub-for-Chat bridge now advertises `install_deepseek_workflow` and `dispatch_deepseek` tools. The authorized install tool placed `.github/workflows/deepseek-dispatch.yml` onto the PR branch, and Matthew reports a GitHub-connected macOS runner listening with the `vera-deepseek` label. The PR's full validation has **not passed**: VERA's central [CI queue #361](https://github.com/mbelinkie/vera-script-to-timeline/issues/361) was paused for an unrelated PR #374 recovery as of its latest control comment. The private `vera-deepseek-runner` adapter/controller and cumulative ledger are **not yet verified**. GitHub Actions repo variables have not been independently confirmed. **No DeepSeek provider call or paid campaign was executed through this bridge.**
 
+## Explicit model routing — no automatic DeepSeek assignments
+
+**The normal VERA roadmap and CI queue never trigger DeepSeek just because an issue is created, moved to Ready, or labeled `chat-reviewed`.** DeepSeek only runs after an authorized owner's exact `/deepseek dispatch` comment, the global dispatch enable flag, and **all four** independent issue labels:
+- `chat-reviewed`: Chat triage and Producer approval completed.
+- `deepseek-eligible`: a bounded public-source coding/test/bug-fix task has been classified as appropriate for DeepSeek; classification alone does not run it.
+- `deepseek-ready`: task inputs and frozen tests are prepared.
+- `deepseek-dispatch`: explicit issue-specific authorization to run once. Remove this label to revoke *future* dispatch eligibility; removing it does not interrupt an already running job.
+
+Additional fail-closed exclusions: `type:design`, `type:ux`, `type:research`, `type:product`, `execution:design`, `execution:human`, `execution:codex`, or `deepseek-excluded`. These **override** all four approval labels. Pending chat review and model escalation also block the action. Do not label design issues eligible or dispatchable; route them to design/product review and Producer choices. Complex architecture and security-sensitive changes go to the appropriate separately reviewed Codex/agent workflow.
+
+**Dashboard:** the `scripts/project-progress-lib.mjs` dashboard now displays each issue's GitHub-derived execution classification (Unreviewed, Chat reviewed, DeepSeek eligible, DeepSeek authorized, Not DeepSeek) and per-board counts. This is a read-only classification, **not** confirmation that a provider call happened, nor a substitute for GitHub Actions logs, private receipts, or actual DeepSeek spending. The dashboard reads labels already present in the Project item-list payload; it does not make extra GitHub API calls or create new Projects fields. Missing label metadata must be treated as unreviewed, not as permission to dispatch.
+
 ## Dispatch trust boundary
 
 - `issue_comment` event on `mbelinkie/vera-script-to-timeline`, **not** arbitrary web callbacks; exact comment `/deepseek dispatch`.
 - Author must be repository owner or explicitly configured `VERA_DEEPSEEK_ALLOWED_ACTORS` GitHub login (e.g. the actual Chat GitHub app/bot actor once verified from a non-dispatch comment). Never allow `*` or unknown actors.
-- Live issue must be open, and have both `chat-reviewed` and `deepseek-ready` labels with no `chat-review-pending` label. A label alone does not start a job.
+- Live issue must be open, and have all four explicit approval labels with no `chat-review-pending` label. A label alone does not start a job.
 - Dispatch is fail-closed unless `VERA_DEEPSEEK_DISPATCH_ENABLED=true`. A second replay of the same issue fails before any provider call because a private owner-only receipt already exists.
 - The `VERA_DEEPSEEK_TASK_CAP_USD` value is a **per-task upper bound**, additionally constrained by the private **USD10 total cumulative campaign ledger**, including all historical costs, pending/ambiguous reservations and prior #118/#326 work. The dispatcher deliberately **does not** attempt to reconstruct or reset that private ledger. The wrapper must reserve against the same shared ledger *before each call* and refuse if it cannot prove the remaining balance.
 - Never send secrets, Producer footage, personal data or unpublished research media to DeepSeek. No other provider, no automatic resubmissions on uncertain outcomes, no changing tests to make a candidate pass.
@@ -19,8 +31,8 @@ This is an **add-on to the existing private DeepSeek repair controller**, not a 
 
 1. Chat reviews scope, tests, dependencies and current product authority, and preserves the repository's existing review approval process. It adds `chat-reviewed` only after required Producer approval.
 2. Add a short **DeepSeek Handoff** section to the issue describing the precise allowed production paths, frozen independent tests, prohibited edits, source/fixture restrictions, controller repair limits and task spend cap. Keep the public issue free of credentials/private data.
-3. Apply `deepseek-ready` only when the ticket can be handled by one bounded private worker. Human product/design or native Resolve work stays with its owning agent.
-4. Chat posts exactly `/deepseek dispatch` as a separate issue comment. If GitHub exposes a different author for Chat comments, verify its actual login and explicitly add it to the trusted actor list before testing.
+3. Apply `deepseek-eligible` after Producer-approved task classification, and `deepseek-ready` only when the ticket can be handled by one bounded private worker. Human product/design or native Resolve work stays with its owning agent.
+4. After the Producer explicitly approves dispatch, apply `deepseek-dispatch`. Chat posts exactly `/deepseek dispatch` as a separate issue comment. If GitHub exposes a different author for Chat comments, verify its actual login and explicitly add it to the trusted actor list before testing.
 5. The existing private wrapper receives `issue_number` and `comment_id`, resolves approved public context and frozen tests, checks private cost/attempt ledger, runs the existing `issue-326/repair-trial/run-repairs.py` mechanism and records a candidate for Sol. This repository does not provide access to that private file and cannot assert its command-line interface.
 6. Sol independently reviews and integrates the result in the normal one-issue/one-worktree, PR, Claude review, CI queue and acceptance workflow.
 
