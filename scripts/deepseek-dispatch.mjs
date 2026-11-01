@@ -66,7 +66,7 @@ export function reserveReceipt(root, issue, commentId) {
 
 async function fetchIssue(token, issueNumber) {
   const url = 'https://api.github.com/repos/' + REPO + '/issues/' + issueNumber;
-  const response = await fetch(url, {
+  const response = await globalThis.fetch(url, {
     headers: {
       Authorization: 'Bearer ' + token,
       Accept: 'application/vnd.github+json',
