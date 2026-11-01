@@ -10,12 +10,13 @@ export const REPO = 'mbelinkie/vera-script-to-timeline';
 export const COMMAND = '/deepseek dispatch';
 export const APPROVAL_LABELS = ['chat-reviewed', 'deepseek-ready'];
 
-export function requestFromEvent(event) {
+export function requestFromEvent(event, allowedActors = []) {
   if (event?.repository?.full_name !== REPO) throw new Error('Wrong repository');
   if (event?.issue?.pull_request) throw new Error('Pull requests cannot be dispatched');
   if (event?.comment?.body !== COMMAND) throw new Error('Not an exact dispatch command');
-  if (event?.comment?.user?.login !== event?.repository?.owner?.login) {
-    throw new Error('Only the repository owner may dispatch');
+  const login = event?.comment?.user?.login;
+  if (!login || (login !== event?.repository?.owner?.login && !allowedActors.includes(login))) {
+    throw new Error('Dispatch actor is not allowlisted');
   }
   if (!Number.isSafeInteger(event?.comment?.id) || event.comment.id < 1 ||
       !Number.isSafeInteger(event?.issue?.number) || event.issue.number < 1) {
@@ -80,7 +81,9 @@ export async function main(env = process.env) {
     throw new Error('Dispatch explicitly disabled');
   }
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
-  const req = requestFromEvent(event);
+  const allowedActors = (env.VERA_DEEPSEEK_ALLOWED_ACTORS || '').split(',')
+    .map(actor => actor.trim()).filter(Boolean);
+  const req = requestFromEvent(event, allowedActors);
   if (!env.GITHUB_TOKEN) throw new Error('Missing GitHub issue-read token');
   const cap = taskCap(env.VERA_DEEPSEEK_TASK_CAP_USD);
   verifyCurrentIssue(await fetchIssue(env.GITHUB_TOKEN, req.issue), req.issue);
