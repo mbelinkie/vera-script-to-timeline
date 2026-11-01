@@ -14,7 +14,7 @@ function goodEvent() {
 }
 function goodIssue() {
   return {
-    number: 396, state: 'open',
+    number: 396, state: 'open', body: '## DeepSeek Handoff\nApproved public task only.',
     labels: [{ name: 'chat-reviewed' }, { name: 'deepseek-ready' }]
   };
 }
@@ -47,6 +47,8 @@ test('reject unreviewed, pending, closed, or mismatched issue', () => {
     x => { x.labels = [{ name: 'deepseek-ready' }]; },
     x => { x.labels = [{ name: 'chat-reviewed' }]; },
     x => { x.labels.push({ name: 'chat-review-pending' }); },
+    x => { x.labels.push({ name: 'needs:model-escalation' }); },
+    x => { x.body = ''; },
     x => { x.state = 'closed'; },
     x => { x.number = 999; },
     x => { x.pull_request = {}; }
