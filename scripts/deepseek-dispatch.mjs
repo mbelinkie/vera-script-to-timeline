@@ -87,6 +87,11 @@ export async function main(env = process.env) {
   if (!env.GITHUB_TOKEN) throw new Error('Missing GitHub issue-read token');
   const cap = taskCap(env.VERA_DEEPSEEK_TASK_CAP_USD);
   verifyCurrentIssue(await fetchIssue(env.GITHUB_TOKEN, req.issue), req.issue);
+  if (env.VERA_DEEPSEEK_DRY_RUN === 'true') {
+    console.log('DeepSeek dispatch dry run: issue #' + req.issue +
+                ', actor approved, labels valid, task cap set. NO provider call or receipt.');
+    return;
+  }
 
   const runner = join(homedir(), '.codex', 'bin', 'vera-deepseek-runner');
   const st = statSync(runner); // Refuse if private wrapper is not installed.
