@@ -21,6 +21,9 @@ function goodIssue() {
 
 test('accept exactly an owner-authored issue dispatch', () => {
   assert.deepEqual(requestFromEvent(goodEvent()), { issue: 396, commentId: 321 });
+  const bot = goodEvent(); bot.comment.user.login = 'chat-review-bot';
+  assert.throws(() => requestFromEvent(bot));
+  assert.deepEqual(requestFromEvent(bot, ['chat-review-bot']), { issue: 396, commentId: 321 });
   assert.equal(verifyCurrentIssue(goodIssue(), 396), true);
 });
 
