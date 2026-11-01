@@ -49,6 +49,16 @@ The private files `issue-326/run-draft.py` and `issue-326/repair-trial/run-repai
 
 The initial connected macOS runner and Cloudflare tool prove only the **dispatch transport**, not the generalized coding controller. Keep paid dispatch disabled until the private adapter and both budget gates are independently tested.
 
+## Private adapter prototype delivered (2026-11-01; NOT activated)
+
+A separate private **installation candidate** for `~/.codex/bin/vera-deepseek-runner` was packaged for the Producer in the Chat conversation (not committed to this public repo). The package includes the Python adapter, task-manifest template, local README, SHA256 checksums and an **offline-only 19-test suite**. No paid API requests, credential access, Mac file edits, runner enrollment changes or GH Actions dispatch occurred while building/testing it. **The package has not been installed or tested on the Producer's Mac.**
+
+The prototype: validates dispatcher receipt/issue/comment environment, uses a private owner-approved task manifest with default `live_enabled=false`, pins a source git SHA and one editable file, freezes approval tests by SHA256, supports explicit full-file vs bounded-span change boundaries, runs only owner-approved local check command vectors, conservatively reserves against the existing lifetime USD10 campaign cap, and uses the original private credential helpers in live mode. A separate new ledger hashes both legacy ledgers and counts historical request charges once. An ambiguous provider request keeps its reservation for human reconciliation. Proposed code stays in a private candidate worktree and does not merge or close anything.
+
+**Test evidence scope:** 19 tests ran in an isolated Chat environment including mocked model responses and timeouts; actual owner Mac legacy-ledger file permissions, private provider helpers, preapproved test dependencies, model integration and GitHub dry-run are **not** yet validated. Treat the user's previous reported USD0.701657484 spent, zero pending, USD9.298342516 remaining as provisional historical inventory, not as an independently verified provider balance.
+
+**Installation path:** The Producer should download/unzip the candidate from the Chat attachment, run `python3 -m unittest -v test_runner.py` in the extracted directory, then `install -m 700 vera-deepseek-runner ~/.codex/bin/vera-deepseek-runner` after verifying any pre-existing file. Run `~/.codex/bin/vera-deepseek-runner --audit` (offline) before `--init-ledger` (offline private-ledger initialization). **Do not** set any local manifest `live_enabled=true` or GitHub/Cloudflare paid dispatch activation until the full reviewed/CI, preflight and real-controller safety gates pass. The prototype does not install task dependencies; all test programs execute with local user privileges (git worktree isolation is not an OS sandbox).
+
 ## Recovery and disable
 
 - Emergency stop: set `VERA_DEEPSEEK_DISPATCH_ENABLED=false`; additionally disable the self-hosted runner before allowing new jobs to start. Changing a repository variable does not stop an already running private process.
