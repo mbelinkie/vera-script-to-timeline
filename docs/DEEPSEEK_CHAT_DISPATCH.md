@@ -34,6 +34,21 @@ This is an **add-on to the existing private DeepSeek repair controller**, not a 
 6. **Only after #397 is reviewed, validated and merged** and all variables are set: On a dedicated synthetic/open issue, complete review and apply both approval labels, then post the exact command from an authorized actor. Check the Actions run proves correct actor and issue/label gating with **zero paid calls**. Confirm wrong actor, missing label and duplicate delivery all refuse. Verify receipts and ledger outside the public repo.
 7. Switch `VERA_DEEPSEEK_DRY_RUN=false` only after the private wrapper and shared ledger were independently verified. Use a low-risk synthetic task with an expressly approved spending cap. Do not reuse the #326 trial or treat its 51/51 as an acceptance test for a different ticket.
 
+## Existing controller migration: source audit (2026-11-01)
+
+The private files `issue-326/run-draft.py` and `issue-326/repair-trial/run-repairs.py` were supplied for read-only inspection. **Neither is the reusable CLI** that `vera-deepseek-runner` should directly execute:
+
+- The draft's only optional CLI flag is `--self-test`, which confirms arithmetic on its fixed input/output token reserve (USD0.24552), **not ledger reconciliation**. Calling it normally would invoke DeepSeek.
+- Both scripts use task-specific input packets and paths, and trial-specific `USD1` checks. The repair script is locked to one production function and 51 frozen tests, with an anti-restart state assertion. It must never be reset or replayed as a new ticket.
+- The draft loads `issue-118/run-draft.py` for the `credential()` helper and `issue-118/credential-entry.py` for validation/preflight. Those files and their credentials stay private and are not required in this repository. The files inspected do **not** establish the complete shared campaign ledger across any later jobs.
+- Preserve the existing fail-closed mechanics: exclusive host lock; persist cost reservation **before** an API call; persist usage before response interpretation; do not replay uncertain calls; bounded rounds, frozen tests and precisely delimited code edits. Each new ticket gets its own candidate workspace.
+- The adapter must accept issue number and comment ID supplied by the existing dispatcher, fetch only the approved public task manifest, verify exact allowed files/tests, and choose bounded output and check commands from a fixed trusted allowlist. Prompt text, returned JSON and file contents are untrusted; never execute model-suggested commands or install packages from a task response.
+- A new cumulative ledger reconciler must account for **all** historical requests and unresolved reservations, count across both issue #118 and issue #326 and subsequent campaigns, and stop if any state cannot be proven. The USD10 campaign limit is a **lifetime total**, not a new USD10 pool.
+- Provider model IDs and prices must be checked against live official documentation before each campaign; no blind reliance on prices embedded in 2026 trial source. Record a reviewed worst-case call reservation under **both** the remaining campaign budget and the per-task ceiling.
+- **Never expose DeepSeek secrets in public issue descriptions, logs or PRs.** A separate trusted macOS runner user is preferable; the worker must not inherit `GITHUB_TOKEN`, cannot merge, and cannot mark the issue Done.
+
+The initial connected macOS runner and Cloudflare tool prove only the **dispatch transport**, not the generalized coding controller. Keep paid dispatch disabled until the private adapter and both budget gates are independently tested.
+
 ## Recovery and disable
 
 - Emergency stop: set `VERA_DEEPSEEK_DISPATCH_ENABLED=false`; additionally disable the self-hosted runner before allowing new jobs to start. Changing a repository variable does not stop an already running private process.
