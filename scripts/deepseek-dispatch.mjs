@@ -34,6 +34,8 @@ export function verifyCurrentIssue(issue, expectedIssue) {
     if (!labels.has(label)) throw new Error('Missing required label: ' + label);
   }
   if (labels.has('chat-review-pending')) throw new Error('Chat review still pending');
+  if (labels.has('needs:model-escalation')) throw new Error('Model escalation still required');
+  if (!/^## DeepSeek Handoff\s*$/m.test(issue.body || '')) throw new Error('Missing approved DeepSeek Handoff section');
   return true;
 }
 
