@@ -15,7 +15,7 @@ function goodEvent() {
 function goodIssue() {
   return {
     number: 396, state: 'open', body: '## DeepSeek Handoff\nApproved public task only.',
-    labels: [{ name: 'chat-reviewed' }, { name: 'deepseek-ready' }]
+    labels: ['chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'].map(name => ({ name }))
   };
 }
 
@@ -46,7 +46,10 @@ test('reject unreviewed, pending, closed, or mismatched issue', () => {
   for (const change of [
     x => { x.labels = [{ name: 'deepseek-ready' }]; },
     x => { x.labels = [{ name: 'chat-reviewed' }]; },
+    x => { x.labels = x.labels.filter(l => l.name !== 'deepseek-eligible'); },
+    x => { x.labels = x.labels.filter(l => l.name !== 'deepseek-dispatch'); },
     x => { x.labels.push({ name: 'chat-review-pending' }); },
+    ...['type:design', 'type:ux', 'type:research', 'type:product', 'execution:codex', 'execution:design', 'execution:human', 'deepseek-excluded'].map(name => x => { x.labels.push({ name }); }),
     x => { x.labels.push({ name: 'needs:model-escalation' }); },
     x => { x.body = ''; },
     x => { x.state = 'closed'; },
