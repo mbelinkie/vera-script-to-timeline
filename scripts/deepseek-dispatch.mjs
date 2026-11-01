@@ -40,6 +40,13 @@ export function verifyCurrentIssue(issue, expectedIssue) {
   for (const label of prohibited) {
     if (labels.has(label)) throw new Error('DeepSeek excluded by classification: ' + label);
   }
+  if (labels.has('owner:claude') || labels.has('owner:codex')) {
+    throw new Error('Issue is assigned to another execution owner');
+  }
+  const types = [...labels].filter(label => label.startsWith('type:'));
+  if (types.length !== 1 || !['type:implementation', 'type:bug'].includes(types[0])) {
+    throw new Error('Only specifically classified implementation or bug issues may use DeepSeek');
+  }
   if (labels.has('chat-review-pending')) throw new Error('Chat review still pending');
   if (labels.has('needs:model-escalation')) throw new Error('Model escalation still required');
   if (!/^## DeepSeek Handoff\s*$/m.test(issue.body || '')) throw new Error('Missing approved DeepSeek Handoff section');
