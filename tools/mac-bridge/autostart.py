@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+# Embedded zsh wrapper is kept literal to preserve its startup behavior.
 """Stage a user LaunchAgent for the private VERA Mac Bridge.
 
 The launcher retrieves the runtime key from macOS Keychain at login.
