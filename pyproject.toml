@@ -42,7 +42,7 @@ strict = true
 
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
-testpaths = ["tests"]
+testpaths = ["tests", "tools/mac-bridge"]
 markers = [
   "slow: real or synthetic media analysis, repeated external-process integration, or tests taking more than about five seconds",
   "fast: cheap unit test retained in the routine gate despite slow module-level integration coverage",
