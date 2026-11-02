@@ -222,7 +222,7 @@ class ReviewSafetyTests(ValidationTests):
     def test_disable_revokes_in_flight_trust_dialog(self, run, audit):
         def approve_after_revocation(*args, **kwargs):
             core.trust_disable()
-            return subprocess.CompletedProcess([], 0, "Enable\\n", "")
+            return subprocess.CompletedProcess([], 0, "Enable", "")
 
         run.side_effect = approve_after_revocation
         result = core.trust_enable(5)
