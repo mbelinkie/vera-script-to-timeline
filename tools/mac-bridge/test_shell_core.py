@@ -146,7 +146,7 @@ class TrustWindowTests(ValidationTests):
     @patch.object(core, "audit")
     @patch.object(core.subprocess, "run", side_effect=subprocess.TimeoutExpired("osascript", 45))
     def test_gui_timeout_fails_closed(self, run, audit):
-        self.assertEqual(core.trust_enable(5)["status"], "denied")
+        self.assertEqual(core.trust_enable(5)["result"], "denied")
         self.assertEqual(core.trust_remaining_seconds(), 0)
 
 
