@@ -29,6 +29,7 @@ APPROVAL_SECONDS = 45
 MAX_TRUST_MINUTES = 15
 DEFAULT_TRUST_MINUTES = 10
 SHELL_BIN = "/bin/zsh"
+WORKSPACE_CONFIG = Path.home() / ".config" / "vera-mac-bridge" / "workspace"
 _trust_lock = threading.RLock()
 _exec_lock = threading.Lock()
 _trusted_until = 0.0
@@ -68,8 +69,17 @@ def resolve_cwd(cwd: str) -> Path:
     elif cwd == "vera":
         configured = os.environ.get("VERA_WORKSPACE", "")
         if not configured:
-            raise ValueError("VERA_WORKSPACE is not configured locally")
+            if WORKSPACE_CONFIG.is_symlink():
+                raise ValueError("workspace config must not be a symlink")
+            try:
+                configured = WORKSPACE_CONFIG.read_text(encoding="utf-8").strip()
+            except FileNotFoundError:
+                raise ValueError("VERA_WORKSPACE is not configured locally") from None
+        if not configured or "\n" in configured or "\r" in configured:
+            raise ValueError("workspace path must be one nonempty line")
         root = Path(configured).expanduser()
+        if not root.is_absolute():
+            raise ValueError("workspace path must be absolute")
     else:
         raise ValueError("cwd must be 'vera' or 'home'")
     resolved = root.resolve(strict=True)
