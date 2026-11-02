@@ -20,6 +20,12 @@ A zero exit means only that the **current** Producer Chat review was verified. I
 
 To record an approval, the Producer must complete an interactive Chat review first, finalize the issue's title/body, and post the canonical GitHub approval comment using their authenticated GitHub account, adding `chat-reviewed` only after explicit approval. No agent may approve itself or fabricate the digest. Changing the title/body or adding a DeepSeek handoff **afterward** invalidates the approval and requires renewed review. The approval helper in skipped PR #375 is reference only and is **not installed by this change**.
 
+## Launcher audit / known limits
+
+Repository entrypoints reviewed: `AGENTS.md:47-60` and `CLAUDE.md:10-14` instruct Codex/Claude to claim with `npm run roadmap -- claim`; that path is gated by this PR before its Project mutation. `scripts/ci-queue.mjs` is a CI delivery controller and does not start Codex. `scripts/issue326_workflow_launcher.py` is a separately owned Resolve-native probe, **not** a Codex launcher.
+
+The repo cannot intercept a direct Codex desktop/CLI conversation, another external orchestration service, or a manually started agent which skips `roadmap claim`. A real launcher must invoke the standalone gate itself and refuse a nonzero exit. Until each external caller is verified, this PR enforces **roadmap claim only**, not universal Codex dispatch or claim ownership across all tools. No automatic runner, daemon, or session resume is installed here.
+
 ## Verification and integration
 
 Run `node --test scripts/chat-review-current.test.mjs`, `npm run test:roadmap`, then `npm run validate:fast` and the normal read-only adversarial Claude review (or document unavailability), followed by exact-SHA CI queue validation on a Draft PR. Merge only after independent review and Producer/integrator readiness through #361. #396's DeepSeek dispatcher must import/reuse this same verifier once merged; its separate actor, labels, receipt, budget and Mac gates remain mandatory. #401 owns dashboard renderer files; none are modified here.
