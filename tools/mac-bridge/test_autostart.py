@@ -1,10 +1,11 @@
 """Pure tests for macOS startup staging. Never actually load a LaunchAgent."""
+
 import contextlib
 import io
-from pathlib import Path
 import plistlib
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import autostart as mod
@@ -43,8 +44,15 @@ class LaunchAgentTests(unittest.TestCase):
             profile = home / ".config" / "tunnel-client" / "vera-shell.yaml"
             profile.parent.mkdir(parents=True)
             profile.write_text("placeholder: true")
-            with patch.multiple(mod, HOME=home, ROOT=root, BINARY_SOURCE=binary_source,
-                                BINARY_DEST=binary_dest, WRAPPER=wrapper, PLIST=plist):
+            with patch.multiple(
+                mod,
+                HOME=home,
+                ROOT=root,
+                BINARY_SOURCE=binary_source,
+                BINARY_DEST=binary_dest,
+                WRAPPER=wrapper,
+                PLIST=plist,
+            ):
                 # autostart.py itself and its server.py reside in the repository.
                 with contextlib.redirect_stdout(io.StringIO()):
                     mod.prepare()
@@ -53,7 +61,10 @@ class LaunchAgentTests(unittest.TestCase):
                 self.assertTrue(plist.is_file())
                 self.assertEqual(plist.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(wrapper.stat().st_mode & 0o777, 0o700)
-                self.assertEqual(plistlib.loads(plist.read_bytes())["ProgramArguments"][-1], str(wrapper))
+                self.assertEqual(
+                    plistlib.loads(plist.read_bytes())["ProgramArguments"][-1],
+                    str(wrapper),
+                )
                 wrapper.write_text("not ours")
                 with self.assertRaisesRegex(RuntimeError, "Refusing to overwrite"):
                     mod.prepare()
