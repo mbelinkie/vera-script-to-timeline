@@ -140,11 +140,11 @@ def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
         authorized = False
     if not authorized:
         audit({"time": now_utc(), "operation": "trust_enable", "status": "denied"})
-        return {"status": "denied", "message": "No on-Mac trust authorization received", **trust_status()}
+        return {"result": "denied", "message": "No on-Mac trust authorization received", **trust_status()}
     with _trust_lock:
         _trusted_until = time.monotonic() + 60 * minutes
     audit({"time": now_utc(), "operation": "trust_enable", "status": "enabled", "minutes": minutes})
-    return {"status": "enabled", **trust_status()}
+    return {"result": "enabled", **trust_status()}
 
 
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
