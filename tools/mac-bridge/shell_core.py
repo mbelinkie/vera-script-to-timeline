@@ -294,7 +294,9 @@ def audit(record: dict) -> bool:
         handle = os.open(str(location), flags, 0o600)
         try:
             os.fchmod(handle, 0o600)
-            payload = (json.dumps(record, separators=(",", ":"), default=str) + "\n").encode()
+            payload = (
+                json.dumps(record, separators=(",", ":"), default=str) + "\n"
+            ).encode()
             if os.write(handle, payload) != len(payload):
                 return False
             os.fsync(handle)
@@ -313,7 +315,8 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
         "cwd": cwd if isinstance(cwd, str) else "<invalid>",
         "command_sha256": (
             hashlib.sha256(command.encode("utf-8", "replace")).hexdigest()
-            if isinstance(command, str) else None
+            if isinstance(command, str)
+            else None
         ),
         "status": "rejected",
     }
@@ -325,9 +328,15 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
     if not _exec_lock.acquire(blocking=False):
         record["status"] = "busy"
         audit(record)
-        return {"request_id": request_id, "status": "busy", "message": "Another command is active"}
+        return {
+            "request_id": request_id,
+            "status": "busy",
+            "message": "Another command is active",
+        }
     try:
-        approval_mode = "temporary_trust" if trust_remaining_seconds() else "per_command"
+        approval_mode = (
+            "temporary_trust" if trust_remaining_seconds() else "per_command"
+        )
         if approval_mode == "per_command" and not confirm_on_mac(command, folder):
             record["status"] = "denied"
             audit(record)
