@@ -1,3 +1,4 @@
+# ruff: noqa: E501  # Embedded AppleScript needs literal, readable dialog text.
 """Mac-local command execution gate for the private VERA MCP bridge.
 
 Commands normally require on-Mac approval. The operator may opt into a short-lived
@@ -28,7 +29,9 @@ MAX_TRUST_MINUTES = 15
 DEFAULT_TRUST_MINUTES = 10
 SHELL_BIN = "/bin/zsh"
 _trust_lock = threading.RLock()
+_exec_lock = threading.Lock()
 _trusted_until = 0.0
+_trust_generation = 0
 
 # Never interpolate a shell command into AppleScript source. Pass it as argv.
 APPROVAL_SCRIPT = r"""
@@ -118,9 +121,10 @@ def trust_status() -> dict:
 
 
 def trust_disable() -> dict:
-    global _trusted_until
+    global _trusted_until, _trust_generation
     with _trust_lock:
         _trusted_until = 0.0
+        _trust_generation += 1
     audit({"time": now_utc(), "operation": "trust_disable", "status": "disabled"})
     return trust_status()
 
@@ -133,8 +137,10 @@ def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
             "status": "rejected",
             "error": f"minutes must be an integer from 1 to {MAX_TRUST_MINUTES}",
         }
-    # An extension refusal must not silently leave an earlier grant active.
+    # Invalidate an existing grant and older in-flight approval dialogs.
     trust_disable()
+    with _trust_lock:
+        request_generation = _trust_generation
     try:
         result = subprocess.run(
             ["/usr/bin/osascript", "-e", TRUST_SCRIPT, str(minutes)],
@@ -154,15 +160,20 @@ def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
             **trust_status(),
         }
     with _trust_lock:
+        # Disable (or a newer enable attempt) must revoke the older dialog.
+        if request_generation != _trust_generation:
+            return {"result": "canceled", **trust_status()}
         _trusted_until = time.monotonic() + 60 * minutes
-    audit(
+    if not audit(
         {
             "time": now_utc(),
             "operation": "trust_enable",
             "status": "enabled",
             "minutes": minutes,
         }
-    )
+    ):
+        trust_disable()
+        return {"result": "audit_unavailable", **trust_status()}
     return {"result": "enabled", **trust_status()}
 
 
@@ -273,21 +284,24 @@ def execute_bounded(command: str, folder: Path, timeout_seconds: int) -> dict:
     }
 
 
-def audit(record: dict) -> None:
-    """Metadata-only, private best-effort journal; no command string or output."""
+def audit(record: dict) -> bool:
+    """Append only non-secret metadata; return False on write failure."""
     location = Path.home() / ".local" / "state" / "vera-mac-bridge" / "audit.jsonl"
     try:
         location.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        handle = os.open(str(location), os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+        flags = os.O_CREAT | os.O_APPEND | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+        handle = os.open(str(location), flags, 0o600)
         try:
-            os.write(
-                handle, (json.dumps(record, separators=(",", ":")) + "\n").encode()
-            )
+            os.fchmod(handle, 0o600)
+            payload = (json.dumps(record, separators=(",", ":"), default=str) + "\n").encode()
+            if os.write(handle, payload) != len(payload):
+                return False
+            os.fsync(handle)
         finally:
             os.close(handle)
     except OSError:
-        # Do not leak local filesystem details to the remote caller.
-        pass
+        return False
+    return True
 
 
 def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -> dict:
@@ -295,40 +309,54 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
     record = {
         "request_id": request_id,
         "time": now_utc(),
-        "cwd": cwd,
-        "command_sha256": hashlib.sha256(
-            command.encode("utf-8", "replace")
-        ).hexdigest(),
+        "cwd": cwd if isinstance(cwd, str) else "<invalid>",
+        "command_sha256": (
+            hashlib.sha256(command.encode("utf-8", "replace")).hexdigest()
+            if isinstance(command, str) else None
+        ),
         "status": "rejected",
     }
     try:
         folder = validate(command, cwd, timeout_seconds)
     except (ValueError, OSError) as exc:
-        result = {"request_id": request_id, "status": "rejected", "error": str(exc)}
         audit(record)
-        return result
-    approval_mode = "temporary_trust" if trust_remaining_seconds() else "per_command"
-    if approval_mode == "per_command" and not confirm_on_mac(command, folder):
-        record["status"] = "denied"
+        return {"request_id": request_id, "status": "rejected", "error": str(exc)}
+    if not _exec_lock.acquire(blocking=False):
+        record["status"] = "busy"
+        audit(record)
+        return {"request_id": request_id, "status": "busy", "message": "Another command is active"}
+    try:
+        approval_mode = "temporary_trust" if trust_remaining_seconds() else "per_command"
+        if approval_mode == "per_command" and not confirm_on_mac(command, folder):
+            record["status"] = "denied"
+            audit(record)
+            return {
+                "request_id": request_id,
+                "status": "denied",
+                "message": "No on-Mac approval received",
+            }
+        record["status"] = "approved"
+        record["approval_mode"] = approval_mode
+        if not audit(record):
+            return {
+                "request_id": request_id,
+                "status": "audit_unavailable",
+                "message": "Local audit unavailable: command not executed",
+            }
+        try:
+            result = execute_bounded(command, folder, timeout_seconds)
+        except Exception:
+            result = {
+                "status": "internal_error",
+                "message": "Local execution failed; details withheld",
+            }
+        record["status"] = result["status"]
         audit(record)
         return {
             "request_id": request_id,
-            "status": "denied",
-            "message": "No on-Mac approval received",
+            "cwd": cwd,
+            "approval_mode": approval_mode,
+            **result,
         }
-    try:
-        result = execute_bounded(command, folder, timeout_seconds)
-    except Exception:
-        result = {
-            "status": "internal_error",
-            "message": "Local execution failed; details withheld",
-        }
-    record["status"] = result["status"]
-    record["approval_mode"] = approval_mode
-    audit(record)
-    return {
-        "request_id": request_id,
-        "cwd": cwd,
-        "approval_mode": approval_mode,
-        **result,
-    }
+    finally:
+        _exec_lock.release()
