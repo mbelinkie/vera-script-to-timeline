@@ -46,6 +46,9 @@ the choice in one line in the PR, and keep going.
 
 ## Starting an issue
 
+- Before preparing or recording a Producer Chat review, follow
+  [the Chat approval handoff](docs/CHAT_APPROVAL_HANDOFF.md). Accept clear
+  natural-language go-ahead instructions after review; require no prescribed phrase.
 - Read the issue on the GitHub Project configured in
   `.github/vera-roadmap.json`, the relevant slice of
   `docs/Script-to-Timeline Product Spec - Fable Rev2.md`, and the relevant plan
@@ -58,6 +61,10 @@ the choice in one line in the PR, and keep going.
   <effort> --task <task> --branch <branch>`. If the issue clearly needs a
   different model or effort, relabel it (`gh issue edit`), say so in a comment
   and continue; don't park it waiting for a steward.
+- Before any Codex launch or claim, verify the current Producer-approved Chat
+  review using [the review gate](docs/CHAT_REVIEW_GATE.md). A label alone is
+  insufficient; external launchers must run its read-only preflight and stop
+  on refusal. Agents never create their own approval records.
 - Record prerequisites under `## Dependencies` as one `- Blocked by #123` (or
   `- Blocked by owner/repo#123`) line each, or `None`. The roadmap tooling reads
   this format. Promote with `npm run roadmap -- ready <issue>`.
