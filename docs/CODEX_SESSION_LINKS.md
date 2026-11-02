@@ -1,19 +1,29 @@
 # #399 — local Codex session links (draft; no dispatch or approval)
 
-This module is a **read-only link-data contract**, not a working dashboard button or Codex agent control surface. The existing `codex://threads/<uuid>` navigation test has already succeeded on macOS. Do not repeat it or run `codex queue` for this feature.
+This draft supplies a **local-only, Producer-attested issue-to-existing-thread mapping** and an **inert read-only link-data contract**. The `codex://threads/<uuid>` navigation test has already succeeded on the Producer's Mac. Do not repeat that test, start a Codex agent, or run `codex queue` for this feature.
 
-## Local identity and trusted capture
+## No-credit Producer confirmation (after separate #399 approval)
 
-Codex desktop **Copy chat deep link** on an *existing local conversation* supplies a `codex://threads/<uuid>` value. Manually associate the copied link with the exact GitHub issue URL, recording which Producer made that association and when. This is **human-attested provenance**, not cryptographic authentication or evidence of current availability. Never infer UUIDs from ChatGPT `/c/` IDs, review-prompt links, cloud task IDs, issue numbers, PR numbers, filenames, or the most recently opened thread.
+1. In the **already-existing local Codex desktop conversation**, use **Copy chat deep link**. Do not launch a new thread or inspect private Codex databases. Its exact shape must be `codex://threads/<uuid>`; a ChatGPT web `/c/` ID, `codex://threads/new`, cloud-task ID, Share snapshot, or review prompt is not a local thread.
+2. From the VERA repo checkout that contains the implementation, run **interactively**:
 
-The proposed map is a version-1 JSON file **outside the repository** at `~/Library/Application Support/VERA/codex-thread-map.v1.json`. Keep the enclosing directory owner-only (0700), the file owner-only (0600), and never commit it or send its real contents to GitHub. Any local registration UI/tool must write by atomic replacement, preserve historical associations, and require a separate explicit Producer confirmation for the issue/session pairing. **Registration is not implemented in this draft.**
+   ```bash
+   node scripts/codex-session-register.mjs https://github.com/mbelinkie/vera-script-to-timeline/issues/399
+   ```
 
-Example **fixture only**; UUID and dates are fictional, and `installationId` must match an independently configured ID for this Mac:
+   Paste the copied desktop deep link **at the interactive prompt, not as a shell argument**, and read the shown canonical issue key and redacted thread suffix. Type `CONFIRM <owner/repo#issue>` exactly. If a different current primary exists, it is **not** silently replaced; a separate `REPLACE` confirmation archives the old association as history. Canceling, invalid input, or a corrupt/insecure existing map fails closed. Terminal input is local but the pasted deep link can remain visible in terminal scrollback; avoid uploading terminal transcripts or screenshots.
+3. Registration creates **no Codex model turns and makes no network/GitHub changes**. It writes only local private files and represents **human attestation** that this specific copied existing thread belongs to the chosen issue; it does **not** independently prove the app currently has that thread loaded. No real session metadata should be committed to the repo.
+
+The private root is `~/Library/Application Support/VERA/` (owner-only mode 0700), containing `codex-thread-map.v1.json` and a separate `codex-installation-id.v1` (owner-only mode 0600). The independent installation identity is generated randomly, retained locally, and **must not** be derived from a copied map. Each map change is an atomic rename, protected by an owner-only `.lock` file to fail rather than race on simultaneous registrations. A stale lock needs manual inspection; do not automatically delete/override it. Never commit these files, including the installation ID, to GitHub. No migration or background collector is implemented.
+
+## Illustrative private schema
+
+Example **fixture only**; UUID and dates are fictional:
 
 ```json
 {
   "version": 1,
-  "installationId": "example-mac-installation",
+  "installationId": "12345678-1234-1234-1234-123456789abc",
   "mappings": [
     {
       "issueUrl": "https://github.com/mbelinkie/vera-script-to-timeline/issues/399",
@@ -34,20 +44,28 @@ Example **fixture only**; UUID and dates are fictional, and `installationId` mus
 }
 ```
 
-The calling integration must obtain this Mac's `installationId` **independently**, not from the map itself, and pass it to `linksForIssue(issueUrl, snapshot, installationId)`. A copied map from another machine must fail closed. If there are multiple threads for one issue, mark older records `secondary` or `history` and explicitly select **one** primary; never silently choose the newest.
+Canonical identity is `owner/repo#number`; two repositories' issue #399 are distinct. A session can be shared across issues, and an issue can retain multiple historical sessions, but only **one explicit primary** may supply a desktop app link. A disagreement is `ambiguous`, not newest-wins.
 
-## Inert interface for #401
+## Read-only #401 integration interface (not yet wired)
 
-- `parseLocalCodexLink(raw)`: exact existing-local UUID link syntax only; never accepts `new`, query strings, encoded paths or web URLs.
-- `canonicalIssueKey(url)`: lowercased `owner/repo#number` key (not issue number alone).
-- `loadLocalCodexSessionMap(path?)`: read-only loader; missing file returns an empty map, bad schema/permissions return an error state; no network or model calls.
-- `linksForIssue(issueUrl, snapshot, installationId)`: status, safe GitHub issue URL, optional separately verified browser conversation URL, and **app URL only when a single primary Codex-local thread has explicit Producer provenance and the device matches**.
-- The `verified-local` status means **recorded Producer-confirmed association**, not live thread loaded, active agent, task approval, or CI eligibility. Display `lastConfirmedAt` and don't assert availability was recently checked.
+- `parseLocalCodexLink(raw)`: accepts exact UUID-form `codex://threads/<uuid>` only (UUID version is not assumed).
+- `canonicalIssueKey(url)`: canonical GitHub owner/repo/issue identity.
+- `loadLocalCodexSessionMap(path?)`: read-only map snapshot; absent returns empty, bad schema/permissions produce error.
+- `readLocalInstallationId(path?)` from `scripts/codex-session-register-lib.mjs`: independently reads the private installation identity, returns null if missing or invalid; never creates it.
+- `linksForIssue(issueUrl, snapshot, installationId)`: returns a status/reason, GitHub issue URL, optional independently Producer-confirmed browser conversation URL, and **`appUrl` only for one properly confirmed primary local Codex UUID on this installation**. `verified-local` describes a **recorded Producer association**, not live availability, Codex readiness/claim, current review approval, or CI status.
 
-Browser fallback is **independent**: accept only a separately Producer-confirmed existing `https://chatgpt.com/c/<opaque-id>` URL. Review links (`/?prompt=`) start a new review; shared snapshots (`/share/`) are not a resumable thread and may expose private details. If no real browser conversation exists, keep the **GitHub issue** link and copyable Codex app link with protocol-handler guidance, but do not label the issue link “Open same thread in browser.”
+Suggested #401-only data flow at snapshot generation: load the local mapping and independent installation ID once; pass these inputs into the link helper keyed by canonical issue URL; render app links only for `verified-local`, with escaped URLs and an optional **Copy desktop link** fallback for browsers blocking custom protocols. All missing/invalid/cloud/web/stale/ambiguous/wrong-device states get a truthful disabled explanation and keep the GitHub issue link. **No navigation on page load, render or refresh.**
 
-**#401 owns the integration**, including its renderer, dashboard entry point, queue display, HTML escaping, and localhost smoke tests. This branch must not edit `scripts/project-progress-lib.mjs`, `scripts/project-progress.test.mjs`, `Open VERA Progress.command`, or `scripts/project-progress.mjs`. The helper should be loaded once while producing the snapshot, not called from the browser or from `GET /status`.
+A browser fallback is a **different evidence category**. It may be exposed only for a separately confirmed existing `https://chatgpt.com/c/<opaque-id>` conversation. A `/?prompt=` URL opens a *new review*, not that conversation; a `/share/` URL is a static snapshot, not a live same-thread fallback. Do not label a GitHub issue URL “Open same Codex thread in browser.”
 
-**#398 is separate**: CI callbacks and same-thread resumption require independent authorization, testing, outbox and acknowledgement semantics. Nothing here queues/resumes a Codex task, changes GitHub Projects, declares a ticket approved, or consumes model credits.
+**#401 exclusively owns renderer integration** (`scripts/project-progress-lib.mjs`, `scripts/project-progress.test.mjs`, `Open VERA Progress.command`, dashboard entry point), snapshot freshness, DOM ordering, and actual localhost smoke tests. This draft changes none of those.
 
-Local standalone test: `node --test scripts/codex-session-links.test.mjs`. This draft intentionally does not create a real mapping file or wire a dashboard action.
+**#398 is a separate project** about CI callback/agent resume and requires distinct approval, a durable outbox and acknowledgment evidence. This draft contains no Codex launch/resume, no background polling, no CI mutation, no GitHub issue status changes, and no credit-consuming operations.
+
+## Tests
+
+```bash
+node --test scripts/codex-session-links.test.mjs scripts/codex-session-register.test.mjs
+```
+
+Tests cover local/deep-link identity, malformed URL/encoding, cross-repo keys, web/cloud/unknown links, file permissions, cancellation, explicit confirmation, local installation scoping, corrupt maps, atomic registration and history, and registration locking. They use temporary fictional test files only. Tests do **not** prove actual Mac dashboard integration or the existence of any specific private Codex thread.
