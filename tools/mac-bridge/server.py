@@ -1,4 +1,7 @@
-"""Private MCP server for VERA Mac Bridge; launched by OpenAI tunnel-client via stdio."""
+"""Private MCP server for VERA Mac Bridge.
+
+Launched by OpenAI tunnel-client via stdio.
+"""
 
 from mcp.server import MCPServer
 from shell_core import mac_exec_local, trust_disable, trust_enable, trust_status
@@ -19,7 +22,10 @@ def mac_health() -> dict:
 
 @mcp.tool()
 def mac_exec(command: str, cwd: str = "vera", timeout_seconds: int = 25) -> dict:
-    """Request a Terminal command. Normally requires on-Mac approval; a locally approved, short trusted window may bypass individual prompts.
+    """Request a Terminal command.
+
+    Normally requires on-Mac approval; a locally approved, short trusted
+    window may bypass individual prompts.
 
     command: A single line of shell syntax (max 240 characters) shown verbatim on Mac.
     cwd: 'vera' (locally configured repo) or 'home'.
