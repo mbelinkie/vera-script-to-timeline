@@ -58,6 +58,8 @@ test('only explicitly associated local primary yields a zero-turn desktop link',
 
 test('missing, history-only, competing primaries, and wrong installation fail closed', () => {
   assert.equal(link(snapshot([])).status, 'missing');
+  // A missing private mapping must not be mislabeled as a device mismatch.
+  assert.equal(linksForIssue(ISSUE, { mappings: [], error: null }, undefined).status, 'missing');
   assert.equal(link(snapshot([primary({role:'history'})])).status, 'missing');
   assert.equal(link(snapshot([primary(),primary()])).status, 'ambiguous');
   assert.equal(link(snapshot(), ISSUE, 'other-device').status, 'wrong-device');
@@ -83,10 +85,26 @@ test('unverified, malformed, stale, cloud-only, and web-only never create Codex 
 });
 
 test('separately Producer-confirmed existing browser conversation is optional fallback', () => {
-  const record = primary({browserUrl:BROWSER,browserProvenance:{method:'producer-confirmed-existing',confirmedAt:TIMESTAMP}});
+  const record = primary({browserUrl:BROWSER,browserProvenance:{
+    method:'producer-confirmed-existing',confirmedAt:TIMESTAMP,relation:'same-thread',
+  }});
   assert.equal(link(snapshot([record])).browserUrl,BROWSER);
   const unverified = primary({browserUrl:BROWSER});
   assert.throws(()=>parseSessionMapping(snapshot([unverified])));
+  const unrelated = primary({browserUrl:BROWSER,browserProvenance:{
+    method:'producer-confirmed-existing',confirmedAt:TIMESTAMP,
+  }});
+  assert.throws(()=>parseSessionMapping(snapshot([unrelated])));
+  // Even if an unvalidated snapshot is passed directly, it must never offer
+  // a browser URL that might lead to a different conversation.
+  assert.equal(link(snapshot([unrelated])).browserUrl, undefined);
+  const web = primary({surface:'chatgpt-web',browserUrl:BROWSER,
+    browserProvenance:{method:'producer-confirmed-existing',confirmedAt:TIMESTAMP}});
+  assert.equal(link(snapshot([web]), ISSUE, 'different-installation').status,'web-only');
+  assert.equal(link(snapshot([web]), ISSUE, 'different-installation').browserUrl,BROWSER);
+  const cloud = primary({surface:'codex-cloud',browserUrl:BROWSER,
+    browserProvenance:{method:'producer-confirmed-existing',confirmedAt:TIMESTAMP}});
+  assert.throws(()=>parseSessionMapping(snapshot([cloud])));
   for (const bad of [
     'https://chatgpt.com/?prompt=issue',
     'https://chatgpt.com/share/123456789abc',
