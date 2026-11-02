@@ -17,7 +17,7 @@ const INSTALLATION = /^[A-Za-z0-9._-]{3,128}$/;
 const MAX_RECORDS = 5000;
 
 export const DEFAULT_MAPPING_PATH = path.join(
-  homedir(), 'Library', 'Application Support', 'VERA', 'codex-thread-map.v1.json',
+  homedir(), 'Library', 'Application Support', 'VERA', 'codex-session-links', 'codex-thread-map.v1.json',
 );
 
 /** Exact existing-local-thread link only. Syntax != trusted provenance. */

@@ -28,10 +28,12 @@ if (args.length === 1 && args[0] === '--help') {
     try {
       await registerLocalCodexThread({ issueUrl, deepLink, confirmed: true });
     } catch (error) {
-      if (!/Existing primary session differs/.test(error?.message ?? '')) throw error;
-      const second = await terminal.question('An existing primary would become history. Type REPLACE to confirm: ');
+      if (error?.code !== 'EXISTING_PRIMARY_DIFFERS') throw error;
+      const suffix = error.expectedCurrentThreadId.slice(-8);
+      const second = await terminal.question(`Existing primary ending ...${suffix} would become history. Type REPLACE to confirm: `);
       if (second !== 'REPLACE') throw new Error('Canceled: existing primary left unchanged', { cause: error });
-      await registerLocalCodexThread({ issueUrl, deepLink, confirmed: true, replaceExisting: true });
+      await registerLocalCodexThread({ issueUrl, deepLink, confirmed: true, replaceExisting: true,
+        expectedCurrentThreadId: error.expectedCurrentThreadId });
       replaced = true;
     }
     console.log(replaced ? 'Producer-attested local association updated.' : 'Producer-attested local association recorded.');

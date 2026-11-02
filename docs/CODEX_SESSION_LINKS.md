@@ -11,10 +11,10 @@ This draft supplies a **local-only, Producer-attested issue-to-existing-thread m
    node scripts/codex-session-register.mjs https://github.com/mbelinkie/vera-script-to-timeline/issues/399
    ```
 
-   Paste the copied desktop deep link **at the interactive prompt, not as a shell argument**, and read the shown canonical issue key and redacted thread suffix. Type `CONFIRM <owner/repo#issue>` exactly. If a different current primary exists, it is **not** silently replaced; a separate `REPLACE` confirmation archives the old association as history. Canceling, invalid input, or a corrupt/insecure existing map fails closed. Terminal input is local but the pasted deep link can remain visible in terminal scrollback; avoid uploading terminal transcripts or screenshots.
+   Paste the copied desktop deep link **at the interactive prompt, not as a shell argument**, and read the shown canonical issue key and redacted thread suffix. Type `CONFIRM <owner/repo#issue>` exactly. If a different current primary exists, it is **not** silently replaced; a separate `REPLACE` confirmation shows the current primary’s redacted suffix and archives that specific association as history. If the primary changes before confirmation, registration aborts; rerun and review the new primary. Canceling, invalid input, or a corrupt/insecure existing map fails closed. Terminal input is local but the pasted deep link can remain visible in terminal scrollback; avoid uploading terminal transcripts or screenshots.
 3. Registration creates **no Codex model turns and makes no network/GitHub changes**. It writes only local private files and represents **human attestation** that this specific copied existing thread belongs to the chosen issue; it does **not** independently prove the app currently has that thread loaded. No real session metadata should be committed to the repo.
 
-The private root is `~/Library/Application Support/VERA/` (owner-only mode 0700), containing `codex-thread-map.v1.json` and a separate `codex-installation-id.v1` (owner-only mode 0600). The independent installation identity is generated randomly, retained locally, and **must not** be derived from a copied map. Each map change is an atomic rename, protected by an owner-only `.lock` file to fail rather than race on simultaneous registrations. A stale lock needs manual inspection; do not automatically delete/override it. Never commit these files, including the installation ID, to GitHub. No migration or background collector is implemented.
+The private root is `~/Library/Application Support/VERA/codex-session-links/` (owner-only mode 0700), containing `codex-thread-map.v1.json` and a separate `codex-installation-id.v1` (owner-only mode 0600). The independent installation identity is generated randomly, retained locally, and **must not** be derived from a copied map. Each map change is an atomic rename, protected by an owner-only `.lock` file to fail rather than race on simultaneous registrations. A stale lock needs manual inspection; do not automatically delete/override it. Never commit these files, including the installation ID, to GitHub. No migration or background collector is implemented.
 
 ## Illustrative private schema
 
@@ -69,3 +69,11 @@ node --test scripts/codex-session-links.test.mjs scripts/codex-session-register.
 ```
 
 Tests cover local/deep-link identity, malformed URL/encoding, cross-repo keys, web/cloud/unknown links, file permissions, cancellation, explicit confirmation, local installation scoping, corrupt maps, atomic registration and history, and registration locking. They use temporary fictional test files only. Tests do **not** prove actual Mac dashboard integration or the existence of any specific private Codex thread.
+
+## Private-store recovery
+
+The dedicated `codex-session-links` folder is created as 0700 independently of the shared VERA folder. Existing insecure or symlinked private folders are refused; correct ownership/permissions before retrying, rather than bypassing the check. There is no automatic import from the earlier draft location.
+
+If a map exists without its independent installation identity, registration refuses with a missing-identity error. Restore the original identity from this Mac’s private backup. Do not derive it from the map or re-key a copied map. If recovery is impossible, preserve the old private files as a private backup and register each existing conversation afresh with explicit Producer pairing in a new private store.
+
+A leftover registration lock requires manual inspection after verifying no registration process is active. A cleanup error is reported rather than claiming an unqualified success; the map may already have been written, so inspect its read-only lookup before retrying.

@@ -72,11 +72,11 @@ export async function readLocalInstallationId(filePath = defaultInstallationIdPa
 
 /**
  * Only call after an interactive Producer confirmation of issue + pasted link.
- * Replacing a primary session requires an additional, explicit approval flag.
+ * Replacing a primary requires explicit approval and its expected current thread ID.
  * A failed preflight must never overwrite the existing private file.
  */
 export async function registerLocalCodexThread({
-  issueUrl, deepLink, confirmed = false, replaceExisting = false,
+  issueUrl, deepLink, confirmed = false, replaceExisting = false, expectedCurrentThreadId,
   mappingPath = DEFAULT_MAPPING_PATH,
   installationIdPath = defaultInstallationIdPath(mappingPath),
   now = () => new Date().toISOString(),
@@ -102,6 +102,11 @@ export async function registerLocalCodexThread({
       readPrivateFile(mappingPath), readPrivateFile(installationIdPath),
     ]);
     const existing = existingRaw === null ? null : parseSessionMapping(existingRaw);
+    if (existing && identityRaw === null) {
+      const error = new Error('Existing mapping has no independent local installation identity');
+      error.code = 'MISSING_INSTALLATION_IDENTITY';
+      throw error;
+    }
     const installationId = identityRaw === null ? randomUUID() : identityRaw.trim();
     if (!INSTALL_ID_RE.test(installationId)) throw new Error('Existing local installation identity is invalid');
     if (existing && existing.installationId !== installationId) {
@@ -112,9 +117,19 @@ export async function registerLocalCodexThread({
       && canonicalIssueKey(entry.issueUrl) === issueKey);
     if (primaries.length > 1) throw new Error('Ambiguous existing primary session; manual repair required');
     const current = primaries[0];
-    const sameThread = current && parseLocalCodexLink(current.deepLink)?.threadId === session.threadId;
+    const currentThreadId = current ? parseLocalCodexLink(current.deepLink)?.threadId : null;
+    if (current && !currentThreadId) throw new Error('Existing primary is not a valid local thread; manual repair required');
+    const sameThread = currentThreadId === session.threadId;
     if (current && !sameThread && !replaceExisting) {
-      throw new Error('Existing primary session differs; explicit replacement confirmation required');
+      const error = new Error('Existing primary session differs; explicit replacement confirmation required');
+      error.code = 'EXISTING_PRIMARY_DIFFERS';
+      error.expectedCurrentThreadId = currentThreadId;
+      throw error;
+    }
+    if (replaceExisting && expectedCurrentThreadId !== currentThreadId) {
+      const error = new Error('Existing primary changed since replacement confirmation; no changes were made');
+      error.code = 'PRIMARY_CHANGED';
+      throw error;
     }
     const checkedAt = now();
     if (typeof checkedAt !== 'string' || !Number.isFinite(Date.parse(checkedAt))) {
@@ -140,7 +155,7 @@ export async function registerLocalCodexThread({
     return { issueKey, threadSuffix: session.threadId.slice(-8), replacedPrimary: !!current,
       recordedAt: checkedAt, mappingPath };
   } finally {
-    await lock?.close();
-    if (lock) await unlink(lockPath);
+    try { await lock?.close(); }
+    finally { if (lock) await unlink(lockPath); }
   }
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, lstat, chmod, writeFile, symlink, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, stat, lstat, chmod, writeFile, symlink, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,6 +9,7 @@ import { registerLocalCodexThread, readLocalInstallationId, defaultInstallationI
 const ISSUE='https://github.com/mbelinkie/vera-script-to-timeline/issues/399';
 const A='codex://threads/11111111-2222-3333-4444-555555555555';
 const B='codex://threads/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const C='codex://threads/99999999-8888-7777-6666-555555555555';
 const FIXED='2026-11-01T20:00:00.000Z';
 async function fixture(t) {
   const dir=await mkdtemp(path.join(os.tmpdir(),'vera399-register-'));
@@ -46,18 +47,83 @@ test('registers exact existing thread with owner-only installation + map and ine
   assert.equal(linksForIssue(ISSUE,saved,'another-id').appUrl,undefined);
 });
 
-test('same thread reconfirmation does not duplicate; replacement requires another explicit flag and keeps history',async t=>{
+test('same thread reconfirmation does not duplicate; replacement requires an expected primary and keeps history',async t=>{
   const p=await fixture(t);
   await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
   await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
   assert.equal((await loadLocalCodexSessionMap(p.mappingPath)).mappings.length,1);
   const before=await readFile(p.mappingPath,'utf8');
-  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,...p}),/replacement confirmation/);
+  let replacementError;
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,...p}),error=>{
+    replacementError=error;
+    return error?.code==='EXISTING_PRIMARY_DIFFERS'
+      && error.expectedCurrentThreadId==='11111111-2222-3333-4444-555555555555';
+  });
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,...p}),
+    error=>error?.code==='PRIMARY_CHANGED');
   assert.equal(await readFile(p.mappingPath,'utf8'),before);
-  const result=await registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,...p});
+  const result=await registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,
+    expectedCurrentThreadId:replacementError.expectedCurrentThreadId,...p});
   assert.equal(result.replacedPrimary,true);
   const saved=await loadLocalCodexSessionMap(p.mappingPath);
   assert.deepEqual(saved.mappings.map(m=>[m.role,m.deepLink]),[['history',A],['primary',B]]);
+});
+
+test('replacement confirmation for A cannot replace a concurrent primary C with B',async t=>{
+  const p=await fixture(t);
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
+  let replacementError;
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,...p}),error=>{
+    replacementError=error;
+    return error?.code==='EXISTING_PRIMARY_DIFFERS';
+  });
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:C,confirmed:true,replaceExisting:true,
+    expectedCurrentThreadId:replacementError.expectedCurrentThreadId,...p});
+  const before=await readFile(p.mappingPath,'utf8');
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,
+    expectedCurrentThreadId:replacementError.expectedCurrentThreadId,...p}),error=>error?.code==='PRIMARY_CHANGED');
+  assert.equal(await readFile(p.mappingPath,'utf8'),before);
+  assert.deepEqual((await loadLocalCodexSessionMap(p.mappingPath)).mappings.map(m=>[m.role,m.deepLink]),
+    [['history',A],['primary',C]]);
+});
+
+test('existing map without independent installation identity fails without recreating it',async t=>{
+  const p=await fixture(t);
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
+  const before=await readFile(p.mappingPath,'utf8');
+  await rm(p.installationIdPath);
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,...p}),
+    error=>error?.code==='MISSING_INSTALLATION_IDENTITY');
+  assert.equal(await readFile(p.mappingPath,'utf8'),before);
+  await assert.rejects(lstat(p.installationIdPath),{code:'ENOENT'});
+});
+
+test('invalid existing primary cannot be replaced with an absent expected ID',async t=>{
+  const p=await fixture(t);
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
+  const stored=JSON.parse(await readFile(p.mappingPath,'utf8'));
+  stored.mappings[0].surface='chatgpt-web';
+  delete stored.mappings[0].deepLink;
+  await writeFile(p.mappingPath,JSON.stringify(stored),{mode:0o600});
+  const before=await readFile(p.mappingPath,'utf8');
+  await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,...p}),
+    /not a valid local thread/);
+  assert.equal(await readFile(p.mappingPath,'utf8'),before);
+});
+
+test('registration keeps an existing shared 0755 root while creating a private mapping subfolder',async t=>{
+  const p=await fixture(t);
+  const sharedRoot=path.join(p.dir,'shared');
+  await mkdir(sharedRoot,{mode:0o755});
+  await chmod(sharedRoot,0o755);
+  const privateDir=path.join(sharedRoot,'codex-session-links');
+  const mappingPath=path.join(privateDir,'codex-thread-map.v1.json');
+  const installationIdPath=defaultInstallationIdPath(mappingPath);
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,mappingPath,installationIdPath,now:p.now});
+  assert.equal((await stat(sharedRoot)).mode&0o777,0o755);
+  assert.equal((await stat(privateDir)).mode&0o777,0o700);
+  const saved=await loadLocalCodexSessionMap(mappingPath);
+  assert.equal(linksForIssue(ISSUE,saved,await readLocalInstallationId(installationIdPath)).status,'verified-local');
 });
 
 test('corrupt or permissive existing mapping fails without modifying it',async t=>{
