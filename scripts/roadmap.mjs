@@ -658,7 +658,7 @@ async function main() {
     // Never claim on labels alone: verify a Producer-authored, current-revision
     // approval against complete GitHub comment history before any mutation.
     verifyReviewFromGh(runGh, settings.repository, issue.number, {
-      title: issue.title, body: issue.body,
+      title: issue.title, body: issue.body, labels: labelsOf(issue),
     });
     const claim = {
       state: "active",

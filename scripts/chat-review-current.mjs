@@ -20,7 +20,7 @@ export function verifyProducerReview(issue, comments, repo, number) {
   if (!labels.includes("chat-reviewed") || labels.includes("chat-review-pending")) {
     throw new Error("Current Producer Chat review label required");
   }
-  if (!Number.isSafeInteger(issue.comments) || issue.comments > 2000 ||
+  if (!Number.isSafeInteger(issue.comments) || issue.comments < 0 || issue.comments > 2000 ||
       !Array.isArray(comments) || comments.length !== issue.comments) {
     throw new Error("Review comment history incomplete");
   }
@@ -28,8 +28,10 @@ export function verifyProducerReview(issue, comments, repo, number) {
   let newest;
   for (const comment of comments) {
     if (!Number.isSafeInteger(comment?.id) || comment.id <= previous) throw new Error("Review comments out of order");
+    if (typeof comment.body !== "string") throw new Error("Review comment body unavailable");
     previous = comment.id;
-    if (comment.user?.login !== PRODUCER || !comment.body?.includes(REVIEW_MARKER)) continue;
+    // Discussion may name the format; only an attempted HTML record supersedes it.
+    if (comment.user?.login !== PRODUCER || !/<!--\s*VERA_CHAT_REVIEW_V1\b/.test(comment.body)) continue;
     const matches = [...comment.body.matchAll(/<!-- VERA_CHAT_REVIEW_V1 (\{[^\r\n]*\}) -->/g)];
     newest = { invalid: true };
     if (matches.length !== 1 || comment.body.split(REVIEW_MARKER).length !== 2) continue;
@@ -37,6 +39,7 @@ export function verifyProducerReview(issue, comments, repo, number) {
       const r = JSON.parse(matches[0][1]);
       if (r.producer === PRODUCER && r.promptVersion === "1" &&
           typeof r.reviewedAt === "string" && Number.isFinite(Date.parse(r.reviewedAt)) &&
+          new Date(r.reviewedAt).toISOString() === r.reviewedAt &&
           /^[a-f0-9]{64}$/.test(r.revision)) {
         newest = { revision: r.revision, commentId: comment.id, url: comment.html_url };
       }

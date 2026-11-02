@@ -82,3 +82,32 @@ test("standalone gate accepts only exact allowed issue URLs", () => {
     assert.throws(() => parseReviewUrl(url));
   }
 });
+
+test("ordinary discussion of the marker does not supersede Producer approval", () => {
+  const i = issue();
+  i.comments = 3;
+  const comments = [approval(i),
+    { id: 13, user: { login: "mbelinkie" }, body: "The VERA_CHAT_REVIEW_V1 verifier is now implemented; this is not a new approval." },
+    { id: 14, user: { login: "automation-bot" }, body: "<!-- VERA_CHAT_REVIEW_V1 malformed -->" },
+  ];
+  assert.equal(verifyProducerReview(i, comments, repo, number).commentId, 12);
+});
+
+test("a malformed attempted approval supersedes older approval, including broken delimiter", () => {
+  const i = issue();
+  i.comments = 2;
+  for (const body of ["<!-- VERA_CHAT_REVIEW_V1 malformed -->", "<!-- VERA_CHAT_REVIEW_V1", approval(i).body + approval(i).body]) {
+    assert.throws(() => verifyProducerReview(i, [approval(i), { id: 13, user: { login: "mbelinkie" }, body }], repo, number), /valid current/i);
+  }
+});
+
+test("reject invalid dates, wrong producer, malformed revisions and incomplete comment bodies", () => {
+  const i = issue();
+  for (const overrides of [
+    { reviewedAt: "yesterday" }, { reviewedAt: "2026-02-30T00:00:00.000Z" },
+    { reviewedAt: "2026-11-02" }, { producer: "automation-bot" },
+    { revision: "z".repeat(64) }, { revision: "a".repeat(63) },
+  ]) assert.throws(() => verifyProducerReview(i, [approval(i, 12, overrides)], repo, number));
+  assert.throws(() => verifyProducerReview({ ...i, comments: 2 }, [approval(i), { id: 13, user: { login: "mbelinkie" } }], repo, number));
+  assert.throws(() => verifyProducerReview({ ...i, comments: -1 }, [], repo, number));
+});
