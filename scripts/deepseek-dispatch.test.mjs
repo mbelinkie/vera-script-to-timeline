@@ -57,6 +57,9 @@ test('reject unreviewed, pending, closed, or mismatched issue', () => {
     x => { x.labels.push({ name: 'type:bug' }); },
     x => { x.labels = x.labels.map(l => l.name === 'type:implementation' ? { name: 'type:investigation' } : l); },
     x => { x.body = ''; },
+    x => { x.body = '## DeepSeek Handoff'; },
+    x => { x.body = '## DeepSeek Handoff\n   \n## Other section\nUnrelated details'; },
+    x => { x.body = '## DeepSeek Handoff\n<!-- notes only -->'; },
     x => { x.state = 'closed'; },
     x => { x.number = 999; },
     x => { x.pull_request = {}; }
