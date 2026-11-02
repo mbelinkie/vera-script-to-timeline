@@ -11,6 +11,7 @@ import {
   plannedGraphqlPoints,
 } from "./roadmap-rate-limit.mjs";
 import { acquireRoadmapLock } from "./roadmap-lock.mjs";
+import { verifyReviewFromGh } from "./chat-review-github.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -654,6 +655,11 @@ async function main() {
     if (item.status !== "Ready") throw new Error(`Issue must be Ready before claim; current status is ${item.status ?? "unknown"}`);
     validateReadyRequirements(settings, issue);
     assertClaimAvailable(issue.comments);
+    // Never claim on labels alone: verify a Producer-authored, current-revision
+    // approval against complete GitHub comment history before any mutation.
+    verifyReviewFromGh(runGh, settings.repository, issue.number, {
+      title: issue.title, body: issue.body, labels: labelsOf(issue),
+    });
     const claim = {
       state: "active",
       model,

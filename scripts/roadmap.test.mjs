@@ -154,9 +154,20 @@ test("inspect, ready, and claim preflight before GraphQL reads and again before 
   const logPath = path.join(temporary, "calls.log");
   const fakeSource = `#!/usr/bin/env node
 const fs = require("node:fs");
+const crypto = require("node:crypto");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.FAKE_GH_LOG, JSON.stringify(args) + "\\n");
 const query = args.find((value) => value.startsWith("query=")) || "";
+const approved = process.env.FAKE_CHAT_APPROVED === "true";
+const nativeWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = (text) => {
+  if (approved && query.includes("RoadmapIssue")) {
+    const result = JSON.parse(text);
+    result.data.repository.issue.labels.nodes.push({name:"chat-reviewed"});
+    return nativeWrite(JSON.stringify(result));
+  }
+  return nativeWrite(text);
+};
 if (query.includes("RoadmapRateLimit")) {
   process.stdout.write('HTTP/2 200 OK\\nX-RateLimit-Limit: 5000\\nX-RateLimit-Remaining: 50\\nX-RateLimit-Used: 4950\\nX-RateLimit-Reset: 1788215569\\nX-RateLimit-Resource: graphql\\n\\n{"data":{"rateLimit":{"limit":5000,"remaining":50,"used":4950,"resetAt":"2026-08-31T22:32:49Z","cost":1}}}');
 } else if (query.includes("RoadmapIssue")) {
@@ -164,6 +175,18 @@ if (query.includes("RoadmapRateLimit")) {
   process.stdout.write(JSON.stringify({data:{repository:{issue:{id:"issue-id",number:23,title:"Test issue",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23",state:"OPEN",body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:sol"},{name:"effort:high"}]},comments:{nodes:[]},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValues:{nodes:[{name:status,field:{name:"Status"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready-option",name:"Ready"},{id:"progress-option",name:"In progress"}]}}},rateLimit:{limit:5000,remaining:49,used:4951,resetAt:"2026-08-31T22:32:49Z",cost:1}}}));
 } else if (query.includes("RoadmapLifecycle")) {
   process.stdout.write('{"data":{"status":{"projectV2Item":{"id":"item-id"}}}}');
+} else if (args[0] === "api" && args[1] === "repos/mbelinkie/vera-script-to-timeline/issues/23") {
+  process.stdout.write(JSON.stringify({
+    number:23, title:"Test issue", state:"open",
+    body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",
+    labels:[{name:"model:sol"},{name:"effort:high"}, ...(approved ? [{name:"chat-reviewed"}] : [])], comments:approved ? 1 : 0,
+    repository_url:"https://api.github.com/repos/mbelinkie/vera-script-to-timeline",
+    html_url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23"
+  }));
+} else if (args[0] === "api" && args[1] === "--paginate") {
+  const body = "## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone";
+  const record = {revision:crypto.createHash("sha256").update(JSON.stringify(["Test issue",body])).digest("hex"),producer:"mbelinkie",promptVersion:"1",reviewedAt:"2026-11-02T02:59:16.691Z"};
+  process.stdout.write(JSON.stringify([approved ? [{id:12,user:{login:"mbelinkie"},html_url:"https://example.invalid/review",created_at:"2026-11-02T02:59:16Z",updated_at:"2026-11-02T02:59:16Z",performed_via_github_app:null,body:"<!-- VERA_CHAT_REVIEW_V1 "+JSON.stringify(record)+" -->"}] : []]));
 } else if (args[0] === "api" && args[1] === "rate_limit") {
   process.stdout.write('{"limit":5000,"remaining":50,"used":4950,"reset":1788215569}');
 } else if (args[0] === "issue" && args[1] === "comment") {
@@ -176,7 +199,7 @@ if (query.includes("RoadmapRateLimit")) {
   writeFileSync(fakeGh, fakeSource);
   chmodSync(fakeGh, 0o755);
 
-  const run = (command, status) => {
+  const run = (command, status, expectedExit = 0, approved = false) => {
     writeFileSync(logPath, "");
     const lockPath = path.join(temporary, `${command[0]}.lock`);
     const result = spawnSync(process.execPath, [path.join(repositoryRoot, "scripts", "roadmap.mjs"), ...command], {
@@ -187,10 +210,11 @@ if (query.includes("RoadmapRateLimit")) {
         PATH: `${temporary}${path.delimiter}${process.env.PATH}`,
         FAKE_GH_LOG: logPath,
         FAKE_ROADMAP_STATUS: status,
+        FAKE_CHAT_APPROVED: String(approved),
         VERA_ROADMAP_LOCK_PATH: lockPath,
       },
     });
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, expectedExit, result.stderr);
     return readFileSync(logPath, "utf8").trim().split("\n").map(JSON.parse);
   };
 
@@ -207,11 +231,20 @@ if (query.includes("RoadmapRateLimit")) {
   const claimCalls = run(
     ["claim", "23", "--model", "gpt-5.6-sol", "--effort", "high", "--task", "test-task", "--branch", "codex/test"],
     "Ready",
+    1,
   );
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
-  assert.match(claimCalls[2].join(" "), /RoadmapRateLimit/);
+  assert.ok(claimCalls[2].join(" ").includes("repos/mbelinkie/vera-script-to-timeline/issues/23"));
   const lifecycleIndex = claimCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
-  assert.equal(lifecycleIndex, 3);
+  assert.equal(lifecycleIndex, -1);
   assert.equal(claimCalls.some((args) => args[0] === "issue"), false);
+
+  const approvedCalls = run(
+    ["claim", "23", "--model", "gpt-5.6-sol", "--effort", "high", "--task", "approved-task", "--branch", "codex/approved-test"],
+    "Ready", 0, true,
+  );
+  const approvalRead = approvedCalls.findIndex((args) => args.includes("--paginate"));
+  const approvedMutation = approvedCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
+  assert.ok(approvalRead > 0 && approvedMutation > approvalRead, "claim must verify current review before mutation");
 });
