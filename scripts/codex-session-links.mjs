@@ -33,7 +33,7 @@ export function parseLocalCodexLink(raw) {
 export function canonicalIssueKey(raw) {
   if (typeof raw !== 'string') return null;
   const match = GITHUB_ISSUE.exec(raw);
-  if (!match) return null;
+  if (!match || match[2] === '.' || match[2] === '..') return null;
   const num = Number(match[3]);
   if (!Number.isSafeInteger(num)) return null;
   return `${match[1].toLowerCase()}/${match[2].toLowerCase()}#${num}`;
