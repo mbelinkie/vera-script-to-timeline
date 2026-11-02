@@ -205,6 +205,7 @@ export async function consumeEvent(event, { verify, findOrigin, loadAudit, saveA
 }
 
 const isUuid = (value) => typeof value === "string" && UUID.test(value);
+const isMessageId = (value) => isUuid(value) || (typeof value === "string" && /^msg_[0-9a-f]{32,128}$/.test(value));
 const isTime = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 
 /** Records trusted adapter evidence only; it does not authenticate caller-supplied JSON or enable effects. */
@@ -241,7 +242,7 @@ export function reduceDeliveryState(current, action, now = Date.now) {
         !exactKeys(evidence, ["eventId", "threadId", "requestId", "sourceMessageAuthor", "provenance", "turnId", "messageId", "observedAt"]) ||
         evidence.eventId !== next.event.eventId || evidence.threadId !== next.threadId || evidence.requestId !== states.queue_intent.requestId ||
         evidence.sourceMessageAuthor !== "assistant" || !["producer_ui_observation", "supported_thread_api"].includes(evidence.provenance) ||
-        !isUuid(evidence.turnId) || !isUuid(evidence.messageId) || !isTime(evidence.observedAt) ||
+        !isUuid(evidence.turnId) || !isMessageId(evidence.messageId) || !isTime(evidence.observedAt) ||
         Date.parse(evidence.observedAt) <= Date.parse(states.queued.at)) throw new Error("ACK evidence does not match delivery");
     states.ack_observed = { at: evidence.observedAt, provenance: evidence.provenance, turnId: evidence.turnId, messageId: evidence.messageId };
   } else if (action?.type === "auto_woke" && exactKeys(action, ["type", "evidence"])) {

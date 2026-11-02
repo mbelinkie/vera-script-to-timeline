@@ -145,6 +145,8 @@ test("ambiguous enqueue is terminal; only a matching receipt admits queued and a
   };
   assert.throws(() => reduceDeliveryState(queued, { type: "ack_observed", evidence: { ...evidence, sourceMessageAuthor: "user" } }), /ACK/);
   assert.equal(reduceDeliveryState(queued, { type: "ack_observed", evidence }).states.ack_observed.messageId, evidence.messageId);
+  const apiMessageId = "msg_" + "a".repeat(48);
+  assert.equal(reduceDeliveryState(queued, { type: "ack_observed", evidence: { ...evidence, messageId: apiMessageId } }).states.ack_observed.messageId, apiMessageId);
 });
 
 test("wake and owner acceptance need separate evidence", async () => {

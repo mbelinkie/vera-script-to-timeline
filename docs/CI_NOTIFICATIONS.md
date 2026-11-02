@@ -30,6 +30,15 @@ specific Producer authorization identifying the exact target and paid-turn
 boundary. Production activation also requires separate security/spending
 authorization and independent wake evidence.
 
+On November 2, the Producer separately authorized one further no-tools test
+in the exact earlier disposable chat. The supported read-only chat API showed
+`notLoaded` before sending. CLI 0.160.0 admitted one unique message, with an
+exact target/message receipt, exit 0 and no warning (no resume option used).
+Two subsequent read-only checks still showed `notLoaded` and only old turns;
+no new ACK or unattended wake was observed before opening. The message was
+not retried. This supports admission while unloaded, not automatic wake or
+review. The private proof remains on the Mac, separate from public CI events.
+
 The default installed CLI inspected on November 2, 2026 was `codex-cli
 0.160.0`: `queue --thread --message` exists, while `--resume` was absent from
 its help. Earlier evidence used a different bundled build. Inspect the exact
