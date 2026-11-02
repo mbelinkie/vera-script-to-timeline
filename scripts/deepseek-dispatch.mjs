@@ -1,7 +1,8 @@
 // GitHub issue-comment -> preinstalled private DeepSeek repair controller.
 // This trusted dispatcher never calls a model or merges a PR.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
@@ -70,6 +71,24 @@ export function verifyCurrentIssue(issue, expectedIssue) {
   return true;
 }
 
+function labelNames(issue) {
+  return (issue?.labels || []).map(label => typeof label === 'string' ? label : label?.name).sort();
+}
+
+export function verifyFreshDispatch({
+  issue, comment, currentMainSha, request, actor, expectedIssue, expectedComment, expectedMainSha
+}) {
+  verifyCurrentIssue(issue, request.issue);
+  verifyCurrentComment(comment, request, actor);
+  if (currentMainSha !== expectedMainSha || comment.updated_at !== expectedComment.updated_at ||
+      issue.title !== expectedIssue.title || issue.body !== expectedIssue.body || issue.state !== expectedIssue.state ||
+      issue.updated_at !== expectedIssue.updated_at || issue.comments !== expectedIssue.comments ||
+      JSON.stringify(labelNames(issue)) !== JSON.stringify(labelNames(expectedIssue))) {
+    throw new Error('Dispatch authorization changed before the private runner call');
+  }
+  return true;
+}
+
 export function taskCap(value) {
   // This is an additional per-task ceiling, NOT a replacement for the
   // private controller's required cumulative USD10 campaign ledger.
@@ -85,14 +104,52 @@ export function reserveReceipt(root, issue, commentId) {
   // mkdir is atomic on one host. Never clear this guard automatically:
   // an interrupted/uncertain paid call requires manual ledger reconciliation.
   const dir = join(root, 'issue-' + issue);
-  mkdirSync(root, { recursive: true, mode: 0o700 });
-  mkdirSync(dir, { mode: 0o700 });
+  const assertPrivateDirectory = path => {
+    const st = lstatSync(path);
+    if (!st.isDirectory() || st.isSymbolicLink() ||
+        (typeof process.getuid === 'function' && st.uid !== process.getuid()) || (st.mode & 0o077) !== 0) {
+      throw new Error('Private receipt state has unsafe type, owner, or permissions');
+    }
+  };
+  mkdirSync(dirname(root), { recursive: true, mode: 0o700 });
+  assertPrivateDirectory(dirname(root));
+  try {
+    mkdirSync(root, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  assertPrivateDirectory(root);
+  try {
+    mkdirSync(dir, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+    assertPrivateDirectory(dir);
+    throw error;
+  }
+  assertPrivateDirectory(dir);
   const receipt = join(dir, 'receipt.json');
   writeFileSync(receipt, JSON.stringify({
     issue, commentId, state: 'reserved',
     timestamp: new Date().toISOString()
   }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
   return receipt;
+}
+
+export function writeReceipt(path, value) {
+  const dir = dirname(path);
+  const st = lstatSync(dir);
+  if (!st.isDirectory() || st.isSymbolicLink() ||
+      (typeof process.getuid === 'function' && st.uid !== process.getuid()) || (st.mode & 0o077) !== 0) {
+    throw new Error('Private receipt state has unsafe type, owner, or permissions');
+  }
+  const temporary = path + '.' + randomUUID() + '.tmp';
+  try {
+    writeFileSync(temporary, JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+    renameSync(temporary, path);
+  } catch (error) {
+    rmSync(temporary, { force: true });
+    throw error;
+  }
 }
 
 export function invokePrivateRunner(runner, args, env, spawn = spawnSync) {

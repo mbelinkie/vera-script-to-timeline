@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, rmSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { URL } from 'node:url';
 import { join } from 'node:path';
-import { requestFromEvent, verifyCurrentComment, verifyCurrentIssue, taskCap, reserveReceipt, invokePrivateRunner, validateLiveRequest } from './deepseek-dispatch.mjs';
+import { requestFromEvent, verifyCurrentComment, verifyCurrentIssue, verifyFreshDispatch, taskCap, reserveReceipt, writeReceipt, invokePrivateRunner, validateLiveRequest } from './deepseek-dispatch.mjs';
 
 function goodEvent() {
   return {
@@ -46,6 +46,34 @@ test('matches the live dispatch comment to its event identity', () => {
     const comment = JSON.parse(JSON.stringify(live));
     change(comment);
     assert.throws(() => verifyCurrentComment(comment, request, 'mbelinkie'));
+  }
+});
+
+test('rechecks the current issue, command, and main SHA immediately before a runner call', () => {
+  const issue = goodIssue();
+  const request = { issue: 396, commentId: 321 };
+  const comment = {
+    id: 321, body: '/deepseek dispatch', updated_at: '2026-11-02T12:00:00Z',
+    issue_url: 'https://api.github.com/repos/mbelinkie/vera-script-to-timeline/issues/396',
+    user: { login: 'mbelinkie' }
+  };
+  const mainSha = 'a'.repeat(40);
+  const valid = {
+    issue, comment, currentMainSha: mainSha, request, actor: 'mbelinkie',
+    expectedIssue: globalThis.structuredClone(issue), expectedComment: globalThis.structuredClone(comment), expectedMainSha: mainSha
+  };
+  assert.equal(verifyFreshDispatch(valid), true);
+  for (const change of [
+    value => { value.issue.state = 'closed'; },
+    value => { value.issue.labels = value.issue.labels.filter(label => label.name !== 'deepseek-dispatch'); },
+    value => { value.issue.comments += 1; },
+    value => { value.comment.body = '/deepseek revoke'; },
+    value => { value.comment.updated_at = '2026-11-02T12:01:00Z'; },
+    value => { value.currentMainSha = 'b'.repeat(40); }
+  ]) {
+    const stale = globalThis.structuredClone(valid);
+    change(stale);
+    assert.throws(() => verifyFreshDispatch(stale));
   }
 });
 
@@ -146,6 +174,29 @@ test('receipt is allocated before calls and refuses duplicate issue attempts', (
     assert.throws(() => reserveReceipt(join(root, 'receipts'), 396, 322));
     assert.notEqual(reserveReceipt(join(root, 'receipts'), 397, 323), receipt);
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('receipt directories must be private and final receipt replacement does not follow symlinks', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vera-deepseek-receipt-'));
+  const receipts = join(root, 'receipts');
+  const target = join(root, 'do-not-overwrite.json');
+  try {
+    mkdirSync(receipts, { mode: 0o700 });
+    chmodSync(receipts, 0o755);
+    assert.throws(() => reserveReceipt(receipts, 396, 321), /unsafe type, owner, or permissions/);
+    chmodSync(receipts, 0o700);
+    const receipt = reserveReceipt(receipts, 396, 321);
+    writeFileSync(target, 'protected');
+    rmSync(receipt);
+    symlinkSync(target, receipt);
+    writeReceipt(receipt, { issue: 396, state: 'worker-returned' });
+    assert.equal(readFileSync(target, 'utf8'), 'protected');
+    assert.equal(lstatSync(receipt).isSymbolicLink(), false);
+    assert.equal(JSON.parse(readFileSync(receipt, 'utf8')).state, 'worker-returned');
+  } finally {
+    chmodSync(root, 0o700);
     rmSync(root, { recursive: true, force: true });
   }
 });

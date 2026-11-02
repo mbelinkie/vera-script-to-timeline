@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
-import { COMMAND, REPO, invokePrivateRunner, requestFromEvent, reserveReceipt, taskCap, verifyCurrentComment, verifyCurrentIssue } from './deepseek-dispatch.mjs';
+import { COMMAND, REPO, invokePrivateRunner, requestFromEvent, reserveReceipt, taskCap, verifyCurrentComment, verifyCurrentIssue, verifyFreshDispatch, writeReceipt } from './deepseek-dispatch.mjs';
 
 const API = 'https://api.github.com';
 const PAGE_SIZE = 100;
@@ -253,11 +253,30 @@ export async function processDispatchComment(comment, {
     VERA_DEEPSEEK_TASK_CAP_USD: String(loaded.cap), VERA_DEEPSEEK_CAMPAIGN_CAP_USD: '10',
     VERA_DEEPSEEK_RECEIPT: receipt, VERA_DEEPSEEK_MANIFEST_SHA256: loaded.sha256
   };
+  try {
+    verifyReviewFromGh(readGh, REPO, issueNumber, {
+      title: issue.title, body: issue.body, labels: issue.labels
+    });
+    const [finalIssue, finalComment, finalMain] = await Promise.all([
+      fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl),
+      fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl),
+      fetchJson('/repos/' + REPO + '/commits/main', fetchImpl)
+    ]);
+    verifyFreshDispatch({
+      issue: finalIssue, comment: finalComment, currentMainSha: finalMain?.sha, request,
+      actor: comment.user.login, expectedIssue: issue, expectedComment: confirmedComment,
+      expectedMainSha: currentMain.sha
+    });
+  } catch {
+    writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state: 'refused',
+      timestamp: new Date().toISOString(), detail: 'authorization changed or could not be reverified' });
+    return { state: 'refused' };
+  }
   const result = invoke(runner, [String(issueNumber), String(comment.id)], childEnv);
   const state = result.error || result.status !== 0 ? 'uncertain-or-failed' : 'worker-returned';
-  writeFileSync(receipt, JSON.stringify({ issue: issueNumber, commentId: comment.id, state,
+  writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state,
     timestamp: new Date().toISOString(), exitCode: result.status ?? null,
-    detail: result.error?.code || null }, null, 2) + '\n', { mode: 0o600 });
+    detail: result.error?.code || null });
   return { state };
 }
 
