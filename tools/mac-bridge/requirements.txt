@@ -1,2 +1,2 @@
 # Current official MCP Python SDK v2, bounded to the same major API.
-mcp>=2.0,<3.0
+mcp==2.3.0
