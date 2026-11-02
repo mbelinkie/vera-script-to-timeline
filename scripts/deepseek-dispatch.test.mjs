@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { requestFromEvent, verifyCurrentIssue, taskCap, reserveReceipt } from './deepseek-dispatch.mjs';
+import { requestFromEvent, verifyCurrentIssue, taskCap, reserveReceipt, invokePrivateRunner } from './deepseek-dispatch.mjs';
 
 function goodEvent() {
   return {
@@ -87,4 +88,41 @@ test('receipt is allocated before calls and refuses duplicate issue attempts', (
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('private runner does not leak worker stdout/stderr to public job logs', () => {
+  // Exercise the real child-process stdio behavior inside a captured subprocess.
+  // A regression to stdio:inherit would print both canaries and fail the test.
+  const workerScript = [
+    "process.stdout.write('PRIVATE_STDOUT_CANARY\\n');",
+    "process.stderr.write('PRIVATE_STDERR_CANARY\\n');",
+    "process.exit(7);"
+  ].join('');
+  const harness = [
+    `import { invokePrivateRunner } from ${JSON.stringify(new URL('./deepseek-dispatch.mjs', import.meta.url).href)};`,
+    `const result = invokePrivateRunner(process.execPath, ['-e', ${JSON.stringify(workerScript)}], {PATH: process.env.PATH || ''});`,
+    "if (result.status !== 7 || result.stdout !== null || result.stderr !== null) process.exit(91);",
+    "process.stdout.write('SAFE_STATUS_ONLY');"
+  ].join('\\n');
+  const probe = spawnSync(process.execPath, ['--input-type=module', '-e', harness], { encoding: 'utf8' });
+  assert.equal(probe.status, 0);
+  assert.equal(probe.stdout, 'SAFE_STATUS_ONLY');
+  assert.equal(probe.stderr, '');
+});
+
+test('private runner preserves bounded no-shell invocation parameters', () => {
+  let called = false;
+  const result = invokePrivateRunner('/safe/private-runner', ['396', '321'], { HOME: '/private' },
+    (runner, args, options) => {
+      called = true;
+      assert.equal(runner, '/safe/private-runner');
+      assert.deepEqual(args, ['396', '321']);
+      assert.deepEqual(options.env, { HOME: '/private' });
+      assert.equal(options.shell, false);
+      assert.equal(options.stdio, 'ignore');
+      assert.equal(options.timeout, 40 * 60 * 1000);
+      return { status: 1 };
+    });
+  assert.equal(called, true);
+  assert.equal(result.status, 1);
 });
