@@ -16,6 +16,7 @@ function issue() {
 }
 function approval(i, id = 12, overrides = {}) {
   return { id, user: { login: "mbelinkie" }, html_url: "https://github.com/example#review",
+    created_at: "2026-11-02T02:59:16Z", updated_at: "2026-11-02T02:59:16Z", performed_via_github_app: null,
     body: '<!-- VERA_CHAT_REVIEW_V1 ' + JSON.stringify({
       revision: issueRevision(i.title, i.body), producer: "mbelinkie",
       promptVersion: "1", reviewedAt: "2026-11-02T02:59:16.691Z", ...overrides
@@ -58,6 +59,23 @@ test("reject malformed record, incomplete history, bad identity, unexpected repo
   assert.throws(() => verifyProducerReview(i, [approval(i)], "evil/repo", number));
   const two = { ...i, comments: 2 };
   assert.throws(() => verifyProducerReview(two, [approval(two), approval(two)], repo, number), /out of order/);
+});
+test("reject Producer approvals that are edited, App-mediated, or missing REST metadata", () => {
+  const i = issue();
+  const cases = [
+    { ...approval(i), updated_at: "2026-11-02T03:00:00Z" },
+    { ...approval(i), performed_via_github_app: { id: 1, slug: "github-actions" } },
+    { ...approval(i), created_at: "2026-02-30T02:59:16Z" },
+    { ...approval(i), created_at: "2026-11-02T02:59:16+00:00", updated_at: "2026-11-02T02:59:16+00:00" },
+    (() => { const comment = approval(i); delete comment.created_at; return comment; })(),
+    (() => { const comment = approval(i); delete comment.updated_at; return comment; })(),
+    (() => { const comment = approval(i); delete comment.performed_via_github_app; return comment; })(),
+  ];
+  for (const comment of cases) assert.throws(() => verifyProducerReview(i, [comment], repo, number));
+  i.comments = 2;
+  assert.throws(() => verifyProducerReview(i, [approval(i), {
+    ...approval(i, 13), updated_at: "2026-11-02T03:00:00Z"
+  }], repo, number), /valid current/i);
 });
 test("fail closed on incomplete pagination, changed issue, or missing API", () => {
   const i = issue(); const a = approval(i);

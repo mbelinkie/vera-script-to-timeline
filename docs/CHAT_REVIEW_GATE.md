@@ -1,6 +1,6 @@
 # Producer Chat review gate (#378)
 
-This independent implementation enforces **current, Producer-authored Chat review** before `npm run roadmap -- claim`. It does not claim or launch Codex, approve a PR, or alter status merely from a `chat-reviewed` label.
+This independent implementation verifies **current Chat approval records under the Producer's GitHub identity** before `npm run roadmap -- claim`. It does not claim or launch Codex, approve a PR, or alter status merely from a `chat-reviewed` label.
 
 ## Approval contract
 
@@ -19,6 +19,16 @@ node scripts/chat-review-dispatch-gate.mjs https://github.com/mbelinkie/vera-scr
 A zero exit means only that the **current** Producer Chat review was verified. It does not set Project status, claim, launch, or approve implementation. Nonzero exits must block the calling launch script. This script is not installed as an OS-wide Codex hook; audit each real launch path and add it to configured paths before asserting broader coverage.
 
 To record an approval, the Producer must complete an interactive Chat review first, finalize the issue's title/body, and post the canonical GitHub approval comment using their authenticated GitHub account, adding `chat-reviewed` only after explicit approval. No agent may approve itself or fabricate the digest. Changing the title/body or adding a DeepSeek handoff **afterward** invalidates the approval and requires renewed review. The approval helper in skipped PR #375 is reference only and is **not installed by this change**.
+
+### Producer handoff without a local approval helper
+
+In the existing interactive Chat review, give Chat the issue URL and ask: "Review and finalize this issue, including its implementation handoff. Show me the final scope and wait for my explicit approval. After I approve that exact revision, record its canonical VERA Chat approval through my authenticated GitHub connection, verify it against a fresh title/body read, and return the approval-comment link. Do not launch work."
+
+The Producer reviews the result and explicitly approves in that Chat. The review assistant then computes the exact JSON/SHA-256 revision mechanically; the Producer does not calculate a digest. Post a **new** comment rather than editing an old approval. If the connection or approval-record capability is unavailable, leave the issue unapproved and stop; the owning Codex task must not substitute its own approval. Current #378 approval comment `6567976817` demonstrates this existing route. This PR does not install #375's helper or require its implementation before review can happen.
+
+### Identity boundary
+
+Approval records must be unedited and have no GitHub App mediation; missing provenance metadata fails closed. These checks detect edited or App-mediated records, but **GitHub account authorship is not proof of which person or agent used a shared credential**. An agent with Matthew's authenticated account could still post a fresh matching record. The mandatory rule against creating one's own approval therefore also relies on agent compliance and the Producer's interactive handoff. Cryptographic human presence, separate GitHub identities and credential isolation are outside this issue's record-verification contract; do not describe this gate as preventing malicious same-account forgery or as a security boundary for paid execution.
 
 ## Launcher audit / known limits
 

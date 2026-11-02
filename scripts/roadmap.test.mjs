@@ -174,7 +174,7 @@ if (query.includes("RoadmapRateLimit")) {
 } else if (args[0] === "api" && args[1] === "--paginate") {
   const body = "## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone";
   const record = {revision:crypto.createHash("sha256").update(JSON.stringify(["Test issue",body])).digest("hex"),producer:"mbelinkie",promptVersion:"1",reviewedAt:"2026-11-02T02:59:16.691Z"};
-  process.stdout.write(JSON.stringify([approved ? [{id:12,user:{login:"mbelinkie"},html_url:"https://example.invalid/review",body:"<!-- VERA_CHAT_REVIEW_V1 "+JSON.stringify(record)+" -->"}] : []]));
+  process.stdout.write(JSON.stringify([approved ? [{id:12,user:{login:"mbelinkie"},html_url:"https://example.invalid/review",created_at:"2026-11-02T02:59:16Z",updated_at:"2026-11-02T02:59:16Z",performed_via_github_app:null,body:"<!-- VERA_CHAT_REVIEW_V1 "+JSON.stringify(record)+" -->"}] : []]));
 } else if (args[0] === "api" && args[1] === "rate_limit") {
   process.stdout.write('{"limit":5000,"remaining":50,"used":4950,"reset":1788215569}');
 } else if (args[0] === "issue" && args[1] === "comment") {

@@ -9,6 +9,14 @@ export function issueRevision(title, body) {
   return createHash("sha256").update(JSON.stringify([title, body]), "utf8").digest("hex");
 }
 
+function canonicalRestTimestamp(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return false;
+  const canonical = new Date(timestamp).toISOString();
+  return value === canonical || value === canonical.replace(".000Z", "Z");
+}
+
 export function verifyProducerReview(issue, comments, repo, number) {
   if (!REPOS.has(repo) || issue?.number !== number || issue.state?.toLowerCase() !== "open" ||
       issue.pull_request || issue.repository_url !== "https://api.github.com/repos/" + repo ||
@@ -35,6 +43,8 @@ export function verifyProducerReview(issue, comments, repo, number) {
     const matches = [...comment.body.matchAll(/<!-- VERA_CHAT_REVIEW_V1 (\{[^\r\n]*\}) -->/g)];
     newest = { invalid: true };
     if (matches.length !== 1 || comment.body.split(REVIEW_MARKER).length !== 2) continue;
+    if (comment.performed_via_github_app !== null ||
+        !canonicalRestTimestamp(comment.created_at) || comment.created_at !== comment.updated_at) continue;
     try {
       const r = JSON.parse(matches[0][1]);
       if (r.producer === PRODUCER && r.promptVersion === "1" &&

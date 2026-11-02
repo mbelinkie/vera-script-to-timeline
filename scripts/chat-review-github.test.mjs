@@ -23,6 +23,9 @@ function approval(currentIssue, id = 1) {
   return {
     id,
     user: { login: "mbelinkie" },
+    created_at: "2026-11-02T02:59:16Z",
+    updated_at: "2026-11-02T02:59:16Z",
+    performed_via_github_app: null,
     body: "<!-- VERA_CHAT_REVIEW_V1 " + JSON.stringify({
       revision: issueRevision(currentIssue.title, currentIssue.body),
       producer: "mbelinkie",
@@ -168,7 +171,12 @@ test("rejects edits or deletions to comment history even when the count is uncha
   const original = [approval(current), ordinary(2)];
   const edit = [approval(current, 1), { ...ordinary(2), body: "Edited while verifying." }];
   const replacement = [approval(current), { ...ordinary(2), id: 3 }];
-  for (const [name, confirmed] of [["edit", edit], ["delete and replace", replacement]]) {
+  const updatedApproval = [{ ...approval(current), updated_at: "2026-11-02T03:00:00Z" }, ordinary(2)];
+  const appMediatedApproval = [{ ...approval(current), performed_via_github_app: { id: 1, slug: "github-actions" } }, ordinary(2)];
+  for (const [name, confirmed] of [
+    ["edit", edit], ["delete and replace", replacement],
+    ["approval timestamp change", updatedApproval], ["approval App metadata change", appMediatedApproval],
+  ]) {
     await t.test(name, () => assert.throws(() => verifyReviewFromGh(fakeGh({
       issues: [current, current], histories: [pages(original), pages(confirmed)],
     }), repo, number), /comments changed/i));

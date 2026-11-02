@@ -65,7 +65,9 @@ function readComments(readGh, path, expectedCount) {
 function sameHistory(left, right) {
   return left.length === right.length && left.every((comment, index) => {
     const other = right[index];
-    return comment.id === other.id && comment.user.login === other.user.login && comment.body === other.body;
+    return comment.id === other.id && comment.user.login === other.user.login && comment.body === other.body &&
+      comment.created_at === other.created_at && comment.updated_at === other.updated_at &&
+      JSON.stringify(comment.performed_via_github_app) === JSON.stringify(other.performed_via_github_app);
   });
 }
 
