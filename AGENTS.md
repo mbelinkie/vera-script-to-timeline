@@ -46,6 +46,9 @@ the choice in one line in the PR, and keep going.
 
 ## Starting an issue
 
+- Before preparing or recording a Producer Chat review, follow
+  [the Chat approval handoff](docs/CHAT_APPROVAL_HANDOFF.md). Accept clear
+  natural-language go-ahead instructions after review; require no prescribed phrase.
 - Read the issue on the GitHub Project configured in
   `.github/vera-roadmap.json`, the relevant slice of
   `docs/Script-to-Timeline Product Spec - Fable Rev2.md`, and the relevant plan
