@@ -142,7 +142,7 @@ def trust_disable() -> dict:
 
 def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
     """Enable a short, global trust window after a separate local OS dialog."""
-    global _trusted_until
+    global _trusted_until, _trust_generation
     if type(minutes) is not int or not 1 <= minutes <= MAX_TRUST_MINUTES:
         return {
             "status": "rejected",
@@ -174,18 +174,21 @@ def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
         # Disable (or a newer enable attempt) must revoke the older dialog.
         if request_generation != _trust_generation:
             return {"result": "canceled", **trust_status()}
-        _trusted_until = time.monotonic() + 60 * minutes
-    if not audit(
-        {
-            "time": now_utc(),
-            "operation": "trust_enable",
-            "status": "enabled",
-            "minutes": minutes,
-        }
-    ):
-        trust_disable()
+        # Persist the authorization before publishing it to mac_exec callers.
+        # Keep the lock so no command can observe a grant whose audit failed.
+        if not audit(
+            {
+                "time": now_utc(),
+                "operation": "trust_enable",
+                "status": "enabled",
+                "minutes": minutes,
+            }
+        ):
+            _trust_generation += 1
+        else:
+            _trusted_until = time.monotonic() + 60 * minutes
+            return {"result": "enabled", **trust_status()}
         return {"result": "audit_unavailable", **trust_status()}
-    return {"result": "enabled", **trust_status()}
 
 
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
@@ -193,7 +196,13 @@ def _kill_group(proc: subprocess.Popen[bytes]) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
 
 
-def execute_bounded(command: str, folder: Path, timeout_seconds: int) -> dict:
+def execute_bounded(
+    command: str,
+    folder: Path,
+    timeout_seconds: int,
+    *,
+    trust_generation: int | None = None,
+) -> dict:
     """Execute approved shell syntax, kill the process group on timeout/output cap.
 
     Only the operator's explicit local permission makes this acceptable. The
@@ -214,15 +223,41 @@ def execute_bounded(command: str, folder: Path, timeout_seconds: int) -> dict:
     }
     started = time.monotonic()
     try:
-        proc = subprocess.Popen(
-            [SHELL_BIN, "-f", "-c", command],
-            cwd=folder,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True,
-            env=env,
-        )
+        if trust_generation is None:
+            proc = subprocess.Popen(
+                [SHELL_BIN, "-f", "-c", command],
+                cwd=folder,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+                env=env,
+            )
+        else:
+            # Serialize the final grant check with trust_disable. Once the
+            # child starts, it is an in-flight command; disabling trust blocks
+            # new commands but does not terminate work already underway.
+            with _trust_lock:
+                if (
+                    trust_generation != _trust_generation
+                    or _trusted_until <= time.monotonic()
+                ):
+                    return {
+                        "status": "trust_revoked",
+                        "exit_code": None,
+                        "stdout": "",
+                        "stderr": "Temporary trust ended before command start",
+                        "truncated": False,
+                    }
+                proc = subprocess.Popen(
+                    [SHELL_BIN, "-f", "-c", command],
+                    cwd=folder,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True,
+                    env=env,
+                )
     except OSError:
         return {
             "status": "launch_failed",
@@ -344,9 +379,10 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
             "message": "Another command is active",
         }
     try:
-        approval_mode = (
-            "temporary_trust" if trust_remaining_seconds() else "per_command"
-        )
+        with _trust_lock:
+            trusted = _trusted_until > time.monotonic()
+            trust_generation = _trust_generation if trusted else None
+        approval_mode = "temporary_trust" if trusted else "per_command"
         if approval_mode == "per_command" and not confirm_on_mac(command, folder):
             record["status"] = "denied"
             audit(record)
@@ -364,14 +400,31 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
                 "message": "Local audit unavailable: command not executed",
             }
         try:
-            result = execute_bounded(command, folder, timeout_seconds)
+            if trust_generation is None:
+                result = execute_bounded(command, folder, timeout_seconds)
+            else:
+                result = execute_bounded(
+                    command,
+                    folder,
+                    timeout_seconds,
+                    trust_generation=trust_generation,
+                )
         except Exception:
             result = {
                 "status": "internal_error",
                 "message": "Local execution failed; details withheld",
             }
         record["status"] = result["status"]
-        audit(record)
+        if not audit(record):
+            return {
+                "request_id": request_id,
+                "cwd": cwd,
+                "approval_mode": approval_mode,
+                "status": "audit_incomplete",
+                "execution_status": result["status"],
+                "message": "Command finished, but the final local audit record could not be written",
+                **{key: value for key, value in result.items() if key != "status"},
+            }
         return {
             "request_id": request_id,
             "cwd": cwd,

@@ -2,6 +2,7 @@
 
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -177,6 +178,55 @@ class TrustWindowTests(ValidationTests):
         self.assertEqual(core.trust_enable(5)["result"], "denied")
         self.assertEqual(core.trust_remaining_seconds(), 0)
 
+    def test_enable_audit_failure_never_exposes_trust(self):
+        audit_started = threading.Event()
+        finish_audit = threading.Event()
+        enable_result = []
+        exec_result = []
+
+        def audit(record):
+            if (
+                record.get("operation") == "trust_enable"
+                and record.get("status") == "enabled"
+            ):
+                audit_started.set()
+                finish_audit.wait(timeout=3)
+                return False
+            return True
+
+        with (
+            patch.object(
+                core.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, "Enable\n", ""),
+            ),
+            patch.object(core, "audit", side_effect=audit),
+            patch.object(core, "confirm_on_mac", return_value=False) as approval,
+            patch.object(core, "execute_bounded") as execute,
+        ):
+            enabling = threading.Thread(
+                target=lambda: enable_result.append(core.trust_enable(5))
+            )
+            enabling.start()
+            self.assertTrue(audit_started.wait(timeout=2))
+            running = threading.Thread(
+                target=lambda: exec_result.append(
+                    core.mac_exec_local("echo denied", "home", 5)
+                )
+            )
+            running.start()
+            finish_audit.set()
+            enabling.join(timeout=3)
+            running.join(timeout=3)
+
+        self.assertFalse(enabling.is_alive())
+        self.assertFalse(running.is_alive())
+        self.assertEqual(enable_result[0]["result"], "audit_unavailable")
+        self.assertEqual(exec_result[0]["status"], "denied")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
+        approval.assert_called_once()
+        execute.assert_not_called()
+
 
 class ApprovalAppearanceTests(unittest.TestCase):
     def test_run_once_highlighted_but_cancel_denies(self):
@@ -228,6 +278,42 @@ class ReviewSafetyTests(ValidationTests):
         result = core.trust_enable(5)
         self.assertEqual(result["result"], "canceled")
         self.assertEqual(core.trust_remaining_seconds(), 0)
+
+    @patch.object(core, "audit", side_effect=[True, False])
+    @patch.object(
+        core,
+        "execute_bounded",
+        return_value={
+            "status": "completed",
+            "exit_code": 0,
+            "stdout": "changed",
+            "stderr": "",
+            "truncated": False,
+        },
+    )
+    @patch.object(core, "confirm_on_mac", return_value=True)
+    def test_final_audit_failure_is_reported_after_execution(
+        self, approval, execute, audit
+    ):
+        result = core.mac_exec_local("echo changed", "home", 5)
+        self.assertEqual(result["status"], "audit_incomplete")
+        self.assertEqual(result["execution_status"], "completed")
+        execute.assert_called_once()
+
+    @patch.object(core, "audit")
+    def test_stale_trust_generation_does_not_launch(self, audit):
+        core._trusted_until = time.monotonic() + 60
+        stale_generation = core._trust_generation
+        core.trust_disable()
+        marker = self.root / "should-not-exist"
+        result = core.execute_bounded(
+            f"touch {marker}",
+            self.root,
+            5,
+            trust_generation=stale_generation,
+        )
+        self.assertEqual(result["status"], "trust_revoked")
+        self.assertFalse(marker.exists())
 
 
 class WorkspaceConfigurationTests(ValidationTests):
