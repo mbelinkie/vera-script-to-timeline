@@ -86,6 +86,12 @@ export function reserveReceipt(root, issue, commentId) {
   return receipt;
 }
 
+export function invokePrivateRunner(runner, args, env, spawn = spawnSync) {
+  return spawn(runner, args, {
+    env, shell: false, stdio: 'ignore', timeout: 40 * 60 * 1000
+  });
+}
+
 async function fetchIssue(token, issueNumber) {
   const url = 'https://api.github.com/repos/' + REPO + '/issues/' + issueNumber;
   const response = await globalThis.fetch(url, {
@@ -140,10 +146,9 @@ export async function main(env = process.env) {
     VERA_DEEPSEEK_CAMPAIGN_CAP_USD: '10',
     VERA_DEEPSEEK_RECEIPT: receipt
   };
-  // No GITHUB_TOKEN or workflow secrets reach the DeepSeek process.
-  const result = spawnSync(runner, [String(req.issue), String(req.commentId)], {
-    env: childEnv, shell: false, stdio: 'inherit', timeout: 40 * 60 * 1000
-  });
+  // Do not forward private adapter output into public GitHub Actions logs.
+  // Worker diagnostics must stay in an owner-private log, not stdout/stderr here.
+  const result = invokePrivateRunner(runner, [String(req.issue), String(req.commentId)], childEnv);
   const state = result.error || result.status !== 0 ? 'uncertain-or-failed' : 'worker-returned';
   // Never claim technical acceptance or PR delivery from this result.
   writeFileSync(receipt, JSON.stringify({
