@@ -1,7 +1,7 @@
 """Private MCP server for VERA Mac Bridge; launched by OpenAI tunnel-client via stdio."""
 
 from mcp.server import MCPServer
-from shell_core import mac_exec_local, trust_enable, trust_disable, trust_status
+from shell_core import mac_exec_local, trust_disable, trust_enable, trust_status
 
 mcp = MCPServer("VERA Mac Shell")
 
@@ -9,7 +9,12 @@ mcp = MCPServer("VERA Mac Shell")
 @mcp.tool()
 def mac_health() -> dict:
     """Return bridge liveness without executing Terminal commands."""
-    return {"status": "ok", "service": "vera-mac-shell", "version": "0.2.0", "approval": "per-command-or-local-trust-window"}
+    return {
+        "status": "ok",
+        "service": "vera-mac-shell",
+        "version": "0.2.0",
+        "approval": "per-command-or-local-trust-window",
+    }
 
 
 @mcp.tool()
