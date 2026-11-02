@@ -74,6 +74,6 @@ Tests cover local/deep-link identity, malformed URL/encoding, cross-repo keys, w
 
 The dedicated `codex-session-links` folder is created as 0700 independently of the shared VERA folder. Existing insecure or symlinked private folders are refused; correct ownership/permissions before retrying, rather than bypassing the check. There is no automatic import from the earlier draft location.
 
-If a map exists without its independent installation identity, registration refuses with a missing-identity error. Restore the original identity from this Mac’s private backup. Do not derive it from the map or re-key a copied map. If recovery is impossible, preserve the old private files as a private backup and register each existing conversation afresh with explicit Producer pairing in a new private store.
+If a map exists without its independent installation identity, registration refuses with a missing-identity error. Restore the original identity from this Mac’s private backup. Do not derive it from the map or re-key a copied map. If recovery is impossible, move or rename the entire `codex-session-links` folder as a private backup outside its default location. The next registration recreates an empty default store; register each existing conversation afresh with explicit Producer pairing.
 
 A leftover registration lock requires manual inspection after verifying no registration process is active. A cleanup error is reported rather than claiming an unqualified success; the map may already have been written, so inspect its read-only lookup before retrying.

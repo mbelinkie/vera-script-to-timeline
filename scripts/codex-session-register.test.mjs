@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { chmodSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, stat, lstat, chmod, writeFile, symlink, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -182,4 +183,24 @@ test('reconfirming same UUID with different casing preserves verified browser ev
   const result=JSON.parse(await readFile(p.mappingPath,'utf8'));
   assert.equal(result.mappings.length,1);
   assert.equal(result.mappings[0].browserUrl,stored.mappings[0].browserUrl);
+});
+
+
+test('lock cleanup failure preserves the original registration error',async t=>{
+  const p=await fixture(t);
+  await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
+  const before=await readFile(p.mappingPath,'utf8');
+  try {
+    await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p,
+      now:()=>{chmodSync(path.dirname(p.mappingPath),0o500);return 'invalid';},
+    }),error=>{
+      assert.match(error.message,/Invalid registration time/);
+      assert.ok(error.cause);
+      return true;
+    });
+  } finally {
+    await chmod(path.dirname(p.mappingPath),0o700);
+  }
+  assert.equal(await readFile(p.mappingPath,'utf8'),before);
+  assert.ok(await lstat(`${p.mappingPath}.lock`));
 });

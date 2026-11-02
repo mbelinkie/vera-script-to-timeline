@@ -92,6 +92,7 @@ export async function registerLocalCodexThread({
   await ensurePrivateDirectory(path.dirname(mappingPath));
   const lockPath = `${mappingPath}.lock`;
   let lock;
+  let registrationError;
   try {
     try { lock = await open(lockPath, 'wx', 0o600); }
     catch (error) {
@@ -154,8 +155,16 @@ export async function registerLocalCodexThread({
     await writePrivateAtomic(mappingPath, JSON.stringify(next, null, 2) + '\n');
     return { issueKey, threadSuffix: session.threadId.slice(-8), replacedPrimary: !!current,
       recordedAt: checkedAt, mappingPath };
+  } catch (error) {
+    registrationError = error;
+    throw error;
   } finally {
-    try { await lock?.close(); }
-    finally { if (lock) await unlink(lockPath); }
+    try {
+      try { await lock?.close(); }
+      finally { if (lock) await unlink(lockPath); }
+    } catch (cleanupError) {
+      if (!registrationError) throw cleanupError;
+      registrationError.cause ??= cleanupError;
+    }
   }
 }
