@@ -55,8 +55,8 @@ export function verifiedEvent({ state, stateSha, run, jobs, runs, binding = null
     byName.set(job.name, job);
   }
   const callback = byName.get("Queue completion");
-  if (byName.size !== 5 || !callback || !["in_progress", "completed"].includes(callback.status) ||
-      (callback.status === "in_progress" && callback.conclusion !== null)) throw new Error("Missing trusted notification finalizer");
+  byName.delete("CI notification");
+  if (byName.size !== 5 || !callback || callback.status !== "completed" || callback.conclusion !== "success") throw new Error("Missing successful trusted notification finalizer");
   for (const name of GATES) {
     const gate = byName.get(name);
     if (!gate || gate.status !== "completed" || !OUTCOMES.has(gate.conclusion)) throw new Error("Incomplete notification gate assessment");
@@ -136,7 +136,7 @@ export async function verifyRemoteEvent(github, event) {
 }
 
 export async function captureFinalization(github, context, outbox) {
-  if (github.repository !== REPOSITORY || context.job !== "queue-completion" || context.actor !== "github-actions[bot]" ||
+  if (github.repository !== REPOSITORY || context.job !== "ci-notification" || context.actor !== "github-actions[bot]" ||
       context.workflowRef !== `${REPOSITORY}/.github/workflows/validate.yml@refs/heads/main` || context.ref !== "refs/heads/main" ||
       !positive(Number(context.runId)) || !positive(Number(context.runAttempt)) || !["pr", "smoke"].includes(context.mode)) throw new Error("Untrusted notification invocation");
   if (!SHA.test(context.stateSha ?? "")) throw new Error("Missing immutable finalizer source state");
@@ -146,6 +146,8 @@ export async function captureFinalization(github, context, outbox) {
   if (run.display_title !== loaded.state.active.expected.title) return null;
   if (!run.display_title.includes(`:${context.mode}:`)) throw new Error("Notification mode mismatch");
   const jobs = await readJobs(github, run.id, run.run_attempt);
+  const finalizer = jobs.find((job) => job.name === "Queue completion");
+  if (finalizer?.status !== "completed" || finalizer.conclusion !== "success") throw new Error("Trusted finalizer has not completed successfully");
   const runs = await readMatchingRuns(github, run.display_title);
   const document = await outbox.readDocument(`registrations/pr-${loaded.state.active.pr}.json`);
   const binding = document?.data ?? null;

@@ -216,7 +216,9 @@ export class Queue {
       ids.add(jobResult.id);
       byName.set(jobResult.name, jobResult);
     }
-    if (byName.size !== Object.keys(completionGates).length + 1 || byName.size !== jobs.length) {
+    // The optional downstream reporter has no bearing on validation or queue control.
+    byName.delete("CI notification");
+    if (byName.size !== Object.keys(completionGates).length + 1) {
       throw new Error("Queue completion jobs are missing or unexpected");
     }
     for (const [name, outcomes] of Object.entries(completionGates)) {

@@ -25,7 +25,7 @@ function fixture(mode = "pr", ready = true) {
   const jobs = ["Classify PR changes", "TypeScript and Python", "Docs only", "Main smoke"].map((name, index) => ({
     name, id: index + 1, run_id: 900, run_attempt: 1, status: "completed", conclusion: outcomes[index], completed_at: new Date(now - 1000).toISOString(),
   }));
-  jobs.push({ name: "Queue completion", id: 5, run_id: 900, run_attempt: 1, status: "in_progress", conclusion: null });
+  jobs.push({ name: "Queue completion", id: 5, run_id: 900, run_attempt: 1, status: "completed", conclusion: "success" });
   return { state, stateSha: S, run, jobs, runs: [run], now };
 }
 
@@ -116,7 +116,7 @@ test("untrusted invocation and publication failure cannot mutate/pause/resume th
   assert.deepEqual(writes, []);
   assert.match(summaries[0], /manual|Open this run/);
   const workflow = readFileSync(new URL("../.github/workflows/validate.yml", import.meta.url), "utf8");
-  assert.match(workflow, /Publish verified CI manual handoff[\s\S]*?continue-on-error: true/);
+  assert.match(workflow, /ci-notification:[\s\S]*?needs: queue-completion[\s\S]*?continue-on-error: true/);
   assert.ok(workflow.indexOf("Publish verified CI manual handoff") > workflow.indexOf("name: Reconcile queue completion"));
 });
 

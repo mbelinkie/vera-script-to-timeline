@@ -11,7 +11,7 @@ verified event; its Actions page remains the manual fallback.
 `vera-ci-notification-outbox` is a separate public branch. Events contain
 GitHub identities and an opaque launch ID, never a local chat UUID or token.
 Private origin records stay on the Mac. Missing mappings remain unmapped.
-The notification step is isolated with `continue-on-error`; it never changes
+The downstream notification job has its own timeout and `continue-on-error`; it never changes
 `vera-ci-queue-state/queue.json`, queue commands, required checks or closure.
 
 The Mac consumer is **hard-disabled for production message injection and
