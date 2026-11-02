@@ -1,7 +1,8 @@
 """Mac-local command execution gate for the private VERA MCP bridge.
 
-Every command requires a separate affirmative *local* macOS GUI decision.
-The command is intentionally general-purpose; do not mistake this for a sandbox.
+Commands normally require on-Mac approval. The operator may opt into a short-lived
+machine-wide trusted window after a separate on-Mac confirmation. This is not
+a sandbox: commands retain the local user's full file/network permissions.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from pathlib import Path
 import selectors
 import signal
 import subprocess
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -21,7 +23,11 @@ MAX_COMMAND_CHARS = 240  # Full command should fit in the Mac approval dialog.
 MAX_OUTPUT_BYTES = 16 * 1024
 MAX_TIMEOUT_SECONDS = 35
 APPROVAL_SECONDS = 45
+MAX_TRUST_MINUTES = 15
+DEFAULT_TRUST_MINUTES = 10
 SHELL_BIN = "/bin/zsh"
+_trust_lock = threading.RLock()
+_trusted_until = 0.0
 
 # Never interpolate a shell command into AppleScript source. Pass it as argv.
 APPROVAL_SCRIPT = r'''
@@ -30,6 +36,16 @@ on run argv
     set locationText to item 2 of argv
     set promptText to "A ChatGPT thread requests a Terminal command on this Mac." & return & return & "Working directory: " & locationText & return & "Command: " & commandText & return & return & "Output will be returned to ChatGPT. Approve only if you trust it."
     set decision to display dialog promptText with title "VERA Mac Bridge" buttons {"Deny", "Run once"} default button "Deny" cancel button "Deny" with icon caution giving up after 45
+    if gave up of decision then return "DENIED"
+    return button returned of decision
+end run
+'''
+
+TRUST_SCRIPT = r'''
+on run argv
+    set durationText to item 1 of argv
+    set promptText to "Enable TEMPORARY automatic Terminal execution for " & durationText & " minutes?" & return & return & "While enabled, ANY ChatGPT conversation with access to your VERA Mac Bridge can run ANY shell command, including commands that read secrets, change files, or access the network, without another approval prompt." & return & return & "This is NOT limited to one chat or sandboxed to VERA." & return & return & "Stop tunnel-client or call mac_trust_disable to end access. Enable only if you trust every active chat."
+    set decision to display dialog promptText with title "VERA Mac Bridge - Elevated Trust Window" buttons {"Deny", "Enable"} default button "Deny" cancel button "Deny" with icon caution giving up after 45
     if gave up of decision then return "DENIED"
     return button returned of decision
 end run
@@ -80,6 +96,55 @@ def confirm_on_mac(command: str, folder: Path) -> bool:
     except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0 and result.stdout.strip() == "Run once"
+
+
+def trust_remaining_seconds() -> int:
+    """Process-local, nonpersistent authority shared by all MCP sessions."""
+    with _trust_lock:
+        return max(0, int(_trusted_until - time.monotonic() + 0.999))
+
+
+def trust_status() -> dict:
+    remaining = trust_remaining_seconds()
+    return {
+        "status": "active" if remaining else "inactive",
+        "remaining_seconds": remaining,
+        "scope": "all_chats_with_bridge_access",
+        "authorization": "local_opt_in",
+    }
+
+
+def trust_disable() -> dict:
+    global _trusted_until
+    with _trust_lock:
+        _trusted_until = 0.0
+    audit({"time": now_utc(), "operation": "trust_disable", "status": "disabled"})
+    return trust_status()
+
+
+def trust_enable(minutes: int = DEFAULT_TRUST_MINUTES) -> dict:
+    """Enable a short, global trust window after a separate local OS dialog."""
+    global _trusted_until
+    if type(minutes) is not int or not 1 <= minutes <= MAX_TRUST_MINUTES:
+        return {"status": "rejected", "error": f"minutes must be an integer from 1 to {MAX_TRUST_MINUTES}"}
+    # An extension refusal must not silently leave an earlier grant active.
+    trust_disable()
+    try:
+        result = subprocess.run(
+            ["/usr/bin/osascript", "-e", TRUST_SCRIPT, str(minutes)],
+            capture_output=True, text=True, timeout=APPROVAL_SECONDS + 6,
+            check=False,
+        )
+        authorized = result.returncode == 0 and result.stdout.strip() == "Enable"
+    except (OSError, subprocess.TimeoutExpired):
+        authorized = False
+    if not authorized:
+        audit({"time": now_utc(), "operation": "trust_enable", "status": "denied"})
+        return {"status": "denied", "message": "No on-Mac trust authorization received", **trust_status()}
+    with _trust_lock:
+        _trusted_until = time.monotonic() + 60 * minutes
+    audit({"time": now_utc(), "operation": "trust_enable", "status": "enabled", "minutes": minutes})
+    return {"status": "enabled", **trust_status()}
 
 
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
@@ -202,7 +267,8 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
         result = {"request_id": request_id, "status": "rejected", "error": str(exc)}
         audit(record)
         return result
-    if not confirm_on_mac(command, folder):
+    approval_mode = "temporary_trust" if trust_remaining_seconds() else "per_command"
+    if approval_mode == "per_command" and not confirm_on_mac(command, folder):
         record["status"] = "denied"
         audit(record)
         return {"request_id": request_id, "status": "denied", "message": "No on-Mac approval received"}
@@ -211,5 +277,6 @@ def mac_exec_local(command: str, cwd: str = "vera", timeout_seconds: int = 25) -
     except Exception:
         result = {"status": "internal_error", "message": "Local execution failed; details withheld"}
     record["status"] = result["status"]
+    record["approval_mode"] = approval_mode
     audit(record)
-    return {"request_id": request_id, "cwd": cwd, **result}
+    return {"request_id": request_id, "cwd": cwd, "approval_mode": approval_mode, **result}
