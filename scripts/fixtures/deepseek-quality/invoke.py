@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
-import io
 import json
 import sys
 from pathlib import Path
@@ -57,8 +56,9 @@ def main(argv: list[str]) -> int:
             return _fail("target_load_failed")
         module = importlib.util.module_from_spec(spec)
         with (
-            contextlib.redirect_stdout(io.StringIO()),
-            contextlib.redirect_stderr(io.StringIO()),
+            open("/dev/null", "w", encoding="utf-8") as discard,
+            contextlib.redirect_stdout(discard),
+            contextlib.redirect_stderr(discard),
         ):
             spec.loader.exec_module(module)
         solve = module.solve
@@ -66,8 +66,9 @@ def main(argv: list[str]) -> int:
         return _fail("target_load_failed")
     try:
         with (
-            contextlib.redirect_stdout(io.StringIO()),
-            contextlib.redirect_stderr(io.StringIO()),
+            open("/dev/null", "w", encoding="utf-8") as discard,
+            contextlib.redirect_stdout(discard),
+            contextlib.redirect_stderr(discard),
         ):
             outputs = [solve(payload) for payload in inputs]
     except BaseException:
