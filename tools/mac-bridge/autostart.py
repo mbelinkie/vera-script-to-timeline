@@ -28,8 +28,8 @@ WRAPPER = ROOT / "run-tunnel.zsh"
 PLIST = HOME / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 
-def wrapper_source(binary: Path = BINARY_DEST) -> bytes:
-    binary_q = shlex.quote(str(binary))
+def wrapper_source(binary: Path | None = None) -> bytes:
+    binary_q = shlex.quote(str(BINARY_DEST if binary is None else binary))
     service_q = shlex.quote(SERVICE)
     return (f"""#!/bin/zsh -f
 set -euo pipefail
@@ -43,7 +43,8 @@ exec {binary_q} run --profile {PROFILE}
 """).encode()
 
 
-def plist_data(wrapper: Path = WRAPPER) -> bytes:
+def plist_data(wrapper: Path | None = None) -> bytes:
+    wrapper = WRAPPER if wrapper is None else wrapper
     data = {
         "Label": LABEL,
         "ProgramArguments": ["/bin/zsh", "-f", str(wrapper)],
