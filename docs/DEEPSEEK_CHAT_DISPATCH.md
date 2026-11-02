@@ -4,7 +4,7 @@
 
 This is an **add-on to the existing private DeepSeek repair-controller architecture**, not a second coding agent. See [issue #396](https://github.com/mbelinkie/vera-script-to-timeline/issues/396). Chat can prepare and review a ticket, but only a current, explicit Producer-approved Chat review permits the later `chat-reviewed` and task-specific dispatch gates. The exact `/deepseek dispatch` issue comment is a separate authorization. Sol/Codex retains independent integration, review, CI/queue and acceptance responsibility.
 
-**Current status (2026-11-01, latest reviewed PR head `ec46c13a881ce4dc038708d1543ce8bfef78767d`):** Draft [PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397) is open, **not merged**. [Exact-SHA preview CI](https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/41330794950) **passed**; it is validation only, not a merge attestation. #361's durable queue was later observed unpaused and empty. The Producer reports that the Mac's private `vera-deepseek-runner` adapter was installed, its 19 offline tests passed, and the owner-private lifetime ledger was initialized and audited. The Producer reports repository variables `VERA_DEEPSEEK_DISPATCH_ENABLED=false`, `VERA_DEEPSEEK_DRY_RUN=true`, `VERA_DEEPSEEK_TASK_CAP_USD=0.25`. These operator reports are not proof of an actual GitHub-to-private-controller dispatch or verified provider invoice. The Cloudflare Github-for-Chat bridge provides a staged installer/validator; **no paid DeepSeek work was dispatched**. Approval verification from #378 is not yet integrated into this dispatcher.
+**Current status (2026-11-02):** Draft [PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397) remains open and unmerged. Its branch now stages a GitHub-hosted read-only validator and a separate outbound Mac receiver. Local focused tests and `npm run validate:fast` passed; external synthetic no-spend acceptance, protected CI delivery and Producer acceptance remain outstanding. No receiver activation or paid provider call has occurred.
 
 ## Explicit model routing — no automatic DeepSeek assignments
 
@@ -16,7 +16,7 @@ This is an **add-on to the existing private DeepSeek repair-controller architect
 
 Additional fail-closed exclusions: only issues with exactly one `type:` label, either `type:implementation` or `type:bug`, can be dispatched. Design, investigation, product, goals, acceptance, review and all other types are excluded. The independent `execution:design`, `execution:human`, `execution:codex`, `owner:claude`, `owner:codex`, and `deepseek-excluded` labels also veto dispatch, **overriding** all four approval labels. Pending chat review and model escalation also block the action. Do not label design issues eligible or dispatchable; route them to design/product review and Producer choices. Complex architecture and security-sensitive changes go to the appropriate separately reviewed Codex/agent workflow.
 
-**Dashboard (staged PR only):** PR #397 contains a label-derived, read-only execution classification; it is not evidence of a model call, a merged feature, or completed work. #401 now owns the dashboard renderer and must reconcile these candidate changes. No concurrent edits of `scripts/project-progress-lib.mjs` or `scripts/project-progress.test.mjs` from #396.
+**Dashboard ownership:** #401 owns the renderer. This branch does not change `scripts/project-progress-lib.mjs` or `scripts/project-progress.test.mjs`.
 
 ## Dispatch trust boundary
 
@@ -75,7 +75,7 @@ The prototype: validates dispatcher receipt/issue/comment environment, uses a pr
 
 **Mac checkpoint:** The Producer subsequently installed the adapter and reported 19/19 offline tests passing. Local `--init-ledger` and `--audit` both report 15 historic requests, USD0.701657484 committed, zero pending and USD9.298342516 provisional remaining under the lifetime USD10 cap. The private ledger exists with mode `0600`. These reports do not verify the external DeepSeek invoice, actual GitHub-to-Mac dispatch, or public-source task behavior.
 
-## Unresolved activation gates (2026-11-01)
+## Remaining activation gates (2026-11-02)
 
 1. **Producer review freshness:** Implemented in the #397 branch by reusing #378's canonical verifier, including bounded paginated history reads and fail-closed API errors. The GitHub-hosted validator and Mac receiver both use it; a stale or label-only review is insufficient.
 2. **Handoff vs private manifest:** A public `## DeepSeek Handoff` describes scope, but is not the authenticated private task manifest. The dispatcher rejects missing/empty handoffs; the private adapter must independently enforce exact issue/comment, approved source SHA, editable files, frozen tests, permitted commands, strict cost/attempt limits and current task authorization. Never treat issue text or model output as shell commands.
