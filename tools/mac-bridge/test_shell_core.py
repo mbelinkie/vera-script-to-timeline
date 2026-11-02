@@ -150,5 +150,15 @@ class TrustWindowTests(ValidationTests):
         self.assertEqual(core.trust_remaining_seconds(), 0)
 
 
+class ApprovalAppearanceTests(unittest.TestCase):
+    def test_run_once_highlighted_but_cancel_denies(self):
+        self.assertIn('default button "Run once"', core.APPROVAL_SCRIPT)
+        self.assertIn('cancel button "Deny"', core.APPROVAL_SCRIPT)
+
+    def test_trust_dialog_still_defaults_to_deny(self):
+        self.assertIn('default button "Deny"', core.TRUST_SCRIPT)
+        self.assertIn('cancel button "Deny"', core.TRUST_SCRIPT)
+
+
 if __name__ == '__main__':
     unittest.main()
