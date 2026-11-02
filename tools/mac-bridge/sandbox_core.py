@@ -1,22 +1,23 @@
+# ruff: noqa: E501  # Seatbelt policy strings preserve readable literal rules.
 """Strict macOS Seatbelt workspace shell for ordinary ChatGPT conversations.
 
 Different from mac_exec: this tool never runs unconfined. Its only writable
 filesystem tree is an operator-provisioned isolated workspace, and it has no
 network or Mach-service grants. It must fail CLOSED if sandbox-exec is absent.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-from pathlib import Path
 import selectors
-import signal
 import subprocess
 import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 
 from shell_core import (
     MAX_COMMAND_CHARS,
@@ -47,7 +48,9 @@ def workspace_root() -> Path:
         raise ValueError("Dedicated workspace cannot be redirected by a symlink")
     state = root.stat()
     if state.st_uid != os.getuid() or state.st_mode & 0o022:
-        raise ValueError("Workspace must be owned by the user and not group/world writable")
+        raise ValueError(
+            "Workspace must be owned by the user and not group/world writable"
+        )
     return root
 
 
@@ -67,21 +70,19 @@ def profile_for(root: Path) -> str:
     """
     root = root.resolve(strict=True)
     ancestors = [p for p in reversed(root.parents) if str(p) != "/"]
-    metadata = " ".join(
-        f"(literal {_sbpl_path(p)})" for p in ancestors
-    )
+    metadata = " ".join(f"(literal {_sbpl_path(p)})" for p in ancestors)
     system_read = " ".join(
-        f'(subpath "{p}")' for p in
-        ("/System", "/usr", "/bin", "/sbin", "/Library")
+        f'(subpath "{p}")' for p in ("/System", "/usr", "/bin", "/sbin", "/Library")
     )
     lines = [
         "(version 1)",
         "(deny default)",
         "(allow process-exec process-fork sysctl-read)",
         '(allow file-read* file-test-existence (literal "/") (literal "/dev/null") (literal "/dev/urandom") '
-        + system_read + f" (subpath {_sbpl_path(root)}))",
+        + system_read
+        + f" (subpath {_sbpl_path(root)}))",
         "(allow file-read-metadata file-test-existence " + metadata + ")",
-        f"(allow file-write* (subpath {_sbpl_path(root)}) (literal \"/dev/null\"))",
+        f'(allow file-write* (subpath {_sbpl_path(root)}) (literal "/dev/null"))',
         "(deny network*)",
     ]
     result = "\n".join(lines)
@@ -113,14 +114,19 @@ def _execute_sandboxed(command: str, root: Path, timeout_seconds: int) -> dict:
     try:
         proc = subprocess.Popen(
             [str(SANDBOX_BIN), "-p", policy, str(SHELL_BIN), "-f", "-c", command],
-            cwd=root, stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            start_new_session=True, env=_environment(root),
+            cwd=root,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            env=_environment(root),
         )
     except OSError:
         return {
             "status": "sandbox_launch_failed",
-            "exit_code": None, "stdout": "", "stderr": "",
+            "exit_code": None,
+            "stdout": "",
+            "stderr": "",
             "truncated": False,
         }
     started = time.monotonic()
@@ -170,8 +176,13 @@ def _execute_sandboxed(command: str, root: Path, timeout_seconds: int) -> dict:
             proc.wait(timeout=2)
     return {
         "status": (
-            "timed_out" if timed_out else "output_limit" if truncated
-            else "completed" if code == 0 else "failed"
+            "timed_out"
+            if timed_out
+            else "output_limit"
+            if truncated
+            else "completed"
+            if code == 0
+            else "failed"
         ),
         "exit_code": code,
         "stdout": b"".join(chunks["stdout"]).decode("utf-8", "replace"),
@@ -195,11 +206,26 @@ def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
         "status": "rejected",
     }
     if not isinstance(command, str) or not (1 <= len(command) <= MAX_COMMAND_CHARS):
-        return {"request_id": request_id, "status": "rejected", "error": "Invalid command length"}
+        return {
+            "request_id": request_id,
+            "status": "rejected",
+            "error": "Invalid command length",
+        }
     if not command.strip() or any(ch in command for ch in "\x00\r\n"):
-        return {"request_id": request_id, "status": "rejected", "error": "Expected single-line command"}
-    if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= MAX_TIMEOUT_SECONDS:
-        return {"request_id": request_id, "status": "rejected", "error": "Invalid timeout"}
+        return {
+            "request_id": request_id,
+            "status": "rejected",
+            "error": "Expected single-line command",
+        }
+    if (
+        type(timeout_seconds) is not int
+        or not 1 <= timeout_seconds <= MAX_TIMEOUT_SECONDS
+    ):
+        return {
+            "request_id": request_id,
+            "status": "rejected",
+            "error": "Invalid timeout",
+        }
     record["command_sha256"] = hashlib.sha256(command.encode("utf-8")).hexdigest()
     try:
         root = workspace_root()
@@ -207,7 +233,11 @@ def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
     except (OSError, ValueError) as exc:
         return {"request_id": request_id, "status": "unavailable", "error": str(exc)}
     if not _workspace_lock.acquire(blocking=False):
-        return {"request_id": request_id, "status": "busy", "message": "Workspace command already running"}
+        return {
+            "request_id": request_id,
+            "status": "busy",
+            "message": "Workspace command already running",
+        }
     try:
         record["status"] = "sandbox_requested"
         if not audit(record):
@@ -215,12 +245,16 @@ def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
         try:
             result = _execute_sandboxed(command, root, timeout_seconds)
         except Exception:
-            result = {"status": "sandbox_error", "message": "Restricted execution failed"}
+            result = {
+                "status": "sandbox_error",
+                "message": "Restricted execution failed",
+            }
         record["status"] = result["status"]
         audit(record)
         return {"request_id": request_id, "workspace": "isolated", **result}
     finally:
         _workspace_lock.release()
+
 
 def workspace_info() -> dict:
     try:
