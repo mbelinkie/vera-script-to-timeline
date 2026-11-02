@@ -19,6 +19,70 @@ This directory implements a **private general-purpose Terminal bridge** for ordi
 5. Start the new profile via `tunnel-client run --profile <name>` in an interactive macOS login session, so `osascript` can display approval dialogs. Refresh your private **VERA Mac Bridge** plugin's tool metadata in ChatGPT, then test `mac_health()` in a **new ordinary ChatGPT chat**. Next request `mac_exec(command="pwd",cwd="home")` and click **Run once** on your Mac only if the displayed command is exactly expected.
 6. Disconnect by stopping the `tunnel-client run` process. Do not enable auto-start/launchd until local GUI authorization has been tested reliably.
 
+## Codex-style isolated workspace (no repeated Mac popups)
+
+Version 0.3 adds `mac_workspace_info()` and
+`mac_workspace_exec(command, timeout_seconds=25)`. This is **not** the same
+as the unrestricted `mac_exec`. The workspace tool runs commands using the
+Mac's kernel-enforced **Seatbelt** sandbox (`/usr/bin/sandbox-exec`) with
+**deny-by-default** rules. It refuses to execute if Seatbelt is unavailable,
+the dedicated workspace is missing, or the audit preflight fails. There is
+**no unsandboxed fallback**. The tool does not accept arbitrary working
+directories, network access controls, mounts, or permission overrides.
+
+The operator-provisioned workspace is fixed at
+`~/.local/share/vera-mac-bridge/workspace` (a **separate checkout**, never
+the existing VERA checkout in Desktop/ONGOING). It must be a real directory
+owned by the Mac user, not group/world writable, and not a symlink.
+Only this directory is writable inside the Seatbelt process tree. The only
+other readable paths are essential system binaries and libraries. The
+profile grants no network access, no broad home read, and no Mach-service
+lookup, including no direct access to the user's Keychain. The child
+environment does not inherit tunnel credentials. Output/time bounds and
+pre-execution metadata-only audit are enforced. An active command is serialized,
+so another request returns `busy`.
+
+**One-time workspace provision (outside the sandbox, with on-Mac approval):**
+
+```bash
+git clone --quiet --depth 1 --single-branch --filter=blob:none --sparse \
+  --branch main https://github.com/mbelinkie/vera-script-to-timeline.git \
+  "$HOME/.local/share/vera-mac-bridge/workspace"
+```
+
+This was performed for the Producer's machine after observing that the original
+checkout occupied 23 GB, including 15 GB of Git data. The sparse clone starts
+with a small set of root files; it's intentionally **not a full development
+checkout**. Run `mac_workspace_exec("pwd")`,
+`mac_workspace_exec("git status --short --branch")`, or
+`mac_workspace_exec("node --version")` after plugin discovery. Expanding
+the sparse checkout, fetching dependencies, or pushing to GitHub requires
+network access **outside** the sandbox and therefore a separately approved
+step; the workspace tool will not bypass its network deny. The Node version
+on this Mac was observed as 26.5.0, while VERA currently specifies Node 24,
+so don't infer that every build will work in this workspace yet.
+
+**Important limitations:** These are general shell commands inside the
+disposable workspace. They can change or delete files **there**, create
+background processes and consume CPU/disk; the timeout kills the direct
+process group but cannot guarantee cleanup of explicitly detached children.
+The kernel sandbox is not a VM, and no system guarantees protection against
+kernel vulnerabilities. The exact command and content of workspace files are
+still untrusted inputs. Don't copy secrets or valuable one-off data into the
+isolated checkout. ChatGPT/plugin tool permissions can still require host
+approval or block invocations; this code does not override those settings.
+Use `mac_exec` with per-command Mac approval for anything outside the
+isolated workspace.
+
+**Observed live Mac tests (2026-11-02):** Seatbelt allowed a harmless
+workspace write and denied attempted writes to a sibling directory, reading
+a fake secret in a sibling directory, symlink traversal outside the workspace,
+a child process's attempted out-of-bound write, and a loopback network
+connection (permission denied). `git status` and `node --version` completed
+inside the isolated sandbox in a local trial. These are kernel-enforcement
+tests, not claims that the new MCP tool has already been refreshed and
+called from an ordinary ChatGPT conversation.
+
 ## Verified Mac usage and automatic startup
 
 The Producer has confirmed that an ordinary ChatGPT chat can invoke `mac_health`
