@@ -40,9 +40,11 @@ class ValidationTests(unittest.TestCase):
             ("x" * 241, "vera", 2),
             ("echo ok", "vera", True),
         ]:
-            with self.subTest(command=command[:24], cwd=cwd, seconds=seconds):
-                with self.assertRaises(ValueError):
-                    core.validate(command, cwd, seconds)
+            with (
+                self.subTest(command=command[:24], cwd=cwd, seconds=seconds),
+                self.assertRaises(ValueError),
+            ):
+                core.validate(command, cwd, seconds)
 
     @patch.object(core, "audit")
     @patch.object(core, "execute_bounded")
@@ -184,6 +186,48 @@ class ApprovalAppearanceTests(unittest.TestCase):
     def test_trust_dialog_still_defaults_to_deny(self):
         self.assertIn('default button "Deny"', core.TRUST_SCRIPT)
         self.assertIn('cancel button "Deny"', core.TRUST_SCRIPT)
+
+
+class ReviewSafetyTests(ValidationTests):
+    @patch.object(core, "audit")
+    def test_bad_command_type_returns_rejection(self, audit):
+        result = core.mac_exec_local(None, "home", 5)
+        self.assertEqual(result["status"], "rejected")
+        self.assertIn("command", result["error"])
+
+    @patch.object(core, "audit", return_value=False)
+    @patch.object(core, "execute_bounded")
+    @patch.object(core, "confirm_on_mac", return_value=True)
+    def test_failed_audit_prevents_shell_execution(self, approval, execute, audit):
+        result = core.mac_exec_local("echo safe", "home", 5)
+        self.assertEqual(result["status"], "audit_unavailable")
+        approval.assert_called_once()
+        execute.assert_not_called()
+
+    @patch.object(core, "audit")
+    @patch.object(core, "execute_bounded")
+    @patch.object(core, "confirm_on_mac")
+    def test_concurrent_operation_is_refused(self, approval, execute, audit):
+        self.assertTrue(core._exec_lock.acquire(blocking=False))
+        try:
+            result = core.mac_exec_local("echo safe", "home", 5)
+            self.assertEqual(result["status"], "busy")
+            approval.assert_not_called()
+            execute.assert_not_called()
+        finally:
+            core._exec_lock.release()
+
+    @patch.object(core, "audit")
+    @patch.object(core.subprocess, "run")
+    def test_disable_revokes_in_flight_trust_dialog(self, run, audit):
+        def approve_after_revocation(*args, **kwargs):
+            core.trust_disable()
+            return subprocess.CompletedProcess([], 0, "Enable\\n", "")
+
+        run.side_effect = approve_after_revocation
+        result = core.trust_enable(5)
+        self.assertEqual(result["result"], "canceled")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
 
 
 if __name__ == "__main__":
