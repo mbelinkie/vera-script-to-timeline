@@ -1,4 +1,5 @@
-# ruff: noqa: E501  # Embedded AppleScript needs literal, readable dialog text.
+# ruff: noqa: E501
+# Embedded AppleScript uses long literal dialog lines.
 """Mac-local command execution gate for the private VERA MCP bridge.
 
 Commands normally require on-Mac approval. The operator may opt into a short-lived
