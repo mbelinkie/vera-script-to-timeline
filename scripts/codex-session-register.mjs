@@ -30,7 +30,7 @@ if (args.length === 1 && args[0] === '--help') {
     } catch (error) {
       if (!/Existing primary session differs/.test(error?.message ?? '')) throw error;
       const second = await terminal.question('An existing primary would become history. Type REPLACE to confirm: ');
-      if (second !== 'REPLACE') throw new Error('Canceled: existing primary left unchanged');
+      if (second !== 'REPLACE') throw new Error('Canceled: existing primary left unchanged', { cause: error });
       await registerLocalCodexThread({ issueUrl, deepLink, confirmed: true, replaceExisting: true });
       replaced = true;
     }
