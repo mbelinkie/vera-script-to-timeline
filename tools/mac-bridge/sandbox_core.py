@@ -6,6 +6,7 @@ network or Mach-service grants. It must fail CLOSED if sandbox-exec is absent.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -30,6 +32,7 @@ SHELL_BIN = Path("/bin/zsh")
 WORKSPACE_ROOT = Path.home() / ".local" / "share" / "vera-mac-bridge" / "workspace"
 # Do not expose this as a user-supplied path/argument.
 MAX_POLICY_CHARS = 16000
+_workspace_lock = threading.Lock()
 
 
 def workspace_root() -> Path:
@@ -97,6 +100,7 @@ def _environment(root: Path) -> dict[str, str]:
         "PAGER": "cat",
         "GIT_PAGER": "cat",
         "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_ATTR_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_OPTIONAL_LOCKS": "0",
         "npm_config_offline": "true",
@@ -178,38 +182,45 @@ def _execute_sandboxed(command: str, root: Path, timeout_seconds: int) -> dict:
 
 
 def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
-    """A general single-line command inside a strict, isolated Mac workspace.
+    """Run general shell syntax under Seatbelt's dedicated, non-networked root.
 
-    Reject if sandbox preparation fails. No macOS Run once dialog is necessary,
-    because the kernel denies reads/writes outside the dedicated workspace,
-    network access and Mach service access. Host plugin policy still applies.
+    The kernel policy, not a working-directory check or command-name filter,
+    is the filesystem/network boundary. The tool must NEVER fall back.
     """
     request_id = str(uuid.uuid4())
-    record = {"request_id": request_id, "time": now_utc(),
-              "operation": "workspace_exec", "status": "rejected"}
+    record = {
+        "request_id": request_id,
+        "time": now_utc(),
+        "operation": "workspace_exec",
+        "status": "rejected",
+    }
     if not isinstance(command, str) or not (1 <= len(command) <= MAX_COMMAND_CHARS):
         return {"request_id": request_id, "status": "rejected", "error": "Invalid command length"}
     if not command.strip() or any(ch in command for ch in "\x00\r\n"):
         return {"request_id": request_id, "status": "rejected", "error": "Expected single-line command"}
     if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= MAX_TIMEOUT_SECONDS:
         return {"request_id": request_id, "status": "rejected", "error": "Invalid timeout"}
+    record["command_sha256"] = hashlib.sha256(command.encode("utf-8")).hexdigest()
     try:
         root = workspace_root()
         profile_for(root)
     except (OSError, ValueError) as exc:
         return {"request_id": request_id, "status": "unavailable", "error": str(exc)}
-    # Fail closed if metadata cannot be recorded before execution.
-    record["status"] = "sandbox_requested"
-    if not audit(record):
-        return {"request_id": request_id, "status": "audit_unavailable"}
+    if not _workspace_lock.acquire(blocking=False):
+        return {"request_id": request_id, "status": "busy", "message": "Workspace command already running"}
     try:
-        result = _execute_sandboxed(command, root, timeout_seconds)
-    except Exception:
-        result = {"status": "sandbox_error", "message": "Restricted execution failed"}
-    record["status"] = result["status"]
-    audit(record)
-    return {"request_id": request_id, "workspace": "isolated", **result}
-
+        record["status"] = "sandbox_requested"
+        if not audit(record):
+            return {"request_id": request_id, "status": "audit_unavailable"}
+        try:
+            result = _execute_sandboxed(command, root, timeout_seconds)
+        except Exception:
+            result = {"status": "sandbox_error", "message": "Restricted execution failed"}
+        record["status"] = result["status"]
+        audit(record)
+        return {"request_id": request_id, "workspace": "isolated", **result}
+    finally:
+        _workspace_lock.release()
 
 def workspace_info() -> dict:
     try:
