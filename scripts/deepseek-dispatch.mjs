@@ -49,7 +49,15 @@ export function verifyCurrentIssue(issue, expectedIssue) {
   }
   if (labels.has('chat-review-pending')) throw new Error('Chat review still pending');
   if (labels.has('needs:model-escalation')) throw new Error('Model escalation still required');
-  if (!/^## DeepSeek Handoff\s*$/m.test(issue.body || '')) throw new Error('Missing approved DeepSeek Handoff section');
+  // A heading alone is not an approved task. The private adapter must still
+  // verify the full owner-approved frozen manifest before doing any work.
+  const lines = (issue.body || '').split(/\r?\n/);
+  const start = lines.findIndex(line => /^## DeepSeek Handoff[ \t]*$/.test(line));
+  if (start < 0) throw new Error('Missing approved DeepSeek Handoff section');
+  const next = lines.findIndex((line, index) => index > start && /^#{1,2} /.test(line));
+  const handoff = lines.slice(start + 1, next < 0 ? undefined : next)
+    .join('\n').replace(/<!--[\s\S]*?-->/g, '').trim();
+  if (!/[A-Za-z0-9]/.test(handoff)) throw new Error('Empty DeepSeek Handoff section');
   return true;
 }
 
