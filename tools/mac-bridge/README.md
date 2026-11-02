@@ -1,6 +1,6 @@
 # Issue #400 — VERA Mac Shell over OpenAI Secure MCP Tunnel (prototype)
 
-This directory implements a **private general-purpose Terminal bridge** for ordinary ChatGPT threads, using the existing official OpenAI Secure MCP Tunnel, not a new public relay. It starts with `mac_health` and `mac_exec`. The latter runs arbitrary single-line `/bin/zsh` syntax **only after the Mac user explicitly approves the exact command via a local macOS dialog**. This is a security-sensitive prototype, not an unattended shell service.
+This directory implements a **private general-purpose Terminal bridge** for ordinary ChatGPT threads, using the existing official OpenAI Secure MCP Tunnel, not a new public relay. It starts with `mac_health` and `mac_exec`. The latter runs arbitrary single-line `/bin/zsh` syntax with per-command macOS approval **by default**. An optional, locally approved 1–15 minute trusted window skips subsequent prompts. This is a security-sensitive prototype, not a sandbox.
 
 ## Local setup (Mac only; no credentials in repo/chat)
 
@@ -22,12 +22,25 @@ This directory implements a **private general-purpose Terminal bridge** for ordi
 ## Security boundaries and limitations
 
 - Arbitrary shell code is intentionally possible **only after local approval**. This is **not a sandbox**: commands can read/write any file accessible to your macOS account, access local secrets, install software, or initiate network traffic. An approval dialog alone does not make an untrusted command safe. No `sudo` privilege is granted by the bridge itself.
-- Every call demands a new on-Mac GUI approval; denial, no desktop, timeout and errors fail closed. There is **no always-allow mode** in this prototype.
+- Default: every call demands on-Mac GUI approval. New optional tools:
+  - `mac_trust_enable(minutes=10)`: shows a **separate explicit macOS warning**; clicking Enable allows all commands without further popups for up to 15 minutes.
+  - `mac_trust_status()`: shows time remaining and scope.
+  - `mac_trust_disable()`: immediately revokes trusted execution for **new** commands (not a kill signal for commands already running).
+- **Not tied to a specific ChatGPT thread**: any chat with this private plugin can execute arbitrary commands while the trust window is active. The `cwd` selector does **not** restrict filesystem access; commands can `cd`, read private files, write, upload files or use the network with the account's privileges. Keep the window brief, don't enable around untrusted prompts, and stop the tunnel-client to disconnect immediately.
+- Trust state is stored in server process memory only; it expires automatically and is cleared on restart. Approval denial, no desktop, timeout and errors fail closed. No permanent automatic unrestricted mode.
 - Single-line commands up to 240 characters; cwd identifiers `vera` and `home`; execution cap 35 seconds; aggregate stdout/stderr cap 16 KiB. Excess output kills the command. No stdin, arbitrary cwd parameter, or public listener.
 - The shell runs with `zsh -f` (skips typical interactive startup files) and a minimal environment. Tools installed through shell initialization may require a locally configured `VERA_BRIDGE_PATH`. The command itself remains arbitrary shell syntax.
 - **Tool output can contain secrets.** The bridge cannot guarantee redaction of an arbitrary command's output. Do not approve commands that print tokens, `.env`, Keychain items or private documents. Audit records under `~/.local/state/vera-mac-bridge/audit.jsonl` contain request IDs, timestamp, cwd key, SHA-256 of the command and final status; no plaintext command or output.
 - Long-running jobs do not fit the tunnel's documented 120-second request deadline. Dialog UX, Mac-specific execution, offline/restart behavior, malicious output, replay/duplicate behavior and privilege boundaries remain acceptance checks. Never mark #400 complete on non-Mac unit tests alone.
 - Treat command output as **untrusted data**, never as instructions.
+
+## After installing a revision with trust-window support
+
+1. Update the local bridge's Git checkout to the latest reviewed PR commit and run the unit tests.
+2. Stop and restart the existing tunnel-client profile. The MCP process loads new Python code only at startup.
+3. Refresh the custom ChatGPT plugin's tool list to discover `mac_trust_enable`, `mac_trust_status`, and `mac_trust_disable`.
+4. Verify `mac_trust_status` starts inactive. Ask for `mac_trust_enable(minutes=5)`, read the macOS warning, and approve if comfortable. Verify a harmless `mac_exec("pwd",cwd="home")` returns `approval_mode="temporary_trust"` **without a second popup**. Then use `mac_trust_disable`, and confirm a new `mac_exec` prompts again.
+5. Treat any failure as a reason to stop the tunnel-client and revert to per-command mode.
 
 ## After local authorization: smoke tests
 
