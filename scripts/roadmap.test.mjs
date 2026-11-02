@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, validateRouting } from "./roadmap.mjs";
+import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, validateRouting } from "./roadmap.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -15,6 +15,18 @@ test("parses commands and flags", () => {
   assert.equal(parsed.command, "claim");
   assert.deepEqual(parsed.positionals, ["12"]);
   assert.equal(parsed.flags.get("effort"), "high");
+});
+
+test("accepts qualified acceptance criteria headings with checklist or numbered criteria", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria (all required before closing #396)\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("### Acceptance criteria (bounded scope)\n\n1. Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria\n\n- [ ] Works"), true);
+});
+
+test("rejects non-parenthetical heading suffixes, malformed qualifiers, and missing criteria", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria extra\n\n- [ ] Works"), false);
+  assert.equal(acceptanceReady("## Acceptance criteria (unfinished\n\n- [ ] Works"), false);
+  assert.equal(acceptanceReady("## Acceptance criteria (valid)\n\nThis is prose only."), false);
 });
 
 test("accepts one exact routing profile", () => {

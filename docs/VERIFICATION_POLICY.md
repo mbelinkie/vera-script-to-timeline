@@ -103,6 +103,11 @@ in the repository, but nothing has to use it.
 - Never claim something passed when it did not, and never weaken an assertion
   just to get green. If a test is wrong or obsolete, fix or delete it and say
   why in the PR.
+- When a roadmap or review handoff tool rejects a recognized formatting
+  variant despite valid criteria or a current approval, fix the tool and add a
+  focused regression test while preserving the approved issue text and review
+  record. Missing criteria, unresolved dependencies and stale approvals remain
+  hard gates.
 - Compiler golden files must still match. When output changes on purpose,
   update the goldens in the same PR and say why.
 - Keep the suite fast. Prefer small unit tests; add at most one end-to-end test
