@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { URL } from 'node:url';
 import { join } from 'node:path';
 import { requestFromEvent, verifyCurrentIssue, taskCap, reserveReceipt, invokePrivateRunner } from './deepseek-dispatch.mjs';
 
