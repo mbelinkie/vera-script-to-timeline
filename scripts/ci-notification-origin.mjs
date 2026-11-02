@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   closeSync, constants as fsConstants, fstatSync, fsyncSync, linkSync,
   lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
@@ -40,6 +40,11 @@ function assertText(value, name, maxLength = 512) {
 function assertThreadId(value) {
   if (typeof value !== "string" || !UUID_PATTERN.test(value)) throw new Error("CODEX_THREAD_ID must be the runtime UUID");
   return value;
+}
+
+export function publicOwnerKey(threadId) {
+  assertThreadId(threadId);
+  return "codex-owner-" + createHash("sha256").update(VERA_REPOSITORY + "\0" + threadId).digest("hex");
 }
 
 function cloneScope(value) {
@@ -464,7 +469,7 @@ function verifyActiveClaim(issueNumber, threadId, branch) {
   const snapshot = parseJson(result.stdout, "Could not verify the active roadmap claim");
   if (snapshot?.issue?.number !== issueNumber || snapshot.issue.state?.toLowerCase() !== "open" ||
       snapshot.project?.status !== "In progress" || snapshot.claim?.state !== "active" ||
-      snapshot.claim?.task !== threadId || snapshot.claim?.branch !== branch) {
+      snapshot.claim?.task !== publicOwnerKey(threadId) || snapshot.claim?.branch !== branch) {
     throw new Error("Active roadmap claim does not match this runtime thread and branch");
   }
 }
@@ -504,6 +509,11 @@ function verifyPullRequest(pr, record) {
 
 export async function main(argv = process.argv.slice(2), { directory = DEFAULT_DIRECTORY, env = process.env } = {}) {
   const [command] = argv;
+  if (command === "owner-key" && argv.length === 1) {
+    const key = publicOwnerKey(env.CODEX_THREAD_ID);
+    console.log(key);
+    return key;
+  }
   if (command === "capture") {
     const flags = parseFlags(argv, command, new Set(["issue", "branch", "approval-comment", "approval-revision"]));
     const issue = positiveFlag(flags, "issue");
@@ -544,7 +554,7 @@ export async function main(argv = process.argv.slice(2), { directory = DEFAULT_D
     console.log(bound.launchId);
     return bound.launchId;
   }
-  throw new Error("Usage: ci-notification-origin.mjs <capture|bind> [flags]");
+  throw new Error("Usage: ci-notification-origin.mjs <owner-key|capture|bind> [flags]");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

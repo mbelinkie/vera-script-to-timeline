@@ -12,6 +12,7 @@ import {
   loadOrigin,
   privateNavigationUrl,
   publicBinding,
+  publicOwnerKey,
   saveDeliveryAudit,
   saveOrigin,
   VERA_REPOSITORY,
@@ -20,6 +21,15 @@ import {
 const THREAD_ID = "018f7c2a-7b1d-7cc0-9b23-1234567890ab";
 const REVISION = "a".repeat(64);
 const BRANCH = "codex/398-ci-origin-handoff";
+
+test("public claim owner is stable and never contains the private runtime UUID", () => {
+  const key = publicOwnerKey(THREAD_ID);
+  assert.match(key, /^codex-owner-[0-9a-f]{64}$/);
+  assert.equal(key, publicOwnerKey(THREAD_ID));
+  assert.ok(!key.includes(THREAD_ID));
+  assert.notEqual(key, publicOwnerKey("11111111-1111-4111-8111-111111111111"));
+  assert.throws(() => publicOwnerKey("guessed-title"));
+});
 
 function makeRecord(overrides = {}) {
   return captureOrigin({

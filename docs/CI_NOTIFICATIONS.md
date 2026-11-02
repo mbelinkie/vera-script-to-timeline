@@ -41,8 +41,13 @@ unattended desktop wake behavior.
 
 ## Use at an authorized launch
 
-Run the following in the claimed issue's checkout, using the pinned Node
-version. Approval values come from the existing exact-revision review gate;
+At the authorized launch, use the pinned Node version and first run
+`node scripts/ci-notification-origin.mjs owner-key`. Use its opaque output
+for the normal roadmap claim's `--task` value; never publish the runtime UUID
+as a claim task ID. The key is a one-way, repository-specific hash of the
+actual runtime ID, not a guessed session association. Claim ownership still
+uses the usual approval/dependency/profile checks. Then capture in that
+claimed issue's checkout. Approval values come from the existing review gate;
 the capture command rechecks that approval and this runtime's active claim.
 
 ```sh
