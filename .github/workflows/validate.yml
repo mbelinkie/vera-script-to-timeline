@@ -312,7 +312,7 @@ jobs:
       - name: Run focused smoke checks
         run: |
           node --test scripts/cloud-evidence.test.mjs scripts/agent-safety.test.mjs
-          node --test scripts/ci-queue*.test.mjs
+          node --test scripts/ci-queue*.test.mjs scripts/ci-notification*.test.mjs
           uv run --no-project --python 3.12.14 python -m compileall -q python
 
   queue-completion:
@@ -345,7 +345,18 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Reconcile queue completion
+        id: reconcile
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VERA_CI_QUEUE_ENABLED: ${{ vars.VERA_CI_QUEUE_ENABLED }}
         run: node scripts/ci-queue.mjs
+      # Run after reconciliation: delivery failure cannot block its decision.
+      - name: Publish verified CI manual handoff
+        if: ${{ always() && steps.reconcile.outputs.notification_state_sha != '' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERA_NOTIFICATION_MODE: ${{ inputs.mode }}
+          VERA_NOTIFICATION_STATE_SHA: ${{ steps.reconcile.outputs.notification_state_sha }}
+        run: node scripts/ci-notification-publish.mjs
