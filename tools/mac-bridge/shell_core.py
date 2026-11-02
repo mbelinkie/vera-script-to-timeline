@@ -35,7 +35,7 @@ on run argv
     set commandText to item 1 of argv
     set locationText to item 2 of argv
     set promptText to "A ChatGPT thread requests a Terminal command on this Mac." & return & return & "Working directory: " & locationText & return & "Command: " & commandText & return & return & "Output will be returned to ChatGPT. Approve only if you trust it."
-    set decision to display dialog promptText with title "VERA Mac Bridge" buttons {"Deny", "Run once"} default button "Deny" cancel button "Deny" with icon caution giving up after 45
+    set decision to display dialog promptText with title "VERA Mac Bridge" buttons {"Deny", "Run once"} default button "Run once" cancel button "Deny" with icon caution giving up after 45
     if gave up of decision then return "DENIED"
     return button returned of decision
 end run
