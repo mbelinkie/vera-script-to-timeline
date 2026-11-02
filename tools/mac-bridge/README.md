@@ -34,13 +34,15 @@ The operator-provisioned workspace is fixed at
 `~/.local/share/vera-mac-bridge/workspace` (a **separate checkout**, never
 the existing VERA checkout in Desktop/ONGOING). It must be a real directory
 owned by the Mac user, not group/world writable, and not a symlink.
-Only this directory is writable inside the Seatbelt process tree. The only
-other readable paths are essential system binaries and libraries. The
-profile grants no network access, no broad home read, and no Mach-service
-lookup, including no direct access to the user's Keychain. The child
-environment does not inherit tunnel credentials. Output/time bounds and
-pre-execution metadata-only audit are enforced. An active command is serialized,
-so another request returns `busy`.
+Only this directory is writable inside the Seatbelt process tree, except for
+the clone's `.git` metadata, which is read-only to prevent planting Git
+configuration or hooks for later approved commands. Read access is limited to
+the workspace and explicit system/toolchain paths. The profile grants no
+network access, no broad home read, and no Mach-service lookup, including no
+direct access to the user's Keychain. The child environment does not inherit
+tunnel credentials. Output/time bounds and pre-execution metadata-only audit
+are enforced. An active command is serialized, so another request returns
+`busy`.
 
 **One-time workspace provision (outside the sandbox, with on-Mac approval):**
 
@@ -58,17 +60,22 @@ checkout**. Run `mac_workspace_exec("pwd")`,
 `mac_workspace_exec("node --version")` after plugin discovery. Expanding
 the sparse checkout, fetching dependencies, or pushing to GitHub requires
 network access **outside** the sandbox and therefore a separately approved
-step; the workspace tool will not bypass its network deny. The Node version
+step; the workspace tool will not bypass its network deny. Git metadata is
+read-only in the no-popup sandbox; perform sparse-checkout or other Git
+metadata changes only through a locally approved command in a separately
+reviewed directory. The Node version
 on this Mac was observed as 26.5.0, while VERA currently specifies Node 24,
 so don't infer that every build will work in this workspace yet.
 
 **Important limitations:** These are general shell commands inside the
-disposable workspace. They can change or delete files **there**, create
-background processes and consume CPU/disk; the timeout kills the direct
-process group but cannot guarantee cleanup of explicitly detached children.
+disposable workspace. They can change or delete files **there** and consume
+CPU/disk. The timeout kills the process group when the command completes or
+times out; deliberately detached processes that create a new session may
+outlive it.
 The kernel sandbox is not a VM, and no system guarantees protection against
 kernel vulnerabilities. The exact command and content of workspace files are
-still untrusted inputs. Don't copy secrets or valuable one-off data into the
+still untrusted inputs. Approval dialogs default to Deny; press a button only
+after reading the exact command. Don't copy secrets or valuable one-off data into the
 isolated checkout. ChatGPT/plugin tool permissions can still require host
 approval or block invocations; this code does not override those settings.
 Use `mac_exec` with per-command Mac approval for anything outside the

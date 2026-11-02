@@ -18,6 +18,7 @@ import signal
 import subprocess
 import threading
 import time
+import unicodedata
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -41,7 +42,7 @@ on run argv
     set commandText to item 1 of argv
     set locationText to item 2 of argv
     set promptText to "A ChatGPT thread requests a Terminal command on this Mac." & return & return & "Working directory: " & locationText & return & "Command: " & commandText & return & return & "Output will be returned to ChatGPT. Approve only if you trust it."
-    set decision to display dialog promptText with title "VERA Mac Bridge" buttons {"Deny", "Run once"} default button "Run once" cancel button "Deny" with icon caution giving up after 45
+    set decision to display dialog promptText with title "VERA Mac Bridge" buttons {"Deny", "Run once"} default button "Deny" cancel button "Deny" with icon caution giving up after 45
     if gave up of decision then return "DENIED"
     return button returned of decision
 end run
@@ -91,8 +92,12 @@ def resolve_cwd(cwd: str) -> Path:
 def validate(command: str, cwd: str, timeout_seconds: int) -> Path:
     if not isinstance(command, str) or not (1 <= len(command) <= MAX_COMMAND_CHARS):
         raise ValueError(f"command must be 1-{MAX_COMMAND_CHARS} characters")
-    if any(c in command for c in "\x00\r\n") or not command.strip():
-        raise ValueError("command must be one nonempty line without NUL or CR/LF")
+    if not command.strip() or any(
+        unicodedata.category(char) in {"Cc", "Cf", "Zl", "Zp"} for char in command
+    ):
+        raise ValueError(
+            "command must be one printable line without control or format characters"
+        )
     if not isinstance(timeout_seconds, int) or isinstance(timeout_seconds, bool):
         raise ValueError("timeout_seconds must be an integer")
     if not 1 <= timeout_seconds <= MAX_TIMEOUT_SECONDS:
@@ -304,6 +309,7 @@ def execute_bounded(
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             exit_code = proc.wait(timeout=2)
+        _kill_group(proc)
     finally:
         selector.close()
         if proc.stdout:

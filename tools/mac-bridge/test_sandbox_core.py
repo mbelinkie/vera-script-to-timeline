@@ -7,8 +7,10 @@ nothing under VERA's real checkout or the bridge's configuration is modified.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -27,6 +29,11 @@ class PolicyTests(unittest.TestCase):
             self.assertNotIn("mach-lookup", policy)
             self.assertNotIn("(allow mach", policy)
             self.assertIn(f"(subpath {sb._sbpl_path(root)})", policy)
+            self.assertIn('(subpath "/usr/bin")', policy)
+            self.assertIn('(subpath "/usr/local/Cellar")', policy)
+            self.assertNotIn('(subpath "/usr")', policy)
+            self.assertNotIn('(subpath "/Library")', policy)
+            self.assertNotIn("/usr/local/etc", policy)
             self.assertNotIn(str(Path.home() / ".ssh"), policy)
 
     def test_missing_sandbox_refused(self):
@@ -38,6 +45,10 @@ class PolicyTests(unittest.TestCase):
         with patch.object(sb, "audit") as audit:
             for command in ("", "echo hi\nid", "x" * 241, None):
                 self.assertEqual(sb.workspace_exec(command)["status"], "rejected")
+            for char in ("\u202e", "\u2066", "\u200b", "\u2028"):
+                self.assertEqual(
+                    sb.workspace_exec(f"echo{char}safe")["status"], "rejected"
+                )
             audit.assert_not_called()
 
 
@@ -68,6 +79,28 @@ class LiveSeatbeltTests(unittest.TestCase):
         result = self.run_sandbox("printf ok > allowed.txt")
         self.assertEqual(result["status"], "completed", result)
         self.assertEqual((self.workspace / "allowed.txt").read_text(), "ok")
+
+    def test_git_status_works_but_git_metadata_is_read_only(self):
+        subprocess.run(
+            ["/usr/bin/git", "init", "--quiet", str(self.workspace)], check=True
+        )
+        config = self.workspace / ".git" / "config"
+        original = config.read_bytes()
+        result = self.run_sandbox("git status --short --branch")
+        self.assertEqual(result["status"], "completed", result)
+        write = self.run_sandbox(
+            "printf '\\n[core]\\nfsmonitor = echo bad' >> .git/config"
+        )
+        self.assertNotEqual(write["exit_code"], 0, write)
+        self.assertEqual(config.read_bytes(), original)
+
+    def test_background_child_is_killed_when_shell_exits(self):
+        result = self.run_sandbox(
+            "(sleep 0.3; printf x > background-marker) >/dev/null 2>&1 &"
+        )
+        self.assertEqual(result["status"], "completed", result)
+        time.sleep(0.5)
+        self.assertFalse((self.workspace / "background-marker").exists())
 
     def test_cannot_write_sibling_directory(self):
         target = self.outside / "should-not-exist"
@@ -125,6 +158,22 @@ class DispatchSafetyTests(LiveSeatbeltTests):
         ):
             self.assertEqual(sb.workspace_exec("pwd")["status"], "audit_unavailable")
             runner.assert_not_called()
+
+    def test_final_audit_failure_is_reported_after_execution(self):
+        completed = {
+            "status": "completed",
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "truncated": False,
+        }
+        with (
+            patch.object(sb, "audit", side_effect=[True, False]),
+            patch.object(sb, "_execute_sandboxed", return_value=completed),
+        ):
+            result = sb.workspace_exec("pwd")
+        self.assertEqual(result["status"], "audit_incomplete")
+        self.assertEqual(result["execution_status"], "completed")
 
     def test_concurrent_command_returns_busy(self):
         self.assertTrue(sb._workspace_lock.acquire(blocking=False))

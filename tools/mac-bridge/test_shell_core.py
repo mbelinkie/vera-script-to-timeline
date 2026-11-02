@@ -47,6 +47,11 @@ class ValidationTests(unittest.TestCase):
             ):
                 core.validate(command, cwd, seconds)
 
+    def test_command_rejects_display_format_controls(self):
+        for char in ("\u202e", "\u2066", "\u200b", "\u2028"):
+            with self.subTest(char=char), self.assertRaises(ValueError):
+                core.validate(f"echo{char}safe", "vera", 5)
+
     @patch.object(core, "audit")
     @patch.object(core, "execute_bounded")
     @patch.object(core, "confirm_on_mac", return_value=False)
@@ -230,7 +235,7 @@ class TrustWindowTests(ValidationTests):
 
 class ApprovalAppearanceTests(unittest.TestCase):
     def test_run_once_highlighted_but_cancel_denies(self):
-        self.assertIn('default button "Run once"', core.APPROVAL_SCRIPT)
+        self.assertIn('default button "Deny"', core.APPROVAL_SCRIPT)
         self.assertIn('cancel button "Deny"', core.APPROVAL_SCRIPT)
 
     def test_trust_dialog_still_defaults_to_deny(self):

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import threading
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -33,6 +34,25 @@ SHELL_BIN = Path("/bin/zsh")
 WORKSPACE_ROOT = Path.home() / ".local" / "share" / "vera-mac-bridge" / "workspace"
 # Do not expose this as a user-supplied path/argument.
 MAX_POLICY_CHARS = 16000
+SYSTEM_READ_PATHS = (
+    "/System",
+    "/usr/bin",
+    "/usr/lib",
+    "/usr/libexec",
+    "/usr/sbin",
+    "/usr/share",
+    "/bin",
+    "/sbin",
+    "/usr/local/bin",
+    "/usr/local/lib",
+    "/usr/local/lib/node_modules",
+    "/usr/local/Cellar",
+    "/opt/homebrew/bin",
+    "/opt/homebrew/lib",
+    "/opt/homebrew/lib/node_modules",
+    "/opt/homebrew/Cellar",
+    "/Library/Developer/CommandLineTools",
+)
 _workspace_lock = threading.Lock()
 
 
@@ -71,9 +91,7 @@ def profile_for(root: Path) -> str:
     root = root.resolve(strict=True)
     ancestors = [p for p in reversed(root.parents) if str(p) != "/"]
     metadata = " ".join(f"(literal {_sbpl_path(p)})" for p in ancestors)
-    system_read = " ".join(
-        f'(subpath "{p}")' for p in ("/System", "/usr", "/bin", "/sbin", "/Library")
-    )
+    system_read = " ".join(f'(subpath "{p}")' for p in SYSTEM_READ_PATHS)
     lines = [
         "(version 1)",
         "(deny default)",
@@ -83,6 +101,7 @@ def profile_for(root: Path) -> str:
         + f" (subpath {_sbpl_path(root)}))",
         "(allow file-read-metadata file-test-existence " + metadata + ")",
         f'(allow file-write* (subpath {_sbpl_path(root)}) (literal "/dev/null"))',
+        f"(deny file-write* (subpath {_sbpl_path(root / '.git')}))",
         "(deny network*)",
     ]
     result = "\n".join(lines)
@@ -165,6 +184,7 @@ def _execute_sandboxed(command: str, root: Path, timeout_seconds: int) -> dict:
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             code = proc.wait(timeout=2)
+        _kill_group(proc)
     finally:
         selector.close()
         if proc.stdout:
@@ -211,11 +231,13 @@ def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
             "status": "rejected",
             "error": "Invalid command length",
         }
-    if not command.strip() or any(ch in command for ch in "\x00\r\n"):
+    if not command.strip() or any(
+        unicodedata.category(char) in {"Cc", "Cf", "Zl", "Zp"} for char in command
+    ):
         return {
             "request_id": request_id,
             "status": "rejected",
-            "error": "Expected single-line command",
+            "error": "Expected one printable line without control or format characters",
         }
     if (
         type(timeout_seconds) is not int
@@ -250,7 +272,15 @@ def workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
                 "message": "Restricted execution failed",
             }
         record["status"] = result["status"]
-        audit(record)
+        if not audit(record):
+            return {
+                "request_id": request_id,
+                "workspace": "isolated",
+                "status": "audit_incomplete",
+                "execution_status": result["status"],
+                "message": "Command finished, but the final local audit record could not be written",
+                **{key: value for key, value in result.items() if key != "status"},
+            }
         return {"request_id": request_id, "workspace": "isolated", **result}
     finally:
         _workspace_lock.release()
