@@ -116,5 +116,38 @@ class LiveSeatbeltTests(unittest.TestCase):
         self.assertIn("not permitted", result["stderr"].lower(), result)
 
 
+@unittest.skipUnless(sys.platform == "darwin", "macOS Seatbelt required")
+class DispatchSafetyTests(LiveSeatbeltTests):
+    def test_audit_failure_prevents_execution(self):
+        with (
+            patch.object(sb, "audit", return_value=False),
+            patch.object(sb, "_execute_sandboxed") as runner,
+        ):
+            self.assertEqual(sb.workspace_exec("pwd")["status"], "audit_unavailable")
+            runner.assert_not_called()
+
+    def test_concurrent_command_returns_busy(self):
+        self.assertTrue(sb._workspace_lock.acquire(blocking=False))
+        try:
+            with patch.object(sb, "_execute_sandboxed") as runner:
+                result = sb.workspace_exec("pwd")
+                self.assertEqual(result["status"], "busy")
+                runner.assert_not_called()
+        finally:
+            sb._workspace_lock.release()
+
+    def test_symlink_root_is_not_accepted(self):
+        symlink = self.outside / "redirected"
+        symlink.symlink_to(self.workspace, target_is_directory=True)
+        with patch.object(sb, "WORKSPACE_ROOT", symlink):
+            self.assertFalse(sb.workspace_info()["available"])
+
+    def test_child_output_is_bounded(self):
+        result = self.run_sandbox("/usr/bin/yes abcdef", timeout=3)
+        self.assertEqual(result["status"], "output_limit", result)
+        self.assertTrue(result["truncated"])
+        self.assertLessEqual(len(result["stdout"].encode()), sb.MAX_OUTPUT_BYTES)
+
+
 if __name__ == "__main__":
     unittest.main()
