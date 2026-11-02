@@ -18,6 +18,14 @@ count toward the campaign ceiling. This reconciles the historical usage charges,
 without establishing hidden model weights or a formal invoice. The export and
 identifiers remain private. No new inference was needed for this reconciliation.
 
+The wider account view also contains older usage beyond those 15 retained
+requests. The audited campaign subtotal is therefore not the entire account's
+lifetime cost. Until older usage is attributed, the calibration's private
+billing guard conservatively includes all prior account usage, as well as new
+ledger charges, under the unchanged USD10 ceiling. The USD2.40 calibration still
+fits. Later affordability examples based only on the retained campaign subtotal
+are illustrative comparisons, not a statement of available spending authority.
+
 ## Recommendation
 
 Treat DeepSeek as a candidate implementation worker under review. The goal is
