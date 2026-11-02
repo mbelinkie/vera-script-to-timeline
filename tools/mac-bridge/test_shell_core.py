@@ -1,6 +1,8 @@
 """Run without the MCP dependency: python3 -m unittest discover -p 'test_*.py'."""
 from pathlib import Path
 import tempfile
+import time
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +11,8 @@ import shell_core as core
 
 class ValidationTests(unittest.TestCase):
     def setUp(self):
+        core._trusted_until = 0.0
+        self.addCleanup(lambda: setattr(core, "_trusted_until", 0.0))
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -73,6 +77,77 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(result['status'], 'output_limit')
         self.assertTrue(result['truncated'])
         self.assertLessEqual(len(result['stdout'].encode()), core.MAX_OUTPUT_BYTES)
+
+
+class TrustWindowTests(ValidationTests):
+    """The window is global to the MCP process; it cannot identify ChatGPT threads."""
+
+    @patch.object(core, "audit")
+    def test_reject_invalid_duration_without_dialog(self, audit):
+        with patch.object(core.subprocess, "run") as proc:
+            for value in (0, 16, 1.0, True, "10"):
+                with self.subTest(value=value):
+                    self.assertEqual(core.trust_enable(value)["status"], "rejected")
+            proc.assert_not_called()
+        self.assertEqual(core.trust_status()["status"], "inactive")
+
+    @patch.object(core, "audit")
+    @patch.object(core.subprocess, "run")
+    def test_local_enable_requires_explicit_positive_response(self, run, audit):
+        run.return_value = subprocess.CompletedProcess([], 0, "Deny\n", "")
+        self.assertEqual(core.trust_enable(10)["status"], "denied")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
+        run.return_value = subprocess.CompletedProcess([], 0, "Enable\n", "")
+        status = core.trust_enable(10)
+        self.assertEqual(status["status"], "active")
+        self.assertGreater(status["remaining_seconds"], 0)
+        self.assertLessEqual(status["remaining_seconds"], 600)
+        self.assertEqual(status["scope"], "all_chats_with_bridge_access")
+
+    @patch.object(core, "audit")
+    @patch.object(core, "execute_bounded", return_value={
+        "status": "completed", "exit_code": 0, "stdout": "yes\n", "stderr": "",
+        "truncated": False,
+    })
+    @patch.object(core, "confirm_on_mac", return_value=False)
+    def test_active_window_skips_per_command_popup(self, confirm, execute, audit):
+        core._trusted_until = time.monotonic() + 60
+        result = core.mac_exec_local("echo yes", "home", 5)
+        self.assertEqual(result["approval_mode"], "temporary_trust")
+        self.assertEqual(result["status"], "completed")
+        confirm.assert_not_called()
+        execute.assert_called_once()
+
+    @patch.object(core, "audit")
+    @patch.object(core, "execute_bounded")
+    @patch.object(core, "confirm_on_mac", return_value=False)
+    def test_expired_window_requires_popup_again(self, confirm, execute, audit):
+        core._trusted_until = time.monotonic() - 1
+        result = core.mac_exec_local("echo no", "home", 5)
+        self.assertEqual(result["status"], "denied")
+        confirm.assert_called_once()
+        execute.assert_not_called()
+
+    @patch.object(core, "audit")
+    def test_revocation_is_immediate(self, audit):
+        core._trusted_until = time.monotonic() + 100
+        self.assertGreater(core.trust_remaining_seconds(), 0)
+        self.assertEqual(core.trust_disable()["status"], "inactive")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
+
+    @patch.object(core, "audit")
+    @patch.object(core.subprocess, "run")
+    def test_declined_extension_cancels_existing_grant(self, run, audit):
+        core._trusted_until = time.monotonic() + 100
+        run.return_value = subprocess.CompletedProcess([], 0, "Deny\n", "")
+        self.assertEqual(core.trust_enable(5)["status"], "denied")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
+
+    @patch.object(core, "audit")
+    @patch.object(core.subprocess, "run", side_effect=subprocess.TimeoutExpired("osascript", 45))
+    def test_gui_timeout_fails_closed(self, run, audit):
+        self.assertEqual(core.trust_enable(5)["status"], "denied")
+        self.assertEqual(core.trust_remaining_seconds(), 0)
 
 
 if __name__ == '__main__':
