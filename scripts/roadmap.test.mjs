@@ -152,6 +152,16 @@ if (query.includes("RoadmapRateLimit")) {
   process.stdout.write(JSON.stringify({data:{repository:{issue:{id:"issue-id",number:23,title:"Test issue",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23",state:"OPEN",body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:sol"},{name:"effort:high"}]},comments:{nodes:[]},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValues:{nodes:[{name:status,field:{name:"Status"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready-option",name:"Ready"},{id:"progress-option",name:"In progress"}]}}},rateLimit:{limit:5000,remaining:49,used:4951,resetAt:"2026-08-31T22:32:49Z",cost:1}}}));
 } else if (query.includes("RoadmapLifecycle")) {
   process.stdout.write('{"data":{"status":{"projectV2Item":{"id":"item-id"}}}}');
+} else if (args[0] === "api" && args[1] === "repos/mbelinkie/vera-script-to-timeline/issues/23") {
+  process.stdout.write(JSON.stringify({
+    number:23, title:"Test issue", state:"open",
+    body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",
+    labels:[{name:"model:sol"},{name:"effort:high"}], comments:0,
+    repository_url:"https://api.github.com/repos/mbelinkie/vera-script-to-timeline",
+    html_url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23"
+  }));
+} else if (args[0] === "api" && args[1] === "--paginate") {
+  process.stdout.write("[[]]");
 } else if (args[0] === "api" && args[1] === "rate_limit") {
   process.stdout.write('{"limit":5000,"remaining":50,"used":4950,"reset":1788215569}');
 } else if (args[0] === "issue" && args[1] === "comment") {
@@ -199,7 +209,7 @@ if (query.includes("RoadmapRateLimit")) {
   );
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
-  assert.match(claimCalls[2].join(" "), /RoadmapRateLimit/);
+  assert.match(claimCalls[2].join(" "), /repos\\/mbelinkie\\/vera-script-to-timeline\\/issues\\/23/);
   const lifecycleIndex = claimCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
   assert.equal(lifecycleIndex, -1);
   assert.equal(claimCalls.some((args) => args[0] === "issue"), false);
