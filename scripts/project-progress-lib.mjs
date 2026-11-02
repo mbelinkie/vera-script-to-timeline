@@ -152,19 +152,6 @@ function optionalText(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export function executionStatus(labels = []) {
-  const set = new Set(labels);
-  const types = [...set].filter(label => label.startsWith("type:"));
-  if (["deepseek-excluded", "execution:design", "execution:human", "execution:codex",
-    "owner:codex", "owner:claude"].some(label => set.has(label)) ||
-      types.length !== 1 || !["type:implementation", "type:bug"].includes(types[0])) return "Not DeepSeek";
-  if (["deepseek-dispatch", "deepseek-eligible", "deepseek-ready", "chat-reviewed"].every(label => set.has(label)) &&
-      !set.has("chat-review-pending") && !set.has("needs:model-escalation")) return "DeepSeek authorized";
-  if (set.has("deepseek-eligible")) return "DeepSeek eligible";
-  if (set.has("chat-reviewed")) return "Chat reviewed";
-  return "Unreviewed";
-}
-
 function parseItem(item) {
   if (item.content?.type !== "Issue") {
     throw new Error(`Project item ${item.title ?? "(untitled)"} must be a GitHub Issue`);
@@ -183,7 +170,6 @@ function parseItem(item) {
     url,
     status: item.status,
     type: onePrefixedLabel(labels, "type:", number),
-    execution: executionStatus(labels),
     model: onePrefixedLabel(labels, "model:", number),
     effort: onePrefixedLabel(labels, "effort:", number),
     priority: optionalText(item.priority),
@@ -206,7 +192,6 @@ function parseHistoricalRecord(item, index) {
     url: "",
     status: "Done",
     type: "historical",
-    execution: "Historical",
     model: "n/a",
     effort: "n/a",
     priority: optionalText(item.priority),
@@ -299,8 +284,6 @@ export function buildProgressModel(parsedProject) {
     completionPercent: percentage(doneCount, workItems.length),
     statusCounts,
     metadataGaps,
-    executionCounts: Object.fromEntries(["DeepSeek authorized", "DeepSeek eligible", "Chat reviewed", "Not DeepSeek", "Unreviewed"]
-      .map(status => [status, workItems.filter(item => item.execution === status).length])),
     lastUpdated: "live GitHub Project",
   };
 }
@@ -365,7 +348,6 @@ function renderIssue(item, options = {}) {
   const meta = item.type === "historical"
     ? `<span>Historical record</span>`
     : [
-      `<span>Execution: <b>${escapeHtml(item.execution ?? "Unreviewed")}</b></span>`,
       metadataText("", item.priority, "No priority"),
       metadataText("Size", item.size, "No size"),
       `<span>${escapeHtml(`${item.model}/${item.effort}`)}</span>`,
@@ -456,8 +438,6 @@ function renderBoardCard(model, index) {
     ? `<b>${formatInteger(model.codeStats.total)}</b> lines of code, <b>${formatInteger(model.codeStats.production)}</b> production`
     : `Lines of code unavailable. ${escapeHtml(model.codeStatsError ?? "Check the local repository path.")}`;
   const gaps = describeGaps(model.metadataGaps);
-  const execution = model.executionCounts ?? {};
-  const executionSummary = `DeepSeek: ${execution["DeepSeek authorized"] ?? 0} authorized · ${execution["DeepSeek eligible"] ?? 0} eligible · ${execution["Not DeepSeek"] ?? 0} excluded`;
   return `
       <article class="board" id="${key}" data-project="${model.projectNumber ?? index + 1}">
         <header class="board-head">
@@ -468,7 +448,6 @@ function renderBoardCard(model, index) {
         ${renderTrack(model.statusCounts, projectTitle, { large: true })}
         <ul class="legend">${legend}</ul>
         <footer class="board-foot">
-          <p>${escapeHtml(executionSummary)}</p>
           <p>${code}</p>${gaps ? `
           <p class="gaps">${escapeHtml(gaps)}</p>` : ""}
         </footer>

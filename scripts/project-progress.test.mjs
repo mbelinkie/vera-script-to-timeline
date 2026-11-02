@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 import {
   buildProgressModel,
   escapeHtml,
-  executionStatus,
   parseProjectItems,
   requiredGraphqlReadBudget,
   renderDashboard,
@@ -65,7 +64,7 @@ test("parses the authoritative board without counting goals as work", () => {
   assert.equal(parsed.workItems.length, 4);
   assert.deepEqual(parsed.workItems[0], {
     number: 2, title: "Package writer and verification", url: "https://example.test/2",
-    status: "Done", type: "implementation", execution: "Unreviewed", model: "terra", effort: "high",
+    status: "Done", type: "implementation", model: "terra", effort: "high",
     priority: "P0", size: "L", workstream: "Packaging", acceptance: "Producer",
   });
 });
@@ -297,24 +296,4 @@ test("fails clearly when the live GitHub Project is unavailable", async () => {
   } finally {
     process.env.PATH = originalPath;
   }
-});
-
-test("execution status is opt-in and design classification always excludes DeepSeek", () => {
-  assert.equal(executionStatus([]), "Not DeepSeek");
-  assert.equal(executionStatus(["type:implementation", "chat-reviewed"]), "Chat reviewed");
-  assert.equal(executionStatus(["type:implementation", "chat-reviewed", "deepseek-eligible"]), "DeepSeek eligible");
-  const approved = ["type:implementation", "chat-reviewed", "deepseek-eligible", "deepseek-ready", "deepseek-dispatch"];
-  assert.equal(executionStatus(approved), "DeepSeek authorized");
-  assert.equal(executionStatus([...approved, "type:design"]), "Not DeepSeek");
-  assert.equal(executionStatus([...approved, "execution:codex"]), "Not DeepSeek");
-  assert.equal(executionStatus([...approved, "owner:codex"]), "Not DeepSeek");
-  assert.equal(executionStatus(approved.map(x => x === "type:implementation" ? "type:investigation" : x)), "Not DeepSeek");
-  assert.notEqual(executionStatus([...approved, "chat-review-pending"]), "DeepSeek authorized");
-  assert.notEqual(executionStatus([...approved, "needs:model-escalation"]), "DeepSeek authorized");
-  const data = clone(projectData);
-  data.items[1].labels.push(...approved.filter(label => label !== "type:implementation"));
-  const model = buildProgressModel(parseProjectItems(data));
-  assert.equal(model.executionCounts["DeepSeek authorized"], 1);
-  assert.match(renderDashboard(model), /Execution: <b>DeepSeek authorized<\/b>/);
-  assert.match(renderDashboard(model), /DeepSeek: 1 authorized/);
 });
