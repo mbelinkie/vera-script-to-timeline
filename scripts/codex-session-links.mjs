@@ -76,8 +76,14 @@ export function parseSessionMapping(raw) {
 /** Loader is READ-ONLY. Missing and unusable files become inert error states. */
 export async function loadLocalCodexSessionMap(filePath = DEFAULT_MAPPING_PATH) {
   try {
+    const directory = await lstat(path.dirname(filePath));
+    if (!directory.isDirectory() || (directory.mode & 0o077) !== 0
+      || (typeof process.getuid === 'function' && directory.uid !== process.getuid())) {
+      return { mappings: [], error: 'Private mapping directory must be a regular owner-only directory (mode 0700)' };
+    }
     const info = await lstat(filePath);
-    if (!info.isFile() || (info.mode & 0o077) !== 0) {
+    if (!info.isFile() || (info.mode & 0o077) !== 0
+      || (typeof process.getuid === 'function' && info.uid !== process.getuid())) {
       return { mappings: [], error: 'Private mapping file must be a regular owner-only file (mode 0600)' };
     }
     const data = parseSessionMapping(await readFile(filePath, 'utf8'));

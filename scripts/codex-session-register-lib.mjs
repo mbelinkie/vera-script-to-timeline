@@ -27,6 +27,7 @@ function checkOwnerOnly(info, kind) {
 
 async function readPrivateFile(filePath) {
   try {
+    checkOwnerOnly(await lstat(path.dirname(filePath)), 'directory');
     const info = await lstat(filePath);
     checkOwnerOnly(info, 'file');
     return await readFile(filePath, 'utf8');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -30,7 +30,8 @@ test('accepts only exact existing Codex thread UUID links (not only v4)', () => 
   });
   for (const invalid of [
     'codex://threads/new', 'codex://new?prompt=hi', DEEPLINK + '/', DEEPLINK + '?x=1',
-    DEEPLINK + '#fragment', DEEPLINK + '/more', 'https://chatgpt.com/c/' + UUID,
+    DEEPLINK + '#fragment', DEEPLINK + '/more', DEEPLINK + '\n', DEEPLINK + '\r\n',
+    'https://chatgpt.com/c/' + UUID,
     'CODEX://threads/' + UUID, 'codex://threads/%31' + UUID.slice(1),
     'codex://threads/' + UUID.replace('-', '%2f'), 'codex://user@threads/' + UUID,
     'codex://threads/' + UUID + '" onclick="alert(1)',
@@ -42,6 +43,8 @@ test('canonical issue key prevents same-number cross-repo collisions', () => {
   assert.equal(canonicalIssueKey(OTHER_ISSUE), 'mbelinkie/vera-research-video-clips#399');
   assert.notEqual(canonicalIssueKey(ISSUE), canonicalIssueKey(OTHER_ISSUE));
   assert.equal(canonicalIssueKey(ISSUE + '?query=1'), null);
+  assert.equal(canonicalIssueKey(ISSUE + '\n'), null);
+  assert.equal(canonicalIssueKey(ISSUE + '\r\n'), null);
   assert.equal(canonicalIssueKey('https://evil.example/issues/399'), null);
   assert.equal(canonicalIssueKey('https://github.com/mbelinkie/../issues/399'), null);
   assert.equal(canonicalIssueKey('https://github.com/mbelinkie/./issues/399'), null);
@@ -113,12 +116,15 @@ test('separately Producer-confirmed existing browser conversation is optional fa
     'javascript:alert(1)',
     BROWSER + '?payload=x',
     BROWSER + '/more',
+    BROWSER + '\n',
+    BROWSER + '\r\n',
   ]) assert.throws(()=>parseSessionMapping(snapshot([primary({browserUrl:bad,browserProvenance:{method:'producer-confirmed-existing',confirmedAt:TIMESTAMP}})])));
 });
 
 test('rejects corrupt/unknown mapping schemas without using partial data', () => {
   assert.throws(()=>parseSessionMapping('not json'));
   assert.throws(()=>parseSessionMapping({version:2,installationId:INSTALL,mappings:[]}));
+  assert.throws(()=>parseSessionMapping({version:1,installationId:INSTALL+'\n',mappings:[]}));
   assert.throws(()=>parseSessionMapping({version:1,installationId:INSTALL,mappings:[{issueUrl:ISSUE,role:'primary',surface:'injected'}]}));
   assert.deepEqual(parseSessionMapping(JSON.stringify(snapshot())).mappings,[primary()]);
 });
@@ -131,6 +137,12 @@ test('owner-only read-only loader handles missing, insecure, and corrupt files s
   await writeFile(file, JSON.stringify(snapshot()), {mode:0o600});
   await chmod(file,0o600);
   assert.equal((await loadLocalCodexSessionMap(file)).error,null);
+  await chmod(dir,0o755);
+  assert.match((await loadLocalCodexSessionMap(file)).error,/directory.*owner-only/);
+  await chmod(dir,0o700);
+  const alias = path.join(dir,'alias');
+  await symlink(dir,alias);
+  assert.match((await loadLocalCodexSessionMap(path.join(alias,'map.json'))).error,/directory.*owner-only/);
   await chmod(file,0o644);
   assert.match((await loadLocalCodexSessionMap(file)).error,/owner-only/);
   await chmod(file,0o600);

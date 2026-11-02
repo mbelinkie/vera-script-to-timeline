@@ -78,6 +78,7 @@ test('rejects installation mismatches and permissive private directory',async t=
   await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:B,confirmed:true,replaceExisting:true,...p}),/different local installation/);
   assert.equal(await readFile(p.mappingPath,'utf8'),before);
   await chmod(path.dirname(p.mappingPath),0o755);
+  assert.equal(await readLocalInstallationId(p.installationIdPath),null);
   await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p}),/owner-only/);
 });
 
@@ -85,7 +86,9 @@ test('rejects symlinked private directory before writing',async t=>{
   const p=await fixture(t);
   const target=path.join(p.dir,'target');
   await (await import('node:fs/promises')).mkdir(target,{mode:0o700});
+  await writeFile(path.join(target,path.basename(p.installationIdPath)),'11111111-2222-3333-4444-555555555555\n',{mode:0o600});
   await symlink(target,path.dirname(p.mappingPath));
+  assert.equal(await readLocalInstallationId(p.installationIdPath),null);
   await assert.rejects(registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p}),/owner-only/);
 });
 
