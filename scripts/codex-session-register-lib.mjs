@@ -58,6 +58,16 @@ async function writePrivateAtomic(filePath, contents) {
   }
 }
 
+async function releaseRegistrationLock(lock, lockPath, registrationError) {
+  try {
+    try { await lock?.close(); }
+    finally { if (lock) await unlink(lockPath); }
+  } catch (cleanupError) {
+    if (!registrationError) throw cleanupError;
+    registrationError.cause ??= cleanupError;
+  }
+}
+
 /** Independent read-only device identity source for dashboard generation. */
 export async function readLocalInstallationId(filePath = defaultInstallationIdPath()) {
   try {
@@ -159,12 +169,6 @@ export async function registerLocalCodexThread({
     registrationError = error;
     throw error;
   } finally {
-    try {
-      try { await lock?.close(); }
-      finally { if (lock) await unlink(lockPath); }
-    } catch (cleanupError) {
-      if (!registrationError) throw cleanupError;
-      registrationError.cause ??= cleanupError;
-    }
+    await releaseRegistrationLock(lock, lockPath, registrationError);
   }
 }
