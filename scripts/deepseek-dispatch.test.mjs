@@ -103,7 +103,7 @@ test('private runner does not leak worker stdout/stderr to public job logs', () 
     `const result = invokePrivateRunner(process.execPath, ['-e', ${JSON.stringify(workerScript)}], {PATH: process.env.PATH || ''});`,
     "if (result.status !== 7 || result.stdout !== null || result.stderr !== null) process.exit(91);",
     "process.stdout.write('SAFE_STATUS_ONLY');"
-  ].join('\\n');
+  ].join('\n');
   const probe = spawnSync(process.execPath, ['--input-type=module', '-e', harness], { encoding: 'utf8' });
   assert.equal(probe.status, 0);
   assert.equal(probe.stdout, 'SAFE_STATUS_ONLY');
