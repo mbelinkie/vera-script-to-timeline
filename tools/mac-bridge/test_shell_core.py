@@ -230,5 +230,38 @@ class ReviewSafetyTests(ValidationTests):
         self.assertEqual(core.trust_remaining_seconds(), 0)
 
 
+class WorkspaceConfigurationTests(ValidationTests):
+    def test_mac_local_workspace_path_works_without_env(self):
+        config = self.root / "workspace"
+        config.write_text(str(self.root), encoding="utf-8")
+        with (
+            patch.dict("os.environ", {"VERA_WORKSPACE": ""}),
+            patch.object(core, "WORKSPACE_CONFIG", config),
+        ):
+            self.assertEqual(core.resolve_cwd("vera"), self.root.resolve())
+
+    def test_workspace_file_cannot_be_symlink(self):
+        actual = self.root / "actual"
+        actual.write_text(str(self.root), encoding="utf-8")
+        link = self.root / "workspace"
+        link.symlink_to(actual)
+        with (
+            patch.dict("os.environ", {"VERA_WORKSPACE": ""}),
+            patch.object(core, "WORKSPACE_CONFIG", link),
+            self.assertRaises(ValueError),
+        ):
+            core.resolve_cwd("vera")
+
+    def test_workspace_file_requires_absolute_path(self):
+        config = self.root / "workspace"
+        config.write_text("relative/path", encoding="utf-8")
+        with (
+            patch.dict("os.environ", {"VERA_WORKSPACE": ""}),
+            patch.object(core, "WORKSPACE_CONFIG", config),
+            self.assertRaises(ValueError),
+        ):
+            core.resolve_cwd("vera")
+
+
 if __name__ == "__main__":
     unittest.main()
