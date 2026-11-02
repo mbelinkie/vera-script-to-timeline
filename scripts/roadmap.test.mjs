@@ -209,7 +209,7 @@ if (query.includes("RoadmapRateLimit")) {
   );
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
-  assert.match(claimCalls[2].join(" "), /repos\\/mbelinkie\\/vera-script-to-timeline\\/issues\\/23/);
+  assert.ok(claimCalls[2].join(" ").includes("repos/mbelinkie/vera-script-to-timeline/issues/23"));
   const lifecycleIndex = claimCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
   assert.equal(lifecycleIndex, -1);
   assert.equal(claimCalls.some((args) => args[0] === "issue"), false);
