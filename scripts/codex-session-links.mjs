@@ -63,7 +63,10 @@ export function parseSessionMapping(raw) {
     if (entry.browserUrl != null && (
       typeof entry.browserUrl !== 'string' || !CHAT_WEB.test(entry.browserUrl)
       || entry.browserProvenance?.method !== 'producer-confirmed-existing'
-      || !isTimestamp(entry.browserProvenance?.confirmedAt))) {
+      || !isTimestamp(entry.browserProvenance?.confirmedAt)
+      || (entry.surface === 'codex-local'
+        && entry.browserProvenance?.relation !== 'same-thread')
+      || entry.surface === 'codex-cloud')) {
       throw new Error('Invalid or unverified browser conversation fallback');
     }
   }
@@ -86,7 +89,11 @@ export async function loadLocalCodexSessionMap(filePath = DEFAULT_MAPPING_PATH) 
 }
 
 function browserUrlFor(record) {
-  return record?.browserUrl && CHAT_WEB.test(record.browserUrl)
+  // A known web URL alone is NOT evidence that it resumes the same local thread.
+  const permittedSurface = record?.surface === 'chatgpt-web'
+    || (record?.surface === 'codex-local'
+      && record.browserProvenance?.relation === 'same-thread');
+  return permittedSurface && record?.browserUrl && CHAT_WEB.test(record.browserUrl)
     && record.browserProvenance?.method === 'producer-confirmed-existing'
     && isTimestamp(record.browserProvenance?.confirmedAt)
     ? record.browserUrl : undefined;
@@ -110,10 +117,8 @@ export function linksForIssue(issueUrl, snapshot, installationId) {
   if (!snapshot || !Array.isArray(snapshot.mappings)) {
     return result('missing', 'No local Codex thread mapping loaded', issueLink);
   }
-  if (!installationId || !INSTALLATION.test(installationId)
-    || snapshot.installationId !== installationId) {
-    return result('wrong-device', 'Mapping has not been verified for this Mac', issueLink);
-  }
+  // Resolve issue identity before checking local installation: an empty map is
+  // "missing", and a separately confirmed web conversation is device-independent.
   // A malformed matching record or duplicate current primary is never guessed.
   const matches = snapshot.mappings.filter((entry) => canonicalIssueKey(entry?.issueUrl) === key);
   if (matches.length === 0) return result('missing', 'No linked local Codex thread', issueLink);
@@ -126,6 +131,10 @@ export function linksForIssue(issueUrl, snapshot, installationId) {
   if (selected.surface === 'chatgpt-web') return result('web-only', 'ChatGPT web conversation is not a local Codex thread', fallback);
   if (selected.surface === 'codex-cloud') return result('cloud-only', 'Cloud task is not a local Codex thread', fallback);
   if (selected.surface !== 'codex-local') return result('invalid', 'Unknown session type', fallback);
+  if (!installationId || !INSTALLATION.test(installationId)
+    || snapshot.installationId !== installationId) {
+    return result('wrong-device', 'Mapping has not been verified for this Mac', fallback);
+  }
   const parsed = parseLocalCodexLink(selected.deepLink);
   if (!parsed || (selected.threadId != null && (typeof selected.threadId !== 'string'
     || selected.threadId.toLowerCase() !== parsed.threadId))) {
