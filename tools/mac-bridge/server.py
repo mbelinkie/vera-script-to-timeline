@@ -4,6 +4,7 @@ Launched by OpenAI tunnel-client via stdio.
 """
 
 from mcp.server import MCPServer
+from sandbox_core import workspace_exec, workspace_info
 from shell_core import mac_exec_local, trust_disable, trust_enable, trust_status
 
 mcp = MCPServer("VERA Mac Shell")
@@ -15,7 +16,7 @@ def mac_health() -> dict:
     return {
         "status": "ok",
         "service": "vera-mac-shell",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "approval": "per-command-or-local-trust-window",
     }
 
@@ -58,6 +59,32 @@ def mac_trust_status() -> dict:
 def mac_trust_disable() -> dict:
     """Immediately revoke the temporary trust window for new commands."""
     return trust_disable()
+
+
+@mcp.tool()
+def mac_workspace_info() -> dict:
+    """Check whether the dedicated, deny-by-default Mac Seatbelt workspace is ready.
+
+    The workspace is isolated from the Producer's real VERA checkout and from
+    bridge credentials. This call never launches a shell or changes any file.
+    """
+    return workspace_info()
+
+
+@mcp.tool()
+def mac_workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
+    """Run a shell command only inside the isolated, OS-enforced Mac workspace.
+
+    No Mac approval popup is needed INSIDE this sandbox, because Seatbelt
+    denies network and all filesystem reads/writes outside the dedicated
+    workspace and the minimal system paths needed to launch basic programs.
+    This is NOT access to the Producer's main VERA checkout. Commands may
+    change or delete files within the isolated workspace, which can affect
+    later workspace tasks. No host safety check is bypassed. If Seatbelt is
+    absent or the workspace is not provisioned, the tool refuses to run.
+    For unrestricted Mac commands, use mac_exec with per-command approval.
+    """
+    return workspace_exec(command, timeout_seconds)
 
 
 if __name__ == "__main__":
