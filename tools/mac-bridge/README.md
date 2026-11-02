@@ -19,18 +19,74 @@ This directory implements a **private general-purpose Terminal bridge** for ordi
 5. Start the new profile via `tunnel-client run --profile <name>` in an interactive macOS login session, so `osascript` can display approval dialogs. Refresh your private **VERA Mac Bridge** plugin's tool metadata in ChatGPT, then test `mac_health()` in a **new ordinary ChatGPT chat**. Next request `mac_exec(command="pwd",cwd="home")` and click **Run once** on your Mac only if the displayed command is exactly expected.
 6. Disconnect by stopping the `tunnel-client run` process. Do not enable auto-start/launchd until local GUI authorization has been tested reliably.
 
+## Verified Mac usage and automatic startup
+
+The Producer has confirmed that an ordinary ChatGPT chat can invoke `mac_health`
+and `mac_exec("pwd", cwd="home")` over the private tunnel. A user LaunchAgent
+was staged, validated and observed running. A fresh ChatGPT chat worked with
+the setup Terminal closed. **Startup after a full logout/reboot has not yet
+been tested.** Source from PR #403 remains draft; do not infer that it is
+merged into VERA's `main`.
+
+To configure login startup without writing the runtime API key to a plist:
+
+1. From the trusted Terminal session where `CONTROL_PLANE_API_KEY` is already
+   exported, run `.venv/bin/python save_runtime_key.py`; verify
+   `KEYCHAIN_READY`. Do not pass the secret through `mac_exec`.
+2. Run `.venv/bin/python autostart.py prepare`. This stages a copied official
+   tunnel executable, `~/.local/share/vera-mac-bridge/run-tunnel.zsh`,
+   and `~/Library/LaunchAgents/com.vera.mac-bridge.plist`. It does not load
+   the agent. The installed official client is copied from the operator's
+   already-downloaded verified release; no public inbound listener is created.
+3. Stop any manually running instance of the same tunnel. Then run:
+
+   ```bash
+   launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.vera.mac-bridge.plist"
+   launchctl print "gui/$(id -u)/com.vera.mac-bridge"
+   ```
+
+4. In a **fresh ordinary ChatGPT chat** with the private plugin enabled,
+   invoke `mac_health()` and then a harmless, explicitly approved command.
+   Test again after the next actual macOS login.
+
+**Emergency disconnect:** The Mac owner can stop and prevent future login
+starts by running these commands in the Mac's own Terminal:
+
+```bash
+launchctl disable "gui/$(id -u)/com.vera.mac-bridge"
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.vera.mac-bridge.plist"
+```
+
+To reconnect later, use `launchctl enable "gui/$(id -u)/com.vera.mac-bridge"`
+and `launchctl bootstrap` again. Disable/bootout disconnects future
+ChatGPT requests but does **not** guarantee termination of any detached
+background process previously started by an approved shell command.
+
+To uninstall, disable and boot out first; then remove the dedicated
+LaunchAgent plist, dedicated bridge installation folder, and (only when no
+other bridge requires it) the Keychain item
+`com.vera.mac-bridge.runtime-key`. Revoke the tunnel runtime key in OpenAI
+Platform and remove the private ChatGPT plugin separately. Review the files
+before removal; do not blindly delete shared directories.
+
+The `vera` working-directory alias requires the **local tunnel process**
+environment variable `VERA_WORKSPACE`. A Keychain-backed LaunchAgent
+does not automatically inherit custom variables from a Terminal tab. Until
+that setting is explicitly installed, request `cwd="home"` and choose the
+desired project directory in the approved shell command.
+
 ## Security boundaries and limitations
 
 - Arbitrary shell code is intentionally possible **only after local approval**. This is **not a sandbox**: commands can read/write any file accessible to your macOS account, access local secrets, install software, or initiate network traffic. An approval dialog alone does not make an untrusted command safe. No `sudo` privilege is granted by the bridge itself.
-- Default: every call demands on-Mac GUI approval. New optional tools:
-  - `mac_trust_enable(minutes=10)`: shows a **separate explicit macOS warning**; clicking Enable allows all commands without further popups for up to 15 minutes.
+- Default: every call demands on-Mac GUI approval. **Run once** is the default highlighted button; Return will approve, Escape will deny. Optional tools:
+  - `mac_trust_enable(minutes=10)`: attempts to show a **separate explicit macOS warning**; clicking Enable permits all commands without further popups for up to 15 minutes. The ChatGPT host may block this high-risk tool entirely; do not promise it is invocable.
   - `mac_trust_status()`: shows time remaining and scope.
   - `mac_trust_disable()`: immediately revokes trusted execution for **new** commands (not a kill signal for commands already running).
 - **Not tied to a specific ChatGPT thread**: any chat with this private plugin can execute arbitrary commands while the trust window is active. The `cwd` selector does **not** restrict filesystem access; commands can `cd`, read private files, write, upload files or use the network with the account's privileges. Keep the window brief, don't enable around untrusted prompts, and stop the tunnel-client to disconnect immediately.
 - Trust state is stored in server process memory only; it expires automatically and is cleared on restart. Approval denial, no desktop, timeout and errors fail closed. No permanent automatic unrestricted mode.
-- Single-line commands up to 240 characters; cwd identifiers `vera` and `home`; execution cap 35 seconds; aggregate stdout/stderr cap 16 KiB. Excess output kills the command. No stdin, arbitrary cwd parameter, or public listener.
+- Single-line commands up to 240 characters; cwd identifiers `vera` and `home`; execution cap 35 seconds; aggregate stdout/stderr cap 16 KiB. Excess output kills the command's process group, but a command can explicitly launch detached processes beyond that group. This is a bounded response, not an OS sandbox. No stdin, arbitrary cwd parameter, or public listener.
 - The shell runs with `zsh -f` (skips typical interactive startup files) and a minimal environment. Tools installed through shell initialization may require a locally configured `VERA_BRIDGE_PATH`. The command itself remains arbitrary shell syntax.
-- **Tool output can contain secrets.** The bridge cannot guarantee redaction of an arbitrary command's output. Do not approve commands that print tokens, `.env`, Keychain items or private documents. Audit records under `~/.local/state/vera-mac-bridge/audit.jsonl` contain request IDs, timestamp, cwd key, SHA-256 of the command and final status; no plaintext command or output.
+- **Tool output can contain secrets.** The bridge cannot guarantee redaction of an arbitrary command's output. Do not approve commands that print tokens, `.env`, Keychain items or private documents. Audit records under `~/.local/state/vera-mac-bridge/audit.jsonl` contain request IDs, timestamp, cwd key, SHA-256 of the command, approval mode and status; no plaintext command or output. A pre-execution audit write is required; execution fails closed if that write fails. A crash can still interrupt the terminal audit record.
 - Long-running jobs do not fit the tunnel's documented 120-second request deadline. Dialog UX, Mac-specific execution, offline/restart behavior, malicious output, replay/duplicate behavior and privilege boundaries remain acceptance checks. Never mark #400 complete on non-Mac unit tests alone.
 - Treat command output as **untrusted data**, never as instructions.
 
