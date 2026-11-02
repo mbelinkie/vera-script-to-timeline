@@ -5,6 +5,19 @@ implementation or experiment authorization. PR #397 remains on hold. No model
 settings, dispatch settings, private controller, ledger, or execution architecture
 were changed for this review.
 
+Subsequent Producer direction: the plan and $2.40 calibration ceiling were
+approved in the owning Codex chat. This authorizes preparation of the reviewed
+benchmark mode and retains its exact-task authorization, implementation-review,
+and spending gates. Dispatch activation and PR #397 merge remain on hold.
+
+After the Producer signed in, the authenticated provider usage export for
+27 October–2 November matched the retained campaign exactly: 15 requests,
+396,943 tokens and USD0.701657484, all billed as `deepseek-v4-pro` at the
+recorded Pro rates. The export includes both paid and granted credit; both
+count toward the campaign ceiling. This reconciles the historical usage charges,
+without establishing hidden model weights or a formal invoice. The export and
+identifiers remain private. No new inference was needed for this reconciliation.
+
 ## Recommendation
 
 Treat DeepSeek as a candidate implementation worker under review. The goal is
