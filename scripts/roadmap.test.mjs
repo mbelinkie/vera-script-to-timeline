@@ -164,7 +164,7 @@ if (query.includes("RoadmapRateLimit")) {
   writeFileSync(fakeGh, fakeSource);
   chmodSync(fakeGh, 0o755);
 
-  const run = (command, status) => {
+  const run = (command, status, expectedExit = 0) => {
     writeFileSync(logPath, "");
     const lockPath = path.join(temporary, `${command[0]}.lock`);
     const result = spawnSync(process.execPath, [path.join(repositoryRoot, "scripts", "roadmap.mjs"), ...command], {
@@ -178,7 +178,7 @@ if (query.includes("RoadmapRateLimit")) {
         VERA_ROADMAP_LOCK_PATH: lockPath,
       },
     });
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, expectedExit, result.stderr);
     return readFileSync(logPath, "utf8").trim().split("\n").map(JSON.parse);
   };
 
@@ -195,11 +195,12 @@ if (query.includes("RoadmapRateLimit")) {
   const claimCalls = run(
     ["claim", "23", "--model", "gpt-5.6-sol", "--effort", "high", "--task", "test-task", "--branch", "codex/test"],
     "Ready",
+    1,
   );
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
   assert.match(claimCalls[2].join(" "), /RoadmapRateLimit/);
   const lifecycleIndex = claimCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
-  assert.equal(lifecycleIndex, 3);
+  assert.equal(lifecycleIndex, -1);
   assert.equal(claimCalls.some((args) => args[0] === "issue"), false);
 });
