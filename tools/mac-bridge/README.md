@@ -69,11 +69,24 @@ other bridge requires it) the Keychain item
 Platform and remove the private ChatGPT plugin separately. Review the files
 before removal; do not blindly delete shared directories.
 
-The `vera` working-directory alias requires the **local tunnel process**
-environment variable `VERA_WORKSPACE`. A Keychain-backed LaunchAgent
-does not automatically inherit custom variables from a Terminal tab. Until
-that setting is explicitly installed, request `cwd="home"` and choose the
-desired project directory in the approved shell command.
+The `vera` working-directory alias reads `VERA_WORKSPACE` from the
+local tunnel environment, or (when that variable is absent) a Mac-only
+`~/.config/vera-mac-bridge/workspace` file containing one absolute checkout
+directory path. A Keychain-backed LaunchAgent does not automatically inherit
+variables from a Terminal tab. Configure that file on your Mac, protect it
+with `chmod 600`, and choose a directory you've approved. The service
+rejects symlink configuration files, relative paths and nonexistent
+directories. Example (replace the placeholder with your own approved path):
+
+```bash
+mkdir -p "$HOME/.config/vera-mac-bridge"
+printf '%s\\n' '/absolute/path/to/your/VERA/checkout' > "$HOME/.config/vera-mac-bridge/workspace"
+chmod 600 "$HOME/.config/vera-mac-bridge/workspace"
+```
+
+Until configured, use `cwd="home"` and choose the desired project directory
+in your approved shell command. The `cwd` alias is a starting directory,
+**not** a security sandbox.
 
 ## Security boundaries and limitations
 
