@@ -95,7 +95,7 @@ class TrustWindowTests(ValidationTests):
     @patch.object(core.subprocess, "run")
     def test_local_enable_requires_explicit_positive_response(self, run, audit):
         run.return_value = subprocess.CompletedProcess([], 0, "Deny\n", "")
-        self.assertEqual(core.trust_enable(10)["status"], "denied")
+        self.assertEqual(core.trust_enable(10)["result"], "denied")
         self.assertEqual(core.trust_remaining_seconds(), 0)
         run.return_value = subprocess.CompletedProcess([], 0, "Enable\n", "")
         status = core.trust_enable(10)
@@ -140,7 +140,7 @@ class TrustWindowTests(ValidationTests):
     def test_declined_extension_cancels_existing_grant(self, run, audit):
         core._trusted_until = time.monotonic() + 100
         run.return_value = subprocess.CompletedProcess([], 0, "Deny\n", "")
-        self.assertEqual(core.trust_enable(5)["status"], "denied")
+        self.assertEqual(core.trust_enable(5)["result"], "denied")
         self.assertEqual(core.trust_remaining_seconds(), 0)
 
     @patch.object(core, "audit")
