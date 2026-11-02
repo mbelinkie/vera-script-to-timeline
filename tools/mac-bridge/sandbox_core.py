@@ -75,7 +75,7 @@ def profile_for(root: Path) -> str:
         "(version 1)",
         "(deny default)",
         "(allow process-exec process-fork sysctl-read)",
-        '(allow file-read* file-test-existence (literal "/") '
+        '(allow file-read* file-test-existence (literal "/") (literal "/dev/null") (literal "/dev/urandom") '
         + system_read + f" (subpath {_sbpl_path(root)}))",
         "(allow file-read-metadata file-test-existence " + metadata + ")",
         f"(allow file-write* (subpath {_sbpl_path(root)}) (literal \"/dev/null\"))",
@@ -91,7 +91,7 @@ def _environment(root: Path) -> dict[str, str]:
     return {
         "HOME": str(root),
         "TMPDIR": str(root),
-        "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "PATH": "/Library/Developer/CommandLineTools/usr/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "LANG": "en_US.UTF-8",
         "LC_ALL": "C",
         "PAGER": "cat",
