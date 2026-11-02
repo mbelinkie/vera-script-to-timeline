@@ -104,7 +104,7 @@ test('reconfirming same UUID with different casing preserves verified browser ev
   await registerLocalCodexThread({issueUrl:ISSUE,deepLink:A,confirmed:true,...p});
   const stored=JSON.parse(await readFile(p.mappingPath,'utf8'));
   stored.mappings[0].browserUrl='https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';
-  stored.mappings[0].browserProvenance={method:'producer-confirmed-existing',confirmedAt:FIXED};
+  stored.mappings[0].browserProvenance={method:'producer-confirmed-existing',confirmedAt:FIXED,relation:'same-thread'};
   await writeFile(p.mappingPath,JSON.stringify(stored),{mode:0o600});
   await assert.rejects(registerLocalCodexThread({
     issueUrl:ISSUE, deepLink:A.toUpperCase(), confirmed:true, ...p,
