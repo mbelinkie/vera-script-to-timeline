@@ -94,7 +94,7 @@ export async function registerLocalCodexThread({
   try {
     try { lock = await open(lockPath, 'wx', 0o600); }
     catch (error) {
-      if (error?.code === 'EEXIST') throw new Error('Another local registration is in progress (or a stale lock needs manual inspection)');
+      if (error?.code === 'EEXIST') throw new Error('Another local registration is in progress (or a stale lock needs manual inspection)', { cause: error });
       throw error;
     }
     const [existingRaw, identityRaw] = await Promise.all([
