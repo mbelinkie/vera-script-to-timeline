@@ -43,6 +43,8 @@ test('canonical issue key prevents same-number cross-repo collisions', () => {
   assert.notEqual(canonicalIssueKey(ISSUE), canonicalIssueKey(OTHER_ISSUE));
   assert.equal(canonicalIssueKey(ISSUE + '?query=1'), null);
   assert.equal(canonicalIssueKey('https://evil.example/issues/399'), null);
+  assert.equal(canonicalIssueKey('https://github.com/mbelinkie/../issues/399'), null);
+  assert.equal(canonicalIssueKey('https://github.com/mbelinkie/./issues/399'), null);
 });
 
 test('only explicitly associated local primary yields a zero-turn desktop link', () => {
