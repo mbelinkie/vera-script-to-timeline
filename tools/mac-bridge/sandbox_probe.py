@@ -64,5 +64,14 @@ def main() -> None:
     ]
     for name, text in cases:
         print(name, "true:", run(text), "zsh:", run(text, "/bin/zsh", ["-f","-c","echo ok"]))
+    for name, caps in [
+        ("process+sysctl", "process* sysctl*"),
+        ("process+sysctl+lookup", "process* sysctl* mach-lookup"),
+        ("minimal+lookup", "process-exec process-fork sysctl-read mach-lookup"),
+        ("minimal", "process-exec process-fork sysctl-read"),
+    ]:
+        text = profile(SYSTEM, metadata=True)
+        text = text.replace("(allow process* mach* sysctl*)", f"(allow {caps})")
+        print(name, "true:", run(text), "zsh:", run(text, "/bin/zsh", ["-f","-c","echo ok"]))
 if __name__ == "__main__":
     main()
