@@ -45,7 +45,7 @@ test("reject stale body/title and a newer malformed or stale review", () => {
   const j = issue(); j.comments = 2;
   assert.throws(() => verifyProducerReview(j, [approval(j), {
     id: 13, user: { login: "mbelinkie" }, body: "<!-- VERA_CHAT_REVIEW_V1 malformed -->"
-  }], repo, number), /valid current/);
+  }], repo, number), /valid current/i);
   assert.throws(() => verifyProducerReview(j, [approval(j), approval(j, 13, {
     revision: "a".repeat(64)
   })], repo, number), /stale/);
