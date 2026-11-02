@@ -3,13 +3,14 @@
 Live probes only run on macOS. Outside paths are disposable test fixtures;
 nothing under VERA's real checkout or the bridge's configuration is modified.
 """
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import sandbox_core as sb
@@ -107,7 +108,9 @@ class LiveSeatbeltTests(unittest.TestCase):
         self.assertEqual(result["exit_code"], 0)
 
     def test_loopback_network_is_denied(self):
-        result = self.run_sandbox("/usr/bin/curl -sS --connect-timeout 1 http://127.0.0.1:1")
+        result = self.run_sandbox(
+            "/usr/bin/curl -sS --connect-timeout 1 http://127.0.0.1:1"
+        )
         self.assertNotEqual(result["exit_code"], 0, result)
         # A refusal alone is insufficient; require the kernel denial evidence.
         self.assertIn("not permitted", result["stderr"].lower(), result)
