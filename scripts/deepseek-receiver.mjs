@@ -3,7 +3,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
@@ -116,24 +116,33 @@ export function validateManifest(manifest, issue, commentId, currentMainSha) {
   const safePath = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') &&
     !value.startsWith('~') && !value.includes('\\') && value.split('/').every(part => part && part !== '.' && part !== '..') &&
     !value.startsWith('.github/') && !value.split('').some(character => character.charCodeAt(0) < 32);
-  const safeCommand = command => Array.isArray(command) && command.length > 0 &&
-    ['node', 'npm', 'python', 'python3', 'uv'].includes(command[0]) &&
-    command.every(part => typeof part === 'string' && !part.split('').some(character => character.charCodeAt(0) < 32));
-  if (!manifest || manifest.schemaVersion !== 1 || manifest.issueNumber !== issue ||
-      manifest.dispatchCommentId !== commentId || manifest.approvedBy !== 'mbelinkie' ||
-      typeof manifest.approvedAt !== 'string' || !Number.isFinite(Date.parse(manifest.approvedAt)) ||
-      new Date(manifest.approvedAt).toISOString() !== manifest.approvedAt ||
-      !GIT_SHA.test(manifest.sourceSha) || manifest.sourceSha !== currentMainSha ||
-      !Array.isArray(manifest.allowedFiles) || manifest.allowedFiles.length < 1 ||
-      !manifest.allowedFiles.every(safePath) || new Set(manifest.allowedFiles).size !== manifest.allowedFiles.length ||
-      !Array.isArray(manifest.frozenTests) || manifest.frozenTests.length < 1 ||
-      !manifest.frozenTests.every(test => safePath(test?.path) && SHA256.test(test.sha256)) ||
-      !Array.isArray(manifest.allowedCommands) || manifest.allowedCommands.length < 1 ||
-      !manifest.allowedCommands.every(safeCommand) ||
-      !Number.isSafeInteger(manifest.maxRepairAttempts) || manifest.maxRepairAttempts < 1 || manifest.maxRepairAttempts > 3) {
+  const safeCommand = command => Array.isArray(command) && command.length >= 2 && command.length <= 12 &&
+    typeof command[0] === 'string' && isAbsolute(command[0]) && command.every(part =>
+      typeof part === 'string' && part.length > 0 && part.length < 300 && part !== '-c' && part !== '-e' &&
+      !part.includes('/bin/sh') && !part.split('').some(character => character.charCodeAt(0) < 32));
+  const frozen = manifest?.frozen_files;
+  const scope = manifest?.edit_scope;
+  const validScope = scope?.mode === 'full_file' ? scope.approve_entire_file === true :
+    scope?.mode === 'bounded_region' && ['start_marker', 'end_marker'].every(key =>
+      typeof scope[key] === 'string' && scope[key].length >= 8 && scope[key].length <= 300);
+  if (!manifest || manifest.schema !== 1 || manifest.issue !== issue || manifest.repository !== REPO ||
+      manifest.transport_contract !== 'VERA_DEEPSEEK_RECEIVER_V1' || manifest.dispatch_comment_id !== commentId ||
+      manifest.operator_approved !== true || manifest.public_synthetic_only !== true ||
+      !GIT_SHA.test(manifest.base_sha) || manifest.base_sha !== currentMainSha ||
+      !SHA256.test(manifest.adapter_sha256) || !safePath(manifest.editable_file) || !SHA256.test(manifest.editable_sha256) ||
+      !frozen || typeof frozen !== 'object' || Array.isArray(frozen) || Object.keys(frozen).length < 1 ||
+      Object.keys(frozen).length > 25 || Object.hasOwn(frozen, manifest.editable_file) ||
+      !Object.entries(frozen).every(([path, digest]) => safePath(path) && SHA256.test(digest)) || !validScope ||
+      !Array.isArray(manifest.checks) || manifest.checks.length < 1 || manifest.checks.length > 3 ||
+      !manifest.checks.every(safeCommand) || typeof manifest.source_repo !== 'string' || !isAbsolute(manifest.source_repo) ||
+      !Number.isSafeInteger(manifest.max_rounds) || manifest.max_rounds < 1 || manifest.max_rounds > 3 ||
+      !Number.isSafeInteger(manifest.max_output_tokens) || manifest.max_output_tokens < 512 || manifest.max_output_tokens > 24000 ||
+      typeof manifest.task_instructions !== 'string' || manifest.task_instructions.length < 40 || manifest.task_instructions.length > 6000 ||
+      manifest.live_enabled !== false || typeof manifest.mock_replacement !== 'string' ||
+      manifest.mock_replacement.length < 1 || manifest.mock_replacement.length > 90000) {
     throw new Error('Approved private task manifest is missing, stale, or outside bounds');
   }
-  const cap = taskCap(String(manifest.taskCapUsd));
+  const cap = taskCap(String(manifest.task_cap_usd));
   return { cap };
 }
 
@@ -175,17 +184,20 @@ export function readPublicGh(args, spawn = spawnSync) {
   return JSON.stringify(pages);
 }
 
-function safeRunner(path) {
+function safeRunner(path, expectedSha256) {
   const st = privateFile(path, { readOnly: false });
   if ((st.mode & 0o111) === 0 || (st.mode & 0o022) !== 0 ||
       (typeof process.getuid === 'function' && st.uid !== process.getuid())) {
     throw new Error('Private runner must be owner-owned, executable, and not group/world-writable');
   }
+  if (createHash('sha256').update(readFileSync(path)).digest('hex') !== expectedSha256) {
+    throw new Error('Private runner differs from the approved adapter build');
+  }
 }
 
 export async function processDispatchComment(comment, {
   allowedActors = [], fetchImpl = globalThis.fetch, readGh = readPublicGh,
-  manifestDir = join(homedir(), '.codex', 'deepseek-manifests'),
+  manifestDir = join(homedir(), '.local', 'share', 'vera', 'deepseek', 'tasks'),
   receiptRoot = join(homedir(), '.codex', 'deepseek-dispatch-receipts'),
   runner = join(homedir(), '.codex', 'bin', 'vera-deepseek-runner'),
   invoke = invokePrivateRunner
@@ -236,7 +248,7 @@ export async function processDispatchComment(comment, {
   if (confirmedComment.updated_at !== comment.updated_at) return { state: 'refused' };
 
   try {
-    safeRunner(runner);
+    safeRunner(runner, loaded.manifest.adapter_sha256);
   } catch {
     return { state: 'refused' };
   }
@@ -251,7 +263,8 @@ export async function processDispatchComment(comment, {
     HOME: homedir(), PATH: '/usr/bin:/bin', VERA_REPOSITORY: REPO,
     VERA_ISSUE_NUMBER: String(issueNumber), VERA_DISPATCH_COMMENT_ID: String(comment.id),
     VERA_DEEPSEEK_TASK_CAP_USD: String(loaded.cap), VERA_DEEPSEEK_CAMPAIGN_CAP_USD: '10',
-    VERA_DEEPSEEK_RECEIPT: receipt, VERA_DEEPSEEK_MANIFEST_SHA256: loaded.sha256
+    VERA_DEEPSEEK_RECEIPT: receipt, VERA_DEEPSEEK_MANIFEST_SHA256: loaded.sha256,
+    VERA_DEEPSEEK_SOURCE_SHA: loaded.manifest.base_sha, VERA_DEEPSEEK_EXECUTION_MODE: 'mock'
   };
   try {
     verifyReviewFromGh(readGh, REPO, issueNumber, {
@@ -267,6 +280,9 @@ export async function processDispatchComment(comment, {
       actor: comment.user.login, expectedIssue: issue, expectedComment: confirmedComment,
       expectedMainSha: currentMain.sha
     });
+    const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
+    if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
+    safeRunner(runner, finalManifest.manifest.adapter_sha256);
   } catch {
     writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state: 'refused',
       timestamp: new Date().toISOString(), detail: 'authorization changed or could not be reverified' });

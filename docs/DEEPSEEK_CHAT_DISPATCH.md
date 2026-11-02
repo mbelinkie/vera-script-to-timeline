@@ -1,91 +1,119 @@
-# Chat → GitHub → DeepSeek dispatch (staged; not active)
+# Chat → GitHub → Mac dispatch (staged; disabled)
 
-**Transport in the #397 branch:** the GitHub-hosted workflow validates the live public issue/comment and canonical #378 review using read-only GitHub access. It never sends work to a runner. A separate Mac receiver polls public GitHub outbound, repeats the authorization and manifest checks, and invokes the existing private controller only when its local enable flag is explicitly true. The receiver is not installed or activated by this repository change, and no paid or end-to-end dispatch has been proven. The old self-hosted Actions-runner route below is historical and superseded.
+[Issue #396](https://github.com/mbelinkie/vera-script-to-timeline/issues/396)
+continues on [Draft PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397).
+The transport reuses the existing private bounded controller and lifetime USD10
+ledger. The legacy personal-account GitHub Actions runner stays offline.
 
-This is an **add-on to the existing private DeepSeek repair-controller architecture**, not a second coding agent. See [issue #396](https://github.com/mbelinkie/vera-script-to-timeline/issues/396). Chat can prepare and review a ticket, but only a current, explicit Producer-approved Chat review permits the later `chat-reviewed` and task-specific dispatch gates. The exact `/deepseek dispatch` issue comment is a separate authorization. Sol/Codex retains independent integration, review, CI/queue and acceptance responsibility.
+## Boundaries
 
-**Current status (2026-11-02):** Draft [PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397) remains open and unmerged. Its branch now stages a GitHub-hosted read-only validator and a separate outbound Mac receiver. Local focused tests and `npm run validate:fast` passed; external synthetic no-spend acceptance, protected CI delivery and Producer acceptance remain outstanding. No receiver activation or paid provider call has occurred.
+The `issue_comment` workflow runs trusted default-branch code on `ubuntu-latest`
+with read-only contents/issues permissions. It validates the exact
+`/deepseek dispatch` comment, actor, open issue, classification, four opt-in
+labels, handoff and canonical #378 review. It creates no local receipt and
+never invokes the Mac adapter. No private credentials or worker output enter
+GitHub Actions.
 
-## Explicit model routing — no automatic DeepSeek assignments
+The separate Mac receiver makes outbound public GitHub reads. It has no incoming
+listener or GitHub write token. It repeats the live authorization checks,
+validates the private manifest, reserves one receipt per issue, then repeats
+review/issue/comment/source and local manifest/build checks before invocation.
+The receiver accepts only `live_enabled: false` and supplies explicit mock mode.
+It cannot start a paid job. Its per-task ceiling is USD0.25; the existing private
+controller retains its single lifetime USD10 ledger and live budget gates.
 
-**The normal VERA roadmap and CI queue never trigger DeepSeek just because an issue is created, moved to Ready, or labeled `chat-reviewed`.** DeepSeek only runs after an authorized owner's exact `/deepseek dispatch` comment, the global dispatch enable flag, and **all four** independent issue labels:
-- `chat-reviewed`: Chat triage and Producer approval completed.
-- `deepseek-eligible`: a bounded public-source coding/test/bug-fix task has been classified as appropriate for DeepSeek; classification alone does not run it.
-- `deepseek-ready`: task inputs and frozen tests are prepared.
-- `deepseek-dispatch`: explicit issue-specific authorization to run once. Remove this label to revoke *future* dispatch eligibility; removing it does not interrupt an already running job.
+All four labels are required: `chat-reviewed`, `deepseek-eligible`,
+`deepseek-ready`, `deepseek-dispatch`. Exactly one `type:implementation` or
+`type:bug` is allowed. Pending review/escalation, design/non-coding types,
+`deepseek-excluded`, another execution owner and `execution:codex/design/human`
+veto dispatch. Ready status, labels, dashboard rendering and navigation never
+start a job. #401 owns the renderer; this PR changes no renderer files.
 
-Additional fail-closed exclusions: only issues with exactly one `type:` label, either `type:implementation` or `type:bug`, can be dispatched. Design, investigation, product, goals, acceptance, review and all other types are excluded. The independent `execution:design`, `execution:human`, `execution:codex`, `owner:claude`, `owner:codex`, and `deepseek-excluded` labels also veto dispatch, **overriding** all four approval labels. Pending chat review and model escalation also block the action. Do not label design issues eligible or dispatchable; route them to design/product review and Producer choices. Complex architecture and security-sensitive changes go to the appropriate separately reviewed Codex/agent workflow.
+## Shared private contract
 
-**Dashboard ownership:** #401 owns the renderer. This branch does not change `scripts/project-progress-lib.mjs` or `scripts/project-progress.test.mjs`.
+Both processes read the same owner-approved read-only file (mode `0400`) under a
+private directory (mode `0700`):
+`~/.local/share/vera/deepseek/tasks/issue-N.json`.
+It uses the adapter's existing `schema: 1` fields: `issue`, `repository`,
+`base_sha`, `editable_file`, `editable_sha256`, `frozen_files`, `edit_scope`,
+absolute `checks` vectors, `source_repo`, bounded `max_rounds` and
+`max_output_tokens`, `task_cap_usd`, `task_instructions`, `operator_approved`
+and `public_synthetic_only`.
 
-## Dispatch trust boundary
+The transport extension adds `transport_contract: "VERA_DEEPSEEK_RECEIVER_V1"`,
+the exact `dispatch_comment_id`, `adapter_sha256`, `live_enabled: false` and a
+bounded preapproved `mock_replacement`. `base_sha` must equal current GitHub
+`main`; the runner bytes must match the approved adapter hash. The adapter
+must verify `VERA_DEEPSEEK_MANIFEST_SHA256`, `VERA_DEEPSEEK_SOURCE_SHA`, comment
+identity and `VERA_DEEPSEEK_EXECUTION_MODE=mock` before candidate preparation.
+The receiver rechecks the same manifest/build immediately before invocation.
 
-- `issue_comment` event on `mbelinkie/vera-script-to-timeline`, **not** arbitrary web callbacks; exact comment `/deepseek dispatch`.
-- Author must be repository owner or explicitly configured `VERA_DEEPSEEK_ALLOWED_ACTORS` GitHub login (e.g. the actual Chat GitHub app/bot actor once verified from a non-dispatch comment). Never allow `*` or unknown actors.
-- Live issue must be open, and have all four explicit approval labels with no `chat-review-pending` label. A label alone does not start a job.
-- Dispatch is fail-closed unless `VERA_DEEPSEEK_DISPATCH_ENABLED=true`. A second replay of the same issue fails before any provider call because a private owner-only receipt already exists.
-- The `VERA_DEEPSEEK_TASK_CAP_USD` value is a **per-task upper bound**, additionally constrained by the private **USD10 total cumulative campaign ledger**, including all historical costs, pending/ambiguous reservations and prior #118/#326 work. The dispatcher deliberately **does not** attempt to reconstruct or reset that private ledger. The wrapper must reserve against the same shared ledger *before each call* and refuse if it cannot prove the remaining balance.
-- Never send secrets, Producer footage, personal data or unpublished research media to DeepSeek. No other provider, no automatic resubmissions on uncertain outcomes, no changing tests to make a candidate pass.
-- GitHub Actions checks out the trusted default branch and validates issue metadata with a short-lived read-only token. The Mac receiver uses unauthenticated public GitHub reads and has no GitHub token to pass to the private worker. Never check out or execute issue-provided branches/patches as trusted dispatcher code.
-- DeepSeek may prepare only a bounded *candidate*. It cannot merge, close an issue, run paid tests on Resolve, invoke cloud CI or declare external/product acceptance.
+The previously installed adapter has no mock path and ignores the manifest hash;
+it is incompatible with this contract. A private staged update is required.
+Its candidate checks must use native deny-by-default Seatbelt confinement:
+only the disposable candidate is writable, system runtimes and the candidate
+are readable, and private home/controller/ledger files, network and Mach service
+access remain denied. The trusted controller keeps credentials and ledger access
+outside the candidate process. No private adapter source is published here.
 
-## Preparation of each ticket
+## One authorized synthetic proof
 
-1. Chat reviews scope, tests, dependencies and current product authority, and preserves the repository's existing review approval process. It adds `chat-reviewed` only after required Producer approval.
-2. Add a short **DeepSeek Handoff** section to the issue describing the precise allowed production paths, frozen independent tests, prohibited edits, source/fixture restrictions, controller repair limits and task spend cap. Keep the public issue free of credentials/private data.
-3. Apply `deepseek-eligible` after Producer-approved task classification, and `deepseek-ready` only when the ticket can be handled by one bounded private worker. Human product/design or native Resolve work stays with its owning agent.
-4. After the Producer explicitly approves dispatch, apply `deepseek-dispatch`. Chat posts exactly `/deepseek dispatch` as a separate issue comment. If GitHub exposes a different author for Chat comments, verify its actual login and explicitly add it to the trusted actor list before testing.
-5. The separate *generalized private* runner/controller receives `issue_number` and `comment_id`, resolves a frozen, owner-approved public-source task manifest, revalidates authorization, enforces the single USD10 lifetime ledger, runs bounded editing and independent frozen tests in a private isolated candidate worktree, and records output for Sol/Codex. It must **not** invoke the frozen `issue-326/repair-trial/run-repairs.py` as a general issue worker. Trial patterns are reused; the historical trial and its state remain untouched.
-6. Sol independently reviews and integrates the result in the normal one-issue/one-worktree, PR, Claude review, CI queue and acceptance workflow.
+On 2026-11-02 the Producer authorized one no-provider-call proof **after review
+and protected delivery**. That authorization permits no paid mode. The target
+still needs its own exact current canonical Chat review; the implementation
+owner must not manufacture that approval record.
 
-## One-time installation (human-controlled)
+1. Complete review and protected PR delivery. Install only the reviewed private
+   adapter build; preserve existing credentials, historical state and ledger.
+   Keep repository and persistent local enable settings false. Use a separate
+   clone of the public repository for `source_repo`, with no personal media or
+   private configuration copied into the candidate.
+2. Prepare a dedicated public synthetic issue using
+   `scripts/fixtures/deepseek-proof`. Finalize its DeepSeek Handoff with the
+   delivered source revision, one editable fixture and frozen check before its
+   independent Chat approval. `target.py` intentionally fails `check.py` until
+   the preapproved mock replacement changes its return value to `"after"`.
+3. Initialize the receiver cursor with one explicit enabled poll **before**
+   posting the dispatch command. A first poll only saves the newest comment ID;
+   it intentionally ignores all existing comments. No scheduled poller is
+   installed by this PR.
+4. Post the separately authorized exact command, prepare the immutable manifest
+   bound to that comment ID and approved adapter build, then run one enabled
+   poll. The trusted adapter uses its cross-campaign lock, creates an isolated
+   candidate, applies the approved mock replacement and runs frozen checks.
+   Mock mode must never reach credential/provider code or write reservations.
+5. Verify private candidate/check results, exact allowed diff and frozen hashes,
+   unchanged lifetime ledger bytes, receipt identity and duplicate refusal.
+   `worker-returned` alone proves only process exit, not candidate acceptance.
+6. Restore disabled defaults. Record concise public evidence with no private
+   paths/content. The candidate stays unmerged for independent integration.
 
-1. Keep the repository variable `VERA_DEEPSEEK_DISPATCH_ENABLED=false` until all following steps pass.
-2. **Historical route, superseded:** a self-hosted macOS Actions runner with label `vera-deepseek` was previously reported listening. The workflow now targets `ubuntu-latest` and does not use that runner. Keep it offline; the Mac receiver is a separate outbound poller and must be installed and enabled deliberately.
-3. Place an owner-owned, executable, non-group/world-writable adapter at `~/.codex/bin/vera-deepseek-runner`. The adapter receives exactly `$1 = issue`, `$2 = comment ID`, plus `VERA_REPOSITORY`, `VERA_DEEPSEEK_TASK_CAP_USD`, `VERA_DEEPSEEK_CAMPAIGN_CAP_USD`, and `VERA_DEEPSEEK_RECEIPT`. It must enforce the shared cumulative ledger, allowed edit/test boundaries, credential handling, no native/full CI effects, and one bounded repair campaign; return nonzero on uncertainty. Do **not** assume the private trial script's CLI until it is inspected. No adapter is bundled or silently installed.
-4. **Completed on the draft branch:** The existing Cloudflare GitHub-for-Chat worker's narrowly scoped `install_deepseek_workflow` installed `.github/workflows/deepseek-dispatch.yml` on PR #397 using its already-configured GitHub credential. The normal `write_file` tool still blocks arbitrary `.github` writes. Keep PR #397 in normal review and delivery; do not bypass the central CI queue or manually merge before successful required checks. The original `deploy/deepseek-dispatch.workflow.yml` remains as the pinned template.
-5. **Producer reports configured:** `VERA_DEEPSEEK_DISPATCH_ENABLED=false`, private-controller `VERA_DEEPSEEK_DRY_RUN=true`, and `VERA_DEEPSEEK_TASK_CAP_USD=0.25`. `DRY_RUN` is not read by the hosted validator or Mac receiver; only the receiver enable flag gates polling. Keep `VERA_DEEPSEEK_ALLOWED_ACTORS` empty unless the precise authentic GitHub actor login is verified by a harmless comment; never use `*`. Verify these values again immediately before a no-spend test. Do not flip the receiver enable flag for an actual job without separate Producer authorization.
-6. **No-spend transport proof remains outstanding.** The hosted workflow validates the current title/body review through #378 but does not reach the Mac. A separate synthetic check must prove the outbound receiver's authorization, duplicate refusal and private adapter handoff with private `live_enabled=false`; do not enable a paid call to bridge this evidence gap. The current JS dry-run exits *before* private adapter invocation, receipt creation or model calls. Its success is therefore **not** an end-to-end adapter or idempotency test; test these independently offline. Restore global enable to false afterward.
-7. Keep the private controller `live_enabled=false` for transport proofs. A paid run requires separate Producer authorization after the wrapper and shared ledger are independently verified; do not reuse the #326 trial or treat its 51/51 as acceptance for another ticket.
+## Receipts and recovery
 
-## Existing controller migration: source audit (2026-11-01)
+Receipts live under `~/.codex/deepseek-dispatch-receipts/issue-N/receipt.json`.
+Parent and issue directories must be owner-owned, private and regular directories.
+Exclusive directory creation reserves an issue once; atomic replacement prevents
+receipt writes from following a substituted file symlink. Worker stdout/stderr
+are suppressed. Timeout/error retains the receipt and candidate; no automatic
+retry, receipt deletion, legacy trial reset or ledger reset is permitted.
 
-The private files `issue-326/run-draft.py` and `issue-326/repair-trial/run-repairs.py` were supplied for read-only inspection. **Neither is the reusable CLI** that `vera-deepseek-runner` should directly execute:
+A leftover receiver lock requires explicit reconciliation before another poll.
+Removing an approval label prevents future calls when observed; REST reads cannot
+provide an atomic transaction with a local process launch. The final repeated
+checks narrow that race. Incomplete history, changed revision/build/manifest,
+API errors, unavailable sandbox and uncertain outcomes fail closed.
 
-- The draft's only optional CLI flag is `--self-test`, which confirms arithmetic on its fixed input/output token reserve (USD0.24552), **not ledger reconciliation**. Calling it normally would invoke DeepSeek.
-- Both scripts use task-specific input packets and paths, and trial-specific `USD1` checks. The repair script is locked to one production function and 51 frozen tests, with an anti-restart state assertion. It must never be reset or replayed as a new ticket.
-- The draft loads `issue-118/run-draft.py` for the `credential()` helper and `issue-118/credential-entry.py` for validation/preflight. Those files and their credentials stay private and are not required in this repository. The files inspected do **not** establish the complete shared campaign ledger across any later jobs.
-- Preserve the existing fail-closed mechanics: exclusive host lock; persist cost reservation **before** an API call; persist usage before response interpretation; do not replay uncertain calls; bounded rounds, frozen tests and precisely delimited code edits. Each new ticket gets its own candidate workspace.
-- The adapter must accept issue number and comment ID supplied by the existing dispatcher, fetch only the approved public task manifest, verify exact allowed files/tests, and choose bounded output and check commands from a fixed trusted allowlist. Prompt text, returned JSON and file contents are untrusted; never execute model-suggested commands or install packages from a task response.
-- A new cumulative ledger reconciler must account for **all** historical requests and unresolved reservations, count across both issue #118 and issue #326 and subsequent campaigns, and stop if any state cannot be proven. The USD10 campaign limit is a **lifetime total**, not a new USD10 pool.
-- Provider model IDs and prices must be checked against live official documentation before each campaign; no blind reliance on prices embedded in 2026 trial source. Record a reviewed worst-case call reservation under **both** the remaining campaign budget and the per-task ceiling.
-- **Never expose DeepSeek secrets in public issue descriptions, logs or PRs.** A separate trusted macOS runner user is preferable; the worker must not inherit `GITHUB_TOKEN`, cannot merge, and cannot mark the issue Done.
+## Evidence and remaining gates
 
-The initial connected macOS runner and Cloudflare tool prove only the **dispatch transport**, not the generalized coding controller. Keep paid dispatch disabled until the private adapter and both budget gates are independently tested.
+Focused receiver/dispatch tests use temporary state, mock GitHub reads and a
+stub runner. The fixture's red baseline/green replacement were checked in a
+temporary directory. These checks do not prove the installed adapter or live
+GitHub-to-Mac transport. The new contract and private staged adapter require
+independent review and fresh exact-head CI before delivery. The one external
+synthetic proof and Producer setup acceptance remain outstanding. No provider
+request or receiver activation has been performed by this implementation.
 
-## Private adapter prototype delivered (2026-11-01; NOT activated)
-
-A separate private **installation candidate** for `~/.codex/bin/vera-deepseek-runner` was packaged for the Producer in Chat and subsequently reported **installed on the Producer Mac**, not committed to this public repo. It includes a Python adapter, task-manifest template, local README, SHA256 checksums and an offline 19-test suite. Historical test evidence used mocked model responses and no paid provider calls; installation and the adapter's real side effects are distinct from GitHub dispatch, which is not yet proven.
-
-The prototype: validates dispatcher receipt/issue/comment environment, uses a private owner-approved task manifest with default `live_enabled=false`, pins a source git SHA and one editable file, freezes approval tests by SHA256, supports explicit full-file vs bounded-span change boundaries, runs only owner-approved local check command vectors, conservatively reserves against the existing lifetime USD10 campaign cap, and uses the original private credential helpers in live mode. A separate new ledger hashes both legacy ledgers and counts historical request charges once. An ambiguous provider request keeps its reservation for human reconciliation. Proposed code stays in a private candidate worktree and does not merge or close anything.
-
-**Test evidence scope:** The Producer later reported 19/19 offline tests passing on the Mac and a successful owner-private ledger initialization/audit. This checks local mocked behavior and the accessible historical ledger records, not independent provider invoicing, complete all-campaign spend inventory, toolchain compatibility for an approved synthetic ticket, GitHub adapter dispatch, or a paid execution. Preserve an explicit no-provider-call gate for synthetic tests.
-
-**Installation path for a fresh machine only (already reported complete on the Producer's Mac):** Verify any pre-existing binary first; use the privately delivered package, run `python3 -m unittest -v test_runner.py`, then `install -m 700 vera-deepseek-runner ~/.codex/bin/vera-deepseek-runner` under the runner user and `--audit` / `--init-ledger` as appropriate. On the existing Mac, **do not reinstall or initialize again just to repeat a test**: use read-only `--audit` and inspect private receipt/manifest permissions. Never reset historical ledgers, activate a local `live_enabled=true` manifest or enable paid GitHub/Cloudflare dispatch without separate approval. Git worktree isolation is not an OS sandbox.
-
-**Mac checkpoint:** The Producer subsequently installed the adapter and reported 19/19 offline tests passing. Local `--init-ledger` and `--audit` both report 15 historic requests, USD0.701657484 committed, zero pending and USD9.298342516 provisional remaining under the lifetime USD10 cap. The private ledger exists with mode `0600`. These reports do not verify the external DeepSeek invoice, actual GitHub-to-Mac dispatch, or public-source task behavior.
-
-## Remaining activation gates (2026-11-02)
-
-1. **Producer review freshness:** Implemented in the #397 branch by reusing #378's canonical verifier, including bounded paginated history reads and fail-closed API errors. The GitHub-hosted validator and Mac receiver both use it; a stale or label-only review is insufficient.
-2. **Handoff vs private manifest:** A public `## DeepSeek Handoff` describes scope, but is not the authenticated private task manifest. The dispatcher rejects missing/empty handoffs; the private adapter must independently enforce exact issue/comment, approved source SHA, editable files, frozen tests, permitted commands, strict cost/attempt limits and current task authorization. Never treat issue text or model output as shell commands.
-3. **Split zero-spend proofs:** The GitHub `DRY_RUN=true` path intentionally checks the actor/open issue/labels/cap and exits before receipt/adapter invocation. Separately use the private Mac's mock-only, `live_enabled=false` synthetic manifest to prove receipts, duplicate/uncertain refusal, ledger reservations, source/test boundaries and candidate output. Do not temporarily enable live model mode to bridge this evidence gap.
-4. **Independent acceptance:** Complete review of #397's trusted-host behavior, record focused local checks and `npm run validate:fast`, perform the repository's read-only adversarial Claude CLI review or document unavailability, reconcile #401-owned renderer changes, and revalidate the *new exact head* after any commit. `/queue ready` is a distinct Producer/integrator merge-readiness action; a preview pass alone is not permission to merge.
-5. **Lifetime accounting:** The previously reported 15 historical calls costing USD0.701657484, with zero pending and provisional USD9.298342516 remaining, must be independently reconciled with *all* campaign records and current provider pricing before the first paid call. Every call must reserve under both the USD10 cumulative ceiling and the USD0.25 configured task cap, persist final usage, and retain unknown outcomes without automatic retry.
-
-## Recovery and disable
-
-- Emergency stop: set `VERA_DEEPSEEK_DISPATCH_ENABLED=false` for the local receiver and stop that process before allowing new adapter calls. The old self-hosted Actions runner is not part of the current transport. Changing a repository variable does not stop an already running private process.
-- On timeout/error, the issue-specific private receipt remains **uncertain-or-failed**. Do not delete receipts or replay the issue until a human reconciles the same shared ledger, possible in-flight provider charges and candidate artifacts.
-- The dispatch worker does not alter GitHub Project Ready/claim state or auto-close tickets. An issue comment is not permission to bypass original dependencies, review authority or publication holds.
-- Cloudflare plugin integration is optional: expose a tightly authenticated `dispatch(issue)` action that applies the existing GitHub authorization, not a separate model controller or a new budget ledger. Let GitHub/your private runner remain the execution source of truth.
+Historical installation/ledger observations are in
+[the issue checkpoint](https://github.com/mbelinkie/vera-script-to-timeline/issues/396#issuecomment-6580646227).
+Provider charges, model/pricing and all historical/pending spend require separate
+reconciliation and explicit authorization before any future paid pilot.
