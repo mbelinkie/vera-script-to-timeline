@@ -594,7 +594,8 @@ function ciStrip(workflow, now) {
   const expiryAttr = current ? ` data-workflow-expires-at="${expiresAt}"` : "";
   const slotText = typeof slot === "string" ? text(slot)
     : slot && typeof slot === "object" ? text([slot.state ?? slot.phase ?? slot.status, slot.pr != null && `PR #${slot.pr}`, slot.head && `head ${shortSha(slot.head)}`, slot.base && `base ${shortSha(slot.base)}`].filter(Boolean).join(" · ") || "Slot state unavailable")
-      : active.length ? "Active entry reported by controller" : "Slot state unavailable";
+      : active.length ? "Active entry reported by controller"
+        : current && String(queue.state).toLowerCase() === "idle" ? "Idle — no active validation or smoke" : "Slot state unavailable";
   const slotMarkup = `<span data-workflow-status="ciQueue.slot"${expiryAttr}>${slotText}</span>${slot && typeof slot === "object" ? ciShaEvidence(slot) : ""}`;
   const pauseReason = typeof queue?.paused === "string" ? queue.paused : queue?.paused?.reason;
   const stateMarkup = `<span class="wf-ci-state" data-workflow-status="${text(state)}"${expiryAttr} data-requires-fresh="true">${text(state)}</span>`;
