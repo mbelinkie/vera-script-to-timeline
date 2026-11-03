@@ -215,18 +215,18 @@ is_dashboard_process() {
 # status endpoint identifies this exact checkout and server protocol.
 dashboard_url=""
 find_live_url() {
-  local candidate="" status=""
+  local candidate="" dashboard_status=""
   [[ -f "$url_file" ]] && candidate="$(cat "$url_file")"
   if [[ -z "$candidate" ]]; then
     candidate="$(grep -Eo 'http://127\.0\.0\.1:[0-9]+/' "$log_file" 2>/dev/null | tail -n 1)"
   fi
   print -r -- "$candidate" | grep -Eq '^http://127\.0\.0\.1:[0-9]+/$' \
     || return 1
-  status="$(curl --noproxy '*' -fsS --max-time 2 -H 'Sec-Fetch-Site: none' "${candidate}status" 2>/dev/null)" \
+  dashboard_status="$(curl --noproxy '*' -fsS --max-time 2 -H 'Sec-Fetch-Site: none' "${candidate}status" 2>/dev/null)" \
     || return 1
-  print -r -- "$status" | grep -Fq "\"sourceId\":\"$source_id\"" || return 1
-  print -r -- "$status" | grep -Fq '"serverProtocol":"2"' || return 1
-  print -r -- "$status" | grep -Fq '"refreshIntervalSeconds"' || return 1
+  print -r -- "$dashboard_status" | grep -Fq "\"sourceId\":\"$source_id\"" || return 1
+  print -r -- "$dashboard_status" | grep -Fq '"serverProtocol":"2"' || return 1
+  print -r -- "$dashboard_status" | grep -Fq '"refreshIntervalSeconds"' || return 1
   dashboard_url="$candidate"
   return 0
 }
