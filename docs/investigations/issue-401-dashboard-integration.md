@@ -45,7 +45,7 @@ or used as an approval authority.
 | Review in Chat | Interactive review prompt link | Opens a draft conversation; never records approval or starts execution. |
 | Open an existing Codex chat | Merged #399 private mapping and independent installation identity | Local navigation only after Producer attestation; private identifiers are absent from saved HTML. It does not prove an agent is running. |
 | Inspect CI | #361 durable state plus exact PR/head/base/run checks | Preview validation, ready delivery and post-merge smoke remain separate. No submit/resume control. |
-| Launch Codex or run DeepSeek | Disabled | No authenticated dashboard execution backend or paid-job authorization. #396's unmerged controller is not imported. |
+| Launch Codex or run DeepSeek | Disabled | No authenticated dashboard execution backend or paid-job authorization. #396's separately delivered controller is not invoked by the dashboard. |
 | Accept delivery | Separate issue acceptance | A merged PR or smoke result never substitutes for Producer acceptance. |
 
 Rendering and local filters perform no network calls or mutations. Refresh

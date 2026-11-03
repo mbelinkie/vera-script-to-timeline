@@ -286,10 +286,18 @@ export async function startProgressServer(options) {
   }
 
   const server = createServer(async (request, response) => {
-    const route = new URL(request.url ?? "/", "http://localhost").pathname;
     response.setHeader("Cache-Control", "no-store, max-age=0");
     response.setHeader("X-Content-Type-Options", "nosniff");
     try {
+      const port = server.address()?.port;
+      const authorities = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+      if (!authorities.has(request.headers.host)
+        || (request.headers.origin && ![...authorities].some((host) => request.headers.origin === `http://${host}`))) {
+        response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Local dashboard origin required.");
+        return;
+      }
+      const route = new URL(request.url ?? "/", "http://localhost").pathname;
       if (request.method === "GET" && route === "/") {
         // Version travels with the served snapshot, not with a later status
         // request, so a racing refresh cannot strand stale content.

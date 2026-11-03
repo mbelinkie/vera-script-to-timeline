@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { URL } from "node:url";
+import { request as httpRequest } from "node:http";
 
 import { progressSourceIdentity, startProgressServer } from "./project-progress-live.mjs";
 
@@ -44,6 +45,30 @@ async function createServer(t, options = {}) {
 async function request(server, route, init) {
   return fetch(new URL(route, server.url), { redirect: "manual", ...init });
 }
+
+test("foreign origins and rebinding hosts cannot refresh or inspect private links", async (t) => {
+  let calls = 0;
+  const { server } = await createServer(t, { html: PAGE, resolveLocalSession: async () => {
+    calls += 1;
+    return { status: "verified-local", appUrl: APP_URL };
+  } });
+  const rebound = await new Promise((resolve, reject) => {
+    const req = httpRequest(new URL(`/local-session?issue=${encodeURIComponent(ISSUE)}`, server.url), {
+      headers: { Host: "attacker.example" },
+    }, (response) => { response.resume(); resolve(response.statusCode); });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(rebound, 403);
+  for (const headers of [{ Origin: "https://attacker.example" }]) {
+    const result = await request(server, `/local-session?issue=${encodeURIComponent(ISSUE)}`, { headers });
+    assert.equal(result.status, 403);
+    assert.equal(result.headers.get("location"), null);
+    assert.doesNotMatch(await result.text(), /codex:|12345678/);
+  }
+  assert.equal(calls, 0);
+  assert.equal((await request(server, "/status")).status, 200);
+});
 
 test("source identity hides the checkout path and changes for another checkout or head", async (t) => {
   const first = await mkdtemp(path.join(os.tmpdir(), "vera-progress-id-"));

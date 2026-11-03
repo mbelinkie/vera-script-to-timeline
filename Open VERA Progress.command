@@ -93,6 +93,16 @@ if [[ -f .nvmrc && -s "$nvm_dir/nvm.sh" ]]; then
   set -u
 fi
 
+# Prefer the matching runtime installed for VERA without changing the user's
+# default Node or relying on Finder to load a version manager.
+if [[ -f .nvmrc ]]; then
+  pinned_node_version="$(<.nvmrc)"
+  node_arch="$(uname -m)"
+  [[ "$node_arch" == "x86_64" ]] && node_arch="x64"
+  pinned_node_bin="$HOME/.local/share/vera-node/node-v${pinned_node_version}-darwin-${node_arch}/bin"
+  [[ -x "$pinned_node_bin/node" ]] && export PATH="$pinned_node_bin:$PATH"
+fi
+
 command -v node >/dev/null 2>&1 \
   || fail "Could not find Node.js. Install it from https://nodejs.org (or via Homebrew/nvm), then try again."
 command -v npm >/dev/null 2>&1 \
