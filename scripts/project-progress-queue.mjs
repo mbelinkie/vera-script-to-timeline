@@ -38,6 +38,14 @@ export const queueClientScript = String.raw`(() => {
       if (!Number.isFinite(sourceExpiry) || now > sourceExpiry) markStatus(status);
       else next = Math.min(next, sourceExpiry);
     }
+    for (const link of root.querySelectorAll("a[data-requires-fresh][data-workflow-expires-at]")) {
+      const sourceExpiry = Number(link.dataset.workflowExpiresAt);
+      if (!Number.isFinite(sourceExpiry) || now > sourceExpiry) {
+        link.removeAttribute("href");
+        link.setAttribute("aria-disabled", "true");
+        link.setAttribute("tabindex", "-1");
+      } else next = Math.min(next, sourceExpiry);
+    }
     setTimeout(checkExpiry, Math.min(Math.max(next - now + 1, 1), 60_000));
   }
   if (root.dataset.stale === "true" || document.documentElement.dataset.snapshotStale === "true") markStale();
@@ -69,7 +77,10 @@ export const queueClientScript = String.raw`(() => {
         && (actorFilter === "all" || row.dataset.filter === actorFilter);
       row.hidden = !matches;
       const detail = root.querySelector("#" + CSS.escape(row.dataset.detailId));
-      if (detail && !matches) detail.hidden = true;
+      if (detail && !matches) {
+        detail.hidden = true;
+        row.querySelector("[data-expand-row]")?.setAttribute("aria-expanded", "false");
+      }
       if (matches) visible++;
     }
 
@@ -564,6 +575,15 @@ function ciList(label, entries, className = "", statusName = label.toLowerCase()
     : `<div class="wf-ci-section ${className}"><strong><span${status}>${text(label)}</span></strong>${list}</div>`;
 }
 
+function otherRunEntry(run, expiresAt) {
+  const label = [`Run #${run.id ?? "unknown"}`, run.status ?? "status unknown"].join(" · ");
+  const href = safeWorkflowUrl({ url: run.url });
+  const link = href
+    ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" data-requires-fresh="true" data-workflow-expires-at="${expiresAt}">Open Actions run</a>`
+    : '<span class="wf-muted">Actions link unavailable.</span>';
+  return `<li><span data-workflow-status="ciQueue.otherRuns" data-workflow-expires-at="${expiresAt}">${text(label)}</span> ${link}</li>`;
+}
+
 function sourceIsFresh(snapshotAt, now) {
   const timestamp = snapshotAt instanceof Date ? snapshotAt.getTime() : typeof snapshotAt === "string" ? Date.parse(snapshotAt) : NaN;
   const age = now.getTime() - timestamp;
@@ -580,8 +600,9 @@ function ciStrip(workflow, now) {
   const queue = ci && typeof ci === "object" ? ci : null;
   const snapshotAt = queue?.snapshotAt ?? queue?.source?.snapshotAt;
   const lastError = queue?.lastError ?? queue?.source?.lastError;
-  const current = Boolean(queue && !lastError && sourceIsFresh(snapshotAt, now));
-  const expiresAt = current ? sourceExpiresAt(snapshotAt, now) : null;
+  const snapshotFresh = sourceIsFresh(snapshotAt, now);
+  const current = Boolean(queue && !lastError && snapshotFresh);
+  const expiresAt = snapshotFresh ? sourceExpiresAt(snapshotAt, now) : null;
   const waiting = current ? asArray(queue.waiting) : [];
   const active = current ? Array.isArray(queue.active) ? queue.active : queue.active ? [queue.active] : [] : [];
   const ready = current ? asArray(queue.ready) : [];
@@ -589,23 +610,40 @@ function ciStrip(workflow, now) {
   const readyCount = current && Number.isFinite(queue.ready) ? queue.ready : ready.length;
   const deliveredCount = current && Number.isFinite(queue.delivered) ? queue.delivered : delivered.length;
   const lastDelivered = current ? queue.lastDelivered : null;
-  const state = current && typeof queue.state === "string" && queue.state ? queue.state : "Unknown";
   const slot = current ? queue.slot : null;
-  const expiryAttr = current ? ` data-workflow-expires-at="${expiresAt}"` : "";
-  const slotText = typeof slot === "string" ? text(slot)
-    : slot && typeof slot === "object" ? text([slot.state ?? slot.phase ?? slot.status, slot.pr != null && `PR #${slot.pr}`, slot.head && `head ${shortSha(slot.head)}`, slot.base && `base ${shortSha(slot.base)}`].filter(Boolean).join(" · ") || "Slot state unavailable")
-      : active.length ? "Active entry reported by controller"
-        : current && String(queue.state).toLowerCase() === "idle" ? "Idle — no active validation or smoke" : "Slot state unavailable";
-  const slotMarkup = `<span data-workflow-status="ciQueue.slot"${expiryAttr}>${slotText}</span>${slot && typeof slot === "object" ? ciShaEvidence(slot) : ""}`;
-  const pauseReason = typeof queue?.paused === "string" ? queue.paused : queue?.paused?.reason;
+  const slotUnknown = !current || queue.slotUnknown === true || !slot || slot.phase === "unknown";
+  const slotVerified = !slotUnknown && typeof slot === "object";
+  const slotIdle = slotVerified && slot.phase === "idle";
+  const rawState = typeof queue?.state === "string" ? queue.state : "Unknown";
+  const paused = queue?.paused === true || rawState === "failed-paused";
+  const state = paused ? "Paused" : current && slotIdle ? "Idle"
+    : current && slotVerified && slot.phase === "other-active" ? "Other run active"
+      : current && slotVerified && slot.phase === "queue-active" ? rawState === "idle" ? "Queue active" : rawState
+        : current && rawState.toLowerCase() !== "idle" ? rawState : "Unknown";
+  const expiryAttr = snapshotFresh ? ` data-workflow-expires-at="${expiresAt}"` : "";
+  const slotText = slotUnknown ? "Slot unknown"
+    : slotIdle ? "Slot idle"
+      : slot.phase === "other-active" ? "Other Validate run active"
+        : slot.phase === "queue-active" ? text(["Queue active", slot.pr != null && `PR #${slot.pr}`, slot.head && `head ${shortSha(slot.head)}`, slot.base && `base ${shortSha(slot.base)}`].filter(Boolean).join(" · "))
+          : "Slot unknown";
+  const slotUrl = slotVerified ? safeWorkflowUrl({ url: slot.runUrl ?? slot.url }) : null;
+  const slotLink = slotUrl ? ` <a href="${escapeHtml(slotUrl)}" target="_blank" rel="noopener noreferrer" data-requires-fresh="true" data-workflow-expires-at="${expiresAt}">Open Actions run</a>` : "";
+  const slotMarkup = `<span data-workflow-status="ciQueue.slot"${expiryAttr}>${slotText}</span>${slot && typeof slot === "object" ? ciShaEvidence(slot) : ""}${slotLink}`;
   const stateMarkup = `<span class="wf-ci-state" data-workflow-status="${text(state)}"${expiryAttr} data-requires-fresh="true">${text(state)}</span>`;
   const controlUrl = safeWorkflowUrl({ url: queue?.url });
   const control = controlUrl && /\/mbelinkie\/vera-script-to-timeline\/issues\/361$/i.test(new URL(controlUrl).pathname)
     ? `<a href="${escapeHtml(controlUrl)}" target="_blank" rel="noopener noreferrer">Queue control issue #361</a>` : "";
-  const body = !queue ? '<p class="wf-muted">CI queue source unavailable; slot and queue state are unknown.</p>'
-    : current ? `<p class="wf-ci-slot"><strong>Slot:</strong> ${slotMarkup}</p>${queue.paused ? `<p class="wf-error">Queue paused${pauseReason ? `: ${text(pauseReason)}` : " by controller."}</p>` : ""}${ciList("Active", active, "", "active", expiresAt)}${ciList("Waiting", waiting, "wf-ci-waiting", "waiting", expiresAt)}${readyCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.ready" data-workflow-expires-at="${expiresAt}">Ready to send: ${readyCount}</span></p>` : ""}${deliveredCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.delivered" data-workflow-expires-at="${expiresAt}">Verified deliveries: ${deliveredCount}</span></p>` : ""}${ciList("Ready", ready, "", "ready", expiresAt)}${ciList("Delivered", delivered, "", "delivered", expiresAt)}${lastDelivered ? `<div class="wf-ci-section"><strong><span data-workflow-status="ciQueue.lastDelivered" data-workflow-expires-at="${expiresAt}">Last delivered</span></strong><ol class="wf-ci-list">${ciEntry(lastDelivered, "ciQueue.lastDelivered", expiresAt)}</ol></div>` : ""}${!slot && !active.length && !waiting.length && !ready.length && !delivered.length && readyCount === 0 && deliveredCount === 0 && !lastDelivered ? '<p class="wf-muted">No slot or queue entries were reported.</p>' : ""}`
-      : '<p class="wf-muted">Queue state is unknown; only the last known controller snapshot is shown.</p>';
-  return `<section class="wf-card wf-ci" aria-labelledby="wf-ci-title"><h2 id="wf-ci-title">CI queue ${stateMarkup}</h2>${body}<p class="wf-source-stamp">Controller snapshot: ${formatSnapshot(snapshotAt)}</p>${lastError ? `<p class="wf-error">Refresh error: ${text(lastError)}</p>` : ""}${control ? `<p class="wf-ci-control">${control}</p>` : ""}</section>`;
+  const otherRuns = current ? asArray(queue.otherRuns) : [];
+  const otherRunsMarkup = !current || queue.slotUnknown === true
+    ? otherRuns.length ? `<details class="wf-ci-section wf-ci-other-runs"><summary><span data-workflow-status="ciQueue.otherRuns"${expiryAttr}>Observed Validate runs (${otherRuns.length})</span></summary><ol class="wf-ci-list">${otherRuns.map((run) => otherRunEntry(run, expiresAt)).join("")}</ol></details>`
+      : `<p class="wf-muted"><span data-workflow-status="ciQueue.otherRuns"${expiryAttr}>Validate run inventory unknown.</span></p>`
+    : otherRuns.length ? `<details class="wf-ci-section wf-ci-other-runs"><summary><span data-workflow-status="ciQueue.otherRuns"${expiryAttr}>Other Validate runs (${otherRuns.length})</span></summary><ol class="wf-ci-list">${otherRuns.map((run) => otherRunEntry(run, expiresAt)).join("")}</ol></details>`
+      : '<p class="wf-muted">No other Validate runs were observed.</p>';
+  const pauseMarkup = paused ? '<p class="wf-error">Queue paused by controller.</p>' : "";
+  const body = !queue ? `<p class="wf-muted">CI queue source unavailable; slot and queue state are unknown.</p>${otherRunsMarkup}`
+    : current ? `<p class="wf-ci-slot">${slotMarkup}</p>${ciList("Active", active, "", "active", expiresAt)}${ciList("Waiting", waiting, "wf-ci-waiting", "waiting", expiresAt)}${readyCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.ready" data-workflow-expires-at="${expiresAt}">Ready to send: ${readyCount}</span></p>` : ""}${deliveredCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.delivered" data-workflow-expires-at="${expiresAt}">Verified deliveries: ${deliveredCount}</span></p>` : ""}${ciList("Ready", ready, "", "ready", expiresAt)}${ciList("Delivered", delivered, "", "delivered", expiresAt)}${lastDelivered ? `<div class="wf-ci-section"><strong><span data-workflow-status="ciQueue.lastDelivered" data-workflow-expires-at="${expiresAt}">Last delivered</span></strong><ol class="wf-ci-list">${ciEntry(lastDelivered, "ciQueue.lastDelivered", expiresAt)}</ol></div>` : ""}${otherRunsMarkup}`
+      : `<p class="wf-muted">Queue state is unknown; only the last known controller snapshot is shown.</p>${otherRunsMarkup}`;
+  return `<section class="wf-card wf-ci" aria-labelledby="wf-ci-title"><h2 id="wf-ci-title">CI queue ${stateMarkup}</h2>${body}${pauseMarkup}${!queue || !current ? `<p class="wf-muted"><span data-workflow-status="ciQueue.slot">Slot unknown</span></p>` : ""}<p class="wf-source-stamp">Controller snapshot: ${formatSnapshot(snapshotAt)}</p>${lastError ? '<p class="wf-error">CI source could not be verified.</p>' : ""}${control ? `<p class="wf-ci-control">${control}</p>` : ""}</section>`;
 }
 
 function listMarkup(groupKey, rows, options) {

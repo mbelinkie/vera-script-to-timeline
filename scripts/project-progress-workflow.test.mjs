@@ -125,8 +125,9 @@ function pull(number, overrides = {}) {
   };
 }
 
-function timelineFor(number = 52) {
-  return [{
+function timelineFor(...numbers) {
+  if (numbers.length === 0) numbers.push(52);
+  return numbers.map((number) => ({
     event: "cross-referenced",
     source: {
       type: "issue",
@@ -136,7 +137,49 @@ function timelineFor(number = 52) {
         pull_request: { url: `https://api.github.com/repos/${REPO}/pulls/${number}` },
       },
     },
-  }];
+  }));
+}
+
+function completedDelivery(pr, runId, sha = MAIN) {
+  return { id: `delivery-${pr}`, pr, candidate: HEAD, mergeSha: sha, smokeSha: sha, runId };
+}
+
+function smokeRun(runId, transaction, sha = MAIN) {
+  const title = `vera-queue:${transaction}:smoke:${sha}:${sha}`;
+  return {
+    id: runId,
+    display_title: title,
+    workflow_id: 9,
+    path: ".github/workflows/validate.yml",
+    event: "workflow_dispatch",
+    run_attempt: 1,
+    head_sha: sha,
+    status: "completed",
+    conclusion: "success",
+    actor: { login: "github-actions[bot]" },
+    html_url: `https://github.com/${REPO}/actions/runs/${runId}`,
+  };
+}
+
+function smokeJobs(runId) {
+  return { jobs: [
+    ["Classify PR changes", "skipped"],
+    ["TypeScript and Python", "skipped"],
+    ["Docs only", "skipped"],
+    ["Main smoke", "success"],
+    ["Queue completion", "success"],
+  ].map(([name, conclusion], index) => ({
+    id: runId * 10 + index + 1,
+    run_id: runId,
+    run_attempt: 1,
+    name,
+    status: "completed",
+    conclusion,
+  })) };
+}
+
+function runBatch(workflow_runs, total_count = workflow_runs.length) {
+  return { total_count, workflow_runs };
 }
 
 function baseApi({ state = queueState(), pullOverrides = {}, timeline = timelineFor(), extra = {} } = {}) {
@@ -146,15 +189,46 @@ function baseApi({ state = queueState(), pullOverrides = {}, timeline = timeline
     if (endpoint === "rate_limit") return { resources: { core: { remaining: 5000 } } };
     if (endpoint === `repos/${REPO}/contents/queue.json?ref=vera-ci-queue-state`) return queueContents(state);
     if (endpoint === `repos/${REPO}/git/ref/heads/main`) return { object: { sha: MAIN } };
-    if (endpoint === `repos/${REPO}/issues/42/timeline?per_page=100`) return timeline;
-    if (endpoint === `repos/${REPO}/issues/42`) return reviewIssue(extra.issue ?? item());
-    if (endpoint === `repos/${REPO}/issues/42/comments?per_page=100&page=1`) return extra.claimComments ?? [reviewComment(extra.issue ?? item())];
+    const timelineMatch = new RegExp(`^repos/${REPO}/issues/([1-9][0-9]*)/timeline\\?per_page=100$`).exec(endpoint);
+    if (timelineMatch) {
+      const number = Number(timelineMatch[1]);
+      if (extra.failTimeline === true || extra.failTimeline === number) throw new Error("temporary timeline failure");
+      return extra.timelines?.[number] ?? (number === 42 ? timeline : []);
+    }
+    const commentsMatch = new RegExp(`^repos/${REPO}/issues/([1-9][0-9]*)/comments\\?per_page=100&page=1$`).exec(endpoint);
+    if (commentsMatch) {
+      const number = Number(commentsMatch[1]);
+      const row = extra.issues?.[number] ?? (number === 42 ? extra.issue ?? item() : item({
+        number, url: `https://github.com/${REPO}/issues/${number}`,
+      }));
+      return extra.claimCommentsByIssue?.[number] ?? (number === 42 ? extra.claimComments ?? [reviewComment(row)] : [reviewComment(row)]);
+    }
+    const issueMatch = new RegExp(`^repos/${REPO}/issues/([1-9][0-9]*)$`).exec(endpoint);
+    if (issueMatch) {
+      const number = Number(issueMatch[1]);
+      const row = extra.issues?.[number] ?? (number === 42 ? extra.issue ?? item() : item({
+        number, url: `https://github.com/${REPO}/issues/${number}`,
+      }));
+      return reviewIssue(row);
+    }
     const pullMatch = new RegExp(`^repos/${REPO}/pulls/([1-9][0-9]*)$`).exec(endpoint);
-    if (pullMatch) return pull(Number(pullMatch[1]), pullOverrides);
-    const runList = endpoint.match(/^repos\/.+\/actions\/workflows\/validate\.yml\/runs\?/);
-    if (runList) return { workflow_runs: extra.workflowRuns ?? [] };
+    if (pullMatch) {
+      const number = Number(pullMatch[1]);
+      return pull(number, extra.pulls?.[number] ?? pullOverrides);
+    }
+    const runList = endpoint.match(/^repos\/.+\/actions\/workflows\/validate\.yml\/runs\?(.+)$/);
+    if (runList) {
+      const query = runList[1];
+      if (extra.runListErrors?.includes(query)) throw new Error("temporary run inventory failure");
+      return extra.runLists?.[query] ?? runBatch(
+        query.startsWith("event=workflow_dispatch&head_sha=") ? extra.workflowRuns ?? [] : [],
+      );
+    }
     if (endpoint === `repos/${REPO}/actions/workflows/validate.yml`) return { id: 9, path: ".github/workflows/validate.yml", state: "active" };
-    if (endpoint === `repos/${REPO}/actions/runs/77/attempts/1/jobs?per_page=100&page=1`) return { jobs: [] };
+    const jobsMatch = new RegExp(`^repos/${REPO}/actions/runs/([1-9][0-9]*)/attempts/1/jobs\\?per_page=100&page=1$`).exec(endpoint);
+    if (jobsMatch) return extra.jobs?.[Number(jobsMatch[1])] ?? { jobs: [] };
+    const runMatch = new RegExp(`^repos/${REPO}/actions/runs/([1-9][0-9]*)$`).exec(endpoint);
+    if (runMatch) return extra.runs?.[Number(runMatch[1])] ?? {};
     throw new Error(`Unexpected read endpoint: ${endpoint}`);
   };
   const readGh = (args) => {
@@ -163,10 +237,20 @@ function baseApi({ state = queueState(), pullOverrides = {}, timeline = timeline
     const pathIndex = args.findIndex((arg) => typeof arg === "string" && arg.startsWith("repos/"));
     const endpoint = args[pathIndex];
     if (args.includes("--paginate")) {
-      assert.match(endpoint, /\/issues\/42\/comments\?per_page=100$/);
-      return JSON.stringify([[extra.comment ?? reviewComment(extra.issue ?? item())]]);
+      const number = Number(endpoint.match(/\/issues\/([1-9][0-9]*)\/comments\?/)?.[1]);
+      assert.ok(Number.isSafeInteger(number));
+      const row = extra.issues?.[number] ?? (number === 42 ? extra.issue ?? item() : item({
+        number, url: `https://github.com/${REPO}/issues/${number}`,
+      }));
+      return JSON.stringify([[extra.comment ?? reviewComment(row)]]);
     }
-    if (endpoint === `repos/${REPO}/issues/42`) return JSON.stringify(reviewIssue(extra.issue ?? item()));
+    const issueNumber = Number(endpoint.match(/\/issues\/([1-9][0-9]*)$/)?.[1]);
+    if (Number.isSafeInteger(issueNumber)) {
+      const row = extra.issues?.[issueNumber] ?? (issueNumber === 42 ? extra.issue ?? item() : item({
+        number: issueNumber, url: `https://github.com/${REPO}/issues/${issueNumber}`,
+      }));
+      return JSON.stringify(reviewIssue(row));
+    }
     throw new Error("Unexpected canonical review read");
   };
   return { calls, readApi: api, readGh };
@@ -217,7 +301,7 @@ test("uses the canonical current Chat verifier, keeps DeepSeek off, and emits on
 
 test("stale canonical Chat digest stays pending and has no approval link", async () => {
   const row = item({ labels: ["chat-reviewed"] });
-  const fake = baseApi({ extra: { issue: row, comment: reviewComment(row, "0".repeat(64)) } });
+  const fake = baseApi({ timeline: [], extra: { issue: row, comment: reviewComment(row, "0".repeat(64)) } });
   const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
     now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
   });
@@ -257,7 +341,7 @@ test("a current CI run with the wrong workflow head remains unknown", async () =
   assert.notEqual(derived.actor, "CI");
 });
 
-test("CI waiting evidence fails closed when the current PR head differs from the queued SHA", async () => {
+test("a mismatched queue entry is unverified without erasing queue-level state", async () => {
   const state = queueState({ entries: [{ pr: 52, submitted: HEAD, head: HEAD, ready: true, owner: "mbelinkie" }] });
   const fake = baseApi({ state, pullOverrides: { head: { sha: WRONG, ref: "feature", repo: { full_name: REPO } } } });
   const evidence = await loadWorkflowEvidence(process.cwd(), [item()], {
@@ -266,7 +350,251 @@ test("CI waiting evidence fails closed when the current PR head differs from the
 
   assert.equal(evidence.issues[ISSUE].ci.state, "unknown");
   assert.equal(evidence.ciQueue.ready, 0);
-  assert.equal(evidence.ciQueue.lastError, "Some queue PR heads or bases no longer match saved queue evidence.");
+  assert.equal(evidence.ciQueue.lastError, null);
+  assert.equal(evidence.ciQueue.state, "waiting");
+});
+
+test("all linked PRs are fetched so one explicit open candidate can be selected without a queue entry", async () => {
+  const row = item({ labels: ["chat-reviewed"] });
+  const fake = baseApi({
+    timeline: timelineFor(410, 411),
+    extra: { issue: row, pulls: {
+      410: { title: "Implement feature #42", body: "Fixes #42." },
+      411: { title: "Unrelated docs", body: "Update docs only." },
+    } },
+  });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+
+  assert.ok(fake.calls.includes(`repos/${REPO}/pulls/410`));
+  assert.ok(fake.calls.includes(`repos/${REPO}/pulls/411`));
+  assert.equal(evidence.issues[ISSUE].pr.number, 410);
+  assert.equal(evidence.issues[ISSUE].sources.pr.lastError, null);
+
+  const ambiguous = baseApi({
+    timeline: timelineFor(410, 411),
+    extra: { issue: row, pulls: {
+      410: { title: "Independent docs update", body: "No issue reference." },
+      411: { title: "Another independent docs update", body: "No issue reference." },
+    } },
+  });
+  const ambiguousEvidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: ambiguous.readApi, readGh: ambiguous.readGh,
+  });
+  assert.equal(ambiguousEvidence.issues[ISSUE].pr, undefined);
+  assert.ok(ambiguousEvidence.issues[ISSUE].sources.pr.lastError);
+  assert.equal(ambiguousEvidence.issues[ISSUE].ci.state, "unknown");
+  assert.equal(deriveWorkflow(row, ambiguousEvidence.issues[ISSUE], new Date(NOW)).actor, "Unknown");
+});
+
+test("missing or over-bound PR history blocks Ready launch while verified no-PR history stays fresh", async () => {
+  const row = item({ labels: ["chat-reviewed"] });
+  const failed = baseApi({ extra: { issue: row, failTimeline: 42 } });
+  const failedEvidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: failed.readApi, readGh: failed.readGh,
+  });
+  const failedRecord = failedEvidence.issues[ISSUE];
+  const failedDerived = deriveWorkflow(row, failedRecord, new Date(NOW));
+  assert.ok(failedRecord.sources.pr.lastError);
+  assert.equal(failedDerived.group, "stuck");
+  assert.equal(failedDerived.actor, "Unknown");
+
+  const bounded = baseApi({ timeline: timelineFor(...Array.from({ length: 100 }, (_, index) => 1000 + index)), extra: { issue: row } });
+  const boundedEvidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: bounded.readApi, readGh: bounded.readGh,
+  });
+  assert.ok(boundedEvidence.issues[ISSUE].sources.pr.lastError);
+  assert.equal(deriveWorkflow(row, boundedEvidence.issues[ISSUE], new Date(NOW)).actor, "Unknown");
+
+  const noPr = baseApi({ timeline: [], extra: { issue: row } });
+  const noPrEvidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: noPr.readApi, readGh: noPr.readGh,
+  });
+  assert.equal(noPrEvidence.issues[ISSUE].sources.pr.lastError, null);
+  assert.equal(deriveWorkflow(row, noPrEvidence.issues[ISSUE], new Date(NOW)).actor, "Codex");
+});
+
+test("latest verified delivery selects a fix-forward PR over an older delivered PR", async () => {
+  const row = item();
+  const oldTransaction = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const newTransaction = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+  const state = queueState({ completed: [completedDelivery(52, 78), completedDelivery(54, 79)] });
+  const fake = baseApi({
+    state,
+    timeline: timelineFor(52, 54),
+    extra: {
+      issue: row,
+      pulls: {
+        52: { title: "Initial issue #42 implementation", body: "Fixes #42.", state: "closed", merged: true, merge_commit_sha: MAIN },
+        54: { title: "Fix-forward issue #42 implementation", body: "Fixes #42 again.", state: "closed", merged: true, merge_commit_sha: MAIN },
+      },
+      runs: { 78: smokeRun(78, oldTransaction), 79: smokeRun(79, newTransaction) },
+      jobs: { 78: smokeJobs(78), 79: smokeJobs(79) },
+    },
+  });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+
+  assert.equal(evidence.issues[ISSUE].pr.number, 54);
+  assert.equal(evidence.issues[ISSUE].ci.state, "delivered");
+  assert.equal(evidence.issues[ISSUE].ci.url, `https://github.com/${REPO}/actions/runs/79`);
+});
+
+test("a mismatched paused entry stays visible without poisoning an independent verified delivery", async () => {
+  const currentIssue = item({ status: "In review" });
+  const deliveredIssue = item({
+    number: 43,
+    url: `https://github.com/${REPO}/issues/43`,
+    status: "In review",
+    acceptance: "Producer",
+  });
+  const transaction = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const state = queueState({
+    entries: [{ pr: 52, submitted: HEAD, head: HEAD, ready: true, owner: "mbelinkie" }],
+    active: {
+      id: transaction,
+      pr: 52,
+      phase: "validating",
+      base: MAIN,
+      candidate: HEAD,
+      expected: {
+        title: `vera-queue:${transaction}:pr:${HEAD}:${MAIN}`,
+        workflowId: 9,
+        workflowHead: MAIN,
+        startedAt: Date.parse(NOW) - 30_000,
+        timeoutMs: 6_000_000,
+      },
+    },
+    paused: { id: "paused-1", reason: "PR head changed." },
+    completed: [completedDelivery(53, 78)],
+  });
+  const fake = baseApi({
+    state,
+    extra: {
+      issues: { 42: currentIssue, 43: deliveredIssue },
+      timelines: { 42: timelineFor(52), 43: timelineFor(53) },
+      pulls: {
+        52: { head: { sha: WRONG, ref: "feature", repo: { full_name: REPO } } },
+        53: { state: "closed", merged: true, merge_commit_sha: MAIN },
+      },
+      runs: { 78: smokeRun(78, "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff") },
+      jobs: { 78: smokeJobs(78) },
+    },
+  });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [currentIssue, deliveredIssue], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+
+  assert.equal(evidence.ciQueue.state, "failed-paused");
+  assert.equal(evidence.ciQueue.lastError, null);
+  assert.equal(evidence.ciQueue.ready, 0);
+  assert.equal(evidence.ciQueue.active.verified, false);
+  assert.equal(evidence.ciQueue.active.ready, false);
+  assert.equal(evidence.ciQueue.delivered, 1);
+  assert.equal(evidence.issues[ISSUE].ci.state, "failed-paused");
+  assert.match(evidence.issues[ISSUE].ci.reason, /head is unverified/);
+  assert.equal(evidence.issues[ISSUE].ci.url, undefined);
+  assert.equal(evidence.issues[deliveredIssue.url].ci.state, "delivered");
+  assert.equal(evidence.issues[deliveredIssue.url].ci.url, `https://github.com/${REPO}/actions/runs/78`);
+  assert.equal(deriveWorkflow(currentIssue, evidence.issues[ISSUE], new Date(NOW)).action.includes("paused CI queue"), true);
+  assert.equal(deriveWorkflow(deliveredIssue, evidence.issues[deliveredIssue.url], new Date(NOW)).actor, "Producer");
+});
+
+test("an older manual Validate run appears in the global slot without passing an issue", async () => {
+  const manualRun = {
+    id: 88,
+    status: "in_progress",
+    event: "workflow_dispatch",
+    workflow_id: 9,
+    html_url: `https://github.com/${REPO}/actions/runs/88`,
+  };
+  const olderCompleted = Array.from({ length: 100 }, (_, index) => ({
+    id: 1000 + index,
+    status: "completed",
+    event: "workflow_dispatch",
+  }));
+  const fake = baseApi({ extra: { runLists: {
+    "per_page=100&page=1": runBatch(olderCompleted, 101),
+    "per_page=100&page=2": runBatch([manualRun], 101),
+    "per_page=100&page=3": runBatch([], 101),
+  } } });
+  const row = item({ labels: ["chat-reviewed"] });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+
+  assert.equal(evidence.ciQueue.state, "idle");
+  assert.equal(evidence.ciQueue.slotUnknown, false);
+  assert.deepEqual(evidence.ciQueue.slot, {
+    phase: "other-active", id: 88, status: "in_progress",
+    url: `https://github.com/${REPO}/actions/runs/88`,
+    runUrl: `https://github.com/${REPO}/actions/runs/88`,
+  });
+  assert.deepEqual(evidence.ciQueue.otherRuns, [{
+    id: 88, status: "in_progress", url: `https://github.com/${REPO}/actions/runs/88`,
+  }]);
+  assert.equal(evidence.issues[ISSUE].ci.state, "unknown");
+  assert.equal(evidence.ciQueue.ready, 0);
+  assert.equal(evidence.ciQueue.delivered, 0);
+  assert.ok(fake.calls.every((endpoint) => !/dispatches|statuses|\/merge/i.test(endpoint)));
+});
+
+test("a queued Validate run is reported as a waiting outside run, not an issue validation", async () => {
+  const queuedRun = {
+    id: 89,
+    status: "queued",
+    event: "workflow_dispatch",
+    workflow_id: 9,
+    html_url: `https://github.com/${REPO}/actions/runs/89`,
+  };
+  const fake = baseApi({ extra: { runLists: {
+    "per_page=100&status=queued": runBatch([queuedRun]),
+    "per_page=100&page=1": runBatch([queuedRun]),
+  } } });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi,
+  });
+
+  assert.equal(evidence.ciQueue.slotUnknown, false);
+  assert.equal(evidence.ciQueue.slot.phase, "other-active");
+  assert.equal(evidence.ciQueue.slot.status, "queued");
+  assert.deepEqual(evidence.ciQueue.otherRuns, [{
+    id: 89, status: "queued", url: `https://github.com/${REPO}/actions/runs/89`,
+  }]);
+  assert.equal(evidence.ciQueue.ready, 0);
+  assert.equal(evidence.ciQueue.delivered, 0);
+});
+
+test("an incomplete run inventory yields an unknown slot while retaining paused queue state", async () => {
+  const state = queueState({ paused: { id: "paused-2", reason: "Owner pause." } });
+  const fake = baseApi({ state, extra: {
+    runListErrors: ["per_page=100&status=pending"],
+  } });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi,
+  });
+
+  assert.equal(evidence.ciQueue.state, "failed-paused");
+  assert.equal(evidence.ciQueue.slotUnknown, true);
+  assert.equal(evidence.ciQueue.slot.phase, "unknown");
+  assert.equal(evidence.ciQueue.lastError, null);
+});
+
+test("missing or mismatched total_count cannot prove the global slot is idle", async () => {
+  const cases = [
+    { name: "missing status count", runLists: { "per_page=100&status=in_progress": { workflow_runs: [] } } },
+    { name: "mismatched page count", runLists: { "per_page=100&page=1": runBatch([], 1) } },
+  ];
+  for (const { name, runLists } of cases) {
+    const fake = baseApi({ extra: { runLists } });
+    const evidence = await loadWorkflowEvidence(process.cwd(), [], {
+      now: new Date(NOW), repository: REPO, readApi: fake.readApi,
+    });
+    assert.equal(evidence.ciQueue.slotUnknown, true, name);
+    assert.equal(evidence.ciQueue.slot.phase, "unknown", name);
+  }
 });
 
 test("stale, future, and invalid per-source timestamps never preserve Approved or a next action", () => {
@@ -313,6 +641,24 @@ test("incomplete PR history cannot turn an approved Ready issue into a Codex lau
   }), new Date(NOW));
   assert.equal(derived.group, "stuck");
   assert.equal(derived.actor, "Unknown");
+  assert.doesNotMatch(JSON.stringify(derived), /manual start route/);
+});
+
+test("failed claim history cannot make approved Ready work look unowned", () => {
+  const row = item();
+  const derived = deriveWorkflow(row, evidenceFor(row, {
+    chat: { state: "approved", url: `${ISSUE}#issuecomment-874`, reason: "Current." },
+    sources: {
+      project: { snapshotAt: NOW, lastError: null },
+      workflow: { snapshotAt: NOW, lastError: null },
+      codex: { snapshotAt: NOW, lastError: "Claim source failed." },
+      pr: { snapshotAt: NOW, lastError: null },
+      ci: { snapshotAt: NOW, lastError: null },
+    },
+  }), new Date(NOW));
+  assert.equal(derived.group, "stuck");
+  assert.equal(derived.actor, "Unknown");
+  assert.match(derived.action, /ownership evidence/);
   assert.doesNotMatch(JSON.stringify(derived), /manual start route/);
 });
 
@@ -472,6 +818,45 @@ test("CI control issue is not routed as ordinary claimable work", () => {
   assert.equal(derived.actor, "CI");
   assert.match(derived.action, /controls the CI queue/);
   assert.equal(derived.filter, "working");
+});
+
+test("#125 with closed prerequisites and a retained claim is grandfathered into continuation", () => {
+  const row = item({ number: 125, url: `https://github.com/${REPO}/issues/125`,
+    title: "Design consolidated S03 authoring: transitions, comments and reorganization",
+    status: "In progress", acceptance: "Producer", labels: ["type:implementation", "model:sol", "effort:high"],
+    dependencies: [337, 326, 325, 324, 119, 310, 307, 292, 145, 123, 140, 136, 340, 341, 342]
+      .map((number) => ({ url: `https://github.com/${REPO}/issues/${number}`, isOpen: false, invalid: false })),
+  });
+  const derived = deriveWorkflow(row, evidenceFor(row, {
+    chat: { state: "pending", reason: "No current Producer Chat approval." },
+    codex: { state: "claimed", reason: "Retained claim; agent activity unverified." },
+  }), new Date(NOW));
+  assert.equal(derived.group, "working");
+  assert.equal(derived.actor, "Codex");
+  assert.equal(derived.filter, "working");
+  assert.match(derived.action, /Continue the existing design work/);
+  assert.ok(!derived.links.some((link) => link.label === "Open Chat review prompt"));
+  assert.equal(derived.chips.find((chip) => chip.name === "Chat").label, "Grandfathered");
+  assert.equal(derived.chat.state, "pending");
+  assert.equal(derived.codex.state, "claimed");
+  assert.doesNotMatch(derived.action, /running|dependencies.*open/);
+});
+
+test("existing claimed or PR work does not return to Chat when marked Ready", () => {
+  const row = item();
+  for (const retained of [
+    { codex: { state: "claimed", reason: "Existing claim." } },
+    { pr: { url: PR_URL, number: 52, head: HEAD, base: MAIN } },
+  ]) {
+    const derived = deriveWorkflow(row, evidenceFor(row, {
+      chat: { state: "pending", reason: "No new Chat review." },
+      ci: { state: "unknown", reason: "Not queued." }, ...retained,
+    }), new Date(NOW));
+    assert.equal(derived.group, retained.pr ? "stuck" : "working");
+    assert.equal(derived.actor, retained.pr ? "Unknown" : "Codex");
+    assert.equal(derived.chips.find((chip) => chip.name === "Chat").label, "Grandfathered");
+    assert.ok(!derived.links.some((link) => link.label === "Open Chat review prompt"));
+  }
 });
 
 test("explicit DeepSeek candidates need a route decision before Codex while dispatch is off", () => {

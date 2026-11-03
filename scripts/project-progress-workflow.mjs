@@ -32,6 +32,9 @@ const MAX_LINKED_ISSUES = 100;
 const MAX_GH_OUTPUT = 4 * 1024 * 1024;
 const GH_TIMEOUT_MS = 15_000;
 const CHAT_REVIEW_TIMEOUT_MS = 60_000;
+const ACTIVE_RUN_STATUSES = Object.freeze(["queued", "in_progress", "waiting", "requested", "pending"]);
+const MAX_VALIDATE_RUN_PAGES = 100;
+const MAX_OTHER_RUNS = 100;
 const SHA = /^[0-9a-f]{40}$/i;
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const RUN_TITLE = /^vera-queue:([0-9a-f-]{36}):(pr|smoke):([0-9a-f]{40}):([0-9a-f]{40})$/;
@@ -122,7 +125,7 @@ function safeApiPath(value) {
   return typeof value === "string"
     && !value.startsWith("/")
     && !value.includes("..")
-    && /^repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(?:contents\/queue\.json\?ref=vera-ci-queue-state|issues\/[1-9][0-9]*(?:\/timeline\?per_page=100|\/comments\?per_page=100(?:&page=[1-9][0-9]*)?)?|pulls\/[1-9][0-9]*(?:\/reviews\?per_page=100)?|actions\/workflows\/validate\.yml(?:\/runs\?[^#]+)?|actions\/runs\/[1-9][0-9]*(?:\/attempts\/[1-9][0-9]*\/jobs\?per_page=100&page=1)?|git\/ref\/heads\/main)$/.test(value)
+    && /^repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(?:contents\/queue\.json\?ref=vera-ci-queue-state|issues\/[1-9][0-9]*(?:\/timeline\?per_page=100|\/comments\?per_page=100(?:&page=[1-9][0-9]*)?)?|pulls\/[1-9][0-9]*(?:\/reviews\?per_page=100)?|actions\/workflows\/validate\.yml(?:\/runs\?(?:event=workflow_dispatch&head_sha=[0-9a-f]{40}&per_page=100&page=1|per_page=100&status=(?:queued|in_progress|waiting|requested|pending)|per_page=100&page=[1-9][0-9]*))?|actions\/runs\/[1-9][0-9]*(?:\/attempts\/[1-9][0-9]*\/jobs\?per_page=100&page=1)?|git\/ref\/heads\/main)$/.test(value)
     || value === "rate_limit";
 }
 
@@ -461,12 +464,71 @@ function expectedForActive(active) {
   return { ...expected, title: expected.title, candidate: candidate.toLowerCase(), base: base.toLowerCase(), mode };
 }
 
+async function validateRunInventory(get, workflowId) {
+  const runs = new Map();
+  const addRuns = (batch, expectedStatus = null) => {
+    if (!Array.isArray(batch)) throw new Error("Invalid Validate run inventory");
+    for (const run of batch) {
+      if (!Number.isSafeInteger(run?.id) || run.id < 1) throw new Error("Invalid Validate run identity");
+      if (!expectedStatus && runs.has(run.id)) continue;
+      if (typeof run.status !== "string" || typeof run.event !== "string"
+          || (expectedStatus && run.status !== expectedStatus)) throw new Error("Invalid Validate run status");
+      if (run.status === "completed" || run.event === "pull_request") continue;
+      if (run.workflow_id !== workflowId) {
+        throw new Error("Unverified active Validate run");
+      }
+      const url = safeRunUrl(run.html_url, run.id, REPOSITORY);
+      if (!url) throw new Error("Invalid Validate run URL");
+      const previous = runs.get(run.id);
+      if (previous && previous.status !== run.status) throw new Error("Validate run changed during inventory");
+      if (!previous) runs.set(run.id, { id: run.id, status: run.status, url });
+    }
+  };
+
+  let complete = false;
+  try {
+    if (!Number.isSafeInteger(workflowId) || workflowId < 1) throw new Error("Validate workflow is unknown");
+    for (const status of ACTIVE_RUN_STATUSES) {
+      const response = await get(`repos/${REPOSITORY}/actions/workflows/validate.yml/runs?per_page=100&status=${status}`);
+      const batch = response?.workflow_runs;
+      if (!Number.isSafeInteger(response?.total_count) || response.total_count < 0
+          || !Array.isArray(batch) || batch.length !== response.total_count) {
+        throw new Error("Incomplete Validate status result");
+      }
+      addRuns(batch, status);
+      if (batch.length >= 100) throw new Error("Validate status result exceeded bound");
+    }
+    let historyCount = null;
+    for (let page = 1; page <= MAX_VALIDATE_RUN_PAGES; page += 1) {
+      const response = await get(`repos/${REPOSITORY}/actions/workflows/validate.yml/runs?per_page=100&page=${page}`);
+      const batch = response?.workflow_runs;
+      if (!Number.isSafeInteger(response?.total_count) || response.total_count < 0 || !Array.isArray(batch)) {
+        throw new Error("Incomplete Validate run page");
+      }
+      if (historyCount === null) historyCount = response.total_count;
+      if (response.total_count !== historyCount) throw new Error("Validate run count changed during inventory");
+      const expectedLength = Math.max(0, Math.min(100, historyCount - (page - 1) * 100));
+      if (batch.length !== expectedLength) throw new Error("Validate run page does not match total_count");
+      addRuns(batch);
+      if (batch.length < 100) {
+        complete = true;
+        break;
+      }
+    }
+  } catch { /* A partial inventory must never imply an idle slot. */ }
+  const observed = [...runs.values()];
+  return { complete, runs: observed.slice(0, MAX_OTHER_RUNS), truncated: observed.length > MAX_OTHER_RUNS };
+}
+
 function queueEnvelope(snapshotAt, lastError = null) {
   return {
     snapshotAt,
     lastError,
     state: "unknown",
-    slot: null,
+    slot: { phase: "unknown" },
+    slotUnknown: true,
+    otherRuns: [],
+    otherRunsTruncated: false,
     paused: false,
     active: null,
     waiting: [],
@@ -575,7 +637,8 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   const timelineTargets = identities.filter(({ item, identity }) => identity.repository === REPOSITORY
     && item.number !== QUEUE_CONTROL_ISSUE && item.status !== "Done"
     && item.state?.toLowerCase() !== "closed").slice(0, MAX_LINKED_ISSUES);
-  const plannedReads = 720 + 42 * Math.min(chatTargets.length, 100);
+  const plannedReads = 721 + ACTIVE_RUN_STATUSES.length + MAX_VALIDATE_RUN_PAGES
+    + 42 * Math.min(chatTargets.length, 100);
 
   try {
     const limit = await get("rate_limit");
@@ -644,7 +707,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     const { identity } = timelineTargets[index];
     const linked = timelineResults[index];
     linkedByIssue.set(identity.url, linked);
-    if (linked?.complete && linked.numbers.length === 1) prNumbers.add(linked.numbers[0]);
+    if (linked?.complete) for (const number of linked.numbers) prNumbers.add(number);
   }
   if (state) for (const entry of state.entries) prNumbers.add(entry.pr);
   const prList = [...prNumbers].filter((number) => Number.isSafeInteger(number) && number > 0).slice(0, 200);
@@ -657,27 +720,27 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   const workflowNeeded = Boolean(state?.active && ["validating", "merging", "smoke"].includes(state.active.phase))
     || Boolean(state?.completed?.length);
   let workflow = null;
+  let workflowId = null;
   let mainSha = null;
-  if (state) {
-    try {
-      const responses = await Promise.all([
-        get(`repos/${REPOSITORY}/git/ref/heads/main`),
-        workflowNeeded ? get(`repos/${REPOSITORY}/actions/workflows/validate.yml`) : Promise.resolve(null),
-      ]);
-      mainSha = validSha(responses[0]?.object?.sha) ? responses[0].object.sha.toLowerCase() : null;
-      workflow = responses[1];
-      if (!mainSha || (workflowNeeded && (!Number.isSafeInteger(workflow?.id)
-        || workflow.path !== ".github/workflows/validate.yml" || workflow.state !== "active"))) {
-        throw new Error("queue_identity");
-      }
-    } catch {
-      evidence.ciQueue.lastError ??= "Current main or the queue workflow identity could not be verified.";
-    }
+  const [mainResult, workflowResult] = await Promise.allSettled([
+    state ? get(`repos/${REPOSITORY}/git/ref/heads/main`) : Promise.resolve(null),
+    get(`repos/${REPOSITORY}/actions/workflows/validate.yml`),
+  ]);
+  if (state && mainResult.status === "fulfilled" && validSha(mainResult.value?.object?.sha)) {
+    mainSha = mainResult.value.object.sha.toLowerCase();
+  } else if (state && !state.paused) {
+    evidence.ciQueue.lastError ??= "Current main could not be verified.";
+  }
+  if (workflowResult.status === "fulfilled" && Number.isSafeInteger(workflowResult.value?.id)
+      && workflowResult.value.id > 0 && workflowResult.value.path === ".github/workflows/validate.yml") {
+    workflowId = workflowResult.value.id;
+    if (workflowResult.value.state === "active") workflow = workflowResult.value;
+  }
+  if (state && workflowNeeded && !workflow && !state.paused) {
+    evidence.ciQueue.lastError ??= "The queue workflow identity could not be verified.";
   }
 
   const queueRecords = [];
-  const verificationFailures = new Set();
-
   if (state) {
     for (const entry of state.entries) {
       const pull = pulls.get(entry.pr);
@@ -692,13 +755,12 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
         verified = Boolean(pull?.merged && pull.mergeSha === state.active.mergeSha?.toLowerCase()
           && mainSha === state.active.mergeSha?.toLowerCase());
       }
-      if (!verified) verificationFailures.add(entry.pr);
       queueRecords.push({
         pr: entry.pr,
         phase: isActive ? state.active.phase : "waiting",
         head: pull?.head ?? entry.head.toLowerCase(),
         base: pull?.base ?? (isActive ? state.active.base?.toLowerCase() ?? null : null),
-        ready: entry.ready,
+        ready: entry.ready && verified,
         verified,
         url: pull?.url ?? null,
         runUrl: null,
@@ -727,7 +789,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   }
 
   let verifiedActiveRun = null;
-  if (state?.active && ["validating", "merging", "smoke"].includes(state.active.phase)) {
+  if (!state?.paused && state?.active && ["validating", "merging", "smoke"].includes(state.active.phase)) {
     try { verifiedActiveRun = await activeRun(state.active); }
     catch { evidence.ciQueue.lastError ??= "The active queue run could not be verified."; }
   }
@@ -771,6 +833,40 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   });
 
   const verifiedDeliveries = [...deliveryChecks.values()].filter(Boolean);
+  const runInventory = await validateRunInventory(get, workflowId);
+  const verifiedActiveRunId = verifiedActiveRun?.valid && verifiedActiveRun.run.status !== "completed"
+    ? verifiedActiveRun.run.id : null;
+  const otherRuns = runInventory.runs.filter((run) => run.id !== verifiedActiveRunId);
+  const queueRunMissing = !state?.paused && ["validating", "smoke"].includes(state?.active?.phase)
+    && !verifiedActiveRun?.run && otherRuns.length === 0;
+  const slotUnknown = !runInventory.complete || runInventory.truncated || queueRunMissing;
+  const queueSlotRun = verifiedActiveRunId === null
+    ? null : runInventory.runs.find((run) => run.id === verifiedActiveRunId) ?? null;
+  const otherSlotRun = otherRuns.find((run) => run.status === "in_progress") ?? otherRuns[0] ?? null;
+  const queueSlotEntry = queueSlotRun && queueRecords.find((entry) => entry.pr === state?.active?.pr);
+  const slot = slotUnknown ? { phase: "unknown" }
+    : queueSlotRun ? {
+      phase: "queue-active",
+      url: queueSlotRun.url,
+      runUrl: queueSlotRun.url,
+      ...(queueSlotEntry?.verified ? {
+        pr: queueSlotEntry.pr,
+        head: queueSlotEntry.head,
+        base: queueSlotEntry.base,
+      } : {}),
+    }
+      : otherSlotRun ? {
+        phase: "other-active",
+        id: otherSlotRun.id,
+        status: otherSlotRun.status,
+        url: otherSlotRun.url,
+        runUrl: otherSlotRun.url,
+      }
+        : { phase: "idle" };
+  evidence.ciQueue.slot = slot;
+  evidence.ciQueue.slotUnknown = slotUnknown;
+  evidence.ciQueue.otherRuns = otherRuns;
+  evidence.ciQueue.otherRunsTruncated = runInventory.truncated;
   if (state) {
     const waiting = queueRecords.filter((entry) => state.active?.pr !== entry.pr);
     const active = queueRecords.find((entry) => state.active?.pr === entry.pr) ?? null;
@@ -779,11 +875,10 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       .find(Boolean) ?? null;
     evidence.ciQueue = {
       ...evidence.ciQueue,
-      state: evidence.ciQueue.lastError ? "unknown"
-        : state.paused ? "failed-paused"
+      state: state.paused ? "failed-paused"
+        : evidence.ciQueue.lastError ? "unknown"
           : active ? active.phase === "smoke" ? "smoke-running" : active.phase === "integrating" ? "waiting" : "validating"
             : waiting.length ? "waiting" : "idle",
-      slot: active ? { pr: active.pr, phase: active.phase, head: active.head, base: active.base, url: active.url, runUrl: verifiedActiveRun?.valid ? verifiedActiveRun.url : null } : null,
       paused: Boolean(state.paused),
       active: active ? { ...active, runUrl: verifiedActiveRun?.valid ? verifiedActiveRun.url : null } : null,
       waiting,
@@ -793,10 +888,6 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       snapshotAt,
       url: `https://github.com/${REPOSITORY}/issues/${QUEUE_CONTROL_ISSUE}`,
     };
-    if (!evidence.ciQueue.lastError && queueRecords.some((entry) => !entry.verified)) {
-      evidence.ciQueue.lastError = "Some queue PR heads or bases no longer match saved queue evidence.";
-      evidence.ciQueue.state = "unknown";
-    }
   }
 
   const sessionByIssue = new Map();
@@ -842,16 +933,25 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       });
       const open = candidates.filter((pull) => pull.state === "open" && !pull.draft);
       const allLinkedPullsVerified = candidates.length === linked.numbers.length;
-      const selected = queued.length === 1 ? queued[0]
-        : queued.length > 1 ? null
-          : !allLinkedPullsVerified ? null
-            : explicit.length === 1 ? explicit[0]
-            : explicit.length > 1 ? null
-              : open.length === 1 ? open[0]
-                : linked.numbers.length === 1 ? candidates[0] ?? null : null;
+      const explicitOpen = open.filter((pull) => explicit.some((candidate) => candidate.number === pull.number));
+      const latestVerifiedDelivery = [...(state?.completed ?? [])].reverse()
+        .find((delivery) => linked.numbers.includes(delivery.pr) && deliveryChecks.get(delivery.pr)) ?? null;
+      const latestDeliveredPull = latestVerifiedDelivery
+        ? candidates.find((pull) => pull.number === latestVerifiedDelivery.pr) ?? null : null;
+      const selected = !allLinkedPullsVerified ? null
+        : explicitOpen.length === 1 ? explicitOpen[0]
+          : explicitOpen.length > 1 ? null
+            : open.length === 1 ? open[0]
+              : open.length > 1 ? null
+                : latestDeliveredPull ?? (explicit.length === 1 ? explicit[0]
+                  : queued.length === 1 ? queued[0]
+                    : linked.numbers.length === 1 ? candidates[0] ?? null : null);
       if (!selected) {
-        record.review = { state: "unknown", reason: "More than one linked PR needs manual selection." };
-        record.ci = unknownCi("More than one linked PR needs manual selection.");
+        const reason = !allLinkedPullsVerified
+          ? "One or more linked PRs could not be verified completely."
+          : "More than one linked PR needs manual selection.";
+        record.review = { state: "unknown", reason };
+        record.ci = unknownCi(reason);
       } else {
         const number = selected.number;
         const pull = pulls.get(number);
@@ -869,14 +969,18 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
             record.ci = verified
               ? { state: "delivered", reason: "Queue delivery and exact post-merge smoke were verified.", url: verified.url }
               : unknownCi("The saved delivery does not match the current PR and verified smoke run.");
-          } else if (entry && queueRecord?.verified && state) {
+          } else if (entry && state) {
             if (state.paused) {
-              record.ci = { state: "failed-paused", reason: "The CI queue is paused; its entries are retained." };
+              record.ci = { state: "failed-paused", reason: queueRecord?.verified
+                ? "The CI queue is paused; its entries are retained."
+                : "The CI queue is paused; this entry remains visible, but its PR head is unverified." };
+            } else if (!queueRecord?.verified) {
+              record.ci = unknownCi("This queue entry does not match the current PR head or base.");
             } else if (state.active?.pr === number) {
-            const run = verifiedActiveRun;
-            if (state.active.phase === "integrating") {
-              record.ci = { state: "waiting", reason: "The queue is integrating this exact PR head with current main before validation." };
-            } else if (!run?.valid) {
+              const run = verifiedActiveRun;
+              if (state.active.phase === "integrating") {
+                record.ci = { state: "waiting", reason: "The queue is integrating this exact PR head with current main before validation." };
+              } else if (!run?.valid) {
                 record.ci = unknownCi("The active CI run did not match the exact queued PR, head, base, and workflow.");
               } else if (state.active.phase === "smoke") {
                 record.ci = { state: "smoke-running", reason: run.assessment.kind === "passed"
@@ -905,6 +1009,13 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
         ? "No verified local Codex thread is linked." : "Local session links are available only from the live dashboard.",
       hasBrowser: false,
     };
+    const prLastError = !linked
+      ? "Linked PR history could not be refreshed."
+      : !linked.complete
+        ? "Linked PR history is incomplete."
+        : linked.numbers.length > 0 && !record.pr
+          ? "Linked PR history could not be resolved to one verified PR."
+          : null;
     record.sources = {
       project: {
         snapshotAt: item.snapshotAt ?? options.projectSnapshotAt ?? snapshotAt,
@@ -914,7 +1025,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       chat: { snapshotAt, lastError: record.chat.state === "unknown" ? "Canonical Chat review could not be verified." : null },
       codex: { snapshotAt, lastError: record.codex.state === "unknown" && /could not be refreshed|history|marker/.test(record.codex.reason) ? "Issue claim evidence could not be verified." : null },
       review: { snapshotAt, lastError: null },
-      pr: { snapshotAt, lastError: linked?.complete === false ? "Linked PR history is incomplete." : null },
+      pr: { snapshotAt, lastError: prLastError },
       ci: { snapshotAt: evidence.ciQueue.snapshotAt, lastError: evidence.ciQueue.lastError },
       session: { snapshotAt, lastError: null },
     };
@@ -933,6 +1044,7 @@ function chip(name, state, reason, requiresFresh = true) {
     approved: ["Approved", "ok"],
     done: ["Done", "na"],
     pending: ["Pending", "wait"],
+    grandfathered: ["Grandfathered", "na"],
     claimed: ["Claimed", "active"],
     off: ["Off", "na"],
     excluded: ["Excluded", "na"],
@@ -1039,8 +1151,12 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
   if (ciFresh && ci.url && identity && safeRunUrl(ci.url, Number(ci.url.match(/\/actions\/runs\/(\d+)$/)?.[1]))) {
     links.push({ label: "CI run", url: ci.url });
   }
+  const existingWork = ["Ready", "In progress", "In review"].includes(item?.status)
+    && (codex.state === "claimed" || (prFresh && record?.pr && safePullUrl(record.pr.url, record.pr.number)));
   const chips = [
-    chip("Chat", chat.state, chat.reason),
+    existingWork && chat.state !== "approved"
+      ? chip("Chat", "grandfathered", "Work has already started; continuing it does not require a new Chat review.")
+      : chip("Chat", chat.state, chat.reason),
     chip("DeepSeek", deepseek.state, deepseek.reason),
     chip("Codex", codex.state, codex.reason),
     chip("Review", review.state, review.reason),
@@ -1105,7 +1221,7 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     filter = "blocked";
     disabled.push("The paused queue has not delivered this PR.");
   } else if (status === "Ready") {
-    if (chat.state === "pending") {
+    if (!existingWork && chat.state === "pending") {
       group = "you";
       const labels = issueLabelNames(item);
       const kind = labels.find((label) => label.startsWith("type:"))?.slice(5);
@@ -1117,12 +1233,18 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
       filter = chatWork ? "chat" : "approval";
       if (identity) links.push(chatPromptLink(identity.url));
       disabled.push("Codex and DeepSeek launches are not available from this dashboard.");
-    } else if (chat.state !== "approved") {
+    } else if (!existingWork && chat.state !== "approved") {
       group = "stuck";
       actor = "Unknown";
       action = "Verify the current Producer Chat review.";
       filter = "blocked";
       disabled.push("The current Chat review could not be verified.");
+    } else if (!codexFresh) {
+      group = "stuck";
+      actor = "Unknown";
+      action = "Refresh ownership evidence before choosing an implementation route.";
+      filter = "blocked";
+      disabled.push("The dashboard could not verify whether another executor owns this issue.");
     } else if (!prFresh || (record?.pr && !ciFresh)) {
       group = "stuck";
       actor = "Unknown";
@@ -1147,6 +1269,11 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
       action = "DeepSeek is a potential route; dispatch is off. Choose a separately authorized manual route.";
       filter = "deepseek";
       disabled.push("DeepSeek eligibility does not authorize a job or a Codex launch; dashboard execution is disabled.");
+    } else if (existingWork) {
+      group = "working";
+      actor = "Codex";
+      action = "Continue the existing work; agent activity is not verified.";
+      filter = "working";
     } else {
       group = "launch";
       actor = "Codex";
@@ -1173,8 +1300,12 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     }
   } else if (status === "In progress") {
     group = "working";
-    actor = codex.state === "claimed" ? "Codex" : "Unknown";
-    action = "The roadmap says work is in progress; agent activity is not verified.";
+    actor = existingWork ? "Codex" : "Unknown";
+    action = existingWork
+      ? /^design\b/i.test(item.title ?? "") || issueLabelNames(item).includes("type:design")
+        ? "Continue the existing design work; agent activity is not verified."
+        : "Continue the existing work; agent activity is not verified."
+      : "The roadmap says work is in progress; agent activity is not verified.";
     filter = "working";
     if (codex.state !== "claimed") disabled.push("No verified issue claim is available; this status does not prove an agent is running.");
   } else {

@@ -65,6 +65,7 @@
 .wf-ci-section > strong, .wf-ci-section summary { color:var(--wf-muted); font-size:.69rem; font-weight:650; cursor:pointer; }
 .wf-ci-list { display:flex; flex-wrap:wrap; gap:2px 12px; margin:1px 0 0; padding-left:16px; color:var(--wf-faint); }
 .wf-ci-list li { min-width:0; }
+.wf-ci-list a { color:var(--wf-blue); }
 .wf-ci-sha { margin-top:1px; font-size:.62rem; }
 .wf-ci-sha summary { color:var(--wf-faint); cursor:pointer; }
 .wf-ci-sha code { display:block; overflow-wrap:anywhere; color:var(--wf-muted); font-size:.6rem; }

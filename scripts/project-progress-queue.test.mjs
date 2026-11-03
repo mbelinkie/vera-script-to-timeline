@@ -23,7 +23,9 @@ const fullBase = "fedcba9876543210fedcba9876543210fedcba98";
 function ciQueue(overrides = {}) {
   return {
     state: "Validating",
-    slot: { pr: 9, phase: "validating", head: fullHead, base: fullBase },
+    slot: { phase: "queue-active", pr: 9, head: fullHead, base: fullBase },
+    slotUnknown: false,
+    otherRuns: [],
     active: { pr: 9, phase: "validating", head: fullHead, base: fullBase, ready: true, verified: true },
     waiting: [11, 12, 13, 14].map((pr) => ({ pr, phase: "Waiting", head: fullHead, base: fullBase })),
     ready: 2,
@@ -155,13 +157,47 @@ test("renders five visible status chips, accessible expanders, and preserved iss
 test("keeps CI source errors visible and does not show an optimistic queue status", () => {
   const html = fixture();
   assert.match(html, /Workflow refresh &lt;failed&gt;/);
-  assert.match(html, /Controller &lt;timeout&gt;/);
+  assert.match(html, /CI source could not be verified\./);
+  assert.doesNotMatch(html, /Controller &lt;timeout&gt;/);
   assert.match(html, /Controller snapshot:/);
   assert.match(html, /class="wf-ci-state"[^>]*>Unknown<\/span>/);
   assert.match(html, /Queue state is unknown; only the last known controller snapshot is shown\./);
   assert.doesNotMatch(html, /PR #9 · validating|Ready to send: 2|Verified deliveries: 1|PR #8 · run #123/);
   assert.match(html, /Queue control issue #361/);
   assert.match(html, /data-group-count/);
+});
+
+test("reports slot idleness only from verified inventory and shows manual Validate runs", () => {
+  const emptyQueue = {
+    state: "idle", slotUnknown: false, slot: { phase: "idle" }, otherRuns: [],
+    active: null, waiting: [], ready: 0, delivered: 0, lastDelivered: null,
+  };
+  const idle = renderCi(ciQueue(emptyQueue));
+  assert.match(idle, /class="wf-ci-state"[^>]*>Idle<\/span>/);
+  assert.match(idle, /data-workflow-status="ciQueue\.slot"[^>]*>Slot idle<\/span>/);
+
+  const unknown = renderCi(ciQueue({ ...emptyQueue, slot: null, slotUnknown: true }));
+  assert.match(unknown, /class="wf-ci-state"[^>]*>Unknown<\/span>/);
+  assert.match(unknown, /Slot unknown/);
+  assert.match(unknown, /Validate run inventory unknown\./);
+  assert.doesNotMatch(unknown, /Slot idle|Idle — no active validation/);
+
+  const url = "https://github.com/mbelinkie/vera-script-to-timeline/actions/runs/922";
+  const manual = renderCi(ciQueue({
+    ...emptyQueue,
+    slot: { phase: "other-active", url },
+    otherRuns: [{ id: 922, status: "in_progress", url }],
+  }));
+  assert.match(manual, /class="wf-ci-state"[^>]*>Other run active<\/span>/);
+  assert.match(manual, /<summary><span data-workflow-status="ciQueue\.otherRuns"[^>]*>Other Validate runs \(1\)<\/span><\/summary>/);
+  assert.match(manual, /Run #922 · in_progress/);
+  assert.match(manual, /href="https:\/\/github\.com\/mbelinkie\/vera-script-to-timeline\/actions\/runs\/922"[^>]*data-requires-fresh="true" data-workflow-expires-at=/);
+  assert.doesNotMatch(manual, /Ready to submit|passed|success/i);
+
+  const paused = renderCi(ciQueue({ ...emptyQueue, state: "failed-paused", paused: true, slot: { phase: "unknown" }, slotUnknown: true, lastError: "private runtime failure" }));
+  assert.match(paused, /class="wf-ci-state"[^>]*>Paused<\/span>/);
+  assert.match(paused, /Queue paused by controller\./);
+  assert.doesNotMatch(paused, /private runtime failure/);
 });
 
 test("keeps the current CI queue compact, with full SHAs inside collapsed evidence", () => {
