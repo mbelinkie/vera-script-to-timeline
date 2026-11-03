@@ -35,6 +35,8 @@ const CHAT_REVIEW_TIMEOUT_MS = 60_000;
 const ACTIVE_RUN_STATUSES = Object.freeze(["queued", "in_progress", "waiting", "requested", "pending"]);
 const MAX_VALIDATE_RUN_PAGES = 100;
 const MAX_OTHER_RUNS = 100;
+// Producer grandfathered work already started before the Nov 3 restart.
+const CONTINUATION_CUTOFF = Date.parse("2026-11-03T07:30:00Z");
 const SHA = /^[0-9a-f]{40}$/i;
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const RUN_TITLE = /^vera-queue:([0-9a-f-]{36}):(pr|smoke):([0-9a-f]{40}):([0-9a-f]{40})$/;
@@ -212,6 +214,8 @@ function decodePull(pull, number, repository = REPOSITORY) {
     number,
     title: pull.title,
     body: typeof pull.body === "string" ? pull.body : "",
+    createdAt: pull.created_at,
+    headRef: pull.head.ref,
     head: pull.head.sha.toLowerCase(),
     base: pull.base.sha.toLowerCase(),
     baseRef: pull.base.ref,
@@ -296,7 +300,8 @@ async function claimForIssue(item, issue, get) {
   if (claim?.state === "active" && typeof claim.model === "string" && typeof claim.effort === "string"
       && typeof claim.task === "string" && typeof claim.branch === "string"
       && typeof claim.startedAt === "string" && Number.isFinite(Date.parse(claim.startedAt))) {
-    return { state: "claimed", reason: "A current roadmap claim exists; this does not verify that an agent is running." };
+    return { state: "claimed", startedAt: claim.startedAt,
+      reason: "A current roadmap claim exists; this does not verify that an agent is running." };
   }
   if (page > 1 && !trustedComments.some((comment) => /<!--\s*vera-claim\s+\{/.test(comment.body))) {
     return { state: "unknown", reason: "The latest comment page has no claim marker; older claim history is not inferred." };
@@ -637,15 +642,16 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   const timelineTargets = identities.filter(({ item, identity }) => identity.repository === REPOSITORY
     && item.number !== QUEUE_CONTROL_ISSUE && item.status !== "Done"
     && item.state?.toLowerCase() !== "closed").slice(0, MAX_LINKED_ISSUES);
-  const plannedReads = 721 + ACTIVE_RUN_STATUSES.length + MAX_VALIDATE_RUN_PAGES
-    + 42 * Math.min(chatTargets.length, 100);
+  const baseReads = 721 + ACTIVE_RUN_STATUSES.length + MAX_VALIDATE_RUN_PAGES;
+  let chatLimit;
 
   try {
     const limit = await get("rate_limit");
     const remaining = limit?.resources?.core?.remaining;
-    if (!Number.isSafeInteger(remaining) || remaining < plannedReads) {
+    if (!Number.isSafeInteger(remaining) || remaining < baseReads) {
       throw new Error("rate_budget");
     }
+    chatLimit = Math.min(100, Math.floor((remaining - baseReads) / 42));
   } catch {
     evidence.lastError = "GitHub read budget could not be verified; workflow sources remain unknown.";
     evidence.ciQueue.lastError = evidence.lastError;
@@ -653,7 +659,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     return evidence;
   }
 
-  const chatResults = await mapLimit(chatTargets.slice(0, 100), 2, async ({ item, identity }) => {
+  const chatResults = await mapLimit(chatTargets.slice(0, chatLimit), 2, async ({ item, identity }) => {
     const record = evidence.issues[identity.url];
     record.chat = readGh
       ? chatForIssue(item, readGh)
@@ -661,7 +667,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     return record.chat;
   });
   for (let index = 0; index < chatTargets.length; index += 1) {
-    if (index >= 100) {
+    if (index >= chatLimit) {
       const { identity } = chatTargets[index];
       evidence.issues[identity.url].chat = { state: "unknown", reason: "Current Chat review verification exceeded the refresh bound." };
     } else if (!chatResults[index]) {
@@ -778,7 +784,12 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     if (matches.length !== 1) return null;
     const run = matches[0];
     const assessment = assessRun(expected, matches, now.getTime());
-    if (assessment.kind === "pause") return { run, expected, assessment, valid: false };
+    if (assessment.kind === "pause") {
+      const identityVerified = Boolean(state?.paused
+        && assessRun(expected, matches, expected.startedAt).kind === "wait"
+        && safeRunUrl(run.html_url, run.id, REPOSITORY));
+      return { run, expected, assessment, valid: false, identityVerified };
+    }
     const url = safeRunUrl(assessment.url, assessment.runId, REPOSITORY);
     if (!url) return null;
     if (assessment.kind === "passed") {
@@ -789,9 +800,9 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   }
 
   let verifiedActiveRun = null;
-  if (!state?.paused && state?.active && ["validating", "merging", "smoke"].includes(state.active.phase)) {
+  if (state?.active && ["validating", "merging", "smoke"].includes(state.active.phase)) {
     try { verifiedActiveRun = await activeRun(state.active); }
-    catch { evidence.ciQueue.lastError ??= "The active queue run could not be verified."; }
+    catch { if (!state.paused) evidence.ciQueue.lastError ??= "The active queue run could not be verified."; }
   }
 
   const deliveryChecks = new Map();
@@ -834,7 +845,8 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
 
   const verifiedDeliveries = [...deliveryChecks.values()].filter(Boolean);
   const runInventory = await validateRunInventory(get, workflowId);
-  const verifiedActiveRunId = verifiedActiveRun?.valid && verifiedActiveRun.run.status !== "completed"
+  const verifiedActiveRunId = (verifiedActiveRun?.valid || verifiedActiveRun?.identityVerified)
+    && verifiedActiveRun.run.status !== "completed"
     ? verifiedActiveRun.run.id : null;
   const otherRuns = runInventory.runs.filter((run) => run.id !== verifiedActiveRunId);
   const queueRunMissing = !state?.paused && ["validating", "smoke"].includes(state?.active?.phase)
@@ -960,6 +972,9 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
           record.ci = unknownCi("The linked PR could not be verified.");
         } else {
           record.pr = { url: pull.url, number, head: pull.head, base: pull.base };
+          record.continuation = (pull.state === "open" || pull.merged)
+            && Number.isFinite(Date.parse(pull.createdAt)) && Date.parse(pull.createdAt) <= CONTINUATION_CUTOFF
+            && new RegExp(`^(?:codex|claude)/${identity.number}-`, "i").test(pull.headRef ?? "");
           record.review = { state: "unknown", reason: "Independent Claude CLI review evidence is not connected to a verifiable exact-head source.", url: pull.url };
           const entry = state && queueEntryByPr(state, number);
           const delivered = state && matchingCompleted(state, number);
@@ -1152,7 +1167,9 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     links.push({ label: "CI run", url: ci.url });
   }
   const existingWork = ["Ready", "In progress", "In review"].includes(item?.status)
-    && (codex.state === "claimed" || (prFresh && record?.pr && safePullUrl(record.pr.url, record.pr.number)));
+    && ((codex.state === "claimed" && Number.isFinite(Date.parse(codex.startedAt))
+      && Date.parse(codex.startedAt) <= CONTINUATION_CUTOFF)
+      || (prFresh && record?.continuation === true && record?.pr && safePullUrl(record.pr.url, record.pr.number)));
   const chips = [
     existingWork && chat.state !== "approved"
       ? chip("Chat", "grandfathered", "Work has already started; continuing it does not require a new Chat review.")
@@ -1220,6 +1237,12 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     action = "Resolve the paused CI queue on its control issue before acceptance.";
     filter = "blocked";
     disabled.push("The paused queue has not delivered this PR.");
+  } else if (status === "In progress" && !existingWork && codex.state === "claimed" && chat.state !== "approved") {
+    group = chat.state === "pending" ? "you" : "stuck";
+    actor = chat.state === "pending" ? "Producer" : "Unknown";
+    action = "Verify current Chat approval for work started after the grandfathering cutoff.";
+    filter = chat.state === "pending" ? "approval" : "blocked";
+    if (chat.state === "pending") links.push(chatPromptLink(identity.url));
   } else if (status === "Ready") {
     if (!existingWork && chat.state === "pending") {
       group = "you";

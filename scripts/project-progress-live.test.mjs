@@ -215,6 +215,27 @@ test("server serves a stale saved snapshot while the first background refresh is
   assert.match(await readFile(outputPath, "utf8"), /Implementation ready/);
 });
 
+test("manual refresh is available immediately after an initial non-rate-limit failure", async (t) => {
+  let calls = 0;
+  const { server } = await createServer(t, {
+    initialRefresh: true,
+    generate: async (destination) => {
+      calls += 1;
+      if (calls === 1) throw new Error("Temporary network failure");
+      await writeFile(destination, PAGE, "utf8");
+    },
+  });
+  await waitFor(() => {
+    const state = server.snapshot();
+    return calls === 1 && state.error !== null && !state.refreshing;
+  }, "The initial generation did not fail");
+
+  const refreshed = await server.refresh({ manual: true });
+  assert.equal(calls, 2);
+  assert.equal(refreshed.stale, false);
+  assert.equal(refreshed.error, null);
+});
+
 test("CLI serves and prints its URL before the first GitHub generation completes", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "vera-progress-cli-"));
   const binDirectory = path.join(directory, "bin");

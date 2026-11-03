@@ -616,7 +616,7 @@ function ciStrip(workflow, now) {
   const slotIdle = slotVerified && slot.phase === "idle";
   const rawState = typeof queue?.state === "string" ? queue.state : "Unknown";
   const paused = queue?.paused === true || rawState === "failed-paused";
-  const state = paused ? "Paused" : current && slotIdle ? "Idle"
+  const state = paused ? "Paused" : current && slotIdle && rawState === "idle" ? "Idle"
     : current && slotVerified && slot.phase === "other-active" ? "Other run active"
       : current && slotVerified && slot.phase === "queue-active" ? rawState === "idle" ? "Queue active" : rawState
         : current && rawState.toLowerCase() !== "idle" ? rawState : "Unknown";

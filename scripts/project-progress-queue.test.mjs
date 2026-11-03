@@ -200,6 +200,25 @@ test("reports slot idleness only from verified inventory and shows manual Valida
   assert.doesNotMatch(paused, /private runtime failure/);
 });
 
+test("retains the controller state when the verified slot is idle", () => {
+  for (const state of ["waiting", "validating"]) {
+    const html = renderCi(ciQueue({
+      state,
+      slotUnknown: false,
+      slot: { phase: "idle" },
+      otherRuns: [],
+      active: null,
+      waiting: [],
+      ready: 0,
+      delivered: 0,
+      lastDelivered: null,
+    }));
+    assert.match(html, new RegExp(`class="wf-ci-state"[^>]*>${state}<\\/span>`));
+    assert.match(html, /data-workflow-status="ciQueue\.slot"[^>]*>Slot idle<\/span>/);
+    assert.doesNotMatch(html, /class="wf-ci-state"[^>]*>Idle<\/span>/);
+  }
+});
+
 test("keeps the current CI queue compact, with full SHAs inside collapsed evidence", () => {
   const html = renderCi(ciQueue({ snapshotAt: "2026-11-03T16:45:00.000Z" }));
   assert.match(html, /data-workflow-status="Validating"[^>]*>Validating<\/span>/);

@@ -95,7 +95,7 @@ function reviewComment(row, revision = issueRevision(row.title, row.body)) {
     created_at: NOW,
     updated_at: NOW,
     performed_via_github_app: null,
-    html_url: `${ISSUE}#issuecomment-${id}`,
+    html_url: `${row.url}#issuecomment-${id}`,
   };
 }
 
@@ -339,6 +339,29 @@ test("a current CI run with the wrong workflow head remains unknown", async () =
   assert.equal(derived.group, "stuck");
   assert.equal(derived.actor, "Unknown");
   assert.notEqual(derived.actor, "CI");
+});
+
+test("a paused timed-out queue run keeps its identity without becoming passing evidence", async () => {
+  const transaction = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const title = `vera-queue:${transaction}:pr:${HEAD}:${MAIN}`;
+  const run = { id: 77, display_title: title, workflow_id: 9, head_sha: MAIN, event: "workflow_dispatch",
+    path: ".github/workflows/validate.yml", run_attempt: 1, status: "in_progress", conclusion: null,
+    html_url: `https://github.com/${REPO}/actions/runs/77`, actor: { login: "github-actions[bot]" } };
+  const state = queueState({ paused: { id: "paused-timeout", reason: "timeout" },
+    entries: [{ pr: 52, submitted: HEAD, head: HEAD, ready: true, owner: "mbelinkie" }],
+    active: { id: transaction, pr: 52, phase: "validating", base: MAIN, candidate: HEAD,
+      expected: { title, workflowId: 9, workflowHead: MAIN, startedAt: Date.parse(NOW) - 120_000, timeoutMs: 60_000 } },
+  });
+  const fake = baseApi({ state, extra: { workflowRuns: [run], runLists: {
+    "per_page=100&status=in_progress": runBatch([run]), "per_page=100&page=1": runBatch([run]),
+  } } });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [item()], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+  assert.equal(evidence.ciQueue.state, "failed-paused");
+  assert.equal(evidence.ciQueue.slot.phase, "queue-active");
+  assert.equal(evidence.ciQueue.otherRuns.length, 0);
+  assert.equal(evidence.issues[ISSUE].ci.state, "failed-paused");
 });
 
 test("a mismatched queue entry is unverified without erasing queue-level state", async () => {
@@ -829,7 +852,7 @@ test("#125 with closed prerequisites and a retained claim is grandfathered into 
   });
   const derived = deriveWorkflow(row, evidenceFor(row, {
     chat: { state: "pending", reason: "No current Producer Chat approval." },
-    codex: { state: "claimed", reason: "Retained claim; agent activity unverified." },
+    codex: { state: "claimed", startedAt: "2026-10-25T00:00:00Z", reason: "Retained claim; agent activity unverified." },
   }), new Date(NOW));
   assert.equal(derived.group, "working");
   assert.equal(derived.actor, "Codex");
@@ -845,8 +868,8 @@ test("#125 with closed prerequisites and a retained claim is grandfathered into 
 test("existing claimed or PR work does not return to Chat when marked Ready", () => {
   const row = item();
   for (const retained of [
-    { codex: { state: "claimed", reason: "Existing claim." } },
-    { pr: { url: PR_URL, number: 52, head: HEAD, base: MAIN } },
+    { codex: { state: "claimed", startedAt: NOW, reason: "Existing claim." } },
+    { pr: { url: PR_URL, number: 52, head: HEAD, base: MAIN }, continuation: true },
   ]) {
     const derived = deriveWorkflow(row, evidenceFor(row, {
       chat: { state: "pending", reason: "No new Chat review." },
@@ -857,6 +880,53 @@ test("existing claimed or PR work does not return to Chat when marked Ready", ()
     assert.equal(derived.chips.find((chip) => chip.name === "Chat").label, "Grandfathered");
     assert.ok(!derived.links.some((link) => link.label === "Open Chat review prompt"));
   }
+});
+
+test("post-cutoff claims and incidental PR references cannot grandfather new work", async () => {
+  for (const status of ["Ready", "In progress"]) {
+    const row = item({ status });
+    const derived = deriveWorkflow(row, evidenceFor(row, {
+      chat: { state: "pending", reason: "Not approved." },
+      codex: { state: "claimed", startedAt: "2026-11-03T07:31:00Z" },
+    }), new Date(NOW));
+    assert.equal(derived.group, "you");
+    assert.equal(derived.filter, "approval");
+    assert.equal(derived.chips.find((chip) => chip.name === "Chat").label, "Pending");
+  }
+  const row = item();
+  for (const overrides of [
+    { created_at: NOW, body: "follow-up: #42", head: { sha: HEAD, ref: "codex/401-dashboard", repo: { full_name: REPO } } },
+    { created_at: "2026-11-03T07:31:00Z", head: { sha: HEAD, ref: "codex/42-new", repo: { full_name: REPO } } },
+    { created_at: NOW, state: "closed", merged: false, head: { sha: HEAD, ref: "codex/42-abandoned", repo: { full_name: REPO } } },
+  ]) {
+    const fake = baseApi({ pullOverrides: overrides });
+    const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
+      now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+    });
+    assert.equal(evidence.issues[ISSUE].continuation, false);
+    assert.equal(deriveWorkflow(row, evidence, new Date(NOW)).filter, "approval");
+  }
+  const fake = baseApi({ pullOverrides: {
+    created_at: NOW, head: { sha: HEAD, ref: "codex/42-existing", repo: { full_name: REPO } },
+  } });
+  const evidence = await loadWorkflowEvidence(process.cwd(), [row], {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+  assert.equal(evidence.issues[ISSUE].continuation, true);
+});
+
+test("Chat verification scales down to the available rate budget without losing all workflow evidence", async () => {
+  const rows = Array.from({ length: 100 }, (_, index) => item({
+    number: index + 500, url: `https://github.com/${REPO}/issues/${index + 500}`, labels: ["chat-reviewed"],
+  }));
+  const fake = baseApi({ extra: { issues: Object.fromEntries(rows.map((row) => [row.number, row])) } });
+  const evidence = await loadWorkflowEvidence(process.cwd(), rows, {
+    now: new Date(NOW), repository: REPO, readApi: fake.readApi, readGh: fake.readGh,
+  });
+  assert.equal(evidence.lastError, null);
+  assert.equal(evidence.ciQueue.slot.phase, "idle");
+  assert.equal(Object.values(evidence.issues).filter((record) => record.chat.state === "approved").length, 99);
+  assert.match(evidence.issues[rows[99].url].chat.reason, /refresh bound/);
 });
 
 test("explicit DeepSeek candidates need a route decision before Codex while dispatch is off", () => {

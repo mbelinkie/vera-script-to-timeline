@@ -48,7 +48,7 @@ function nextAllowedRetry(error, currentTime) {
   if (Number.isSafeInteger(seconds) && seconds > 0) {
     return Math.min(currentTime + seconds * 1000, 8_640_000_000_000_000);
   }
-  return currentTime + RETRY_INTERVAL_MS;
+  return /graphql budget|rate_limited|rate limit/i.test(text) ? currentTime + RETRY_INTERVAL_MS : currentTime;
 }
 
 function publicRefreshError(message) {
@@ -270,7 +270,7 @@ export async function startProgressServer(options) {
 
   // Single-flight: concurrent tabs and clicks share one refresh. Writing to a
   // temporary path prevents partially written HTML from reaching any browser.
-  function refresh({ manual = false } = {}) {
+  function refresh({ manual = false, initial = false } = {}) {
     if (pending) {
       const current = pending;
       return current.then(() => snapshot());
@@ -278,8 +278,8 @@ export async function startProgressServer(options) {
     const time = now();
     if (time < retryNotBefore) return Promise.resolve(snapshot());
     if (manual) {
-      if (time - lastManual < MANUAL_COOLDOWN_MS) return Promise.resolve(snapshot());
-      lastManual = time;
+      if (!initial && time - lastManual < MANUAL_COOLDOWN_MS) return Promise.resolve(snapshot());
+      if (!initial) lastManual = time;
     } else if (time < nextRefreshAt) {
       return Promise.resolve(snapshot());
     }
@@ -428,7 +428,7 @@ export async function startProgressServer(options) {
     server.close();
     throw cause;
   }
-  if (initialRefresh) void refresh({ manual: true });
+  if (initialRefresh) void refresh({ manual: true, initial: true });
   const address = server.address();
   return {
     url: `http://${host}:${address.port}/`,
