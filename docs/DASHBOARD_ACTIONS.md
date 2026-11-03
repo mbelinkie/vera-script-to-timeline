@@ -44,6 +44,12 @@ In the recorded proof, accessibility trust was true and one harmless prompt was 
 
 Because the `q` URL puts the prompt in Chrome browser history, use only the public-safe canonical templates there; never put private content in them. No browser-debugging flags, private session-database access, paid API/provider call, or permission bypass was used.
 
+### Building and permissions
+
+On the Mac, run `node scripts/build-dashboard-helper.mjs build`. The builder uses Apple's installed Swift compiler and code-signing tool to create `VERA Dashboard Helper.app` in the user's private VERA application-support folder. It compiles and signs a temporary bundle before replacing the previous VERA helper; it refuses unrelated bundle identifiers and unsafe output directories. It does not start a service or change the installed dashboard.
+
+The helper has three commands: `status` reads Accessibility trust without prompting, `request-access` asks macOS to display its permission flow, and `submit <prompt-file> <request-nonce>` performs the bounded Chrome operation. A permission prompt cannot grant itself access; the person must approve it in System Settings. The proof machine already reported trust, so no permission change was needed. The dashboard will still need to handle missing or revoked permission honestly.
+
 ## Remaining transport limit
 
 The current spawned MCP and CUA MCP paths did not provide a supported submission route outside an active host turn, and direct CUA control of the host app was denied. Those paths were not bypassed. Chrome's Codex UI is available in Work in Remote, but no connected computer is available there. The owner has asked the Producer to connect the existing Mac through Settings → Connections → Control this Mac to test that supported Chrome route; that connection and permission have not been confirmed.
