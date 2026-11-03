@@ -7,7 +7,7 @@ import { URL } from "node:url";
 import { clearTimeout, setTimeout as setTimer } from "node:timers";
 
 import { verifyReviewFromGh } from "./chat-review-github.mjs";
-import { REPOS } from "./chat-review-current.mjs";
+import { issueRevision, REPOS } from "./chat-review-current.mjs";
 import {
   canonicalIssueKey,
   linksForIssue,
@@ -18,6 +18,9 @@ import {
   readLocalInstallationId,
 } from "./codex-session-register-lib.mjs";
 import { validateState } from "./ci-queue.mjs";
+import { derivePrimaryAction } from "./project-progress-actions.mjs";
+import { deepseekRouteForIssue, loadDeepSeekDashboardEvidence } from "./project-progress-deepseek.mjs";
+import { localOrigins, matchOrigin, readProducerChecklist } from "./project-progress-transport.mjs";
 import { assessRun } from "./ci-queue-policy.ts";
 import { latestClaim } from "./roadmap.mjs";
 
@@ -35,6 +38,7 @@ const CHAT_REVIEW_TIMEOUT_MS = 60_000;
 const ACTIVE_RUN_STATUSES = Object.freeze(["queued", "in_progress", "waiting", "requested", "pending"]);
 const MAX_VALIDATE_RUN_PAGES = 100;
 const MAX_OTHER_RUNS = 100;
+const MAX_EVENT_COMMENT_LOOKUPS = (MAX_QUEUE_ENTRIES + 1) * 2;
 // Producer grandfathered work already started before the Nov 3 restart.
 const CONTINUATION_CUTOFF = Date.parse("2026-11-03T07:30:00Z");
 const SHA = /^[0-9a-f]{40}$/i;
@@ -154,17 +158,12 @@ function safeRunUrl(value, runId, repository = REPOSITORY) {
   return value === expected ? expected : null;
 }
 
-function chatPromptLink(issueUrl) {
-  const prompt = `Review the exact current issue and the sources it links to. Check whether the scope, evidence, dependencies, and acceptance criteria are clear. Report useful findings, then wait for the Producer's decision. Do not record or imply Producer approval, and do not change external state. Issue: ${issueUrl}`;
-  return { label: "Open Chat review prompt", url: "https://chatgpt.com/", prompt };
-}
-
 function blankIssueRecord(snapshotAt, lastError = null) {
   return {
     snapshotAt,
     lastError,
     chat: { state: "unknown", reason: "Current Chat review evidence is unavailable." },
-    codex: { state: "unknown", reason: "No independently verified issue claim is connected." },
+    codex: { state: "unknown", reason: "No independently verified issue claim is connected.", ownerBound: false },
     deepseek: { state: "off", reason: "DeepSeek execution is not connected or authorized." },
     review: { state: "unknown", reason: "Independent Claude review evidence is not connected to a verifiable PR head." },
     ci: { state: "unknown", reason: "CI queue evidence is unavailable for this issue." },
@@ -244,21 +243,6 @@ function labelsForStatus(labels) {
   return new Set(labels);
 }
 
-function deepseekForIssue(item) {
-  const labels = labelsForStatus(issueLabelNames(item));
-  const excluded = ["deepseek-excluded", "owner:codex", "owner:claude", "type:security",
-    "type:design", "type:ux", "type:research", "type:product", "execution:codex", "execution:design", "execution:human"];
-  const types = [...labels].filter((label) => label.startsWith("type:"));
-  if (excluded.some((label) => labels.has(label))
-    || (types.length > 0 && (types.length !== 1 || !["type:implementation", "type:bug"].includes(types[0])))) {
-    return { state: "excluded", reason: "Issue routing excludes this work from DeepSeek." };
-  }
-  if (labels.has("deepseek-eligible") || labels.has("deepseek-ready") || labels.has("deepseek-dispatch")) {
-    return { state: "potential", reason: "This issue is marked as a DeepSeek candidate, but the global route is off and no job is authorized." };
-  }
-  return { state: "off", reason: "DeepSeek execution is not connected or authorized." };
-}
-
 async function claimForIssue(item, issue, get) {
   const current = await get(`repos/${issue.repository}/issues/${issue.number}`);
   if (current?.number !== issue.number || current.html_url !== issue.url
@@ -267,7 +251,7 @@ async function claimForIssue(item, issue, get) {
       || !Number.isSafeInteger(current.comments) || current.comments < 0 || current.comments > 10_000) {
     return { state: "unknown", reason: "Current issue claim history could not be matched to the Project snapshot." };
   }
-  if (current.comments === 0) return { state: "unknown", reason: "No active issue claim was found." };
+  if (current.comments === 0) return { state: "unclaimed", reason: "No active issue claim was found." };
   const page = Math.ceil(current.comments / 100);
   const comments = await get(`repos/${issue.repository}/issues/${issue.number}/comments?per_page=100&page=${page}`);
   const expectedLength = current.comments - (page - 1) * 100;
@@ -301,12 +285,15 @@ async function claimForIssue(item, issue, get) {
       && typeof claim.task === "string" && typeof claim.branch === "string"
       && typeof claim.startedAt === "string" && Number.isFinite(Date.parse(claim.startedAt))) {
     return { state: "claimed", startedAt: claim.startedAt,
-      reason: "A current roadmap claim exists; this does not verify that an agent is running." };
+      reason: "A current roadmap claim exists; this does not verify that an agent is running.",
+      originClaim: { state: "active", task: claim.task, branch: claim.branch } };
   }
   if (page > 1 && !trustedComments.some((comment) => /<!--\s*vera-claim\s+\{/.test(comment.body))) {
     return { state: "unknown", reason: "The latest comment page has no claim marker; older claim history is not inferred." };
   }
-  return { state: "unknown", reason: "No active issue claim was found." };
+  return page === 1
+    ? { state: "unclaimed", reason: "No active issue claim was found." }
+    : { state: "unknown", reason: "No active issue claim was found on the latest page; older claim history is not inferred." };
 }
 
 function chatVerificationTarget(item) {
@@ -453,6 +440,45 @@ function verifyJobSet(raw, runId, runAttempt, mode, requireCompletion) {
     : ["in_progress", "completed"].includes(completion?.status);
 }
 
+function acceptedGateCompletedAt(raw, mode) {
+  if (!Array.isArray(raw) || raw.length >= 100) return null;
+  const expected = [...Object.keys(JOB_GATES), "Queue completion"];
+  const byName = new Map(raw.filter((job) => job?.name !== "CI notification").map((job) => [job?.name, job]));
+  if (byName.size !== expected.length || expected.some((name) => !byName.has(name))) return null;
+  const times = [];
+  for (const name of expected) {
+    const job = byName.get(name);
+    if (job.status !== "completed" || !JOB_GATES[name]?.[mode]?.includes(job.conclusion)
+        && name !== "Queue completion") return null;
+    const value = Date.parse(job.completed_at ?? "");
+    if (!Number.isFinite(value)) return null;
+    times.push(value);
+  }
+  const completion = byName.get("Queue completion");
+  if (completion.status !== "completed" || completion.conclusion !== "success") return null;
+  return timestamp(Math.max(...times));
+}
+
+function eventIdFromComments(comments, runId, runAttempt) {
+  if (!Array.isArray(comments) || comments.length >= 100) return null;
+  let previousId = 0;
+  const matches = new Set();
+  for (const comment of comments) {
+    if (!Number.isSafeInteger(comment?.id) || comment.id <= previousId) return null;
+    previousId = comment.id;
+    if (comment.user?.login !== "github-actions[bot]" || comment.created_at !== comment.updated_at
+        || !Number.isFinite(Date.parse(comment.created_at ?? ""))
+        || typeof comment.body !== "string") continue;
+    const markers = [...comment.body.matchAll(/<!-- vera-ci-event:([0-9a-f]{64}) -->/g)];
+    const references = [...comment.body.matchAll(/^Run: ([1-9][0-9]*), attempt ([1-9][0-9]*); workflow: ([1-9][0-9]*)\.$/gm)];
+    if (markers.length === 1 && references.length === 1
+        && Number(references[0][1]) === runId && Number(references[0][2]) === runAttempt) {
+      matches.add(markers[0][1]);
+    }
+  }
+  return matches.size === 1 ? [...matches][0] : null;
+}
+
 function expectedForActive(active) {
   const expected = active?.expected;
   const title = RUN_TITLE.exec(expected?.title ?? "");
@@ -477,6 +503,7 @@ async function validateRunInventory(get, workflowId) {
       if (!Number.isSafeInteger(run?.id) || run.id < 1) throw new Error("Invalid Validate run identity");
       if (!expectedStatus && runs.has(run.id)) continue;
       if (typeof run.status !== "string" || typeof run.event !== "string"
+          || !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
           || (expectedStatus && run.status !== expectedStatus)) throw new Error("Invalid Validate run status");
       if (run.status === "completed" || run.event === "pull_request") continue;
       if (run.workflow_id !== workflowId) {
@@ -485,8 +512,15 @@ async function validateRunInventory(get, workflowId) {
       const url = safeRunUrl(run.html_url, run.id, REPOSITORY);
       if (!url) throw new Error("Invalid Validate run URL");
       const previous = runs.get(run.id);
-      if (previous && previous.status !== run.status) throw new Error("Validate run changed during inventory");
-      if (!previous) runs.set(run.id, { id: run.id, status: run.status, url });
+      if (previous && (previous.status !== run.status || previous.attempt.number !== run.run_attempt)) {
+        throw new Error("Validate run changed during inventory");
+      }
+      if (!previous) runs.set(run.id, {
+        id: run.id,
+        status: run.status,
+        attempt: { number: run.run_attempt, startedAt: timestamp(run.run_started_at) },
+        url,
+      });
     }
   };
 
@@ -540,6 +574,7 @@ function queueEnvelope(snapshotAt, lastError = null) {
     ready: 0,
     delivered: 0,
     lastDelivered: null,
+    recentDeliveries: [],
     url: `https://github.com/${REPOSITORY}/issues/${QUEUE_CONTROL_ISSUE}`,
   };
 }
@@ -584,12 +619,32 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     lastError: null,
     issues: {},
     ciQueue: queueEnvelope(snapshotAt),
+    deepseek: { installation: { state: "unknown", checkedAt: snapshotAt } },
   };
   const rows = Array.isArray(items) ? items : [];
   const identities = rows.map((item) => ({ item, identity: repoForIssue(item?.url) }))
     .filter(({ item, identity }) => identity && identity.number === item.number);
+  let deepseekEvidence;
+  try {
+    deepseekEvidence = await loadDeepSeekDashboardEvidence({
+      now: now?.getTime() ?? Number.NaN,
+      env: options.env ?? process.env,
+    });
+    evidence.deepseek = { installation: deepseekEvidence.installation };
+  } catch {
+    deepseekEvidence = { installation: { state: "unknown", checkedAt: snapshotAt }, byIssue: {} };
+    evidence.deepseek = { installation: deepseekEvidence.installation };
+  }
   for (const { item, identity } of identities) {
     const record = blankIssueRecord(snapshotAt);
+    const deepseekRoute = deepseekRouteForIssue(item);
+    const localState = deepseekEvidence.byIssue?.[identity.url];
+    record.deepseek = localState
+      ? { ...localState, route: deepseekRoute }
+      : deepseekRoute === "chat"
+        ? { state: "route-to-chat", route: "chat",
+          reason: "ChatGPT prepares the task. A paid run requires separate exact task approval." }
+        : { state: "excluded", route: null, reason: "This ticket does not use the default new coding route." };
     if (item.status === "Done" || item.state?.toLowerCase() === "closed") {
       record.chat = { state: "done", reason: "This roadmap issue is marked Done." };
     } else if (!issueLabelNames(item).includes("chat-reviewed")) {
@@ -642,7 +697,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   const timelineTargets = identities.filter(({ item, identity }) => identity.repository === REPOSITORY
     && item.number !== QUEUE_CONTROL_ISSUE && item.status !== "Done"
     && item.state?.toLowerCase() !== "closed").slice(0, MAX_LINKED_ISSUES);
-  const baseReads = 721 + ACTIVE_RUN_STATUSES.length + MAX_VALIDATE_RUN_PAGES;
+  const baseReads = 721 + ACTIVE_RUN_STATUSES.length + MAX_VALIDATE_RUN_PAGES + MAX_EVENT_COMMENT_LOOKUPS;
   let chatLimit;
 
   try {
@@ -676,12 +731,14 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     }
   }
 
+  const privateClaimByIssue = new Map();
   const claimResults = await mapLimit(claimTargets, 4, async ({ item, identity }) => {
     const claim = await claimForIssue(item, identity, get);
-    evidence.issues[identity.url].codex = claim;
-    return claim;
+    const { originClaim, ...publicClaim } = claim;
+    if (originClaim) privateClaimByIssue.set(identity.url, originClaim);
+    evidence.issues[identity.url].codex = publicClaim;
+    return publicClaim;
   });
-  for (const { item, identity } of identities) evidence.issues[identity.url].deepseek = deepseekForIssue(item);
   for (let index = 0; index < claimTargets.length; index += 1) {
     if (!claimResults[index]) {
       const { identity } = claimTargets[index];
@@ -763,6 +820,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       }
       queueRecords.push({
         pr: entry.pr,
+        title: pull?.title ?? null,
         phase: isActive ? state.active.phase : "waiting",
         head: pull?.head ?? entry.head.toLowerCase(),
         base: pull?.base ?? (isActive ? state.active.base?.toLowerCase() ?? null : null),
@@ -770,6 +828,12 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
         verified,
         url: pull?.url ?? null,
         runUrl: null,
+        runStatus: null,
+        queuedAt: null,
+        checkedAt: snapshotAt,
+        attempt: null,
+        completedAt: null,
+        eventId: null,
       });
     }
   }
@@ -783,20 +847,31 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     const matches = response.workflow_runs.filter((run) => run.display_title === expected.title);
     if (matches.length !== 1) return null;
     const run = matches[0];
+    if (!Number.isSafeInteger(run?.id) || run.id < 1 || !Number.isSafeInteger(run.run_attempt)
+        || run.run_attempt < 1 || run.workflow_id !== workflow.id
+        || run.path !== ".github/workflows/validate.yml" || run.event !== "workflow_dispatch"
+        || run.head_sha?.toLowerCase() !== expected.workflowHead.toLowerCase()) return null;
+    const url = safeRunUrl(run.html_url, run.id, REPOSITORY);
+    if (!url) return null;
+    const attempt = { number: run.run_attempt, startedAt: timestamp(run.run_started_at) };
+    const failureVerified = Boolean(state?.paused && run.status === "completed"
+      && run.conclusion !== "success");
     const assessment = assessRun(expected, matches, now.getTime());
     if (assessment.kind === "pause") {
       const identityVerified = Boolean(state?.paused
         && assessRun(expected, matches, expected.startedAt).kind === "wait"
-        && safeRunUrl(run.html_url, run.id, REPOSITORY));
-      return { run, expected, assessment, valid: false, identityVerified };
+        && url);
+      return { run, expected, assessment, valid: false, identityVerified, failureVerified, url, attempt };
     }
-    const url = safeRunUrl(assessment.url, assessment.runId, REPOSITORY);
-    if (!url) return null;
+    if (assessment.runId !== run.id || safeRunUrl(assessment.url, assessment.runId, REPOSITORY) !== url) return null;
     if (assessment.kind === "passed") {
       const jobs = await get(`repos/${REPOSITORY}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100&page=1`);
       if (!verifyJobSet(jobs?.jobs, run.id, run.run_attempt, expected.mode, false)) return null;
+      const completedAt = acceptedGateCompletedAt(jobs.jobs, expected.mode);
+      return { run, expected, assessment, valid: true, url, attempt, completedAt,
+        completionSource: completedAt ? "accepted-gates" : null };
     }
-    return { run, expected, assessment, valid: true, url };
+    return { run, expected, assessment, valid: true, url, attempt };
   }
 
   let verifiedActiveRun = null;
@@ -832,28 +907,99 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
     }
     const jobs = await get(`repos/${REPOSITORY}/actions/runs/${delivery.runId}/attempts/1/jobs?per_page=100&page=1`);
     const passed = verifyJobSet(jobs?.jobs, delivery.runId, 1, "smoke", true);
+    const completedAt = passed ? acceptedGateCompletedAt(jobs.jobs, "smoke") : null;
     const result = passed ? {
       pr: delivery.pr,
       head: validSha(delivery.candidate) ? delivery.candidate.toLowerCase() : null,
       base: delivery.mergeSha.toLowerCase(),
       runId: delivery.runId,
       url: runUrl,
+      checkedAt: snapshotAt,
+      attempt: { number: 1, startedAt: timestamp(run.run_started_at) },
+      completedAt,
+      completionSource: completedAt ? "accepted-gates" : null,
+      runStatus: run.status,
     } : null;
     deliveryChecks.set(delivery.pr, result);
     return result;
   });
 
   const verifiedDeliveries = [...deliveryChecks.values()].filter(Boolean);
+  const activeFailure = verifiedActiveRun?.failureVerified ? {
+    pr: state.active.pr,
+    runId: verifiedActiveRun.run.id,
+    attempt: verifiedActiveRun.attempt.number,
+    url: verifiedActiveRun.url,
+  } : null;
+  const eventTargets = new Map();
+  for (const delivery of verifiedDeliveries) {
+    eventTargets.set(`${delivery.runId}:${delivery.attempt.number}`, {
+      pr: delivery.pr, issue: null, runId: delivery.runId, attempt: delivery.attempt.number,
+    });
+  }
+  if (activeFailure) eventTargets.set(`${activeFailure.runId}:${activeFailure.attempt}`, { ...activeFailure, issue: null });
+  const issueNumbersByPr = new Map();
+  for (const { identity } of timelineTargets) {
+    const linked = linkedByIssue.get(identity.url);
+    if (!linked?.complete) continue;
+    for (const pr of linked.numbers) {
+      const values = issueNumbersByPr.get(pr) ?? new Set();
+      values.add(identity.number);
+      issueNumbersByPr.set(pr, values);
+    }
+  }
+  for (const target of eventTargets.values()) {
+    const issues = issueNumbersByPr.get(target.pr);
+    target.issue = issues?.size === 1 ? [...issues][0] : null;
+  }
+  const eventIds = new Map();
+  await mapLimit([...eventTargets.values()].slice(0, MAX_EVENT_COMMENT_LOOKUPS), 3, async (target) => {
+    try {
+      let comments = await get(`repos/${REPOSITORY}/issues/${target.pr}/comments?per_page=100&page=1`);
+      let eventId = eventIdFromComments(comments, target.runId, target.attempt);
+      if (!eventId && target.issue) {
+        comments = await get(`repos/${REPOSITORY}/issues/${target.issue}/comments?per_page=100&page=1`);
+        eventId = eventIdFromComments(comments, target.runId, target.attempt);
+      }
+      if (eventId) eventIds.set(`${target.runId}:${target.attempt}`, eventId);
+    } catch { /* An event locator is optional; a failed read never changes delivery evidence. */ }
+    return null;
+  });
+  for (const delivery of verifiedDeliveries) {
+    delivery.eventId = eventIds.get(`${delivery.runId}:${delivery.attempt.number}`) ?? null;
+  }
+  for (const record of queueRecords) {
+    if (state?.active?.pr !== record.pr) continue;
+    const run = verifiedActiveRun;
+    if (!run || !(run.valid || run.identityVerified || run.failureVerified)) continue;
+    record.runUrl = run.url;
+    record.runStatus = run.run.status;
+    record.attempt = run.attempt;
+    record.completedAt = run.completedAt ?? null;
+    if (run.completionSource) record.completionSource = run.completionSource;
+    if (run.failureVerified) record.eventId = eventIds.get(`${run.run.id}:${run.attempt.number}`) ?? null;
+  }
+  const recentDeliveries = verifiedDeliveries.slice(-MAX_QUEUE_ENTRIES).map((delivery) => ({
+    pr: delivery.pr,
+    title: pulls.get(delivery.pr)?.title ?? null,
+    runId: delivery.runId,
+    runUrl: delivery.url,
+    checkedAt: delivery.checkedAt,
+    attempt: delivery.attempt,
+    completedAt: delivery.completedAt ?? null,
+    ...(delivery.completionSource ? { completionSource: delivery.completionSource } : {}),
+    eventId: delivery.eventId,
+  }));
   const runInventory = await validateRunInventory(get, workflowId);
-  const verifiedActiveRunId = (verifiedActiveRun?.valid || verifiedActiveRun?.identityVerified)
+  const verifiedActiveRunKey = (verifiedActiveRun?.valid || verifiedActiveRun?.identityVerified)
     && verifiedActiveRun.run.status !== "completed"
-    ? verifiedActiveRun.run.id : null;
-  const otherRuns = runInventory.runs.filter((run) => run.id !== verifiedActiveRunId);
+    ? `${verifiedActiveRun.run.id}:${verifiedActiveRun.attempt.number}` : null;
+  const otherRuns = runInventory.runs.filter((run) => `${run.id}:${run.attempt.number}` !== verifiedActiveRunKey);
   const queueRunMissing = !state?.paused && ["validating", "smoke"].includes(state?.active?.phase)
     && !verifiedActiveRun?.run && otherRuns.length === 0;
   const slotUnknown = !runInventory.complete || runInventory.truncated || queueRunMissing;
-  const queueSlotRun = verifiedActiveRunId === null
-    ? null : runInventory.runs.find((run) => run.id === verifiedActiveRunId) ?? null;
+  const queueSlotRun = verifiedActiveRunKey === null
+    ? null : runInventory.runs.find((run) => `${run.id}:${run.attempt.number}` === verifiedActiveRunKey) ?? null;
   const otherSlotRun = otherRuns.find((run) => run.status === "in_progress") ?? otherRuns[0] ?? null;
   const queueSlotEntry = queueSlotRun && queueRecords.find((entry) => entry.pr === state?.active?.pr);
   const slot = slotUnknown ? { phase: "unknown" }
@@ -889,14 +1035,18 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       ...evidence.ciQueue,
       state: state.paused ? "failed-paused"
         : evidence.ciQueue.lastError ? "unknown"
-          : active ? active.phase === "smoke" ? "smoke-running" : active.phase === "integrating" ? "waiting" : "validating"
+          : active ? verifiedActiveRun?.valid && verifiedActiveRun.run.status === "in_progress"
+            ? active.phase === "smoke" ? "smoke-running" : "validating"
+            : "waiting"
             : waiting.length ? "waiting" : "idle",
       paused: Boolean(state.paused),
-      active: active ? { ...active, runUrl: verifiedActiveRun?.valid ? verifiedActiveRun.url : null } : null,
+      active: active ? { ...active, runUrl: verifiedActiveRun?.url ?? null,
+        runStatus: verifiedActiveRun?.run?.status ?? null, attempt: verifiedActiveRun?.attempt ?? null } : null,
       waiting,
       ready: queueRecords.filter((entry) => entry.ready && entry.verified).length,
       delivered: verifiedDeliveries.length,
       lastDelivered: lastDelivery,
+      recentDeliveries,
       snapshotAt,
       url: `https://github.com/${REPOSITORY}/issues/${QUEUE_CONTROL_ISSUE}`,
     };
@@ -924,6 +1074,12 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
         status: "invalid", reason: "Local Codex session evidence is unavailable or invalid.", hasBrowser: false,
       });
     }
+  }
+
+  let origins = [];
+  if (options.local === true) {
+    try { origins = await localOrigins(options.originDirectory); }
+    catch { origins = []; }
   }
 
   for (const { item, identity } of identities) {
@@ -982,13 +1138,21 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
           if (delivered) {
             const verified = deliveryChecks.get(number);
             record.ci = verified
-              ? { state: "delivered", reason: "Queue delivery and exact post-merge smoke were verified.", url: verified.url }
+              ? { state: "delivered", reason: "Queue delivery and exact post-merge smoke were verified.",
+                url: verified.url, runUrl: verified.url, runId: verified.runId, runStatus: verified.runStatus,
+                checkedAt: verified.checkedAt, attempt: verified.attempt, completedAt: verified.completedAt ?? null,
+                ...(verified.completionSource ? { completionSource: verified.completionSource } : {}),
+                eventId: verified.eventId ?? null }
               : unknownCi("The saved delivery does not match the current PR and verified smoke run.");
           } else if (entry && state) {
             if (state.paused) {
               record.ci = { state: "failed-paused", reason: queueRecord?.verified
                 ? "The CI queue is paused; its entries are retained."
-                : "The CI queue is paused; this entry remains visible, but its PR head is unverified." };
+                : "The CI queue is paused; this entry remains visible, but its PR head is unverified.",
+                runId: activeFailure?.pr === number ? activeFailure.runId : null,
+                runUrl: queueRecord?.runUrl ?? null, runStatus: queueRecord?.runStatus ?? null,
+                checkedAt: snapshotAt, attempt: queueRecord?.attempt ?? null,
+                completedAt: queueRecord?.completedAt ?? null, eventId: queueRecord?.eventId ?? null };
             } else if (!queueRecord?.verified) {
               record.ci = unknownCi("This queue entry does not match the current PR head or base.");
             } else if (state.active?.pr === number) {
@@ -997,14 +1161,28 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
                 record.ci = { state: "waiting", reason: "The queue is integrating this exact PR head with current main before validation." };
               } else if (!run?.valid) {
                 record.ci = unknownCi("The active CI run did not match the exact queued PR, head, base, and workflow.");
-              } else if (state.active.phase === "smoke") {
+              } else if (state.active.phase === "smoke" && run.run.status === "in_progress") {
                 record.ci = { state: "smoke-running", reason: run.assessment.kind === "passed"
-                  ? "Smoke passed; the queue has not yet recorded delivery." : "Post-merge smoke is running.", url: run.url };
+                  ? "Smoke passed; the queue has not yet recorded delivery." : "Post-merge smoke is running.",
+                  url: run.url, runUrl: run.url, runId: run.run.id, runStatus: run.run.status,
+                  checkedAt: snapshotAt, attempt: run.attempt, completedAt: run.completedAt ?? null,
+                  ...(run.completionSource ? { completionSource: run.completionSource } : {}) };
               } else if (state.active.phase === "validating" && !entry.ready && run.assessment.kind === "passed") {
-                record.ci = { state: "validation-only", reason: "Preview validation passed without granting merge readiness.", url: run.url };
-              } else {
+                record.ci = { state: "validation-only", reason: "Preview validation passed without granting merge readiness.",
+                  url: run.url, runUrl: run.url, runId: run.run.id, runStatus: run.run.status,
+                  checkedAt: snapshotAt, attempt: run.attempt, completedAt: run.completedAt ?? null,
+                  ...(run.completionSource ? { completionSource: run.completionSource } : {}) };
+              } else if (run.run.status === "in_progress") {
                 record.ci = { state: "validating", reason: run.assessment.kind === "passed"
-                  ? "Validation passed; the controller has not recorded the next delivery step." : "The single CI slot is validating this exact PR head.", url: run.url };
+                  ? "Validation passed; the controller has not recorded the next delivery step." : "The single CI slot is validating this exact PR head.",
+                  url: run.url, runUrl: run.url, runId: run.run.id, runStatus: run.run.status,
+                  checkedAt: snapshotAt, attempt: run.attempt, completedAt: run.completedAt ?? null,
+                  ...(run.completionSource ? { completionSource: run.completionSource } : {}) };
+              } else {
+                record.ci = { state: "waiting", reason: "The exact run is not currently in progress; refresh for the queue's next recorded step.",
+                  url: run.url, runUrl: run.url, runId: run.run.id, runStatus: run.run.status,
+                  checkedAt: snapshotAt, attempt: run.attempt, completedAt: run.completedAt ?? null,
+                  ...(run.completionSource ? { completionSource: run.completionSource } : {}) };
               }
             } else {
               record.ci = { state: "waiting", reason: entry.ready
@@ -1024,6 +1202,21 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
         ? "No verified local Codex thread is linked." : "Local session links are available only from the live dashboard.",
       hasBrowser: false,
     };
+    const ownerOrigin = options.local === true ? matchOrigin(origins, {
+      repository: identity.repository,
+      number: identity.number,
+      claim: privateClaimByIssue.get(identity.url),
+      pr: record.pr?.number ?? null,
+    }) : null;
+    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin) };
+    record.producerChecklist = ownerOrigin && item.acceptance === "Producer" && record.pr
+      ? await readProducerChecklist({
+        issueUrl: identity.url,
+        revision: issueRevision(item.title, item.body),
+        pr: { number: record.pr.number, head: record.pr.head },
+        origin: ownerOrigin,
+      })
+      : null;
     const prLastError = !linked
       ? "Linked PR history could not be refreshed."
       : !linked.complete
@@ -1064,6 +1257,12 @@ function chip(name, state, reason, requiresFresh = true) {
     off: ["Off", "na"],
     excluded: ["Excluded", "na"],
     potential: ["Potential", "wait"],
+    "route-to-chat": ["Via ChatGPT", "wait"],
+    "awaiting-approval": ["Approval needed", "wait"],
+    requested: ["Requested", "wait"],
+    running: ["Running", "active"],
+    candidate: ["Candidate", "wait"],
+    verified: ["Verified", "ok"],
     changes: ["Changes", "attention"],
     "stale-head": ["Stale head", "blocked"],
     waiting: ["Waiting", "wait"],
@@ -1076,26 +1275,6 @@ function chip(name, state, reason, requiresFresh = true) {
   };
   const [label, tone] = map[state] ?? ["Unknown", "unknown"];
   return { name, state, label, tone, detail: reason, requiresFresh };
-}
-
-function acceptanceActor(owner) {
-  return ["Producer", "External", "Automated"].includes(owner) ? owner : "You";
-}
-
-function acceptanceAction(owner) {
-  if (owner === "Producer") return "Review verified delivery evidence and record Producer acceptance.";
-  if (owner === "External") return "Complete the required external acceptance check on the delivered change.";
-  if (owner === "Automated") return "Confirm the merged change and required smoke evidence.";
-  return "Confirm who owns acceptance, then review the delivered change.";
-}
-
-function dependenciesBlock(item) {
-  if (item.dependenciesVerified !== true) return "Dependencies have not been verified from both issue sources.";
-  if (!Array.isArray(item.dependencies)) return "Dependency evidence is incomplete.";
-  if (item.dependencies.some((dependency) => dependency?.invalid === true || dependency?.isOpen === true)) {
-    return "One or more verified dependencies remain open or invalid.";
-  }
-  return null;
 }
 
 /** Pure next-action derivation. It performs no reads and never authorizes a launch. */
@@ -1147,7 +1326,8 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     : { state: "unknown", reason: "Workflow evidence is stale or failed; refresh before relying on it." };
   const codex = codexFresh ? record?.codex ?? { state: "unknown", reason: "No claim evidence is available." }
     : { state: "unknown", reason: "Workflow evidence is stale or failed; refresh before relying on it." };
-  const deepseek = projectFresh ? deepseekForIssue(item) : { state: "off", reason: "DeepSeek candidate labels are stale; the global route remains off." };
+  const deepseek = projectFresh && record?.deepseek ? record.deepseek
+    : { state: "unknown", reason: "Current DeepSeek routing evidence could not be verified." };
   const review = reviewFresh ? record?.review ?? { state: "unknown", reason: "Review evidence is unavailable." }
     : { state: "unknown", reason: "Workflow evidence is stale or failed; refresh before relying on it." };
   const ci = ciFresh ? record?.ci ?? { state: "unknown", reason: "CI evidence is unavailable." }
@@ -1157,7 +1337,7 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
   const acceptance = record?.acceptance ?? { state: "unknown", reason: "Producer acceptance is recorded separately after delivery." };
   const links = [];
   if (identity) links.push({ label: "Issue", url: identity.url });
-  if (prFresh && record?.pr && safePullUrl(record.pr.url, record.pr.number)) {
+  if (prFresh && record?.pr && safePullUrl(record.pr.url, record.pr.number, identity?.repository)) {
     links.push({ label: "PR", url: record.pr.url });
   }
   if (chatFresh && chat.state === "approved" && identity && safeIssueCommentUrl(chat.url, identity, Number(chat.url?.match(/#issuecomment-(\d+)$/)?.[1]))) {
@@ -1169,7 +1349,7 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
   const existingWork = ["Ready", "In progress", "In review"].includes(item?.status)
     && ((codex.state === "claimed" && Number.isFinite(Date.parse(codex.startedAt))
       && Date.parse(codex.startedAt) <= CONTINUATION_CUTOFF)
-      || (prFresh && record?.continuation === true && record?.pr && safePullUrl(record.pr.url, record.pr.number)));
+      || (prFresh && record?.continuation === true && record?.pr && safePullUrl(record.pr.url, record.pr.number, identity?.repository)));
   const chips = [
     existingWork && chat.state !== "approved"
       ? chip("Chat", "grandfathered", "Work has already started; continuing it does not require a new Chat review.")
@@ -1179,177 +1359,27 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     chip("Review", review.state, review.reason),
     chip("CI", ci.state, ci.reason),
   ];
-  const disabled = [];
-  const depProblem = dependenciesBlock(item ?? {});
-  let group;
-  let actor;
-  let action;
-  let filter;
-  const status = item?.status;
-
-  if (!now || !identity || !projectFresh || item?.evidenceConflict === true) {
-    group = "stuck";
-    actor = !now || !identity || !projectFresh ? "Unknown" : "You";
-    action = !projectFresh ? "Refresh Project evidence before acting." : "Resolve conflicting roadmap evidence before acting.";
-    filter = "blocked";
-    disabled.push("Actions are disabled until current, consistent Project evidence is available.");
-  } else if (identity.repository === REPOSITORY && identity.number === QUEUE_CONTROL_ISSUE) {
-    group = "working";
-    actor = "CI";
-    action = "This issue controls the CI queue; use its documented status and owner commands.";
-    filter = "working";
-    disabled.push("Queue controls remain on issue #361; this dashboard does not submit or resume queue work.");
-  } else if (status === "Done") {
-    group = "done";
-    actor = acceptanceActor(item.acceptance);
-    action = "The Project marks this Done; this source does not prove a separate acceptance record.";
-    filter = "done";
-  } else if (depProblem) {
-    group = "stuck";
-    actor = "You";
-    action = depProblem;
-    filter = "blocked";
-    disabled.push(depProblem);
-  } else if (status === "Blocked") {
-    group = "stuck";
-    actor = "You";
-    action = "Resolve the recorded blocker before starting work.";
-    filter = "blocked";
-  } else if (!workflowFresh && status === "Ready") {
-    group = "stuck";
-    actor = "Unknown";
-    action = "Refresh Chat, PR, CI, and session evidence before choosing a next step.";
-    filter = "blocked";
-    disabled.push("Workflow-dependent actions are disabled while their source is stale or unavailable.");
-  } else if (["Ready", "In review", "In progress"].includes(status) && ciFresh && record?.pr
-      && safePullUrl(record.pr.url, record.pr.number)
-      && ["waiting", "validating", "smoke-running"].includes(ci.state)) {
-    group = "working";
-    actor = "CI";
-    action = ci.state === "waiting" ? "The verified PR is waiting for the CI queue."
-      : ci.state === "validating" ? "CI is validating the verified PR head."
-        : "CI is running post-merge smoke; delivery is not recorded yet.";
-    filter = "working";
-    disabled.push("Acceptance remains unavailable until queue delivery and post-merge smoke are verified.");
-  } else if (["Ready", "In review", "In progress"].includes(status) && ciFresh && ci.state === "failed-paused") {
-    group = "stuck";
-    actor = "You";
-    action = "Resolve the paused CI queue on its control issue before acceptance.";
-    filter = "blocked";
-    disabled.push("The paused queue has not delivered this PR.");
-  } else if (status === "In progress" && !existingWork && codex.state === "claimed" && chat.state !== "approved") {
-    group = chat.state === "pending" ? "you" : "stuck";
-    actor = chat.state === "pending" ? "Producer" : "Unknown";
-    action = "Verify current Chat approval for work started after the grandfathering cutoff.";
-    filter = chat.state === "pending" ? "approval" : "blocked";
-    if (chat.state === "pending") links.push(chatPromptLink(identity.url));
-  } else if (status === "Ready") {
-    if (!existingWork && chat.state === "pending") {
-      group = "you";
-      const labels = issueLabelNames(item);
-      const kind = labels.find((label) => label.startsWith("type:"))?.slice(5);
-      const researchGap = (item.body ?? "").match(/^\s*#{1,4}\s*(?:Research question|Research gap|Open questions?)\s*\r?\n([\s\S]*?)(?=\n#{1,4}\s|$)/im)?.[1] ?? "";
-      const hasResearchGap = researchGap.replace(/[\s#*`-]/g, "").length >= 40;
-      const chatWork = ["investigation", "research", "design"].includes(kind) && hasResearchGap;
-      actor = chatWork ? "Chat" : "Producer";
-      action = chatWork ? "Review this bounded research question in Chat." : "Complete Producer Chat approval for this exact issue revision.";
-      filter = chatWork ? "chat" : "approval";
-      if (identity) links.push(chatPromptLink(identity.url));
-      disabled.push("Codex and DeepSeek launches are not available from this dashboard.");
-    } else if (!existingWork && chat.state !== "approved") {
-      group = "stuck";
-      actor = "Unknown";
-      action = "Verify the current Producer Chat review.";
-      filter = "blocked";
-      disabled.push("The current Chat review could not be verified.");
-    } else if (!codexFresh) {
-      group = "stuck";
-      actor = "Unknown";
-      action = "Refresh ownership evidence before choosing an implementation route.";
-      filter = "blocked";
-      disabled.push("The dashboard could not verify whether another executor owns this issue.");
-    } else if (!prFresh || (record?.pr && !ciFresh)) {
-      group = "stuck";
-      actor = "Unknown";
-      action = "Refresh PR and CI evidence before choosing a next step.";
-      filter = "blocked";
-      disabled.push("PR and CI sources are stale or unavailable.");
-    } else if (record?.pr && ci.state === "unknown") {
-      group = "stuck";
-      actor = "Unknown";
-      action = "Verify exact PR and CI queue evidence before choosing a next step.";
-      filter = "blocked";
-      disabled.push("The linked PR has no verified CI queue state.");
-    } else if (record?.pr && review.state === "unknown") {
-      group = "you";
-      actor = "You";
-      action = "Verify the independent review for the current PR head.";
-      filter = "approval";
-      disabled.push("The dashboard has no canonical exact-head Claude review receipt.");
-    } else if (!record?.pr && deepseek.state === "potential" && codex.state !== "claimed") {
-      group = "you";
-      actor = "Producer";
-      action = "DeepSeek is a potential route; dispatch is off. Choose a separately authorized manual route.";
-      filter = "deepseek";
-      disabled.push("DeepSeek eligibility does not authorize a job or a Codex launch; dashboard execution is disabled.");
-    } else if (existingWork) {
-      group = "working";
-      actor = "Codex";
-      action = "Continue the existing work; agent activity is not verified.";
-      filter = "working";
-    } else {
-      group = "launch";
-      actor = "Codex";
-      action = session.status === "verified-local"
-        ? "Open the linked existing Codex thread; it will not start a turn."
-        : "Open the approved issue and choose a manual start route.";
-      filter = "codex";
-      disabled.push("Starting Codex or DeepSeek work from the dashboard is not implemented.");
-    }
-  } else if (status === "In review") {
-    if (ci.state === "delivered" && ciFresh) {
-      group = "you";
-      actor = acceptanceActor(item.acceptance);
-      action = acceptanceAction(item.acceptance);
-      filter = "approval";
-    } else {
-      group = "stuck";
-      actor = ci.state === "failed-paused" ? "You" : "Unknown";
-      action = ci.state === "failed-paused"
-        ? "Resolve the paused CI queue on its control issue before acceptance."
-        : "Refresh and verify CI delivery and post-merge smoke before recording acceptance.";
-      filter = "blocked";
-      disabled.push("Validation alone does not establish delivery or Producer acceptance.");
-    }
-  } else if (status === "In progress") {
-    group = "working";
-    actor = existingWork ? "Codex" : "Unknown";
-    action = existingWork
-      ? /^design\b/i.test(item.title ?? "") || issueLabelNames(item).includes("type:design")
-        ? "Continue the existing design work; agent activity is not verified."
-        : "Continue the existing work; agent activity is not verified."
-      : "The roadmap says work is in progress; agent activity is not verified.";
-    filter = "working";
-    if (codex.state !== "claimed") disabled.push("No verified issue claim is available; this status does not prove an agent is running.");
-  } else {
-    group = "you";
-    actor = "You";
-    action = "Triage or refine this issue before it is ready to start.";
-    filter = "approval";
-  }
-
-  if (record?.pr && ciFresh && ci.state === "unknown") disabled.push("CI delivery actions are disabled until exact PR, head, base, and run evidence is verified.");
-  if (session.status !== "verified-local" && status === "Ready" && chat.state === "approved") {
-    disabled.push("No verified existing local Codex thread is linked.");
-  }
+  const primaryAction = derivePrimaryAction(item, { chat, codex, deepseek, ci, links, chips }, {
+    projectFresh, workflowFresh, chatFresh, codexFresh, prFresh, ciFresh,
+    ownerBound: sessionFresh && record?.codex?.ownerBound === true,
+    activeTurnFresh: false,
+    eventId: ciFresh ? record?.ci?.eventId : undefined,
+    hasProducerChecklist: sessionFresh && Boolean(record?.producerChecklist),
+  });
+  if (primaryAction.kind === "start-codex") primaryAction.approvalUrl = chat.url;
+  const producerChecklist = primaryAction.kind === "review-producer" ? record.producerChecklist : null;
+  if (producerChecklist) primaryAction.checklistDigest = producerChecklist.digest;
+  if (prFresh && record?.pr) primaryAction.pr = record.pr.number;
   return {
-    group,
-    actor,
-    action,
-    filter,
+    primaryAction,
+    pr: prFresh && record?.pr ? { number: record.pr.number } : null,
+    producerChecklist: producerChecklist ? { url: producerChecklist.url, steps: producerChecklist.steps } : null,
+    group: primaryAction.group,
+    actor: primaryAction.actor,
+    action: primaryAction.reason,
+    filter: primaryAction.filter,
     chips,
     links,
-    disabled,
     sources: [
       { name: "Project", ...projectSource },
       { name: "Chat", ...chatSource },

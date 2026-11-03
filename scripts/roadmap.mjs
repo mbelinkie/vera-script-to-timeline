@@ -510,6 +510,19 @@ function dependencyStates(settings, issueNumberValue, body) {
   });
 }
 
+export function inspectDashboardIssue(repository, number, { checkDependencies = false } = {}) {
+  const project = VERA_ROADMAPS.get(repository);
+  if (!project || !Number.isSafeInteger(number) || number < 1) throw new Error("Invalid dashboard issue identity");
+  preflightGraphql(checkDependencies ? ["issueProjectSnapshot", "dependencyBatch"] : ["issueProjectSnapshot"]);
+  const settings = { ...project, repository };
+  const { issue, item } = issueProjectSnapshot(settings, number);
+  return {
+    item,
+    dependenciesResolved: checkDependencies
+      && dependencyStates(settings, number, issue.body).every(dependency => dependency.resolved),
+  };
+}
+
 function claimMarker(claim) {
   return `<!-- vera-claim ${JSON.stringify(claim)} -->`;
 }

@@ -17,6 +17,15 @@ still be verifiable against the exact current issue revision.
 3. Show the final scope and material limits in the conversation. If a new edit
    changes that scope, show the change before treating a go-ahead as approval.
 
+For new coding tickets, use Chat to prepare the DeepSeek route. Confirm the
+coding classification and turn the first suitable change into a bounded task
+with frozen checks and a named integration owner. Apply the existing
+[DeepSeek dispatch requirements](DEEPSEEK_CHAT_DISPATCH.md) to that task,
+including separate approval of the exact live task and its spending limit.
+Continue already-owned work with its original owner. If the worker's current
+scope or a documented route override blocks the task, explain that constraint
+in Chat and settle the handoff there.
+
 ## Accept an ordinary go-ahead
 
 A direct Producer instruction such as "launch #396", "go ahead", or "these

@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { progressSourceIdentity, startProgressServer } from "./project-progress-live.mjs";
+import { issueRevision } from "./chat-review-current.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const outputPath = path.join(repositoryRoot, "out", "project-progress", "index.html");
+const preview = process.env.VERA_PROGRESS_PREVIEW === "1";
+const outputPath = path.join(repositoryRoot, "out", "project-progress", preview ? "producer-preview.html" : "index.html");
 const allowedArguments = new Set(["--identity", "--open", "--serve"]);
 const unknownArguments = process.argv.slice(2).filter((argument) => !allowedArguments.has(argument));
 
@@ -63,8 +66,28 @@ if (process.argv.includes("--identity")) {
       throw new Error("VERA_PROGRESS_REFRESH_MINUTES must be a whole number from 1 through 15");
     }
 
-    const generate = (destination) => writeDashboard(repositoryRoot, destination, { live: serving });
+    const generate = async (destination) => {
+      if (!serving) return await writeDashboard(repositoryRoot, destination, { live: false });
+      const actions = new Map();
+      const tokens = new Map();
+      const snapshotAt = Date.now();
+      const registerAction = (item, action) => {
+        if (typeof item?.title !== "string" || typeof item.body !== "string" || !action?.kind) return null;
+        const record = { issueUrl: item.url, kind: action.kind, revision: issueRevision(item.title, item.body),
+          pr: action.pr, eventId: action.eventId, approvalUrl: action.approvalUrl,
+          checklistDigest: action.checklistDigest, snapshotAt };
+        const key = JSON.stringify(record);
+        if (tokens.has(key)) return tokens.get(key);
+        const token = randomBytes(24).toString("hex");
+        tokens.set(key, token);
+        actions.set(token, record);
+        return token;
+      };
+      const models = await writeDashboard(repositoryRoot, destination, { live: true, registerAction, preview });
+      return { models, actions };
+    };
     if (serving) {
+      const { createProgressExecutor } = await import("./project-progress-executor.mjs");
       let initialUpdatedAt = null;
       try {
         initialUpdatedAt = (await stat(outputPath)).mtimeMs;
@@ -76,6 +99,7 @@ if (process.argv.includes("--identity")) {
         sourceId: currentSourceId(),
         generate,
         resolveLocalSession,
+        actionExecutor: createProgressExecutor(repositoryRoot),
         refreshIntervalMs: refreshMinutes * 60_000,
         initialUpdatedAt,
         initialRefresh: true,

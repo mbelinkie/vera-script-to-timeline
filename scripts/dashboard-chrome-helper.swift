@@ -132,6 +132,80 @@ private func canonicalThreadURL(_ page: AXUIElement) -> String? {
     return parts?.url?.absoluteString
 }
 
+private func pinCurrentChat(window: AXUIElement, threadURL: String) -> String {
+    func parent(_ element: AXUIElement) -> AXUIElement? {
+        guard let value = axValue(element, "AXParent"), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(value, to: AXUIElement.self)
+    }
+    func buttons(_ root: AXUIElement, _ label: String) -> [AXUIElement] {
+        axTree([root]).filter { axRole($0) == "AXButton" && textLabels($0).contains(label) }
+    }
+    func anchorLinks() -> [AXUIElement] {
+        axTree([window]).filter { axRole($0) == "AXLink" && canonicalThreadURL($0) == threadURL }
+    }
+    func row(_ link: AXUIElement) -> (AXUIElement, AXUIElement, [AXUIElement], [AXUIElement])? {
+        var current: AXUIElement? = link
+        for _ in 0..<12 {
+            guard let container = current, !sameAXElement(container, window) else { return nil }
+            let nodes = axTree([container])
+            let links = nodes.filter { axRole($0) == "AXLink" && sameAXElement($0, link) }
+            let menus = nodes.filter { ["AXPopUpButton", "AXButton"].contains(axRole($0) ?? "")
+                && textLabels($0).contains("Chat actions") }
+            let pins = buttons(container, "Pin chat")
+            let unpins = buttons(container, "Unpin chat")
+            if links.count == 1 && menus.count == 1 { return (container, menus[0], pins, unpins) }
+            current = parent(container)
+        }
+        return nil
+    }
+    func press(_ element: AXUIElement) -> Bool {
+        var actions: CFArray?
+        return AXUIElementCopyActionNames(element, &actions) == .success
+            && (actions as? [String])?.contains("AXPress") == true
+            && AXUIElementPerformAction(element, "AXPress" as CFString) == .success
+    }
+    var openedSidebar = false
+    defer {
+        if openedSidebar {
+            let hide = buttons(window, "Hide sidebar")
+            if hide.count == 1 { _ = press(hide[0]) }
+        }
+    }
+    var links = anchorLinks()
+    if links.count > 1 { return "unavailable" }
+    if links.isEmpty {
+        let show = buttons(window, "Show sidebar")
+        guard show.count == 1, press(show[0]) else { return "unavailable" }
+        openedSidebar = true
+        let deadline = Date().addingTimeInterval(8)
+        repeat {
+            Thread.sleep(forTimeInterval: 0.25)
+            links = anchorLinks()
+        } while links.isEmpty && Date() < deadline
+    }
+    guard links.count == 1, let anchor = links.first, var currentRow = row(anchor) else { return "unavailable" }
+    if currentRow.3.count == 1 && currentRow.2.isEmpty { return "pinned" }
+    guard currentRow.3.isEmpty, currentRow.2.count <= 1 else { return "unavailable" }
+    if currentRow.2.isEmpty {
+        guard press(currentRow.1) else { return "unavailable" }
+        let deadline = Date().addingTimeInterval(5)
+        repeat {
+            Thread.sleep(forTimeInterval: 0.25)
+            guard let refreshed = row(anchor) else { return "unconfirmed" }
+            currentRow = refreshed
+            if currentRow.3.count == 1 && currentRow.2.isEmpty { return "pinned" }
+        } while currentRow.2.isEmpty && Date() < deadline
+    }
+    guard currentRow.2.count == 1, currentRow.3.isEmpty, press(currentRow.2[0]) else { return "unavailable" }
+    let verifyDeadline = Date().addingTimeInterval(8)
+    repeat {
+        Thread.sleep(forTimeInterval: 0.25)
+        guard anchorLinks().count == 1, let refreshed = row(anchor) else { return "unconfirmed" }
+        if refreshed.3.count == 1 && refreshed.2.isEmpty { return "pinned" }
+    } while Date() < verifyDeadline
+    return "unconfirmed"
+}
+
 private func readPrompt(_ path: String) -> String? {
     let url = URL(fileURLWithPath: path)
     guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
@@ -309,12 +383,15 @@ private func submit(prompt: String, nonce: String) {
         if responseObserved && threadURL != nil { break }
         Thread.sleep(forTimeInterval: 1)
     }
+    let pinState = promptObserved && responseObserved && threadURL != nil
+        ? pinCurrentChat(window: window, threadURL: threadURL!) : "unavailable"
     var result: [String: Any] = [
         "ok": promptObserved && responseObserved && threadURL != nil,
         "mode": "submit", "requestNonce": nonce,
         "accessibilityTrusted": true, "sendInvoked": true,
         "promptObserved": promptObserved,
-        "assistantResponseObserved": responseObserved
+        "assistantResponseObserved": responseObserved,
+        "pinState": pinState
     ]
     if let threadURL { result["threadURL"] = threadURL }
     if !promptObserved { result["reason"] = "prompt_not_observed_after_send" }

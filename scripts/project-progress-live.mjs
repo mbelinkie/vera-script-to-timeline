@@ -9,10 +9,35 @@ const RETRY_INTERVAL_MS = 5 * 60_000;
 const MANUAL_COOLDOWN_MS = 30_000;
 const SNAPSHOT_TTL_MS = 16 * 60_000;
 const REFRESH_MARGIN_MS = 60_000;
-const SERVER_PROTOCOL = "2";
+const SERVER_PROTOCOL = "4";
 const LOCAL_ISSUE_URL = /^https:\/\/github\.com\/mbelinkie\/(vera-script-to-timeline|vera-research-video-clips)\/issues\/([1-9]\d*)$/;
 const LOCAL_APP_URL = /^codex:\/\/threads\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const BROWSER_URL = /^https:\/\/chatgpt\.com\/c\/[A-Za-z0-9_-]{8,128}$/;
+
+async function actionRequest(request) {
+  if (request.headers.origin !== `http://${request.headers.host}`
+      || request.headers["sec-fetch-site"] !== "same-origin" || request.headers["x-vera-action"] !== "1"
+      || request.headers["content-type"]?.split(";")[0] !== "application/json") return null;
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of request) {
+    bytes += chunk.length;
+    if (bytes > 2048) return null;
+    chunks.push(chunk);
+  }
+  try {
+    const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!data || !Object.keys(data).every(key => ["token", "version", "decision"].includes(key))
+        || !/^[a-f0-9]{48}$/.test(data.token ?? "") || !Number.isSafeInteger(data.version)) return null;
+    const decision = data.decision;
+    if (decision === undefined) return data;
+    if (!decision || !Object.keys(decision).every(key => ["kind", "text"].includes(key))) return null;
+    if (decision.kind === "approve" && decision.text === undefined) return data;
+    if (decision.kind === "feedback" && typeof decision.text === "string"
+        && decision.text.trim() && decision.text.length <= 1200) return data;
+  } catch { /* A malformed request has no action authority. */ }
+  return null;
+}
 
 export function progressSourceIdentity(repositoryRoot, headCommit) {
   if (typeof headCommit !== "string" || !/^[a-f0-9]{40,64}$/i.test(headCommit)) {
@@ -213,6 +238,7 @@ export async function startProgressServer(options) {
     sourceId,
     generate,
     resolveLocalSession,
+    actionExecutor,
     refreshIntervalMs = DEFAULT_REFRESH_INTERVAL_MS,
     now = Date.now,
     port = 0,
@@ -232,6 +258,7 @@ export async function startProgressServer(options) {
   }
 
   let version = 1;
+  let actions = new Map();
   let lastUpdated = initialUpdatedAt === undefined
     ? (initialError ? null : now())
     : initialUpdatedAt;
@@ -286,12 +313,13 @@ export async function startProgressServer(options) {
     pending = (async () => {
       const startedAt = time;
       try {
-        await generate(tempPath);
+        const generated = await generate(tempPath);
         const html = await readFile(tempPath, "utf8");
         const completedAt = now();
         const duration = Math.max(0, completedAt - startedAt);
         evidenceExpiresAt = workflowEvidenceExpiry(html) ?? completedAt + SNAPSHOT_TTL_MS;
         await rename(tempPath, outputPath);
+        actions = generated?.actions instanceof Map ? generated.actions : new Map();
         version += 1;
         lastUpdated = completedAt;
         error = null;
@@ -330,7 +358,7 @@ export async function startProgressServer(options) {
       const route = new URL(request.url ?? "/", "http://localhost").pathname;
       const fetchSite = request.headers["sec-fetch-site"];
       const protectedRoute = (request.method === "GET" && ["/status", "/local-session"].includes(route))
-        || (request.method === "POST" && route === "/refresh");
+        || (request.method === "POST" && ["/refresh", "/action", "/action-state"].includes(route));
       if (protectedRoute && !["same-origin", "none"].includes(fetchSite)) {
         response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
         response.end("Same-origin local dashboard request required.");
@@ -369,6 +397,27 @@ export async function startProgressServer(options) {
         && request.headers["x-vera-refresh"] === "1") {
         const result = await refresh({ manual: true });
         response.writeHead(result.stale ? 503 : 200, { "Content-Type": "application/json; charset=utf-8" });
+        response.end(JSON.stringify(result));
+      } else if (request.method === "POST" && ["/action", "/action-state"].includes(route)) {
+        const data = await actionRequest(request);
+        const action = data?.version === version ? actions.get(data.token) : null;
+        const stale = snapshot().stale;
+        let result;
+        if (!data) {
+          result = { status: "refused", message: "Send actions require an explicit click in the local dashboard." };
+        } else if (!action || !actionExecutor) {
+          result = { status: "refused", message: "Refresh the dashboard before using this action." };
+        } else if (route === "/action-state" && !data.decision) {
+          result = await actionExecutor.state(action) ?? { status: "idle" };
+        } else if (route === "/action-state" || (action.kind === "review-producer") !== Boolean(data.decision)) {
+          result = { status: "refused", message: "Choose an explicit approval or feedback action." };
+        } else if (stale && !["review-chat", "review-blocker", "check-status"].includes(action.kind)) {
+          result = { status: "refused", message: "The roadmap view is stale. Refresh before sending this action." };
+        } else {
+          try { result = await actionExecutor.execute({ ...action, decision: data.decision }); }
+          catch { result = { status: "refused", message: "Current issue or owner evidence could not be verified. Refresh and inspect the issue." }; }
+        }
+        response.writeHead(!data ? 403 : result.status === "refused" ? 409 : 200, { "Content-Type": "application/json; charset=utf-8" });
         response.end(JSON.stringify(result));
       } else if (request.method === "GET" && route === "/local-session") {
         response.setHeader("Referrer-Policy", "no-referrer");

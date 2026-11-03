@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 
 import { deriveWorkflow, WORKFLOW_FRESHNESS_MS } from "./project-progress-workflow.mjs";
+import { timerModel, timerClientScript } from "./project-progress-timer.mjs";
 
 export const queueStyles = readFileSync(new URL("./project-progress-queue.css", import.meta.url), "utf8");
 
@@ -27,6 +28,12 @@ export const queueClientScript = String.raw`(() => {
       link.setAttribute("tabindex", "-1");
     }
     for (const status of root.querySelectorAll("[data-workflow-status]")) markStatus(status);
+    for (const action of root.querySelectorAll("button[data-vera-action]")) {
+      if (action.dataset.safeWhenStale === "true") continue;
+      action.disabled = true;
+      action.dataset.actionStatus = "stale";
+      action.textContent = "Refresh before acting";
+    }
     for (const next of root.querySelectorAll("[data-workflow-next]")) next.textContent = "Unknown · Refresh sources before acting.";
   }
   function checkExpiry() {
@@ -46,6 +53,15 @@ export const queueClientScript = String.raw`(() => {
         link.setAttribute("tabindex", "-1");
       } else next = Math.min(next, sourceExpiry);
     }
+    for (const action of root.querySelectorAll("button[data-vera-action][data-workflow-expires-at]")) {
+      if (action.dataset.safeWhenStale === "true") continue;
+      const sourceExpiry = Number(action.dataset.workflowExpiresAt);
+      if (!Number.isFinite(sourceExpiry) || now > sourceExpiry) {
+        action.disabled = true;
+        action.dataset.actionStatus = "stale";
+        action.textContent = "Refresh before acting";
+      } else next = Math.min(next, sourceExpiry);
+    }
     setTimeout(checkExpiry, Math.min(Math.max(next - now + 1, 1), 60_000));
   }
   if (root.dataset.stale === "true" || document.documentElement.dataset.snapshotStale === "true") markStale();
@@ -55,6 +71,115 @@ export const queueClientScript = String.raw`(() => {
   const flat = root.querySelector("[data-flat-rows]");
   let mode = "groups";
   let actorFilter = "all";
+
+  const ciPanel = root.querySelector("[data-ci-panel]");
+  if (ciPanel) {
+    try {
+      const saved = sessionStorage.getItem("vera-progress-ci-open");
+      if (saved === "true") ciPanel.open = true;
+      if (saved === "false") ciPanel.open = false;
+      ciPanel.addEventListener("toggle", () => sessionStorage.setItem("vera-progress-ci-open", String(ciPanel.open)));
+    } catch { /* Keep the default collapsed state when storage is unavailable. */ }
+  }
+
+  function resultText(reply) {
+    const labels = { sent: "Sent", queued: "Queued · awaiting confirmation", observed: "Observed", unknown: "Outcome unknown", refused: "Refused" };
+    const status = labels[reply?.status] || "Outcome unknown";
+    const detail = typeof reply?.message === "string" ? reply.message.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+    return detail ? status + " · " + detail : status;
+  }
+  function safeActionURL(value) {
+    if (typeof value !== "string") return null;
+    if (/^codex:\/\/threads\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)) return value;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:") return null;
+      if (url.hostname === "chatgpt.com" && /^\/c\/[A-Za-z0-9_-]{8,128}\/?$/.test(url.pathname)) return url.origin + url.pathname;
+      if (url.hostname === "github.com" && /^\/[^/]+\/[^/]+\/(?:issues\/\d+|pull\/\d+(?:\/checks)?|actions\/runs\/\d+)\/?$/i.test(url.pathname)) return url.origin + url.pathname;
+    } catch { /* Ignore malformed destinations. */ }
+    return null;
+  }
+  async function runAction(control) {
+    const token = control.dataset.veraAction;
+    const safeWhenStale = control.dataset.safeWhenStale === "true";
+    if (!token || control.disabled || (!safeWhenStale && (stale || document.documentElement.dataset.snapshotStale === "true"))) return;
+    const controls = [...document.querySelectorAll("button[data-vera-action]")].filter((button) => button.dataset.veraAction === token);
+    if (controls.some((button) => button.dataset.actionStatus === "pending" || button.dataset.actionStatus === "complete")) return;
+    const decisionKind = control.dataset.actionDecision;
+    let decision;
+    if (decisionKind) {
+      decision = { kind: decisionKind };
+      if (decisionKind === "feedback") {
+        const input = [...document.querySelectorAll("[data-decision-input-for]")].find((field) => field.dataset.decisionInputFor === token);
+        const value = input?.value.trim().slice(0, 1000) ?? "";
+        if (!value) {
+          const message = [...document.querySelectorAll("[data-decision-status-for]")].find((status) => status.dataset.decisionStatusFor === token);
+          if (message) message.textContent = "Add brief feedback before sending.";
+          input?.focus();
+          return;
+        }
+        decision.text = value;
+      }
+    }
+    for (const button of controls) {
+      button.disabled = true;
+      button.dataset.actionStatus = "pending";
+      button.textContent = "Working…";
+    }
+    for (const input of [...document.querySelectorAll("[data-decision-input-for]")].filter((field) => field.dataset.decisionInputFor === token)) input.disabled = true;
+    const decisionStatus = [...document.querySelectorAll("[data-decision-status-for]")].find((status) => status.dataset.decisionStatusFor === token);
+    if (decisionStatus) decisionStatus.textContent = "Sending decision…";
+    let reply;
+    try {
+      const response = await fetch("/action", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-vera-action": "1" },
+        body: JSON.stringify({ token, version: Number(document.documentElement.dataset.snapshotVersion), ...(decision ? { decision } : {}) }),
+      });
+      reply = await response.json();
+      if (!response.ok && !reply?.status) reply = { status: "refused", message: "Action request was refused." };
+    } catch {
+      reply = { status: "unknown", message: "Refresh sources to verify the outcome." };
+    }
+    const label = resultText(reply);
+    for (const button of controls) {
+      button.dataset.actionStatus = "complete";
+      button.textContent = label;
+    }
+    if (decisionStatus) decisionStatus.textContent = label;
+    if (reply?.status === "queued") {
+      const version = Number(document.documentElement.dataset.snapshotVersion);
+      let remaining = 12;
+      async function checkReceipt() {
+        if (remaining-- <= 0 || document.hidden) return;
+        try {
+          const response = await fetch("/action-state", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-vera-action": "1" },
+            body: JSON.stringify({ token, version }),
+          });
+          const state = await response.json();
+          if (!response.ok) return;
+          if (state.status === "observed") {
+            const message = resultText(state);
+            for (const button of controls) button.textContent = message;
+            if (decisionStatus) decisionStatus.textContent = message;
+            return;
+          }
+          if (state.status === "queued") setTimeout(checkReceipt, 5000);
+        } catch { /* The original chat remains the source of confirmation. */ }
+      }
+      setTimeout(checkReceipt, 5000);
+    }
+    const openURL = safeActionURL(reply?.openUrl);
+    if (openURL) {
+      for (const anchor of document.querySelectorAll("a[data-action-open-for]")) {
+        if (anchor.dataset.actionOpenFor !== token) continue;
+        anchor.href = openURL;
+        anchor.hidden = false;
+      }
+    }
+  }
 
   function rows() {
     return [...root.querySelectorAll(".wf-row")].sort((left, right) => Number(left.dataset.rowIndex) - Number(right.dataset.rowIndex));
@@ -120,6 +245,13 @@ export const queueClientScript = String.raw`(() => {
   }
 
   root.addEventListener("click", (event) => {
+    const action = event.target.closest("button[data-vera-action]");
+    if (action) {
+      event.preventDefault();
+      void runAction(action);
+      return;
+    }
+
     const modeButton = event.target.closest("[data-queue-mode]");
     if (modeButton) {
       setMode(modeButton.dataset.queueMode);
@@ -148,15 +280,23 @@ export const queueClientScript = String.raw`(() => {
   for (const selector of ["[data-filter-search]", "[data-filter-project]", "[data-filter-status]", "[data-filter-size]", "[data-filter-dependency]"]) {
     root.querySelector(selector).addEventListener(selector.includes("search") ? "input" : "change", applyFilters);
   }
-})();`;
+})();` + timerClientScript;
 
 const GROUPS = [
-  ["launch", "Ready to launch", "Fresh evidence supports the next step."],
-  ["you", "Needs you", "A decision or approval is the next step."],
+  ["chat", "Chat review", "Review and research that can move forward."],
+  ["start", "Ready to start", "A verified owner can begin the issue."],
+  ["ci", "Waiting for CI", "The next step depends on the shared CI slot."],
   ["working", "Working", "The current state indicates work is in progress."],
-  ["stuck", "Stuck", "A source is blocked, missing, stale, or needs attention."],
+  ["finish", "Ready to finish", "Verified delivery evidence is ready for a decision."],
+  ["decision", "Decision needed", "A Producer or owner decision is the next step."],
+  ["blocked", "Blocked", "A source is blocked, missing, or needs attention."],
   ["done", "Done", "Completed work."],
 ];
+const GROUP_KEYS = new Set(GROUPS.map(([key]) => key));
+const ACTION_KINDS = new Set(["none", "review-chat", "review-blocker", "start-codex", "continue-owner", "pair-owner", "notify-owner", "finish-owner", "review-producer", "ask-owner-prepare", "check-status", "open-queue", "prepare-deepseek"]);
+const POST_ACTION_KINDS = new Set(["review-chat", "review-blocker", "start-codex", "continue-owner", "pair-owner", "notify-owner", "finish-owner", "review-producer", "ask-owner-prepare", "check-status", "prepare-deepseek"]);
+const QUEUE_ISSUE_361 = "https://github.com/mbelinkie/vera-script-to-timeline/issues/361";
+const MILESTONE_OUTCOMES = new Map([["D0", "D0 — Core S03 + Research design checkpoint"]]);
 const CHIP_NAMES = ["Chat", "DeepSeek", "Codex", "Review", "CI"];
 const STATUS_ORDER = ["Done", "In review", "In progress", "Blocked", "Ready", "Backlog", "Inbox"];
 
@@ -181,6 +321,21 @@ function text(value) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function rowGroup(workflow) {
+  const actionGroup = workflow?.primaryAction?.group;
+  if (GROUP_KEYS.has(actionGroup)) return actionGroup;
+  if (GROUP_KEYS.has(workflow?.group)) return workflow.group;
+  if (workflow?.group === "launch") return "start";
+  if (workflow?.group === "you") return /chat/i.test(workflow?.actor ?? "") ? "chat" : "decision";
+  if (workflow?.group === "stuck") return "blocked";
+  return "working";
+}
+
+function rowFilter(workflow) {
+  const value = workflow?.primaryAction?.filter ?? workflow?.filter;
+  return ["chat", "approval", "codex", "deepseek", "ci", "working", "finish", "decision", "blocked", "done"].includes(value) ? value : "blocked";
 }
 
 function numericOrder(value) {
@@ -371,7 +526,77 @@ function renderWorkflowLinks(links) {
   return markup || '<span class="wf-muted">No safe workflow link is available.</span>';
 }
 
+function registerActionToken(row, action, options) {
+  if (options.live !== true || !ACTION_KINDS.has(action?.kind) || !POST_ACTION_KINDS.has(action.kind)
+      || typeof options.registerAction !== "function") return null;
+  try {
+    const token = options.registerAction(row.item, action);
+    return typeof token === "string" && token.length > 0 && token.length <= 512 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+function actionButton(action, token, expiresAt, secondary = false) {
+  if (!token) return "";
+  const label = text(action.label || "Continue");
+  const reason = action.reason ? `<span class="wf-action-reason">${text(action.reason)}</span>` : "";
+  const deepseek = action.kind === "prepare-deepseek" ? " wf-deepseek-action" : "";
+  const staleAttribute = action.kind === "check-status" ? ' data-safe-when-stale="true"' : ` data-workflow-expires-at="${expiresAt}"`;
+  return `<span class="wf-action-wrap"><button type="button" class="wf-primary-action${secondary ? " wf-secondary-action" : ""}${deepseek}" data-vera-action="${escapeHtml(token)}"${staleAttribute}>${label}</button><a class="wf-action-open" data-action-open-for="${escapeHtml(token)}" hidden>Open result</a>${reason}</span>`;
+}
+
+function safeChecklistUrl(value) {
+  const href = safeWorkflowUrl({ url: value });
+  if (!href) return null;
+  try {
+    const url = new URL(href);
+    return url.hostname === "github.com" && /^\/[^/]+\/[^/]+\/(?:issues\/\d+|pull\/\d+(?:\/(?:checks|files|commits))?)\/?$/i.test(url.pathname) ? href : null;
+  } catch {
+    return null;
+  }
+}
+
+function producerChecklistMarkup(row) {
+  const checklist = row.workflow.producerChecklist;
+  const steps = asArray(checklist?.steps).filter((step) => typeof step === "string" && step.trim()).slice(0, 12);
+  if (!steps.length) return '<p class="wf-producer-checklist-missing">Producer checklist is unavailable; this action cannot be sent.</p>';
+  const url = safeChecklistUrl(checklist?.url);
+  const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open review evidence</a>` : "";
+  return `<details class="wf-producer-checklist" open><summary>Review the Producer checklist (${steps.length}) before deciding</summary>${link}<ol>${steps.map((step) => `<li>${text(step)}</li>`).join("")}</ol></details>`;
+}
+
+function producerDecisionMarkup(row, options) {
+  const action = row.workflow.primaryAction;
+  const token = row.primaryActionToken;
+  const checklist = producerChecklistMarkup(row);
+  if (options.live !== true || !token) {
+    const state = action.reason || "Producer decision actions are unavailable in this snapshot.";
+    return `${checklist}<span class="wf-action-reason">${text(state)}</span>`;
+  }
+  if (!asArray(row.workflow.producerChecklist?.steps).some((step) => typeof step === "string" && step.trim())) {
+    return `${checklist}<span class="wf-action-reason">Refresh the checklist before sending a decision.</span>`;
+  }
+  const attrs = `data-vera-action="${escapeHtml(token)}" data-workflow-expires-at="${row.actionExpiresAt}"`;
+  return `${checklist}<div class="wf-producer-decision"><button type="button" class="wf-primary-action" ${attrs} data-action-decision="approve">Send approval</button><label class="wf-feedback-label">Feedback<input type="text" maxlength="1000" data-decision-input-for="${escapeHtml(token)}" placeholder="Brief review feedback"></label><button type="button" class="wf-primary-action wf-feedback-button" ${attrs} data-action-decision="feedback">Send feedback</button><span class="wf-decision-status" data-decision-status-for="${escapeHtml(token)}" aria-live="polite"></span></div>`;
+}
+
 function primaryActionMarkup(row, options) {
+  const action = row.workflow.primaryAction;
+  if (action && ACTION_KINDS.has(action.kind)) {
+    if (action.kind === "open-queue") {
+      return `<a class="wf-primary-action" href="${QUEUE_ISSUE_361}" target="_blank" rel="noopener noreferrer">${text(action.label || "Open CI queue #361")}</a>`;
+    }
+    if (action.kind === "review-producer") return producerDecisionMarkup(row, options);
+    const primary = actionButton(action, row.primaryActionToken, row.actionExpiresAt);
+    if (primary) return primary;
+    if (action.kind === "none") return `<span class="wf-action-reason">${text(action.reason || action.label || "No action available.")}</span>`;
+    const state = options.live === true ? (action.reason || "Action unavailable in this snapshot.") : (action.label || action.reason || "Preview only.");
+    return `<span class="wf-action-reason">${text(state)}</span>`;
+  }
+
+  // Older snapshots can still render their evidence-based navigation until
+  // every source supplies the primary-action projection.
   const links = workflowLinks(row, options);
   const find = (label) => links.find((link) => link.label === label);
   const issue = find("Issue") ?? (itemUrl(row.item) ? { href: itemUrl(row.item), label: "Issue" } : null);
@@ -390,6 +615,14 @@ function primaryActionMarkup(row, options) {
   if (primary) return `<a class="wf-primary-action" href="${escapeHtml(primary.href)}"${primary.href.startsWith("https:") ? ' target="_blank" rel="noopener noreferrer"' : ""}${primary.requiresFresh ? ' data-requires-fresh="true"' : ""}>${text(primary.label)}</a>`;
   const reason = row.workflow.session?.reason || asArray(row.workflow.disabled)[0] || "No safe next-action link is available.";
   return `<span class="wf-action-reason">${text(reason)}</span>`;
+}
+
+function secondaryActionMarkup(row) {
+  return asArray(row.workflow.secondaryActions).map((action) => {
+    const token = row.secondaryActionTokens?.get(action);
+    if (!token) return `<span class="wf-action-reason">${text(action.reason || `${action.label || "Secondary action"} unavailable in this snapshot.`)}</span>`;
+    return actionButton(action, token, row.actionExpiresAt, true);
+  }).join("");
 }
 
 function formatSnapshot(value) {
@@ -414,7 +647,7 @@ function workflowExpiresAt(projects, workflow, now) {
 }
 
 function staleNotice(projects, workflow, rows) {
-  const groups = GROUPS.map(([key, label]) => `${label} ${rows.filter((row) => row.workflow.group === key).length}`).join(" · ");
+  const groups = GROUPS.map(([key, label]) => `${label} ${rows.filter((row) => rowGroup(row.workflow) === key).length}`).join(" · ");
   const projectSnapshots = projects.map((project, index) => `${text(projectName(project, index))} ${formatSnapshot(project.snapshotAt)}`).join(" · ") || "unavailable";
   return `<aside class="wf-stale-notice" role="status" aria-live="polite"><strong>Last-known groups:</strong> ${text(groups)}<span>Last checks: Project ${projectSnapshots} · workflow ${formatSnapshot(workflow.snapshotAt)}</span></aside>`;
 }
@@ -460,8 +693,9 @@ function renderDetailsMetadata(item) {
 
 function renderRow(row, index, options) {
   const { item, projectName: name, workflow } = row;
-  const group = GROUPS.some(([key]) => key === workflow.group) ? workflow.group : "stuck";
-  const filter = ["chat", "approval", "codex", "deepseek", "blocked", "working", "done"].includes(workflow.filter) ? workflow.filter : "blocked";
+  const primary = workflow.primaryAction;
+  const group = rowGroup(workflow);
+  const filter = rowFilter(workflow);
   const projectValue = String(row.projectNumber ?? row.project.projectNumber ?? row.projectIndex + 1);
   const status = item.status ?? "Unknown";
   const size = item.size ?? "Unknown";
@@ -484,10 +718,12 @@ function renderRow(row, index, options) {
   const disabled = asArray(workflow.disabled);
   const disabledMarkup = disabled.length ? `<ul class="wf-disabled">${disabled.map((reason) => `<li>${text(reason)}</li>`).join("")}</ul>` : '<p class="wf-muted">No disabled actions were reported.</p>';
   const queueLabel = row.queueOrder === null ? "—" : String(row.queueOrder);
-  const nextAction = primaryActionMarkup(row, options);
+  const actor = primary?.actor ?? workflow.actor ?? "Unknown";
+  const nextText = primary?.label ?? workflow.action ?? "Next action unavailable.";
+  const nextAction = primaryActionMarkup(row, options) + secondaryActionMarkup(row);
   return `<li class="wf-row g-${group}" data-row-index="${index}" data-queue-order="${row.queueOrder === null ? "" : row.queueOrder}" data-group="${group}" data-filter="${filter}" data-project="${escapeHtml(projectValue)}" data-status="${text(status)}" data-size="${text(size)}" data-dependency="${row.dependenciesVerified === false ? "unverified" : row.dependencies.length ? "has" : row.dependenciesVerified === true ? "none" : "unknown"}" data-search="${text(search)}" data-detail-id="${detailId}">
   <span class="wf-order" title="Canonical Queue Order">${escapeHtml(queueLabel)}</span>
-  <div class="wf-row-main"><div class="wf-title">${titleMarkup}</div><div class="wf-next" data-workflow-next="true"><span class="wf-actor">${text(workflow.actor || "Unknown")}</span><span>${text(workflow.action || "Next action unavailable.")}</span></div><div class="wf-meta">${metadata}</div></div>
+  <div class="wf-row-main"><div class="wf-title">${titleMarkup}</div><div class="wf-next" data-workflow-next="true"><span class="wf-actor">${text(actor)}</span><span>${text(nextText)}</span></div><div class="wf-meta">${metadata}</div></div>
   <div class="wf-chips" aria-label="Workflow evidence status">${chips}</div>
   <div class="wf-row-action">${nextAction}</div>
   <button type="button" class="wf-expand" data-expand-row data-detail-id="${detailId}" aria-expanded="false" aria-controls="${detailId}"><span>Details</span><span class="wf-chevron" aria-hidden="true"></span></button>
@@ -544,11 +780,8 @@ function milestoneStrip(roadmap) {
   const pct = Number.isFinite(milestone.percent) ? Math.max(0, Math.min(100, milestone.percent)) : done !== null && total !== null ? percent(done, total) : null;
   const open = entries.filter((entry) => entry.status !== "Done");
   const itemLabel = (entry) => `${entry.number ? `#${entry.number} ` : ""}${entry.title ?? "Issue title unavailable"}`;
-  return `<section class="wf-card wf-milestone" aria-labelledby="wf-milestone-title"><h2 id="wf-milestone-title">Next milestone</h2><strong class="wf-milestone-name">${text(milestone.name || "Program milestone")}</strong>${done !== null && total !== null ? `<div class="wf-milestone-count">${done} of ${total} member issues done</div><div class="wf-progress-track" role="img" aria-label="${pct}% complete"><span class="wf-milestone-fill" style="width:${pct}%"></span></div>` : '<p class="wf-muted">Milestone membership or completion is unknown.</p>'}${entries.length ? `<div class="wf-milestone-open"><strong>${open.length} open member issue${open.length === 1 ? "" : "s"}</strong><ul>${open.slice(0, 3).map((entry) => `<li>${text(itemLabel(entry))}</li>`).join("")}</ul>${open.length > 3 ? `<details><summary>Show all ${open.length} open member issues</summary><ul>${open.slice(3).map((entry) => `<li>${text(itemLabel(entry))}</li>`).join("")}</ul></details>` : ""}</div>` : '<p class="wf-muted">Milestone membership is unavailable.</p>'}</section>`;
-}
-
-function shortSha(value) {
-  return typeof value === "string" && /^[0-9a-f]{40}$/i.test(value) ? value.slice(0, 7) : value;
+  const outcome = MILESTONE_OUTCOMES.get(String(milestone.name ?? "")) ?? "Outcome not recorded in the roadmap.";
+  return `<section class="wf-card wf-milestone" aria-labelledby="wf-milestone-title"><h2 id="wf-milestone-title">Next milestone</h2><strong class="wf-milestone-name">${text(milestone.name || "Program milestone")}</strong><p class="wf-milestone-outcome">${text(outcome)}</p>${done !== null && total !== null ? `<div class="wf-milestone-count">${done} of ${total} member issues done</div><div class="wf-progress-track" role="img" aria-label="${pct}% complete"><span class="wf-milestone-fill" style="width:${pct}%"></span></div>` : '<p class="wf-muted">Milestone membership or completion is unknown.</p>'}${entries.length ? `<div class="wf-milestone-open"><strong>${open.length} open member issue${open.length === 1 ? "" : "s"}</strong><ul>${open.slice(0, 3).map((entry) => `<li>${text(itemLabel(entry))}</li>`).join("")}</ul>${open.length > 3 ? `<details><summary>Show all ${open.length} open member issues</summary><ul>${open.slice(3).map((entry) => `<li>${text(itemLabel(entry))}</li>`).join("")}</ul></details>` : ""}</div>` : '<p class="wf-muted">Milestone membership is unavailable.</p>'}</section>`;
 }
 
 function ciShaEvidence(entry) {
@@ -556,23 +789,51 @@ function ciShaEvidence(entry) {
   return values.length ? `<details class="wf-ci-sha"><summary>Full head/base evidence</summary><code>${text(values.join(" · "))}</code></details>` : "";
 }
 
-function ciEntry(entry, statusName, expiresAt) {
+function ciEntry(entry, statusName, expiresAt, rows, now, allowFinish = false) {
   const status = statusName ? ` data-workflow-status="${text(statusName)}" data-workflow-expires-at="${expiresAt}"` : "";
   if (typeof entry === "string" || typeof entry === "number") return `<li><span${status}>${text(entry)}</span></li>`;
   if (!entry || typeof entry !== "object") return "";
+  const issueRow = rows.find((row) => Number(row.workflow.pr?.number) === Number(entry.pr)) ?? null;
+  const issueTitle = issueRow
+    ? `${issueRow.item.number ? `#${issueRow.item.number} ` : ""}${issueRow.item.title ?? "Untitled issue"}`
+    : entry.title || (entry.pr != null ? `PR #${entry.pr}` : "CI queue entry");
+  const phase = entry.phase ? text(String(entry.phase).replaceAll("-", " ")) : "Phase unavailable";
   const readiness = entry.ready === true ? entry.verified === true ? "Ready to submit" : "Readiness unverified" : "";
   const verification = entry.verified === false ? "Head or base not verified" : "";
-  const fields = [entry.pr != null && `PR #${entry.pr}`, entry.phase, readiness, verification, entry.runId != null && `run #${entry.runId}`, entry.head && `head ${shortSha(entry.head)}`, entry.base && `base ${shortSha(entry.base)}`].filter(Boolean);
-  return fields.length ? `<li><span${status}>${text(fields.join(" · "))}</span>${ciShaEvidence(entry)}</li>` : "";
+  const runUrl = safeWorkflowUrl({ url: entry.runUrl });
+  const pullUrl = safeWorkflowUrl({ url: entry.url }) ?? (issueRow ? safeWorkflowUrl(asArray(issueRow.workflow.links).find((link) => link.label === "PR")) : null);
+  const links = [
+    pullUrl && `<a href="${escapeHtml(pullUrl)}" target="_blank" rel="noopener noreferrer" data-requires-fresh="true" data-workflow-expires-at="${expiresAt}">Open PR</a>`,
+    runUrl && `<a href="${escapeHtml(runUrl)}" target="_blank" rel="noopener noreferrer" data-requires-fresh="true" data-workflow-expires-at="${expiresAt}">Open Actions run</a>`,
+  ].filter(Boolean).join(" ");
+  const timerPhase = statusName.toLowerCase().includes("delivered") ? "completed"
+    : statusName === "active" && entry.attempt?.startedAt ? "running"
+      : ["waiting", "ready"].includes(statusName) ? "waiting" : entry.phase;
+  const time = timerModel({ ...entry, phase: timerPhase }, { now: now.getTime(), expiresAt });
+  const timeMode = time.mode === "stale" ? "unavailable" : time.mode;
+  const timer = `<time class="wf-ci-timer" data-ci-timer data-started-at="${escapeHtml(time.startedAt ?? "")}" data-ended-at="${escapeHtml(time.endAt ?? "")}" data-expires-at="${escapeHtml(time.expiry ?? "")}" data-timer-mode="${timeMode}">${text(time.label)}</time>`;
+  const finishAction = allowFinish ? matchingFinishAction(entry, rows) : null;
+  const finish = finishAction ? actionButton(finishAction.workflow.primaryAction, finishAction.primaryActionToken, finishAction.actionExpiresAt, true) : "";
+  const details = `<div class="wf-ci-entry"><strong class="wf-ci-title"${status}>${text(issueTitle)}</strong><span class="wf-ci-phase">${phase}${readiness ? ` · ${text(readiness)}` : ""}${verification ? ` · ${text(verification)}` : ""}</span>${timer}${links ? `<span class="wf-ci-links">${links}</span>` : '<span class="wf-ci-links wf-muted">No verified PR or run link.</span>'}${finish}</div>`;
+  return `<li>${details}${ciShaEvidence(entry)}</li>`;
 }
 
-function ciList(label, entries, className = "", statusName = label.toLowerCase(), expiresAt) {
+function ciList(label, entries, className = "", statusName = label.toLowerCase(), expiresAt, rows = [], now = new Date(0)) {
   if (!entries.length) return "";
   const status = ` data-workflow-status="ciQueue.${text(statusName)}" data-workflow-expires-at="${expiresAt}"`;
-  const list = `<ol class="wf-ci-list">${entries.map((entry) => ciEntry(entry, `ciQueue.${statusName}`, expiresAt)).filter(Boolean).join("")}</ol>`;
+  const list = `<ol class="wf-ci-list">${entries.map((entry) => ciEntry(entry, `ciQueue.${statusName}`, expiresAt, rows, now, statusName === "delivered")).filter(Boolean).join("")}</ol>`;
   return entries.length > 3
     ? `<details class="wf-ci-section ${className}"><summary><span${status}>${text(label)} (${entries.length})</span></summary>${list}</details>`
     : `<div class="wf-ci-section ${className}"><strong><span${status}>${text(label)}</span></strong>${list}</div>`;
+}
+
+function matchingFinishAction(entry, rows) {
+  const matches = rows.filter((row) => Number(row.workflow.pr?.number) === Number(entry.pr)
+    && row.workflow.primaryAction?.kind === "finish-owner"
+    && typeof row.workflow.primaryAction.eventId === "string"
+    && row.workflow.primaryAction.eventId === entry.eventId
+    && typeof row.primaryActionToken === "string");
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function otherRunEntry(run, expiresAt) {
@@ -595,7 +856,7 @@ function sourceExpiresAt(snapshotAt, now) {
   return Number.isFinite(timestamp) && timestamp <= now.getTime() ? timestamp + WORKFLOW_FRESHNESS_MS : now.getTime() - 1;
 }
 
-function ciStrip(workflow, now) {
+function ciStrip(workflow, now, rows) {
   const ci = workflow?.ciQueue;
   const queue = ci && typeof ci === "object" ? ci : null;
   const snapshotAt = queue?.snapshotAt ?? queue?.source?.snapshotAt;
@@ -605,11 +866,13 @@ function ciStrip(workflow, now) {
   const expiresAt = snapshotFresh ? sourceExpiresAt(snapshotAt, now) : null;
   const waiting = current ? asArray(queue.waiting) : [];
   const active = current ? Array.isArray(queue.active) ? queue.active : queue.active ? [queue.active] : [] : [];
-  const ready = current ? asArray(queue.ready) : [];
-  const delivered = current ? asArray(queue.delivered) : [];
+  const ready = current ? asArray(queue.readyEntries) : [];
+  const delivered = current ? asArray(queue.recentDeliveries) : [];
   const readyCount = current && Number.isFinite(queue.ready) ? queue.ready : ready.length;
-  const deliveredCount = current && Number.isFinite(queue.delivered) ? queue.delivered : delivered.length;
   const lastDelivered = current ? queue.lastDelivered : null;
+  const finishableDeliveries = delivered.filter((entry) => matchingFinishAction(entry, rows));
+  const waitingCount = current ? waiting.length : null;
+  const finishCount = current ? finishableDeliveries.length : null;
   const slot = current ? queue.slot : null;
   const slotUnknown = !current || queue.slotUnknown === true || !slot || slot.phase === "unknown";
   const slotVerified = !slotUnknown && typeof slot === "object";
@@ -624,7 +887,7 @@ function ciStrip(workflow, now) {
   const slotText = slotUnknown ? "Slot unknown"
     : slotIdle ? "Slot idle"
       : slot.phase === "other-active" ? "Other Validate run active"
-        : slot.phase === "queue-active" ? text(["Queue active", slot.pr != null && `PR #${slot.pr}`, slot.head && `head ${shortSha(slot.head)}`, slot.base && `base ${shortSha(slot.base)}`].filter(Boolean).join(" · "))
+        : slot.phase === "queue-active" ? text(["Queue active", slot.pr != null && `PR #${slot.pr}`].filter(Boolean).join(" · "))
           : "Slot unknown";
   const slotUrl = slotVerified ? safeWorkflowUrl({ url: slot.runUrl ?? slot.url }) : null;
   const slotLink = slotUrl ? ` <a href="${escapeHtml(slotUrl)}" target="_blank" rel="noopener noreferrer" data-requires-fresh="true" data-workflow-expires-at="${expiresAt}">Open Actions run</a>` : "";
@@ -641,13 +904,14 @@ function ciStrip(workflow, now) {
       : '<p class="wf-muted">No other Validate runs were observed.</p>';
   const pauseMarkup = paused ? '<p class="wf-error">Queue paused by controller.</p>' : "";
   const body = !queue ? `<p class="wf-muted">CI queue source unavailable; slot and queue state are unknown.</p>${otherRunsMarkup}`
-    : current ? `<p class="wf-ci-slot">${slotMarkup}</p>${ciList("Active", active, "", "active", expiresAt)}${ciList("Waiting", waiting, "wf-ci-waiting", "waiting", expiresAt)}${readyCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.ready" data-workflow-expires-at="${expiresAt}">Ready to send: ${readyCount}</span></p>` : ""}${deliveredCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.delivered" data-workflow-expires-at="${expiresAt}">Verified deliveries: ${deliveredCount}</span></p>` : ""}${ciList("Ready", ready, "", "ready", expiresAt)}${ciList("Delivered", delivered, "", "delivered", expiresAt)}${lastDelivered ? `<div class="wf-ci-section"><strong><span data-workflow-status="ciQueue.lastDelivered" data-workflow-expires-at="${expiresAt}">Last delivered</span></strong><ol class="wf-ci-list">${ciEntry(lastDelivered, "ciQueue.lastDelivered", expiresAt)}</ol></div>` : ""}${otherRunsMarkup}`
-      : `<p class="wf-muted">Queue state is unknown; only the last known controller snapshot is shown.</p>${otherRunsMarkup}`;
-  return `<section class="wf-card wf-ci" aria-labelledby="wf-ci-title"><h2 id="wf-ci-title">CI queue ${stateMarkup}</h2>${body}${pauseMarkup}${!queue || !current ? `<p class="wf-muted"><span data-workflow-status="ciQueue.slot">Slot unknown</span></p>` : ""}<p class="wf-source-stamp">Controller snapshot: ${formatSnapshot(snapshotAt)}</p>${lastError ? '<p class="wf-error">CI source could not be verified.</p>' : ""}${control ? `<p class="wf-ci-control">${control}</p>` : ""}</section>`;
+    : current ? `<p class="wf-ci-slot">${slotMarkup}</p>${ciList("Active", active, "", "active", expiresAt, rows, now)}${ciList("Waiting", waiting, "wf-ci-waiting", "waiting", expiresAt, rows, now)}${readyCount > 0 ? `<p class="wf-ci-count"><span data-workflow-status="ciQueue.ready" data-workflow-expires-at="${expiresAt}">Ready to submit: ${readyCount}</span></p>` : ""}${ciList("Ready", ready, "", "ready", expiresAt, rows, now)}${ciList("Recent verified deliveries", delivered, "", "delivered", expiresAt, rows, now)}${lastDelivered ? `<div class="wf-ci-section"><strong><span data-workflow-status="ciQueue.lastDelivered" data-workflow-expires-at="${expiresAt}">Last verified delivery</span></strong><ol class="wf-ci-list">${ciEntry(lastDelivered, "ciQueue.lastDelivered", expiresAt, rows, now)}</ol></div>` : ""}${otherRunsMarkup}`
+      : `<p class="wf-muted">Queue state is unknown; refresh the source before using CI actions.</p>${otherRunsMarkup}`;
+  const counts = current ? `${waitingCount} waiting · ${finishCount} ready to finish` : "Waiting and finish counts unknown";
+  return `<section class="wf-card wf-ci" aria-labelledby="wf-ci-title"><details data-ci-panel><summary class="wf-ci-summary"><strong id="wf-ci-title">CI queue</strong>${stateMarkup}<span class="wf-ci-summary-counts">${text(counts)}</span><span class="wf-ci-summary-chevron" aria-hidden="true"></span></summary><div class="wf-ci-panel-body">${body}${pauseMarkup}${!queue || !current ? `<p class="wf-muted"><span data-workflow-status="ciQueue.slot">Slot unknown</span></p>` : ""}${lastError ? '<p class="wf-error">CI source could not be verified.</p>' : ""}${control ? `<p class="wf-ci-control">${control}</p>` : ""}</div></details></section>`;
 }
 
 function listMarkup(groupKey, rows, options) {
-  return `<ul class="wf-group-rows">${rows.filter((row) => row.workflow.group === groupKey).map((row) => renderRow(row, row.queueIndex, options)).join("")}</ul>`;
+  return `<ul class="wf-group-rows">${rows.filter((row) => rowGroup(row.workflow) === groupKey).map((row) => renderRow(row, row.queueIndex, options)).join("")}</ul>`;
 }
 
 function optionsMarkup(projects, rows) {
@@ -669,6 +933,47 @@ function renderRoadmapHealth(roadmap) {
   return `<details class="wf-roadmap-health"><summary>Roadmap source: ${warnings.length} warning${warnings.length === 1 ? "" : "s"}, ${errors.length} dependency error${errors.length === 1 ? "" : "s"}, ${unverified} unverified, ${unqueued} unqueued</summary>${lines.length ? `<ul>${lines.map((line) => `<li>${text(line)}</li>`).join("")}</ul>` : '<p class="wf-muted">No roadmap warnings or dependency errors were reported.</p>'}</details>`;
 }
 
+function sourceHealthState(records, now) {
+  if (!records.length) return { label: "Unknown", detail: "No source record is available." };
+  const current = records.filter((source) => sourceIsFresh(source.snapshotAt, now) && !source.lastError).length;
+  const errors = records.filter((source) => source.lastError).length;
+  const label = current === records.length ? "Current" : current > 0 ? "Partial" : "Stale";
+  const snapshot = records.map((source) => source.snapshotAt).filter(Boolean).sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+  return { label: `${label} ${current}/${records.length}`, detail: errors ? `${errors} source error${errors === 1 ? "" : "s"}` : snapshot ? `Checked ${new Date(snapshot).toLocaleString()}` : "Snapshot time unavailable" };
+}
+
+export function renderWorkflowHeaderHealth(models, options = {}) {
+  const projects = Array.isArray(models) ? models : models ? [models] : [];
+  const workflow = options.workflow ?? {};
+  const nowValue = new Date(options.generatedAt ?? workflow.snapshotAt ?? Date.now());
+  const now = Number.isFinite(nowValue.getTime()) ? nowValue : new Date();
+  const issueRecords = Object.values(workflow.issues ?? {});
+  const sourceSpecs = [
+    ["Project", projects.map((project) => ({ snapshotAt: project.snapshotAt, lastError: project.projectLastError }))],
+    ["Workflow", [{ snapshotAt: workflow.snapshotAt, lastError: workflow.lastError }]],
+    ["Chat", issueRecords.map((record) => record.sources?.chat).filter(Boolean)],
+    ["Claim", issueRecords.map((record) => record.sources?.codex).filter(Boolean)],
+    ["PR history", issueRecords.map((record) => record.sources?.pr).filter(Boolean)],
+    ["Review", issueRecords.map((record) => record.sources?.review).filter(Boolean)],
+    ["CI queue", [workflow.ciQueue].filter(Boolean).map((queue) => ({ snapshotAt: queue.snapshotAt ?? queue.source?.snapshotAt, lastError: queue.lastError ?? queue.source?.lastError }))],
+    ["Owner link", issueRecords.map((record) => record.sources?.session).filter(Boolean)],
+  ];
+  const items = sourceSpecs.map(([name, records]) => {
+    const result = sourceHealthState(records, now);
+    const cls = result.label.startsWith("Current") ? "current" : result.label.startsWith("Partial") ? "partial" : "stale";
+    return `<span class="wf-source-item source-${cls}" title="${text(result.detail)}"><strong>${text(name)}</strong> ${text(result.label)}</span>`;
+  }).join("");
+  return `<div class="wf-source-health" aria-label="Workflow source freshness">${items}</div>`;
+}
+
+function deepseekRouteBanner(workflow, now) {
+  const installation = workflow.deepseek?.installation;
+  const current = sourceIsFresh(installation?.checkedAt, now);
+  const status = current && installation.state === "installed" ? "Mac helper installed."
+    : current && installation.state === "off" ? "Mac helper absent." : "Mac helper status unknown.";
+  return `<aside class="wf-route-banner" aria-label="Coding ticket route"><strong>Coding tickets start in ChatGPT for DeepSeek</strong><span>${status} Paid runs require exact task approval.</span></aside>`;
+}
+
 export function renderWorkflowQueue(projects, options = {}) {
   const models = Array.isArray(projects) ? projects : [projects];
   const suppliedTime = new Date(options.generatedAt ?? options.workflow?.snapshotAt ?? 0);
@@ -679,17 +984,22 @@ export function renderWorkflowQueue(projects, options = {}) {
   const { rows, historical } = flattenProjects(models, roadmapQueue, now, workflow);
   for (const [queueIndex, row] of rows.entries()) {
     row.queueIndex = queueIndex;
-    row.workflow = { ...row.workflow, group: GROUPS.some(([key]) => key === row.workflow.group) ? row.workflow.group : "stuck" };
+    const group = rowGroup(row.workflow);
+    row.workflow = { ...row.workflow, group };
   }
   const expiresAt = workflowExpiresAt(models, workflow, now);
   const initiallyStale = expiresAt < now.getTime();
-  const groups = GROUPS.map(([key, label, hint]) => `<section class="wf-group grp-${key}" data-queue-group="${key}" aria-labelledby="wf-group-${key}"><h3 id="wf-group-${key}"><span class="wf-group-dot" aria-hidden="true"></span>${label}<b data-group-count>${rows.filter((row) => row.workflow.group === key).length}</b><span class="wf-group-hint">${hint}</span></h3>${listMarkup(key, rows, options)}</section>`).join("");
-  const actorFilters = [["chat", "Chat can advance"], ["codex", "Codex ready"], ["approval", "My approval"], ["deepseek", "DeepSeek"], ["blocked", "Blocked"], ["all", "All"]]
-    .map(([key, label]) => `<button type="button" data-actor-filter="${key}" aria-pressed="${key === "all"}">${label}<span>${key === "all" ? rows.length : rows.filter((row) => row.workflow.filter === key).length}</span></button>`).join("");
-  const snapshot = `<div class="wf-source-health"><span>Workflow snapshot: ${formatSnapshot(workflow.snapshotAt)}</span>${workflow.lastError ? `<span class="wf-error">Refresh error: ${text(workflow.lastError)}</span>` : ""}</div>`;
+  for (const row of rows) {
+    row.actionExpiresAt = expiresAt;
+    row.primaryActionToken = registerActionToken(row, row.workflow.primaryAction, options);
+    row.secondaryActionTokens = new Map(asArray(row.workflow.secondaryActions).map((action) => [action, registerActionToken(row, action, options)]));
+  }
+  const groups = GROUPS.map(([key, label, hint]) => `<section class="wf-group grp-${key}" data-queue-group="${key}" aria-labelledby="wf-group-${key}"><h3 id="wf-group-${key}"><span class="wf-group-dot" aria-hidden="true"></span>${label}<b data-group-count>${rows.filter((row) => rowGroup(row.workflow) === key).length}</b><span class="wf-group-hint">${hint}</span></h3>${listMarkup(key, rows, options)}</section>`).join("");
+  const actorFilters = [["chat", "Chat can advance"], ["deepseek", "DeepSeek"], ["codex", "Codex ready"], ["approval", "My approval"], ["ci", "CI"], ["finish", "Ready to finish"], ["decision", "Decision"], ["blocked", "Blocked"], ["all", "All"]]
+    .map(([key, label]) => `<button type="button" data-actor-filter="${key}" aria-pressed="${key === "all"}">${label}<span>${key === "all" ? rows.length : rows.filter((row) => rowFilter(row.workflow) === key).length}</span></button>`).join("");
   return `<div class="workflow-queue" data-workflow-queue data-workflow-expires-at="${expiresAt}"${initiallyStale ? ' data-stale="true"' : ""}>
-  <div class="wf-topstrip">${progressStrip(models, rows, historical)}${milestoneStrip(roadmap)}${ciStrip(workflow, now)}</div>
-  ${staleNotice(models, workflow, rows)}${snapshot}${renderRoadmapHealth(roadmap)}
+  <div class="wf-topstrip">${progressStrip(models, rows, historical)}${milestoneStrip(roadmap)}${ciStrip(workflow, now, rows)}</div>
+  ${deepseekRouteBanner(workflow, now)}${staleNotice(models, workflow, rows)}${renderRoadmapHealth(roadmap)}
   <section class="wf-queue" aria-labelledby="wf-queue-title"><div class="wf-queue-head"><div><h2 id="wf-queue-title">What's next</h2><p>Project issues in canonical Queue Order; unqueued issues follow ranked work.</p></div><div class="wf-mode"><button type="button" data-queue-mode="groups" aria-pressed="true">By next step</button><button type="button" data-queue-mode="flat" aria-pressed="false">Queue order</button></div></div>
     <div class="wf-actor-filters" role="group" aria-label="Filter by next actor">${actorFilters}</div>
     ${optionsMarkup(models, rows)}

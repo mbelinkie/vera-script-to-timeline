@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { renderWorkflowQueue, queueStyles, queueClientScript } from "./project-progress-queue.mjs";
+import { renderWorkflowHeaderHealth, renderWorkflowQueue, queueStyles, queueClientScript } from "./project-progress-queue.mjs";
 import { loadWorkflowEvidence } from "./project-progress-workflow.mjs";
 import { parseDependencies } from "./roadmap.mjs";
 import {
@@ -593,10 +593,11 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
   }
 
   const all = [...byUrl.values()];
-  const queue = all.filter((item) => item.queueOrder !== null)
-    .sort((a, b) => a.queueOrder - b.queueOrder || a.key.localeCompare(b.key));
+  const queue = all.filter((item) => item.queueOrder !== null || item.status !== "Done")
+    .sort((a, b) => (a.queueOrder ?? Infinity) - (b.queueOrder ?? Infinity) || a.key.localeCompare(b.key));
   const usedOrder = new Map();
   for (const item of queue) {
+    if (item.queueOrder === null) continue;
     if (usedOrder.has(item.queueOrder)) {
       warnings.push(`Queue #${item.queueOrder} is assigned to both ${usedOrder.get(item.queueOrder)} and ${item.owner}/${item.repo}#${item.number}.`);
       item.evidenceConflict = true;
@@ -622,7 +623,8 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
       const isOpen = prerequisite
         ? prerequisite.status !== "Done" || (!hasFixture && !["CLOSED", "closed"].includes(dep?.state))
         : !["CLOSED", "closed"].includes(dep?.state);
-      const bad = !location || (isOpen && (!prerequisite || prerequisite.queueOrder === null || prerequisite.queueOrder >= item.queueOrder));
+      const bad = !location || (item.queueOrder !== null && isOpen
+        && (!prerequisite || prerequisite.queueOrder === null || prerequisite.queueOrder >= item.queueOrder));
       if (bad) warnings.push(`${item.owner}/${item.repo}#${item.number} at #${item.queueOrder} depends on ${location ? `${location.owner}/${location.repo}#${location.number}` : String(url)} ${prerequisite ? `at #${prerequisite.queueOrder}` : "which has no queue position"}.`);
       return {
         url: location?.url ?? null,
@@ -752,22 +754,8 @@ export function renderDashboard(models, options = {}) {
       )
     )
   );
-  // The same GitHub Issue can appear on both Projects. Count it once in the
-  // program-wide total, while each board retains its own original totals.
-  const counted = new Set();
-  let totalWork = 0;
-  let doneCount = 0;
-  for (const [index, model] of projects.entries()) {
-    for (const item of model.workItems ?? []) {
-      const key = issueLocation(item.url)?.url.toLowerCase() ?? `${index}:${item.number}`;
-      if (counted.has(key)) continue;
-      counted.add(key);
-      totalWork += 1;
-      if (item.status === "Done") doneCount += 1;
-    }
-  }
-  const scope = projects.length === 2 ? " across both boards" : projects.length > 2 ? ` across ${projects.length} boards` : "";
-  const updated = options.generatedAt ? `. Updated ${escapeHtml(formatGeneratedAt(options.generatedAt))}` : "";
+  const snapshot = Date.parse(options.workflow?.snapshotAt ?? "");
+  const snapshotLabel = Number.isFinite(snapshot) ? formatGeneratedAt(new Date(snapshot)) : "Unavailable";
   const live = options.live === true;
   return `<!doctype html>
 <html lang="en">
@@ -873,8 +861,10 @@ export function renderDashboard(models, options = {}) {
 <body>
   <main class="shell">
     <header class="top">
-      <h1 id="page-title">VERA progress</h1>
-      <p><b>${doneCount} of ${totalWork}</b> work items done${scope}${updated}</p>
+      <h1 id="page-title">VERA progress${options.preview ? " <small>Producer preview</small>" : ""}</h1>
+      <details class="wf-header-health"><summary>Workflow snapshot · ${escapeHtml(snapshotLabel)}</summary>
+        ${renderWorkflowHeaderHealth(projects, options)}
+      </details>
     </header>
     ${live ? `<div class="live-controls" aria-live="polite">
       <button id="refresh-now" type="button" class="live-refresh">Refresh now</button>
@@ -1056,6 +1046,7 @@ export async function writeDashboard(repositoryRoot, outputPath, options = {}) {
     : undefined);
   const html = renderDashboard(models, {
     generatedAt: options.generatedAt ?? new Date(), live: options.live, dependencySnapshot, workflow,
+    registerAction: options.registerAction, preview: options.preview,
   });
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");
