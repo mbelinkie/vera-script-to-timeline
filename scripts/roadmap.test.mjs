@@ -10,6 +10,13 @@ import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, late
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+test("acceptance heading permits a parenthetical clarification without changing the approved issue", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria (all required for #401 delivery)\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria (all required)\nNo criteria"), false);
+  assert.equal(acceptanceReady("## Not Acceptance criteria\n- [ ] Works"), false);
+});
+
 test("parses commands and flags", () => {
   const parsed = parseArguments(["claim", "12", "--model", "gpt-5.6-terra", "--effort", "high"]);
   assert.equal(parsed.command, "claim");
