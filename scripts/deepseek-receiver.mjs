@@ -11,7 +11,6 @@ import { COMMAND, REPO, invokePrivateRunner, requestFromEvent, reserveReceipt, t
 
 const API = 'https://api.github.com';
 const PAGE_SIZE = 100;
-const MAX_PAGES = 10;
 const MAX_MANIFEST_BYTES = 64 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
@@ -43,20 +42,8 @@ function isRetryableHttpError(error) {
   return [401, 403, 408, 429].includes(error?.status) || error?.status >= 500;
 }
 
-function nextPage(link, page, direction, since) {
-  if (!link) return false;
-  const next = link.split(',').find(value => /rel="next"/.test(value));
-  if (!next) return false;
-  const url = next.match(/<([^>]+)>/);
-  if (!url) throw new Error('Unexpected GitHub pagination link');
-  const parsed = new globalThis.URL(url[1]);
-  if (parsed.origin !== API || parsed.pathname !== '/repos/' + REPO + '/issues/comments' ||
-      parsed.searchParams.get('page') !== String(page + 1) || parsed.searchParams.get('per_page') !== String(PAGE_SIZE) ||
-      parsed.searchParams.get('sort') !== 'created' || parsed.searchParams.get('direction') !== direction ||
-      parsed.searchParams.get('since') !== since) {
-    throw new Error('Unexpected GitHub pagination link');
-  }
-  return true;
+function isTerminalHttpError(error) {
+  return Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 && !isRetryableHttpError(error);
 }
 
 export async function listRecentComments(fetchImpl = globalThis.fetch, lastSeenId = null, lastSeenCreatedAt = null) {
@@ -69,34 +56,31 @@ export async function listRecentComments(fetchImpl = globalThis.fetch, lastSeenI
     direction = 'asc';
   }
   const comments = [];
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const query = new globalThis.URLSearchParams({ per_page: String(PAGE_SIZE), sort: 'created', direction, page: String(page) });
-    if (since !== null) query.set('since', since);
-    const response = await fetchImpl(apiUrl('/repos/' + REPO + '/issues/comments?' + query), {
-      headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'vera-deepseek-receiver' },
-      redirect: 'error',
-      signal: globalThis.AbortSignal.timeout(15_000)
-    });
-    if (!response.ok) {
-      const error = new Error('Public GitHub comment poll failed: HTTP ' + response.status);
-      error.status = response.status;
-      throw error;
-    }
-    const pageComments = await response.json();
-    if (!Array.isArray(pageComments) || pageComments.length > PAGE_SIZE ||
-        !pageComments.every(comment => Number.isSafeInteger(comment?.id) && comment.id > 0 && typeof comment.body === 'string' &&
-          (lastSeenId === null || typeof comment.created_at === 'string' && Number.isFinite(Date.parse(comment.created_at))))) {
-      throw new Error('GitHub comment page is malformed');
-    }
-    for (let index = 1; index < pageComments.length; index += 1) {
-      const ordered = direction === 'desc'
-        ? pageComments[index - 1].id > pageComments[index].id
-        : pageComments[index - 1].id < pageComments[index].id;
-      if (!ordered) throw new Error('GitHub comment order is invalid');
-    }
-    comments.push(...pageComments);
-    if (lastSeenId === null || !nextPage(response.headers.get('link'), page, direction, since)) return comments;
+  const query = new globalThis.URLSearchParams({ per_page: String(PAGE_SIZE), sort: 'created', direction, page: '1' });
+  if (since !== null) query.set('since', since);
+  const response = await fetchImpl(apiUrl('/repos/' + REPO + '/issues/comments?' + query), {
+    headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'vera-deepseek-receiver' },
+    redirect: 'error',
+    signal: globalThis.AbortSignal.timeout(15_000)
+  });
+  if (!response.ok) {
+    const error = new Error('Public GitHub comment poll failed: HTTP ' + response.status);
+    error.status = response.status;
+    throw error;
   }
+  const pageComments = await response.json();
+  if (!Array.isArray(pageComments) || pageComments.length > PAGE_SIZE ||
+      !pageComments.every(comment => Number.isSafeInteger(comment?.id) && comment.id > 0 && typeof comment.body === 'string' &&
+        (lastSeenId === null || typeof comment.created_at === 'string' && Number.isFinite(Date.parse(comment.created_at))))) {
+    throw new Error('GitHub comment page is malformed');
+  }
+  for (let index = 1; index < pageComments.length; index += 1) {
+    const ordered = direction === 'desc'
+      ? pageComments[index - 1].id > pageComments[index].id
+      : pageComments[index - 1].id < pageComments[index].id;
+    if (!ordered) throw new Error('GitHub comment order is invalid');
+  }
+  comments.push(...pageComments);
   return comments;
 }
 
@@ -253,8 +237,8 @@ export async function processDispatchComment(comment, {
   try {
     issue = await fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl);
   } catch (error) {
-    if (isRetryableHttpError(error)) throw error;
-    return { state: 'refused' };
+    if (isTerminalHttpError(error)) return { state: 'refused' };
+    throw error;
   }
   const event = {
     repository: { full_name: REPO, owner: { login: 'mbelinkie' } },
@@ -284,7 +268,13 @@ export async function processDispatchComment(comment, {
     if (/Public GitHub review read failed/.test(error.message)) throw error;
     return { state: 'refused' };
   }
-  const confirmed = await fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl);
+  let confirmed;
+  try {
+    confirmed = await fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl);
+  } catch (error) {
+    if (isTerminalHttpError(error)) return { state: 'refused' };
+    throw error;
+  }
   const labels = value => (value || []).map(label => typeof label === 'string' ? label : label?.name).sort();
   if (confirmed.title !== issue.title || confirmed.body !== issue.body || confirmed.state !== issue.state ||
       JSON.stringify(labels(confirmed.labels)) !== JSON.stringify(labels(issue.labels))) return { state: 'refused' };
@@ -292,8 +282,8 @@ export async function processDispatchComment(comment, {
   try {
     confirmedComment = await fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl);
   } catch (error) {
-    if (isRetryableHttpError(error)) throw error;
-    return { state: 'refused' };
+    if (isTerminalHttpError(error)) return { state: 'refused' };
+    throw error;
   }
   try {
     verifyCurrentComment(confirmedComment, request, comment.user.login);
@@ -304,6 +294,39 @@ export async function processDispatchComment(comment, {
 
   try {
     safeRunner(runner, loaded.manifest.adapter_sha256);
+  } catch {
+    return { state: 'refused' };
+  }
+  try {
+    verifyReviewFromGh(readGh, REPO, issueNumber, {
+      title: issue.title, body: issue.body, labels: issue.labels
+    });
+  } catch (error) {
+    if (/Public GitHub review read failed/.test(error.message)) throw error;
+    return { state: 'refused' };
+  }
+  let finalIssue;
+  let finalComment;
+  let finalMain;
+  try {
+    [finalIssue, finalComment, finalMain] = await Promise.all([
+      fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl),
+      fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl),
+      fetchJson('/repos/' + REPO + '/commits/main', fetchImpl)
+    ]);
+  } catch (error) {
+    if (isTerminalHttpError(error)) return { state: 'refused' };
+    throw error;
+  }
+  try {
+    verifyFreshDispatch({
+      issue: finalIssue, comment: finalComment, currentMainSha: finalMain?.sha, request,
+      actor: comment.user.login, expectedIssue: issue, expectedComment: confirmedComment,
+      expectedMainSha: currentMain.sha
+    });
+    const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
+    if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
+    safeRunner(runner, finalManifest.manifest.adapter_sha256);
   } catch {
     return { state: 'refused' };
   }
@@ -321,29 +344,6 @@ export async function processDispatchComment(comment, {
     VERA_DEEPSEEK_RECEIPT: receipt, VERA_DEEPSEEK_MANIFEST_SHA256: loaded.sha256,
     VERA_DEEPSEEK_SOURCE_SHA: loaded.manifest.base_sha, VERA_DEEPSEEK_EXECUTION_MODE: 'mock'
   };
-  try {
-    verifyReviewFromGh(readGh, REPO, issueNumber, {
-      title: issue.title, body: issue.body, labels: issue.labels
-    });
-    const [finalIssue, finalComment, finalMain] = await Promise.all([
-      fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl),
-      fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl),
-      fetchJson('/repos/' + REPO + '/commits/main', fetchImpl)
-    ]);
-    verifyFreshDispatch({
-      issue: finalIssue, comment: finalComment, currentMainSha: finalMain?.sha, request,
-      actor: comment.user.login, expectedIssue: issue, expectedComment: confirmedComment,
-      expectedMainSha: currentMain.sha
-    });
-    const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
-    if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
-    safeRunner(runner, finalManifest.manifest.adapter_sha256);
-  } catch (error) {
-    if (isRetryableHttpError(error)) throw error;
-    writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state: 'refused',
-      timestamp: new Date().toISOString(), detail: 'authorization changed or could not be reverified' });
-    return { state: 'refused' };
-  }
   const result = invoke(runner, [String(issueNumber), String(comment.id)], childEnv);
   const state = result.error || result.status !== 0 ? 'uncertain-or-failed' : 'worker-returned';
   writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state,

@@ -50,7 +50,7 @@ test('manifest must bind the approved issue, current source and bounded files/te
 });
 
 test('receiver binds the adapter contract and refuses source, review, or runner mismatches', async () => {
-  for (const scenario of ['success', 'changed-main', 'stale-review', 'changed-adapter']) {
+  for (const scenario of ['success', 'changed-main', 'stale-review', 'changed-adapter', 'network-error', 'transient-final']) {
     const root = mkdtempSync(join(tmpdir(), 'vera-deepseek-contract-'));
     const manifestDir = join(root, 'tasks');
     const receiptRoot = join(root, 'receipts');
@@ -85,13 +85,19 @@ test('receiver binds the adapter contract and refuses source, review, or runner 
       };
       if (scenario === 'stale-review') approval.body = approval.body.replace('"revision":"', '"revision":"invalid-');
       let mainReads = 0;
+      let issueReads = 0;
       let calls = 0;
       const options = {
         manifestDir, receiptRoot, runner,
         fetchImpl: async url => {
           const path = new globalThis.URL(url).pathname;
           let value;
-          if (path.endsWith('/issues/396')) value = issue;
+          if (path.endsWith('/issues/396')) {
+            issueReads += 1;
+            if (scenario === 'network-error' && issueReads === 1) throw new TypeError('temporary network failure');
+            if (scenario === 'transient-final' && issueReads === 3) return { ok: false, status: 403 };
+            value = issue;
+          }
           else if (path.endsWith('/issues/comments/321')) value = comment;
           else if (path.endsWith('/commits/main')) value = { sha: scenario === 'changed-main' && ++mainReads > 1 ? 'c'.repeat(40) : sha };
           else throw new Error('Unexpected GitHub read');
@@ -112,6 +118,13 @@ test('receiver binds the adapter contract and refuses source, review, or runner 
         }
       };
       const success = scenario === 'success';
+      if (scenario === 'network-error' || scenario === 'transient-final') {
+        await assert.rejects(processDispatchComment(comment, options), scenario === 'network-error'
+          ? /temporary network failure/ : /HTTP 403/);
+        assert.equal(calls, 0);
+        assert.throws(() => statSync(join(receiptRoot, 'issue-396')), { code: 'ENOENT' });
+        continue;
+      }
       assert.deepEqual(await processDispatchComment(comment, options), { state: success ? 'worker-returned' : 'refused' });
       assert.equal(calls, success ? 1 : 0);
       assert.deepEqual(await processDispatchComment(comment, options), { state: success ? 'duplicate' : 'refused' });
@@ -239,45 +252,40 @@ test('gone issue comments advance the cursor while rate limits remain retryable'
   }
 });
 
-test('large comment backlogs advance in bounded oldest-first pages', async () => {
+test('large comment backlogs advance in bounded oldest-first polls', async () => {
   const root = mkdtempSync(join(tmpdir(), 'vera-deepseek-backlog-'));
   const cursorPath = join(root, 'receiver', 'cursor.json');
   const start = Date.UTC(2026, 10, 2, 19, 0, 0);
-  const makeFetcher = (firstId, count) => async url => {
+  const allComments = Array.from({ length: 1100 }, (_, index) => {
+    const id = 101 + index;
+    return { id, body: 'comment ' + id, created_at: new Date(start + id * 1000).toISOString() };
+  });
+  const fetchImpl = async url => {
     const parsed = new globalThis.URL(url);
     assert.equal(parsed.searchParams.get('direction'), 'asc');
-    const page = Number(parsed.searchParams.get('page'));
-    const comments = Array.from({ length: Math.min(100, Math.max(0, count - (page - 1) * 100)) }, (_, index) => {
-      const id = firstId + (page - 1) * 100 + index;
-      return { id, body: 'comment ' + id, created_at: new Date(start + id).toISOString() };
-    });
-    const hasNext = page * 100 < count;
-    const next = new globalThis.URL(parsed);
-    next.searchParams.set('page', String(page + 1));
+    assert.equal(parsed.searchParams.get('page'), '1');
+    const since = Date.parse(parsed.searchParams.get('since'));
+    const comments = allComments.filter(comment => Date.parse(comment.created_at) >= since).slice(0, 100);
     return {
       ok: true,
       json: async () => comments,
-      headers: { get: name => name.toLowerCase() === 'link' && hasNext ? '<' + next + '>; rel="next"' : null }
+      headers: { get: () => null }
     };
   };
   try {
     writeCursor(cursorPath, 100, '2026-11-02T18:00:00Z');
-    const firstBatch = [];
-    const first = await pollOnce({
-      cursorPath, fetchImpl: makeFetcher(101, 1100), processComment: async comment => firstBatch.push(comment.id)
-    });
-    assert.deepEqual(first, { initialized: false, processed: 1000 });
-    assert.equal(firstBatch[0], 101);
-    assert.equal(firstBatch.at(-1), 1100);
-    assert.equal(readCursor(cursorPath), 1100);
-
-    const secondBatch = [];
-    const second = await pollOnce({
-      cursorPath, fetchImpl: makeFetcher(1101, 100), processComment: async comment => secondBatch.push(comment.id)
-    });
-    assert.deepEqual(second, { initialized: false, processed: 100 });
-    assert.equal(secondBatch[0], 1101);
-    assert.equal(secondBatch.at(-1), 1200);
+    const processed = [];
+    for (let batch = 0; batch < 20 && processed.length < allComments.length; batch += 1) {
+      const result = await pollOnce({
+        cursorPath, fetchImpl,
+        processComment: async comment => processed.push(comment.id)
+      });
+      assert.equal(result.initialized, false);
+      assert.ok(result.processed > 0 && result.processed <= 100);
+    }
+    assert.equal(processed.length, 1100);
+    assert.equal(processed[0], 101);
+    assert.equal(processed.at(-1), 1200);
     assert.equal(readCursor(cursorPath), 1200);
   } finally {
     rmSync(root, { recursive: true, force: true });
