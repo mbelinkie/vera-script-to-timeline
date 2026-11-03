@@ -41,12 +41,18 @@ review. This avoids predicting a future event ID; the event alone grants no
 execution until the exact current review and all other gates pass.
 The source must still be current `main`. The existing eligibility/type/owner
 vetoes and canonical review verifier apply unchanged.
+The manual gate limits a new task to 100 comments and reuses the canonical
+verifier's two history reads, keeping each full gate within ten public reads.
+The controller runs it twice, without caching approval across provider preflight.
 
 The private controller's explicit `--continuation` mode requires independent
 operator enable and exact manifest/source bindings. It shares the ordinary
 per-issue receipt namespace, so a previous mock, dispatch or continuation
 receipt prevents another attempt. It hard-codes one call; there is no repair
 loop, resume switch or timeout retry. A baseline already passing makes no call.
+Receipt allocation follows the final approval/accounting checks. Earlier
+refusals retain local diagnostic evidence without reserving funds or consuming
+a receipt; preserved candidate workspaces still prevent blind restarts.
 
 The immutable `VERA_DEEPSEEK_RECONCILIATION_V1` record binds the original
 ledger history, historical billing evidence and each uncertain row to retained
@@ -55,6 +61,10 @@ response retention, usage verification and request-ID retention separately.
 The reviewed #411 record says charge observed, response/usage/request ID not
 retained, and `reservation_action: retain_full`. Its statement of charge is
 informational: budget calculations still use the full held reservation.
+New continuation receipts can also be reconciled as invocation not started,
+outcome unknown, or response retained with unverifiable usage. A retained
+response gets its own hash binding and request-ID evidence. None of these
+records releases a reservation or reuses the failed task.
 
 ## Diagnostics
 

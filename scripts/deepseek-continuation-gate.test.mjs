@@ -69,8 +69,9 @@ function fixture({ metadata = continuationApprovalMetadata(identity), event = {}
 }
 
 function reader(state, mutate = () => {}) {
-  const counts = { issue: 0, history: 0, main: 0 };
-  return args => {
+  const counts = { issue: 0, history: 0, main: 0, ordinaryReads: 0 };
+  const read = args => {
+    counts.ordinaryReads += 1;
     assert.equal(args[0], 'api');
     const route = args.at(-1);
     if (route === `repos/${REPO}/issues/${identity.issue}`) {
@@ -79,6 +80,7 @@ function reader(state, mutate = () => {}) {
     }
     if (route === `repos/${REPO}/issues/${identity.issue}/comments?per_page=100`) {
       assert.ok(args.includes('--paginate') && args.includes('--slurp'));
+      counts.ordinaryReads += 1;
       mutate(state, 'history', ++counts.history);
       return JSON.stringify([globalThis.structuredClone(state.comments)]);
     }
@@ -88,6 +90,8 @@ function reader(state, mutate = () => {}) {
     }
     assert.fail(`Unexpected public read: ${route}`);
   };
+  Object.defineProperty(read, 'ordinaryReads', { get: () => counts.ordinaryReads });
+  return read;
 }
 
 function approve(state = fixture(), mutate) {
@@ -145,6 +149,20 @@ test('accepts a current Producer approval and exact continuation comment with ei
   assert.equal(eventFirstResult.approved, true);
   assert.equal(eventFirstResult.commentId, 1);
   assert.equal(eventFirstResult.reviewCommentId, 2);
+});
+
+test('keeps public authorization reads within ten requests including pagination bookkeeping', () => {
+  const read = reader(fixture());
+  assert.equal(verifyContinuationApproval(read, identity).approved, true);
+  assert.equal(read.ordinaryReads, 10);
+});
+
+test('refuses a comment history that would require a second pagination page', () => {
+  const state = fixture();
+  state.issue.comments = 101;
+  const read = reader(state);
+  assert.throws(() => verifyContinuationApproval(read, identity));
+  assert.equal(read.ordinaryReads, 1);
 });
 
 test('rejects invalid identities, issue 411, the quality campaign and extra CLI keys', () => {
@@ -222,12 +240,12 @@ test('rejects a source revision that is not current main', () => {
   assert.throws(() => approve(state));
 });
 
-test('detects issue, comment history and main ref changes during verification', () => {
+test('detects issue, canonical comment-history and main ref changes during verification', () => {
   assert.throws(() => approve(fixture(), (state, kind, count) => {
-    if (kind === 'issue' && count === 6) state.issue.body += '\nChanged during verification.';
+    if (kind === 'issue' && count === 4) state.issue.body += '\nChanged during verification.';
   }));
   assert.throws(() => approve(fixture(), (state, kind, count) => {
-    if (kind === 'history' && count === 6) state.comments[1].body = '/deepseek continue edited';
+    if (kind === 'history' && count === 2) state.comments[1].body = '/deepseek continue edited';
   }));
   assert.throws(() => approve(fixture(), (state, kind, count) => {
     if (kind === 'main' && count === 2) state.mainSha = 'e'.repeat(40);

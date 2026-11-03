@@ -86,9 +86,10 @@ function exactJson(actual, expected) {
 }
 
 function issueSnapshot(issue) {
+  // One comment page per canonical history keeps public verification within ten reads.
   if (!issue || typeof issue !== 'object' || typeof issue.title !== 'string' ||
       typeof issue.body !== 'string' || typeof issue.updated_at !== 'string' ||
-      !Number.isSafeInteger(issue.comments) || issue.comments < 0 || issue.comments > 2000 ||
+      !Number.isSafeInteger(issue.comments) || issue.comments < 0 || issue.comments > 100 ||
       !Array.isArray(issue.labels)) throw new Error('Invalid continuation issue snapshot');
   const labels = issue.labels.map(label => typeof label === 'string' ? label : label?.name);
   if (labels.some(label => typeof label !== 'string' || !label)) {
@@ -123,30 +124,6 @@ function canonicalRestTimestamp(value) {
   return value === canonical || value === canonical.replace('.000Z', 'Z');
 }
 
-function readComments(readGh, issue) {
-  const path = `repos/${REPO}/issues/${issue.number}/comments?per_page=100`;
-  const pages = JSON.parse(readGh(['api', '--paginate', '--slurp', path]));
-  const count = issue.comments;
-  const pageCount = Math.max(1, Math.ceil(count / 100));
-  if (!Array.isArray(pages) || pages.length !== pageCount || !pages.every(Array.isArray)) {
-    throw new Error('Continuation comment history is incomplete');
-  }
-  const comments = [];
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-    const expectedLength = pageIndex === pageCount - 1 ? count - 100 * pageIndex : 100;
-    if (pages[pageIndex].length !== expectedLength) throw new Error('Continuation comment history is incomplete');
-    for (const comment of pages[pageIndex]) {
-      if (!comment || typeof comment !== 'object' || Array.isArray(comment) ||
-          !Number.isSafeInteger(comment.id) || comment.id < 1 || typeof comment.body !== 'string' ||
-          typeof comment.issue_url !== 'string' || !comment.user || typeof comment.user.login !== 'string') {
-        throw new Error('Continuation comment history is invalid');
-      }
-      comments.push(comment);
-    }
-  }
-  return comments;
-}
-
 function findContinuationComment(comments, commentId) {
   const matches = comments.filter(comment => comment.id === commentId);
   if (matches.length !== 1) throw new Error('Continuation request comment missing or duplicated');
@@ -164,19 +141,6 @@ function verifyContinuationComment(comment, issueNumber) {
   return comment;
 }
 
-function commentSnapshot(comment) {
-  return JSON.stringify({
-    id: comment.id, body: comment.body, issue_url: comment.issue_url,
-    user: comment.user.login, created_at: comment.created_at,
-    updated_at: comment.updated_at, performed_via_github_app: comment.performed_via_github_app
-  });
-}
-
-function sameHistory(left, right) {
-  return left.length === right.length && left.every((comment, index) =>
-    commentSnapshot(comment) === commentSnapshot(right[index]));
-}
-
 function readIssue(readGh, number) {
   return JSON.parse(readGh(['api', `repos/${REPO}/issues/${number}`]));
 }
@@ -190,6 +154,23 @@ function currentMainSha(readGh) {
   return ref.object.sha;
 }
 
+function verifyReviewWithHistory(readGh, issueNumber, issue) {
+  const historyPath = `repos/${REPO}/issues/${issueNumber}/comments?per_page=100`;
+  const histories = [];
+  const review = verifyReviewFromGh(args => {
+    const result = readGh(args);
+    if (args[0] === 'api' && args.includes('--paginate') && args.includes('--slurp') &&
+        args.at(-1) === historyPath) histories.push(result);
+    return result;
+  }, REPO, issueNumber, issue);
+  if (histories.length !== 2) throw new Error('Producer review history was not verified twice');
+  const pages = JSON.parse(histories[1]);
+  if (!Array.isArray(pages) || !pages.every(Array.isArray)) {
+    throw new Error('Producer review history is invalid');
+  }
+  return { review, comments: pages.flat() };
+}
+
 export function verifyContinuationApproval(readGh, identity) {
   if (typeof readGh !== 'function') throw new Error('Public GitHub reader required');
   validateIdentity(identity);
@@ -199,28 +180,17 @@ export function verifyContinuationApproval(readGh, identity) {
   const before = issueSnapshot(issue);
   verifyIssueMetadata(issue, expected);
 
-  const firstReview = verifyReviewFromGh(readGh, REPO, identity.issue, issue);
-  const commentsBefore = readComments(readGh, issue);
-  const continuationBefore = verifyContinuationComment(
-    findContinuationComment(commentsBefore, identity.commentId), identity.issue);
   const mainBefore = currentMainSha(readGh);
   if (mainBefore !== identity.sourceSha) throw new Error('Approved source is not current main');
 
-  const currentReview = verifyReviewFromGh(readGh, REPO, identity.issue, issue);
-  if (currentReview.commentId !== firstReview.commentId || currentReview.revision !== firstReview.revision) {
-    throw new Error('Producer review changed during continuation verification');
-  }
+  const { review, comments } = verifyReviewWithHistory(readGh, identity.issue, issue);
+  verifyContinuationComment(findContinuationComment(comments, identity.commentId), identity.issue);
 
   const currentIssue = readIssue(readGh, identity.issue);
   verifyCurrentIssue(currentIssue, identity.issue);
   const after = issueSnapshot(currentIssue);
-  const commentsAfter = readComments(readGh, currentIssue);
-  const continuationAfter = verifyContinuationComment(
-    findContinuationComment(commentsAfter, identity.commentId), identity.issue);
   const mainAfter = currentMainSha(readGh);
-  if (before !== after || !sameHistory(commentsBefore, commentsAfter) ||
-      commentSnapshot(continuationBefore) !== commentSnapshot(continuationAfter) ||
-      mainAfter !== identity.sourceSha || mainAfter !== mainBefore) {
+  if (before !== after || mainAfter !== identity.sourceSha || mainAfter !== mainBefore) {
     throw new Error('Continuation authorization changed during verification');
   }
 
@@ -229,8 +199,8 @@ export function verifyContinuationApproval(readGh, identity) {
     issue: identity.issue,
     commentId: identity.commentId,
     ...expected,
-    reviewCommentId: currentReview.commentId,
-    revision: currentReview.revision
+    reviewCommentId: review.commentId,
+    revision: review.revision
   };
 }
 
