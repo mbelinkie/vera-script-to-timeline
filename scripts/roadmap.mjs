@@ -515,7 +515,7 @@ function claimMarker(claim) {
 }
 
 export function acceptanceReady(body) {
-  return /^#{2,3} Acceptance criteria(?:\s+\([^\r\n]*\))?\s*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
+  return /^#{2,3} Acceptance criteria(?:[ \t]+\([^()\r\n]+\))?[ \t]*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
 }
 
 function validateReadyRequirements(settings, issue) {

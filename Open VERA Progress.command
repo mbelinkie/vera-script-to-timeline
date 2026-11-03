@@ -246,7 +246,7 @@ else
 
   # Start Node itself so that the saved PID identifies the actual server.
   # nohup and redirected streams let it survive Terminal closing.
-  nohup node "$repository_root/scripts/project-progress.mjs" --serve \
+  nohup node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$repository_root/scripts/project-progress.mjs" --serve \
     > "$log_file" 2>&1 < /dev/null &
   server_pid=$!
   print -r -- "$server_pid" > "$pid_file"

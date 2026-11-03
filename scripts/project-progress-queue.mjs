@@ -632,7 +632,8 @@ function renderRoadmapHealth(roadmap) {
 
 export function renderWorkflowQueue(projects, options = {}) {
   const models = Array.isArray(projects) ? projects : [projects];
-  const now = options.generatedAt instanceof Date ? options.generatedAt : new Date();
+  const suppliedTime = new Date(options.generatedAt ?? options.workflow?.snapshotAt ?? 0);
+  const now = Number.isFinite(suppliedTime.getTime()) ? suppliedTime : new Date(0);
   const roadmap = options.roadmap ?? {};
   const workflow = options.workflow ?? {};
   const roadmapQueue = asArray(roadmap.queue);

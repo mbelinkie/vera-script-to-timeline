@@ -972,7 +972,7 @@ function dependenciesBlock(item) {
 }
 
 /** Pure next-action derivation. It performs no reads and never authorizes a launch. */
-export function deriveWorkflow(item, evidence, nowValue = new Date()) {
+export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
   const now = clockValue(nowValue);
   const identity = repoForIssue(item?.url);
   const key = identity?.url ?? item?.url;

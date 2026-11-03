@@ -24,6 +24,18 @@ test("parses commands and flags", () => {
   assert.equal(parsed.flags.get("effort"), "high");
 });
 
+test("accepts qualified acceptance criteria headings with checklist or numbered criteria", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria (all required before closing #396)\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("### Acceptance criteria (bounded scope)\n\n1. Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria\n\n- [ ] Works"), true);
+});
+
+test("rejects non-parenthetical heading suffixes, malformed qualifiers, and missing criteria", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria extra\n\n- [ ] Works"), false);
+  assert.equal(acceptanceReady("## Acceptance criteria (unfinished\n\n- [ ] Works"), false);
+  assert.equal(acceptanceReady("## Acceptance criteria (valid)\n\nThis is prose only."), false);
+});
+
 test("accepts one exact routing profile", () => {
   assert.deepEqual(validateRouting(["model:terra", "effort:high"], "gpt-5.6-terra", "high"), {
     expectedModel: "terra",
