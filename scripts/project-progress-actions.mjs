@@ -65,7 +65,7 @@ function chatAction(workflow, url, reason) {
   return action("chat", "ChatGPT", "Review in ChatGPT", "review-chat", reason, "chat", url);
 }
 
-function ownerHandoff({ bound, url, eventId, kind = "continue-owner", group = "decision", reason }) {
+function ownerHandoff({ bound, canPair, url, eventId, kind = "continue-owner", group = "decision", reason }) {
   if (bound) {
     const labels = {
       "notify-owner": ["Ask Codex to check", "blocked"],
@@ -77,8 +77,9 @@ function ownerHandoff({ bound, url, eventId, kind = "continue-owner", group = "d
     const operation = ["notify-owner", "finish-owner"].includes(kind) && !exactEvent ? "continue-owner" : kind;
     return action(group, "Codex", label, operation, reason, filter, url, eventId);
   }
+  if (!canPair) return checkStatus(url, "Find the original owner before sending a handoff.");
   return action(group, "Codex", "Pair original owner", "pair-owner",
-    "Existing work is verified, but its original owner is not bound to this dashboard.",
+    "Ask the matched existing Codex chat to confirm it owns this ticket.",
     group === "blocked" ? "blocked" : "working", url);
 }
 
@@ -91,11 +92,12 @@ function grandfatheredWork(workflow) {
     && workflow.chips.some((chip) => chip?.name === "Chat" && chip?.state === "grandfathered");
 }
 
-function deliveredAction(item, workflow, options, url) {
+function deliveredAction(item, options, url) {
   if (item.acceptance === "Producer") {
     if (!options.hasProducerChecklist || !options.eventId || !options.ownerBound) {
       return ownerHandoff({
         bound: options.ownerBound === true,
+        canPair: options.canPair,
         url,
         kind: "ask-owner-prepare",
         group: "finish",
@@ -108,6 +110,7 @@ function deliveredAction(item, workflow, options, url) {
   if (["Automated", "External"].includes(item.acceptance)) {
     return ownerHandoff({
       bound: options.ownerBound === true,
+      canPair: options.canPair,
       url,
       eventId: options.eventId,
       kind: "finish-owner",
@@ -126,6 +129,7 @@ export function derivePrimaryAction(item, workflow, {
   prFresh = false,
   ciFresh = false,
   ownerBound = false,
+  canPair = false,
   activeTurnFresh = false,
   eventId,
   hasProducerChecklist = false,
@@ -159,10 +163,11 @@ export function derivePrimaryAction(item, workflow, {
   const knownWork = hasPr || hasClaim || ownerBound === true;
 
   if (hasPr && !ciFresh) return checkStatus(url, "The linked pull request has no fresh CI delivery state.");
-  if (hasPr && ciFresh && ci === "delivered") return deliveredAction(item, workflow, { ownerBound, eventId, hasProducerChecklist }, url);
+  if (hasPr && ciFresh && ci === "delivered") return deliveredAction(item, { ownerBound, canPair, eventId, hasProducerChecklist }, url);
   if (hasPr && ciFresh && ci === "failed-paused") {
     return ownerHandoff({
       bound: ownerBound === true,
+      canPair,
       url,
       eventId,
       kind: "notify-owner",
@@ -184,6 +189,7 @@ export function derivePrimaryAction(item, workflow, {
   if (knownWork) {
     return ownerHandoff({
       bound: ownerBound === true,
+      canPair,
       url,
       kind: ci === "failed-paused" ? "notify-owner" : "continue-owner",
       group: ci === "failed-paused" ? "blocked" : "decision",

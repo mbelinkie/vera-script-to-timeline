@@ -32,9 +32,14 @@ export async function localOrigins(directory = DEFAULT_DIRECTORY) {
 export function matchOrigin(origins, { repository, number, claim, pr = null }) {
   if (claim?.state !== "active") return null;
   const matches = origins.filter(origin => origin.repository === repository && origin.issue === number
-    && origin.branch === claim.branch && publicOwnerKey(origin.threadId) === claim.task
+    && origin.branch === claim.branch && matchesOwnerClaim(origin.threadId, claim)
     && (pr === null || origin.pr === pr));
   return matches.length === 1 ? matches[0] : null;
+}
+
+export function matchesOwnerClaim(threadId, claim) {
+  return UUID.test(threadId ?? "") && claim?.state === "active"
+    && [threadId, publicOwnerKey(threadId)].includes(claim.task);
 }
 
 export async function readProducerChecklist({ issueUrl, revision, pr, origin }) {

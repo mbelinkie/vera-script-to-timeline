@@ -12,9 +12,8 @@ import { inspectDashboardIssue, latestClaim, routingProfile } from "./roadmap.mj
 import { fetchNativeDependencies } from "./project-progress-lib.mjs";
 import { resolveLocalSession } from "./project-progress-workflow.mjs";
 import { deepseekRouteForIssue } from "./project-progress-deepseek.mjs";
-import { publicOwnerKey } from "./ci-notification-origin.mjs";
 import { continuePrompt, deepseekPreparationPrompt, pairingPrompt, reviewPrompt, startPrompt } from "./project-progress-prompts.mjs";
-import { ACTION_HOME, localOrigins, matchOrigin, ownerReceipt, queueAndOpenOwner, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
+import { ACTION_HOME, localOrigins, matchOrigin, matchesOwnerClaim, ownerReceipt, queueAndOpenOwner, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
 
 const RESEARCH = "mbelinkie/vera-research-video-clips";
 const MODELS = { luna: "gpt-6-luna", terra: "gpt-6.1-terra", sol: "gpt-6.1-sol", astra: "gpt-6-astra" };
@@ -233,7 +232,7 @@ export function createProgressExecutor(root, { directory = ACTION_HOME } = {}) {
           const session = await resolveLocalSession(identity.url);
           if (session.status !== "verified-local") return refused("Open the original owner in Codex and pair that chat first. No replacement owner was started.");
           const id = session.appUrl?.slice("codex://threads/".length);
-          if (!UUID.test(id ?? "") || claim?.state !== "active" || ![id, publicOwnerKey(id)].includes(claim.task)) {
+          if (!matchesOwnerClaim(id, claim)) {
             return refused("The saved chat link does not verify the current claim. Open the original chat to pair it.");
           }
           intent.threadId = id;

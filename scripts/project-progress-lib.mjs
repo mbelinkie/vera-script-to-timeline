@@ -209,6 +209,7 @@ function parseItem(item) {
     number,
     title,
     url,
+    state: optionalText(item.content.state),
     repository: issueLocation(url)?.repo ?? null,
     body: typeof item.content.body === "string" ? item.content.body : null,
     labels,
@@ -606,10 +607,12 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
   }
 
   const providedDependencies = dependencySnapshot.dependencies ?? {};
+  const closedIssues = new Set(dependencySnapshot.closedIssues ?? []);
   const verified = new Set((dependencySnapshot.verified ?? []).map((value) => value.toLowerCase()));
   const unavailable = new Set();
   const dependencyErrors = [...(dependencySnapshot.errors ?? [])];
   for (const item of queue) {
+    if (closedIssues.has(item.key)) item.state = "CLOSED";
     const entry = providedDependencies[item.key] ?? providedDependencies[item.url]
       ?? item.blockedBy;
     const hasFixture = Array.isArray(item.blockedBy);
@@ -675,6 +678,7 @@ export async function fetchNativeDependencies(repositoryRoot, models, options = 
   const items = buildSharedRoadmap(models).queue;
   const dependencies = {};
   const verified = [];
+  const closedIssues = [];
   const errors = [];
   const fetchGraphql = options.queryGraphql ?? (async (query) => {
     const { stdout } = await execFileAsync("gh", ["api", "graphql", "-f", `query=${query}`],
@@ -687,12 +691,13 @@ export async function fetchNativeDependencies(repositoryRoot, models, options = 
   for (let start = 0; start < items.length; start += BATCH_SIZE) {
     const batch = items.slice(start, start + BATCH_SIZE);
     const fields = batch.map((item, index) =>
-      `i${index}: repository(owner:${JSON.stringify(item.owner)},name:${JSON.stringify(item.repo)}) { issue(number:${item.number}) { url body blockedBy(first:50) { totalCount pageInfo { hasNextPage } nodes { url state } } } }`);
+      `i${index}: repository(owner:${JSON.stringify(item.owner)},name:${JSON.stringify(item.repo)}) { issue(number:${item.number}) { url state body blockedBy(first:50) { totalCount pageInfo { hasNextPage } nodes { url state } } } }`);
     try {
       const data = await fetchGraphql(`query VeraQueueDependencies { ${fields.join(" ")} }`);
       if (data.errors?.length) throw new Error(data.errors.map((entry) => entry.message).join("; "));
       for (const [index, item] of batch.entries()) {
         const issue = data.data?.[`i${index}`]?.issue;
+        if (issue?.url === item.url && issue.state === "CLOSED") closedIssues.push(item.key);
         const result = issue?.blockedBy;
         if (!result || !Array.isArray(result.nodes) || result.pageInfo?.hasNextPage
           || result.totalCount !== result.nodes.length) {
@@ -741,7 +746,7 @@ export async function fetchNativeDependencies(repositoryRoot, models, options = 
       errors.push(`Dependency check failed for ${batch.length} queued issues; GitHub source unavailable.`);
     }
   }
-  return { dependencies, verified, errors };
+  return { dependencies, verified, errors, closedIssues };
 }
 
 export function renderDashboard(models, options = {}) {

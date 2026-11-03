@@ -290,7 +290,6 @@ const GROUPS = [
   ["finish", "Ready to Finish", "Delivery is verified and the owner can finish acceptance."],
   ["decision", "Needs Your Decision", "Choose a review or send a handoff."],
   ["blocked", "Blocked", "A source is blocked, missing, or needs attention."],
-  ["done", "Done", "Completed work."],
 ];
 const GROUP_KEYS = new Set(GROUPS.map(([key]) => key));
 const ACTION_KINDS = new Set(["none", "review-chat", "review-blocker", "start-codex", "continue-owner", "pair-owner", "notify-owner", "finish-owner", "review-producer", "ask-owner-prepare", "check-status", "open-queue", "prepare-deepseek"]);
@@ -985,7 +984,8 @@ export function renderWorkflowQueue(projects, options = {}) {
   const roadmap = options.roadmap ?? {};
   const workflow = options.workflow ?? {};
   const roadmapQueue = asArray(roadmap.queue);
-  const { rows, historical } = flattenProjects(models, roadmapQueue, now, workflow);
+  const { rows: allRows, historical } = flattenProjects(models, roadmapQueue, now, workflow);
+  const rows = allRows.filter(({ item }) => item.status !== "Done" && item.state?.toUpperCase() !== "CLOSED");
   for (const [queueIndex, row] of rows.entries()) {
     row.queueIndex = queueIndex;
     const group = rowGroup(row.workflow);
@@ -1002,9 +1002,9 @@ export function renderWorkflowQueue(projects, options = {}) {
   const actorFilters = [["chat", "Chat can advance"], ["deepseek", "DeepSeek"], ["codex", "Codex ready"], ["approval", "My approval"], ["ci", "CI"], ["finish", "Ready to finish"], ["decision", "Decision"], ["blocked", "Blocked"], ["all", "All"]]
     .map(([key, label]) => `<button type="button" data-actor-filter="${key}" aria-pressed="${key === "all"}">${label}<span>${key === "all" ? rows.length : rows.filter((row) => rowFilter(row.workflow) === key).length}</span></button>`).join("");
   return `<div class="workflow-queue" data-workflow-queue data-workflow-expires-at="${expiresAt}"${initiallyStale ? ' data-stale="true"' : ""}>
-  <div class="wf-topstrip">${progressStrip(models, rows, historical)}${milestoneStrip(roadmap)}${ciStrip(workflow, now, rows)}</div>
+  <div class="wf-topstrip">${progressStrip(models, allRows, historical)}${milestoneStrip(roadmap)}${ciStrip(workflow, now, rows)}</div>
   ${deepseekRouteBanner(workflow, now)}${staleNotice(models, workflow, rows)}${renderRoadmapHealth(roadmap)}
-  <section class="wf-queue" aria-labelledby="wf-queue-title"><div class="wf-queue-head"><div><h2 id="wf-queue-title">What's next</h2><p>Project issues in canonical Queue Order; unqueued issues follow ranked work.</p></div><div class="wf-mode"><button type="button" data-queue-mode="groups" aria-pressed="true">By next step</button><button type="button" data-queue-mode="flat" aria-pressed="false">Queue order</button></div></div>
+  <section class="wf-queue" aria-labelledby="wf-queue-title"><div class="wf-queue-head"><div><h2 id="wf-queue-title">What's next</h2><p>Open issues in Queue Order. Unranked issues follow ranked work.</p></div><div class="wf-mode"><button type="button" data-queue-mode="groups" aria-pressed="true">By next step</button><button type="button" data-queue-mode="flat" aria-pressed="false">Queue order</button></div></div>
     <div class="wf-actor-filters" role="group" aria-label="Filter by next actor">${actorFilters}</div>
     ${optionsMarkup(models, rows)}
     <div class="wf-group-list">${groups}</div>

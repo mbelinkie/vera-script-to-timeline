@@ -20,7 +20,7 @@ import {
 import { validateState } from "./ci-queue.mjs";
 import { derivePrimaryAction } from "./project-progress-actions.mjs";
 import { deepseekRouteForIssue, loadDeepSeekDashboardEvidence } from "./project-progress-deepseek.mjs";
-import { localOrigins, matchOrigin, readProducerChecklist } from "./project-progress-transport.mjs";
+import { localOrigins, matchOrigin, matchesOwnerClaim, readProducerChecklist } from "./project-progress-transport.mjs";
 import { assessRun } from "./ci-queue-policy.ts";
 import { latestClaim } from "./roadmap.mjs";
 
@@ -1053,6 +1053,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
   }
 
   const sessionByIssue = new Map();
+  const pairableIssues = new Set();
   if (options.local === true) {
     const mappingPath = options.mappingPath;
     const installationIdPath = options.installationIdPath ?? defaultInstallationIdPath(mappingPath);
@@ -1063,6 +1064,8 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       ]);
       for (const { identity } of identities) {
         const session = linksForIssue(identity.url, mapping, installationId);
+        if (session.status === "verified-local"
+            && matchesOwnerClaim(session.threadId, privateClaimByIssue.get(identity.url))) pairableIssues.add(identity.url);
         sessionByIssue.set(identity.url, {
           status: session.status,
           reason: session.reason,
@@ -1208,7 +1211,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       claim: privateClaimByIssue.get(identity.url),
       pr: record.pr?.number ?? null,
     }) : null;
-    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin) };
+    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin), canPair: pairableIssues.has(identity.url) };
     record.producerChecklist = ownerOrigin && item.acceptance === "Producer" && record.pr
       ? await readProducerChecklist({
         issueUrl: identity.url,
@@ -1362,6 +1365,7 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
   const primaryAction = derivePrimaryAction(item, { chat, codex, deepseek, ci, links, chips }, {
     projectFresh, workflowFresh, chatFresh, codexFresh, prFresh, ciFresh,
     ownerBound: sessionFresh && record?.codex?.ownerBound === true,
+    canPair: sessionFresh && record?.codex?.canPair === true,
     activeTurnFresh: false,
     eventId: ciFresh ? record?.ci?.eventId : undefined,
     hasProducerChecklist: sessionFresh && Boolean(record?.producerChecklist),
