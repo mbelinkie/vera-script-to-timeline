@@ -153,9 +153,9 @@ function findContinuationComment(comments, commentId) {
   return matches[0];
 }
 
-function verifyContinuationComment(comment, issueNumber, reviewCommentId) {
+function verifyContinuationComment(comment, issueNumber) {
   const issueUrl = `https://api.github.com/repos/${REPO}/issues/${issueNumber}`;
-  if (comment.id <= reviewCommentId || comment.body !== '/deepseek continue' ||
+  if (comment.body !== '/deepseek continue' ||
       comment.issue_url !== issueUrl || comment.user.login !== 'mbelinkie' ||
       comment.performed_via_github_app !== null || !canonicalRestTimestamp(comment.created_at) ||
       comment.created_at !== comment.updated_at) {
@@ -202,7 +202,7 @@ export function verifyContinuationApproval(readGh, identity) {
   const firstReview = verifyReviewFromGh(readGh, REPO, identity.issue, issue);
   const commentsBefore = readComments(readGh, issue);
   const continuationBefore = verifyContinuationComment(
-    findContinuationComment(commentsBefore, identity.commentId), identity.issue, firstReview.commentId);
+    findContinuationComment(commentsBefore, identity.commentId), identity.issue);
   const mainBefore = currentMainSha(readGh);
   if (mainBefore !== identity.sourceSha) throw new Error('Approved source is not current main');
 
@@ -216,7 +216,7 @@ export function verifyContinuationApproval(readGh, identity) {
   const after = issueSnapshot(currentIssue);
   const commentsAfter = readComments(readGh, currentIssue);
   const continuationAfter = verifyContinuationComment(
-    findContinuationComment(commentsAfter, identity.commentId), identity.issue, currentReview.commentId);
+    findContinuationComment(commentsAfter, identity.commentId), identity.issue);
   const mainAfter = currentMainSha(readGh);
   if (before !== after || !sameHistory(commentsBefore, commentsAfter) ||
       commentSnapshot(continuationBefore) !== commentSnapshot(continuationAfter) ||

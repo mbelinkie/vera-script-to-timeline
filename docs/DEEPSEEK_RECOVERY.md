@@ -35,7 +35,10 @@ The identity supplies `issue`, `commentId`, `manifestSha`, `sourceSha`,
 `maxOutputTokens`. The approved issue must contain exactly one
 `VERA_DEEPSEEK_CONTINUATION_V1` marker whose metadata matches
 `continuationApprovalMetadata(identity)`. Its explicit `/deepseek continue`
-owner comment must be unedited and later than the independent Chat review.
+owner comment must be unedited. Prepare that event first, then bind its ID
+into the immutable manifest and finalize the issue before independent Chat
+review. This avoids predicting a future event ID; the event alone grants no
+execution until the exact current review and all other gates pass.
 The source must still be current `main`. The existing eligibility/type/owner
 vetoes and canonical review verifier apply unchanged.
 

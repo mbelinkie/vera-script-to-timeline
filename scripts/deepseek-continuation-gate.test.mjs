@@ -128,7 +128,7 @@ test('builds exact bounded metadata with only the selected current quality rates
   });
 });
 
-test('accepts a separate current Producer approval and later exact continuation comment', () => {
+test('accepts a current Producer approval and exact continuation comment with either comment ID order', () => {
   const result = approve();
   assert.equal(result.approved, true);
   assert.equal(result.issue, identity.issue);
@@ -137,6 +137,14 @@ test('accepts a separate current Producer approval and later exact continuation 
   assert.equal(result.sourceSha, identity.sourceSha);
   assert.equal(result.taskCapUsd, '0.25');
   assert.deepEqual(Object.keys(result.verifiedRates), ['deepseek-v4-pro']);
+
+  const eventFirst = fixture({ event: {
+    id: 1, created_at: '2026-11-03T13:59:00Z', updated_at: '2026-11-03T13:59:00Z'
+  }, review: { id: 2 } });
+  const eventFirstResult = verifyContinuationApproval(reader(eventFirst), { ...identity, commentId: 1 });
+  assert.equal(eventFirstResult.approved, true);
+  assert.equal(eventFirstResult.commentId, 1);
+  assert.equal(eventFirstResult.reviewCommentId, 2);
 });
 
 test('rejects invalid identities, issue 411, the quality campaign and extra CLI keys', () => {
@@ -169,7 +177,7 @@ test('rejects missing or stale Producer review and missing continuation event', 
   ]) assert.throws(() => approve(fixture({ review })));
 });
 
-test('rejects an edited, app-authored, wrong-actor, wrong-issue or pre-review continuation comment', () => {
+test('rejects an edited, app-authored, wrong-ID, wrong-actor or wrong-issue continuation comment', () => {
   for (const event of [
     { body: '/deepseek continue\n' },
     { updated_at: '2026-11-03T14:01:01Z' },
@@ -179,8 +187,8 @@ test('rejects an edited, app-authored, wrong-actor, wrong-issue or pre-review co
     { created_at: 'not-a-canonical-time', updated_at: 'not-a-canonical-time' }
   ]) assert.throws(() => approve(fixture({ event })));
 
-  const earlierEvent = fixture({ event: { id: 1 }, review: { id: 2 } });
-  assert.throws(() => approve(earlierEvent));
+  assert.throws(() => verifyContinuationApproval(reader(fixture()), { ...identity, commentId: 3 }));
+  assert.throws(() => verifyContinuationApproval(reader(fixture()), { ...identity, commentId: 1 }));
 });
 
 test('rejects changes to approved hashes, model, output budget, caps, rates and marker shape', () => {
