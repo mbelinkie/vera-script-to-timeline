@@ -60,6 +60,6 @@ This route operates on the local Mac. The paired iPhone and the desktop Connecti
 
 ## Preview and Producer decisions
 
-From this issue's worktree, run `VERA_PROGRESS_PREVIEW=1 npm run progress -- --serve --open`. The server chooses a loopback port and writes its own preview snapshot under `out/project-progress`. The first roadmap refresh can take a few minutes. Close the browser tab when finished, and stop the preview process to take the link offline.
+From this issue's worktree, run `VERA_PROGRESS_PREVIEW=1 npm run progress -- --serve --open`. Set `VERA_PROGRESS_PREVIEW_PORT` to reuse the same loopback address across design iterations. The preview writes its own snapshot under `out/project-progress`. The first roadmap refresh can take a few minutes. If the GitHub read budget runs low, the dashboard keeps the saved view, marks it stale, and waits until the next eligible refresh. Close the browser tab when finished, and stop the preview process to take the link offline.
 
 The owner prepares a checklist only for Producer acceptance. The private checklist binds the issue revision, pull request head and actual owning chat to the preview link and viewing steps. An explicit approval or feedback button sends the decision to that owner. The owner verifies the current acceptance state before acting. If a crash leaves an action outcome uncertain, inspect the original chat and its current GitHub evidence before repairing the local intent. Deleting a receipt and repeating the click could send a second prompt.
