@@ -16,7 +16,7 @@
     "test:roadmap": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs scripts/roadmap-transport-154.test.mjs scripts/chat-review-current.test.mjs scripts/chat-review-github.test.mjs",
     "test:agent-safety": "node --test scripts/agent-safety.test.mjs",
     "progress": "node scripts/project-progress.mjs",
-    "test:progress": "node --test scripts/project-progress.test.mjs",
+    "test:progress": "node --test scripts/project-progress*.test.mjs",
     "test:cloud-evidence": "node --test scripts/cloud-evidence.test.mjs",
     "generate:contracts": "node packages/contracts/scripts/generate-contracts.mjs",
     "check:contracts-generated": "node packages/contracts/scripts/generate-contracts.mjs --check",
