@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { liveIdentity, processDispatchComment, validateManifest } from './deepseek-receiver.mjs';
+import { liveIdentity, pollOnce, processDispatchComment, validateManifest } from './deepseek-receiver.mjs';
 import { liveApprovalMetadata } from './deepseek-live-gate.mjs';
 import { issueRevision } from './chat-review-current.mjs';
 import { COMMAND, REPO } from './deepseek-dispatch.mjs';
@@ -48,7 +48,7 @@ test('V2 live mode requires exact independent single-attempt limits and never in
 });
 
 test('receiver invokes only separately approved live mode after read-only host checks and preserves controller receipt', async () => {
-  for (const scenario of ['success', 'disabled', 'wrong-task', 'revoked', 'host-refused', 'manifest-drift', 'build-drift', 'uncertain']) {
+  for (const scenario of ['success', 'disabled', 'wrong-task', 'revoked', 'host-refused', 'manifest-drift', 'build-drift', 'uncertain', 'wrong-target', 'missing-target', 'live-read-timeout', 'main-read-timeout']) {
     const root = mkdtempSync(join(tmpdir(), 'vera-live-receiver-'));
     try {
       const manifestDir = join(root, 'tasks');
@@ -83,8 +83,11 @@ test('receiver invokes only separately approved live mode after read-only host c
       const read = args => args.at(-1).includes('/comments?') ? JSON.stringify([[comment, review]]) : JSON.stringify(issue);
       const options = {
         manifestDir, receiptRoot, runner, liveEnabled: scenario !== 'disabled', readGh: read,
+        liveTarget: scenario === 'missing-target' ? null : { issue: scenario === 'wrong-target' ? 422 : 421, commentId: 321 },
         readLive: args => {
           if (scenario === 'revoked') throw new Error('Current review revoked');
+          if (scenario === 'live-read-timeout') throw new Error('Public GitHub review read failed');
+          if (scenario === 'main-read-timeout') throw new Error('Public main ref read failed');
           if (args.at(-1).endsWith('/git/ref/heads/main')) {
             return JSON.stringify({ ref: 'refs/heads/main', object: { type: 'commit', sha } });
           }
@@ -120,6 +123,16 @@ test('receiver invokes only separately approved live mode after read-only host c
           return scenario === 'uncertain' ? { status: null, error: { code: 'ETIMEDOUT' } } : { status: 0 };
         }
       };
+      if (['host-refused', 'live-read-timeout', 'main-read-timeout'].includes(scenario)) {
+        let cursorWrites = 0;
+        await assert.rejects(pollOnce({ read: () => 320, readCreatedAt: () => comment.created_at,
+          list: async () => [comment], processComment: event => processDispatchComment(event, options),
+          write: () => { cursorWrites += 1; } }));
+        assert.equal(cursorWrites, 0);
+        assert.equal(calls, 0);
+        assert.equal(existsSync(join(receiptRoot, 'issue-421')), false);
+        continue;
+      }
       const expected = scenario === 'success' ? 'worker-returned' : scenario === 'uncertain' ? 'uncertain-or-failed' : 'refused';
       assert.deepEqual(await processDispatchComment(comment, options), { state: expected }, scenario);
       assert.equal(calls, ['success', 'uncertain'].includes(scenario) ? 1 : 0, scenario);

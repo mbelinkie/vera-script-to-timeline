@@ -69,7 +69,7 @@ function checkCursor(path) {
   }
   const message = 'Receiver cursor file must be an owner-only regular file that is readable and safely replaceable.';
   if (stat.isSymbolicLink() || !stat.isFile() || !ownedByCurrentUser(stat) ||
-      (stat.mode & 0o077) !== 0 || (stat.mode & 0o400) !== 0o400) {
+      (stat.mode & 0o077) !== 0 || (stat.mode & 0o222) !== 0 || (stat.mode & 0o400) !== 0o400) {
     refuse(message);
   }
   try {

@@ -260,7 +260,7 @@ export async function processDispatchComment(comment, {
   receiptRoot = join(homedir(), '.codex', 'deepseek-dispatch-receipts'),
   runner = join(homedir(), '.codex', 'bin', 'vera-deepseek-runner'),
   invoke = invokePrivateRunner, preflight = hostPreflight,
-  liveEnabled = false, readLive = readLiveGh
+  liveEnabled = false, liveTarget = null, readLive = readLiveGh
 } = {}) {
   if (comment?.body !== COMMAND) return { state: 'ignored' };
   const issueMatch = new RegExp('^https://api\\.github\\.com/repos/' + REPO.replaceAll('/', '\\/') + '/issues/(\\d+)$').exec(comment.issue_url || '');
@@ -295,7 +295,8 @@ export async function processDispatchComment(comment, {
   } catch {
     return { state: 'refused' };
   }
-  if (loaded.mode === 'live' && !liveEnabled) return { state: 'refused' };
+  if (loaded.mode === 'live' && (!liveEnabled ||
+      liveTarget?.issue !== issueNumber || liveTarget?.commentId !== comment.id)) return { state: 'refused' };
   try {
     verifyReviewFromGh(readGh, REPO, issueNumber, { title: issue.title, body: issue.body, labels: issue.labels });
   } catch (error) {
@@ -352,6 +353,11 @@ export async function processDispatchComment(comment, {
     if (isTerminalHttpError(error)) return { state: 'refused' };
     throw error;
   }
+  // A read-only host refusal must preserve the event for explicit repair/rerun.
+  // Legacy mock adapters retain their original no-preflight compatibility.
+  if (loaded.mode === 'live') {
+    preflight({ runner, adapterSha256: loaded.manifest.adapter_sha256, receiptRoot, allowEnabled: true });
+  }
   try {
     verifyFreshDispatch({
       issue: finalIssue, comment: finalComment, currentMainSha: finalMain?.sha, request,
@@ -361,13 +367,13 @@ export async function processDispatchComment(comment, {
     const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
     if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
     safeRunner(runner, finalManifest.manifest.adapter_sha256);
-    preflight({ runner, adapterSha256: finalManifest.manifest.adapter_sha256, receiptRoot, allowEnabled: true });
     if (loaded.mode === 'live') verifyLiveApproval(readLive, liveIdentity(finalManifest.manifest, finalManifest.sha256));
     // Public reads may take time; repeat local manifest/build checks after them.
     const beforeInvoke = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
     if (beforeInvoke.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
     safeRunner(runner, beforeInvoke.manifest.adapter_sha256);
-  } catch {
+  } catch (error) {
+    if (/Public (?:GitHub review|main ref) read failed/.test(error.message)) throw error;
     return { state: 'refused' };
   }
   if (loaded.mode === 'live') {
@@ -467,6 +473,12 @@ export async function main(env = process.env, argv = process.argv.slice(2)) {
     console.log('Mac receiver disabled; no GitHub polling or private adapter call.');
     return;
   }
+  const liveEnabled = env.VERA_DEEPSEEK_LIVE_ENABLED === 'true';
+  const liveTarget = { issue: Number(env.VERA_DEEPSEEK_LIVE_ISSUE), commentId: Number(env.VERA_DEEPSEEK_LIVE_COMMENT_ID) };
+  if (liveEnabled && (!Number.isSafeInteger(liveTarget.issue) || liveTarget.issue < 1 ||
+      !Number.isSafeInteger(liveTarget.commentId) || liveTarget.commentId < 1)) {
+    throw new Error('Live one-shot requires the exact approved issue and dispatch comment IDs');
+  }
   const allowedActors = (env.VERA_DEEPSEEK_ALLOWED_ACTORS || '').split(',').map(actor => actor.trim()).filter(Boolean);
   const codexDir = join(homedir(), '.codex');
   mkdirSync(codexDir, { recursive: true, mode: 0o700 });
@@ -480,7 +492,7 @@ export async function main(env = process.env, argv = process.argv.slice(2)) {
   let result;
   try {
     result = await pollOnce({ allowedActors, processComment: comment => processDispatchComment(comment, {
-      allowedActors, liveEnabled: env.VERA_DEEPSEEK_LIVE_ENABLED === 'true'
+      allowedActors, liveEnabled, liveTarget
     }) });
   } finally {
     rmSync(lock, { recursive: true, force: true });

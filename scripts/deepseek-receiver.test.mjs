@@ -88,7 +88,7 @@ test('receiver binds the adapter contract and refuses source, review, or runner 
       let issueReads = 0;
       let calls = 0;
       const options = {
-        manifestDir, receiptRoot, runner, preflight: () => ({ ready: true }),
+        manifestDir, receiptRoot, runner, preflight: () => { assert.fail("Legacy mock must not require a new adapter preflight"); },
         fetchImpl: async url => {
           const path = new globalThis.URL(url).pathname;
           let value;

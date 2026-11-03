@@ -85,8 +85,11 @@ It cannot create receipts, advance cursors, reset state, change permissions or
 initialize a ledger. Known refusals provide safe corrective instructions;
 repair the named condition separately and rerun. Preserve every old artifact.
 The read-only cursor is valid because its private parent permits atomic replacement.
+A live host refusal or transient public approval-read failure preserves the cursor
+for an explicit repair/rerun before any adapter call. Legacy mock dispatch retains
+its original adapter compatibility and does not require the new preflight hook.
 
-The receiver repeats preflight immediately before invocation, allowing only
+For live V2 tasks, the receiver repeats preflight immediately before invocation, allowing only
 the explicitly enabled one-shot flags at that boundary. The private controller
 also repeats its host readiness checks before entering live processing.
 
@@ -96,7 +99,10 @@ Initialize the cursor with one explicit poll before posting the new event. Its
 first run saves the newest comment identity and deliberately replays nothing.
 No daemon, timer or standing poller is installed. After separate exact paid-task
 approval, run one poll with temporary `VERA_DEEPSEEK_DISPATCH_ENABLED=true` and
-`VERA_DEEPSEEK_LIVE_ENABLED=true`; keep persistent defaults off afterward.
+`VERA_DEEPSEEK_LIVE_ENABLED=true`, plus the exact approved
+`VERA_DEEPSEEK_LIVE_ISSUE` and `VERA_DEEPSEEK_LIVE_COMMENT_ID`. This limits the
+poll to one selected live event even if other live manifests are present. Keep
+persistent defaults off afterward.
 
 The receiver repeats issue, event, canonical review, current main, manifest and
 adapter checks before its sole adapter invocation. Live mode delegates to the

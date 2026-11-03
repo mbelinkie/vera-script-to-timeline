@@ -193,6 +193,8 @@ test('an existing cursor may be owner-readable 0400 when its parent is safely re
     chmodSync(value.cursorPath, 0o400);
     assert.equal(statSync(value.cursorPath).mode & 0o777, 0o400);
     assert.equal(hostPreflight(optionsFor(value)).ready, true);
+    chmodSync(value.cursorPath, 0o600);
+    assert.throws(() => hostPreflight(optionsFor(value)), /cursor file must be an owner-only regular file/);
     chmodSync(value.cursorPath, 0o644);
     assert.throws(() => hostPreflight(optionsFor(value)), /cursor file must be an owner-only regular file that is readable and safely replaceable/);
     rmSync(value.cursorPath);
