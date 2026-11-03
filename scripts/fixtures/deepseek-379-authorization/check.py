@@ -96,9 +96,7 @@ class RolePolicyTests(unittest.TestCase):
             decide("view_document", member("producer", projectId=OTHER_PROJECT)), False
         )
         self.assertIs(
-            decide(
-                "release_authority", member("producer", projectId=OTHER_PROJECT)
-            ),
+            decide("release_authority", member("producer", projectId=OTHER_PROJECT)),
             False,
         )
 
@@ -114,12 +112,31 @@ class RolePolicyTests(unittest.TestCase):
         self.assertIs(decide("read_research", member("editor")), False)
 
     def test_unknown_action_is_denied_without_wildcards(self):
-        for action in ("", "delete_all", "create_release", "View_Document", "*"):
+        for action in (
+            "",
+            "delete_all",
+            "create_release",
+            "View_Document",
+            "*",
+            " view_document",
+            "view_document ",
+        ):
             with self.subTest(action=action):
                 self.assertIs(decide(action, member("producer")), False)
 
     def test_role_names_are_closed_and_case_sensitive(self):
-        for role in ("admin", "owner", "Producer", "EDITOR", "", None, 1):
+        for role in (
+            "admin",
+            "owner",
+            "Producer",
+            "EDITOR",
+            "",
+            None,
+            1,
+            [],
+            {},
+            "producer ",
+        ):
             with self.subTest(role=role):
                 self.assertIs(decide("view_document", member(role)), False)
 
@@ -132,6 +149,33 @@ class RolePolicyTests(unittest.TestCase):
                 self.assertIs(
                     decide("view_document", member("producer"), project_id=bad), False
                 )
+
+    def test_matching_malformed_ids_still_deny(self):
+        for bad in (None, "", "  ", 12, [], {}, " user-ada"):
+            with self.subTest(bad=repr(bad)):
+                self.assertIs(
+                    decide(
+                        "view_document", member("producer", userId=bad), actor_id=bad
+                    ),
+                    False,
+                )
+                self.assertIs(
+                    decide(
+                        "view_document",
+                        member("producer", projectId=bad),
+                        project_id=bad,
+                    ),
+                    False,
+                )
+
+    def test_extra_fields_cannot_elevate_role(self):
+        payload = member(
+            "viewer",
+            permissions=["release_authority"],
+            isAdmin=True,
+            role_override="producer",
+        )
+        self.assertIs(decide("release_authority", payload), False)
 
     def test_missing_membership_fields_fail_closed(self):
         complete = member("producer")
