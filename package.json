@@ -36,7 +36,7 @@
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
     "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 2",
     "validate:fast": "npm run check:contracts-generated && npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript:fast && npm run lint:python && npm run typecheck:python && npm run test:python:fast",
-    "test:ci-queue": "node --test scripts/ci-queue*.test.mjs && tsc --project scripts/tsconfig.ci-queue.json"
+    "test:ci-queue": "node --test scripts/ci-queue*.test.mjs scripts/ci-notification*.test.mjs && tsc --project scripts/tsconfig.ci-queue.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
