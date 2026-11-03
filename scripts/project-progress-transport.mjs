@@ -2,12 +2,12 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
 import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { DEFAULT_DIRECTORY, loadOrigin, publicOwnerKey } from "./ci-notification-origin.mjs";
+import { ACTION_HOME, attestLegacyPair, readLegacyPairRecord } from "./project-progress-pair.mjs";
 
 const exec = promisify(execFile);
-export const ACTION_HOME = path.join(os.homedir(), "Library", "Application Support", "VERA", "dashboard-actions");
+export { ACTION_HOME, attestLegacyPair };
 const CHROME_HELPER = path.join(ACTION_HOME, "VERA Dashboard Helper.app", "Contents", "MacOS", "vera-dashboard-helper");
 const CODEX = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex";
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
@@ -46,6 +46,10 @@ export function matchesOwnerClaim(threadId, claim) {
 export function isLegacyOwnerClaim(claim) {
   const startedAt = Date.parse(claim?.startedAt);
   return claim?.state === "active" && Number.isFinite(startedAt) && startedAt < FIRST_DASHBOARD_PREVIEW;
+}
+
+export async function readLegacyPair({ directory = ACTION_HOME, ...options } = {}) {
+  return readLegacyPairRecord({ ...options, directory });
 }
 
 export async function readProducerChecklist({ issueUrl, revision, pr, origin }) {
@@ -93,7 +97,12 @@ export async function sendChatPrompt(prompt, request, promptPath) {
     accessibility_permission_required: "Enable Accessibility for VERA Dashboard Helper in System Settings, then refresh.",
     composer_has_existing_draft: "Chrome has an unsent ChatGPT draft. Finish it before trying again.",
     chrome_unavailable: "Chrome is unavailable on this Mac.",
+    high_effort_unverified: "The draft is open in Chrome. Set Thinking effort to High before sending.",
+    prompt_verification_failed: "Chrome opened the draft, but the helper could not verify its text. Review it before sending.",
   };
+  if (result.draftOpened === true || ["high_effort_unverified", "prompt_verification_failed", "send_button_not_unique_or_enabled", "send_action_unavailable"].includes(result.reason)) {
+    return { status: "draft", reason: result.reason, message: reasons[result.reason] ?? "Chrome opened the draft, but automatic sending stopped. Review the chat before trying again." };
+  }
   return { status: "refused", message: reasons[result.reason] ?? "ChatGPT did not show the expected composer. No prompt was sent." };
 }
 

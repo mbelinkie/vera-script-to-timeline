@@ -99,7 +99,7 @@ function deliveredAction(item, options, url) {
         bound: options.ownerBound === true,
         canPair: options.canPair,
         url,
-        kind: "ask-owner-prepare",
+        kind: options.legacyOwnerBound ? "continue-owner" : "ask-owner-prepare",
         group: "finish",
         reason: "Producer acceptance is needed, but no concrete review checklist is recorded.",
       });
@@ -129,6 +129,7 @@ export function derivePrimaryAction(item, workflow, {
   prFresh = false,
   ciFresh = false,
   ownerBound = false,
+  legacyOwnerBound = false,
   canPair = false,
   activeTurnFresh = false,
   eventId,
@@ -158,12 +159,14 @@ export function derivePrimaryAction(item, workflow, {
   if (!workflowFresh) return checkStatus(url);
   const chatApproved = workflow?.chat?.state === "approved" || grandfatheredWork(workflow);
   const ci = workflow?.ci?.state;
-  const hasPr = prFresh && hasPullRequest(workflow);
+  // A closed preparation PR remains useful context for grooming a new coding ticket.
+  const canGroom = workflow?.deepseek?.route === "chat" && ["Inbox", "Backlog", "Ready"].includes(item.status);
+  const hasPr = prFresh && hasPullRequest(workflow) && !(canGroom && workflow.historicalPrOnly);
   const hasClaim = codexFresh && workflow?.codex?.state === "claimed";
   const knownWork = hasPr || hasClaim || ownerBound === true;
 
   if (hasPr && !ciFresh) return checkStatus(url, "The linked pull request has no fresh CI delivery state.");
-  if (hasPr && ciFresh && ci === "delivered") return deliveredAction(item, { ownerBound, canPair, eventId, hasProducerChecklist }, url);
+  if (hasPr && ciFresh && ci === "delivered") return deliveredAction(item, { ownerBound, legacyOwnerBound, canPair, eventId, hasProducerChecklist }, url);
   if (hasPr && ciFresh && ci === "failed-paused") {
     return ownerHandoff({
       bound: ownerBound === true,

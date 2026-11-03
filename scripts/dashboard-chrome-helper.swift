@@ -22,11 +22,12 @@ private func emit(_ fields: [String: Any]) {
 private func fail(_ mode: String, _ reason: String, nonce: String? = nil,
                   trusted: Bool = true, sendInvoked: Bool = false,
                   promptObserved: Bool = false, responseObserved: Bool = false,
-                  threadURL: String? = nil) {
+                  threadURL: String? = nil, draftOpened: Bool = false) {
     var result: [String: Any] = [
         "ok": false, "mode": mode, "reason": reason,
         "accessibilityTrusted": trusted, "sendInvoked": sendInvoked,
-        "promptObserved": promptObserved, "assistantResponseObserved": responseObserved
+        "promptObserved": promptObserved, "assistantResponseObserved": responseObserved,
+        "draftOpened": draftOpened
     ]
     if let nonce { result["requestNonce"] = nonce }
     if let threadURL { result["threadURL"] = threadURL }
@@ -103,14 +104,92 @@ private func composerText(_ element: AXUIElement) -> String {
     (axString(element, "AXValue") ?? "").trimmingCharacters(in: .newlines)
 }
 
+// Chrome's accessibility tree may flatten blank lines and use nonbreaking spaces.
+private func comparableText(_ value: String) -> String {
+    value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+}
+
+private func effortPicker(_ page: AXUIElement) -> AXUIElement? {
+    let controls = axTree([page]).filter {
+        textLabels($0).contains("Select ChatGPT model")
+            && ["AXPopUpButton", "AXButton"].contains(axRole($0) ?? "")
+    }
+    return controls.count == 1 ? controls[0] : nil
+}
+
+private func highEffortSelected(_ page: AXUIElement) -> Bool {
+    guard let control = effortPicker(page) else { return false }
+    return visibleText(control).contains("High")
+        && (axValue(control, "AXExpanded") as? NSNumber)?.boolValue != true
+}
+
+private func selectHighEffort(page: AXUIElement, window: AXUIElement, pid: pid_t) -> Bool {
+    for _ in 0..<40 {
+        if effortPicker(page) != nil { break }
+        Thread.sleep(forTimeInterval: 0.25)
+    }
+    if highEffortSelected(page) { return true }
+    guard let control = effortPicker(page) else { return false }
+    let chrome = AXUIElementCreateApplication(pid)
+    _ = AXUIElementSetAttributeValue(chrome, "AXFrontmost" as CFString, kCFBooleanTrue)
+    func targetIsFrontmost() -> Bool {
+        guard (axValue(chrome, "AXFrontmost") as? NSNumber)?.boolValue == true,
+              let focused = axValue(chrome, "AXFocusedWindow"),
+              CFGetTypeID(focused) == AXUIElementGetTypeID() else { return false }
+        return sameAXElement(unsafeBitCast(focused, to: AXUIElement.self), window)
+            && axTree([window]).contains { axRole($0) == "AXWebArea" && sameAXElement($0, page) }
+    }
+    func postKey(_ key: CGKeyCode, modifiers: CGEventFlags = []) -> Bool {
+        guard targetIsFrontmost(),
+              let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false) else { return false }
+        down.flags = modifiers
+        up.flags = modifiers
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        return true
+    }
+    _ = AXUIElementPerformAction(window, "AXRaise" as CFString)
+    for _ in 0..<8 {
+        if targetIsFrontmost() { break }
+        Thread.sleep(forTimeInterval: 0.25)
+    }
+    guard targetIsFrontmost() else { return false }
+    if (axValue(control, "AXExpanded") as? NSNumber)?.boolValue != true {
+        guard postKey(46, modifiers: [.maskControl, .maskShift]) else { return false } // Control-Shift-M opens Thinking effort.
+    }
+    func powerFocused() -> Bool {
+        guard (axValue(control, "AXExpanded") as? NSNumber)?.boolValue == true,
+              let value = axValue(chrome, "AXFocusedUIElement"),
+              CFGetTypeID(value) == AXUIElementGetTypeID() else { return false }
+        let focused = unsafeBitCast(value, to: AXUIElement.self)
+        return axRole(focused) == "AXMenuItem" && textLabels(focused).contains("Power")
+    }
+    for _ in 0..<12 {
+        if powerFocused() { break }
+        Thread.sleep(forTimeInterval: 0.25)
+    }
+    // Two Right presses reach the top of the three-level picker from Low or Medium.
+    for _ in 0..<2 {
+        guard powerFocused(), postKey(124) else { return false }
+        Thread.sleep(forTimeInterval: 0.25)
+    }
+    guard powerFocused(), postKey(53) else { return false }
+    for _ in 0..<8 {
+        Thread.sleep(forTimeInterval: 0.25)
+        if highEffortSelected(page) { return true }
+    }
+    return false
+}
+
 private func isEmptyComposer(_ element: AXUIElement, page: AXUIElement) -> Bool {
     let value = composerText(element)
     if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
     // Chrome exposes the empty editor's placeholder as its AXValue.
     guard value == "Ask ChatGPT" else { return false }
     let buttons = axTree([page]).filter { axRole($0) == "AXButton" }
-    return buttons.contains { textLabels($0).contains("Start Voice") }
-        && !buttons.contains { textLabels($0).contains("Send") }
+    return !buttons.contains { textLabels($0).contains("Send")
+        && (axValue($0, "AXEnabled") as? NSNumber)?.boolValue == true }
 }
 
 private func visibleText(_ root: AXUIElement) -> [String] {
@@ -252,7 +331,7 @@ private func openChatGPTInChrome(_ appURL: URL, prompt: String) -> NSRunningAppl
     return app
 }
 
-private func submit(prompt: String, nonce: String) {
+private func submit(prompt: String, nonce: String, prepareOnly: Bool = false) {
     guard AXIsProcessTrusted() else {
         fail("submit", "accessibility_permission_required", nonce: nonce, trusted: false)
         return
@@ -264,6 +343,19 @@ private func submit(prompt: String, nonce: String) {
     }
     let pid = initialApp.processIdentifier
     let before = chatGPTWebAreas(pid: pid)
+    if prepareOnly {
+        let matching = before.filter(isChatGPTPage).filter { page in
+            axTree([page]).contains { axRole($0) == "AXTextArea"
+                && textLabels($0).contains("Ask ChatGPT")
+                && comparableText(composerText($0)) == comparableText(prompt) }
+        }
+        if matching.count == 1, let existing = matching.first, let window = containingWindow(existing) {
+            let selected = selectHighEffort(page: existing, window: window, pid: pid)
+            emit(["ok": selected, "mode": "prepare", "requestNonce": nonce,
+                "effort": selected ? "high" : "unknown", "sendInvoked": false])
+            return
+        }
+    }
     guard !before.filter(isChatGPTPage).contains(where: { page in
         axTree([page]).contains { axRole($0) == "AXTextArea"
             && textLabels($0).contains("Ask ChatGPT") && !isEmptyComposer($0, page: page) }
@@ -284,17 +376,17 @@ private func submit(prompt: String, nonce: String) {
         }
         if candidates.count == 1 { page = candidates[0]; break }
         if candidates.count > 1 {
-            fail("submit", "ambiguous_chatgpt_page", nonce: nonce)
+            fail("submit", "ambiguous_chatgpt_page", nonce: nonce, draftOpened: true)
             return
         }
         Thread.sleep(forTimeInterval: 0.5)
     }
     guard let page else {
-        fail("submit", "new_chatgpt_page_not_identified", nonce: nonce)
+        fail("submit", "new_chatgpt_page_not_identified", nonce: nonce, draftOpened: true)
         return
     }
     guard let window = containingWindow(page) else {
-        fail("submit", "target_window_not_identified", nonce: nonce)
+        fail("submit", "target_window_not_identified", nonce: nonce, draftOpened: true)
         return
     }
 
@@ -306,16 +398,24 @@ private func submit(prompt: String, nonce: String) {
             $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("Ask ChatGPT") == .orderedSame
         }
         }
-        if composers.count == 1, composerText(composers[0]) == prompt { break }
+        if composers.count == 1, comparableText(composerText(composers[0])) == comparableText(prompt) { break }
         Thread.sleep(forTimeInterval: 0.25)
     }
     guard composers.count == 1, let composer = composers.first else {
-        fail("submit", "composer_not_unique", nonce: nonce)
+        fail("submit", "composer_not_unique", nonce: nonce, draftOpened: true)
         return
     }
     let baselineText = Set(visibleText(page))
-    guard composerText(composer) == prompt else {
-        fail("submit", "prompt_verification_failed", nonce: nonce)
+    guard comparableText(composerText(composer)) == comparableText(prompt) else {
+        fail("submit", "prompt_verification_failed", nonce: nonce, draftOpened: true)
+        return
+    }
+    guard selectHighEffort(page: page, window: window, pid: pid) else {
+        fail("submit", "high_effort_unverified", nonce: nonce, draftOpened: true)
+        return
+    }
+    if prepareOnly {
+        emit(["ok": true, "mode": "prepare", "requestNonce": nonce, "effort": "high", "sendInvoked": false])
         return
     }
 
@@ -333,16 +433,24 @@ private func submit(prompt: String, nonce: String) {
     }
     guard sendButtons.count == 1, let sendButton = sendButtons.first,
           (axValue(sendButton, "AXEnabled") as? NSNumber)?.boolValue == true else {
-        fail("submit", "send_button_not_unique_or_enabled", nonce: nonce)
+        fail("submit", "send_button_not_unique_or_enabled", nonce: nonce, draftOpened: true)
         return
     }
     var actionNames: CFArray?
     guard AXUIElementCopyActionNames(sendButton, &actionNames) == .success,
           let actions = actionNames as? [String], actions.contains("AXPress") else {
-        fail("submit", "send_action_unavailable", nonce: nonce)
+        fail("submit", "send_action_unavailable", nonce: nonce, draftOpened: true)
         return
     }
 
+    guard comparableText(composerText(composer)) == comparableText(prompt) else {
+        fail("submit", "prompt_verification_failed", nonce: nonce, draftOpened: true)
+        return
+    }
+    guard highEffortSelected(page) else {
+        fail("submit", "high_effort_unverified", nonce: nonce, draftOpened: true)
+        return
+    }
     let sendError = AXUIElementPerformAction(sendButton, "AXPress" as CFString)
     guard sendError == .success else {
         fail("submit", "send_action_failed", nonce: nonce, sendInvoked: true)
@@ -361,7 +469,7 @@ private func submit(prompt: String, nonce: String) {
         }
         let values = visibleText(currentPage)
         let combined = values.joined(separator: "\n")
-        promptObserved = combined.contains(prompt)
+        promptObserved = comparableText(combined).contains(comparableText(prompt))
         threadURL = canonicalThreadURL(currentPage)
         let newResponseText = values.contains { value in
             !baselineText.contains(value) && !value.isEmpty && value != prompt && !prompt.contains(value)
@@ -412,7 +520,7 @@ private struct DashboardChromeHelper {
             let trusted = AXIsProcessTrustedWithOptions(options)
             emit(["ok": true, "mode": "request-access", "accessibilityTrusted": trusted,
                   "promptRequested": !trusted])
-        case "submit" where arguments.count == 3:
+        case "submit" where arguments.count == 3, "prepare" where arguments.count == 3:
             let nonce = arguments[2]
             let validNonce = nonce.range(of: "^[A-Za-z0-9_-]{16,64}$", options: .regularExpression) != nil
             guard validNonce else { fail("submit", "invalid_request_nonce", trusted: AXIsProcessTrusted()); return }
@@ -420,9 +528,9 @@ private struct DashboardChromeHelper {
                 fail("submit", "invalid_prompt_file", nonce: nonce, trusted: AXIsProcessTrusted())
                 return
             }
-            submit(prompt: prompt, nonce: nonce)
+            submit(prompt: prompt, nonce: nonce, prepareOnly: arguments[0] == "prepare")
         default:
-            emit(["ok": false, "reason": "usage", "usage": "status | request-access | submit <prompt-file> <request-nonce>"])
+            emit(["ok": false, "reason": "usage", "usage": "status | request-access | (submit | prepare) <prompt-file> <request-nonce>"])
         }
     }
 }

@@ -12,8 +12,9 @@ import { inspectDashboardIssue, latestClaim, routingProfile } from "./roadmap.mj
 import { fetchNativeDependencies } from "./project-progress-lib.mjs";
 import { resolveLocalSession } from "./project-progress-workflow.mjs";
 import { deepseekRouteForIssue } from "./project-progress-deepseek.mjs";
+import { legacyPairReceipt } from "./project-progress-pair.mjs";
 import { continuePrompt, deepseekPreparationPrompt, pairingPrompt, reviewPrompt, startPrompt } from "./project-progress-prompts.mjs";
-import { ACTION_HOME, isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, ownerReceipt, queueAndOpenOwner, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
+import { ACTION_HOME, isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, ownerReceipt, queueAndOpenOwner, readLegacyPair, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
 
 const RESEARCH = "mbelinkie/vera-research-video-clips";
 const MODELS = { luna: "gpt-6-luna", terra: "gpt-6.1-terra", sol: "gpt-6.1-sol", astra: "gpt-6-astra" };
@@ -172,6 +173,11 @@ export function createProgressExecutor(root, { directory = ACTION_HOME } = {}) {
     if (!record) return null;
     if (record.result?.status === "queued" && UUID.test(record.threadId ?? "")
         && await ownerReceipt(path.join(intents, `${record.request}.ack.json`), record.request, record.threadId)) {
+      if (action.kind === "pair-owner") {
+        const paired = await legacyPairReceipt({ issueUrl: action.issueUrl, request: record.request, threadId: record.threadId, directory }).catch(() => false);
+        if (!paired) return { status: "acknowledged", message: "The Codex chat received the request. Pairing is still unverified. See the chat’s reply." };
+        return { status: "observed", message: "The original Codex owner is paired." };
+      }
       return { status: "observed", message: "The original Codex owner acknowledged the handoff." };
     }
     return record.result ?? { status: "unknown", message: "A request is already recorded. Check the original chat before trying again." };
@@ -229,8 +235,9 @@ export function createProgressExecutor(root, { directory = ACTION_HOME } = {}) {
         const requiresEvent = ["finish-owner", "notify-owner", "review-producer"].includes(action.kind);
         const pairing = action.kind === "pair-owner";
         const origin = matchOrigin(await localOrigins(), { ...identity, claim, pr: requiresEvent || pairing ? action.pr ?? null : null });
+        const legacy = !origin ? await readLegacyPair({ issueUrl: identity.url, claim, directory }) : null;
         if (pairing) {
-          if (origin || !isLegacyOwnerClaim(claim)) return refused("This ticket no longer needs legacy pairing. Refresh the dashboard.");
+          if (origin || legacy || !isLegacyOwnerClaim(claim)) return refused("This ticket no longer needs legacy pairing. Refresh the dashboard.");
           const session = action.threadLink ? null : await resolveLocalSession(identity.url);
           const link = action.threadLink ?? (session?.status === "verified-local" ? session.appUrl : null);
           if (!link?.startsWith("codex://threads/")) return refused("Copy the original chat link from Codex and paste it here.");
@@ -239,7 +246,12 @@ export function createProgressExecutor(root, { directory = ACTION_HOME } = {}) {
             return refused("This chat link does not match the current claim. Copy the link from the chat that owns this ticket.");
           }
           intent.threadId = id;
-          effect = () => queueAndOpenOwner(id, acknowledgement(pairingPrompt({ issueUrl: identity.url }), request));
+          const helper = path.join(root, "scripts", "project-progress-pair.mjs");
+          const prompt = pairingPrompt({ issueUrl: identity.url, helper, request });
+          effect = () => queueAndOpenOwner(id, acknowledgement(prompt, request));
+        } else if (legacy && !requiresEvent && action.kind === "continue-owner") {
+          intent.threadId = legacy.threadId;
+          effect = () => queueAndOpenOwner(legacy.threadId, acknowledgement(continuePrompt({ issueUrl: identity.url }), request));
         } else if (!origin) {
           return refused("The original owner is not verified on this Mac. Pair its existing chat before sending.");
         } else {

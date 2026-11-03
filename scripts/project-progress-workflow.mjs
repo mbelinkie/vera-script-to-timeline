@@ -20,7 +20,7 @@ import {
 import { validateState } from "./ci-queue.mjs";
 import { derivePrimaryAction } from "./project-progress-actions.mjs";
 import { deepseekRouteForIssue, loadDeepSeekDashboardEvidence } from "./project-progress-deepseek.mjs";
-import { isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, readProducerChecklist } from "./project-progress-transport.mjs";
+import { isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, readLegacyPair, readProducerChecklist } from "./project-progress-transport.mjs";
 import { assessRun } from "./ci-queue-policy.ts";
 import { latestClaim } from "./roadmap.mjs";
 
@@ -1104,6 +1104,7 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       });
       const open = candidates.filter((pull) => pull.state === "open" && !pull.draft);
       const allLinkedPullsVerified = candidates.length === linked.numbers.length;
+      record.historicalPrOnly = allLinkedPullsVerified && candidates.every((pull) => pull.state === "closed");
       const explicitOpen = open.filter((pull) => explicit.some((candidate) => candidate.number === pull.number));
       const latestVerifiedDelivery = [...(state?.completed ?? [])].reverse()
         .find((delivery) => linked.numbers.includes(delivery.pr) && deliveryChecks.get(delivery.pr)) ?? null;
@@ -1212,7 +1213,9 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       pr: record.pr?.number ?? null,
     }) : null;
     const ownerClaim = privateClaimByIssue.get(identity.url);
-    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin),
+    const legacyPair = options.local === true && !ownerOrigin
+      ? await readLegacyPair({ issueUrl: identity.url, claim: ownerClaim }).catch(() => null) : null;
+    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin || legacyPair), legacyOwnerBound: Boolean(legacyPair),
       canPair: options.local === true && isLegacyOwnerClaim(ownerClaim),
       hasSavedLink: pairableIssues.has(identity.url) };
     if (ownerClaim && record.deepseek.route === "chat") {
@@ -1370,12 +1373,13 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     chip("Review", review.state, review.reason),
     chip("CI", ci.state, ci.reason),
   ];
-  const primaryAction = derivePrimaryAction(item, { chat, codex, deepseek, ci, links, chips }, {
+  const primaryAction = derivePrimaryAction(item, { chat, codex, deepseek, ci, links, chips, historicalPrOnly: record?.historicalPrOnly }, {
     projectFresh, workflowFresh, chatFresh, codexFresh, prFresh, ciFresh,
     ownerBound: sessionFresh && record?.codex?.ownerBound === true,
+    legacyOwnerBound: sessionFresh && record?.codex?.legacyOwnerBound === true,
     canPair: sessionFresh && record?.codex?.canPair === true,
     activeTurnFresh: false,
-    eventId: ciFresh ? record?.ci?.eventId : undefined,
+    eventId: ciFresh && !record?.codex?.legacyOwnerBound ? record?.ci?.eventId : undefined,
     hasProducerChecklist: sessionFresh && Boolean(record?.producerChecklist),
   });
   if (primaryAction.kind === "start-codex") primaryAction.approvalUrl = chat.url;

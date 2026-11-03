@@ -83,7 +83,7 @@ export const queueClientScript = String.raw`(() => {
   }
 
   function resultText(reply) {
-    const labels = { sent: "Sent", queued: "Queued · awaiting confirmation", observed: "Observed", unknown: "Outcome unknown", refused: "Refused" };
+    const labels = { sent: "Sent", draft: "Draft open", queued: "Queued · awaiting confirmation", acknowledged: "Received", observed: "Observed", unknown: "Outcome unknown", refused: "Refused" };
     const status = labels[reply?.status] || "Outcome unknown";
     const detail = typeof reply?.message === "string" ? reply.message.replace(/\s+/g, " ").trim().slice(0, 120) : "";
     return detail ? status + " · " + detail : status;
@@ -174,13 +174,13 @@ export const queueClientScript = String.raw`(() => {
           });
           const state = await response.json();
           if (!response.ok) return;
-          if (state.status === "observed") {
+          if (state.status === "observed" || state.status === "acknowledged") {
             const message = resultText(state);
             for (const button of controls) button.textContent = message;
             if (decisionStatus) decisionStatus.textContent = message;
-            return;
+            if (state.status === "observed") return;
           }
-          if (state.status === "queued") setTimeout(checkReceipt, 5000);
+          if (state.status === "queued" || state.status === "acknowledged") setTimeout(checkReceipt, 5000);
         } catch { /* The original chat remains the source of confirmation. */ }
       }
       setTimeout(checkReceipt, 5000);
