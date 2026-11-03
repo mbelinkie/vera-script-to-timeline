@@ -79,7 +79,7 @@ function ownerHandoff({ bound, canPair, url, eventId, kind = "continue-owner", g
   }
   if (!canPair) return checkStatus(url, "Find the original owner before sending a handoff.");
   return action(group, "Codex", "Pair original owner", "pair-owner",
-    "Ask the matched existing Codex chat to confirm it owns this ticket.",
+    "Link the existing Codex chat that owns this older ticket.",
     group === "blocked" ? "blocked" : "working", url);
 }
 

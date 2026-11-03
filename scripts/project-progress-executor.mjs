@@ -13,7 +13,7 @@ import { fetchNativeDependencies } from "./project-progress-lib.mjs";
 import { resolveLocalSession } from "./project-progress-workflow.mjs";
 import { deepseekRouteForIssue } from "./project-progress-deepseek.mjs";
 import { continuePrompt, deepseekPreparationPrompt, pairingPrompt, reviewPrompt, startPrompt } from "./project-progress-prompts.mjs";
-import { ACTION_HOME, localOrigins, matchOrigin, matchesOwnerClaim, ownerReceipt, queueAndOpenOwner, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
+import { ACTION_HOME, isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, ownerReceipt, queueAndOpenOwner, readProducerChecklist, runTool, seedCodexOwner, sendChatPrompt } from "./project-progress-transport.mjs";
 
 const RESEARCH = "mbelinkie/vera-research-video-clips";
 const MODELS = { luna: "gpt-6-luna", terra: "gpt-6.1-terra", sol: "gpt-6.1-sol", astra: "gpt-6-astra" };
@@ -227,13 +227,16 @@ export function createProgressExecutor(root, { directory = ACTION_HOME } = {}) {
       } else if (OWNER_ACTIONS.has(action.kind)) {
         const claim = await readClaim(identity, issue, root);
         const requiresEvent = ["finish-owner", "notify-owner", "review-producer"].includes(action.kind);
-        const origin = matchOrigin(await localOrigins(), { ...identity, claim, pr: requiresEvent ? action.pr : null });
-        if (action.kind === "pair-owner" && !origin) {
-          const session = await resolveLocalSession(identity.url);
-          if (session.status !== "verified-local") return refused("Open the original owner in Codex and pair that chat first. No replacement owner was started.");
-          const id = session.appUrl?.slice("codex://threads/".length);
+        const pairing = action.kind === "pair-owner";
+        const origin = matchOrigin(await localOrigins(), { ...identity, claim, pr: requiresEvent || pairing ? action.pr ?? null : null });
+        if (pairing) {
+          if (origin || !isLegacyOwnerClaim(claim)) return refused("This ticket no longer needs legacy pairing. Refresh the dashboard.");
+          const session = action.threadLink ? null : await resolveLocalSession(identity.url);
+          const link = action.threadLink ?? (session?.status === "verified-local" ? session.appUrl : null);
+          if (!link?.startsWith("codex://threads/")) return refused("Copy the original chat link from Codex and paste it here.");
+          const id = link.slice("codex://threads/".length);
           if (!matchesOwnerClaim(id, claim)) {
-            return refused("The saved chat link does not verify the current claim. Open the original chat to pair it.");
+            return refused("This chat link does not match the current claim. Copy the link from the chat that owns this ticket.");
           }
           intent.threadId = id;
           effect = () => queueAndOpenOwner(id, acknowledgement(pairingPrompt({ issueUrl: identity.url }), request));

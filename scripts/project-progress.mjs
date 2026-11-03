@@ -96,6 +96,7 @@ if (process.argv.includes("--identity")) {
       }
       const live = await startProgressServer({
         outputPath,
+        port: preview ? Number(process.env.VERA_PROGRESS_PREVIEW_PORT ?? 0) : 0,
         sourceId: currentSourceId(),
         generate,
         resolveLocalSession,

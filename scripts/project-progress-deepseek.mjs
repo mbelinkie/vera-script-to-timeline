@@ -28,6 +28,7 @@ export function deepseekRouteForIssue(item) {
   const identity = typeof url === "string" ? /^https:\/\/github\.com\/([^/]+\/[^/]+)\/issues\/([1-9][0-9]*)$/.exec(url) : null;
   if (!identity || !REPOS.has(identity[1]) || !Number.isSafeInteger(Number(identity[2]))
       || (identity[1] === REPOSITORY && Number(identity[2]) === 411) || item?.status === "Done") return null;
+  if (/^design\s/i.test(item?.title ?? item?.content?.title ?? "")) return null;
   const labels = names(item);
   const types = [...labels].filter(label => label.startsWith("type:"));
   if (types.length !== 1 || !["type:implementation", "type:bug"].includes(types[0])) return null;

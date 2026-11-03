@@ -20,7 +20,7 @@ import {
 import { validateState } from "./ci-queue.mjs";
 import { derivePrimaryAction } from "./project-progress-actions.mjs";
 import { deepseekRouteForIssue, loadDeepSeekDashboardEvidence } from "./project-progress-deepseek.mjs";
-import { localOrigins, matchOrigin, matchesOwnerClaim, readProducerChecklist } from "./project-progress-transport.mjs";
+import { isLegacyOwnerClaim, localOrigins, matchOrigin, matchesOwnerClaim, readProducerChecklist } from "./project-progress-transport.mjs";
 import { assessRun } from "./ci-queue-policy.ts";
 import { latestClaim } from "./roadmap.mjs";
 
@@ -286,7 +286,7 @@ async function claimForIssue(item, issue, get) {
       && typeof claim.startedAt === "string" && Number.isFinite(Date.parse(claim.startedAt))) {
     return { state: "claimed", startedAt: claim.startedAt,
       reason: "A current roadmap claim exists; this does not verify that an agent is running.",
-      originClaim: { state: "active", task: claim.task, branch: claim.branch } };
+      originClaim: { state: "active", task: claim.task, branch: claim.branch, startedAt: claim.startedAt } };
   }
   if (page > 1 && !trustedComments.some((comment) => /<!--\s*vera-claim\s+\{/.test(comment.body))) {
     return { state: "unknown", reason: "The latest comment page has no claim marker; older claim history is not inferred." };
@@ -1211,7 +1211,15 @@ export async function loadWorkflowEvidence(repositoryRoot, items, options = {}) 
       claim: privateClaimByIssue.get(identity.url),
       pr: record.pr?.number ?? null,
     }) : null;
-    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin), canPair: pairableIssues.has(identity.url) };
+    const ownerClaim = privateClaimByIssue.get(identity.url);
+    record.codex = { ...record.codex, ownerBound: Boolean(ownerOrigin),
+      canPair: options.local === true && isLegacyOwnerClaim(ownerClaim),
+      hasSavedLink: pairableIssues.has(identity.url) };
+    if (ownerClaim && record.deepseek.route === "chat") {
+      record.deepseek = deepseekEvidence.byIssue?.[identity.url] ?? {
+        state: "excluded", reason: "The existing owner continues this issue.",
+      };
+    }
     record.producerChecklist = ownerOrigin && item.acceptance === "Producer" && record.pr
       ? await readProducerChecklist({
         issueUrl: identity.url,
@@ -1371,6 +1379,7 @@ export function deriveWorkflow(item, evidence, nowValue = new Date(0)) {
     hasProducerChecklist: sessionFresh && Boolean(record?.producerChecklist),
   });
   if (primaryAction.kind === "start-codex") primaryAction.approvalUrl = chat.url;
+  if (primaryAction.kind === "pair-owner") primaryAction.pairNeedsLink = record?.codex?.hasSavedLink !== true;
   const producerChecklist = primaryAction.kind === "review-producer" ? record.producerChecklist : null;
   if (producerChecklist) primaryAction.checklistDigest = producerChecklist.digest;
   if (prFresh && record?.pr) primaryAction.pr = record.pr.number;

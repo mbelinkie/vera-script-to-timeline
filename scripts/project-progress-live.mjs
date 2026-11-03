@@ -27,9 +27,11 @@ async function actionRequest(request) {
   }
   try {
     const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    if (!data || !Object.keys(data).every(key => ["token", "version", "decision"].includes(key))
+    if (!data || !Object.keys(data).every(key => ["token", "version", "decision", "threadLink"].includes(key))
         || !/^[a-f0-9]{48}$/.test(data.token ?? "") || !Number.isSafeInteger(data.version)) return null;
     const decision = data.decision;
+    if (data.threadLink !== undefined && (decision !== undefined || typeof data.threadLink !== "string"
+        || !LOCAL_APP_URL.test(data.threadLink))) return null;
     if (decision === undefined) return data;
     if (!decision || !Object.keys(decision).every(key => ["kind", "text"].includes(key))) return null;
     if (decision.kind === "approve" && decision.text === undefined) return data;
@@ -407,14 +409,16 @@ export async function startProgressServer(options) {
           result = { status: "refused", message: "Send actions require an explicit click in the local dashboard." };
         } else if (!action || !actionExecutor) {
           result = { status: "refused", message: "Refresh the dashboard before using this action." };
-        } else if (route === "/action-state" && !data.decision) {
+        } else if (route === "/action-state" && !data.decision && !data.threadLink) {
           result = await actionExecutor.state(action) ?? { status: "idle" };
+        } else if (data.threadLink && action.kind !== "pair-owner") {
+          result = { status: "refused", message: "Chat links are only accepted for legacy pairing." };
         } else if (route === "/action-state" || (action.kind === "review-producer") !== Boolean(data.decision)) {
           result = { status: "refused", message: "Choose an explicit approval or feedback action." };
         } else if (stale && !["review-chat", "review-blocker", "check-status"].includes(action.kind)) {
           result = { status: "refused", message: "The roadmap view is stale. Refresh before sending this action." };
         } else {
-          try { result = await actionExecutor.execute({ ...action, decision: data.decision }); }
+          try { result = await actionExecutor.execute({ ...action, decision: data.decision, threadLink: data.threadLink }); }
           catch { result = { status: "refused", message: "Current issue or owner evidence could not be verified. Refresh and inspect the issue." }; }
         }
         response.writeHead(!data ? 403 : result.status === "refused" ? 409 : 200, { "Content-Type": "application/json; charset=utf-8" });

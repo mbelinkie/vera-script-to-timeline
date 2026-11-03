@@ -105,6 +105,15 @@ export const queueClientScript = String.raw`(() => {
     if (!token || control.disabled || (!safeWhenStale && (stale || document.documentElement.dataset.snapshotStale === "true"))) return;
     const controls = [...document.querySelectorAll("button[data-vera-action]")].filter((button) => button.dataset.veraAction === token);
     if (controls.some((button) => button.dataset.actionStatus === "pending" || button.dataset.actionStatus === "complete")) return;
+    const pairingForm = control.closest(".wf-pair-form");
+    const linkInput = pairingForm?.querySelector("input");
+    const pairStatus = pairingForm?.querySelector("[role=status]");
+    const threadLink = linkInput?.value.trim().toLowerCase();
+    if (linkInput && !/^codex:\/\/threads\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(threadLink)) {
+      pairStatus.textContent = "Paste the link copied from the original Codex chat.";
+      linkInput.focus();
+      return;
+    }
     const decisionKind = control.dataset.actionDecision;
     let decision;
     if (decisionKind) {
@@ -127,6 +136,7 @@ export const queueClientScript = String.raw`(() => {
       button.textContent = "Working…";
     }
     for (const input of [...document.querySelectorAll("[data-decision-input-for]")].filter((field) => field.dataset.decisionInputFor === token)) input.disabled = true;
+    if (linkInput) linkInput.disabled = true;
     const decisionStatus = [...document.querySelectorAll("[data-decision-status-for]")].find((status) => status.dataset.decisionStatusFor === token);
     if (decisionStatus) decisionStatus.textContent = "Sending decision…";
     let reply;
@@ -134,7 +144,7 @@ export const queueClientScript = String.raw`(() => {
       const response = await fetch("/action", {
         method: "POST",
         headers: { "content-type": "application/json", "x-vera-action": "1" },
-        body: JSON.stringify({ token, version: Number(document.documentElement.dataset.snapshotVersion), ...(decision ? { decision } : {}) }),
+        body: JSON.stringify({ token, version: Number(document.documentElement.dataset.snapshotVersion), ...(decision ? { decision } : {}), ...(threadLink ? { threadLink } : {}) }),
       });
       reply = await response.json();
       if (!response.ok && !reply?.status) reply = { status: "refused", message: "Action request was refused." };
@@ -142,10 +152,14 @@ export const queueClientScript = String.raw`(() => {
       reply = { status: "unknown", message: "Refresh sources to verify the outcome." };
     }
     const label = resultText(reply);
+    if (pairStatus) pairStatus.textContent = label;
     for (const button of controls) {
-      button.dataset.actionStatus = "complete";
-      button.textContent = label;
+      const retry = Boolean(linkInput) && reply?.status === "refused";
+      button.disabled = !retry;
+      button.dataset.actionStatus = retry ? "idle" : "complete";
+      button.textContent = retry ? "Send pairing request" : label;
     }
+    if (linkInput && reply?.status === "refused") linkInput.disabled = false;
     if (decisionStatus) decisionStatus.textContent = label;
     if (reply?.status === "queued") {
       const version = Number(document.documentElement.dataset.snapshotVersion);
@@ -271,9 +285,13 @@ export const queueClientScript = String.raw`(() => {
     const expand = event.target.closest("[data-expand-row]");
     if (expand) {
       const detail = root.querySelector("#" + CSS.escape(expand.dataset.detailId));
-      const opening = expand.getAttribute("aria-expanded") !== "true";
-      expand.setAttribute("aria-expanded", String(opening));
-      if (detail) detail.hidden = !opening;
+      if (!detail) return;
+      const opening = detail.hidden;
+      detail.hidden = !opening;
+      for (const button of expand.closest(".wf-row").querySelectorAll("[data-expand-row]")) {
+        button.setAttribute("aria-expanded", String(opening));
+      }
+      if (opening && expand.dataset.focusPair === "true") detail.querySelector(".wf-pair-form input")?.focus();
     }
   });
 
@@ -549,11 +567,10 @@ function actionButton(action, token, expiresAt, secondary = false) {
 }
 
 function safeChecklistUrl(value) {
-  const href = safeWorkflowUrl({ url: value });
-  if (!href) return null;
   try {
-    const url = new URL(href);
-    return url.hostname === "github.com" && /^\/[^/]+\/[^/]+\/(?:issues\/\d+|pull\/\d+(?:\/(?:checks|files|commits))?)\/?$/i.test(url.pathname) ? href : null;
+    const url = new URL(value);
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    return !url.username && !url.password && (url.protocol === "https:" || (local && url.protocol === "http:")) ? url.href : null;
   } catch {
     return null;
   }
@@ -583,13 +600,21 @@ function producerDecisionMarkup(row, options) {
   return `${checklist}<div class="wf-producer-decision"><button type="button" class="wf-primary-action" ${attrs} data-action-decision="approve">Send approval</button><label class="wf-feedback-label">Feedback<input type="text" maxlength="1000" data-decision-input-for="${escapeHtml(token)}" placeholder="Brief review feedback"></label><button type="button" class="wf-primary-action wf-feedback-button" ${attrs} data-action-decision="feedback">Send feedback</button><span class="wf-decision-status" data-decision-status-for="${escapeHtml(token)}" aria-live="polite"></span></div>`;
 }
 
-function primaryActionMarkup(row, options) {
+function pairFormMarkup(row) {
+  const token = row.primaryActionToken;
+  if (!token) return "";
+  return `<div class="wf-pair-form"><label class="wf-feedback-label">Original Codex chat link<input type="url" maxlength="64" autocomplete="off" placeholder="codex://threads/…"></label><button type="button" class="wf-primary-action" data-vera-action="${escapeHtml(token)}" data-workflow-expires-at="${row.actionExpiresAt}">Send pairing request</button><span class="wf-decision-status" role="status"></span></div>`;
+}
+
+function primaryActionMarkup(row, options, detailId) {
   const action = row.workflow.primaryAction;
   if (action && ACTION_KINDS.has(action.kind)) {
     if (action.kind === "open-queue") {
       return `<a class="wf-primary-action" href="${QUEUE_ISSUE_361}" target="_blank" rel="noopener noreferrer">${text(action.label || "Open CI queue #361")}</a>`;
     }
-    if (action.kind === "review-producer") return producerDecisionMarkup(row, options);
+    if (action.kind === "review-producer" || (action.kind === "pair-owner" && action.pairNeedsLink)) {
+      return `<button type="button" class="wf-primary-action" data-expand-row data-detail-id="${detailId}" aria-expanded="false" aria-controls="${detailId}"${action.pairNeedsLink ? ' data-focus-pair="true"' : ""}>${text(action.label)}</button>`;
+    }
     const primary = actionButton(action, row.primaryActionToken, row.actionExpiresAt);
     if (primary) return primary;
     if (action.kind === "none") return `<span class="wf-action-reason">${text(action.reason || action.label || "No action available.")}</span>`;
@@ -723,15 +748,16 @@ function renderRow(row, index, options) {
   const queueLabel = row.queueOrder === null ? "—" : String(row.queueOrder);
   const actor = primary?.actor ?? workflow.actor ?? "Unknown";
   const nextText = primary?.label ?? workflow.action ?? "Next action unavailable.";
-  const nextAction = primaryActionMarkup(row, options) + secondaryActionMarkup(row);
+  const nextAction = primaryActionMarkup(row, options, detailId) + secondaryActionMarkup(row);
+  const detailAction = primary?.kind === "review-producer" ? producerDecisionMarkup(row, options)
+    : primary?.kind === "pair-owner" && primary.pairNeedsLink ? pairFormMarkup(row) : "";
   return `<li class="wf-row g-${group}" data-row-index="${index}" data-queue-order="${row.queueOrder === null ? "" : row.queueOrder}" data-group="${group}" data-filter="${filter}" data-project="${escapeHtml(projectValue)}" data-status="${text(status)}" data-size="${text(size)}" data-dependency="${row.dependenciesVerified === false ? "unverified" : row.dependencies.length ? "has" : row.dependenciesVerified === true ? "none" : "unknown"}" data-search="${text(search)}" data-detail-id="${detailId}">
   <span class="wf-order" title="Canonical Queue Order">${escapeHtml(queueLabel)}</span>
   <div class="wf-row-main"><div class="wf-title">${titleMarkup}</div><div class="wf-next" data-workflow-next="true"><span class="wf-actor">${text(actor)}</span><span>${text(nextText)}</span></div><div class="wf-meta">${metadata}</div></div>
-  <div class="wf-chips" aria-label="Workflow evidence status">${chips}</div>
   <div class="wf-row-action">${nextAction}</div>
   <button type="button" class="wf-expand" data-expand-row data-detail-id="${detailId}" aria-expanded="false" aria-controls="${detailId}"><span>Details</span><span class="wf-chevron" aria-hidden="true"></span></button>
 </li>
-<li class="wf-detail" id="${detailId}" hidden>${renderDetailsMetadata(item, workflow)}<div class="wf-detail-grid"><section><h4>Evidence sources</h4>${renderSources(workflow.sources)}</section><section><h4>Dependencies</h4>${renderDependencies(row)}</section><section><h4>Disabled actions</h4>${disabledMarkup}</section><section><h4>Safe links</h4><div class="wf-links">${renderWorkflowLinks(workflowLinks(row, options))}</div></section></div></li>`;
+<li class="wf-detail" id="${detailId}" hidden>${detailAction}${renderDetailsMetadata(item, workflow)}<div class="wf-chips" aria-label="Workflow evidence status">${chips}</div>${primary?.reason ? `<p class="wf-detail-meta">${text(primary.reason)}</p>` : ""}<div class="wf-detail-grid"><section><h4>Evidence sources</h4>${renderSources(workflow.sources)}</section><section><h4>Dependencies</h4>${renderDependencies(row)}</section><section><h4>Disabled actions</h4>${disabledMarkup}</section><section><h4>Safe links</h4><div class="wf-links">${renderWorkflowLinks(workflowLinks(row, options))}</div></section></div></li>`;
 }
 
 function percent(done, total) {

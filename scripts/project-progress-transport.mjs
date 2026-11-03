@@ -12,6 +12,7 @@ const CHROME_HELPER = path.join(ACTION_HOME, "VERA Dashboard Helper.app", "Conte
 const CODEX = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex";
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
+const FIRST_DASHBOARD_PREVIEW = Date.parse("2026-11-03T18:03:10.174Z");
 const CHAT_THREAD = /^https:\/\/chatgpt\.com\/c\/[a-zA-Z0-9_-]{8,128}$/;
 const MAX_OUTPUT = 4 * 1024 * 1024;
 
@@ -40,6 +41,11 @@ export function matchOrigin(origins, { repository, number, claim, pr = null }) {
 export function matchesOwnerClaim(threadId, claim) {
   return UUID.test(threadId ?? "") && claim?.state === "active"
     && [threadId, publicOwnerKey(threadId)].includes(claim.task);
+}
+
+export function isLegacyOwnerClaim(claim) {
+  const startedAt = Date.parse(claim?.startedAt);
+  return claim?.state === "active" && Number.isFinite(startedAt) && startedAt < FIRST_DASHBOARD_PREVIEW;
 }
 
 export async function readProducerChecklist({ issueUrl, revision, pr, origin }) {
