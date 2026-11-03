@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, lstatSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { linkSync, mkdtempSync, lstatSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -113,6 +113,23 @@ test("serializes writes with a private registry lock", async t => {
   await assert.rejects(saveOrigin(record, directory), /locked/);
   rmSync(lock);
   assert.deepEqual(await saveOrigin(record, directory), record);
+});
+
+test("recovers only the exact interrupted temporary hard link", async t => {
+  const directory = registryDirectory(t);
+  const record = makeRecord();
+  await saveOrigin(record, directory);
+  const file = path.join(directory, `${record.launchId}.json`);
+  const temporary = path.join(directory, `.origin-${"c".repeat(32)}.tmp`);
+  linkSync(file, temporary);
+  assert.equal(loadOrigin(record.launchId, directory).launchId, record.launchId);
+  assert.equal(lstatSync(file).nlink, 1);
+  assert.throws(() => lstatSync(temporary), { code: "ENOENT" });
+
+  const unrelated = path.join(directory, "unrelated-link");
+  linkSync(file, unrelated);
+  assert.throws(() => loadOrigin(record.launchId, directory), /owned mode-0600 regular file/);
+  rmSync(unrelated);
 });
 
 test("binds an open pull request once and publishes only approved public fields", async t => {

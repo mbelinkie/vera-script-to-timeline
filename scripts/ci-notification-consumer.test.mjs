@@ -121,6 +121,27 @@ test("expiry and missing origin are recorded without inventing a thread target",
   assert.equal(expired.writes[0].entries[0].states.failed.reason, "event_expired");
 });
 
+test("temporary origin lookup failure is not persisted, so a later lookup can bind the private target", async () => {
+  const value = event();
+  let attempts = 0;
+  const h = harness({ findOrigin: async (candidate) => {
+    attempts += 1;
+    if (attempts === 1) { const error = new Error(); error.code = "offline"; throw error; }
+    return origin(candidate);
+  } });
+
+  const unavailable = await consumeEvent(value, h.dependencies);
+  assert.equal(unavailable.outcome, "offline");
+  assert.equal(h.writes.length, 0);
+  assert.deepEqual(h.calls, ["verify"]);
+
+  const recovered = await consumeEvent(value, h.dependencies);
+  assert.equal(recovered.outcome, "persisted");
+  assert.equal(recovered.navigation, `codex://threads/${threadId}`);
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.writes[0].entries[0].threadId, threadId);
+});
+
 test("busy reads and writer conflicts remain visible without claiming persistence", async () => {
   const busy = harness({ loadAudit: async () => { const error = new Error(); error.code = "busy"; throw error; } });
   assert.equal((await consumeEvent(event(), busy.dependencies)).outcome, "busy");

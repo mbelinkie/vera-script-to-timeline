@@ -414,7 +414,13 @@ export class NotificationOutbox {
         } catch {
           throw fail("CI notification document write outcome could not be reconciled", "pending");
         }
-        if (reconciled?.content === content) return { sha: reconciled.sha, stored: true, attempts: attempt };
+        if (reconciled?.content === content) {
+          return {
+            sha: reconciled.sha,
+            stored: !(hasExpectedSha && [409, 422].includes(error.status)),
+            attempts: attempt,
+          };
+        }
         if (reconciled && immutable) throw fail("Immutable CI notification event path contained different content", "conflict");
         if (hasExpectedSha && (reconciled?.sha ?? null) !== expectedSha) {
           throw fail("CI notification document changed during compare-and-swap", "conflict");
@@ -479,8 +485,9 @@ export class NotificationOutbox {
         commentPost: audit.commentAttempts,
       },
       nextAttemptAt: audit.nextAttemptAt,
-      manualRetryAvailable: persisted && audit.commentAttempts === 1 && !audit.manualRetryUsed &&
-        audit.status !== "commented",
+      manualRetryAvailable: persisted && audit.commentAttempts <= 1 && !audit.manualRetryUsed &&
+        audit.status !== "commented" && audit.lastOutcome !== "rejected" &&
+        Date.parse(event.expiresAt) > this.now(),
       manualReport: status === "commented" ? null : renderReport(event),
     };
   }
@@ -509,7 +516,8 @@ export class NotificationOutbox {
     }
 
     if ((!manual && auditFile.data.commentAttempts > 0) ||
-        (manual && (auditFile.data.manualRetryUsed || auditFile.data.commentAttempts !== 1))) {
+        (manual && (auditFile.data.manualRetryUsed || auditFile.data.commentAttempts > 1 ||
+          auditFile.data.lastOutcome === "rejected"))) {
       return auditFile.data;
     }
     if (manual && auditFile.data.nextAttemptAt && Date.parse(auditFile.data.nextAttemptAt) > this.now()) {

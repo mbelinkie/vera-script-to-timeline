@@ -166,7 +166,8 @@ export async function consumeEvent(event, { verify, findOrigin, loadAudit, saveA
         originVerified = matchesOrigin(origin, verified);
         if (!originVerified) reason = "missing_mapping";
       } catch (error) {
-        reason = callbackOutcome(error);
+        const failure = callbackOutcome(error);
+        return result(failure, `CI_ORIGIN_${failure.toUpperCase()}`);
       }
     }
   }

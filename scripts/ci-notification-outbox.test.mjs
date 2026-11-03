@@ -62,6 +62,7 @@ class FakeGitHub {
     this.createdCommits = [];
     this.putEvents = 0;
     this.commentPosts = 0;
+    this.commentListFailures = 0;
     this.eventWriteMode = "normal";
     this.commentMode = "normal";
     this.commitAuthor = "github-actions[bot]";
@@ -140,6 +141,10 @@ class FakeGitHub {
     }
     const match = route.match(/^\/issues\/([1-9][0-9]*)\/comments$/);
     if (match && method === "GET") {
+      if (this.commentListFailures > 0) {
+        this.commentListFailures -= 1;
+        throw apiError(502);
+      }
       const comments = this.comments.get(Number(match[1])) ?? [];
       const page = Number(url.searchParams.get("page") ?? 1);
       const perPage = Number(url.searchParams.get("per_page") ?? 100);
@@ -305,6 +310,39 @@ test("allows one explicit manual retry after the recorded backoff and caps comme
   const exhausted = await outbox.manualRetry(event.eventId);
   assert.equal(exhausted.status, "pending");
   assert.equal(github.commentPosts, 2);
+});
+
+test("manual retry recovers from a transient initial comment-list failure with zero prior posts", async () => {
+  const github = new FakeGitHub();
+  let now = NOW;
+  github.commentListFailures = 1;
+  const outbox = createOutbox(github, () => now);
+  const event = makeEvent();
+  const pending = await outbox.publish(event);
+
+  assert.equal(pending.attempts.commentPost, 0);
+  assert.equal(pending.status, "pending");
+  assert.equal(pending.manualRetryAvailable, true);
+  assert.equal(github.commentPosts, 0);
+
+  const early = await outbox.manualRetry(event.eventId);
+  assert.equal(early.attempts.commentPost, 0);
+  assert.equal(github.commentPosts, 0);
+
+  now = Date.parse(event.expiresAt);
+  await assert.rejects(outbox.manualRetry(event.eventId), /Expired/);
+  assert.equal(github.commentPosts, 0);
+
+  now = Date.parse(pending.nextAttemptAt);
+  const results = await Promise.all([
+    outbox.manualRetry(event.eventId),
+    outbox.manualRetry(event.eventId),
+  ]);
+  assert.ok(results.every((result) => result.persisted));
+  assert.equal(github.commentPosts, 1);
+  assert.equal((github.comments.get(event.pr) ?? []).length, 1);
+  assert.equal((await outbox.manualRetry(event.eventId)).manualRetryAvailable, false);
+  assert.equal(github.commentPosts, 1);
 });
 
 test("bounds failed event writes to three attempts and does not comment without a durable event", async () => {

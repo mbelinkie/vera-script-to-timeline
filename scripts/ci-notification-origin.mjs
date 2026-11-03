@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   closeSync, constants as fsConstants, fstatSync, fsyncSync, linkSync,
-  lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
+  lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -196,6 +196,52 @@ function assertPrivateFile(fd, description) {
   }
 }
 
+function recoverTemporaryLink(file, fd, description) {
+  const target = fstatSync(fd);
+  if (target.nlink === 1) return;
+  const uid = typeof process.getuid === "function" ? process.getuid() : null;
+  const invalid = () => new Error(`${description} must be an owned mode-0600 regular file`);
+  if (!target.isFile() || uid === null || target.uid !== uid || (target.mode & 0o777) !== 0o600 || target.nlink !== 2) {
+    throw invalid();
+  }
+  const directory = path.dirname(file);
+  const names = readdirSync(directory);
+  if (names.length > 5000) throw new Error(`${description} has too many registry entries`);
+  let twins;
+  try {
+    twins = names.filter(name => /^\.origin-[0-9a-f]{32}\.tmp$/.test(name)).filter(name => {
+      const stat = lstatSync(path.join(directory, name));
+      return stat.isFile() && stat.uid === uid && (stat.mode & 0o777) === 0o600 &&
+        stat.nlink === 2 && stat.dev === target.dev && stat.ino === target.ino;
+    });
+  } catch (error) {
+    if (error?.code !== "ENOENT" || fstatSync(fd).nlink !== 1) throw error;
+    return;
+  }
+  if (twins.length !== 1) {
+    if (fstatSync(fd).nlink === 1) return;
+    throw invalid();
+  }
+  const twin = path.join(directory, twins[0]);
+  let current;
+  try { current = lstatSync(twin); }
+  catch (error) {
+    if (error?.code === "ENOENT" && fstatSync(fd).nlink === 1) return;
+    throw error;
+  }
+  if (!current.isFile() || current.dev !== target.dev || current.ino !== target.ino ||
+      current.uid !== target.uid || (current.mode & 0o777) !== 0o600 || current.nlink !== 2) {
+    throw new Error(`${description} has an unsafe temporary link`);
+  }
+  try { unlinkSync(twin); }
+  catch (error) {
+    if (error?.code !== "ENOENT" || fstatSync(fd).nlink !== 1) throw error;
+  }
+  const directoryFd = openSync(directory, fsConstants.O_RDONLY);
+  try { fsyncSync(directoryFd); } finally { closeSync(directoryFd); }
+  if (fstatSync(fd).nlink !== 1) throw new Error(`${description} has an unresolved temporary link`);
+}
+
 function readJsonFile(file, description) {
   let fd;
   try {
@@ -205,6 +251,7 @@ function readJsonFile(file, description) {
     throw new Error(`${description} is unavailable or unsafe`, { cause: error });
   }
   try {
+    recoverTemporaryLink(file, fd, description);
     assertPrivateFile(fd, description);
     return JSON.parse(readFileSync(fd, "utf8"));
   } catch (error) {
@@ -226,7 +273,11 @@ function writeJsonAtomically(file, value, directory, { replace = false } = {}) {
     closeSync(fd);
     fd = undefined;
     if (replace) renameSync(temporary, file);
-    else linkSync(temporary, file);
+    else {
+      linkSync(temporary, file);
+      try { unlinkSync(temporary); }
+      catch (error) { if (error?.code !== "ENOENT") throw error; }
+    }
     const parentFd = openSync(directory, fsConstants.O_RDONLY);
     try { fsyncSync(parentFd); } finally { closeSync(parentFd); }
   } catch (error) {

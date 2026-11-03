@@ -127,6 +127,10 @@ do not perform any GitHub lifecycle action.
 A killed process may leave `.registry.lock`. Inspect that no registry writer
 is active before removing only that lock; never delete origin/audit records
 to work around a conflict. No automatic stale-lock takeover is implemented.
+An interrupted atomic create can also leave its exact `.origin-<hex>.tmp`
+hard-link twin. Reads recover only an owned 0600 twin with the same device
+and inode; unrelated hard links and unsafe files remain rejected. Temporary
+origin-lookup failures return without persisting a terminal delivery state.
 
 ## Validation boundary
 
