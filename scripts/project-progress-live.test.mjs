@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { URL } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import { request as httpRequest } from "node:http";
+import { setTimeout } from "node:timers";
 
 import { progressSourceIdentity, startProgressServer } from "./project-progress-live.mjs";
 
@@ -33,6 +35,7 @@ async function createServer(t, options = {}) {
     ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
     ...(options.initialError !== undefined ? { initialError: options.initialError } : {}),
     ...(options.initialUpdatedAt !== undefined ? { initialUpdatedAt: options.initialUpdatedAt } : {}),
+    ...(options.initialRefresh !== undefined ? { initialRefresh: options.initialRefresh } : {}),
     ...(options.resolveLocalSession ? { resolveLocalSession: options.resolveLocalSession } : {}),
   });
   t.after(async () => {
@@ -43,7 +46,24 @@ async function createServer(t, options = {}) {
 }
 
 async function request(server, route, init) {
-  return fetch(new URL(route, server.url), { redirect: "manual", ...init });
+  return fetch(new URL(route, server.url), {
+    redirect: "manual",
+    ...init,
+    headers: { "Sec-Fetch-Site": "same-origin", ...(init?.headers ?? {}) },
+  });
+}
+
+function pageWithExpiry(expiresAt) {
+  return PAGE.replace('class="workflow-queue"', `class="workflow-queue" data-workflow-queue data-workflow-expires-at="${expiresAt}"`);
+}
+
+async function waitFor(predicate, message, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.fail(message);
 }
 
 test("foreign origins and rebinding hosts cannot refresh or inspect private links", async (t) => {
@@ -68,6 +88,44 @@ test("foreign origins and rebinding hosts cannot refresh or inspect private link
   }
   assert.equal(calls, 0);
   assert.equal((await request(server, "/status")).status, 200);
+});
+
+test("cross-site and metadata-free requests cannot inspect or trigger private dashboard reads", async (t) => {
+  let generations = 0;
+  let sessionCalls = 0;
+  const { server } = await createServer(t, {
+    html: PAGE,
+    generate: async (destination) => {
+      generations += 1;
+      await writeFile(destination, PAGE, "utf8");
+    },
+    resolveLocalSession: async () => {
+      sessionCalls += 1;
+      return { status: "verified-local", appUrl: APP_URL };
+    },
+  });
+  const requests = [
+    ["GET", "/status"],
+    ["GET", `/local-session?issue=${encodeURIComponent(ISSUE)}`],
+    ["POST", "/refresh", { "x-vera-refresh": "1" }],
+  ];
+  for (const [method, route, extraHeaders = {}] of requests) {
+    for (const fetchSite of ["cross-site", "same-site"]) {
+      const response = await request(server, route, {
+        method,
+        headers: { ...extraHeaders, "Sec-Fetch-Site": fetchSite },
+      });
+      assert.equal(response.status, 403);
+    }
+    const response = await fetch(new URL(route, server.url), {
+      method,
+      redirect: "manual",
+      headers: extraHeaders,
+    });
+    assert.equal(response.status, 403);
+  }
+  assert.equal(generations, 0);
+  assert.equal(sessionCalls, 0);
 });
 
 test("source identity hides the checkout path and changes for another checkout or head", async (t) => {
@@ -122,6 +180,136 @@ test("overlapping refreshes share one atomic write and preserve last-good HTML u
   assert.match(await readFile(outputPath, "utf8"), /new snapshot/);
 });
 
+test("server serves a stale saved snapshot while the first background refresh is delayed", async (t) => {
+  const now = Date.now();
+  let releaseGeneration;
+  let startedGeneration;
+  const generationStarted = new Promise((resolve) => { startedGeneration = resolve; });
+  const generationGate = new Promise((resolve) => { releaseGeneration = resolve; });
+  const saved = pageWithExpiry(now - 1_000).replace(">Issue</a>", ">Saved issue snapshot</a>");
+  const { outputPath, server } = await createServer(t, {
+    now: () => now,
+    html: saved,
+    initialUpdatedAt: now - 17 * 60_000,
+    initialRefresh: true,
+    generate: async (destination) => {
+      startedGeneration();
+      await generationGate;
+      await writeFile(destination, pageWithExpiry(now + 15 * 60_000), "utf8");
+    },
+  });
+  await generationStarted;
+
+  const status = await (await request(server, "/status")).json();
+  assert.equal(status.refreshing, true);
+  assert.equal(status.stale, true);
+  const page = await request(server, "/");
+  assert.match(await page.text(), /Saved issue snapshot/);
+  assert.match(await readFile(outputPath, "utf8"), /Saved issue snapshot/);
+
+  releaseGeneration();
+  const refreshed = await server.refresh({ manual: true });
+  assert.equal(refreshed.refreshing, false);
+  assert.equal(refreshed.stale, false);
+  assert.equal(refreshed.version, 2);
+  assert.match(await readFile(outputPath, "utf8"), /Implementation ready/);
+});
+
+test("CLI serves and prints its URL before the first GitHub generation completes", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vera-progress-cli-"));
+  const binDirectory = path.join(directory, "bin");
+  await mkdir(binDirectory);
+  const startedPath = path.join(directory, "gh-started");
+  const releasePath = path.join(directory, "gh-release");
+  const donePath = path.join(directory, "gh-done");
+  const fakeGhPath = path.join(binDirectory, "gh");
+  await writeFile(fakeGhPath, [
+    "#!/bin/sh",
+    'printf started > "$VERA_PROGRESS_TEST_STARTED"',
+    'while [ ! -e "$VERA_PROGRESS_TEST_RELEASE" ]; do sleep 0.02; done',
+    'printf done > "$VERA_PROGRESS_TEST_DONE"',
+    "exit 1",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(fakeGhPath, 0o755);
+
+  let stdout = "";
+  const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const child = spawn(process.execPath, [path.join(repositoryRoot, "scripts", "project-progress.mjs"), "--serve"], {
+    cwd: repositoryRoot,
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH ?? ""}`,
+      VERA_PROGRESS_REFRESH_MINUTES: "15",
+      VERA_PROGRESS_TEST_STARTED: startedPath,
+      VERA_PROGRESS_TEST_RELEASE: releasePath,
+      VERA_PROGRESS_TEST_DONE: donePath,
+    },
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => { stdout += chunk; });
+  const childExited = new Promise((resolve) => child.once("exit", resolve));
+  t.after(async () => {
+    await writeFile(releasePath, "");
+    await waitFor(async () => {
+      try { await access(donePath); return true; } catch { return false; }
+    }, "The fake GitHub command did not stop during cleanup", 2_000).catch(() => {});
+    if (child.exitCode === null) child.kill("SIGTERM");
+    await Promise.race([childExited, new Promise((resolve) => setTimeout(resolve, 2_000))]);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  await waitFor(() => stdout.includes("Dashboard: http://127.0.0.1:"), "The CLI did not print a listening dashboard URL");
+  await waitFor(async () => {
+    try { await access(startedPath); return true; } catch { return false; }
+  }, "The first generation did not reach the delayed GitHub command");
+  const url = stdout.match(/Dashboard: (http:\/\/127\.0\.0\.1:\d+\/)/)?.[1];
+  assert.ok(url);
+  const response = await fetch(new URL("status", url), { headers: { "Sec-Fetch-Site": "none" } });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).refreshing, true);
+});
+
+test("slow generation schedules the next refresh before evidence expiry", async (t) => {
+  const startedAt = 1_800_000_000_000;
+  let now = startedAt;
+  let calls = 0;
+  const expiresAt = startedAt + 16 * 60_000;
+  const { server } = await createServer(t, {
+    now: () => now,
+    refreshIntervalMs: 15 * 60_000,
+    generate: async (destination) => {
+      calls += 1;
+      if (calls === 1) now += 2 * 60_000;
+      await writeFile(destination, pageWithExpiry(calls === 1 ? expiresAt : now + 16 * 60_000), "utf8");
+    },
+  });
+
+  await server.refresh({ manual: true });
+  now = startedAt + 12 * 60_000 + 59_000;
+  const beforeDue = await (await request(server, "/status")).json();
+  assert.equal(beforeDue.refreshing, false);
+  assert.equal(calls, 1);
+
+  now = startedAt + 13 * 60_000;
+  const atDue = await (await request(server, "/status")).json();
+  assert.equal(atDue.refreshing, true);
+  await server.refresh();
+  assert.equal(calls, 2);
+});
+
+test("refresh intervals cannot reach or exceed the evidence TTL", async () => {
+  for (const refreshIntervalMs of [16 * 60_000, 30 * 60_000]) {
+    await assert.rejects(startProgressServer({
+      outputPath: "/tmp/vera-progress-invalid-interval.html",
+      sourceId: "a".repeat(64),
+      generate: async () => {},
+      refreshIntervalMs,
+    }), /below the 16-minute evidence TTL/);
+  }
+});
+
 test("only explicit navigation resolves private sessions; ordinary reads wait for the interval", async (t) => {
   let calls = 0;
   let sessionCalls = 0;
@@ -174,7 +362,9 @@ test("explicit local-session navigation validates issue, status, destination, an
     },
   });
 
-  const app = await request(server, `/local-session?issue=${encodeURIComponent(ISSUE)}`);
+  const app = await request(server, `/local-session?issue=${encodeURIComponent(ISSUE)}`, {
+    headers: { "Sec-Fetch-Site": "none" },
+  });
   assert.equal(app.status, 303);
   assert.equal(app.headers.get("location"), APP_URL);
   assert.equal(app.headers.get("referrer-policy"), "no-referrer");

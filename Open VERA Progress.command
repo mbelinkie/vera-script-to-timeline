@@ -222,7 +222,7 @@ find_live_url() {
   fi
   print -r -- "$candidate" | grep -Eq '^http://127\.0\.0\.1:[0-9]+/$' \
     || return 1
-  status="$(curl --noproxy '*' -fsS --max-time 2 "${candidate}status" 2>/dev/null)" \
+  status="$(curl --noproxy '*' -fsS --max-time 2 -H 'Sec-Fetch-Site: none' "${candidate}status" 2>/dev/null)" \
     || return 1
   print -r -- "$status" | grep -Fq "\"sourceId\":\"$source_id\"" || return 1
   print -r -- "$status" | grep -Fq '"serverProtocol":"2"' || return 1

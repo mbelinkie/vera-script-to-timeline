@@ -59,54 +59,37 @@ if (process.argv.includes("--identity")) {
     const { resolveLocalSession } = await import("./project-progress-workflow.mjs");
     const serving = process.argv.includes("--serve");
     const refreshMinutes = Number(process.env.VERA_PROGRESS_REFRESH_MINUTES ?? 15);
-    if (serving && (!Number.isInteger(refreshMinutes) || refreshMinutes < 1)) {
-      throw new Error("VERA_PROGRESS_REFRESH_MINUTES must be a whole number of at least 1");
+    if (serving && (!Number.isInteger(refreshMinutes) || refreshMinutes < 1 || refreshMinutes >= 16)) {
+      throw new Error("VERA_PROGRESS_REFRESH_MINUTES must be a whole number from 1 through 15");
     }
 
     const generate = (destination) => writeDashboard(repositoryRoot, destination, { live: serving });
-    let models = null;
-    let startupError = null;
-    let initialUpdatedAt;
-
-    try {
-      models = await generate(outputPath);
-    } catch (cause) {
-      // A live dashboard must remain accessible even if the GitHub API budget
-      // is exhausted or a Project read fails. Static generation remains strict.
-      if (!serving) throw cause;
-      startupError = cause;
+    if (serving) {
+      let initialUpdatedAt = null;
       try {
         initialUpdatedAt = (await stat(outputPath)).mtimeMs;
       } catch (fileError) {
         if (fileError?.code !== "ENOENT") throw fileError;
-        initialUpdatedAt = null; // No saved dashboard to show yet.
       }
-    }
-
-    if (serving) {
       const live = await startProgressServer({
         outputPath,
         sourceId: currentSourceId(),
         generate,
         resolveLocalSession,
         refreshIntervalMs: refreshMinutes * 60_000,
-        initialError: startupError,
         initialUpdatedAt,
+        initialRefresh: true,
       });
-      if (models) {
-        console.log(terminalSummary(models, live.url));
-      } else {
-        console.log(`VERA progress\n  Dashboard: ${live.url}`);
-        console.warn(`  ${live.snapshot().error ?? "GitHub refresh is unavailable."}`);
-        console.log(initialUpdatedAt === null
-          ? "  No saved snapshot yet; showing a status page."
-          : `  Showing saved snapshot from ${new Date(initialUpdatedAt).toLocaleString()}.`);
-      }
+      console.log(`VERA progress\n  Dashboard: ${live.url}`);
+      console.log(initialUpdatedAt === null
+        ? "  No saved snapshot yet; showing a status page until the first refresh completes."
+        : `  Showing the saved snapshot from ${new Date(initialUpdatedAt).toLocaleString()} until refresh completes.`);
       console.log(`  Checks GitHub every ${refreshMinutes} minute(s) while open, subject to API limits.`);
       console.log("  Use Refresh now to check sooner when permitted.");
       console.log("  Keep the server running for automatic updates.");
       if (process.argv.includes("--open")) openBrowser(live.url);
     } else {
+      const models = await generate(outputPath);
       console.log(terminalSummary(models, pathToFileURL(outputPath).href));
       if (process.argv.includes("--open")) openBrowser(outputPath);
     }

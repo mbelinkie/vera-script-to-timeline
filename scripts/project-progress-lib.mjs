@@ -595,7 +595,6 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
   const all = [...byUrl.values()];
   const queue = all.filter((item) => item.queueOrder !== null)
     .sort((a, b) => a.queueOrder - b.queueOrder || a.key.localeCompare(b.key));
-  const queuedByKey = new Map(queue.map((item) => [item.key, item]));
   const usedOrder = new Map();
   for (const item of queue) {
     if (usedOrder.has(item.queueOrder)) {
@@ -619,16 +618,17 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
     item.dependencies = (Array.isArray(entry) ? entry : []).map((dep) => {
       const url = typeof dep === "string" ? dep : dep.url ?? dep.html_url;
       const location = issueLocation(url);
-      const prerequisite = location ? queuedByKey.get(location.url.toLowerCase()) : null;
-      const bad = !prerequisite || prerequisite.queueOrder >= item.queueOrder;
+      const prerequisite = location ? byUrl.get(location.url.toLowerCase()) : null;
+      const isOpen = prerequisite
+        ? prerequisite.status !== "Done" || (!hasFixture && !["CLOSED", "closed"].includes(dep?.state))
+        : !["CLOSED", "closed"].includes(dep?.state);
+      const bad = !location || (isOpen && (!prerequisite || prerequisite.queueOrder === null || prerequisite.queueOrder >= item.queueOrder));
       if (bad) warnings.push(`${item.owner}/${item.repo}#${item.number} at #${item.queueOrder} depends on ${location ? `${location.owner}/${location.repo}#${location.number}` : String(url)} ${prerequisite ? `at #${prerequisite.queueOrder}` : "which has no queue position"}.`);
       return {
         url: location?.url ?? null,
         label: location ? `${location.repo}#${location.number}` : "Unknown issue",
         queueOrder: prerequisite?.queueOrder ?? null,
-        isOpen: prerequisite
-          ? prerequisite.status !== "Done" || (!hasFixture && !["CLOSED", "closed"].includes(dep?.state))
-          : !["CLOSED", "closed"].includes(dep?.state),
+        isOpen,
         invalid: bad,
       };
     });

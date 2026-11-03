@@ -417,7 +417,7 @@ test("preserves sizes when an issue is tracked by both GitHub Projects", () => {
   assert.match(buildSharedRoadmap([research, conflict]).warnings.join(" "), /Conflicting Size/);
 });
 
-test("canonical dependencies absent from native relationships still block the next action", async () => {
+test("canonical dependencies are checked even without native relationships and closed unqueued issues resolve", async () => {
   const model = programModel([programIssue(401, "vera-script-to-timeline", 13, "Operations")], 2, "Master");
   const source = {
     url: model.workItems[0].url,
@@ -433,7 +433,7 @@ test("canonical dependencies absent from native relationships still block the ne
   assert.equal(row.dependenciesVerified, true);
   assert.equal(row.dependencies.length, 1);
   assert.equal(row.dependencies[0].isOpen, false);
-  assert.equal(row.dependencies[0].invalid, true);
+  assert.equal(row.dependencies[0].invalid, false);
   source.body = "No canonical dependency section";
   const missing = await fetchNativeDependencies("/tmp", [model], {
     queryGraphql: async () => ({ data: { i0: { issue: source } } }),
@@ -451,4 +451,19 @@ test("contradictory project status and duplicate ranks fail closed per row", () 
   assert.equal(buildSharedRoadmap([first, second]).queue[0].evidenceConflict, true);
   const duplicate = programModel([programIssue(2, "research", 1, "M1", { blockedBy: [] })], 2, "Master");
   assert.ok(buildSharedRoadmap([first, duplicate]).queue.every((row) => row.evidenceConflict));
+});
+
+test("closed unqueued dependencies do not block, while open unqueued dependencies do", () => {
+  const dependency = programIssue(348, "research", null, "Operations", { status: "Done" });
+  const work = programIssue(401, "application", 13, "Operations", { blockedBy: [
+    { url: dependency.content.url, state: "CLOSED" },
+  ] });
+  const model = programModel([dependency, work], 2, "Master");
+  const closed = buildSharedRoadmap(model).queue[0].dependencies[0];
+  assert.equal(closed.isOpen, false);
+  assert.equal(closed.invalid, false);
+  model.workItems.find((item) => item.number === 348).status = "Ready";
+  const contradictory = buildSharedRoadmap(model).queue[0].dependencies[0];
+  assert.equal(contradictory.isOpen, true);
+  assert.equal(contradictory.invalid, true);
 });

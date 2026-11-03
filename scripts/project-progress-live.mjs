@@ -8,6 +8,7 @@ const DEFAULT_REFRESH_INTERVAL_MS = 15 * 60_000;
 const RETRY_INTERVAL_MS = 5 * 60_000;
 const MANUAL_COOLDOWN_MS = 30_000;
 const SNAPSHOT_TTL_MS = 16 * 60_000;
+const REFRESH_MARGIN_MS = 60_000;
 const SERVER_PROTOCOL = "2";
 const LOCAL_ISSUE_URL = /^https:\/\/github\.com\/mbelinkie\/(vera-script-to-timeline|vera-research-video-clips)\/issues\/([1-9]\d*)$/;
 const LOCAL_APP_URL = /^codex:\/\/threads\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
@@ -74,6 +75,13 @@ function setHtmlAttribute(tag, name, value) {
   const attribute = new RegExp(`\\s${name}(?=\\s|=|>)(?:=(?:"[^"]*"|'[^']*'|[^\\s>]+))?`, "i");
   const clean = tag.replace(attribute, "");
   return `${clean.slice(0, -1)} ${name}="${escapeHtml(value)}">`;
+}
+
+function workflowEvidenceExpiry(html) {
+  const queue = html.match(/<[^>]*\bdata-workflow-queue(?=\s|=|>)[^>]*>/i)?.[0];
+  const value = queue?.match(/\bdata-workflow-expires-at=["'](\d+)["']/i)?.[1];
+  const timestamp = Number(value);
+  return Number.isSafeInteger(timestamp) && timestamp >= 0 ? timestamp : null;
 }
 
 function staleWorkflowContent(html) {
@@ -197,7 +205,7 @@ function waitingPage() {
  * @param {{outputPath:string, sourceId:string, generate:(destination:string)=>Promise<unknown>,
  *   resolveLocalSession?:(issueUrl:string)=>Promise<object>,
  *   refreshIntervalMs?:number, now?:()=>number, port?:number, host?:string,
- *   initialError?:unknown, initialUpdatedAt?:number|null}} options
+ *   initialError?:unknown, initialUpdatedAt?:number|null, initialRefresh?:boolean}} options
  */
 export async function startProgressServer(options) {
   const {
@@ -211,9 +219,10 @@ export async function startProgressServer(options) {
     host = "127.0.0.1",
     initialError = null,
     initialUpdatedAt,
+    initialRefresh = false,
   } = options;
-  if (!Number.isInteger(refreshIntervalMs) || refreshIntervalMs < 60_000) {
-    throw new Error("Dashboard refresh interval must be at least one minute");
+  if (!Number.isInteger(refreshIntervalMs) || refreshIntervalMs < 60_000 || refreshIntervalMs >= SNAPSHOT_TTL_MS) {
+    throw new Error("Dashboard refresh interval must be at least one minute and below the 16-minute evidence TTL");
   }
   if (typeof sourceId !== "string" || !/^[a-f0-9]{64}$/.test(sourceId)) {
     throw new Error("Dashboard source identity is invalid");
@@ -226,21 +235,32 @@ export async function startProgressServer(options) {
   let lastUpdated = initialUpdatedAt === undefined
     ? (initialError ? null : now())
     : initialUpdatedAt;
-  let lastAttempt = now();
   let lastManual = -Infinity;
   let error = initialError === null ? null : publicRefreshError(initialError);
   let retryNotBefore = initialError === null ? 0 : nextAllowedRetry(initialError, now());
+  let evidenceExpiresAt = lastUpdated === null ? null : lastUpdated + SNAPSHOT_TTL_MS;
+  if (initialUpdatedAt !== undefined && initialUpdatedAt !== null) {
+    try {
+      evidenceExpiresAt = workflowEvidenceExpiry(await readFile(outputPath, "utf8")) ?? initialUpdatedAt + SNAPSHOT_TTL_MS;
+    } catch {
+      evidenceExpiresAt = initialUpdatedAt + SNAPSHOT_TTL_MS;
+    }
+  }
+  const initialTime = now();
+  let nextRefreshAt = error
+    ? Math.max(initialTime + RETRY_INTERVAL_MS, retryNotBefore)
+    : initialTime + refreshIntervalMs;
   let pending = null;
   const tempPath = `${outputPath}.refresh-${process.pid}`;
 
   function snapshot() {
-    const age = lastUpdated === null ? Infinity : now() - lastUpdated;
+    const currentTime = now();
     return {
       version,
       updatedAt: lastUpdated === null ? null : new Date(lastUpdated).toISOString(),
       refreshing: pending !== null,
       error,
-      stale: error !== null || !Number.isFinite(age) || age < 0 || age > SNAPSHOT_TTL_MS,
+      stale: error !== null || evidenceExpiresAt === null || currentTime > evidenceExpiresAt,
       retryAt: retryNotBefore > now() ? new Date(retryNotBefore).toISOString() : null,
       sourceId,
       serverProtocol: SERVER_PROTOCOL,
@@ -260,21 +280,31 @@ export async function startProgressServer(options) {
     if (manual) {
       if (time - lastManual < MANUAL_COOLDOWN_MS) return Promise.resolve(snapshot());
       lastManual = time;
-    } else if (time - lastAttempt < (error ? RETRY_INTERVAL_MS : refreshIntervalMs)) {
+    } else if (time < nextRefreshAt) {
       return Promise.resolve(snapshot());
     }
-    lastAttempt = time;
     pending = (async () => {
+      const startedAt = time;
       try {
         await generate(tempPath);
+        const html = await readFile(tempPath, "utf8");
+        const completedAt = now();
+        const duration = Math.max(0, completedAt - startedAt);
+        evidenceExpiresAt = workflowEvidenceExpiry(html) ?? completedAt + SNAPSHOT_TTL_MS;
         await rename(tempPath, outputPath);
         version += 1;
-        lastUpdated = now();
+        lastUpdated = completedAt;
         error = null;
         retryNotBefore = 0;
+        nextRefreshAt = Math.min(
+          startedAt + refreshIntervalMs,
+          evidenceExpiresAt - duration - REFRESH_MARGIN_MS,
+        );
+        if (nextRefreshAt <= completedAt) nextRefreshAt = completedAt + RETRY_INTERVAL_MS;
       } catch (cause) {
         error = publicRefreshError(cause);
         retryNotBefore = nextAllowedRetry(cause, now());
+        nextRefreshAt = Math.max(startedAt + RETRY_INTERVAL_MS, retryNotBefore);
         await rm(tempPath, { force: true }).catch(() => {});
       }
     })();
@@ -298,6 +328,14 @@ export async function startProgressServer(options) {
         return;
       }
       const route = new URL(request.url ?? "/", "http://localhost").pathname;
+      const fetchSite = request.headers["sec-fetch-site"];
+      const protectedRoute = (request.method === "GET" && ["/status", "/local-session"].includes(route))
+        || (request.method === "POST" && route === "/refresh");
+      if (protectedRoute && !["same-origin", "none"].includes(fetchSite)) {
+        response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Same-origin local dashboard request required.");
+        return;
+      }
       if (request.method === "GET" && route === "/") {
         // Version travels with the served snapshot, not with a later status
         // request, so a racing refresh cannot strand stale content.
@@ -390,6 +428,7 @@ export async function startProgressServer(options) {
     server.close();
     throw cause;
   }
+  if (initialRefresh) void refresh({ manual: true });
   const address = server.address();
   return {
     url: `http://${host}:${address.port}/`,
