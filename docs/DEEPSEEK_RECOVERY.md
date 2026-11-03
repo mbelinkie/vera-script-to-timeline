@@ -28,6 +28,31 @@ pending reservations. Every unresolved attempt must have matching retained
 evidence. Its full reservation still counts. Missing, stale or altered evidence,
 duplicate identity, inconsistent accounting or insufficient budget refuses.
 
+The read-only `scripts/deepseek-continuation-gate.mjs` accepts one JSON identity
+argument and returns a verified identity; it never invokes the controller.
+The identity supplies `issue`, `commentId`, `manifestSha`, `sourceSha`,
+`adapterSha`, `reconciliationSha`, `attemptId`, `campaign`, `model` and
+`maxOutputTokens`. The approved issue must contain exactly one
+`VERA_DEEPSEEK_CONTINUATION_V1` marker whose metadata matches
+`continuationApprovalMetadata(identity)`. Its explicit `/deepseek continue`
+owner comment must be unedited and later than the independent Chat review.
+The source must still be current `main`. The existing eligibility/type/owner
+vetoes and canonical review verifier apply unchanged.
+
+The private controller's explicit `--continuation` mode requires independent
+operator enable and exact manifest/source bindings. It shares the ordinary
+per-issue receipt namespace, so a previous mock, dispatch or continuation
+receipt prevents another attempt. It hard-codes one call; there is no repair
+loop, resume switch or timeout retry. A baseline already passing makes no call.
+
+The immutable `VERA_DEEPSEEK_RECONCILIATION_V1` record binds the original
+ledger history, historical billing evidence and each uncertain row to retained
+receipt, manifest and charge-evidence hashes. It records charge evidence,
+response retention, usage verification and request-ID retention separately.
+The reviewed #411 record says charge observed, response/usage/request ID not
+retained, and `reservation_action: retain_full`. Its statement of charge is
+informational: budget calculations still use the full held reservation.
+
 ## Diagnostics
 
 Future failures retain an allowlisted error category, named execution stage,
@@ -35,6 +60,15 @@ whether invocation started, and whether a response was durably retained.
 Exception messages, credentials, headers, payloads and private paths are never
 part of the safe diagnostic. An interrupted or uncertain provider attempt
 remains non-retryable, even if a charge was later observed.
+
+Safe stages are `authorization`, `request_preparation`, `provider_preflight`,
+`provider_invocation`, `response_retention`, `response_parse`, `accounting`,
+`frozen_checks` and `unknown`. Safe error classes are `host_interrupted`,
+`transport_timeout`, `provider_http`, `transport_error`, `invalid_data`,
+`io_failure` and `internal_error`. Unknown exception types never supply their
+own name or text. The receipt also records invocation and response-retention
+booleans; charge status remains separate. Malformed code or failed checks
+after verified usage cannot turn a known charge into a refund or new allowance.
 
 ## Verification
 
