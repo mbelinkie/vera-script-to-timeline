@@ -404,8 +404,9 @@ test("Chat prompts are limited to explicit research gaps and never record approv
   assert.equal(needsApproval.filter, "approval");
   const approvalPrompt = needsApproval.links.find((link) => link.label === "Open Chat review prompt");
   assert.ok(approvalPrompt);
-  assert.equal(decodeURIComponent(approvalPrompt.url).includes("wait for the Producer's decision"), true);
-  assert.equal(decodeURIComponent(approvalPrompt.url).includes("Do not record or imply Producer approval"), true);
+  assert.equal(approvalPrompt.url, "https://chatgpt.com/");
+  assert.match(approvalPrompt.prompt, /wait for the Producer's decision/);
+  assert.match(approvalPrompt.prompt, /Do not record or imply Producer approval/);
 
   const research = item({
     labels: ["type:research"],
@@ -417,10 +418,11 @@ test("Chat prompts are limited to explicit research gaps and never record approv
   assert.equal(prompt.filter, "chat");
   assert.equal(prompt.actor, "Chat");
   const link = prompt.links.find((candidate) => candidate.label === "Open Chat review prompt");
-  assert.match(link.url, /^https:\/\/chatgpt\.com\/\?q=/);
-  assert.match(decodeURIComponent(link.url), /exact current issue and the sources it links to/);
-  assert.match(decodeURIComponent(link.url), /wait for the Producer's decision/);
-  assert.match(decodeURIComponent(link.url), /Do not record or imply Producer approval/);
+  assert.equal(link.url, "https://chatgpt.com/");
+  assert.match(link.prompt, /exact current issue and the sources it links to/);
+  assert.match(link.prompt, /Issue: https:\/\/github\.com\/mbelinkie\/vera-script-to-timeline\/issues\/42/);
+  assert.match(link.prompt, /wait for the Producer's decision/);
+  assert.match(link.prompt, /Do not record or imply Producer approval/);
 });
 
 test("verified CI queue work owns Ready, In progress and In review rows before acceptance", () => {
@@ -470,6 +472,19 @@ test("CI control issue is not routed as ordinary claimable work", () => {
   assert.equal(derived.actor, "CI");
   assert.match(derived.action, /controls the CI queue/);
   assert.equal(derived.filter, "working");
+});
+
+test("explicit DeepSeek candidates need a route decision before Codex while dispatch is off", () => {
+  const row = item({ labels: ["type:implementation", "deepseek-eligible"] });
+  const derived = deriveWorkflow(row, evidenceFor(row), new Date(NOW));
+  assert.equal(derived.deepseek.state, "potential");
+  assert.equal(derived.filter, "deepseek");
+  assert.equal(derived.actor, "Producer");
+  assert.match(derived.action, /dispatch is off/);
+  for (const veto of ["owner:codex", "owner:claude", "execution:codex", "type:research"]) {
+    const vetoed = item({ labels: [...row.labels, veto] });
+    assert.equal(deriveWorkflow(vetoed, evidenceFor(vetoed), new Date(NOW)).deepseek.state, "excluded");
+  }
 });
 
 test("source failures expose only safe errors and do not perform mutations", async () => {

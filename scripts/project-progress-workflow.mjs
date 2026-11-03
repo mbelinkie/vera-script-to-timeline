@@ -151,7 +151,7 @@ function safeRunUrl(value, runId, repository = REPOSITORY) {
 
 function chatPromptLink(issueUrl) {
   const prompt = `Review the exact current issue and the sources it links to. Check whether the scope, evidence, dependencies, and acceptance criteria are clear. Report useful findings, then wait for the Producer's decision. Do not record or imply Producer approval, and do not change external state. Issue: ${issueUrl}`;
-  return { label: "Open Chat review prompt", url: `https://chatgpt.com/?q=${encodeURIComponent(prompt)}` };
+  return { label: "Open Chat review prompt", url: "https://chatgpt.com/", prompt };
 }
 
 function blankIssueRecord(snapshotAt, lastError = null) {
@@ -239,8 +239,11 @@ function labelsForStatus(labels) {
 
 function deepseekForIssue(item) {
   const labels = labelsForStatus(issueLabelNames(item));
-  if (labels.has("deepseek-excluded") || labels.has("owner:codex")
-      || labels.has("type:security") || labels.has("type:design")) {
+  const excluded = ["deepseek-excluded", "owner:codex", "owner:claude", "type:security",
+    "type:design", "type:ux", "type:research", "type:product", "execution:codex", "execution:design", "execution:human"];
+  const types = [...labels].filter((label) => label.startsWith("type:"));
+  if (excluded.some((label) => labels.has(label))
+    || (types.length > 0 && (types.length !== 1 || !["type:implementation", "type:bug"].includes(types[0])))) {
     return { state: "excluded", reason: "Issue routing excludes this work from DeepSeek." };
   }
   if (labels.has("deepseek-eligible") || labels.has("deepseek-ready") || labels.has("deepseek-dispatch")) {
@@ -1138,6 +1141,12 @@ export function deriveWorkflow(item, evidence, nowValue = new Date()) {
       action = "Verify the independent review for the current PR head.";
       filter = "approval";
       disabled.push("The dashboard has no canonical exact-head Claude review receipt.");
+    } else if (!record?.pr && deepseek.state === "potential" && codex.state !== "claimed") {
+      group = "you";
+      actor = "Producer";
+      action = "DeepSeek is a potential route; dispatch is off. Choose a separately authorized manual route.";
+      filter = "deepseek";
+      disabled.push("DeepSeek eligibility does not authorize a job or a Codex launch; dashboard execution is disabled.");
     } else {
       group = "launch";
       actor = "Codex";
