@@ -103,16 +103,16 @@ function issueSnapshot(issue) {
   });
 }
 
-function verifyIssueMetadata(issue, expected) {
-  const markerStarts = [...issue.body.matchAll(/<!--\s*VERA_DEEPSEEK_CONTINUATION_V1\b/g)];
-  const markers = [...issue.body.matchAll(/<!-- VERA_DEEPSEEK_CONTINUATION_V1 (\{[^\r\n]*\}) -->/g)];
-  if (markerStarts.length !== 1 || markers.length !== 1 || issue.body.split(MARKER).length !== 2) {
-    throw new Error('Continuation approval marker missing or duplicated');
+function verifyIssueMetadata(issue, expected, marker, markerName, action) {
+  const markerStarts = [...issue.body.matchAll(new RegExp('<!--\\s*' + markerName + '\\b', 'g'))];
+  const markers = [...issue.body.matchAll(new RegExp('<!-- ' + markerName + ' (\\{[^\\r\\n]*\\}) -->', 'g'))];
+  if (markerStarts.length !== 1 || markers.length !== 1 || issue.body.split(marker).length !== 2) {
+    throw new Error(action + ' approval marker missing or duplicated');
   }
   let actual;
   try { actual = JSON.parse(markers[0][1]); }
-  catch { throw new Error('Continuation approval metadata is invalid'); }
-  if (!exactJson(actual, expected)) throw new Error('Continuation approval metadata differs');
+  catch { throw new Error(action + ' approval metadata is invalid'); }
+  if (!exactJson(actual, expected)) throw new Error(action + ' approval metadata differs');
 }
 
 function canonicalRestTimestamp(value) {
@@ -124,19 +124,19 @@ function canonicalRestTimestamp(value) {
   return value === canonical || value === canonical.replace('.000Z', 'Z');
 }
 
-function findContinuationComment(comments, commentId) {
+function findApprovalComment(comments, commentId, action) {
   const matches = comments.filter(comment => comment.id === commentId);
-  if (matches.length !== 1) throw new Error('Continuation request comment missing or duplicated');
+  if (matches.length !== 1) throw new Error(action + ' request comment missing or duplicated');
   return matches[0];
 }
 
-function verifyContinuationComment(comment, issueNumber) {
-  const issueUrl = `https://api.github.com/repos/${REPO}/issues/${issueNumber}`;
-  if (comment.body !== '/deepseek continue' ||
+function verifyApprovalComment(comment, issueNumber, command, action) {
+  const issueUrl = 'https://api.github.com/repos/' + REPO + '/issues/' + issueNumber;
+  if (comment.body !== command ||
       comment.issue_url !== issueUrl || comment.user.login !== 'mbelinkie' ||
       comment.performed_via_github_app !== null || !canonicalRestTimestamp(comment.created_at) ||
       comment.created_at !== comment.updated_at) {
-    throw new Error('Continuation request comment changed or is not authorized');
+    throw new Error(action + ' request comment changed or is not authorized');
   }
   return comment;
 }
@@ -173,27 +173,56 @@ function verifyReviewWithHistory(readGh, issueNumber, issue) {
   return { review, comments: pages.flat() };
 }
 
-export function verifyContinuationApproval(readGh, identity) {
+export function verifyPublicApproval(readGh, identity, mode) {
   if (typeof readGh !== 'function') throw new Error('Public GitHub reader required');
   validateIdentity(identity);
-  const expected = continuationApprovalMetadata(identity);
+  let configuration;
+  if (mode === 'continuation') {
+    configuration = {
+      metadata: continuationApprovalMetadata,
+      marker: MARKER,
+      markerName: 'VERA_DEEPSEEK_CONTINUATION_V1',
+      action: 'Continuation',
+      command: '/deepseek continue'
+    };
+  } else if (mode === 'live') {
+    configuration = {
+      metadata: identity => ({
+        ...continuationApprovalMetadata(identity),
+        executionMode: 'live',
+        transportContract: 'VERA_DEEPSEEK_RECEIVER_V2'
+      }),
+      marker: '<!-- VERA_DEEPSEEK_LIVE_V2 ',
+      markerName: 'VERA_DEEPSEEK_LIVE_V2',
+      action: 'Live',
+      command: '/deepseek dispatch'
+    };
+  } else {
+    throw new Error('Unknown public approval mode');
+  }
+  const expected = configuration.metadata(identity);
   const issue = readIssue(readGh, identity.issue);
   verifyCurrentIssue(issue, identity.issue);
   const before = issueSnapshot(issue);
-  verifyIssueMetadata(issue, expected);
+  verifyIssueMetadata(issue, expected, configuration.marker, configuration.markerName, configuration.action);
 
   const mainBefore = currentMainSha(readGh);
   if (mainBefore !== identity.sourceSha) throw new Error('Approved source is not current main');
 
   const { review, comments } = verifyReviewWithHistory(readGh, identity.issue, issue);
-  verifyContinuationComment(findContinuationComment(comments, identity.commentId), identity.issue);
+  verifyApprovalComment(
+    findApprovalComment(comments, identity.commentId, configuration.action),
+    identity.issue,
+    configuration.command,
+    configuration.action
+  );
 
   const currentIssue = readIssue(readGh, identity.issue);
   verifyCurrentIssue(currentIssue, identity.issue);
   const after = issueSnapshot(currentIssue);
   const mainAfter = currentMainSha(readGh);
   if (before !== after || mainAfter !== identity.sourceSha || mainAfter !== mainBefore) {
-    throw new Error('Continuation authorization changed during verification');
+    throw new Error(configuration.action + ' authorization changed during verification');
   }
 
   return {
@@ -204,6 +233,10 @@ export function verifyContinuationApproval(readGh, identity) {
     reviewCommentId: review.commentId,
     revision: review.revision
   };
+}
+
+export function verifyContinuationApproval(readGh, identity) {
+  return verifyPublicApproval(readGh, identity, 'continuation');
 }
 
 function readPublicMainRef(args, spawn) {

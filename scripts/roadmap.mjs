@@ -515,7 +515,13 @@ function claimMarker(claim) {
 }
 
 export function acceptanceReady(body) {
-  return /^#{2,3} Acceptance criteria(?:[ \t]+\([^()\r\n]+\))?[ \t]*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
+  if (typeof body !== "string") return false;
+  const heading = /^#{2,3}[ \t]+Acceptance(?: criteria(?:[ \t]+\([^()\r\n]+\))?)?[ \t]*$/im;
+  if (!heading.test(body)) return false;
+  return sectionLines(body, heading, "").some((line) => {
+    const match = line.match(/^(?:-\s+|\d+\.\s+)(.*)$/);
+    return match?.[1].replace(/^\[[ xX]\]\s*/, "").trim().length > 0;
+  });
 }
 
 function validateReadyRequirements(settings, issue) {
@@ -524,7 +530,7 @@ function validateReadyRequirements(settings, issue) {
   routingProfile(labels);
   if (labels.includes("needs:model-escalation")) throw new Error("Resolve model escalation before Ready");
   if (!acceptanceReady(issue.body)) {
-    throw new Error("Issue body needs a heading named 'Acceptance criteria' and a checklist or numbered criteria");
+    throw new Error("Issue body needs an 'Acceptance' or 'Acceptance criteria' heading with a nonempty list item");
   }
   const dependencies = dependencyStates(settings, issue.number, issue.body);
   assertDependenciesResolved(dependencies);
@@ -579,7 +585,7 @@ async function main() {
     const type = String(parsed.flags.get("type") ?? "implementation");
     if (!MODEL_CLASSES.includes(model) || !EFFORTS.includes(effort)) throw new Error("Unsupported model or effort");
     const body = await readFile(path.resolve(bodyPath), "utf8");
-    if (!acceptanceReady(body)) throw new Error("Issue body needs a heading named 'Acceptance criteria' and a checklist or numbered criteria");
+    if (!acceptanceReady(body)) throw new Error("Issue body needs an 'Acceptance' or 'Acceptance criteria' heading with a nonempty list item");
     preflightGraphql(["projectMetadata"]);
     const metadata = projectMetadata(settings);
     const graphqlMutations = ["projectAdd", "lifecycleMutation"];

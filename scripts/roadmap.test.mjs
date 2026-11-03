@@ -17,6 +17,10 @@ test("acceptance heading permits a parenthetical clarification without changing 
   assert.equal(acceptanceReady("## Not Acceptance criteria\n- [ ] Works"), false);
 });
 
+test("accepts the approved Acceptance heading with a plain nonempty bullet", () => {
+  assert.equal(acceptanceReady("## Acceptance\n\n- Create the live receiver"), true);
+});
+
 test("parses commands and flags", () => {
   const parsed = parseArguments(["claim", "12", "--model", "gpt-5.6-terra", "--effort", "high"]);
   assert.equal(parsed.command, "claim");
@@ -34,6 +38,9 @@ test("rejects non-parenthetical heading suffixes, malformed qualifiers, and miss
   assert.equal(acceptanceReady("## Acceptance criteria extra\n\n- [ ] Works"), false);
   assert.equal(acceptanceReady("## Acceptance criteria (unfinished\n\n- [ ] Works"), false);
   assert.equal(acceptanceReady("## Acceptance criteria (valid)\n\nThis is prose only."), false);
+  assert.equal(acceptanceReady("## Acceptance\n\n- [ ]"), false);
+  assert.equal(acceptanceReady("## Acceptance\n\n## Scope\n\n- [ ] Scope item"), false);
+  assert.equal(acceptanceReady("## Acceptance criteria\n\nNo criteria here.\n\n## Handoff\n\n- [ ] Handoff item"), false);
 });
 
 test("accepts one exact routing profile", () => {

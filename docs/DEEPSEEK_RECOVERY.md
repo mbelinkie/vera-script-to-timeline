@@ -1,7 +1,8 @@
 # Manual DeepSeek recovery
 
 Issue #415 adds recovery support to the existing private bounded controller.
-The outbound receiver remains mock-only. This contract grants no spending,
+The outbound receiver supports a distinct, separately approved live V2 task
+contract; see [dispatch](DEEPSEEK_CHAT_DISPATCH.md). This recovery contract grants no spending,
 dispatch activation or retry authority.
 
 ## Preserve the original attempt
