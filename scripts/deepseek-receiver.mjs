@@ -31,11 +31,19 @@ async function fetchJson(path, fetchImpl = globalThis.fetch) {
     redirect: 'error',
     signal: globalThis.AbortSignal.timeout(15_000)
   });
-  if (!response.ok) throw new Error('Public GitHub read failed: HTTP ' + response.status);
+  if (!response.ok) {
+    const error = new Error('Public GitHub read failed: HTTP ' + response.status);
+    error.status = response.status;
+    throw error;
+  }
   return response.json();
 }
 
-function nextPage(link, page) {
+function isRetryableHttpError(error) {
+  return [401, 403, 408, 429].includes(error?.status) || error?.status >= 500;
+}
+
+function nextPage(link, page, direction, since) {
   if (!link) return false;
   const next = link.split(',').find(value => /rel="next"/.test(value));
   if (!next) return false;
@@ -44,35 +52,52 @@ function nextPage(link, page) {
   const parsed = new globalThis.URL(url[1]);
   if (parsed.origin !== API || parsed.pathname !== '/repos/' + REPO + '/issues/comments' ||
       parsed.searchParams.get('page') !== String(page + 1) || parsed.searchParams.get('per_page') !== String(PAGE_SIZE) ||
-      parsed.searchParams.get('sort') !== 'created' || parsed.searchParams.get('direction') !== 'desc') {
+      parsed.searchParams.get('sort') !== 'created' || parsed.searchParams.get('direction') !== direction ||
+      parsed.searchParams.get('since') !== since) {
     throw new Error('Unexpected GitHub pagination link');
   }
   return true;
 }
 
-export async function listRecentComments(fetchImpl = globalThis.fetch, lastSeenId = null) {
+export async function listRecentComments(fetchImpl = globalThis.fetch, lastSeenId = null, lastSeenCreatedAt = null) {
+  let direction = 'desc';
+  let since = null;
+  if (lastSeenId !== null) {
+    const timestamp = Date.parse(lastSeenCreatedAt || '');
+    if (!Number.isFinite(timestamp)) throw new Error('Receiver cursor timestamp is missing or invalid');
+    since = new Date(Math.max(0, timestamp - 1000)).toISOString();
+    direction = 'asc';
+  }
   const comments = [];
   for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const response = await fetchImpl(apiUrl('/repos/' + REPO + '/issues/comments?per_page=' + PAGE_SIZE +
-      '&sort=created&direction=desc&page=' + page), {
+    const query = new globalThis.URLSearchParams({ per_page: String(PAGE_SIZE), sort: 'created', direction, page: String(page) });
+    if (since !== null) query.set('since', since);
+    const response = await fetchImpl(apiUrl('/repos/' + REPO + '/issues/comments?' + query), {
       headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'vera-deepseek-receiver' },
       redirect: 'error',
       signal: globalThis.AbortSignal.timeout(15_000)
     });
-    if (!response.ok) throw new Error('Public GitHub comment poll failed: HTTP ' + response.status);
+    if (!response.ok) {
+      const error = new Error('Public GitHub comment poll failed: HTTP ' + response.status);
+      error.status = response.status;
+      throw error;
+    }
     const pageComments = await response.json();
     if (!Array.isArray(pageComments) || pageComments.length > PAGE_SIZE ||
-        !pageComments.every(comment => Number.isSafeInteger(comment?.id) && comment.id > 0 && typeof comment.body === 'string')) {
+        !pageComments.every(comment => Number.isSafeInteger(comment?.id) && comment.id > 0 && typeof comment.body === 'string' &&
+          (lastSeenId === null || typeof comment.created_at === 'string' && Number.isFinite(Date.parse(comment.created_at))))) {
       throw new Error('GitHub comment page is malformed');
     }
     for (let index = 1; index < pageComments.length; index += 1) {
-      if (pageComments[index - 1].id <= pageComments[index].id) throw new Error('GitHub comment order is invalid');
+      const ordered = direction === 'desc'
+        ? pageComments[index - 1].id > pageComments[index].id
+        : pageComments[index - 1].id < pageComments[index].id;
+      if (!ordered) throw new Error('GitHub comment order is invalid');
     }
     comments.push(...pageComments);
-    if (lastSeenId === null || pageComments.some(comment => comment.id <= lastSeenId) ||
-        !nextPage(response.headers.get('link'), page)) return comments;
+    if (lastSeenId === null || !nextPage(response.headers.get('link'), page, direction, since)) return comments;
   }
-  throw new Error('GitHub comment pagination exceeded its safe bound');
+  return comments;
 }
 
 function privateFile(path, { directory = false, readOnly = true } = {}) {
@@ -89,6 +114,14 @@ function privateFile(path, { directory = false, readOnly = true } = {}) {
 }
 
 export function readCursor(path) {
+  return readCursorRecord(path)?.lastCommentId ?? null;
+}
+
+function readCursorCreatedAt(path) {
+  return readCursorRecord(path)?.lastCommentCreatedAt ?? null;
+}
+
+function readCursorRecord(path) {
   try {
     privateFile(path);
   } catch (error) {
@@ -99,16 +132,26 @@ export function readCursor(path) {
   if (cursor?.repository !== REPO || !Number.isSafeInteger(cursor.lastCommentId) || cursor.lastCommentId < 0) {
     throw new Error('Receiver cursor is invalid');
   }
-  return cursor.lastCommentId;
+  if (cursor.lastCommentCreatedAt !== undefined &&
+      (typeof cursor.lastCommentCreatedAt !== 'string' || !Number.isFinite(Date.parse(cursor.lastCommentCreatedAt)))) {
+    throw new Error('Receiver cursor timestamp is invalid');
+  }
+  return cursor;
 }
 
-export function writeCursor(path, lastCommentId) {
+export function writeCursor(path, lastCommentId, lastCommentCreatedAt = null) {
   if (!Number.isSafeInteger(lastCommentId) || lastCommentId < 0) throw new Error('Receiver cursor is invalid');
+  if (lastCommentCreatedAt !== null &&
+      (typeof lastCommentCreatedAt !== 'string' || !Number.isFinite(Date.parse(lastCommentCreatedAt)))) {
+    throw new Error('Receiver cursor timestamp is invalid');
+  }
   const dir = dirname(path);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   privateFile(dir, { directory: true });
   const temporary = path + '.' + randomUUID() + '.tmp';
-  writeFileSync(temporary, JSON.stringify({ repository: REPO, lastCommentId }) + '\n', { flag: 'wx', mode: 0o400 });
+  const cursor = { repository: REPO, lastCommentId };
+  if (lastCommentCreatedAt !== null) cursor.lastCommentCreatedAt = lastCommentCreatedAt;
+  writeFileSync(temporary, JSON.stringify(cursor) + '\n', { flag: 'wx', mode: 0o400 });
   renameSync(temporary, path);
 }
 
@@ -206,7 +249,13 @@ export async function processDispatchComment(comment, {
   const issueMatch = new RegExp('^https://api\\.github\\.com/repos/' + REPO.replaceAll('/', '\\/') + '/issues/(\\d+)$').exec(comment.issue_url || '');
   if (!issueMatch) return { state: 'refused' };
   const issueNumber = Number(issueMatch[1]);
-  const issue = await fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl);
+  let issue;
+  try {
+    issue = await fetchJson('/repos/' + REPO + '/issues/' + issueNumber, fetchImpl);
+  } catch (error) {
+    if (isRetryableHttpError(error)) throw error;
+    return { state: 'refused' };
+  }
   const event = {
     repository: { full_name: REPO, owner: { login: 'mbelinkie' } },
     issue: { number: issueNumber, pull_request: issue.pull_request },
@@ -239,7 +288,13 @@ export async function processDispatchComment(comment, {
   const labels = value => (value || []).map(label => typeof label === 'string' ? label : label?.name).sort();
   if (confirmed.title !== issue.title || confirmed.body !== issue.body || confirmed.state !== issue.state ||
       JSON.stringify(labels(confirmed.labels)) !== JSON.stringify(labels(issue.labels))) return { state: 'refused' };
-  const confirmedComment = await fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl);
+  let confirmedComment;
+  try {
+    confirmedComment = await fetchJson('/repos/' + REPO + '/issues/comments/' + comment.id, fetchImpl);
+  } catch (error) {
+    if (isRetryableHttpError(error)) throw error;
+    return { state: 'refused' };
+  }
   try {
     verifyCurrentComment(confirmedComment, request, comment.user.login);
   } catch {
@@ -283,7 +338,8 @@ export async function processDispatchComment(comment, {
     const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
     if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
     safeRunner(runner, finalManifest.manifest.adapter_sha256);
-  } catch {
+  } catch (error) {
+    if (isRetryableHttpError(error)) throw error;
     writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state: 'refused',
       timestamp: new Date().toISOString(), detail: 'authorization changed or could not be reverified' });
     return { state: 'refused' };
@@ -302,23 +358,47 @@ export async function pollOnce({
   allowedActors = [],
   processComment = comment => processDispatchComment(comment, { allowedActors, fetchImpl }),
   read = readCursor,
+  readCreatedAt = readCursorCreatedAt,
   write = writeCursor,
-  list = lastSeen => listRecentComments(fetchImpl, lastSeen)
+  list
 } = {}) {
   const lastSeen = read(cursorPath);
-  const comments = await list(lastSeen);
+  let lastSeenCreatedAt = readCreatedAt(cursorPath);
+  const useDefaultList = list === undefined;
+  if (lastSeen !== null && lastSeenCreatedAt === null) {
+    if (lastSeen === 0) {
+      lastSeenCreatedAt = '1970-01-01T00:00:00.000Z';
+    } else if (useDefaultList) {
+      try {
+        const anchor = await fetchJson('/repos/' + REPO + '/issues/comments/' + lastSeen, fetchImpl);
+        if (anchor?.id !== lastSeen || typeof anchor.created_at !== 'string' || !Number.isFinite(Date.parse(anchor.created_at))) {
+          throw new Error('Receiver cursor anchor is invalid');
+        }
+        lastSeenCreatedAt = anchor.created_at;
+        write(cursorPath, lastSeen, lastSeenCreatedAt);
+      } catch (error) {
+        if (error?.status === 404 || error?.status === 410) {
+          throw new Error('Receiver cursor anchor was deleted; manual cursor recovery is required', { cause: error });
+        }
+        throw error;
+      }
+    }
+  }
+  const listComments = list || ((lastSeenId, createdAt) => listRecentComments(fetchImpl, lastSeenId, createdAt));
+  const comments = await listComments(lastSeen, lastSeenCreatedAt);
   if (!Array.isArray(comments) || !comments.every(comment => Number.isSafeInteger(comment?.id) && comment.id > 0) ||
       new Set(comments.map(comment => comment.id)).size !== comments.length) {
     throw new Error('GitHub comment history is incomplete');
   }
   if (lastSeen === null) {
-    write(cursorPath, Math.max(0, ...comments.map(comment => comment.id)));
+    const latest = comments.reduce((current, comment) => !current || comment.id > current.id ? comment : current, null);
+    write(cursorPath, latest?.id ?? 0, latest?.created_at ?? (latest ? null : '1970-01-01T00:00:00.000Z'));
     return { initialized: true, processed: 0 };
   }
   const ordered = comments.filter(comment => comment.id > lastSeen).sort((left, right) => left.id - right.id);
   for (const comment of ordered) {
     await processComment(comment);
-    write(cursorPath, comment.id);
+    write(cursorPath, comment.id, comment.created_at ?? null);
   }
   return { initialized: false, processed: ordered.length };
 }

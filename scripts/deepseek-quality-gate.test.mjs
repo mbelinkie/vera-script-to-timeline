@@ -44,6 +44,7 @@ test('accepts exact current canonical approval and bounded calibration identity'
   assert.equal(result.taskCapUsd, '0.80');
   assert.equal(result.campaignCapUsd, '2.40');
   assert.equal(result.manifestSha256, identity.manifestSha);
+  assert.deepEqual(result.verifiedRates, metadata.verifiedRates);
 });
 
 test('rejects changed manifests, source, index, target and malformed CLI arguments', () => {
@@ -90,4 +91,8 @@ test('rejects duplicate metadata, extra fields and a larger authorized cap', () 
     const value = fixture(); value.issue.body = alter(value.issue.body);
     assert.throws(() => verifyQualityApproval(reader(value), identity));
   }
+  const value = fixture();
+  value.issue.body = value.issue.body.replace('peak_output_usd_per_million":"3.96',
+    'peak_output_usd_per_million":"3.97');
+  assert.throws(() => verifyQualityApproval(reader(value), identity));
 });

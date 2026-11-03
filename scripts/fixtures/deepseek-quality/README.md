@@ -21,7 +21,7 @@ Run the visible checks from the repository root:
 
     python3 scripts/fixtures/deepseek-quality/prefix/visible_check.py
     python3 scripts/fixtures/deepseek-quality/validator/visible_check.py
-    python3 scripts/fixtures/deepseek-quality/run_policy/visible_check.py
+    node scripts/fixtures/deepseek-quality/run_policy/visible_check.mjs
 
 The supplied target files are intentionally incomplete baselines. Specs and
 visible checks are public task context; hidden grading data is stored outside

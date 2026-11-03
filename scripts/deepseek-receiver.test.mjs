@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { Buffer } from 'node:buffer';
 import { join } from 'node:path';
-import { loadApprovedManifest, pollOnce, processDispatchComment, readCursor, validateManifest, writeCursor } from './deepseek-receiver.mjs';
+import { listRecentComments, loadApprovedManifest, pollOnce, processDispatchComment, readCursor, validateManifest, writeCursor } from './deepseek-receiver.mjs';
 import { COMMAND, REPO } from './deepseek-dispatch.mjs';
 
 const sha = 'a'.repeat(40);
@@ -180,6 +180,105 @@ test('cursor refuses shared permissions and poll refuses duplicate comment ident
     assert.equal(readCursor(cursorPath), 5);
     chmodSync(cursorPath, 0o600);
     assert.throws(() => readCursor(cursorPath), /unsafe type, owner, or permissions/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('comment polling initializes newest first, then resumes oldest first from its timestamp', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    const parsed = new globalThis.URL(url);
+    urls.push(parsed);
+    const comments = parsed.searchParams.get('direction') === 'desc'
+      ? [{ id: 52, body: 'newest' }, { id: 51, body: 'older' }]
+      : [{ id: 43, body: 'next', created_at: '2026-11-02T20:00:01Z' }];
+    return { ok: true, json: async () => comments, headers: { get: () => null } };
+  };
+
+  assert.deepEqual(await listRecentComments(fetchImpl), [
+    { id: 52, body: 'newest' }, { id: 51, body: 'older' }
+  ]);
+  assert.equal(urls[0].searchParams.get('direction'), 'desc');
+  assert.equal(urls[0].searchParams.has('since'), false);
+
+  assert.deepEqual(await listRecentComments(fetchImpl, 42, '2026-11-02T20:00:00Z'), [
+    { id: 43, body: 'next', created_at: '2026-11-02T20:00:01Z' }
+  ]);
+  assert.equal(urls[1].searchParams.get('direction'), 'asc');
+  assert.equal(urls[1].searchParams.get('since'), '2026-11-02T19:59:59.000Z');
+});
+
+test('gone issue comments advance the cursor while rate limits remain retryable', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vera-deepseek-gone-comment-'));
+  const cursorPath = join(root, 'receiver', 'cursor.json');
+  const comment = {
+    id: 6, body: COMMAND, user: { login: 'mbelinkie' },
+    issue_url: 'https://api.github.com/repos/' + REPO + '/issues/396',
+    created_at: '2026-11-02T19:00:00Z', updated_at: '2026-11-02T19:00:00Z'
+  };
+  try {
+    writeCursor(cursorPath, 5, '2026-11-02T18:00:00Z');
+    const gone = await pollOnce({
+      cursorPath,
+      list: async () => [comment],
+      fetchImpl: async () => ({ ok: false, status: 404 })
+    });
+    assert.deepEqual(gone, { initialized: false, processed: 1 });
+    assert.equal(readCursor(cursorPath), 6);
+
+    writeCursor(cursorPath, 5, '2026-11-02T18:00:00Z');
+    await assert.rejects(pollOnce({
+      cursorPath,
+      list: async () => [comment],
+      fetchImpl: async () => ({ ok: false, status: 403 })
+    }), /HTTP 403/);
+    assert.equal(readCursor(cursorPath), 5);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('large comment backlogs advance in bounded oldest-first pages', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vera-deepseek-backlog-'));
+  const cursorPath = join(root, 'receiver', 'cursor.json');
+  const start = Date.UTC(2026, 10, 2, 19, 0, 0);
+  const makeFetcher = (firstId, count) => async url => {
+    const parsed = new globalThis.URL(url);
+    assert.equal(parsed.searchParams.get('direction'), 'asc');
+    const page = Number(parsed.searchParams.get('page'));
+    const comments = Array.from({ length: Math.min(100, Math.max(0, count - (page - 1) * 100)) }, (_, index) => {
+      const id = firstId + (page - 1) * 100 + index;
+      return { id, body: 'comment ' + id, created_at: new Date(start + id).toISOString() };
+    });
+    const hasNext = page * 100 < count;
+    const next = new globalThis.URL(parsed);
+    next.searchParams.set('page', String(page + 1));
+    return {
+      ok: true,
+      json: async () => comments,
+      headers: { get: name => name.toLowerCase() === 'link' && hasNext ? '<' + next + '>; rel="next"' : null }
+    };
+  };
+  try {
+    writeCursor(cursorPath, 100, '2026-11-02T18:00:00Z');
+    const firstBatch = [];
+    const first = await pollOnce({
+      cursorPath, fetchImpl: makeFetcher(101, 1100), processComment: async comment => firstBatch.push(comment.id)
+    });
+    assert.deepEqual(first, { initialized: false, processed: 1000 });
+    assert.equal(firstBatch[0], 101);
+    assert.equal(firstBatch.at(-1), 1100);
+    assert.equal(readCursor(cursorPath), 1100);
+
+    const secondBatch = [];
+    const second = await pollOnce({
+      cursorPath, fetchImpl: makeFetcher(1101, 100), processComment: async comment => secondBatch.push(comment.id)
+    });
+    assert.deepEqual(second, { initialized: false, processed: 100 });
+    assert.equal(secondBatch[0], 1101);
+    assert.equal(secondBatch.at(-1), 1200);
+    assert.equal(readCursor(cursorPath), 1200);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

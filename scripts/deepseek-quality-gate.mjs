@@ -21,7 +21,19 @@ export function qualityApprovalMetadata({ manifestSha, sourceSha, episodeIndex, 
     campaign: 'quality-2026-11-02-v1', manifestSha256: manifestSha, sourceSha,
     episodeIndex, target, taskCapUsd: '0.80', campaignCapUsd: '2.40',
     lifetimeCapUsd: '10', models: ['deepseek-v4-pro', 'deepseek-flash'],
-    repeats: 2, maxOutputTokens: 65536, maxInputUnits: 20000, effort: 'high'
+    repeats: 2, maxOutputTokens: 65536, maxInputUnits: 20000, effort: 'high',
+    verifiedRates: {
+      'deepseek-v4-pro': {
+        peak_cache_hit_usd_per_million: '0.044',
+        peak_cache_miss_usd_per_million: '1.32',
+        peak_output_usd_per_million: '3.96'
+      },
+      'deepseek-flash': {
+        peak_cache_hit_usd_per_million: '0.006',
+        peak_cache_miss_usd_per_million: '0.30',
+        peak_output_usd_per_million: '1.20'
+      }
+    }
   };
 }
 
