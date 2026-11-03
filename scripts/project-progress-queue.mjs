@@ -283,12 +283,12 @@ export const queueClientScript = String.raw`(() => {
 })();` + timerClientScript;
 
 const GROUPS = [
-  ["chat", "Chat review", "Review and research that can move forward."],
-  ["start", "Ready to start", "A verified owner can begin the issue."],
-  ["ci", "Waiting for CI", "The next step depends on the shared CI slot."],
-  ["working", "Working", "The current state indicates work is in progress."],
-  ["finish", "Ready to finish", "Verified delivery evidence is ready for a decision."],
-  ["decision", "Decision needed", "A Producer or owner decision is the next step."],
+  ["chat", "Ready for Chat", "Review scope or prepare a DeepSeek handoff."],
+  ["start", "Ready to Start", "Approval and readiness are verified."],
+  ["ci", "Awaiting CI", "The next step depends on the shared CI slot."],
+  ["working", "Working", "An active turn is verified."],
+  ["finish", "Ready to Finish", "Delivery is verified and the owner can finish acceptance."],
+  ["decision", "Needs Your Decision", "Choose a review or send a handoff."],
   ["blocked", "Blocked", "A source is blocked, missing, or needs attention."],
   ["done", "Done", "Completed work."],
 ];
@@ -296,7 +296,10 @@ const GROUP_KEYS = new Set(GROUPS.map(([key]) => key));
 const ACTION_KINDS = new Set(["none", "review-chat", "review-blocker", "start-codex", "continue-owner", "pair-owner", "notify-owner", "finish-owner", "review-producer", "ask-owner-prepare", "check-status", "open-queue", "prepare-deepseek"]);
 const POST_ACTION_KINDS = new Set(["review-chat", "review-blocker", "start-codex", "continue-owner", "pair-owner", "notify-owner", "finish-owner", "review-producer", "ask-owner-prepare", "check-status", "prepare-deepseek"]);
 const QUEUE_ISSUE_361 = "https://github.com/mbelinkie/vera-script-to-timeline/issues/361";
-const MILESTONE_OUTCOMES = new Map([["D0", "D0 — Core S03 + Research design checkpoint"]]);
+const MILESTONE_OUTCOMES = new Map([
+  ["D0 — Core S03 + Research design checkpoint",
+    "Finish the design for consolidated S03 authoring and define how to open the Research workspace from the browser."],
+]);
 const CHIP_NAMES = ["Chat", "DeepSeek", "Codex", "Review", "CI"];
 const STATUS_ORDER = ["Done", "In review", "In progress", "Blocked", "Ready", "Backlog", "Inbox"];
 
@@ -680,14 +683,15 @@ function itemLabel(item, prefix) {
     .find((label) => typeof label === "string" && label.toLowerCase().startsWith(prefix))?.slice(prefix.length);
 }
 
-function renderDetailsMetadata(item) {
+function renderDetailsMetadata(item, workflow) {
   const issueUrl = itemUrl(item);
   const repository = typeof item.repository === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(item.repository)
     ? item.repository : issueUrl ? new URL(issueUrl).pathname.split("/").slice(1, 3).join("/") : "Unavailable";
   const type = item.type ?? itemLabel(item, "type:") ?? "Unspecified";
   const model = item.model ?? itemLabel(item, "model:");
   const effort = item.effort ?? itemLabel(item, "effort:");
-  const route = [model, effort].map((value) => typeof value === "string" && value !== "n/a" ? value : "unconfigured").join(" / ");
+  const route = workflow.deepseek?.route === "chat" ? "ChatGPT → DeepSeek"
+    : [model, effort].map((value) => typeof value === "string" && value !== "n/a" ? value : "unconfigured").join(" / ");
   return `<p class="wf-detail-meta">Repository: ${text(repository)} · Type: ${text(type)} · Route: ${text(route)} · Acceptance: ${text(item.acceptance || "Unknown")}</p>`;
 }
 
@@ -728,7 +732,7 @@ function renderRow(row, index, options) {
   <div class="wf-row-action">${nextAction}</div>
   <button type="button" class="wf-expand" data-expand-row data-detail-id="${detailId}" aria-expanded="false" aria-controls="${detailId}"><span>Details</span><span class="wf-chevron" aria-hidden="true"></span></button>
 </li>
-<li class="wf-detail" id="${detailId}" hidden>${renderDetailsMetadata(item)}<div class="wf-detail-grid"><section><h4>Evidence sources</h4>${renderSources(workflow.sources)}</section><section><h4>Dependencies</h4>${renderDependencies(row)}</section><section><h4>Disabled actions</h4>${disabledMarkup}</section><section><h4>Safe links</h4><div class="wf-links">${renderWorkflowLinks(workflowLinks(row, options))}</div></section></div></li>`;
+<li class="wf-detail" id="${detailId}" hidden>${renderDetailsMetadata(item, workflow)}<div class="wf-detail-grid"><section><h4>Evidence sources</h4>${renderSources(workflow.sources)}</section><section><h4>Dependencies</h4>${renderDependencies(row)}</section><section><h4>Disabled actions</h4>${disabledMarkup}</section><section><h4>Safe links</h4><div class="wf-links">${renderWorkflowLinks(workflowLinks(row, options))}</div></section></div></li>`;
 }
 
 function percent(done, total) {

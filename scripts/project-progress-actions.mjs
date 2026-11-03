@@ -54,7 +54,7 @@ function action(group, actor, label, kind, reason, filter, url, eventId) {
 }
 
 function checkStatus(url, reason = "Current issue and workflow evidence must be refreshed before acting.") {
-  return action("decision", "You", "Check status", "check-status", reason, "blocked", url);
+  return action("decision", "You", "Check status", "check-status", reason, "decision", url);
 }
 
 function chatAction(workflow, url, reason) {
@@ -65,7 +65,7 @@ function chatAction(workflow, url, reason) {
   return action("chat", "ChatGPT", "Review in ChatGPT", "review-chat", reason, "chat", url);
 }
 
-function ownerHandoff({ bound, url, eventId, kind = "continue-owner", group = "working", reason }) {
+function ownerHandoff({ bound, url, eventId, kind = "continue-owner", group = "decision", reason }) {
   if (bound) {
     const labels = {
       "notify-owner": ["Ask Codex to check", "blocked"],
@@ -186,7 +186,7 @@ export function derivePrimaryAction(item, workflow, {
       bound: ownerBound === true,
       url,
       kind: ci === "failed-paused" ? "notify-owner" : "continue-owner",
-      group: ci === "failed-paused" ? "blocked" : "working",
+      group: ci === "failed-paused" ? "blocked" : "decision",
       eventId,
       reason: "A claim or pull request exists, but no verified active owner turn is available.",
     });
