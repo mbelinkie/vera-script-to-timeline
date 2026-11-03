@@ -6,6 +6,8 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { hostPreflight } from './deepseek-host-preflight.mjs';
+import { liveApprovalMetadata, verifyLiveApproval, readPublicGh as readLiveGh } from './deepseek-live-gate.mjs';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
 import { COMMAND, REPO, invokePrivateRunner, requestFromEvent, reserveReceipt, taskCap, verifyCurrentComment, verifyCurrentIssue, verifyFreshDispatch, writeReceipt } from './deepseek-dispatch.mjs';
 
@@ -139,6 +141,15 @@ export function writeCursor(path, lastCommentId, lastCommentCreatedAt = null) {
   renameSync(temporary, path);
 }
 
+export function liveIdentity(manifest, manifestSha) {
+  return {
+    issue: manifest.issue, commentId: manifest.dispatch_comment_id, manifestSha,
+    sourceSha: manifest.base_sha, adapterSha: manifest.adapter_sha256,
+    reconciliationSha: manifest.reconciliation_sha256, attemptId: manifest.attempt_id,
+    campaign: manifest.campaign, model: manifest.model, maxOutputTokens: manifest.max_output_tokens
+  };
+}
+
 export function validateManifest(manifest, issue, commentId, currentMainSha) {
   const safePath = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') &&
     !value.startsWith('~') && !value.includes('\\') && value.split('/').every(part => part && part !== '.' && part !== '..') &&
@@ -152,8 +163,13 @@ export function validateManifest(manifest, issue, commentId, currentMainSha) {
   const validScope = scope?.mode === 'full_file' ? scope.approve_entire_file === true :
     scope?.mode === 'bounded_region' && ['start_marker', 'end_marker'].every(key =>
       typeof scope[key] === 'string' && scope[key].length >= 8 && scope[key].length <= 300);
-  if (!manifest || manifest.schema !== 1 || manifest.issue !== issue || manifest.repository !== REPO ||
-      manifest.transport_contract !== 'VERA_DEEPSEEK_RECEIVER_V1' || manifest.dispatch_comment_id !== commentId ||
+  const legacyMock = manifest?.schema === 1 && manifest.transport_contract === 'VERA_DEEPSEEK_RECEIVER_V1' &&
+    (manifest.execution_mode === undefined || manifest.execution_mode === 'mock');
+  const versioned = manifest?.schema === 2 && manifest.transport_contract === 'VERA_DEEPSEEK_RECEIVER_V2' &&
+    ['mock', 'live'].includes(manifest.execution_mode);
+  const mode = versioned ? manifest.execution_mode : 'mock';
+  if (!manifest || !(legacyMock || versioned) || manifest.issue !== issue || manifest.repository !== REPO ||
+      manifest.dispatch_comment_id !== commentId ||
       manifest.operator_approved !== true || manifest.public_synthetic_only !== true ||
       !GIT_SHA.test(manifest.base_sha) || manifest.base_sha !== currentMainSha ||
       !SHA256.test(manifest.adapter_sha256) || !safePath(manifest.editable_file) || !SHA256.test(manifest.editable_sha256) ||
@@ -165,12 +181,28 @@ export function validateManifest(manifest, issue, commentId, currentMainSha) {
       !Number.isSafeInteger(manifest.max_rounds) || manifest.max_rounds < 1 || manifest.max_rounds > 3 ||
       !Number.isSafeInteger(manifest.max_output_tokens) || manifest.max_output_tokens < 512 || manifest.max_output_tokens > 24000 ||
       typeof manifest.task_instructions !== 'string' || manifest.task_instructions.length < 40 || manifest.task_instructions.length > 6000 ||
-      manifest.live_enabled !== false || typeof manifest.mock_replacement !== 'string' ||
-      manifest.mock_replacement.length < 1 || manifest.mock_replacement.length > 90000) {
+      manifest.live_enabled !== (mode === 'live') ||
+      (mode === 'mock' && (typeof manifest.mock_replacement !== 'string' ||
+       manifest.mock_replacement.length < 1 || manifest.mock_replacement.length > 90000))) {
     throw new Error('Approved private task manifest is missing, stale, or outside bounds');
   }
   const cap = taskCap(String(manifest.task_cap_usd));
-  return { cap };
+  if (mode === 'live') {
+    const metadata = liveApprovalMetadata(liveIdentity(manifest, '0'.repeat(64)));
+    const age = Date.now() - Date.parse(manifest.pricing_verified_on + 'T00:00:00.000Z');
+    if (manifest.live_contract !== 'VERA_DEEPSEEK_LIVE_V2' || Object.hasOwn(manifest, 'mock_replacement') ||
+        Object.hasOwn(manifest, 'continuation_contract') ||
+        manifest.max_rounds !== 1 || String(manifest.task_cap_usd) !== '0.25' ||
+        manifest.campaign_cap_usd !== '0.25' || manifest.lifetime_cap_usd !== '10' ||
+        manifest.max_input_units !== 20000 || manifest.reasoning_effort !== 'high' ||
+        !SHA256.test(manifest.ledger_sha256 || '') ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(manifest.pricing_verified_on || '') ||
+        !Number.isFinite(age) || age < 0 || age >= 8 * 86400000 ||
+        JSON.stringify(manifest.verified_rates) !== JSON.stringify(metadata.verifiedRates)) {
+      throw new Error('Live task requires exact approved single-attempt pricing and accounting bounds');
+    }
+  }
+  return { cap, mode };
 }
 
 export function loadApprovedManifest(path, issue, commentId, currentMainSha) {
@@ -227,7 +259,8 @@ export async function processDispatchComment(comment, {
   manifestDir = join(homedir(), '.local', 'share', 'vera', 'deepseek', 'tasks'),
   receiptRoot = join(homedir(), '.codex', 'deepseek-dispatch-receipts'),
   runner = join(homedir(), '.codex', 'bin', 'vera-deepseek-runner'),
-  invoke = invokePrivateRunner
+  invoke = invokePrivateRunner, preflight = hostPreflight,
+  liveEnabled = false, readLive = readLiveGh
 } = {}) {
   if (comment?.body !== COMMAND) return { state: 'ignored' };
   const issueMatch = new RegExp('^https://api\\.github\\.com/repos/' + REPO.replaceAll('/', '\\/') + '/issues/(\\d+)$').exec(comment.issue_url || '');
@@ -262,6 +295,7 @@ export async function processDispatchComment(comment, {
   } catch {
     return { state: 'refused' };
   }
+  if (loaded.mode === 'live' && !liveEnabled) return { state: 'refused' };
   try {
     verifyReviewFromGh(readGh, REPO, issueNumber, { title: issue.title, body: issue.body, labels: issue.labels });
   } catch (error) {
@@ -327,12 +361,29 @@ export async function processDispatchComment(comment, {
     const finalManifest = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
     if (finalManifest.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
     safeRunner(runner, finalManifest.manifest.adapter_sha256);
+    preflight({ runner, adapterSha256: finalManifest.manifest.adapter_sha256, receiptRoot, allowEnabled: true });
+    if (loaded.mode === 'live') verifyLiveApproval(readLive, liveIdentity(finalManifest.manifest, finalManifest.sha256));
+    // Public reads may take time; repeat local manifest/build checks after them.
+    const beforeInvoke = loadApprovedManifest(manifestPath, issueNumber, comment.id, finalMain.sha);
+    if (beforeInvoke.sha256 !== loaded.sha256) throw new Error('Private task manifest changed');
+    safeRunner(runner, beforeInvoke.manifest.adapter_sha256);
   } catch {
     return { state: 'refused' };
   }
+  if (loaded.mode === 'live') {
+    try {
+      lstatSync(join(receiptRoot, 'issue-' + issueNumber));
+      return { state: 'duplicate' };
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
   let receipt;
   try {
-    receipt = reserveReceipt(receiptRoot, issueNumber, comment.id);
+    // Live uses the existing controller's final-gate receipt allocation. Never
+    // overwrite its diagnostic/accounting receipt with a transport-only result.
+    receipt = loaded.mode === 'live' ? join(receiptRoot, 'issue-' + issueNumber, 'receipt.json')
+      : reserveReceipt(receiptRoot, issueNumber, comment.id);
   } catch (error) {
     if (error?.code === 'EEXIST') return { state: 'duplicate' };
     throw error;
@@ -342,11 +393,13 @@ export async function processDispatchComment(comment, {
     VERA_ISSUE_NUMBER: String(issueNumber), VERA_DISPATCH_COMMENT_ID: String(comment.id),
     VERA_DEEPSEEK_TASK_CAP_USD: String(loaded.cap), VERA_DEEPSEEK_CAMPAIGN_CAP_USD: '10',
     VERA_DEEPSEEK_RECEIPT: receipt, VERA_DEEPSEEK_MANIFEST_SHA256: loaded.sha256,
-    VERA_DEEPSEEK_SOURCE_SHA: loaded.manifest.base_sha, VERA_DEEPSEEK_EXECUTION_MODE: 'mock'
+    VERA_DEEPSEEK_SOURCE_SHA: loaded.manifest.base_sha, VERA_DEEPSEEK_EXECUTION_MODE: loaded.mode,
+    VERA_DEEPSEEK_ADAPTER_SHA256: loaded.manifest.adapter_sha256,
+    ...(loaded.mode === 'live' ? { VERA_DEEPSEEK_LIVE_ENABLED: 'true' } : {})
   };
   const result = invoke(runner, [String(issueNumber), String(comment.id)], childEnv);
   const state = result.error || result.status !== 0 ? 'uncertain-or-failed' : 'worker-returned';
-  writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state,
+  if (loaded.mode === 'mock') writeReceipt(receipt, { issue: issueNumber, commentId: comment.id, state,
     timestamp: new Date().toISOString(), exitCode: result.status ?? null,
     detail: result.error?.code || null });
   return { state };
@@ -403,7 +456,13 @@ export async function pollOnce({
   return { initialized: false, processed: ordered.length };
 }
 
-export async function main(env = process.env) {
+export async function main(env = process.env, argv = process.argv.slice(2)) {
+  if (argv[0] === '--preflight' && argv.length === 2) {
+    hostPreflight({ adapterSha256: argv[1], env });
+    console.log('Host preflight ready; no event consumed and no provider request made.');
+    return;
+  }
+  if (argv.length) throw new Error('Use --preflight <approved-adapter-sha256>, or no arguments for one poll');
   if (env.VERA_DEEPSEEK_DISPATCH_ENABLED !== 'true') {
     console.log('Mac receiver disabled; no GitHub polling or private adapter call.');
     return;
@@ -420,7 +479,9 @@ export async function main(env = process.env) {
   }
   let result;
   try {
-    result = await pollOnce({ allowedActors });
+    result = await pollOnce({ allowedActors, processComment: comment => processDispatchComment(comment, {
+      allowedActors, liveEnabled: env.VERA_DEEPSEEK_LIVE_ENABLED === 'true'
+    }) });
   } finally {
     rmSync(lock, { recursive: true, force: true });
   }

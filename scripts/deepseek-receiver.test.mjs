@@ -88,7 +88,7 @@ test('receiver binds the adapter contract and refuses source, review, or runner 
       let issueReads = 0;
       let calls = 0;
       const options = {
-        manifestDir, receiptRoot, runner,
+        manifestDir, receiptRoot, runner, preflight: () => ({ ready: true }),
         fetchImpl: async url => {
           const path = new globalThis.URL(url).pathname;
           let value;
