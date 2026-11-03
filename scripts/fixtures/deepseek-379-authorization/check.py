@@ -42,7 +42,7 @@ def member(role="viewer", **overrides):
 
 def decide(action, membership, actor_id=ACTOR, project_id=PROJECT):
     result = allows_project_action(actor_id, project_id, action, membership)
-    if type(result) is not bool:
+    if not isinstance(result, bool):
         raise AssertionError(f"Expected actual bool, received {type(result).__name__}")
     return result
 
@@ -51,7 +51,9 @@ class RolePolicyTests(unittest.TestCase):
     def test_viewer_can_only_view_document(self):
         for action in ACTIONS:
             with self.subTest(action=action):
-                self.assertIs(decide(action, member("viewer")), action == "view_document")
+                self.assertIs(
+                    decide(action, member("viewer")), action == "view_document"
+                )
 
     def test_editor_can_view_write_comment_and_preview(self):
         permitted = {"view_document", "edit_document", "comment", "preview_authority"}
@@ -62,7 +64,9 @@ class RolePolicyTests(unittest.TestCase):
     def test_producer_has_project_actions_but_not_research_read(self):
         for action in ACTIONS:
             with self.subTest(action=action):
-                self.assertIs(decide(action, member("producer")), action != "read_research")
+                self.assertIs(
+                    decide(action, member("producer")), action != "read_research"
+                )
 
     def test_missing_membership_denies_every_action(self):
         for action in ACTIONS:
@@ -80,16 +84,33 @@ class RolePolicyTests(unittest.TestCase):
         self.assertIs(decide("edit_document", member("editor", active=False)), False)
 
     def test_other_user_membership_does_not_grant_access(self):
-        self.assertIs(decide("view_document", member("producer", userId=OTHER_ACTOR)), False)
-        self.assertIs(decide("release_authority", member("producer", userId=OTHER_ACTOR)), False)
+        self.assertIs(
+            decide("view_document", member("producer", userId=OTHER_ACTOR)), False
+        )
+        self.assertIs(
+            decide("release_authority", member("producer", userId=OTHER_ACTOR)), False
+        )
 
     def test_other_project_membership_does_not_grant_access(self):
-        self.assertIs(decide("view_document", member("producer", projectId=OTHER_PROJECT)), False)
-        self.assertIs(decide("release_authority", member("producer", projectId=OTHER_PROJECT)), False)
+        self.assertIs(
+            decide("view_document", member("producer", projectId=OTHER_PROJECT)), False
+        )
+        self.assertIs(
+            decide(
+                "release_authority", member("producer", projectId=OTHER_PROJECT)
+            ),
+            False,
+        )
 
     def test_research_link_does_not_confer_research_read_access(self):
         self.assertIs(decide("link_research", member("producer")), True)
-        self.assertIs(decide("read_research", member("producer", linkedResearchProjectIds=["research-1"])), False)
+        self.assertIs(
+            decide(
+                "read_research",
+                member("producer", linkedResearchProjectIds=["research-1"]),
+            ),
+            False,
+        )
         self.assertIs(decide("read_research", member("editor")), False)
 
     def test_unknown_action_is_denied_without_wildcards(self):
@@ -105,8 +126,12 @@ class RolePolicyTests(unittest.TestCase):
     def test_actor_and_project_ids_must_be_nonempty_exact_strings(self):
         for bad in (None, "", "  ", 12, [ACTOR], f" {ACTOR}"):
             with self.subTest(bad=bad):
-                self.assertIs(decide("view_document", member("producer"), actor_id=bad), False)
-                self.assertIs(decide("view_document", member("producer"), project_id=bad), False)
+                self.assertIs(
+                    decide("view_document", member("producer"), actor_id=bad), False
+                )
+                self.assertIs(
+                    decide("view_document", member("producer"), project_id=bad), False
+                )
 
     def test_missing_membership_fields_fail_closed(self):
         complete = member("producer")
@@ -123,7 +148,9 @@ class RolePolicyTests(unittest.TestCase):
     def test_active_flag_requires_literal_true(self):
         for flag in (1, "true", "yes", None, [], False):
             with self.subTest(flag=repr(flag)):
-                self.assertIs(decide("view_document", member("producer", active=flag)), False)
+                self.assertIs(
+                    decide("view_document", member("producer", active=flag)), False
+                )
 
     def test_invalid_action_values_fail_closed(self):
         for action in (None, 1, [], {"name": "view_document"}):
