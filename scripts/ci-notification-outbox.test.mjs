@@ -70,6 +70,8 @@ class FakeGitHub {
     this.commentPostGate = null;
     this.eventWriteMode = "normal";
     this.commentMode = "normal";
+    this.failAuditWritesAfterSuccessfulComment = false;
+    this.auditWritesBlocked = false;
     this.commitAuthor = "github-actions[bot]";
   }
 
@@ -128,6 +130,7 @@ class FakeGitHub {
       if (method === "PUT") {
         const current = this.files.get(filePath);
         if ((current && body.sha !== current.sha) || (!current && body.sha)) throw apiError(409);
+        if (filePath.startsWith("audit/") && this.auditWritesBlocked) throw apiError(503);
         if (filePath.startsWith("events/")) {
           this.putEvents += 1;
           if (this.eventWriteMode === "fail") throw apiError(503);
@@ -182,6 +185,7 @@ class FakeGitHub {
       const comment = { user: { login: "github-actions[bot]" }, body: body.body };
       comments.push(comment);
       this.comments.set(issue, comments);
+      if (this.failAuditWritesAfterSuccessfulComment) this.auditWritesBlocked = true;
       if (this.commentMode === "storeThenThrow") throw new Error("transport ended after comment");
       return comment;
     }
@@ -413,7 +417,7 @@ test("does not use the registered issue for uncertain or invalid-JSON PR respons
   }
 });
 
-test("allows one explicit manual retry after the recorded backoff and caps comment posts at two", async () => {
+test("does not blindly resend an ambiguous comment after the recorded backoff", async () => {
   const github = new FakeGitHub();
   let now = NOW;
   github.commentMode = "throwWithoutStore";
@@ -433,31 +437,37 @@ test("allows one explicit manual retry after the recorded backoff and caps comme
   now = Date.parse(pending.nextAttemptAt);
   const retryAt = await outbox.manualRetry(event.eventId);
   assert.equal(retryAt.status, "pending");
-  assert.equal(retryAt.manualRetryAvailable, false);
-  assert.equal(github.commentPosts, 2);
+  assert.equal(retryAt.attempts.commentPost, 1);
+  assert.equal(github.commentPosts, 1);
   const exhausted = await outbox.manualRetry(event.eventId);
   assert.equal(exhausted.status, "pending");
-  assert.equal(github.commentPosts, 2);
+  assert.equal(github.commentPosts, 1);
 });
 
-test("manual retries replace stale PR HTTP status with the latest rejection or clear it on success", async () => {
-  for (const nextOutcome of ["success", 404]) {
-    const github = new FakeGitHub();
-    let now = NOW;
-    const event = makeEvent({ runId: 12000 + (nextOutcome === "success" ? 1 : 2) });
-    github.commentPostFailures.set(event.pr, 503);
-    const outbox = createOutbox(github, () => now);
-    const pending = await outbox.publish(event);
-    assert.equal(pending.commentHttpStatus, 503);
+test("manual reconciliation clears a stale PR HTTP status when the marker exists", async () => {
+  const github = new FakeGitHub();
+  const event = makeEvent();
+  const audit = {
+    version: 1,
+    eventId: event.eventId,
+    status: "posting",
+    eventWriteAttempts: 1,
+    commentAttempts: 1,
+    manualRetryUsed: false,
+    nextAttemptAt: new Date(NOW + 250).toISOString(),
+    lastOutcome: "none",
+    commentHttpStatus: 503,
+    commentIssue: event.pr,
+  };
+  github.seed("events/" + event.eventId + ".json", event);
+  github.seed("audit/" + event.eventId + ".json", audit);
+  github.comments.set(event.pr, [{ user: { login: "github-actions[bot]" }, body: renderReport(event) }]);
 
-    now = Date.parse(pending.nextAttemptAt);
-    if (nextOutcome === "success") github.commentPostFailures.delete(event.pr);
-    else github.commentPostFailures.set(event.pr, nextOutcome);
-    const retry = await outbox.manualRetry(event.eventId);
-
-    assert.equal(retry.commentHttpStatus, nextOutcome === "success" ? null : 404);
-    assert.equal(retry.status, nextOutcome === "success" ? "commented" : "failed");
-  }
+  const repaired = await createOutbox(github).manualRetry(event.eventId);
+  assert.equal(repaired.status, "commented");
+  assert.equal(repaired.commentHttpStatus, null);
+  assert.equal(repaired.commentIssue, event.pr);
+  assert.equal(github.commentPosts, 0);
 });
 
 test("manual retry cannot claim a second post while the first POST is in flight", async () => {
@@ -482,6 +492,24 @@ test("manual retry cannot claim a second post while the first POST is in flight"
   assert.equal(github.commentPosts, 1);
   release();
   assert.equal((await publishing).status, "commented");
+  assert.equal(github.commentPosts, 1);
+});
+
+test("manual retry repairs a successful POST whose audit update failed without reposting", async () => {
+  const github = new FakeGitHub();
+  const outbox = createOutbox(github);
+  const event = makeEvent();
+  github.failAuditWritesAfterSuccessfulComment = true;
+
+  await assert.rejects(outbox.publish(event), (error) => error.status === 503);
+  const audit = await outbox.readDocument("audit/" + event.eventId + ".json");
+  assert.equal(audit.data.status, "posting");
+  assert.equal(github.commentPosts, 1);
+
+  github.auditWritesBlocked = false;
+  const repaired = await outbox.manualRetry(event.eventId);
+  assert.equal(repaired.status, "commented");
+  assert.equal(repaired.commentIssue, event.pr);
   assert.equal(github.commentPosts, 1);
 });
 

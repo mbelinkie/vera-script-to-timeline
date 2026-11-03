@@ -650,8 +650,29 @@ export class NotificationOutbox {
 
   async #postComment(event, auditFile, manual = false) {
     const marker = commentMarker(event.eventId);
-    if (manual && auditFile.data.status === "posting") return auditFile.data;
     const issue = auditFile.data.commentIssue ?? event.pr;
+    if (manual && auditFile.data.status === "posting") {
+      const targets = issue === event.pr ? [issue] : [issue, event.pr];
+      for (const target of targets) {
+        let existing;
+        try {
+          existing = await this.#findBotComment(target, marker);
+        } catch {
+          continue;
+        }
+        if (!existing) continue;
+        const reconciled = auditDocument(event.eventId, {
+          ...auditFile.data,
+          status: "commented",
+          commentHttpStatus: target === event.pr ? null : auditFile.data.commentHttpStatus,
+          commentIssue: target,
+          nextAttempt: null,
+          lastOutcome: "found",
+        });
+        return (await this.#updateAudit(event, auditFile, reconciled)).data;
+      }
+      return auditFile.data;
+    }
     if (manual && event.issue !== null && event.issue !== event.pr && issue === event.issue &&
         auditFile.data.commentAttempts === 1 && [403, 404].includes(auditFile.data.commentHttpStatus)) {
       return this.#resumeFallback(
@@ -688,7 +709,7 @@ export class NotificationOutbox {
 
     if ((!manual && auditFile.data.commentAttempts > 0) ||
         (manual && (auditFile.data.manualRetryUsed || auditFile.data.commentAttempts > 1 ||
-          auditFile.data.lastOutcome === "rejected"))) {
+          ["rejected", "ambiguous"].includes(auditFile.data.lastOutcome)))) {
       return auditFile.data;
     }
     if (manual && auditFile.data.nextAttemptAt && Date.parse(auditFile.data.nextAttemptAt) > this.now()) {
