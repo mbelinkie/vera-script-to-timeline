@@ -514,8 +514,8 @@ function claimMarker(claim) {
   return `<!-- vera-claim ${JSON.stringify(claim)} -->`;
 }
 
-function acceptanceReady(body) {
-  return /^#{2,3} Acceptance criteria\s*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
+export function acceptanceReady(body) {
+  return /^#{2,3} Acceptance criteria(?:\s+\([^\r\n]*\))?\s*$/im.test(body) && /- \[ \] |\n\d+\. /m.test(body);
 }
 
 function validateReadyRequirements(settings, issue) {

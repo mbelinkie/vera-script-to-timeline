@@ -6,9 +6,16 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, validateRouting } from "./roadmap.mjs";
+import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, validateRouting } from "./roadmap.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("acceptance heading permits a parenthetical clarification without changing the approved issue", () => {
+  assert.equal(acceptanceReady("## Acceptance criteria (all required for #401 delivery)\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria\n\n- [ ] Works"), true);
+  assert.equal(acceptanceReady("## Acceptance criteria (all required)\nNo criteria"), false);
+  assert.equal(acceptanceReady("## Not Acceptance criteria\n- [ ] Works"), false);
+});
 
 test("parses commands and flags", () => {
   const parsed = parseArguments(["claim", "12", "--model", "gpt-5.6-terra", "--effort", "high"]);
