@@ -1,123 +1,141 @@
-# Chat → GitHub → Mac dispatch (staged; disabled)
+# Chat → GitHub → Mac dispatch
 
-[Issue #396](https://github.com/mbelinkie/vera-script-to-timeline/issues/396)
-continues on [Draft PR #397](https://github.com/mbelinkie/vera-script-to-timeline/pull/397).
-The transport reuses the existing private bounded controller and lifetime USD10
-ledger. The legacy personal-account GitHub Actions runner stays offline.
+The outbound Mac receiver reuses the existing private bounded controller,
+credential helper, native Seatbelt confinement, cross-campaign lock and single
+lifetime USD10 ledger. The legacy self-hosted Actions runner stays offline.
+Defaults remain disabled; readiness, labels and dashboard navigation start no job.
 
-## Boundaries
+## Hosted validation
 
 The `issue_comment` workflow runs trusted default-branch code on `ubuntu-latest`
 with read-only contents/issues permissions. It validates the exact
-`/deepseek dispatch` comment, actor, open issue, classification, four opt-in
-labels, handoff and canonical #378 review. It creates no local receipt and
-never invokes the Mac adapter. No private credentials or worker output enter
-GitHub Actions.
+`/deepseek dispatch` comment, actor, open issue, classification, opt-in labels,
+handoff and canonical current Chat review. It allocates no receipt and never
+invokes a Mac adapter or provider. No private material enters Actions.
 
-The separate Mac receiver makes outbound public GitHub reads. It has no incoming
-listener or GitHub write token. It repeats the live authorization checks,
-validates the private manifest, reserves one receipt per issue, then repeats
-review/issue/comment/source and local manifest/build checks before invocation.
-The receiver accepts only `live_enabled: false` and supplies explicit mock mode.
-It cannot start a paid job. Its per-task ceiling is USD0.25; the existing private
-controller retains its single lifetime USD10 ledger and live budget gates.
-
-All four labels are required: `chat-reviewed`, `deepseek-eligible`,
-`deepseek-ready`, `deepseek-dispatch`. Exactly one `type:implementation` or
-`type:bug` is allowed. Pending review/escalation, design/non-coding types,
+The Mac receiver uses outbound public GitHub reads, with no incoming listener or
+GitHub write token. Required labels are `chat-reviewed`, `deepseek-eligible`,
+`deepseek-ready`, `deepseek-dispatch`, and exactly one `type:implementation` or
+`type:bug`. Pending review/escalation, design/non-coding classifications,
 `deepseek-excluded`, another execution owner and `execution:codex/design/human`
-veto dispatch. Ready status, labels, dashboard rendering and navigation never
-start a job. #401 owns the renderer; this PR changes no renderer files.
+veto dispatch. #416 itself is Codex-owned and cannot be a worker target.
 
-## Shared private contract
+## Versioned immutable task contract
 
-Both processes read the same owner-approved read-only file (mode `0400`) under a
-private directory (mode `0700`):
+Both receiver and adapter read the same immutable owner-only task file (0400)
+inside an owner-only directory (0700):
 `~/.local/share/vera/deepseek/tasks/issue-N.json`.
-It uses the adapter's existing `schema: 1` fields: `issue`, `repository`,
-`base_sha`, `editable_file`, `editable_sha256`, `frozen_files`, `edit_scope`,
-absolute `checks` vectors, `source_repo`, bounded `max_rounds` and
-`max_output_tokens`, `task_cap_usd`, `task_instructions`, `operator_approved`
-and `public_synthetic_only`.
 
-The transport extension adds `transport_contract: "VERA_DEEPSEEK_RECEIVER_V1"`,
-the exact `dispatch_comment_id`, `adapter_sha256`, `live_enabled: false` and a
-bounded preapproved `mock_replacement`. `base_sha` must equal current GitHub
-`main`; the runner bytes must match the approved adapter hash. The adapter
-must verify `VERA_DEEPSEEK_MANIFEST_SHA256`, `VERA_DEEPSEEK_SOURCE_SHA`, comment
-identity and `VERA_DEEPSEEK_EXECUTION_MODE=mock` before candidate preparation.
-The receiver rechecks the same manifest/build immediately before invocation.
+Legacy `schema: 1` / `VERA_DEEPSEEK_RECEIVER_V1` receiver requests remain mock
+only. Missing legacy mode means mock; an unknown mode refuses. New requests use
+`schema: 2`, `transport_contract: "VERA_DEEPSEEK_RECEIVER_V2"` and an explicit
+`execution_mode: "mock"` or `"live"`. Missing/unknown V2 modes refuse.
+A mock request always requires `live_enabled: false` and its bounded approved
+`mock_replacement`; it never reaches credentials, provider calls or reservations.
 
-The previously installed adapter has no mock path and ignores the manifest hash;
-it is incompatible with this contract. A private staged update is required.
-Its candidate checks must use native deny-by-default Seatbelt confinement:
-only the disposable candidate is writable, system runtimes and the candidate
-are readable, and private home/controller/ledger files, network and Mach service
-access remain denied. The trusted controller keeps credentials and ledger access
-outside the candidate process. No private adapter source is published here.
+Common fields bind repository, issue, exact `dispatch_comment_id`, current main
+`base_sha`, installed `adapter_sha256`, one `editable_file` and hash, explicit
+`edit_scope`, `frozen_files` hashes, 1–3 absolute trusted `checks` vectors, clean
+public `source_repo`, `task_instructions`, `max_rounds`, `max_output_tokens`,
+`task_cap_usd`, `operator_approved` and `public_synthetic_only`.
 
-## One authorized synthetic proof
+Live V2 additionally requires `live_contract: "VERA_DEEPSEEK_LIVE_V2"`,
+`live_enabled: true`, one attempt (`max_rounds: 1`), `max_input_units: 20000`,
+`reasoning_effort: "high"`, exact `model`, approved peak `verified_rates`, a
+current `pricing_verified_on`, unique `attempt_id` and `campaign`, and exact
+`ledger_sha256` / `reconciliation_sha256` bindings. Task and single-task campaign
+caps are USD0.25; the unchanged shared lifetime cap is USD10. Live manifests
+cannot carry mock replacements or continuation-only contracts. `live_gate_files`
+binds every public gate dependency to the approved source bytes.
 
-On 2026-11-02 the Producer authorized one no-provider-call proof **after review
-and protected delivery**. That authorization permits no paid mode. The target
-still needs its own exact current canonical Chat review; the implementation
-owner must not manufacture that approval record.
+The manifest SHA covers the exact immutable bytes, including files, checks,
+limits, model, pricing and accounting references. A task/mode/build change
+requires renewed exact approval. No flag or label supplies spending authority.
 
-1. Complete review and protected PR delivery. Install only the reviewed private
-   adapter build; preserve existing credentials, historical state and ledger.
-   Keep repository and persistent local enable settings false. Use a separate
-   clone of the public repository for `source_repo`, with no personal media or
-   private configuration copied into the candidate.
-2. Prepare a dedicated public synthetic issue using
-   `scripts/fixtures/deepseek-proof`. Finalize its DeepSeek Handoff with the
-   delivered source revision, one editable fixture and frozen check before its
-   independent Chat approval. `target.py` intentionally fails `check.py` until
-   the preapproved mock replacement changes its return value to `"after"`.
-3. Initialize the receiver cursor with one explicit enabled poll **before**
-   posting the dispatch command. A first poll only saves the newest comment ID;
-   it intentionally ignores all existing comments. No scheduled poller is
-   installed by this PR.
-4. Post the separately authorized exact command, prepare the immutable manifest
-   bound to that comment ID and approved adapter build, then run one enabled
-   poll. The trusted adapter uses its cross-campaign lock, creates an isolated
-   candidate, applies the approved mock replacement and runs frozen checks.
-   Mock mode must never reach credential/provider code or write reservations.
-5. Verify private candidate/check results, exact allowed diff and frozen hashes,
-   unchanged lifetime ledger bytes, receipt identity and duplicate refusal.
-   `worker-returned` alone proves only process exit, not candidate acceptance.
-6. Restore disabled defaults. Record concise public evidence with no private
-   paths/content. The candidate stays unmerged for independent integration.
+## Independent live task approval
 
-## Receipts and recovery
+`scripts/deepseek-live-gate.mjs` is a read-only gate. Its identity and returned
+metadata are specified in [the adapter contract](DEEPSEEK_LIVE_ADAPTER_CONTRACT.md).
+The target issue must contain exactly one `VERA_DEEPSEEK_LIVE_V2` metadata marker
+matching `liveApprovalMetadata(identity)`, plus authentic current canonical
+Producer Chat review of the full issue. The exact owner `/deepseek dispatch`
+event must be unedited and have no GitHub App mediation. Mock or continuation
+approval does not satisfy live approval. #416's implementation approval does not
+approve any paid task.
 
-[Manual recovery](DEEPSEEK_RECOVERY.md) defines #415's separate new-trial
-approval and reconciliation contract. It does not enable this receiver or
-permit replay of an existing dispatch receipt.
+Prepare the dispatch event before finalizing its manifest and issue metadata,
+then obtain independent approval of that exact revision. This avoids guessing a
+future event ID. Keep polling disabled throughout preparation. The event alone
+cannot execute until current task review, local enable and all gates pass.
 
-Receipts live under `~/.codex/deepseek-dispatch-receipts/issue-N/receipt.json`.
-Parent and issue directories must be owner-owned, private and regular directories.
-Exclusive directory creation reserves an issue once; atomic replacement prevents
-receipt writes from following a substituted file symlink. Worker stdout/stderr
-are suppressed. Timeout/error retains the receipt and candidate; no automatic
-retry, receipt deletion, legacy trial reset or ledger reset is permitted.
+## Read-only host preflight before publication
 
-A leftover receiver lock requires explicit reconciliation before another poll.
-Removing an approval label prevents future calls when observed; REST reads cannot
-provide an atomic transaction with a local process launch. The final repeated
-checks narrow that race. Incomplete history, changed revision/build/manifest,
-API errors, unavailable sandbox and uncertain outcomes fail closed.
+After installing the reviewed adapter, while all dispatch/live flags are off:
 
-## Evidence and remaining gates
+```sh
+node scripts/deepseek-receiver.mjs --preflight <approved-adapter-sha256>
+```
 
-Focused receiver/dispatch tests use temporary state, mock GitHub reads and a
-stub runner. The fixture's red baseline/green replacement were checked in a
-temporary directory. These checks do not prove the installed adapter or live
-GitHub-to-Mac transport. The new contract and private staged adapter require
-independent review and fresh exact-head CI before delivery. The one external
-synthetic proof and Producer setup acceptance remain outstanding. No provider
-request or receiver activation has been performed by this implementation.
+Run this **before posting** any new dispatch event. It reads the receiver and
+receipt storage, cursor, installed adapter, controller state/ledger access,
+accounting and native isolation readiness. It checks owner-only real files and
+directories, the reviewed build and disabled flags. The private adapter's
+`--host-preflight` mode neither imports credentials nor calls a network/provider.
+It cannot create receipts, advance cursors, reset state, change permissions or
+initialize a ledger. Known refusals provide safe corrective instructions;
+repair the named condition separately and rerun. Preserve every old artifact.
+The read-only cursor is valid because its private parent permits atomic replacement.
 
-Historical installation/ledger observations are in
-[the issue checkpoint](https://github.com/mbelinkie/vera-script-to-timeline/issues/396#issuecomment-6580646227).
-Provider charges, model/pricing and all historical/pending spend require separate
-reconciliation and explicit authorization before any future paid pilot.
+The receiver repeats preflight immediately before invocation, allowing only
+the explicitly enabled one-shot flags at that boundary. The private controller
+also repeats its host readiness checks before entering live processing.
+
+## One-shot execution and accounting
+
+Initialize the cursor with one explicit poll before posting the new event. Its
+first run saves the newest comment identity and deliberately replays nothing.
+No daemon, timer or standing poller is installed. After separate exact paid-task
+approval, run one poll with temporary `VERA_DEEPSEEK_DISPATCH_ENABLED=true` and
+`VERA_DEEPSEEK_LIVE_ENABLED=true`; keep persistent defaults off afterward.
+
+The receiver repeats issue, event, canonical review, current main, manifest and
+adapter checks before its sole adapter invocation. Live mode delegates to the
+existing #415 single-attempt controller. Under the same exclusive lock, it
+rechecks source/build/frozen checks, model/pricing, independent approval, ledger
+and reconciliation after provider preflight and immediately before reservation.
+A passing baseline makes no provider call. Otherwise the controller atomically
+allocates the per-issue receipt, durably reserves at peak pricing, and only then
+may invoke the approved model once. The controller owns its rich live receipt;
+the transport never overwrites it with a process-exit summary.
+
+Every historical actual charge and pending/uncertain reservation counts against
+the same USD10 lifetime ceiling. #411's original uncertain receipt, manifest,
+history and full held reservation remain immutable. Charge evidence cannot
+manufacture a returned response, verified usage or a successful candidate.
+[Manual recovery](DEEPSEEK_RECOVERY.md) remains an explicit separate new-trial
+route; it cannot replay an old receipt or revive the discontinued campaign.
+
+Timeouts/interruption retain reservations and safe failure category/stage;
+there is no automatic retry. Verified charges remain charged even if parsing or
+checks later fail. Missing/changed approval, build, manifest, source, accounting,
+budget or isolation refuses. Public reads cannot form an atomic transaction
+with a local process launch; repeated gates narrow that race.
+
+## Candidate and acceptance boundaries
+
+Only the disposable candidate is writable during frozen checks. Private
+controller, ledger, credentials, home/media, arbitrary network and Mach-service
+access are denied by native candidate confinement. Model output is a bounded
+JSON replacement for the one approved file, never tools or commands. The worker
+cannot write GitHub, start CI, merge, close issues or invoke Resolve.
+
+`worker-returned` proves process exit only. Codex independently checks the exact
+diff, frozen file hashes, checks and private accounting before integrating an
+isolated unmerged candidate. Safe summaries may be published; private sources,
+responses, credentials, receipts and account data stay local.
+
+Offline fake-provider tests cover both modes, approval drift, exact bindings,
+preflight refusals, caps/reservation ordering, duplicates and uncertainty. They
+do not prove a real GitHub-to-provider round trip. #416 closure additionally
+requires protected merged/green implementation and the separately authorized
+[single-task pilot](investigations/issue-416-live-pilot-proposal.md).
