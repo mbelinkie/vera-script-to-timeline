@@ -1,5 +1,10 @@
 # DeepSeek coding quality review for VERA
 
+Follow-up: [partial paid calibration results and delivery recommendation](issue-396-calibration-results.md).
+Two small Python episodes completed; the TypeScript episode stopped on an
+unverified request. The follow-up distinguishes measured results from the
+proposed comparisons below.
+
 Research checked 2 November 2026. This is a recommendation for review, not an
 implementation or experiment authorization. PR #397 remains on hold. No model
 settings, dispatch settings, private controller, ledger, or execution architecture
