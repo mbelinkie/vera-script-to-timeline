@@ -62,6 +62,8 @@ class FakeGitHub {
     this.createdCommits = [];
     this.putEvents = 0;
     this.commentPosts = 0;
+    this.commentPostTargets = [];
+    this.commentPostFailures = new Map();
     this.commentListFailures = 0;
     this.eventWriteMode = "normal";
     this.commentMode = "normal";
@@ -152,11 +154,14 @@ class FakeGitHub {
     }
     if (match && method === "POST") {
       this.commentPosts += 1;
+      const issue = Number(match[1]);
+      this.commentPostTargets.push(issue);
+      if (this.commentPostFailures.has(issue)) throw apiError(this.commentPostFailures.get(issue));
       if (this.commentMode === "throwWithoutStore") throw new Error("transport ended before confirmation");
-      const comments = this.comments.get(Number(match[1])) ?? [];
+      const comments = this.comments.get(issue) ?? [];
       const comment = { user: { login: "github-actions[bot]" }, body: body.body };
       comments.push(comment);
-      this.comments.set(Number(match[1]), comments);
+      this.comments.set(issue, comments);
       if (this.commentMode === "storeThenThrow") throw new Error("transport ended after comment");
       return comment;
     }
@@ -196,7 +201,7 @@ test("renders a fixed report with exact public links and no free-form PR or log 
   assert.match(report, new RegExp("Candidate: " + code + event.candidate + code));
   assert.match(report, new RegExp("Base: " + code + event.base + code));
   assert.match(report, /Assessment: gates_completed; enclosing workflow completion is not implied/);
-  assert.match(report, /Automatic comment\/report injection is disabled/);
+  assert.match(report, /Automatic Codex message injection\/resumption is disabled/);
   assert.match(report, /no approval or merge authority/);
   assert.match(report, new RegExp("blob/" + event.stateSha + "/queue.json"));
   assert.match(report, new RegExp("blob/" + OUTBOX_BRANCH + "/events/" + event.eventId + "\\.json"));
@@ -285,6 +290,74 @@ test("reconciles an ambiguous comment outcome and never blindly posts twice", as
   assert.equal((github.comments.get(event.pr) ?? []).length, 1);
 });
 
+test("falls back from a rejected PR comment to the registered issue and preserves the rejection", async () => {
+  const github = new FakeGitHub();
+  const event = makeEvent();
+  github.commentPostFailures.set(event.pr, 403);
+  const outbox = createOutbox(github);
+  const first = await outbox.publish(event);
+  const audit = await outbox.readDocument("audit/" + event.eventId + ".json");
+
+  assert.deepEqual(github.commentPostTargets, [event.pr, event.issue]);
+  assert.equal(first.status, "commented");
+  assert.equal(first.commentHttpStatus, 403);
+  assert.equal(first.commentIssue, event.issue);
+  assert.equal(first.reportUrl, "https://github.com/" + REPOSITORY + "/issues/" + event.issue);
+  assert.equal(audit.data.commentHttpStatus, 403);
+  assert.equal(audit.data.commentIssue, event.issue);
+  assert.equal(github.comments.get(event.issue).length, 1);
+
+  const replay = await outbox.publish(event);
+  assert.equal(replay.status, "commented");
+  assert.equal(replay.commentIssue, event.issue);
+  assert.equal(replay.reportUrl, first.reportUrl);
+  assert.equal(github.commentPosts, 2);
+  assert.ok(github.requests.some((request) =>
+    request.method === "GET" && request.path === "/repos/" + REPOSITORY + "/issues/" + event.issue + "/comments",
+  ));
+});
+
+test("concurrent publishers make one fallback post after a definitive PR rejection", async () => {
+  const github = new FakeGitHub();
+  const event = makeEvent();
+  github.commentPostFailures.set(event.pr, 404);
+  const outbox = createOutbox(github);
+
+  await Promise.all([outbox.publish(event), outbox.publish(event)]);
+
+  assert.deepEqual(github.commentPostTargets, [event.pr, event.issue]);
+  assert.equal(github.comments.get(event.issue).length, 1);
+});
+
+test("does not claim a published report when the registered-issue fallback is rejected", async () => {
+  const github = new FakeGitHub();
+  const event = makeEvent();
+  github.commentPostFailures.set(event.pr, 403);
+  github.commentPostFailures.set(event.issue, 404);
+  const result = await createOutbox(github).publish(event);
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.commentHttpStatus, 403);
+  assert.equal(result.commentIssue, event.issue);
+  assert.equal(result.reportUrl, null);
+  assert.equal(result.manualRetryAvailable, false);
+  assert.deepEqual(github.commentPostTargets, [event.pr, event.issue]);
+});
+
+test("does not use the registered issue for uncertain or invalid-JSON PR responses", async () => {
+  for (const status of [503, 200]) {
+    const github = new FakeGitHub();
+    const event = makeEvent({ runId: 9123 + status });
+    github.commentPostFailures.set(event.pr, status);
+    const result = await createOutbox(github).publish(event);
+
+    assert.deepEqual(github.commentPostTargets, [event.pr]);
+    assert.equal(github.comments.has(event.issue), false);
+    assert.equal(result.commentIssue, event.pr);
+    assert.equal(result.commentHttpStatus, status === 200 ? null : status);
+  }
+});
+
 test("allows one explicit manual retry after the recorded backoff and caps comment posts at two", async () => {
   const github = new FakeGitHub();
   let now = NOW;
@@ -363,6 +436,64 @@ test("expiry stops explicit replay and identifiers must remain primitive strings
   await assert.rejects(expired.manualRetry(event.eventId), /Expired/);
   for (const field of ["candidate", "base", "workflowHead", "stateSha", "launchId"]) {
     assert.throws(() => canonicalEvent({ ...event, [field]: [field === "launchId" ? "a".repeat(64) : "a".repeat(40)] }), /schema/);
+  }
+});
+
+test("normalizes legacy audit fields and rejects an audit with an unknown field", async () => {
+  const event = makeEvent();
+  const legacy = {
+    version: 1,
+    eventId: event.eventId,
+    status: "failed",
+    eventWriteAttempts: 1,
+    commentAttempts: 1,
+    manualRetryUsed: false,
+    nextAttemptAt: null,
+    lastOutcome: "rejected",
+  };
+  const github = new FakeGitHub();
+  github.seed("events/" + event.eventId + ".json", event);
+  github.seed("audit/" + event.eventId + ".json", legacy);
+  const outbox = createOutbox(github);
+  const result = await outbox.publish(event);
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.commentIssue, event.pr);
+  assert.equal(result.commentHttpStatus, null);
+  assert.equal(github.commentPosts, 0);
+
+  const legacyNineKeys = new FakeGitHub();
+  legacyNineKeys.seed("events/" + event.eventId + ".json", event);
+  legacyNineKeys.seed("audit/" + event.eventId + ".json", { ...legacy, commentIssue: null });
+  const normalized = await createOutbox(legacyNineKeys).publish(event);
+  assert.equal(normalized.commentIssue, event.pr);
+  assert.equal(normalized.commentHttpStatus, null);
+
+  const corrupt = new FakeGitHub();
+  corrupt.seed("events/" + event.eventId + ".json", event);
+  corrupt.seed("audit/" + event.eventId + ".json", { ...legacy, unexpected: "private" });
+  await assert.rejects(createOutbox(corrupt).publish(event), /invalid shape/);
+
+  const misrouted = new FakeGitHub();
+  misrouted.seed("events/" + event.eventId + ".json", event);
+  misrouted.seed("audit/" + event.eventId + ".json", {
+    ...legacy,
+    commentIssue: 999,
+    commentHttpStatus: 403,
+  });
+  await assert.rejects(createOutbox(misrouted).publish(event), /failed validation/);
+});
+
+test("does not fall back when the event has no distinct registered issue", async () => {
+  for (const issue of [null, 43]) {
+    const github = new FakeGitHub();
+    const event = makeEvent({ issue });
+    github.commentPostFailures.set(event.pr, 403);
+    const result = await createOutbox(github).publish(event);
+
+    assert.deepEqual(github.commentPostTargets, [event.pr]);
+    assert.equal(result.status, "failed");
+    assert.equal(result.reportUrl, null);
   }
 });
 
