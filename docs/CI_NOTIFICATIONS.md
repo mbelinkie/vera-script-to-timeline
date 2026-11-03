@@ -87,7 +87,7 @@ local UUID.
 
 ## Read and review an event
 
-Each bot report on the PR includes an event ID, the precise workflow-attempt
+Each bot report includes an event ID, the precise workflow-attempt
 link, full SHAs and the immutable queue snapshot. With the Mac online:
 
 ```sh
@@ -106,7 +106,14 @@ The public Actions/PR links remain usable when local lookup fails.
 
 Event persistence precedes report publication. Event writes reconcile exact
 content before bounded retries (three attempts, 250 ms then 1 s backoff).
-Comment publication claims a durable audit before posting. An uncertain
+Comment publication claims a durable audit before posting. A definitive PR
+comment rejection with HTTP 403 or 404 is reconciled, then the same fixed
+report may use the independently registered roadmap issue with the existing
+Issues-write permission. That fallback consumes the second and final POST;
+no permission is added and an uncertain response never triggers fallback.
+Audits retain only the bounded HTTP status and destination issue number,
+not response text, headers or credentials. Old audit records remain readable.
+An uncertain
 outcome is reconciled by bot/event marker; normal replay never posts blindly.
 An explicit `NotificationOutbox.manualRetry(eventId)` may reconcile and make
 at most one further comment attempt after backoff, within the seven-day
