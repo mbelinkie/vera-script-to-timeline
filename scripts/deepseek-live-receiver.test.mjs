@@ -123,7 +123,7 @@ test('receiver invokes only separately approved live mode after read-only host c
           return scenario === 'uncertain' ? { status: null, error: { code: 'ETIMEDOUT' } } : { status: 0 };
         }
       };
-      if (['host-refused', 'live-read-timeout', 'main-read-timeout'].includes(scenario)) {
+      if (['disabled', 'wrong-target', 'missing-target', 'host-refused', 'live-read-timeout', 'main-read-timeout'].includes(scenario)) {
         let cursorWrites = 0;
         await assert.rejects(pollOnce({ read: () => 320, readCreatedAt: () => comment.created_at,
           list: async () => [comment], processComment: event => processDispatchComment(event, options),

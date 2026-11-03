@@ -101,8 +101,9 @@ No daemon, timer or standing poller is installed. After separate exact paid-task
 approval, run one poll with temporary `VERA_DEEPSEEK_DISPATCH_ENABLED=true` and
 `VERA_DEEPSEEK_LIVE_ENABLED=true`, plus the exact approved
 `VERA_DEEPSEEK_LIVE_ISSUE` and `VERA_DEEPSEEK_LIVE_COMMENT_ID`. This limits the
-poll to one selected live event even if other live manifests are present. Keep
-persistent defaults off afterward.
+poll to one selected live event. A different pending live event stops the poll
+without consuming it; process pending live events in comment order. A poll with
+live mode disabled also preserves such an event. Keep persistent defaults off afterward.
 
 The receiver repeats issue, event, canonical review, current main, manifest and
 adapter checks before its sole adapter invocation. Live mode delegates to the

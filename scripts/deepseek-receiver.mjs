@@ -296,7 +296,9 @@ export async function processDispatchComment(comment, {
     return { state: 'refused' };
   }
   if (loaded.mode === 'live' && (!liveEnabled ||
-      liveTarget?.issue !== issueNumber || liveTarget?.commentId !== comment.id)) return { state: 'refused' };
+      liveTarget?.issue !== issueNumber || liveTarget?.commentId !== comment.id)) {
+    throw new Error('Live event deferred; select its exact approved issue/comment for an enabled one-shot');
+  }
   try {
     verifyReviewFromGh(readGh, REPO, issueNumber, { title: issue.title, body: issue.body, labels: issue.labels });
   } catch (error) {
