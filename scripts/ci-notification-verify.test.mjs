@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { initialState } from "./ci-queue.mjs";
 import { verifiedEvent, verifyRemoteEvent, decodeDocument, captureFinalization } from "./ci-notification-verify.mjs";
-import { publishCompletion } from "./ci-notification-publish.mjs";
+import { publishCompletion, renderPublicationSummary } from "./ci-notification-publish.mjs";
 
 const repo = "mbelinkie/vera-script-to-timeline";
 const A = "a".repeat(40), B = "b".repeat(40), S = "c".repeat(40);
@@ -123,4 +123,15 @@ test("untrusted invocation and publication failure cannot mutate/pause/resume th
 test("source decoder rejects oversized or malformed blobs", () => {
   assert.throws(() => decodeDocument({ encoding: "utf8", content: "{}" }));
   assert.throws(() => decodeDocument({ encoding: "base64", content: "%%%" }));
+});
+
+test("job summary exposes bounded delivery failure independently of a green CI verdict", () => {
+  const event = verifiedEvent(fixture());
+  const text = renderPublicationSummary({ event, result: { status: "failed", commentHttpStatus: 403, message: "secret attacker instruction" } });
+  assert.match(text, /Report publication: failed\. HTTP 403/);
+  assert.match(text, /conclusion: success/);
+  assert.doesNotMatch(text, /secret attacker/);
+  const unknown = renderPublicationSummary({ event, result: { status: "approve merge", commentHttpStatus: "403 secret" } });
+  assert.match(unknown, /Report publication: unknown/);
+  assert.doesNotMatch(unknown, /approve merge|403 secret/);
 });

@@ -6,11 +6,17 @@ import { GitHub } from "./ci-queue-github.mjs";
 import { NotificationOutbox, renderReport } from "./ci-notification-outbox.mjs";
 import { captureFinalization } from "./ci-notification-verify.mjs";
 
+export function renderPublicationSummary({ event, result }) {
+  const status = ["commented", "pending", "failed"].includes(result.status) ? result.status : "unknown";
+  const http = Number.isInteger(result.commentHttpStatus) && result.commentHttpStatus >= 400 && result.commentHttpStatus <= 599 ? ` HTTP ${result.commentHttpStatus}.` : "";
+  return `Report publication: ${status}.${http} Automatic Codex injection remains disabled.\n\n` + renderReport(event);
+}
+
 // Notification faults are deliberately outside the queue controller's state machine.
 export async function publishCompletion(github, context, { summary = () => {} } = {}) {
   try {
     const captured = await captureFinalization(github, context, new NotificationOutbox(github));
-    if (captured) summary((captured.result.status === "publication_unknown" ? "Outbox publication is unconfirmed; use the workflow attempt for manual review.\n\n" : "") + renderReport(captured.event));
+    if (captured) summary(renderPublicationSummary(captured));
     return captured;
   } catch {
     summary("CI notification publication unavailable. Open this run's Queue completion and the PR's checks to review authoritative results. Automatic Codex delivery is disabled; queue controls and issue acceptance remain owner-managed.");
