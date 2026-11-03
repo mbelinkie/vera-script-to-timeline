@@ -512,13 +512,13 @@ export class NotificationOutbox {
         : null,
       nextAttemptAt: audit.nextAttemptAt,
       manualRetryAvailable: persisted && audit.commentAttempts <= 1 && !audit.manualRetryUsed &&
-        audit.status !== "commented" && audit.lastOutcome !== "rejected" &&
+        audit.status !== "commented" && audit.status !== "posting" && audit.lastOutcome !== "rejected" &&
         Date.parse(event.expiresAt) > this.now(),
       manualReport: status === "commented" ? null : renderReport(event),
     };
   }
 
-  async #fallbackComment(event, previous, primaryStatus, marker) {
+  async #fallbackComment(event, previous, primaryStatus, marker, manual = false, enforceBackoff = false) {
     const issue = event.issue;
     let existing;
     try {
@@ -545,12 +545,15 @@ export class NotificationOutbox {
       });
       return (await this.#updateAudit(event, previous, reconciled)).data;
     }
+    if (enforceBackoff && previous.data.nextAttemptAt &&
+        Date.parse(previous.data.nextAttemptAt) > this.now()) return previous.data;
     if (previous.data.commentAttempts >= 2) return previous.data;
 
     const claimData = auditDocument(event.eventId, {
       ...previous.data,
       status: "posting",
       commentAttempts: previous.data.commentAttempts + 1,
+      manualRetryUsed: previous.data.manualRetryUsed || manual,
       commentHttpStatus: primaryStatus,
       commentIssue: issue,
       nextAttempt: nextAttemptAt(this.now, previous.data.commentAttempts + 1),
@@ -561,18 +564,56 @@ export class NotificationOutbox {
     return this.#publishComment(event, claim, issue, marker);
   }
 
-  async #publishComment(event, claim, issue, marker) {
+  async #resumeFallback(event, pending, primaryStatus, marker, manual, enforceBackoff = false) {
+    let existing;
+    try {
+      existing = await this.#findBotComment(event.pr, marker);
+    } catch {
+      return pending.data;
+    }
+    if (existing) {
+      const reconciled = auditDocument(event.eventId, {
+        ...pending.data,
+        status: "commented",
+        commentHttpStatus: primaryStatus,
+        commentIssue: event.pr,
+        nextAttempt: null,
+        lastOutcome: "found",
+      });
+      return (await this.#updateAudit(event, pending, reconciled)).data;
+    }
+    return this.#fallbackComment(event, pending, primaryStatus, marker, manual, enforceBackoff);
+  }
+
+  async #publishComment(event, claim, issue, marker, manual = false) {
     try {
       await this.api("POST", "/issues/" + issue + "/comments", { body: renderReport(event) });
       const posted = auditDocument(event.eventId, {
         ...claim.data,
         status: "commented",
+        commentHttpStatus: issue === event.pr ? null : claim.data.commentHttpStatus,
         commentIssue: issue,
         nextAttempt: null,
         lastOutcome: "posted",
       });
       return (await this.#updateAudit(event, claim, posted)).data;
     } catch (error) {
+      const rejectedStatus = boundedHttpStatus(error);
+      if (issue === event.pr && [403, 404].includes(rejectedStatus) &&
+          event.issue !== null && event.issue !== event.pr && claim.data.commentAttempts < 2) {
+        const pendingData = auditDocument(event.eventId, {
+          ...claim.data,
+          status: "pending",
+          commentHttpStatus: rejectedStatus,
+          commentIssue: event.issue,
+          nextAttempt: nextAttemptAt(this.now, claim.data.commentAttempts),
+          lastOutcome: "ambiguous",
+        });
+        const pending = await this.#updateAudit(event, claim, pendingData);
+        if (!pending.stored) return pending.data;
+        return this.#resumeFallback(event, pending, rejectedStatus, marker, manual);
+      }
+
       let existing = null;
       let listingSucceeded = true;
       try {
@@ -580,7 +621,9 @@ export class NotificationOutbox {
       } catch {
         listingSucceeded = false;
       }
-      const httpStatus = claim.data.commentHttpStatus ?? boundedHttpStatus(error);
+      const httpStatus = issue === event.pr
+        ? rejectedStatus
+        : claim.data.commentHttpStatus ?? rejectedStatus;
       if (existing) {
         const reconciled = auditDocument(event.eventId, {
           ...claim.data,
@@ -592,11 +635,6 @@ export class NotificationOutbox {
         });
         return (await this.#updateAudit(event, claim, reconciled)).data;
       }
-      if (listingSucceeded && issue === event.pr && [403, 404].includes(error.status) &&
-          event.issue !== null && event.issue !== event.pr && claim.data.commentAttempts < 2) {
-        return this.#fallbackComment(event, claim, error.status, marker);
-      }
-
       const ambiguous = !listingSucceeded || isRetryable(error);
       const finalAudit = auditDocument(event.eventId, {
         ...claim.data,
@@ -612,7 +650,19 @@ export class NotificationOutbox {
 
   async #postComment(event, auditFile, manual = false) {
     const marker = commentMarker(event.eventId);
+    if (manual && auditFile.data.status === "posting") return auditFile.data;
     const issue = auditFile.data.commentIssue ?? event.pr;
+    if (manual && event.issue !== null && event.issue !== event.pr && issue === event.issue &&
+        auditFile.data.commentAttempts === 1 && [403, 404].includes(auditFile.data.commentHttpStatus)) {
+      return this.#resumeFallback(
+        event,
+        auditFile,
+        auditFile.data.commentHttpStatus,
+        marker,
+        true,
+        true,
+      );
+    }
     let existing;
     try {
       existing = await this.#findBotComment(issue, marker);
@@ -628,6 +678,7 @@ export class NotificationOutbox {
       const reconciled = auditDocument(event.eventId, {
         ...auditFile.data,
         status: "commented",
+        commentHttpStatus: issue === event.pr ? null : auditFile.data.commentHttpStatus,
         commentIssue: issue,
         nextAttempt: null,
         lastOutcome: "found",
@@ -649,13 +700,14 @@ export class NotificationOutbox {
       status: "posting",
       commentAttempts: auditFile.data.commentAttempts + 1,
       manualRetryUsed: auditFile.data.manualRetryUsed || manual,
+      commentHttpStatus: issue === event.pr ? null : auditFile.data.commentHttpStatus,
       commentIssue: issue,
       nextAttempt: nextAttemptAt(this.now, auditFile.data.commentAttempts + 1),
       lastOutcome: "none",
     });
     const claim = await this.#updateAudit(event, auditFile, inFlight);
     if (!claim.stored) return claim.data;
-    return this.#publishComment(event, claim, issue, marker);
+    return this.#publishComment(event, claim, issue, marker, manual);
   }
 
   async publish(input) {
