@@ -91,6 +91,7 @@ function reader(state, mutate = () => {}) {
     assert.fail(`Unexpected public read: ${route}`);
   };
   Object.defineProperty(read, 'ordinaryReads', { get: () => counts.ordinaryReads });
+  Object.defineProperty(read, 'historyReads', { get: () => counts.history });
   return read;
 }
 
@@ -163,6 +164,17 @@ test('refuses a comment history that would require a second pagination page', ()
   const read = reader(state);
   assert.throws(() => verifyContinuationApproval(read, identity));
   assert.equal(read.ordinaryReads, 1);
+});
+
+test('rechecks the one-page cap on each canonical issue read before paginating', () => {
+  const state = fixture();
+  state.issue.comments = 100;
+  const read = reader(state, (current, kind, count) => {
+    if (kind === 'issue' && count === 2) current.issue.comments = 101;
+  });
+  assert.throws(() => verifyContinuationApproval(read, identity));
+  assert.equal(read.historyReads, 0);
+  assert.equal(read.ordinaryReads, 3);
 });
 
 test('rejects invalid identities, issue 411, the quality campaign and extra CLI keys', () => {

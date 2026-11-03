@@ -155,10 +155,12 @@ function currentMainSha(readGh) {
 }
 
 function verifyReviewWithHistory(readGh, issueNumber, issue) {
+  const issuePath = `repos/${REPO}/issues/${issueNumber}`;
   const historyPath = `repos/${REPO}/issues/${issueNumber}/comments?per_page=100`;
   const histories = [];
   const review = verifyReviewFromGh(args => {
     const result = readGh(args);
+    if (args[0] === 'api' && args.at(-1) === issuePath) issueSnapshot(JSON.parse(result));
     if (args[0] === 'api' && args.includes('--paginate') && args.includes('--slurp') &&
         args.at(-1) === historyPath) histories.push(result);
     return result;
