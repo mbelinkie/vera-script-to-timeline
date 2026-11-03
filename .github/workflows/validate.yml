@@ -312,11 +312,13 @@ jobs:
       - name: Run focused smoke checks
         run: |
           node --test scripts/cloud-evidence.test.mjs scripts/agent-safety.test.mjs
-          node --test scripts/ci-queue*.test.mjs
+          node --test scripts/ci-queue*.test.mjs scripts/ci-notification*.test.mjs
           uv run --no-project --python 3.12.14 python -m compileall -q python
 
   queue-completion:
     name: Queue completion
+    outputs:
+      notification_state_sha: ${{ steps.reconcile.outputs.notification_state_sha }}
     needs: [classify, validate, docs-only, main-smoke]
     if: >-
       always() && vars.VERA_CI_QUEUE_ENABLED == 'true' &&
@@ -345,7 +347,36 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Reconcile queue completion
+        id: reconcile
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VERA_CI_QUEUE_ENABLED: ${{ vars.VERA_CI_QUEUE_ENABLED }}
         run: node scripts/ci-queue.mjs
+  # Separate timeout and failure domain; this job never supplies a queue verdict.
+  ci-notification:
+    name: CI notification
+    needs: queue-completion
+    if: ${{ always() && needs.queue-completion.outputs.notification_state_sha != '' }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      contents: write
+      issues: write
+      actions: read
+    steps:
+      - name: Check out trusted default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Publish verified CI manual handoff
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERA_NOTIFICATION_MODE: ${{ inputs.mode }}
+          VERA_NOTIFICATION_STATE_SHA: ${{ needs.queue-completion.outputs.notification_state_sha }}
+        run: node scripts/ci-notification-publish.mjs

@@ -176,6 +176,18 @@ test("trusted smoke completion records delivery then starts the next entry on th
   assert.equal(f.calls.filter((call) => call.suffix.endsWith("/dispatches")).length, 3);
 });
 
+test("downstream notification failure has no role in the verified queue verdict", async () => {
+  for (const conclusion of ["failure", "timed_out", "cancelled"]) {
+    const f = fixture(); await f.load(); await f.queue.advance();
+    await f.complete("pr", { jobs: (jobs) => [...jobs, {
+      id: 99999, run_id: jobs[0].run_id, run_attempt: 1, name: "CI notification", status: "completed", conclusion,
+    }] });
+    assert.equal(f.pulls.get(1).merged, true);
+    assert.equal(f.state.active.phase, "smoke");
+    assert.equal(f.state.paused, null);
+  }
+});
+
 test("failed, missing, or unfinished gate jobs fail closed and retain waiting entries", async () => {
   for (const jobs of [
     (items) => items.map((job) => job.name === "TypeScript and Python" ? { ...job, conclusion: "failure" } : job),

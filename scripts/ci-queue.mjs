@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GitHub } from "./ci-queue-github.mjs";
@@ -216,7 +216,9 @@ export class Queue {
       ids.add(jobResult.id);
       byName.set(jobResult.name, jobResult);
     }
-    if (byName.size !== Object.keys(completionGates).length + 1 || byName.size !== jobs.length) {
+    // The optional downstream reporter has no bearing on validation or queue control.
+    byName.delete("CI notification");
+    if (byName.size !== Object.keys(completionGates).length + 1) {
       throw new Error("Queue completion jobs are missing or unexpected");
     }
     for (const [name, outcomes] of Object.entries(completionGates)) {
@@ -498,6 +500,8 @@ export class Queue {
       return;
     }
     this.sha = loaded.sha;
+    // Read-only provenance for the later, isolated notification step.
+    this.notificationSourceSha = loaded.sha;
     this.state = validateState(loaded.state);
     if (eventName === "issue_comment" && event.issue?.number !== this.state.controlIssue) return;
     if (eventName === "workflow_dispatch" && !completion && !await this.authorize(actor)) throw new Error("Unauthorized queue control");
@@ -558,6 +562,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         mode: event.inputs?.mode,
       } } : {}),
     });
+    if (process.env.GITHUB_JOB === "queue-completion" && process.env.GITHUB_OUTPUT && SHA.test(queue.notificationSourceSha ?? "")) {
+      try { appendFileSync(process.env.GITHUB_OUTPUT, `notification_state_sha=${queue.notificationSourceSha}\n`); }
+      catch { console.warn("Notification provenance output unavailable; queue reconciliation is unchanged."); }
+    }
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
