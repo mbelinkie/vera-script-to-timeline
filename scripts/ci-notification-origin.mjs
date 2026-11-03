@@ -207,17 +207,13 @@ function recoverTemporaryLink(file, fd, description) {
   const directory = path.dirname(file);
   const names = readdirSync(directory);
   if (names.length > 5000) throw new Error(`${description} has too many registry entries`);
-  let twins;
-  try {
-    twins = names.filter(name => /^\.origin-[0-9a-f]{32}\.tmp$/.test(name)).filter(name => {
-      const stat = lstatSync(path.join(directory, name));
-      return stat.isFile() && stat.uid === uid && (stat.mode & 0o777) === 0o600 &&
-        stat.nlink === 2 && stat.dev === target.dev && stat.ino === target.ino;
-    });
-  } catch (error) {
-    if (error?.code !== "ENOENT" || fstatSync(fd).nlink !== 1) throw error;
-    return;
-  }
+  const twins = names.filter(name => /^\.origin-[0-9a-f]{32}\.tmp$/.test(name)).filter(name => {
+    let stat;
+    try { stat = lstatSync(path.join(directory, name)); }
+    catch (error) { if (error?.code === "ENOENT") return false; throw error; }
+    return stat.isFile() && stat.uid === uid && (stat.mode & 0o777) === 0o600 &&
+      stat.nlink === 2 && stat.dev === target.dev && stat.ino === target.ino;
+  });
   if (twins.length !== 1) {
     if (fstatSync(fd).nlink === 1) return;
     throw invalid();
