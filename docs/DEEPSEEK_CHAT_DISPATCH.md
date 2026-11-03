@@ -90,6 +90,10 @@ owner must not manufacture that approval record.
 
 ## Receipts and recovery
 
+[Manual recovery](DEEPSEEK_RECOVERY.md) defines #415's separate new-trial
+approval and reconciliation contract. It does not enable this receiver or
+permit replay of an existing dispatch receipt.
+
 Receipts live under `~/.codex/deepseek-dispatch-receipts/issue-N/receipt.json`.
 Parent and issue directories must be owner-owned, private and regular directories.
 Exclusive directory creation reserves an issue once; atomic replacement prevents
