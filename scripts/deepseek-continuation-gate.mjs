@@ -4,10 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
 import { readPublicGh as readIssueGh } from './deepseek-receiver.mjs';
-import { REPO, verifyCurrentIssue } from './deepseek-dispatch.mjs';
+import { REPO, RESEARCH_REPO, requireDispatchRepo, verifyCurrentIssue } from './deepseek-dispatch.mjs';
 
 const MARKER = '<!-- VERA_DEEPSEEK_CONTINUATION_V1 ';
-const MAIN_REF = `repos/${REPO}/git/ref/heads/main`;
 const IDENTITY_KEYS = [
   'issue', 'commentId', 'manifestSha', 'sourceSha', 'adapterSha',
   'reconciliationSha', 'attemptId', 'campaign', 'model', 'maxOutputTokens'
@@ -26,17 +25,25 @@ const VERIFIED_RATES = {
   }
 };
 
-function validateIdentity(identity) {
+function validateIdentity(identity, { live = false } = {}) {
   if (!identity || typeof identity !== 'object' || Array.isArray(identity) ||
       Object.getPrototypeOf(identity) !== Object.prototype) {
-    throw new Error('Invalid continuation identity');
+    throw new Error('Invalid approval identity');
   }
+  const hasRepository = Object.hasOwn(identity, 'repository');
+  if (hasRepository && !live) throw new Error('Invalid continuation identity');
   const keys = Reflect.ownKeys(identity);
-  if (keys.some(key => typeof key !== 'string') || keys.length !== IDENTITY_KEYS.length ||
-      keys.sort().some((key, index) => key !== IDENTITY_KEYS[index])) {
-    throw new Error('Invalid continuation identity');
+  const expectedKeys = hasRepository ? [...IDENTITY_KEYS, 'repository'].sort() : IDENTITY_KEYS;
+  if (keys.some(key => typeof key !== 'string') || keys.length !== expectedKeys.length ||
+      keys.sort().some((key, index) => key !== expectedKeys[index])) {
+    throw new Error('Invalid approval identity');
   }
-  if (!Number.isSafeInteger(identity.issue) || identity.issue < 1 || identity.issue === 411 ||
+  const repository = hasRepository ? identity.repository : REPO;
+  const repoSlug = requireDispatchRepo(repository);
+  if (hasRepository && repository !== RESEARCH_REPO) {
+    throw new Error('Only Research live identities bind an explicit repository');
+  }
+  if (!Number.isSafeInteger(identity.issue) || identity.issue < 1 ||
       !Number.isSafeInteger(identity.commentId) || identity.commentId < 1 ||
       !/^[a-f0-9]{64}$/.test(identity.manifestSha || '') ||
       !/^[a-f0-9]{40}$/.test(identity.sourceSha || '') ||
@@ -44,16 +51,18 @@ function validateIdentity(identity) {
       !/^[a-f0-9]{64}$/.test(identity.reconciliationSha || '') ||
       !/^[a-z0-9][a-z0-9-]{7,63}$/.test(identity.attemptId || '') ||
       !/^[a-z0-9][a-z0-9-]{7,63}$/.test(identity.campaign || '') ||
-      identity.campaign === 'quality-2026-11-02-v1' || !MODELS.has(identity.model) ||
+      !MODELS.has(identity.model) ||
       !Number.isSafeInteger(identity.maxOutputTokens) ||
       identity.maxOutputTokens < 512 || identity.maxOutputTokens > 24000) {
-    throw new Error('Invalid continuation identity');
+    throw new Error('Invalid approval identity');
   }
-  return identity;
+  if (repository === REPO && (identity.issue === 411 || identity.campaign === 'quality-2026-11-02-v1')) {
+    throw new Error('Timeline legacy approval identity is not eligible');
+  }
+  return { identity, repository, repoSlug, hasRepository };
 }
 
-export function continuationApprovalMetadata(identity) {
-  validateIdentity(identity);
+function baseApprovalMetadata(identity) {
   return {
     attemptId: identity.attemptId,
     campaign: identity.campaign,
@@ -70,6 +79,16 @@ export function continuationApprovalMetadata(identity) {
     effort: 'high',
     verifiedRates: { [identity.model]: { ...VERIFIED_RATES[identity.model] } }
   };
+}
+
+export function continuationApprovalMetadata(identity) {
+  validateIdentity(identity);
+  return baseApprovalMetadata(identity);
+}
+
+export function liveBaseApprovalMetadata(identity) {
+  const validated = validateIdentity(identity, { live: true });
+  return baseApprovalMetadata(validated.identity);
 }
 
 function exactJson(actual, expected) {
@@ -130,8 +149,8 @@ function findApprovalComment(comments, commentId, action) {
   return matches[0];
 }
 
-function verifyApprovalComment(comment, issueNumber, command, action) {
-  const issueUrl = 'https://api.github.com/repos/' + REPO + '/issues/' + issueNumber;
+function verifyApprovalComment(comment, repository, issueNumber, command, action) {
+  const issueUrl = 'https://api.github.com/repos/' + repository + '/issues/' + issueNumber;
   if (comment.body !== command ||
       comment.issue_url !== issueUrl || comment.user.login !== 'mbelinkie' ||
       comment.performed_via_github_app !== null || !canonicalRestTimestamp(comment.created_at) ||
@@ -141,12 +160,24 @@ function verifyApprovalComment(comment, issueNumber, command, action) {
   return comment;
 }
 
-function readIssue(readGh, number) {
-  return JSON.parse(readGh(['api', `repos/${REPO}/issues/${number}`]));
+function verifyIssueRepository(issue, repository, issueNumber) {
+  if (issue?.number !== issueNumber ||
+      issue.repository_url !== 'https://api.github.com/repos/' + repository ||
+      issue.html_url !== 'https://github.com/' + repository + '/issues/' + issueNumber) {
+    throw new Error('Approval issue repository identity mismatch');
+  }
 }
 
-function currentMainSha(readGh) {
-  const ref = JSON.parse(readGh(['api', MAIN_REF]));
+function repoPath(repoSlug) {
+  return `repos/mbelinkie/${repoSlug}`;
+}
+
+function readIssue(readGh, repoSlug, number) {
+  return JSON.parse(readGh(['api', `${repoPath(repoSlug)}/issues/${number}`]));
+}
+
+function currentMainSha(readGh, repoSlug) {
+  const ref = JSON.parse(readGh(['api', `${repoPath(repoSlug)}/git/ref/heads/main`]));
   if (ref?.ref !== 'refs/heads/main' || ref.object?.type !== 'commit' ||
       !/^[a-f0-9]{40}$/.test(ref.object.sha || '')) {
     throw new Error('Current main ref is unavailable');
@@ -154,9 +185,9 @@ function currentMainSha(readGh) {
   return ref.object.sha;
 }
 
-function verifyReviewWithHistory(readGh, issueNumber, issue) {
-  const issuePath = `repos/${REPO}/issues/${issueNumber}`;
-  const historyPath = `repos/${REPO}/issues/${issueNumber}/comments?per_page=100`;
+function verifyReviewWithHistory(readGh, repository, repoSlug, issueNumber, issue) {
+  const issuePath = `${repoPath(repoSlug)}/issues/${issueNumber}`;
+  const historyPath = `${issuePath}/comments?per_page=100`;
   const histories = [];
   const review = verifyReviewFromGh(args => {
     const result = readGh(args);
@@ -164,7 +195,7 @@ function verifyReviewWithHistory(readGh, issueNumber, issue) {
     if (args[0] === 'api' && args.includes('--paginate') && args.includes('--slurp') &&
         args.at(-1) === historyPath) histories.push(result);
     return result;
-  }, REPO, issueNumber, issue);
+  }, repository, issueNumber, issue);
   if (histories.length !== 2) throw new Error('Producer review history was not verified twice');
   const pages = JSON.parse(histories[1]);
   if (!Array.isArray(pages) || !pages.every(Array.isArray)) {
@@ -175,7 +206,11 @@ function verifyReviewWithHistory(readGh, issueNumber, issue) {
 
 export function verifyPublicApproval(readGh, identity, mode) {
   if (typeof readGh !== 'function') throw new Error('Public GitHub reader required');
-  validateIdentity(identity);
+  const repoIdentity = validateIdentity(identity, { live: mode === 'live' });
+  const { repository, repoSlug, hasRepository } = repoIdentity;
+  const readRepositoryGh = hasRepository
+    ? args => readGh(args, undefined, { repository })
+    : readGh;
   let configuration;
   if (mode === 'continuation') {
     configuration = {
@@ -188,7 +223,8 @@ export function verifyPublicApproval(readGh, identity, mode) {
   } else if (mode === 'live') {
     configuration = {
       metadata: identity => ({
-        ...continuationApprovalMetadata(identity),
+        ...liveBaseApprovalMetadata(identity),
+        ...(hasRepository ? { repository } : {}),
         executionMode: 'live',
         transportContract: 'VERA_DEEPSEEK_RECEIVER_V2'
       }),
@@ -201,26 +237,29 @@ export function verifyPublicApproval(readGh, identity, mode) {
     throw new Error('Unknown public approval mode');
   }
   const expected = configuration.metadata(identity);
-  const issue = readIssue(readGh, identity.issue);
-  verifyCurrentIssue(issue, identity.issue);
+  const issue = readIssue(readRepositoryGh, repoSlug, identity.issue);
+  verifyIssueRepository(issue, repository, identity.issue);
+  verifyCurrentIssue(issue, identity.issue, { repository });
   const before = issueSnapshot(issue);
   verifyIssueMetadata(issue, expected, configuration.marker, configuration.markerName, configuration.action);
 
-  const mainBefore = currentMainSha(readGh);
+  const mainBefore = currentMainSha(readRepositoryGh, repoSlug);
   if (mainBefore !== identity.sourceSha) throw new Error('Approved source is not current main');
 
-  const { review, comments } = verifyReviewWithHistory(readGh, identity.issue, issue);
+  const { review, comments } = verifyReviewWithHistory(readRepositoryGh, repository, repoSlug, identity.issue, issue);
   verifyApprovalComment(
     findApprovalComment(comments, identity.commentId, configuration.action),
+    repository,
     identity.issue,
     configuration.command,
     configuration.action
   );
 
-  const currentIssue = readIssue(readGh, identity.issue);
-  verifyCurrentIssue(currentIssue, identity.issue);
+  const currentIssue = readIssue(readRepositoryGh, repoSlug, identity.issue);
+  verifyIssueRepository(currentIssue, repository, identity.issue);
+  verifyCurrentIssue(currentIssue, identity.issue, { repository });
   const after = issueSnapshot(currentIssue);
-  const mainAfter = currentMainSha(readGh);
+  const mainAfter = currentMainSha(readRepositoryGh, repoSlug);
   if (before !== after || mainAfter !== identity.sourceSha || mainAfter !== mainBefore) {
     throw new Error(configuration.action + ' authorization changed during verification');
   }
@@ -239,14 +278,21 @@ export function verifyContinuationApproval(readGh, identity) {
   return verifyPublicApproval(readGh, identity, 'continuation');
 }
 
-function readPublicMainRef(args, spawn) {
-  if (args.length !== 2 || args[0] !== 'api' || args[1] !== MAIN_REF) {
-    throw new Error('Unsupported public continuation read');
+function readPublicMainRef(args, spawn, expectedRepository) {
+  if (args.length !== 2 || args[0] !== 'api' || typeof args[1] !== 'string') {
+    throw new Error('Unsupported public main read');
   }
+  const match = args[1].match(/^repos\/([^/]+)\/([^/]+)\/git\/ref\/heads\/main$/);
+  const repository = match && `${match[1]}/${match[2]}`;
+  if (!match || (expectedRepository !== undefined && expectedRepository !== repository) ||
+      args[1] !== `repos/${match[1]}/${requireDispatchRepo(repository)}/git/ref/heads/main`) {
+    throw new Error('Unsupported public main read');
+  }
+  const route = args[1];
   const result = spawn('curl', [
     '--disable', '--fail', '--silent', '--show-error', '--max-time', '15', '--proto', '=https',
     '--header', 'Accept: application/vnd.github+json', '--header', 'X-GitHub-Api-Version: 2022-11-28',
-    '--header', 'User-Agent: vera-deepseek-continuation-gate', `https://api.github.com/${MAIN_REF}`
+    '--header', 'User-Agent: vera-deepseek-approval-gate', `https://api.github.com/${route}`
   ], {
     encoding: 'utf8', maxBuffer: 1024 * 1024, shell: false,
     env: { PATH: process.env.PATH || '/usr/bin:/bin' }
@@ -255,9 +301,11 @@ function readPublicMainRef(args, spawn) {
   return result.stdout;
 }
 
-export function readPublicGh(args, spawn = spawnSync) {
-  if (args?.at(-1) === MAIN_REF) return readPublicMainRef(args, spawn);
-  return readIssueGh(args, spawn);
+export function readPublicGh(args, spawn = spawnSync, options = {}) {
+  if (typeof args?.at(-1) === 'string' && /\/git\/ref\/heads\/main$/.test(args.at(-1))) {
+    return readPublicMainRef(args, spawn, options.repository);
+  }
+  return readIssueGh(args, spawn, options);
 }
 
 export function main(argv = process.argv.slice(2), readGh = readPublicGh) {

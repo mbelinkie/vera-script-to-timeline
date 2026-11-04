@@ -91,8 +91,9 @@ After installing the reviewed adapter, while all dispatch/live flags are off:
 node scripts/deepseek-receiver.mjs --preflight <approved-adapter-sha256>
 ```
 
-For Research, include `--repo mbelinkie/vera-research-video-clips` and provision
-the owner-only Research directories first. Initialize the Research cursor with
+For Research, use `--preflight --repo mbelinkie/vera-research-video-clips
+<approved-adapter-sha256>` and provision the owner-only Research directories
+first. Initialize the Research cursor with
 one explicit mock-mode poll before posting a proof event. Use a dedicated mock
 issue, because a mock receipt also consumes its repository/issue pair.
 
@@ -129,7 +130,9 @@ For the first paid Research task, choose a separate issue with one public
 target and a frozen check that fails on the pinned Research baseline. Obtain
 exact approval of that task, its repository, event, candidate and gate commits,
 adapter build, model, one attempt and spending limit before an explicit Research
-live poll.
+live poll. In addition to the temporary live environment flags above, pass
+`--repo mbelinkie/vera-research-video-clips --issue <number> --comment-id <id>`.
+The command-line and environment issue/event selections must agree.
 
 The receiver repeats issue, event, canonical review, current main, manifest and
 adapter checks before its sole adapter invocation. Live mode delegates to the
