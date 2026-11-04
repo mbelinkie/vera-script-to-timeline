@@ -27,6 +27,7 @@ REPOS = {
     "mbelinkie/vera-research-video-clips": "mbelinkie/vera-research-video-clips",
 }
 LABELS = {"flash": "deepseek", "pro": "deepseek-pro"}
+ELIGIBLE_TYPES = {"type:implementation", "type:bug"}
 TRIGGER_COLORS = {"deepseek": "1f6feb", "deepseek-pro": "8250df"}
 MIN_BRIEF = 40
 MAX_BRIEF = 60_000
@@ -106,6 +107,10 @@ def launch(repo: str, issue: int | str, brief: str, model: str = "flash") -> dic
     if view.get("state") != "OPEN":
         raise LaunchError("issue is not open")
     current = {item.get("name") for item in view.get("labels", [])}
+    if "deepseek-excluded" in current:
+        raise LaunchError("issue is labelled deepseek-excluded")
+    if not current & ELIGIBLE_TYPES:
+        raise LaunchError("only type:implementation or type:bug issues go to DeepSeek")
     if "deepseek-running" in current:
         raise LaunchError("a DeepSeek attempt is already running for this issue")
 

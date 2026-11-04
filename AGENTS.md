@@ -181,6 +181,18 @@ until there is a result or a question that needs him.
 
 ## Specific workflows
 
+- **"Work on the next prepped ticket."** When Matthew says this (or something
+  like it), run `npm run prep -- --next`. It returns the highest-priority open
+  issue, in either repo, that has a finished DeepSeek draft (label
+  `deepseek-done`), isn't already In progress or In review, and has no
+  unfinished dependencies. The issue carries a groomed brief comment (from
+  ChatGPT) and a DeepSeek draft PR, or a pushed `deepseek/issue-<n>-<run>`
+  branch linked from its result comment. His request is the Producer go-ahead
+  for that ticket. Claim it normally, start your branch from DeepSeek's branch,
+  review the draft against the brief and the issue, fix and finish it, and
+  deliver it as usual. Close DeepSeek's draft PR once yours supersedes it. If
+  the command finds nothing, say so. See `.github/deepseek/README.md`.
+
 - Every visual design story must pass the capability-evidence gate in
   [docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#capability-evidence-before-design)
   before feature design or Claude edits; missing feasibility is a design blocker.
