@@ -5,8 +5,9 @@ credential, response, receipt, account data or installed private path inventory.
 
 ## Read-only adapter host preflight
 
-The reviewed executable receives `--host-preflight` with only HOME, system PATH
-and `VERA_DEEPSEEK_ADAPTER_SHA256`. It performs no state write, event consumption,
+The reviewed executable receives `--host-preflight` with HOME, system PATH
+and `VERA_DEEPSEEK_ADAPTER_SHA256`. Research also supplies `VERA_REPOSITORY`.
+It performs no state write, event consumption,
 credential import or network request. Success returns exactly:
 
 ```json
@@ -21,11 +22,12 @@ caller also checks runner bytes before/after and receiver/receipt storage.
 
 ## Approval identity and event
 
-`liveApprovalMetadata(identity)` accepts exactly `issue`, `commentId`,
+For Timeline, `liveApprovalMetadata(identity)` accepts exactly `issue`, `commentId`,
 `manifestSha`, `sourceSha`, `adapterSha`, `reconciliationSha`, `attemptId`,
-`campaign`, `model`, `maxOutputTokens`. Hashes are full SHA-256, except the
-40-character source commit. Issue #411 and the discontinued original campaign
-are prohibited. Bounds are one attempt, 20,000 input units, 512–24,000 output
+`campaign`, `model`, `maxOutputTokens`. Research requires the additional
+`repository` key in both identity and returned metadata. Hashes are full
+SHA-256, except the 40-character source commit. Timeline issue #411 and the
+discontinued shared campaign are prohibited. Bounds are one attempt, 20,000 input units, 512–24,000 output
 tokens, high effort, USD0.25 task/campaign and USD10 shared lifetime.
 
 The issue's sole `VERA_DEEPSEEK_LIVE_V2` marker contains the generated metadata:
@@ -39,6 +41,15 @@ comment-history and main reads. Its result adds `approved: true`, issue/event,
 every result field and repeats the gate after provider preflight.
 
 ## Receiver invocation
+
+Script-to-Timeline retains its existing state locations and approval shape.
+Research requires an explicit repository identity in the approval record and
+uses separate cursor, manifest, receipt and candidate directories. Research
+source files and checks come from the approved Research commit. The private
+adapter runs the live approval gate from the separate reviewed Timeline commit
+pinned in the adapter and bound by the manifest. Both repositories use the
+same ledger and lock. Historical rows without a repository remain Timeline
+records. Attempt IDs and campaign IDs remain unique across repositories.
 
 The receiver invokes the same reviewed executable once with issue and comment
 as two arguments. The environment contains HOME/system PATH, repository,

@@ -7,6 +7,7 @@ import {
 } from './deepseek-live-gate.mjs';
 
 const REPO = 'mbelinkie/vera-script-to-timeline';
+const RESEARCH_REPO = 'mbelinkie/vera-research-video-clips';
 const MARKER = '<!-- VERA_DEEPSEEK_LIVE_V2 ';
 const identity = {
   issue: 416,
@@ -44,28 +45,30 @@ function reviewComment(issue, overrides = {}) {
 }
 
 function fixture({
-  metadata = liveApprovalMetadata(identity),
+  identity: selectedIdentity = identity,
+  metadata = liveApprovalMetadata(selectedIdentity),
   event = {},
   review = {},
   omitEvent = false,
   omitReview = false
 } = {}) {
+  const repo = selectedIdentity.repository || REPO;
   const issue = {
-    number: identity.issue,
+    number: selectedIdentity.issue,
     title: 'One separately approved live receiver action',
     state: 'open',
     comments: 2,
-    repository_url: 'https://api.github.com/repos/' + REPO,
-    html_url: 'https://github.com/' + REPO + '/issues/' + identity.issue,
+    repository_url: 'https://api.github.com/repos/' + repo,
+    html_url: 'https://github.com/' + repo + '/issues/' + selectedIdentity.issue,
     updated_at: '2026-11-03T14:01:00Z',
     labels: ['type:implementation', 'chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'],
     body: issueBody(metadata)
   };
   const reviewApproval = reviewComment(issue, review);
   const dispatch = {
-    id: identity.commentId,
+    id: selectedIdentity.commentId,
     body: '/deepseek dispatch',
-    issue_url: 'https://api.github.com/repos/' + REPO + '/issues/' + identity.issue,
+    issue_url: 'https://api.github.com/repos/' + repo + '/issues/' + selectedIdentity.issue,
     user: { login: 'mbelinkie' },
     performed_via_github_app: null,
     created_at: '2026-11-03T14:01:00Z',
@@ -77,24 +80,26 @@ function fixture({
   if (!omitEvent) comments.push(dispatch);
   comments.sort((left, right) => left.id - right.id);
   issue.comments = comments.length;
-  return { issue, comments, mainSha: identity.sourceSha };
+  return { issue, comments, mainSha: selectedIdentity.sourceSha };
 }
 
-function reader(state, mutate = () => {}) {
+function reader(state, mutate = () => {}, selectedIdentity = identity) {
   const counts = { issue: 0, history: 0, main: 0 };
   const read = args => {
     assert.equal(args[0], 'api');
     const route = args.at(-1);
-    if (route === 'repos/' + REPO + '/issues/' + identity.issue) {
+    const selectedRepo = selectedIdentity.repository || REPO;
+    const issueNumber = selectedIdentity.issue;
+    if (route === 'repos/' + selectedRepo + '/issues/' + issueNumber) {
       mutate(state, 'issue', ++counts.issue);
       return JSON.stringify(globalThis.structuredClone(state.issue));
     }
-    if (route === 'repos/' + REPO + '/issues/' + identity.issue + '/comments?per_page=100') {
+    if (route === 'repos/' + selectedRepo + '/issues/' + issueNumber + '/comments?per_page=100') {
       assert.ok(args.includes('--paginate') && args.includes('--slurp'));
       mutate(state, 'history', ++counts.history);
       return JSON.stringify([globalThis.structuredClone(state.comments)]);
     }
-    if (route === 'repos/' + REPO + '/git/ref/heads/main') {
+    if (route === 'repos/' + selectedRepo + '/git/ref/heads/main') {
       mutate(state, 'main', ++counts.main);
       return JSON.stringify({
         ref: 'refs/heads/main',
@@ -106,8 +111,8 @@ function reader(state, mutate = () => {}) {
   return read;
 }
 
-function approve(state = fixture(), mutate) {
-  return verifyLiveApproval(reader(state, mutate), identity);
+function approve(state = fixture(), mutate, selectedIdentity = identity) {
+  return verifyLiveApproval(reader(state, mutate, selectedIdentity), selectedIdentity);
 }
 
 function replaceReviewForCurrentIssue(state) {
@@ -134,6 +139,65 @@ test('accepts a current live Producer approval and exact unedited owner dispatch
   assert.equal(result.executionMode, 'live');
   assert.equal(result.transportContract, 'VERA_DEEPSEEK_RECEIVER_V2');
   assert.equal(result.taskCapUsd, '0.25');
+});
+
+test('binds Research live approval to its repository and permits its independent issue 411', () => {
+  const researchIdentity = { ...identity, issue: 411, repository: RESEARCH_REPO };
+  const metadata = liveApprovalMetadata(researchIdentity);
+  assert.equal(metadata.repository, RESEARCH_REPO);
+  assert.equal(metadata.executionMode, 'live');
+
+  const state = fixture({ identity: researchIdentity });
+  const routes = [];
+  const readRepositories = [];
+  const baseRead = reader(state, () => {}, researchIdentity);
+  const result = verifyLiveApproval((args, spawn, options) => {
+    routes.push(args.at(-1));
+    readRepositories.push(options?.repository);
+    return baseRead(args);
+  }, researchIdentity);
+  assert.equal(result.approved, true);
+  assert.equal(result.repository, RESEARCH_REPO);
+  assert.equal(result.issue, 411);
+  assert.ok(routes.length > 0);
+  assert.ok(routes.every(route => route.startsWith('repos/' + RESEARCH_REPO + '/')));
+  assert.ok(readRepositories.every(repository => repository === RESEARCH_REPO));
+});
+
+test('requires the Research repository in both identity and canonical live marker', () => {
+  const researchIdentity = { ...identity, issue: 411, repository: RESEARCH_REPO };
+  const metadata = liveApprovalMetadata(researchIdentity);
+  delete metadata.repository;
+  assert.throws(() => approve(fixture({ identity: researchIdentity, metadata }), undefined, researchIdentity));
+
+  const missingIdentity = { ...researchIdentity };
+  delete missingIdentity.repository;
+  assert.throws(() => verifyLiveApproval(reader(fixture({ identity: researchIdentity })), missingIdentity));
+});
+
+test('Research cannot reuse the discontinued shared campaign', () => {
+  assert.throws(() => liveApprovalMetadata({
+    ...identity, repository: RESEARCH_REPO, campaign: 'quality-2026-11-02-v1'
+  }), /Legacy approval identity is not eligible/);
+});
+
+test('rejects Research events that name the Timeline issue and keeps Timeline issue 411 held', () => {
+  const researchIdentity = { ...identity, issue: 411, repository: RESEARCH_REPO };
+  const crossedEvent = fixture({
+    identity: researchIdentity,
+    event: { issue_url: 'https://api.github.com/repos/' + REPO + '/issues/411' }
+  });
+  assert.throws(() => approve(crossedEvent, undefined, researchIdentity));
+  assert.throws(() => liveApprovalMetadata({ ...identity, issue: 411 }));
+
+  const crossedIssue = fixture({ identity: researchIdentity });
+  crossedIssue.issue.repository_url = 'https://api.github.com/repos/' + REPO;
+  assert.throws(() => approve(crossedIssue, undefined, researchIdentity));
+
+  assert.throws(() => approve(fixture({ identity: researchIdentity, omitReview: true }), undefined, researchIdentity));
+  const staleMain = fixture({ identity: researchIdentity });
+  staleMain.mainSha = 'e'.repeat(40);
+  assert.throws(() => approve(staleMain, undefined, researchIdentity));
 });
 
 test('refuses revoked or stale canonical Producer review and a changed handoff task', () => {

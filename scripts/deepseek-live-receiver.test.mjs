@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { liveIdentity, pollOnce, processDispatchComment, validateManifest } from './deepseek-receiver.mjs';
 import { liveApprovalMetadata } from './deepseek-live-gate.mjs';
 import { issueRevision } from './chat-review-current.mjs';
-import { COMMAND, REPO } from './deepseek-dispatch.mjs';
+import { COMMAND, REPO, RESEARCH_REPO } from './deepseek-dispatch.mjs';
 
 const sha = 'a'.repeat(40);
 const hash = 'b'.repeat(64);
@@ -45,6 +45,59 @@ test('V2 live mode requires exact independent single-attempt limits and never in
   for (const change of changes) assert.throws(() => validateManifest({ ...liveManifest(), ...change }, 421, 321, sha));
   const mock = { ...liveManifest(), execution_mode: 'mock', live_enabled: false, mock_replacement: 'synthetic' };
   assert.equal(validateManifest(mock, 421, 321, sha).mode, 'mock');
+});
+
+test('Research live V2 binds a separate approved Timeline gate checkout and repository identity', () => {
+  const research = {
+    ...liveManifest(), repository: RESEARCH_REPO,
+    live_gate_repo: '/synthetic/timeline-gate-checkout', live_gate_base_sha: sha,
+    live_gate_files: { 'scripts/deepseek-live-gate.mjs': hash }
+  };
+  research.verified_rates = liveApprovalMetadata(liveIdentity(research, hash, { repository: RESEARCH_REPO })).verifiedRates;
+  assert.equal(validateManifest(research, 421, 321, sha, { repository: RESEARCH_REPO }).mode, 'live');
+  assert.equal(liveIdentity(research, hash, { repository: RESEARCH_REPO }).repository, RESEARCH_REPO);
+  for (const change of [
+    { live_gate_repo: undefined }, { live_gate_repo: 'relative/path' },
+    { live_gate_base_sha: 'short' }, { live_gate_files: {} },
+    { live_gate_files: { 'scripts/deepseek-live-gate.mjs': 'invalid' } },
+    { schema: 1, transport_contract: 'VERA_DEEPSEEK_RECEIVER_V1' }
+  ]) {
+    assert.throws(() => validateManifest({ ...research, ...change }, 421, 321, sha, { repository: RESEARCH_REPO }));
+  }
+});
+
+test('Research live event defers unless the selected target binds its repository, issue, and comment', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vera-research-live-target-'));
+  const manifestDir = join(root, 'tasks');
+  const researchManifestDir = join(manifestDir, 'vera-research-video-clips');
+  mkdirSync(researchManifestDir, { recursive: true, mode: 0o700 });
+  const task = {
+    ...liveManifest(), repository: RESEARCH_REPO,
+    live_gate_repo: '/synthetic/timeline-gate-checkout', live_gate_base_sha: sha,
+    live_gate_files: { 'scripts/deepseek-live-gate.mjs': hash }
+  };
+  task.verified_rates = liveApprovalMetadata(liveIdentity(task, hash, { repository: RESEARCH_REPO })).verifiedRates;
+  writeFileSync(join(researchManifestDir, 'issue-421.json'), JSON.stringify(task), { mode: 0o400 });
+  const issue = {
+    number: 421, title: 'Synthetic Research live task', state: 'open',
+    body: '## DeepSeek Handoff\nOne exact task.',
+    labels: ['type:implementation', 'chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'],
+    repository_url: `https://api.github.com/repos/${RESEARCH_REPO}`
+  };
+  const comment = {
+    id: 321, body: COMMAND, user: { login: 'mbelinkie' },
+    issue_url: `https://api.github.com/repos/${RESEARCH_REPO}/issues/421`
+  };
+  try {
+    await assert.rejects(processDispatchComment(comment, {
+      repository: RESEARCH_REPO, manifestDir, liveEnabled: true,
+      liveTarget: { repository: RESEARCH_REPO, issue: 421, commentId: 322 },
+      fetchImpl: async url => ({ ok: true, json: async () => url.endsWith('/commits/main') ? { sha } : issue }),
+      invoke: () => assert.fail('Wrong Research event target reached the adapter')
+    }), /Live event deferred/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('receiver invokes only separately approved live mode after read-only host checks and preserves controller receipt', async () => {
