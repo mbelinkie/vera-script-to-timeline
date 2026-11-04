@@ -643,3 +643,11 @@ def test_enqueue_syncs_job_directory_entry_before_committing(
     monkeypatch.setattr(queue_module, "sync_directory", observe_sync)
     enqueue(store, write_plan(tmp_path, plan()))
     assert synced
+
+
+def test_unknown_job_report_does_not_create_directory(tmp_path: Path) -> None:
+    store = Store(tmp_path / "q")
+    job = "resolve-test-" + "a" * 32
+    with pytest.raises(QueueError, match="unknown job"):
+        store.publish(job)
+    assert not store.jobdir(job).exists()

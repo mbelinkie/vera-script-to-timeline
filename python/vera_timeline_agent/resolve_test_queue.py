@@ -332,7 +332,6 @@ class Store:
 
     def publish(self, job_id: str) -> dict[str, Any]:
         folder = self.jobdir(job_id)
-        folder.mkdir(mode=0o700, exist_ok=True)
         with (self.root / "publish.lock").open("a+b") as lock:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             with self.connect() as db:
@@ -357,6 +356,7 @@ class Store:
                         (job_id,),
                     )
                 ]
+            folder.mkdir(mode=0o700, exist_ok=True)
             identity = frozen_plan_identity(self, job_id, row["plan_sha"])
             status = {
                 "jobId": job_id,
