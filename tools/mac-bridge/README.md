@@ -32,10 +32,36 @@ That label starts `.github/workflows/deepseek.yml` on GitHub's servers;
 nothing runs on the Mac. See `.github/deepseek/README.md`.
 
 Requires `gh auth status` to succeed for the Mac user that runs the bridge.
-To install: update the bridge checkout, run the unit tests, restart the
-tunnel (`launchctl kickstart -k "gui/$(id -u)/com.vera.mac-bridge"`), then
-refresh the private plugin's tool list in ChatGPT and check that
-`mac_health()` reports version 0.4.0.
+### Updating the installed bridge
+
+The Producer's Mac runs the bridge from
+`~/.local/share/vera-mac-bridge/source/tools/mac-bridge`, as one LaunchAgent
+per ChatGPT tunnel profile: `com.vera.mac-bridge.vera-chatgpt-2` and
+`com.vera.mac-bridge.vera-chatgpt-3`. There is no plain `com.vera.mac-bridge`
+service there. To list what is actually running, use
+`launchctl list | grep com.vera.mac-bridge`.
+
+1. **Check for local edits first.** That folder is a git checkout with
+   hand-made local changes (for example the auto-approve edits in
+   `shell_core.py`). Run `git -C ~/.local/share/vera-mac-bridge/source status`
+   and back up any modified file you are about to replace. Copy only the files
+   that changed upstream; don't overwrite the whole folder.
+2. Copy in the new files, for example from an up-to-date `~/vera-prep`
+   checkout:
+   `cp ~/vera-prep/tools/mac-bridge/deepseek_launch.py ~/.local/share/vera-mac-bridge/source/tools/mac-bridge/`
+3. **Restart every profile**, because a restart reloads the Python code:
+
+   ```sh
+   launchctl kickstart -k "gui/$(id -u)/com.vera.mac-bridge.vera-chatgpt-2"
+   launchctl kickstart -k "gui/$(id -u)/com.vera.mac-bridge.vera-chatgpt-3"
+   ```
+
+4. **Only then refresh the tools in ChatGPT:** Settings → Plugins → VERA Mac
+   Bridge → Refresh tools. Refreshing before the restart keeps the old tool
+   list.
+5. Start a **new chat**, because an existing chat keeps the tool list it
+   started with. Check that `mac_health()` reports the new version and that
+   the new tools are listed.
 
 ## Codex-style isolated workspace (no repeated Mac popups)
 
