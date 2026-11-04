@@ -48,6 +48,7 @@ import type {
 
 import type {
   AuthoringReferencePort,
+  CaptureAction,
   ProjectAuthorizationPort,
   WorkerAuthorizationPort,
 } from "./authorization.js";
@@ -2508,11 +2509,6 @@ export class CaptureService {
       principalKind: job.initiating_principal_kind,
       principalId: job.initiating_principal_id,
     };
-    const commitAuthorization = await this.dependencies.authorization.authorize(
-      claims.projectId,
-      initiatingPrincipal,
-      "capture_commit",
-    );
     if (job.trigger_kind === "on_build") {
       await this.dependencies.references.validate(
         claims.projectId,
@@ -2520,22 +2516,18 @@ export class CaptureService {
         "protect",
       );
     }
-    let selectionAuthorization: AuthorizationDecisionRef | null = null;
-    if (
+    const conditionalSelectionTarget =
       request.reviewClassification === "ready" &&
       job.trigger_kind === "now" &&
       job.conditional_selection_intent !== null
-    ) {
-      selectionAuthorization = await this.dependencies.authorization.authorize(
-        claims.projectId,
-        initiatingPrincipal,
-        "capture_select",
-      );
+        ? json<Extract<SelectionIntent, { kind: "conditional" }>>(
+            job.conditional_selection_intent,
+          ).target
+        : null;
+    if (conditionalSelectionTarget !== null) {
       await this.dependencies.references.validate(
         claims.projectId,
-        json<Extract<SelectionIntent, { kind: "conditional" }>>(
-          job.conditional_selection_intent,
-        ).target,
+        conditionalSelectionTarget,
         "select",
       );
     }
@@ -2552,6 +2544,24 @@ export class CaptureService {
     }
     const publishedRevisionId = await this.dependencies.database.transaction(
       async (client) => {
+        // Recheck membership on the publish transaction's own client so the
+        // decision and the published revision commit atomically with respect
+        // to concurrent role changes.
+        const commitAuthorization = await this.authorizeForCommit(
+          client,
+          claims.projectId,
+          initiatingPrincipal,
+          "capture_commit",
+        );
+        let selectionAuthorization: AuthorizationDecisionRef | null = null;
+        if (conditionalSelectionTarget !== null) {
+          selectionAuthorization = await this.authorizeForCommit(
+            client,
+            claims.projectId,
+            initiatingPrincipal,
+            "capture_select",
+          );
+        }
         const current = await this.currentLease(
           client,
           request.lease,
@@ -3415,6 +3425,24 @@ export class CaptureService {
       );
     }
     return request.reviewClassification;
+  }
+
+  private async authorizeForCommit(
+    client: SqlClient,
+    projectId: string,
+    principal: PrincipalRef,
+    action: CaptureAction,
+  ): Promise<AuthorizationDecisionRef> {
+    const port = this.dependencies.authorization;
+    if (port.authorizeInTransaction) {
+      return await port.authorizeInTransaction(
+        client,
+        projectId,
+        principal,
+        action,
+      );
+    }
+    return await port.authorize(projectId, principal, action);
   }
 
   private async loadJobForCapability(claims: LeaseClaims): Promise<JobRow> {

@@ -28,6 +28,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@types/pg": "8.23.1",
-    "@types/pngjs": "6.0.5"
+    "@types/pngjs": "6.0.5",
+    "@vera/project-authorization": "0.0.0"
   }
 }

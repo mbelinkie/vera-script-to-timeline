@@ -5,6 +5,7 @@ import type {
   VersionedExternalReference,
 } from "@vera/contracts";
 
+import type { SqlClient } from "./database.js";
 import { CaptureServiceError } from "./errors.js";
 
 export type CaptureAction =
@@ -25,6 +26,16 @@ export type ExternalReference =
 
 export interface ProjectAuthorizationPort {
   authorize(
+    projectId: string,
+    principal: PrincipalRef,
+    action: CaptureAction,
+  ): Promise<AuthorizationDecisionRef>;
+  // Same-transaction variant used by the commit flow when available: the
+  // membership recheck runs on the publish transaction's own client so the
+  // permission decision and the published revision commit atomically. Ports
+  // without this method keep the plain authorize() call.
+  authorizeInTransaction?(
+    client: SqlClient,
     projectId: string,
     principal: PrincipalRef,
     action: CaptureAction,
