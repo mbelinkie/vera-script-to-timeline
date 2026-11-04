@@ -72,7 +72,7 @@ npm run validate:fast
 
 This keeps generated-currentness, all lint and type checks, fast TypeScript
 unit coverage, and Python tests that are non-slow or explicitly marked as fast
-unit coverage inside a slow module, on four workers. Contracts fast tests
+unit coverage inside a slow module, on eight workers. Contracts fast tests
 use two Vitest workers to limit contention on the Mac. Long compiler CLI,
 media-probing, browser, and embedded-database integration coverage stays in
 the complete GitHub Actions gate; run an affected integration file directly
