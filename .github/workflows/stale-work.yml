@@ -1,0 +1,27 @@
+name: Weekly stale-work check
+
+# Free replacement for the Codex steward. Comments on the "Weekly stale-work
+# check" issue only when it finds stranded branches, idle PRs, or issues closed
+# without merged work.
+on:
+  schedule:
+    - cron: "17 12 * * 1" # Mondays, 07:17 ET
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Look for stale work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/stale-work.sh

@@ -14,17 +14,16 @@
   "scripts": {
     "roadmap": "node scripts/roadmap.mjs",
     "test:roadmap": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs scripts/roadmap-transport-154.test.mjs scripts/chat-review-current.test.mjs scripts/chat-review-github.test.mjs",
-    "test:agent-safety": "node --test scripts/agent-safety.test.mjs scripts/deepseek-dispatch.test.mjs scripts/deepseek-receiver.test.mjs scripts/deepseek-live-receiver.test.mjs scripts/deepseek-host-preflight.test.mjs scripts/deepseek-live-gate.test.mjs scripts/deepseek-quality-gate.test.mjs scripts/deepseek-continuation-gate.test.mjs",
+    "test:agent-safety": "node --test scripts/agent-safety.test.mjs",
     "prep": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prep-board.mjs",
     "progress": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/project-progress.mjs",
     "test:progress": "node --test scripts/project-progress*.test.mjs",
-    "test:cloud-evidence": "node --test scripts/cloud-evidence.test.mjs",
     "generate:contracts": "node packages/contracts/scripts/generate-contracts.mjs",
     "check:contracts-generated": "node packages/contracts/scripts/generate-contracts.mjs --check",
     "lint:typescript": "eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present",
     "typecheck:typescript": "npm run typecheck --workspaces --if-present",
-    "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence && npm run test:agent-safety && npm run test:ci-queue && node --test scripts/codex-session*.test.mjs scripts/prep-board.test.mjs",
-    "test:typescript:fast": "node scripts/verify-fast-workspaces.mjs && npm run test:fast --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:cloud-evidence && npm run test:agent-safety && npm run test:ci-queue && node --test scripts/codex-session*.test.mjs scripts/prep-board.test.mjs",
+    "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci-queue && node --test scripts/codex-session*.test.mjs scripts/prep-board.test.mjs",
+    "test:typescript:fast": "node scripts/verify-fast-workspaces.mjs && npm run test:fast --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci-queue && node --test scripts/codex-session*.test.mjs scripts/prep-board.test.mjs",
     "check:typescript": "npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript",
     "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
     "typecheck:python": "uv run --frozen mypy python tests",
@@ -37,7 +36,7 @@
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
     "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 2",
     "validate:fast": "npm run check:contracts-generated && npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript:fast && npm run lint:python && npm run typecheck:python && npm run test:python:fast",
-    "test:ci-queue": "node --test scripts/ci-queue*.test.mjs scripts/ci-notification*.test.mjs && tsc --project scripts/tsconfig.ci-queue.json"
+    "test:ci-queue": "node --test scripts/ci-queue*.test.mjs scripts/ci-docs-only.test.mjs && tsc --project scripts/tsconfig.ci-queue.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
