@@ -15,7 +15,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent.resolve_test_queue import (
     PLAN_SCHEMA,
     QueueError,
@@ -257,7 +256,9 @@ def test_wall_clock_jump_consumes_elapsed_budget(
             return real_time() + 2
         return real_time()
 
-    monkeypatch.setattr(queue.time, "time", jump_after_first_trial)
+    monkeypatch.setattr(
+        "vera_timeline_agent.resolve_test_queue.time.time", jump_after_first_trial
+    )
     assert worker_once(store)
 
     report = store.publish(job)
@@ -336,8 +337,7 @@ def test_disk_exhaustion_blocks_before_recording_trial(
         (store.jobdir(job) / "filler.bin").write_bytes(b"x" * (1048576 + 1))
     else:
         monkeypatch.setattr(
-            queue.shutil,
-            "disk_usage",
+            "vera_timeline_agent.resolve_test_queue.shutil.disk_usage",
             lambda _path: SimpleNamespace(free=1048575),
         )
 
