@@ -40,6 +40,15 @@ every result field and repeats the gate after provider preflight.
 
 ## Receiver invocation
 
+Script-to-Timeline retains its existing state locations and approval shape.
+Research requires an explicit repository identity in the approval record and
+uses separate cursor, manifest, receipt and candidate directories. Research
+source files and checks come from the approved Research commit. The private
+adapter runs the live approval gate from the separate reviewed Timeline commit
+pinned in the adapter and bound by the manifest. Both repositories use the
+same ledger and lock. Historical rows without a repository remain Timeline
+records. Attempt IDs and campaign IDs remain unique across repositories.
+
 The receiver invokes the same reviewed executable once with issue and comment
 as two arguments. The environment contains HOME/system PATH, repository,
 issue/event, manifest/source/adapter hashes, exact task USD0.25 and lifetime

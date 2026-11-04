@@ -5,6 +5,14 @@ credential helper, native Seatbelt confinement, cross-campaign lock and single
 lifetime USD10 ledger. The legacy self-hosted Actions runner stays offline.
 Defaults remain disabled; readiness, labels and dashboard navigation start no job.
 
+The allowlist contains `mbelinkie/vera-script-to-timeline` and
+`mbelinkie/vera-research-video-clips`. Each explicit poll selects one repository.
+Without `--repo`, the existing Script-to-Timeline path is selected. Research
+uses `--repo mbelinkie/vera-research-video-clips`. Its task files, cursor and
+receipts live under a `vera-research-video-clips` subdirectory of each existing
+state root. A receipt in either repository cannot consume the same issue number
+in the other. Both use the same lifetime ledger and lock.
+
 ## Hosted validation
 
 The `issue_comment` workflow runs trusted default-branch code on `ubuntu-latest`
@@ -26,8 +34,9 @@ Both receiver and adapter read the same immutable owner-only task file (0400)
 inside an owner-only directory (0700):
 `~/.local/share/vera/deepseek/tasks/issue-N.json`.
 
-Legacy `schema: 1` / `VERA_DEEPSEEK_RECEIVER_V1` receiver requests remain mock
-only. Missing legacy mode means mock; an unknown mode refuses. New requests use
+Legacy `schema: 1` / `VERA_DEEPSEEK_RECEIVER_V1` requests remain mock only and
+are accepted only for Script-to-Timeline. Missing legacy mode means mock; an
+unknown mode refuses. New requests use
 `schema: 2`, `transport_contract: "VERA_DEEPSEEK_RECEIVER_V2"` and an explicit
 `execution_mode: "mock"` or `"live"`. Missing/unknown V2 modes refuse.
 A mock request always requires `live_enabled: false` and its bounded approved
@@ -46,7 +55,13 @@ current `pricing_verified_on`, unique `attempt_id` and `campaign`, and exact
 `ledger_sha256` / `reconciliation_sha256` bindings. Task and single-task campaign
 caps are USD0.25; the unchanged shared lifetime cap is USD10. Live manifests
 cannot carry mock replacements or continuation-only contracts. `live_gate_files`
-binds every public gate dependency to the approved source bytes.
+binds every public gate dependency to the approved control checkout bytes.
+
+Research live manifests also bind `live_gate_repo`, the clean local checkout of
+the trusted Script-to-Timeline gate, and `live_gate_base_sha`, its exact reviewed
+commit. The adapter checks the pinned commit and gate file hashes. The Research
+checkout supplies the candidate and frozen task checks. Its live approval
+metadata includes the exact Research repository name.
 
 The manifest SHA covers the exact immutable bytes, including files, checks,
 limits, model, pricing and accounting references. A task/mode/build change
@@ -76,6 +91,11 @@ After installing the reviewed adapter, while all dispatch/live flags are off:
 node scripts/deepseek-receiver.mjs --preflight <approved-adapter-sha256>
 ```
 
+For Research, include `--repo mbelinkie/vera-research-video-clips` and provision
+the owner-only Research directories first. Initialize the Research cursor with
+one explicit mock-mode poll before posting a proof event. Use a dedicated mock
+issue, because a mock receipt also consumes its repository/issue pair.
+
 Run this **before posting** any new dispatch event. It reads the receiver and
 receipt storage, cursor, installed adapter, controller state/ledger access,
 accounting and native isolation readiness. It checks owner-only real files and
@@ -104,6 +124,12 @@ approval, run one poll with temporary `VERA_DEEPSEEK_DISPATCH_ENABLED=true` and
 poll to one selected live event. A different pending live event stops the poll
 without consuming it; process pending live events in comment order. A poll with
 live mode disabled also preserves such an event. Keep persistent defaults off afterward.
+
+For the first paid Research task, choose a separate issue with one public
+target and a frozen check that fails on the pinned Research baseline. Obtain
+exact approval of that task, its repository, event, candidate and gate commits,
+adapter build, model, one attempt and spending limit before an explicit Research
+live poll.
 
 The receiver repeats issue, event, canonical review, current main, manifest and
 adapter checks before its sole adapter invocation. Live mode delegates to the
