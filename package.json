@@ -35,7 +35,7 @@
     "export:prompter": "node packages/contracts/src/prompter-export-cli.ts",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
-    "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 2",
+    "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 4",
     "validate:fast": "npm run check:contracts-generated && npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript:fast && npm run lint:python && npm run typecheck:python && npm run test:python:fast",
     "test:ci": "node --test scripts/ci-docs-only.test.mjs"
   },
