@@ -50,7 +50,13 @@ repo and milestone.
   flight), or wait. While the board runs it checks every 5 minutes and pops a Mac
   notification when a DeepSeek run finishes or fails. The tab title also shows a count
   when something is waiting for you.
-- **Ready for Codex** has the draft PRs. The banner names the **next prepped ticket**; say
+- **Codex-only tickets** (labelled `deepseek-excluded`, for example work that needs real
+  Resolve on the Mac) get **Prep for Codex in ChatGPT** instead. Chat maps the relevant
+  code (paths, functions, lines, how they connect), plans the work, drafts only the parts
+  that don't need real hardware, and posts the brief with the Mac Bridge tool
+  `vera_post_brief` (`codex-prompt.md`). The issue is labelled `codex-prepped` and moves
+  to **Ready for Codex**. No DeepSeek is involved.
+- **Ready for Codex** has DeepSeek draft PRs and Codex briefs. The banner names the **next prepped ticket**; say
   "work on the next prepped ticket" to Codex or Claude (see AGENTS.md).
   `npm run prep -- --next` prints it.
 

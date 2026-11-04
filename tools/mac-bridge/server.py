@@ -3,7 +3,7 @@
 Launched by OpenAI tunnel-client via stdio.
 """
 
-from deepseek_launch import LaunchError, launch, status
+from deepseek_launch import LaunchError, launch, post_brief, status
 from mcp.server import MCPServer
 from sandbox_core import workspace_exec, workspace_info
 from shell_core import mac_exec_local, trust_disable, trust_enable, trust_status
@@ -17,7 +17,7 @@ def mac_health() -> dict:
     return {
         "status": "ok",
         "service": "vera-mac-shell",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "approval": "per-command-or-local-trust-window",
     }
 
@@ -109,6 +109,26 @@ def vera_launch_deepseek(
     """
     try:
         return launch(repo, issue, brief, model)
+    except LaunchError as error:
+        return {"status": "error", "error": str(error)}
+
+
+@mcp.tool()
+def vera_post_brief(repo: str, issue: int, brief: str) -> dict:
+    """Post a Codex prep brief on a VERA GitHub issue. No Mac popup.
+
+    For tickets Codex will do directly (for example ones that need real Resolve
+    on this Mac). Posts `brief` as a marked comment and adds the codex-prepped
+    label, so the prep board shows the ticket as Ready for Codex. Launches
+    nothing.
+
+    repo: 'timeline' (vera-script-to-timeline) or
+      'research' (vera-research-video-clips).
+    issue: open issue number (type:implementation or type:bug).
+    brief: the self-contained Codex brief (40-60,000 characters).
+    """
+    try:
+        return post_brief(repo, issue, brief)
     except LaunchError as error:
         return {"status": "error", "error": str(error)}
 

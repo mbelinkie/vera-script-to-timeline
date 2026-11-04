@@ -104,6 +104,37 @@ class LaunchTests(unittest.TestCase):
         with self.assertRaises(dl.LaunchError):
             dl.launch("timeline", 5, "x" * 100)
 
+    def test_post_brief_marks_and_labels(self):
+        self.set_view(
+            {
+                "state": "OPEN",
+                "url": "u",
+                "labels": [
+                    {"name": "type:implementation"},
+                    {"name": "deepseek-excluded"},
+                ],
+            }
+        )
+        result = dl.post_brief(
+            "timeline", 447, "Map: python/x.py:12 does y. Plan: step one. " * 2
+        )
+        self.assertEqual(result["status"], "posted")
+        self.assertTrue(self.body.read_text().startswith(dl.CODEX_BRIEF_MARK))
+        self.assertIn("--add-label codex-prepped", self.log.read_text())
+        self.assertNotIn("--add-label deepseek", self.log.read_text())
+
+    def test_post_brief_refuses_non_code_or_closed(self):
+        self.set_view(
+            {"state": "OPEN", "url": "u", "labels": [{"name": "type:design"}]}
+        )
+        with self.assertRaises(dl.LaunchError):
+            dl.post_brief("timeline", 5, "x" * 100)
+        self.set_view({"state": "CLOSED", "url": "u", "labels": [{"name": "type:bug"}]})
+        with self.assertRaises(dl.LaunchError):
+            dl.post_brief("timeline", 5, "x" * 100)
+        with self.assertRaises(dl.LaunchError):
+            dl.post_brief("someone/else", 5, "x" * 100)
+
     def test_status(self):
         self.set_view(
             {
