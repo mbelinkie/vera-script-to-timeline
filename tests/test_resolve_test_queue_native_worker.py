@@ -273,7 +273,7 @@ def test_prepare_native_derives_private_plan_without_dispatch(
         "attestationPath": str(case.path.parent / "attest.json"),
     }
     request_path.write_text(json.dumps(request))
-    view = {
+    view: dict[str, Any] = {
         "timeline": {},
         "tracks": [],
         "sources": [],
