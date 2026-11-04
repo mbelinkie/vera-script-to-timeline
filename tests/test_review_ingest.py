@@ -428,7 +428,7 @@ def test_adapter_renews_lease_while_media_stage_is_blocked(
         try:
             results.append(
                 store.run_one(
-                    "project-a", job_id, "worker-a", adapter, lease_seconds=0.09
+                    "project-a", job_id, "worker-a", adapter, lease_seconds=0.5
                 )
             )
         except BaseException as error:
@@ -437,9 +437,10 @@ def test_adapter_renews_lease_while_media_stage_is_blocked(
     worker = Thread(target=run_first_worker)
     worker.start()
     assert entered.wait(timeout=5)
-    sleep(0.18)
+    # Wait well past one lease period: only renewals can keep worker A's lease.
+    sleep(1.2)
     assert not store.run_one(
-        "project-a", job_id, "worker-b", adapter, lease_seconds=0.09
+        "project-a", job_id, "worker-b", adapter, lease_seconds=0.5
     )
     release.set()
     worker.join(timeout=5)
