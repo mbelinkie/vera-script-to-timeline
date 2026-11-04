@@ -186,45 +186,15 @@ npm run test:free-trial
 The full Python test discovery used by `npm run validate` includes the Slice
 0.2 OTIO package tests; `test:otio-package` is only the faster focused form.
 
-## Project progress dashboard
+## Prep Board
 
-Generate a self-contained, read-only roadmap dashboard from both live VERA
-GitHub Projects configured in `.github/vera-roadmap.json`:
-
-```sh
-npm run progress
-```
+`npm run prep` (or double-click `Open VERA Prep Board.command`) opens the local
+board showing progress across both VERA GitHub Projects and the ticket
+pipeline: To groom → DeepSeek running → Ready for Codex. See
+[.github/deepseek/README.md](.github/deepseek/README.md).
 
 For reusable project-management and safety patterns proven in this repository,
 see [the project operating playbook](docs/PROJECT_OPERATING_PLAYBOOK.md).
-
-The command prints a terminal summary and writes
-`out/project-progress/index.html`. On macOS, generate it and open it in the
-default browser with:
-
-```sh
-npm run progress -- --open
-```
-
-You can also double-click `Open VERA Progress.command` in Finder from the
-repository's top-level folder. The launcher finds the repository relative to
-itself, regenerates the dashboard, and opens it in the default browser.
-
-The top of the page shows both boards side by side: percent done, a status
-track, and each codebase's physical line count with a separate production-code
-count. Production code is tracked source under `apps/`, `packages/`,
-`python/`, or `src/`, minus tests, fixtures, tooling, build output, and
-generated files. Below, each board's workstreams start collapsed, each with a
-mini status track and a done count; workstreams with work left come first.
-Opening one lists its work items, active ones first, with exact status,
-routing, priority, size, acceptance authority, and visible metadata gaps. Goal
-rollups sit in their own collapsed row under each board. Every
-non-goal Project issue is one actionable work item; only `Done` counts as
-complete. Completed `Historical — …` draft records also count as Done work,
-but active drafts remain invalid roadmap data. The command never changes
-Project state. The Research Video Clips checkout defaults to the sibling
-`../VERA Research Video Clips` path; set `VERA_RESEARCH_REPOSITORY` when it is
-located elsewhere.
 
 ## Slice 0.2 producer package
 
