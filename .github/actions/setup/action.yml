@@ -36,9 +36,18 @@ runs:
     - name: Install Python dependencies
       shell: bash
       run: uv sync --frozen
-    # Media tests need FFmpeg; fail early rather than letting them skip.
+    # Media tests need FFmpeg; fail early rather than letting them skip. The
+    # downloaded packages are cached because Ubuntu's mirror is sometimes slow.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/apt-cache
+        key: apt-ffmpeg-ubuntu-24.04-v1
     - name: Install FFmpeg
       shell: bash
       run: |
-        sudo apt-get update -q && sudo apt-get install --yes -q ffmpeg
+        mkdir -p ~/apt-cache/partial
+        sudo apt-get update -q -o Acquire::Retries=3
+        sudo apt-get install --yes -q --no-install-recommends -o Acquire::Retries=3 \
+          -o Dir::Cache::archives="$HOME/apt-cache" ffmpeg
+        sudo chown -R "$USER" ~/apt-cache
         ffmpeg -hide_banner -version | head -1 && ffprobe -hide_banner -version | head -1
