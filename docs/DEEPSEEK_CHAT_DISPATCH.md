@@ -1,5 +1,9 @@
 # Chat → GitHub → Mac dispatch
 
+> **Superseded (issue #429).** New DeepSeek work uses the label-triggered GitHub
+> Actions job in [`.github/deepseek/README.md`](../.github/deepseek/README.md). This
+> receiver path remains only for its existing records.
+
 The outbound Mac receiver reuses the existing private bounded controller,
 credential helper, native Seatbelt confinement, cross-campaign lock and single
 lifetime USD10 ledger. The legacy self-hosted Actions runner stays offline.

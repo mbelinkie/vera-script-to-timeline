@@ -19,6 +19,24 @@ This directory implements a **private general-purpose Terminal bridge** for ordi
 5. Start the new profile via `tunnel-client run --profile <name>` in an interactive macOS login session, so `osascript` can display approval dialogs. Refresh your private **VERA Mac Bridge** plugin's tool metadata in ChatGPT, then test `mac_health()` in a **new ordinary ChatGPT chat**. Next request `mac_exec(command="pwd",cwd="home")` and click **Run once** on your Mac only if the displayed command is exactly expected.
 6. Disconnect by stopping the `tunnel-client run` process. Do not enable auto-start/launchd until local GUI authorization has been tested reliably.
 
+## DeepSeek launch tools (0.4.0, no Mac popups)
+
+`vera_launch_deepseek(repo, issue, brief, model="flash")` and
+`vera_deepseek_status(repo, issue)` let a ChatGPT grooming chat start and
+check a DeepSeek attempt without any approval dialog. They are deliberately
+narrow: they only run the local `gh` CLI with fixed arguments (never a
+shell), only for `mbelinkie/vera-script-to-timeline` ("timeline") and
+`mbelinkie/vera-research-video-clips` ("research"). Launching posts the brief
+as a marked issue comment and adds the `deepseek` or `deepseek-pro` label.
+That label starts `.github/workflows/deepseek.yml` on GitHub's servers;
+nothing runs on the Mac. See `.github/deepseek/README.md`.
+
+Requires `gh auth status` to succeed for the Mac user that runs the bridge.
+To install: update the bridge checkout, run the unit tests, restart the
+tunnel (`launchctl kickstart -k "gui/$(id -u)/com.vera.mac-bridge"`), then
+refresh the private plugin's tool list in ChatGPT and check that
+`mac_health()` reports version 0.4.0.
+
 ## Codex-style isolated workspace (no repeated Mac popups)
 
 Version 0.3 adds `mac_workspace_info()` and

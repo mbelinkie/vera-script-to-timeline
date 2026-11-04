@@ -3,6 +3,7 @@
 Launched by OpenAI tunnel-client via stdio.
 """
 
+from deepseek_launch import LaunchError, launch, status
 from mcp.server import MCPServer
 from sandbox_core import workspace_exec, workspace_info
 from shell_core import mac_exec_local, trust_disable, trust_enable, trust_status
@@ -16,7 +17,7 @@ def mac_health() -> dict:
     return {
         "status": "ok",
         "service": "vera-mac-shell",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "approval": "per-command-or-local-trust-window",
     }
 
@@ -85,6 +86,44 @@ def mac_workspace_exec(command: str, timeout_seconds: int = 25) -> dict:
     For unrestricted Mac commands, use mac_exec with per-command approval.
     """
     return workspace_exec(command, timeout_seconds)
+
+
+@mcp.tool()
+def vera_launch_deepseek(
+    repo: str, issue: int, brief: str, model: str = "flash"
+) -> dict:
+    """Start a DeepSeek coding attempt on a VERA GitHub issue. No Mac popup.
+
+    Posts `brief` as a marked comment on the issue, then adds the `deepseek`
+    (model="flash", default, cheap) or `deepseek-pro` (model="pro", for hard
+    tasks) label. GitHub Actions then runs a DeepSeek-powered coding agent on a
+    throwaway server and opens a DRAFT PR for Codex. Nothing runs on this Mac.
+
+    repo: 'timeline' (vera-script-to-timeline) or
+      'research' (vera-research-video-clips).
+    issue: open issue number.
+    brief: the groomed, self-contained task brief (40-60,000 characters):
+      goal, decisions already made, likely files, acceptance checks, tests to run,
+      and anything explicitly out of scope.
+    Refuses if an attempt is already running on that issue.
+    """
+    try:
+        return launch(repo, issue, brief, model)
+    except LaunchError as error:
+        return {"status": "error", "error": str(error)}
+
+
+@mcp.tool()
+def vera_deepseek_status(repo: str, issue: int) -> dict:
+    """Read-only: report a VERA issue's DeepSeek state.
+
+    Returns not-started, queued, running, draft-ready or failed, plus the
+    latest progress note (with PR and run links). No Mac popup.
+    """
+    try:
+        return status(repo, issue)
+    except LaunchError as error:
+        return {"status": "error", "error": str(error)}
 
 
 if __name__ == "__main__":
