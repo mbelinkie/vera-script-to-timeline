@@ -34,6 +34,10 @@ output only, never native or performance evidence.
 
 ## Plan contract
 
+For the separately opted-in native v2 adapter, see
+[M2 guarded native queue](resolve-test-queue-m2.md). The v1 contract below stays
+mock-only.
+
 Plans are versioned data (`vera.resolve-test-plan/v1`), not shell strings.
 M1 accepts only `targetPolicy: synthetic_only`, `synthetic-*` fixture IDs,
 `disposable-*` target IDs, at most 32 cases, at most 64 trials, a finite
