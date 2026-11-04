@@ -336,7 +336,7 @@ class Store:
 def read_plan_file(path: Path) -> object:
     if path.resolve(strict=True) != path.absolute() or path.is_symlink():
         raise QueueError("plan path may not traverse symlinks")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 131072:
