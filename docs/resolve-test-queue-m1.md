@@ -77,7 +77,9 @@ On the local logged-in Mac only, explicitly opt in with:
 
 This creates an exact user LaunchAgent invoking a single worker pass every
 60 seconds and starts it through the user's `launchctl` domain. It refuses to
-overwrite a differing or symlinked plist. launchd cannot execute while the Mac
+overwrite a differing or symlinked plist. Re-running installation starts a
+matching but unloaded service, or leaves an already loaded service alone.
+launchd cannot execute while the Mac
 is asleep or off, or while its user domain is not active. Jobs due during
 sleep start after the next wake/service tick if they have not expired; the
 report keeps the true scheduled and started times and never claims on-time

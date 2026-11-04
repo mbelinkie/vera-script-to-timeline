@@ -528,3 +528,118 @@ def test_input_copy_does_not_change_when_enqueued(tmp_path: Path) -> None:
     store = Store(tmp_path / "q")
     enqueue(store, write_plan(tmp_path, value))
     assert value == original
+
+
+def test_fifo_plan_is_refused_without_waiting_for_writer(tmp_path: Path) -> None:
+    source = tmp_path / "plan.fifo"
+    os.mkfifo(source)
+    with pytest.raises(QueueError, match="regular JSON file"):
+        queue_module.read_plan_file(source)
+
+
+def test_trial_duration_uses_monotonic_clock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = Store(tmp_path / "q")
+    job = enqueue(store, write_plan(tmp_path, plan()))
+    timestamp = now_utc()
+    calls = 0
+
+    def clock() -> Any:
+        nonlocal calls
+        calls += 1
+        return timestamp - timedelta(seconds=calls)
+
+    monkeypatch.setattr(queue_module, "now_utc", clock)
+    assert worker_once(store)
+    report = store.publish(job)
+    assert report["status"]["state"] == "completed_simulated"
+    assert all(row["wall_seconds"] >= 0 for row in report["trials"])
+
+
+@pytest.mark.parametrize("loaded", [True, False])
+def test_matching_launch_agent_is_started_if_unloaded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, loaded: bool
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    store = Store(tmp_path / "q")
+    target = (
+        tmp_path / "Library" / "LaunchAgents" / f"{queue_module.LAUNCH_LABEL}.plist"
+    )
+    target.parent.mkdir(parents=True)
+    payload = agent_plist(store.root, sys.executable)
+    target.write_bytes(payload)
+    calls: list[list[str]] = []
+
+    def launchctl(args: list[str], **kwargs: Any) -> Any:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0 if loaded else 1)
+
+    monkeypatch.setattr(subprocess, "run", launchctl)
+    queue_module.install_agent(store)
+    assert [args[1] for args in calls] == (
+        ["print"] if loaded else ["print", "bootstrap"]
+    )
+    assert target.read_bytes() == payload
+
+
+def test_dangling_launch_agent_symlink_is_not_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    target = (
+        tmp_path / "Library" / "LaunchAgents" / f"{queue_module.LAUNCH_LABEL}.plist"
+    )
+    target.parent.mkdir(parents=True)
+    target.symlink_to(tmp_path / "absent")
+    with pytest.raises(QueueError, match="refusing overwrite"):
+        queue_module.install_agent(Store(tmp_path / "q"))
+    assert target.is_symlink()
+
+
+def test_cancel_during_final_trial_publication_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = Store(tmp_path / "q")
+    job = enqueue(store, write_plan(tmp_path, plan()))
+    publish = store.publish
+    canceled = False
+
+    def publish_and_cancel(job_id: str) -> dict[str, Any]:
+        nonlocal canceled
+        report = publish(job_id)
+        if (
+            not canceled
+            and report["status"]["state"] == "running"
+            and len(report["trials"]) == 2
+        ):
+            canceled = True
+            cancel(store, job_id)
+        return report
+
+    monkeypatch.setattr(store, "publish", publish_and_cancel)
+    assert worker_once(store)
+    assert store.get(job)["state"] == "canceled"
+    assert len(publish(job)["trials"]) == 2
+
+
+def test_enqueue_syncs_job_directory_entry_before_committing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = Store(tmp_path / "q")
+    sync = queue_module.sync_directory
+    synced = False
+
+    def observe_sync(path: Path) -> None:
+        nonlocal synced
+        if path == store.root:
+            with store.connect() as db:
+                assert db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+            synced = True
+        sync(path)
+
+    monkeypatch.setattr(queue_module, "sync_directory", observe_sync)
+    enqueue(store, write_plan(tmp_path, plan()))
+    assert synced

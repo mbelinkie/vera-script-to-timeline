@@ -219,6 +219,14 @@ def folder_bytes(folder: Path) -> int:
     return total
 
 
+def sync_directory(path: Path) -> None:
+    directory = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
 def atomic_write(path: Path, value: bytes) -> None:
     temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}")
     try:
@@ -228,11 +236,7 @@ def atomic_write(path: Path, value: bytes) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temp, path)
-        directory = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        sync_directory(path.parent)
     finally:
         temp.unlink(missing_ok=True)
 
@@ -411,7 +415,7 @@ class Store:
 
 def read_plan_file(path: Path) -> object:
     reject_unsafe_path(path, "plan path")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 131072:
@@ -462,6 +466,7 @@ def enqueue(store: Store, plan_path: Path, at: str | None = None) -> str:
     folder.mkdir(mode=0o700)
     atomic_write(folder / "plan.json", frozen)
     (folder / "plan.json").chmod(0o400)
+    sync_directory(store.root)
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute(
@@ -505,6 +510,13 @@ def finish(store: Store, job_id: str, worker_id: str, state: str, reason: str) -
         raise QueueError("cannot finish with nonterminal state")
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        if state == "completed_simulated":
+            current = db.execute(
+                "SELECT cancel_requested FROM jobs WHERE id=?", (job_id,)
+            ).fetchone()
+            if current is not None and current["cancel_requested"]:
+                state = "canceled"
+                reason = "mock_stopped_without_native_effect"
         changed = db.execute(
             "UPDATE jobs SET state=?,reason=?,ended_at=? "
             "WHERE id=? AND state='running' AND worker_id=?",
@@ -597,7 +609,7 @@ def run_mock(store: Store, job_id: str, worker_id: str) -> None:
                         case["adapter"],
                         iso(started),
                         iso(finished),
-                        (finished - started).total_seconds(),
+                        time.monotonic() - t0,
                         result,
                     ),
                 )
@@ -717,12 +729,22 @@ def install_agent(store: Store) -> None:
     # Keep the venv interpreter path as-is: resolving a symlinked
     # ``.venv/bin/python`` would bypass the environment that imports this module.
     payload = agent_plist(store.root, sys.executable)
+    if plist.is_symlink():
+        raise QueueError("existing LaunchAgent differs; refusing overwrite")
     if plist.exists():
-        if plist.is_symlink() or plist.read_bytes() != payload:
+        if plist.read_bytes() != payload:
             raise QueueError("existing LaunchAgent differs; refusing overwrite")
-        print("LaunchAgent plist already matches; no replacement performed.")
-        return
-    atomic_write(plist, payload)
+        loaded = subprocess.run(
+            ["launchctl", "print", f"gui/{os.getuid()}/{LAUNCH_LABEL}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if loaded.returncode == 0:
+            print("Matching LaunchAgent is already loaded.")
+            return
+    else:
+        atomic_write(plist, payload)
     try:
         subprocess.run(
             ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist)],
