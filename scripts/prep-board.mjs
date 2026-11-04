@@ -205,6 +205,7 @@ function row(r){
   let acts="";
   if(r.stage==="groom"||r.stage==="failed") acts+='<button class="primary" data-act="chat" data-key="'+esc(r.key)+'" title="Opens ChatGPT with the grooming prompt (also copied). Chat grooms, asks only vital questions, then launches DeepSeek.">Groom in ChatGPT</button><button data-act="ds" data-key="'+esc(r.key)+'" title="Skip grooming: run DeepSeek Flash on the issue as written">DeepSeek now</button>';
   if(r.stage==="running") acts+='<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">Watch on issue</a>';
+  if(r.stage==="ready"&&!r.pr) acts+='<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener" title="The result comment links to the pushed branch">Open result on issue</a>';
   if(r.pr) acts+='<a class="btn" href="'+esc(r.pr.url)+'" target="_blank" rel="noopener">Draft PR #'+r.pr.number+'</a><button data-act="codex" data-key="'+esc(r.key)+'" title="Opens Codex with a review-and-finish prompt (also copied)">Open in Codex</button>';
   return '<li><span class="q">'+(r.stage==="groom"?'<input type="checkbox" data-pick="'+esc(r.key)+'" title="Select for bulk DeepSeek">':"")+'<br>'+(r.queueOrder??"")+'</span><div class="t"><a href="'+esc(r.url)+'" target="_blank" rel="noopener">#'+r.number+' '+esc(r.title)+'</a><div class="chips">'+chips+'</div></div><div class="acts">'+acts+'</div></li>';
 }
