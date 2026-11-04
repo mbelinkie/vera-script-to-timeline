@@ -1329,7 +1329,10 @@ function makeReport(diagnostics: BuildDiagnosticV2[], manifest: TimelineManifest
   const manualCompletionItems: BuildReportV2["manualCompletionItems"] = sorted
     .filter((item) => item.code === "TEMPORARY_PRESENTER_STILL")
     .map((item) => ({ id: stableId(`manual-completion:${manifest.document.documentId}:${item.entity.id ?? "presenter"}`), kind: "placeholder", message: "Replace the temporary presenter still when an accepted presenter source is available.", entity: item.entity }));
-  const mediaRequirements: BuildReportV2["mediaPreparation"]["requirements"] = requirements.map((item) => {
+  const uniqueRequirements = [...new Map(
+    requirements.map((item) => [item.requirementKey ?? `missing:${item.payloadId}`, item]),
+  ).values()];
+  const mediaRequirements: BuildReportV2["mediaPreparation"]["requirements"] = uniqueRequirements.map((item) => {
     const descriptor = dependencies.occurrenceResolutions.find((candidate) => candidate.payloadId === item.payloadId);
     if (!descriptor) throw new Error(`Media requirement ${item.requirementKey ?? item.payloadId} has no source descriptor for its original hash.`);
     const binding = item.requirementKey ? dependencies.preparedMedia.find((candidate) => candidate.requirementKey === item.requirementKey) : undefined;
@@ -1351,7 +1354,7 @@ function makeReport(diagnostics: BuildDiagnosticV2[], manifest: TimelineManifest
     summary: { sourceCount: manifest.sources.length, eventCount: manifest.events.length, placedCount: eventResults.filter((item) => item.disposition === "placed").length, placeholderCount: eventResults.filter((item) => item.disposition === "placeholder").length, blockedCount: eventResults.filter((item) => item.disposition === "blocked").length + itemResults.filter((item) => item.disposition === "blocked").length, supportingItemCount: itemResults.length, diagnosticCount: sorted.length, recoveryActionCount: recoveryActions.length, manualCompletionCount: manualCompletionItems.length },
     eventResults, itemResults, diagnostics: sorted, recoveryActions,
     mediaPreparation: { status: mediaStatus, requirements: mediaRequirements },
-    sourceSufficiency: requirements.map((item) => ({ requirementKey: item.requirementKey ?? `missing:${item.payloadId}`, status: item.sourceSufficiency, requiredRange: item.requiredSourceRange, availableRange: item.sourceRange, diagnosticId: sorted.find((d) => d.code === "SOURCE_INSUFFICIENT" && d.entity.id === item.mediaReferenceId)?.id ?? null })),
+    sourceSufficiency: uniqueRequirements.map((item) => ({ requirementKey: item.requirementKey ?? `missing:${item.payloadId}`, status: item.sourceSufficiency, requiredRange: item.requiredSourceRange, availableRange: item.sourceRange, diagnosticId: sorted.find((d) => d.code === "SOURCE_INSUFFICIENT" && d.entity.id === item.mediaReferenceId)?.id ?? null })),
     migrationIssues: manifest.supportingItemResults.filter((item) => item.disposition === "unplaced" && (item.role === "picture" || item.role === "editor_note")).map((item) => ({ kind: "unplaced_item", severity: "warning", entity: entity("supporting_item", item.itemId, "supportingItems"), message: item.reason ?? "Unplaced item", recoveryActionKind: "reattach_unplaced_item" })),
     readiness: { preview: blocked ? "blocked" : "ready", release: blocked ? "blocked" : "ready", blockingIssueIds: sorted.filter((item) => item.severity === "blocking" || item.severity === "error").map((item) => item.id) },
     manualCompletionItems,

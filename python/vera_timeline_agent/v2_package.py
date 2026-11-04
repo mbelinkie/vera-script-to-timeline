@@ -27,6 +27,7 @@ import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.performance_v2 import increment, measured
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
 from vera_timeline_agent.qualification_output_records_v2 import (
     OutputConsistencyError,
@@ -108,8 +109,10 @@ def _file_hash(path: Path) -> str:
         with path.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
+                increment("hash.bytes", len(chunk))
     except OSError as error:
         raise _error(f"could not hash file {path}: {error}") from error
+    increment("hash.files")
     return _HASH_PREFIX + digest.hexdigest()
 
 
@@ -435,6 +438,7 @@ def _suffix(path: Path) -> str:
     return suffix.lower()
 
 
+@measured("package.input_validation")
 def _validate_inputs(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1140,6 +1144,7 @@ class _Preparation:
     relative_path: str
 
 
+@measured("package.preparation_validation")
 def _validate_preparations(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1475,6 +1480,7 @@ def _validate_preparations(
     return prepared
 
 
+@measured("package.media_validation")
 def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
@@ -2615,6 +2621,7 @@ def _copy_artifact(artifact: _InputArtifact, root: Path) -> None:
     )
 
 
+@measured("package.staging")
 def _build_staging(
     staging: Path,
     *,
@@ -2697,6 +2704,7 @@ def _receipt_identity(
         raise _error(f"package verification {label} differs from its retained {key}")
 
 
+@measured("package.verification")
 def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObject]:
     _require_path_components_no_symlink(project_root, "package root")
     if project_root.is_symlink() or not project_root.is_dir():
@@ -3074,6 +3082,7 @@ def _read_inputs(
     )
 
 
+@measured("package.build")
 def build_v2_package(
     manifest_path: Path,
     report_path: Path,

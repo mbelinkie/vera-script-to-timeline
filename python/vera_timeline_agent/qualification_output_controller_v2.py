@@ -874,10 +874,10 @@ def issue_operator_approval(
         controller._environment_current()
         from .qualification_output_native_v2 import (
             MAX_LIFETIME_SECONDS,
-            NATIVE_STATE_ROOT,
             RETRY_ACTION_PLAN,
             action_plan_for_context,
             next_native_operation,
+            render_parent,
         )
         from .workflow_v2_cli import _verify_output_release
 
@@ -887,14 +887,9 @@ def issue_operator_approval(
             retry or sequence < len(action_plan_for_context(controller.context)),
             "completed run or retry requires its own bounded retry plan",
         )
-        expected_output = (
-            NATIVE_STATE_ROOT
-            / "renders"
-            / _json_hash(controller.journal.chain)
-            / (
-                controller.context["binding"]["bindingSha256"]
-                + ("-retry-1.mov" if retry else ".mov")
-            )
+        expected_output = render_parent(controller.context) / (
+            controller.context["binding"]["bindingSha256"]
+            + ("-retry-1.mov" if retry else ".mov")
         )
         _require(
             approval["context"] == controller.context
@@ -969,6 +964,7 @@ def prepare_output_session(
     package_root: Path | None = None,
     preparation_paths: dict[str, Path] | None = None,
     narration_evidence_paths: dict[str, dict[str, Path]] | None = None,
+    render_root: Path | None = None,
 ) -> Path:
     """Create reviewable host artifacts; no installation or native connection.
 
@@ -999,6 +995,10 @@ def prepare_output_session(
         phase=phase,
         invocation_id=str(uuid.uuid4()),
     )
+    if render_root is not None:
+        from .qualification_output_native_v2 import register_render_root
+
+        register_render_root(controller.context, render_root)
     session = {
         "schemaVersion": "qualification-output-session/v1",
         "lane": LANE,
@@ -2532,10 +2532,10 @@ class QualificationOutputController:
             APPROVAL_SCHEMA,
             CONFIRMATIONS,
             MAX_POLL_COUNT,
-            NATIVE_STATE_ROOT,
             RETRY_ACTION_PLAN,
             _settings_for_timeline,
             action_plan_for_context,
+            render_parent,
         )
         from .workflow_v2_cli import RELEASE_NAME, _verify_output_release
 
@@ -2545,7 +2545,7 @@ class QualificationOutputController:
             release_manifest == self.release_root / RELEASE_NAME / "release.json",
             "release root differs",
         )
-        output_parent = NATIVE_STATE_ROOT / "renders" / _json_hash(self.journal.chain)
+        output_parent = render_parent(self.context)
         _safe(output_parent)
         output_parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _require(

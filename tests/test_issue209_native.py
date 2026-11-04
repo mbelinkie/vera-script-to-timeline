@@ -2563,6 +2563,91 @@ def test_construct_refuses_populated_target_before_timecode_setter(
     assert state["effects"] == []
 
 
+def test_construct_refuses_mismatched_project_rate_before_any_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    timeline = _EmptyTargetTimeline(
+        {"video": 0, "audio": 0, "subtitle": 0}, start_frame=86_400
+    )
+    project = _EmptyTargetProject(timeline)
+    project.settings["timelineFrameRate"] = "24"
+    state, _request = _effect_state(tmp_path)
+    monkeypatch.setattr(native, "_connected", lambda _resolve: {})
+    monkeypatch.setattr(
+        native, "_project_timeline", lambda *_args: (None, project, timeline)
+    )
+
+    with pytest.raises(
+        OutputConsistencyError,
+        match="configure it before creating the timeline",
+    ):
+        native._construct(
+            object(),
+            {},
+            {
+                "manifest": {
+                    "timeline": {
+                        "width": 1920,
+                        "height": 1080,
+                        "audioSampleRate": 48000,
+                    }
+                },
+                "view": {"tracks": []},
+            },
+            state,
+        )
+
+    assert timeline.start_timecode_calls == []
+    assert project.set_calls == []
+    assert state["effects"] == []
+
+
+def test_construct_accepts_matching_project_rate_without_setting_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    timeline = _EmptyTargetTimeline({"video": 0, "audio": 0, "subtitle": 0})
+    project = _EmptyTargetProject(timeline)
+    state, _request = _effect_state(tmp_path)
+    monkeypatch.setattr(native, "_connected", lambda _resolve: {})
+    monkeypatch.setattr(
+        native, "_project_timeline", lambda *_args: (None, project, timeline)
+    )
+    received_settings: dict[str, str] = {}
+
+    def stop_after_preflight(
+        _project: Any, settings: dict[str, str], _state: dict[str, Any]
+    ) -> None:
+        received_settings.update(settings)
+        raise RuntimeError("reached project settings")
+
+    monkeypatch.setattr(native, "_set_project_settings", stop_after_preflight)
+
+    with pytest.raises(RuntimeError, match="reached project settings"):
+        native._construct(
+            object(),
+            {},
+            {
+                "manifest": {
+                    "timeline": {
+                        "width": 1920,
+                        "height": 1080,
+                        "audioSampleRate": 48000,
+                    }
+                },
+                "view": {"tracks": []},
+            },
+            state,
+        )
+
+    assert received_settings == {
+        "timelineResolutionWidth": "1920",
+        "timelineResolutionHeight": "1080",
+        "timelineSampleRate": "48000",
+    }
+    assert project.set_calls == []
+    assert timeline.start_timecode_calls == []
+
+
 def test_effect_ledger_binds_method_arguments_chain_and_observation(
     tmp_path: Path,
 ) -> None:

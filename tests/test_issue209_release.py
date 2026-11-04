@@ -45,6 +45,23 @@ def test_output_release_is_distinct_reproducible_and_closed(tmp_path: Path) -> N
         _verify_output_release(legacy)
 
 
+def test_shared_runtime_declarations_include_recorder() -> None:
+    from vera_timeline_agent.native_qualification_v2 import RUNTIME_FILES as preflight
+    from vera_timeline_agent.qualification_output_native_v2 import (
+        _OUTPUT_RUNTIME_FILES,
+    )
+    from vera_timeline_agent.sample_precision_probe_v2 import RELEASE_RUNTIME_FILES
+    from vera_timeline_agent.target_identity_v2 import TI_RUNTIME_FILES
+
+    assert set(preflight) == set(TI_RUNTIME_FILES) == set(RUNTIME_FILES)
+    assert "performance_v2.py" in RUNTIME_FILES
+    assert set(_OUTPUT_RUNTIME_FILES) == set(OUTPUT_RUNTIME_FILES)
+    assert set(RELEASE_RUNTIME_FILES) == {
+        *RUNTIME_FILES,
+        "sample_precision_probe_v2.py",
+    }
+
+
 def test_installed_output_import_has_no_host_dependencies(tmp_path: Path) -> None:
     release = tmp_path / "output"
     build_output_release_v2(release)
@@ -77,14 +94,15 @@ print(json.dumps(sorted(names)))
     _verify_output_release(release)
 
 
-def test_output_inventory_tamper_refuses_before_operator_use(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "module", ["qualification_output_native_v2.py", "performance_v2.py"]
+)
+def test_output_inventory_tamper_refuses_before_operator_use(
+    tmp_path: Path, module: str
+) -> None:
     root = tmp_path / "output"
     build_output_release_v2(root)
-    native = (
-        root
-        / RELEASE_NAME
-        / "python/vera_timeline_agent/qualification_output_native_v2.py"
-    )
+    native = root / RELEASE_NAME / "python/vera_timeline_agent" / module
     native.write_bytes(native.read_bytes() + b"\n# tampered\n")
     with pytest.raises(ValueError, match="repository-owned runtime"):
         _verify_output_release(root)
