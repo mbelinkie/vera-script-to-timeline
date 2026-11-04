@@ -19,7 +19,12 @@ This directory implements a **private general-purpose Terminal bridge** for ordi
 5. Start the new profile via `tunnel-client run --profile <name>` in an interactive macOS login session, so `osascript` can display approval dialogs. Refresh your private **VERA Mac Bridge** plugin's tool metadata in ChatGPT, then test `mac_health()` in a **new ordinary ChatGPT chat**. Next request `mac_exec(command="pwd",cwd="home")` and click **Run once** on your Mac only if the displayed command is exactly expected.
 6. Disconnect by stopping the `tunnel-client run` process. Do not enable auto-start/launchd until local GUI authorization has been tested reliably.
 
-## DeepSeek launch tools (0.4.0, no Mac popups)
+## DeepSeek and Codex prep tools (0.5.0, no Mac popups)
+
+`vera_post_brief(repo, issue, brief)` (0.5.0) posts a ChatGPT-written Codex prep
+brief as a comment marked `<!-- vera-codex-brief -->` and adds the
+`codex-prepped` label. It launches nothing. It's used for Codex-only tickets.
+
 
 `vera_launch_deepseek(repo, issue, brief, model="flash")` and
 `vera_deepseek_status(repo, issue)` let a ChatGPT grooming chat start and

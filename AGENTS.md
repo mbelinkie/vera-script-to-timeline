@@ -106,9 +106,11 @@ fix or delete a wrong test and say why.
 
 ## Specific workflows
 
-- **"Work on the next prepped ticket":** run `npm run prep -- --next`. Start
-  your branch from the DeepSeek branch it names, review the draft against the
-  brief and issue, finish it, deliver as usual, and close DeepSeek's draft PR.
+- **"Work on the next prepped ticket":** run `npm run prep -- --next`. If it
+  names a DeepSeek draft, start your branch from that branch, review the draft
+  against the brief and issue, finish it, and close DeepSeek's draft PR. If it
+  is a Codex brief (label `codex-prepped`), start from `main` and use the
+  brief's code map and plan, verifying against the real code. Deliver as usual.
   See `.github/deepseek/README.md`.
 - **Roadmap mechanics** (dependencies, labels): see
   `.agents/skills/vera-roadmap-coordination/SKILL.md`.

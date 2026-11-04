@@ -4,7 +4,7 @@ import test from "node:test";
 import { URL } from "node:url";
 
 import { buildProgressModel, parseProjectItems } from "./project-progress-lib.mjs";
-import { buildBoard, chatPrompt, compareRows, deepseekState, finishedSince, nextPrepped, nextStep, notReadyReasons, prsByIssue } from "./prep-board.mjs";
+import { buildBoard, chatPrompt, codexPrompt, compareRows, deepseekState, finishedSince, nextPrepped, nextStep, notReadyReasons, prepPath, prsByIssue } from "./prep-board.mjs";
 import { buildPrompt, estimateCost, ineligibleReason, readAgentResult } from "../.github/deepseek/job.mjs";
 
 const TL = "vera-script-to-timeline";
@@ -43,7 +43,10 @@ function fixture() {
     verified,
   };
   const pulls = { [TL]: [{ number: 66, url: "pr66", headRefName: "deepseek/issue-6-100" }], [RS]: [] };
-  return buildBoard([timeline, research], deps, pulls, "Groom {{ISSUE_URL}} in {{REPO}} as {{SHORT_REPO}} #{{NUMBER}}");
+  return buildBoard([timeline, research], deps, pulls, {
+    deepseek: "Groom {{ISSUE_URL}} in {{REPO}} as {{SHORT_REPO}} #{{NUMBER}}",
+    codex: "Codex prep {{SHORT_REPO}} #{{NUMBER}}",
+  });
 }
 
 test("only implementation/bug issues with finished dependencies are groomable", () => {
@@ -56,11 +59,14 @@ test("only implementation/bug issues with finished dependencies are groomable", 
   assert.equal(byNumber[50].stage, "groom", "bugs qualify, across repos");
   assert.equal(byNumber[3].stage, "blocked");
   assert.deepEqual(byNumber[3].reasons, ["Waiting on Timeline #2"]);
-  assert.match(byNumber[4].reasons.join(), /type:design isn't DeepSeek work/);
+  assert.match(byNumber[4].reasons.join(), /type:design isn't code work/);
   assert.match(byNumber[5].reasons.join(), /Already in progress/);
   assert.match(byNumber[8].reasons.join(), /Not in Queue Order/);
-  assert.match(byNumber[9].reasons.join(), /Excluded/);
-  for (const n of [3, 4, 5, 8, 9]) assert.equal(byNumber[n].canGroom, false);
+  assert.equal(byNumber[9].stage, "groom", "deepseek-excluded tickets take the Codex prep path");
+  assert.equal(byNumber[9].path, "codex");
+  assert.equal(byNumber[9].chatPrompt, "Codex prep timeline #9");
+  assert.equal(byNumber[2].path, "deepseek");
+  for (const n of [3, 4, 5, 8]) assert.equal(byNumber[n].canGroom, false);
   assert.equal(byNumber[6].stage, "ready");
   assert.equal(byNumber[6].pr.url, "pr66");
   assert.equal(byNumber[7].stage, "running");
@@ -170,4 +176,28 @@ test("only runs that just finished or failed trigger a notification", () => {
   assert.deepEqual(finishedSince(null, rows), [], "first look sets a baseline without notifying");
   assert.deepEqual(finishedSince({ a: "running", b: "running", c: "ready", d: "groom" }, rows).map((r) => r.key), ["a", "b"]);
   assert.deepEqual(finishedSince({}, rows), [], "tickets never seen before don't notify");
+});
+
+test("a posted Codex brief makes a ticket ready for Codex with its own handoff", () => {
+  assert.equal(prepPath(["deepseek-excluded"]), "codex");
+  assert.equal(prepPath(["type:bug"]), "deepseek");
+  assert.equal(deepseekState(["deepseek-excluded", "codex-prepped"]), "ready");
+  const row = { key: `${TL}#447`, repo: TL, number: 447, title: "M2", url: url(TL, 447), status: "Ready", stage: "ready", prep: "codex-brief", reasons: [], pr: null };
+  const step = nextStep([row]);
+  assert.equal(step.kind, "codex");
+  assert.match(step.detail, /ChatGPT posted a Codex brief/);
+  assert.equal(nextPrepped([row]).prep, "codex-brief");
+  assert.match(codexPrompt(row), /Codex prep brief/);
+  assert.doesNotMatch(codexPrompt(row), /DeepSeek/);
+  const groom = nextStep([{ ...row, stage: "groom", prep: null, path: "codex", canGroom: true }]);
+  assert.match(groom.title, /Prep Timeline #447 in ChatGPT for Codex/);
+});
+
+test("the Codex prep prompt maps code, posts a brief and never launches DeepSeek", () => {
+  const template = readFileSync(new URL("../.github/deepseek/codex-prompt.md", import.meta.url), "utf8");
+  const text = chatPrompt(template, { url: url(TL, 447), repo: TL, number: 447 });
+  assert.match(text, /vera_post_brief with repo="timeline", issue=447/);
+  assert.match(text, /Code map/);
+  assert.match(text, /Don't call vera_launch_deepseek/);
+  assert.doesNotMatch(text, /\{\{/);
 });

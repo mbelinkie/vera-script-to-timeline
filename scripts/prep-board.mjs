@@ -51,7 +51,7 @@ export function deepseekState(labels = []) {
   const set = new Set(labels);
   if (set.has("deepseek-running")) return "running";
   if (set.has("deepseek") || set.has("deepseek-pro")) return "queued";
-  if (set.has("deepseek-done")) return "ready";
+  if (set.has("deepseek-done") || set.has("codex-prepped")) return "ready";
   if (set.has("deepseek-failed")) return "failed";
   return "none";
 }
@@ -61,13 +61,18 @@ export function notReadyReasons(item) {
   const reasons = [];
   if (BUSY.has(item.status)) reasons.push(`Already ${item.status.toLowerCase()}`);
   if (item.status === "Blocked") reasons.push("Marked Blocked");
-  if (!GROOM_TYPES.has(item.type)) reasons.push(`type:${item.type} isn't DeepSeek work`);
-  if ((item.labels ?? []).some((label) => EXCLUDE_LABELS.has(label))) reasons.push("Excluded from DeepSeek");
+  if (!GROOM_TYPES.has(item.type)) reasons.push(`type:${item.type} isn't code work`);
   if (item.queueOrder === null) reasons.push("Not in Queue Order");
   else if (!item.dependenciesVerified) reasons.push("Dependencies not verified");
   const open = (item.dependencies ?? []).filter((dependency) => dependency.isOpen);
   if (open.length) reasons.push(`Waiting on ${open.map((dependency) => shortRef(dependency.label)).join(", ")}`);
   return reasons;
+}
+
+// Which prep a ticket gets: DeepSeek (Chat brief + DeepSeek draft) or, for
+// deepseek-excluded tickets such as real-Resolve work, a Chat brief for Codex.
+export function prepPath(labels = []) {
+  return labels.some((label) => EXCLUDE_LABELS.has(label)) ? "codex" : "deepseek";
 }
 
 export function stageOf(row) {
@@ -107,11 +112,15 @@ export function chatPrompt(template, row) {
 }
 
 export function codexPrompt(row) {
+  if (row.prep === "codex-brief") {
+    return `Work on issue ${row.url}. Start from the "Codex prep brief" comment on the issue (written by ChatGPT): use its code map and plan to skip exploration, but verify against the real code before relying on it. Implement, verify and deliver it normally per AGENTS.md.`;
+  }
   return `Review and finish DeepSeek's draft for issue ${row.url}${row.pr ? ` (draft PR ${row.pr.url})` : " (its result comment links the pushed branch)"}. Treat it as an unreviewed starting point: check its notes, verify the work against the issue and the repository rules in AGENTS.md, fix what's wrong, finish what's missing, and deliver it normally.`;
 }
 
 // Pure assembly of the board from Project models, dependency data and open PRs.
-export function buildBoard(models, dependencies, pulls, template = "") {
+export function buildBoard(models, dependencies, pulls, templates = {}) {
+  if (typeof templates === "string") templates = { deepseek: templates };
   const roadmap = buildSharedRoadmap(models, dependencies);
   const prs = new Map();
   for (const [repo, list] of Object.entries(pulls)) for (const [key, pr] of prsByIssue(repo, list)) prs.set(key, pr);
@@ -143,11 +152,14 @@ export function buildBoard(models, dependencies, pulls, template = "") {
       queueOrder: item.queueOrder,
       labels,
       deepseek: deepseekState(labels),
+      path: prepPath(labels),
+      prep: labels.includes("codex-prepped") ? "codex-brief" : labels.includes("deepseek-done") ? "deepseek" : null,
       pr: prs.get(`${location.repo}#${location.number}`) ?? null,
       reasons: notReadyReasons({ ...item, labels }),
     };
     row.stage = stageOf(row);
     row.canGroom = row.reasons.length === 0 && (row.stage === "groom" || row.stage === "failed");
+    const template = templates[row.path];
     if (row.canGroom && template) row.chatPrompt = chatPrompt(template, row);
     if (row.stage === "ready") row.codexPrompt = codexPrompt(row);
     rows.push(row);
@@ -186,7 +198,7 @@ export function buildBoard(models, dependencies, pulls, template = "") {
 export function nextPrepped(rows) {
   const row = rows.find((candidate) => candidate.stage === "ready" && !BUSY.has(candidate.status)
     && !(candidate.reasons ?? []).some((reason) => reason.startsWith("Waiting on")));
-  return row ? { key: row.key, repo: row.repo, number: row.number, title: row.title, url: row.url, pr: row.pr, queueOrder: row.queueOrder } : null;
+  return row ? { key: row.key, repo: row.repo, number: row.number, title: row.title, url: row.url, pr: row.pr, prep: row.prep, queueOrder: row.queueOrder } : null;
 }
 
 const repoName = (row) => REPOS[row.repo]?.name ?? row.repo;
@@ -198,7 +210,7 @@ export function nextStep(rows) {
   const prepped = nextPrepped(rows);
   if (prepped) {
     return { kind: "codex", row: prepped, title: `Hand ${repoName(prepped)} #${prepped.number} to Codex`,
-      detail: "DeepSeek finished a draft. Tell Codex \"work on the next prepped ticket\", or click Open in Codex." };
+      detail: `${prepped.prep === "codex-brief" ? "ChatGPT posted a Codex brief" : "DeepSeek finished a draft"}. Tell Codex "work on the next prepped ticket", or click Open in Codex.` };
   }
   const failed = rows.find((row) => row.stage === "failed");
   if (failed) {
@@ -208,7 +220,7 @@ export function nextStep(rows) {
   const inFlight = rows.filter((row) => row.stage === "running").length;
   const groom = rows.find((row) => row.stage === "groom" && row.canGroom);
   if (groom && inFlight < PIPELINE_DEPTH) {
-    return { kind: "groom", row: brief(groom), title: `Groom ${repoName(groom)} #${groom.number} in ChatGPT`,
+    return { kind: "groom", row: brief(groom), title: `${groom.path === "codex" ? "Prep" : "Groom"} ${repoName(groom)} #${groom.number} in ChatGPT${groom.path === "codex" ? " for Codex" : ""}`,
       detail: inFlight ? `${inFlight} DeepSeek job${inFlight === 1 ? " is" : "s are"} already running. Prepping one more keeps Codex fed.` : "Nothing is being prepped. Start the next ticket in priority order." };
   }
   if (inFlight) {
@@ -259,7 +271,10 @@ async function gh(args) {
 let dependencyCache = null;
 async function loadBoard({ forceDependencies = false } = {}) {
   const config = JSON.parse(await readFile(path.join(ROOT, ".github", "vera-roadmap.json"), "utf8"));
-  const template = await readFile(path.join(ROOT, ".github", "deepseek", "chat-prompt.md"), "utf8");
+  const templates = {
+    deepseek: await readFile(path.join(ROOT, ".github", "deepseek", "chat-prompt.md"), "utf8"),
+    codex: await readFile(path.join(ROOT, ".github", "deepseek", "codex-prompt.md"), "utf8"),
+  };
   const errors = [];
   const models = await Promise.all((config.progressProjects ?? [config]).map((projectConfig) =>
     loadProgressModel(ROOT, { projectConfig })));
@@ -275,7 +290,7 @@ async function loadBoard({ forceDependencies = false } = {}) {
       errors.push(`${REPOS[repo].name} PRs: ${String(error?.stderr || error?.message || error).trim().slice(0, 200)}`);
     }
   }));
-  const board = buildBoard(models, dependencyCache.value, pulls, template);
+  const board = buildBoard(models, dependencyCache.value, pulls, templates);
   if (board.dependencyErrors.length) errors.push(`${board.dependencyErrors.length} dependency checks failed; those issues show as not verified.`);
   return { ...board, errors, at: new Date().toISOString() };
 }
@@ -340,7 +355,7 @@ function stats(){
 function nextBox(){
   const n=data.nextStep;if(!n){$("next").innerHTML="";return}
   const r=n.row;let acts="";
-  if(n.kind==="codex"&&r){acts=(r.pr?'<a class="btn" href="'+esc(r.pr.url)+'" target="_blank" rel="noopener">See draft PR</a>':'<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">See result</a>')+'<button data-copy="Work on the next prepped ticket.">Copy “work on the next prepped ticket”</button><button class="primary" data-act="codex" data-key="'+esc(r.key)+'">Open in Codex</button>'}
+  if(n.kind==="codex"&&r){acts=(r.pr?'<a class="btn" href="'+esc(r.pr.url)+'" target="_blank" rel="noopener">See draft PR</a>':'<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">'+(r.prep==="codex-brief"?"See brief":"See result")+'</a>')+'<button data-copy="Work on the next prepped ticket.">Copy “work on the next prepped ticket”</button><button class="primary" data-act="codex" data-key="'+esc(r.key)+'">Open in Codex</button>'}
   if(n.kind==="failed"&&r)acts='<a class="btn primary" href="'+esc(r.url)+'" target="_blank" rel="noopener">Read why</a>';
   if(n.kind==="groom"&&r)acts='<button class="primary" data-act="chat" data-key="'+esc(r.key)+'">Groom in ChatGPT</button>';
   $("next").innerHTML='<div class="next k-'+n.kind+'"><div><div class="lead">Your next step</div><b>'+esc(n.title)+'</b>'+(r?' <span class="meta">'+esc(r.title)+'</span>':'')+'<small>'+esc(n.detail)+'</small></div><span class="spacer"></span>'+acts+'</div>';
@@ -360,13 +375,19 @@ function render(){
 function row(r){
   const o=opened[r.key];
   const chips=['<span class="chip">'+esc(r.repoName)+'</span>','<span class="chip">'+esc(r.status)+'</span>','<span class="chip">'+esc(r.type)+'</span>',r.priority&&'<span class="chip">'+esc(r.priority)+'</span>',r.size&&'<span class="chip">Size '+esc(r.size)+'</span>',r.milestone&&'<span class="chip">'+esc(r.milestone)+'</span>',
-    r.deepseek!=="none"&&'<span class="chip s-'+(r.deepseek==="queued"?"running":r.deepseek)+'">DeepSeek '+esc(r.deepseek)+'</span>',
+    r.path==="codex"&&'<span class="chip">Codex only</span>',
+    r.prep==="codex-brief"&&'<span class="chip s-ready">Codex brief ready</span>',
+    r.deepseek!=="none"&&r.prep!=="codex-brief"&&'<span class="chip s-'+(r.deepseek==="queued"?"running":r.deepseek)+'">DeepSeek '+esc(r.deepseek)+'</span>',
     o&&r.stage==="groom"&&'<span class="chip s-opened">Chat opened '+ago(o)+'</span>',
     ...(r.stage==="blocked"?r.reasons.map((x)=>'<span class="chip why">'+esc(x)+'</span>'):[])].filter(Boolean).join("");
   let acts="";
-  if(r.canGroom) acts+='<button class="primary" data-act="chat" data-key="'+esc(r.key)+'" title="Opens ChatGPT with the grooming prompt (also copied). Chat works out the change, writes draft code, and launches DeepSeek.">Groom in ChatGPT</button>';
+  if(r.canGroom) acts+=r.path==="codex"
+    ?'<button class="primary" data-act="chat" data-key="'+esc(r.key)+'" title="Opens ChatGPT with the Codex prep prompt (also copied). Chat maps the code, plans the work and posts a brief for Codex. No DeepSeek.">Prep for Codex in ChatGPT</button>'
+    :'<button class="primary" data-act="chat" data-key="'+esc(r.key)+'" title="Opens ChatGPT with the grooming prompt (also copied). Chat works out the change, writes draft code, and launches DeepSeek.">Groom in ChatGPT</button>';
   if(r.stage==="running") acts+='<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">Watch on issue</a>';
-  if(r.stage==="ready"&&!r.pr) acts+='<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener" title="The result comment links to the pushed branch">Open result on issue</a>';
+  if(r.stage==="ready"&&!r.pr) acts+=r.prep==="codex-brief"
+    ?'<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener" title="ChatGPT&#39;s Codex prep brief is a comment on the issue">See brief</a>'
+    :'<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener" title="The result comment links to the pushed branch">Open result on issue</a>';
   if(r.pr) acts+='<a class="btn" href="'+esc(r.pr.url)+'" target="_blank" rel="noopener">Draft PR #'+r.pr.number+'</a>';
   if(r.stage==="ready") acts+='<button data-act="codex" data-key="'+esc(r.key)+'" title="Opens Codex with a review-and-finish prompt (also copied)">Open in Codex</button>';
   return '<li><span class="q">'+(r.queueOrder??"")+'</span><div class="t"><a href="'+esc(r.url)+'" target="_blank" rel="noopener">#'+r.number+' '+esc(r.title)+'</a><div class="chips">'+chips+'</div></div><div class="acts">'+acts+'</div></li>';
