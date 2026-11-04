@@ -3,11 +3,14 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { basename, dirname, isAbsolute, join } from 'node:path';
+import { REPO, requireDispatchRepo } from './deepseek-dispatch.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const OUTPUT_LIMIT = 16 * 1024;
 const SYSTEM_PATH = '/usr/bin:/bin';
+const RECEIPT_ROOT = join(homedir(), '.codex', 'deepseek-dispatch-receipts');
+const CURSOR_PATH = join(homedir(), '.codex', 'deepseek-receiver', 'cursor.json');
 const ENABLE_FLAGS = [
   'VERA_DEEPSEEK_DISPATCH_ENABLED',
   'VERA_DEEPSEEK_LIVE_ENABLED',
@@ -170,12 +173,20 @@ function verifyChildResult(result, adapterSha256) {
 export function hostPreflight({
   runner = join(homedir(), '.codex', 'bin', 'vera-deepseek-runner'),
   adapterSha256,
-  receiptRoot = join(homedir(), '.codex', 'deepseek-dispatch-receipts'),
-  cursorPath = join(homedir(), '.codex', 'deepseek-receiver', 'cursor.json'),
+  receiptRoot,
+  cursorPath,
+  repository = REPO,
   env = process.env,
   spawn = spawnSync,
   allowEnabled = false
 } = {}) {
+  const slug = requireDispatchRepo(repository);
+  if (receiptRoot === undefined) {
+    receiptRoot = repository === REPO ? RECEIPT_ROOT : join(RECEIPT_ROOT, slug);
+  }
+  if (cursorPath === undefined) {
+    cursorPath = repository === REPO ? CURSOR_PATH : join(dirname(CURSOR_PATH), slug, basename(CURSOR_PATH));
+  }
   runner = requireAbsolute(runner, 'Private runner path');
   receiptRoot = requireAbsolute(receiptRoot, 'Receipt directory path');
   cursorPath = requireAbsolute(cursorPath, 'Receiver cursor path');
@@ -197,7 +208,8 @@ export function hostPreflight({
   let child;
   try {
     child = spawn(runner, ['--host-preflight'], {
-      env: { HOME: home, PATH: SYSTEM_PATH, VERA_DEEPSEEK_ADAPTER_SHA256: adapterSha256 },
+      env: { HOME: home, PATH: SYSTEM_PATH, VERA_DEEPSEEK_ADAPTER_SHA256: adapterSha256,
+        ...(repository === REPO ? {} : { VERA_REPOSITORY: repository }) },
       encoding: 'utf8',
       maxBuffer: OUTPUT_LIMIT,
       shell: false,
