@@ -56,8 +56,8 @@ function validateIdentity(identity, { live = false } = {}) {
       identity.maxOutputTokens < 512 || identity.maxOutputTokens > 24000) {
     throw new Error('Invalid approval identity');
   }
-  if (repository === REPO && (identity.issue === 411 || identity.campaign === 'quality-2026-11-02-v1')) {
-    throw new Error('Timeline legacy approval identity is not eligible');
+  if ((repository === REPO && identity.issue === 411) || identity.campaign === 'quality-2026-11-02-v1') {
+    throw new Error('Legacy approval identity is not eligible');
   }
   return { identity, repository, repoSlug, hasRepository };
 }

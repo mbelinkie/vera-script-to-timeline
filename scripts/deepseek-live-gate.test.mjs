@@ -175,6 +175,12 @@ test('requires the Research repository in both identity and canonical live marke
   assert.throws(() => verifyLiveApproval(reader(fixture({ identity: researchIdentity })), missingIdentity));
 });
 
+test('Research cannot reuse the discontinued shared campaign', () => {
+  assert.throws(() => liveApprovalMetadata({
+    ...identity, repository: RESEARCH_REPO, campaign: 'quality-2026-11-02-v1'
+  }), /Legacy approval identity is not eligible/);
+});
+
 test('rejects Research events that name the Timeline issue and keeps Timeline issue 411 held', () => {
   const researchIdentity = { ...identity, issue: 411, repository: RESEARCH_REPO };
   const crossedEvent = fixture({
