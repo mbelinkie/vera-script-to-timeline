@@ -1,0 +1,14 @@
+{
+  "schema": "vera.resolve-test-plan/v1",
+  "name": "offline-m1-example",
+  "fixtureId": "synthetic-demo",
+  "fixtureSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "targetId": "disposable-demo",
+  "targetPolicy": "synthetic_only",
+  "category": "queue-smoke",
+  "maxElapsedSeconds": 30,
+  "maxDiskBytes": 1048576,
+  "cases": [
+    { "id": "pass", "adapter": "mock.pass", "iterations": 2, "delayMs": 20 }
+  ]
+}
