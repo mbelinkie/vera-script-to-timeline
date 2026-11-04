@@ -54,6 +54,30 @@ into an implementation assumption.
   immutable builds. Existing per-occurrence overrides, including None, remain.
   This records product direction, not implementation, dispatch or design resume.
 
+### D-0018 — Lean delivery: auto-merge on green, no approval records
+
+- Status: Accepted
+- Date: 2026-11-04
+- Owner: Producer
+- Context: An audit of the last 15 delivered tickets found that CI and the
+  custom CI queue took a median of 71 minutes per ticket (a 50-minute
+  single-runner suite, double runs and 11 queue pauses in 6 days), and that
+  agents read about 8,200 words of process docs per session.
+- Decision: Matthew's go-ahead in any form is the approval; SHA-256 Chat
+  approval records are no longer required. Technical work auto-accepts on
+  merge; Producer review is only for taste and product behaviour. PRs merge
+  automatically when the full suite (now split across parallel runners) passes;
+  `main` re-runs the full suite after every merge and breakage is fixed first.
+  The custom CI queue, CI notification system and evidence manifests are
+  retired; the old DeepSeek Mac-receiver route is retired in favour of the
+  label-triggered job. Model/effort labels stay as information, never a gate.
+  Session docs have an enforced word budget; new gates need Matthew's request.
+- Evidence: Producer answers on 2026-11-04 to the process audit.
+- Compatibility / acceptance impact: Supersedes the queue rules of
+  `docs/CI_QUEUE.md`, the approval gate (#378/#405/#406) and the Producer
+  learning channel. `main` stays protected: no force-push or deletion, and the
+  required `TypeScript and Python` check must pass.
+
 ## Pending producer decisions
 
 | ID | Status | Decision needed | Known constraint / evidence required |

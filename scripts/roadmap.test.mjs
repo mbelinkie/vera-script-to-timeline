@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, validateRouting } from "./roadmap.mjs";
+import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, routingProfile } from "./roadmap.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -43,31 +43,14 @@ test("rejects non-parenthetical heading suffixes, malformed qualifiers, and miss
   assert.equal(acceptanceReady("## Acceptance criteria\n\nNo criteria here.\n\n## Handoff\n\n- [ ] Handoff item"), false);
 });
 
-test("accepts one exact routing profile", () => {
-  assert.deepEqual(validateRouting(["model:terra", "effort:high"], "gpt-5.6-terra", "high"), {
-    expectedModel: "terra",
-    expectedEffort: "high",
-  });
+test("reads one routing profile from the labels", () => {
+  assert.deepEqual(routingProfile(["model:terra", "effort:high"]), { expectedModel: "terra", expectedEffort: "high" });
 });
 
-test("rejects missing routing labels", () => {
-  assert.throws(() => validateRouting(["effort:high"], "gpt-5.6-terra", "high"), /exactly one/);
-});
-
-test("rejects duplicate routing labels", () => {
-  assert.throws(() => validateRouting(["model:luna", "model:terra", "effort:high"], "gpt-5.6-terra", "high"), /exactly one/);
-});
-
-test("rejects Luna claiming Terra work", () => {
-  assert.throws(() => validateRouting(["model:terra", "effort:high"], "gpt-5.6-luna", "high"), /Profile mismatch/);
-});
-
-test("rejects Sol claiming Luna work", () => {
-  assert.throws(() => validateRouting(["model:luna", "effort:low"], "gpt-5.6-sol", "low"), /Profile mismatch/);
-});
-
-test("rejects unsupported effort labels", () => {
-  assert.throws(() => validateRouting(["model:terra", "effort:ultra"], "gpt-5.6-terra", "ultra"), /unsupported/);
+test("rejects missing, duplicate or unsupported routing labels", () => {
+  assert.throws(() => routingProfile(["effort:high"]), /exactly one/);
+  assert.throws(() => routingProfile(["model:luna", "model:terra", "effort:high"]), /exactly one/);
+  assert.throws(() => routingProfile(["model:terra", "effort:ultra"]), /unsupported/);
 });
 
 test("uses the latest claim marker", () => {
@@ -242,23 +225,9 @@ if (query.includes("RoadmapRateLimit")) {
   assert.match(readyCalls[2].join(" "), /RoadmapRateLimit/);
   assert.match(readyCalls.at(-1).join(" "), /RoadmapLifecycle/);
 
-  const claimCalls = run(
-    ["claim", "23", "--model", "gpt-5.6-sol", "--effort", "high", "--task", "test-task", "--branch", "codex/test"],
-    "Ready",
-    1,
-  );
+  const claimCalls = run(["claim", "23", "--branch", "codex/test"], "Ready");
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
-  assert.ok(claimCalls[2].join(" ").includes("repos/mbelinkie/vera-script-to-timeline/issues/23"));
-  const lifecycleIndex = claimCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
-  assert.equal(lifecycleIndex, -1);
-  assert.equal(claimCalls.some((args) => args[0] === "issue"), false);
-
-  const approvedCalls = run(
-    ["claim", "23", "--model", "gpt-5.6-sol", "--effort", "high", "--task", "approved-task", "--branch", "codex/approved-test"],
-    "Ready", 0, true,
-  );
-  const approvalRead = approvedCalls.findIndex((args) => args.includes("--paginate"));
-  const approvedMutation = approvedCalls.findIndex((args) => args.join(" ").includes("RoadmapLifecycle"));
-  assert.ok(approvalRead > 0 && approvedMutation > approvalRead, "claim must verify current review before mutation");
+  assert.equal(claimCalls.some((args) => args.includes("--paginate")), false, "claim needs no approval record");
+  assert.match(claimCalls.at(-1).join(" "), /RoadmapLifecycle/);
 });

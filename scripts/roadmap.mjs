@@ -11,7 +11,6 @@ import {
   plannedGraphqlPoints,
 } from "./roadmap-rate-limit.mjs";
 import { acquireRoadmapLock } from "./roadmap-lock.mjs";
-import { verifyReviewFromGh } from "./chat-review-github.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -190,11 +189,6 @@ function runGraphql(query, variables = {}) {
   return payload.data;
 }
 
-function routeClass(model) {
-  const normalized = model.toLowerCase();
-  return MODEL_CLASSES.find((candidate) => normalized === candidate || normalized.includes(`-${candidate}`));
-}
-
 export function routingProfile(labels) {
   const modelLabels = labels.filter((label) => label.startsWith("model:"));
   const effortLabels = labels.filter((label) => label.startsWith("effort:"));
@@ -205,15 +199,6 @@ export function routingProfile(labels) {
   const expectedEffort = effortLabels[0].slice("effort:".length);
   if (!MODEL_CLASSES.includes(expectedModel) || !EFFORTS.includes(expectedEffort)) {
     throw new Error("Issue has an unsupported model or effort label");
-  }
-  return { expectedModel, expectedEffort };
-}
-
-export function validateRouting(labels, actualModel, actualEffort) {
-  const { expectedModel, expectedEffort } = routingProfile(labels);
-  const actualClass = routeClass(actualModel);
-  if (actualClass !== expectedModel || actualEffort !== expectedEffort) {
-    throw new Error(`Profile mismatch: issue requires ${expectedModel}/${expectedEffort}; task is ${actualModel}/${actualEffort}`);
   }
   return { expectedModel, expectedEffort };
 }
@@ -653,19 +638,24 @@ async function main() {
   }
 
   if (parsed.command === "claim") {
-    const model = required(parsed.flags, "model");
-    const effort = required(parsed.flags, "effort");
-    const task = required(parsed.flags, "task");
+    // Model and effort default to the issue's routing labels; a different
+    // profile is recorded, not refused. Matthew's go-ahead is the approval.
+    let routing = { expectedModel: "unlabeled", expectedEffort: "unlabeled" };
+    try {
+      routing = routingProfile(labelsOf(issue));
+    } catch {
+      // Missing or odd labels are information for Matthew, never a blocker.
+    }
+    const model = String(parsed.flags.get("model") ?? routing.expectedModel);
+    const effort = String(parsed.flags.get("effort") ?? routing.expectedEffort);
+    const task = String(parsed.flags.get("task") ?? "agent");
     const branch = required(parsed.flags, "branch");
-    validateRouting(labelsOf(issue), model, effort);
-    if (item.status !== "Ready") throw new Error(`Issue must be Ready before claim; current status is ${item.status ?? "unknown"}`);
-    validateReadyRequirements(settings, issue);
+    if (!["Inbox", "Backlog", "Ready"].includes(item.status)) {
+      throw new Error(`Issue is ${item.status ?? "in an unknown state"}; only Inbox, Backlog or Ready issues can be claimed`);
+    }
+    if (issue.state !== "OPEN") throw new Error("Only open issues can be claimed");
+    assertDependenciesResolved(dependencyStates(settings, issue.number, issue.body));
     assertClaimAvailable(issue.comments);
-    // Never claim on labels alone: verify a Producer-authored, current-revision
-    // approval against complete GitHub comment history before any mutation.
-    verifyReviewFromGh(runGh, settings.repository, issue.number, {
-      title: issue.title, body: issue.body, labels: labelsOf(issue),
-    });
     const claim = {
       state: "active",
       model,
@@ -711,7 +701,7 @@ async function main() {
       comment: `Implementation is ready for acceptance review.\n\nEvidence: ${evidence}`,
     });
   } else if (parsed.command === "complete") {
-    const acceptedBy = required(parsed.flags, "accepted-by");
+    const acceptedBy = String(parsed.flags.get("accepted-by") ?? "Automated");
     guardMutation(0, ["lifecycleMutation"]);
     applyLifecycleMutation(context, issue.id, {
       status: "Done",
