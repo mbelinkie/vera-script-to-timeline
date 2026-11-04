@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hostPreflight } from './deepseek-host-preflight.mjs';
+import { RESEARCH_REPO } from './deepseek-dispatch.mjs';
 
 const contract = (adapterSha256, updates = {}) => ({
   contract: 'VERA_DEEPSEEK_HOST_PREFLIGHT_V1',
@@ -101,6 +102,23 @@ test('host preflight uses a sanitized child environment and leaves receipt and c
     assert.equal(invocation.options.shell, false);
     assert.equal(invocation.options.timeout, 30_000);
     assert.deepEqual(stateOf(value), before);
+  });
+});
+
+test('Research host preflight binds its selected repository in the sanitized child environment', () => {
+  withFixture(value => {
+    let childEnv;
+    const ready = hostPreflight({ ...optionsFor(value), repository: RESEARCH_REPO, spawn: (_runner, _args, options) => {
+      childEnv = options.env;
+      return resultFor(value.adapterSha256);
+    } });
+    assert.equal(ready.ready, true);
+    assert.deepEqual(childEnv, {
+      HOME: '/synthetic/home',
+      PATH: '/usr/bin:/bin',
+      VERA_DEEPSEEK_ADAPTER_SHA256: value.adapterSha256,
+      VERA_REPOSITORY: RESEARCH_REPO
+    });
   });
 });
 

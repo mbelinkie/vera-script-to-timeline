@@ -8,11 +8,29 @@ import { pathToFileURL } from 'node:url';
 import { verifyReviewFromGh } from './chat-review-github.mjs';
 
 export const REPO = 'mbelinkie/vera-script-to-timeline';
+export const RESEARCH_REPO = 'mbelinkie/vera-research-video-clips';
 export const COMMAND = '/deepseek dispatch';
 export const APPROVAL_LABELS = ['chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'];
 
+const REPOSITORY_SLUGS = new Map([
+  [REPO, 'vera-script-to-timeline'],
+  [RESEARCH_REPO, 'vera-research-video-clips']
+]);
+
+export function requireDispatchRepo(repository) {
+  const slug = REPOSITORY_SLUGS.get(repository);
+  if (!slug) throw new Error('Unsupported dispatch repository');
+  return slug;
+}
+
+function repositoryApiPath(repository, suffix) {
+  return `https://api.github.com/repos/mbelinkie/${requireDispatchRepo(repository)}${suffix}`;
+}
+
 export function requestFromEvent(event, allowedActors = []) {
-  if (event?.repository?.full_name !== REPO) throw new Error('Wrong repository');
+  const repository = event?.repository?.full_name;
+  requireDispatchRepo(repository);
+  if (event?.repository?.owner?.login !== 'mbelinkie') throw new Error('Wrong repository owner');
   if (event?.issue?.pull_request) throw new Error('Pull requests cannot be dispatched');
   if (event?.comment?.body !== COMMAND) throw new Error('Not an exact dispatch command');
   const login = event?.comment?.user?.login;
@@ -23,11 +41,16 @@ export function requestFromEvent(event, allowedActors = []) {
       !Number.isSafeInteger(event?.issue?.number) || event.issue.number < 1) {
     throw new Error('Invalid issue/comment identifier');
   }
-  return { issue: event.issue.number, commentId: event.comment.id };
+  return {
+    issue: event.issue.number,
+    commentId: event.comment.id,
+    ...(repository === REPO ? {} : { repository })
+  };
 }
 
 export function verifyCurrentComment(comment, request, expectedLogin) {
-  const issueUrl = `https://api.github.com/repos/${REPO}/issues/${request.issue}`;
+  const repository = request?.repository || REPO;
+  const issueUrl = repositoryApiPath(repository, `/issues/${request.issue}`);
   if (comment?.id !== request.commentId || comment.body !== COMMAND ||
       comment.issue_url !== issueUrl || comment.user?.login !== expectedLogin) {
     throw new Error('Dispatch comment changed or does not match the live issue');
@@ -35,9 +58,17 @@ export function verifyCurrentComment(comment, request, expectedLogin) {
   return true;
 }
 
-export function verifyCurrentIssue(issue, expectedIssue) {
+export function verifyCurrentIssue(issue, expectedIssue, {
+  repository = REPO,
+  requireRepositoryUrl = repository === RESEARCH_REPO
+} = {}) {
+  const repositoryUrl = repositoryApiPath(repository, '');
   if (issue?.number !== expectedIssue || issue.state !== 'open' || issue.pull_request) {
     throw new Error('Issue no longer open or not an issue');
+  }
+  if ((issue.repository_url !== undefined && issue.repository_url !== repositoryUrl) ||
+      (requireRepositoryUrl && issue.repository_url !== repositoryUrl)) {
+    throw new Error('Issue belongs to a different repository');
   }
   const labels = new Set((issue.labels || []).map(x => typeof x === 'string' ? x : x.name));
   for (const label of APPROVAL_LABELS) {
@@ -78,7 +109,8 @@ function labelNames(issue) {
 export function verifyFreshDispatch({
   issue, comment, currentMainSha, request, actor, expectedIssue, expectedComment, expectedMainSha
 }) {
-  verifyCurrentIssue(issue, request.issue);
+  const repository = request?.repository || REPO;
+  verifyCurrentIssue(issue, request.issue, { repository, requireRepositoryUrl: repository === RESEARCH_REPO });
   verifyCurrentComment(comment, request, actor);
   if (currentMainSha !== expectedMainSha || comment.updated_at !== expectedComment.updated_at ||
       issue.title !== expectedIssue.title || issue.body !== expectedIssue.body || issue.state !== expectedIssue.state ||
@@ -100,7 +132,8 @@ export function taskCap(value) {
   return cap;
 }
 
-export function reserveReceipt(root, issue, commentId) {
+export function reserveReceipt(root, issue, commentId, { repository = REPO } = {}) {
+  requireDispatchRepo(repository);
   // mkdir is atomic on one host. Never clear this guard automatically:
   // an interrupted/uncertain paid call requires manual ledger reconciliation.
   const dir = join(root, 'issue-' + issue);
@@ -129,6 +162,7 @@ export function reserveReceipt(root, issue, commentId) {
   assertPrivateDirectory(dir);
   const receipt = join(dir, 'receipt.json');
   writeFileSync(receipt, JSON.stringify({
+    ...(repository === REPO ? {} : { repository }),
     issue, commentId, state: 'reserved',
     timestamp: new Date().toISOString()
   }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
@@ -191,20 +225,25 @@ export async function validateLiveRequest(event, {
   readGh = args => readGhForReview(token, args),
 } = {}) {
   const request = requestFromEvent(event, allowedActors);
+  const repository = request.repository || REPO;
   if (typeof token !== 'string' || !token) throw new Error('Missing GitHub issue-read token');
   const actor = event.comment.user.login;
-  const liveComment = await fetchJson(`https://api.github.com/repos/${REPO}/issues/comments/${request.commentId}`);
+  const liveComment = await fetchJson(repositoryApiPath(repository, `/issues/comments/${request.commentId}`));
   verifyCurrentComment(liveComment, request, actor);
-  const issue = await fetchJson(`https://api.github.com/repos/${REPO}/issues/${request.issue}`);
-  verifyCurrentIssue(issue, request.issue);
+  const issue = await fetchJson(repositoryApiPath(repository, `/issues/${request.issue}`));
+  verifyCurrentIssue(issue, request.issue, {
+    repository,
+    requireRepositoryUrl: repository === RESEARCH_REPO
+  });
   taskCap(taskCapUsd);
+  const selectedReadGh = args => readGh(args, undefined, { repository });
   const review = verifyReviewFromGh(
-    readGh,
-    REPO,
+    selectedReadGh,
+    repository,
     request.issue,
     { title: issue.title, body: issue.body, labels: issue.labels },
   );
-  verifyCurrentComment(await fetchJson(`https://api.github.com/repos/${REPO}/issues/comments/${request.commentId}`), request, actor);
+  verifyCurrentComment(await fetchJson(repositoryApiPath(repository, `/issues/comments/${request.commentId}`)), request, actor);
   return { request, reviewCommentId: review.commentId };
 }
 

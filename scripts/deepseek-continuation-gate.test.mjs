@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { issueRevision } from './chat-review-current.mjs';
 import {
-  continuationApprovalMetadata, verifyContinuationApproval, main
+  continuationApprovalMetadata, readPublicGh, verifyContinuationApproval, main
 } from './deepseek-continuation-gate.mjs';
 
 const REPO = 'mbelinkie/vera-script-to-timeline';
@@ -186,6 +186,10 @@ test('rejects invalid identities, issue 411, the quality campaign and extra CLI 
     { maxOutputTokens: 511 }, { maxOutputTokens: 24001 }, { maxOutputTokens: 512.5 }
   ]) assert.throws(() => continuationApprovalMetadata({ ...identity, ...altered }));
   assert.throws(() => continuationApprovalMetadata({ ...identity, extra: true }));
+  assert.throws(() => continuationApprovalMetadata({
+    ...identity,
+    repository: 'mbelinkie/vera-research-video-clips'
+  }));
   assert.throws(() => main([], reader(fixture())));
   assert.throws(() => main(['not-json'], reader(fixture())));
   assert.throws(() => main([JSON.stringify({ ...identity, extra: true })], reader(fixture())));
@@ -262,6 +266,33 @@ test('detects issue, canonical comment-history and main ref changes during verif
   assert.throws(() => approve(fixture(), (state, kind, count) => {
     if (kind === 'main' && count === 2) state.mainSha = 'e'.repeat(40);
   }));
+});
+
+test('reads only the allowlisted current main refs for either repository', () => {
+  const calls = [];
+  const spawn = (command, args, options) => {
+    calls.push({ command, args, options });
+    return { status: 0, stdout: '{"ref":"refs/heads/main"}' };
+  };
+  const route = `repos/${REPO}/git/ref/heads/main`;
+  assert.equal(readPublicGh(['api', route], spawn), '{"ref":"refs/heads/main"}');
+  assert.equal(calls[0].command, 'curl');
+  assert.equal(calls[0].args.at(-1), `https://api.github.com/${route}`);
+  assert.equal(calls[0].options.shell, false);
+
+  const researchRoute = 'repos/mbelinkie/vera-research-video-clips/git/ref/heads/main';
+  assert.equal(readPublicGh(['api', researchRoute], spawn, {
+    repository: 'mbelinkie/vera-research-video-clips'
+  }), '{"ref":"refs/heads/main"}');
+  assert.equal(calls[1].args.at(-1), `https://api.github.com/${researchRoute}`);
+  assert.throws(() => readPublicGh(['api', researchRoute], spawn, {
+    repository: REPO
+  }));
+
+  assert.throws(() => readPublicGh([
+    'api', 'repos/attacker/unknown-repo/git/ref/heads/main'
+  ], spawn));
+  assert.equal(calls.length, 2);
 });
 
 test('CLI accepts one serialized identity and returns a read-only approval result', () => {

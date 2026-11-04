@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { URL } from 'node:url';
 import { join } from 'node:path';
-import { requestFromEvent, verifyCurrentComment, verifyCurrentIssue, verifyFreshDispatch, taskCap, reserveReceipt, writeReceipt, invokePrivateRunner, validateLiveRequest } from './deepseek-dispatch.mjs';
+import { requestFromEvent, verifyCurrentComment, verifyCurrentIssue, verifyFreshDispatch, taskCap, reserveReceipt, writeReceipt, invokePrivateRunner, validateLiveRequest, REPO, RESEARCH_REPO, requireDispatchRepo } from './deepseek-dispatch.mjs';
 
 function goodEvent() {
   return {
@@ -28,6 +28,30 @@ test('accept exactly an owner-authored issue dispatch', () => {
   assert.throws(() => requestFromEvent(bot));
   assert.deepEqual(requestFromEvent(bot, ['chat-review-bot']), { issue: 396, commentId: 321 });
   assert.equal(verifyCurrentIssue(goodIssue(), 396), true);
+});
+
+test('Research dispatch selects only its exact public repository and binds its issue URL', () => {
+  assert.equal(requireDispatchRepo(REPO), 'vera-script-to-timeline');
+  assert.equal(requireDispatchRepo(RESEARCH_REPO), 'vera-research-video-clips');
+  assert.throws(() => requireDispatchRepo('mbelinkie/vera-research-video-clips-fork'));
+  const event = goodEvent();
+  event.repository.full_name = RESEARCH_REPO;
+  assert.deepEqual(requestFromEvent(event), { issue: 396, commentId: 321, repository: RESEARCH_REPO });
+  const request = { issue: 396, commentId: 321, repository: RESEARCH_REPO };
+  const comment = {
+    id: 321, body: '/deepseek dispatch',
+    issue_url: 'https://api.github.com/repos/' + RESEARCH_REPO + '/issues/396',
+    user: { login: 'mbelinkie' }
+  };
+  assert.equal(verifyCurrentComment(comment, request, 'mbelinkie'), true);
+  assert.throws(() => verifyCurrentComment({ ...comment,
+    issue_url: 'https://api.github.com/repos/' + REPO + '/issues/396'
+  }, request, 'mbelinkie'));
+  const issue = { ...goodIssue(), repository_url: 'https://api.github.com/repos/' + RESEARCH_REPO };
+  assert.equal(verifyCurrentIssue(issue, 396, { repository: RESEARCH_REPO }), true);
+  assert.throws(() => verifyCurrentIssue({ ...issue,
+    repository_url: 'https://api.github.com/repos/' + REPO
+  }, 396, { repository: RESEARCH_REPO }));
 });
 
 test('matches the live dispatch comment to its event identity', () => {
@@ -164,6 +188,56 @@ test('GitHub validation rechecks exact comment identity and the canonical curren
   const result = await validateLiveRequest(event, { token: 'read-only-test-token', taskCapUsd: '0.25', fetchJson, readGh });
   assert.deepEqual(result, { request: { issue: 396, commentId: 321 }, reviewCommentId: 654 });
   assert.equal(fetchCalls.length, 3);
+});
+
+test('hosted Research validation reads only the selected repository and binds REST issue provenance', async () => {
+  const issue = {
+    number: 396, title: 'Synthetic Research implementation', body: '## DeepSeek Handoff\nBounded public task.',
+    state: 'open', labels: ['type:implementation', 'chat-reviewed', 'deepseek-eligible', 'deepseek-ready', 'deepseek-dispatch'],
+    comments: 1, repository_url: 'https://api.github.com/repos/' + RESEARCH_REPO,
+    html_url: 'https://github.com/' + RESEARCH_REPO + '/issues/396'
+  };
+  const approval = {
+    id: 654, user: { login: 'mbelinkie' }, created_at: '2026-11-02T12:00:00Z', updated_at: '2026-11-02T12:00:00Z',
+    performed_via_github_app: null,
+    body: '<!-- VERA_CHAT_REVIEW_V1 ' + JSON.stringify({
+      revision: createHash('sha256').update(JSON.stringify([issue.title, issue.body])).digest('hex'),
+      producer: 'mbelinkie', reviewedAt: '2026-11-02T12:00:00.000Z', promptVersion: '1'
+    }) + ' -->'
+  };
+  const dispatchComment = {
+    id: 321, body: '/deepseek dispatch', issue_url: 'https://api.github.com/repos/' + RESEARCH_REPO + '/issues/396',
+    user: { login: 'mbelinkie' }
+  };
+  const event = goodEvent();
+  event.repository.full_name = RESEARCH_REPO;
+  const fetchCalls = [];
+  const fetchJson = async url => {
+    fetchCalls.push(url);
+    assert.ok(url.includes('/repos/' + RESEARCH_REPO + '/'));
+    if (url.endsWith('/issues/comments/321')) return dispatchComment;
+    if (url.endsWith('/issues/396')) return issue;
+    throw new Error('Unexpected request');
+  };
+  const readGh = (args, _spawn, { repository } = {}) => {
+    assert.equal(repository, RESEARCH_REPO);
+    assert.ok(args.at(-1).includes('repos/' + RESEARCH_REPO + '/'));
+    if (args[1] === 'repos/' + RESEARCH_REPO + '/issues/396') return JSON.stringify(issue);
+    if (args.at(-1) === 'repos/' + RESEARCH_REPO + '/issues/396/comments?per_page=100') {
+      return JSON.stringify([[approval]]);
+    }
+    throw new Error('Unexpected canonical-gate read');
+  };
+  const result = await validateLiveRequest(event, { token: 'synthetic', taskCapUsd: '0.25', fetchJson, readGh });
+  assert.deepEqual(result, { request: { issue: 396, commentId: 321, repository: RESEARCH_REPO }, reviewCommentId: 654 });
+  assert.equal(fetchCalls.length, 3);
+
+  await assert.rejects(validateLiveRequest(event, {
+    token: 'synthetic', taskCapUsd: '0.25',
+    fetchJson: async url => url.endsWith('/issues/comments/321') ? dispatchComment : {
+      ...issue, repository_url: 'https://api.github.com/repos/' + REPO
+    }, readGh
+  }), /different repository/);
 });
 
 test('receipt is allocated before calls and refuses duplicate issue attempts', () => {

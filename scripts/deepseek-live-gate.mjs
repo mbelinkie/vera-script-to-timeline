@@ -2,14 +2,15 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  continuationApprovalMetadata, readPublicGh, verifyPublicApproval
+  liveBaseApprovalMetadata, readPublicGh, verifyPublicApproval
 } from './deepseek-continuation-gate.mjs';
 
 export { readPublicGh };
 
 export function liveApprovalMetadata(identity) {
   return {
-    ...continuationApprovalMetadata(identity),
+    ...liveBaseApprovalMetadata(identity),
+    ...(Object.hasOwn(identity, 'repository') ? { repository: identity.repository } : {}),
     executionMode: 'live',
     transportContract: 'VERA_DEEPSEEK_RECEIVER_V2'
   };
