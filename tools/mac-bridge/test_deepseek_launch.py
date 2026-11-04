@@ -34,7 +34,11 @@ class LaunchTests(unittest.TestCase):
         self.set_view(
             {
                 "state": "OPEN",
-                "labels": [{"name": "deepseek-failed"}, {"name": "deepseek"}],
+                "labels": [
+                    {"name": "deepseek-failed"},
+                    {"name": "deepseek"},
+                    {"name": "type:implementation"},
+                ],
                 "url": "https://github.com/x/y/issues/5",
                 "comments": [],
             }
@@ -86,6 +90,17 @@ class LaunchTests(unittest.TestCase):
         with self.assertRaises(dl.LaunchError):
             dl.launch("timeline", 5, "x" * 100)
         self.set_view({"state": "CLOSED", "labels": [], "url": "u"})
+        with self.assertRaises(dl.LaunchError):
+            dl.launch("timeline", 5, "x" * 100)
+
+    def test_rejects_design_and_excluded_issues(self):
+        self.set_view(
+            {"state": "OPEN", "labels": [{"name": "type:design"}], "url": "u"}
+        )
+        with self.assertRaises(dl.LaunchError):
+            dl.launch("timeline", 5, "x" * 100)
+        labels = [{"name": "type:bug"}, {"name": "deepseek-excluded"}]
+        self.set_view({"state": "OPEN", "labels": labels, "url": "u"})
         with self.assertRaises(dl.LaunchError):
             dl.launch("timeline", 5, "x" * 100)
 
