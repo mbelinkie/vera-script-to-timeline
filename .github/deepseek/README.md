@@ -45,6 +45,11 @@ repo and milestone.
   also copies it, in case you'd rather paste it into the desktop app. Chat works out the
   change, writes draft code into a brief, and launches DeepSeek through the Mac Bridge.
   DeepSeek is always launched through Chat; the board has no direct launch button.
+- **Your next step**, at the top, always names one action, in this order: hand a finished
+  draft to Codex, read why a run failed, groom the next ticket (keeping about three in
+  flight), or wait. While the board runs it checks every 5 minutes and pops a Mac
+  notification when a DeepSeek run finishes or fails. The tab title also shows a count
+  when something is waiting for you.
 - **Ready for Codex** has the draft PRs. The banner names the **next prepped ticket**; say
   "work on the next prepped ticket" to Codex or Claude (see AGENTS.md).
   `npm run prep -- --next` prints it.

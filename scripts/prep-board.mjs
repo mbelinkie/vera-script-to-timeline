@@ -5,13 +5,16 @@
 //   npm run prep -- --next    print the next prepped ticket for Codex/Claude and exit
 // Stages: To groom -> DeepSeek running -> Ready for Codex / Needs a look, plus
 // "Not ready" (dependencies open, design work, already owned...) with no buttons.
+// A "Your next step" panel names the one thing to do now, and while the board
+// runs it checks every 5 minutes and pops a Mac notification when a run ends.
 // Read-only: reads GitHub through the local `gh` CLI. DeepSeek is only ever
 // launched by the ChatGPT grooming chat, after it has prepared a brief.
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { setInterval } from "node:timers";
 import { promisify } from "node:util";
 
 import { buildSharedRoadmap, fetchNativeDependencies, loadProgressModel } from "./project-progress-lib.mjs";
@@ -21,6 +24,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.env.VERA_PREP_PORT ?? 51750);
 const REFRESH_MS = 3 * 60_000;
 const DEPENDENCY_TTL_MS = 10 * 60_000;
+const WATCH_MS = 5 * 60_000;
+const PIPELINE_DEPTH = 3; // keep about this many tickets prepped or in flight ahead of Codex
+const STATE_FILE = path.join(ROOT, "out", "prep-board-state.json");
 const OWNER = "mbelinkie";
 
 export const REPOS = {
@@ -170,6 +176,7 @@ export function buildBoard(models, dependencies, pulls, template = "") {
       milestones: roadmap.milestones.map((milestone) => ({ name: milestone.name, done: milestone.done, total: milestone.total })),
     },
     nextPrepped: nextPrepped(rows),
+    nextStep: nextStep(rows),
     dependencyErrors: roadmap.dependencyErrors,
   };
 }
@@ -180,6 +187,68 @@ export function nextPrepped(rows) {
   const row = rows.find((candidate) => candidate.stage === "ready" && !BUSY.has(candidate.status)
     && !(candidate.reasons ?? []).some((reason) => reason.startsWith("Waiting on")));
   return row ? { key: row.key, repo: row.repo, number: row.number, title: row.title, url: row.url, pr: row.pr, queueOrder: row.queueOrder } : null;
+}
+
+const repoName = (row) => REPOS[row.repo]?.name ?? row.repo;
+const brief = (row) => ({ key: row.key, repo: row.repo, number: row.number, title: row.title, url: row.url, pr: row.pr ?? null });
+
+// The one thing Matthew should do next, in priority order: hand a finished
+// draft to Codex, look at a failed run, keep the pipeline topped up, or wait.
+export function nextStep(rows) {
+  const prepped = nextPrepped(rows);
+  if (prepped) {
+    return { kind: "codex", row: prepped, title: `Hand ${repoName(prepped)} #${prepped.number} to Codex`,
+      detail: "DeepSeek finished a draft. Tell Codex \"work on the next prepped ticket\", or click Open in Codex." };
+  }
+  const failed = rows.find((row) => row.stage === "failed");
+  if (failed) {
+    return { kind: "failed", row: brief(failed), title: `DeepSeek couldn't finish ${repoName(failed)} #${failed.number}`,
+      detail: "Read its note on the issue. If it looks worth another try, groom it again in ChatGPT; otherwise leave it for Codex." };
+  }
+  const inFlight = rows.filter((row) => row.stage === "running").length;
+  const groom = rows.find((row) => row.stage === "groom" && row.canGroom);
+  if (groom && inFlight < PIPELINE_DEPTH) {
+    return { kind: "groom", row: brief(groom), title: `Groom ${repoName(groom)} #${groom.number} in ChatGPT`,
+      detail: inFlight ? `${inFlight} DeepSeek job${inFlight === 1 ? " is" : "s are"} already running. Prepping one more keeps Codex fed.` : "Nothing is being prepped. Start the next ticket in priority order." };
+  }
+  if (inFlight) {
+    return { kind: "wait", row: null, title: `DeepSeek is working on ${inFlight} ticket${inFlight === 1 ? "" : "s"}`,
+      detail: "Nothing to do. You'll get a Mac notification when a draft is ready or a run fails." };
+  }
+  return { kind: "idle", row: null, title: "Nothing to prep right now",
+    detail: "Every open ticket is blocked, in progress, or not DeepSeek work. See the Not ready tab." };
+}
+
+// Tickets whose DeepSeek run just finished or failed since the last look.
+export function finishedSince(previous, rows) {
+  if (!previous) return [];
+  return rows.filter((row) => (row.stage === "ready" || row.stage === "failed") && previous[row.key] && previous[row.key] !== row.stage);
+}
+
+async function notifyMac(title, message) {
+  if (process.platform !== "darwin") {
+    console.log(`[notify] ${title}: ${message}`);
+    return;
+  }
+  const script = "on run argv\n display notification (item 2 of argv) with title (item 1 of argv) sound name \"Glass\"\nend run";
+  await run("osascript", ["-e", script, title, message]).catch(() => {});
+}
+
+async function readState() {
+  try { return JSON.parse(await readFile(STATE_FILE, "utf8")); } catch { return null; }
+}
+
+async function announce(rows) {
+  const previous = await readState();
+  for (const row of finishedSince(previous, rows)) {
+    const label = `${repoName(row)} #${row.number}`;
+    await notifyMac(
+      row.stage === "ready" ? "DeepSeek draft ready" : "DeepSeek run needs a look",
+      row.stage === "ready" ? `${label} is ready for Codex: ${row.title}` : `${label} didn't finish: ${row.title}`,
+    );
+  }
+  await mkdir(path.dirname(STATE_FILE), { recursive: true });
+  await writeFile(STATE_FILE, JSON.stringify(Object.fromEntries(rows.map((row) => [row.key, row.stage]))));
 }
 
 async function gh(args) {
@@ -225,7 +294,9 @@ main{padding:16px 24px 48px;max-width:1200px;margin:0 auto}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}.stat b{font-size:22px;font-variant-numeric:tabular-nums}.stat small{display:block;color:var(--mute)}
 .bar{height:6px;background:var(--track);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--green)}
-.next{background:var(--card);border:1px solid var(--green);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.next{background:var(--card);border:2px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.next.k-codex{border-color:var(--green)}.next.k-failed{border-color:var(--red)}.next.k-wait,.next.k-idle{border-color:var(--line)}
+.next .lead{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}.next b{font-size:16px}.next small{display:block;color:var(--mute)}
 .tabs{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap}.tabs button[aria-pressed=true]{border-color:var(--blue);color:var(--blue);font-weight:600}
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}input,select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink)}
 ol{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -267,8 +338,14 @@ function stats(){
   const sel=$("milestone"),cur=sel.value;sel.innerHTML='<option value="">All milestones</option>'+s.milestones.filter((x)=>x.done<x.total).map((x)=>'<option value="'+esc(x.name)+'">'+esc(x.name)+' ('+(x.total-x.done)+' left)</option>').join("")+'<option value="__none">No milestone</option>';sel.value=cur;
 }
 function nextBox(){
-  const n=data.nextPrepped;
-  $("next").innerHTML=n?'<div class="next"><span><b>Next prepped for Codex:</b> '+esc(n.repo==="vera-research-video-clips"?"Research":"Timeline")+' #'+n.number+' '+esc(n.title)+'</span><span class="spacer"></span><button data-copy="Work on the next prepped ticket.">Copy “work on the next prepped ticket”</button></div>':"";
+  const n=data.nextStep;if(!n){$("next").innerHTML="";return}
+  const r=n.row;let acts="";
+  if(n.kind==="codex"&&r){acts=(r.pr?'<a class="btn" href="'+esc(r.pr.url)+'" target="_blank" rel="noopener">See draft PR</a>':'<a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">See result</a>')+'<button data-copy="Work on the next prepped ticket.">Copy “work on the next prepped ticket”</button><button class="primary" data-act="codex" data-key="'+esc(r.key)+'">Open in Codex</button>'}
+  if(n.kind==="failed"&&r)acts='<a class="btn primary" href="'+esc(r.url)+'" target="_blank" rel="noopener">Read why</a>';
+  if(n.kind==="groom"&&r)acts='<button class="primary" data-act="chat" data-key="'+esc(r.key)+'">Groom in ChatGPT</button>';
+  $("next").innerHTML='<div class="next k-'+n.kind+'"><div><div class="lead">Your next step</div><b>'+esc(n.title)+'</b>'+(r?' <span class="meta">'+esc(r.title)+'</span>':'')+'<small>'+esc(n.detail)+'</small></div><span class="spacer"></span>'+acts+'</div>';
+  const waiting=data.rows.filter((x)=>x.stage==="failed").length+(data.nextPrepped?1:0);
+  document.title=(waiting?"("+waiting+") ":"")+"VERA prep board";
 }
 function render(){
   $("errors").innerHTML=data.errors.map((e)=>'<div class="err">'+esc(e)+'</div>').join("");
@@ -313,9 +390,19 @@ export async function startServer({ port = PORT, open = true } = {}) {
   let pending = null;
   const board = async (force) => {
     if (!force && cache && Date.now() - Date.parse(cache.at) < 60_000) return cache;
-    pending ??= loadBoard({ forceDependencies: force }).then((value) => (cache = value)).finally(() => (pending = null));
+    pending ??= loadBoard({ forceDependencies: force })
+      .then(async (value) => {
+        cache = value;
+        await announce(value.rows).catch(() => {});
+        return value;
+      })
+      .finally(() => (pending = null));
     return pending;
   };
+  // Keep watching while the board runs, so a finished DeepSeek job pops a Mac
+  // notification even when the browser tab is closed or in the background.
+  board(false).catch(() => {});
+  setInterval(() => board(false).catch(() => {}), WATCH_MS);
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
     const send = (status, body, type = "application/json") => {

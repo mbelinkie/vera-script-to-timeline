@@ -4,7 +4,7 @@ import test from "node:test";
 import { URL } from "node:url";
 
 import { buildProgressModel, parseProjectItems } from "./project-progress-lib.mjs";
-import { buildBoard, chatPrompt, compareRows, deepseekState, nextPrepped, notReadyReasons, prsByIssue } from "./prep-board.mjs";
+import { buildBoard, chatPrompt, compareRows, deepseekState, finishedSince, nextPrepped, nextStep, notReadyReasons, prsByIssue } from "./prep-board.mjs";
 import { buildPrompt, estimateCost, ineligibleReason, readAgentResult } from "../.github/deepseek/job.mjs";
 
 const TL = "vera-script-to-timeline";
@@ -144,4 +144,30 @@ test("agent results are read safely, including bad keys and caps", () => {
   assert.equal(ok.summary, "## Summary");
   assert.match(readAgentResult(JSON.stringify({ subtype: "error_max_turns", is_error: true, num_turns: 200 })).reason, /error_max_turns/);
   assert.match(readAgentResult(JSON.stringify({ subtype: "success", is_error: true, api_error_status: 401 })).reason, /rejected the API key/);
+});
+
+test("the next step is Codex first, then failures, then grooming up to three in flight, then wait", () => {
+  const row = (number, stage, extra = {}) => ({ key: `${TL}#${number}`, repo: TL, number, title: `T${number}`, url: url(TL, number), status: "Inbox", stage, canGroom: stage === "groom", reasons: [], ...extra });
+  assert.equal(nextStep([row(1, "groom"), row(2, "ready"), row(3, "failed")]).kind, "codex");
+  assert.match(nextStep([row(2, "ready")]).title, /Hand Timeline #2 to Codex/);
+  assert.equal(nextStep([row(1, "groom"), row(3, "failed")]).kind, "failed");
+  const groom = nextStep([row(1, "groom"), row(4, "running")]);
+  assert.equal(groom.kind, "groom");
+  assert.equal(groom.row.number, 1);
+  assert.match(groom.detail, /1 DeepSeek job is already running/);
+  assert.equal(nextStep([row(1, "groom"), row(4, "running"), row(5, "running"), row(6, "running")]).kind, "wait");
+  assert.equal(nextStep([row(2, "ready", { status: "In progress" }), row(4, "running")]).kind, "wait", "a draft Codex already started isn't a next step");
+  assert.equal(nextStep([row(7, "blocked")]).kind, "idle");
+});
+
+test("only runs that just finished or failed trigger a notification", () => {
+  const rows = [
+    { key: "a", stage: "ready" },
+    { key: "b", stage: "failed" },
+    { key: "c", stage: "ready" },
+    { key: "d", stage: "running" },
+  ];
+  assert.deepEqual(finishedSince(null, rows), [], "first look sets a baseline without notifying");
+  assert.deepEqual(finishedSince({ a: "running", b: "running", c: "ready", d: "groom" }, rows).map((r) => r.key), ["a", "b"]);
+  assert.deepEqual(finishedSince({}, rows), [], "tickets never seen before don't notify");
 });
