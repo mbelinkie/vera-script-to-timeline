@@ -1,121 +1,18 @@
-# Verification and review policy
+# Verification policy
 
-Adopted by the Producer on 2026-10-16 ([D-0016](../DECISIONS.md)). This
-replaces every earlier version of this policy, including the 2026-10-12
-local-full-gate rules, the #196 qualified-cloud-substitution procedure, the
-expensive-check queue, the long-test wake-up procedure and Claude-review
-waivers.
+The working rules live in [AGENTS.md](../AGENTS.md) (simplified on 2026-11-04,
+[D-0018](../DECISIONS.md)). In short:
 
-VERA is a one-person project and the Producer is not a developer. The goal is
-to move fast, catch real breakage cheaply, and fix bugs forward. Checks exist to
-find problems, not to produce paperwork.
-
-## The checks, in order
-
-1. **While working.** Run focused tests for what you changed, then
-   `npm run validate:fast`. That runs generated-contract currentness, all lint
-   and type checks, fast TypeScript unit tests and the Python tests that are
-   non-`slow` or explicitly `fast` inside a slow module on two workers, in a
-   few minutes. Long compiler CLI, media-probing, browser
-   and embedded-database integration tests remain in the full cloud gate; run
-   an affected integration file locally. If you changed code that `slow` tests
-   cover, run only those test files, for example
-   `uv run --frozen pytest tests/test_issue174_real_media.py`. When a change
-   crosses the TypeScript/Python boundary or touches a shared helper, run the
-   tests on both sides of that boundary early; that is where late failures
-   have come from.
-2. **Review.** For any issue that changes code, get one adversarial review of
-   the diff from the Claude CLI (read-only tools) before merging. Fix the real
-   findings. Small follow-up fixes do not need another review. Documentation-
-   or metadata-only changes skip review. If the CLI is unavailable, say so in
-   the PR and carry on; no waiver is needed. Before running any Claude review,
-   read and follow [docs/CLAUDE_REVIEW_PLAYBOOK.md](CLAUDE_REVIEW_PLAYBOOK.md),
-   including its exemptions and targeted delta-review rule. This applies to
-   in-flight and future issues and supersedes older issue/plan review rituals.
-3. **Pull request validation in the cloud.** While the CI queue is inactive,
-   the GitHub Actions `Validate` workflow classifies each PR before selecting
-   exactly one gate. A PR uses `Docs only` only when every changed path is an
-   allowlisted root Markdown file (`README.md`, `AGENTS.md`, `CLAUDE.md`,
-   `DECISIONS.md`, or `CONTEXT.md`) or `docs/**/*.md`, and every present file
-   version is a regular non-executable file. That job checks changed
-   documentation with `git diff --check`. Any source, test, workflow, contract,
-   fixture, dependency, unsupported, mixed, or empty change uses the complete
-   `npm run validate` job. Markdown files named as runtime or test inputs also
-   use the full gate. If Git cannot determine the pull request range,
-   classification fails. Manual dispatch always runs the full gate.
-
-   When the CI queue is active, use its control issue and exact-SHA validation
-   process. Ordinary PR validation jobs are disabled; a ready entry runs the
-   same trusted classifier and selects `Docs only` or the full gate. The
-   controller posts the required `VERA queue validation` commit status on the
-   candidate SHA, merges only after its identity and base checks pass, then
-   dispatches smoke on the merge SHA. A dispatch-created job check does not
-   satisfy a required PR check. `/queue validate` can validate a draft without
-   authorizing merge. Activation, fallback, and recovery are documented in
-   [the CI queue guide](CI_QUEUE.md); the queue is active following its bounded
-   live proof. Submit ready PRs through its control issue.
-
-   Pushes to `main` still run the short `Main smoke` job with existing Node
-   unit tests and a Python syntax check; it does not replace PR validation.
-   Standard runners are free for this public repository. Do not run the full
-   `npm run validate` on the Producer's Mac: it takes one to three hours,
-   occupies the machine and duplicates CI.
-4. **Merge.** While the queue is inactive, bring the branch up to date with
-   `main`, then merge when local fast checks pass and the PR's required
-   `TypeScript and Python` check is green. For a docs-only PR, that check
-   confirms `Docs only` passed; all other PRs confirm the complete suite
-   passed. When the queue is active, submit the exact ready head through the
-   control issue. The controller merges after required status and identity
-   checks pass, then confirms delivery only after smoke succeeds. An issue is
-   not done until its work is merged into `main`.
-   Do not poll Actions; follow the documented queue notification and recovery
-   path when the queue is active. If ordinary CI fails, reproduce just the
-   failing tests locally, fix and push. If a post-merge smoke fails, fix forward
-   through a PR.
-5. **Real-application checks.** Only when the issue changes DaVinci Resolve,
-   Fusion or media behaviour that CI cannot exercise. Keep them short and
-   targeted. Run them yourself through the available tooling where you can.
-   Batch any step that needs the Producer's hands, eyes or ears into one short
-   checklist.
-
-## After merge
-
-If `main` goes red, or a bug shows up later, open a bug issue and fix forward.
-Do not reopen or retroactively block the original issue. Revert only when
-`main` is unusable.
-
-## What counts as evidence
-
-The pull request: its diff, a short description of what changed and how it was
-tested, and the CI result. For External or Producer issues, add one comment
-with what was checked in the real application and the outcome. Nothing else is
-required.
-
-No longer required: evidence-equivalence proofs, input inventories or hash
-lists, JSON receipts or evidence bundles, qualification audits, cloud-evidence
-validator runs, profile digests, frozen-boundary audits, re-running checks at
-handoffs, re-reviewing unchanged code, or Producer waivers for anything in this
-policy. Existing evidence tooling such as `scripts/cloud-evidence-*` may stay
-in the repository, but nothing has to use it.
-
-## Keep doing
-
-- Never claim something passed when it did not, and never weaken an assertion
-  just to get green. If a test is wrong or obsolete, fix or delete it and say
-  why in the PR.
-- When a roadmap or review handoff tool rejects a recognized formatting
-  variant despite valid criteria or a current approval, fix the tool and add a
-  focused regression test while preserving the approved issue text and review
-  record. Missing criteria, unresolved dependencies and stale approvals remain
-  hard gates.
-- Compiler golden files must still match. When output changes on purpose,
-  update the goldens in the same PR and say why.
-- Keep the suite fast. Prefer small unit tests; add at most one end-to-end test
-  per feature. Mark any test that renders or probes real media, repeatedly
-  starts external processes, or takes more than about five seconds with
-  `@pytest.mark.slow`. If `npm run validate:fast` creeps past about five
-  minutes on the Mac, file an issue to speed it up.
-- Only one agent drives Resolve on the Mac at a time.
-- Anything irreversible in the real world (deleting, uploading or sharing the
-  Producer's media or the research project's data) still happens only through
-  the product's own flows.
+- **Locally:** focused tests, then `npm run validate:fast`. Never the full
+  suite on the Mac.
+- **CI:** every PR and every push to `main` runs the full `npm run validate`
+  equivalent in GitHub Actions, split across parallel free runners. PRs that
+  change only allowlisted Markdown take the fast `Docs only` route. The
+  required check is `TypeScript and Python`.
+- **Review:** one `npm run review` for code over ~50 lines or touching risky
+  areas; fix real findings; no review loops.
+- **Merge:** auto-merge when the required check passes. If `main` goes red,
+  fix forward first.
+- **Evidence:** the PR (diff, short description, CI result), plus one comment
+  for real-application checks. Nothing else: no receipts, hash bundles,
+  approval records or evidence manifests.
