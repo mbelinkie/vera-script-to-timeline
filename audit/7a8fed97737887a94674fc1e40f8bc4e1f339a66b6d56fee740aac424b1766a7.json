@@ -1,1 +1,1 @@
-{"version":1,"eventId":"7a8fed97737887a94674fc1e40f8bc4e1f339a66b6d56fee740aac424b1766a7","status":"posting","eventWriteAttempts":1,"commentAttempts":1,"manualRetryUsed":false,"nextAttemptAt":"2026-11-04T08:47:27.202Z","lastOutcome":"none","commentHttpStatus":null,"commentIssue":431}
+{"version":1,"eventId":"7a8fed97737887a94674fc1e40f8bc4e1f339a66b6d56fee740aac424b1766a7","status":"failed","eventWriteAttempts":1,"commentAttempts":1,"manualRetryUsed":false,"nextAttemptAt":null,"lastOutcome":"rejected","commentHttpStatus":403,"commentIssue":431}
