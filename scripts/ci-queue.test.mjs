@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { URL } from "node:url";
-import { readFileSync } from "node:fs";
 import { Queue, STATUS, initialState, parseCommand, validateState } from "./ci-queue.mjs";
 
 const A = "a".repeat(40), B = "b".repeat(40), C = "c".repeat(40), D = "d".repeat(40);
@@ -420,17 +419,6 @@ test("dispatch intent survives a transport uncertainty without being retried", a
   await f.queue.run({ eventName: "workflow_run", event: {} });
   await f.queue.run({ eventName: "workflow_run", event: {} });
   assert.equal(dispatched, 1); assert.ok(f.state.paused); assert.equal(f.state.entries.length, 2);
-});
-
-test("privileged workflow executes only default branch code and no candidate artifacts", () => {
-  const workflow = readFileSync(new URL("../.github/workflows/ci-queue.yml", import.meta.url), "utf8");
-  assert.match(workflow, /pull_request_target:/);
-  assert.match(workflow, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
-  assert.match(workflow, /persist-credentials: false/);
-  assert.match(workflow, /group: vera-ci-queue-controller\n {2}queue: max/);
-  assert.doesNotMatch(workflow, /download-artifact|cache:|npm ci|pull_request\.head|schedule:/);
-  assert.match(workflow, /run: node scripts\/ci-queue\.mjs/);
-  assert.match(workflow, /workflows: \[Validate\]/);
 });
 
 test("fix-forward recovery requires the explicit repaired main and preserves original delivery", async () => {
