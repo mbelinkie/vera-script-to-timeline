@@ -90,11 +90,15 @@ fallback.
   Independent Linux container run on 2026-11-05: 23 passed with
   `--testTimeout=30000`; at the default 5000 ms timeout, 15 PGlite-backed
   tests timed out under this container's CPU constraints, not on assertions.
+  A file-local 20s PGlite startup allowance now lets the normal test command
+  pass all 23 without weakening assertions (verified: 23 passed).
 - `packages/public-page-capture/test/authorization-integration.test.ts`: 7
   tests proving the service structurally satisfies the existing
   `ProjectAuthorizationPort`, drives real create/queue/commit flows (shared
   database), refuses commit after revocation with nothing published, and maps
   refusals to closed API errors at the HTTP boundary.
+  Its PGlite fixtures use the same file-local startup allowance (normal
+  command verified: 7 passed in this Linux container).
 
 ## Proven but not proven
 

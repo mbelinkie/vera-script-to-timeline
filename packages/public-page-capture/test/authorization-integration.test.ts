@@ -15,7 +15,11 @@ import {
   type SqlPool,
 } from "@vera/project-authorization";
 import { PNG } from "pngjs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The independent PGlite WASM fixture is cold-started for every case; CI
+// filesystem/CPU contention can exceed Vitest's 5s default without a defect.
+vi.setConfig({ testTimeout: 20_000 });
 
 import type {
   AuthoringReferencePort,

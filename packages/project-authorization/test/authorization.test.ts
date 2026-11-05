@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { PGlite } from "@electric-sql/pglite";
 import type { PrincipalRef } from "@vera/contracts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyProjectAuthorizationMigration,
@@ -18,6 +18,10 @@ import {
 } from "../src/service.js";
 
 /* eslint-disable @typescript-eslint/require-await -- Test doubles implement async ports. */
+
+// Each test boots an isolated PGlite WASM database. Cold Linux CI filesystems
+// may exceed Vitest's 5s default without any assertion or query failing.
+vi.setConfig({ testTimeout: 20_000 });
 
 const PROJECT = "11111111-1111-4111-8111-111111111111";
 const OTHER_PROJECT = "22222222-2222-4222-8222-222222222222";
