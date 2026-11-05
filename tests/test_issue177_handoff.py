@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 from issue177_package_fixture import make_package_case
+from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent.workflow_package import (
     read_object,
     sha256,
@@ -48,6 +49,7 @@ def launch(release: Path) -> subprocess.CompletedProcess[str]:
         check=True,
         capture_output=True,
         text=True,
+        env=isolated_native_owner_env(release.parent),
     )
 
 

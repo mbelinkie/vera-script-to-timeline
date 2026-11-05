@@ -1524,7 +1524,12 @@ def _handle_command_unlocked(
 
 
 def handle_command(request: Any, resolve: Any | None = None) -> dict[str, Any]:
-    with _native_lock():
+    python_root = str(Path(__file__).resolve().parents[1] / "python")
+    if python_root not in sys.path:
+        sys.path.insert(0, python_root)
+    from vera_timeline_agent.resolve_native_owner import native_owner
+
+    with native_owner(), _native_lock():
         return _handle_command_unlocked(request, resolve)
 
 

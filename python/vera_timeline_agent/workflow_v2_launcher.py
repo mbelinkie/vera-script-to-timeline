@@ -30,6 +30,17 @@ REQUEST_KEYS = {
 def run_installed_request_v2(
     resolve: Any, request_path: Path, *, expected_request_sha256: str
 ) -> Path:
+    from .resolve_native_owner import native_owner
+
+    with native_owner():
+        return _run_installed_request_v2(
+            resolve, request_path, expected_request_sha256=expected_request_sha256
+        )
+
+
+def _run_installed_request_v2(
+    resolve: Any, request_path: Path, *, expected_request_sha256: str
+) -> Path:
     """Consume exactly the operator-authorized package and new target."""
     if any(
         path.is_symlink() for path in (request_path, *request_path.absolute().parents)

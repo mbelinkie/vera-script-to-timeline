@@ -89,7 +89,8 @@ sleep start after the next wake/service tick if they have not expired; the
 report keeps the true scheduled and started times and never claims on-time
 execution. The LaunchAgent does not wake or resume any AI/chat session; a later
 session reads the result by job ID. A GUI-only Resolve action is still
-unsupported; native work is not enabled.
+unsupported; v1 plans never enable native work. Native v2 uses the same worker
+with the separate [M2 guard and plan](resolve-test-queue-m2.md).
 
 To stop the LaunchAgent, as the same local user:
 

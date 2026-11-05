@@ -48,6 +48,19 @@ interpreters, dynamic imports, private data uploads or automatic retries.
 
 ## Recovery and reports
 
+The parent, injected launcher, output entry point and #328 bridge share a host
+ownership lock. The detached parent worker inherits that lock. The queue and
+external parent perform a host-only check of retained parent, output-render and
+bridge reservations as well: a released OS lock
+does not clear an unresolved native operation. Known terminal native results
+and authenticated expired unstarted requests are distinguished from unresolved
+render work; records are never deleted to make a new job eligible. Old installed
+bundles must be regenerated from the current runtime before use; a pre-M2 bundle
+does not gain the new guard merely because the queue was upgraded.
+Other entry points retain their existing lane-specific authorization and recovery
+checks and refuse a live or unresolved guarded parent. The installed guard uses
+only stdlib; it does not load the host output controller inside Resolve.
+
 The queue records dispatch intent and immutable request identity before calling
 the existing guarded parent. Every subsequent worker only reconciles that same
 operation. Live or uncertain work is never replayed, including after cancellation
@@ -86,5 +99,12 @@ performance claim follows from this build case.
 
 ## Acceptance
 
-Native acceptance is pending. This document will record the supported route,
-commands and the actual unattended acceptance result before delivery.
+Native acceptance is pending. On November 4, 2026, the host-only ownership
+preflight refused with `output_operation_unresolved`: retained native effect
+records lack authenticated completion. No #447 Resolve operation was started,
+and no retained reservation was cleared or retried. The independent offline
+package passes the compiler/package verifier (one 25-frame video event at
+25 fps, one media item, no markers); that is host evidence only.
+
+The future-scheduled LaunchAgent native case, actual save/reopen/readback,
+and later worker-restart reconciliation must pass before #447 is delivered.

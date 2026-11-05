@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent import target_identity_v2 as identity
 from vera_timeline_agent.workflow_v2_cli import build_release_v2
 
@@ -776,6 +777,7 @@ print("CALLS="+json.dumps(calls))
         text=True,
         capture_output=True,
         check=True,
+        env=isolated_native_owner_env(installed.parent),
     )
     assert "FORBIDDEN:" not in completed.stdout
     evidence = tmp_path / "evidence"

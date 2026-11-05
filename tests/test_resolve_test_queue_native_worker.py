@@ -17,6 +17,7 @@ from vera_timeline_agent import resolve_test_queue as q
 from vera_timeline_agent import resolve_test_queue_native as native
 from vera_timeline_agent import workflow_v2
 from vera_timeline_agent import workflow_v2_parent as parent
+from vera_timeline_agent.resolve_native_owner import NativeOwnerError
 
 
 @pytest.fixture
@@ -58,6 +59,7 @@ def native_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
         native, "validate_native_plan", lambda source, at=None: dict(source)
     )
     monkeypatch.setattr(native, "preflight", lambda plan: request)
+    monkeypatch.setattr(q, "preflight_native_owner", lambda: None)
     # Authentication is covered separately; exercise persistence here.
     monkeypatch.setattr(
         native,
@@ -247,6 +249,44 @@ def test_stale_input_prevents_dispatch(
     )
     q.worker_once(case.store)
     assert case.store.get(case.job)["state"] == "blocked_native"
+    assert case.calls == []
+
+
+def test_foreign_native_owner_blocks_before_intent(
+    native_case: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = native_case
+    monkeypatch.setattr(
+        q,
+        "preflight_native_owner",
+        lambda: (_ for _ in ()).throw(
+            NativeOwnerError("owner_busy", "private owner path")
+        ),
+    )
+    q.worker_once(case.store)
+    assert case.store.get(case.job)["state"] == "blocked_native"
+    assert case.store.get(case.job)["reason"] == "blocked_resource_owner"
+    assert case.calls == []
+    with case.store.connect() as db:
+        assert db.execute("SELECT intent_at FROM native_attempts").fetchone()[0] is None
+    assert "private owner path" not in json.dumps(case.store.publish(case.job))
+
+
+def test_owner_race_is_blocked_without_retry(
+    native_case: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = native_case
+    monkeypatch.setattr(
+        parent,
+        "start",
+        lambda *args: (_ for _ in ()).throw(
+            NativeOwnerError("owner_busy", "another route acquired the host")
+        ),
+    )
+    q.worker_once(case.store)
+    assert case.store.get(case.job)["state"] == "blocked_native"
+    assert case.store.get(case.job)["reason"] == "blocked_resource_owner"
+    q.worker_once(q.Store(case.store.root))
     assert case.calls == []
 
 

@@ -37,6 +37,7 @@ from typing import Any, cast
 
 from . import resolve_test_queue_native as native
 from . import workflow_v2_parent as parent
+from .resolve_native_owner import NativeOwnerError, preflight_native_owner
 
 PLAN_SCHEMA = "vera.resolve-test-plan/v1"
 REPORT_SCHEMA = "vera.resolve-test-report/v1"
@@ -835,12 +836,16 @@ def run_native(store: Store, job_id: str, worker_id: str) -> None:
         evidence = Path(request["evidenceDir"])
         if evidence.exists() and any(evidence.iterdir()):
             raise QueueError("native request/evidence already used")
+        preflight_native_owner()
         if (
             folder_bytes(store.jobdir(job_id)) > plan["maxDiskBytes"]
             or shutil.disk_usage(store.root).free < plan["maxDiskBytes"]
         ):
             finish(store, job_id, worker_id, "blocked_native", "insufficient_space")
             return
+    except NativeOwnerError:
+        finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+        return
     except (OSError, ValueError, KeyError, TypeError):
         finish(store, job_id, worker_id, "blocked_native", "native_preflight_refused")
         return
@@ -891,6 +896,10 @@ def run_native(store: Store, job_id: str, worker_id: str) -> None:
             plan["native"]["requestSha256"],
             RESOLVE_PYTHON,
         )
+    except NativeOwnerError:
+        # The parent raises this only before reserving or launching our request.
+        finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+        return
     except Exception:
         # A lost reply or spawn error cannot authorize a second invocation.
         pass
