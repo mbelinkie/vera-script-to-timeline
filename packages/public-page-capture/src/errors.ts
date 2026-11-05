@@ -102,8 +102,41 @@ export function workerError(
   };
 }
 
+// The project authorization service throws errors whose code/status mirror
+// this package's own contract codes. Recognize them structurally so the
+// capture package does not need a runtime dependency on the authorization
+// package.
+const projectAuthSafeMessages: Readonly<Record<string, string>> = {
+  authentication_required: "Authentication is required.",
+  action_not_allowed:
+    "The current project membership does not allow this action.",
+  authorization_unavailable:
+    "The authorization service could not make a current decision.",
+  version_conflict: "The write session is stale; a new session is required.",
+};
+
+function isProjectAuthError(
+  error: unknown,
+): error is Error & { code: string; status: number } {
+  if (!(error instanceof Error) || error.name !== "ProjectAuthError") {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  const status = (error as { status?: unknown }).status;
+  return typeof code === "string" &&
+    code in projectAuthSafeMessages &&
+    typeof status === "number";
+}
+
 export function asCaptureServiceError(error: unknown): CaptureServiceError {
   if (error instanceof CaptureServiceError) return error;
+  if (isProjectAuthError(error)) {
+    return new CaptureServiceError(
+      error.code as CaptureErrorCode,
+      projectAuthSafeMessages[error.code] ?? error.code,
+      error.code === "authorization_unavailable",
+    );
+  }
   if (error instanceof CaptureDenied) {
     return new CaptureServiceError(
       "capture_request_denied",
