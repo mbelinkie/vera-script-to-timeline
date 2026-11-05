@@ -16,6 +16,8 @@ import subprocess
 from pathlib import Path
 
 BRIEF_MARK = "<!-- vera-deepseek-brief -->"
+CODEX_BRIEF_MARK = "<!-- vera-codex-brief -->"
+CODEX_LABEL = "codex-prepped"
 STATUS_MARK = "<!-- vera-deepseek-status -->"
 REPOS = {
     "timeline": "mbelinkie/vera-script-to-timeline",
@@ -108,7 +110,10 @@ def launch(repo: str, issue: int | str, brief: str, model: str = "flash") -> dic
         raise LaunchError("issue is not open")
     current = {item.get("name") for item in view.get("labels", [])}
     if "deepseek-excluded" in current:
-        raise LaunchError("issue is labelled deepseek-excluded")
+        raise LaunchError(
+            "issue is labelled deepseek-excluded; "
+            "use vera_post_brief to prep it for Codex"
+        )
     if not current & ELIGIBLE_TYPES:
         raise LaunchError("only type:implementation or type:bug issues go to DeepSeek")
     if "deepseek-running" in current:
@@ -152,6 +157,46 @@ def launch(repo: str, issue: int | str, brief: str, model: str = "flash") -> dic
         "next": "The GitHub job starts within about a minute and posts progress on "
         f"{view.get('url')}. "
         "It ends with a draft PR (label deepseek-done) or a deepseek-failed note.",
+    }
+
+
+def _check_brief(brief: str) -> str:
+    text = str(brief or "").strip()
+    if len(text) < MIN_BRIEF:
+        raise LaunchError(f"brief must be at least {MIN_BRIEF} characters")
+    if len(text) > MAX_BRIEF:
+        raise LaunchError(f"brief must be at most {MAX_BRIEF} characters")
+    return text
+
+
+def post_brief(repo: str, issue: int | str, brief: str) -> dict:
+    """Post a Codex prep brief on an open code issue and label it codex-prepped."""
+    full = resolve_repo(repo)
+    number = resolve_issue(issue)
+    text = _check_brief(brief)
+    view = json.loads(
+        _gh(["issue", "view", str(number), "-R", full, "--json", "state,labels,url"])
+    )
+    if view.get("state") != "OPEN":
+        raise LaunchError("issue is not open")
+    current = {item.get("name") for item in view.get("labels", [])}
+    if not current & ELIGIBLE_TYPES:
+        raise LaunchError(
+            "only type:implementation or type:bug issues get Codex briefs"
+        )
+    comment_url = _gh(
+        ["issue", "comment", str(number), "-R", full, "--body-file", "-"],
+        stdin=f"{CODEX_BRIEF_MARK}\n## Codex prep brief (from ChatGPT)\n\n{text}\n",
+    )
+    _gh(["label", "create", CODEX_LABEL, "-R", full, "--color", "0e8a16", "--force"])
+    _gh(["issue", "edit", str(number), "-R", full, "--add-label", CODEX_LABEL])
+    return {
+        "status": "posted",
+        "repo": full,
+        "issue": number,
+        "brief_comment": comment_url.splitlines()[-1] if comment_url else "",
+        "next": f"{view.get('url')} is now labelled {CODEX_LABEL} and shows as "
+        "Ready for Codex on the prep board.",
     }
 
 
