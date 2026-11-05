@@ -252,6 +252,31 @@ describe("closed project permissions", () => {
     )).rejects.toBeInstanceOf(ProjectSerializationConflictError);
   });
 
+  it.each(["40001", "40P01"])(
+    "preserves serialization conflicts raised during the locked authorization check (%s)",
+    async (code) => {
+      const admin: PrincipalRef = {
+        principalKind: "user", principalId: randomUUID(),
+      };
+      const conflicting: SqlPool = {
+        connect: async () => ({
+          query: async <R>(sql: string) => {
+            if (sql.includes("SELECT m.role,m.active,m.version,a.disabled_at")) {
+              const error = new Error("could not serialize access during authorization");
+              Object.assign(error, { code });
+              throw error;
+            }
+            return { rows: [] as R[] };
+          },
+        }),
+      };
+      const service = new ProjectAuthorizationService(conflicting);
+      await expect(service.withAuthorizedMutation(
+        PROJECT, admin, "manage_members", async () => undefined,
+      )).rejects.toBeInstanceOf(ProjectSerializationConflictError);
+    },
+  );
+
   it("exposes a same-transaction check for consumer transactions", async () => {
     const { db, auth, admin, editor } = await harness();
     await auth.changeMembership(PROJECT, admin, editor.principalId, "editor");

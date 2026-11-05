@@ -104,6 +104,10 @@ export class ProjectAuthorizationService {
     try {
       return await work();
     } catch (error) {
+      if (error instanceof ProjectSerializationConflictError) throw error;
+      if (isSerializationConflict(error)) {
+        throw new ProjectSerializationConflictError();
+      }
       throw unavailable(error);
     }
   }

@@ -79,12 +79,17 @@ fallback.
 
 ## Local test evidence (see test files)
 
-- `packages/project-authorization/test/authorization.test.ts`: 21 tests,
+- `packages/project-authorization/test/authorization.test.ts`: 23 tests,
   including revoke-after-session, last-Producer protection, disabled actor
   re-sign-in, unknown-actor refusal, tampered migration, append-only audit,
   same-connection LISTEN/NOTIFY payload, same-transaction rollback, consumer
-  error passthrough, serialization-conflict mapping, and the same-transaction
-  `authorizeInTransaction` check.
+  error passthrough, serialization-conflict mapping at both COMMIT and the
+  locked permission query (PostgreSQL 40001 and 40P01), and the
+  same-transaction `authorizeInTransaction` check. The locked-check regression
+  failed before the fix (503 instead of retryable conflict) and passed after.
+  Independent Linux container run on 2026-11-05: 23 passed with
+  `--testTimeout=30000`; at the default 5000 ms timeout, 15 PGlite-backed
+  tests timed out under this container's CPU constraints, not on assertions.
 - `packages/public-page-capture/test/authorization-integration.test.ts`: 7
   tests proving the service structurally satisfies the existing
   `ProjectAuthorizationPort`, drives real create/queue/commit flows (shared
