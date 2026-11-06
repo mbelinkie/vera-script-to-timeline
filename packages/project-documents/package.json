@@ -1,0 +1,24 @@
+{
+  "name": "@vera/project-documents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run --maxWorkers=1",
+    "test:fast": "vitest run --maxWorkers=1 --exclude test/postgres.integration.test.ts"
+  },
+  "dependencies": {
+    "@vera/contracts": "0.0.0",
+    "@vera/project-authorization": "0.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0"
+  }
+}
