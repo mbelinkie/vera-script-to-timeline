@@ -120,11 +120,9 @@ def production_qualification(
     if dimensions is None:
         return None
     width, height = dimensions
-    if (
-        width * 1 != height * 1
-        and width * 9 != height * 16
-        and width * 16 != height * 9
-    ):
+    # Do not generalize a handful of decoded public aspect/size fixtures into
+    # native raster proof for every resolution sharing the same aspect ratio.
+    if (width, height) not in {(1000, 1000), (1600, 900), (900, 1600)}:
         return None
     if motion == {"mode": "none"}:
         return Qualification(

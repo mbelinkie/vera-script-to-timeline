@@ -146,6 +146,7 @@ def test_verified_png_none_supports_measured_static_contain(
         "different-probe",
         "stale-source-bytes",
         "derived-source",
+        "unmeasured-resolution",
     ],
 )
 def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
@@ -171,6 +172,8 @@ def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
         source.write_bytes(source.read_bytes() + b"tampered")
     elif change == "derived-source":
         binding = replace(binding, original_hash=P)
+    elif change == "unmeasured-resolution":
+        source, binding, probe = _verified_png_case(tmp_path, 800, 450, 48)
     assert (
         production_qualification(
             motion,

@@ -167,6 +167,17 @@ def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
     case = _authored_png_case(tmp_path, frames=frames, motion=NATIVE, framing="cover")
     built = case.build()
     assert verify_v2_package(case.project_root).build_id == built.build_id
+    # The initial installed-Studio test caught real basename collision:
+    # Resolve selected Builds/.../Preparation/original/<id>.png rather than
+    # Media/Resolved/<id>.png.  Never publish indistinguishable basenames.
+    resolved = next((case.project_root / "Media" / "Resolved").glob("*.png"))
+    original = next(
+        (
+            case.project_root / "Builds" / built.build_id / "Preparation" / "original"
+        ).glob("*.png")
+    )
+    assert original.name == f"{resolved.stem}.original.png"
+    assert original.read_bytes() == resolved.read_bytes()
     timeline = otio.adapters.read_from_file(
         str(case.project_root / "Builds" / built.build_id / "timeline.otio")
     )

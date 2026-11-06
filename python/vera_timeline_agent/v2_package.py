@@ -1569,6 +1569,19 @@ def _media_artifacts(
 ) -> dict[str, _InputArtifact]:
     sources = _unique_by_id(manifest.get("sources"), "source")
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
+    # Resolve's native OTIO import can resolve an image reference by basename
+    # when the OTIO URL is relative.  Keeping two files named <source-id>.png
+    # lets its media search bind an authored event to the archived *original*
+    # rather than the verified delivery source.  New motion-bearing packages
+    # give the immutable original a distinct basename; legacy packages remain
+    # byte-identical, and both copies retain their independent hashes.
+    motion_source_ids = {
+        cast(str, cast(JsonObject, event["provenance"])["sourceId"])
+        for event in events.values()
+        if event["kind"] in {"primary_visual", "overlay_visual"}
+        and isinstance(event.get("pictureTreatment"), dict)
+        and "imageMotion" in event["pictureTreatment"]
+    }
     expected_hashes: dict[str, tuple[str, str, str]] = {}
     source_usage: dict[str, set[str]] = defaultdict(set)
     for event in events.values():
@@ -1711,8 +1724,12 @@ def _media_artifacts(
             relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
         elif key.startswith("original:"):
             identity = _id_component(key.removeprefix("original:"), "source id")
+            unique_original_suffix = (
+                ".original" if identity in motion_source_ids else ""
+            )
             relative = (
-                f"{BUILD_DIRECTORY}/{build_id}/Preparation/original/{identity}{suffix}"
+                f"{BUILD_DIRECTORY}/{build_id}/Preparation/original/"
+                f"{identity}{unique_original_suffix}{suffix}"
             )
         else:
             identity = _id_component(key.removeprefix("event:"), "event id")
