@@ -638,7 +638,7 @@ def test_prepare_native_derives_private_plan_without_dispatch(
     }
     request_path.write_text(json.dumps(request))
     view: dict[str, Any] = {
-            "schemaVersion": "resolve-native-view/v2",
+        "schemaVersion": "resolve-native-view/v2",
         "timeline": {},
         "tracks": [],
         "sources": [],
