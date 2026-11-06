@@ -1,5 +1,11 @@
 # #336 phase 3 — Studio qualification attempt (blocked before output)
 
+**Historical first attempt only.** The later fresh run5 succeeded after the
+Resolve window was closed; read the superseding
+[real Studio raster results](phase3-studio-results.md) and
+[checked-in pixel witness record](studio-run5-pixels.json). The failures below
+remain useful diagnostic history, **not the current phase-3 status**.
+
 **2026-11-06; not a successful motion/geometry qualification.** An exclusive
 disposable test was attempted on the connected Mac's installed **DaVinci
 Resolve Studio 21.1.1.10**. Scripting eventually connected after the app had

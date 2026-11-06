@@ -203,23 +203,44 @@ def render(
         raise RuntimeError(f"No local ProRes 422 codec: {formats}")
     if project.IsRenderingInProgress() is not False:
         raise RuntimeError("another render is active; no mutation")
-    if not project.SetCurrentRenderFormatAndCodec("mov", codec):
-        raise RuntimeError(f"Render codec rejected: {codec}")
+    # An already-selected codec can report False; the actual readback wins.
+    project.SetCurrentRenderFormatAndCodec("mov", codec)
+    if project.GetCurrentRenderFormatAndCodec() != {"format": "mov", "codec": codec}:
+        raise RuntimeError(f"Render codec readback differs from {codec}")
+    if project.GetCurrentRenderMode() != 1:
+        raise RuntimeError("single-clip render mode not selected")
+    if not target.is_dir() or not (target / ".write-check").is_file():
+        raise RuntimeError("render output folder has no dedicated write marker")
+    if list(target.glob(name + "*.mov")):
+        raise RuntimeError("refuse overwrite of a prior render")
     settings = {
         "TargetDir": str(target),
         "CustomName": name,
         "ExportVideo": True,
         "ExportAudio": False,
-        "RenderMode": "Single clip",
         "SelectAllFrames": True,
         "FormatWidth": 1280,
         "FormatHeight": 720,
+        "FrameRate": 24,
+        "UseUniqueFilenames": False,
     }
     if not project.SetRenderSettings(settings):
         raise RuntimeError("render settings refused")
     job = project.AddRenderJob()
     if not isinstance(job, str) or not job:
         raise RuntimeError("AddRenderJob did not return job ID")
+    matched = [row for row in project.GetRenderJobList() if row.get("JobId") == job]
+    if len(matched) != 1 or any(
+        matched[0].get(key) != value
+        for key, value in {
+            "TimelineName": name,
+            "TargetDir": str(target),
+            "OutputFilename": name + ".mov",
+            "IsExportVideo": True,
+            "IsExportAudio": False,
+        }.items()
+    ):
+        raise RuntimeError("render job does not match intended synthetic output")
     if not project.StartRendering([job], False):
         raise RuntimeError("StartRendering refused")
     deadline = time.monotonic() + timeout
@@ -380,6 +401,9 @@ def main() -> int:
     if len(selected) != 1 or args.case in evidence["cases"]:
         raise RuntimeError("unrecognized or duplicate case; refuse native write")
     pool = project.GetMediaPool()
+    render_target = (
+        pathlib.Path.home() / "Movies" / ("VERA336-native-proof-" + args.out.name)
+    )
     for name, source, frames, motion, ease, framing in selected:
         evidence["cases"][name] = {"status": "starting"}
         (args.out / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
@@ -394,9 +418,16 @@ def main() -> int:
                 ease=ease,
                 framing=framing,
             )
-            timeline = pool.ImportTimelineFromFile(str(otio), {"timelineName": name})
-            if timeline is None or not project.SetCurrentTimeline(timeline):
-                raise RuntimeError("native OTIO import/current timeline failed")
+            # Resolve's native import requires an absolute interchange path;
+            # relative paths may exist for this process but still fail inside
+            # Resolve's separate scripting/import server.
+            timeline = pool.ImportTimelineFromFile(
+                str(otio.resolve()), {"timelineName": name}
+            )
+            if timeline is None:
+                raise RuntimeError("native OTIO import returned no timeline")
+            if not project.SetCurrentTimeline(timeline):
+                raise RuntimeError("import succeeded but SetCurrentTimeline refused")
             clips = timeline.GetItemListInTrack("video", 1)
             if len(clips) != 1 or clips[0].GetDuration() != frames:
                 raise RuntimeError("import altered exact clip duration")
@@ -405,9 +436,9 @@ def main() -> int:
             if motion and ease:
                 readback["setter"] = clip.SetProperty("DynamicZoomEase", ease)
                 readback["after"] = clip.GetProperty()
-            if not manager.SaveProject():
-                raise RuntimeError("SaveProject failed")
-            video = render(project, name, args.out, args.timeout)
+            # The bounded bridge command must not save/close/reload in the same
+            # invocation as import/render; the dedicated final step owns it.
+            video = render(project, name, render_target, args.timeout)
             decoded = video_pixels(
                 video,
                 sorted({0, frames // 4, frames // 2, (3 * frames) // 4, frames - 1}),

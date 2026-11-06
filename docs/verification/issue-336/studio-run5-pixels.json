@@ -1,0 +1,876 @@
+{
+  "native_app": "21.1.1.10",
+  "run": "run5",
+  "timeline_profile": {"width": 1920, "height": 1080, "frame_rate": 24},
+  "rendered_cover_endpoint_right_mid_rgb": [0, 0, 0],
+  "source_sha256": {
+    "square": "c69871d3d8f661121e615fb16cfb974ff480684a96c54303836b664bacd7b2f1",
+    "wide": "c18809679efc20e5040d24b0bb0c29cf50f51474e5cfb4067a027c19851e096c",
+    "tall": "c122ae4703d0281c77509d1be4b698ede65bf4c540a4b8de8240a7bcdf47492d"
+  },
+  "reopened": {
+    "timelineCount": 11,
+    "names": [
+      "square-none-48",
+      "square-motion-48",
+      "square-motion-24",
+      "square-motion-96",
+      "square-motion-144",
+      "wide-motion-48",
+      "tall-motion-48",
+      "square-cover-48",
+      "square-ease-in-48",
+      "square-ease-out-48",
+      "square-ease-both-48"
+    ],
+    "durations": [
+      48,
+      48,
+      24,
+      96,
+      144,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  "output_size": [
+    1280,
+    720
+  ],
+  "frame_rate": 24,
+  "case_results": {
+    "square-none-48": {
+      "frames": 48,
+      "decoded_sha256": "7279265243dc1e50aaf34c7883af7956042e6c3c491b1378686b7ccb1c2c4ae5",
+      "witnesses": {
+        "0": {
+          "blue": [
+            298,
+            700
+          ],
+          "green": [
+            982,
+            16
+          ],
+          "magenta": [
+            819,
+            216
+          ],
+          "red": [
+            298,
+            16
+          ],
+          "yellow": [
+            982,
+            700
+          ]
+        },
+        "12": {
+          "blue": [
+            298,
+            700
+          ],
+          "green": [
+            982,
+            16
+          ],
+          "magenta": [
+            819,
+            216
+          ],
+          "red": [
+            298,
+            16
+          ],
+          "yellow": [
+            982,
+            700
+          ]
+        },
+        "24": {
+          "blue": [
+            298,
+            700
+          ],
+          "green": [
+            982,
+            16
+          ],
+          "magenta": [
+            819,
+            216
+          ],
+          "red": [
+            298,
+            16
+          ],
+          "yellow": [
+            982,
+            700
+          ]
+        },
+        "36": {
+          "blue": [
+            298,
+            700
+          ],
+          "green": [
+            982,
+            16
+          ],
+          "magenta": [
+            819,
+            216
+          ],
+          "red": [
+            298,
+            16
+          ],
+          "yellow": [
+            982,
+            700
+          ]
+        },
+        "47": {
+          "blue": [
+            298,
+            700
+          ],
+          "green": [
+            982,
+            16
+          ],
+          "magenta": [
+            819,
+            216
+          ],
+          "red": [
+            298,
+            16
+          ],
+          "yellow": [
+            982,
+            700
+          ]
+        }
+      }
+    },
+    "square-motion-48": {
+      "frames": 48,
+      "decoded_sha256": "b8a88e7ba71e24db35963541b41edaef5b772c453a79ef7703ad304cd98d07f5",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            633
+          ],
+          "yellow": [
+            885,
+            633
+          ],
+          "magenta": [
+            731,
+            168
+          ]
+        }
+      }
+    },
+    "square-motion-24": {
+      "frames": 24,
+      "decoded_sha256": "1cfd8068467c35ad61256e2aee42cf57c76cede6548d1b1f3d0461097d56835e",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "6": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "18": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "23": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            636
+          ],
+          "yellow": [
+            888,
+            636
+          ],
+          "magenta": [
+            734,
+            168
+          ]
+        }
+      }
+    },
+    "square-motion-96": {
+      "frames": 96,
+      "decoded_sha256": "b7c69ddb2d08379bedb1293ffacb1678ddf383005682975380ac31a4aa162d4d",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "48": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "72": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "95": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            632
+          ],
+          "yellow": [
+            885,
+            632
+          ],
+          "magenta": [
+            730,
+            168
+          ]
+        }
+      }
+    },
+    "square-motion-144": {
+      "frames": 144,
+      "decoded_sha256": "172f9dbb4c98031a9f20d41d762095a53c250d42ce02d3b67ce150376be86282",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "72": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "108": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "143": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            632
+          ],
+          "yellow": [
+            885,
+            632
+          ],
+          "magenta": [
+            730,
+            168
+          ]
+        }
+      }
+    },
+    "wide-motion-48": {
+      "frames": 48,
+      "decoded_sha256": "5244a32b2da866156b66b9dcbb32880ba6194241a93c84457e4e4be77eaf779f",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            1041,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            968,
+            176
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": [
+            1226,
+            696
+          ],
+          "magenta": [
+            903,
+            174
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": [
+            1152,
+            660
+          ],
+          "magenta": [
+            848,
+            170
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": [
+            1090,
+            630
+          ],
+          "magenta": [
+            802,
+            168
+          ]
+        }
+      }
+    },
+    "tall-motion-48": {
+      "frames": 48,
+      "decoded_sha256": "aac05f0c4e672548082454d52995e22be6cef0f0132c5c9321adf9dc9db9c7fc",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            766,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            742,
+            176
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": [
+            406,
+            706
+          ],
+          "yellow": [
+            820,
+            706
+          ],
+          "magenta": [
+            723,
+            174
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": [
+            410,
+            669
+          ],
+          "yellow": [
+            796,
+            669
+          ],
+          "magenta": [
+            705,
+            171
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": [
+            411,
+            639
+          ],
+          "yellow": [
+            777,
+            639
+          ],
+          "magenta": [
+            692,
+            168
+          ]
+        }
+      }
+    },
+    "square-cover-48": {
+      "frames": 48,
+      "decoded_sha256": "3ed401a345068442e220339c4afd264917071e558cad885e660094d31f7b81a0",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            1041,
+            40
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            968,
+            34
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            904,
+            28
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            849,
+            26
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            803,
+            22
+          ]
+        }
+      }
+    },
+    "square-ease-in-48": {
+      "frames": 48,
+      "decoded_sha256": "b8a88e7ba71e24db35963541b41edaef5b772c453a79ef7703ad304cd98d07f5",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            633
+          ],
+          "yellow": [
+            885,
+            633
+          ],
+          "magenta": [
+            731,
+            168
+          ]
+        }
+      }
+    },
+    "square-ease-out-48": {
+      "frames": 48,
+      "decoded_sha256": "b8a88e7ba71e24db35963541b41edaef5b772c453a79ef7703ad304cd98d07f5",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            633
+          ],
+          "yellow": [
+            885,
+            633
+          ],
+          "magenta": [
+            731,
+            168
+          ]
+        }
+      }
+    },
+    "square-ease-both-48": {
+      "frames": 48,
+      "decoded_sha256": "b8a88e7ba71e24db35963541b41edaef5b772c453a79ef7703ad304cd98d07f5",
+      "witnesses": {
+        "0": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            866,
+            180
+          ]
+        },
+        "12": {
+          "red": null,
+          "green": null,
+          "blue": null,
+          "yellow": null,
+          "magenta": [
+            824,
+            177
+          ]
+        },
+        "24": {
+          "red": null,
+          "green": null,
+          "blue": [
+            224,
+            699
+          ],
+          "yellow": [
+            963,
+            699
+          ],
+          "magenta": [
+            789,
+            172
+          ]
+        },
+        "36": {
+          "red": null,
+          "green": null,
+          "blue": [
+            226,
+            662
+          ],
+          "yellow": [
+            921,
+            662
+          ],
+          "magenta": [
+            758,
+            171
+          ]
+        },
+        "47": {
+          "red": null,
+          "green": null,
+          "blue": [
+            231,
+            633
+          ],
+          "yellow": [
+            885,
+            633
+          ],
+          "magenta": [
+            731,
+            168
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,10 @@
 """Fail-closed native Resolve image-motion admission and OTIO effect records.
 
-The qualification is trusted runtime evidence, NEVER authored JSON.  No
-production geometry is qualified yet: phase 3 must install measured, pinned
-source/framing/easing profiles before an effect can be emitted by the product.
-The opaque native key labels below are exported Resolve metadata, not frames.
+The qualification is trusted runtime evidence, NEVER authored JSON. Phase 3
+decoded 11 synthetic Studio timelines and measured a bounded source-to-pixel
+mapping, but not a production source/profile attestation or contain matte.
+Production geometry remains deliberately unqualified. Native key labels below
+are opaque exported Resolve metadata, never timeline-frame coordinates.
 """
 
 from __future__ import annotations
@@ -86,8 +87,137 @@ def qualification_hash(proof: Qualification) -> str:
 def production_qualification(
     _motion: dict[str, Any], _binding: MotionBinding, _framing: str
 ) -> Qualification | None:
-    """No fabricated positive profile: phase 3 installs real decoded proof."""
+    """Measured raster geometry alone cannot authorize arbitrary source bytes."""
     return None
+
+
+def native_endpoint_from_focus(
+    frame: dict[str, Any],
+) -> tuple[tuple[float, float], float]:
+    """Candidate raw center/scale for a source-normalized point at frame center.
+
+    #336's public Studio grid measured center X sign positive toward the left,
+    center Y sign positive toward the bottom, and native scale reciprocal to
+    the requested magnification. This *calculation* does not create trusted
+    runtime proof: only ``admit_motion`` with independently obtained evidence
+    may emit the effect. Do not clamp a request outside the tested raw range.
+    """
+    if not isinstance(frame, dict) or set(frame) != {"focusX", "focusY", "scale"}:
+        raise MotionRefusal("focus endpoint requires exact normalized fields")
+    if any(
+        type(frame[key]) not in (int, float) or not math.isfinite(frame[key])
+        for key in ("focusX", "focusY", "scale")
+    ):
+        raise MotionRefusal("focus endpoint has non-finite or invalid values")
+    if not (0 <= frame["focusX"] <= 1 and 0 <= frame["focusY"] <= 1):
+        raise MotionRefusal("focus outside normalized source")
+    if frame["scale"] <= 0:
+        raise MotionRefusal("zoom scale must be positive")
+    center = (float(frame["focusX"] - 0.5), float(0.5 - frame["focusY"]))
+    inverse_scale = 1.0 / frame["scale"]
+    # These are the measured raw key endpoints, NOT a general pan allowance.
+    # #325 observed that larger native centers could expose black; the three
+    # #336 aspect-ratio renders only establish +X/negative-Y movement.
+    epsilon = 1e-12
+    if (
+        not -epsilon <= center[0] <= 0.12 + epsilon
+        or not -0.08 - epsilon <= center[1] <= epsilon
+        or not 0.8 - epsilon <= inverse_scale <= 1.05 + epsilon
+    ):
+        raise MotionRefusal("requested focus/scale outside measured native envelope")
+    return center, float(inverse_scale)
+
+
+def native_projected_point(
+    *,
+    source_size: tuple[int, int],
+    timeline_size: tuple[int, int],
+    framing: str,
+    source_point: tuple[float, float],
+    center: tuple[float, float],
+    native_scale: float,
+) -> tuple[float, float]:
+    """Predict source point in rendered pixels for the measured Studio route.
+
+    On the 1280x720/24fps #336 render, native center X pans by *negative*
+    fitted source width, center Y by *positive* fitted source height, both
+    divided by raw native scale. Zoom scale itself is reciprocal to magnification.
+    Fit uses the minimum aspect-preserving multiplier; fill uses the maximum.
+    This is not a pixel renderer or a substitute for independent raster proof.
+    """
+    if (
+        any(type(v) is not int or v <= 0 for v in (*source_size, *timeline_size))
+        or framing not in {"contain", "cover"}
+        or len(source_point) != 2
+        or len(center) != 2
+        or any(
+            type(v) not in (int, float) or not math.isfinite(v)
+            for v in (*source_point, *center, native_scale)
+        )
+        or native_scale <= 0
+    ):
+        raise MotionRefusal("invalid dimensions or native projection")
+    source_width, source_height = source_size
+    width, height = timeline_size
+    factors = (width / source_width, height / source_height)
+    multiplier = min(factors) if framing == "contain" else max(factors)
+    fit_width = source_width * multiplier
+    fit_height = source_height * multiplier
+    source_x, source_y = source_point
+    center_x, center_y = center
+    return (
+        width / 2 + (source_x - 0.5 - center_x) * fit_width / native_scale,
+        height / 2 + (source_y - 0.5 + center_y) * fit_height / native_scale,
+    )
+
+
+def measured_framing_preserves_intent(
+    *,
+    source_size: tuple[int, int],
+    timeline_size: tuple[int, int],
+    framing: str,
+    center: tuple[float, float],
+    native_scale: float,
+) -> bool:
+    """Conservatively reject clipped contain or black-exposed cover endpoints.
+
+    Every edge of a contain image must stay in-frame. Cover must extend past
+    every frame edge; its intentional crop is a distinct authoring request.
+    Linear interpolation of native center and raw scale makes projected corner
+    coordinates fractional-linear in time, hence each axis is monotonic
+    between two endpoints. Check both endpoints in the caller, never clamp.
+    """
+    a = native_projected_point(
+        source_size=source_size,
+        timeline_size=timeline_size,
+        framing=framing,
+        source_point=(0.0, 0.0),
+        center=center,
+        native_scale=native_scale,
+    )
+    b = native_projected_point(
+        source_size=source_size,
+        timeline_size=timeline_size,
+        framing=framing,
+        source_point=(1.0, 1.0),
+        center=center,
+        native_scale=native_scale,
+    )
+    width, height = timeline_size
+    epsilon = 1e-6
+    if framing == "contain":
+        return (
+            a[0] >= -epsilon
+            and a[1] >= -epsilon
+            and b[0] <= width + epsilon
+            and b[1] <= height + epsilon
+        )
+    return (
+        a[0] <= epsilon
+        and a[1] <= epsilon
+        and b[0] >= width - epsilon
+        and b[1] >= height - epsilon
+    )
 
 
 def admit_motion(
