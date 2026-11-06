@@ -753,7 +753,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
 
   if (isStageDirectionKind(command.kind)) {
@@ -870,6 +870,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     try { replacement = structuredClone(command.row); }
     catch { return refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON."); }
     if (replacement.id !== current.id || replacement.type !== current.type) return refused(document, "ROW_IDENTITY_INVALID", "An authored row edit must preserve the row's existing ID and type.");
+    if (current.type === "narration" && replacement.type === "narration" && current.plainDirection !== replacement.plainDirection) {
+      return refused(document, "ROW_CONTENT_INVALID", "Use explicit Make spoken or Make stage direction to change plain-note speech intent.");
+    }
     const currentContent = structuredClone(current);
     const replacementContent = structuredClone(replacement);
     delete currentContent.stashOrigin;
@@ -938,7 +941,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       } catch {
         return refused(document, "STASH_NOTE_CONTENT_INVALID", "A Stash note needs a complete narration row with usable text tokens.");
       }
-      if (!note) return refused(document, "STASH_NOTE_CONTENT_INVALID", "The note's token range cannot be wrapped as one stage direction; authored mixed content must be explicit.");
+      if (!note) return refused(document, "STASH_NOTE_CONTENT_INVALID", "A note must supply valid raw text and frozen tokens; literal brackets need no special syntax.");
       row = note;
       kind = "note";
     } else {

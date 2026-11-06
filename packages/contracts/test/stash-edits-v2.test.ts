@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { applyStashRowEditV2 } from "../src/authoring-v2-stash.js";
 import {
   applyRowEditV2,
+  createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
 } from "../src/authoring-v2-rows.js";
@@ -137,6 +138,63 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
 }
 
 describe("saved Stash row edits", () => {
+  it("edits a literal compact note as raw text, preserves intent, and refuses implicit speech and corrupt tokens", () => {
+    const document: ScriptDocumentV2 = {
+      schemaVersion: "script-document/v2", id: id(1), projectId: id(2), title: "Literal note edits",
+      activeDraft: { blocks: [], supportingItems: [] }, ideaOutline: [], extras: [],
+      liveHeadSequence: 0, liveStateVector: "", liveContentHash: `sha256:${"a".repeat(64)}`,
+    };
+    const row = structuredClone(input().activeDraft.blocks.find((item): item is NarrationBlockV2 => item.type === "narration")!);
+    row.id = id(97000);
+    row.text = "[outer [inner]] unmatched] 😀";
+    row.tokens = [...row.text.matchAll(/\S+/gu)].map((word, index) => ({
+      id: id(97100 + index), value: word[0], startOffset: word.index,
+      endOffset: word.index + word[0].length,
+    }));
+    const created = applyRowEditV2(document, 0, {
+      kind: "create_stash_note", bundleId: id(97500), row,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    if (!created.ok) return;
+    const original = created.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(original.plainDirection).toBe(true);
+    expect(original.text).toBe(row.text);
+
+    const session = createRowEditSessionV2(created.document);
+    const newText = "  literal] [nested [more]] '😀'\nend [ ";
+    const replacement = structuredClone(original);
+    replacement.text = newText;
+    replacement.tokens = [...newText.matchAll(/\S+/gu)].map((word, index) => ({
+      id: id(97700 + index), value: word[0], startOffset: word.index,
+      endOffset: word.index + word[0].length, spoken: false as const,
+    }));
+    replacement.version += 1;
+    const edited = session.apply({ kind: "edit_row", rowId: row.id, row: replacement });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    expect((session.document.stash![0]!.rows[0] as NarrationBlockV2).text).toBe(newText);
+    expect((session.document.stash![0]!.rows[0] as NarrationBlockV2).plainDirection).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document)).ok).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.stash![0]!.rows[0] as NarrationBlockV2).text).toBe(row.text);
+    expect((session.document.stash![0]!.rows[0] as NarrationBlockV2).tokens).toEqual(original.tokens);
+
+    const implicitSpeech = structuredClone(original);
+    delete implicitSpeech.plainDirection;
+    implicitSpeech.tokens.forEach((token) => { delete token.spoken; });
+    const refused = applyStashRowEditV2(created.document, 1, { bundleId: id(97500), rowId: row.id, row: implicitSpeech });
+    expect(refused.diagnostics[0]?.code).toBe("STASH_ROW_INTENT_INVALID");
+    expect(refused.document).toBe(created.document);
+
+    const corrupt = structuredClone(replacement);
+    corrupt.tokens[0]!.spoken = true;
+    const invalid = applyStashRowEditV2(created.document, 1, { bundleId: id(97500), rowId: row.id, row: corrupt });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.diagnostics.some((item) => item.code === "PLAIN_DIRECTION_INTENT_INVALID")).toBe(true);
+    expect(invalid.document).toBe(created.document);
+    expect(created.document.stash![0]!.rows[0]).toEqual(original);
+  });
+
   it("edits an OC/VO camera range and restores it with the original attachment and identities", () => {
     const state = stashFixtureNarration();
     const originalDocument = structuredClone(state.document);

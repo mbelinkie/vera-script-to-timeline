@@ -18,6 +18,7 @@ const fatalDocumentDiagnostics = new Set([
   "ENTITY_ID_DUPLICATE",
   "BLOCK_ID_DUPLICATE",
   "ROW_REFERENCE_INVALID",
+  "PLAIN_DIRECTION_INTENT_INVALID",
 ]);
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -62,6 +63,9 @@ export function applyStashRowEditV2(
   const current = bundle.rows[rowIndex]!;
   if (command.row.id !== current.id || command.row.type !== current.type) {
     return refused(document, "STASH_ROW_IDENTITY_INVALID", "A saved row edit must preserve the row's existing ID and type.");
+  }
+  if (current.type === "narration" && command.row.type === "narration" && current.plainDirection !== command.row.plainDirection) {
+    return refused(document, "STASH_ROW_INTENT_INVALID", "Use an explicit stage-direction command to change a compact note's speech intent.");
   }
 
   const authoredCurrent = structuredClone(current);

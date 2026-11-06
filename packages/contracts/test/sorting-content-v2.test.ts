@@ -162,7 +162,8 @@ describe("content-editable Sorting", () => {
       // The move's only destination was the discarded new row: it is removed too.
       expect(activeIds(result.document)).toEqual([id(100), id(200), id(400), id(500), id(600), id(300)]);
       expect(narration(result.document, id(100)).text).toBe(row(100).text);
-      expect(narration(result.document, id(400)).text).toBe(`[${row(400).text}]`);
+      expect(narration(result.document, id(400)).text).toBe(row(400).text);
+      expect(narration(result.document, id(400)).plainDirection).toBe(true);
       expect(narration(result.document, id(400)).stashOrigin?.returnEligible).toBe(true);
     }
   });

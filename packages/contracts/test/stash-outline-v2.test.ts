@@ -105,6 +105,18 @@ function persistedPlainNote(text: string, value = 600000): ScriptDocumentV2 {
   return document;
 }
 
+function rawNote(value: number, text: string): NarrationBlockV2 {
+  const row = narration(value);
+  row.text = text;
+  row.tokens = [...text.matchAll(/\S+/gu)].map((word, index) => ({
+    id: id(value + 10000 + index),
+    value: word[0],
+    startOffset: word.index,
+    endOffset: word.index + word[0].length,
+  }));
+  return row;
+}
+
 describe("persisted plain-direction intent (phase 1)", () => {
   it("round-trips empty, whitespace, multiline, Unicode and literal brackets without normalizing raw text", () => {
     for (const text of ["", "  \t\n ", " [outer [inner]] missing] ‘quote’ 😀\nnext [line\n "]) {
@@ -173,6 +185,97 @@ describe("persisted plain-direction intent (phase 1)", () => {
 });
 
 describe("mixed Stash outline contract", () => {
+  it("saves, places and returns literal nested/unmatched and empty notes without inventing syntax or identities", () => {
+    const literal = "  [outer [inner]] ] unmatched 'quoted' 😀\nsecond line [\n ";
+    const parent = rawNote(810000, literal);
+    const child = rawNote(825000, "");
+    const created = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(830000), row: parent,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    const nested = applyRowEditV2(created.document, 1, {
+      kind: "create_stash_note", bundleId: id(830001), row: child,
+      sectionId: null, parentRowId: parent.id, afterRowId: null,
+    });
+    expect(nested.ok, JSON.stringify(nested.diagnostics)).toBe(true);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(nested.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const saved = loaded.document.stash!.flatMap((bundle) => bundle.rows) as NarrationBlockV2[];
+    expect(saved.map((row) => [row.id, row.text, row.plainDirection])).toEqual([
+      [parent.id, literal, true], [child.id, "", true],
+    ]);
+    expect(saved[0]!.tokens.map((token) => token.id)).toEqual(parent.tokens.map((token) => token.id));
+    expect(saved.every((row) => row.tokens.every((token) => token.spoken === false))).toBe(true);
+    const placed = applyRowEditV2(loaded.document, 2, {
+      kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = placed.document.activeDraft.blocks as NarrationBlockV2[];
+    expect(active.map((row) => [row.id, row.text, row.stashOrigin?.returnEligible])).toEqual([
+      [parent.id, literal, true], [child.id, "", true],
+    ]);
+    const literalBracket = applyStageDirectionEditV2(placed.document, active[0]!.version, {
+      kind: "delete_direction_delimiter", blockId: parent.id, offset: 2,
+    });
+    expect(literalBracket.diagnostics[0]?.code).toBe("STAGE_DIRECTION_PAIR_NOT_FOUND");
+    expect(literalBracket.document).toBe(placed.document);
+    const emptySpeech = applyStageDirectionEditV2(placed.document, active[1]!.version, {
+      kind: "make_spoken", blockId: child.id, startOffset: 0, endOffset: 0,
+    });
+    expect(emptySpeech.diagnostics[0]?.code).toBe("STAGE_DIRECTION_SELECTION_INVALID");
+    expect(emptySpeech.document).toBe(placed.document);
+    const returned = applyRowEditV2(placed.document, 3, {
+      kind: "stash_rows", rowIds: [parent.id, child.id], bundleId: id(830002),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual(outline(loaded.document));
+    expect(returned.document.stash!.flatMap((bundle) => bundle.rows).map((row) => [row.id, (row as NarrationBlockV2).text, (row as NarrationBlockV2).plainDirection])).toEqual([
+      [parent.id, literal, true], [child.id, "", true],
+    ]);
+  });
+
+  it("keeps exact raw note data and eligibility across explicit whole-row conversion and Undo", () => {
+    const source = rawNote(850000, " [literal [nested]] odd] 😀\n last ");
+    const created = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(890000), row: source,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    const placed = applyRowEditV2(created.document, 1, {
+      kind: "place_stash_rows", rowIds: [source.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok).toBe(true);
+    const original = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const spoken = applyStageDirectionEditV2(placed.document, original.version, {
+      kind: "make_spoken", blockId: source.id, startOffset: 0, endOffset: original.text.length,
+    });
+    expect(spoken.ok, JSON.stringify(spoken.diagnostics)).toBe(true);
+    const spokenRow = spoken.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(spokenRow).toMatchObject({ id: source.id, text: source.text, version: original.version + 1 });
+    expect(spokenRow.plainDirection).toBeUndefined();
+    expect(spokenRow.tokens.every((token) => token.spoken === undefined)).toBe(true);
+    expect(spokenRow.stashOrigin?.returnEligible).toBe(false);
+    const restaged = applyStageDirectionEditV2(spoken.document, spokenRow.version, {
+      kind: "make_stage_direction", blockId: source.id, startOffset: 0, endOffset: source.text.length,
+    });
+    expect(restaged.ok, JSON.stringify(restaged.diagnostics)).toBe(true);
+    const directionRow = restaged.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(directionRow.text).toBe(source.text);
+    expect(directionRow.plainDirection).toBe(true);
+    expect(directionRow.tokens.every((token) => token.spoken === false)).toBe(true);
+    expect(directionRow.stashOrigin?.returnEligible).toBe(false);
+    const restored = undoStageDirectionEditV2(spoken.document, spoken.undo!);
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    const restoredRow = restored.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect({ ...restoredRow, version: original.version }).toEqual(original);
+    const returned = applyRowEditV2(restored.document, restored.document.rowEditRevision ?? 0, {
+      kind: "stash_rows", rowIds: [source.id], bundleId: id(890001),
+    });
+    expect(returned.ok).toBe(true);
+    expect(returned.document.stashOutline?.[0]?.kind).toBe("note");
+  });
+
   it("stores default-direction notes, explicit mixed notes, and standalone footage in saved-row payloads", () => {
     const plain = narration(100000);
     const authored = narration(110000);
@@ -190,7 +293,8 @@ describe("mixed Stash outline contract", () => {
     });
     expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     const defaultNote = result.document.stash?.[0]?.rows[0] as NarrationBlockV2;
-    expect(defaultNote.text).toBe(`[${plain.text}]`);
+    expect(defaultNote.text).toBe(plain.text);
+    expect(defaultNote.plainDirection).toBe(true);
     expect(defaultNote.tokens.map((token) => token.id)).toEqual(plain.tokens.map((token) => token.id));
     expect(defaultNote.tokens.every((token) => token.spoken === false)).toBe(true);
 
@@ -582,7 +686,7 @@ describe("mixed Stash outline contract", () => {
     expect(before.stashOrigin?.returnEligible).toBe(true);
 
     const spoken = applyStageDirectionEditV2(placed.document, before.version, {
-      kind: "make_spoken", blockId: before.id, startOffset: 1, endOffset: before.text.length - 1,
+      kind: "make_spoken", blockId: before.id, startOffset: 0, endOffset: before.text.length,
     });
     expect(spoken.ok, JSON.stringify(spoken.diagnostics)).toBe(true);
     const afterEdit = spoken.document.activeDraft.blocks[0] as NarrationBlockV2;
@@ -593,7 +697,7 @@ describe("mixed Stash outline contract", () => {
 
     const rewrittenFromOriginal = undo.document.activeDraft.blocks[0] as NarrationBlockV2;
     const opened = applyStageDirectionEditV2(undo.document, rewrittenFromOriginal.version, {
-      kind: "make_spoken", blockId: rewrittenFromOriginal.id, startOffset: 1, endOffset: rewrittenFromOriginal.text.length - 1,
+      kind: "make_spoken", blockId: rewrittenFromOriginal.id, startOffset: 0, endOffset: rewrittenFromOriginal.text.length,
     });
     expect(opened.ok).toBe(true);
     const rewrapped = applyStageDirectionEditV2(opened.document, (opened.document.activeDraft.blocks[0] as NarrationBlockV2).version, {
@@ -667,7 +771,7 @@ describe("mixed Stash outline contract", () => {
     }).document;
     const before = structuredClone(directionDoc.stash![0]!.rows[0] as NarrationBlockV2);
     const spoken = applyStageDirectionEditV2(directionDoc, before.version, {
-      kind: "make_spoken", blockId: before.id, startOffset: 1, endOffset: before.text.length - 1,
+      kind: "make_spoken", blockId: before.id, startOffset: 0, endOffset: before.text.length,
     });
     expect(spoken.ok, JSON.stringify(spoken.diagnostics)).toBe(true);
     expect(outline(spoken.document)[0]?.kind).toBe("note");
@@ -967,6 +1071,23 @@ describe("mixed Stash outline contract", () => {
     });
     expect(noteResult.diagnostics[0]?.code).toBe("STASH_NOTE_CONTENT_INVALID");
     expect(noteResult.document).toBe(document);
+    const corruptLiteral = rawNote(715000, "literal [unmatched 😀");
+    corruptLiteral.tokens[0]!.startOffset += 1;
+    const mismatched = applyRowEditV2(document, 0, {
+      kind: "create_stash_note", bundleId: id(725000), row: corruptLiteral,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(mismatched.ok).toBe(false);
+    expect(mismatched.diagnostics.some((item) => item.code === "PLAIN_DIRECTION_INTENT_INVALID")).toBe(true);
+    expect(mismatched.document).toBe(document);
+    const corruptFlag = rawNote(716000, "plain [literal]");
+    corruptFlag.tokens[0]!.spoken = "not-a-boolean" as unknown as false;
+    const malformedIntent = applyRowEditV2(document, 0, {
+      kind: "create_stash_note", bundleId: id(726000), row: corruptFlag,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(malformedIntent.diagnostics[0]?.code).toBe("STASH_NOTE_CONTENT_INVALID");
+    expect(malformedIntent.document).toBe(document);
     const malformedClip = JSON.parse(JSON.stringify({
       type: "visual_only", id: id(730000), orderKey: "missing-payload", visualOnlyTiming: { kind: "visual_only" }, version: 1,
     })) as VisualOnlyBlockV2;
