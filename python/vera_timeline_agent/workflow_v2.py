@@ -638,12 +638,15 @@ def _validate_view(
         parts = PurePosixPath(relative).parts
         expected_area = "Narration" if kind == "audio" else "Resolved"
         source_basename = PurePosixPath(parts[2]).name if len(parts) == 3 else ""
-        if source_id in motion_still_source_ids:
-            safe_name = kind == "still" and source_basename.startswith(
-                source_id + "-still."
-            )
-        else:
-            safe_name = source_basename.startswith(source_id + ".")
+        # Preserve validation of already-frozen legacy package names while
+        # admitting the nonnumeric still suffix used by new #336 builds. A
+        # legacy name remains subject to the independent source identity and
+        # imported media readback; accepting it here never qualifies a replay.
+        safe_name = source_basename.startswith(source_id + ".") or (
+            source_id in motion_still_source_ids
+            and kind == "still"
+            and source_basename.startswith(source_id + "-still.")
+        )
         if (
             len(parts) != 3
             or parts[0] != "Media"
