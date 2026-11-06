@@ -897,6 +897,17 @@ background gap, not accepted fallback output. #164 retains the product contract;
 #319 capture integration. The later automatic-zoom decision supersedes older
 static-default spec text without clearing these feasibility holds.
 
+**2026-11-06 #336 phase-3 attempt — blocked before native output.** The installed
+Studio 21.1.1.10 scripting server connected after startup, but the API refused
+both `CreateProject` for a new synthetic target and `CloseProject` for the
+independently checked empty startup scratch project. No target timeline, OTIO
+import, render, decoded frame, or save/reopen occurred in this attempt. See
+[the exact phase-3 result](verification/issue-336/phase3-studio-attempt.md).
+This is an *environment/setup refusal*, **not** negative evidence about the
+native center/scale conversion, aspect ratios, contain, matte, or easing.
+`production_qualification()` must continue returning `None`; #325's partial
+evidence remains the only actual image-motion output proof.
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
