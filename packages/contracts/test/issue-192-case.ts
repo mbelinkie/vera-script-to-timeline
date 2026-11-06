@@ -33,7 +33,7 @@ export function timing(row: NarrationBlockV2, frames: number, fresh = false): Na
     textHash: hash(row.text), tokenizationVersion: "script-document/v2-frozen-tokens", narrationAssetId, audioHash, timingHash,
     alignmentVersion: "synthetic-192/v1", audio: { narrationAssetId, audioHash, timingHash, cacheAssetId: (fresh ? "b" : "a").repeat(64),
       locator: `Builds/${label}.wav`, durationSamples: frames * 2002, sampleRate: 48000, channels: 1 },
-    tokens: [{ tokenId: row.tokens[0].id, quotedText: row.tokens[0].value, startOffset: 0, endOffset: row.tokens[0].endOffset, onset: { numerator: 0, denominator: 1 } }],
+    tokens: [{ tokenId: row.tokens[0]!.id, quotedText: row.tokens[0]!.value, startOffset: 0, endOffset: row.tokens[0]!.endOffset, onset: { numerator: 0, denominator: 1 } }],
     verification: { method: "reviewed_audio_boundaries/v1", reviewId: id(fresh ? 999 : 998), reviewRevision: 1,
       reviewerReference: "synthetic fake only", reviewArtifactLocator: `Reviews/${label}.json`, reviewArtifactHash: hash(`${label}:review`) } };
 }

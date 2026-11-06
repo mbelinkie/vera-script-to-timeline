@@ -624,7 +624,7 @@ describe("#215 authenticated output observation to explicit revision bridge", ()
       const plain = structuredClone(baseline);
       const plainRow = campaignInput({ commas: false }).row;
       const target = plain.activeDraft.blocks[0] as NarrationBlockV2;
-      target.text = plainRow.text; target.tokens = plainRow.tokens.map((token, index) => ({ ...token, id: row.tokens[index]!.id })) as NarrationBlockV2["tokens"];
+      target.text = plainRow.text; target.tokens = plainRow.tokens.map((token, index) => ({ ...token, id: row.tokens[index]!.id }));
       expect(edit(plain).regeneration.text).toBe("Every morning the old ferry crosses the harbor toward the little island where the market opens at nine.");
     });
   });

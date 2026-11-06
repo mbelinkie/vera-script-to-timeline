@@ -37,7 +37,26 @@ function failure(document: ScriptDocumentV2, code: string, message: string, bloc
   return { ok: false, document, diagnostics: [diagnostic(code, message, blockId)] };
 }
 
-const fatalDocumentErrors = new Set(["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID"]);
+function validCommand(value: unknown): value is StageDirectionEditCommandV2 {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return false;
+  const command = value as Record<string, unknown>;
+  if (typeof command.blockId !== "string" || command.blockId.length === 0) return false;
+  const expected = command.kind === "delete_direction_delimiter"
+    ? ["kind", "blockId", "offset"]
+    : command.kind === "make_spoken" || command.kind === "make_stage_direction"
+      ? ["kind", "blockId", "startOffset", "endOffset"]
+      : null;
+  return expected !== null && Reflect.ownKeys(command).length === expected.length &&
+    expected.every((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(command, key);
+      return !!descriptor && "value" in descriptor && descriptor.enumerable;
+    }) &&
+    (command.kind === "delete_direction_delimiter"
+      ? Number.isSafeInteger(command.offset)
+      : Number.isSafeInteger(command.startOffset) && Number.isSafeInteger(command.endOffset));
+}
+
+const fatalDocumentErrors = new Set(["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID"]);
 
 function newlyIntroducedErrors(
   before: AuthoringDiagnosticV2[],
@@ -136,25 +155,31 @@ function insertMarkers(row: NarrationBlockV2, startIndex: number, endIndexExclus
   for (let index = startIndex; index < endIndexExclusive; index += 1) row.tokens[index]!.spoken = false;
 }
 
-/** Initialize a plain note as one explicit #341 direction run, preserving frozen token IDs. */
+/** Initialize a compact note as literal nonspoken text, never inserting markers or parsing brackets. */
 export function defaultDirectionNarrationRowV2(input: NarrationBlockV2): NarrationBlockV2 | null {
   const row = structuredClone(input);
-  if (!row.tokens.length) return null;
-  const stageDirections = inspectStageDirectionsV2(row);
-  if (stageDirections.issues.length > 0) return null;
-  const allDirection = row.tokens.every((token) => token.spoken === false);
-  const mixed = row.tokens.some((token) => token.spoken === false) && !allDirection;
-  if (mixed) return null;
-  if (allDirection) return row;
-  const first = row.tokens[0];
-  const last = row.tokens.at(-1)!;
-  if (
-    !Number.isSafeInteger(first.startOffset) || !Number.isSafeInteger(last.endOffset) ||
-    first.startOffset < 0 || last.endOffset <= first.startOffset || last.endOffset > row.text.length ||
-    /[[\]]/u.test(row.text.slice(first.startOffset, last.endOffset))
-  ) return null;
-  insertMarkers(row, 0, row.tokens.length);
+  if (row.type !== "narration" || typeof row.text !== "string" || !Array.isArray(row.tokens) ||
+    (row.plainDirection !== undefined && row.plainDirection !== true) ||
+    row.plainDirection === true && row.tokens.some((token) => token?.spoken !== false)) return null;
+  row.plainDirection = true;
+  for (const token of row.tokens) {
+    if (!token || typeof token !== "object" ||
+      (token.spoken !== undefined && token.spoken !== true && token.spoken !== false)) return null;
+    token.spoken = false;
+  }
   return row;
+}
+
+function wholeRowSelected(row: NarrationBlockV2, startOffset: number, endOffset: number): boolean {
+  // Existing clients may select all frozen words rather than the surrounding whitespace.
+  return Number.isSafeInteger(startOffset) && Number.isSafeInteger(endOffset) && row.tokens.length > 0 &&
+    ((startOffset === 0 && endOffset === row.text.length) ||
+      (startOffset === row.tokens[0]!.startOffset && endOffset === row.tokens.at(-1)!.endOffset));
+}
+
+function convertedNote(document: ScriptDocumentV2, row: NarrationBlockV2): boolean {
+  return row.stashOrigin?.kind === "note" ||
+    (document.stashOutline ?? []).some((entry) => entry.rowId === row.id && entry.kind === "note");
 }
 
 function removeMarkers(row: NarrationBlockV2, startIndex: number, endIndexExclusive: number, openOffset: number, closeOffset: number): void {
@@ -177,7 +202,9 @@ export function applyStageDirectionEditV2(
   const before = validateScriptDocumentV2(document);
   const fatalBefore = before.diagnostics.filter((item) => fatalDocumentErrors.has(item.code));
   if (fatalBefore.length > 0) return { ok: false, document, diagnostics: fatalBefore };
-  if (!command || typeof command !== "object" || typeof command.blockId !== "string") {
+  let commandValid = false;
+  try { commandValid = validCommand(command); } catch { /* Refuse malformed proxy/accessor commands. */ }
+  if (!commandValid) {
     return failure(document, "STAGE_DIRECTION_COMMAND_INVALID", "Provide a stage-direction text edit.");
   }
   const location = locateRow(document, command.blockId);
@@ -194,7 +221,23 @@ export function applyStageDirectionEditV2(
   if (stageBefore.issues.length > 0) return failure(document, "STAGE_DIRECTION_PAIR_INVALID", stageBefore.issues[0]!.message, command.blockId);
   let startIndex: number;
   let endIndexExclusive: number;
-  if (command.kind === "delete_direction_delimiter") {
+  if (row.plainDirection === true || (command.kind === "make_stage_direction" && convertedNote(working, row) &&
+    row.tokens.every((token) => token.spoken !== false) && wholeRowSelected(row, command.startOffset, command.endOffset))) {
+    if (command.kind === "delete_direction_delimiter") {
+      return failure(document, "STAGE_DIRECTION_PAIR_NOT_FOUND", "Literal brackets are not semantic direction delimiters.", command.blockId);
+    }
+    if (!wholeRowSelected(row, command.startOffset, command.endOffset)) {
+      return failure(document, "STAGE_DIRECTION_SELECTION_INVALID", "Select the complete nonempty note to convert its speech intent.", command.blockId);
+    }
+    if (row.plainDirection === true) {
+      if (command.kind !== "make_spoken") return failure(document, "STAGE_DIRECTION_SELECTION_INVALID", "This note is already a plain direction.", command.blockId);
+      delete row.plainDirection;
+      for (const token of row.tokens) delete token.spoken;
+    } else {
+      row.plainDirection = true;
+      for (const token of row.tokens) token.spoken = false;
+    }
+  } else if (command.kind === "delete_direction_delimiter") {
     if (!Number.isSafeInteger(command.offset) || command.offset < 0 || command.offset >= row.text.length) return failure(document, "STAGE_DIRECTION_SELECTION_INVALID", "Select one delimiter of a recognized stage-direction pair.", command.blockId);
     const run = stageBefore.runs.find((candidate) => candidate.openOffset === command.offset || candidate.closeOffset === command.offset);
     if (!run) return failure(document, "STAGE_DIRECTION_PAIR_NOT_FOUND", "Only a delimiter of a recognized complete pair can be deleted by this operation.", command.blockId);

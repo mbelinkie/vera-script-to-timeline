@@ -243,6 +243,42 @@ def test_rejects_stale_timing_hash_revision_text_and_token_snapshot() -> None:
         narration_v2_dependency_from_asset(narration_asset, timing, stale_token)
 
 
+@pytest.mark.parametrize("raw", ["", "[nested [text]] 🌍", "orphan ] and ["])
+def test_plain_direction_cannot_bind_spoken_audio_even_with_a_ready_asset(
+    raw: str,
+) -> None:
+    timing = timing_json()
+    frozen = block()
+    frozen["plainDirection"] = True
+    frozen["text"] = raw
+    frozen["tokens"] = (
+        [
+            {
+                **TOKENS[0],
+                "value": raw,
+                "startOffset": 0,
+                "endOffset": len(raw.encode("utf-16-le")) // 2,
+                "spoken": False,
+            }
+        ]
+        if raw
+        else []
+    )
+    with pytest.raises(NarrationDependencyError, match=r"^direction-only narration"):
+        narration_v2_dependency_from_asset(asset(timing), timing, frozen)
+
+
+def test_invalid_plain_direction_cannot_bind_spoken_audio() -> None:
+    timing = timing_json()
+    frozen = block()
+    frozen["plainDirection"] = True
+    # A frozen note with mixed speech metadata must refuse, never synthesize.
+    with pytest.raises(
+        NarrationDependencyError, match="invalid frozen direction intent"
+    ):
+        narration_v2_dependency_from_asset(asset(timing), timing, frozen)
+
+
 def test_rejects_unsafe_audio_and_sentence_only_timing() -> None:
     timing = timing_json()
     unsafe_audio = replace(

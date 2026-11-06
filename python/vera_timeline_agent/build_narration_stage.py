@@ -30,6 +30,7 @@ from .narration.cache import CacheError
 from .narration.compiler_dependencies_v2 import narration_v2_dependency_from_asset
 from .narration.models import NarrationAudioAsset, sha256_bytes
 from .narration.service import NarrationService
+from .narration.stage_directions import is_direction_only
 
 
 @dataclass(frozen=True)
@@ -60,13 +61,17 @@ class NarrationStagePort:
             raise BuildJobError("frozen script lacks v2 narration blocks") from error
         if not isinstance(blocks, list):
             raise BuildJobError("invalid frozen narration block list")
-        selected = [
-            b
-            for b in blocks
-            if isinstance(b, dict)
-            and b.get("type") == "narration"
-            and b.get("state") == "active"
-        ]
+        try:
+            selected = [
+                b
+                for b in blocks
+                if isinstance(b, dict)
+                and b.get("type") == "narration"
+                and b.get("state") == "active"
+                and not is_direction_only(b)
+            ]
+        except ValueError as error:
+            raise BuildJobError(f"invalid frozen direction intent: {error}") from error
         selected.sort(key=lambda b: (str(b.get("orderKey", "")), str(b.get("id", ""))))
         return selected
 

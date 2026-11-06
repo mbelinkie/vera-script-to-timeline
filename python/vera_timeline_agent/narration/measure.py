@@ -43,6 +43,9 @@ from vera_timeline_agent.narration.normalize import (
     Normalizer,
 )
 from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+)
+from vera_timeline_agent.narration.stage_directions import (
     masked_text as mask_stage_directions,
 )
 
@@ -721,6 +724,13 @@ def _utf16_slice(text: str, start: int, end: int) -> str | None:
 def _frozen_tokens(
     block: Mapping[str, Any], reasons: list[str]
 ) -> list[dict[str, Any]]:
+    try:
+        if is_direction_only(block):
+            reasons.append("direction-only narration has no spoken tokens to measure")
+            return []
+    except ValueError as error:
+        reasons.append(f"invalid frozen direction intent: {error}")
+        return []
     tokens = block.get("tokens")
     text = block.get("text")
     if not isinstance(text, str) or not isinstance(tokens, list) or not tokens:

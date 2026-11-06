@@ -85,7 +85,21 @@ export function validateScriptDocumentV2(
     if (block.type !== "narration") continue;
 
     validateTokens(block, path, diagnostics, addId);
-    const stageDirections = inspectStageDirectionsV2(block);
+    if (block.plainDirection === true) {
+      block.tokens.forEach((token, tokenIndex) => {
+        if (token.spoken !== false) diagnostics.push({
+          code: "PLAIN_DIRECTION_INTENT_INVALID",
+          message: "A plain direction requires every frozen token to be explicitly nonspoken.",
+          jsonPath: `${path}/tokens/${tokenIndex}/spoken`,
+          blockId: block.id,
+          entityId: token.id,
+        });
+      });
+    }
+    // Literal brackets in whole-row plain directions are text, not #341 syntax.
+    const stageDirections = block.plainDirection === true
+      ? { issues: [] }
+      : inspectStageDirectionsV2(block);
     stageDirections.issues.forEach((issue) => diagnostics.push({
       code: "STAGE_DIRECTION_PAIR_INVALID",
       message: issue.message,
@@ -183,7 +197,13 @@ export function validateScriptDocumentV2(
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
     const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
-    diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({ ...item, severity: "warning" as const, jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`) })));
+    diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({
+      ...item,
+      // Parked narration may have unfinished authoring work, but corrupt plain
+      // direction intent is never safe to import or later place in the Draft.
+      ...(item.code === "PLAIN_DIRECTION_INTENT_INVALID" ? {} : { severity: "warning" as const }),
+      jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`),
+    })));
   }
   const stashedRowIds = new Set((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
   const stashedRowsById = new Map((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
@@ -343,6 +363,20 @@ function schemaDiagnostic(error: ErrorObject): AuthoringDiagnosticV2 {
   };
 }
 
+function hasUnpairedSurrogate(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const unit = text.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = text.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff || Number.isNaN(next)) return true;
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validateTokens(
   row: NarrationBlockV2,
   path: string,
@@ -350,6 +384,19 @@ function validateTokens(
   addId: (id: string, path: string, owner?: string) => void,
 ): void {
   let previousEnd = 0;
+  if (row.plainDirection === true && hasUnpairedSurrogate(row.text)) {
+    diagnostics.push({
+      code: "PLAIN_DIRECTION_INTENT_INVALID",
+      message: "Plain direction text must contain complete UTF-16 surrogate pairs.",
+      jsonPath: `${path}/text`,
+      blockId: row.id,
+    });
+  }
+  const isSplitSurrogate = (offset: number): boolean => {
+    const before = row.text.charCodeAt(offset - 1);
+    const after = row.text.charCodeAt(offset);
+    return before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff;
+  };
   row.tokens.forEach((token, index) => {
     const tokenPath = `${path}/tokens/${index}`;
     addId(token.id, `${tokenPath}/id`, row.id);
@@ -357,10 +404,11 @@ function validateTokens(
       token.startOffset < previousEnd ||
       token.endOffset <= token.startOffset ||
       token.endOffset > row.text.length ||
-      row.text.slice(token.startOffset, token.endOffset) !== token.value
+      row.text.slice(token.startOffset, token.endOffset) !== token.value ||
+      (row.plainDirection === true && (isSplitSurrogate(token.startOffset) || isSplitSurrogate(token.endOffset)))
     ) {
       diagnostics.push({
-        code: "TOKEN_TEXT_MISMATCH",
+        code: row.plainDirection === true ? "PLAIN_DIRECTION_INTENT_INVALID" : "TOKEN_TEXT_MISMATCH",
         message: "Token offsets must be ordered and quote the exact UTF-16 text slice.",
         jsonPath: tokenPath,
         blockId: row.id,

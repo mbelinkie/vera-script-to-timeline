@@ -28,12 +28,17 @@ from vera_timeline_agent.narration.models import (
     sha256_bytes,
 )
 from vera_timeline_agent.narration.normalize import NormalizationResult, Normalizer
+from vera_timeline_agent.narration.recovery import RecoveryError, _frozen_block
 from vera_timeline_agent.narration.service import (
     NarrationService,
     ServiceConfig,
     voice_profile,
 )
-from vera_timeline_agent.narration.stage_directions import masked_text, spoken_tokens
+from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+    masked_text,
+    spoken_tokens,
+)
 
 BLOCK_ID = "10000000-0000-4000-8000-000000000001"
 TEXT = "The 🌍 [softly] waits"
@@ -101,6 +106,80 @@ def direction_only_block() -> NarrationBlockV2:
         "state": "active",
         "notes": [],
     }
+
+
+def plain_note(text: str) -> NarrationBlockV2:
+    block = direction_only_block()
+    block["text"] = text
+    block["plainDirection"] = True
+    block["tokens"] = (
+        [
+            {
+                "id": "20000000-0000-4000-8000-000000000005",
+                "value": text,
+                "startOffset": 0,
+                "endOffset": len(text.encode("utf-16-le")) // 2,
+                "spoken": False,
+            }
+        ]
+        if text
+        else []
+    )
+    return block
+
+
+@pytest.mark.parametrize(
+    "text", ["", "[inner [literal]] 🌍", "unmatched ]\n'quoted' [", "  "]
+)
+def test_plain_notes_are_literal_and_never_synthesized(text: str) -> None:
+    block = plain_note(text)
+    assert is_direction_only(block)
+    assert spoken_tokens(block) == []
+    masked = masked_text(block)
+    assert masked == " " * (len(text.encode("utf-16-le")) // 2)
+    with pytest.raises(ValueError, match="direction-only narration"):
+        ServiceConfig().request_for(block)
+    reasons: list[str] = []
+    assert _frozen_tokens(block, reasons) == []
+    assert reasons == ["direction-only narration has no spoken tokens to measure"]
+    with pytest.raises(RecoveryError, match=r"^direction-only narration"):
+        _frozen_block(block)
+
+
+def test_explicit_spoken_conversion_preserves_literal_brackets_for_provider() -> None:
+    raw = "[nested [literal]] 🌍\n'unmatched ] ["
+    block = plain_note(raw)
+    block.pop("plainDirection")
+    for token in block["tokens"]:
+        token.pop("spoken")
+    assert not is_direction_only(block)
+    assert [token["value"] for token in spoken_tokens(block)] == [raw]
+    assert masked_text(block) == raw
+    request = ServiceConfig().request_for(block)
+    assert request.text == raw
+    assert request.source_text_hash is None
+
+
+@pytest.mark.parametrize("corruption", ["false", "spoken", "bad_offset", "surrogate"])
+def test_malformed_plain_direction_is_not_sent_to_provider(corruption: str) -> None:
+    block = plain_note("🌍 [literal]")
+    if corruption == "false":
+        block["plainDirection"] = False  # type: ignore[typeddict-item]
+    elif corruption == "spoken":
+        block["tokens"][0]["spoken"] = True
+    elif corruption == "bad_offset":
+        block["tokens"][0]["value"] = "different"
+    else:
+        block["tokens"][0]["endOffset"] = 1  # splits the emoji surrogate pair
+    with pytest.raises(ValueError, match=r"plain.direction|plainDirection"):
+        is_direction_only(block)
+    with pytest.raises(ValueError, match=r"plain.direction|plainDirection"):
+        ServiceConfig().request_for(block)
+    reasons: list[str] = []
+    assert _frozen_tokens(block, reasons) == []
+    assert reasons and "invalid frozen direction intent" in reasons[0]
+    with pytest.raises(RecoveryError, match="invalid frozen direction intent"):
+        _frozen_block(block)
 
 
 class _FakeProvider:

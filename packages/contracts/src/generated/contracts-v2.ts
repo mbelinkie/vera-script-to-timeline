@@ -11,10 +11,11 @@ export type NarrationBlockV2 = {
   id: string;
   orderKey: string;
   text: string;
+  tokens: NarrationToken[];
   /**
-   * @minItems 1
+   * Whole-row nonspoken intent: text is exact literal content, including square brackets, never a parsed direction delimiter. Omit for ordinary and legacy narration; false is not a valid value.
    */
-  tokens: [NarrationToken, ...NarrationToken[]];
+  plainDirection?: true;
   /**
    * Optional typed narration annotations. Omission is equivalent to an empty array.
    */
@@ -670,7 +671,7 @@ export interface SectionBlock {
   version: number;
 }
 /**
- * Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a paired stage-direction token.
+ * Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a nonspoken token in a recognized paired direction or a whole-row plain direction.
  */
 export interface NarrationToken {
   id: string;

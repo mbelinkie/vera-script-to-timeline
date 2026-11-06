@@ -80,7 +80,7 @@ function wordAnchor(block: NarrationBlockV2, tokenIndex = 0) {
 
 function richNarration(value: number): NarrationBlockV2 {
   const block = row(value);
-  const first = block.tokens[0];
+  const first = block.tokens[0]!;
   const second = block.tokens[1];
   if (!first || !second) throw new Error(`Expected two tokens in row ${block.id}.`);
   const annotationRange = {
@@ -514,7 +514,7 @@ describe("authoring v2 whole-row edits", () => {
       section(61, "Second"), d, e,
     ], {
       rowTransitions: [internalTransition, separatedTransition],
-      rowReferences: [{ id: id(72), rowId: c.id, kind: "comment", anchor: { tokenId: c.tokens[0].id } }],
+      rowReferences: [{ id: id(72), rowId: c.id, kind: "comment", anchor: { tokenId: c.tokens[0]!.id } }],
     });
     const movedRows = structuredClone([b, c]);
 

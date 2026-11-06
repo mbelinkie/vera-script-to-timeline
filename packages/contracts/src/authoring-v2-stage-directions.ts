@@ -22,6 +22,9 @@ export function inspectStageDirectionsV2(row: NarrationBlockV2): {
   runs: StageDirectionRunV2[];
   issues: StageDirectionIssueV2[];
 } {
+  // A plain direction is semantic whole-row intent, not an encoded bracket pair.
+  // Every bracket in its text is literal, including unmatched and nested ones.
+  if (row.plainDirection === true) return { runs: [], issues: [] };
   const runs: StageDirectionRunV2[] = [];
   const issues: StageDirectionIssueV2[] = [];
   let index = 0;
@@ -60,11 +63,13 @@ export function inspectStageDirectionsV2(row: NarrationBlockV2): {
 }
 
 export function spokenTokensV2(row: NarrationBlockV2): NarrationToken[] {
+  if (row.plainDirection === true) return [];
   return row.tokens.filter((token) => token.spoken !== false);
 }
 
 /** A clean prompter view with the stage-direction pair and its words removed. */
 export function spokenNarrationViewV2(row: NarrationBlockV2): SpokenNarrationViewV2 {
+  if (row.plainDirection === true) return { text: "", tokens: [] };
   const { runs, issues } = inspectStageDirectionsV2(row);
   if (issues.length > 0) throw new Error(issues[0]!.message);
 
@@ -109,6 +114,7 @@ export function spokenNarrationViewV2(row: NarrationBlockV2): SpokenNarrationVie
 
 /** Mask directions with equal-width spaces so provider timing offsets stay in authored-text UTF-16 coordinates. */
 export function maskStageDirectionsV2(row: NarrationBlockV2): string {
+  if (row.plainDirection === true) return " ".repeat(row.text.length);
   const { runs, issues } = inspectStageDirectionsV2(row);
   if (issues.length > 0) throw new Error(issues[0]!.message);
   let text = row.text;

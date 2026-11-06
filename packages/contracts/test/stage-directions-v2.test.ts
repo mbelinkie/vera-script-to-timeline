@@ -8,7 +8,9 @@ import {
   applyStageDirectionEditV2,
   createCommentStateV2,
   deserializeAuthoringDocumentV2,
+  commentQuoteV2,
   inspectStageDirectionsV2,
+  maskStageDirectionsV2,
   projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
   spokenNarrationViewV2,
@@ -104,6 +106,51 @@ function requireSuccess<T extends { ok: boolean }>(result: T): asserts result is
 }
 
 describe("paired stage-direction operations", () => {
+  it("treats whole-row plain direction brackets as literal, even when nested or unmatched", () => {
+    const raw = " [outer [inner]] unmatched] 😀\n'yes' ";
+    const { document, row } = documentWithText(raw, ["[outer", "[inner]]", "unmatched]", "😀", "'yes'"]);
+    row.plainDirection = true;
+    row.tokens.forEach((token) => { token.spoken = false; });
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    expect(inspectStageDirectionsV2(row)).toEqual({ runs: [], issues: [] });
+    expect(spokenNarrationViewV2(row)).toEqual({ text: "", tokens: [] });
+    expect(maskStageDirectionsV2(row)).toBe(" ".repeat(raw.length));
+    expect(commentQuoteV2(row, 0, raw.length)).toBe(raw);
+
+    const partial = applyStageDirectionEditV2(document, row.version, {
+      kind: "make_spoken", blockId: row.id, startOffset: row.tokens[1]!.startOffset, endOffset: row.tokens.at(-1)!.endOffset,
+    });
+    expect(partial.diagnostics[0]?.code).toBe("STAGE_DIRECTION_SELECTION_INVALID");
+    expect(partial.document).toBe(document);
+    const malformed = applyStageDirectionEditV2(document, row.version, {
+      kind: "make_spoken", blockId: row.id, startOffset: 0, endOffset: raw.length, accidental: true,
+    } as unknown as Parameters<typeof applyStageDirectionEditV2>[2]);
+    expect(malformed.diagnostics[0]?.code).toBe("STAGE_DIRECTION_COMMAND_INVALID");
+    expect(malformed.document).toBe(document);
+    const deleteLiteral = applyStageDirectionEditV2(document, row.version, {
+      kind: "delete_direction_delimiter", blockId: row.id, offset: 1,
+    });
+    expect(deleteLiteral.diagnostics[0]?.code).toBe("STAGE_DIRECTION_PAIR_NOT_FOUND");
+    expect(deleteLiteral.document).toBe(document);
+
+    const spoken = applyStageDirectionEditV2(document, row.version, {
+      kind: "make_spoken", blockId: row.id, startOffset: 0, endOffset: raw.length,
+    });
+    requireSuccess(spoken);
+    const next = spoken.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(next.text).toBe(raw);
+    expect(next.plainDirection).toBeUndefined();
+    expect(next.tokens.map((token) => token.id)).toEqual(row.tokens.map((token) => token.id));
+    expect(next.tokens.every((token) => token.spoken === undefined)).toBe(true);
+    expect(spokenNarrationViewV2(next).text).toBe(raw);
+    const stale = undoStageDirectionEditV2(spoken.document, { ...spoken.undo!, expectedBlockVersion: next.version - 1 });
+    expect(stale.diagnostics[0]?.code).toBe("STAGE_DIRECTION_VERSION_STALE");
+    expect(stale.document).toBe(spoken.document);
+    const undone = undoStageDirectionEditV2(spoken.document, spoken.undo!);
+    requireSuccess(undone);
+    expect({ ...(undone.document.activeDraft.blocks[0] as NarrationBlockV2), version: row.version }).toEqual(row);
+  });
+
   it("keeps quotes, parentheses, and literal brackets spoken until explicitly classified", () => {
     const { row } = documentWithText('She said "go" (slowly) [literally] today.', ["She", "said", '"go"', "(slowly)", "[literally]", "today."]);
     expect(row.tokens.every((token) => token.spoken === undefined)).toBe(true);
@@ -185,7 +232,7 @@ describe("paired stage-direction operations", () => {
     const created = applyCommentOperationV2(comments, 0, {
       id: "comment-create-pair", actorId: "actor", kind: "create", threadId: "thread-pair", messageId: "message-pair",
       body: "Keep the exact line", mentionActorIds: [],
-      anchor: { kind: "text", blockId: row.id, startTokenId: row.tokens[0].id, endTokenId: row.tokens[2]!.id },
+      anchor: { kind: "text", blockId: row.id, startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id },
     });
     if (!created.ok) throw new Error(created.error);
     comments = created.state;
@@ -244,7 +291,7 @@ describe("paired stage-direction operations", () => {
 
     const madeSpoken = applyStageDirectionEditV2(edit.document, directionRow.version, {
       kind: "make_spoken", blockId: row.id,
-      startOffset: directionRow.tokens[0].startOffset,
+      startOffset: directionRow.tokens[0]!.startOffset,
       endOffset: directionRow.tokens.at(-1)!.endOffset,
     });
     requireSuccess(madeSpoken);
@@ -366,7 +413,7 @@ describe("paired stage-direction operations", () => {
       const { document, row } = documentWithText("hello blue world", ["hello", "blue", "world"]);
       const range = {
         blockId: row.id,
-        startTokenId: row.tokens[0].id,
+        startTokenId: row.tokens[0]!.id,
         endTokenId: row.tokens[1]!.id,
         startAffinity: "before" as const,
         endAffinity: "before" as const,
@@ -413,7 +460,7 @@ describe("paired stage-direction operations", () => {
     expect(staleNeeds.diagnostics.some((item) => item.code === "STALE_TIMING_MAP" || item.code === "TEXT_HASH_MISMATCH")).toBe(true);
 
     const freshDependencies = compilerDependencies(edit.document, editedRow);
-    expect(freshDependencies.narrationTimingMaps[0]!.tokens.map((token) => token.tokenId)).toEqual([row.tokens[0].id, row.tokens[2]!.id]);
+    expect(freshDependencies.narrationTimingMaps[0]!.tokens.map((token) => token.tokenId)).toEqual([row.tokens[0]!.id, row.tokens[2]!.id]);
     const freshNeeds = mediaNeeds(edit.document, freshDependencies);
     requireSuccess(freshNeeds);
     expect(freshNeeds.durationFrames).toBe(48);

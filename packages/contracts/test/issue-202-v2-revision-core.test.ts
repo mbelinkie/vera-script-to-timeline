@@ -35,7 +35,7 @@ function boundary(row: NarrationBlockV2, frames: number, fresh = false): Narrati
     audioHash, timingHash, alignmentVersion: "synthetic/v1",
     audio: { narrationAssetId: id(parseInt(row.id.slice(-2), 16) + (fresh ? 900 : 800)), audioHash, timingHash,
       cacheAssetId: (fresh ? "b" : "a").repeat(64), locator: `Builds/${row.id}-${suffix}.wav`, durationSamples: frames * 2002, sampleRate: 48000, channels: 1 },
-    tokens: [{ tokenId: row.tokens[0].id, quotedText: row.tokens[0].value, startOffset: 0, endOffset: row.tokens[0].endOffset, onset: { numerator: 0, denominator: 1 } }],
+    tokens: [{ tokenId: row.tokens[0]!.id, quotedText: row.tokens[0]!.value, startOffset: 0, endOffset: row.tokens[0]!.endOffset, onset: { numerator: 0, denominator: 1 } }],
     verification: { method: "reviewed_audio_boundaries/v1", reviewId: id(fresh ? 999 : 998), reviewRevision: 1,
       reviewerReference: "synthetic-only", reviewArtifactLocator: `Reviews/${suffix}.json`, reviewArtifactHash: hash(`${suffix}:review`) } };
 }

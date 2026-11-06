@@ -290,6 +290,7 @@ export {
 export {
   inspectStageDirectionsV2,
   maskStageDirectionsV2,
+  commentQuoteV2,
   spokenNarrationViewV2,
   spokenTokensV2,
   type StageDirectionIssueV2,

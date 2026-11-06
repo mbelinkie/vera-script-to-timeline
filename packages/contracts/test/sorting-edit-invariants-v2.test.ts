@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyRowEditV2,
   createSortingTrialV2,
   resumeSortingTrialV2,
   validateScriptDocumentV2,
@@ -121,6 +122,60 @@ function commandsFor(caseIndex: number): RowEditCommandV2[] {
 }
 
 describe("Sorting row-edit invariants", () => {
+  it.each(Array.from({ length: 12 }, (_, index) => index))("separates literal note content from layout and speech in case %i", (caseIndex) => {
+    const texts = ["", "[unmatched [ [ ] ] 😃", ' "quoted"\n[raw] [nested] '];
+    const raw = texts[caseIndex % texts.length]!;
+    const source = row(6000);
+    source.text = raw;
+    source.tokens = raw ? [{ ...source.tokens[0]!, value: raw, endOffset: raw.length }] : [];
+    const created = applyRowEditV2(document(), 0, {
+      kind: "create_stash_note", bundleId: id(6001), row: source, sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    const baseline = created.document;
+    const trial = createSortingTrialV2(baseline);
+    const applied = (command: RowEditCommandV2) => {
+      const result = trial.apply(command);
+      expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    };
+    applied({ kind: "place_stash_rows", rowIds: [source.id], destination: gap(id(500), null) });
+    if (raw.length > 0 && caseIndex % 2 === 1) {
+      applied({ kind: "make_spoken", blockId: source.id, startOffset: 0, endOffset: raw.length });
+    }
+    const placed = trial.document.activeDraft.blocks.find((block) => block.id === source.id);
+    if (placed?.type !== "narration") throw new Error("Placed note disappeared");
+    const rewritten = `${raw}! ${caseIndex}`;
+    applied({ kind: "edit_row", rowId: source.id, row: { ...placed, text: rewritten,
+      tokens: [{ id: placed.tokens[0]?.id ?? id(10000), value: rewritten, startOffset: 0, endOffset: rewritten.length,
+        ...(placed.plainDirection === true ? { spoken: false as const } : {}) }], version: placed.version + 1,
+    } });
+    applied({ kind: "move_rows", rowIds: [id(100)], destination: gap(source.id, null) });
+    const snapshot = trial.serialize();
+    const accepted = [
+      resumeSortingTrialV2(snapshot).accept(baseline, "all"),
+      resumeSortingTrialV2(snapshot).accept(baseline, "edits_only"),
+      resumeSortingTrialV2(snapshot).accept(baseline, "sorting_only"),
+      resumeSortingTrialV2(snapshot).discard(baseline),
+    ];
+    for (const [outcome, result] of accepted.entries()) {
+      expect(result.ok, `case ${caseIndex} outcome ${outcome}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
+      expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    }
+    const note = (result: ScriptDocumentV2) => {
+      const found = [...result.activeDraft.blocks, ...(result.stash ?? []).flatMap((bundle) => bundle.rows)].find((block) => block.id === source.id);
+      if (found?.type !== "narration") throw new Error("Missing literal note");
+      return found;
+    };
+    expect(note(accepted[0]!.document).text).toBe(rewritten);
+    expect(note(accepted[1]!.document).text).toBe(rewritten);
+    expect(accepted[1]!.document.stashOutline?.find((entry) => entry.rowId === source.id)?.kind).toBe("row");
+    expect(accepted[1]!.document.activeDraft.blocks.map((block) => block.id)).toEqual(baseline.activeDraft.blocks.map((block) => block.id));
+    expect(note(accepted[2]!.document).text).toBe(raw);
+    expect(note(accepted[2]!.document).plainDirection).toBe(true);
+    expect(note(accepted[2]!.document).stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
+    expect(note(accepted[3]!.document).plainDirection).toBe(true);
+    expect(accepted[3]!.document).toEqual(baseline);
+  });
   it.each(Array.from({ length: 65 }, (_, index) => index))("keeps content-only acceptance outcomes consistent for sequence %i", (caseIndex) => {
     // These 64 deterministic cases vary exact insertion gaps, fresh row IDs,
     // single/adjacent-pair deletions, and whether deletion comes before or
