@@ -15,7 +15,7 @@ import pytest
 from vera_timeline_agent import resolve_test_queue as queue
 
 BUILD_ID = "12345678-1234-1234-1234-123456789abc"
-PROJECT = f"VERA Delivery {BUILD_ID} process-test"
+PROJECT = f"VERA Delivery {BUILD_ID} abcdef012345"
 INVOCATION_ID = "abcdef0123456789abcdef0123456789"
 
 _CHILD = r"""
@@ -42,7 +42,7 @@ expected_request_sha = hashlib.sha256(request_path.read_bytes()).hexdigest()
 evidence = Path(request["evidenceDir"])
 invocation = "abcdef0123456789abcdef0123456789"
 native.preflight = lambda _plan: request
-q.preflight_native_owner = lambda: None
+q.preflight_independent_disposable = lambda _target: None
 held_lock = None
 
 def immutable(path: Path, value: dict[str, object]) -> None:
@@ -53,8 +53,15 @@ def immutable(path: Path, value: dict[str, object]) -> None:
         os.fsync(stream.fileno())
     path.chmod(0o400)
 
-def fake_start(path: Path, expected: str, _python: Path) -> dict[str, object]:
+def fake_start(
+    path: Path,
+    expected: str,
+    _python: Path,
+    *,
+    independent_disposable: bool = False,
+) -> dict[str, object]:
     global held_lock
+    assert independent_disposable is True
     with count_path.open("a", encoding="utf-8") as stream:
         stream.write("dispatch\n")
         stream.flush()

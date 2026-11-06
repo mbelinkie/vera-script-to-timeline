@@ -82,6 +82,31 @@ def test_disposable_preflight_isolates_foreign_unknown_without_mutating_it(
     assert not owner.PAUSED_OUTPUT_ROOT.exists()
 
 
+def test_disposable_preflight_loads_installed_sdk_without_pythonpath(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Production launchd workers do not inherit a shell's Resolve PYTHONPATH.
+    # A clean interpreter must load the vendor SDK from the pinned local path.
+    script = tmp_path / "DaVinciResolveScript.py"
+    script.write_text(
+        "class Project:\n"
+        "    def GetUniqueId(self): return 'current-project-uid'\n"
+        "    def GetName(self): return 'Existing Project'\n"
+        "    def IsRenderingInProgress(self): return False\n"
+        "    def GetRenderJobList(self): return []\n"
+        "class Manager:\n"
+        "    def GetCurrentProject(self): return Project()\n"
+        "    def GetProjectListInCurrentFolder(self): return ['Existing Project']\n"
+        "class Resolve:\n"
+        "    def GetProjectManager(self): return Manager()\n"
+        "def scriptapp(name): return Resolve() if name == 'Resolve' else None\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delitem(sys.modules, "DaVinciResolveScript", raising=False)
+    monkeypatch.setattr(owner, "_RESOLVE_SCRIPTING_MODULE", script)
+    owner.preflight_independent_disposable(DISPOSABLE)
+
+
 @pytest.mark.parametrize(
     ("rendering", "jobs", "selected", "projects", "reason"),
     [

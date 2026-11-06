@@ -8,10 +8,12 @@ import fcntl
 import hashlib
 import hmac
 import importlib
+import importlib.util
 import json
 import os
 import re
 import stat
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -36,6 +38,10 @@ _MAX_RECORD_BYTES = 8 * 1024 * 1024
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _TERMINAL_RENDER_STATES = frozenset({"Complete", "Failed", "Cancelled"})
 _PAUSE_OBSERVATION_LIFETIME = timedelta(hours=12)
+_RESOLVE_SCRIPTING_MODULE = Path(
+    "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
+    "Developer/Scripting/Modules/DaVinciResolveScript.py"
+)
 _HELD_OWNER_FD: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "vera_native_owner_fd", default=None
 )
@@ -178,6 +184,24 @@ _DISPOSABLE_NAME = re.compile(
 )
 
 
+def _local_resolve_connection() -> Any:
+    """Load the installed public SDK even in a clean launchd Python process."""
+    module = sys.modules.get("DaVinciResolveScript")
+    if module is None:
+        path = _RESOLVE_SCRIPTING_MODULE
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("installed local Resolve scripting module unavailable")
+        spec = importlib.util.spec_from_file_location("DaVinciResolveScript", path)
+        if spec is None or spec.loader is None:
+            raise ValueError("installed local Resolve scripting module cannot load")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    scriptapp = getattr(module, "scriptapp", None)
+    if not callable(scriptapp):
+        raise ValueError("installed local Resolve scripting module is invalid")
+    return scriptapp("Resolve")
+
+
 def preflight_independent_disposable(target_name: str) -> None:
     """Read-only live safety check for a *new* independent v2 test target.
 
@@ -193,8 +217,7 @@ def preflight_independent_disposable(target_name: str) -> None:
     _check_parent_operation()
     _check_issue328_marker()
     try:
-        scripting = importlib.import_module("DaVinciResolveScript")
-        resolve = scripting.scriptapp("Resolve")
+        resolve = _local_resolve_connection()
         if not resolve:
             raise ValueError("local Resolve connection unavailable")
         manager = resolve.GetProjectManager()
