@@ -252,7 +252,10 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
     elif changed == "jobs":
         record["matchingJobCount"] = 1
     elif changed == "effect":
-        result["effectLedger"][-1]["method"] = "Project.StartRendering"
+        ledger = result["effectLedger"]
+        assert isinstance(ledger, list)
+        assert isinstance(ledger[-1], dict)
+        ledger[-1]["method"] = "Project.StartRendering"
         result_path.write_text(json.dumps(result), encoding="utf-8")
         record["resultSha256"] = hashlib.sha256(result_path.read_bytes()).hexdigest()
     elif changed == "host":
