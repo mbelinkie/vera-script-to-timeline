@@ -27,6 +27,7 @@ RUNTIME_FILES = (
     *V1_RUNTIME_FILES,
     "workflow_v2.py",
     "workflow_v2_launcher.py",
+    "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
 )

@@ -401,6 +401,9 @@ class _FakeAdapter:
     def place_event(self, _event: Any) -> None:
         self._call("place_event")
 
+    def import_verified_otio(self, _path: Path, _view: Any, _name: str) -> None:
+        self._call("import_verified_otio")
+
     def add_v2_marker(self, _marker: Any) -> None:
         self._call("add_marker")
 
@@ -410,6 +413,148 @@ class _FakeAdapter:
     def verify(self, _view: Any) -> tuple[str, ...]:
         self._call("verify")
         return self.verification_discrepancies
+
+
+def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stamps(
+    tmp_path: Path,
+) -> None:
+    """Model public Resolve import APIs, not native pixel output."""
+    picture = {
+        "kind": "still_frame",
+        "framingPolicy": "contain",
+        "imageMotion": {"mode": "none"},
+    }
+    attestation, digest, _ = _make_package(tmp_path, picture_treatment=picture)
+    package = workflow_v2.load_verified_package_v2(attestation, digest)
+    source = package.view["sources"][0]
+    source_path = package.root / source["path"]
+    counts = {"import": 0, "append": 0, "delete_marker": 0, "stamped": 0}
+
+    class Media:
+        def GetMediaId(self) -> str:
+            return "exact-source-id"
+
+        def GetClipProperty(self, _name: str) -> str:
+            return str(source_path)
+
+    media = Media()
+
+    class Clip:
+        def GetStart(self, _relative: bool) -> int:
+            return 0
+
+        def GetDuration(self, _relative: bool) -> int:
+            return 10
+
+        def GetMediaPoolItem(self) -> Media:
+            return media
+
+        def GetProperties(self) -> dict[str, Any]:
+            return {"DynamicZoomEnabled": False}
+
+        def AddMarker(self, *_args: Any) -> bool:
+            counts["stamped"] += 1
+            return True
+
+    clip = Clip()
+
+    class Timeline:
+        def __init__(self) -> None:
+            self.markers: dict[int, Any] = {5: {"from_native_otio": True}}
+
+        def GetName(self) -> str:
+            return "VERA Test"
+
+        def GetUniqueId(self) -> str:
+            return "new-timeline-uid"
+
+        def GetMediaPoolItem(self) -> None:
+            return None
+
+        def GetStartFrame(self) -> int:
+            return 0
+
+        def GetEndFrame(self) -> int:
+            return 10
+
+        def GetTrackCount(self, kind: str) -> int:
+            return 2 if kind == "video" else 0
+
+        def GetTrackName(self, _kind: str, index: int) -> str:
+            return "Root" if index == 1 else "Markers"
+
+        def GetItemListInTrack(self, _kind: str, index: int) -> list[Clip]:
+            return [clip] if index == 1 else []
+
+        def GetMarkers(self) -> dict[int, Any]:
+            return self.markers
+
+        def DeleteMarkerAtFrame(self, frame: int) -> bool:
+            counts["delete_marker"] += 1
+            self.markers.pop(frame)
+            return True
+
+        def AddMarker(self, frame: int, *_args: Any) -> bool:
+            self.markers[frame] = {}
+            counts["stamped"] += 1
+            return True
+
+    timeline = Timeline()
+
+    class Folder:
+        def GetUniqueId(self) -> str:
+            return "root"
+
+        def GetClipList(self) -> list[Media]:
+            return [media]
+
+        def GetSubFolderList(self) -> list[Any]:
+            return []
+
+    class Pool:
+        def ImportTimelineFromFile(self, path: str, options: Any) -> Timeline:
+            assert path.endswith("timeline.otio")
+            assert options == {"timelineName": "VERA Test", "importSourceClips": True}
+            counts["import"] += 1
+            return timeline
+
+        def AppendToTimeline(self, *_args: Any) -> None:
+            counts["append"] += 1
+
+        def GetRootFolder(self) -> Folder:
+            return Folder()
+
+    class Project:
+        def GetTimelineCount(self) -> int:
+            return counts["import"]
+
+        def SetCurrentTimeline(self, candidate: Timeline) -> bool:
+            return candidate is timeline
+
+    adapter = workflow_v2.PublicResolveAdapter.__new__(workflow_v2.PublicResolveAdapter)
+    adapter.pool = Pool()
+    adapter.project = Project()
+    adapter.timeline = None
+    adapter.expected_timeline_id = None
+    adapter.expected_events = {}
+    adapter.expected_stamps = {}
+    adapter.expected_properties = {}
+    adapter.expected_source_ranges = {}
+    adapter._v2_root = package.root
+    adapter.media_by_source = {}
+    adapter.media_id_by_source = {}
+    adapter.assert_current_target = lambda: None  # type: ignore[method-assign]
+
+    otio = package.root / "Builds" / package.manifest["buildId"] / "timeline.otio"
+    adapter.import_verified_otio(otio, package.view, "VERA Test")
+    assert counts == {"import": 1, "append": 0, "delete_marker": 1, "stamped": 1}
+    assert adapter.media_id_by_source[source["id"]] == "exact-source-id"
+    assert adapter.expected_properties[package.view["events"][0]["id"]] == {
+        "DynamicZoomEnabled": False
+    }
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="fresh empty target"):
+        adapter.import_verified_otio(otio, package.view, "VERA Test")
+    assert counts["import"] == 1
 
 
 def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any]]:
