@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, sys.argv[1])
@@ -65,8 +66,8 @@ def fake_start(path: Path, expected: str, _python: Path) -> dict[str, object]:
         "schemaVersion": "vera-delivery-parent/v1",
         "requestPath": str(path.absolute()),
         "requestSha256": expected,
-        "startedAt": "2026-11-04T12:00:00+00:00",
-        "monotonicStarted": 1.0,
+        "startedAt": datetime.now(UTC).isoformat(),
+        "monotonicStarted": time.monotonic(),
         "invocationId": invocation,
     }
     immutable(evidence / "parent.json", session)
@@ -106,8 +107,10 @@ def fake_start(path: Path, expected: str, _python: Path) -> dict[str, object]:
         evidence / "parent-exit.json",
         {
             "returncode": 0,
-            "monotonicFinished": 2.0,
+            "monotonicFinished": time.monotonic(),
+            "finishedAt": datetime.now(UTC).isoformat(),
             "requestSha256": expected,
+            "parentInvocationId": invocation,
         },
     )
     if not release_gate.exists():

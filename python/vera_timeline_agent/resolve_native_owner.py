@@ -115,7 +115,7 @@ def _validate_inherited_owner(descriptor: int) -> None:
 
 
 @contextmanager
-def native_owner() -> Iterator[int]:
+def native_owner(*, output_lane: bool = False) -> Iterator[int]:
     """Own Resolve during one call; nested or inherited calls reuse its descriptor."""
     held = _HELD_OWNER_FD.get()
     if held is not None:
@@ -144,6 +144,8 @@ def native_owner() -> Iterator[int]:
     try:
         _check_parent_operation()
         _check_issue328_marker()
+        if not output_lane and _active_output_host_chains(None):
+            raise _blocked("output_render_unresolved", str(OUTPUT_ATTEMPTS_ROOT))
         yield descriptor
     finally:
         _HELD_OWNER_FD.reset(token)
@@ -225,9 +227,8 @@ def _active_output_host_chains(native: Any) -> dict[str, str]:
         return {}
     if OUTPUT_ATTEMPTS_ROOT.is_symlink() or not OUTPUT_ATTEMPTS_ROOT.is_dir():
         raise _blocked("output_state_unreadable", str(OUTPUT_ATTEMPTS_ROOT))
-    controller = importlib.import_module(
-        ".qualification_output_controller_v2", __package__
-    )
+    from . import qualification_output_records_v2 as records
+
     active: dict[str, str] = {}
     for directory in sorted(OUTPUT_ATTEMPTS_ROOT.iterdir()):
         if (
@@ -237,7 +238,7 @@ def _active_output_host_chains(native: Any) -> dict[str, str]:
         ):
             raise _blocked("output_state_unreadable", str(directory))
         try:
-            chain = controller._parse(controller._read(directory / "chain.json"))
+            chain = records._parse(_read(directory / "chain.json"))
             entries = sorted(directory.glob("entry-*.json"))
             pending = sorted(directory.glob("pending-*.json"))
             heads = sorted(directory.glob("head-*.json"))
@@ -254,30 +255,29 @@ def _active_output_host_chains(native: Any) -> dict[str, str]:
                     or head.name != f"head-{expected}"
                 ):
                     raise ValueError("reordered output attempt history")
-                raw = controller._read(entry)
-                if raw != controller._read(pending_path):
+                raw = _read(entry)
+                if raw != _read(pending_path):
                     raise ValueError("partial output attempt publication")
-                row = controller._parse(raw)
-                if controller._parse(controller._read(head)) != {
+                row = records._parse(raw)
+                if records._parse(_read(head)) != {
                     "sequence": sequence,
                     "entrySha256": row.get("entrySha256"),
                 }:
                     raise ValueError("output attempt head differs")
                 rows.append(row)
             if rows:
-                expected_chain = controller._chain(rows[0]["context"])
-                if chain != expected_chain or directory.name != controller._json_hash(
+                expected_chain = records._chain(rows[0]["context"])
+                if chain != expected_chain or directory.name != records._json_hash(
                     chain
                 ):
                     raise ValueError("output attempt chain identity differs")
-                controller._validated_history(rows, chain)
-                state = rows[-1]["state"]
-                if state in {"reserved_by_render_intent", "uncertain"}:
-                    chain_key = native._chain_key(rows[-1]["context"])
-                    prior = active.get(chain_key)
-                    if prior is not None and prior != state:
-                        raise ValueError("conflicting host output chain states")
-                    active[chain_key] = state
+                records._validated_history(rows, chain)
+                latest = {records._binding(row["context"]): row for row in rows}
+                states = {row["state"] for row in latest.values()}
+                if "uncertain" in states:
+                    active[directory.name] = "uncertain"
+                elif "reserved_by_render_intent" in states:
+                    active[directory.name] = "reserved_by_render_intent"
             else:
                 if (
                     set(chain) != {"projectUid", "timelineUid", "caseId", "phase"}
@@ -285,7 +285,7 @@ def _active_output_host_chains(native: Any) -> dict[str, str]:
                         not isinstance(value, str) or not value
                         for value in chain.values()
                     )
-                    or directory.name != controller._json_hash(chain)
+                    or directory.name != records._json_hash(chain)
                 ):
                     raise ValueError("empty output chain identity differs")
                 # The controller prepares artifact/receipt vaults before commitment.
@@ -310,6 +310,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
         raise _blocked("output_operation_unresolved", str(operations))
     directories = sorted(operations.iterdir())
     render_pending = False
+    render_started = False
     found_result = False
     for sequence, directory in enumerate(directories):
         if (
@@ -363,20 +364,24 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
                     "output_operation_unresolved", f"{result_path}: {error}"
                 ) from error
             found_result = True
-            if status == "uncertain":
+            if status == "uncertain" and action in {"queue_render", "start_render"}:
                 raise _blocked(
                     "output_operation_unresolved",
                     f"{result_path} contains an uncertain native effect",
                 )
+            # Authenticated synchronous returns retain uncertain target contents,
+            # but cannot leave a renderer running without a render action.
             if action in {"queue_render", "start_render"}:
                 if status != "refused":
                     render_pending = True
+                    render_started = render_started or action == "start_render"
             elif action == "poll_render":
                 job_status = (verified.get("renderStatus") or {}).get("JobStatus")
                 if status in {"complete", "partial"} and job_status in (
                     _TERMINAL_RENDER_STATES
                 ):
                     render_pending = False
+                    render_started = False
                 else:
                     render_pending = True
             elif action == "capture_post" and render_pending:
@@ -419,6 +424,9 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
                     "output_operation_unresolved",
                     f"{request_path} is prepared but has not expired",
                 )
+            if request["action"] == "start_render" and not render_started:
+                # Preserve the queued job; its one-use start expired before effects.
+                render_pending = False
             # Native start records are written before the first Resolve effect.
             continue
 
@@ -437,7 +445,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
         )
 
 
-def _read(path: Path, label: str) -> bytes:
+def _read(path: Path, label: str = "ownership record") -> bytes:
     if (
         path.is_symlink()
         or path.stat(follow_symlinks=False).st_size > _MAX_RECORD_BYTES

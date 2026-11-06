@@ -2812,10 +2812,10 @@ _OUTPUT_RUNTIME_FILES = (
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
     "resolve_native_owner.py",
     "workflow_v2_parent.py",
     "qualification_output_native_v2.py",
-    "qualification_output_records_v2.py",
 )
 
 
@@ -7093,7 +7093,7 @@ def run_qualification_output_request(
 ) -> Path:
     from .resolve_native_owner import native_owner
 
-    with native_owner():
+    with native_owner(output_lane=True):
         return _run_qualification_output_request(
             resolve, request_path, expected_request_sha256=expected_request_sha256
         )

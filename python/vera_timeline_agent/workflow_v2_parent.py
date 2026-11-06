@@ -198,6 +198,7 @@ def _dispatch(
                     "requestSha256": expected,
                     "parentInvocationId": record["invocationId"],
                     "launcherEntered": False,
+                    "finishedAt": datetime.now(UTC).isoformat(),
                 },
             )
             raise
@@ -285,6 +286,21 @@ def status(
             and report.get("verified") is True
             and report.get("discrepancies") == []
         )
+        completed_at = exit_record.get("finishedAt", report.get("finishedAt"))
+        if completed_at is not None:
+            if "finishedAt" in exit_record and (
+                exit_record.get("parentInvocationId") != session["invocationId"]
+            ):
+                raise ValueError("parent completion clock identity mismatch")
+            completed = datetime.fromisoformat(completed_at)
+            started_at = datetime.fromisoformat(session["startedAt"])
+            if (
+                completed.tzinfo is None
+                or started_at.tzinfo is None
+                or completed < started_at
+            ):
+                raise ValueError("invalid parent completion wall clock")
+            response["completedAt"] = completed.astimezone(UTC).isoformat()
         response.update(state="terminal", verified=verified, result=report)
     except (OSError, ValueError, KeyError, TypeError) as error:
         response["detail"] = str(error)
@@ -338,6 +354,7 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path, owner_fd: int) -> 
                 "parentInvocationId": record["invocationId"],
                 "launcherEntered": launcher_entered,
                 "monotonicFinished": time.monotonic(),
+                "finishedAt": datetime.now(UTC).isoformat(),
             },
         )
         os.close(lock_fd)

@@ -58,8 +58,11 @@ render work; records are never deleted to make a new job eligible. Old installed
 bundles must be regenerated from the current runtime before use; a pre-M2 bundle
 does not gain the new guard merely because the queue was upgraded.
 Other entry points retain their existing lane-specific authorization and recovery
-checks and refuse a live or unresolved guarded parent. The installed guard uses
-only stdlib; it does not load the host output controller inside Resolve.
+checks and refuse a live or unresolved guarded parent. Standalone non-output
+writes also refuse retained render reservations, using the same journal validator
+as the host controller. The output lane can continue its own approved chain.
+The installed guard uses only stdlib; it does not load the host output controller
+inside Resolve.
 
 The queue records dispatch intent and immutable request identity before calling
 the existing guarded parent. Every subsequent worker only reconciles that same
@@ -78,7 +81,7 @@ a replacement.
 the expected v2 build, matching target and request context, supported native
 rate, save/close/reopen, full declared readback and zero discrepancies.
 `failed_native` requires an authenticated mutation/readback failure.
-`blocked_native` means no verified build was performed; `unknown` means the
+`blocked_native` means the case did not qualify for verified completion; `unknown` means the
 native outcome cannot be established. v1 success remains
 `completed_simulated` with `nativeVerified: false`.
 
@@ -87,7 +90,11 @@ while the native operation continues to reconcile. Finite deadline, elapsed and
 disk budgets similarly never imply a live native operation has stopped. A
 live/uncertain over-budget job records that condition; authenticated completion
 after the budget is `timed_out`, with any actual native verification retained
-separately. These are observation/refusal limits, not an OS kill or a promise to
+privately in the parent evidence; the queue does not mark the case verified.
+Completion time comes from that authenticated parent, so later observation or
+sleep does not turn on-time completion into a timeout. Finished evidence must
+still fit its disk budget; unrelated free-space changes after completion do not
+downgrade it. These are observation/refusal limits, not an OS kill or a promise to
 recover disk space. Partial projects, existing media and raw evidence are kept.
 
 Reports contain synthetic fixture/target identifiers, hashes, journal, one-use
@@ -99,12 +106,16 @@ performance claim follows from this build case.
 
 ## Acceptance
 
-Native acceptance is pending. On November 4, 2026, the host-only ownership
+Native acceptance is pending. The last host-only ownership
 preflight refused with `output_operation_unresolved`: retained native effect
 records lack authenticated completion. No #447 Resolve operation was started,
 and no retained reservation was cleared or retried. The independent offline
 package passes the compiler/package verifier (one 25-frame video event at
 25 fps, one media item, no markers); that is host evidence only.
+
+On November 5, 2026, live verification was stopped at the Producer's direction
+while the retained-evidence drive is disconnected. Resume only after the drive
+is available and existing operations can be authenticated without retry or override.
 
 The future-scheduled LaunchAgent native case, actual save/reopen/readback,
 and later worker-restart reconciliation must pass before #447 is delivered.

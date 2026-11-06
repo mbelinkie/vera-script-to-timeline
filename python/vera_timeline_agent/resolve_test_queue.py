@@ -18,6 +18,7 @@ import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
 import platform
 import plistlib
@@ -707,8 +708,20 @@ def load_frozen_plan(store: Store, job_id: str) -> dict[str, Any]:
     return validate_plan(json.loads(content))
 
 
-def reconcile_native(store: Store, job_id: str) -> None:
+def reconcile_native(store: Store, job_id: str, *, worker_locked: bool = False) -> None:
     """Read the same guarded operation; never dispatch from reconciliation."""
+    if not worker_locked:
+        with (store.root / "worker.lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            _reconcile_native_locked(store, job_id)
+        return
+    _reconcile_native_locked(store, job_id)
+
+
+def _reconcile_native_locked(store: Store, job_id: str) -> None:
     with store.connect() as db:
         attempt = db.execute(
             "SELECT * FROM native_attempts WHERE job_id=?", (job_id,)
@@ -742,6 +755,8 @@ def reconcile_native(store: Store, job_id: str) -> None:
     }[verdict.disposition]
     verified = verdict.native_verified
     invocation: str | None = None
+    completed_at: datetime | None = None
+    parent_elapsed: float | None = None
     try:
         plan = load_frozen_plan(store, job_id)
         request = native.preflight(plan)
@@ -763,34 +778,87 @@ def reconcile_native(store: Store, job_id: str) -> None:
             or (attempt["invocation_id"] and invocation != attempt["invocation_id"])
         ):
             raise QueueError("parent identity changed")
-        # Budget expiry does not prove native work stopped.
-        elapsed = (now_utc() - dt(row["started_at"])).total_seconds()
-        budget = None
-        if time.time() >= row["deadline_at"]:
-            budget = "deadline_exceeded"
-        elif elapsed >= plan["maxElapsedSeconds"]:
-            budget = "elapsed_budget_exceeded"
-        elif (
-            folder_bytes(Path(request["evidenceDir"]))
-            + folder_bytes(store.jobdir(job_id))
-            > plan["maxDiskBytes"]
-        ):
-            budget = "disk_budget_exceeded"
-        elif shutil.disk_usage(store.root).free < plan["maxDiskBytes"]:
-            budget = "insufficient_space"
-        if state in {"running", "unknown"} and budget:
-            reason = (
-                budget + "_native_" + ("live" if state == "running" else "uncertain")
-            )
-        elif state == "completed_verified" and budget:
-            state, reason = "timed_out", budget + "_native_completed"
-    except (OSError, ValueError, KeyError, TypeError):
+        if state == "completed_verified" or response.get("state") == "terminal":
+            elapsed = response.get("elapsedSeconds")
+            if (
+                isinstance(elapsed, bool)
+                or not isinstance(elapsed, (int, float))
+                or not math.isfinite(elapsed)
+                or elapsed < 0
+            ):
+                raise ValueError("authenticated parent elapsed time is invalid")
+            parent_elapsed = float(elapsed)
+            completed_at_value = response.get("completedAt")
+            if not isinstance(completed_at_value, str):
+                raise ValueError("authenticated parent completion time is missing")
+            completed_at = dt(completed_at_value)
+            started_at = dt(row["started_at"])
+            intent_at = dt(attempt["intent_at"])
+            if intent_at < started_at or completed_at < intent_at:
+                raise ValueError("authenticated parent completion predates dispatch")
+            if state == "completed_verified":
+                pre_dispatch = (intent_at - started_at).total_seconds()
+                if completed_at.timestamp() >= row["deadline_at"]:
+                    state, reason, verified = (
+                        "timed_out",
+                        "deadline_exceeded_native_completed",
+                        False,
+                    )
+                elif parent_elapsed + pre_dispatch >= plan["maxElapsedSeconds"]:
+                    state, reason, verified = (
+                        "timed_out",
+                        "elapsed_budget_exceeded_native_completed",
+                        False,
+                    )
+                elif (
+                    folder_bytes(Path(request["evidenceDir"]))
+                    + folder_bytes(store.jobdir(job_id))
+                    > plan["maxDiskBytes"]
+                ):
+                    state, reason, verified = (
+                        "blocked_native",
+                        "disk_budget_exceeded_native_completed",
+                        False,
+                    )
+        elif state in {"running", "unknown"}:
+            # Budget expiry does not prove native work stopped.
+            elapsed = (now_utc() - dt(row["started_at"])).total_seconds()
+            budget = None
+            if time.time() >= row["deadline_at"]:
+                budget = "deadline_exceeded"
+            elif elapsed >= plan["maxElapsedSeconds"]:
+                budget = "elapsed_budget_exceeded"
+            elif (
+                folder_bytes(Path(request["evidenceDir"]))
+                + folder_bytes(store.jobdir(job_id))
+                > plan["maxDiskBytes"]
+            ):
+                budget = "disk_budget_exceeded"
+            elif shutil.disk_usage(store.root).free < plan["maxDiskBytes"]:
+                budget = "insufficient_space"
+            if budget:
+                reason = (
+                    budget
+                    + "_native_"
+                    + ("live" if state == "running" else "uncertain")
+                )
+        else:
+            elapsed = response.get("elapsedSeconds")
+            if (
+                not isinstance(elapsed, bool)
+                and isinstance(elapsed, (int, float))
+                and math.isfinite(elapsed)
+                and elapsed >= 0
+            ):
+                parent_elapsed = float(elapsed)
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
         state, reason, verified = (
             "unknown",
-            "native_identity_or_input_unavailable",
+            "native_identity_input_or_completion_clock_unavailable",
             False,
         )
     terminal = state not in {"running", "unknown"}
+    finished_at = iso(completed_at) if completed_at is not None else iso(now_utc())
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
         current = db.execute(
@@ -805,7 +873,7 @@ def reconcile_native(store: Store, job_id: str) -> None:
         )
         db.execute(
             "UPDATE jobs SET state=?,reason=?,ended_at=? WHERE id=?",
-            (state, reason, iso(now_utc()) if terminal else None, job_id),
+            (state, reason, finished_at if terminal else None, job_id),
         )
         if current["state"] != state or current["reason"] != reason:
             store.append(db, job_id, state, reason)
@@ -819,8 +887,8 @@ def reconcile_native(store: Store, job_id: str) -> None:
                     "native-build",
                     "native.v2.guarded_build",
                     attempt["intent_at"],
-                    iso(now_utc()),
-                    max(0, (now_utc() - dt(attempt["intent_at"])).total_seconds()),
+                    finished_at,
+                    parent_elapsed or 0.0,
                     state,
                     int(verified),
                 ),
@@ -828,7 +896,9 @@ def reconcile_native(store: Store, job_id: str) -> None:
     store.publish(job_id)
 
 
-def run_native(store: Store, job_id: str, worker_id: str) -> None:
+def run_native(
+    store: Store, job_id: str, worker_id: str, *, worker_locked: bool = False
+) -> None:
     """One preflight and one dispatch after a durable intent. No retries."""
     try:
         plan = load_frozen_plan(store, job_id)
@@ -853,23 +923,25 @@ def run_native(store: Store, job_id: str, worker_id: str) -> None:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         elapsed = (now_utc() - dt(row["started_at"])).total_seconds()
-        if (
-            row["cancel_requested"]
-            or time.time() >= row["deadline_at"]
-            or elapsed >= plan["maxElapsedSeconds"]
-        ):
-            state = (
-                "canceled"
-                if row["cancel_requested"]
-                else "expired"
-                if time.time() >= row["deadline_at"]
-                else "timed_out"
+        predispatch_result: tuple[str, str] | None = None
+        if elapsed < 0:
+            predispatch_result = (
+                "blocked_native",
+                "clock_uncertain_before_native_dispatch",
             )
+        elif row["cancel_requested"]:
+            predispatch_result = ("canceled", "before_native_dispatch")
+        elif time.time() >= row["deadline_at"]:
+            predispatch_result = ("expired", "before_native_dispatch")
+        elif elapsed >= plan["maxElapsedSeconds"]:
+            predispatch_result = ("timed_out", "before_native_dispatch")
+        if predispatch_result is not None:
+            state, reason = predispatch_result
             db.execute(
                 "UPDATE jobs SET state=?,reason=?,ended_at=? WHERE id=?",
-                (state, "before_native_dispatch", iso(now_utc()), job_id),
+                (state, reason, iso(now_utc()), job_id),
             )
-            store.append(db, job_id, state, "before_native_dispatch")
+            store.append(db, job_id, state, reason)
             return
         changed = db.execute(
             "UPDATE native_attempts SET intent_at=? "
@@ -891,11 +963,20 @@ def run_native(store: Store, job_id: str, worker_id: str) -> None:
             },
         )
         sync_directory(evidence)
-        parent.start(
+        start_result = parent.start(
             Path(plan["native"]["requestPath"]),
             plan["native"]["requestSha256"],
             RESOLVE_PYTHON,
         )
+        if start_result.get("state") == "busy":
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "UPDATE native_attempts SET parent_state='busy' WHERE job_id=?",
+                    (job_id,),
+                )
+            finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+            return
     except NativeOwnerError:
         # The parent raises this only before reserving or launching our request.
         finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
@@ -903,7 +984,7 @@ def run_native(store: Store, job_id: str, worker_id: str) -> None:
     except Exception:
         # A lost reply or spawn error cannot authorize a second invocation.
         pass
-    reconcile_native(store, job_id)
+    reconcile_native(store, job_id, worker_locked=worker_locked)
 
 
 def worker_once(store: Store) -> bool:
@@ -917,10 +998,11 @@ def worker_once(store: Store) -> bool:
             active_native = db.execute(
                 "SELECT j.id,n.intent_at FROM jobs j "
                 "JOIN native_attempts n ON j.id=n.job_id "
-                "WHERE j.state IN ('running','unknown') ORDER BY j.submitted_at LIMIT 1"
+                "WHERE j.state IN ('running','unknown') AND n.intent_at IS NOT NULL "
+                "ORDER BY j.submitted_at LIMIT 1"
             ).fetchone()
         if active_native and active_native["intent_at"]:
-            reconcile_native(store, active_native["id"])
+            reconcile_native(store, active_native["id"], worker_locked=True)
             return True
         orphaned: list[str] = []
         job_id: str | None = None
@@ -973,7 +1055,7 @@ def worker_once(store: Store) -> bool:
                         "SELECT 1 FROM native_attempts WHERE job_id=?", (job_id,)
                     ).fetchone()
                 if native_job:
-                    run_native(store, job_id, worker_id)
+                    run_native(store, job_id, worker_id, worker_locked=True)
                 else:
                     run_mock(store, job_id, worker_id)
             except Exception:

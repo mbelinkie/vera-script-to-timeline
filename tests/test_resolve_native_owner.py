@@ -177,6 +177,29 @@ def test_preflight_allows_terminal_render_after_host_finalization_uncertainty(
     owner.preflight_native_owner()
 
 
+def test_returned_synchronous_failure_retains_target_uncertainty_without_live_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operations = owner.OUTPUT_TARGETS_ROOT / ("e" * 64) / "operations"
+    result = _result(operations, 0, "construct", status="uncertain")
+    original = result.read_bytes()
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    owner.preflight_native_owner()
+    assert result.read_bytes() == original
+    assert json.loads(original)["status"] == "uncertain"
+
+
+def test_uncertain_render_start_remains_an_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operations = owner.OUTPUT_TARGETS_ROOT / ("d" * 64) / "operations"
+    _result(operations, 0, "queue_render")
+    _result(operations, 1, "start_render", status="uncertain")
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    with pytest.raises(owner.NativeOwnerError):
+        owner.preflight_native_owner()
+
+
 @pytest.mark.parametrize("expired", [False, True])
 def test_preflight_checks_prepared_unstarted_authority_expiry(
     monkeypatch: pytest.MonkeyPatch, expired: bool
@@ -242,6 +265,48 @@ def test_preflight_does_not_treat_an_expired_unstarted_render_as_live(
     owner.preflight_native_owner()
 
 
+@pytest.mark.parametrize("previously_started", [False, True])
+def test_expired_unstarted_start_preserves_any_previously_started_render(
+    monkeypatch: pytest.MonkeyPatch,
+    previously_started: bool,
+) -> None:
+    operations = owner.OUTPUT_TARGETS_ROOT / ("9" * 64) / "operations"
+    sequence = 0
+    if previously_started:
+        _result(operations, sequence, "start_render")
+        sequence += 1
+    queued = _result(operations, sequence, "queue_render")
+    operation = operations / f"{sequence + 1:08d}"
+    operation.mkdir()
+    request = {"action": "start_render", "context": {"test": "only"}}
+    (operation / "request.json").write_text(json.dumps(request))
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    monkeypatch.setattr(
+        native, "verify_native_request", lambda *_args, **_kwargs: request
+    )
+    monkeypatch.setattr(
+        native,
+        "_verify_authority",
+        lambda *_args, **_kwargs: (
+            {"expiresAt": (datetime.now(UTC) - timedelta(days=1)).isoformat()},
+            "d" * 64,
+            {},
+        ),
+    )
+    monkeypatch.setattr(native, "_verify_reservation", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        native, "_verify_intent", lambda *_args, **_kwargs: ({}, "e" * 64)
+    )
+    original = queued.read_bytes()
+    if previously_started:
+        with pytest.raises(owner.NativeOwnerError):
+            owner.preflight_native_owner()
+    else:
+        owner.preflight_native_owner()
+    assert queued.read_bytes() == original
+    assert json.loads(original)["action"] == "queue_render"
+
+
 @pytest.mark.parametrize("record", ["request", "start", "effects"])
 def test_preflight_rejects_symlinked_native_records(
     record: str, tmp_path: Path
@@ -284,10 +349,18 @@ def test_standalone_owner_does_not_import_the_output_host_controller(
         "_check_issue328_marker",
         lambda: None,
     )
-    monkeypatch.setattr(
-        owner,
-        "_active_output_host_chains",
-        lambda _native: pytest.fail("standalone entries use their lane guard"),
-    )
+    monkeypatch.setattr(owner, "_active_output_host_chains", lambda _native: {})
     with owner.native_owner():
+        assert owner.OWNER_LOCK_PATH.exists()
+
+
+def test_standalone_writers_refuse_retained_render_but_output_can_continue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {"chain": "uncertain"}
+    )
+    with pytest.raises(owner.NativeOwnerError), owner.native_owner():
+        pytest.fail("a non-output writer stole an unresolved render reservation")
+    with owner.native_owner(output_lane=True):
         assert owner.OWNER_LOCK_PATH.exists()

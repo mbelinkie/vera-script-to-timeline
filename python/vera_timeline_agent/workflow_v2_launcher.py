@@ -32,25 +32,34 @@ def run_installed_request_v2(
 ) -> Path:
     from .resolve_native_owner import native_owner
 
-    with native_owner():
+    request = _read_pinned_request(request_path, expected_request_sha256)
+    output_lane = isinstance(request, dict) and request.get("schemaVersion") == (
+        "qualification-output-native-request/v1"
+    )
+    with native_owner(output_lane=output_lane):
         return _run_installed_request_v2(
             resolve, request_path, expected_request_sha256=expected_request_sha256
         )
 
 
-def _run_installed_request_v2(
-    resolve: Any, request_path: Path, *, expected_request_sha256: str
-) -> Path:
-    """Consume exactly the operator-authorized package and new target."""
+def _read_pinned_request(request_path: Path, expected: str) -> Any:
     if any(
         path.is_symlink() for path in (request_path, *request_path.absolute().parents)
     ):
         raise ValueError("symbolic link in operator request path")
     payload = request_path.read_bytes()
     request_sha256 = hashlib.sha256(payload).hexdigest()
-    if request_sha256 != expected_request_sha256:
+    if request_sha256 != expected:
         raise ValueError("operator request changed after release verification")
-    request = json.loads(payload)
+    return json.loads(payload)
+
+
+def _run_installed_request_v2(
+    resolve: Any, request_path: Path, *, expected_request_sha256: str
+) -> Path:
+    """Consume exactly the operator-authorized package and new target."""
+    request = _read_pinned_request(request_path, expected_request_sha256)
+    request_sha256 = expected_request_sha256
     if isinstance(request, dict) and request.get("schemaVersion") == (
         "vera-sample-import-probe-request/v1"
     ):

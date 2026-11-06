@@ -248,6 +248,32 @@ def test_launcher_names_attempt_evidence_with_request_digest(
     assert len(delivery_calls) == 1
 
 
+@pytest.mark.parametrize("foreign_clock", [False, True])
+def test_terminal_completion_clock_is_bound_to_parent_invocation(
+    tmp_path: Path, foreign_clock: bool
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    _completed_operation(evidence, expected, request)
+    path = evidence / "parent-exit.json"
+    value = workflow_v2_parent._read(path)
+    value.update(
+        finishedAt="2026-10-25T00:00:01+00:00",
+        parentInvocationId="foreign" if foreign_clock else _PARENT_INVOCATION_ID,
+    )
+    path.chmod(0o600)
+    path.write_text(json.dumps(value))
+    path.chmod(0o400)
+    response = workflow_v2_parent.status(request_path, expected)
+    if foreign_clock:
+        assert response["verified"] is False
+        assert response["state"] != "terminal"
+    else:
+        assert response["verified"] is True
+        assert response["completedAt"] == "2026-10-25T00:00:01+00:00"
+        assert response["elapsedSeconds"] == 1.0
+
+
 def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
