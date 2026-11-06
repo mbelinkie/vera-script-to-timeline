@@ -605,6 +605,24 @@ def _validate_view(
     ):
         raise WorkflowV2Error("delivery view arrays are malformed")
 
+    motion_still_source_ids: set[str] = set()
+    for event in cast(list[Any], manifest_events_value):
+        if not isinstance(event, Mapping) or event.get("kind") not in {
+            "primary_visual",
+            "overlay_visual",
+        }:
+            continue
+        treatment = event.get("pictureTreatment")
+        provenance = event.get("provenance")
+        if (
+            isinstance(treatment, Mapping)
+            and treatment.get("kind") == "still_frame"
+            and "imageMotion" in treatment
+            and isinstance(provenance, Mapping)
+            and isinstance(provenance.get("sourceId"), str)
+        ):
+            motion_still_source_ids.add(cast(str, provenance["sourceId"]))
+
     source_by_id: dict[str, Mapping[str, Any]] = {}
     for source_value in cast(list[Any], sources_value):
         source = _closed(
@@ -619,11 +637,18 @@ def _validate_view(
         relative = _safe_relative(source["path"], "delivery source path")
         parts = PurePosixPath(relative).parts
         expected_area = "Narration" if kind == "audio" else "Resolved"
+        source_basename = PurePosixPath(parts[2]).name if len(parts) == 3 else ""
+        if source_id in motion_still_source_ids:
+            safe_name = kind == "still" and source_basename.startswith(
+                source_id + "-still."
+            )
+        else:
+            safe_name = source_basename.startswith(source_id + ".")
         if (
             len(parts) != 3
             or parts[0] != "Media"
             or parts[1] != expected_area
-            or not PurePosixPath(parts[2]).name.startswith(source_id + ".")
+            or not safe_name
         ):
             raise WorkflowV2Error(
                 "delivery source path is outside its pinned media folder"

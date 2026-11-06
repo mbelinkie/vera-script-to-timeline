@@ -176,7 +176,13 @@ def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
             case.project_root / "Builds" / built.build_id / "Preparation" / "original"
         ).glob("*.png")
     )
-    assert original.name == f"{resolved.stem}.original.png"
+    # Installed Studio 21.1.1.10 interprets a still UUID ending in decimal
+    # digits as a numbered image sequence (observed "[51-74].png"). Both the
+    # delivered still and retained original must have distinct nonnumeric
+    # suffixes while preserving the independently hashed source bytes.
+    assert resolved.stem.endswith("-still")
+    assert not resolved.stem[-1].isdigit()
+    assert original.name == f"{resolved.stem.removesuffix('-still')}.original.png"
     assert original.read_bytes() == resolved.read_bytes()
     timeline = otio.adapters.read_from_file(
         str(case.project_root / "Builds" / built.build_id / "timeline.otio")

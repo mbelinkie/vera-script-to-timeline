@@ -1721,7 +1721,18 @@ def _media_artifacts(
         suffix = _suffix(source_path)
         if key.startswith("source:"):
             identity = _id_component(key.removeprefix("source:"), "source id")
-            relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
+            # Resolve Studio treats a still filename ending in decimal digits
+            # as an image sequence.  In #336's real 24-frame import it turned
+            # the final UUID digits into a synthetic "[51-74].png" sequence,
+            # changing the verified media identity. The new authored-motion
+            # lane uses an explicit nonnumeric still suffix, while legacy
+            # packaged sources retain their original byte-identical paths.
+            delivered_name = (
+                f"{identity}-still"
+                if identity in motion_source_ids and kind == "still"
+                else identity
+            )
+            relative = f"{MEDIA_DIRECTORY}/{area}/{delivered_name}{suffix}"
         elif key.startswith("original:"):
             identity = _id_component(key.removeprefix("original:"), "source id")
             unique_original_suffix = (
@@ -2113,6 +2124,13 @@ def _validate_delivery_view(
     }
     if set(sources) != expected_source_ids:
         raise _error("delivery view source set differs from its media events")
+    motion_still_source_ids = {
+        cast(str, cast(JsonObject, event["provenance"])["sourceId"])
+        for event in cast(list[JsonObject], manifest["events"])
+        if event["kind"] in {"primary_visual", "overlay_visual"}
+        and isinstance(event.get("pictureTreatment"), dict)
+        and "imageMotion" in event["pictureTreatment"]
+    }
     source_paths: dict[str, str] = {}
     for source_id, source in sources.items():
         if set(source) != {"id", "kind", "path", "contentHash"}:
@@ -2125,9 +2143,13 @@ def _validate_delivery_view(
                 f"delivery source {source_id} path is outside the package Media tree"
             )
         expected_area = "Narration" if source.get("kind") == "audio" else "Resolved"
-        if relative.parts[1] != expected_area or not relative.name.startswith(
-            f"{source_id}."
-        ):
+        if source_id in motion_still_source_ids:
+            named_as_expected = source.get("kind") == "still" and (
+                relative.name.startswith(f"{source_id}-still.")
+            )
+        else:
+            named_as_expected = relative.name.startswith(f"{source_id}.")
+        if relative.parts[1] != expected_area or not named_as_expected:
             raise _error(f"delivery source {source_id} has a mismatched package path")
         if source.get("kind") not in {"video", "audio", "still"}:
             raise _error(f"delivery source {source_id} has unsupported native kind")
