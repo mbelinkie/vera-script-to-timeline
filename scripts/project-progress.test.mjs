@@ -63,6 +63,15 @@ test("parses the authoritative board without counting goals as work", () => {
   });
 });
 
+test("accepts the Deferred status and counts it as remaining, not done", () => {
+  const data = clone(projectData);
+  data.items[4].status = "Deferred";
+  data.items[4].labels = ["model:terra", "effort:high", "type:implementation"];
+  const model = buildProgressModel(parseProjectItems(data)); // used to throw "unsupported project status"
+  assert.equal(model.statusCounts.Deferred, 1);
+  assert.equal(model.doneCount, 1);
+});
+
 test("calculates exact done and remaining scope from actionable board issues", () => {
   const model = buildProgressModel(parseProjectItems(projectData));
   assert.equal(model.totalWork, 4);
