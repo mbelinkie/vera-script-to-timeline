@@ -20,7 +20,9 @@ def fixture_inputs(tmp_path: Path) -> tuple[Path, Path]:
     return document, dependencies
 
 
-def test_pure_media_requirements_before_preparation(fixture_inputs) -> None:
+def test_pure_media_requirements_before_preparation(
+    fixture_inputs: tuple[Path, Path],
+) -> None:
     doc, deps = fixture_inputs
     result = invoke_bridge("needs", doc, deps)
     assert result.needs["ok"] is True
@@ -34,7 +36,7 @@ def test_pure_media_requirements_before_preparation(fixture_inputs) -> None:
 
 
 def test_requirements_refuse_stale_range_and_conflicting_occurrence(
-    fixture_inputs,
+    fixture_inputs: tuple[Path, Path],
 ) -> None:
     doc, deps = fixture_inputs
     value = json.loads(deps.read_bytes())

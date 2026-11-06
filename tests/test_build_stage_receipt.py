@@ -2,6 +2,7 @@
 
 import hashlib
 from pathlib import Path
+from typing import Any
 
 import pytest
 from vera_timeline_agent.build_jobs import BuildJobError, StageContext
@@ -28,7 +29,7 @@ def context(tmp_path: Path) -> StageContext:
     )
 
 
-def evidence() -> dict:
+def evidence() -> dict[str, Any]:
     return dict(
         snapshot_sha256="a" * 64,
         adapter_id="compiler-v2",

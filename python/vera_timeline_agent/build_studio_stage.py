@@ -340,8 +340,7 @@ class BuildStudioStagePort:
             or any(
                 character
                 not in (
-                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                    "0123456789_-"
+                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
                 )
                 for character in self.authorization.request_id
             )

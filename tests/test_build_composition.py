@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Literal
 
 import pytest
 from vera_timeline_agent.build_composition import (
@@ -77,13 +78,13 @@ class Case:
     store: BuildJobStore
     repo: SnapshotRepository
     snapshot_id: str
-    head: dict
+    head: dict[str, Any]
     ports: dict[str, FakePort] = field(default_factory=dict)
 
     def adapter(self) -> BuildComposition:
         return BuildComposition(self.repo, self.ports)
 
-    def request(self, mode: str = "free") -> BuildRequest:
+    def request(self, mode: Literal["free", "studio"] = "free") -> BuildRequest:
         return BuildRequest(
             project_id="project",
             snapshot_id=self.snapshot_id,
@@ -98,7 +99,7 @@ def case(tmp_path: Path) -> Case:
     source.mkdir()
     (source / "document.json").write_text("{}")
     (source / "dependencies.json").write_text("{}")
-    head = {"value": (1, "e" * 64, "rev-1")}
+    head: dict[str, Any] = {"value": (1, "e" * 64, "rev-1")}
     repo = SnapshotRepository(
         tmp_path / "snapshots",
         read_roots=(source,),

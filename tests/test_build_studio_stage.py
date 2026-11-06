@@ -1,12 +1,18 @@
 """No real Resolve mutation: fake connected results and retained target identity."""
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 from issue177_package_fixture import make_package_case
-from vera_timeline_agent.build_composition import EffectState, SnapshotRepository
+from vera_timeline_agent.build_composition import (
+    EffectState,
+    FrozenBuildSnapshot,
+    SnapshotRepository,
+)
 from vera_timeline_agent.build_jobs import (
     NeedsAction,
     StageContext,
@@ -23,7 +29,7 @@ from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
 @dataclass
 class FakeConnectedStudio:
-    target: dict
+    target: dict[str, Any]
     digest: str
     preflight_ok: bool = True
     unknown: bool = False
@@ -31,7 +37,7 @@ class FakeConnectedStudio:
     readbacks: int = 0
     external_verified: bool = False
 
-    def verified(self):
+    def verified(self) -> dict[str, Any]:
         return {
             "status": "verified",
             "verified": True,
@@ -42,24 +48,30 @@ class FakeConnectedStudio:
             "timelineName": self.target["timelineName"],
         }
 
-    def preflight(self, attestation, digest, request_id):
+    def preflight(
+        self, attestation: Path, digest: str, request_id: str
+    ) -> dict[str, Any]:
         return {
             "status": "preflight_passed" if self.preflight_ok else "stopped_safely",
             "attestationSha256": digest,
         }
 
-    def start(self, attestation, digest, request_id):
+    def start(self, attestation: Path, digest: str, request_id: str) -> dict[str, Any]:
         self.starts += 1
         return self.verified()
 
-    def inspect_build(self, attestation, digest, request_id):
+    def inspect_build(
+        self, attestation: Path, digest: str, request_id: str
+    ) -> dict[str, Any]:
         return (
             {"status": "unknown", "verified": False}
             if self.unknown or not (self.starts or self.external_verified)
             else self.verified()
         )
 
-    def readback(self, attestation, digest, request_id):
+    def readback(
+        self, attestation: Path, digest: str, request_id: str
+    ) -> dict[str, Any]:
         self.readbacks += 1
         return (
             {"status": "unknown", "verified": False}
@@ -68,8 +80,17 @@ class FakeConnectedStudio:
         )
 
 
+StudioCase = tuple[
+    FrozenBuildSnapshot,
+    NativeAuthorization,
+    FakeConnectedStudio,
+    Callable[[str], StageContext],
+    Path,
+]
+
+
 @pytest.fixture
-def setup(tmp_path: Path):
+def setup(tmp_path: Path) -> StudioCase:
     case = make_package_case(tmp_path / "fixture")
     from json import loads
 
@@ -113,7 +134,7 @@ def setup(tmp_path: Path):
     )
     driver = FakeConnectedStudio(target, digest)
 
-    def context(stage):
+    def context(stage: str) -> StageContext:
         return StageContext(
             project,
             job,
@@ -130,7 +151,9 @@ def setup(tmp_path: Path):
     return snap, auth, driver, context, tmp_path / "host-lock"
 
 
-def test_native_studio_preflight_explicit_one_use_then_separate_readback(setup) -> None:
+def test_native_studio_preflight_explicit_one_use_then_separate_readback(
+    setup: StudioCase,
+) -> None:
     snapshot, auth, driver, ctx, host = setup
     build = BuildStudioStagePort(auth, driver, host_state=host)
     assert (
@@ -158,7 +181,9 @@ def test_native_studio_preflight_explicit_one_use_then_separate_readback(setup) 
     assert driver.readbacks >= 2
 
 
-def test_native_no_authorization_or_failed_preflight_never_mutates(setup) -> None:
+def test_native_no_authorization_or_failed_preflight_never_mutates(
+    setup: StudioCase,
+) -> None:
     from dataclasses import replace
 
     snapshot, auth, driver, ctx, host = setup
@@ -180,7 +205,7 @@ def test_native_no_authorization_or_failed_preflight_never_mutates(setup) -> Non
 
 
 def test_lost_native_response_recovers_only_on_independent_connected_readback(
-    setup,
+    setup: StudioCase,
 ) -> None:
 
     snapshot, auth, driver, ctx, host = setup
@@ -217,7 +242,9 @@ def test_lost_native_response_recovers_only_on_independent_connected_readback(
     ).is_file()
 
 
-def test_partial_native_readback_is_never_a_verified_result(setup) -> None:
+def test_partial_native_readback_is_never_a_verified_result(
+    setup: StudioCase,
+) -> None:
     snap, auth, driver, ctx, host = setup
     build = BuildStudioStagePort(auth, driver, host_state=host)
     build.execute(ctx("building_resolve_timeline"), snap)

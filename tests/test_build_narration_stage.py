@@ -4,21 +4,31 @@ import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
-from vera_timeline_agent.build_composition import EffectState, SnapshotRepository
+from vera_timeline_agent.build_composition import (
+    EffectState,
+    FrozenBuildSnapshot,
+    SnapshotRepository,
+)
 from vera_timeline_agent.build_jobs import NeedsAction, StageContext, UncertainResult
 from vera_timeline_agent.build_narration_stage import (
     NarrationAuthorization,
     NarrationStagePort,
 )
 from vera_timeline_agent.narration.cache import NarrationCache
-from vera_timeline_agent.narration.models import ProviderResult, ProviderTimingMark
-from vera_timeline_agent.narration.normalize import NormalizationResult
+from vera_timeline_agent.narration.models import (
+    ProviderResult,
+    ProviderTimingMark,
+    SynthesisRequest,
+)
+from vera_timeline_agent.narration.normalize import NormalizationResult, Normalizer
 from vera_timeline_agent.narration.service import NarrationService, ServiceConfig
 
 BLOCK_ID = "10000000-0000-4000-8000-000000000001"
 TOKEN_ID = "20000000-0000-4000-8000-000000000001"
+NarrationCase = tuple[Path, FrozenBuildSnapshot, StageContext]
 
 
 class LocalProvider:
@@ -28,10 +38,10 @@ class LocalProvider:
         self.calls = 0
         self.fail = fail
 
-    def prepare_input(self, request):
+    def prepare_input(self, request: SynthesisRequest) -> bytes:
         return request.text.encode("utf-8")
 
-    def synthesize(self, request):
+    def synthesize(self, request: SynthesisRequest) -> ProviderResult:
         self.calls += 1
         if self.fail:
             raise RuntimeError("offline provider failure")
@@ -61,7 +71,7 @@ class LocalNormalizer:
     profile_id = "local-test-normalize/v1"
     tool_fingerprint = "sha256:" + "a" * 64
 
-    def normalize_pcm(self, *_args, **_kwargs):
+    def normalize_pcm(self, *_args: Any, **_kwargs: Any) -> NormalizationResult:
         return NormalizationResult(
             wav_bytes=b"RIFF" + b"\x00" * 64,
             profile_id=self.profile_id,
@@ -78,12 +88,12 @@ class LocalNormalizer:
             loudness_range_lu=0.0,
         )
 
-    def placeholder(self, _block_id):
+    def placeholder(self, _block_id: str) -> NormalizationResult:
         return self.normalize_pcm()
 
 
 @pytest.fixture
-def setup(tmp_path: Path):
+def setup(tmp_path: Path) -> NarrationCase:
     source = tmp_path / "inputs"
     source.mkdir()
     document = source / "document.json"
@@ -150,16 +160,18 @@ def service(tmp_path: Path, provider: LocalProvider) -> NarrationService:
     return NarrationService(
         cache=NarrationCache(tmp_path / "cache"),
         provider=provider,
-        normalizer=LocalNormalizer(),
+        normalizer=cast(Normalizer, LocalNormalizer()),
         config=ServiceConfig(data_policy_attestation="local-fixture-consent"),
     )
 
 
-def consent(snapshot) -> NarrationAuthorization:
+def consent(snapshot: FrozenBuildSnapshot) -> NarrationAuthorization:
     return NarrationAuthorization(True, snapshot.project_id, snapshot.snapshot_id, 1.0)
 
 
-def test_ready_voice_asset_and_frozen_word_map_are_reverified(setup) -> None:
+def test_ready_voice_asset_and_frozen_word_map_are_reverified(
+    setup: NarrationCase,
+) -> None:
     tmp, snapshot, ctx = setup
     provider = LocalProvider()
     port = NarrationStagePort(service(tmp, provider), consent(snapshot))
@@ -177,7 +189,44 @@ def test_ready_voice_asset_and_frozen_word_map_are_reverified(setup) -> None:
     assert provider.calls == 1
 
 
-def test_unapproved_voice_spend_never_calls_provider(setup) -> None:
+@pytest.mark.parametrize("lost", ["assets", "timing", "both"])
+def test_lost_stage_proof_is_rebuilt_from_ready_cache_without_provider_call(
+    setup: NarrationCase, lost: str
+) -> None:
+    tmp, snapshot, ctx = setup
+    provider = LocalProvider()
+    port = NarrationStagePort(service(tmp, provider), consent(snapshot))
+    port.execute(ctx, snapshot)
+    intent, record, maps = port._paths(ctx, snapshot)
+    assert intent.is_file()
+    original_record, original_maps = record.read_bytes(), maps.read_bytes()
+    if lost in ("assets", "both"):
+        record.unlink()
+    if lost in ("timing", "both"):
+        maps.unlink()
+    assert port.inspect(ctx, snapshot).state == EffectState.VERIFIED
+    assert record.read_bytes() == original_record
+    assert maps.read_bytes() == original_maps
+    assert provider.calls == 1
+
+
+def test_mismatched_narration_intent_cannot_replay_provider(
+    setup: NarrationCase,
+) -> None:
+    tmp, snapshot, ctx = setup
+    provider = LocalProvider()
+    port = NarrationStagePort(service(tmp, provider), consent(snapshot))
+    port.execute(ctx, snapshot)
+    intent, record, maps = port._paths(ctx, snapshot)
+    record.unlink()
+    maps.unlink()
+    intent.write_bytes(b'{"wrong":"request"}\n')
+    with pytest.raises(Exception, match="intent differs"):
+        port.inspect(ctx, snapshot)
+    assert provider.calls == 1
+
+
+def test_unapproved_voice_spend_never_calls_provider(setup: NarrationCase) -> None:
     tmp, snapshot, ctx = setup
     provider = LocalProvider()
     port = NarrationStagePort(service(tmp, provider))
@@ -187,7 +236,9 @@ def test_unapproved_voice_spend_never_calls_provider(setup) -> None:
     assert port.inspect(ctx, snapshot).state == EffectState.ABSENT
 
 
-def test_failure_placeholder_never_becomes_ready_and_retry_is_uncertain(setup) -> None:
+def test_failure_placeholder_never_becomes_ready_and_retry_is_uncertain(
+    setup: NarrationCase,
+) -> None:
     tmp, snapshot, ctx = setup
     provider = LocalProvider(fail=True)
     port = NarrationStagePort(service(tmp, provider), consent(snapshot))
@@ -199,7 +250,7 @@ def test_failure_placeholder_never_becomes_ready_and_retry_is_uncertain(setup) -
         raise UncertainResult("a lost provider result is not authoritative absence")
 
 
-def test_changed_provider_request_is_not_reused(setup) -> None:
+def test_changed_provider_request_is_not_reused(setup: NarrationCase) -> None:
     tmp, snapshot, ctx = setup
     provider = LocalProvider()
     port = NarrationStagePort(service(tmp, provider), consent(snapshot))

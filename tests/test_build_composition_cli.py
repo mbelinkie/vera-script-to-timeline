@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from vera_timeline_agent.build_composition_cli import main, simulate
@@ -23,10 +24,19 @@ def test_synthetic_pipeline_runs_all_unskipped_stages_without_external_effects(
     assert result["status"] == ("ready_to_import" if mode == "free" else "complete")
 
 
-def test_local_status_does_not_start_or_change_any_job(tmp_path: Path, capsys) -> None:
+def test_local_status_does_not_start_or_change_any_job(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = BuildJobStore(tmp_path / "jobs")
     job = store.submit(BuildRequest("project", "frozen-rev", "submit", "studio"))
     before = store.status("project", job)
+
+    def refuse_writer(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("status attempted to construct a migrating/writable store")
+
+    monkeypatch.setattr(BuildJobStore, "__init__", refuse_writer)
     assert (
         main(
             [
@@ -44,7 +54,7 @@ def test_local_status_does_not_start_or_change_any_job(tmp_path: Path, capsys) -
     output = json.loads(capsys.readouterr().out)
     assert output["readOnly"] is True
     assert output["job"]["status"] == "queued"
-    assert store.status("project", job) == before
+    assert output["job"] == before
 
 
 def test_status_refuses_missing_store_without_creating_one(tmp_path: Path) -> None:

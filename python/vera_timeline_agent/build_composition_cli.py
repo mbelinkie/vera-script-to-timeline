@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sqlite3
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .build_composition import (
     BuildComposition,
@@ -68,6 +70,28 @@ class _SimulationPort:
         )
 
 
+class _ReadOnlyJobStore(BuildJobStore):
+    """Use the existing status query without running the store's write/migrations.
+
+    Constructing BuildJobStore itself enables WAL and performs CREATE/ALTER
+    statements. Status must never initialize or modify a producer's database.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.database = root.absolute() / "build-jobs.sqlite3"
+
+    @contextmanager
+    def _connection(self, *, write: bool = False) -> Iterator[sqlite3.Connection]:
+        if write:
+            raise BuildJobError("read-only status cannot mutate a build store")
+        connection = sqlite3.connect(f"{self.database.as_uri()}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+
 def simulate(mode: str) -> dict[str, Any]:
     if mode not in {"free", "studio"}:
         raise ValueError("simulation mode must be Free or Studio")
@@ -101,6 +125,7 @@ def simulate(mode: str) -> dict[str, Any]:
             adapter_versions={"simulation": "simulation-only/v1"},
         )
         stages = ALL_STAGES[:5] if mode == "free" else ALL_STAGES[:7]
+        checked_mode: Literal["free", "studio"] = "free" if mode == "free" else "studio"
         composition = BuildComposition(
             repository, {stage: _SimulationPort(stage) for stage in stages}
         )
@@ -108,7 +133,10 @@ def simulate(mode: str) -> dict[str, Any]:
         job = composition.submit(
             store,
             BuildRequest(
-                "simulation-project", snapshot.snapshot_id, "simulation-request", mode
+                "simulation-project",
+                snapshot.snapshot_id,
+                "simulation-request",
+                checked_mode,
             ),
         )
         for _ in range(len(stages)):
@@ -148,11 +176,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Read-only mode never constructs an execution adapter.
             if not (args.store / "build-jobs.sqlite3").is_file():
                 raise BuildJobError("existing local build store is required")
-            result = BuildJobStore(args.store).status(args.project_id, args.job_id)
+            result = _ReadOnlyJobStore(args.store).status(args.project_id, args.job_id)
             print(json.dumps({"readOnly": True, "job": result}, sort_keys=True))
         else:
             print(json.dumps(simulate(args.mode), sort_keys=True))
-    except (BuildJobError, ValueError, OSError) as error:
+    except (BuildJobError, ValueError, OSError, sqlite3.Error) as error:
         parser.exit(2, f"VERA composition: {error}\n")
     return 0
 

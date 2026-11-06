@@ -3,11 +3,16 @@
 import hashlib
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from issue177_package_fixture import make_package_case
-from vera_timeline_agent.build_composition import EffectState, SnapshotRepository
+from issue177_package_fixture import PackageCase, make_package_case
+from vera_timeline_agent.build_composition import (
+    EffectState,
+    FrozenBuildSnapshot,
+    SnapshotRepository,
+)
 from vera_timeline_agent.build_jobs import (
     BuildJobError,
     StageContext,
@@ -20,9 +25,13 @@ from vera_timeline_agent.build_package_stage import (
 )
 from vera_timeline_agent.v2_package import V2PackageError, verify_v2_package
 
+PreparedCase = tuple[
+    PackageCase, FrozenBuildSnapshot, Callable[[str], StageContext], dict[str, Path]
+]
+
 
 @pytest.fixture
-def prepared_case(tmp_path: Path):
+def prepared_case(tmp_path: Path) -> PreparedCase:
     fixture = make_package_case(tmp_path / "fixture")
     dependencies = json.loads(fixture.dependencies_path.read_bytes())
     project_id = dependencies["document"]["projectId"]
@@ -99,7 +108,9 @@ def prepared_case(tmp_path: Path):
     return fixture, snap, ctx, sources
 
 
-def test_package_writer_reuses_exact_verified_bytes_and_attests(prepared_case) -> None:
+def test_package_writer_reuses_exact_verified_bytes_and_attests(
+    prepared_case: PreparedCase,
+) -> None:
     _fixture, snapshot, ctx, sources = prepared_case
     port = PackageStagePort(
         extra_media={key.removeprefix("media:"): key for key in sources}
@@ -122,7 +133,9 @@ def test_package_writer_reuses_exact_verified_bytes_and_attests(prepared_case) -
         import_port.execute(imported, snapshot)
 
 
-def test_package_attestation_detects_retained_media_tamper(prepared_case) -> None:
+def test_package_attestation_detects_retained_media_tamper(
+    prepared_case: PreparedCase,
+) -> None:
     _fixture, snap, ctx, sources = prepared_case
     writer = PackageStagePort(
         extra_media={key.removeprefix("media:"): key for key in sources}
