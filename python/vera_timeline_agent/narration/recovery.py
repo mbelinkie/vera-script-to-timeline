@@ -28,9 +28,12 @@ from vera_timeline_agent.narration.compiler_dependencies_v2 import _validated_to
 from vera_timeline_agent.narration.measure import parameters_hash, rational
 from vera_timeline_agent.narration.models import canonical_json_bytes, sha256_bytes
 from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+    spoken_tokens,
+)
+from vera_timeline_agent.narration.stage_directions import (
     masked_text as mask_stage_directions,
 )
-from vera_timeline_agent.narration.stage_directions import spoken_tokens
 
 _SAMPLE_RATE = 48_000
 _PREPARED_RATE = 16_000
@@ -422,6 +425,12 @@ def _checked_source(
 def _frozen_block(
     block: Mapping[str, Any],
 ) -> tuple[str, int, list[dict[str, Any]], str]:
+    try:
+        direction_only = is_direction_only(block)
+    except ValueError as error:
+        raise RecoveryError(f"invalid frozen direction intent: {error}") from error
+    if direction_only:
+        raise RecoveryError("direction-only narration has no speech to recover")
     block_id, revision, text, raw_tokens = (
         block.get("id"),
         block.get("version"),

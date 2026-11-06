@@ -22,9 +22,12 @@ from vera_timeline_agent.narration.compiler_dependencies import (
 )
 from vera_timeline_agent.narration.models import NarrationAudioAsset, sha256_bytes
 from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+    spoken_tokens,
+)
+from vera_timeline_agent.narration.stage_directions import (
     masked_text as mask_stage_directions,
 )
-from vera_timeline_agent.narration.stage_directions import spoken_tokens
 
 _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 _TOKENIZATION_VERSION = "script-document/v2-frozen-tokens"
@@ -49,6 +52,16 @@ def narration_v2_dependency_from_asset(
         raise NarrationDependencyError("ready narration asset is required")
     if not isinstance(frozen_block, Mapping) or frozen_block.get("type") != "narration":
         raise NarrationDependencyError("frozen narration block is invalid")
+    try:
+        direction_only = is_direction_only(frozen_block)
+    except ValueError as error:
+        raise NarrationDependencyError(
+            f"invalid frozen direction intent: {error}"
+        ) from error
+    if direction_only:
+        raise NarrationDependencyError(
+            "direction-only narration has no spoken tokens for timing evidence"
+        )
 
     block_id = frozen_block.get("id")
     revision = frozen_block.get("version")

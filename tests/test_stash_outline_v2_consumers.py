@@ -13,6 +13,10 @@ from unittest.mock import patch
 
 import pytest
 from vera_timeline_agent.narration.service import NarrationService
+from vera_timeline_agent.narration.stage_directions import (
+    is_direction_only,
+    masked_text,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json"
@@ -23,6 +27,7 @@ CLIP_FIXTURE = (
 
 _AUTHORING_SCRIPT = r"""
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { registerHooks } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -193,6 +198,22 @@ apply({
   },
 });
 const placedSerialized = savedSnapshot();
+const placedPrompter = exportPrompter(document, {
+  includeSectionNavigation: true,
+  includeBeatNumbers: true,
+});
+const placedDependencies = structuredClone(input.dependencies);
+placedDependencies.document.textHash = "sha256:" + createHash("sha256").update(
+  document.activeDraft.blocks.filter((block) => block.type === "narration")
+    .map((block) => block.text).join("\n"), "utf8"
+).digest("hex");
+const placedCompiler = compileTimelineV2(document, placedDependencies);
+const placedNeeds = resolveMediaRequirementsV2(document, {
+  timing: input.dependencies.narrationTimingMaps,
+  defaults: input.dependencies.authoringDefaults,
+  sourceDescriptors: input.dependencies.occurrenceResolutions,
+  frameRate: input.dependencies.timeline.frameRate,
+});
 
 apply({
   kind: "stash_rows",
@@ -214,6 +235,9 @@ process.stdout.write(
     returnedConsumers,
     savedSerialized,
     placedSerialized,
+    placedPrompter,
+    placedCompilerDiagnostics: placedCompiler.ok ? [] : placedCompiler.diagnostics,
+    placedMediaDiagnostics: placedNeeds.ok ? [] : placedNeeds.diagnostics,
     returnedSerialized,
   }),
 );
@@ -276,13 +300,13 @@ def _input_payload() -> dict[str, Any]:
         }
     ]
     note_row = _clone_with_unique_ids(active_row, 9300)
-    note_row["text"] = "stash-only"
+    note_row["text"] = "[nested [literal]] 🌍\n'unmatched ] ["
     note_row["tokens"] = [
         {
             **note_row["tokens"][0],
             "value": note_row["text"],
             "startOffset": 0,
-            "endOffset": len(note_row["text"]),
+            "endOffset": len(note_row["text"].encode("utf-16-le")) // 2,
         }
     ]
     note_row["orderKey"] = "a0"
@@ -429,6 +453,8 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
         bundle for bundle in saved["stash"] if bundle["id"] == payload["noteBundleId"]
     )
     assert saved_note_bundle["supportingItems"] == []
+    assert saved_note_bundle["rows"][0]["text"] == payload["noteRow"]["text"]
+    assert saved_note_bundle["rows"][0]["plainDirection"] is True
     citation_note_bundle = next(
         bundle
         for bundle in saved["stash"]
@@ -478,6 +504,12 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
 
     placed_note = next(block for block in active_blocks if block["id"] == note_id)
     assert placed_note["type"] == "narration"
+    assert placed_note["plainDirection"] is True
+    assert placed_note["text"] == payload["noteRow"]["text"]
+    assert is_direction_only(placed_note)
+    assert masked_text(placed_note) == " " * (
+        len(placed_note["text"].encode("utf-16-le")) // 2
+    )
     assert placed_note["tokens"]
     assert all(token.get("spoken") is False for token in placed_note["tokens"])
     assert placed["activeDraft"]["supportingItems"] == [payload["citation"]]
@@ -494,6 +526,16 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
         token.get("spoken") is not False for token in placed_citation_note["tokens"]
     )
     assert _narration_ids(placed) == [active_row_id, citation_note_id]
+    prompter = operation["placedPrompter"]
+    assert prompter["ok"] is True
+    assert placed_note["text"] not in prompter["text"]
+    assert note_id not in prompter["sidecarJson"]
+    assert "NARRATION_DURATION_UNKNOWN" in {
+        issue["code"] for issue in operation["placedCompilerDiagnostics"]
+    }
+    assert "STALE_TIMING_MAP" in {
+        issue["code"] for issue in operation["placedMediaDiagnostics"]
+    }
 
     assert returned["stashOutline"] == expected_outline
     assert returned["stashSections"] == saved["stashSections"]
