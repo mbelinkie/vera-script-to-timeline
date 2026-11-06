@@ -869,7 +869,7 @@ timeline cannot fill that gap. [Sorting handoff](plans/issue-310-sorting-stash.m
 remains the API/limit reference; its older audio-rule text is historical where
 the later #326 decision differs.
 
-### RK-43 — Native image motion is real; exact focus and easing remain open
+### RK-43 — Native image motion and a bounded focus projection are measured; product contain/easing remain open
 
 **Partial / native rendered evidence.** [#325 report](investigations/issue-325-native-image-zoom.md),
 [PR #333](https://github.com/mbelinkie/vera-script-to-timeline/pull/333),
@@ -907,6 +907,38 @@ This is an *environment/setup refusal*, **not** negative evidence about the
 native center/scale conversion, aspect ratios, contain, matte, or easing.
 `production_qualification()` must continue returning `None`; #325's partial
 evidence remains the only actual image-motion output proof.
+
+**2026-11-06 #336 phase-3 successful retry supersedes the setup refusal above.**
+After the operator closed Resolve's blocking window, a new disposable Studio
+21.1.1.10 project imported native OTIO with an absolute path. Eleven public
+synthetic 1280×720/24fps ProRes exports were fully decoded: 48-frame static
+None, linear native motion at **24/48/96/144 frames**, 48-frame square/wide/
+portrait/cover, and three 48-frame nonlinear-ease requests. Save/close/reopen
+returned the **same 11 timeline names and exact extents**. Measured marker
+centroids across 1:1, 16:9, and 9:16 sources fit a source-normalized/native
+center/reciprocal-scale projection within 4 pixels (tested center keys
+`(0,0)` → `(0.12,-0.08)`, scale `0.8` → `1.05`). Interpolation progresses by
+`frame_index/duration`, not `frame_index/(duration-1)`. A source-normalized
+candidate and strict measured-edge checks were added as **pure, non-admitting
+geometry helpers**; their limited direction/scale range is not a license to
+animate arbitrary source bytes. Fit+motion **crops** source corners; moving
+cover/fill can **expose black** at the output edge, and all three ease
+variants have **identical full decoded-frame SHA-256 to linear**. Neither
+arbitrary contain/background matte nor nonlinear easing is qualified.
+The [run5 decoded record](verification/issue-336/studio-run5-pixels.json) and
+[results/negative envelope](verification/issue-336/phase3-studio-results.md)
+are authoritative over the original startup failure; `production_qualification`
+continues fail-closed pending real source/profile-bound normal-product delivery.
+
+A **12th bounded real-app synthetic experiment** precomposed a 450×450 source
+image inside a black 1600×900 static RGB matte and then applied the **native**
+Dynamic Zoom effect. Its 48-frame render visibly moved while preserving all
+four original source corners at all five sampled times; source/matte/OTIO/render
+hashes, 11 older render hashes, and the 12th timeline's save/reopen extent are
+recorded in [the derived-matte evidence](verification/issue-336/studio-run5-matte-pixels.json).
+This is **positive only for that exact precomposed black-matte synthetic
+envelope**. The general authoring/background/profile-safe matte pipeline is
+not implemented or qualified and still refuses in product code.
 
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 

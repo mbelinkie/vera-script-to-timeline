@@ -1,0 +1,233 @@
+{
+  "native_app": "21.1.1.10",
+  "run": "run5",
+  "case": "square-matte-motion-48",
+  "source_to_matte": {
+    "alpha": "opaque RGB still; native motion remains an independent effect",
+    "backgroundRgb": [
+      0,
+      0,
+      0
+    ],
+    "canvas": [
+      1600,
+      900
+    ],
+    "contentRect": [
+      575,
+      225,
+      450,
+      450
+    ],
+    "derivedSha256": "ce1cd9d6f18f00ee00b8d50d88222aeafb90f6b9b5223b49d9f81014243f155c",
+    "resampling": "integer nearest-neighbor",
+    "sourceSha256": "c69871d3d8f661121e615fb16cfb974ff480684a96c54303836b664bacd7b2f1"
+  },
+  "retained_native_otio_template_sha256": "3f9746ee98470de099a7240d92b65f2afb579d27bef4eae232aa7cf656ee84fa",
+  "native_otio_sha256": "e32993458bb83cf9aaec939f57a05d16faac7781e3344dc01621fa434577026e",
+  "native_movie_sha256": "1f935cec47976906d9edda9fb67ab1be3980022daa581f21264d08c0092a1ee9",
+  "decoded": {
+    "decodedSha256": "47c3164b13fe384e57682917d5f6659b88498ef9a1ad4c80711d8ac0c673b47f",
+    "frames": 48,
+    "rate": "24/1",
+    "samples": {
+      "0": {
+        "centerRgb": [
+          37,
+          37,
+          37
+        ],
+        "frameSha256": "f1f82380193fc777eb087bafe2cdde6a224a8aee8cdf679ae782128c6b2e0c81",
+        "witnesses": {
+          "blue": [
+            426,
+            573
+          ],
+          "green": [
+            855,
+            146
+          ],
+          "magenta": [
+            753,
+            270
+          ],
+          "red": [
+            426,
+            146
+          ],
+          "yellow": [
+            855,
+            573
+          ]
+        }
+      },
+      "12": {
+        "centerRgb": [
+          164,
+          164,
+          164
+        ],
+        "frameSha256": "74f131297ae72c1084b0de355f69de99ee1c74a747de3902aa7ace1a1d165492",
+        "witnesses": {
+          "blue": [
+            398,
+            542
+          ],
+          "green": [
+            794,
+            144
+          ],
+          "magenta": [
+            700,
+            260
+          ],
+          "red": [
+            398,
+            144
+          ],
+          "yellow": [
+            794,
+            542
+          ]
+        }
+      },
+      "24": {
+        "centerRgb": [
+          169,
+          169,
+          169
+        ],
+        "frameSha256": "95126121f20d7fa9ed9c5ca69ce0da818f8dd6bc0967d5f6e351434224273ada",
+        "witnesses": {
+          "blue": [
+            374,
+            514
+          ],
+          "green": [
+            742,
+            144
+          ],
+          "magenta": [
+            655,
+            251
+          ],
+          "red": [
+            374,
+            144
+          ],
+          "yellow": [
+            742,
+            513
+          ]
+        }
+      },
+      "36": {
+        "centerRgb": [
+          168,
+          168,
+          168
+        ],
+        "frameSha256": "fda8b5446ce3794086481342a9160efbb6fa6d17d0cf0d41778870285fc53a5a",
+        "witnesses": {
+          "blue": [
+            350,
+            489
+          ],
+          "green": [
+            696,
+            142
+          ],
+          "magenta": [
+            615,
+            243
+          ],
+          "red": [
+            350,
+            142
+          ],
+          "yellow": [
+            696,
+            489
+          ]
+        }
+      },
+      "47": {
+        "centerRgb": [
+          168,
+          168,
+          168
+        ],
+        "frameSha256": "c53aa2a4b9d79700ec72ea47e8b59e9f0a1a64ca2fdeb471e135e89736c230bf",
+        "witnesses": {
+          "blue": [
+            332,
+            470
+          ],
+          "green": [
+            660,
+            142
+          ],
+          "magenta": [
+            582,
+            237
+          ],
+          "red": [
+            332,
+            142
+          ],
+          "yellow": [
+            660,
+            470
+          ]
+        }
+      }
+    },
+    "size": [
+      1280,
+      720
+    ]
+  },
+  "prior_11_movies_sha256_unchanged": {
+    "square-cover-48.mov": "49b7bfeebf31b022b6f5aef2a9ee3e84aef98b97451c335632812ae11b19abda",
+    "square-ease-both-48.mov": "dd7f2b4fb3963d3ee2ff1461a3121c1736aa15884131c6577e89a7b78ce652ec",
+    "square-ease-in-48.mov": "66b29b542b6e2b9893b7428840abade079c7552245a7879cbe4e03fcf7d9ec22",
+    "square-ease-out-48.mov": "0ba2de88f969f99db50608fd3ef6a4fc5c878bd9bbbebd2f4bb6443f1da62cd4",
+    "square-motion-144.mov": "4d14d0a1ec1f429cde6f4be6ad60734669bf09356bbaf78d50ebdc021a5c4609",
+    "square-motion-24.mov": "73864f6c550868b659aef553525a19115c3b0f9a0040f7cef35ee790f4b55d94",
+    "square-motion-48.mov": "4b04bc2f07f3f00354f67eda716c0dbb61f05b420bc8a4468ae7f460b282318a",
+    "square-motion-96.mov": "6a9efac7128ab4627ba9e6b11b2e286b971ee8dc2b8908363d4076540a4c0ded",
+    "square-none-48.mov": "7872fb87fff1d3ee46fdb983007497bf43aa289907e203bd4c88b078c53bc4b8",
+    "tall-motion-48.mov": "9ea8a62536b289317d7284ff2456c0f622eaa6b19b43b6cc1efe858b01f038c7",
+    "wide-motion-48.mov": "aeaa68f0b5caac840c5d49b3bd032243c37461eb844d70a476f8cc528a76c2fc"
+  },
+  "reopened": {
+    "names": [
+      "square-none-48",
+      "square-motion-48",
+      "square-motion-24",
+      "square-motion-96",
+      "square-motion-144",
+      "wide-motion-48",
+      "tall-motion-48",
+      "square-cover-48",
+      "square-ease-in-48",
+      "square-ease-out-48",
+      "square-ease-both-48",
+      "square-matte-motion-48"
+    ],
+    "durations": [
+      48,
+      48,
+      24,
+      96,
+      144,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48
+    ]
+  }
+}
