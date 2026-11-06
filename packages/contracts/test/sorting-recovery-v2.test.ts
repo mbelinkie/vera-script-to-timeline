@@ -75,7 +75,7 @@ function activeIds(value: ScriptDocumentV2): string[] {
 }
 
 function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
-  const token = rowValue.tokens[0];
+  const token = rowValue.tokens[0]!;
   const anchor = {
     blockId: rowValue.id,
     tokenId: token.id,
@@ -129,7 +129,7 @@ describe("Sorting recovery", () => {
     const editedText = "Edited note";
     apply(trial, {
       kind: "edit_row", rowId: note.id,
-      row: { ...placed, text: editedText, tokens: [{ ...placed.tokens[0], value: editedText, startOffset: 0, endOffset: editedText.length }], version: placed.version + 1 },
+      row: { ...placed, text: editedText, tokens: [{ ...placed.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: placed.version + 1 },
     });
     if (deleteAfterEdit) apply(trial, { kind: "delete_rows", rowIds: [note.id] });
 
@@ -162,7 +162,7 @@ describe("Sorting recovery", () => {
     const editedText = "Edited note";
     apply(trial, {
       kind: "edit_row", rowId: note.id,
-      row: { ...original, text: editedText, tokens: [{ ...original.tokens[0], value: editedText, startOffset: 0, endOffset: editedText.length }], version: original.version + 1 },
+      row: { ...original, text: editedText, tokens: [{ ...original.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: original.version + 1 },
     });
     apply(trial, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5102) });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });

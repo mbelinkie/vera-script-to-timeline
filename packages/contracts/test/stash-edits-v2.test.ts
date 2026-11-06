@@ -29,7 +29,7 @@ function input(): ScriptDocumentV2 {
 }
 
 function citation(row: NarrationBlockV2): SupportingItemV2 {
-  const token = row.tokens[0];
+  const token = row.tokens[0]!;
   const attachment = {
     kind: "word" as const,
     anchor: {
@@ -89,7 +89,7 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
   };
   edited.text += ` ${cameraToken.value}`;
   edited.tokens = [{ id: id(9010), value: "EDITED", startOffset: 0, endOffset: 6 }, ...shiftedTokens, cameraToken];
-  const token = edited.tokens[0];
+  const token = edited.tokens[0]!;
   edited.annotations = [{
     id: id(9009),
     kind: "performance_note",

@@ -438,6 +438,7 @@ class NarrationBlockV2(TypedDict):
     orderKey: str
     text: str
     tokens: list[NarrationToken]
+    plainDirection: NotRequired[Literal[True]]
     annotations: NotRequired[list[NarrationAnnotation]]
     performanceBeats: NotRequired[list[PerformanceBeat]]
     primaryVisualSequence: NotRequired[PrimaryVisualSequence]

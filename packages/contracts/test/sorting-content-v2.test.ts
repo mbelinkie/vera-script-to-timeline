@@ -126,7 +126,7 @@ describe("content-editable Sorting", () => {
     apply(trial, { kind: "place_stash_rows", rowIds: [id(400), id(500)], destination: gap(id(200), id(300)) });
     apply(trial, { kind: "edit_row", rowId: id(100), row: authored(narration(trial.document, id(100))) });
     const note = narration(trial.document, id(400));
-    apply(trial, { kind: "make_spoken", blockId: note.id, startOffset: note.tokens[0].startOffset, endOffset: note.tokens.at(-1)!.endOffset });
+    apply(trial, { kind: "make_spoken", blockId: note.id, startOffset: note.tokens[0]!.startOffset, endOffset: note.tokens.at(-1)!.endOffset });
     const footage = trial.document.activeDraft.blocks.find((item) => item.id === id(600));
     if (footage?.type !== "visual_only") throw new Error("Missing converted footage");
     apply(trial, { kind: "edit_row", rowId: footage.id, row: { ...footage, visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 10, durationFrames: 24 } }, version: 2 } });

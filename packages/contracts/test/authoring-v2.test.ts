@@ -607,7 +607,7 @@ describe("authoring v2 structural edit transactions", () => {
     const document = documentWith([row]);
     const before = JSON.stringify(document);
     const equal = apply(document, {
-      kind: "move_word_boundary", blockId: row.id, boundaryOwnerId: id(631), tokenId: row.tokens[0].id,
+      kind: "move_word_boundary", blockId: row.id, boundaryOwnerId: id(631), tokenId: row.tokens[0]!.id,
     });
     expect(equal.ok).toBe(false);
     expect(equal.diagnostics.map((item) => item.code)).toContain("BOUNDARY_CROSSED_OR_COLLAPSED");

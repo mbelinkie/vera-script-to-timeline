@@ -63,11 +63,11 @@ describe("Sorting selective projections", () => {
     if (placedParent?.type !== "narration") throw new Error("Missing converted note");
     const edited = apply(placed, {
       kind: "edit_row", rowId: parent.id,
-      row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0], value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
+      row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0]!, value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
     });
     const stateWithEdit = updateSortingProjectionV2(afterPlace, placed, edited, {
       kind: "edit_row", rowId: parent.id,
-      row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0], value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
+      row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0]!, value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
     });
 
     const projected = projectSortingDocumentV2(stateWithEdit, edited, "edits_only");
@@ -126,7 +126,7 @@ describe("Sorting selective projections", () => {
       ...document(),
       activeDraft: { blocks: [first, left, right, last], supportingItems: [] },
       rowReferences: [
-        { id: id(64), rowId: left.id, kind: "comment", anchor: { tokenId: left.tokens[0].id } },
+        { id: id(64), rowId: left.id, kind: "comment", anchor: { tokenId: left.tokens[0]!.id } },
         { id: id(65), rowId: right.id, kind: "reference", anchor: { source: "kept" } },
       ],
     };

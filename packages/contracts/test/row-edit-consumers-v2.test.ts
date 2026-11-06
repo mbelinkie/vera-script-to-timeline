@@ -81,7 +81,7 @@ function stashedRow(): NarrationBlockV2 {
 }
 
 function citation(row: NarrationBlockV2): SupportingItemV2 {
-  const token = row.tokens[0];
+  const token = row.tokens[0]!;
   const anchor = {
     blockId: row.id,
     tokenId: token.id,
@@ -203,7 +203,7 @@ describe("row-edit consumers", () => {
     const editedRow = structuredClone(row);
     editedRow.text = "EDITED STASHED";
     editedRow.tokens = [{
-      ...editedRow.tokens[0],
+      ...editedRow.tokens[0]!,
       value: editedRow.text,
       startOffset: 0,
       endOffset: editedRow.text.length,
@@ -371,7 +371,7 @@ describe("row-edit consumers", () => {
     expect(stashed.ok).toBe(true);
     const editedRow = structuredClone(row);
     editedRow.text = "goodbye";
-    editedRow.tokens[0] = { ...editedRow.tokens[0], value: "goodbye", endOffset: 7 };
+    editedRow.tokens[0] = { ...editedRow.tokens[0]!, value: "goodbye", endOffset: 7 };
     editedRow.version++;
     const edited = applyStashRowEditV2(stashed.document, 1, { bundleId, rowId: row.id, row: editedRow });
     expect(edited.ok).toBe(true);

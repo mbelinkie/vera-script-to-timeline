@@ -148,6 +148,7 @@ export function defaultDirectionNarrationRowV2(input: NarrationBlockV2): Narrati
   if (allDirection) return row;
   const first = row.tokens[0];
   const last = row.tokens.at(-1)!;
+  if (!first) return null;
   if (
     !Number.isSafeInteger(first.startOffset) || !Number.isSafeInteger(last.endOffset) ||
     first.startOffset < 0 || last.endOffset <= first.startOffset || last.endOffset > row.text.length ||

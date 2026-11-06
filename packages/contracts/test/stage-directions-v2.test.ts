@@ -185,7 +185,7 @@ describe("paired stage-direction operations", () => {
     const created = applyCommentOperationV2(comments, 0, {
       id: "comment-create-pair", actorId: "actor", kind: "create", threadId: "thread-pair", messageId: "message-pair",
       body: "Keep the exact line", mentionActorIds: [],
-      anchor: { kind: "text", blockId: row.id, startTokenId: row.tokens[0].id, endTokenId: row.tokens[2]!.id },
+      anchor: { kind: "text", blockId: row.id, startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id },
     });
     if (!created.ok) throw new Error(created.error);
     comments = created.state;
@@ -244,7 +244,7 @@ describe("paired stage-direction operations", () => {
 
     const madeSpoken = applyStageDirectionEditV2(edit.document, directionRow.version, {
       kind: "make_spoken", blockId: row.id,
-      startOffset: directionRow.tokens[0].startOffset,
+      startOffset: directionRow.tokens[0]!.startOffset,
       endOffset: directionRow.tokens.at(-1)!.endOffset,
     });
     requireSuccess(madeSpoken);
@@ -366,7 +366,7 @@ describe("paired stage-direction operations", () => {
       const { document, row } = documentWithText("hello blue world", ["hello", "blue", "world"]);
       const range = {
         blockId: row.id,
-        startTokenId: row.tokens[0].id,
+        startTokenId: row.tokens[0]!.id,
         endTokenId: row.tokens[1]!.id,
         startAffinity: "before" as const,
         endAffinity: "before" as const,
@@ -413,7 +413,7 @@ describe("paired stage-direction operations", () => {
     expect(staleNeeds.diagnostics.some((item) => item.code === "STALE_TIMING_MAP" || item.code === "TEXT_HASH_MISMATCH")).toBe(true);
 
     const freshDependencies = compilerDependencies(edit.document, editedRow);
-    expect(freshDependencies.narrationTimingMaps[0]!.tokens.map((token) => token.tokenId)).toEqual([row.tokens[0].id, row.tokens[2]!.id]);
+    expect(freshDependencies.narrationTimingMaps[0]!.tokens.map((token) => token.tokenId)).toEqual([row.tokens[0]!.id, row.tokens[2]!.id]);
     const freshNeeds = mediaNeeds(edit.document, freshDependencies);
     requireSuccess(freshNeeds);
     expect(freshNeeds.durationFrames).toBe(48);

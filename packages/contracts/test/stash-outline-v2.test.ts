@@ -88,11 +88,95 @@ function outline(doc: ScriptDocumentV2) {
   return doc.stashOutline ?? [];
 }
 
+function persistedPlainNote(text: string, value = 600000): ScriptDocumentV2 {
+  const row = narration(value);
+  row.text = text;
+  row.plainDirection = true;
+  row.tokens = [...text.matchAll(/\S+/gu)].map((word, index) => ({
+    id: id(value + 10000 + index),
+    value: word[0],
+    startOffset: word.index,
+    endOffset: word.index + word[0].length,
+    spoken: false,
+  }));
+  const document = documentWith();
+  document.stash = [{ id: id(value + 20000), rows: [row], supportingItems: [] }];
+  document.stashOutline = [{ rowId: row.id, kind: "note", parentRowId: null, sectionId: null }];
+  return document;
+}
+
+describe("persisted plain-direction intent (phase 1)", () => {
+  it("round-trips empty, whitespace, multiline, Unicode and literal brackets without normalizing raw text", () => {
+    for (const text of ["", "  \t\n ", " [outer [inner]] missing] ‘quote’ 😀\nnext [line\n "]) {
+      const document = persistedPlainNote(text);
+      expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });
+      const saved = serializeAuthoringDocumentV2(document);
+      const loaded = deserializeAuthoringDocumentV2(saved);
+      expect(loaded.ok).toBe(true);
+      if (!loaded.ok) continue;
+      const row = loaded.document.stash?.[0]?.rows[0] as NarrationBlockV2;
+      expect(row.text).toBe(text);
+      expect(row.plainDirection).toBe(true);
+      expect(row.tokens.every((token) => token.spoken === false)).toBe(true);
+      expect(loaded.document.stashOutline).toEqual(document.stashOutline);
+      expect(JSON.stringify(loaded.document)).toBe(JSON.stringify(document));
+    }
+  });
+
+  it("rejects corrupt semantic intent even when the row is parked in Stash", () => {
+    const originals = persistedPlainNote("😀 [hello] more");
+    const changes: [string, (row: NarrationBlockV2) => void][] = [
+      ["spoken token", (row) => { row.tokens[0]!.spoken = true; }],
+      ["missing nonspoken marker", (row) => { delete row.tokens[0]!.spoken; }],
+      ["wrong frozen text", (row) => { row.tokens[0]!.value = "changed"; }],
+      ["wrong UTF-16 offset", (row) => { row.tokens[0]!.endOffset += 1; }],
+      ["split surrogate", (row) => {
+        row.tokens[0]!.value = "\ud83d";
+        row.tokens[0]!.endOffset = 1;
+      }],
+    ];
+    for (const [name, corrupt] of changes) {
+      const document = structuredClone(originals);
+      const row = document.stash![0]!.rows[0] as NarrationBlockV2;
+      corrupt(row);
+      const snapshot = JSON.stringify(document);
+      const validation = validateScriptDocumentV2(document);
+      expect(validation.valid, name).toBe(false);
+      expect(validation.diagnostics.some((item) =>
+        item.code === "PLAIN_DIRECTION_INTENT_INVALID" &&
+        item.jsonPath.includes("/stash/0/rows/0/tokens/0"),
+      ), name).toBe(true);
+      expect(deserializeAuthoringDocumentV2(snapshot).ok, name).toBe(false);
+      expect(() => serializeAuthoringDocumentV2(document), name).toThrow();
+      expect(JSON.stringify(document), name).toBe(snapshot);
+    }
+    expect(JSON.stringify(originals)).toBe(serializeAuthoringDocumentV2(originals));
+  });
+
+  it("retains old saved narration notes and real paired direction syntax without migration", () => {
+    const doc = persistedPlainNote("old text", 630000);
+    const row = doc.stash![0]!.rows[0] as NarrationBlockV2;
+    delete row.plainDirection;
+    row.text = "[old]";
+    row.tokens = [{ id: id(645000), value: "old", startOffset: 1, endOffset: 4, spoken: false }];
+    expect(validateScriptDocumentV2(doc).valid).toBe(true);
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(doc));
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.document.stash?.[0]?.rows[0]).toEqual(row);
+
+    const emptyOld = structuredClone(doc);
+    (emptyOld.stash![0]!.rows[0] as NarrationBlockV2).text = "";
+    (emptyOld.stash![0]!.rows[0] as NarrationBlockV2).tokens = [];
+    expect(validateScriptDocumentV2(emptyOld).valid).toBe(false);
+    expect(deserializeAuthoringDocumentV2(JSON.stringify(emptyOld)).ok).toBe(false);
+  });
+});
+
 describe("mixed Stash outline contract", () => {
   it("stores default-direction notes, explicit mixed notes, and standalone footage in saved-row payloads", () => {
     const plain = narration(100000);
     const authored = narration(110000);
-    const first = authored.tokens[0];
+    const first = authored.tokens[0]!;
     const second = authored.tokens[1];
     if (!second) throw new Error("The authored fixture needs two tokens.");
     authored.text = `[${first.value}] ${second.value}`;
@@ -904,7 +988,7 @@ describe("mixed Stash outline contract", () => {
     const placed = applyRowEditV2(created.document, 1, { kind: "place_stash_rows", rowIds: [source.id], destination: gap(null, null, null) });
     expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
     const row = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
-    const token = row.tokens[0];
+    const token = row.tokens[0]!;
     const visualEdit = applyVisualSequenceEditV2(placed.document, row.primaryVisualSequence!.version, {
       kind: "insert_sequential",
       blockId: row.id,

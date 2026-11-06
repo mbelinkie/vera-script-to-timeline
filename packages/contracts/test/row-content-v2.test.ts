@@ -83,7 +83,7 @@ function gapAfter(document: ScriptDocumentV2, rowId: string) {
 }
 
 function wordAttachment(row: NarrationBlockV2, attachmentId: string): SupportingItemV2 {
-  const token = row.tokens[0];
+  const token = row.tokens[0]!;
   const anchor = { blockId: row.id, tokenId: token.id, affinity: "before" as const, quotedWord: token.value, anchorVersion: row.version };
   return {
     id: attachmentId,
@@ -178,7 +178,7 @@ describe("public authored row edits", () => {
   it("routes stage-direction edits through the row command and advances the document revision once", () => {
     const document = documentFromFixture();
     const row = activeNarration(document);
-    const token = row.tokens[0];
+    const token = row.tokens[0]!;
     const result = applyRowEditV2(document, 0, {
       kind: "make_stage_direction",
       blockId: row.id,
