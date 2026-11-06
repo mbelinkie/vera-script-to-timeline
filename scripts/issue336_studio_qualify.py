@@ -282,8 +282,22 @@ def main() -> int:
             if digest != evidence["sourceHashes"][name]:
                 raise RuntimeError("synthetic source bytes changed; refuse")
     else:
-        if manager.GetCurrentProject() is not None:
-            raise RuntimeError("refuse: an existing project is active")
+        current = manager.GetCurrentProject()
+        if current is not None:
+            # Resolve can open its empty default project on startup.  Switching
+            # away is safe only after independently establishing that it has
+            # no timeline, media, queued work or render in progress.  Do not
+            # save, modify or close even that default project.
+            root = current.GetMediaPool().GetRootFolder()
+            if (
+                current.GetName() != "Untitled Project"
+                or current.GetTimelineCount() != 0
+                or root.GetClipList()
+                or root.GetSubFolderList()
+                or current.GetRenderJobList()
+                or current.IsRenderingInProgress() is not False
+            ):
+                raise RuntimeError("refuse: a nonempty existing project is active")
         args.out.mkdir(parents=True, exist_ok=False)
         for name, (w, h) in sources.items():
             png(args.out / (name + ".png"), w, h)
