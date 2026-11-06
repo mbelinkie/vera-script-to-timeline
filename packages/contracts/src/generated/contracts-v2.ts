@@ -1030,8 +1030,8 @@ export interface AuthoringProjectSettingsV1 {
       }
     | {
         mode: "native_dynamic_zoom";
-        start: ImageMotionFrameV1;
-        end: ImageMotionFrameV1;
+        start: ImageMotionFrameV11;
+        end: ImageMotionFrameV11;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
 }
@@ -1056,6 +1056,14 @@ export interface CapturedFrameProvenance1 {
   origin: "captured_frame";
   sourceMediaReferenceId: string;
   sourceFrame: number;
+}
+/**
+ * Source-normalized focus and scale relative to authored framing; safe native delivery limits are qualified separately.
+ */
+export interface ImageMotionFrameV11 {
+  focusX: number;
+  focusY: number;
+  scale: number;
 }
 /**
  * Frozen v2 compiler inputs with occurrence-specific source maps, token timing, and verified preparation attestations.

@@ -35,7 +35,7 @@
       "$ref": "#/$defs/PositiveSafeInteger"
     },
     "imageMotionDefault": {
-      "$ref": "script-document-v2.schema.json#/$defs/ImageMotionV1",
+      "$ref": "#/$defs/ImageMotionV1",
       "description": "Configured automatic image motion for new builds; older settings without this field retain legacy still behavior."
     }
   },
@@ -57,6 +57,39 @@
     "ContentHash": {
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ImageMotionFrameV1": {
+      "description": "Source-normalized focus and scale relative to authored framing; safe native delivery limits are qualified separately.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["focusX", "focusY", "scale"],
+      "properties": {
+        "focusX": { "type": "number", "minimum": 0, "maximum": 1 },
+        "focusY": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "ImageMotionV1": {
+      "description": "Frozen configured motion intent; no numeric zoom preset is implied.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "start", "end", "easing"],
+          "properties": {
+            "mode": { "const": "native_dynamic_zoom" },
+            "start": { "$ref": "#/$defs/ImageMotionFrameV1" },
+            "end": { "$ref": "#/$defs/ImageMotionFrameV1" },
+            "easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] }
+          }
+        }
+      ]
     },
     "ProjectRelativePath": {
       "description": "Canonical slash-separated project-relative locator; absolute paths and dot segments are not accepted.",

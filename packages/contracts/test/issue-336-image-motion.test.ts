@@ -63,6 +63,18 @@ const validateDocument = ajv.getSchema("https://schemas.vera.video/contracts/scr
 const validateManifest = ajv.getSchema("https://schemas.vera.video/contracts/timeline-manifest-v2.schema.json")!;
 
 describe("#336 frozen v2 still-image motion", () => {
+  it("keeps standalone project-settings motion rules identical to script-document motion rules", () => {
+    const defs = (name: string): Record<string, unknown> =>
+      (JSON.parse(readFileSync(`${root}contracts/${name}`, "utf8")) as { $defs: Record<string, unknown> }).$defs;
+    const omitDescription = (value: unknown): unknown => JSON.parse(JSON.stringify(value, (key, item: unknown) =>
+      key === "description" ? undefined : item));
+    const project = defs("authoring-project-settings-v1.schema.json");
+    const document = defs("script-document-v2.schema.json");
+    for (const key of ["ImageMotionFrameV1", "ImageMotionV1"]) {
+      expect(omitDescription(project[key])).toEqual(omitDescription(document[key]));
+    }
+  });
+
   it("accepts configured project defaults and explicit None without changing legacy settings", () => {
     const { document, dependencies } = fixture("narrated-image-still-holds");
     const settings = {

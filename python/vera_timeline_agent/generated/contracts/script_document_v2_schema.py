@@ -134,18 +134,18 @@ class ImageMotionFrameV1(TypedDict):
     scale: float
 
 
-class ImageMotionV11(TypedDict):
+class ImageMotionV13(TypedDict):
     mode: Literal["none"]
 
 
-class ImageMotionV12(TypedDict):
+class ImageMotionV14(TypedDict):
     mode: Literal["native_dynamic_zoom"]
     start: ImageMotionFrameV1
     end: ImageMotionFrameV1
     easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"]
 
 
-type ImageMotionV1 = ImageMotionV11 | ImageMotionV12
+type ImageMotionV1 = ImageMotionV13 | ImageMotionV14
 
 
 class PrimaryVisualPayload1(TypedDict):
