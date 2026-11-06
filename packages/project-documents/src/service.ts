@@ -221,6 +221,15 @@ export class ProjectDocumentService {
     const createDigest = fingerprint({ projectId, title, document: document.document, settings: settings?.settings ?? null });
     const creator = actorId(principal);
     return await this.transaction(async (db) => {
+      // Authentication happened before the request reached this transaction.
+      // Recheck and lock the actor so a concurrent disable cannot interleave
+      // between project insertion and first-Producer provisioning.
+      const actor = await db.query<{ disabled_at: string | null }>(
+        "SELECT disabled_at FROM vera_identity_actors WHERE id=$1 FOR SHARE", [creator],
+      );
+      if (!actor.rows[0] || actor.rows[0].disabled_at !== null) {
+        throw new ProjectAuthError("action_not_allowed", 403);
+      }
       // Unique per authenticated actor, independent of projectId. Replays must
       // be authorized again; the old bootstrap cannot act as a permission grant.
       const prior = await db.query<{ id: string; create_request_digest: string }>(

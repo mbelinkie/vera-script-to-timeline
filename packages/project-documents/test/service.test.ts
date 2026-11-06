@@ -62,6 +62,16 @@ describe("durable project creation", () => {
     await expect(service.createProject(owner, initial)).rejects.toMatchObject({ status: 403 });
     await expect(service.getDocument(initial.projectId, owner)).rejects.toMatchObject({ status: 403 });
   });
+
+  it("refuses to bootstrap a Producer disabled after an earlier trusted authentication", async () => {
+    const { db, service, owner } = await setup();
+    const initial = initialProject();
+    await db.query("UPDATE vera_identity_actors SET disabled_at=now() WHERE id=$1", [owner.principalId]);
+    await expect(service.createProject(owner, initial))
+      .rejects.toMatchObject({ status: 403, code: "action_not_allowed" });
+    const projects = await db.query<{ n: number }>("SELECT count(*)::integer AS n FROM stt_projects");
+    expect(projects.rows[0]?.n).toBe(0);
+  });
 });
 
 describe("single-writer typed document head", () => {
@@ -205,6 +215,9 @@ describe("Producer-only project setup", () => {
     const first = await service.putSettings(initial.projectId, owner, put);
     expect(first.revision).toBe(1);
     expect((await service.putSettings(initial.projectId, owner, put)).duplicateDelivery).toBe(true);
+    await expect(service.putSettings(initial.projectId, owner,
+      { ...put, settings: { ...settings, version: 2 } }))
+      .rejects.toMatchObject({ status: 409, code: "idempotency_conflict" });
     expect((await service.getSettings(initial.projectId, editor)).settings).toEqual(settings);
     await expect(service.putSettings(initial.projectId, owner,
       { ...put, clientMutationId: randomUUID() })).rejects.toMatchObject({ status: 409 });
@@ -221,6 +234,8 @@ describe("Producer-only project setup", () => {
     const renamed = await service.patchProject(initial.projectId, owner, title);
     expect(renamed.project.projectVersion).toBe(2);
     expect((await service.patchProject(initial.projectId, owner, title)).duplicateDelivery).toBe(true);
+    await expect(service.patchProject(initial.projectId, owner, { ...title, title: "Changed replay" }))
+      .rejects.toMatchObject({ status: 409, code: "idempotency_conflict" });
     await expect(service.patchProject(initial.projectId, owner,
       { ...title, clientMutationId: randomUUID() })).rejects.toMatchObject({ status: 409 });
     expect((await service.getProject(initial.projectId, editor)).title).toBe("Renamed");

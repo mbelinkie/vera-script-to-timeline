@@ -120,4 +120,25 @@ describe("authenticated and bounded project-document API", () => {
     expect((await api(request("", "POST", "owner", { actorId: randomUUID(), role: "producer" }))).status).toBe(400);
     expect((await api(request("/not-a-valid-route/extra", "GET", "owner"))).status).toBe(404);
   });
+
+  it("limits actual streamed bytes even if Content-Length claims the body is small", async () => {
+    const { api, service, owner } = await setup();
+    const initial = initialProject();
+    // Deliberately valid JSON plus ignored whitespace: without the streaming
+    // byte guard this would create a project, not merely fail JSON parsing.
+    const payload = JSON.stringify(initial) + " ".repeat(MAX_PROJECT_API_BODY_BYTES);
+    const streamed = new Request(base, {
+      method: "POST",
+      headers: {
+        "X-Test-Suite-Identity": "owner",
+        "content-type": "application/json",
+        "content-length": "1",
+      },
+      body: payload,
+    });
+    const result = await api(streamed);
+    expect(result.status).toBe(400);
+    expect((await body(result)).error).toBe("invalid_request");
+    await expect(service.getProject(initial.projectId, owner)).rejects.toMatchObject({ status: 403 });
+  });
 });

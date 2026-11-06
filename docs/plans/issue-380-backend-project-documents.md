@@ -56,6 +56,8 @@ SHA-256 of the exact UTF-8 text.
 
 Create: authenticate; validate the complete v2 document, project and optional
 settings; begin SERIALIZABLE; inspect `(creator_actor_id, clientRequestId)`;
+recheck the creator's enabled identity under a `FOR SHARE` row lock so a
+post-authentication disable cannot race the first-Producer bootstrap;
 an identical replay must recheck current membership, while a changed payload
 gets 409; otherwise INSERT new project, revision-0 head and immutable genesis,
 optional settings head/history, then call #379's
@@ -97,3 +99,22 @@ true concurrent CAS/role-write serialization (not possible to prove with a
 single PGlite connection). Focused tests and typecheck/lint must pass in phase
 1; phase 2 runs `npm run validate:fast`, mutation tests and whole-diff review.
 No local-agent/Resolve or media manipulation is a valid check for #380.
+
+## Phase 2 verification evidence (2026-11-05)
+
+- Focused PGlite HTTP/service/model/migration tests cover create and reload,
+  concurrency retry, CAS, receipt replay, permissions, rollback, creator
+  disable between authentication and bootstrap, and actual streamed body size.
+- A disposable PostgreSQL 16 test with independent connections passed the
+  competing-writer CAS, editor revocation, and persisted-head checks.
+- Seven deliberate mutations of authorization, revision/identity checks,
+  idempotency, bootstrap provisioning and Research-link isolation **each
+  caused its targeted test to fail**. The disabled-actor regression also
+  failed before the creator-row lock was added, and passed afterward.
+- `npm run validate:fast` completed the TypeScript checks and Python lint/
+  mypy, but its Python fast suite reported 20 failures (2,148 passed, 43
+  skipped), all in untouched older Python/Resolve/identity/word-timing areas.
+  A separate checkout at `origin/main` reproduced 24 failures in the selected
+  overlapping Python test files (191 passed). These are baseline/environment
+  failures, not evidence that #380 broke Python. The complete GitHub CI gate
+  remains unverified until the PR is opened.
