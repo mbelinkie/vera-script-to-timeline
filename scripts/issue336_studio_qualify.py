@@ -243,15 +243,16 @@ def main() -> int:
     parser.add_argument("--template", type=pathlib.Path, required=True)
     parser.add_argument("--out", type=pathlib.Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--case", type=str)
+    parser.add_argument("--finalize", action="store_true")
     parser.add_argument("--timeout", type=int, default=120)
     args = parser.parse_args()
     if not args.execute:
         parser.error("explicit --execute required for fresh native project")
-    args.out.mkdir(parents=True, exist_ok=False)
+    if bool(args.case) == bool(args.finalize):
+        parser.error("select exactly one --case or --finalize per bounded call")
     template = json.loads(args.template.read_text())
     sources = {"square": (1000, 1000), "wide": (1600, 900), "tall": (900, 1600)}
-    for name, (w, h) in sources.items():
-        png(args.out / (name + ".png"), w, h)
     sys.path.append(
         "/Library/Application Support/Blackmagic Design/"
         "DaVinci Resolve/Developer/Scripting/Modules"
@@ -262,22 +263,45 @@ def main() -> int:
     if resolve is None or resolve.GetVersionString() != "21.1.1.10":
         raise RuntimeError("installed supported Studio version did not connect")
     manager = resolve.GetProjectManager()
-    if manager.GetCurrentProject() is not None:
-        raise RuntimeError("refuse: an existing project is active")
     label = "VERA336-SYN-" + args.out.name.replace("_", "-")
-    project = manager.CreateProject(label)
-    if project is None:
-        raise RuntimeError("fresh disposable project creation refused")
-    evidence: dict[str, object] = {
-        "app": resolve.GetVersionString(),
-        "project": label,
-        "sourceHashes": {},
-        "cases": {},
-    }
-    for name in sources:
-        data = (args.out / (name + ".png")).read_bytes()
-        evidence["sourceHashes"][name] = hashlib.sha256(data).hexdigest()  # type: ignore[index]
-    (args.out / "evidence.json").write_text(json.dumps(evidence, indent=2))
+    if args.out.exists():
+        evidence: dict = json.loads((args.out / "evidence.json").read_text())
+        project = manager.GetCurrentProject()
+        if project is None or project.GetName() != evidence.get("project"):
+            raise RuntimeError(
+                "fresh native project not current; refuse unrelated target"
+            )
+        if evidence.get("stoppedAt") or any(
+            item.get("status") != "decoded" for item in evidence["cases"].values()
+        ):
+            raise RuntimeError("uncertain/refused previous case; no new native writes")
+        for name in sources:
+            digest = hashlib.sha256(
+                (args.out / (name + ".png")).read_bytes()
+            ).hexdigest()
+            if digest != evidence["sourceHashes"][name]:
+                raise RuntimeError("synthetic source bytes changed; refuse")
+    else:
+        if manager.GetCurrentProject() is not None:
+            raise RuntimeError("refuse: an existing project is active")
+        args.out.mkdir(parents=True, exist_ok=False)
+        for name, (w, h) in sources.items():
+            png(args.out / (name + ".png"), w, h)
+        project = manager.CreateProject(label)
+        if project is None:
+            raise RuntimeError("fresh disposable project creation refused")
+        evidence = {
+            "app": resolve.GetVersionString(),
+            "project": label,
+            "sourceHashes": {
+                name: hashlib.sha256(
+                    (args.out / (name + ".png")).read_bytes()
+                ).hexdigest()
+                for name in sources
+            },
+            "cases": {},
+        }
+        (args.out / "evidence.json").write_text(json.dumps(evidence, indent=2))
     cases = [
         ("square-none-48", "square", 48, False, 0, "fit"),
         ("square-motion-24", "square", 24, True, 0, "fit"),
@@ -291,8 +315,39 @@ def main() -> int:
         ("square-ease-out-48", "square", 48, True, 2, "fit"),
         ("square-ease-both-48", "square", 48, True, 3, "fit"),
     ]
+    if args.finalize:
+        if not evidence["cases"] or not manager.SaveProject():
+            raise RuntimeError("no successful case to save/reopen")
+        if not manager.CloseProject(project):
+            raise RuntimeError("CloseProject refused")
+        reopened = manager.LoadProject(label)
+        if reopened is None:
+            raise RuntimeError("LoadProject refused; do not replay")
+        evidence["reopened"] = {
+            "timelineCount": reopened.GetTimelineCount(),
+            "names": [
+                reopened.GetTimelineByIndex(i).GetName()
+                for i in range(1, reopened.GetTimelineCount() + 1)
+            ],
+            "durations": [
+                reopened.GetTimelineByIndex(i)
+                .GetItemListInTrack("video", 1)[0]
+                .GetDuration()
+                for i in range(1, reopened.GetTimelineCount() + 1)
+            ],
+        }
+        (args.out / "evidence.json").write_text(
+            json.dumps(evidence, indent=2, default=str)
+        )
+        print("REOPENED", evidence["reopened"], flush=True)
+        return 0
+    selected = [item for item in cases if item[0] == args.case]
+    if len(selected) != 1 or args.case in evidence["cases"]:
+        raise RuntimeError("unrecognized or duplicate case; refuse native write")
     pool = project.GetMediaPool()
-    for name, source, frames, motion, ease, framing in cases:
+    for name, source, frames, motion, ease, framing in selected:
+        evidence["cases"][name] = {"status": "starting"}
+        (args.out / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
         try:
             otio = args.out / (name + ".otio")
             write_otio(
@@ -343,32 +398,8 @@ def main() -> int:
                 json.dumps(evidence, indent=2, default=str) + "\n"
             )
             print(name, evidence["cases"][name]["status"], flush=True)  # type: ignore[index]
-    # Only save/close/reload after every previous native operation was verified.
-    if (
-        "stoppedAt" not in evidence
-        and manager.SaveProject()
-        and manager.CloseProject(project)
-    ):
-        reopened = manager.LoadProject(label)
-        if reopened is not None:
-            evidence["reopened"] = {
-                "timelineCount": reopened.GetTimelineCount(),
-                "names": [
-                    reopened.GetTimelineByIndex(i).GetName()
-                    for i in range(1, reopened.GetTimelineCount() + 1)
-                ],
-                "durations": [
-                    reopened.GetTimelineByIndex(i)
-                    .GetItemListInTrack("video", 1)[0]
-                    .GetDuration()
-                    for i in range(1, reopened.GetTimelineCount() + 1)
-                ],
-            }
-    (args.out / "evidence.json").write_text(
-        json.dumps(evidence, indent=2, default=str) + "\n"
-    )
     print("EVIDENCE", args.out / "evidence.json", flush=True)
-    return 1 if "stoppedAt" in evidence or "reopened" not in evidence else 0
+    return 1 if "stoppedAt" in evidence else 0
 
 
 if __name__ == "__main__":
