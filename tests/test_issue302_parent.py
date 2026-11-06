@@ -334,6 +334,72 @@ def test_parent_child_retains_global_owner_and_unknown_blocks_other_routes(
         _close_fds(held_fds)
 
 
+def test_parent_disposable_opt_in_checks_live_resolve_under_real_owner_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request_path, _expected, manifest, _evidence, request = _case(tmp_path)
+    name = "VERA Delivery 00000000-0000-4000-8000-000000000003 abcdef012345"
+    request.update(
+        action="build",
+        authorizeNewNonproduction=True,
+        projectName=name,
+        timelineName=name,
+    )
+    request_path.write_text(json.dumps(request, sort_keys=True))
+    expected = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    _patch_release_checks(monkeypatch, manifest)
+    calls: list[str] = []
+
+    def preflight(new_target: str) -> None:
+        calls.append(new_target)
+        # The parent must own the global native lock while checking Resolve.
+        with pytest.raises(resolve_native_owner.NativeOwnerError) as exc:
+            resolve_native_owner.acquire_native_owner()
+        assert exc.value.reason == "owner_busy"
+
+    monkeypatch.setattr(
+        resolve_native_owner, "preflight_independent_disposable", preflight
+    )
+    monkeypatch.setattr(
+        resolve_native_owner,
+        "preflight_native_owner",
+        lambda: pytest.fail("strict preflight should remain the default only"),
+    )
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        response = workflow_v2_parent.start(
+            request_path,
+            expected,
+            Path("ResolvePython"),
+            independent_disposable=True,
+        )
+        assert response["state"] == "live"
+        assert calls == [name]
+        assert len(commands) == 1
+    finally:
+        _close_fds(held_fds)
+
+
+def test_parent_disposable_opt_in_cannot_authorize_an_old_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request_path, expected, manifest, evidence, _request = _case(tmp_path)
+    _patch_release_checks(monkeypatch, manifest)
+    commands, held_fds = _patch_popen(monkeypatch)
+    try:
+        with pytest.raises(ValueError, match="authorized new build"):
+            workflow_v2_parent.start(
+                request_path,
+                expected,
+                Path("ResolvePython"),
+                independent_disposable=True,
+            )
+        assert commands == []
+        assert not (evidence / "parent.json").exists()
+    finally:
+        _close_fds(held_fds)
+
+
 def test_start_requires_local_scripting_authority_before_dispatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

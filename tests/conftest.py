@@ -24,6 +24,7 @@ def isolated_native_ownership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         "ISSUE328_ACTIVE_PATH": root / "issue328.active.json",
         "OUTPUT_ATTEMPTS_ROOT": root / "output-attempts",
         "OUTPUT_TARGETS_ROOT": root / "output-targets",
+        "PAUSED_OUTPUT_ROOT": root / "paused-output",
     }.items():
         monkeypatch.setattr(owner, name, path)
     monkeypatch.delenv("VERA_NATIVE_OWNER_FD", raising=False)

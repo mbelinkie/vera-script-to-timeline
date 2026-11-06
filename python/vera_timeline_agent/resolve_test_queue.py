@@ -38,7 +38,10 @@ from typing import Any, cast
 
 from . import resolve_test_queue_native as native
 from . import workflow_v2_parent as parent
-from .resolve_native_owner import NativeOwnerError, preflight_native_owner
+from .resolve_native_owner import (
+    NativeOwnerError,
+    preflight_independent_disposable,
+)
 
 PLAN_SCHEMA = "vera.resolve-test-plan/v1"
 REPORT_SCHEMA = "vera.resolve-test-report/v1"
@@ -906,7 +909,9 @@ def run_native(
         evidence = Path(request["evidenceDir"])
         if evidence.exists() and any(evidence.iterdir()):
             raise QueueError("native request/evidence already used")
-        preflight_native_owner()
+        # The final parent rechecks under the exclusive host owner lock. This
+        # first read-only check prevents consuming a queue intent needlessly.
+        preflight_independent_disposable(plan["native"]["projectName"])
         if (
             folder_bytes(store.jobdir(job_id)) > plan["maxDiskBytes"]
             or shutil.disk_usage(store.root).free < plan["maxDiskBytes"]
@@ -967,6 +972,7 @@ def run_native(
             Path(plan["native"]["requestPath"]),
             plan["native"]["requestSha256"],
             RESOLVE_PYTHON,
+            independent_disposable=True,
         )
         if start_result.get("state") == "busy":
             with store.connect() as db:

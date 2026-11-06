@@ -28,6 +28,7 @@ ATTESTATION_SHA = "c" * 64
 
 def package_fixture(root: Path) -> SimpleNamespace:
     view = {
+        "schemaVersion": "resolve-native-view/v2",
         "timeline": {"startFrame": 0, "durationFrames": 24, "frameRate": "24"},
         "tracks": [{"id": "track-1", "kind": "video", "index": 1, "name": "V1"}],
         "sources": [{"id": "source-1", "path": "Media/clip.mov"}],
@@ -192,6 +193,19 @@ def test_expected_for_package_binds_events_settings_media_and_whole_view() -> No
     assert expected["eventCount"] == 1
     assert expected["markerCount"] == 0
     assert expected["mediaCount"] == 1
+
+
+@pytest.mark.parametrize("version", [None, "resolve-native-view/v1", "unknown"])
+def test_expected_for_package_rejects_missing_or_wrong_view_schema(
+    version: str | None,
+) -> None:
+    package = package_fixture(Path("/unused"))
+    if version is None:
+        del package.view["schemaVersion"]
+    else:
+        package.view["schemaVersion"] = version
+    with pytest.raises(ValueError, match="unsupported fields"):
+        expected_for_package(package)
 
 
 def test_validate_native_plan_reuses_common_v1_limits_and_normalizes_schedule(

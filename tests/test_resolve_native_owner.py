@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -12,6 +16,173 @@ from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent import resolve_native_owner as owner
 from vera_timeline_agent import workflow_v2_parent
 from vera_timeline_agent.qualification_output_records_v2 import _canonical
+
+DISPOSABLE = "VERA Delivery 00000000-0000-4000-8000-000000000003 abcdef012345"
+
+
+def _independent_resolve(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    rendering: bool | None = False,
+    jobs: list[dict[str, str]] | None = None,
+    selected: str = "Existing Project",
+    projects: list[str] | None = None,
+) -> None:
+    project = SimpleNamespace(
+        GetUniqueId=lambda: "current-project-uid",
+        GetName=lambda: selected,
+        IsRenderingInProgress=lambda: rendering,
+        GetRenderJobList=lambda: [] if jobs is None else jobs,
+        GetRenderJobStatus=lambda job_id: {
+            "JobStatus": next(
+                (
+                    job.get("MockJobStatus", "Complete")
+                    for job in (jobs or [])
+                    if job.get("JobId") == job_id
+                ),
+                None,
+            )
+        },
+    )
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: project,
+        GetProjectListInCurrentFolder=lambda: (
+            ["Existing Project"] if projects is None else projects
+        ),
+    )
+    scripting = ModuleType("DaVinciResolveScript")
+    scripting.scriptapp = lambda _name: SimpleNamespace(  # type: ignore[attr-defined]
+        GetProjectManager=lambda: manager
+    )
+    monkeypatch.setitem(sys.modules, "DaVinciResolveScript", scripting)
+
+
+def test_disposable_preflight_isolates_foreign_unknown_without_mutating_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    foreign_chain = {
+        "projectUid": "different-project-uid",
+        "timelineUid": "old-timeline",
+        "caseId": "old-case",
+        "phase": "old-phase",
+    }
+    key = controller._json_hash(foreign_chain)
+    directory = owner.OUTPUT_ATTEMPTS_ROOT / key
+    directory.mkdir(parents=True)
+    source = _canonical(foreign_chain)
+    (directory / "chain.json").write_bytes(source)
+    # The old UNKNOWN remains retained; the new route does not require a
+    # per-project terminal poll or turn it into a successful old operation.
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {key: "uncertain"}
+    )
+    owner.preflight_independent_disposable(DISPOSABLE)
+    assert (directory / "chain.json").read_bytes() == source
+    assert not owner.PAUSED_OUTPUT_ROOT.exists()
+
+
+def test_disposable_preflight_loads_installed_sdk_without_pythonpath(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Production launchd workers do not inherit a shell's Resolve PYTHONPATH.
+    # A clean interpreter must load the vendor SDK from the pinned local path.
+    script = tmp_path / "DaVinciResolveScript.py"
+    script.write_text(
+        "class Project:\n"
+        "    def GetUniqueId(self): return 'current-project-uid'\n"
+        "    def GetName(self): return 'Existing Project'\n"
+        "    def IsRenderingInProgress(self): return False\n"
+        "    def GetRenderJobList(self): return []\n"
+        "class Manager:\n"
+        "    def GetCurrentProject(self): return Project()\n"
+        "    def GetProjectListInCurrentFolder(self): return ['Existing Project']\n"
+        "class Resolve:\n"
+        "    def GetProjectManager(self): return Manager()\n"
+        "import sys\n"
+        "from types import ModuleType\n"
+        "extension = ModuleType(__name__)\n"
+        "extension.scriptapp = lambda name: Resolve() if name == 'Resolve' else None\n"
+        "sys.modules[__name__] = extension\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delitem(sys.modules, "DaVinciResolveScript", raising=False)
+    monkeypatch.setattr(owner, "_RESOLVE_SCRIPTING_MODULE", script)
+    try:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    finally:
+        sys.modules.pop("DaVinciResolveScript", None)
+
+
+@pytest.mark.parametrize(
+    ("rendering", "jobs", "selected", "projects", "reason"),
+    [
+        (True, None, "Existing Project", None, "rendering"),
+        (None, None, "Existing Project", None, "rendering"),
+        (
+            False,
+            [{"JobId": "job", "MockJobStatus": "Ready"}],
+            "Existing Project",
+            None,
+            "pending",
+        ),
+        (False, [{"JobId": ""}], "Existing Project", None, "identity"),
+        (False, None, DISPOSABLE, None, "already selected"),
+        (False, None, "Existing Project", [DISPOSABLE], "already exists"),
+    ],
+)
+def test_disposable_preflight_fails_closed_on_live_state_or_target_collision(
+    monkeypatch: pytest.MonkeyPatch,
+    rendering: bool | None,
+    jobs: list[dict[str, str]] | None,
+    selected: str,
+    projects: list[str] | None,
+    reason: str,
+) -> None:
+    _independent_resolve(
+        monkeypatch,
+        rendering=rendering,
+        jobs=jobs,
+        selected=selected,
+        projects=projects,
+    )
+    with pytest.raises(owner.NativeOwnerError, match="Resolve is owned") as exc:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert exc.value.reason == "independent_disposable_not_idle"
+    assert reason in exc.value.private_detail
+
+
+def test_disposable_preflight_blocks_uncleared_current_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    current_chain = {
+        "projectUid": "current-project-uid",
+        "timelineUid": "old-timeline",
+        "caseId": "old-case",
+        "phase": "old-phase",
+    }
+    key = controller._json_hash(current_chain)
+    directory = owner.OUTPUT_ATTEMPTS_ROOT / key
+    directory.mkdir(parents=True)
+    (directory / "chain.json").write_bytes(_canonical(current_chain))
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {key: "uncertain"}
+    )
+    with pytest.raises(owner.NativeOwnerError) as exc:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert exc.value.reason == "independent_disposable_not_idle"
+    assert "unisolated old operation" in exc.value.private_detail
+
+
+def test_disposable_preflight_cannot_accept_arbitrary_target_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    for name in ("An Existing Project", "VERA Delivery test", DISPOSABLE + " 2"):
+        with pytest.raises(owner.NativeOwnerError) as exc:
+            owner.preflight_independent_disposable(name)
+        assert exc.value.reason == "disposable_target_invalid"
 
 
 def _result(
@@ -160,6 +331,53 @@ def test_preflight_blocks_queued_render_until_terminal_poll(
     assert key[:12] in error.value.private_detail
 
 
+def test_preflight_refuses_active_owner_before_scanning_inactive_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The inactive target sorts first, but one active owner is enough to
+    # refuse immediately without expensive historic source verification.
+    inactive = owner.OUTPUT_TARGETS_ROOT / ("1" * 64) / "operations"
+    active = owner.OUTPUT_TARGETS_ROOT / ("f" * 64) / "operations"
+    _result(inactive, 0, "capture_pre")
+    _result(active, 0, "queue_render")
+    calls: list[str] = []
+
+    def record_native_result(path: Path, sha256: str) -> dict[str, Any]:
+        calls.append(path.parents[2].name)
+        return _verified_json(path, sha256)
+
+    monkeypatch.setattr(native, "verify_native_result", record_native_result)
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {"f" * 64: "uncertain"}
+    )
+    with pytest.raises(owner.NativeOwnerError) as error:
+        owner.preflight_native_owner()
+    assert error.value.reason == "output_render_unresolved"
+    assert calls == ["f" * 64]
+
+
+def test_preflight_still_checks_inactive_evidence_after_active_owner_is_safe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inactive = owner.OUTPUT_TARGETS_ROOT / ("1" * 64) / "operations"
+    active = owner.OUTPUT_TARGETS_ROOT / ("f" * 64) / "operations"
+    inactive_result = _result(inactive, 0, "capture_pre")
+    (inactive_result.parent / "native-start.json").unlink()
+    _result(active, 0, "queue_render")
+    _result(active, 1, "start_render")
+    _result(active, 2, "poll_render", job_status="Complete")
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    monkeypatch.setattr(
+        owner,
+        "_active_output_host_chains",
+        lambda _native: {"f" * 64: "reserved_by_render_intent"},
+    )
+    with pytest.raises(owner.NativeOwnerError) as error:
+        owner.preflight_native_owner()
+    assert error.value.reason == "output_operation_unresolved"
+    assert "1" * 64 in error.value.private_detail
+
+
 def test_preflight_allows_terminal_render_after_host_finalization_uncertainty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -198,6 +416,439 @@ def test_uncertain_render_start_remains_an_owner(
     monkeypatch.setattr(native, "verify_native_result", _verified_json)
     with pytest.raises(owner.NativeOwnerError):
         owner.preflight_native_owner()
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        "none",
+        "sha",
+        "jobs",
+        "host",
+        "next-operation",
+        "effect",
+        "record-symlink",
+        "stale",
+        "future",
+        "forged",
+    ],
+)
+def test_paused_historical_queue_is_isolated_only_with_exact_observation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, changed: str
+) -> None:
+    key = "8" * 64
+    operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
+    result_path = _result(operations, 0, "queue_render", status="uncertain")
+    request_raw = b'{"action":"queue_render"}'
+    request_sha = hashlib.sha256(request_raw).hexdigest()
+    (result_path.parent / "request.json").write_bytes(request_raw)
+    (result_path.parent / "native-start.json").write_text(
+        json.dumps({"requestSha256": request_sha, "operationId": "paused-original"})
+    )
+    result = {
+        "sequence": 0,
+        "action": "queue_render",
+        "status": "uncertain",
+        "operationId": "paused-original",
+        "requestSha256": request_sha,
+        "target": {"projectUid": "old-project", "timelineUid": "old-timeline"},
+        "effectLedger": [
+            {"method": "Project.SetRenderSettings", "outcome": "observed"},
+            {"method": "Project.AddRenderJob", "outcome": "unknown"},
+        ],
+    }
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+    host = owner.OUTPUT_ATTEMPTS_ROOT / key
+    host.mkdir(parents=True)
+    (host / "chain.json").write_text("{}", encoding="utf-8")
+    (host / "receipts").mkdir()
+    (host / "receipts" / "key").write_bytes(b"k" * 32)
+    (host / "receipts" / "key").chmod(0o400)
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _: {key: "uncertain"}
+    )
+    record = {
+        "schemaVersion": "vera.paused-output-observation/v1",
+        "targetKey": key,
+        "sequence": 0,
+        "operationId": "paused-original",
+        "resultSha256": hashlib.sha256(result_path.read_bytes()).hexdigest(),
+        "hostHistorySha256": owner._output_host_history_sha256(key),
+        "projectUid": "old-project",
+        "timelineUid": "old-timeline",
+        "observedAt": datetime.now(UTC).isoformat(),
+        "observedStatuses": ["Complete"],
+        "matchingJobCount": 0,
+    }
+    owner.PAUSED_OUTPUT_ROOT.mkdir(parents=True)
+    assert isinstance(record["resultSha256"], str)
+    assert isinstance(record["hostHistorySha256"], str)
+    attestation = owner._paused_observation_path(
+        key, record["resultSha256"], record["hostHistorySha256"]
+    )
+    if changed == "sha":
+        record["resultSha256"] = "f" * 64
+    elif changed == "jobs":
+        record["matchingJobCount"] = 1
+    elif changed == "stale":
+        record["observedAt"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    elif changed == "future":
+        record["observedAt"] = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    elif changed == "effect":
+        ledger = result["effectLedger"]
+        assert isinstance(ledger, list)
+        assert isinstance(ledger[-1], dict)
+        ledger[-1]["method"] = "Project.StartRendering"
+        result_path.write_text(json.dumps(result), encoding="utf-8")
+        record["resultSha256"] = hashlib.sha256(result_path.read_bytes()).hexdigest()
+    elif changed == "host":
+        (host / "chain.json").write_text('{"changed": true}', encoding="utf-8")
+    elif changed == "next-operation":
+        _result(operations, 1, "capture_post")
+    record["mac"] = hmac.digest(
+        owner._paused_observation_key(key),
+        owner._canonical(record),
+        "sha256",
+    ).hex()
+    if changed == "forged":
+        record["mac"] = "0" * 64
+    if changed == "record-symlink":
+        target = tmp_path / "other-observation.json"
+        target.write_text(json.dumps(record), encoding="utf-8")
+        attestation.symlink_to(target)
+    else:
+        attestation.write_text(json.dumps(record), encoding="utf-8")
+
+    if changed == "none":
+        owner.preflight_native_owner()
+        with owner.native_owner():
+            pass
+    else:
+        with pytest.raises(owner.NativeOwnerError) as error:
+            owner.preflight_native_owner()
+        assert error.value.reason == "output_operation_unresolved"
+
+
+@pytest.mark.parametrize("active_render", [False, True])
+@pytest.mark.parametrize("matching_project", [False, True])
+def test_paused_queue_observation_uses_actual_exact_project_readback(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    active_render: bool,
+    matching_project: bool,
+) -> None:
+    key = "7" * 64
+    operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
+    path = _result(operations, 0, "queue_render", status="uncertain")
+    request_path = tmp_path / "old-request.json"
+    output_path = tmp_path / "old-output.mov"
+    request_raw = json.dumps({"payload": {"outputPath": str(output_path)}}).encode()
+    request_path.write_bytes(request_raw)
+    (path.parent / "request.json").write_bytes(request_raw)
+    (path.parent / "native-start.json").write_text(
+        json.dumps(
+            {
+                "requestSha256": hashlib.sha256(request_raw).hexdigest(),
+                "operationId": "old-queued-action",
+            }
+        )
+    )
+    result = {
+        "sequence": 0,
+        "action": "queue_render",
+        "status": "uncertain",
+        "operationId": "old-queued-action",
+        "nativeIdentity": {
+            "product": "DaVinci Resolve Studio",
+            "version": [21, 1, 1, 10, ""],
+        },
+        "target": {
+            "projectUid": "old-project",
+            "projectName": "old-project-name",
+            "timelineUid": "old-timeline",
+            "timelineName": "old-timeline-name",
+        },
+        "effectLedger": [{"method": "Project.AddRenderJob", "outcome": "unknown"}],
+        "requestPath": str(request_path),
+        "requestSha256": hashlib.sha256(request_raw).hexdigest(),
+    }
+    path.write_text(json.dumps(result), encoding="utf-8")
+    old_bytes = path.read_bytes()
+    host = owner.OUTPUT_ATTEMPTS_ROOT / key
+    host.mkdir(parents=True)
+    (host / "chain.json").write_text("{}", encoding="utf-8")
+    (host / "receipts").mkdir()
+    (host / "receipts" / "key").write_bytes(b"q" * 32)
+    (host / "receipts" / "key").chmod(0o400)
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _: {key: "uncertain"}
+    )
+
+    class FakeTimeline:
+        def GetUniqueId(self) -> str:
+            return "old-timeline"
+
+        def GetName(self) -> str:
+            return "old-timeline-name"
+
+    class FakeProject:
+        def GetUniqueId(self) -> str:
+            return "old-project" if matching_project else "foreign-project"
+
+        def GetName(self) -> str:
+            return "old-project-name"
+
+        def GetCurrentTimeline(self) -> FakeTimeline:
+            return FakeTimeline()
+
+        def IsRenderingInProgress(self) -> bool:
+            return active_render
+
+        def GetRenderJobList(self) -> list[dict[str, str]]:
+            return [{"JobId": "prior-completed", "OutputFilename": "other.mov"}]
+
+        def GetRenderJobStatus(self, _id: str) -> dict[str, str]:
+            return {"JobStatus": "Complete"}
+
+    project = FakeProject()
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: project,
+        LoadProject=lambda _name: pytest.fail(
+            "read-only observation must never switch Resolve projects"
+        ),
+    )
+    resolve = SimpleNamespace(
+        GetProductName=lambda: "DaVinci Resolve Studio",
+        GetVersion=lambda: [21, 1, 1, 10, ""],
+        GetProjectManager=lambda: manager,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "DaVinciResolveScript",
+        SimpleNamespace(scriptapp=lambda _: resolve),
+    )
+    if not matching_project:
+        with pytest.raises(ValueError, match="original Resolve project UID"):
+            owner.observe_paused_queue(path)
+        assert not owner.PAUSED_OUTPUT_ROOT.exists()
+    elif active_render:
+        with pytest.raises(ValueError, match="active/unknown render"):
+            owner.observe_paused_queue(path)
+        assert not owner.PAUSED_OUTPUT_ROOT.exists()
+    else:
+        attested = owner.observe_paused_queue(path)
+        assert json.loads(attested.read_bytes())["matchingJobCount"] == 0
+        owner.preflight_native_owner()
+        renewed = owner.observe_paused_queue(path)
+        assert renewed != attested
+        assert attested.is_file() and renewed.is_file()
+        old = json.loads(attested.read_bytes())
+        old["observedAt"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        old["mac"] = hmac.digest(
+            owner._paused_observation_key(key),
+            owner._canonical({k: v for k, v in old.items() if k != "mac"}),
+            "sha256",
+        ).hex()
+        attested.write_text(json.dumps(old))
+        owner.preflight_native_owner()  # Expired evidence retained, renewal valid.
+    assert path.read_bytes() == old_bytes
+
+
+@pytest.mark.parametrize("action", ["queue_render", "start_render"])
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "safe",
+        "wrong-project",
+        "rendering",
+        "job-ready",
+        "job-missing",
+        "job-duplicate",
+        "future-native-request",
+        "forged",
+        "stale",
+        "changed-result",
+    ],
+)
+def test_terminal_render_pause_requires_exact_live_terminal_job_and_signed_chain(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    action: str,
+    condition: str,
+) -> None:
+    key = "8" * 64
+    operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
+    sequence = int(action == "start_render")
+    request_sha = hashlib.sha256(b"{}").hexdigest()
+    prior_sha: str | None = None
+    if sequence:
+        queued = _result(operations, 0, "queue_render")
+        queued.write_text(
+            json.dumps(
+                {
+                    "sequence": 0,
+                    "operationId": "old-queued-operation",
+                    "requestSha256": request_sha,
+                    "action": "queue_render",
+                    "status": "complete",
+                    "jobId": "old-job",
+                }
+            )
+        )
+        (queued.parent / "native-start.json").write_text(
+            json.dumps(
+                {"requestSha256": request_sha, "operationId": "old-queued-operation"}
+            )
+        )
+        prior_sha = hashlib.sha256(queued.read_bytes()).hexdigest()
+    path = _result(operations, sequence, action)
+    target = {
+        "projectUid": "original-project",
+        "projectName": "original-project-name",
+        "timelineUid": "original-timeline",
+        "timelineName": "original-timeline-name",
+    }
+    result = {
+        "sequence": sequence,
+        "operationId": "original-operation",
+        "requestSha256": request_sha,
+        "action": action,
+        "status": "complete",
+        "jobId": "old-job",
+        "target": target,
+        "nativeIdentity": {
+            "product": "DaVinci Resolve Studio",
+            "version": [21, 1, 1, 10, ""],
+        },
+        "effectLedger": [
+            {
+                "method": (
+                    "Project.StartRendering" if sequence else "Project.AddRenderJob"
+                ),
+                "outcome": "observed",
+            }
+        ],
+    }
+    if prior_sha is not None:
+        result["priorResultSha256"] = prior_sha
+    path.write_text(json.dumps(result), encoding="utf-8")
+    (path.parent / "native-start.json").write_text(
+        json.dumps({"requestSha256": request_sha, "operationId": "original-operation"})
+    )
+    if condition == "future-native-request":
+        future = operations / f"{sequence + 1:08d}"
+        future.mkdir()
+        (future / "request.json").write_text("{}")
+    else:
+        # Historical starts may leave an empty reserved next-stage directory.
+        (operations / f"{sequence + 1:08d}").mkdir()
+    host = owner.OUTPUT_ATTEMPTS_ROOT / key
+    host.mkdir(parents=True)
+    (host / "chain.json").write_text("{}")
+    (host / "receipts").mkdir()
+    (host / "receipts" / "key").write_bytes(b"r" * 32)
+    (host / "receipts" / "key").chmod(0o400)
+    monkeypatch.setattr(native, "verify_native_result", _verified_json)
+    monkeypatch.setattr(
+        owner,
+        "_active_output_host_chains",
+        lambda _native: {key: "reserved_by_render_intent"},
+    )
+
+    class FakeProject:
+        def GetUniqueId(self) -> str:
+            return (
+                "other-project" if condition == "wrong-project" else "original-project"
+            )
+
+        def GetName(self) -> str:
+            return "original-project-name"
+
+        def GetCurrentTimeline(self) -> Any:
+            return SimpleNamespace(
+                GetUniqueId=lambda: "original-timeline",
+                GetName=lambda: "original-timeline-name",
+            )
+
+        def IsRenderingInProgress(self) -> bool:
+            return condition == "rendering"
+
+        def GetRenderJobList(self) -> list[dict[str, str]]:
+            if condition == "job-missing":
+                return [{"JobId": "other-job"}]
+            rows = [{"JobId": "old-job"}]
+            if condition == "job-duplicate":
+                rows.append({"JobId": "old-job"})
+            return rows
+
+        def GetRenderJobStatus(self, _id: str) -> dict[str, str]:
+            return {"JobStatus": "Ready" if condition == "job-ready" else "Complete"}
+
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: FakeProject(),
+        LoadProject=lambda _name: pytest.fail("observer switched Resolve projects"),
+    )
+    resolve = SimpleNamespace(
+        GetProductName=lambda: "DaVinci Resolve Studio",
+        GetVersion=lambda: [21, 1, 1, 10, ""],
+        GetProjectManager=lambda: manager,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "DaVinciResolveScript",
+        SimpleNamespace(scriptapp=lambda _: resolve),
+    )
+    old_bytes = path.read_bytes()
+    if condition in {
+        "wrong-project",
+        "rendering",
+        "job-ready",
+        "job-missing",
+        "job-duplicate",
+        "future-native-request",
+    }:
+        with pytest.raises(ValueError):
+            owner.observe_terminal_render(path)
+        assert not owner.PAUSED_OUTPUT_ROOT.exists()
+        with pytest.raises(owner.NativeOwnerError):
+            owner.preflight_native_owner()
+    else:
+        signed = owner.observe_terminal_render(path)
+        if condition == "forged":
+            signed_record = json.loads(signed.read_bytes())
+            signed_record["mac"] = "0" * 64
+            signed.write_text(json.dumps(signed_record))
+        elif condition == "stale":
+            signed_record = json.loads(signed.read_bytes())
+            signed_record["observedAt"] = (
+                datetime.now(UTC) - timedelta(days=1)
+            ).isoformat()
+            signed_record["mac"] = hmac.digest(
+                owner._paused_observation_key(key),
+                owner._canonical(
+                    {k: v for k, v in signed_record.items() if k != "mac"}
+                ),
+                "sha256",
+            ).hex()
+            signed.write_text(json.dumps(signed_record))
+        elif condition == "changed-result":
+            path.write_bytes(path.read_bytes() + b" ")
+        if condition == "safe":
+            owner.preflight_native_owner()
+            assert owner._locally_attested_paused_queue(key)
+            with owner.native_owner():
+                pass
+            renewed = owner.observe_terminal_render(path)
+            assert renewed != signed and signed.is_file()
+            owner.preflight_native_owner()
+        else:
+            with pytest.raises(owner.NativeOwnerError) as error:
+                owner.preflight_native_owner()
+            assert error.value.reason == "output_render_unresolved"
+    if condition != "changed-result":
+        assert path.read_bytes() == old_bytes
 
 
 @pytest.mark.parametrize("expired", [False, True])

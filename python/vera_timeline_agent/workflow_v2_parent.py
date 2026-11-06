@@ -62,7 +62,13 @@ def _request(path: Path, expected: str) -> dict[str, Any]:
     return value
 
 
-def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
+def start(
+    request_path: Path,
+    expected: str,
+    python: Path,
+    *,
+    independent_disposable: bool = False,
+) -> dict[str, Any]:
     """Dispatch once. Repeated calls only read the original operation."""
     request_path = request_path.absolute()
     request = _request(request_path, expected)
@@ -98,13 +104,25 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
                 )
         from .resolve_native_owner import (
             acquire_native_owner,
+            preflight_independent_disposable,
             preflight_native_owner,
             release_native_owner,
         )
 
         owner_fd = acquire_native_owner()
         try:
-            preflight_native_owner()
+            if independent_disposable:
+                if (
+                    request.get("action") != "build"
+                    or request.get("authorizeNewNonproduction") is not True
+                    or request.get("projectName") != request.get("timelineName")
+                ):
+                    raise ValueError(
+                        "independent disposable requires an authorized new build"
+                    )
+                preflight_independent_disposable(request["projectName"])
+            else:
+                preflight_native_owner()
             return _dispatch(request_path, expected, python, active, owner_fd)
         finally:
             # Close this duplicate only; the child retains the shared lock.

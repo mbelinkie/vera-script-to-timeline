@@ -49,20 +49,93 @@ interpreters, dynamic imports, private data uploads or automatic retries.
 ## Recovery and reports
 
 The parent, injected launcher, output entry point and #328 bridge share a host
-ownership lock. The detached parent worker inherits that lock. The queue and
-external parent perform a host-only check of retained parent, output-render and
-bridge reservations as well: a released OS lock
-does not clear an unresolved native operation. Known terminal native results
-and authenticated expired unstarted requests are distinguished from unresolved
-render work; records are never deleted to make a new job eligible. Old installed
-bundles must be regenerated from the current runtime before use; a pre-M2 bundle
-does not gain the new guard merely because the queue was upgraded.
-Other entry points retain their existing lane-specific authorization and recovery
-checks and refuse a live or unresolved guarded parent. Standalone non-output
-writes also refuse retained render reservations, using the same journal validator
-as the host controller. The output lane can continue its own approved chain.
-The installed guard uses only stdlib; it does not load the host output controller
-inside Resolve.
+ownership lock. The detached parent worker inherits that lock. The queue's
+**new disposable native test** path is a narrow exception to the *historical
+output-render reservation* gate, not to this exclusive lock. It requires a
+freshly authorized normal v2 build, an independently generated unique target
+name, and an in-person-compatible read-only Resolve check: available local
+scripting, stable current project identity, no active or unknown render, all
+current-project render jobs terminal, target name not already present, and
+no unresolved output-host chain belonging to that current project unless
+separately authenticated as quiescent. The external parent **repeats** that
+check after taking the global lock, immediately before starting its one-use
+worker. Old UNKNOWN operations in *other projects* remain UNKNOWN and retain
+all their original evidence; they do not automatically own an idle application.
+If Resolve, its project/job inventory, owner lock, prior parent, or #328 bridge
+is unavailable or ambiguous, the new job is BLOCKED, not dispatched.
+
+**Only this M2 disposable test route opts into independent isolation.**
+Ordinary non-output delivery, legacy workflows, and output qualification keep
+their existing strict historical ownership guards. Old installed bundles must
+be regenerated from the current runtime before use; a pre-M2 bundle does not
+gain the new guard merely because the queue was upgraded. The installed guard
+uses only stdlib; it does not load the host output controller inside Resolve.
+Nothing clears a historical reservation, changes an old result from UNKNOWN,
+replays an old effect, or proves that old output was delivered.
+
+### Paused historical output queues
+
+An old `queue_render` result with an uncertain `Project.AddRenderJob` effect is
+**not** a completed render and cannot be retried or rewritten. When its original
+Producer has explicitly paused that work, an operator may use the separate
+`python -m vera_timeline_agent.resolve_native_owner --observe-paused-queue
+<exact-original-result.json>` command with local Resolve scripting to observe
+the **original** project and timeline by unique ID. The observation fails closed
+if any render is active/unknown, any job has a nonterminal status, the old
+output still has a matching queued job, or the native request/result/history
+cannot be authenticated. **The operator must already have the exact original
+project and timeline selected**; the observer never calls `LoadProject` or
+switches the UI, and never queues, starts, removes or saves a render.
+
+The immutable private observation records the old result digest, complete host
+journal digest, original project/timeline identity, observed job statuses and
+time. It is MAC-authenticated using that output chain's private host receipt
+key and expires after twelve hours. A fresh observation gets a new
+digest-qualified file; old evidence is never deleted or reclassified. Only an
+exact unchanged historical tail and a current authenticated observation can
+make an *independent new disposable target* eligible under the owner protocol.
+The old result remains UNKNOWN; an expired observation, any changed retained
+chain or mismatched observation restores the refusal. This is isolation of
+quiescent **queued-only** work, not native completion proof or permission to
+resume the old job. Human changes to the Resolve UI outside VERA are not
+controlled by the queue; no one should start an old render while testing.
+
+For historical `queue_render:complete` and `start_render:complete` results that
+have a known job ID but no terminal native poll, a separate **read-only**
+`--observe-terminal-render <exact-original-result.json>` operation can create
+a short-lived, signed quiescence record. The exact original project and timeline
+must already be current. Every observed render job must be terminal, and the
+original job ID must appear **exactly once** with a terminal status. A missing
+job, still-queued job, active render, different project, suspect evidence,
+later native request/effect, or attempted implicit `LoadProject` remains
+blocked; no render is started, removed, saved or retried. For a recorded start,
+the exact preceding queued job must match. The record binds the host journal,
+original native result, job ID, project/timeline, observed statuses and time,
+with the same private HMAC and twelve-hour bound as a queued-only pause.
+This only isolates a proved-idle historical reservation; it does **not** invent
+the missing terminal poll, verify old output media, or resolve original UNKNOWN.
+Each later read-only observation creates a fresh, uniquely named immutable
+digest-qualified record; earlier signed observations are retained, including
+expired ones. Readers accept only a currently valid signature, exact matching
+history and unexpired observation. The installed stdlib-only owner guard
+recognizes both queued-only and terminal-job observations, including a safe
+empty reserved next stage; the host still performs full retained verification
+before dispatch.
+If the original project is not already selected, report
+`blocked_requires_human` rather than switching projects or guessing that an
+unselected project's render has stopped. These observations are needed to
+resume or establish the historical operation's own state; they are **not
+required** for a separately authorized, brand-new M2 disposable test when
+the live independent-isolation preflight passes.
+
+The installed Resolve launcher uses a self-contained stdlib owner guard and
+small journal/observation checks. It must **not** import the full host output
+verifier, which is absent from some installed runtime inventories. The host
+queue and guarded parent retain their stronger full historic verification
+before a new dispatch. When old retained sources live on external storage,
+macOS background privacy permissions must allow the scheduled worker to read
+them. A LaunchAgent's `Operation not permitted` is a **blocked prerequisite**,
+not a reason to waive historic authentication or fabricate success.
 
 The queue records dispatch intent and immutable request identity before calling
 the existing guarded parent. Every subsequent worker only reconciles that same
