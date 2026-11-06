@@ -394,17 +394,34 @@ class BuildStudioStagePort:
                 "native build returned unverified or partial target; "
                 "do not retry mutation"
             )
-        self.reservation.finish(self.authorization.request_id, digest)
+        # The synchronous build result alone cannot release host-wide native
+        # exclusion. Retain the reservation until a separate connected
+        # save/reopen readback has verified this same target.
 
 
 class VerifyStudioStagePort:
     """Distinct independent readback of the same already-created target."""
 
     def __init__(
-        self, authorization: NativeAuthorization, driver: NativeDriver
+        self,
+        authorization: NativeAuthorization,
+        driver: NativeDriver,
+        *,
+        host_state: Path = PARENT_STATE_ROOT,
     ) -> None:
         self.authorization = authorization
         self.driver = driver
+        self.reservation = _HostReservation(host_state)
+
+    def _authorized(self, snapshot: FrozenBuildSnapshot, digest: str) -> None:
+        if (
+            not self.authorization.approved_nonproduction
+            or self.authorization.project_id != snapshot.project_id
+            or self.authorization.snapshot_id != snapshot.snapshot_id
+            or self.authorization.attestation_sha256 != digest
+            or self.authorization.route != "None"
+        ):
+            raise NeedsAction("native readback authorization changed")
 
     def inspect(
         self, context: StageContext, snapshot: FrozenBuildSnapshot
@@ -412,6 +429,7 @@ class VerifyStudioStagePort:
         if context.stage != "verifying_timeline":
             raise BuildJobError("wrong native verification stage")
         attestation, digest, target = _target(context, snapshot)
+        self._authorized(snapshot, digest)
         record = _stage_file(context, snapshot, context.stage, "native-readback.json")
         if not record.exists():
             return Inspection(EffectState.ABSENT)
@@ -428,6 +446,8 @@ class VerifyStudioStagePort:
                 EffectState.UNCERTAIN,
                 reason="independent native readback no longer matches",
             )
+        context.renew_lease()
+        self.reservation.finish(self.authorization.request_id, digest)
         return Inspection(
             EffectState.VERIFIED,
             StageEvidence(
@@ -449,14 +469,7 @@ class VerifyStudioStagePort:
 
     def execute(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> None:
         attestation, digest, target = _target(context, snapshot)
-        if (
-            not self.authorization.approved_nonproduction
-            or self.authorization.snapshot_id != snapshot.snapshot_id
-            or self.authorization.attestation_sha256 != digest
-        ):
-            raise NeedsAction(
-                "independent native readback is not bound to authorization"
-            )
+        self._authorized(snapshot, digest)
         context.renew_lease()
         result = self.driver.readback(
             attestation, digest, self.authorization.request_id

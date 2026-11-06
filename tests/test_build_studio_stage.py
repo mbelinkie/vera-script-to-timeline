@@ -163,6 +163,8 @@ def test_native_studio_preflight_explicit_one_use_then_separate_readback(
     )
     build.execute(ctx("building_resolve_timeline"), snapshot)
     assert driver.starts == 1
+    finished = host / f"composition-finished-{auth.request_id}.json"
+    assert not finished.exists(), "native build alone cannot release reservation"
     assert (
         build.inspect(ctx("building_resolve_timeline"), snapshot).state
         == EffectState.VERIFIED
@@ -170,7 +172,7 @@ def test_native_studio_preflight_explicit_one_use_then_separate_readback(
     with pytest.raises(UncertainResult, match="one-use"):
         build.execute(ctx("building_resolve_timeline"), snapshot)
     assert driver.starts == 1
-    verify = VerifyStudioStagePort(auth, driver)
+    verify = VerifyStudioStagePort(auth, driver, host_state=host)
     assert (
         verify.inspect(ctx("verifying_timeline"), snapshot).state == EffectState.ABSENT
     )
@@ -179,6 +181,7 @@ def test_native_studio_preflight_explicit_one_use_then_separate_readback(
         verify.inspect(ctx("verifying_timeline"), snapshot).state
         == EffectState.VERIFIED
     )
+    assert finished.is_file(), "independent native readback releases reservation"
     assert driver.readbacks >= 2
 
 
@@ -255,7 +258,12 @@ def test_partial_native_readback_is_never_a_verified_result(
         == EffectState.UNCERTAIN
     )
     with pytest.raises(NeedsAction, match="save/reopen discrepancy"):
-        VerifyStudioStagePort(auth, driver).execute(ctx("verifying_timeline"), snap)
+        VerifyStudioStagePort(auth, driver, host_state=host).execute(
+            ctx("verifying_timeline"), snap
+        )
+    assert not (host / f"composition-finished-{auth.request_id}.json").exists()
+    with pytest.raises(NeedsAction, match="unresolved effects"):
+        _HostReservation(host).reserve("different-target", "f" * 64)
 
 
 def test_finished_native_request_id_cannot_be_reused_for_another_target(
