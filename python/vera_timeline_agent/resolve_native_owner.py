@@ -517,12 +517,22 @@ def _has_attested_paused_queue(
     This does NOT resolve the uncertain AddRenderJob result or permit replay.
     Future operations or host-journal changes invalidate the attestation.
     """
-    key = operations.parent.name
-    result_sha = hashlib.sha256(_read(result_path)).hexdigest()
-    host_sha = _output_host_history_sha256(key)
-    path = _paused_observation_path(key, result_sha, host_sha)
-    if not path.exists() and not path.is_symlink():
+    try:
+        key = operations.parent.name
+        result_sha = hashlib.sha256(_read(result_path)).hexdigest()
+        host_sha = _output_host_history_sha256(key)
+        base = _paused_observation_path(key, result_sha, host_sha)
+        return any(
+            _valid_paused_queue_observation(path, key, result_sha, host_sha, result)
+            for path in _observation_candidates(base)
+        )
+    except (OSError, ValueError, KeyError, TypeError):
         return False
+
+
+def _valid_paused_queue_observation(
+    path: Path, key: str, result_sha: str, host_sha: str, result: dict[str, Any]
+) -> bool:
     try:
         if PAUSED_OUTPUT_ROOT.is_symlink() or path.is_symlink():
             return False
@@ -594,6 +604,23 @@ def _terminal_observation_path(key: str, result_sha: str, host_sha: str) -> Path
     return base.with_name(f"{base.stem}-terminal.json")
 
 
+def _new_observation_path(base: Path) -> Path:
+    """Give each observation its own immutable record; never overwrite an old one."""
+    return base.with_name(f"{base.stem}-obs-{os.urandom(12).hex()}.json")
+
+
+def _observation_candidates(base: Path) -> list[Path]:
+    """Include legacy digest-only records and independently signed renewals."""
+    if PAUSED_OUTPUT_ROOT.is_symlink() or not PAUSED_OUTPUT_ROOT.is_dir():
+        return []
+    matches = sorted(PAUSED_OUTPUT_ROOT.glob(f"{base.stem}-obs-*.json"), reverse=True)
+    if len(matches) > 4096:
+        raise ValueError("paused output observations exceed safe inspection bound")
+    if base.exists() or base.is_symlink():
+        matches.append(base)
+    return matches
+
+
 def _has_attested_terminal_render(
     operations: Path, result_path: Path, result: dict[str, Any]
 ) -> bool:
@@ -622,7 +649,19 @@ def _has_attested_terminal_render(
         key = operations.parent.name
         result_sha = hashlib.sha256(_read(result_path)).hexdigest()
         host_sha = _output_host_history_sha256(key)
-        path = _terminal_observation_path(key, result_sha, host_sha)
+        base = _terminal_observation_path(key, result_sha, host_sha)
+        return any(
+            _valid_terminal_observation(path, key, result_sha, host_sha, result)
+            for path in _observation_candidates(base)
+        )
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        return False
+
+
+def _valid_terminal_observation(
+    path: Path, key: str, result_sha: str, host_sha: str, result: dict[str, Any]
+) -> bool:
+    try:
         if PAUSED_OUTPUT_ROOT.is_symlink() or path.is_symlink():
             return False
         record = json.loads(_read(path, "terminal native output observation"))
@@ -726,6 +765,8 @@ def _locally_attested_paused_queue(key: str) -> bool:
             return False
         prior_sha: str | None = None
         last: dict[str, Any] | None = None
+        last_path: Path | None = None
+        trailing_empty = False
         for sequence, directory in enumerate(directories):
             if (
                 directory.is_symlink()
@@ -734,19 +775,32 @@ def _locally_attested_paused_queue(key: str) -> bool:
             ):
                 return False
             result_path = directory / "result.json"
+            if not result_path.exists() and not result_path.is_symlink():
+                if (
+                    not last
+                    or not result_path.parent.is_dir()
+                    or any(directory.iterdir())
+                ):
+                    return False
+                trailing_empty = True
+                continue
+            if trailing_empty:
+                return False
             raw = _read(result_path, "paused output result")
             result = json.loads(raw)
             if (
                 not isinstance(result, dict)
                 or result.get("sequence") != sequence
                 or (sequence and result.get("priorResultSha256") != prior_sha)
+                or (last is not None and last.get("status") != "complete")
                 or (
-                    sequence < len(directories) - 1
-                    and result.get("status") != "complete"
-                )
-                or (
-                    sequence < len(directories) - 1
-                    and result.get("action") in {"queue_render", "start_render"}
+                    last is not None
+                    and last.get("action") in {"queue_render", "start_render"}
+                    and not (
+                        last.get("action") == "queue_render"
+                        and result.get("action") == "start_render"
+                        and last.get("jobId") == result.get("jobId")
+                    )
                 )
             ):
                 return False
@@ -764,10 +818,16 @@ def _locally_attested_paused_queue(key: str) -> bool:
                 return False
             prior_sha = hashlib.sha256(raw).hexdigest()
             last = result
-        assert last is not None
-        return _has_attested_paused_queue(
-            operations, directories[-1] / "result.json", last
-        )
+            last_path = result_path
+        if last is None or last_path is None:
+            return False
+        if last.get("action") == "queue_render" and last.get("status") == "uncertain":
+            return not trailing_empty and _has_attested_paused_queue(
+                operations, last_path, last
+            )
+        if last.get("action") in {"queue_render", "start_render"}:
+            return _has_attested_terminal_render(operations, last_path, last)
+        return False
     except (OSError, ValueError, KeyError, TypeError):
         return False
 
@@ -782,6 +842,7 @@ def observe_paused_queue(result_path: Path) -> Path:
     """
     import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
 
+    result_path = result_path.absolute()
     if result_path.name != "result.json":
         raise ValueError("expected an existing native result")
     operation = result_path.parent
@@ -913,7 +974,9 @@ def observe_paused_queue(result_path: Path) -> Path:
         if PAUSED_OUTPUT_ROOT.is_symlink() or PAUSED_OUTPUT_ROOT.parent.is_symlink():
             raise ValueError("paused-output observation directory is unsafe")
         PAUSED_OUTPUT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-        path = _paused_observation_path(key, result_sha, host_sha)
+        path = _new_observation_path(
+            _paused_observation_path(key, result_sha, host_sha)
+        )
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "wb") as stream:
             stream.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))
@@ -936,6 +999,7 @@ def observe_terminal_render(result_path: Path) -> Path:
     """
     import DaVinciResolveScript as dvr
 
+    result_path = result_path.absolute()
     operation = result_path.parent
     operations = operation.parent
     key = operations.parent.name
@@ -1082,7 +1146,9 @@ def observe_terminal_render(result_path: Path) -> Path:
         if PAUSED_OUTPUT_ROOT.is_symlink() or PAUSED_OUTPUT_ROOT.parent.is_symlink():
             raise ValueError("paused-output observation directory is unsafe")
         PAUSED_OUTPUT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-        path = _terminal_observation_path(key, result_sha, host_sha)
+        path = _new_observation_path(
+            _terminal_observation_path(key, result_sha, host_sha)
+        )
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "wb") as stream:
             stream.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))

@@ -474,8 +474,18 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
         attested = owner.observe_paused_queue(path)
         assert json.loads(attested.read_bytes())["matchingJobCount"] == 0
         owner.preflight_native_owner()
-        with pytest.raises(FileExistsError):
-            owner.observe_paused_queue(path)
+        renewed = owner.observe_paused_queue(path)
+        assert renewed != attested
+        assert attested.is_file() and renewed.is_file()
+        old = json.loads(attested.read_bytes())
+        old["observedAt"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        old["mac"] = hmac.digest(
+            owner._paused_observation_key(key),
+            owner._canonical({k: v for k, v in old.items() if k != "mac"}),
+            "sha256",
+        ).hex()
+        attested.write_text(json.dumps(old))
+        owner.preflight_native_owner()  # Expired evidence retained, renewal valid.
     assert path.read_bytes() == old_bytes
 
 
@@ -504,13 +514,28 @@ def test_terminal_render_pause_requires_exact_live_terminal_job_and_signed_chain
     key = "8" * 64
     operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
     sequence = int(action == "start_render")
+    request_sha = hashlib.sha256(b"{}").hexdigest()
+    prior_sha: str | None = None
     if sequence:
         queued = _result(operations, 0, "queue_render")
         queued.write_text(
             json.dumps(
-                {"action": "queue_render", "status": "complete", "jobId": "old-job"}
+                {
+                    "sequence": 0,
+                    "operationId": "old-queued-operation",
+                    "requestSha256": request_sha,
+                    "action": "queue_render",
+                    "status": "complete",
+                    "jobId": "old-job",
+                }
             )
         )
+        (queued.parent / "native-start.json").write_text(
+            json.dumps(
+                {"requestSha256": request_sha, "operationId": "old-queued-operation"}
+            )
+        )
+        prior_sha = hashlib.sha256(queued.read_bytes()).hexdigest()
     path = _result(operations, sequence, action)
     target = {
         "projectUid": "original-project",
@@ -521,6 +546,7 @@ def test_terminal_render_pause_requires_exact_live_terminal_job_and_signed_chain
     result = {
         "sequence": sequence,
         "operationId": "original-operation",
+        "requestSha256": request_sha,
         "action": action,
         "status": "complete",
         "jobId": "old-job",
@@ -538,7 +564,12 @@ def test_terminal_render_pause_requires_exact_live_terminal_job_and_signed_chain
             }
         ],
     }
+    if prior_sha is not None:
+        result["priorResultSha256"] = prior_sha
     path.write_text(json.dumps(result), encoding="utf-8")
+    (path.parent / "native-start.json").write_text(
+        json.dumps({"requestSha256": request_sha, "operationId": "original-operation"})
+    )
     if condition == "future-native-request":
         future = operations / f"{sequence + 1:08d}"
         future.mkdir()
@@ -638,6 +669,12 @@ def test_terminal_render_pause_requires_exact_live_terminal_job_and_signed_chain
         elif condition == "changed-result":
             path.write_bytes(path.read_bytes() + b" ")
         if condition == "safe":
+            owner.preflight_native_owner()
+            assert owner._locally_attested_paused_queue(key)
+            with owner.native_owner():
+                pass
+            renewed = owner.observe_terminal_render(path)
+            assert renewed != signed and signed.is_file()
             owner.preflight_native_owner()
         else:
             with pytest.raises(owner.NativeOwnerError) as error:

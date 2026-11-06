@@ -105,6 +105,13 @@ original native result, job ID, project/timeline, observed statuses and time,
 with the same private HMAC and twelve-hour bound as a queued-only pause.
 This only isolates a proved-idle historical reservation; it does **not** invent
 the missing terminal poll, verify old output media, or resolve original UNKNOWN.
+Each later read-only observation creates a fresh, uniquely named immutable
+digest-qualified record; earlier signed observations are retained, including
+expired ones. Readers accept only a currently valid signature, exact matching
+history and unexpired observation. The installed stdlib-only owner guard
+recognizes both queued-only and terminal-job observations, including a safe
+empty reserved next stage; the host still performs full retained verification
+before dispatch.
 If the original project is not already selected, report
 `blocked_requires_human` rather than switching projects or guessing that an
 unselected project's render has stopped.
