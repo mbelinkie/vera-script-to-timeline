@@ -746,6 +746,39 @@
         }
       }
     },
+    "ImageMotionFrameV1": {
+      "description": "Source-normalized focus and scale relative to the selected framing policy; runtime qualification, not this schema, decides the safe Resolve envelope.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["focusX", "focusY", "scale"],
+      "properties": {
+        "focusX": { "type": "number", "minimum": 0, "maximum": 1 },
+        "focusY": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "ImageMotionV1": {
+      "description": "Explicit image motion intent. No numeric product preset is implied: native motion requires frozen endpoints and easing; unsupported settings must fail at delivery rather than being silently changed.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "start", "end", "easing"],
+          "properties": {
+            "mode": { "const": "native_dynamic_zoom" },
+            "start": { "$ref": "#/$defs/ImageMotionFrameV1" },
+            "end": { "$ref": "#/$defs/ImageMotionFrameV1" },
+            "easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] }
+          }
+        }
+      ]
+    },
     "NarratedVisualPayloadV2": {
       "type": "object",
       "additionalProperties": false,
@@ -803,6 +836,10 @@
             "cover",
             "native"
           ]
+        },
+        "imageMotion": {
+          "$ref": "#/$defs/ImageMotionV1",
+          "description": "Per-occurrence still-image override; absent inherits the frozen authoring default."
         }
       },
       "allOf": [
@@ -1012,6 +1049,13 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": { "pictureKind": { "not": { "enum": ["image", "capture", "graphic"] } } },
+            "required": ["pictureKind"]
+          },
+          "then": { "properties": { "imageMotion": false } }
         }
       ]
     },
@@ -1959,6 +2003,10 @@
             "cover",
             "native"
           ]
+        },
+        "imageMotion": {
+          "$ref": "#/$defs/ImageMotionV1",
+          "description": "Per-occurrence still-image override; absent inherits the frozen authoring default."
         }
       },
       "allOf": [
@@ -2118,6 +2166,13 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": { "pictureKind": { "not": { "enum": ["image", "capture", "graphic"] } } },
+            "required": ["pictureKind"]
+          },
+          "then": { "properties": { "imageMotion": false } }
         }
       ]
     },

@@ -33,6 +33,10 @@
     },
     "visualOnlyStillDurationMs": {
       "$ref": "#/$defs/PositiveSafeInteger"
+    },
+    "imageMotionDefault": {
+      "$ref": "script-document-v2.schema.json#/$defs/ImageMotionV1",
+      "description": "Configured automatic image motion for new builds; older settings without this field retain legacy still behavior."
     }
   },
   "$defs": {

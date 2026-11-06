@@ -95,6 +95,7 @@ const validateManifest = ajv.getSchema<TimelineManifestV2>(timelineManifestSchem
 const validateReport = ajv.getSchema<BuildReportV2>(buildReportSchema.$id)!;
 
 interface Fraction { n: bigint; d: bigint }
+type ImageMotionV1 = NonNullable<AuthoringDefaultsV2["imageMotionDefault"]>;
 type CutawaySlot = ContentSlot & { relation: Extract<ContentSlot["relation"], { kind: "cutaway" }> };
 interface TimedRow {
   kind: "narration";
@@ -466,7 +467,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
                 const sourceId = deliveredSourceId(descriptor, binding);
                 const delivered = deliveredRangeForOriginalRange(descriptor, binding.timeMapping, sourceIn, deliveredSourceFrames);
                 const common = { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: payload.payloadId, overlayEventId: null, sourceId, originalSourceHash: descriptor.sourceSnapshot.contentHash, deliveredSourceHash: binding.verification.deliveredHash, timingMapHash: null, compilerVersion: dependencies.compiler.version };
-                const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy);
+                const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy, dependencies.authoringDefaults.imageMotionDefault, payload.imageMotion);
                 rowEvents.push({ eventId, kind: "primary_visual", trackId: dependencies.roles.primaryRootTrackId, trackRole: "primary_root", recordRange: range, provenance: common, sourceRange: delivered, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}) });
                 if (payload.audioPolicy !== "mute" && isClip) {
                   const sourceAudioTrack = dependencies.roles.sourceAudioTrackIds[0];
@@ -733,7 +734,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           try {
             occurrenceRange = deliveredRangeForOriginalRange(descriptor, binding.timeMapping, sourceIn, deliveredSourceFrames);
             mapping = binding.timeMapping;
-            const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy);
+            const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy, dependencies.authoringDefaults.imageMotionDefault, payload.imageMotion);
             emittedEvent = { eventId, kind: "primary_visual", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: { ...common, sourceId: deliveredSourceId(descriptor, binding), deliveredSourceHash: binding.verification.deliveredHash }, sourceRange: occurrenceRange, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}) };
             if (payload.audioPolicy === "quiet" && isClip) {
               const audioTrack = dependencies.roles.sourceAudioTrackIds[0];
@@ -870,7 +871,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       const provenance: TimelineEventV2["provenance"] = { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: overlay.payload.payloadId, overlayEventId: overlay.id, sourceId: deliveredSourceId(descriptor, binding), originalSourceHash: descriptor.sourceSnapshot.contentHash, deliveredSourceHash: binding.verification.deliveredHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version };
       let pictureTreatment: TimelineEventV2["pictureTreatment"];
       try {
-        pictureTreatment = mediaStillTreatment(overlay.payload.pictureKind, overlay.payload.framingPolicy);
+        pictureTreatment = mediaStillTreatment(overlay.payload.pictureKind, overlay.payload.framingPolicy, dependencies.authoringDefaults.imageMotionDefault, overlay.payload.imageMotion);
       } catch (error) {
         diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", error instanceof Error ? error.message : String(error), entity("overlay_event", overlay.id, "pictureTreatment"), undefined, ["repair_document"]));
         continue;
@@ -1011,11 +1012,17 @@ function effectivePresenterStill(document: ScriptDocumentV2, dependencies: Compi
 function mediaStillTreatment(
   pictureKind: string,
   framingPolicy: string,
+  projectDefault: ImageMotionV1 | undefined,
+  occurrenceOverride: ImageMotionV1 | undefined,
 ): TimelineEventV2["pictureTreatment"] {
   if (pictureKind === "clip") return undefined;
   if (pictureKind !== "image" && pictureKind !== "capture" && pictureKind !== "graphic") return undefined;
   if (framingPolicy !== "contain" && framingPolicy !== "cover" && framingPolicy !== "native") throw new RangeError("Media-backed still frames require a supported framing policy.");
-  return { kind: "still_frame", pictureKind, framingPolicy };
+  // A missing default is a legacy frozen input: retain the byte-identical pre-motion
+  // output. New settings explicitly pin their desired geometry, and an occurrence
+  // override (including None) replaces that default without consulting Resolve.
+  const imageMotion = occurrenceOverride ?? projectDefault;
+  return { kind: "still_frame", pictureKind, framingPolicy, ...(imageMotion ? { imageMotion: structuredClone(imageMotion) } : {}) };
 }
 
 function sourceMappingProblem(descriptor: OccurrenceMediaResolutionV2): string | null {

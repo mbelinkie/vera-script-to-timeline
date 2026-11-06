@@ -53,6 +53,19 @@ export type NarratedVisualPayloadV2 = {
   sourceUsage: SourceUsage | null;
   audioPolicy: "mute" | "quiet";
   framingPolicy: "contain" | "cover" | "native";
+  /**
+   * Per-occurrence still-image override; absent inherits the frozen authoring default.
+   */
+  imageMotion?:
+    | {
+        mode: "none";
+      }
+    | {
+        mode: "native_dynamic_zoom";
+        start: ImageMotionFrameV1;
+        end: ImageMotionFrameV1;
+        easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+      };
 };
 export type TimedPlacement = (
   | {
@@ -138,6 +151,19 @@ export type StandaloneVisualPayloadV2 = {
     | UrlSource;
   audioPolicy: "mute" | "quiet" | "full";
   framingPolicy: "contain" | "cover" | "native";
+  /**
+   * Per-occurrence still-image override; absent inherits the frozen authoring default.
+   */
+  imageMotion?:
+    | {
+        mode: "none";
+      }
+    | {
+        mode: "native_dynamic_zoom";
+        start: ImageMotionFrameV1;
+        end: ImageMotionFrameV1;
+        easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+      };
 };
 export type SupportingItemV2 = {
   [k: string]: unknown;
@@ -802,6 +828,14 @@ export interface UrlSource {
 export interface SourceUsage {
   sourceInFrame: number;
 }
+/**
+ * Source-normalized focus and scale relative to the selected framing policy; runtime qualification, not this schema, decides the safe Resolve envelope.
+ */
+export interface ImageMotionFrameV1 {
+  focusX: number;
+  focusY: number;
+  scale: number;
+}
 export interface ReturnSlot {
   id: string;
   kind: "return";
@@ -987,6 +1021,19 @@ export interface AuthoringProjectSettingsV1 {
   settingsHash: string;
   presenterStill?: PresenterStillReference1;
   visualOnlyStillDurationMs?: number;
+  /**
+   * Configured automatic image motion for new builds; older settings without this field retain legacy still behavior.
+   */
+  imageMotionDefault?:
+    | {
+        mode: "none";
+      }
+    | {
+        mode: "native_dynamic_zoom";
+        start: ImageMotionFrameV1;
+        end: ImageMotionFrameV1;
+        easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+      };
 }
 export interface PresenterStillReference1 {
   mediaReferenceId: string;
@@ -1051,6 +1098,19 @@ export interface AuthoringDefaultsV2 {
   settingsHash: string;
   visualOnlyStillDurationMs: number;
   presenterStill: PresenterStillReference | null;
+  /**
+   * Frozen project image-motion configuration used by the compiler, not a live Resolve default.
+   */
+  imageMotionDefault?:
+    | {
+        mode: "none";
+      }
+    | {
+        mode: "native_dynamic_zoom";
+        start: ImageMotionFrameV1;
+        end: ImageMotionFrameV1;
+        easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+      };
   sourceAudioLevelPolicy: {
     version: string;
     quietGainDb: -18;
@@ -1489,6 +1549,19 @@ export interface StillFramePictureTreatmentV2 {
   kind: "still_frame";
   pictureKind: "image" | "capture" | "graphic";
   framingPolicy: "contain" | "cover" | "native";
+  /**
+   * Resolved frozen image-motion intent; absent only for historical compiler input without a motion default or override.
+   */
+  imageMotion?:
+    | {
+        mode: "none";
+      }
+    | {
+        mode: "native_dynamic_zoom";
+        start: ImageMotionFrameV1;
+        end: ImageMotionFrameV1;
+        easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
+      };
 }
 export interface ScriptMarkerTreatmentV2 {
   supportingItemId: string;

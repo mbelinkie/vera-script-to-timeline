@@ -870,6 +870,10 @@
             "cover",
             "native"
           ]
+        },
+        "imageMotion": {
+          "$ref": "script-document-v2.schema.json#/$defs/ImageMotionV1",
+          "description": "Resolved frozen image-motion intent; absent only for historical compiler input without a motion default or override."
         }
       }
     },

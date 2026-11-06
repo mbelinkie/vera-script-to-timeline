@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Literal, NotRequired, TypedDict
 
+from . import script_document_v2_schema
+
 type EntityId = str
 
 
@@ -50,3 +52,4 @@ class AuthoringProjectSettingsV1(TypedDict):
     settingsHash: ContentHash
     presenterStill: NotRequired[PresenterStillReference]
     visualOnlyStillDurationMs: NotRequired[PositiveSafeInteger]
+    imageMotionDefault: NotRequired[script_document_v2_schema.ImageMotionV1]

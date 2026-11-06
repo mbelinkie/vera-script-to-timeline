@@ -128,6 +128,26 @@ class UrlSource(TypedDict):
     url: str
 
 
+class ImageMotionFrameV1(TypedDict):
+    focusX: float
+    focusY: float
+    scale: float
+
+
+class ImageMotionV11(TypedDict):
+    mode: Literal["none"]
+
+
+class ImageMotionV12(TypedDict):
+    mode: Literal["native_dynamic_zoom"]
+    start: ImageMotionFrameV1
+    end: ImageMotionFrameV1
+    easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"]
+
+
+type ImageMotionV1 = ImageMotionV11 | ImageMotionV12
+
+
 class PrimaryVisualPayload1(TypedDict):
     kind: Literal["on_camera"]
     presenterChoiceId: EntityId | None
@@ -321,6 +341,7 @@ class NarratedVisualPayloadV2(TypedDict):
     sourceUsage: SourceUsage | None
     audioPolicy: Literal["mute", "quiet"]
     framingPolicy: Literal["contain", "cover", "native"]
+    imageMotion: NotRequired[ImageMotionV1]
 
 
 type PrimaryVisualPayload = (
@@ -468,6 +489,7 @@ class StandaloneVisualPayloadV2(TypedDict):
     source: SourceReference
     audioPolicy: Literal["mute", "quiet", "full"]
     framingPolicy: Literal["contain", "cover", "native"]
+    imageMotion: NotRequired[ImageMotionV1]
 
 
 class VisualOnlyBlockV2(TypedDict):
