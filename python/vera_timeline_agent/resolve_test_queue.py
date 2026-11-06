@@ -1083,7 +1083,14 @@ def worker_once(store: Store) -> bool:
         worker_id = uuid.uuid4().hex
         with store.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            old = db.execute("SELECT id FROM jobs WHERE state='running'").fetchall()
+            # Campaign child ownership belongs to the M3 coordinator. A crash
+            # before its durable native intent can safely continue that SAME
+            # child; the ordinary M2 worker must not orphan it as mock work.
+            old = db.execute(
+                "SELECT j.id FROM jobs j LEFT JOIN campaign_trials c "
+                "ON c.child_job_id=j.id WHERE j.state='running' "
+                "AND c.child_job_id IS NULL"
+            ).fetchall()
             for value in old:
                 previous_id = cast(str, value["id"])
                 db.execute(
@@ -1094,8 +1101,10 @@ def worker_once(store: Store) -> bool:
                 orphaned.append(previous_id)
             if not orphaned:
                 selected = db.execute(
-                    "SELECT id,deadline_at FROM jobs WHERE state='queued' "
-                    "AND run_at<=? ORDER BY run_at,id LIMIT 1",
+                    "SELECT j.id,j.deadline_at FROM jobs j "
+                    "LEFT JOIN campaign_trials c ON c.child_job_id=j.id "
+                    "WHERE j.state='queued' AND j.run_at<=? "
+                    "AND c.child_job_id IS NULL ORDER BY j.run_at,j.id LIMIT 1",
                     (time.time(),),
                 ).fetchone()
                 if selected is not None:

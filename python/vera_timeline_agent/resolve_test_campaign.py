@@ -1,16 +1,19 @@
-"""Closed, immutable M3 campaign contract over independent one-use M2 native plans.
+"""Closed M3 campaign contract and serial coordinator for guarded M2 native jobs.
 
-Phase 1 only: no native dispatch or live Resolve access occurs here. The later
-coordinator must activate one already-prepared child using M2's guarded path.
+Campaign children are independent one-use M2 plans. Every child is journaled
+and transactionally reserved *before* the M2 dispatcher may consume its intent.
 """
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import re
+import shutil
 import stat
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -476,3 +479,377 @@ def load_frozen_campaign(store: queue.Store, campaign_id: str) -> dict[str, Any]
         if tuple(row) != identity:
             raise queue.QueueError("frozen campaign step identity changed")
     return plan
+
+
+def _event(db: Any, campaign_id: str, kind: str, detail: str) -> None:
+    """Only fixed, non-private reason codes may enter the campaign journal."""
+    db.execute(
+        "INSERT INTO campaign_events(campaign_id,at,kind,detail) VALUES(?,?,?,?)",
+        (campaign_id, queue.iso(queue.now_utc()), kind, detail),
+    )
+
+
+def _stop(
+    db: Any, campaign_id: str, state: str, reason: str, *, cancel_pending: bool = False
+) -> None:
+    now = queue.iso(queue.now_utc())
+    db.execute(
+        "UPDATE campaigns SET state=?,reason=?,ended_at=?,version=version+1 "
+        "WHERE id=? AND state IN ('queued','running')",
+        (state, reason, now, campaign_id),
+    )
+    if cancel_pending:
+        db.execute(
+            "UPDATE campaign_trials SET state='canceled',outcome='canceled',ended_at=? "
+            "WHERE campaign_id=? AND state='pending'",
+            (now, campaign_id),
+        )
+    _event(db, campaign_id, state, reason)
+
+
+def _child_record(db: Any, campaign_id: str) -> Any:
+    return db.execute(
+        "SELECT * FROM campaign_trials WHERE campaign_id=? "
+        "AND state!='completed_verified' ORDER BY ordinal LIMIT 1",
+        (campaign_id,),
+    ).fetchone()
+
+
+def _sync_child(store: queue.Store, campaign_id: str, ordinal: int) -> None:
+    """Reflect only a guarded M2 terminal state; do not infer native success."""
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        step = db.execute(
+            "SELECT * FROM campaign_trials WHERE campaign_id=? AND ordinal=?",
+            (campaign_id, ordinal),
+        ).fetchone()
+        if step is None or not step["child_job_id"]:
+            raise queue.QueueError("campaign child binding missing")
+        job = db.execute(
+            "SELECT * FROM jobs WHERE id=?", (step["child_job_id"],)
+        ).fetchone()
+        attempt = db.execute(
+            "SELECT * FROM native_attempts WHERE job_id=?",
+            (step["child_job_id"],),
+        ).fetchone()
+        if (
+            job is None
+            or attempt is None
+            or job["plan_sha"] != step["plan_sha"]
+            or attempt["request_sha"] != step["request_sha"]
+            or job["attempt"] != 1
+        ):
+            _stop(db, campaign_id, "unknown", "child_binding_changed")
+            return
+        state = job["state"]
+        if state in {"queued", "running"}:
+            return
+        if state == "completed_verified" and not (
+            attempt["intent_at"] and attempt["native_verified"] == 1
+        ):
+            state = "unknown"
+        if step["state"] != state:
+            db.execute(
+                "UPDATE campaign_trials SET state=?,outcome=?,started_at=?,ended_at=? "
+                "WHERE campaign_id=? AND ordinal=? AND child_job_id=?",
+                (
+                    state,
+                    state,
+                    job["started_at"],
+                    job["ended_at"],
+                    campaign_id,
+                    ordinal,
+                    step["child_job_id"],
+                ),
+            )
+            _event(db, campaign_id, "child_terminal", state)
+        if state != "completed_verified":
+            disposition = (
+                "unknown"
+                if state == "unknown"
+                else "canceled"
+                if state == "canceled"
+                else "blocked"
+                if state == "blocked_native"
+                else "failed"
+            )
+            _stop(db, campaign_id, disposition, f"child_{state}", cancel_pending=True)
+
+
+def _run_bound_child(store: queue.Store, campaign_id: str, step: Any) -> bool:
+    """Resume before-intent only; once M2 wrote intent, observe and NEVER start."""
+    child_id = cast(str, step["child_job_id"])
+    with store.connect() as db:
+        job = db.execute("SELECT * FROM jobs WHERE id=?", (child_id,)).fetchone()
+        attempt = db.execute(
+            "SELECT intent_at FROM native_attempts WHERE job_id=?", (child_id,)
+        ).fetchone()
+        campaign = db.execute(
+            "SELECT cancel_pending FROM campaigns WHERE id=?", (campaign_id,)
+        ).fetchone()
+    if job is None or attempt is None or campaign is None:
+        with store.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            _stop(db, campaign_id, "unknown", "missing_child_native_record")
+        return True
+    if job["state"] in {"running", "unknown"} and attempt["intent_at"]:
+        # Even a lost start reply / crashed worker with an UNKNOWN parent may
+        # only query the exact retained request and invocation.
+        queue.reconcile_native(store, child_id, worker_locked=True)
+    elif job["state"] == "running" and not attempt["intent_at"]:
+        if campaign["cancel_pending"]:
+            queue.finish(
+                store, child_id, job["worker_id"], "canceled", "before_native_intent"
+            )
+        elif _native_slot_busy(store):
+            # After a crash-before-intent another M2 worker may have claimed
+            # the host slot. Never consume our first native intent into it.
+            return False
+        else:
+            # No intent has ever been committed: the only safe restart window
+            # in which a previously activated child can begin its FIRST start.
+            queue.run_native(store, child_id, job["worker_id"], worker_locked=True)
+    _sync_child(store, campaign_id, step["ordinal"])
+    return True
+
+
+def _native_slot_busy(store: queue.Store) -> bool:
+    """Never bypass a foreign M2 pending/running or uncertain native owner."""
+    with store.connect() as db:
+        occupied = db.execute(
+            "SELECT j.id,j.state FROM jobs j "
+            "LEFT JOIN campaign_trials c ON c.child_job_id=j.id "
+            "WHERE c.child_job_id IS NULL AND "
+            "(j.state='running' OR (j.state='queued' AND j.run_at<=?)) "
+            "ORDER BY j.submitted_at LIMIT 1",
+            (time.time(),),
+        ).fetchone()
+        unsafe = db.execute(
+            "SELECT j.id,j.state FROM jobs j JOIN native_attempts n "
+            "ON n.job_id=j.id WHERE n.intent_at IS NOT NULL "
+            "AND j.state IN ('running','unknown','failed_native','blocked_native') "
+            "ORDER BY j.submitted_at LIMIT 1"
+        ).fetchone()
+    if unsafe:
+        if unsafe["state"] in {"running", "unknown"}:
+            queue.reconcile_native(store, unsafe["id"], worker_locked=True)
+        return True
+    return occupied is not None
+
+
+def _activate_child(
+    store: queue.Store, campaign_id: str, ordinal: int, plan: Mapping[str, Any]
+) -> bool:
+    """Freeze job file, then *atomically* link job + one-use native attempt.
+
+    If killed between file creation and the SQLite commit, an unreferenced
+    directory remains but cannot dispatch. If killed after commit, the next
+    tick sees this same child and its durable intent (or absence of intent).
+    """
+    child_id = f"resolve-test-{uuid.uuid4().hex}"
+    worker_id = uuid.uuid4().hex
+    frozen = queue.canonical(plan)
+    digest = hashlib.sha256(frozen).hexdigest()
+    folder = store.jobdir(child_id)
+    folder.mkdir(mode=0o700)
+    queue.atomic_write(folder / "plan.json", frozen)
+    (folder / "plan.json").chmod(0o400)
+    queue.sync_directory(store.root)
+    started = queue.iso(queue.now_utc())
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        campaign = db.execute(
+            "SELECT * FROM campaigns WHERE id=?", (campaign_id,)
+        ).fetchone()
+        step = db.execute(
+            "SELECT * FROM campaign_trials WHERE campaign_id=? AND ordinal=?",
+            (campaign_id, ordinal),
+        ).fetchone()
+        if (
+            campaign is None
+            or campaign["state"] not in {"queued", "running"}
+            or campaign["cancel_pending"]
+            or campaign["pause_after_active"]
+            or step is None
+            or step["state"] != "pending"
+            or step["child_job_id"] is not None
+            or digest != step["plan_sha"]
+            or plan["native"]["requestSha256"] != step["request_sha"]
+            or plan["targetId"] != step["target_id"]
+        ):
+            return False
+        db.execute(
+            "INSERT INTO jobs(id,state,submitted_at,run_at,deadline_at,"
+            "started_at,plan_sha,worker_id,attempt) "
+            "VALUES(?,'running',?,?,?,?,?,?,1)",
+            (
+                child_id,
+                started,
+                queue.dt(plan["runAt"]).timestamp(),
+                queue.dt(plan["deadlineAt"]).timestamp(),
+                started,
+                digest,
+                worker_id,
+            ),
+        )
+        db.execute(
+            "INSERT INTO native_attempts(job_id,request_sha,locator) VALUES(?,?,?)",
+            (child_id, step["request_sha"], queue.canonical(plan["native"]).decode()),
+        )
+        db.execute(
+            "UPDATE campaign_trials SET child_job_id=?,state='running',started_at=? "
+            "WHERE campaign_id=? AND ordinal=? AND child_job_id IS NULL",
+            (child_id, started, campaign_id, ordinal),
+        )
+        db.execute(
+            "UPDATE campaigns SET state='running',started_at=COALESCE(started_at,?),"
+            "version=version+1 WHERE id=?",
+            (started, campaign_id),
+        )
+        store.append(db, child_id, "running", "campaign_native_worker")
+        _event(db, campaign_id, "child_activated", f"ordinal:{ordinal}")
+    return True
+
+
+def campaign_worker_once(store: queue.Store) -> bool:
+    """One due campaign step under M2's shared lock; never poll indefinitely.
+
+    Multiple workers (including M2's own worker) are serialized per queue
+    root; the guarded native host owner is rechecked by M2/parent at dispatch.
+    """
+    with (store.root / "worker.lock").open("a+b") as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        with store.connect() as db:
+            row = db.execute(
+                "SELECT * FROM campaigns WHERE state='running' "
+                "OR (state='queued' AND run_at<=?) "
+                "ORDER BY CASE state WHEN 'running' THEN 0 ELSE 1 END,"
+                "run_at,id LIMIT 1",
+                (time.time(),),
+            ).fetchone()
+        if row is None:
+            return False
+        campaign_id = cast(str, row["id"])
+        now = time.time()
+        if row["state"] == "queued" and row["run_at"] > now:
+            return False
+        try:
+            plan = load_frozen_campaign(store, campaign_id)
+        except (OSError, ValueError, KeyError, TypeError):
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(db, campaign_id, "unknown", "frozen_campaign_integrity_refused")
+            return True
+        with store.connect() as db:
+            first = _child_record(db, campaign_id)
+            flags = db.execute(
+                "SELECT cancel_pending,pause_after_active,started_at "
+                "FROM campaigns WHERE id=?",
+                (campaign_id,),
+            ).fetchone()
+        if first is not None and first["child_job_id"]:
+            try:
+                return _run_bound_child(store, campaign_id, first)
+            except Exception:
+                # A crash/lost reply never permits redispatch after intent.
+                # The next invocation reads SQLite before doing anything.
+                return True
+        if flags["cancel_pending"]:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "canceled",
+                    "pending_trials_canceled",
+                    cancel_pending=True,
+                )
+            return True
+        if flags["pause_after_active"]:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "UPDATE campaigns SET state='paused',reason='paused_after_active',"
+                    "version=version+1 WHERE id=? AND state IN ('queued','running')",
+                    (campaign_id,),
+                )
+                _event(db, campaign_id, "paused", "paused_after_active")
+            return True
+        if first is None:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "completed_verified",
+                    "all_children_native_verified",
+                )
+            return True
+        if first["state"] != "pending":
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(db, campaign_id, "unknown", "unexpected_child_state")
+            return True
+        elapsed = (
+            (queue.now_utc() - queue.dt(flags["started_at"])).total_seconds()
+            if flags["started_at"]
+            else 0.0
+        )
+        if (
+            now >= row["deadline_at"]
+            or elapsed >= row["max_elapsed_seconds"]
+            or elapsed < 0
+        ):
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "blocked",
+                    "campaign_time_budget",
+                    cancel_pending=True,
+                )
+            return True
+        trial_plan = plan["trials"][first["ordinal"]]["plan"]
+        if queue.dt(trial_plan["runAt"]).timestamp() > now:
+            return False
+        if now >= queue.dt(trial_plan["deadlineAt"]).timestamp():
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "blocked",
+                    "child_deadline_before_start",
+                    cancel_pending=True,
+                )
+            return True
+        # Resource checks are conservative here; full recursive accounting and
+        # resource reports are supplied by phase 3. No native launch on failure.
+        if shutil.disk_usage(store.root).free < row["max_disk_bytes"]:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "blocked",
+                    "insufficient_campaign_space",
+                    cancel_pending=True,
+                )
+            return True
+        if _native_slot_busy(store):
+            return False
+        if not _activate_child(store, campaign_id, first["ordinal"], trial_plan):
+            return True
+        with store.connect() as db:
+            activated = _child_record(db, campaign_id)
+        if activated is not None and activated["child_job_id"]:
+            try:
+                _run_bound_child(store, campaign_id, activated)
+            except Exception:
+                # Preserve the in-flight child for same-identity restart.
+                return True
+        return True
