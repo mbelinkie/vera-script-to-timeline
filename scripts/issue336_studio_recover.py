@@ -67,6 +67,9 @@ def main() -> int:
         parser.error("explicit --execute required")
     root = args.root.resolve()
     case = "square-none-48"
+    # Resolve rejected the hidden ~/.local destination via a modal. Keep the
+    # source/evidence there; render into this dedicated Movies directory only.
+    render_dir = Path.home() / "Movies" / ("VERA336-native-proof-" + root.name)
     import DaVinciResolveScript  # type: ignore[import-not-found]
 
     resolve = DaVinciResolveScript.scriptapp("Resolve")
@@ -91,8 +94,12 @@ def main() -> int:
             raise RuntimeError("refuse: only known pre-job reservation can continue")
         if project.IsRenderingInProgress() is not False or project.GetRenderJobList():
             raise RuntimeError("refuse: existing render activity or jobs")
-        if list(root.glob(case + "*.mov")):
-            raise RuntimeError("refuse: output already exists")
+        if (
+            not render_dir.is_dir()
+            or not (render_dir / ".write-check").is_file()
+            or list(render_dir.glob(case + "*.mov"))
+        ):
+            raise RuntimeError("refuse: output destination is unavailable or not empty")
         if args.phase == "start":
             profile = {
                 key: timeline.GetSetting(key)
@@ -121,8 +128,12 @@ def main() -> int:
         if project.GetCurrentRenderMode() != 1:
             raise RuntimeError("refuse: actual render mode is not single clip")
         assert state is not None
+        if state.get("renderDir") not in (None, str(render_dir)):
+            raise RuntimeError("refuse: render destination changed")
+        state["renderDir"] = str(render_dir)
+        save_json(state_path, state)
         settings = {
-            "TargetDir": str(root),
+            "TargetDir": str(render_dir),
             "CustomName": case,
             "ExportVideo": True,
             "ExportAudio": False,
@@ -153,6 +164,8 @@ def main() -> int:
         or state.get("project") != project.GetName()
     ):
         raise RuntimeError("refuse: no exact recovery reservation")
+    if state.get("renderDir") != str(render_dir):
+        raise RuntimeError("refuse: persisted render destination differs")
     if args.phase == "inspect":
         job = state.get("jobId")
         if not isinstance(job, str):
@@ -160,7 +173,7 @@ def main() -> int:
         status = project.GetRenderJobStatus(job)
         state["lastRenderStatus"] = status
         if status.get("JobStatus") == "Complete":
-            videos = list(root.glob(case + "*.mov"))
+            videos = list(render_dir.glob(case + "*.mov"))
             if len(videos) != 1 or videos[0].stat().st_size == 0:
                 raise RuntimeError("Complete but no unique nonempty output movie")
             state.update(
@@ -175,7 +188,7 @@ def main() -> int:
     if args.phase == "decode":
         if state.get("status") != "render-complete":
             raise RuntimeError("refuse: render not independently complete")
-        movie = root / state["movie"]
+        movie = render_dir / state["movie"]
         if sha(movie) != state["movieSha256"]:
             raise RuntimeError("refuse: rendered movie has changed")
         from qualify import video_pixels
