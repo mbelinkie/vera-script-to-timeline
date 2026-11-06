@@ -284,10 +284,10 @@ def main() -> int:
     else:
         current = manager.GetCurrentProject()
         if current is not None:
-            # Resolve can open its empty default project on startup.  Switching
-            # away is safe only after independently establishing that it has
-            # no timeline, media, queued work or render in progress.  Do not
-            # save, modify or close even that default project.
+            # Resolve can open its empty default project on startup.  It
+            # refuses CreateProject while that scratch project is active.
+            # Close it without saving ONLY after independently proving it has
+            # no timeline, media, queued work or render in progress.
             root = current.GetMediaPool().GetRootFolder()
             if (
                 current.GetName() != "Untitled Project"
@@ -298,6 +298,8 @@ def main() -> int:
                 or current.IsRenderingInProgress() is not False
             ):
                 raise RuntimeError("refuse: a nonempty existing project is active")
+            if not manager.CloseProject(current):
+                raise RuntimeError("refuse: empty startup project could not close")
         args.out.mkdir(parents=True, exist_ok=False)
         for name, (w, h) in sources.items():
             png(args.out / (name + ".png"), w, h)
