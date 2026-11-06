@@ -180,10 +180,30 @@ def _check_output_histories(native: Any) -> None:
     # the same immutable evidence. A later preflight starts a new traversal.
     with native._verification_scope():
         active_host = _active_output_host_chains(native)
-        seen: set[str] = set()
-        if OUTPUT_TARGETS_ROOT.exists() or OUTPUT_TARGETS_ROOT.is_symlink():
-            if OUTPUT_TARGETS_ROOT.is_symlink() or not OUTPUT_TARGETS_ROOT.is_dir():
-                raise _blocked("output_state_unreadable", str(OUTPUT_TARGETS_ROOT))
+        if OUTPUT_TARGETS_ROOT.is_symlink() or (
+            OUTPUT_TARGETS_ROOT.exists() and not OUTPUT_TARGETS_ROOT.is_dir()
+        ):
+            raise _blocked("output_state_unreadable", str(OUTPUT_TARGETS_ROOT))
+
+        # An unresolved active host chain is a hard stop regardless of the
+        # condition of unrelated, inactive historical targets. Check it first:
+        # the old target/source verifier is expensive, and repeatedly scanning
+        # hundreds of inactive records before refusing a known live owner can
+        # make a single scheduled worker pass take minutes. A *passing* check
+        # still verifies every historical target below; no evidence is skipped.
+        for chain_key, state in sorted(active_host.items()):
+            target = OUTPUT_TARGETS_ROOT / chain_key
+            if target.is_symlink() or not target.is_dir():
+                raise _blocked(
+                    "output_operation_unresolved",
+                    f"{OUTPUT_ATTEMPTS_ROOT}/{_short_key(chain_key)} state={state}",
+                )
+            operations = target / "operations"
+            if not operations.exists() and not operations.is_symlink():
+                raise _blocked("output_operation_unresolved", str(target))
+            _check_native_chain(native, operations, state)
+
+        if OUTPUT_TARGETS_ROOT.exists():
             for target in sorted(OUTPUT_TARGETS_ROOT.iterdir()):
                 if (
                     target.is_symlink()
@@ -191,20 +211,11 @@ def _check_output_histories(native: Any) -> None:
                     or not _HEX64.fullmatch(target.name)
                 ):
                     raise _blocked("output_state_unreadable", str(target))
-                seen.add(target.name)
+                if target.name in active_host:
+                    continue  # Already authenticated in this invocation.
                 operations = target / "operations"
-                if not operations.exists():
-                    if target.name in active_host:
-                        raise _blocked("output_operation_unresolved", str(target))
-                    continue
-                _check_native_chain(native, operations, active_host.get(target.name))
-
-        for chain_key, state in active_host.items():
-            if chain_key not in seen:
-                raise _blocked(
-                    "output_operation_unresolved",
-                    f"{OUTPUT_ATTEMPTS_ROOT}/{_short_key(chain_key)} state={state}",
-                )
+                if operations.exists() or operations.is_symlink():
+                    _check_native_chain(native, operations, None)
 
 
 def _check_parent_operation() -> None:
@@ -327,6 +338,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
     render_started = False
     found_result = False
     paused_queued_result = False
+    last_render_result: tuple[Path, dict[str, Any]] | None = None
     for sequence, directory in enumerate(directories):
         if (
             directory.is_symlink()
@@ -398,6 +410,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
                 if status != "refused":
                     render_pending = True
                     render_started = render_started or action == "start_render"
+                    last_render_result = (result_path, verified)
             elif action == "poll_render":
                 job_status = (verified.get("renderStatus") or {}).get("JobStatus")
                 if status in {"complete", "partial"} and job_status in (
@@ -405,6 +418,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
                 ):
                     render_pending = False
                     render_started = False
+                    last_render_result = None
                 else:
                     render_pending = True
             elif action == "capture_post" and render_pending:
@@ -461,7 +475,12 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
             "output_operation_unresolved",
             f"{operations} has host state={host_state} without native evidence",
         )
-    if render_pending and not (paused_queued_result and not render_started):
+    quiescent_render = last_render_result is not None and _has_attested_terminal_render(
+        operations, last_render_result[0], last_render_result[1]
+    )
+    if render_pending and not (
+        (paused_queued_result and not render_started) or quiescent_render
+    ):
         raise _blocked(
             "output_render_unresolved",
             f"{operations} has a queued or started render without terminal polling",
@@ -567,6 +586,100 @@ def _has_attested_paused_queue(
             and all(row.get("method") != "Project.StartRendering" for row in effects)
         )
     except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def _terminal_observation_path(key: str, result_sha: str, host_sha: str) -> Path:
+    base = _paused_observation_path(key, result_sha, host_sha)
+    return base.with_name(f"{base.stem}-terminal.json")
+
+
+def _has_attested_terminal_render(
+    operations: Path, result_path: Path, result: dict[str, Any]
+) -> bool:
+    """Recognize an independently observed terminal *job*, not a terminal operation.
+
+    Original queue/start history remains unchanged and its missing native poll
+    is not invented. Only a signed, short-lived inspection of the exact
+    historical project and job can isolate this old reservation.
+    """
+    if (
+        result.get("action") not in {"queue_render", "start_render"}
+        or result.get("status") != "complete"
+        or not isinstance(result.get("jobId"), str)
+        or not result["jobId"]
+    ):
+        return False
+    try:
+        directories = sorted(operations.iterdir())
+        if result_path.parent not in directories:
+            return False
+        position = directories.index(result_path.parent)
+        # Empty reserved future stages can exist, but no subsequent native
+        # request, start, effect or result can have been recorded.
+        if any(list(directory.iterdir()) for directory in directories[position + 1 :]):
+            return False
+        key = operations.parent.name
+        result_sha = hashlib.sha256(_read(result_path)).hexdigest()
+        host_sha = _output_host_history_sha256(key)
+        path = _terminal_observation_path(key, result_sha, host_sha)
+        if PAUSED_OUTPUT_ROOT.is_symlink() or path.is_symlink():
+            return False
+        record = json.loads(_read(path, "terminal native output observation"))
+        if not isinstance(record, dict) or set(record) != {
+            "schemaVersion",
+            "targetKey",
+            "sequence",
+            "operationId",
+            "resultSha256",
+            "hostHistorySha256",
+            "projectUid",
+            "timelineUid",
+            "observedAt",
+            "observedStatuses",
+            "renderJobId",
+            "renderJobStatus",
+            "matchingJobCount",
+            "mac",
+        }:
+            return False
+        signature = record.pop("mac")
+        if not isinstance(signature, str) or not hmac.compare_digest(
+            signature,
+            hmac.digest(
+                _paused_observation_key(key), _canonical(record), "sha256"
+            ).hex(),
+        ):
+            return False
+        target = result["target"]
+        if (
+            record["schemaVersion"] != "vera.paused-terminal-render/v1"
+            or record["targetKey"] != key
+            or record["sequence"] != result["sequence"]
+            or record["operationId"] != result["operationId"]
+            or record["resultSha256"] != result_sha
+            or record["hostHistorySha256"] != host_sha
+            or record["projectUid"] != target["projectUid"]
+            or record["timelineUid"] != target["timelineUid"]
+            or record["renderJobId"] != result["jobId"]
+            or record["renderJobStatus"] not in _TERMINAL_RENDER_STATES
+            or type(record["matchingJobCount"]) is not int
+            or record["matchingJobCount"] != 1
+            or not isinstance(record["observedAt"], str)
+            or not isinstance(record["observedStatuses"], list)
+            or record["renderJobStatus"] not in record["observedStatuses"]
+            or any(
+                state not in _TERMINAL_RENDER_STATES
+                for state in record["observedStatuses"]
+            )
+        ):
+            return False
+        timestamp = datetime.fromisoformat(record["observedAt"])
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            return False
+        age = datetime.now(UTC) - timestamp.astimezone(UTC)
+        return -timedelta(seconds=30) <= age < _PAUSE_OBSERVATION_LIFETIME
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
         return False
 
 
@@ -814,6 +927,175 @@ def observe_paused_queue(result_path: Path) -> Path:
         return path
 
 
+def observe_terminal_render(result_path: Path) -> Path:
+    """Read only: isolate a retained queue/start after its *exact* job is terminal.
+
+    A missing poll or prior render intent remains historical UNKNOWN. The
+    original project/timeline must already be selected by the operator; this
+    function never loads a project or mutates any Resolve state.
+    """
+    import DaVinciResolveScript as dvr
+
+    operation = result_path.parent
+    operations = operation.parent
+    key = operations.parent.name
+    if (
+        result_path.name != "result.json"
+        or operations.name != "operations"
+        or operations.parent.parent != OUTPUT_TARGETS_ROOT
+        or not _HEX64.fullmatch(key)
+        or any(
+            path.is_symlink()
+            for path in (result_path, operation, operations, operations.parent)
+        )
+    ):
+        raise ValueError("native result is not in the exact private target store")
+    with native_owner(output_lane=True):
+        native = importlib.import_module(".qualification_output_native_v2", __package__)
+        raw = _read(result_path, "terminal render result")
+        result_sha = hashlib.sha256(raw).hexdigest()
+        result = native.verify_native_result(result_path, result_sha)
+        if (
+            result.get("action") not in {"queue_render", "start_render"}
+            or result.get("status") != "complete"
+            or not isinstance(result.get("jobId"), str)
+            or not result["jobId"]
+            or type(result.get("sequence")) is not int
+            or operation.name != f"{result['sequence']:08d}"
+        ):
+            raise ValueError(
+                "only a completed queue/start with known job ID can be observed"
+            )
+        directories = sorted(operations.iterdir())
+        if operation not in directories:
+            raise ValueError("native render operation missing from history")
+        previous: dict[str, Any] | None = None
+        for index, directory in enumerate(directories):
+            if directory.is_symlink() or directory.name != f"{index:08d}":
+                raise ValueError("native history sequence changed")
+            if index > result["sequence"]:
+                if any(directory.iterdir()):
+                    raise ValueError(
+                        "subsequent native request or effect is unresolved"
+                    )
+                continue
+            record_path = directory / "result.json"
+            prior_raw = _read(record_path, "earlier native render result")
+            checked = native.verify_native_result(
+                record_path, hashlib.sha256(prior_raw).hexdigest()
+            )
+            if index < result["sequence"] and checked.get("status") != "complete":
+                raise ValueError("an earlier native stage is unresolved")
+            if index == result["sequence"] - 1:
+                previous = checked
+            if index < result["sequence"] and checked.get("action") == "start_render":
+                raise ValueError("an earlier render start remains unpolled")
+        if result["action"] == "start_render" and (
+            previous is None
+            or previous.get("action") != "queue_render"
+            or previous.get("jobId") != result["jobId"]
+        ):
+            raise ValueError("render start is not bound to its exact queued job")
+        ledger = result.get("effectLedger")
+        expected_effect = (
+            "Project.StartRendering"
+            if result["action"] == "start_render"
+            else "Project.AddRenderJob"
+        )
+        if not isinstance(ledger, list) or not any(
+            isinstance(item, dict)
+            and item.get("method") == expected_effect
+            and item.get("outcome") != "unknown"
+            for item in ledger
+        ):
+            raise ValueError("native effect ledger does not prove the known operation")
+        resolve = dvr.scriptapp("Resolve")
+        if not resolve:
+            raise ValueError("local Resolve scripting is unavailable")
+        identity = result.get("nativeIdentity", {})
+        if resolve.GetProductName() != identity.get("product") or list(
+            resolve.GetVersion()
+        ) != identity.get("version"):
+            raise ValueError("installed Resolve identity differs")
+        manager = resolve.GetProjectManager()
+        project = manager.GetCurrentProject() if manager is not None else None
+        target = result["target"]
+        if (
+            project is None
+            or project.GetUniqueId() != target["projectUid"]
+            or project.GetName() != target["projectName"]
+        ):
+            raise ValueError("original Resolve project UID was not observed")
+        timeline = project.GetCurrentTimeline()
+        if (
+            timeline is None
+            or timeline.GetUniqueId() != target["timelineUid"]
+            or timeline.GetName() != target["timelineName"]
+        ):
+            raise ValueError("original Resolve timeline UID was not observed")
+        if project.IsRenderingInProgress() is not False:
+            raise ValueError("the original project has an active/unknown render")
+        jobs = project.GetRenderJobList()
+        if type(jobs) not in {list, tuple}:
+            raise ValueError("render job inventory unavailable")
+        statuses: list[str] = []
+        matching = 0
+        matching_status = ""
+        for job in jobs:
+            if not isinstance(job, dict) or not isinstance(job.get("JobId"), str):
+                raise ValueError("a render job lacks a usable identity")
+            current_status = project.GetRenderJobStatus(job["JobId"])
+            status = (
+                current_status.get("JobStatus")
+                if isinstance(current_status, dict)
+                else None
+            )
+            if status not in _TERMINAL_RENDER_STATES:
+                raise ValueError("a historical render job is still live/unknown")
+            statuses.append(status)
+            if job["JobId"] == result["jobId"]:
+                matching += 1
+                matching_status = status
+        if matching != 1:
+            raise ValueError("exact prior render job is not terminal and unique")
+        if hashlib.sha256(_read(result_path)).hexdigest() != result_sha:
+            raise ValueError("native result changed during observation")
+        host_sha = _output_host_history_sha256(key)
+        record = {
+            "schemaVersion": "vera.paused-terminal-render/v1",
+            "targetKey": key,
+            "sequence": result["sequence"],
+            "operationId": result["operationId"],
+            "resultSha256": result_sha,
+            "hostHistorySha256": host_sha,
+            "projectUid": target["projectUid"],
+            "timelineUid": target["timelineUid"],
+            "observedAt": datetime.now(UTC).isoformat(),
+            "observedStatuses": statuses,
+            "renderJobId": result["jobId"],
+            "renderJobStatus": matching_status,
+            "matchingJobCount": matching,
+        }
+        record["mac"] = hmac.digest(
+            _paused_observation_key(key), _canonical(record), "sha256"
+        ).hex()
+        if PAUSED_OUTPUT_ROOT.is_symlink() or PAUSED_OUTPUT_ROOT.parent.is_symlink():
+            raise ValueError("paused-output observation directory is unsafe")
+        PAUSED_OUTPUT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path = _terminal_observation_path(key, result_sha, host_sha)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory_fd = os.open(PAUSED_OUTPUT_ROOT, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return path
+
+
 def _read(path: Path, label: str = "ownership record") -> bytes:
     if (
         path.is_symlink()
@@ -844,9 +1126,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Read-only host observation of one paused historical output queue"
     )
-    parser.add_argument("--observe-paused-queue", type=Path, required=True)
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--observe-paused-queue", type=Path)
+    selector.add_argument("--observe-terminal-render", type=Path)
     args = parser.parse_args()
-    print(observe_paused_queue(args.observe_paused_queue))
+    if args.observe_paused_queue is not None:
+        print(observe_paused_queue(args.observe_paused_queue))
+    else:
+        print(observe_terminal_render(args.observe_terminal_render))
 
 
 if __name__ == "__main__":

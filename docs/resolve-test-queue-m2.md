@@ -91,6 +91,24 @@ quiescent **queued-only** work, not native completion proof or permission to
 resume the old job. Human changes to the Resolve UI outside VERA are not
 controlled by the queue; no one should start an old render while testing.
 
+For historical `queue_render:complete` and `start_render:complete` results that
+have a known job ID but no terminal native poll, a separate **read-only**
+`--observe-terminal-render <exact-original-result.json>` operation can create
+a short-lived, signed quiescence record. The exact original project and timeline
+must already be current. Every observed render job must be terminal, and the
+original job ID must appear **exactly once** with a terminal status. A missing
+job, still-queued job, active render, different project, suspect evidence,
+later native request/effect, or attempted implicit `LoadProject` remains
+blocked; no render is started, removed, saved or retried. For a recorded start,
+the exact preceding queued job must match. The record binds the host journal,
+original native result, job ID, project/timeline, observed statuses and time,
+with the same private HMAC and twelve-hour bound as a queued-only pause.
+This only isolates a proved-idle historical reservation; it does **not** invent
+the missing terminal poll, verify old output media, or resolve original UNKNOWN.
+If the original project is not already selected, report
+`blocked_requires_human` rather than switching projects or guessing that an
+unselected project's render has stopped.
+
 The installed Resolve launcher uses a self-contained stdlib owner guard and
 small journal/observation checks. It must **not** import the full host output
 verifier, which is absent from some installed runtime inventories. The host
