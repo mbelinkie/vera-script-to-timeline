@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import contextvars
 import fcntl
 import hashlib
@@ -18,6 +19,7 @@ from typing import Any
 
 _STATE_ROOT = Path.home() / ".local/state/vera/resolve-delivery"
 OWNER_LOCK_PATH = _STATE_ROOT / "native-owner.lock"
+PAUSED_OUTPUT_ROOT = _STATE_ROOT / "paused-output-v1"
 PARENT_ACTIVE_PATH = _STATE_ROOT / "active.json"
 ISSUE328_ACTIVE_PATH = _STATE_ROOT / "issue328-native.active.json"
 OUTPUT_ATTEMPTS_ROOT = (
@@ -142,10 +144,15 @@ def native_owner(*, output_lane: bool = False) -> Iterator[int]:
     descriptor = acquire_native_owner()
     token = _HELD_OWNER_FD.set(descriptor)
     try:
-        _check_parent_operation()
-        _check_issue328_marker()
-        if not output_lane and _active_output_host_chains(None):
-            raise _blocked("output_render_unresolved", str(OUTPUT_ATTEMPTS_ROOT))
+        if output_lane:
+            # The output lane owns its own authenticated continuation protocol.
+            _check_parent_operation()
+            _check_issue328_marker()
+        else:
+            # Inspect the complete history, not just its last host state.
+            # A producer-paused, quiescent queue may be isolated from fresh
+            # targets without pretending its original result was successful.
+            preflight_native_owner()
         yield descriptor
     finally:
         _HELD_OWNER_FD.reset(token)
@@ -156,41 +163,45 @@ def preflight_native_owner() -> None:
     """Read retained VERA ownership evidence; never edits, unlocks, or resumes it."""
     _check_parent_operation()
     _check_issue328_marker()
-    if not any(
-        path.exists() or path.is_symlink()
-        for path in (OUTPUT_ATTEMPTS_ROOT, OUTPUT_TARGETS_ROOT)
-    ):
-        return
     try:
         native = importlib.import_module(".qualification_output_native_v2", __package__)
     except Exception as error:
         raise _blocked("output_guard_unavailable", str(error)) from error
-    active_host = _active_output_host_chains(native)
-    seen: set[str] = set()
-    if OUTPUT_TARGETS_ROOT.exists() or OUTPUT_TARGETS_ROOT.is_symlink():
-        if OUTPUT_TARGETS_ROOT.is_symlink() or not OUTPUT_TARGETS_ROOT.is_dir():
-            raise _blocked("output_state_unreadable", str(OUTPUT_TARGETS_ROOT))
-        for target in sorted(OUTPUT_TARGETS_ROOT.iterdir()):
-            if (
-                target.is_symlink()
-                or not target.is_dir()
-                or not _HEX64.fullmatch(target.name)
-            ):
-                raise _blocked("output_state_unreadable", str(target))
-            seen.add(target.name)
-            operations = target / "operations"
-            if not operations.exists():
-                if target.name in active_host:
-                    raise _blocked("output_operation_unresolved", str(target))
-                continue
-            _check_native_chain(native, operations, active_host.get(target.name))
+    _check_output_histories(native)
 
-    for chain_key, state in active_host.items():
-        if chain_key not in seen:
-            raise _blocked(
-                "output_operation_unresolved",
-                f"{OUTPUT_ATTEMPTS_ROOT}/{_short_key(chain_key)} state={state}",
-            )
+
+def _check_output_histories(native: Any) -> None:
+    # Each historical result recursively authenticates its predecessors. Share
+    # the native verifier's strictly invocation-local traversal so checking
+    # multiple operations of one old chain does not repeatedly authenticate
+    # the same immutable evidence. A later preflight starts a new traversal.
+    with native._verification_scope():
+        active_host = _active_output_host_chains(native)
+        seen: set[str] = set()
+        if OUTPUT_TARGETS_ROOT.exists() or OUTPUT_TARGETS_ROOT.is_symlink():
+            if OUTPUT_TARGETS_ROOT.is_symlink() or not OUTPUT_TARGETS_ROOT.is_dir():
+                raise _blocked("output_state_unreadable", str(OUTPUT_TARGETS_ROOT))
+            for target in sorted(OUTPUT_TARGETS_ROOT.iterdir()):
+                if (
+                    target.is_symlink()
+                    or not target.is_dir()
+                    or not _HEX64.fullmatch(target.name)
+                ):
+                    raise _blocked("output_state_unreadable", str(target))
+                seen.add(target.name)
+                operations = target / "operations"
+                if not operations.exists():
+                    if target.name in active_host:
+                        raise _blocked("output_operation_unresolved", str(target))
+                    continue
+                _check_native_chain(native, operations, active_host.get(target.name))
+
+        for chain_key, state in active_host.items():
+            if chain_key not in seen:
+                raise _blocked(
+                    "output_operation_unresolved",
+                    f"{OUTPUT_ATTEMPTS_ROOT}/{_short_key(chain_key)} state={state}",
+                )
 
 
 def _check_parent_operation() -> None:
@@ -312,6 +323,7 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
     render_pending = False
     render_started = False
     found_result = False
+    paused_queued_result = False
     for sequence, directory in enumerate(directories):
         if (
             directory.is_symlink()
@@ -365,10 +377,18 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
                 ) from error
             found_result = True
             if status == "uncertain" and action in {"queue_render", "start_render"}:
-                raise _blocked(
-                    "output_operation_unresolved",
-                    f"{result_path} contains an uncertain native effect",
-                )
+                if (
+                    action == "queue_render"
+                    and sequence == len(directories) - 1
+                    and not render_started
+                    and _has_attested_paused_queue(operations, result_path, verified)
+                ):
+                    paused_queued_result = True
+                else:
+                    raise _blocked(
+                        "output_operation_unresolved",
+                        f"{result_path} contains an uncertain native effect",
+                    )
             # Authenticated synchronous returns retain uncertain target contents,
             # but cannot leave a renderer running without a render action.
             if action in {"queue_render", "start_render"}:
@@ -438,11 +458,250 @@ def _check_native_chain(native: Any, operations: Path, host_state: str | None) -
             "output_operation_unresolved",
             f"{operations} has host state={host_state} without native evidence",
         )
-    if render_pending:
+    if render_pending and not (paused_queued_result and not render_started):
         raise _blocked(
             "output_render_unresolved",
             f"{operations} has a queued or started render without terminal polling",
         )
+
+
+def _output_host_history_sha256(target_key: str) -> str:
+    """Bind an operator's read-only observation to the exact host journal."""
+    directory = OUTPUT_ATTEMPTS_ROOT / target_key
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("paused output host journal is unavailable")
+    names = sorted(
+        path
+        for path in directory.iterdir()
+        if path.name == "chain.json"
+        or path.name.startswith(("entry-", "pending-", "head-"))
+    )
+    if not names or names[0].name != "chain.json":
+        raise ValueError("paused output host journal is incomplete")
+    digest = hashlib.sha256()
+    for path in names:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("paused output host journal contains unsafe files")
+        digest.update(path.name.encode("utf-8") + b"\0")
+        digest.update(hashlib.sha256(_read(path)).digest())
+    return digest.hexdigest()
+
+
+def _has_attested_paused_queue(
+    operations: Path, result_path: Path, result: dict[str, Any]
+) -> bool:
+    """Accept only an exact, independently observed *idle* historical queue.
+
+    This does NOT resolve the uncertain AddRenderJob result or permit replay.
+    Future operations or host-journal changes invalidate the attestation.
+    """
+    key = operations.parent.name
+    path = PAUSED_OUTPUT_ROOT / f"{key}.json"
+    if not path.exists() and not path.is_symlink():
+        return False
+    try:
+        if PAUSED_OUTPUT_ROOT.is_symlink() or path.is_symlink():
+            return False
+        record = json.loads(_read(path, "paused native output observation"))
+        if not isinstance(record, dict) or set(record) != {
+            "schemaVersion",
+            "targetKey",
+            "sequence",
+            "operationId",
+            "resultSha256",
+            "hostHistorySha256",
+            "projectUid",
+            "timelineUid",
+            "observedAt",
+            "observedStatuses",
+            "matchingJobCount",
+        }:
+            return False
+        if (
+            record["schemaVersion"] != "vera.paused-output-observation/v1"
+            or record["targetKey"] != key
+            or record["sequence"] != result["sequence"]
+            or record["operationId"] != result["operationId"]
+            or record["resultSha256"] != hashlib.sha256(_read(result_path)).hexdigest()
+            or record["hostHistorySha256"] != _output_host_history_sha256(key)
+            or record["projectUid"] != result["target"]["projectUid"]
+            or record["timelineUid"] != result["target"]["timelineUid"]
+            or type(record["matchingJobCount"]) is not int
+            or record["matchingJobCount"] != 0
+            or not isinstance(record["observedAt"], str)
+            or not isinstance(record["observedStatuses"], list)
+            or any(
+                item not in _TERMINAL_RENDER_STATES
+                for item in record["observedStatuses"]
+            )
+        ):
+            return False
+        timestamp = datetime.fromisoformat(record["observedAt"])
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            return False
+        # Unknown AddRenderJob is a queued-only effect. A started render, or
+        # any additional stage after the observed tail, is never excused.
+        effects = result.get("effectLedger")
+        return (
+            isinstance(effects, list)
+            and bool(effects)
+            and effects[-1].get("method") == "Project.AddRenderJob"
+            and effects[-1].get("outcome") == "unknown"
+            and all(row.get("method") != "Project.StartRendering" for row in effects)
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def observe_paused_queue(result_path: Path) -> Path:
+    """Attest an exact, quiescent historical queue without resuming its work.
+
+    Intended for a producer-authorized recovery after an agent was stopped.
+    Observes the existing Resolve project and render jobs, never creates,
+    starts, deletes, saves, or claims completion of an old operation. Only a
+    queued-only UNKNOWN with no current nonterminal jobs can be isolated.
+    """
+    import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+
+    if result_path.name != "result.json":
+        raise ValueError("expected an existing native result")
+    operation = result_path.parent
+    operations = operation.parent
+    key = operations.parent.name
+    if (
+        operations.name != "operations"
+        or operations.parent.parent != OUTPUT_TARGETS_ROOT
+        or not _HEX64.fullmatch(key)
+        or result_path.is_symlink()
+        or operation.is_symlink()
+        or operations.is_symlink()
+        or operations.parent.is_symlink()
+    ):
+        raise ValueError("native result is not in the exact private target store")
+    with native_owner(output_lane=True):
+        native = importlib.import_module(".qualification_output_native_v2", __package__)
+        raw = _read(result_path)
+        result_sha = hashlib.sha256(raw).hexdigest()
+        result = native.verify_native_result(result_path, result_sha)
+        if (
+            result.get("status") != "uncertain"
+            or result.get("action") != "queue_render"
+            or result.get("sequence") != int(operation.name)
+            or result.get("operationId") is None
+        ):
+            raise ValueError("only an uncertain queued-only operation may be observed")
+        directories = sorted(operations.iterdir())
+        if (
+            not directories
+            or directories[-1] != operation
+            or len(directories) != result["sequence"] + 1
+        ):
+            raise ValueError("native operation tail changed")
+        for sequence, directory in enumerate(directories[:-1]):
+            if directory.name != f"{sequence:08d}":
+                raise ValueError("native history sequence changed")
+            prior_path = directory / "result.json"
+            prior = _read(prior_path)
+            verified_prior = native.verify_native_result(
+                prior_path, hashlib.sha256(prior).hexdigest()
+            )
+            if verified_prior.get("status") != "complete":
+                raise ValueError("an earlier native stage is unresolved")
+        effects = result.get("effectLedger")
+        if (
+            not isinstance(effects, list)
+            or not effects
+            or effects[-1].get("method") != "Project.AddRenderJob"
+            or effects[-1].get("outcome") != "unknown"
+            or any(item.get("method") == "Project.StartRendering" for item in effects)
+        ):
+            raise ValueError("old effect is not exclusively a queued-only result")
+        resolve = dvr.scriptapp("Resolve")
+        if not resolve:
+            raise ValueError("local Resolve scripting is unavailable")
+        identity = result.get("nativeIdentity", {})
+        if resolve.GetProductName() != identity.get("product") or list(
+            resolve.GetVersion()
+        ) != identity.get("version"):
+            raise ValueError("installed Resolve identity differs")
+        manager = resolve.GetProjectManager()
+        if manager is None:
+            raise ValueError("Resolve project manager is unavailable")
+        target = result["target"]
+        project = manager.GetCurrentProject()
+        if project is None or project.GetUniqueId() != target["projectUid"]:
+            project = manager.LoadProject(target["projectName"])
+        if (
+            project is None
+            or project.GetUniqueId() != target["projectUid"]
+            or project.GetName() != target["projectName"]
+        ):
+            raise ValueError("original Resolve project UID was not observed")
+        timeline = project.GetCurrentTimeline()
+        if (
+            timeline is None
+            or timeline.GetUniqueId() != target["timelineUid"]
+            or timeline.GetName() != target["timelineName"]
+        ):
+            raise ValueError("original Resolve timeline UID was not observed")
+        if project.IsRenderingInProgress() is not False:
+            raise ValueError("the original project has an active/unknown render")
+        request_path = Path(result["requestPath"])
+        request_raw = _read(request_path)
+        if hashlib.sha256(request_raw).hexdigest() != result["requestSha256"]:
+            raise ValueError("old native request changed")
+        request = json.loads(request_raw)
+        output = Path(request["payload"]["outputPath"])
+        jobs = project.GetRenderJobList()
+        if type(jobs) not in {list, tuple}:
+            raise ValueError("the render job inventory is unavailable")
+        statuses: list[str] = []
+        matching = 0
+        for job in jobs:
+            if not isinstance(job, dict) or not isinstance(job.get("JobId"), str):
+                raise ValueError("a render job lacks a usable identity")
+            observed = project.GetRenderJobStatus(job["JobId"])
+            state = observed.get("JobStatus") if isinstance(observed, dict) else None
+            if state not in _TERMINAL_RENDER_STATES:
+                raise ValueError("an original render job is not terminal")
+            statuses.append(state)
+            matching += int(
+                job.get("TargetDir") == str(output.parent)
+                and job.get("OutputFilename") == output.name
+            )
+        if matching:
+            raise ValueError("an ambiguous queued render job still exists")
+        if hashlib.sha256(_read(result_path)).hexdigest() != result_sha:
+            raise ValueError("native result changed during observation")
+        host_sha = _output_host_history_sha256(key)
+        record = {
+            "schemaVersion": "vera.paused-output-observation/v1",
+            "targetKey": key,
+            "sequence": result["sequence"],
+            "operationId": result["operationId"],
+            "resultSha256": result_sha,
+            "hostHistorySha256": host_sha,
+            "projectUid": target["projectUid"],
+            "timelineUid": target["timelineUid"],
+            "observedAt": datetime.now(UTC).isoformat(),
+            "observedStatuses": statuses,
+            "matchingJobCount": matching,
+        }
+        if PAUSED_OUTPUT_ROOT.is_symlink() or PAUSED_OUTPUT_ROOT.parent.is_symlink():
+            raise ValueError("paused-output observation directory is unsafe")
+        PAUSED_OUTPUT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path = PAUSED_OUTPUT_ROOT / f"{key}.json"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory_fd = os.open(PAUSED_OUTPUT_ROOT, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return path
 
 
 def _read(path: Path, label: str = "ownership record") -> bytes:
@@ -469,3 +728,16 @@ def _read(path: Path, label: str = "ownership record") -> bytes:
 
 def _short_key(value: str) -> str:
     return value[:12]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Read-only host observation of one paused historical output queue"
+    )
+    parser.add_argument("--observe-paused-queue", type=Path, required=True)
+    args = parser.parse_args()
+    print(observe_paused_queue(args.observe_paused_queue))
+
+
+if __name__ == "__main__":
+    main()

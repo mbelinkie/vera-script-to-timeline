@@ -64,6 +64,26 @@ as the host controller. The output lane can continue its own approved chain.
 The installed guard uses only stdlib; it does not load the host output controller
 inside Resolve.
 
+### Paused historical output queues
+
+An old `queue_render` result with an uncertain `Project.AddRenderJob` effect is
+**not** a completed render and cannot be retried or rewritten. When its original
+Producer has explicitly paused that work, an operator may use the separate
+`python -m vera_timeline_agent.resolve_native_owner --observe-paused-queue
+<exact-original-result.json>` command with local Resolve scripting to observe
+the **original** project and timeline by unique ID. The observation fails closed
+if any render is active/unknown, any job has a nonterminal status, the old
+output still has a matching queued job, or the native request/result/history
+cannot be authenticated. It never queues, starts, removes or saves a render.
+
+The immutable private observation records the old result digest, complete host
+journal digest, original project/timeline identity, observed job statuses and
+time. Only an exact unchanged historical tail and that observation permit an
+*independent new disposable target* through the global owner preflight. The
+old result remains UNKNOWN; any changed retained chain or mismatched observation
+restores the refusal. This is isolation of quiescent **queued-only** work, not
+a replacement for native completion proof or permission to resume the old job.
+
 The queue records dispatch intent and immutable request identity before calling
 the existing guarded parent. Every subsequent worker only reconciles that same
 operation. Live or uncertain work is never replayed, including after cancellation
