@@ -12,7 +12,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import struct
+import zlib
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -85,10 +88,188 @@ def qualification_hash(proof: Qualification) -> str:
 
 
 def production_qualification(
-    _motion: dict[str, Any], _binding: MotionBinding, _framing: str
+    motion: dict[str, Any],
+    binding: MotionBinding,
+    framing: str,
+    *,
+    verified_asset: Path | None = None,
+    delivered_probe: dict[str, Any] | None = None,
+    frame_rate: tuple[int, int] | None = None,
 ) -> Qualification | None:
-    """Measured raster geometry alone cannot authorize arbitrary source bytes."""
-    return None
+    """Admit only hash-verified, untransformed RGB PNGs in the measured Studio lane.
+
+    The caller must supply a verified package asset and its independently
+    validated preparation receipt. A standalone authored motion dictionary
+    cannot grant a qualification. The deliberately narrow 16:9/24fps route
+    excludes unmeasured codecs, color transforms, aspect ratios, durations,
+    backgrounds, and moving contain (which needs a proven derived matte).
+    """
+    if (
+        verified_asset is None
+        or delivered_probe is None
+        or frame_rate != (24, 1)
+        or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
+        or binding.original_hash != binding.source_hash
+        or binding.record_end - binding.record_start not in {24, 48, 96, 144}
+        or framing not in {"contain", "cover"}
+    ):
+        return None
+    dimensions = _verified_rgb_png_dimensions(
+        verified_asset, binding.source_hash, delivered_probe
+    )
+    if dimensions is None:
+        return None
+    width, height = dimensions
+    if (
+        width * 1 != height * 1
+        and width * 9 != height * 16
+        and width * 16 != height * 9
+    ):
+        return None
+    if motion == {"mode": "none"}:
+        return Qualification(
+            edition="studio",
+            version="21.1.1.10",
+            route="native_otio",
+            binding=binding,
+            motion_hash=motion_hash(motion),
+            framing=framing,
+            background="#000000",
+            source_width=width,
+            source_height=height,
+        )
+    if (
+        framing != "cover"
+        or not isinstance(motion, dict)
+        or set(motion) != {"mode", "start", "end", "easing"}
+        or motion.get("mode") != "native_dynamic_zoom"
+        or motion.get("easing") != "linear"
+    ):
+        return None
+    try:
+        start_center, start_scale = native_endpoint_from_focus(motion["start"])
+        end_center, end_scale = native_endpoint_from_focus(motion["end"])
+    except (KeyError, MotionRefusal, TypeError, ValueError, ZeroDivisionError):
+        return None
+    if not all(
+        measured_framing_preserves_intent(
+            source_size=dimensions,
+            timeline_size=(binding.timeline_width, binding.timeline_height),
+            framing="cover",
+            center=center,
+            native_scale=scale,
+        )
+        for center, scale in ((start_center, start_scale), (end_center, end_scale))
+    ):
+        return None
+    return Qualification(
+        edition="studio",
+        version="21.1.1.10",
+        route="native_otio",
+        binding=binding,
+        motion_hash=motion_hash(motion),
+        framing=framing,
+        background="#000000",
+        source_width=width,
+        source_height=height,
+        focus_proven=True,
+        native_start_center=start_center,
+        native_end_center=end_center,
+        native_start_scale=start_scale,
+        native_end_scale=end_scale,
+    )
+
+
+def _verified_rgb_png_dimensions(
+    asset: Path, expected_hash: str, probe: dict[str, Any]
+) -> tuple[int, int] | None:
+    """Strict lossless PNG decoder admission (not a substitute for Studio proof).
+
+    Only non-animated, non-interlaced, metadata-free 8-bit RGB is accepted.
+    Bounds cap the decoded size; the verified media receipt independently pins
+    codec, geometry, and single-frame identity. Never trust a PNG extension or
+    header alone for an effect write.
+    """
+    if not isinstance(asset, Path) or asset.suffix.lower() != ".png":
+        return None
+    try:
+        if asset.stat().st_size > 24 * 1024 * 1024:
+            return None
+        raw = asset.read_bytes()
+    except OSError:
+        return None
+    if "sha256:" + hashlib.sha256(
+        raw
+    ).hexdigest() != expected_hash or not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    pos = 8
+    dimensions: tuple[int, int] | None = None
+    idat = bytearray()
+    finished = False
+    while pos + 12 <= len(raw):
+        size = struct.unpack_from(">I", raw, pos)[0]
+        if size > len(raw) - pos - 12:
+            return None
+        tag = raw[pos + 4 : pos + 8]
+        data = raw[pos + 8 : pos + 8 + size]
+        crc = struct.unpack_from(">I", raw, pos + 8 + size)[0]
+        if zlib.crc32(tag + data) != crc:
+            return None
+        pos += size + 12
+        if dimensions is None:
+            if tag != b"IHDR" or size != 13:
+                return None
+            width, height, depth, kind, compression, filtering, interlace = (
+                struct.unpack(">IIBBBBB", data)
+            )
+            if (
+                not (1 <= width <= 4096 and 1 <= height <= 4096)
+                or width * height > 8_000_000
+                or (depth, kind, compression, filtering, interlace) != (8, 2, 0, 0, 0)
+            ):
+                return None
+            dimensions = (width, height)
+        elif tag == b"IDAT" and not finished:
+            idat.extend(data)
+        elif tag == b"IEND" and size == 0 and idat:
+            finished = True
+            break
+        else:
+            # No color profiles, EXIF orientation, gamma, animation, or unknown
+            # ancillary chunks. Such variants require their own native proof.
+            return None
+    if dimensions is None or not finished or pos != len(raw):
+        return None
+    width, height = dimensions
+    expected_size = (1 + 3 * width) * height
+    try:
+        decoder = zlib.decompressobj()
+        pixels = decoder.decompress(bytes(idat), expected_size + 1)
+        if (
+            len(pixels) != expected_size
+            or not decoder.eof
+            or decoder.unused_data
+            or decoder.unconsumed_tail
+            or any(pixels[row * (1 + 3 * width)] > 4 for row in range(height))
+        ):
+            return None
+    except zlib.error:
+        return None
+    streams = probe.get("streams")
+    frames = probe.get("frames")
+    if (
+        not isinstance(streams, list)
+        or len(streams) != 1
+        or not isinstance(streams[0], dict)
+        or streams[0].get("codec_type") != "video"
+        or streams[0].get("codec_name") != "png"
+        or streams[0].get("width") != width
+        or streams[0].get("height") != height
+        or not isinstance(frames, list)
+        or len(frames) != 1
+    ):
+        return None
+    return dimensions
 
 
 def native_endpoint_from_focus(
@@ -113,8 +294,14 @@ def native_endpoint_from_focus(
         raise MotionRefusal("focus outside normalized source")
     if frame["scale"] <= 0:
         raise MotionRefusal("zoom scale must be positive")
-    center = (float(frame["focusX"] - 0.5), float(0.5 - frame["focusY"]))
-    inverse_scale = 1.0 / frame["scale"]
+    # Native OTIO serializes these through a separate numeric representation.
+    # Canonicalize beyond raster-visible precision so independently rebuilt
+    # effects do not differ only by 1-ULP subtraction noise (0.52 vs 0.5).
+    center = (
+        round(float(frame["focusX"] - 0.5), 12),
+        round(float(0.5 - frame["focusY"]), 12),
+    )
+    inverse_scale = round(1.0 / frame["scale"], 12)
     # These are the measured raw key endpoints, NOT a general pan allowance.
     # #325 observed that larger native centers could expose black; the three
     # #336 aspect-ratio renders only establish +X/negative-Y movement.

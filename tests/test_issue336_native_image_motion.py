@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -15,6 +17,8 @@ from vera_timeline_agent.native_image_motion import (
     native_effect_records,
     production_qualification,
 )
+
+from scripts.issue336_studio_qualify import png
 
 H = "sha256:" + "a" * 64
 P = "sha256:" + "b" * 64
@@ -63,6 +67,121 @@ def test_runtime_has_no_unearned_production_qualification() -> None:
     assert production_qualification(MOTION, BINDING, "cover") is None
     with pytest.raises(MotionRefusal, match="no qualified output"):
         admit_motion(MOTION, BINDING, None, framing="cover")
+
+
+def _verified_png_case(
+    tmp_path: Path, width: int, height: int, frames: int
+) -> tuple[Path, MotionBinding, dict[str, Any]]:
+    source = tmp_path / f"public-{width}x{height}.png"
+    png(source, width, height)
+    digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    binding = replace(
+        BINDING,
+        source_hash=digest,
+        original_hash=digest,
+        timeline_width=1920,
+        timeline_height=1080,
+        record_end=frames,
+    )
+    probe = {
+        "streams": [
+            {
+                "codec_type": "video",
+                "codec_name": "png",
+                "width": width,
+                "height": height,
+            }
+        ],
+        "frames": [{"pts": 0}],
+    }
+    return source, binding, probe
+
+
+@pytest.mark.parametrize("frames", [24, 48, 96, 144])
+def test_bounded_verified_png_has_reusable_real_source_bound_proof(
+    tmp_path: Path, frames: int
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, 1600, 900, frames)
+    proof = production_qualification(
+        MOTION,
+        binding,
+        "cover",
+        verified_asset=source,
+        delivered_probe=probe,
+        frame_rate=(24, 1),
+    )
+    assert proof is not None
+    assert proof.binding == binding
+    assert (proof.source_width, proof.source_height) == (1600, 900)
+    assert admit_motion(MOTION, binding, proof, framing="cover") == proof
+    assert len(native_effect_records(MOTION, proof)) == 2
+
+
+def test_verified_png_none_supports_measured_static_contain(
+    tmp_path: Path,
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, 1000, 1000, 48)
+    motion = {"mode": "none"}
+    proof = production_qualification(
+        motion,
+        binding,
+        "contain",
+        verified_asset=source,
+        delivered_probe=probe,
+        frame_rate=(24, 1),
+    )
+    assert proof is not None
+    assert admit_motion(motion, binding, proof, framing="contain") == proof
+    assert native_effect_records(motion, proof)[0]["Enabled"] is False
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "wrong-rate",
+        "wrong-resolution",
+        "unmeasured-duration",
+        "unmeasured-framing",
+        "unmeasured-easing",
+        "different-probe",
+        "stale-source-bytes",
+        "derived-source",
+    ],
+)
+def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
+    tmp_path: Path, change: str
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, 1600, 900, 48)
+    motion = dict(MOTION)
+    framing = "cover"
+    frame_rate = (24, 1)
+    if change == "wrong-rate":
+        frame_rate = (25, 1)
+    elif change == "wrong-resolution":
+        binding = replace(binding, timeline_width=1280)
+    elif change == "unmeasured-duration":
+        binding = replace(binding, record_end=72)
+    elif change == "unmeasured-framing":
+        framing = "contain"
+    elif change == "unmeasured-easing":
+        motion["easing"] = "ease_in"
+    elif change == "different-probe":
+        probe["streams"][0]["width"] = 1000
+    elif change == "stale-source-bytes":
+        source.write_bytes(source.read_bytes() + b"tampered")
+    elif change == "derived-source":
+        binding = replace(binding, original_hash=P)
+    assert (
+        production_qualification(
+            motion,
+            binding,
+            framing,
+            verified_asset=source,
+            delivered_probe=probe,
+            frame_rate=frame_rate,
+        )
+        is None
+    )
 
 
 def test_synthetic_qualified_dynamic_metadata_is_exact_and_duration_independent() -> (

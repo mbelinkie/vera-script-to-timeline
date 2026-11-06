@@ -2057,7 +2057,13 @@ def _delivery_view(
         _validate_delivery_view(manifest, dependencies, view, prepared, artifacts)
         source_map = _unique_by_id(sources_view, "delivery source")
         for event in events_view:
-            _native_motion_for_event(event, manifest, source_map[event["sourceId"]])
+            _native_motion_for_event(
+                event,
+                manifest,
+                source_map[event["sourceId"]],
+                prepared=prepared,
+                artifacts=artifacts,
+            )
     return view
 
 
@@ -2284,7 +2290,12 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
 
 
 def _native_motion_for_event(
-    event: JsonObject, manifest: JsonObject, source: JsonObject
+    event: JsonObject,
+    manifest: JsonObject,
+    source: JsonObject,
+    *,
+    prepared: Mapping[str, _Preparation] | None = None,
+    artifacts: Mapping[str, _InputArtifact] | None = None,
 ) -> tuple[list[JsonObject], str | None]:
     """Close the frozen event/source/profile chain before projecting native effects.
 
@@ -2368,7 +2379,28 @@ def _native_motion_for_event(
     )
     framing = cast(str, treatment["framingPolicy"])
     try:
-        proof = native_image_motion.production_qualification(motion, binding, framing)
+        source_artifact = (
+            artifacts.get(f"source:{source_id}") if artifacts is not None else None
+        )
+        preparation = (
+            prepared.get(cast(str, requirement_key)) if prepared is not None else None
+        )
+        if source_artifact is None or preparation is None:
+            proof = native_image_motion.production_qualification(
+                motion, binding, framing
+            )
+        else:
+            proof = native_image_motion.production_qualification(
+                motion,
+                binding,
+                framing,
+                verified_asset=source_artifact.origin,
+                delivered_probe=cast(JsonObject, preparation.record["deliveredProbe"]),
+                frame_rate=(
+                    cast(int, timeline["frameRate"]["numerator"]),
+                    cast(int, timeline["frameRate"]["denominator"]),
+                ),
+            )
         qualified = native_image_motion.admit_motion(
             motion, binding, proof, framing=framing
         )
@@ -2413,7 +2445,12 @@ def _event_source_rate(event: JsonObject, timeline_rate: Fraction) -> Fraction:
 
 
 def _build_otio(
-    view: JsonObject, manifest_id: str, build_id: str, manifest: JsonObject
+    view: JsonObject,
+    manifest_id: str,
+    build_id: str,
+    manifest: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    artifacts: Mapping[str, _InputArtifact],
 ) -> Any:
     timeline_data = cast(JsonObject, view["timeline"])
     timeline_rate = _fraction(
@@ -2534,7 +2571,7 @@ def _build_otio(
                 },
             )
             motion_effects, qualification = _native_motion_for_event(
-                event, manifest, source
+                event, manifest, source, prepared=prepared, artifacts=artifacts
             )
             if qualification is not None:
                 clip.metadata["vera"]["motion_qualification"] = qualification
@@ -2577,7 +2614,13 @@ def _build_otio(
     return timeline
 
 
-def _verify_otio(package_root: Path, manifest: JsonObject, view: JsonObject) -> None:
+def _verify_otio(
+    package_root: Path,
+    manifest: JsonObject,
+    view: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    artifacts: Mapping[str, _InputArtifact],
+) -> None:
     try:
         timeline = otio.adapters.read_from_file(str(package_root / OTIO_FILENAME))
     except (OSError, RuntimeError, ValueError) as error:
@@ -2710,7 +2753,7 @@ def _verify_otio(package_root: Path, manifest: JsonObject, view: JsonObject) -> 
             ):
                 raise _error(f"OTIO event {event_id} differs from delivery view")
             expected_effects, expected_proof = _native_motion_for_event(
-                expected, manifest, source
+                expected, manifest, source, prepared=prepared, artifacts=artifacts
             )
             if vera.get("motion_qualification") != expected_proof:
                 raise _error(f"OTIO event {event_id} native qualification differs")
@@ -2862,7 +2905,9 @@ def _build_staging(
         _write_exclusive(staging / item.relative_path, item.raw)
     for artifact in artifacts.values():
         _copy_artifact(artifact, staging)
-    timeline = _build_otio(view, cast(str, manifest["id"]), build_id, manifest)
+    timeline = _build_otio(
+        view, cast(str, manifest["id"]), build_id, manifest, prepared, artifacts
+    )
     try:
         otio.adapters.write_to_file(
             timeline, str(build_root / OTIO_FILENAME), adapter_name="otio_json"
@@ -3240,7 +3285,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
     if actual_directories != _expected_directories(all_files):
         raise _error("package directory inventory includes unexpected or missing paths")
 
-    _verify_otio(build_root, manifest, view)
+    _verify_otio(build_root, manifest, view, prepared, artifacts)
     expected_counts = {
         "eventCount": len(cast(list[JsonObject], view["events"])),
         "manifestEventCount": len(cast(list[JsonObject], manifest["events"])),

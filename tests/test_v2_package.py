@@ -85,7 +85,9 @@ def test_issue336_compiler_small_float_hash_matches_js_number_to_string(
 def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
     """Only tests inject this fake; production_qualification refuses all requests."""
 
-    def fake(motion: dict[str, Any], binding: Any, framing: str) -> Any:
+    def fake(
+        motion: dict[str, Any], binding: Any, framing: str, **_verified: Any
+    ) -> Any:
         enabled = motion["mode"] == "native_dynamic_zoom"
         return native_image_motion.Qualification(
             edition="studio",
