@@ -26,9 +26,9 @@ def test_output_release_is_distinct_reproducible_and_closed(tmp_path: Path) -> N
     first = build_output_release_v2(one)
     second = build_output_release_v2(two)
     assert first.read_bytes() == second.read_bytes()
+    assert "qualification_output_records_v2.py" in RUNTIME_FILES
     assert set(OUTPUT_RUNTIME_FILES) - set(RUNTIME_FILES) == {
         "qualification_output_native_v2.py",
-        "qualification_output_records_v2.py",
     }
     for name in (
         "qualification_output_controller_v2.py",

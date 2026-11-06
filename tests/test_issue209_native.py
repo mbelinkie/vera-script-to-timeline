@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent.qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
@@ -228,6 +229,7 @@ def _run_output_launcher(
         capture_output=True,
         text=True,
         check=True,
+        env=isolated_native_owner_env(launcher.parent.parent),
     )
 
 
@@ -248,6 +250,7 @@ def _run_output_launcher_twice(
         capture_output=True,
         text=True,
         check=True,
+        env=isolated_native_owner_env(launcher.parent.parent),
     )
 
 

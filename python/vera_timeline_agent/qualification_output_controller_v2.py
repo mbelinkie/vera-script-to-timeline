@@ -30,7 +30,6 @@ from . import qualification_output_v2 as output
 from .qualification_output_records_v2 import (
     AUTHORITY_REFERENCE_FIELDS,
     CONTEXT_HASH_FIELDS,
-    EMPTY_HEAD,
     LANE,
     OutputConsistencyError,
     _canonical,
@@ -38,6 +37,10 @@ from .qualification_output_records_v2 import (
     _parse,
     _shape,
 )
+from .qualification_output_records_v2 import ENTRY_FIELDS as ENTRY_FIELDS
+from .qualification_output_records_v2 import _binding as _binding
+from .qualification_output_records_v2 import _chain as _chain
+from .qualification_output_records_v2 import _validated_history as _validated_history
 from .roundtrip_v2_records import _open_file
 
 Json = dict[str, Any]
@@ -110,22 +113,6 @@ _RECEIPT_KINDS = frozenset(
         "output_revised_preflight",
         "output_omission_review",
     }
-)
-ENTRY_FIELDS = frozenset(
-    [
-        "schemaVersion",
-        "lane",
-        "context",
-        "sequence",
-        "priorHeadSha256",
-        "state",
-        "commitmentRawSha256",
-        "commitmentPayloadSha256",
-        "predictionBytesSha256",
-        "reservationRawSha256",
-        "resultRawSha256",
-        "entrySha256",
-    ]
 )
 
 
@@ -331,147 +318,6 @@ def _publish(path: Path, raw: bytes) -> None:
         os.fsync(stream.fileno())
         os.fchmod(stream.fileno(), 0o400)
     _sync_directory(path.parent)
-
-
-def _chain(context: Json) -> Json:
-    ctx = _context(context)
-    return {
-        "projectUid": ctx["target"]["projectUid"],
-        "timelineUid": ctx["target"]["timelineUid"],
-        "caseId": ctx["caseId"],
-        "phase": ctx["phase"],
-    }
-
-
-def _binding(context: Json) -> str:
-    return str(_context(context)["binding"]["bindingSha256"])
-
-
-def _validated_history(rows: list[Json], chain: Json) -> str:
-    _require(len(rows) <= 4096, "journal entry bound exceeded")
-    head = EMPTY_HEAD
-    last: dict[str, Json] = {}
-    for sequence, row in enumerate(rows):
-        _require(set(row) == ENTRY_FIELDS, "closed journal entry required")
-        _require(
-            row["schemaVersion"] == "qualification-output-attempt/v1"
-            and row["lane"] == LANE
-            and _chain(row["context"]) == chain
-            and type(row["sequence"]) is int
-            and row["sequence"] == sequence
-            and row["priorHeadSha256"] == head,
-            "incomplete target/case/phase chain",
-        )
-        _require(
-            row["entrySha256"]
-            == _json_hash({k: v for k, v in row.items() if k != "entrySha256"}),
-            "journal entry hash differs",
-        )
-        for field in (
-            "commitmentRawSha256",
-            "commitmentPayloadSha256",
-            "predictionBytesSha256",
-        ):
-            _require(
-                type(row[field]) is str
-                and len(row[field]) == 64
-                and all(c in "0123456789abcdef" for c in row[field]),
-                "invalid journal digest",
-            )
-        key = _binding(row["context"])
-        prior = last.get(key)
-        state = row["state"]
-        _require(type(state) is str, "invalid attempt state")
-        for field in ("reservationRawSha256", "resultRawSha256"):
-            value = row[field]
-            _require(
-                value is None
-                or (
-                    type(value) is str
-                    and len(value) == 64
-                    and all(c in "0123456789abcdef" for c in value)
-                ),
-                "invalid attempt reference",
-            )
-        if state == "committed":
-            _require(
-                prior is None or prior["state"] in {"expired_unused", "render_failed"},
-                "stable binding already attempted",
-            )
-            if prior:
-                _require(
-                    prior["predictionBytesSha256"] == row["predictionBytesSha256"]
-                    and prior["context"] == row["context"],
-                    "recommitted prediction or context changed",
-                )
-            if prior:
-                failures = sum(
-                    r["state"] == "render_failed" and _binding(r["context"]) == key
-                    for r in rows[:sequence]
-                )
-                _require(
-                    failures == (1 if prior["state"] == "render_failed" else 0),
-                    "render retry budget exhausted",
-                )
-            _require(
-                row["reservationRawSha256"] is None and row["resultRawSha256"] is None,
-                "commitment has future references",
-            )
-        else:
-            _require(prior is not None, "attempt lacks commitment")
-            assert prior is not None
-            _require(
-                all(
-                    row[k] == prior[k]
-                    for k in (
-                        "context",
-                        "commitmentRawSha256",
-                        "commitmentPayloadSha256",
-                        "predictionBytesSha256",
-                    )
-                ),
-                "attempt lineage changed",
-            )
-            if state == "expired_unused":
-                _require(
-                    prior["state"] == "committed"
-                    and row["reservationRawSha256"] is None
-                    and row["resultRawSha256"] is None,
-                    "only unused commitment may expire",
-                )
-            elif state == "reserved_by_render_intent":
-                _require(
-                    prior["state"] == "committed"
-                    and type(row["reservationRawSha256"]) is str
-                    and len(row["reservationRawSha256"]) == 64
-                    and row["resultRawSha256"] is None,
-                    "exclusive reservation already used",
-                )
-            else:
-                _require(
-                    state
-                    in {
-                        "uncertain",
-                        "render_failed",
-                        "compared_consistent",
-                        "compared_refused",
-                    }
-                    and prior["state"] == "reserved_by_render_intent"
-                    and row["reservationRawSha256"] == prior["reservationRawSha256"],
-                    "terminal or uncertain attempt cannot restart",
-                )
-                _require(
-                    (
-                        row["resultRawSha256"] is None
-                        if state == "uncertain"
-                        else type(row["resultRawSha256"]) is str
-                        and len(row["resultRawSha256"]) == 64
-                    ),
-                    "invalid terminal result reference",
-                )
-        head = row["entrySha256"]
-        last[key] = row
-    return str(head)
 
 
 class OutputAttemptJournal:

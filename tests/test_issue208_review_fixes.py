@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_owner_test_support import isolated_native_owner_env
 from test_issue208_target_identity import (
     consume,
     identity_result,
@@ -178,6 +179,7 @@ def bootstrap(installed: Path, attack: str = "clean") -> tuple[str, list[str]]:
         capture_output=True,
         text=True,
         check=True,
+        env=isolated_native_owner_env(installed.parent),
     )
     assert not completed.stderr
     suffix = completed.stdout.split("RETURNED_CALLS=", 1)[1]

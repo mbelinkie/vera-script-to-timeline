@@ -36,6 +36,9 @@ RUNTIME_FILES = (
     "workflow_v2_launcher.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
+    "resolve_native_owner.py",
+    "workflow_v2_parent.py",
 )
 SOURCE_FILES = (
     *(f"python/vera_timeline_agent/{name}" for name in RUNTIME_FILES),

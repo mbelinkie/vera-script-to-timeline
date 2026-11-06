@@ -96,11 +96,23 @@ def start(request_path: Path, expected: str, python: Path) -> dict[str, Any]:
                 raise ValueError(
                     "prior Resolve delivery is live or unresolved; inspect it"
                 )
-        return _dispatch(request_path, expected, python, active)
+        from .resolve_native_owner import (
+            acquire_native_owner,
+            preflight_native_owner,
+            release_native_owner,
+        )
+
+        owner_fd = acquire_native_owner()
+        try:
+            preflight_native_owner()
+            return _dispatch(request_path, expected, python, active, owner_fd)
+        finally:
+            # Close this duplicate only; the child retains the shared lock.
+            release_native_owner(owner_fd)
 
 
 def _dispatch(
-    request_path: Path, expected: str, python: Path, active: Path
+    request_path: Path, expected: str, python: Path, active: Path, owner_fd: int
 ) -> dict[str, Any]:
     """Reserve one worker while the host-wide dispatch lock is held."""
     from .workflow_v2_cli import LAUNCHER_NAME, _no_symlinks, _verify_release
@@ -169,12 +181,13 @@ def _dispatch(
                         str(session),
                         str(lock.fileno()),
                         str(release / LAUNCHER_NAME),
+                        str(owner_fd),
                     ],
                     stdin=subprocess.DEVNULL,
                     stdout=console,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
-                    pass_fds=(lock.fileno(),),
+                    pass_fds=(lock.fileno(), owner_fd),
                 )
         except OSError:
             _write(
@@ -185,6 +198,7 @@ def _dispatch(
                     "requestSha256": expected,
                     "parentInvocationId": record["invocationId"],
                     "launcherEntered": False,
+                    "finishedAt": datetime.now(UTC).isoformat(),
                 },
             )
             raise
@@ -272,6 +286,21 @@ def status(
             and report.get("verified") is True
             and report.get("discrepancies") == []
         )
+        completed_at = exit_record.get("finishedAt", report.get("finishedAt"))
+        if completed_at is not None:
+            if "finishedAt" in exit_record and (
+                exit_record.get("parentInvocationId") != session["invocationId"]
+            ):
+                raise ValueError("parent completion clock identity mismatch")
+            completed = datetime.fromisoformat(completed_at)
+            started_at = datetime.fromisoformat(session["startedAt"])
+            if (
+                completed.tzinfo is None
+                or started_at.tzinfo is None
+                or completed < started_at
+            ):
+                raise ValueError("invalid parent completion wall clock")
+            response["completedAt"] = completed.astimezone(UTC).isoformat()
         response.update(state="terminal", verified=verified, result=report)
     except (OSError, ValueError, KeyError, TypeError) as error:
         response["detail"] = str(error)
@@ -290,7 +319,7 @@ def wait(request_path: Path, expected: str, seconds: float) -> dict[str, Any]:
         time.sleep(min(0.25, max(0, deadline - time.monotonic())))
 
 
-def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
+def _worker(session_path: Path, lock_fd: int, launcher: Path, owner_fd: int) -> None:
     # File execution keeps the bootstrap's clean-runtime guard intact.
     record = _read(session_path)
     code = 1
@@ -301,9 +330,16 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
         resolve = dvr.scriptapp("Resolve")
         if not resolve:
             raise RuntimeError("Resolve is not reachable")
+        manager = resolve.GetProjectManager()
+        if not manager:
+            raise RuntimeError("Resolve project manager is not reachable")
+        current = manager.GetCurrentProject()
+        if current is not None and current.IsRenderingInProgress() is not False:
+            raise RuntimeError("Resolve has an active or uncertain render")
         if _digest(Path(record["requestPath"])) != record["requestSha256"]:
             raise ValueError("request changed before worker launch")
         os.environ["VERA_DELIVERY_PARENT_ID"] = record["invocationId"]
+        os.environ["VERA_NATIVE_OWNER_FD"] = str(owner_fd)
         launcher_entered = True
         runpy.run_path(
             str(launcher), run_name="__main__", init_globals={"resolve": resolve}
@@ -318,14 +354,18 @@ def _worker(session_path: Path, lock_fd: int, launcher: Path) -> None:
                 "parentInvocationId": record["invocationId"],
                 "launcherEntered": launcher_entered,
                 "monotonicFinished": time.monotonic(),
+                "finishedAt": datetime.now(UTC).isoformat(),
             },
         )
         os.close(lock_fd)
+        os.close(owner_fd)
 
 
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "_worker":
-        _worker(Path(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[4]))
+        _worker(
+            Path(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[4]), int(sys.argv[5])
+        )
         return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("start", "status", "resume"))
@@ -345,7 +385,7 @@ def main() -> int:
             report = wait(args.request, args.request_sha256, args.wait_seconds)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as error:
         print(json.dumps({"state": "unknown", "verified": False, "detail": str(error)}))
         return 2
 

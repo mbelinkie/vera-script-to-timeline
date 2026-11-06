@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 from vera_timeline_agent import (
+    resolve_native_owner,
     workflow_v2,
     workflow_v2_cli,
     workflow_v2_launcher,
@@ -92,7 +93,7 @@ def _patch_popen(
 
     def fake_popen(command: list[str], **kwargs: Any) -> object:
         commands.append(command)
-        held_fds.append(os.dup(kwargs["pass_fds"][0]))
+        held_fds.extend(os.dup(fd) for fd in kwargs["pass_fds"])
         return object()
 
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
@@ -247,6 +248,32 @@ def test_launcher_names_attempt_evidence_with_request_digest(
     assert len(delivery_calls) == 1
 
 
+@pytest.mark.parametrize("foreign_clock", [False, True])
+def test_terminal_completion_clock_is_bound_to_parent_invocation(
+    tmp_path: Path, foreign_clock: bool
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    _completed_operation(evidence, expected, request)
+    path = evidence / "parent-exit.json"
+    value = workflow_v2_parent._read(path)
+    value.update(
+        finishedAt="2026-10-25T00:00:01+00:00",
+        parentInvocationId="foreign" if foreign_clock else _PARENT_INVOCATION_ID,
+    )
+    path.chmod(0o600)
+    path.write_text(json.dumps(value))
+    path.chmod(0o400)
+    response = workflow_v2_parent.status(request_path, expected)
+    if foreign_clock:
+        assert response["verified"] is False
+        assert response["state"] != "terminal"
+    else:
+        assert response["verified"] is True
+        assert response["completedAt"] == "2026-10-25T00:00:01+00:00"
+        assert response["elapsedSeconds"] == 1.0
+
+
 def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -274,6 +301,39 @@ def test_start_is_idempotent_and_unknown_after_worker_lock_releases(
         _close_fds(held_fds)
 
 
+def test_parent_child_retains_global_owner_and_unknown_blocks_other_routes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request_path, expected, manifest, _evidence, _request = _case(tmp_path)
+    _patch_release_checks(monkeypatch, manifest)
+    _commands, held_fds = _patch_popen(monkeypatch)
+    monkeypatch.setattr(
+        resolve_native_owner,
+        "PARENT_ACTIVE_PATH",
+        workflow_v2_parent.PARENT_STATE_ROOT / "active.json",
+    )
+    try:
+        assert (
+            workflow_v2_parent.start(request_path, expected, Path("unused"))["state"]
+            == "live"
+        )
+        with (
+            pytest.raises(resolve_native_owner.NativeOwnerError),
+            resolve_native_owner.native_owner(),
+        ):
+            pytest.fail("a foreign route entered while child owns Resolve")
+        _close_fds(held_fds)
+        held_fds.clear()
+        assert workflow_v2_parent.status(request_path, expected)["state"] == "unknown"
+        with (
+            pytest.raises(resolve_native_owner.NativeOwnerError),
+            resolve_native_owner.native_owner(),
+        ):
+            pytest.fail("released lock must not clear an uncertain operation")
+    finally:
+        _close_fds(held_fds)
+
+
 def test_start_requires_local_scripting_authority_before_dispatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -291,6 +351,29 @@ def test_start_requires_local_scripting_authority_before_dispatch(
         assert not (evidence / "parent.json").exists()
     finally:
         _close_fds(held_fds)
+
+
+@pytest.mark.parametrize("rendering", [True, None])
+def test_worker_refuses_active_or_uncertain_render_before_launcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendering: bool | None
+) -> None:
+    request_path, expected, _manifest, evidence, _request = _case(tmp_path)
+    _session(evidence, request_path, expected)
+    project = SimpleNamespace(IsRenderingInProgress=lambda: rendering)
+    manager = SimpleNamespace(GetCurrentProject=lambda: project)
+    resolve = SimpleNamespace(GetProjectManager=lambda: manager)
+    scripting = ModuleType("DaVinciResolveScript")
+    scripting.scriptapp = lambda _name: resolve  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "DaVinciResolveScript", scripting)
+    owner_fd = resolve_native_owner.acquire_native_owner()
+    with (evidence / "parent.lock").open("r") as lock:
+        child_lock = os.dup(lock.fileno())
+    with pytest.raises(RuntimeError, match="active or uncertain render"):
+        workflow_v2_parent._worker(
+            evidence / "parent.json", child_lock, Path("unused-launcher"), owner_fd
+        )
+    assert workflow_v2_parent.status(request_path, expected)["state"] == "not_started"
+    assert not list(evidence.glob("started-*.json"))
 
 
 def test_v2_probe_allows_missing_timeline_but_checks_present_timeline_surface() -> None:
@@ -510,7 +593,10 @@ def test_confirmed_prelaunch_failure_burns_request_and_releases_host_for_new_one
             child_lock_fd = os.dup(lock.fileno())
         with pytest.raises(RuntimeError, match="Resolve is not reachable"):
             workflow_v2_parent._worker(
-                first_evidence / "parent.json", child_lock_fd, Path("unused-launcher")
+                first_evidence / "parent.json",
+                child_lock_fd,
+                Path("unused-launcher"),
+                os.open(os.devnull, os.O_RDONLY),
             )
 
         failure = workflow_v2_parent._read(first_evidence / "parent-exit.json")
