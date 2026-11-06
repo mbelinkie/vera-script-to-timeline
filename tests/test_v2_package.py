@@ -10,7 +10,8 @@ from typing import Any
 
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
-from issue177_package_fixture import make_package_case
+from issue177_package_fixture import _refresh_document_closure, make_package_case
+from vera_timeline_agent import native_image_motion
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.v2_package import (
     BUILD_DIRECTORY,
@@ -30,6 +31,131 @@ from vera_timeline_agent.v2_package import (
 from vera_timeline_agent.workflow_package import sha256
 from vera_timeline_agent.workflow_v2 import run_workflow_delivery_v2
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
+
+
+def _issue336_case(case: Any, motion: dict[str, Any]) -> None:
+    """Write hash-closed authored input with a new frozen motion override."""
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
+    manifest["events"][0]["pictureTreatment"]["imageMotion"] = motion
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+
+
+def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only tests inject this fake; production_qualification refuses all requests."""
+
+    def fake(motion: dict[str, Any], binding: Any, framing: str) -> Any:
+        enabled = motion["mode"] == "native_dynamic_zoom"
+        return native_image_motion.Qualification(
+            edition="studio",
+            version="21.1.1.10",
+            route="native_otio",
+            binding=binding,
+            motion_hash=native_image_motion.motion_hash(motion),
+            framing=framing,
+            background="#000000",
+            source_width=1920,
+            source_height=1080,
+            focus_proven=enabled,
+            native_start_center=(0.0, 0.0) if enabled else None,
+            native_end_center=(0.25, -0.2) if enabled else None,
+            native_start_scale=0.8 if enabled else None,
+            native_end_scale=1.1 if enabled else None,
+        )
+
+    monkeypatch.setattr(native_image_motion, "production_qualification", fake)
+
+
+_ISSUE336_NATIVE = {
+    "mode": "native_dynamic_zoom",
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.0},
+    "end": {"focusX": 0.65, "focusY": 0.35, "scale": 1.1},
+    "easing": "linear",
+}
+
+
+@pytest.mark.parametrize("rate", ["25fps", "ntsc"])
+@pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
+def test_issue336_native_effect_roundtrip_and_exact_record_extent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rate: str, motion: dict[str, Any]
+) -> None:
+    case = make_package_case(tmp_path, rate=rate)
+    _issue336_case(case, motion)
+    _issue336_synthetic_qualification(monkeypatch)
+    result = case.build()
+    assert verify_v2_package(case.project_root).build_id == result.build_id
+    build_root = case.project_root / BUILD_DIRECTORY / result.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+    event = view["events"][0]
+    assert event["pictureTreatment"]["imageMotion"] == motion
+    assert (
+        event["recordRange"]["durationFrames"] == event["sourceRange"]["durationFrames"]
+    )
+    timeline = otio.adapters.read_from_file(str(build_root / OTIO_FILENAME))
+    clip = timeline.tracks[0][0]
+    assert len(clip.effects) == 2
+    assert clip.metadata["vera"]["motion_qualification"].startswith("sha256:")
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Type"] == 59
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Enabled"] == (
+        motion["mode"] != "none"
+    )
+    assert clip.effects[1].metadata["Resolve_OTIO"]["Type"] == 22
+    assert case.build().reused is True
+
+
+def test_issue336_unqualified_motion_refuses_before_any_package_write(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, _ISSUE336_NATIVE)
+    with pytest.raises(V2PackageError, match="no qualified output profile"):
+        case.build()
+    assert not case.project_root.exists()
+
+
+@pytest.mark.parametrize("tamper", ["type", "pointf", "double", "enabled", "extra"])
+def test_issue336_native_otio_tamper_refused_even_with_rehashed_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tamper: str
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, _ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    path = build_root / OTIO_FILENAME
+    timeline = otio.adapters.read_from_file(str(path))
+    clip = timeline.tracks[0][0]
+    effect = clip.effects[0].metadata["Resolve_OTIO"]
+    if tamper == "type":
+        effect["Type"] = 58
+    elif tamper == "pointf":
+        effect["Parameters"][0]["Key Frames"]["-86400"]["Variant Type"] = "Double"
+    elif tamper == "double":
+        effect["Parameters"][1]["Key Frames"]["-85400"]["Value"] = 500.0
+    elif tamper == "enabled":
+        effect["Enabled"] = False
+    else:
+        clip.effects.append(otio.schema.Effect(effect_name="Resolve Effect"))
+    otio.adapters.write_to_file(timeline, str(path), adapter_name="otio_json")
+    receipt_path = build_root / VERIFICATION_FILENAME
+    receipt = json.loads(receipt_path.read_text())
+    rel = (Path(BUILD_DIRECTORY) / built.build_id / OTIO_FILENAME).as_posix()
+    receipt["fileHashes"][rel] = (
+        "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    )
+    receipt_path.write_bytes(canonical_json_bytes(receipt))
+    with pytest.raises(V2PackageError, match=r"OTIO event .* native effect"):
+        verify_v2_package(case.project_root)
 
 
 @dataclass(frozen=True)

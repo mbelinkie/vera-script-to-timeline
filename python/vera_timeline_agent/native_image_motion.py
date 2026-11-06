@@ -1,0 +1,297 @@
+"""Fail-closed native Resolve image-motion admission and OTIO effect records.
+
+The qualification is trusted runtime evidence, NEVER authored JSON.  No
+production geometry is qualified yet: phase 3 must install measured, pinned
+source/framing/easing profiles before an effect can be emitted by the product.
+The opaque native key labels below are exported Resolve metadata, not frames.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from dataclasses import asdict, dataclass
+from typing import Any
+
+
+class MotionRefusal(ValueError):
+    """The requested native image effect has no exact verified output proof."""
+
+
+@dataclass(frozen=True)
+class MotionBinding:
+    """Immutable identity read from independently verified compiler/media records."""
+
+    source_hash: str
+    original_hash: str
+    source_probe_hash: str
+    delivered_probe_hash: str
+    compiler_profile_hash: str
+    preparation_profile_hash: str
+    tool_hash: str
+    settings_hash: str
+    preparation_binding_hash: str
+    record_start: int
+    record_end: int
+    source_start: int
+    source_end: int
+    timeline_width: int
+    timeline_height: int
+
+
+@dataclass(frozen=True)
+class Qualification:
+    """One proven source, build configuration, motion and duration envelope.
+
+    A proof must be produced by native output qualification, not by a script
+    document or an import caller.  Pinned exact endpoints deliberately avoid
+    pretending that the native center/scale mapping has been calibrated.
+    """
+
+    edition: str
+    version: str
+    route: str
+    binding: MotionBinding
+    motion_hash: str
+    framing: str
+    background: str
+    source_width: int
+    source_height: int
+    focus_proven: bool = False
+    native_start_center: tuple[float, float] | None = None
+    native_end_center: tuple[float, float] | None = None
+    native_start_scale: float | None = None
+    native_end_scale: float | None = None
+
+
+def motion_hash(motion: dict[str, Any]) -> str:
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            (
+                json.dumps(
+                    motion, sort_keys=True, separators=(",", ":"), allow_nan=False
+                )
+                + "\n"
+            ).encode()
+        ).hexdigest()
+    )
+
+
+def qualification_hash(proof: Qualification) -> str:
+    return motion_hash(asdict(proof))
+
+
+def production_qualification(
+    _motion: dict[str, Any], _binding: MotionBinding, _framing: str
+) -> Qualification | None:
+    """No fabricated positive profile: phase 3 installs real decoded proof."""
+    return None
+
+
+def admit_motion(
+    motion: dict[str, Any],
+    binding: MotionBinding,
+    proof: Qualification | None,
+    *,
+    framing: str,
+    background: str = "#000000",
+    edition: str = "studio",
+    version: str = "21.1.1.10",
+    route: str = "native_otio",
+) -> Qualification:
+    """Check all pinned source/profile/duration/effect inputs before any write."""
+    if proof is None:
+        raise MotionRefusal("native image geometry has no qualified output profile")
+    if (
+        (edition, version, route) != (proof.edition, proof.version, proof.route)
+        or edition != "studio"
+        or route != "native_otio"
+    ):
+        raise MotionRefusal("unqualified Resolve edition/version/import route")
+    if binding != proof.binding:
+        raise MotionRefusal(
+            "stale source, probe, settings, preparation or profile binding"
+        )
+    hashes = (
+        binding.source_hash,
+        binding.original_hash,
+        binding.source_probe_hash,
+        binding.delivered_probe_hash,
+        binding.compiler_profile_hash,
+        binding.preparation_profile_hash,
+        binding.tool_hash,
+        binding.settings_hash,
+        binding.preparation_binding_hash,
+    )
+    if any(
+        not isinstance(value, str)
+        or len(value) != 71
+        or not value.startswith("sha256:")
+        or any(char not in "0123456789abcdef" for char in value[7:])
+        for value in hashes
+    ):
+        raise MotionRefusal("invalid frozen motion source/profile hash")
+    if (
+        any(
+            type(v) is not int
+            for v in (
+                binding.record_start,
+                binding.record_end,
+                binding.source_start,
+                binding.source_end,
+                binding.timeline_width,
+                binding.timeline_height,
+            )
+        )
+        or binding.record_start < 0
+        or binding.record_end <= binding.record_start
+        or binding.source_start < 0
+        or binding.source_end != binding.source_start + 1
+        or binding.timeline_width <= 0
+        or binding.timeline_height <= 0
+    ):
+        raise MotionRefusal("invalid exact still source or occurrence duration")
+    if (
+        type(proof.source_width) is not int
+        or type(proof.source_height) is not int
+        or min(proof.source_width, proof.source_height) <= 0
+    ):
+        raise MotionRefusal("unqualified source geometry")
+    if proof.motion_hash != motion_hash(motion):
+        raise MotionRefusal("motion endpoints or easing differ from qualified output")
+    if framing != proof.framing or background != proof.background:
+        raise MotionRefusal("unqualified framing or background; no silent crop")
+    if framing not in {"contain", "cover"} or background != "#000000":
+        raise MotionRefusal("framing/background has no native output qualification")
+    if motion == {"mode": "none"}:
+        if any(
+            value is not None
+            for value in (
+                proof.native_start_center,
+                proof.native_end_center,
+                proof.native_start_scale,
+                proof.native_end_scale,
+            )
+        ):
+            raise MotionRefusal(
+                "None qualification unexpectedly includes motion geometry"
+            )
+        return proof
+    if (
+        set(motion) != {"mode", "start", "end", "easing"}
+        or motion.get("mode") != "native_dynamic_zoom"
+    ):
+        raise MotionRefusal("unknown native motion mode or settings")
+    if motion.get("easing") != "linear":
+        raise MotionRefusal("requested nonlinear ease lacks decoded output proof")
+    if not proof.focus_proven:
+        raise MotionRefusal("normalized focus mapping has no decoded output proof")
+    for name in ("start", "end"):
+        point = motion[name]
+        if not isinstance(point, dict) or set(point) != {"focusX", "focusY", "scale"}:
+            raise MotionRefusal("invalid normalized focus or scale")
+        for axis in ("focusX", "focusY"):
+            value = point[axis]
+            if (
+                type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not 0 <= value <= 1
+            ):
+                raise MotionRefusal("focus outside the normalized source")
+        value = point["scale"]
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+            raise MotionRefusal("invalid source-relative scale")
+    if (
+        proof.native_start_center is None
+        or proof.native_end_center is None
+        or proof.native_start_scale is None
+        or proof.native_end_scale is None
+    ):
+        raise MotionRefusal("native center/scale endpoints are not qualified")
+    for center in (proof.native_start_center, proof.native_end_center):
+        if len(center) != 2 or any(
+            type(v) not in (int, float)
+            or not math.isfinite(v)
+            or not -0.25 <= v <= 0.25
+            for v in center
+        ):
+            raise MotionRefusal("raw native center outside observed bounded envelope")
+    for scale in (proof.native_start_scale, proof.native_end_scale):
+        if (
+            type(scale) not in (int, float)
+            or not math.isfinite(scale)
+            or not 0.8 <= scale <= 1.1
+        ):
+            raise MotionRefusal("raw native scale outside observed bounded envelope")
+    return proof
+
+
+def native_effect_records(
+    motion: dict[str, Any], proof: Qualification
+) -> list[dict[str, Any]]:
+    """Produce two exact native Resolve OTIO effects, never a guessed fallback."""
+    enabled = motion["mode"] == "native_dynamic_zoom"
+    start_center = proof.native_start_center if enabled else (0.0, 0.0)
+    end_center = proof.native_end_center if enabled else (0.0, 0.0)
+    start_scale = proof.native_start_scale if enabled else 0.8
+    end_scale = proof.native_end_scale if enabled else 1.0
+    if (
+        start_center is None
+        or end_center is None
+        or start_scale is None
+        or end_scale is None
+    ):
+        raise MotionRefusal("missing native effect endpoints")
+    return [
+        {
+            "Type": 59,
+            "Name": "Dynamic Zoom",
+            "Effect Name": "Dynamic Zoom",
+            "Display Type": 1,
+            "Enabled": enabled,
+            "Parameters": [
+                {
+                    "Parameter ID": "dynamicZoomCenter",
+                    "Variant Type": "POINTF",
+                    "Default Parameter Value": [0.0, 0.0],
+                    "Parameter Value": list(end_center),
+                    "Key Frames": {
+                        "-86400": {
+                            "Value": list(start_center),
+                            "Variant Type": "POINTF",
+                        },
+                        "-85400": {"Value": list(end_center), "Variant Type": "POINTF"},
+                    },
+                },
+                {
+                    "Parameter ID": "dynamicZoomScale",
+                    "Variant Type": "Double",
+                    "Default Parameter Value": 1.0,
+                    "Parameter Value": end_scale,
+                    "minValue": 0.01,
+                    "maxValue": 100.0,
+                    "Key Frames": {
+                        "-86400": {"Value": start_scale, "Variant Type": "Double"},
+                        "-85400": {"Value": end_scale, "Variant Type": "Double"},
+                    },
+                },
+            ],
+        },
+        {
+            "Type": 22,
+            "Name": "Retime and Scaling",
+            "Effect Name": "Retime and Scaling",
+            "Display Type": 1,
+            "Enabled": True,
+            "Parameters": [
+                {
+                    "Parameter ID": "scale",
+                    "Variant Type": "UInt",
+                    "Default Parameter Value": 0,
+                    "Parameter Value": 2 if proof.framing == "contain" else 3,
+                }
+            ],
+        },
+    ]
