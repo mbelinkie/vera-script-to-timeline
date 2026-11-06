@@ -101,8 +101,16 @@ def expected_for_package(package: object) -> dict[str, Any]:
     view = getattr(package, "view", None)
     if not isinstance(view, Mapping):
         raise ValueError("verified package has no delivery view")
-    required = {"timeline", "tracks", "sources", "events", "markers", "composition"}
-    if set(view) != required:
+    required = {
+        "schemaVersion",
+        "timeline",
+        "tracks",
+        "sources",
+        "events",
+        "markers",
+        "composition",
+    }
+    if set(view) != required or view["schemaVersion"] != "resolve-native-view/v2":
         raise ValueError("verified package view has unsupported fields")
     events = view["events"]
     markers = view["markers"]
