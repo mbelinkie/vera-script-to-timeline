@@ -59,7 +59,7 @@ def native_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
         native, "validate_native_plan", lambda source, at=None: dict(source)
     )
     monkeypatch.setattr(native, "preflight", lambda plan: request)
-    monkeypatch.setattr(q, "preflight_native_owner", lambda: None)
+    monkeypatch.setattr(q, "preflight_independent_disposable", lambda _name: None)
     # Authentication is covered separately; exercise persistence here.
     monkeypatch.setattr(
         native,
@@ -73,7 +73,8 @@ def native_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     calls: list[str] = []
     response = {"state": "live"}
 
-    def start(*args: Any) -> dict[str, Any]:
+    def start(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs == {"independent_disposable": True}
         calls.append("dispatch")
         evidence.mkdir(exist_ok=True)
         (evidence / "parent.json").write_text(
@@ -142,8 +143,8 @@ def test_lost_start_reply_reconciles_without_another_start(
 ) -> None:
     case = native_case
 
-    def lost(*args: Any) -> None:
-        case.start(*args)
+    def lost(*args: Any, **kwargs: Any) -> None:
+        case.start(*args, **kwargs)
         raise OSError("lost reply containing private path")
 
     monkeypatch.setattr(parent, "start", lost)
@@ -269,7 +270,8 @@ def test_busy_parent_reply_blocks_without_status_or_retry(
     starts: list[str] = []
     status_calls: list[tuple[Any, ...]] = []
 
-    def busy(*_args: Any) -> dict[str, Any]:
+    def busy(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        assert kwargs == {"independent_disposable": True}
         starts.append("busy")
         return {"state": "busy", "verified": False}
 
@@ -464,10 +466,10 @@ def test_status_command_skips_reconciliation_during_dispatch(
     status_calls: list[tuple[Any, ...]] = []
     original_start = case.start
 
-    def blocked_start(*args: Any) -> dict[str, Any]:
+    def blocked_start(*args: Any, **kwargs: Any) -> dict[str, Any]:
         entered.set()
         assert release.wait(timeout=5)
-        return cast(dict[str, Any], original_start(*args))
+        return cast(dict[str, Any], original_start(*args, **kwargs))
 
     monkeypatch.setattr(parent, "start", blocked_start)
     monkeypatch.setattr(
@@ -580,8 +582,8 @@ def test_foreign_native_owner_blocks_before_intent(
     case = native_case
     monkeypatch.setattr(
         q,
-        "preflight_native_owner",
-        lambda: (_ for _ in ()).throw(
+        "preflight_independent_disposable",
+        lambda _name: (_ for _ in ()).throw(
             NativeOwnerError("owner_busy", "private owner path")
         ),
     )
@@ -601,7 +603,7 @@ def test_owner_race_is_blocked_without_retry(
     monkeypatch.setattr(
         parent,
         "start",
-        lambda *args: (_ for _ in ()).throw(
+        lambda *args, **kwargs: (_ for _ in ()).throw(
             NativeOwnerError("owner_busy", "another route acquired the host")
         ),
     )

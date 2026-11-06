@@ -173,6 +173,89 @@ def preflight_native_owner() -> None:
     _check_output_histories(native)
 
 
+_DISPOSABLE_NAME = re.compile(
+    r"VERA Delivery [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12} [0-9a-f]{12}\Z"
+)
+
+
+def preflight_independent_disposable(target_name: str) -> None:
+    """Read-only live safety check for a *new* independent v2 test target.
+
+    The caller must acquire the shared native owner lock before dispatch. This
+    deliberately does not turn old UNKNOWN output results into completion or
+    clear their reservation: only the *current* Resolve project can intersect
+    with a fresh, uniquely named target. Other projects' historical outcomes
+    remain UNKNOWN, without claiming to own the currently idle application.
+    The normal strict preflight remains the default for every other route.
+    """
+    if not isinstance(target_name, str) or not _DISPOSABLE_NAME.fullmatch(target_name):
+        raise _blocked("disposable_target_invalid", "new target name is not unique")
+    _check_parent_operation()
+    _check_issue328_marker()
+    try:
+        scripting = importlib.import_module("DaVinciResolveScript")
+        resolve = scripting.scriptapp("Resolve")
+        if not resolve:
+            raise ValueError("local Resolve connection unavailable")
+        manager = resolve.GetProjectManager()
+        if manager is None:
+            raise ValueError("project manager unavailable")
+        current = manager.GetCurrentProject()
+        if current is None:
+            raise ValueError("no current project to establish idle state")
+        current_uid = current.GetUniqueId()
+        if not isinstance(current_uid, str) or not current_uid:
+            raise ValueError("current project UID unavailable")
+        if current.IsRenderingInProgress() is not False:
+            raise ValueError("Resolve is rendering or render state is unknown")
+        if current.GetName() == target_name:
+            raise ValueError("new target is already selected")
+        available = manager.GetProjectListInCurrentFolder()
+        if not isinstance(available, (list, tuple)) or any(
+            not isinstance(name, str) for name in available
+        ):
+            raise ValueError("project inventory unavailable")
+        if target_name in available:
+            raise ValueError("new target already exists")
+        jobs = current.GetRenderJobList()
+        if not isinstance(jobs, (list, tuple)):
+            raise ValueError("render job inventory unavailable")
+        for job in jobs:
+            if (
+                not isinstance(job, dict)
+                or not isinstance(job.get("JobId"), str)
+                or not job["JobId"]
+            ):
+                raise ValueError("render job identity unavailable")
+            status = current.GetRenderJobStatus(job["JobId"])
+            if (
+                not isinstance(status, dict)
+                or status.get("JobStatus") not in _TERMINAL_RENDER_STATES
+            ):
+                raise ValueError("a render job is pending, active or unknown")
+
+        # The authenticated output-host journal identifies project UIDs. An
+        # unresolved chain from the *current* project still requires signed
+        # native quiescence; foreign projects do not own a proven-idle app.
+        for key in _active_output_host_chains(None):
+            chain = json.loads(_read(OUTPUT_ATTEMPTS_ROOT / key / "chain.json"))
+            if chain["projectUid"] == current_uid and not (
+                _locally_attested_paused_queue(key)
+            ):
+                raise ValueError("current project has an unisolated old operation")
+
+        # Recheck the dynamic render state after reading historical journals.
+        if current.IsRenderingInProgress() is not False:
+            raise ValueError("Resolve changed to rendering during preflight")
+        selected = manager.GetCurrentProject()
+        if selected is None or selected.GetUniqueId() != current_uid:
+            raise ValueError("current project changed during preflight")
+    except NativeOwnerError:
+        raise
+    except Exception as error:
+        raise _blocked("independent_disposable_not_idle", str(error)) from error
+
+
 def _check_output_histories(native: Any) -> None:
     # Each historical result recursively authenticates its predecessors. Share
     # the native verifier's strictly invocation-local traversal so checking

@@ -7,7 +7,7 @@ import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -16,6 +16,141 @@ from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent import resolve_native_owner as owner
 from vera_timeline_agent import workflow_v2_parent
 from vera_timeline_agent.qualification_output_records_v2 import _canonical
+
+DISPOSABLE = "VERA Delivery 00000000-0000-4000-8000-000000000003 abcdef012345"
+
+
+def _independent_resolve(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    rendering: bool | None = False,
+    jobs: list[dict[str, str]] | None = None,
+    selected: str = "Existing Project",
+    projects: list[str] | None = None,
+) -> None:
+    project = SimpleNamespace(
+        GetUniqueId=lambda: "current-project-uid",
+        GetName=lambda: selected,
+        IsRenderingInProgress=lambda: rendering,
+        GetRenderJobList=lambda: [] if jobs is None else jobs,
+        GetRenderJobStatus=lambda job_id: {
+            "JobStatus": next(
+                (
+                    job.get("MockJobStatus", "Complete")
+                    for job in (jobs or [])
+                    if job.get("JobId") == job_id
+                ),
+                None,
+            )
+        },
+    )
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: project,
+        GetProjectListInCurrentFolder=lambda: (
+            ["Existing Project"] if projects is None else projects
+        ),
+    )
+    scripting = ModuleType("DaVinciResolveScript")
+    scripting.scriptapp = lambda _name: SimpleNamespace(  # type: ignore[attr-defined]
+        GetProjectManager=lambda: manager
+    )
+    monkeypatch.setitem(sys.modules, "DaVinciResolveScript", scripting)
+
+
+def test_disposable_preflight_isolates_foreign_unknown_without_mutating_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    foreign_chain = {
+        "projectUid": "different-project-uid",
+        "timelineUid": "old-timeline",
+        "caseId": "old-case",
+        "phase": "old-phase",
+    }
+    key = controller._json_hash(foreign_chain)
+    directory = owner.OUTPUT_ATTEMPTS_ROOT / key
+    directory.mkdir(parents=True)
+    source = _canonical(foreign_chain)
+    (directory / "chain.json").write_bytes(source)
+    # The old UNKNOWN remains retained; the new route does not require a
+    # per-project terminal poll or turn it into a successful old operation.
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {key: "uncertain"}
+    )
+    owner.preflight_independent_disposable(DISPOSABLE)
+    assert (directory / "chain.json").read_bytes() == source
+    assert not owner.PAUSED_OUTPUT_ROOT.exists()
+
+
+@pytest.mark.parametrize(
+    ("rendering", "jobs", "selected", "projects", "reason"),
+    [
+        (True, None, "Existing Project", None, "rendering"),
+        (None, None, "Existing Project", None, "rendering"),
+        (
+            False,
+            [{"JobId": "job", "MockJobStatus": "Ready"}],
+            "Existing Project",
+            None,
+            "pending",
+        ),
+        (False, [{"JobId": ""}], "Existing Project", None, "identity"),
+        (False, None, DISPOSABLE, None, "already selected"),
+        (False, None, "Existing Project", [DISPOSABLE], "already exists"),
+    ],
+)
+def test_disposable_preflight_fails_closed_on_live_state_or_target_collision(
+    monkeypatch: pytest.MonkeyPatch,
+    rendering: bool | None,
+    jobs: list[dict[str, str]] | None,
+    selected: str,
+    projects: list[str] | None,
+    reason: str,
+) -> None:
+    _independent_resolve(
+        monkeypatch,
+        rendering=rendering,
+        jobs=jobs,
+        selected=selected,
+        projects=projects,
+    )
+    with pytest.raises(owner.NativeOwnerError, match="Resolve is owned") as exc:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert exc.value.reason == "independent_disposable_not_idle"
+    assert reason in exc.value.private_detail
+
+
+def test_disposable_preflight_blocks_uncleared_current_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    current_chain = {
+        "projectUid": "current-project-uid",
+        "timelineUid": "old-timeline",
+        "caseId": "old-case",
+        "phase": "old-phase",
+    }
+    key = controller._json_hash(current_chain)
+    directory = owner.OUTPUT_ATTEMPTS_ROOT / key
+    directory.mkdir(parents=True)
+    (directory / "chain.json").write_bytes(_canonical(current_chain))
+    monkeypatch.setattr(
+        owner, "_active_output_host_chains", lambda _native: {key: "uncertain"}
+    )
+    with pytest.raises(owner.NativeOwnerError) as exc:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert exc.value.reason == "independent_disposable_not_idle"
+    assert "unisolated old operation" in exc.value.private_detail
+
+
+def test_disposable_preflight_cannot_accept_arbitrary_target_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch)
+    for name in ("An Existing Project", "VERA Delivery test", DISPOSABLE + " 2"):
+        with pytest.raises(owner.NativeOwnerError) as exc:
+            owner.preflight_independent_disposable(name)
+        assert exc.value.reason == "disposable_target_invalid"
 
 
 def _result(

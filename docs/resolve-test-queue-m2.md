@@ -49,20 +49,29 @@ interpreters, dynamic imports, private data uploads or automatic retries.
 ## Recovery and reports
 
 The parent, injected launcher, output entry point and #328 bridge share a host
-ownership lock. The detached parent worker inherits that lock. The queue and
-external parent perform a host-only check of retained parent, output-render and
-bridge reservations as well: a released OS lock
-does not clear an unresolved native operation. Known terminal native results
-and authenticated expired unstarted requests are distinguished from unresolved
-render work; records are never deleted to make a new job eligible. Old installed
-bundles must be regenerated from the current runtime before use; a pre-M2 bundle
-does not gain the new guard merely because the queue was upgraded.
-Other entry points retain their existing lane-specific authorization and recovery
-checks and refuse a live or unresolved guarded parent. Standalone non-output
-writes also refuse retained render reservations, using the same journal validator
-as the host controller. The output lane can continue its own approved chain.
-The installed guard uses only stdlib; it does not load the host output controller
-inside Resolve.
+ownership lock. The detached parent worker inherits that lock. The queue's
+**new disposable native test** path is a narrow exception to the *historical
+output-render reservation* gate, not to this exclusive lock. It requires a
+freshly authorized normal v2 build, an independently generated unique target
+name, and an in-person-compatible read-only Resolve check: available local
+scripting, stable current project identity, no active or unknown render, all
+current-project render jobs terminal, target name not already present, and
+no unresolved output-host chain belonging to that current project unless
+separately authenticated as quiescent. The external parent **repeats** that
+check after taking the global lock, immediately before starting its one-use
+worker. Old UNKNOWN operations in *other projects* remain UNKNOWN and retain
+all their original evidence; they do not automatically own an idle application.
+If Resolve, its project/job inventory, owner lock, prior parent, or #328 bridge
+is unavailable or ambiguous, the new job is BLOCKED, not dispatched.
+
+**Only this M2 disposable test route opts into independent isolation.**
+Ordinary non-output delivery, legacy workflows, and output qualification keep
+their existing strict historical ownership guards. Old installed bundles must
+be regenerated from the current runtime before use; a pre-M2 bundle does not
+gain the new guard merely because the queue was upgraded. The installed guard
+uses only stdlib; it does not load the host output controller inside Resolve.
+Nothing clears a historical reservation, changes an old result from UNKNOWN,
+replays an old effect, or proves that old output was delivered.
 
 ### Paused historical output queues
 
@@ -114,7 +123,10 @@ empty reserved next stage; the host still performs full retained verification
 before dispatch.
 If the original project is not already selected, report
 `blocked_requires_human` rather than switching projects or guessing that an
-unselected project's render has stopped.
+unselected project's render has stopped. These observations are needed to
+resume or establish the historical operation's own state; they are **not
+required** for a separately authorized, brand-new M2 disposable test when
+the live independent-isolation preflight passes.
 
 The installed Resolve launcher uses a self-contained stdlib owner guard and
 small journal/observation checks. It must **not** import the full host output
