@@ -57,7 +57,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument(
-        "--phase", choices=("start", "inspect", "decode", "reopen"), required=True
+        "--phase",
+        choices=("start", "continue-reserved", "inspect", "decode", "reopen"),
+        required=True,
     )
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
@@ -75,31 +77,48 @@ def main() -> int:
     state_path = root / "recovery.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else None
 
-    if args.phase == "start":
-        if state is not None:
+    if args.phase in {"start", "continue-reserved"}:
+        if args.phase == "start" and state is not None:
             raise RuntimeError("refuse: render attempt already reserved; no replay")
+        if args.phase == "continue-reserved" and (
+            state is None
+            or state.get("status") != "reserved"
+            or state.get("case") != case
+            or state.get("project") != project.GetName()
+            or state.get("sourceSha256") != sha(root / "square.png")
+            or state.get("jobId") is not None
+        ):
+            raise RuntimeError("refuse: only known pre-job reservation can continue")
         if project.IsRenderingInProgress() is not False or project.GetRenderJobList():
             raise RuntimeError("refuse: existing render activity or jobs")
         if list(root.glob(case + "*.mov")):
             raise RuntimeError("refuse: output already exists")
-        profile = {
-            key: timeline.GetSetting(key)
-            for key in (
-                "timelineResolutionWidth",
-                "timelineResolutionHeight",
-                "timelineFrameRate",
-            )
-        }
-        state = {
-            "status": "reserved",
-            "case": case,
-            "project": project.GetName(),
-            "profileReadback": profile,
-            "sourceSha256": sha(root / "square.png"),
-        }
-        save_json(state_path, state)  # reserve before any native render effects
-        if not project.SetCurrentRenderFormatAndCodec("mov", "ProRes422"):
-            raise RuntimeError("refuse: ProRes 422 render codec")
+        if args.phase == "start":
+            profile = {
+                key: timeline.GetSetting(key)
+                for key in (
+                    "timelineResolutionWidth",
+                    "timelineResolutionHeight",
+                    "timelineFrameRate",
+                )
+            }
+            state = {
+                "status": "reserved",
+                "case": case,
+                "project": project.GetName(),
+                "profileReadback": profile,
+                "sourceSha256": sha(root / "square.png"),
+            }
+            save_json(state_path, state)  # reserve before any native render effects
+            project.SetCurrentRenderFormatAndCodec("mov", "ProRes422")
+        # Resolve sometimes returns False for an already selected render
+        # format. Only independently observed exact settings count as success.
+        if project.GetCurrentRenderFormatAndCodec() != {
+            "format": "mov",
+            "codec": "ProRes422",
+        }:
+            raise RuntimeError("refuse: actual render format/codec differ")
+        assert state is not None
         settings = {
             "TargetDir": str(root),
             "CustomName": case,
