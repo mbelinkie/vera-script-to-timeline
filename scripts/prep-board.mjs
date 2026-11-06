@@ -61,6 +61,7 @@ export function notReadyReasons(item) {
   const reasons = [];
   if (BUSY.has(item.status)) reasons.push(`Already ${item.status.toLowerCase()}`);
   if (item.status === "Blocked") reasons.push("Marked Blocked");
+  if (item.status === "Deferred") reasons.push("Deferred");
   if (!GROOM_TYPES.has(item.type)) reasons.push(`type:${item.type} isn't code work`);
   if (item.queueOrder === null) reasons.push("Not in Queue Order");
   else if (!item.dependenciesVerified) reasons.push("Dependencies not verified");

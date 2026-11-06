@@ -12,6 +12,7 @@ export const BOARD_STATUSES = Object.freeze([
   "Ready",
   "In progress",
   "Blocked",
+  "Deferred",
   "In review",
   "Done",
 ]);

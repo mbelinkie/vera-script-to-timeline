@@ -14,7 +14,9 @@ import { acquireRoadmapLock } from "./roadmap-lock.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
-export const STATUSES = ["Inbox", "Backlog", "Ready", "In progress", "Blocked", "In review", "Done"];
+// Deferred: parked on purpose. Not ready, never claimed or offered, and (not being Done)
+// still blocks anything that depends on it.
+export const STATUSES = ["Inbox", "Backlog", "Ready", "In progress", "Blocked", "Deferred", "In review", "Done"];
 
 const VERA_ROADMAPS = new Map([
   ["mbelinkie/vera-research-video-clips", { owner: "mbelinkie", projectNumber: 1 }],

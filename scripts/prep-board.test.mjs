@@ -99,6 +99,7 @@ test("DeepSeek labels map to states", () => {
 test("readiness reasons and ordering helpers", () => {
   assert.deepEqual(notReadyReasons({ status: "Ready", type: "bug", queueOrder: 1, dependenciesVerified: true, dependencies: [] }), []);
   assert.match(notReadyReasons({ status: "Ready", type: "bug", queueOrder: 1, dependenciesVerified: false }).join(), /not verified/);
+  assert.deepEqual(notReadyReasons({ status: "Deferred", type: "bug", queueOrder: 1, dependenciesVerified: true, dependencies: [] }), ["Deferred"]);
   assert.ok(compareRows({ queueOrder: null, priority: "P0", repo: "a", number: 2 }, { queueOrder: null, priority: "P2", repo: "a", number: 1 }) < 0);
   const prs = prsByIssue(TL, [{ number: 1, url: "a", headRefName: "deepseek/issue-7-1" }, { number: 2, url: "b", headRefName: "deepseek/issue-7-9" }]);
   assert.equal(prs.get(`${TL}#7`).url, "b");
