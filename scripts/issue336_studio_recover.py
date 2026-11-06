@@ -118,6 +118,8 @@ def main() -> int:
             "codec": "ProRes422",
         }:
             raise RuntimeError("refuse: actual render format/codec differ")
+        if project.GetCurrentRenderMode() != 1:
+            raise RuntimeError("refuse: actual render mode is not single clip")
         assert state is not None
         settings = {
             "TargetDir": str(root),
@@ -125,9 +127,11 @@ def main() -> int:
             "ExportVideo": True,
             "ExportAudio": False,
             "SelectAllFrames": True,
-            "RenderMode": "Single clip",
             "FormatWidth": 1280,
             "FormatHeight": 720,
+            "FrameRate": 24,
+            "UseUniqueFilenames": False,
+            "ReplaceExistingFilesInPlace": False,
         }
         if not project.SetRenderSettings(settings):
             raise RuntimeError("refuse: render settings rejected")
