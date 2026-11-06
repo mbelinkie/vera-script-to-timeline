@@ -19,9 +19,18 @@ from .build_jobs import BuildJobError, StageContext
 VERSION = "vera-build-stage-receipt/v1"
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_.:-]{0,127}\Z")
+_VERSION_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}\Z")
 _FIELDS = {
-    "schemaVersion", "projectId", "jobId", "snapshotId", "snapshotSha256",
-    "stage", "stageKey", "adapter", "inputs", "outputs",
+    "schemaVersion",
+    "projectId",
+    "jobId",
+    "snapshotId",
+    "snapshotSha256",
+    "stage",
+    "stageKey",
+    "adapter",
+    "inputs",
+    "outputs",
     "packageAttestationSha256",
 }
 
@@ -34,7 +43,9 @@ def require_hash(value: str, label: str) -> str:
 
 def hash_file(path: Path) -> str:
     """Hash a real regular file; never follow symbolic links in its ancestry."""
-    if not path.is_absolute() or any(part.is_symlink() for part in (path, *path.parents)):
+    if not path.is_absolute() or any(
+        part.is_symlink() for part in (path, *path.parents)
+    ):
         raise BuildJobError(f"untrusted or symlink artifact: {path}")
     if not path.is_file():
         raise BuildJobError(f"missing regular artifact: {path}")
@@ -61,8 +72,16 @@ def _named_hashes(value: Mapping[str, str], label: str) -> dict[str, str]:
 
 
 def canonical_json(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
-                       ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+    return (
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
 
 
 def receipt_bytes(
@@ -77,8 +96,15 @@ def receipt_bytes(
 ) -> bytes:
     if context.job_kind != "build":
         raise BuildJobError("build receipt cannot attest an ingest job")
-    if any(not isinstance(v, str) or not v or "\x00" in v or len(v) > 256
-           for v in (context.project_id, context.job_id, context.snapshot_id, context.stage)):
+    if any(
+        not isinstance(v, str) or not v or "\x00" in v or len(v) > 256
+        for v in (
+            context.project_id,
+            context.job_id,
+            context.snapshot_id,
+            context.stage,
+        )
+    ):
         raise BuildJobError("invalid stage identity")
     require_hash(context.stage_key, "stage key")
     expected = hashlib.sha256(
@@ -87,24 +113,31 @@ def receipt_bytes(
     if context.stage_key != expected:
         raise BuildJobError("stage key does not match job and stage")
     require_hash(snapshot_sha256, "snapshot")
-    for label, value in (("adapter ID", adapter_id), ("adapter version", adapter_version)):
-        if not isinstance(value, str) or _NAME.fullmatch(value) is None:
-            raise BuildJobError(f"invalid {label}")
+    if not isinstance(adapter_id, str) or _NAME.fullmatch(adapter_id) is None:
+        raise BuildJobError("invalid adapter ID")
+    if (
+        not isinstance(adapter_version, str)
+        or _VERSION_NAME.fullmatch(adapter_version) is None
+        or ".." in adapter_version
+    ):
+        raise BuildJobError("invalid adapter version")
     if attestation_sha256 is not None:
         require_hash(attestation_sha256, "package attestation")
-    return canonical_json({
-        "schemaVersion": VERSION,
-        "projectId": context.project_id,
-        "jobId": context.job_id,
-        "snapshotId": context.snapshot_id,
-        "snapshotSha256": snapshot_sha256,
-        "stage": context.stage,
-        "stageKey": context.stage_key,
-        "adapter": {"id": adapter_id, "version": adapter_version},
-        "inputs": _named_hashes(input_hashes, "input"),
-        "outputs": _named_hashes(output_hashes, "output"),
-        "packageAttestationSha256": attestation_sha256,
-    })
+    return canonical_json(
+        {
+            "schemaVersion": VERSION,
+            "projectId": context.project_id,
+            "jobId": context.job_id,
+            "snapshotId": context.snapshot_id,
+            "snapshotSha256": snapshot_sha256,
+            "stage": context.stage,
+            "stageKey": context.stage_key,
+            "adapter": {"id": adapter_id, "version": adapter_version},
+            "inputs": _named_hashes(input_hashes, "input"),
+            "outputs": _named_hashes(output_hashes, "output"),
+            "packageAttestationSha256": attestation_sha256,
+        }
+    )
 
 
 def read_receipt(raw: bytes) -> dict[str, Any]:
@@ -121,11 +154,18 @@ def read_receipt(raw: bytes) -> dict[str, Any]:
         return result
 
     try:
-        value = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs,
-                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=pairs,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")),
+        )
     except (UnicodeError, ValueError, TypeError) as error:
         raise BuildJobError("invalid stage receipt JSON") from error
-    if not isinstance(value, dict) or set(value) != _FIELDS or value.get("schemaVersion") != VERSION:
+    if (
+        not isinstance(value, dict)
+        or set(value) != _FIELDS
+        or value.get("schemaVersion") != VERSION
+    ):
         raise BuildJobError("invalid stage receipt schema")
     adapter = value.get("adapter")
     if not isinstance(adapter, dict) or set(adapter) != {"id", "version"}:

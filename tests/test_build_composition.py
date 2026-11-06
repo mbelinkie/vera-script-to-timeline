@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
-
 from vera_timeline_agent.build_composition import (
-    BuildComposition, EffectState, FrozenBuildSnapshot, Inspection,
-    SnapshotRepository, StageEvidence,
+    BuildComposition,
+    EffectState,
+    FrozenBuildSnapshot,
+    Inspection,
+    SnapshotRepository,
+    StageEvidence,
 )
 from vera_timeline_agent.build_jobs import (
-    BuildJobError, BuildJobStore, BuildRequest, NeedsAction, StageContext,
-    UncertainResult, publish_immutable_output,
+    BuildJobError,
+    BuildJobStore,
+    BuildRequest,
+    StageContext,
+    UncertainResult,
+    publish_immutable_output,
 )
 
 
@@ -30,9 +36,13 @@ class FakePort:
     def path(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> Path:
         return snapshot.write_root / context.job_id / context.stage / "effect.bin"
 
-    def inspect(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> Inspection:
+    def inspect(
+        self, context: StageContext, snapshot: FrozenBuildSnapshot
+    ) -> Inspection:
         if self.unsure:
-            return Inspection(EffectState.UNCERTAIN, reason="in-flight external request")
+            return Inspection(
+                EffectState.UNCERTAIN, reason="in-flight external request"
+            )
         if self.missing_authorization:
             return Inspection(EffectState.NEEDS_ACTION, reason="no provider consent")
         path = self.path(context, snapshot)
@@ -42,14 +52,21 @@ class FakePort:
             return Inspection(EffectState.ABSENT)
         if path.read_bytes() != context.stage_key.encode():
             return Inspection(EffectState.UNCERTAIN, reason="unexpected effect bytes")
-        return Inspection(EffectState.VERIFIED, StageEvidence(
-            adapter_id="fake", adapter_version="v1",
-            inputs={"document": snapshot.file("document")}, outputs={"effect": path},
-        ))
+        return Inspection(
+            EffectState.VERIFIED,
+            StageEvidence(
+                adapter_id="fake",
+                adapter_version="v1",
+                inputs={"document": snapshot.file("document")},
+                outputs={"effect": path},
+            ),
+        )
 
     def execute(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> None:
         self.calls += 1
-        publish_immutable_output(self.path(context, snapshot), context.stage_key.encode())
+        publish_immutable_output(
+            self.path(context, snapshot), context.stage_key.encode()
+        )
         if self.abort_after_publish:
             self.abort_after_publish = False
             raise UncertainResult("connection dropped immediately after effect")
@@ -67,8 +84,12 @@ class Case:
         return BuildComposition(self.repo, self.ports)
 
     def request(self, mode: str = "free") -> BuildRequest:
-        return BuildRequest(project_id="project", snapshot_id=self.snapshot_id,
-                            idempotency_key="submission", mode=mode)
+        return BuildRequest(
+            project_id="project",
+            snapshot_id=self.snapshot_id,
+            idempotency_key="submission",
+            mode=mode,
+        )
 
 
 @pytest.fixture
@@ -79,19 +100,40 @@ def case(tmp_path: Path) -> Case:
     (source / "dependencies.json").write_text("{}")
     head = {"value": (1, "e" * 64, "rev-1")}
     repo = SnapshotRepository(
-        tmp_path / "snapshots", read_roots=(source,), write_root=tmp_path / "built",
+        tmp_path / "snapshots",
+        read_roots=(source,),
+        write_root=tmp_path / "built",
         live_head=lambda _: head["value"],
+        live_settings=lambda _: head.get("settings", "b" * 64),
     )
-    frozen = repo.freeze(project_id="project", mode="free", build_id="build-1",
-                         build_class="preview", settings_hash="b" * 64,
-                         inputs={"document": source / "document.json",
-                                 "dependencies": source / "dependencies.json"},
-                         adapter_versions={"fake": "v1"})
-    return Case(BuildJobStore(tmp_path / "jobs"), repo, frozen.snapshot_id, head,
-                {stage: FakePort(stage) for stage in (
-                    "generating_speech", "resolving_media", "compiling",
-                    "writing_interchange", "verifying_import_package",
-                )})
+    frozen = repo.freeze(
+        project_id="project",
+        mode="free",
+        build_id="build-1",
+        build_class="preview",
+        settings_hash="b" * 64,
+        inputs={
+            "document": source / "document.json",
+            "dependencies": source / "dependencies.json",
+        },
+        adapter_versions={"fake": "v1"},
+    )
+    return Case(
+        BuildJobStore(tmp_path / "jobs"),
+        repo,
+        frozen.snapshot_id,
+        head,
+        {
+            stage: FakePort(stage)
+            for stage in (
+                "generating_speech",
+                "resolving_media",
+                "compiling",
+                "writing_interchange",
+                "verifying_import_package",
+            )
+        },
+    )
 
 
 def run_all(case: Case, job: str) -> None:
@@ -107,7 +149,10 @@ def test_free_composition_preserves_job_graph_and_exact_retry(case: Case) -> Non
     job = adapter.submit(case.store, request)
     assert adapter.submit(case.store, request) == job
     with pytest.raises(BuildJobError, match="build mode differs"):
-        adapter.submit(case.store, BuildRequest("project", case.snapshot_id, "submission", "studio"))
+        adapter.submit(
+            case.store,
+            BuildRequest("project", case.snapshot_id, "submission", "studio"),
+        )
     run_all(case, job)
     assert case.store.status("project", job)["status"] == "ready_to_import"
     assert [port.calls for port in case.ports.values()] == [1] * 5
@@ -115,7 +160,9 @@ def test_free_composition_preserves_job_graph_and_exact_retry(case: Case) -> Non
     assert case.store.confirm_import("project", job) == "import_confirmed"
 
 
-def test_lost_response_reconciles_verified_bytes_without_repeating_effect(case: Case) -> None:
+def test_lost_response_reconciles_verified_bytes_without_repeating_effect(
+    case: Case,
+) -> None:
     job = case.adapter().submit(case.store, case.request())
     first = case.ports["generating_speech"]
     first.abort_after_publish = True
@@ -148,7 +195,9 @@ def test_edited_source_or_head_refuses_frozen_snapshot(case: Case) -> None:
     with pytest.raises(BuildJobError, match="stale project"):
         case.adapter().submit(case.store, request)
     case.head["value"] = (1, "e" * 64, "rev-1")
-    case.repo.load("project", case.snapshot_id).file("document").write_text('{"mutated":true}')
+    case.repo.load("project", case.snapshot_id).file("document").write_text(
+        '{"mutated":true}'
+    )
     with pytest.raises(BuildJobError, match="stale frozen input"):
         case.repo.load("project", case.snapshot_id)
 
@@ -177,5 +226,9 @@ def test_cross_project_and_missing_render_port_refuse(case: Case) -> None:
     with pytest.raises(BuildJobError, match="project"):
         case.repo.load("wrong-project", case.snapshot_id)
     with pytest.raises(BuildJobError, match="Free jobs cannot"):
-        case.adapter().submit(case.store, BuildRequest("project", case.snapshot_id,
-                                                         "render-key", "free", render=True))
+        case.adapter().submit(
+            case.store,
+            BuildRequest(
+                "project", case.snapshot_id, "render-key", "free", render=True
+            ),
+        )

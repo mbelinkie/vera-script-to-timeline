@@ -4,26 +4,38 @@ import hashlib
 from pathlib import Path
 
 import pytest
-
 from vera_timeline_agent.build_jobs import BuildJobError, StageContext
 from vera_timeline_agent.build_stage_receipt import (
-    exact_receipt_matches, hash_file, read_receipt, receipt_bytes,
+    exact_receipt_matches,
+    hash_file,
+    read_receipt,
+    receipt_bytes,
 )
 
 
 def context(tmp_path: Path) -> StageContext:
     return StageContext(
-        project_id="p", job_id="j", snapshot_id="a" * 64,
-        stage="compiling", stage_key=hashlib.sha256(b"p\0j\0compiling").hexdigest(),
-        output_path=tmp_path / "output", attempt_id=2, lease_epoch=1,
-        report_progress=lambda _: None, renew_lease=lambda: None,
+        project_id="p",
+        job_id="j",
+        snapshot_id="a" * 64,
+        stage="compiling",
+        stage_key=hashlib.sha256(b"p\0j\0compiling").hexdigest(),
+        output_path=tmp_path / "output",
+        attempt_id=2,
+        lease_epoch=1,
+        report_progress=lambda _: None,
+        renew_lease=lambda: None,
     )
 
 
 def evidence() -> dict:
-    return dict(snapshot_sha256="a" * 64, adapter_id="compiler-v2",
-                adapter_version="compiler.v2", input_hashes={"document": "b" * 64},
-                output_hashes={"manifest": "c" * 64, "report": "d" * 64})
+    return dict(
+        snapshot_sha256="a" * 64,
+        adapter_id="compiler-v2",
+        adapter_version="compiler.v2",
+        input_hashes={"document": "b" * 64},
+        output_hashes={"manifest": "c" * 64, "report": "d" * 64},
+    )
 
 
 def test_canonical_receipt_is_revision_and_stage_bound(tmp_path: Path) -> None:
@@ -32,10 +44,16 @@ def test_canonical_receipt_is_revision_and_stage_bound(tmp_path: Path) -> None:
     assert raw == receipt_bytes(ctx, **evidence())
     assert exact_receipt_matches(ctx, raw, **evidence())
     assert read_receipt(raw)["stageKey"] == ctx.stage_key
-    assert not exact_receipt_matches(ctx, raw, **{**evidence(), "snapshot_sha256": "f" * 64})
-    assert not exact_receipt_matches(ctx, raw, **{**evidence(), "output_hashes": {"manifest": "f" * 64}})
+    assert not exact_receipt_matches(
+        ctx, raw, **{**evidence(), "snapshot_sha256": "f" * 64}
+    )
+    assert not exact_receipt_matches(
+        ctx, raw, **{**evidence(), "output_hashes": {"manifest": "f" * 64}}
+    )
     with pytest.raises(BuildJobError, match="stage key"):
-        receipt_bytes(ctx.__class__(**{**ctx.__dict__, "stage_key": "c" * 64}), **evidence())
+        receipt_bytes(
+            ctx.__class__(**{**ctx.__dict__, "stage_key": "c" * 64}), **evidence()
+        )
 
 
 def test_malformed_or_forged_receipt_is_refused(tmp_path: Path) -> None:
@@ -50,7 +68,9 @@ def test_malformed_or_forged_receipt_is_refused(tmp_path: Path) -> None:
     with pytest.raises(BuildJobError, match="schema"):
         read_receipt(raw.replace(b'"schemaVersion"', b'"unapproved":0,"schemaVersion"'))
     with pytest.raises(BuildJobError, match="duplicate"):
-        read_receipt(raw.replace(b'"projectId":"p"', b'"projectId":"p","projectId":"p"'))
+        read_receipt(
+            raw.replace(b'"projectId":"p"', b'"projectId":"p","projectId":"p"')
+        )
 
 
 def test_file_hash_rejects_symlinks_and_missing_bytes(tmp_path: Path) -> None:
