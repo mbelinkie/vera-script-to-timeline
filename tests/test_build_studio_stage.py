@@ -22,6 +22,7 @@ from vera_timeline_agent.build_studio_stage import (
     BuildStudioStagePort,
     NativeAuthorization,
     VerifyStudioStagePort,
+    _HostReservation,
 )
 from vera_timeline_agent.workflow_package import sha256
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
@@ -255,3 +256,22 @@ def test_partial_native_readback_is_never_a_verified_result(
     )
     with pytest.raises(NeedsAction, match="save/reopen discrepancy"):
         VerifyStudioStagePort(auth, driver).execute(ctx("verifying_timeline"), snap)
+
+
+def test_finished_native_request_id_cannot_be_reused_for_another_target(
+    tmp_path: Path,
+) -> None:
+    reservation = _HostReservation(tmp_path / "host-lock")
+    reservation.reserve("single-use", "a" * 64)
+    reservation.finish("single-use", "a" * 64)
+    with pytest.raises(NeedsAction, match="already consumed"):
+        reservation.reserve("single-use", "b" * 64)
+    with pytest.raises(NeedsAction, match="already consumed"):
+        reservation.reserve("single-use", "a" * 64)
+    from vera_timeline_agent.build_stage_receipt import canonical_json
+
+    assert (
+        tmp_path / "host-lock" / "composition-finished-single-use.json"
+    ).read_bytes() == canonical_json(
+        {"requestId": "single-use", "attestationSha256": "a" * 64, "status": "verified"}
+    )

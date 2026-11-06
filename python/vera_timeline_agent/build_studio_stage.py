@@ -171,6 +171,12 @@ class _HostReservation:
         self.root.mkdir(parents=True, exist_ok=True)
         with (self.root / "dispatch.lock").open("a+") as guard:
             fcntl.flock(guard, fcntl.LOCK_EX)
+            # A request ID identifies one native mutation for the lifetime of
+            # this host state, even after a previous request finished. Otherwise
+            # a new job could silently reuse a completed one-use authorization.
+            finished = self.root / f"composition-finished-{request_id}.json"
+            if finished.exists() or finished.is_symlink():
+                raise NeedsAction("native request ID was already consumed")
             parent = self.root / "active.json"
             if parent.exists():
                 active = json.loads(parent.read_bytes())
