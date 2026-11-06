@@ -54,6 +54,19 @@ function authored(textRow: NarrationBlockV2): NarrationBlockV2 {
   const tokens = textRow.tokens.map((token) => ({ ...token, startOffset: token.startOffset + 5, endOffset: token.endOffset + 5 }));
   return { ...textRow, text: `EDIT ${textRow.text}`, tokens: [tokens[0]!, ...tokens.slice(1)], version: textRow.version + 1 };
 }
+function literalNote(n: number, text: string): NarrationBlockV2 {
+  const original = row(n);
+  return { ...original, text, tokens: text ? [{ ...original.tokens[0]!, value: text, endOffset: text.length }] : [] };
+}
+function literalBaseline(text: string): ScriptDocumentV2 {
+  const initial = document();
+  const created = applyRowEditV2(initial, 0, {
+    kind: "create_stash_note", bundleId: id(8800), row: literalNote(800, text),
+    sectionId: null, parentRowId: null, afterRowId: null,
+  });
+  expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+  return created.document;
+}
 function narration(doc: ScriptDocumentV2, rowId: string): NarrationBlockV2 {
   const found = [...doc.activeDraft.blocks, ...(doc.stash ?? []).flatMap((bundle) => bundle.rows)].find((item) => item.id === rowId);
   if (found?.type !== "narration") throw new Error("Missing narration fixture");
@@ -62,6 +75,94 @@ function narration(doc: ScriptDocumentV2, rowId: string): NarrationBlockV2 {
 const activeIds = (doc: ScriptDocumentV2) => doc.activeDraft.blocks.map((item) => item.id);
 
 describe("content-editable Sorting", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("resolves literal note text and semantic speech separately under %s", (outcome) => {
+    const raw = '  [outer [inner]] stray ] "quote" 😀\nline [ ';
+    const rewritten = `${raw}\nwritten [again`;
+    const baseline = literalBaseline(raw);
+    const baselineCopy = structuredClone(baseline);
+    const original = narration(baseline, id(800));
+    expect(original.plainDirection).toBe(true);
+    expect(original.text).toBe(raw);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(800)], destination: gap(id(300), null) });
+    const placed = narration(trial.document, id(800));
+    expect(placed.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
+    apply(trial, { kind: "make_spoken", blockId: placed.id, startOffset: 0, endOffset: raw.length });
+    const spoken = narration(trial.document, id(800));
+    expect(spoken.text).toBe(raw);
+    expect(spoken.plainDirection).toBeUndefined();
+    expect(spoken.tokens.every((token) => token.spoken === undefined)).toBe(true);
+    apply(trial, { kind: "edit_row", rowId: spoken.id, row: {
+      ...spoken, text: rewritten, tokens: [{ ...spoken.tokens[0]!, value: rewritten, startOffset: 0, endOffset: rewritten.length }], version: spoken.version + 1,
+    } });
+    apply(trial, { kind: "move_rows", rowIds: [id(100)], destination: gap(id(300), id(800)) });
+    const expectedPending = trial.preview();
+    const saved = trial.serialize();
+    const resumed = resumeSortingTrialV2(saved);
+    expect(resumed.phase).toBe("preview");
+    expect(resumed.document).toEqual(expectedPending);
+    expect(resumed.apply({ kind: "delete_rows", rowIds: [id(200)] }).diagnostics[0]?.code).toBe("SORTING_READ_ONLY");
+    expect(resumed.returnToSorting()).toBe(true);
+    const result = outcome === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, outcome);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    const afterLoad = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(afterLoad.ok).toBe(true);
+    if (!afterLoad.ok) return;
+    expect(afterLoad.document).toEqual(result.document);
+    const note = narration(afterLoad.document, id(800));
+    if (outcome === "all") {
+      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100), id(800)]);
+      expect(note).toMatchObject({ text: rewritten, stashOrigin: { kind: "note", returnEligible: false } });
+      expect(note.plainDirection).toBeUndefined();
+    } else if (outcome === "edits_only") {
+      expect(activeIds(result.document)).toEqual(activeIds(baseline));
+      expect(note.text).toBe(rewritten);
+      expect(note.plainDirection).toBeUndefined();
+      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("row");
+      expect(note.stashOrigin).toBeUndefined();
+    } else if (outcome === "sorting_only") {
+      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100), id(800)]);
+      expect(note.text).toBe(raw);
+      expect(note.plainDirection).toBe(true);
+      expect(note.tokens.every((token) => token.spoken === false)).toBe(true);
+      expect(note.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
+      const returned = applyRowEditV2(result.document, result.document.rowEditRevision ?? 0, { kind: "stash_rows", rowIds: [id(800)], bundleId: id(8801) });
+      expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+      expect(narration(returned.document, id(800))).toEqual(original);
+      expect(returned.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("note");
+    } else {
+      expect(result.document).toEqual(baseline);
+      expect(note).toEqual(original);
+    }
+    expect(baseline).toEqual(baselineCopy);
+  });
+
+  it("restores semantic conversion and exact edited literal text through replayed Undo", () => {
+    const raw = "literal] [nested] 🌼";
+    const baseline = literalBaseline(raw);
+    const trial = createSortingTrialV2(baseline);
+    const snapshots = [trial.document];
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(800)], destination: gap(id(300), null) });
+    snapshots.push(trial.document);
+    apply(trial, { kind: "make_spoken", blockId: id(800), startOffset: 0, endOffset: raw.length });
+    snapshots.push(trial.document);
+    const spoken = narration(trial.document, id(800));
+    const rewritten = "edited [not structural] ] 😁";
+    apply(trial, { kind: "edit_row", rowId: id(800), row: { ...spoken, text: rewritten,
+      tokens: [{ ...spoken.tokens[0]!, value: rewritten, endOffset: rewritten.length }], version: spoken.version + 1 } });
+    snapshots.push(trial.document);
+    apply(trial, { kind: "make_stage_direction", blockId: id(800), startOffset: 0, endOffset: rewritten.length });
+    snapshots.push(trial.document);
+    expect(narration(trial.document, id(800))).toMatchObject({ text: rewritten, plainDirection: true });
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    for (let index = snapshots.length - 2; index >= 0; index -= 1) {
+      const undone = resumed.undo();
+      expect(undone.ok, JSON.stringify(undone.diagnostics)).toBe(true);
+      expect({ ...resumed.document, rowEditRevision: 0 }).toEqual({ ...snapshots[index], rowEditRevision: 0 });
+    }
+    expect(resumed.accept(baseline)).toMatchObject({ ok: true, changed: false });
+  });
   it("refuses reusing deleted identities without losing pending work, while Undo permits retry", () => {
     const baseline = document();
     const trial = createSortingTrialV2(baseline);
