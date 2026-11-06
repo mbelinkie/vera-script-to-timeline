@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VERA native campaigns</title>
+<style>
+  body { font: 16px system-ui; margin: auto; max-width: 700px; padding: 16px;
+         background: #101923; color: #edf3f9; }
+  input, button, select { font: inherit; padding: 10px; margin: 5px 2px;
+         background: #243849; color: white; border: 1px solid #708193;
+         border-radius: 6px; }
+  button:disabled { opacity: .5; }
+  section { border: 1px solid #506070; padding: 15px; margin: 12px 0;
+            border-radius: 9px; }
+  a { color: #addfff; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  small { color: #c0d1de; }
+</style>
+<h1>VERA · Native test campaigns</h1>
+<section id="login">
+  <label>Local monitor access token
+    <input id="token" type="password" autocomplete="off" autocapitalize="off">
+  </label>
+  <button id="enter">Unlock</button>
+  <p><small>Requires approved Tailscale login and a private local token.
+    Never put tokens in URLs.</small></p>
+</section>
+<main id="dashboard" hidden>
+  <section>
+    <label>Campaign <select id="campaign"></select></label>
+    <button id="refresh">Refresh</button>
+    <p id="summary"></p>
+    <p id="heartbeat"></p>
+    <p id="current"></p>
+    <p id="counts"></p>
+    <p id="warning" role="status"></p>
+  </section>
+  <section>
+    <button data-action="pause">Pause after active</button>
+    <button data-action="resume">Resume</button>
+    <button data-action="cancel">Cancel pending</button>
+    <button data-action="reconcile">Reconcile existing operation</button>
+    <p id="action-result" role="status"></p>
+  </section>
+  <section>
+    <a id="json" href="#">Sanitized JSON report</a> ·
+    <a id="markdown" href="#">Summary Markdown</a>
+    <h2>Latest events</h2>
+    <pre id="events"></pre>
+  </section>
+</main>
+<p id="notice" role="status"></p>
+<script>
+  const $ = id => document.getElementById(id);
+  let csrf = '';
+  const base = location.pathname.endsWith('/') ? location.pathname : location.pathname + '/';
+
+  async function request(path, method = 'GET', data = null) {
+    const options = {method, credentials: 'same-origin', headers: {}};
+    if (data) {
+      options.headers['Content-Type'] = 'application/json';
+      options.headers['X-VERA-CSRF'] = csrf;
+      options.body = JSON.stringify(data);
+    }
+    const response = await fetch(base + path, options);
+    const result = await response.json();
+    if (!response.ok) throw Error(result.error || 'Request refused');
+    return result;
+  }
+
+  async function unlock() {
+    try {
+      await request('api/login', 'POST', {token: $('token').value});
+      $('token').value = '';
+      csrf = (await request('api/session')).csrf;
+      $('login').hidden = true;
+      $('dashboard').hidden = false;
+      await load();
+    } catch (error) { $('notice').textContent = error.message; }
+  }
+
+  async function load() {
+    try {
+      const ids = (await request('api/campaigns')).campaigns;
+      const previous = $('campaign').value;
+      $('campaign').replaceChildren();
+      for (const id of ids) {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = id;
+        $('campaign').append(option);
+      }
+      if (ids.includes(previous)) $('campaign').value = previous;
+      await refresh();
+    } catch (error) { $('notice').textContent = error.message; }
+  }
+
+  async function refresh() {
+    const id = $('campaign').value;
+    if (!id) { $('summary').textContent = 'No campaigns submitted.'; return; }
+    try {
+      const report = await request('api/campaign/' + id + '/report');
+      const s = report.status;
+      const counts = s.counts;
+      const finished = report.observations.filter(o => !['pending', 'running'].includes(o.state));
+      const caseIds = new Set(report.observations.map(o => o.caseId));
+      const doneCases = [...caseIds].filter(caseId =>
+        report.observations.filter(o => o.caseId === caseId)
+          .every(o => !['pending', 'running'].includes(o.state))).length;
+      const heartbeatAge = s.heartbeat?.at ?
+        (Date.now() - Date.parse(s.heartbeat.at)) / 1000 : Infinity;
+      const possiblyStalled = s.state === 'running' && heartbeatAge > 120;
+      const state = possiblyStalled ? 'Running · POSSIBLY STALLED' :
+        s.state === 'queued' ? 'Scheduled' : s.state;
+      $('summary').textContent = 'State: ' + state + ' · ' + doneCases + '/' +
+        caseIds.size + ' cases · ' + finished.length + '/' + s.totalTrials + ' trials';
+      $('heartbeat').textContent = 'Last worker heartbeat: ' + (s.heartbeat?.at || 'none') +
+        ' (a heartbeat is not proof the native app is running)';
+      const elapsed = s.startedAt ? Math.max(0, Math.floor(
+        (Date.now() - Date.parse(s.startedAt)) / 1000)) : null;
+      $('current').textContent = 'Current case: ' + (s.activeCaseId || 'none') +
+        ' / trial: ' + (s.activeTrialId || 'none') +
+        ' · Wall elapsed: ' + (elapsed === null ? 'not started' : elapsed + ' s') +
+        ' · Scheduled: ' + s.scheduledAt;
+      const outcomes = {
+        pass: s.verifiedTrials,
+        fail: Object.entries(counts).filter(([state]) => state.startsWith('failed'))
+          .reduce((n, [, total]) => n + total, 0),
+        blocked: (counts.blocked_native || 0) + (counts.blocked || 0),
+        unknown: counts.unknown || 0,
+      };
+      $('counts').textContent = 'PASS/FAIL/BLOCKED/UNKNOWN: ' +
+        Object.values(outcomes).join(' / ') + ' · All states: ' + JSON.stringify(counts);
+      const needsHuman = possiblyStalled || ['blocked', 'unknown'].includes(s.state);
+      $('warning').textContent = (needsHuman ? 'Human attention may be needed. ' : '') +
+        (s.reason || '');
+      $('events').textContent = report.journal.slice(-12)
+        .map(e => e.at + '  ' + e.kind + '  ' + e.detail).join('\n');
+      $('json').href = base + 'api/campaign/' + id + '/report';
+      $('markdown').href = base + 'api/campaign/' + id + '/report.md';
+      $('notice').textContent = '';
+    } catch (error) { $('notice').textContent = error.message; }
+  }
+
+  async function control(action) {
+    if (action === 'cancel' && !confirm(
+      'Cancel pending tests? An active native operation will NOT be killed.')) return;
+    const id = $('campaign').value;
+    if (!id) return;
+    const commandId = 'web-' + crypto.randomUUID();
+    try {
+      const result = await request('api/campaign/' + id + '/control', 'POST',
+        {action, commandId});
+      $('action-result').textContent = action + ': ' + result.outcome;
+      await refresh();
+    } catch (error) { $('action-result').textContent = 'Refused: ' + error.message; }
+  }
+
+  $('enter').onclick = unlock;
+  $('refresh').onclick = load;
+  $('campaign').onchange = refresh;
+  document.querySelectorAll('[data-action]')
+    .forEach(button => button.onclick = () => control(button.dataset.action));
+  request('api/session').then(s => {
+    csrf = s.csrf;
+    $('login').hidden = true;
+    $('dashboard').hidden = false;
+    load();
+  }).catch(() => {});
+</script>
+</html>

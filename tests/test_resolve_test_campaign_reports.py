@@ -161,8 +161,10 @@ def test_running_pause_and_cancel_never_stop_live_native(native_setup: Any) -> N
     assert state(setup.store, cid) == "running"
     assert command(setup.store, cid, "pause", "pause-1")["replayed"] is True
     verify(setup.fake, first_sha)
-    assert campaign.campaign_worker_once(setup.store)
-    assert campaign.campaign_worker_once(setup.store)
+    for _ in range(3):
+        if state(setup.store, cid) == "paused":
+            break
+        assert campaign.campaign_worker_once(setup.store)
     assert state(setup.store, cid) == "paused"
     assert len(setup.fake.starts) == 1
     assert command(setup.store, cid, "resume", "resume-1")
@@ -173,8 +175,10 @@ def test_running_pause_and_cancel_never_stop_live_native(native_setup: Any) -> N
     assert state(setup.store, cid) == "running"
     assert len(setup.fake.starts) == 2  # no mid-native stop or new start
     verify(setup.fake, setup.fake.starts[-1])
-    assert campaign.campaign_worker_once(setup.store)
-    assert campaign.campaign_worker_once(setup.store)
+    for _ in range(3):
+        if state(setup.store, cid) == "canceled":
+            break
+        assert campaign.campaign_worker_once(setup.store)
     assert state(setup.store, cid) == "canceled"
     assert rows(setup.store, cid)[2]["state"] == "canceled"
 

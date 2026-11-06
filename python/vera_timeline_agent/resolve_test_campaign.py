@@ -13,10 +13,12 @@ import json
 import math
 import os
 import platform
+import plistlib
 import re
 import shutil
 import sqlite3
 import stat
+import subprocess
 import sys
 import time
 import uuid
@@ -38,6 +40,7 @@ MAX_TRIALS = 200
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_ELAPSED_SECONDS = 6 * 3600
 MAX_DISK_BYTES = 4 * 1024**3
+CAMPAIGN_LAUNCH_LABEL = "org.vera.resolve-test-campaign-worker.m3"
 _PLAN_KEYS = frozenset(
     {
         "schema",
@@ -1347,7 +1350,8 @@ def verified_duration_summary(
         if not (
             row.get("nativeVerified") is True
             and row.get("comparable") is True
-            and type(duration) in (int, float)
+            and isinstance(duration, (int, float))
+            and not isinstance(duration, bool)
             and math.isfinite(duration)
             and duration >= 0
         ):
@@ -1392,15 +1396,15 @@ def _paired_regressions(stats: Sequence[Mapping[str, Any]]) -> list[dict[str, An
         )
         pairs[key][row["variant"]] = row
     result = []
-    for key, variants in sorted(pairs.items()):
+    for pair_key, variants in sorted(pairs.items()):
         if not {"baseline", "candidate"} <= variants.keys():
             continue
         baseline = variants["baseline"]["medianSeconds"]
         candidate = variants["candidate"]["medianSeconds"]
         result.append(
             {
-                "caseId": key[0],
-                "comparisonKey": key[1],
+                "caseId": pair_key[0],
+                "comparisonKey": pair_key[1],
                 "environmentSha256": key[2],
                 "semanticSha256": key[3],
                 "cacheMode": key[4],
@@ -1659,7 +1663,7 @@ def publish_campaign(store: queue.Store, campaign_id: str) -> dict[str, Any]:
                 )
             if not stats:
                 lines.append("None: unverified or incompatible measurements excluded.")
-            lines.extend(["", report["limitations"], ""])
+            lines.extend(["", str(report["limitations"]), ""])
             return "\n".join(lines).encode("utf-8")
 
         # Projections are themselves part of the aggregate disk budget.
@@ -1688,6 +1692,59 @@ def publish_campaign(store: queue.Store, campaign_id: str) -> dict[str, Any]:
         return report
 
 
+def campaign_agent_plist(root: Path, executable: str) -> bytes:
+    """Opt-in campaign worker, separate from M1/M2 and the web monitor."""
+    return plistlib.dumps(
+        {
+            "Label": CAMPAIGN_LAUNCH_LABEL,
+            "ProgramArguments": [
+                executable,
+                "-m",
+                "vera_timeline_agent.resolve_test_campaign",
+                "--root",
+                str(root),
+                "worker",
+                "once",
+            ],
+            "StartInterval": 30,
+            "RunAtLoad": True,
+            "ProcessType": "Background",
+            "StandardOutPath": str(root / "campaign-worker.stdout.log"),
+            "StandardErrorPath": str(root / "campaign-worker.stderr.log"),
+        },
+        sort_keys=True,
+    )
+
+
+def install_campaign_agent(store: queue.Store) -> None:
+    if platform.system() != "Darwin":
+        raise queue.QueueError("campaign LaunchAgent is macOS only")
+    plist = Path.home() / "Library" / "LaunchAgents" / f"{CAMPAIGN_LAUNCH_LABEL}.plist"
+    plist.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    queue.reject_unsafe_path(plist, "campaign LaunchAgent")
+    payload = campaign_agent_plist(store.root, sys.executable)
+    if plist.exists():
+        if plist.read_bytes() != payload:
+            raise queue.QueueError("campaign LaunchAgent differs; refusing overwrite")
+    else:
+        fd = os.open(plist, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+    loaded = subprocess.run(
+        ["launchctl", "print", f"gui/{os.getuid()}/{CAMPAIGN_LAUNCH_LABEL}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if loaded.returncode != 0:
+        subprocess.run(
+            ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description="Finite guarded native M3 campaigns")
     value.add_argument("--root", type=Path, default=queue.DEFAULT_ROOT)
@@ -1706,6 +1763,7 @@ def parser() -> argparse.ArgumentParser:
     worker = sub.add_parser("worker")
     worker.add_argument("action", choices=("once", "serve"))
     worker.add_argument("--interval", type=int, default=30)
+    sub.add_parser("install-launchd")
     return value
 
 
@@ -1744,6 +1802,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 while True:
                     campaign_worker_once(store)
                     time.sleep(options.interval)
+        elif options.command == "install-launchd":
+            install_campaign_agent(store)
+            print("Opt-in M3 campaign worker LaunchAgent installed.")
         return 0
     except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as exc:
         print(f"campaign refused: {type(exc).__name__}", file=sys.stderr)
