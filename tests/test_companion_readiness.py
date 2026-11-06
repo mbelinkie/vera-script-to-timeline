@@ -59,6 +59,20 @@ def test_no_install_never_claims_readiness(tmp_path: Path) -> None:
     assert result["canBuild"] is False
 
 
+def test_partial_install_and_dangling_root_link_require_repair(tmp_path: Path) -> None:
+    root, policy, observed = _case(tmp_path, "1")
+    # A missing selected release with a leftover launcher is not a first run.
+    (root / "vera-delivery-v1" / "release.json").unlink()
+    assert inspect_readiness(root, policy, observed)["state"] == "repair_required"
+    empty_root = tmp_path / "empty-root"
+    empty_root.mkdir()
+    (empty_root / "VERA Delivery v1.py").write_text("partial", encoding="utf-8")
+    assert inspect_readiness(empty_root, policy, observed)["state"] == "repair_required"
+    dangling = tmp_path / "dangling-installed-root"
+    dangling.symlink_to(tmp_path / "no-such-directory", target_is_directory=True)
+    assert inspect_readiness(dangling, policy, observed)["state"] == "repair_required"
+
+
 @pytest.mark.parametrize("version", ["1", "2"])
 def test_source_drift_is_repair_required(tmp_path: Path, version: str) -> None:
     root, policy, observed = _case(tmp_path, version)

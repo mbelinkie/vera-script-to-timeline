@@ -69,7 +69,10 @@ def _relative_file(name: object) -> PurePosixPath:
 
 def _release_state(root: Path, version: str, expected_hash: str) -> str | None:
     folder = root / f"vera-delivery-v{version}"
+    launcher_path = root / f"VERA Delivery v{version}.py"
     manifest_path = folder / "release.json"
+    if root.is_symlink():
+        return "repair_required"
     if (root.exists() and not root.is_dir()) or (
         root.exists() and not _is_plain_path(root)
     ):
@@ -81,6 +84,8 @@ def _release_state(root: Path, version: str, expected_hash: str) -> str | None:
     if folder.exists() and not manifest_path.is_file():
         return "repair_required"
     if not manifest_path.is_file():
+        if launcher_path.exists() or launcher_path.is_symlink():
+            return "repair_required"
         other = "2" if version == "1" else "1"
         return (
             "incompatible_version"
