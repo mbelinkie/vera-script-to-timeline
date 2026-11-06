@@ -159,6 +159,20 @@ class _Issue336NativeRouteAdapter:
         self.calls.append("native_otio")
         assert path.is_file()
         assert len(view["events"]) > 0
+        # The signed package keeps portable relative paths, but the actual
+        # Studio import must receive an independently bound host-local file.
+        native = json.loads(path.read_text())
+        clips = [
+            child
+            for track in native["tracks"]["children"]
+            for child in track["children"]
+            if child.get("OTIO_SCHEMA") == "Clip.2"
+        ]
+        assert len(clips) == len(view["events"])
+        for clip in clips:
+            reference = clip["media_references"][clip["active_media_reference_key"]]
+            resolved = Path(reference["target_url"])
+            assert resolved.is_absolute() and resolved.is_file()
         if self.unknown_import:
             raise RuntimeError("uncertain Resolve timeline import")
 
@@ -276,6 +290,35 @@ def test_issue336_rechecks_otio_after_one_shot_import_before_saving(
         assert "save_close_reopen" not in adapter.calls
     finally:
         path.write_bytes(original)
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+
+def test_issue336_host_native_binding_cannot_be_modified_or_repaired_silently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, {"mode": "none"})
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "attestation.json")
+    package = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    signed = workflow_v2._verify_native_otio_plan(package)
+    original = signed.read_bytes()
+    bound, digest = workflow_v2._bind_native_otio_media_to_host(
+        package, signed, attestation, sha256(attestation)
+    )
+    assert bound.is_file() and bound.parent == attestation.parent
+    assert bound != signed and bound.is_relative_to(case.project_root) is False
+    assert sha256(bound) == digest
+    # The portable, hash-attested source never changes when deriving the
+    # absolute host-local references consumed by Resolve.
+    assert signed.read_bytes() == original
+    bound.write_bytes(bound.read_bytes() + b"\n")
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="no overwrite"):
+        workflow_v2._bind_native_otio_media_to_host(
+            package, signed, attestation, sha256(attestation)
+        )
+    assert signed.read_bytes() == original
     assert verify_v2_package(case.project_root).build_id == built.build_id
 
 

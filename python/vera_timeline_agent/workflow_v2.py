@@ -1239,6 +1239,110 @@ def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
     return path
 
 
+def _bind_native_otio_media_to_host(
+    package: VerifiedPackageV2,
+    signed_otio: Path,
+    attestation: Path,
+    attestation_sha256: str,
+) -> tuple[Path, str]:
+    """Derive one checked host-local OTIO from the unchanged signed package.
+
+    The accepted v2 OTIO must retain relative media references for immutable,
+    portable build identity. Installed Studio 21.1.1.10, however, can resolve
+    a relative still URL to an unrelated same-named original media file, or
+    omit the clip entirely. Its one-shot ImportTimelineFromFile needs an
+    *absolute* package media URL. Change only those exact URLs in a separate
+    immutable, host-specific import document; never modify the package.
+    """
+    if _verify_native_otio_plan(package) != signed_otio:
+        raise WorkflowV2Error("native OTIO source changed before host binding")
+    document = _strict_object(
+        _read_regular(signed_otio, "attested native OTIO", max_bytes=128 * 1024 * 1024),
+        "attested native OTIO",
+    )
+    track_stack = document.get("tracks")
+    if not isinstance(track_stack, dict) or not isinstance(
+        track_stack.get("children"), list
+    ):
+        raise WorkflowV2Error("native OTIO tracks changed before host binding")
+    sources = {source["id"]: source for source in package.view["sources"]}
+    events = {event["id"]: event for event in package.view["events"]}
+    rebound_events: set[str] = set()
+    for track in track_stack["children"]:
+        if not isinstance(track, dict) or not isinstance(track.get("children"), list):
+            raise WorkflowV2Error("native OTIO track changed before host binding")
+        for clip in track["children"]:
+            if not isinstance(clip, dict):
+                raise WorkflowV2Error("native OTIO item changed before host binding")
+            if clip.get("OTIO_SCHEMA") != "Clip.2":
+                continue
+            meta = clip.get("metadata")
+            vera = meta.get("vera") if isinstance(meta, dict) else None
+            event_id = vera.get("event_id") if isinstance(vera, dict) else None
+            source_id = vera.get("source_id") if isinstance(vera, dict) else None
+            event = events.get(event_id)
+            source = sources.get(source_id)
+            refs = clip.get("media_references")
+            ref = (
+                refs.get(clip.get("active_media_reference_key"))
+                if isinstance(refs, dict)
+                else None
+            )
+            if (
+                not isinstance(event_id, str)
+                or event_id in rebound_events
+                or event is None
+                or source is None
+                or event["sourceId"] != source_id
+                or not isinstance(ref, dict)
+                or ref.get("target_url") != source["path"]
+            ):
+                raise WorkflowV2Error("native OTIO media binding changed before import")
+            bound_media = _package_path(
+                package.root, source["path"], "host-local native OTIO media"
+            )
+            ref["target_url"] = str(bound_media)
+            rebound_events.add(event_id)
+    if rebound_events != set(events):
+        raise WorkflowV2Error("native OTIO host binding has missing events")
+
+    content = (
+        json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    if len(content) > 128 * 1024 * 1024:
+        raise WorkflowV2Error("host-local native OTIO exceeds the accepted size")
+    raw_id = _raw_hash(attestation_sha256, "native attestation digest")
+    parent = _regular_absolute(
+        attestation.parent, "native import destination", directory=True
+    )
+    if parent.is_relative_to(package.root):
+        raise WorkflowV2Error("host-local native OTIO cannot alter the package")
+    native_path = parent / f"native-bound-{raw_id}.otio"
+    if native_path.exists() or native_path.is_symlink():
+        if (
+            _read_regular(
+                native_path, "existing native import", max_bytes=128 * 1024 * 1024
+            )
+            != content
+        ):
+            raise WorkflowV2Error(
+                "previous host-local native OTIO changed; no overwrite"
+            )
+    else:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(native_path, flags, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except OSError as error:
+            raise WorkflowV2Error(
+                "could not bind native OTIO without overwrite"
+            ) from error
+    return native_path, _digest(content)
+
+
 def _fractional_multiframe_still(
     event: Mapping[str, Any], manifest_source: object
 ) -> bool:
@@ -2591,6 +2695,17 @@ def run_workflow_delivery_v2(
                 result["nativeRateLimitation"] = "24000/1001 is not natively qualified."
             return result
 
+        native_bound_path: Path | None = None
+        native_bound_digest: str | None = None
+        if native_otio:
+            if otio_path is None:
+                raise WorkflowV2Error("attested native OTIO is missing")
+            stage = "bind exact native OTIO media to host"
+            native_bound_path, native_bound_digest = _bind_native_otio_media_to_host(
+                package, otio_path, attestation_path, attestation_sha256
+            )
+            result["nativeBoundOtioSha256"] = native_bound_digest
+
         cast(Any, adapter)._v2_root = package.root
         cast(Any, adapter)._v2_timeline = timeline
         cast(Any, adapter)._v2_tracks = tuple(dict(track) for track in view["tracks"])
@@ -2611,6 +2726,11 @@ def run_workflow_delivery_v2(
             current = load_verified_package_v2(attestation_path, attestation_sha256)
             if current != package:
                 raise WorkflowV2Error("package changed before a native operation")
+            if native_bound_path is not None and (
+                _digest(_read_regular(native_bound_path, "native import file"))
+                != native_bound_digest
+            ):
+                raise WorkflowV2Error("host-local native OTIO changed before mutation")
             if mutation_started:
                 adapter.assert_current_target()
             mutation_started = True
@@ -2624,11 +2744,11 @@ def run_workflow_delivery_v2(
             # Import the whole attested OTIO once. AppendToTimeline's still
             # duration is not exact on Studio, and mixing the two routes would
             # duplicate clips, gaps and markers. There is no fallback/retry.
-            if otio_path is None:
+            if native_bound_path is None:
                 raise WorkflowV2Error("native OTIO was not independently checked")
             mutate(
                 adapter.import_verified_otio,
-                otio_path,
+                native_bound_path,
                 view,
                 attestation["timelineName"],
                 label="import exact native OTIO",
@@ -2639,6 +2759,8 @@ def run_workflow_delivery_v2(
                 load_verified_package_v2(attestation_path, attestation_sha256)
                 != package
                 or _verify_native_otio_plan(package) != otio_path
+                or _digest(_read_regular(native_bound_path, "native import file"))
+                != native_bound_digest
             ):
                 raise WorkflowV2Error("native OTIO changed during one-shot import")
         else:
