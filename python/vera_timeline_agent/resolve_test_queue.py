@@ -310,6 +310,67 @@ class Store:
                     parent_state TEXT,
                     native_verified INTEGER NOT NULL DEFAULT 0
                 );
+                -- M3 is additive: existing M1/M2 records and one-use intents
+                -- retain their original schema, identities and meaning.
+                CREATE TABLE IF NOT EXISTS campaigns (
+                    id TEXT PRIMARY KEY,
+                    state TEXT NOT NULL DEFAULT 'queued',
+                    submitted_at TEXT NOT NULL,
+                    run_at REAL NOT NULL,
+                    deadline_at REAL NOT NULL,
+                    plan_sha TEXT NOT NULL,
+                    max_elapsed_seconds INTEGER NOT NULL,
+                    max_disk_bytes INTEGER NOT NULL,
+                    version INTEGER NOT NULL DEFAULT 0,
+                    pause_after_active INTEGER NOT NULL DEFAULT 0,
+                    cancel_pending INTEGER NOT NULL DEFAULT 0,
+                    started_at TEXT,
+                    ended_at TEXT,
+                    reason TEXT
+                );
+                CREATE TABLE IF NOT EXISTS campaign_trials (
+                    campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+                    ordinal INTEGER NOT NULL CHECK(ordinal >= 0 AND ordinal < 200),
+                    trial_id TEXT NOT NULL,
+                    case_id TEXT NOT NULL,
+                    variant TEXT NOT NULL
+                        CHECK(variant IN ('single','baseline','candidate')),
+                    round INTEGER NOT NULL CHECK(round BETWEEN 1 AND 5),
+                    plan_sha TEXT NOT NULL,
+                    request_sha TEXT NOT NULL UNIQUE,
+                    target_id TEXT NOT NULL UNIQUE,
+                    evidence_dir TEXT NOT NULL UNIQUE,
+                    child_job_id TEXT UNIQUE REFERENCES jobs(id),
+                    state TEXT NOT NULL DEFAULT 'pending',
+                    outcome TEXT,
+                    started_at TEXT,
+                    ended_at TEXT,
+                    PRIMARY KEY(campaign_id, ordinal),
+                    UNIQUE(campaign_id, trial_id)
+                );
+                CREATE TABLE IF NOT EXISTS campaign_events (
+                    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                    campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+                    at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    detail TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS campaign_events_by_campaign
+                    ON campaign_events(campaign_id, seq);
+                CREATE TABLE IF NOT EXISTS campaign_commands (
+                    command_id TEXT PRIMARY KEY,
+                    campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+                    at TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    outcome TEXT NOT NULL,
+                    version INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS campaign_heartbeats (
+                    campaign_id TEXT PRIMARY KEY REFERENCES campaigns(id),
+                    seq INTEGER NOT NULL DEFAULT 0,
+                    at TEXT NOT NULL
+                );
             """)
 
     @contextmanager
@@ -320,6 +381,7 @@ class Store:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA busy_timeout=20000")
         db.execute("PRAGMA synchronous=FULL")
+        db.execute("PRAGMA foreign_keys=ON")
         try:
             yield db
             if db.in_transaction:
@@ -527,6 +589,12 @@ def enqueue(store: Store, plan_path: Path, at: str | None = None) -> str:
             ),
         )
         if native.is_native(plan):
+            existing = db.execute(
+                "SELECT 1 FROM campaign_trials WHERE request_sha=?",
+                (plan["native"]["requestSha256"],),
+            ).fetchone()
+            if existing:
+                raise QueueError("native request already reserved by campaign")
             db.execute(
                 "INSERT INTO native_attempts(job_id,request_sha,locator) VALUES(?,?,?)",
                 (
