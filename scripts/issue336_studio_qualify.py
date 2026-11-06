@@ -238,6 +238,18 @@ def render(
     return movies[0]
 
 
+def empty_disposable_project(project: object) -> bool:
+    """Read-only guard; never adopt a project with possible user content."""
+    root = project.GetMediaPool().GetRootFolder()
+    return (
+        project.GetTimelineCount() == 0
+        and not root.GetClipList()
+        and not root.GetSubFolderList()
+        and not project.GetRenderJobList()
+        and project.IsRenderingInProgress() is False
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--template", type=pathlib.Path, required=True)
@@ -245,6 +257,7 @@ def main() -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--case", type=str)
     parser.add_argument("--finalize", action="store_true")
+    parser.add_argument("--adopt-created-project", action="store_true")
     parser.add_argument("--timeout", type=int, default=120)
     args = parser.parse_args()
     if not args.execute:
@@ -283,29 +296,35 @@ def main() -> int:
                 raise RuntimeError("synthetic source bytes changed; refuse")
     else:
         current = manager.GetCurrentProject()
-        if current is not None:
-            # Resolve can open its empty default project on startup.  It
-            # refuses CreateProject while that scratch project is active.
-            # Close it without saving ONLY after independently proving it has
-            # no timeline, media, queued work or render in progress.
-            root = current.GetMediaPool().GetRootFolder()
+        if args.adopt_created_project:
             if (
-                current.GetName() != "Untitled Project"
-                or current.GetTimelineCount() != 0
-                or root.GetClipList()
-                or root.GetSubFolderList()
-                or current.GetRenderJobList()
-                or current.IsRenderingInProgress() is not False
+                current is None
+                or current.GetName() != label
+                or not empty_disposable_project(current)
             ):
-                raise RuntimeError("refuse: a nonempty existing project is active")
-            if not manager.CloseProject(current):
-                raise RuntimeError("refuse: empty startup project could not close")
+                raise RuntimeError(
+                    "refuse: no exact empty pre-created synthetic project"
+                )
+            project = current
+        else:
+            if current is not None:
+                # Resolve can open its empty default project on startup.  It
+                # refuses CreateProject while that scratch project is active.
+                # Close it without saving ONLY after independently proving it has
+                # no timeline, media, queued work or render in progress.
+                if (
+                    current.GetName() != "Untitled Project"
+                    or not empty_disposable_project(current)
+                ):
+                    raise RuntimeError("refuse: a nonempty existing project is active")
+                if not manager.CloseProject(current):
+                    raise RuntimeError("refuse: empty startup project could not close")
+            project = manager.CreateProject(label)
+            if project is None:
+                raise RuntimeError("fresh disposable project creation refused")
         args.out.mkdir(parents=True, exist_ok=False)
         for name, (w, h) in sources.items():
             png(args.out / (name + ".png"), w, h)
-        project = manager.CreateProject(label)
-        if project is None:
-            raise RuntimeError("fresh disposable project creation refused")
         evidence = {
             "app": resolve.GetVersionString(),
             "project": label,
