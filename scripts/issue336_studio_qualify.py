@@ -253,7 +253,8 @@ def main() -> int:
     for name, (w, h) in sources.items():
         png(args.out / (name + ".png"), w, h)
     sys.path.append(
-        "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules"
+        "/Library/Application Support/Blackmagic Design/"
+        "DaVinci Resolve/Developer/Scripting/Modules"
     )
     import DaVinciResolveScript  # type: ignore[import-not-found]
 
@@ -343,23 +344,26 @@ def main() -> int:
             )
             print(name, evidence["cases"][name]["status"], flush=True)  # type: ignore[index]
     # Only save/close/reload after every previous native operation was verified.
-    if "stoppedAt" not in evidence and manager.SaveProject():
-        if manager.CloseProject(project):
-            reopened = manager.LoadProject(label)
-            if reopened is not None:
-                evidence["reopened"] = {
-                    "timelineCount": reopened.GetTimelineCount(),
-                    "names": [
-                        reopened.GetTimelineByIndex(i).GetName()
-                        for i in range(1, reopened.GetTimelineCount() + 1)
-                    ],
-                    "durations": [
-                        reopened.GetTimelineByIndex(i)
-                        .GetItemListInTrack("video", 1)[0]
-                        .GetDuration()
-                        for i in range(1, reopened.GetTimelineCount() + 1)
-                    ],
-                }
+    if (
+        "stoppedAt" not in evidence
+        and manager.SaveProject()
+        and manager.CloseProject(project)
+    ):
+        reopened = manager.LoadProject(label)
+        if reopened is not None:
+            evidence["reopened"] = {
+                "timelineCount": reopened.GetTimelineCount(),
+                "names": [
+                    reopened.GetTimelineByIndex(i).GetName()
+                    for i in range(1, reopened.GetTimelineCount() + 1)
+                ],
+                "durations": [
+                    reopened.GetTimelineByIndex(i)
+                    .GetItemListInTrack("video", 1)[0]
+                    .GetDuration()
+                    for i in range(1, reopened.GetTimelineCount() + 1)
+                ],
+            }
     (args.out / "evidence.json").write_text(
         json.dumps(evidence, indent=2, default=str) + "\n"
     )
