@@ -18,6 +18,8 @@ import subprocess
 import sys
 import time
 import zlib
+from collections.abc import Callable
+from typing import Any
 
 
 def png(path: pathlib.Path, width: int, height: int) -> None:
@@ -59,7 +61,7 @@ def png(path: pathlib.Path, width: int, height: int) -> None:
 
 
 def write_otio(
-    template: dict,
+    template: dict[str, Any],
     path: pathlib.Path,
     source: pathlib.Path,
     frames: int,
@@ -84,6 +86,10 @@ def write_otio(
             metadata["Enabled"] = motion
             for parameter in metadata.get("Parameters", []):
                 pid = parameter.get("Parameter ID")
+                pairs: tuple[
+                    tuple[str, list[float] | float],
+                    tuple[str, list[float] | float],
+                ]
                 if pid == "dynamicZoomCenter":
                     pairs = (("-86400", [0.0, 0.0]), ("-85400", [0.12, -0.08]))
                 elif pid == "dynamicZoomScale":
@@ -103,7 +109,7 @@ def write_otio(
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
-def video_pixels(path: pathlib.Path, samples: list[int]) -> dict:
+def video_pixels(path: pathlib.Path, samples: list[int]) -> dict[str, Any]:
     probe = subprocess.run(
         [
             "ffprobe",
@@ -153,7 +159,7 @@ def video_pixels(path: pathlib.Path, samples: list[int]) -> dict:
         digest.update(data)
         if frames in samples:
             witnesses: dict[str, list[int] | None] = {}
-            predicates = {
+            predicates: dict[str, Callable[[int, int, int], bool]] = {
                 "red": lambda r, g, b: r > 185 and g < 85 and b < 85,
                 "green": lambda r, g, b: r < 85 and g > 185 and b < 85,
                 "blue": lambda r, g, b: r < 85 and g < 85 and b > 185,
@@ -165,7 +171,7 @@ def video_pixels(path: pathlib.Path, samples: list[int]) -> dict:
                 for y in range(0, height, 3):
                     for x in range(0, width, 3):
                         i = (y * width + x) * 3
-                        if predicate(*data[i : i + 3]):
+                        if predicate(data[i], data[i + 1], data[i + 2]):
                             found.append((x, y))
                 witnesses[name] = (
                     [
@@ -194,9 +200,7 @@ def video_pixels(path: pathlib.Path, samples: list[int]) -> dict:
     }
 
 
-def render(
-    project: object, name: str, target: pathlib.Path, timeout: int
-) -> pathlib.Path:
+def render(project: Any, name: str, target: pathlib.Path, timeout: int) -> pathlib.Path:
     formats = project.GetRenderCodecs("mov")
     codec = next((v for k, v in formats.items() if "422" in k or "422" in v), None)
     if codec is None:
@@ -259,7 +263,7 @@ def render(
     return movies[0]
 
 
-def empty_disposable_project(project: object) -> bool:
+def empty_disposable_project(project: Any) -> bool:
     """Read-only guard; never adopt a project with possible user content."""
     root = project.GetMediaPool().GetRootFolder()
     return (
@@ -299,7 +303,7 @@ def main() -> int:
     manager = resolve.GetProjectManager()
     label = "VERA336-SYN-" + args.out.name.replace("_", "-")
     if args.out.exists():
-        evidence: dict = json.loads((args.out / "evidence.json").read_text())
+        evidence: dict[str, Any] = json.loads((args.out / "evidence.json").read_text())
         project = manager.GetCurrentProject()
         if project is None or project.GetName() != evidence.get("project"):
             raise RuntimeError(
@@ -454,16 +458,16 @@ def main() -> int:
                 "readback": readback,
                 "movieSha256": hashlib.sha256(video.read_bytes()).hexdigest(),
                 "decoded": decoded,
-            }  # type: ignore[index]
+            }
         except Exception as exc:
-            evidence["cases"][name] = {"status": "refused", "reason": str(exc)}  # type: ignore[index]
+            evidence["cases"][name] = {"status": "refused", "reason": str(exc)}
             evidence["stoppedAt"] = name
             break  # no new writes after an uncertain failure
         finally:
             (args.out / "evidence.json").write_text(
                 json.dumps(evidence, indent=2, default=str) + "\n"
             )
-            print(name, evidence["cases"][name]["status"], flush=True)  # type: ignore[index]
+            print(name, evidence["cases"][name]["status"], flush=True)
     print("EVIDENCE", args.out / "evidence.json", flush=True)
     return 1 if "stoppedAt" in evidence else 0
 

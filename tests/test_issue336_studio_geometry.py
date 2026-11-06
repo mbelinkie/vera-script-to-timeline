@@ -196,19 +196,33 @@ def test_unmeasured_focus_or_scale_refuses_without_clamping(
 
 
 def test_native_fit_zoom_crops_and_shifted_fill_exposes_black() -> None:
-    static = dict(
-        source_size=(1000, 1000),
-        timeline_size=(1280, 720),
+    source_size = (1000, 1000)
+    timeline_size = (1280, 720)
+    assert measured_framing_preserves_intent(
+        source_size=source_size,
+        timeline_size=timeline_size,
         center=(0.0, 0.0),
         native_scale=1.0,
+        framing="contain",
     )
-    assert measured_framing_preserves_intent(framing="contain", **static)
     assert not measured_framing_preserves_intent(
-        framing="contain", **{**static, "native_scale": 0.8}
+        source_size=source_size,
+        timeline_size=timeline_size,
+        center=(0.0, 0.0),
+        native_scale=0.8,
+        framing="contain",
     )
     assert measured_framing_preserves_intent(
-        framing="cover", **{**static, "native_scale": 0.8}
+        source_size=source_size,
+        timeline_size=timeline_size,
+        center=(0.0, 0.0),
+        native_scale=0.8,
+        framing="cover",
     )
     assert not measured_framing_preserves_intent(
-        framing="cover", **{**static, "center": (0.12, -0.08), "native_scale": 1.05}
+        source_size=source_size,
+        timeline_size=timeline_size,
+        center=(0.12, -0.08),
+        native_scale=1.05,
+        framing="cover",
     )

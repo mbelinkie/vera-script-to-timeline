@@ -14,14 +14,20 @@ import pathlib
 import struct
 import sys
 import zlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     from scripts.issue336_studio_qualify import render, video_pixels, write_otio
-except ModuleNotFoundError:
-    # The installed Mac probe is deliberately copied into one private scratch
-    # directory as qualify.py, not installed as a production Python package.
-    from qualify import render, video_pixels, write_otio
+else:
+    try:
+        from scripts.issue336_studio_qualify import render, video_pixels, write_otio
+    except ModuleNotFoundError as error:
+        # The installed Mac probe is deliberately copied into one private
+        # scratch directory as qualify.py, not installed as a package.
+        # Do not mask an import failure *inside* the repository probe.
+        if error.name not in {"scripts", "scripts.issue336_studio_qualify"}:
+            raise
+        from qualify import render, video_pixels, write_otio
 
 
 def _chunk(kind: bytes, body: bytes) -> bytes:
