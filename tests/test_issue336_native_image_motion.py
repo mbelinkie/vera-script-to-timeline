@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 from vera_timeline_agent.native_image_motion import (
@@ -127,7 +128,7 @@ def test_explicit_none_is_not_a_fake_dynamic_request() -> None:
         {"timeline_width": 1920},
     ],
 )
-def test_stale_bytes_profile_duration_or_extent_refuses(change: dict) -> None:
+def test_stale_bytes_profile_duration_or_extent_refuses(change: dict[str, Any]) -> None:
     with pytest.raises(MotionRefusal):
         admit_motion(MOTION, replace(BINDING, **change), PROOF, framing="cover")
 
@@ -142,7 +143,7 @@ def test_stale_bytes_profile_duration_or_extent_refuses(change: dict) -> None:
         {"background": "#204080"},
     ],
 )
-def test_unqualified_runtime_and_background_refuse(overrides: dict) -> None:
+def test_unqualified_runtime_and_background_refuse(overrides: dict[str, Any]) -> None:
     with pytest.raises(MotionRefusal):
         admit_motion(MOTION, BINDING, PROOF, **{"framing": "cover", **overrides})
 
@@ -156,7 +157,7 @@ def test_unqualified_runtime_and_background_refuse(overrides: dict) -> None:
         {"mode": "none"},
     ],
 )
-def test_unqualified_setting_change_refuses(motion_request: dict) -> None:
+def test_unqualified_setting_change_refuses(motion_request: dict[str, Any]) -> None:
     with pytest.raises(MotionRefusal):
         admit_motion(motion_request, BINDING, PROOF, framing="cover")
 
@@ -172,6 +173,8 @@ def test_unqualified_setting_change_refuses(motion_request: dict) -> None:
         {"source_width": 0},
     ],
 )
-def test_unqualified_geometry_never_silently_clamps(proof_change: dict) -> None:
+def test_unqualified_geometry_never_silently_clamps(
+    proof_change: dict[str, Any],
+) -> None:
     with pytest.raises(MotionRefusal):
         admit_motion(MOTION, BINDING, replace(PROOF, **proof_change), framing="cover")
