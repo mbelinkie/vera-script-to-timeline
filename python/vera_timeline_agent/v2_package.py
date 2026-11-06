@@ -636,6 +636,31 @@ def narration_ceiling_frames(samples: int, sample_rate: int, rate: Fraction) -> 
 def _validate_manifest_semantics(
     document: JsonObject, dependencies: JsonObject, manifest: JsonObject
 ) -> None:
+    # Reconstruct the motion resolution independently of the compiler output.
+    # A self-consistent manifest/report hash alone must not authorize dropping
+    # an explicit None override or substituting an unrequested native zoom.
+    authored_visuals: dict[str, JsonObject] = {}
+
+    def collect_visuals(value: object) -> None:
+        if isinstance(value, dict):
+            if value.get("kind") == "visual" and isinstance(
+                value.get("payloadId"), str
+            ):
+                payload_id = cast(str, value["payloadId"])
+                previous = authored_visuals.get(payload_id)
+                if previous is not None and previous != value:
+                    raise _error(f"conflicting authored visual payload {payload_id}")
+                authored_visuals[payload_id] = value
+            for nested in value.values():
+                collect_visuals(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                collect_visuals(nested)
+
+    collect_visuals(cast(JsonObject, document["activeDraft"])["blocks"])
+    frozen_default = cast(JsonObject, dependencies["authoringDefaults"]).get(
+        "imageMotionDefault"
+    )
     timeline = cast(JsonObject, manifest["timeline"])
     rate = _fraction(timeline.get("frameRate"), "timeline frame rate", positive=True)
     start = _safe_frame(timeline.get("startFrame"), "timeline startFrame")
@@ -860,6 +885,20 @@ def _validate_manifest_semantics(
             )
             treatment = event.get("pictureTreatment")
             if isinstance(treatment, dict) and treatment.get("kind") == "still_frame":
+                provenance = cast(JsonObject, event["provenance"])
+                payload = authored_visuals.get(cast(str, provenance["payloadId"]))
+                expected_motion = (
+                    payload.get("imageMotion", frozen_default)
+                    if payload is not None
+                    else frozen_default
+                )
+                if (expected_motion is not None or "imageMotion" in treatment) and (
+                    payload is None or treatment.get("imageMotion") != expected_motion
+                ):
+                    raise _error(
+                        f"still event {event_id} motion differs from frozen "
+                        "authored override/default"
+                    )
                 if source_end - source_start != 1:
                     raise _error(
                         f"still event {event_id} must retain its one-frame range"

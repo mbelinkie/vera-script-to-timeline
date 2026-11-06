@@ -33,13 +33,18 @@ from vera_timeline_agent.workflow_v2 import run_workflow_delivery_v2
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
 
-def _issue336_case(case: Any, motion: dict[str, Any]) -> None:
+def _issue336_case(
+    case: Any, motion: dict[str, Any], *, project_default: dict[str, Any] | None = None
+) -> None:
     """Write hash-closed authored input with a new frozen motion override."""
     document = json.loads(case.document_path.read_text())
     dependencies = json.loads(case.dependencies_path.read_text())
     manifest = json.loads(case.manifest_path.read_text())
     report = json.loads(case.report_path.read_text())
     document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
+    if project_default is not None:
+        dependencies["authoringDefaults"]["imageMotionDefault"] = project_default
+        manifest["authoringDefaults"]["imageMotionDefault"] = project_default
     manifest["events"][0]["pictureTreatment"]["imageMotion"] = motion
     _refresh_document_closure(document, dependencies, manifest, report)
     for path, value in (
@@ -119,6 +124,53 @@ def test_issue336_unqualified_motion_refuses_before_any_package_write(
     case = make_package_case(tmp_path)
     _issue336_case(case, _ISSUE336_NATIVE)
     with pytest.raises(V2PackageError, match="no qualified output profile"):
+        case.build()
+    assert not case.project_root.exists()
+
+
+def test_issue336_explicit_none_wins_frozen_native_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, {"mode": "none"}, project_default=_ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    clip = otio.adapters.read_from_file(str(build_root / OTIO_FILENAME)).tracks[0][0]
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Enabled"] is False
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+
+@pytest.mark.parametrize(
+    "tamper", ["drop_none", "substitute_native", "changed_override"]
+)
+def test_issue336_refuses_manifest_motion_divergence_from_authoring(
+    tmp_path: Path, tamper: str
+) -> None:
+    case = make_package_case(tmp_path)
+    if tamper == "changed_override":
+        _issue336_case(case, {"mode": "none"}, project_default=_ISSUE336_NATIVE)
+    else:
+        _issue336_case(case, {"mode": "none"})
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    if tamper == "drop_none":
+        manifest["events"][0]["pictureTreatment"].pop("imageMotion")
+    elif tamper == "substitute_native":
+        manifest["events"][0]["pictureTreatment"]["imageMotion"] = _ISSUE336_NATIVE
+    else:
+        document["activeDraft"]["blocks"][0]["payload"].pop("imageMotion")
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    with pytest.raises(V2PackageError, match="motion differs from frozen authored"):
         case.build()
     assert not case.project_root.exists()
 
