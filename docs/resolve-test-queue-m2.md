@@ -74,15 +74,31 @@ Producer has explicitly paused that work, an operator may use the separate
 the **original** project and timeline by unique ID. The observation fails closed
 if any render is active/unknown, any job has a nonterminal status, the old
 output still has a matching queued job, or the native request/result/history
-cannot be authenticated. It never queues, starts, removes or saves a render.
+cannot be authenticated. **The operator must already have the exact original
+project and timeline selected**; the observer never calls `LoadProject` or
+switches the UI, and never queues, starts, removes or saves a render.
 
 The immutable private observation records the old result digest, complete host
 journal digest, original project/timeline identity, observed job statuses and
-time. Only an exact unchanged historical tail and that observation permit an
-*independent new disposable target* through the global owner preflight. The
-old result remains UNKNOWN; any changed retained chain or mismatched observation
-restores the refusal. This is isolation of quiescent **queued-only** work, not
-a replacement for native completion proof or permission to resume the old job.
+time. It is MAC-authenticated using that output chain's private host receipt
+key and expires after twelve hours. A fresh observation gets a new
+digest-qualified file; old evidence is never deleted or reclassified. Only an
+exact unchanged historical tail and a current authenticated observation can
+make an *independent new disposable target* eligible under the owner protocol.
+The old result remains UNKNOWN; an expired observation, any changed retained
+chain or mismatched observation restores the refusal. This is isolation of
+quiescent **queued-only** work, not native completion proof or permission to
+resume the old job. Human changes to the Resolve UI outside VERA are not
+controlled by the queue; no one should start an old render while testing.
+
+The installed Resolve launcher uses a self-contained stdlib owner guard and
+small journal/observation checks. It must **not** import the full host output
+verifier, which is absent from some installed runtime inventories. The host
+queue and guarded parent retain their stronger full historic verification
+before a new dispatch. When old retained sources live on external storage,
+macOS background privacy permissions must allow the scheduled worker to read
+them. A LaunchAgent's `Operation not permitted` is a **blocked prerequisite**,
+not a reason to waive historic authentication or fabricate success.
 
 The queue records dispatch intent and immutable request identity before calling
 the existing guarded parent. Every subsequent worker only reconciles that same

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -205,7 +206,18 @@ def test_uncertain_render_start_remains_an_owner(
 
 @pytest.mark.parametrize(
     "changed",
-    ["none", "sha", "jobs", "host", "next-operation", "effect", "record-symlink"],
+    [
+        "none",
+        "sha",
+        "jobs",
+        "host",
+        "next-operation",
+        "effect",
+        "record-symlink",
+        "stale",
+        "future",
+        "forged",
+    ],
 )
 def test_paused_historical_queue_is_isolated_only_with_exact_observation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, changed: str
@@ -213,11 +225,18 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
     key = "8" * 64
     operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
     result_path = _result(operations, 0, "queue_render", status="uncertain")
+    request_raw = b'{"action":"queue_render"}'
+    request_sha = hashlib.sha256(request_raw).hexdigest()
+    (result_path.parent / "request.json").write_bytes(request_raw)
+    (result_path.parent / "native-start.json").write_text(
+        json.dumps({"requestSha256": request_sha, "operationId": "paused-original"})
+    )
     result = {
         "sequence": 0,
         "action": "queue_render",
         "status": "uncertain",
         "operationId": "paused-original",
+        "requestSha256": request_sha,
         "target": {"projectUid": "old-project", "timelineUid": "old-timeline"},
         "effectLedger": [
             {"method": "Project.SetRenderSettings", "outcome": "observed"},
@@ -228,6 +247,9 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
     host = owner.OUTPUT_ATTEMPTS_ROOT / key
     host.mkdir(parents=True)
     (host / "chain.json").write_text("{}", encoding="utf-8")
+    (host / "receipts").mkdir()
+    (host / "receipts" / "key").write_bytes(b"k" * 32)
+    (host / "receipts" / "key").chmod(0o400)
     monkeypatch.setattr(native, "verify_native_result", _verified_json)
     monkeypatch.setattr(
         owner, "_active_output_host_chains", lambda _: {key: "uncertain"}
@@ -241,16 +263,24 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
         "hostHistorySha256": owner._output_host_history_sha256(key),
         "projectUid": "old-project",
         "timelineUid": "old-timeline",
-        "observedAt": "2026-11-06T17:00:00+00:00",
+        "observedAt": datetime.now(UTC).isoformat(),
         "observedStatuses": ["Complete"],
         "matchingJobCount": 0,
     }
     owner.PAUSED_OUTPUT_ROOT.mkdir(parents=True)
-    attestation = owner.PAUSED_OUTPUT_ROOT / f"{key}.json"
+    assert isinstance(record["resultSha256"], str)
+    assert isinstance(record["hostHistorySha256"], str)
+    attestation = owner._paused_observation_path(
+        key, record["resultSha256"], record["hostHistorySha256"]
+    )
     if changed == "sha":
         record["resultSha256"] = "f" * 64
     elif changed == "jobs":
         record["matchingJobCount"] = 1
+    elif changed == "stale":
+        record["observedAt"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    elif changed == "future":
+        record["observedAt"] = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     elif changed == "effect":
         ledger = result["effectLedger"]
         assert isinstance(ledger, list)
@@ -262,6 +292,13 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
         (host / "chain.json").write_text('{"changed": true}', encoding="utf-8")
     elif changed == "next-operation":
         _result(operations, 1, "capture_post")
+    record["mac"] = hmac.digest(
+        owner._paused_observation_key(key),
+        owner._canonical(record),
+        "sha256",
+    ).hex()
+    if changed == "forged":
+        record["mac"] = "0" * 64
     if changed == "record-symlink":
         target = tmp_path / "other-observation.json"
         target.write_text(json.dumps(record), encoding="utf-8")
@@ -280,8 +317,12 @@ def test_paused_historical_queue_is_isolated_only_with_exact_observation(
 
 
 @pytest.mark.parametrize("active_render", [False, True])
+@pytest.mark.parametrize("matching_project", [False, True])
 def test_paused_queue_observation_uses_actual_exact_project_readback(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, active_render: bool
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    active_render: bool,
+    matching_project: bool,
 ) -> None:
     key = "7" * 64
     operations = owner.OUTPUT_TARGETS_ROOT / key / "operations"
@@ -290,6 +331,15 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
     output_path = tmp_path / "old-output.mov"
     request_raw = json.dumps({"payload": {"outputPath": str(output_path)}}).encode()
     request_path.write_bytes(request_raw)
+    (path.parent / "request.json").write_bytes(request_raw)
+    (path.parent / "native-start.json").write_text(
+        json.dumps(
+            {
+                "requestSha256": hashlib.sha256(request_raw).hexdigest(),
+                "operationId": "old-queued-action",
+            }
+        )
+    )
     result = {
         "sequence": 0,
         "action": "queue_render",
@@ -314,6 +364,9 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
     host = owner.OUTPUT_ATTEMPTS_ROOT / key
     host.mkdir(parents=True)
     (host / "chain.json").write_text("{}", encoding="utf-8")
+    (host / "receipts").mkdir()
+    (host / "receipts" / "key").write_bytes(b"q" * 32)
+    (host / "receipts" / "key").chmod(0o400)
     monkeypatch.setattr(native, "verify_native_result", _verified_json)
     monkeypatch.setattr(
         owner, "_active_output_host_chains", lambda _: {key: "uncertain"}
@@ -328,7 +381,7 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
 
     class FakeProject:
         def GetUniqueId(self) -> str:
-            return "old-project"
+            return "old-project" if matching_project else "foreign-project"
 
         def GetName(self) -> str:
             return "old-project-name"
@@ -346,7 +399,12 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
             return {"JobStatus": "Complete"}
 
     project = FakeProject()
-    manager = SimpleNamespace(GetCurrentProject=lambda: project)
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: project,
+        LoadProject=lambda _name: pytest.fail(
+            "read-only observation must never switch Resolve projects"
+        ),
+    )
     resolve = SimpleNamespace(
         GetProductName=lambda: "DaVinci Resolve Studio",
         GetVersion=lambda: [21, 1, 1, 10, ""],
@@ -357,7 +415,11 @@ def test_paused_queue_observation_uses_actual_exact_project_readback(
         "DaVinciResolveScript",
         SimpleNamespace(scriptapp=lambda _: resolve),
     )
-    if active_render:
+    if not matching_project:
+        with pytest.raises(ValueError, match="original Resolve project UID"):
+            owner.observe_paused_queue(path)
+        assert not owner.PAUSED_OUTPUT_ROOT.exists()
+    elif active_render:
         with pytest.raises(ValueError, match="active/unknown render"):
             owner.observe_paused_queue(path)
         assert not owner.PAUSED_OUTPUT_ROOT.exists()

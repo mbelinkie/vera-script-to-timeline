@@ -6,6 +6,7 @@ import argparse
 import contextvars
 import fcntl
 import hashlib
+import hmac
 import importlib
 import json
 import os
@@ -13,7 +14,7 @@ import re
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,7 @@ OWNER_FD_ENV = "VERA_NATIVE_OWNER_FD"
 _MAX_RECORD_BYTES = 8 * 1024 * 1024
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _TERMINAL_RENDER_STATES = frozenset({"Complete", "Failed", "Cancelled"})
+_PAUSE_OBSERVATION_LIFETIME = timedelta(hours=12)
 _HELD_OWNER_FD: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "vera_native_owner_fd", default=None
 )
@@ -144,15 +146,16 @@ def native_owner(*, output_lane: bool = False) -> Iterator[int]:
     descriptor = acquire_native_owner()
     token = _HELD_OWNER_FD.set(descriptor)
     try:
-        if output_lane:
-            # The output lane owns its own authenticated continuation protocol.
-            _check_parent_operation()
-            _check_issue328_marker()
-        else:
-            # Inspect the complete history, not just its last host state.
-            # A producer-paused, quiescent queue may be isolated from fresh
-            # targets without pretending its original result was successful.
-            preflight_native_owner()
+        # Installed Resolve delivery bundles contain only the small host owner
+        # guard and the journal reader, not the full qualification-output
+        # verifier. Keep this entry point self-contained. The external parent
+        # performs full historical validation before any new native dispatch.
+        _check_parent_operation()
+        _check_issue328_marker()
+        if not output_lane:
+            active = _active_output_host_chains(None)
+            if any(not _locally_attested_paused_queue(key) for key in active):
+                raise _blocked("output_render_unresolved", str(OUTPUT_ATTEMPTS_ROOT))
         yield descriptor
     finally:
         _HELD_OWNER_FD.reset(token)
@@ -496,7 +499,9 @@ def _has_attested_paused_queue(
     Future operations or host-journal changes invalidate the attestation.
     """
     key = operations.parent.name
-    path = PAUSED_OUTPUT_ROOT / f"{key}.json"
+    result_sha = hashlib.sha256(_read(result_path)).hexdigest()
+    host_sha = _output_host_history_sha256(key)
+    path = _paused_observation_path(key, result_sha, host_sha)
     if not path.exists() and not path.is_symlink():
         return False
     try:
@@ -515,15 +520,24 @@ def _has_attested_paused_queue(
             "observedAt",
             "observedStatuses",
             "matchingJobCount",
+            "mac",
         }:
+            return False
+        signature = record.pop("mac")
+        if not isinstance(signature, str) or not hmac.compare_digest(
+            signature,
+            hmac.digest(
+                _paused_observation_key(key), _canonical(record), "sha256"
+            ).hex(),
+        ):
             return False
         if (
             record["schemaVersion"] != "vera.paused-output-observation/v1"
             or record["targetKey"] != key
             or record["sequence"] != result["sequence"]
             or record["operationId"] != result["operationId"]
-            or record["resultSha256"] != hashlib.sha256(_read(result_path)).hexdigest()
-            or record["hostHistorySha256"] != _output_host_history_sha256(key)
+            or record["resultSha256"] != result_sha
+            or record["hostHistorySha256"] != host_sha
             or record["projectUid"] != result["target"]["projectUid"]
             or record["timelineUid"] != result["target"]["timelineUid"]
             or type(record["matchingJobCount"]) is not int
@@ -539,6 +553,9 @@ def _has_attested_paused_queue(
         timestamp = datetime.fromisoformat(record["observedAt"])
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             return False
+        age = datetime.now(UTC) - timestamp.astimezone(UTC)
+        if age < -timedelta(seconds=30) or age >= _PAUSE_OBSERVATION_LIFETIME:
+            return False
         # Unknown AddRenderJob is a queued-only effect. A started render, or
         # any additional stage after the observed tail, is never excused.
         effects = result.get("effectLedger")
@@ -548,6 +565,95 @@ def _has_attested_paused_queue(
             and effects[-1].get("method") == "Project.AddRenderJob"
             and effects[-1].get("outcome") == "unknown"
             and all(row.get("method") != "Project.StartRendering" for row in effects)
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def _canonical(value: dict[str, Any]) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(
+        "utf-8"
+    )
+
+
+def _paused_observation_key(target_key: str) -> bytes:
+    """Reuse the private host receipt key, never include it in observations."""
+    path = OUTPUT_ATTEMPTS_ROOT / target_key / "receipts" / "key"
+    metadata = path.stat(follow_symlinks=False)
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise ValueError("paused output signing key is not private")
+    key = _read(path, "paused observation signing key")
+    if len(key) != 32:
+        raise ValueError("paused output signing key has wrong length")
+    return key
+
+
+def _paused_observation_path(key: str, result_sha: str, host_sha: str) -> Path:
+    if not all(_HEX64.fullmatch(value) for value in (key, result_sha, host_sha)):
+        raise ValueError("paused observation identity is malformed")
+    return PAUSED_OUTPUT_ROOT / f"{key}-{result_sha}-{host_sha}.json"
+
+
+def _locally_attested_paused_queue(key: str) -> bool:
+    """Small installed-runtime guard for a *previously* authenticated pause.
+
+    The full verifier is host-only and unavailable in older installed bundles.
+    Walk the exact local result/request digest chain and validate its separate
+    read-only observation; never substitute this for host preflight before a
+    new dispatch. No external source or historical render is opened here.
+    """
+    if not _HEX64.fullmatch(key):
+        return False
+    operations = OUTPUT_TARGETS_ROOT / key / "operations"
+    try:
+        if operations.is_symlink() or not operations.is_dir():
+            return False
+        directories = sorted(operations.iterdir())
+        if not directories:
+            return False
+        prior_sha: str | None = None
+        last: dict[str, Any] | None = None
+        for sequence, directory in enumerate(directories):
+            if (
+                directory.is_symlink()
+                or not directory.is_dir()
+                or directory.name != f"{sequence:08d}"
+            ):
+                return False
+            result_path = directory / "result.json"
+            raw = _read(result_path, "paused output result")
+            result = json.loads(raw)
+            if (
+                not isinstance(result, dict)
+                or result.get("sequence") != sequence
+                or (sequence and result.get("priorResultSha256") != prior_sha)
+                or (
+                    sequence < len(directories) - 1
+                    and result.get("status") != "complete"
+                )
+                or (
+                    sequence < len(directories) - 1
+                    and result.get("action") in {"queue_render", "start_render"}
+                )
+            ):
+                return False
+            request_raw = _read(directory / "request.json", "paused output request")
+            if hashlib.sha256(request_raw).hexdigest() != result.get("requestSha256"):
+                return False
+            start = json.loads(
+                _read(directory / "native-start.json", "paused output start")
+            )
+            if (
+                not isinstance(start, dict)
+                or start.get("requestSha256") != result.get("requestSha256")
+                or start.get("operationId") != result.get("operationId")
+            ):
+                return False
+            prior_sha = hashlib.sha256(raw).hexdigest()
+            last = result
+        assert last is not None
+        return _has_attested_paused_queue(
+            operations, directories[-1] / "result.json", last
         )
     except (OSError, ValueError, KeyError, TypeError):
         return False
@@ -629,8 +735,9 @@ def observe_paused_queue(result_path: Path) -> Path:
             raise ValueError("Resolve project manager is unavailable")
         target = result["target"]
         project = manager.GetCurrentProject()
-        if project is None or project.GetUniqueId() != target["projectUid"]:
-            project = manager.LoadProject(target["projectName"])
+        # Never switch projects: the current project may have unsaved edits or
+        # an active render which LoadProject could disturb. The operator must
+        # select the exact historical target before this read-only check.
         if (
             project is None
             or project.GetUniqueId() != target["projectUid"]
@@ -687,10 +794,13 @@ def observe_paused_queue(result_path: Path) -> Path:
             "observedStatuses": statuses,
             "matchingJobCount": matching,
         }
+        record["mac"] = hmac.digest(
+            _paused_observation_key(key), _canonical(record), "sha256"
+        ).hex()
         if PAUSED_OUTPUT_ROOT.is_symlink() or PAUSED_OUTPUT_ROOT.parent.is_symlink():
             raise ValueError("paused-output observation directory is unsafe")
         PAUSED_OUTPUT_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-        path = PAUSED_OUTPUT_ROOT / f"{key}.json"
+        path = _paused_observation_path(key, result_sha, host_sha)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "wb") as stream:
             stream.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))
