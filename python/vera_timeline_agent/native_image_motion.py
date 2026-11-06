@@ -341,20 +341,43 @@ def admit_motion(
     ):
         raise MotionRefusal("native center/scale endpoints are not qualified")
     for center in (proof.native_start_center, proof.native_end_center):
-        if len(center) != 2 or any(
-            type(v) not in (int, float)
-            or not math.isfinite(v)
-            or not -0.25 <= v <= 0.25
-            for v in center
+        if (
+            len(center) != 2
+            or any(type(v) not in (int, float) or not math.isfinite(v) for v in center)
+            or not (0 <= center[0] <= 0.12 and -0.08 <= center[1] <= 0)
         ):
             raise MotionRefusal("raw native center outside observed bounded envelope")
     for scale in (proof.native_start_scale, proof.native_end_scale):
         if (
             type(scale) not in (int, float)
             or not math.isfinite(scale)
-            or not 0.8 <= scale <= 1.1
+            or not 0.8 <= scale <= 1.05
         ):
             raise MotionRefusal("raw native scale outside observed bounded envelope")
+    for name, center, scale in (
+        ("start", proof.native_start_center, proof.native_start_scale),
+        ("end", proof.native_end_center, proof.native_end_scale),
+    ):
+        requested_center, requested_scale = native_endpoint_from_focus(motion[name])
+        if (
+            any(
+                abs(a - b) > 1e-9 for a, b in zip(center, requested_center, strict=True)
+            )
+            or abs(scale - requested_scale) > 1e-9
+        ):
+            raise MotionRefusal(
+                "qualified native geometry differs from requested focus"
+            )
+        if not measured_framing_preserves_intent(
+            source_size=(proof.source_width, proof.source_height),
+            timeline_size=(binding.timeline_width, binding.timeline_height),
+            framing=framing,
+            center=center,
+            native_scale=scale,
+        ):
+            raise MotionRefusal(
+                "qualified native endpoint would clip contain or expose cover"
+            )
     return proof
 
 

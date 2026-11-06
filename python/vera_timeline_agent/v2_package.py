@@ -18,7 +18,10 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from fractions import Fraction
+from json import encoder as json_encoder
+from json.encoder import encode_basestring, encode_basestring_ascii
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
@@ -143,6 +146,7 @@ def _compiler_hash(value: object) -> str:
             ensure_ascii=False,
             allow_nan=False,
             indent=2,
+            cls=_CompilerJSONEncoder,
         )
         + "\n"
     )
@@ -152,6 +156,45 @@ def _compiler_hash(value: object) -> str:
         for char in text
     )
     return _hash_bytes(text.encode("utf-8"))
+
+
+class _CompilerJSONEncoder(json.JSONEncoder):
+    """Use JS Number-to-string for frozen compiler decimal hashes.
+
+    Python repr emits `5e-05` where JSON.stringify emits `0.00005`, and
+    `1e-07` where JavaScript emits `1e-7`. The normal JSON token encoder is
+    reused with a narrowly replaced float formatter; strings are untouched.
+    """
+
+    def iterencode(self, o: Any, _one_shot: bool = False) -> Any:
+        def js_float(value: float) -> str:
+            if not math.isfinite(value):
+                raise ValueError("non-finite number in compiler JSON")
+            if value == 0:
+                return "0"
+            shortest = repr(value)
+            if "e" not in shortest:
+                return shortest
+            mantissa, exponent_text = shortest.split("e")
+            exponent = int(exponent_text)
+            if -6 <= exponent < 21:
+                return format(Decimal(shortest), "f")
+            return f"{mantissa}e{exponent:+d}"
+
+        # Typeshed intentionally omits this stdlib private helper; use getattr
+        # to keep the pinned runtime implementation while retaining strict mypy.
+        return getattr(json_encoder, "_make_iterencode")(  # noqa: B009
+            {} if self.check_circular else None,
+            self.default,
+            encode_basestring_ascii if self.ensure_ascii else encode_basestring,
+            self.indent,
+            js_float,
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )(o, 0)
 
 
 def _compiler_json_values(value: object, *, key: str | None = None) -> object:
@@ -168,7 +211,7 @@ def _compiler_json_values(value: object, *, key: str | None = None) -> object:
         if key in {"focusX", "focusY", "scale"} and math.isfinite(value):
             # ImageMotionV1 admits finite fractions.  JS canonicalJson writes
             # integral 1.0 as 1, and other finite decimals unchanged.
-            return int(value) if value.is_integer() else value
+            return int(value) if value.is_integer() and abs(value) < 1e21 else value
         if not math.isfinite(value) or not value.is_integer() or abs(value) > _MAX_SAFE:
             raise _error("compiler hash input is not a schema-supported safe integer")
         return int(value)

@@ -415,8 +415,10 @@ class _FakeAdapter:
         return self.verification_discrepancies
 
 
+@pytest.mark.parametrize("scaling", ["fit", "crop"])
 def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stamps(
     tmp_path: Path,
+    scaling: str,
 ) -> None:
     """Model public Resolve import APIs, not native pixel output."""
     picture = {
@@ -450,7 +452,7 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
             return media
 
         def GetProperties(self) -> dict[str, Any]:
-            return {"DynamicZoomEnabled": False}
+            return {"DynamicZoomEnabled": False, "Scaling": scaling}
 
         def AddMarker(self, *_args: Any) -> bool:
             counts["stamped"] += 1
@@ -533,6 +535,7 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
 
     adapter = workflow_v2.PublicResolveAdapter.__new__(workflow_v2.PublicResolveAdapter)
     adapter.pool = Pool()
+    adapter.resolve = SimpleNamespace(SCALE_FIT="fit", SCALE_CROP="crop")
     adapter.project = Project()
     adapter.timeline = None
     adapter.expected_timeline_id = None
@@ -546,15 +549,41 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
     adapter.assert_current_target = lambda: None  # type: ignore[method-assign]
 
     otio = package.root / "Builds" / package.manifest["buildId"] / "timeline.otio"
+    if scaling == "crop":
+        with pytest.raises(workflow_v2.WorkflowV2Error, match="scaling"):
+            adapter.import_verified_otio(otio, package.view, "VERA Test")
+        assert counts["import"] == 1
+        assert counts["stamped"] == 0
+        return
     adapter.import_verified_otio(otio, package.view, "VERA Test")
     assert counts == {"import": 1, "append": 0, "delete_marker": 1, "stamped": 1}
     assert adapter.media_id_by_source[source["id"]] == "exact-source-id"
     assert adapter.expected_properties[package.view["events"][0]["id"]] == {
-        "DynamicZoomEnabled": False
+        "DynamicZoomEnabled": False,
+        "Scaling": "fit",
     }
     with pytest.raises(workflow_v2.WorkflowV2Error, match="fresh empty target"):
         adapter.import_verified_otio(otio, package.view, "VERA Test")
     assert counts["import"] == 1
+
+
+def test_native_otio_refuses_mixed_plain_stills_and_allows_video() -> None:
+    motion = {"kind": "still_frame", "imageMotion": {"mode": "none"}}
+    plain = {"kind": "still", "composition": {"framingPolicy": "contain"}}
+    view: dict[str, Any] = {
+        "sources": [
+            {"id": "image", "kind": "still"},
+            {"id": "presenter", "kind": "video"},
+        ],
+        "events": [
+            {"id": "motion", "sourceId": "image", "pictureTreatment": motion},
+            {"id": "plain", "sourceId": "presenter", "pictureTreatment": plain},
+        ],
+    }
+    assert workflow_v2._requires_native_otio(view)
+    assert workflow_v2._native_otio_has_unqualified_plain_stills(view)
+    view["events"][1]["pictureTreatment"] = None
+    assert not workflow_v2._native_otio_has_unqualified_plain_stills(view)
 
 
 def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any]]:
@@ -1081,8 +1110,23 @@ def test_native_subtitle_tracks_refuse_before_adapter_creation(tmp_path: Path) -
     assert called is False
 
 
-def test_native_source_audio_is_refused_before_adapter_creation(tmp_path: Path) -> None:
-    attestation, digest, _ = _make_package(tmp_path, source_audio=True)
+@pytest.mark.parametrize("motion_bearing", [False, True])
+def test_native_source_audio_is_refused_before_adapter_creation(
+    tmp_path: Path, motion_bearing: bool
+) -> None:
+    treatment = (
+        {
+            "kind": "still_frame",
+            "pictureKind": "image",
+            "framingPolicy": "contain",
+            "imageMotion": {"mode": "none"},
+        }
+        if motion_bearing
+        else None
+    )
+    attestation, digest, _ = _make_package(
+        tmp_path, source_audio=True, picture_treatment=treatment
+    )
     called = False
 
     def forbidden(_resolve: Any) -> Any:

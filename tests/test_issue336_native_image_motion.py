@@ -20,8 +20,8 @@ H = "sha256:" + "a" * 64
 P = "sha256:" + "b" * 64
 MOTION = {
     "mode": "native_dynamic_zoom",
-    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.0},
-    "end": {"focusX": 0.65, "focusY": 0.35, "scale": 1.1},
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.25},
+    "end": {"focusX": 0.53, "focusY": 0.52, "scale": 1.2},
     "easing": "linear",
 }
 BINDING = MotionBinding(
@@ -49,13 +49,13 @@ PROOF = Qualification(
     motion_hash=motion_hash(MOTION),
     framing="cover",
     background="#000000",
-    source_width=1000,
-    source_height=1000,
+    source_width=1920,
+    source_height=1080,
     focus_proven=True,
     native_start_center=(0.0, 0.0),
-    native_end_center=(0.25, -0.2),
+    native_end_center=(0.03, -0.02),
     native_start_scale=0.8,
-    native_end_scale=1.1,
+    native_end_scale=1 / 1.2,
 )
 
 
@@ -73,11 +73,11 @@ def test_synthetic_qualified_dynamic_metadata_is_exact_and_duration_independent(
     assert [item["Type"] for item in effects] == [59, 22]
     assert effects[0]["Parameters"][0]["Key Frames"] == {
         "-86400": {"Value": [0.0, 0.0], "Variant Type": "POINTF"},
-        "-85400": {"Value": [0.25, -0.2], "Variant Type": "POINTF"},
+        "-85400": {"Value": [0.03, -0.02], "Variant Type": "POINTF"},
     }
     assert effects[0]["Parameters"][1]["Key Frames"] == {
         "-86400": {"Value": 0.8, "Variant Type": "Double"},
-        "-85400": {"Value": 1.1, "Variant Type": "Double"},
+        "-85400": {"Value": 1 / 1.2, "Variant Type": "Double"},
     }
     assert effects[1]["Parameters"][0]["Parameter Value"] == 3
     # Same literal key labels at another *independently qualified* rebuilt length.
@@ -167,7 +167,11 @@ def test_unqualified_setting_change_refuses(motion_request: dict[str, Any]) -> N
     [
         {"focus_proven": False},
         {"native_end_center": (180.0, -144.0)},
+        {"native_end_center": (-0.02, -0.02)},
+        {"native_end_center": (0.12, -0.08)},
+        {"native_end_center": (0.03, -0.02), "native_end_scale": 1.05},
         {"native_start_scale": 0.5},
+        {"native_end_scale": 1.08},
         {"native_end_scale": float("nan")},
         {"native_end_center": None},
         {"source_width": 0},

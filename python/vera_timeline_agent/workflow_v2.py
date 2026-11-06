@@ -995,6 +995,19 @@ def _requires_native_otio(view: Mapping[str, Any]) -> bool:
     )
 
 
+def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
+    """Never silently lose the Append route's contain/neutral still properties."""
+    source_kinds = {source["id"]: source["kind"] for source in view["sources"]}
+    return any(
+        _uses_still_composition(event, source_kinds[event["sourceId"]])
+        and not (
+            isinstance(event.get("pictureTreatment"), Mapping)
+            and "imageMotion" in event["pictureTreatment"]
+        )
+        for event in view["events"]
+    )
+
+
 def _otio_frames(value: object, rate: float, label: str) -> int:
     if not isinstance(value, Mapping) or value.get("OTIO_SCHEMA") != "TimeRange.1":
         raise WorkflowV2Error(f"native OTIO {label} is not a time range")
@@ -1506,11 +1519,23 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             motion = (
                 picture.get("imageMotion") if isinstance(picture, Mapping) else None
             )
-            self.expected_properties[event_id] = (
-                {"DynamicZoomEnabled": motion.get("mode") == "native_dynamic_zoom"}
-                if isinstance(motion, Mapping)
-                else {}
-            )
+            if isinstance(motion, Mapping):
+                framing = cast(Mapping[str, Any], picture).get("framingPolicy")
+                native_scale = (
+                    getattr(self.resolve, "SCALE_FIT", None)
+                    if framing == "contain"
+                    else getattr(self.resolve, "SCALE_CROP", None)
+                )
+                if native_scale is None:
+                    raise WorkflowV2Error(
+                        "native OTIO has no verified scaling constant"
+                    )
+                self.expected_properties[event_id] = {
+                    "DynamicZoomEnabled": motion.get("mode") == "native_dynamic_zoom",
+                    "Scaling": native_scale,
+                }
+            else:
+                self.expected_properties[event_id] = {}
             source_range = cast(Mapping[str, int], event["sourceRange"])
             self.expected_source_ranges[event_id] = (
                 source_range["startFrame"],
@@ -1619,11 +1644,22 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                     )
                 if expected_zoom is not None:
                     properties = item.GetProperties()
-                    if not isinstance(properties, Mapping) or not _property_equal(
-                        properties.get("DynamicZoomEnabled"), expected_zoom
+                    framing = cast(Mapping[str, Any], picture).get("framingPolicy")
+                    scale = (
+                        getattr(self.resolve, "SCALE_FIT", None)
+                        if framing == "contain"
+                        else getattr(self.resolve, "SCALE_CROP", None)
+                    )
+                    if (
+                        scale is None
+                        or not isinstance(properties, Mapping)
+                        or not _property_equal(
+                            properties.get("DynamicZoomEnabled"), expected_zoom
+                        )
+                        or not _property_equal(properties.get("Scaling"), scale)
                     ):
                         raise WorkflowV2Error(
-                            "native OTIO lost qualified Dynamic Zoom on import"
+                            "native OTIO lost qualified scaling/zoom on import"
                         )
 
     def place_event(self, event: Mapping[str, Any]) -> None:
@@ -2511,6 +2547,13 @@ def run_workflow_delivery_v2(
             )
         native_otio = _requires_native_otio(view)
         result["nativeOtioMotionRoute"] = native_otio
+        result["nativeOtioMixedStillsQualified"] = not (
+            native_otio and _native_otio_has_unqualified_plain_stills(view)
+        )
+        if not result["nativeOtioMixedStillsQualified"] and action == "build":
+            raise WorkflowV2Error(
+                "native OTIO mixed plain-still composition is unqualified"
+            )
         otio_path = _verify_native_otio_plan(package) if native_otio else None
         if resolve is None:
             raise WorkflowV2Error("Resolve did not inject an API object")
@@ -2590,6 +2633,14 @@ def run_workflow_delivery_v2(
                 attestation["timelineName"],
                 label="import exact native OTIO",
             )
+            # Reauthenticate the imported input immediately after the one-shot
+            # native call; a swapped package path cannot silently persist.
+            if (
+                load_verified_package_v2(attestation_path, attestation_sha256)
+                != package
+                or _verify_native_otio_plan(package) != otio_path
+            ):
+                raise WorkflowV2Error("native OTIO changed during one-shot import")
         else:
             mutate(
                 adapter.create_bin, "VERA Studio Assembly", label="create assembly bin"

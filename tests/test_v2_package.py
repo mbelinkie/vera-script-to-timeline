@@ -47,6 +47,9 @@ def _issue336_case(
     manifest = json.loads(case.manifest_path.read_text())
     report = json.loads(case.report_path.read_text())
     document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
+    if motion.get("mode") == "native_dynamic_zoom":
+        document["activeDraft"]["blocks"][0]["payload"]["framingPolicy"] = "cover"
+        manifest["events"][0]["pictureTreatment"]["framingPolicy"] = "cover"
     if project_default is not None:
         dependencies["authoringDefaults"]["imageMotionDefault"] = project_default
         manifest["authoringDefaults"]["imageMotionDefault"] = project_default
@@ -59,6 +62,24 @@ def _issue336_case(
         (case.report_path, report),
     ):
         path.write_bytes(canonical_json_bytes(value))
+
+
+@pytest.mark.parametrize(
+    ("key", "number", "js_number"),
+    [
+        ("focusX", 0.00005, "0.00005"),
+        ("focusY", 1e-7, "1e-7"),
+        ("scale", 1e-6, "0.000001"),
+        ("scale", 1e20, "100000000000000000000"),
+        ("scale", 1e21, "1e+21"),
+    ],
+)
+def test_issue336_compiler_small_float_hash_matches_js_number_to_string(
+    key: str, number: float, js_number: str
+) -> None:
+    canonical = f'{{\n  "{key}": {js_number}\n}}\n'
+    expected = "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+    assert _compiler_hash({key: number}) == expected
 
 
 def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,9 +99,9 @@ def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
             source_height=1080,
             focus_proven=enabled,
             native_start_center=(0.0, 0.0) if enabled else None,
-            native_end_center=(0.25, -0.2) if enabled else None,
+            native_end_center=(0.03, -0.02) if enabled else None,
             native_start_scale=0.8 if enabled else None,
-            native_end_scale=1.1 if enabled else None,
+            native_end_scale=(1 / 1.2) if enabled else None,
         )
 
     monkeypatch.setattr(native_image_motion, "production_qualification", fake)
@@ -88,8 +109,8 @@ def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
 
 _ISSUE336_NATIVE = {
     "mode": "native_dynamic_zoom",
-    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.0},
-    "end": {"focusX": 0.65, "focusY": 0.35, "scale": 1.1},
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.25},
+    "end": {"focusX": 0.53, "focusY": 0.52, "scale": 1.2},
     "easing": "linear",
 }
 
@@ -218,6 +239,42 @@ def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
     assert unknown.calls.count("native_otio") == 1
     assert "verify" not in unknown.calls
     assert all(Path(path).read_bytes() == value for path, value in bytes_before.items())
+
+
+def test_issue336_rechecks_otio_after_one_shot_import_before_saving(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, {"mode": "none"})
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+    path = case.project_root / BUILD_DIRECTORY / built.build_id / OTIO_FILENAME
+    original = path.read_bytes()
+
+    class SwappingAdapter(_Issue336NativeRouteAdapter):
+        def import_verified_otio(self, path: Path, view: Any, name: str) -> None:
+            super().import_verified_otio(path, view, name)
+            path.write_bytes(path.read_bytes() + b"\n")
+
+    adapter = SwappingAdapter()
+    try:
+        result = run_workflow_delivery_v2(
+            object(),
+            attestation,
+            sha256(attestation),
+            action="build",
+            authorize_new_nonproduction=True,
+            external_scripting="None",
+            adapter_factory=lambda _: adapter,
+        )
+        assert result["status"] == "mutation_failed", result
+        assert result["partialTargetRetained"] is True
+        assert adapter.calls.count("native_otio") == 1
+        assert "save_close_reopen" not in adapter.calls
+    finally:
+        path.write_bytes(original)
+    assert verify_v2_package(case.project_root).build_id == built.build_id
 
 
 @pytest.mark.parametrize(
