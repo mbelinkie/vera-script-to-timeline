@@ -345,6 +345,8 @@ class Store:
                     outcome TEXT,
                     started_at TEXT,
                     ended_at TEXT,
+                    environment_sha TEXT,
+                    timing_spans_json TEXT,
                     PRIMARY KEY(campaign_id, ordinal),
                     UNIQUE(campaign_id, trial_id)
                 );
@@ -372,6 +374,14 @@ class Store:
                     at TEXT NOT NULL
                 );
             """)
+            # Existing phase-1/2 stores predate optional authenticated M3
+            # measurement metadata. Never alter M1/M2 tables or report bytes.
+            columns = {
+                row["name"] for row in db.execute("PRAGMA table_info(campaign_trials)")
+            }
+            for name in ("environment_sha", "timing_spans_json"):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE campaign_trials ADD COLUMN {name} TEXT")
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:

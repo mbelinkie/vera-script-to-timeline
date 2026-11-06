@@ -6,21 +6,30 @@ and transactionally reserved *before* the M2 dispatcher may consume its intent.
 
 from __future__ import annotations
 
+import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
+import platform
 import re
 import shutil
+import sqlite3
 import stat
+import sys
 import time
 import uuid
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any, cast
 
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_native as native
+from . import workflow_v2_parent as parent
 
 CAMPAIGN_SCHEMA = "vera.resolve-test-campaign/v1"
 CAMPAIGN_ID_PATTERN = re.compile(r"resolve-campaign-[a-f0-9]{32}\Z")
@@ -57,6 +66,11 @@ _TRIAL_KEYS = frozenset(
 )
 _VARIANTS = frozenset({"single", "baseline", "candidate"})
 _CACHE_MODES = frozenset({"warm", "isolated_fresh"})
+_CONTROL_ACTIONS = frozenset({"pause", "resume", "cancel", "reconcile"})
+_REASON_CODE = re.compile(r"[a-z][a-z0-9_:-]{0,100}\Z")
+_TIMING_NAMES = frozenset(
+    {"setup", "native_wait", "save", "reopen", "readback", "measurement"}
+)
 
 
 def _non_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -515,6 +529,215 @@ def _child_record(db: Any, campaign_id: str) -> Any:
     ).fetchone()
 
 
+def _safe_reason(value: object) -> str | None:
+    """Reports never repeat raw exception text, filesystem paths or secrets."""
+    return value if isinstance(value, str) and _REASON_CODE.fullmatch(value) else None
+
+
+def _safe_stamp(value: object) -> str | None:
+    try:
+        return queue.iso(queue.dt(cast(str, value))) if value is not None else None
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def _owned_bytes(
+    store: queue.Store,
+    campaign_id: str,
+    *,
+    exclude_projections: bool = False,
+    frozen_plan: Mapping[str, Any] | None = None,
+) -> int:
+    """Count all campaign-owned trees (including evidence), without following links.
+
+    SQLite and unrelated M2 work are not billed to a campaign. Reject links,
+    hardlinks and special files rather than undercounting resources. Caller
+    must treat any accounting error as a BLOCKED result before next dispatch.
+    """
+    if not CAMPAIGN_ID_PATTERN.fullmatch(campaign_id):
+        raise queue.QueueError("invalid campaign ID")
+    plan = (
+        frozen_plan
+        if frozen_plan is not None
+        else load_frozen_campaign(store, campaign_id)
+    )
+    with store.connect() as db:
+        records = db.execute(
+            "SELECT child_job_id,evidence_dir FROM campaign_trials "
+            "WHERE campaign_id=? ORDER BY ordinal",
+            (campaign_id,),
+        ).fetchall()
+    if len(records) != len(plan["trials"]):
+        raise queue.QueueError("campaign resource identities differ")
+    paths = [store.root / campaign_id]
+    projections = (
+        {
+            store.root / campaign_id / name
+            for name in ("status.json", "report.json", "report.md")
+        }
+        if exclude_projections
+        else set()
+    )
+    for record, trial in zip(records, plan["trials"], strict=True):
+        if record["evidence_dir"] != _native_request(trial["plan"])["evidenceDir"]:
+            raise queue.QueueError("campaign evidence identity changed")
+        if record["child_job_id"]:
+            paths.append(store.jobdir(record["child_job_id"]))
+            paths.append(Path(record["evidence_dir"]))
+    total = 0
+    visited: set[tuple[int, int]] = set()
+    scanned = 0
+
+    def walk(path: Path) -> None:
+        nonlocal total, scanned
+        if path in projections:
+            return
+        scanned += 1
+        if scanned > 50000:
+            raise queue.QueueError("campaign resource tree exceeds accounting limit")
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            # A not-yet-created native evidence directory is normal.
+            return
+        if stat.S_ISLNK(info.st_mode) or not (
+            stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode)
+        ):
+            raise queue.QueueError("campaign resource tree contains unsafe entries")
+        key = (info.st_dev, info.st_ino)
+        if key in visited or (info.st_nlink > 1 and stat.S_ISREG(info.st_mode)):
+            raise queue.QueueError("campaign resource tree has shared entries")
+        visited.add(key)
+        if stat.S_ISREG(info.st_mode):
+            total += info.st_size
+        else:
+            with os.scandir(path) as entries:
+                for entry in entries:
+                    walk(Path(entry.path))
+
+    for path in paths:
+        walk(path)
+    return total
+
+
+def _budget_problem(
+    store: queue.Store,
+    campaign_id: str,
+    record: Any,
+    frozen_plan: Mapping[str, Any],
+) -> str | None:
+    """Never convert clock or storage uncertainty into a successful campaign."""
+    try:
+        now = queue.now_utc()
+        if now.timestamp() >= record["deadline_at"]:
+            return "campaign_deadline_exceeded"
+        if record["started_at"] is not None:
+            elapsed = (now - queue.dt(record["started_at"])).total_seconds()
+            if not math.isfinite(elapsed) or elapsed < 0:
+                return "campaign_clock_uncertain"
+            if elapsed >= record["max_elapsed_seconds"]:
+                return "campaign_elapsed_exceeded"
+        with (store.root / "publish.lock").open("a+b") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if (
+                _owned_bytes(store, campaign_id, frozen_plan=frozen_plan)
+                > record["max_disk_bytes"]
+            ):
+                return "campaign_disk_budget_exceeded"
+        if shutil.disk_usage(store.root).free < record["max_disk_bytes"]:
+            return "insufficient_campaign_space"
+    except (OSError, ValueError, TypeError, OverflowError):
+        return "campaign_resources_unverifiable"
+    return None
+
+
+def _campaign_limits_match(record: Any, plan: Mapping[str, Any]) -> bool:
+    """SQLite scheduling/limits may not silently widen the frozen plan."""
+    return bool(
+        record["max_elapsed_seconds"] == plan["maxElapsedSeconds"]
+        and record["max_disk_bytes"] == plan["maxDiskBytes"]
+        and record["run_at"] == queue.dt(plan["runAt"]).timestamp()
+        and record["deadline_at"] == queue.dt(plan["deadlineAt"]).timestamp()
+    )
+
+
+def _capture_verified_measurement(step: Any, attempt: Any) -> tuple[str, str] | None:
+    """Second read-only parent authentication pins the native environment.
+
+    The M2 classifier is authoritative; this supplements, never replaces,
+    its identity, one-use and verified-readback guards. A missing/ambiguous
+    environment leaves a successful child visible but *not comparable*.
+    """
+    if (
+        not attempt["intent_at"]
+        or attempt["native_verified"] != 1
+        or not attempt["invocation_id"]
+    ):
+        return None
+    try:
+        request_path = Path(json.loads(attempt["locator"])["requestPath"])
+        response = parent.status(request_path, attempt["request_sha"])
+        locator = json.loads(attempt["locator"])
+        verdict = native.classify_parent_status(
+            response,
+            request_sha256=attempt["request_sha"],
+            project_name=locator["projectName"],
+            timeline_name=locator["timelineName"],
+            release_sha256=locator["releaseSha256"],
+            attestation_sha256=locator["attestationSha256"],
+            expected=locator["expected"],
+        )
+        session = parent._read(Path(step["evidence_dir"]) / "parent.json")
+        if (
+            response.get("state") != "terminal"
+            or verdict.disposition != "verified"
+            or verdict.native_verified is not True
+            or session.get("invocationId") != attempt["invocation_id"]
+            or session.get("requestSha256") != attempt["request_sha"]
+            or session.get("requestPath") != str(request_path)
+        ):
+            return None
+        result = response["result"]
+        connected = result.get("connected")
+        if not isinstance(connected, dict) or connected.get("edition") != "studio":
+            return None
+        version, build = connected.get("version"), connected.get("build")
+        if (
+            not isinstance(version, str)
+            or not 1 <= len(version) <= 40
+            or not re.fullmatch(r"[A-Za-z0-9_.-]+", version)
+            or type(build) not in (str, int)
+            or not re.fullmatch(r"[A-Za-z0-9_.-]{1,40}", str(build))
+        ):
+            return None
+        environment = hashlib.sha256(
+            queue.canonical(
+                {
+                    "edition": "studio",
+                    "version": version,
+                    "build": str(build),
+                    "system": platform.system(),
+                    "machine": platform.machine(),
+                    "host": platform.node(),
+                }
+            )
+        ).hexdigest()
+        spans = result.get("timingSpansSeconds", {})
+        if not isinstance(spans, dict) or not set(spans) <= _TIMING_NAMES:
+            return None
+        if any(
+            type(value) not in (int, float)
+            or not math.isfinite(value)
+            or not 0 <= value <= MAX_ELAPSED_SECONDS
+            for value in spans.values()
+        ):
+            return None
+        spans = {name: float(value) for name, value in spans.items()}
+        return environment, queue.canonical(spans).decode().strip()
+    except (OSError, ValueError, TypeError, KeyError, OverflowError):
+        return None
+
+
 def _sync_child(store: queue.Store, campaign_id: str, ordinal: int) -> None:
     """Reflect only a guarded M2 terminal state; do not infer native success."""
     with store.connect() as db:
@@ -548,15 +771,23 @@ def _sync_child(store: queue.Store, campaign_id: str, ordinal: int) -> None:
             attempt["intent_at"] and attempt["native_verified"] == 1
         ):
             state = "unknown"
+        measurement = (
+            _capture_verified_measurement(step, attempt)
+            if state == "completed_verified"
+            else None
+        )
         if step["state"] != state:
             db.execute(
-                "UPDATE campaign_trials SET state=?,outcome=?,started_at=?,ended_at=? "
+                "UPDATE campaign_trials SET state=?,outcome=?,started_at=?,ended_at=?,"
+                "environment_sha=?,timing_spans_json=? "
                 "WHERE campaign_id=? AND ordinal=? AND child_job_id=?",
                 (
                     state,
                     state,
                     job["started_at"],
                     job["ended_at"],
+                    measurement[0] if measurement else None,
+                    measurement[1] if measurement else None,
                     campaign_id,
                     ordinal,
                     step["child_job_id"],
@@ -711,7 +942,7 @@ def _activate_child(
     return True
 
 
-def campaign_worker_once(store: queue.Store) -> bool:
+def _campaign_worker_tick(store: queue.Store) -> bool:
     """One due campaign step under M2's shared lock; never poll indefinitely.
 
     Multiple workers (including M2's own worker) are serialized per queue
@@ -736,6 +967,14 @@ def campaign_worker_once(store: queue.Store) -> bool:
         now = time.time()
         if row["state"] == "queued" and row["run_at"] > now:
             return False
+        with store.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "INSERT INTO campaign_heartbeats(campaign_id,seq,at) "
+                "VALUES(?,1,?) ON CONFLICT(campaign_id) DO UPDATE SET "
+                "seq=seq+1,at=excluded.at",
+                (campaign_id, queue.iso(queue.now_utc())),
+            )
         try:
             plan = load_frozen_campaign(store, campaign_id)
         except (OSError, ValueError, KeyError, TypeError):
@@ -757,6 +996,17 @@ def campaign_worker_once(store: queue.Store) -> bool:
                 # A crash/lost reply never permits redispatch after intent.
                 # The next invocation reads SQLite before doing anything.
                 return True
+        if not _campaign_limits_match(row, plan):
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "unknown",
+                    "campaign_frozen_limits_changed",
+                    cancel_pending=True,
+                )
+            return True
         if flags["cancel_pending"]:
             with store.connect() as db:
                 db.execute("BEGIN IMMEDIATE")
@@ -767,6 +1017,12 @@ def campaign_worker_once(store: queue.Store) -> bool:
                     "pending_trials_canceled",
                     cancel_pending=True,
                 )
+            return True
+        problem = _budget_problem(store, campaign_id, row, plan)
+        if problem:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(db, campaign_id, "blocked", problem, cancel_pending=True)
             return True
         if flags["pause_after_active"]:
             with store.connect() as db:
@@ -853,3 +1109,646 @@ def campaign_worker_once(store: queue.Store) -> bool:
                 # Preserve the in-flight child for same-identity restart.
                 return True
         return True
+
+
+def campaign_worker_once(store: queue.Store) -> bool:
+    """Tick once; publish settled snapshots, with live reads served from SQLite.
+
+    Avoid rereading every immutable native request on every active heartbeat.
+    The status/report CLI and private monitor rebuild a current snapshot on
+    demand; a terminal or paused worker produces a final on-disk snapshot.
+    """
+    changed = _campaign_worker_tick(store)
+    if changed:
+        with store.connect() as db:
+            latest = db.execute(
+                "SELECT c.id,c.state FROM campaigns c "
+                "JOIN campaign_heartbeats h ON h.campaign_id=c.id "
+                "ORDER BY h.at DESC,h.seq DESC LIMIT 1"
+            ).fetchone()
+        if latest is not None and latest["state"] not in {"queued", "running"}:
+            publish_campaign(store, latest["id"])
+    return changed
+
+
+def control_campaign(
+    store: queue.Store,
+    campaign_id: str,
+    *,
+    action: str,
+    command_id: str,
+    actor: str,
+    authorized: bool = False,
+) -> dict[str, Any]:
+    """Durable, exactly-once operator intent, never permission to dispatch.
+
+    A trusted local CLI or authenticated web handler must explicitly authorize
+    the caller. A replay returns the original audit result without repeating
+    effects; reusing a command ID for different arguments is refused.
+    """
+    if not authorized:
+        raise queue.QueueError("campaign control requires authenticated operator")
+    if not CAMPAIGN_ID_PATTERN.fullmatch(campaign_id):
+        raise queue.QueueError("invalid campaign ID")
+    queue.simple_id(command_id, "command id")
+    queue.simple_id(actor, "operator identity")
+    if action not in _CONTROL_ACTIONS:
+        raise queue.QueueError("unsupported campaign control")
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        previous = db.execute(
+            "SELECT * FROM campaign_commands WHERE command_id=?", (command_id,)
+        ).fetchone()
+        if previous is not None:
+            if (
+                previous["campaign_id"] != campaign_id
+                or previous["action"] != action
+                or previous["actor"] != actor
+            ):
+                raise queue.QueueError("command replay changed scope or arguments")
+            return {
+                "commandId": command_id,
+                "action": action,
+                "outcome": previous["outcome"],
+                "version": previous["version"],
+                "replayed": True,
+            }
+        record = db.execute(
+            "SELECT * FROM campaigns WHERE id=?", (campaign_id,)
+        ).fetchone()
+        if record is None:
+            raise queue.QueueError("unknown campaign")
+        state = record["state"]
+        outcome = "accepted"
+        if action == "pause":
+            if state in {"queued", "running"}:
+                db.execute(
+                    "UPDATE campaigns SET pause_after_active=1,"
+                    "state=CASE WHEN state='queued' THEN 'paused' ELSE state END,"
+                    "reason=CASE WHEN state='queued' THEN 'paused_before_start' "
+                    "ELSE reason END,version=version+1 WHERE id=?",
+                    (campaign_id,),
+                )
+            elif state == "paused":
+                outcome = "already_paused"
+            else:
+                raise queue.QueueError("cannot pause terminal campaign")
+        elif action == "resume":
+            if record["cancel_pending"]:
+                raise queue.QueueError("cannot resume canceled campaign")
+            if state == "paused":
+                db.execute(
+                    "UPDATE campaigns SET pause_after_active=0,reason=NULL,"
+                    "state=CASE WHEN started_at IS NULL THEN 'queued' "
+                    "ELSE 'running' END,"
+                    "version=version+1 WHERE id=?",
+                    (campaign_id,),
+                )
+            elif state in {"queued", "running"} and record["pause_after_active"]:
+                db.execute(
+                    "UPDATE campaigns SET pause_after_active=0,version=version+1 "
+                    "WHERE id=?",
+                    (campaign_id,),
+                )
+            else:
+                raise queue.QueueError("campaign is not paused")
+        elif action == "cancel":
+            if state in {"queued", "paused"}:
+                now = queue.iso(queue.now_utc())
+                db.execute(
+                    "UPDATE campaigns SET state='canceled',cancel_pending=1,"
+                    "reason='operator_canceled_pending',ended_at=?,"
+                    "version=version+1 WHERE id=?",
+                    (now, campaign_id),
+                )
+                db.execute(
+                    "UPDATE campaign_trials SET state='canceled',outcome='canceled',"
+                    "ended_at=? WHERE campaign_id=? AND state='pending'",
+                    (now, campaign_id),
+                )
+            elif state == "running":
+                if record["cancel_pending"]:
+                    outcome = "already_requested"
+                else:
+                    db.execute(
+                        "UPDATE campaigns SET cancel_pending=1,version=version+1 "
+                        "WHERE id=?",
+                        (campaign_id,),
+                    )
+            else:
+                raise queue.QueueError("cannot cancel terminal campaign")
+        elif action == "reconcile":
+            # No worker tick or parent.start may be called from this path.
+            outcome = "read_only_observation_requested"
+        updated = db.execute(
+            "SELECT version FROM campaigns WHERE id=?", (campaign_id,)
+        ).fetchone()
+        db.execute(
+            "INSERT INTO campaign_commands(command_id,campaign_id,at,actor,"
+            "action,outcome,version) VALUES(?,?,?,?,?,?,?)",
+            (
+                command_id,
+                campaign_id,
+                queue.iso(queue.now_utc()),
+                actor,
+                action,
+                outcome,
+                updated["version"],
+            ),
+        )
+        _event(db, campaign_id, "operator_" + action, outcome)
+    if action == "reconcile":
+        reconcile_campaign(store, campaign_id)
+    return {
+        "commandId": command_id,
+        "action": action,
+        "outcome": outcome,
+        "version": updated["version"],
+        "replayed": False,
+    }
+
+
+def reconcile_campaign(store: queue.Store, campaign_id: str) -> bool:
+    """Observe only the already-bound native request under M2's worker lock."""
+    if not CAMPAIGN_ID_PATTERN.fullmatch(campaign_id):
+        raise queue.QueueError("invalid campaign ID")
+    with (store.root / "worker.lock").open("a+b") as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        with store.connect() as db:
+            record = db.execute(
+                "SELECT state FROM campaigns WHERE id=?", (campaign_id,)
+            ).fetchone()
+            if record is None:
+                raise queue.QueueError("unknown campaign")
+            step = db.execute(
+                "SELECT * FROM campaign_trials WHERE campaign_id=? "
+                "AND child_job_id IS NOT NULL AND state='running' "
+                "ORDER BY ordinal LIMIT 1",
+                (campaign_id,),
+            ).fetchone()
+            if step is None:
+                return True
+            attempt = db.execute(
+                "SELECT intent_at FROM native_attempts WHERE job_id=?",
+                (step["child_job_id"],),
+            ).fetchone()
+        if attempt is None:
+            raise queue.QueueError("missing bound native intent")
+        if attempt["intent_at"]:
+            queue.reconcile_native(store, step["child_job_id"], worker_locked=True)
+            _sync_child(store, campaign_id, step["ordinal"])
+        return True
+
+
+def _verified_observation(step: Any, job: Any, attempt: Any, native_row: Any) -> bool:
+    """All of the M2 job, receipt and native row must agree on one identity."""
+    identity_matches = bool(
+        job is not None
+        and attempt is not None
+        and native_row is not None
+        and step["state"] == "completed_verified"
+        and job["state"] == "completed_verified"
+        and job["attempt"] == 1
+        and job["plan_sha"] == step["plan_sha"]
+        and attempt["request_sha"] == step["request_sha"]
+        and attempt["native_verified"] == 1
+        and attempt["parent_state"] == "terminal"
+        and attempt["intent_at"]
+        and attempt["invocation_id"]
+        and native_row["native_verified"] == 1
+        and native_row["outcome"] == "completed_verified"
+        and native_row["started_at"] == attempt["intent_at"]
+        and native_row["ended_at"] == job["ended_at"]
+        and type(native_row["wall_seconds"]) in (int, float)
+        and math.isfinite(native_row["wall_seconds"])
+        and native_row["wall_seconds"] >= 0
+    )
+    if not identity_matches:
+        return False
+    try:
+        begun = queue.dt(job["started_at"])
+        intent = queue.dt(attempt["intent_at"])
+        ended = queue.dt(job["ended_at"])
+        return begun <= intent <= ended
+    except (ValueError, TypeError, OverflowError):
+        return False
+
+
+def verified_duration_summary(
+    observations: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Statistics exclude unverified, different-environment, or changed inputs."""
+    groups: dict[tuple[str, ...], list[float]] = defaultdict(list)
+    for row in observations:
+        duration = row.get("wallSeconds")
+        if not (
+            row.get("nativeVerified") is True
+            and row.get("comparable") is True
+            and type(duration) in (int, float)
+            and math.isfinite(duration)
+            and duration >= 0
+        ):
+            continue
+        key = (
+            row["caseId"],
+            row["comparisonKey"],
+            row["variant"],
+            row["environmentSha256"],
+            row["semanticSha256"],
+            row["cacheMode"],
+        )
+        groups[key].append(float(duration))
+    return [
+        {
+            "caseId": key[0],
+            "comparisonKey": key[1],
+            "variant": key[2],
+            "environmentSha256": key[3],
+            "semanticSha256": key[4],
+            "cacheMode": key[5],
+            "measurementScope": "parent_monotonic_native_elapsed",
+            "n": len(values),
+            "medianSeconds": median(values),
+            "minSeconds": min(values),
+            "maxSeconds": max(values),
+            "rawSeconds": values,
+        }
+        for key, values in sorted(groups.items())
+    ]
+
+
+def _paired_regressions(stats: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    pairs: dict[tuple[str, ...], dict[str, Mapping[str, Any]]] = defaultdict(dict)
+    for row in stats:
+        key = (
+            row["caseId"],
+            row["comparisonKey"],
+            row["environmentSha256"],
+            row["semanticSha256"],
+            row["cacheMode"],
+        )
+        pairs[key][row["variant"]] = row
+    result = []
+    for key, variants in sorted(pairs.items()):
+        if not {"baseline", "candidate"} <= variants.keys():
+            continue
+        baseline = variants["baseline"]["medianSeconds"]
+        candidate = variants["candidate"]["medianSeconds"]
+        result.append(
+            {
+                "caseId": key[0],
+                "comparisonKey": key[1],
+                "environmentSha256": key[2],
+                "semanticSha256": key[3],
+                "cacheMode": key[4],
+                "baselineMedianSeconds": baseline,
+                "candidateMedianSeconds": candidate,
+                "deltaSeconds": candidate - baseline,
+                "regressionPercent": (
+                    (candidate - baseline) / baseline * 100 if baseline > 0 else None
+                ),
+            }
+        )
+    return result
+
+
+def publish_campaign(store: queue.Store, campaign_id: str) -> dict[str, Any]:
+    """Stable sanitized, rebuildable status/report from SQLite + frozen bytes."""
+    if not CAMPAIGN_ID_PATTERN.fullmatch(campaign_id):
+        raise queue.QueueError("invalid campaign ID")
+    with (store.root / "publish.lock").open("a+b") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        with store.connect() as db:
+            db.execute("BEGIN")
+            record = db.execute(
+                "SELECT * FROM campaigns WHERE id=?", (campaign_id,)
+            ).fetchone()
+            if record is None:
+                raise queue.QueueError("unknown campaign")
+            steps = db.execute(
+                "SELECT * FROM campaign_trials WHERE campaign_id=? ORDER BY ordinal",
+                (campaign_id,),
+            ).fetchall()
+            heartbeat = db.execute(
+                "SELECT seq,at FROM campaign_heartbeats WHERE campaign_id=?",
+                (campaign_id,),
+            ).fetchone()
+            journal = db.execute(
+                "SELECT seq,at,kind,detail FROM campaign_events "
+                "WHERE campaign_id=? ORDER BY seq",
+                (campaign_id,),
+            ).fetchall()
+            commands = db.execute(
+                "SELECT command_id,at,action,outcome,version "
+                "FROM campaign_commands WHERE campaign_id=? ORDER BY at,command_id",
+                (campaign_id,),
+            ).fetchall()
+            children = {}
+            for step in steps:
+                child_id = step["child_job_id"]
+                if child_id:
+                    children[child_id] = (
+                        db.execute(
+                            "SELECT * FROM jobs WHERE id=?", (child_id,)
+                        ).fetchone(),
+                        db.execute(
+                            "SELECT * FROM native_attempts WHERE job_id=?",
+                            (child_id,),
+                        ).fetchone(),
+                        db.execute(
+                            "SELECT * FROM trials WHERE job_id=? "
+                            "ORDER BY seq DESC LIMIT 1",
+                            (child_id,),
+                        ).fetchone(),
+                    )
+        try:
+            plan = load_frozen_campaign(store, campaign_id)
+        except (OSError, ValueError, KeyError, TypeError):
+            plan = None
+        if plan is not None and not _campaign_limits_match(record, plan):
+            plan = None
+        case_keys = (
+            {row["id"]: row["comparisonKey"] for row in plan["cases"]} if plan else {}
+        )
+        observations = []
+        for step in steps:
+            ordinal = step["ordinal"]
+            trial = plan["trials"][ordinal] if plan is not None else None
+            job, attempt, native_row = children.get(
+                step["child_job_id"], (None, None, None)
+            )
+            authenticated = bool(
+                trial is not None
+                and _verified_observation(step, job, attempt, native_row)
+            )
+            env = step["environment_sha"]
+            semantic = (
+                hashlib.sha256(
+                    queue.canonical(trial["plan"]["native"]["expected"])
+                ).hexdigest()
+                if trial is not None
+                else None
+            )
+            spans: dict[str, float] = {}
+            try:
+                if step["timing_spans_json"] is not None:
+                    parsed_spans = json.loads(step["timing_spans_json"])
+                    if (
+                        not isinstance(parsed_spans, dict)
+                        or not set(parsed_spans) <= _TIMING_NAMES
+                        or any(
+                            type(value) not in (float, int)
+                            or not math.isfinite(value)
+                            or value < 0
+                            for value in parsed_spans.values()
+                        )
+                    ):
+                        raise ValueError("invalid measurement spans")
+                    spans = parsed_spans
+            except (ValueError, TypeError):
+                authenticated = False
+            comparable = bool(
+                authenticated
+                and isinstance(env, str)
+                and queue.SHA_PATTERN.fullmatch(env)
+                and semantic is not None
+                and spans is not None
+            )
+            observations.append(
+                {
+                    "ordinal": ordinal,
+                    "trialId": step["trial_id"],
+                    "caseId": step["case_id"],
+                    "comparisonKey": case_keys.get(step["case_id"]),
+                    "variant": step["variant"],
+                    "round": step["round"],
+                    "sourceCommit": trial["sourceCommit"] if trial else None,
+                    "cacheMode": trial["cacheMode"] if trial else None,
+                    "planSha256": step["plan_sha"],
+                    "requestSha256": step["request_sha"],
+                    "targetId": step["target_id"],
+                    "childJobId": step["child_job_id"],
+                    "state": _safe_reason(step["state"]) or "unknown",
+                    "startedAt": _safe_stamp(step["started_at"]),
+                    "endedAt": _safe_stamp(step["ended_at"]),
+                    "nativeVerified": authenticated,
+                    "comparable": comparable,
+                    "environmentSha256": env if comparable else None,
+                    "semanticSha256": semantic if comparable else None,
+                    "wallSeconds": (
+                        native_row["wall_seconds"] if authenticated else None
+                    ),
+                    "nativeWaitSeconds": (
+                        spans.get("native_wait") if comparable else None
+                    ),
+                    "namedOverheadSeconds": spans if comparable else {},
+                    # No fabricated setup/queue/network subtraction or guessed wait.
+                    "evidence": (
+                        "authenticated_native_receipt"
+                        if authenticated
+                        else "not_authenticated_for_statistics"
+                    ),
+                }
+            )
+        stats = verified_duration_summary(observations)
+        counts: dict[str, int] = {}
+        for row in observations:
+            state = row["state"]
+            counts[state] = counts.get(state, 0) + 1
+        try:
+            used_bytes = _owned_bytes(
+                store, campaign_id, exclude_projections=True, frozen_plan=plan
+            )
+        except (OSError, ValueError, TypeError):
+            used_bytes = None
+        status = {
+            "schema": "vera.resolve-test-campaign-status/v1",
+            "campaignId": campaign_id,
+            "state": _safe_reason(record["state"]) or "unknown",
+            "reason": _safe_reason(record["reason"]),
+            "planSha256": record["plan_sha"],
+            "planIntegrity": (
+                "verified" if plan is not None else "unavailable_or_changed"
+            ),
+            "scheduledAt": queue.iso(datetime.fromtimestamp(record["run_at"], UTC)),
+            "deadlineAt": queue.iso(datetime.fromtimestamp(record["deadline_at"], UTC)),
+            "startedAt": _safe_stamp(record["started_at"]),
+            "endedAt": _safe_stamp(record["ended_at"]),
+            "pauseAfterActive": bool(record["pause_after_active"]),
+            "cancelPending": bool(record["cancel_pending"]),
+            "heartbeat": (
+                {"seq": heartbeat["seq"], "at": _safe_stamp(heartbeat["at"])}
+                if heartbeat
+                else None
+            ),
+            "activeCaseId": next(
+                (step["case_id"] for step in steps if step["state"] == "running"),
+                None,
+            ),
+            "activeTrialId": next(
+                (step["trial_id"] for step in steps if step["state"] == "running"),
+                None,
+            ),
+            "version": record["version"],
+            "counts": counts,
+            "verifiedTrials": sum(row["nativeVerified"] for row in observations),
+            "comparableTrials": sum(row["comparable"] for row in observations),
+            "totalTrials": len(steps),
+            "budget": {
+                "maxElapsedSeconds": record["max_elapsed_seconds"],
+                "maxDiskBytes": record["max_disk_bytes"],
+                "ownedBytes": used_bytes,
+                "accountingVerified": used_bytes is not None,
+            },
+        }
+        report = {
+            "schema": "vera.resolve-test-campaign-report/v1",
+            "status": status,
+            "observations": observations,
+            "statistics": stats,
+            "regressions": _paired_regressions(stats),
+            "journal": [
+                {
+                    "seq": item["seq"],
+                    "at": _safe_stamp(item["at"]),
+                    "kind": _safe_reason(item["kind"]) or "redacted",
+                    "detail": _safe_reason(item["detail"]) or "redacted",
+                }
+                for item in journal
+            ],
+            "commands": [
+                {
+                    "commandId": queue.simple_id(item["command_id"], "command id"),
+                    "at": _safe_stamp(item["at"]),
+                    "action": _safe_reason(item["action"]) or "redacted",
+                    "outcome": _safe_reason(item["outcome"]) or "redacted",
+                    "version": item["version"],
+                }
+                for item in commands
+            ],
+            "limitations": (
+                "M2 authenticated native save/reopen/readback only; no render/PCM "
+                "claim. Timing comparisons require a pinned Resolve build and "
+                "host identity. Missing spans are omitted, not estimated."
+            ),
+        }
+
+        def markdown(value: int | None) -> bytes:
+            lines = [
+                f"# Native campaign {campaign_id}",
+                "",
+                f"State: {status['state']} ({status['reason'] or 'none'}).",
+                f"Plan SHA-256: {record['plan_sha']}; "
+                f"integrity: {status['planIntegrity']}.",
+                f"Trials: {len(steps)}; native verified: {status['verifiedTrials']}; "
+                f"comparable: {status['comparableTrials']}.",
+                f"States: {json.dumps(counts, sort_keys=True)}.",
+                f"Budget: {value if value is not None else 'unverifiable'} "
+                f"/ {record['max_disk_bytes']} bytes.",
+                "",
+                "## Verified comparable timing",
+            ]
+            for entry in stats:
+                lines.append(
+                    f"- {entry['caseId']} {entry['variant']} ({entry['cacheMode']}): "
+                    f"n={entry['n']}, median {entry['medianSeconds']:.3f}s, "
+                    f"range {entry['minSeconds']:.3f}-{entry['maxSeconds']:.3f}s."
+                )
+            if not stats:
+                lines.append("None: unverified or incompatible measurements excluded.")
+            lines.extend(["", report["limitations"], ""])
+            return "\n".join(lines).encode("utf-8")
+
+        # Projections are themselves part of the aggregate disk budget.
+        # Compute their final byte length to a fixed point before writing,
+        # so repeated reads are byte-identical and never underreport storage.
+        guess = used_bytes
+        for _ in range(8):
+            status["budget"]["ownedBytes"] = guess
+            status_bytes = queue.canonical(status)
+            report_bytes = queue.canonical(report)
+            markdown_bytes = markdown(guess)
+            if used_bytes is None:
+                break
+            actual = (
+                used_bytes + len(status_bytes) + len(report_bytes) + len(markdown_bytes)
+            )
+            if actual == guess:
+                break
+            guess = actual
+        else:
+            raise queue.QueueError("campaign report byte accounting did not converge")
+        folder = store.root / campaign_id
+        queue.atomic_write(folder / "status.json", status_bytes)
+        queue.atomic_write(folder / "report.json", report_bytes)
+        queue.atomic_write(folder / "report.md", markdown_bytes)
+        return report
+
+
+def parser() -> argparse.ArgumentParser:
+    value = argparse.ArgumentParser(description="Finite guarded native M3 campaigns")
+    value.add_argument("--root", type=Path, default=queue.DEFAULT_ROOT)
+    sub = value.add_subparsers(dest="command", required=True)
+    enqueue = sub.add_parser("enqueue")
+    enqueue.add_argument("--plan", type=Path, required=True)
+    for command in ("status", "report", "pause", "resume", "cancel", "reconcile"):
+        target = sub.add_parser(command)
+        target.add_argument("campaign_id")
+        if command == "report":
+            target.add_argument(
+                "--format", choices=("json", "markdown"), default="json"
+            )
+        if command in _CONTROL_ACTIONS:
+            target.add_argument("--command-id", required=True)
+    worker = sub.add_parser("worker")
+    worker.add_argument("action", choices=("once", "serve"))
+    worker.add_argument("--interval", type=int, default=30)
+    return value
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    options = parser().parse_args(argv)
+    try:
+        store = queue.Store(options.root)
+        if options.command == "enqueue":
+            campaign_id = enqueue_campaign(store, options.plan)
+            print(campaign_id)
+            publish_campaign(store, campaign_id)
+        elif options.command in {"status", "report"}:
+            report = publish_campaign(store, options.campaign_id)
+            if options.command == "status":
+                print(json.dumps(report["status"], sort_keys=True))
+            elif options.format == "json":
+                print(json.dumps(report, sort_keys=True))
+            else:
+                print((store.root / options.campaign_id / "report.md").read_text())
+        elif options.command in _CONTROL_ACTIONS:
+            result = control_campaign(
+                store,
+                options.campaign_id,
+                action=options.command,
+                command_id=options.command_id,
+                actor="local-operator",
+                authorized=True,
+            )
+            publish_campaign(store, options.campaign_id)
+            print(json.dumps(result, sort_keys=True))
+        elif options.command == "worker":
+            if options.action == "once":
+                campaign_worker_once(store)
+            else:
+                queue.limited_int(options.interval, "interval", 1, 3600)
+                while True:
+                    campaign_worker_once(store)
+                    time.sleep(options.interval)
+        return 0
+    except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as exc:
+        print(f"campaign refused: {type(exc).__name__}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
