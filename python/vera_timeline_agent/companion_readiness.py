@@ -91,6 +91,13 @@ def _release_state(root: Path, version: str, expected_hash: str) -> str | None:
         return "repair_required"
     try:
         manifest = read_object(manifest_path)
+        if set(manifest) != {
+            "schemaVersion",
+            "deliveryVersion",
+            "sourcePins",
+            "files",
+        }:
+            return "repair_required"
         if (
             manifest.get("schemaVersion")
             != f"vera-injected-delivery-release/v{version}"
