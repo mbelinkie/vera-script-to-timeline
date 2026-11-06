@@ -363,6 +363,20 @@ function schemaDiagnostic(error: ErrorObject): AuthoringDiagnosticV2 {
   };
 }
 
+function hasUnpairedSurrogate(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const unit = text.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = text.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff || Number.isNaN(next)) return true;
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validateTokens(
   row: NarrationBlockV2,
   path: string,
@@ -370,6 +384,14 @@ function validateTokens(
   addId: (id: string, path: string, owner?: string) => void,
 ): void {
   let previousEnd = 0;
+  if (row.plainDirection === true && hasUnpairedSurrogate(row.text)) {
+    diagnostics.push({
+      code: "PLAIN_DIRECTION_INTENT_INVALID",
+      message: "Plain direction text must contain complete UTF-16 surrogate pairs.",
+      jsonPath: `${path}/text`,
+      blockId: row.id,
+    });
+  }
   const isSplitSurrogate = (offset: number): boolean => {
     const before = row.text.charCodeAt(offset - 1);
     const after = row.text.charCodeAt(offset);

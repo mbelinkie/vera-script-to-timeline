@@ -118,6 +118,16 @@ function rawNote(value: number, text: string): NarrationBlockV2 {
 }
 
 describe("persisted plain-direction intent (phase 1)", () => {
+  it("refuses unpaired UTF-16 surrogates even in an untokenized plain note", () => {
+    for (const invalidText of ["\ud83d", "a\udc00b", "\ud83d\ud83d\ude00"]) {
+      const document = persistedPlainNote(invalidText);
+      const result = validateScriptDocumentV2(document);
+      expect(result.valid, invalidText).toBe(false);
+      expect(result.diagnostics.some((item) => item.code === "PLAIN_DIRECTION_INTENT_INVALID"), invalidText).toBe(true);
+      expect(deserializeAuthoringDocumentV2(JSON.stringify(document)).ok, invalidText).toBe(false);
+    }
+  });
+
   it("round-trips empty, whitespace, multiline, Unicode and literal brackets without normalizing raw text", () => {
     for (const text of ["", "  \t\n ", " [outer [inner]] missing] ‘quote’ 😀\nnext [line\n "]) {
       const document = persistedPlainNote(text);
