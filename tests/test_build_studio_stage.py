@@ -283,3 +283,17 @@ def test_finished_native_request_id_cannot_be_reused_for_another_target(
     ).read_bytes() == canonical_json(
         {"requestId": "single-use", "attestationSha256": "a" * 64, "status": "verified"}
     )
+
+
+def test_previous_verified_request_reinspection_does_not_release_new_host_slot(
+    tmp_path: Path,
+) -> None:
+    reservation = _HostReservation(tmp_path / "host-lock")
+    reservation.reserve("first", "a" * 64)
+    reservation.finish("first", "a" * 64)
+    reservation.reserve("second", "b" * 64)
+    reservation.finish("first", "a" * 64)
+    with pytest.raises(NeedsAction, match="unresolved effects"):
+        reservation.reserve("third", "c" * 64)
+    with pytest.raises(UncertainResult, match="differs"):
+        reservation.finish("first", "c" * 64)

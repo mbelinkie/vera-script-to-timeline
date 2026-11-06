@@ -224,22 +224,28 @@ class _HostReservation:
                 os.close(directory)
 
     def finish(self, request_id: str, digest: str) -> None:
+        finished = self.root / f"composition-finished-{request_id}.json"
+        expected = canonical_json(
+            {
+                "requestId": request_id,
+                "attestationSha256": digest,
+                "status": "verified",
+            }
+        )
+        if finished.exists() or finished.is_symlink():
+            # Re-reading an older verified job must stay possible after a new
+            # request takes the active host slot. Never release that new slot.
+            hash_file(finished)
+            if finished.read_bytes() != expected:
+                raise UncertainResult("native finished reservation differs")
+            return
         active = self.root / "composition-active.json"
         if not active.is_file() or json.loads(active.read_bytes()) != {
             "requestId": request_id,
             "attestationSha256": digest,
         }:
             raise UncertainResult("native reservation identity changed")
-        publish_immutable_output(
-            self.root / f"composition-finished-{request_id}.json",
-            canonical_json(
-                {
-                    "requestId": request_id,
-                    "attestationSha256": digest,
-                    "status": "verified",
-                }
-            ),
-        )
+        publish_immutable_output(finished, expected)
 
 
 class BuildStudioStagePort:
