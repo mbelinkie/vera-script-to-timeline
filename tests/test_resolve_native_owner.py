@@ -99,12 +99,19 @@ def test_disposable_preflight_loads_installed_sdk_without_pythonpath(
         "    def GetProjectListInCurrentFolder(self): return ['Existing Project']\n"
         "class Resolve:\n"
         "    def GetProjectManager(self): return Manager()\n"
-        "def scriptapp(name): return Resolve() if name == 'Resolve' else None\n",
+        "import sys\n"
+        "from types import ModuleType\n"
+        "extension = ModuleType(__name__)\n"
+        "extension.scriptapp = lambda name: Resolve() if name == 'Resolve' else None\n"
+        "sys.modules[__name__] = extension\n",
         encoding="utf-8",
     )
     monkeypatch.delitem(sys.modules, "DaVinciResolveScript", raising=False)
     monkeypatch.setattr(owner, "_RESOLVE_SCRIPTING_MODULE", script)
-    owner.preflight_independent_disposable(DISPOSABLE)
+    try:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    finally:
+        sys.modules.pop("DaVinciResolveScript", None)
 
 
 @pytest.mark.parametrize(

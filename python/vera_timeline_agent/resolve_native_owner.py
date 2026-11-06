@@ -195,7 +195,19 @@ def _local_resolve_connection() -> Any:
         if spec is None or spec.loader is None:
             raise ValueError("installed local Resolve scripting module cannot load")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        previous = sys.modules.get(spec.name)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            if previous is None:
+                sys.modules.pop(spec.name, None)
+            else:
+                sys.modules[spec.name] = previous
+            raise
+        # The real vendor bootstrap replaces itself in sys.modules with
+        # fusionscript after successfully importing the native extension.
+        module = sys.modules.get(spec.name, module)
     scriptapp = getattr(module, "scriptapp", None)
     if not callable(scriptapp):
         raise ValueError("installed local Resolve scripting module is invalid")
