@@ -409,7 +409,7 @@ function mirroredAttachmentPayload(noteId: string, clip: VisualOnlyBlockV2, slot
 }
 
 /** Active representation mirrors the owned clip in one primary visual slot; no second clip row is created. */
-function presentAttachedFootage(note: NarrationBlockV2): boolean {
+export function presentAttachedFootageForSortingV2(note: NarrationBlockV2): boolean {
   const clip = note.attachedFootage?.clip;
   if (!clip) return true;
   // A narration visual cannot represent independent full-source audio. Never mute it implicitly.
@@ -423,7 +423,7 @@ function presentAttachedFootage(note: NarrationBlockV2): boolean {
   return true;
 }
 
-function parkAttachedFootage(note: NarrationBlockV2): boolean {
+export function parkAttachedFootageForSortingV2(note: NarrationBlockV2): boolean {
   if (!note.attachedFootage) return true;
   const slot = note.primaryVisualSequence?.slots[0];
   if (!slot || note.primaryVisualSequence?.slots.length !== 1 ||
@@ -1062,7 +1062,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       const returnedOutline = planStashReturn(working, ordinaryReturns, outline);
       if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
       for (const row of rows) {
-        if (row.type === "narration" && !parkAttachedFootage(row)) {
+        if (row.type === "narration" && !parkAttachedFootageForSortingV2(row)) {
           return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage's active visual slot changed; review it before returning the note.");
         }
       }
@@ -1329,7 +1329,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       const row = stashRowById(working, entry.rowId);
       if (row) {
         row.stashOrigin = origins.get(entry.rowId)!;
-        if (row.type === "narration" && !presentAttachedFootage(row)) {
+        if (row.type === "narration" && !presentAttachedFootageForSortingV2(row)) {
           return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The note needs an unambiguous primary visual slot and footage with an explicitly muted or quiet source-audio policy.");
         }
       }

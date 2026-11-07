@@ -8,6 +8,7 @@ import {
   type RowEditCommandV2,
 } from "../src/authoring-v2.js";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
 
 const id = (value: number): string => `00000000-0000-4000-8000-${value.toString(16).padStart(12, "0")}`;
 
@@ -122,6 +123,32 @@ function commandsFor(caseIndex: number): RowEditCommandV2[] {
 }
 
 describe("Sorting row-edit invariants", () => {
+  it.each([24, 30, 42, 54] as const)("conserves one Research occurrence across sorting/content split at in-frame %i", (frame) => {
+    const { doc, note, clip } = researchStashFixture();
+    const trial = createSortingTrialV2(doc);
+    if (frame !== 24) {
+      const edited = trial.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame });
+      expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    }
+    expect(trial.apply({ kind: "place_attached_footage", noteRowId: note.id, destination: gap(null, null) }).ok).toBe(true);
+    const snapshot = trial.serialize();
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const accepted = resumeSortingTrialV2(snapshot).accept(doc, mode);
+      expect(accepted.ok, `${frame}, ${mode}: ${JSON.stringify(accepted.diagnostics)}`).toBe(true);
+      const owners = [...accepted.document.activeDraft.blocks, ...(accepted.document.stash ?? []).flatMap((bundle) => bundle.rows)];
+      const parent = owners.find((row) => row.id === note.id);
+      const separate = owners.find((row) => row.id === clip.id);
+      if (parent?.type !== "narration") throw new Error("Missing note");
+      expect(Number(!!parent.attachedFootage) + Number(!!separate)).toBe(1);
+      const observed = parent.attachedFootage?.clip ?? separate;
+      if (observed?.type !== "visual_only") throw new Error("Missing clip");
+      expect(observed.visualOnlyTiming.selectedSourceRange).toEqual({
+        startFrame: mode === "sorting_only" ? 24 : frame,
+        durationFrames: 60 - (mode === "sorting_only" ? 24 : frame),
+      });
+      expect(validateScriptDocumentV2(accepted.document).valid).toBe(true);
+    }
+  });
   it.each(Array.from({ length: 12 }, (_, index) => index))("separates literal note content from layout and speech in case %i", (caseIndex) => {
     const texts = ["", "[unmatched [ [ ] ] 😃", ' "quoted"\n[raw] [nested] '];
     const raw = texts[caseIndex % texts.length]!;

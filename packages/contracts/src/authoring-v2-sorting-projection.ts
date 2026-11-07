@@ -6,11 +6,12 @@ import type {
   StashOriginV2,
   StashOutlineEntryV2,
   SupportingItemV2,
+  VisualOnlyBlockV2,
 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
-import type { RowEditCommandV2, RowEditResultV2 } from "./authoring-v2-rows.js";
+import { parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2, type RowEditCommandV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -46,6 +47,11 @@ interface StoredSlot {
   slot: RowSlot;
 }
 
+interface DetachedPlacement {
+  noteRowId: string;
+  clipRowId: string;
+}
+
 /** Serializable sidecar for composing the four Sorting outcomes by stable row identity. */
 export interface SortingProjectionV2 {
   baseline: ScriptDocumentV2;
@@ -55,6 +61,8 @@ export interface SortingProjectionV2 {
   ghostFallbacks: StoredSlot[];
   convertedEditedIds: string[];
   identityConflicts: string[];
+  /** Sorting (not content) converted a pre-existing embedded clip into a standalone row. */
+  detachedPlacements: DetachedPlacement[];
 }
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -202,7 +210,7 @@ function destinationRows(command: RowEditCommandV2): string[] {
 export function createSortingProjectionV2(baseline: ScriptDocumentV2): SortingProjectionV2 {
   const snapshot = structuredClone(baseline);
   const stableSlots = [...slotRecords(snapshot)].map(([rowId, slot]) => ({ rowId, slot }));
-  return { baseline: snapshot, births: [], tombstones: [], stableSlots, ghostFallbacks: [], convertedEditedIds: [], identityConflicts: [] };
+  return { baseline: snapshot, births: [], tombstones: [], stableSlots, ghostFallbacks: [], convertedEditedIds: [], identityConflicts: [], detachedPlacements: [] };
 }
 
 /** Record identities and placement causes after a successful public operation; never replays it. */
@@ -218,6 +226,16 @@ export function updateSortingProjectionV2(
   const beforeSlots = slotRecords(before);
   const afterSlots = slotRecords(after);
   const baselineRows = rowMap(next.baseline);
+
+  if (command.kind === "place_attached_footage") {
+    const note = beforeRows.get(command.noteRowId);
+    const original = baselineRows.get(command.noteRowId);
+    const clipId = note?.type === "narration" ? note.attachedFootage?.clip.id : undefined;
+    if (clipId && original?.type === "narration" && original.attachedFootage?.clip.id === clipId &&
+      !next.detachedPlacements.some((item) => item.clipRowId === clipId)) {
+      next.detachedPlacements.push({ noteRowId: command.noteRowId, clipRowId: clipId });
+    }
+  }
 
   for (const [rowId, row] of afterRows) {
     if (beforeRows.has(rowId)) continue;
@@ -684,6 +702,30 @@ function normalizeRowForLocation(
   return result;
 }
 
+function sourceAttachedClip(document: ScriptDocumentV2, noteId: string, clipId: string): VisualOnlyBlockV2 | undefined {
+  const row = rowMap(document).get(noteId);
+  return row?.type === "narration" && row.attachedFootage?.clip.id === clipId ? row.attachedFootage.clip : undefined;
+}
+
+function clipOwnershipIds(document: ScriptDocumentV2): Set<string> {
+  const ids = new Set<string>();
+  for (const row of rowMap(document).values()) {
+    if (row.type === "visual_only") ids.add(row.id);
+    if (row.type === "narration" && row.attachedFootage) ids.add(row.attachedFootage.clip.id);
+  }
+  return ids;
+}
+
+function reconcileAttachmentPresentation(row: Row, slot: RowSlot): Row | null {
+  if (row.type !== "narration" || !row.attachedFootage) return row;
+  const copy = structuredClone(row);
+  const visual = copy.primaryVisualSequence?.slots[0];
+  if (copy.primaryVisualSequence?.slots.length !== 1 || visual?.kind !== "content") return null;
+  if (slot.surface === "draft" && visual.payload.kind === "on_camera" && !presentAttachedFootageForSortingV2(copy)) return null;
+  if (slot.surface === "stash" && visual.payload.kind === "visual" && !parkAttachedFootageForSortingV2(copy)) return null;
+  return copy;
+}
+
 function supportingRows(item: SupportingItemV2, rows: Row[]): Set<string> {
   const result = new Set<string>();
   const visit = (value: unknown): void => {
@@ -802,11 +844,18 @@ export function projectSortingDocumentV2(
     const baselineRows = rowMap(baseline);
     const currentRows = rowMap(current);
     const baselineSlots = slotRecords(baseline);
+    const detached = new Map(state.detachedPlacements.map((item) => [item.clipRowId, item.noteRowId]));
+    const independentDetached = new Set([...detached.keys()].filter((clipId) => currentRows.get(clipId)?.type === "visual_only"));
+    const originalDetached = new Map([...independentDetached].flatMap((clipId) => {
+      const noteId = detached.get(clipId)!;
+      const clip = sourceAttachedClip(baseline, noteId, clipId);
+      return clip ? [[clipId, clip] as const] : [];
+    }));
     const output = structuredClone(mode === "edits_only" ? baseline : current);
     const droppedIds = new Set<string>();
 
     if (mode === "edits_only") {
-      const birthsToRestore = editsOnlyBirths(state);
+      const birthsToRestore = editsOnlyBirths(state).filter((birth) => !detached.has(birth.rowId));
       const restoreRows = new Map(baselineRows);
       for (const birth of birthsToRestore) {
         const row = currentRows.get(birth.rowId) ?? (!birth.present ? birth.row : undefined);
@@ -841,7 +890,7 @@ export function projectSortingDocumentV2(
       const ignoredIds = new Set(state.births.map((birth) => birth.rowId));
       if (!restoreTombstoneBatches(output, restoreRows, [...tombstones, ...birthPlacements], ignoredIds)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or exact slot no longer exists.");
       for (const birth of state.births) {
-        if (removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
+        if (!independentDetached.has(birth.rowId) && removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
       }
       const restoredFromFallback = new Set(tombstones.filter((item) => ghostByRow.has(item.rowId)).map((item) => item.rowId));
       const pendingFallbacks = state.ghostFallbacks.filter((fallback) => !restoredFromFallback.has(fallback.rowId) && outputRowsHas(output, fallback.rowId));
@@ -865,9 +914,28 @@ export function projectSortingDocumentV2(
       const birth = state.births.find((item) => item.rowId === rowId);
       const changed = !!baselineRow && !!latestRow && !sameJson(contentRow(baselineRow), contentRow(latestRow));
       let selectedRow: Row | undefined;
-      if (mode === "sorting_only") selectedRow = baselineRow ?? undefined;
+      if (mode === "sorting_only") selectedRow = baselineRow ?? originalDetached.get(rowId);
       else selectedRow = birth ? latestRow : changed ? latestRow : baselineRow;
       if (!selectedRow) return refuse(current, "SORTING_PROJECTION_ROW_MISSING", `Row ${rowId} has no content snapshot for the selected result.`);
+
+      if (selectedRow.type === "narration") {
+        const conversion = state.detachedPlacements.find((item) => item.noteRowId === rowId && independentDetached.has(item.clipRowId));
+        if (conversion && mode === "sorting_only") {
+          // The original clip's content is retained in the separately placed row;
+          // its old embedded edge is organization, not a second copy.
+          selectedRow = structuredClone(selectedRow);
+          delete selectedRow.attachedFootage;
+        } else if (conversion && mode === "edits_only" && !selectedRow.attachedFootage) {
+          // Reject the Sorting placement while retaining any authored use-range edit.
+          // This restores one clip owner on the baseline note, not a ghost Draft row.
+          const independent = currentRows.get(conversion.clipRowId);
+          if (independent?.type !== "visual_only") return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", "The detached clip has no authoritative content to restore to its original note.");
+          selectedRow = structuredClone(selectedRow);
+          const clip = structuredClone(independent);
+          delete clip.stashOrigin;
+          selectedRow.attachedFootage = { clip };
+        }
+      }
 
       const slot = outputSlots.get(rowId)!;
       const priorSlot = baselineSlots.get(rowId);
@@ -877,7 +945,9 @@ export function projectSortingDocumentV2(
         return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "The row's Stash return location depends on a new row that sorting-only removes.");
       }
       const normalized = normalizeRowForLocation(selectedRow, rowId, slot, baseline, priorSlot, changed || !!birth && !!latestRow && !sameJson(contentRow(birth.row), contentRow(latestRow)), mode, layoutOrigin);
-      replaceRow(output, rowId, normalized);
+      const presented = reconcileAttachmentPresentation(normalized, slot);
+      if (!presented) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", `Row ${rowId}'s attached footage has an incompatible visual slot for the selected location.`);
+      replaceRow(output, rowId, presented);
     }
 
     const shapeProblem = normalizeOutlineKinds(output, baseline, current, state, mode);
@@ -885,6 +955,16 @@ export function projectSortingDocumentV2(
     const supportProblem = routeSupportingItems(output, baseline, current, mode, droppedIds);
     if (supportProblem) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", supportProblem);
     applyRelationships(output, baseline, current, mode);
+    const originalClipIds = clipOwnershipIds(baseline);
+    const currentClipIds = clipOwnershipIds(current);
+    const outputClipIds = clipOwnershipIds(output);
+    // Moving a clip between an embedded owner and an ordinary row must not
+    // silently discard an identity that survives in both valid endpoints.
+    for (const clipId of originalClipIds) {
+      if (currentClipIds.has(clipId) && !outputClipIds.has(clipId)) {
+        return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", `The selected Sorting outcome loses existing clip ${clipId}; accept all changes or separate the conflicting edits.`);
+      }
+    }
     const errors = newErrors(baseline, output);
     if (errors.length > 0) return { ok: false, document: current, diagnostics: errors };
     return { ok: true, document: output, diagnostics: [] };
