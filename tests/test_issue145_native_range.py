@@ -227,6 +227,164 @@ def _video_rounding_geometry_case(
     return resolve, request, admitted, item
 
 
+def _video_full_eof_214_case(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Any, dict[str, Any], dict[str, Any], Any]:
+    """Reproduce the immutable #312 Studio 214/212 video EOF observation."""
+    resolve, request, admitted, item = _video_rounding_geometry_case(
+        tmp_path, monkeypatch
+    )
+    frame_count = 214
+    event = admitted["view"]["events"][0]
+    event["recordRange"] = {"startFrame": 0, "durationFrames": frame_count}
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": frame_count}
+    event["v2Event"]["sourceRange"] = {"startFrame": 0, "endFrame": frame_count}
+    item.source_start_frame = 0
+    item.source_end_frame = 212
+    item.media.frame_count = frame_count
+    manifest = admitted["manifest"]
+    manifest["events"][0]["sourceRange"] = {"startFrame": 0, "endFrame": frame_count}
+    frame_map = manifest["sources"][0]["sourceFrameMap"]
+    frame_map["decodedPackageFrameCount"] = frame_count
+    manifest["preparationBindings"][0]["verification"]["decodedFrameCount"] = (
+        frame_count
+    )
+    manifest["timeline"]["durationFrames"] = frame_count
+    admitted["view"]["timeline"]["durationFrames"] = frame_count
+    item.stamp = native._event_stamp(event)
+    timeline = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    monkeypatch.setattr(timeline, "GetEndFrame", lambda: frame_count)
+    monkeypatch.setattr(item, "GetDuration", lambda _in_frames: frame_count)
+    monkeypatch.setattr(item, "GetEnd", lambda _in_frames: frame_count)
+    monkeypatch.setattr(item, "GetSourceStartTime", lambda: 0.0, raising=False)
+    monkeypatch.setattr(
+        item,
+        "GetSourceEndTime",
+        lambda: 8.925583333333332,
+        raising=False,
+    )
+    get_props = item.media.GetClipProperty
+    monkeypatch.setattr(
+        item.media,
+        "GetClipProperty",
+        lambda: {**get_props(), "FPS": "23.976"},
+    )
+    return resolve, request, admitted, item
+
+
+@pytest.mark.parametrize("phase", ["pristine", "rebuild"])
+def test_authenticated_full_video_eof_214_frames_accepts_exact_212_getter(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    resolve, request, admitted, item = _video_full_eof_214_case(tmp_path, monkeypatch)
+    request["context"]["phase"] = phase
+
+    geometry = native._capture_geometry(resolve, request, admitted, None)
+
+    assert item.GetSourceEndFrame() == 212
+    assert geometry["items"][0]["sourceStart"] == 0
+    assert geometry["items"][0]["sourceDuration"] == 214
+    assert geometry["items"][0]["recordDuration"] == 214
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "actual end truncation",
+        "three-frame-short integer getter",
+        "source end time",
+        "source start time",
+        "media frames short",
+        "admitted decoded frames short",
+        "manifest decoded frames short",
+        "wrong preparation hash",
+        "wrong delivered media bytes",
+        "wrong probe hash",
+        "wrong decoded frame rate",
+        "wrong frame map rate",
+        "wrong imported frame rate",
+        "missing imported frame rate",
+        "source interior trim",
+        "record duration mismatch",
+        "changed event id",
+        "changed source id",
+        "changed media path",
+        "unadmitted profile",
+    ],
+)
+def test_authenticated_full_video_eof_214_refuses_uncorroborated_readback(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, invalid: str
+) -> None:
+    resolve, request, admitted, item = _video_full_eof_214_case(tmp_path, monkeypatch)
+    manifest = admitted["manifest"]
+    verification = manifest["preparationBindings"][0]["verification"]
+    frame_map = manifest["sources"][0]["sourceFrameMap"]
+    event = admitted["view"]["events"][0]
+    wrong_rate = {"numerator": 24, "denominator": 1}
+    if invalid == "actual end truncation":
+        monkeypatch.setattr(item, "GetSourceEndTime", lambda: 212 * 1001 / 24000)
+    elif invalid == "three-frame-short integer getter":
+        item.source_end_frame = 211
+    elif invalid == "source end time":
+        monkeypatch.setattr(
+            item, "GetSourceEndTime", lambda: 214 * 1001 / 24000 + 0.001
+        )
+    elif invalid == "source start time":
+        monkeypatch.setattr(item, "GetSourceStartTime", lambda: 1001 / 24000)
+    elif invalid == "media frames short":
+        item.media.frame_count = 212
+    elif invalid == "admitted decoded frames short":
+        verification["decodedFrameCount"] = 212
+    elif invalid == "manifest decoded frames short":
+        frame_map["decodedPackageFrameCount"] = 212
+        item.stamp = native._event_stamp(event)
+    elif invalid == "wrong preparation hash":
+        verification["deliveredHash"] = "sha256:" + "0" * 64
+    elif invalid == "wrong delivered media bytes":
+        item.media.path.write_bytes(b"not the admitted MOV")
+    elif invalid == "wrong probe hash":
+        verification["probeHash"] = "sha256:" + "0" * 64
+    elif invalid == "wrong decoded frame rate":
+        verification["decodedFrameRate"] = wrong_rate
+    elif invalid == "wrong frame map rate":
+        frame_map["decodedPackageFrameRate"] = wrong_rate
+        item.stamp = native._event_stamp(event)
+    elif invalid == "wrong imported frame rate":
+        old_props = item.media.GetClipProperty
+        monkeypatch.setattr(
+            item.media, "GetClipProperty", lambda: {**old_props(), "FPS": "24"}
+        )
+    elif invalid == "missing imported frame rate":
+        old_props = item.media.GetClipProperty
+        monkeypatch.setattr(
+            item.media,
+            "GetClipProperty",
+            lambda: {key: value for key, value in old_props().items() if key != "FPS"},
+        )
+    elif invalid == "source interior trim":
+        event["sourceRange"] = {"startFrame": 1, "durationFrames": 213}
+        event["v2Event"]["sourceRange"] = {"startFrame": 1, "endFrame": 214}
+        manifest["events"][0]["sourceRange"] = {"startFrame": 1, "endFrame": 214}
+        item.stamp = native._event_stamp(event)
+        item.source_start_frame = 1
+        monkeypatch.setattr(item, "GetSourceStartTime", lambda: 1001 / 24000)
+    elif invalid == "record duration mismatch":
+        monkeypatch.setattr(item, "GetDuration", lambda _frames: 213)
+        monkeypatch.setattr(item, "GetEnd", lambda _frames: 213)
+    elif invalid == "changed event id":
+        item.stamp = native._event_stamp({**event, "id": "not-admitted"})
+    elif invalid == "changed source id":
+        event["sourceId"] = "not-admitted"
+        item.stamp = native._event_stamp(event)
+    elif invalid == "changed media path":
+        item.media.path = tmp_path / "unadmitted.mov"
+    else:
+        request["profile"] = native.SYNTHETIC_PROFILE
+
+    with pytest.raises(OutputConsistencyError):
+        native._capture_geometry(resolve, request, admitted, None)
+
+
 def test_video_geometry_normalizes_authenticated_one_frame_start_getter_floor(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
