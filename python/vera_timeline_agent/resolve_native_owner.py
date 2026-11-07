@@ -14,7 +14,7 @@ import os
 import re
 import stat
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -289,6 +289,114 @@ def preflight_independent_disposable(target_name: str) -> None:
         raise
     except Exception as error:
         raise _blocked("independent_disposable_not_idle", str(error)) from error
+
+
+def preflight_selected_disposable(
+    target: Mapping[str, str], *, require_empty: bool
+) -> None:
+    """Read-only M4 admission for an operator-created, exact-UID test target.
+
+    Unlike M2's *not-yet-created* independent build, the reviewed output host
+    requires a real, selected project and empty timeline before its first
+    request. This check never adopts an unrelated old operation or claims that
+    foreign UNKNOWN history is resolved. It is not an alternative to the
+    original strict preflight for any other lane.
+    """
+    fields = {"projectUid", "timelineUid", "projectName", "timelineName"}
+    if (
+        not isinstance(target, Mapping)
+        or set(target) != fields
+        or not all(isinstance(target[k], str) and target[k] for k in fields)
+        or target["projectName"] != target["timelineName"]
+        or not _DISPOSABLE_NAME.fullmatch(target["projectName"])
+        or target["projectUid"] == target["timelineUid"]
+        or type(require_empty) is not bool
+    ):
+        raise _blocked(
+            "selected_disposable_invalid", "closed exact-UID target required"
+        )
+    _check_parent_operation()
+    _check_issue328_marker()
+    # Hold the same native-owner lock used by the installed host while
+    # inspecting its selected target. Never release a foreign lock or journal.
+    descriptor = acquire_native_owner()
+    try:
+        try:
+            resolve = _local_resolve_connection()
+            if not resolve:
+                raise ValueError("local Resolve connection unavailable")
+            manager = resolve.GetProjectManager()
+            if manager is None:
+                raise ValueError("project manager unavailable")
+            project = manager.GetCurrentProject()
+            if project is None:
+                raise ValueError("no selected project")
+            timeline = project.GetCurrentTimeline()
+            if timeline is None:
+                raise ValueError("no selected timeline")
+            project_uid = project.GetUniqueId()
+            timeline_uid = timeline.GetUniqueId()
+            if (
+                project_uid != target["projectUid"]
+                or timeline_uid != target["timelineUid"]
+                or project.GetName() != target["projectName"]
+                or timeline.GetName() != target["timelineName"]
+            ):
+                raise ValueError("selected project/timeline UID or name differs")
+            available = manager.GetProjectListInCurrentFolder()
+            if (
+                not isinstance(available, (list, tuple))
+                or target["projectName"] not in available
+            ):
+                raise ValueError("selected project not present in current folder")
+            if project.IsRenderingInProgress() is not False:
+                raise ValueError("Resolve is rendering or render state is unknown")
+            jobs = project.GetRenderJobList()
+            if not isinstance(jobs, (list, tuple)) or (require_empty and jobs):
+                raise ValueError("fresh target has render jobs or unreadable jobs")
+            for job in jobs:
+                if (
+                    not isinstance(job, dict)
+                    or not isinstance(job.get("JobId"), str)
+                    or not job["JobId"]
+                ):
+                    raise ValueError("render job identity unavailable")
+                status = project.GetRenderJobStatus(job["JobId"])
+                if (
+                    not isinstance(status, dict)
+                    or status.get("JobStatus") not in _TERMINAL_RENDER_STATES
+                ):
+                    raise ValueError("pending, active or unknown render job")
+            for key in _active_output_host_chains(None):
+                chain = json.loads(_read(OUTPUT_ATTEMPTS_ROOT / key / "chain.json"))
+                if chain["projectUid"] == project_uid:
+                    raise ValueError("selected project has unresolved output operation")
+            if require_empty:
+                for kind in ("video", "audio", "subtitle"):
+                    count = timeline.GetTrackCount(kind)
+                    if type(count) is not int or not 0 <= count <= 64:
+                        raise ValueError("fresh target track inventory unavailable")
+                    for index in range(1, count + 1):
+                        items = timeline.GetItemListInTrack(kind, index)
+                        if not isinstance(items, (list, tuple)) or items:
+                            raise ValueError("fresh target timeline not empty")
+            selected = manager.GetCurrentProject()
+            if (
+                selected is None
+                or selected.GetUniqueId() != project_uid
+                or selected.GetCurrentTimeline() is None
+                or selected.GetCurrentTimeline().GetUniqueId() != timeline_uid
+                or project.IsRenderingInProgress() is not False
+            ):
+                raise ValueError(
+                    "selected target or render state changed during preflight"
+                )
+        except NativeOwnerError:
+            raise
+        except Exception as error:
+            raise _blocked("selected_disposable_not_idle", str(error)) from error
+    finally:
+        release_native_owner(descriptor)
 
 
 def _check_output_histories(native: Any) -> None:

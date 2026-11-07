@@ -30,6 +30,27 @@ case ID. Never use the old #312 PR #323 project, original operation IDs, or
 producer source files. Use the original media/voiceover fixture and native
 source hashes; never fabricate a pristine or edited capture.
 
+**Required operator-created target preflight:** The output host's `construct`
+action requires an already selected, genuinely existing *empty* Resolve project
+and timeline whose `projectUid` and `timelineUid` are their actual read-only
+Resolve `GetUniqueId()` values. Resolve does not let a caller preselect these
+UIDs. Create **two** separately named, saved, blank disposable projects and
+timelines in the Resolve UI, and read their real identities through the
+installed supported SDK without altering either. Each project's name must
+equal its own empty timeline's name and satisfy the `VERA Delivery <UUID>
+<12-hex>` format. Record both actual UID pairs in the private M4 plan. Select
+the **initial** target in Resolve before the first worker tick; select the
+separately reserved fresh target only when the rebuild stage is next.
+
+M4 performs a distinct **read-only, exact-UID selected-disposable preflight**
+for every stage; it requires an empty timeline and no render jobs for pristine
+and rebuild, and an exact selected project/timeline with no active or uncertain
+native work for edited/revision. This does **not** weaken M2's separate
+not-yet-created target preflight, change retained historical UNKNOWN state,
+authorize editing Producer projects, or manufacture authority. An unresolved
+operation on the selected target, a live native-owner lock, a foreign selected
+project, or unexpected timeline content is a refusal.
+
 An M4 plan is one JSON object, no executable command field:
 
 ```json

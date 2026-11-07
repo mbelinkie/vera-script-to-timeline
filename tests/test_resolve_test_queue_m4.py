@@ -65,8 +65,9 @@ def _enroll(
     file = tmp_path / "m4-plan.json"
     file.write_bytes(queue.canonical(plan))
     job_id = m4.enqueue(store, file)
-    monkeypatch.setattr(m4, "preflight_native_owner", lambda: None)
-    monkeypatch.setattr(m4, "preflight_independent_disposable", lambda _: None)
+    monkeypatch.setattr(
+        m4, "preflight_selected_disposable", lambda _target, *, require_empty: None
+    )
     return job_id, plan
 
 
@@ -155,6 +156,30 @@ def test_queue_stages_are_one_use_and_end_only_after_four_authentications(
     assert final["nativeVerified"] is True
     assert (store.root / job_id / "handoff-private.json").exists()
     assert m4.worker_tick(store) is False
+
+
+def test_m4_uses_selected_real_uids_at_each_stage_not_m2_absent_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = queue.Store(tmp_path / "queue")
+    job_id, plan = _enroll(store, tmp_path, monkeypatch)
+    checks: list[tuple[dict[str, str], bool]] = []
+    monkeypatch.setattr(
+        m4,
+        "preflight_selected_disposable",
+        lambda target, *, require_empty: checks.append((target, require_empty)),
+    )
+    monkeypatch.setattr(m4, "_verify_stage", lambda *_: None)
+    for _ in range(4):
+        assert m4.worker_tick(store)
+        _write_receipt(store, job_id)
+        m4.submit(store, job_id)
+    assert checks == [
+        (plan["initialTarget"], True),
+        (plan["initialTarget"], False),
+        (plan["initialTarget"], False),
+        (plan["freshTarget"], True),
+    ]
 
 
 def test_malformed_one_use_receipt_is_unknown_and_cannot_be_replaced(
@@ -281,7 +306,11 @@ def test_cancellation_during_read_only_preflight_cannot_create_intent(
     """A simultaneous cancel wins even if it lands after worker selection."""
     store = queue.Store(tmp_path / "queue")
     job_id, _ = _enroll(store, tmp_path, monkeypatch)
-    monkeypatch.setattr(m4, "preflight_native_owner", lambda: m4.cancel(store, job_id))
+    monkeypatch.setattr(
+        m4,
+        "preflight_selected_disposable",
+        lambda _target, *, require_empty: m4.cancel(store, job_id),
+    )
     m4.worker_tick(store)
     with store.connect() as db:
         stage = db.execute(
@@ -331,10 +360,10 @@ def test_unresolved_native_owner_blocks_without_intent(
     store = queue.Store(tmp_path / "queue")
     job_id, _ = _enroll(store, tmp_path, monkeypatch)
 
-    def blocked() -> None:
+    def blocked(_target: dict[str, str], *, require_empty: bool) -> None:
         raise NativeOwnerError("owner_busy", "private detail")
 
-    monkeypatch.setattr(m4, "preflight_native_owner", blocked)
+    monkeypatch.setattr(m4, "preflight_selected_disposable", blocked)
     assert m4.worker_tick(store)
     report = m4.publish(store, job_id)
     assert report["state"] == "blocked"
