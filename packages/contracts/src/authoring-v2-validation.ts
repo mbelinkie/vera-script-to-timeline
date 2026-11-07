@@ -18,6 +18,9 @@ import type {
   SupportingItemV2,
   TextAnchorRange,
   TimedPlacement,
+  ResearchClipSnapshotV2,
+  ResearchFrameBindingV2,
+  VisualOnlyBlockV2,
 } from "./generated/contracts-v2.js";
 import type {
   WordBoundaryAnchorV2,
@@ -207,6 +210,109 @@ export function validateScriptDocumentV2(
   }
   const stashedRowIds = new Set((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
   const stashedRowsById = new Map((document.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
+  // The outline describes hierarchy, not footage ownership. An attached clip is
+  // stored once inside the note; it must never also be a saved or active row.
+  const clipLocations = new Map<string, string>();
+  const registerClip = (clip: VisualOnlyBlockV2, path: string): void => {
+    const prior = clipLocations.get(clip.id);
+    if (prior !== undefined) diagnostics.push({
+      code: "FOOTAGE_OWNER_DUPLICATE",
+      message: `The same footage row is owned at ${prior} and ${path}.`,
+      jsonPath: path, entityId: clip.id,
+    });
+    else clipLocations.set(clip.id, path);
+  };
+  const reportClip = (message: string, path: string, entityId: string): void => {
+    diagnostics.push({ code: "RESEARCH_CLIP_INVALID", message, jsonPath: path, entityId });
+  };
+  const validateBoundedResearch = (
+    snapshot: ResearchClipSnapshotV2 | undefined,
+    binding: ResearchFrameBindingV2 | undefined,
+    selected: { startFrame: number; durationFrames: number } | undefined,
+    pictureKind: string,
+    mediaReferenceId: string | undefined,
+    path: string,
+    entityId: string,
+  ): void => {
+    if (selected && pictureKind !== "clip") {
+      reportClip("Only a clip can carry a selected source-frame range.", path, entityId);
+    }
+    if (!snapshot && !binding) return; // Legacy rows have no Research binding.
+    if (!snapshot) {
+      reportClip("A frame binding requires the frozen Research candidate snapshot.", path, entityId);
+      return;
+    }
+    const s = snapshot.loggedSelection;
+    if (!(s.exportStartMs <= s.transcriptStartMs && s.transcriptStartMs < s.transcriptEndMs &&
+      s.transcriptEndMs <= s.exportEndMs)) {
+      reportClip("Research transcript selection must be inside its logged export interval.", path, entityId);
+    }
+    if (pictureKind === "unresolved_visual") {
+      if (binding || selected) reportClip("Unresolved Research footage cannot claim media frames.", path, entityId);
+      return;
+    }
+    if (pictureKind !== "clip") {
+      reportClip("Research footage must be a clip or unresolved visual.", path, entityId);
+      return;
+    }
+    if (!binding) {
+      reportClip("Research footage cannot claim a media reference without a frame binding.", path, entityId);
+      return;
+    }
+    if (binding.clipId !== snapshot.clipId || binding.clipVersion !== snapshot.clipVersion ||
+      binding.mediaReferenceId !== mediaReferenceId || binding.loggedStartFrame >= binding.loggedEndFrame) {
+      reportClip("Frame binding must match the exact logged Research revision and media reference.", path, entityId);
+    }
+    if (!selected || selected.startFrame < binding.loggedStartFrame ||
+      selected.startFrame >= binding.loggedEndFrame ||
+      selected.startFrame + selected.durationFrames > binding.loggedEndFrame ||
+      !Number.isSafeInteger(selected.startFrame + selected.durationFrames)) {
+      reportClip("Selected use range must be inside the evidenced logged frame interval.", path, entityId);
+    }
+  };
+  const inspectClip = (row: VisualOnlyBlockV2, path: string): void => {
+    registerClip(row, path);
+    const sourceId = row.payload.source.kind === "media_reference" ? row.payload.source.mediaReferenceId : undefined;
+    validateBoundedResearch(row.researchClip, row.frameBinding,
+      row.visualOnlyTiming.selectedSourceRange, row.payload.pictureKind, sourceId, path, row.id);
+    if (row.stashOrigin?.originalAttachedNoteRowId && row.stashOrigin.kind !== "clip") {
+      reportClip("Historical attached-note return provenance requires a clip origin.", path, row.id);
+    }
+  };
+  const inspectNote = (row: NarrationBlockV2, path: string, stashed: boolean): void => {
+    const attachment = row.attachedFootage;
+    if (!attachment) return;
+    const clip = attachment.clip;
+    if (clip.payload.pictureKind !== "clip" && clip.payload.pictureKind !== "unresolved_visual") {
+      reportClip("Only a footage clip can occupy an explicit note attachment.", `${path}/attachedFootage`, clip.id);
+    }
+    if (stashed && (!document.stashOutline ||
+      !document.stashOutline.some((entry) => entry.rowId === row.id && entry.kind === "note"))) {
+      reportClip("Attached footage requires its owning note in the canonical Stash outline.", `${path}/attachedFootage`, clip.id);
+    }
+    inspectClip(clip, `${path}/attachedFootage/clip`);
+  };
+  document.activeDraft.blocks.forEach((row, index) => {
+    const path = `/activeDraft/blocks/${index}`;
+    if (row.type === "visual_only") inspectClip(row, path);
+    if (row.type === "narration") inspectNote(row, path, false);
+  });
+  (document.stash ?? []).forEach((bundle, bundleIndex) => bundle.rows.forEach((row, rowIndex) => {
+    const path = `/stash/${bundleIndex}/rows/${rowIndex}`;
+    if (row.type === "visual_only") inspectClip(row, path);
+    if (row.type === "narration") inspectNote(row, path, true);
+  }));
+  document.activeDraft.blocks.forEach((row, index) => {
+    if (row.type !== "narration") return;
+    row.primaryVisualSequence?.slots.forEach((slot, slotIndex) => {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual") return;
+      const payload = slot.payload;
+      const sourceId = payload.source.kind === "media_reference" ? payload.source.mediaReferenceId : undefined;
+      validateBoundedResearch(payload.researchClip, payload.frameBinding,
+        payload.selectedSourceRange, payload.pictureKind, sourceId,
+        `/activeDraft/blocks/${index}/primaryVisualSequence/slots/${slotIndex}/payload`, row.id);
+    });
+  });
   const sectionedRowIds = new Set<string>();
   for (const [sectionIndex, section] of (document.stashSections ?? []).entries()) {
     const path = `/stashSections/${sectionIndex}`;
