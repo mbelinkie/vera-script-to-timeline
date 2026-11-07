@@ -840,6 +840,28 @@
         "imageMotion": {
           "$ref": "#/$defs/ImageMotionV1",
           "description": "Per-occurrence still-image override; absent inherits the frozen authoring default."
+        },
+        "researchClip": {
+          "$ref": "#/$defs/ResearchClipSnapshotV2"
+        },
+        "frameBinding": {
+          "$ref": "#/$defs/ResearchFrameBindingV2"
+        },
+        "selectedSourceRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startFrame",
+            "durationFrames"
+          ],
+          "properties": {
+            "startFrame": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "durationFrames": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            }
+          }
         }
       },
       "allOf": [
@@ -1860,20 +1882,38 @@
         },
         "version": {
           "$ref": "#/$defs/EntityVersion"
+        },
+        "attachedFootage": {
+          "description": "Explicitly owned footage clip; never an ordinary Stash outline row. The contained clip row is authoritative until converted into an active visual occurrence.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/AttachedFootageV2"
+            }
+          ]
         }
       },
       "allOf": [
         {
           "if": {
-            "required": ["plainDirection"],
+            "required": [
+              "plainDirection"
+            ],
             "properties": {
-              "plainDirection": { "const": true }
+              "plainDirection": {
+                "const": true
+              }
             }
           },
           "else": {
             "properties": {
-              "text": { "type": "string", "minLength": 1 },
-              "tokens": { "type": "array", "minItems": 1 }
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tokens": {
+                "type": "array",
+                "minItems": 1
+              }
             }
           }
         },
@@ -1998,7 +2038,8 @@
             "image",
             "capture",
             "graphic",
-            "intentional_placeholder"
+            "intentional_placeholder",
+            "unresolved_visual"
           ]
         },
         "source": {
@@ -2185,6 +2226,38 @@
         },
         {
           "if": {
+            "type": "object",
+            "properties": {
+              "pictureKind": {
+                "const": "unresolved_visual"
+              }
+            },
+            "required": [
+              "pictureKind"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "unresolved_visual"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "audioPolicy": {
+                "const": "mute"
+              }
+            }
+          }
+        },
+        {
+          "if": {
             "properties": { "pictureKind": { "not": { "enum": ["image", "capture", "graphic"] } } },
             "required": ["pictureKind"]
           },
@@ -2225,6 +2298,12 @@
         },
         "version": {
           "$ref": "#/$defs/EntityVersion"
+        },
+        "researchClip": {
+          "$ref": "#/$defs/ResearchClipSnapshotV2"
+        },
+        "frameBinding": {
+          "$ref": "#/$defs/ResearchFrameBindingV2"
         }
       },
       "allOf": [
@@ -2574,6 +2653,26 @@
         },
         "returnEligible": {
           "type": "boolean"
+        },
+        "originalAttachedNoteRowId": {
+          "description": "Historical exclusive owner note for an independently placed clip. Not a current ownership edge.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            }
+          ]
+        },
+        "originalAttachedNoteParentRowId": {
+          "description": "The note's Stash parent at separation; null for a root. Used to reject stale reattachment after a move.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "originalAttachedNoteAfterSiblingRowId": {
+          "description": "Historical preceding sibling of the owner note for an anchored ordinary return.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "originalAttachedNoteBeforeSiblingRowId": {
+          "description": "Historical following sibling of the owner note for an anchored ordinary return.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
         }
       }
     },
@@ -2719,6 +2818,182 @@
         "anchor": {
           "type": "object",
           "additionalProperties": true
+        }
+      }
+    },
+    "ResearchClipSnapshotV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchProjectId",
+        "clipId",
+        "clipVersion",
+        "catalogVideoId",
+        "video",
+        "loggedSelection",
+        "englishText"
+      ],
+      "properties": {
+        "researchProjectId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "clipId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "clipVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "catalogVideoId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "createdBy": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "video": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "youtubeVideoId",
+            "canonicalUrl",
+            "title"
+          ],
+          "properties": {
+            "youtubeVideoId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "canonicalUrl": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 0
+            },
+            "sourceLanguage": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "loggedSelection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "trackId",
+            "transcriptVersion",
+            "firstSegmentId",
+            "lastSegmentId",
+            "transcriptStartMs",
+            "transcriptEndMs",
+            "exportStartMs",
+            "exportEndMs",
+            "text",
+            "timingPrecision"
+          ],
+          "properties": {
+            "trackId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "transcriptVersion": {
+              "$ref": "#/$defs/PositiveSafeInteger"
+            },
+            "firstSegmentId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "lastSegmentId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "firstTokenId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "lastTokenId": {
+              "$ref": "#/$defs/EntityId"
+            },
+            "transcriptStartMs": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "transcriptEndMs": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "exportStartMs": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "exportEndMs": {
+              "$ref": "#/$defs/NonNegativeSafeInteger"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 0
+            },
+            "timingPrecision": {
+              "enum": [
+                "word",
+                "cue",
+                "estimated"
+              ]
+            }
+          }
+        },
+        "englishText": {
+          "type": "string",
+          "minLength": 0
+        },
+        "originalText": {
+          "type": "string",
+          "minLength": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ResearchFrameBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clipId",
+        "clipVersion",
+        "mediaReferenceId",
+        "loggedStartFrame",
+        "loggedEndFrame"
+      ],
+      "properties": {
+        "clipId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "clipVersion": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        },
+        "mediaReferenceId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "loggedStartFrame": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
+        },
+        "loggedEndFrame": {
+          "$ref": "#/$defs/PositiveSafeInteger"
+        }
+      }
+    },
+    "AttachedFootageV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clip"
+      ],
+      "properties": {
+        "clip": {
+          "$ref": "#/$defs/VisualOnlyBlockV2"
         }
       }
     }

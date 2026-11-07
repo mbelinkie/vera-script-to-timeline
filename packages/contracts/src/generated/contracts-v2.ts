@@ -31,6 +31,10 @@ export type NarrationBlockV2 = {
   notes: string[];
   stashOrigin?: StashOriginV2;
   version: number;
+  /**
+   * Explicitly owned footage clip; never an ordinary Stash outline row. The contained clip row is authoritative until converted into an active visual occurrence.
+   */
+  attachedFootage?: AttachedFootageV2;
 };
 export type NarratedVisualPayloadV2 = {
   [k: string]: unknown;
@@ -67,6 +71,12 @@ export type NarratedVisualPayloadV2 = {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
+  selectedSourceRange?: {
+    startFrame: number;
+    durationFrames: number;
+  };
 };
 export type TimedPlacement = (
   | {
@@ -136,13 +146,21 @@ export type VisualOnlyBlockV2 = {
   visualOnlyTiming: VisualOnlyTimingV2;
   stashOrigin?: StashOriginV2;
   version: number;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
 };
 export type StandaloneVisualPayloadV2 = {
   [k: string]: unknown;
 } & {
   kind: "visual";
   payloadId: string;
-  pictureKind: "clip" | "image" | "capture" | "graphic" | "intentional_placeholder";
+  pictureKind:
+    | "clip"
+    | "image"
+    | "capture"
+    | "graphic"
+    | "intentional_placeholder"
+    | "unresolved_visual";
   source:
     | MediaReferenceSource
     | CaptureRevisionSource
@@ -837,6 +855,45 @@ export interface ImageMotionFrameV1 {
   focusY: number;
   scale: number;
 }
+export interface ResearchClipSnapshotV2 {
+  researchProjectId: string;
+  clipId: string;
+  clipVersion: number;
+  catalogVideoId: string;
+  createdBy?: string;
+  video: {
+    youtubeVideoId: string;
+    canonicalUrl: string;
+    title: string;
+    channel?: string;
+    sourceLanguage?: string;
+  };
+  loggedSelection: {
+    trackId: string;
+    transcriptVersion: number;
+    firstSegmentId: string;
+    lastSegmentId: string;
+    firstTokenId?: string;
+    lastTokenId?: string;
+    transcriptStartMs: number;
+    transcriptEndMs: number;
+    exportStartMs: number;
+    exportEndMs: number;
+    text: string;
+    timingPrecision: "word" | "cue" | "estimated";
+  };
+  englishText: string;
+  originalText?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+export interface ResearchFrameBindingV2 {
+  clipId: string;
+  clipVersion: number;
+  mediaReferenceId: string;
+  loggedStartFrame: number;
+  loggedEndFrame: number;
+}
 export interface ReturnSlot {
   id: string;
   kind: "return";
@@ -857,6 +914,33 @@ export interface StashOriginV2 {
   afterSiblingRowId: string | null;
   beforeSiblingRowId: string | null;
   returnEligible: boolean;
+  /**
+   * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
+   */
+  originalAttachedNoteRowId?: string;
+  /**
+   * The note's Stash parent at separation; null for a root. Used to reject stale reattachment after a move.
+   */
+  originalAttachedNoteParentRowId?: string | null;
+  /**
+   * Historical preceding sibling of the owner note for an anchored ordinary return.
+   */
+  originalAttachedNoteAfterSiblingRowId?: string | null;
+  /**
+   * Historical following sibling of the owner note for an anchored ordinary return.
+   */
+  originalAttachedNoteBeforeSiblingRowId?: string | null;
+}
+export interface AttachedFootageV2 {
+  clip: VisualOnlyBlockV2;
+}
+export interface VisualOnlyTimingV2 {
+  kind: "visual_only";
+  durationOverrideMs?: number;
+  selectedSourceRange?: {
+    startFrame: number;
+    durationFrames: number;
+  };
 }
 export interface DirectionBlock {
   type: "direction";
@@ -866,14 +950,6 @@ export interface DirectionBlock {
   buildBehavior: "none" | "timeline_marker";
   stashOrigin?: StashOriginV2;
   version: number;
-}
-export interface VisualOnlyTimingV2 {
-  kind: "visual_only";
-  durationOverrideMs?: number;
-  selectedSourceRange?: {
-    startFrame: number;
-    durationFrames: number;
-  };
 }
 export interface NoteDraftBlock {
   type: "note_draft";

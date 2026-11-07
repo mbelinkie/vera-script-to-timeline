@@ -19,6 +19,8 @@ const fatalDocumentDiagnostics = new Set([
   "BLOCK_ID_DUPLICATE",
   "ROW_REFERENCE_INVALID",
   "PLAIN_DIRECTION_INTENT_INVALID",
+  "FOOTAGE_OWNER_DUPLICATE",
+  "RESEARCH_CLIP_INVALID",
 ]);
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -66,6 +68,10 @@ export function applyStashRowEditV2(
   }
   if (current.type === "narration" && command.row.type === "narration" && current.plainDirection !== command.row.plainDirection) {
     return refused(document, "STASH_ROW_INTENT_INVALID", "Use an explicit stage-direction command to change a compact note's speech intent.");
+  }
+  if (current.type === "narration" && command.row.type === "narration" &&
+    !sameAuthoringJsonV2(current.attachedFootage, command.row.attachedFootage)) {
+    return refused(document, "STASH_ATTACHMENT_REVIEW_REQUIRED", "Use explicit Stash footage commands to change an owned attachment.");
   }
 
   const authoredCurrent = structuredClone(current);

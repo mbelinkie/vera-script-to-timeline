@@ -6,6 +6,7 @@ import {
   projectSortingDocumentV2,
   updateSortingProjectionV2,
 } from "../src/authoring-v2-sorting-projection.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 
@@ -46,6 +47,25 @@ function apply(document: ScriptDocumentV2, command: RowEditCommandV2): ScriptDoc
 }
 
 describe("Sorting selective projections", () => {
+  it("keeps a pre-existing attached identity in exactly one owner for both selective modes", () => {
+    const { doc, note, clip } = researchStashFixture();
+    const command: RowEditCommandV2 = { kind: "place_attached_footage", noteRowId: note.id, destination: gap(null, null) };
+    const placed = apply(doc, command);
+    const sidecar = updateSortingProjectionV2(createSortingProjectionV2(doc), doc, placed, command);
+    expect(sidecar.detachedPlacements).toEqual([{ noteRowId: note.id, clipRowId: clip.id }]);
+    for (const mode of ["edits_only", "sorting_only"] as const) {
+      const projected = projectSortingDocumentV2(sidecar, placed, mode);
+      expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
+      const allRows = [...projected.document.activeDraft.blocks, ...(projected.document.stash ?? []).flatMap((bundle) => bundle.rows)];
+      const owner = allRows.find((row) => row.id === note.id);
+      if (owner?.type !== "narration") throw new Error("Missing owner note");
+      const independent = allRows.filter((row) => row.id === clip.id);
+      expect(!!owner.attachedFootage).toBe(mode === "edits_only");
+      expect(independent.length).toBe(mode === "sorting_only" ? 1 : 0);
+      expect(owner.attachedFootage?.clip.id ?? independent[0]?.id).toBe(clip.id);
+    }
+    expect(doc.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id)).toEqual(note);
+  });
   it("refuses edits-only when an edited converted note would strand its baseline child", () => {
     const parent = row(10);
     const child = clip(20);

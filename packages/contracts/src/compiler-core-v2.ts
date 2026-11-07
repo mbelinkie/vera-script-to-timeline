@@ -42,6 +42,7 @@ import { boundaryEvidenceOutputFieldsV2, boundaryEvidenceProblemV2 } from "./nar
 import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGraphicContentsV2 } from "./graphic-provenance-compiler.js";
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -207,6 +208,54 @@ function unsupportedRowIntent(document: ScriptDocumentV2): CompileDiagnosticV2 |
   if (document.rowTransitions?.some((pair) => pair.state === "active" && pair.effect !== "cut" && active.has(pair.fromRowId))) return {
     code: "ROW_TRANSITION_RUNTIME_UNAVAILABLE", message: "Saved row transition intent has no qualified delivery adapter. Review it before building.", jsonPath: "/rowTransitions",
   };
+  return null;
+}
+
+/** Never time an unresolved logged clip as a default still or a preview slate. */
+function unresolvedResearchMedia(document: ScriptDocumentV2): CompileDiagnosticV2 | null {
+  for (const [index, block] of document.activeDraft.blocks.entries()) {
+    if (block.type === "narration" && block.state === "active" && block.attachedFootage) {
+      const clip = block.attachedFootage.clip;
+      const slots = block.primaryVisualSequence?.slots;
+      const slot = slots?.length === 1 ? slots[0] : undefined;
+      const payload = slot?.kind === "content" && slot.payload.kind === "visual" ? slot.payload : undefined;
+      const selected = clip.visualOnlyTiming.selectedSourceRange;
+      if (!payload || payload.pictureKind !== clip.payload.pictureKind ||
+        payload.framingPolicy !== clip.payload.framingPolicy ||
+        payload.audioPolicy !== (clip.payload.audioPolicy === "quiet" ? "quiet" : "mute") ||
+        !sameAuthoringJsonV2(payload.source, clip.payload.source) ||
+        !sameAuthoringJsonV2(payload.researchClip, clip.researchClip) ||
+        !sameAuthoringJsonV2(payload.frameBinding, clip.frameBinding) ||
+        !sameAuthoringJsonV2(payload.selectedSourceRange, selected) ||
+        !sameAuthoringJsonV2(payload.sourceUsage, selected ? { sourceInFrame: selected.startFrame } : null)) {
+        return {
+          code: "ATTACHED_FOOTAGE_VISUAL_STALE",
+          message: "This note's active visual differs from its saved attached footage. Review the authored edit; never substitute or silently reattach the source.",
+          jsonPath: `/activeDraft/blocks/${index}/primaryVisualSequence`, entityId: block.id,
+        };
+      }
+    }
+    const clip = block.type === "visual_only" ? block :
+      block.type === "narration" && block.state === "active" ? block.attachedFootage?.clip : undefined;
+    if (clip?.researchClip && (clip.payload.pictureKind !== "clip" || !clip.frameBinding ||
+      !clip.visualOnlyTiming.selectedSourceRange)) {
+      return {
+        code: "RESEARCH_MEDIA_UNRESOLVED",
+        message: "This Research-logged clip has no evidenced Timeline media/frame binding and cannot be timed, prepared or built.",
+        jsonPath: `/activeDraft/blocks/${index}`, entityId: clip.id,
+      };
+    }
+    if (block.type === "narration" && block.state === "active" &&
+      block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchClip &&
+        (slot.payload.pictureKind !== "clip" || !slot.payload.frameBinding || !slot.payload.selectedSourceRange))) {
+      return {
+        code: "RESEARCH_MEDIA_UNRESOLVED",
+        message: "An active Research visual has no evidenced frame/media binding; build readiness is blocked.",
+        jsonPath: `/activeDraft/blocks/${index}/primaryVisualSequence`, entityId: block.id,
+      };
+    }
+  }
   return null;
 }
 
@@ -698,14 +747,21 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           : { kind: "slate" as const, purpose: intentional ? "intentional" as const : "unresolved" as const, text: payload.source.kind === "intentional_placeholder" ? payload.source.text : payload.source.kind === "unresolved_visual" ? payload.source.description : "Visual request unresolved" };
         if (intentional || forced) emittedEvent = { eventId, kind: "placeholder", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: common, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null, pictureTreatment };
         if (!intentional) diagnostics.push(diagnostic("VISUAL_UNDEFINED", "A requested visual remains undefined for this build.", entity("slot", slot.id, "payload"), undefined, ["repair_document"], "blocking"));
-      } else if (!descriptor || descriptor.owner.kind !== "primary_slot" || descriptor.owner.sequenceId !== sequence.id || descriptor.owner.slotId !== slot.id || payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId || payload.pictureKind === "clip" && payload.sourceUsage?.sourceInFrame !== descriptor.occurrenceSourceInFrame) {
+      } else if (!descriptor || descriptor.owner.kind !== "primary_slot" || descriptor.owner.sequenceId !== sequence.id || descriptor.owner.slotId !== slot.id || payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId || payload.pictureKind === "clip" && payload.sourceUsage?.sourceInFrame !== descriptor.occurrenceSourceInFrame ||
+        payload.kind === "visual" && payload.selectedSourceRange !== undefined && (
+          payload.selectedSourceRange.startFrame !== descriptor.occurrenceSourceInFrame ||
+          payload.selectedSourceRange.startFrame < descriptor.logicalSourceBounds.startFrame ||
+          payload.selectedSourceRange.startFrame + payload.selectedSourceRange.durationFrames > descriptor.logicalSourceBounds.endFrame)) {
         diagnostics.push(diagnostic("MISSING_OCCURRENCE_BINDING", "The visual occurrence has no exact descriptor for this sequence slot and source snapshot.", entity("slot", slot.id, "occurrenceResolutions"), undefined, ["rebind_media"]));
       } else {
         requirementKey = descriptor.preparedMediaRequirementKey;
         if (payload.kind === "visual" && payload.audioPolicy === "quiet" && !verifiedSourceAudioStream(descriptor)) diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "Quiet narration source audio has no single verified audio stream.", entity("occurrence", descriptor.payloadId, "sourceAudioStreamMappings"), undefined, ["rebind_media"]));
         const binding = requirementKey ? prepared.get(requirementKey) : undefined;
         const sourceIn = payload.sourceUsage?.sourceInFrame ?? descriptor.occurrenceSourceInFrame;
-        const available = { startFrame: descriptor.logicalSourceBounds.startFrame, endFrame: descriptor.logicalSourceBounds.endFrame };
+        const authored = payload.kind === "visual" ? payload.selectedSourceRange : undefined;
+        const available = authored
+          ? { startFrame: authored.startFrame, endFrame: authored.startFrame + authored.durationFrames }
+          : { startFrame: descriptor.logicalSourceBounds.startFrame, endFrame: descriptor.logicalSourceBounds.endFrame };
         const isClip = payload.pictureKind === "clip";
         const complete = slot.playoutPolicy === "complete_logged_clip" && isClip;
         if (!isClip && payload.audioPolicy === "quiet") diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "A held still frame cannot carry source audio; use mute or choose a clip.", entity("slot", slot.id, "audioPolicy"), undefined, ["repair_document"]));
@@ -1375,6 +1431,8 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   const dependencies = dependenciesInput;
   const rowIntentProblem = unsupportedRowIntent(document);
   if (rowIntentProblem) return fail(rowIntentProblem);
+  const unresolved = unresolvedResearchMedia(document);
+  if (unresolved) return fail(unresolved);
   const audioBindingProblem = conflictingNarrationAudioBinding([...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]);
   if (audioBindingProblem) return fail(audioBindingProblem);
   const seenTrackIds = new Set<string>();
@@ -1496,6 +1554,8 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     const document = documentInput as ScriptDocumentV2;
     const rowIntentProblem = unsupportedRowIntent(document);
     if (rowIntentProblem) return { ok: false, diagnostics: [rowIntentProblem] };
+    const unresolved = unresolvedResearchMedia(document);
+    if (unresolved) return { ok: false, diagnostics: [unresolved] };
     const malformedText = malformedFrozenText(document);
     if (malformedText) return { ok: false, diagnostics: [malformedText] };
     const audioBindingProblem = conflictingNarrationAudioBinding([...input.timing, ...input.boundaryEvidence ?? []]);

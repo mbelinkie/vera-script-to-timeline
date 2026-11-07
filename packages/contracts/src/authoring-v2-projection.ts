@@ -34,6 +34,7 @@ import {
 
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 type ProjectionTiming = NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1;
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -92,6 +93,41 @@ function projectRow(
     (diagnostic) => diagnostic.blockId === row.id || diagnostic.jsonPath.startsWith(path),
   );
   const sequence = row.primaryVisualSequence;
+  if (row.attachedFootage) {
+    const clip = row.attachedFootage.clip;
+    const slot = sequence?.slots.length === 1 ? sequence.slots[0] : undefined;
+    const payload = slot?.kind === "content" && slot.payload.kind === "visual" ? slot.payload : undefined;
+    const selected = clip.visualOnlyTiming.selectedSourceRange;
+    if (!payload || payload.pictureKind !== clip.payload.pictureKind ||
+      payload.framingPolicy !== clip.payload.framingPolicy ||
+      payload.audioPolicy !== (clip.payload.audioPolicy === "quiet" ? "quiet" : "mute") ||
+      !sameAuthoringJsonV2(payload.source, clip.payload.source) ||
+      !sameAuthoringJsonV2(payload.researchClip, clip.researchClip) ||
+      !sameAuthoringJsonV2(payload.frameBinding, clip.frameBinding) ||
+      !sameAuthoringJsonV2(payload.selectedSourceRange, selected) ||
+      !sameAuthoringJsonV2(payload.sourceUsage, selected ? { sourceInFrame: selected.startFrame } : null)) {
+      diagnostics.push({
+        code: "ATTACHED_FOOTAGE_VISUAL_STALE",
+        message: "The displayed visual no longer matches the saved attached footage. Manual review is required; no alternative clip is inferred.",
+        jsonPath: `${path}/primaryVisualSequence`, blockId: row.id,
+      });
+    }
+  }
+  const unresolvedResearch = row.attachedFootage?.clip.researchClip &&
+    (row.attachedFootage.clip.payload.pictureKind !== "clip" || !row.attachedFootage.clip.frameBinding);
+  if (unresolvedResearch) diagnostics.push({
+    code: "RESEARCH_MEDIA_UNRESOLVED",
+    message: "Attached Research footage has no evidenced playable media/frame binding; this row is not render-ready.",
+    jsonPath: `${path}/attachedFootage`, blockId: row.id,
+  });
+  if (sequence?.slots.some((slot) => slot.kind === "content" && slot.payload.kind === "visual" &&
+    slot.payload.researchClip && (slot.payload.pictureKind !== "clip" || !slot.payload.frameBinding))) {
+    diagnostics.push({
+      code: "RESEARCH_MEDIA_UNRESOLVED",
+      message: "Research visual source is unresolved; this sequence cannot claim readiness.",
+      jsonPath: `${path}/primaryVisualSequence`, blockId: row.id,
+    });
+  }
   if (!sequence) {
     diagnostics.push({
       code: "PRIMARY_SEQUENCE_MISSING",

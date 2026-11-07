@@ -5,6 +5,7 @@ import {
   applyStageDirectionEditV2,
   applyStashRowEditV2,
   applyVisualSequenceEditV2,
+  createResearchClipOccurrenceV2,
   createRowEditSessionV2,
   createSortingTrialV2,
   deserializeAuthoringDocumentV2,
@@ -116,6 +117,288 @@ function rawNote(value: number, text: string): NarrationBlockV2 {
   }));
   return row;
 }
+
+function attachmentFixture(blank = false): {
+  doc: ScriptDocumentV2; note: NarrationBlockV2; ordinary: VisualOnlyBlockV2;
+  attached: VisualOnlyBlockV2; nested: NarrationBlockV2; grandchild: VisualOnlyBlockV2; other: VisualOnlyBlockV2;
+} {
+  const note = narration(1000000);
+  note.plainDirection = true;
+  note.tokens.forEach((token) => { token.spoken = false; });
+  if (blank) { note.text = ""; note.tokens = []; }
+  const ordinary = clip(1020000);
+  const attached = clip(1040000);
+  const nested = narration(1060000);
+  nested.plainDirection = true;
+  nested.tokens.forEach((token) => { token.spoken = false; });
+  const grandchild = clip(1080000);
+  const other = clip(1100000);
+  const rows = [note, ordinary, nested, grandchild, attached, other];
+  const doc = documentWith();
+  doc.stash = rows.map((row, index) => ({ id: id(1500000 + index), rows: [row], supportingItems: [] }));
+  doc.stashOutline = [
+    { rowId: note.id, kind: "note", parentRowId: null, sectionId: null },
+    { rowId: ordinary.id, kind: "clip", parentRowId: note.id, sectionId: null },
+    { rowId: nested.id, kind: "note", parentRowId: note.id, sectionId: null },
+    { rowId: grandchild.id, kind: "clip", parentRowId: nested.id, sectionId: null },
+    { rowId: attached.id, kind: "clip", parentRowId: note.id, sectionId: null },
+    { rowId: other.id, kind: "clip", parentRowId: null, sectionId: null },
+  ];
+  return { doc, note, ordinary, attached, nested, grandchild, other };
+}
+
+describe("exclusive Stash footage transactions (issue 367 phase 2)", () => {
+  const content = (doc: ScriptDocumentV2) => ({ ...doc, rowEditRevision: undefined });
+  const attach = (doc: ScriptDocumentV2, noteId: string, clipId: string) =>
+    applyRowEditV2(doc, doc.rowEditRevision ?? 0, { kind: "attach_stash_footage", noteRowId: noteId, clipRowId: clipId });
+
+  it("attaches only an explicitly selected clip, persists exactly one owner, and places parent-only with descendants promoted", () => {
+    const { doc, note, ordinary, attached, nested, grandchild, other } = attachmentFixture();
+    const original = structuredClone(doc);
+    const transaction = createRowEditSessionV2(doc);
+    const a = transaction.apply({ kind: "attach_stash_footage", noteRowId: note.id, clipRowId: attached.id });
+    expect(a.ok, JSON.stringify(a.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(a.document).valid).toBe(true);
+    expect(a.document.stash!.flatMap((bundle) => bundle.rows).map((row) => row.id)).not.toContain(attached.id);
+    expect((a.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id) as NarrationBlockV2).attachedFootage?.clip).toEqual(attached);
+    expect(outline(a.document).find((entry) => entry.rowId === ordinary.id)?.parentRowId).toBe(note.id);
+    const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(a.document));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+
+    const placed = transaction.apply({
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: false,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const replay = applyRowEditV2(saved.document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: false,
+    });
+    expect(replay.document).toEqual(placed.document); // stable derived payload IDs across replay
+    expect(placed.document.activeDraft.blocks.map((row) => row.id)).toEqual([note.id]);
+    const activeNote = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(activeNote.plainDirection).toBe(true);
+    expect(activeNote.attachedFootage?.clip.id).toBe(attached.id);
+    const slot = activeNote.primaryVisualSequence?.slots[0];
+    expect(slot?.kind).toBe("content");
+    if (slot?.kind === "content") {
+      expect(slot.payload.kind).toBe("visual");
+      if (slot.payload.kind === "visual") {
+        expect(slot.payload.pictureKind).toBe("clip");
+        expect(slot.payload.source).toEqual(attached.payload.source);
+        expect(slot.payload.selectedSourceRange).toEqual(attached.visualOnlyTiming.selectedSourceRange);
+        expect(slot.playoutPolicy).toBe("match_structural_interval");
+      }
+    }
+    expect(outline(placed.document)).toEqual([
+      { rowId: ordinary.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: nested.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: grandchild.id, kind: "clip", parentRowId: nested.id, sectionId: null },
+      { rowId: other.id, kind: "clip", parentRowId: null, sectionId: null },
+    ]);
+    expect(validateScriptDocumentV2(placed.document).valid).toBe(true);
+    const returned = transaction.apply({ kind: "stash_rows", rowIds: [note.id], bundleId: id(1599000) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    const returnedNote = returned.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id) as NarrationBlockV2;
+    expect(returnedNote.attachedFootage?.clip.id).toBe(attached.id);
+    expect(returnedNote.primaryVisualSequence).toEqual(note.primaryVisualSequence);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+    expect(transaction.undo().ok).toBe(true); // undo return
+    expect(content(transaction.document)).toEqual(content(placed.document));
+    expect(transaction.undo().ok).toBe(true); // undo placement
+    expect(content(transaction.document)).toEqual(content(a.document));
+    expect(transaction.undo().ok).toBe(true); // undo attach
+    expect(content(transaction.document)).toEqual(content(original));
+  });
+
+  it("places a complete branch in preorder but never emits a separate attached clip row", () => {
+    const { doc, note, ordinary, attached, nested, grandchild, other } = attachmentFixture();
+    const a = attach(doc, note.id, attached.id);
+    expect(a.ok).toBe(true);
+    const result = applyRowEditV2(a.document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: true,
+    });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks.map((row) => row.id)).toEqual([note.id, ordinary.id, nested.id, grandchild.id]);
+    expect(outline(result.document).map((entry) => entry.rowId)).toEqual([other.id]);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+  });
+
+  it("creates and places an unresolved logged Research clip without inventing media bindings", () => {
+    const note = narration(1800000);
+    const pending = createResearchClipOccurrenceV2({
+      candidate: {
+        id: id(1900000), projectId: id(1900001), catalogVideoId: id(1900002),
+        version: 2, createdBy: id(1900003),
+        video: { youtubeVideoId: "synthetic", canonicalUrl: "https://youtu.be/synthetic", title: "Synthetic" },
+        selection: {
+          trackId: id(1900004), transcriptVersion: 3,
+          firstSegmentId: id(1900005), lastSegmentId: id(1900006),
+          transcriptStartMs: 1000, transcriptEndMs: 2000,
+          exportStartMs: 500, exportEndMs: 2500,
+          text: "Synthetic", timingPrecision: "cue",
+        },
+        englishText: "Synthetic",
+      },
+      rowId: id(1910000), payloadId: id(1910001), orderKey: "unresolved-logged-clip",
+    });
+    expect(pending.payload.pictureKind).toBe("unresolved_visual");
+    const createdNote = applyRowEditV2(documentWith(), 0, {
+      kind: "create_stash_note", bundleId: id(1910002), row: note, sectionId: null,
+      parentRowId: null, afterRowId: null,
+    });
+    expect(createdNote.ok).toBe(true);
+    const createdClip = applyRowEditV2(createdNote.document, 1, {
+      kind: "create_stash_clip", bundleId: id(1910003), row: pending,
+      sectionId: null, parentRowId: note.id, afterRowId: null,
+    });
+    expect(createdClip.ok, JSON.stringify(createdClip.diagnostics)).toBe(true);
+    const attached = applyRowEditV2(createdClip.document, 2, {
+      kind: "attach_stash_footage", noteRowId: note.id, clipRowId: pending.id,
+    });
+    expect(attached.ok, JSON.stringify(attached.diagnostics)).toBe(true);
+    const placed = applyRowEditV2(attached.document, 3, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null),
+      includeDescendants: false,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const row = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.attachedFootage?.clip).toEqual(pending);
+    const slot = row.primaryVisualSequence?.slots[0];
+    expect(slot?.kind).toBe("content");
+    if (slot?.kind === "content" && slot.payload.kind === "visual") {
+      expect(slot.payload.pictureKind).toBe("unresolved_visual");
+      expect(slot.payload.researchClip?.createdBy).toBe(id(1900003));
+      expect(slot.payload.frameBinding).toBeUndefined();
+      expect(slot.payload.selectedSourceRange).toBeUndefined();
+    }
+    expect(validateScriptDocumentV2(placed.document).valid).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(placed.document)).ok).toBe(true);
+  });
+
+  it("replaces and detaches without losing either clip and Undo exactly recovers both transactions", () => {
+    const { doc, note, ordinary, attached } = attachmentFixture();
+    const session = createRowEditSessionV2(doc);
+    expect(session.apply({ kind: "attach_stash_footage", noteRowId: note.id, clipRowId: attached.id }).ok).toBe(true);
+    const afterAttach = session.document;
+    const replaced = session.apply({
+      kind: "replace_stash_footage", noteRowId: note.id, clipRowId: ordinary.id, releasedBundleId: id(1600000),
+    });
+    expect(replaced.ok, JSON.stringify(replaced.diagnostics)).toBe(true);
+    expect((replaced.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id) as NarrationBlockV2).attachedFootage?.clip.id).toBe(ordinary.id);
+    expect(outline(replaced.document).find((entry) => entry.rowId === attached.id)?.parentRowId).toBe(note.id);
+    expect(replaced.document.stash!.flatMap((bundle) => bundle.rows).filter((row) => row.id === attached.id)).toEqual([attached]);
+    expect(validateScriptDocumentV2(replaced.document).valid).toBe(true);
+    const detached = session.apply({ kind: "detach_stash_footage", noteRowId: note.id, bundleId: id(1600001) });
+    expect(detached.ok, JSON.stringify(detached.diagnostics)).toBe(true);
+    expect((detached.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id) as NarrationBlockV2).attachedFootage).toBeUndefined();
+    expect(outline(detached.document).find((entry) => entry.rowId === ordinary.id)?.parentRowId).toBe(note.id);
+    expect(validateScriptDocumentV2(detached.document).valid).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    expect(content(session.document)).toEqual(content(replaced.document));
+    expect(session.undo().ok).toBe(true);
+    expect(content(session.document)).toEqual(content(afterAttach));
+  });
+
+  it("replaces a blank note at its exact outline position with owned footage and promotes ordinary descendants", () => {
+    const { doc, note, ordinary, attached, nested, grandchild, other } = attachmentFixture(true);
+    const session = createRowEditSessionV2(doc);
+    const a = session.apply({ kind: "attach_stash_footage", noteRowId: note.id, clipRowId: attached.id });
+    expect(a.ok, JSON.stringify(a.diagnostics)).toBe(true);
+    const cleaned = session.apply({ kind: "cleanup_blank_stash_note", noteRowId: note.id, clipBundleId: id(1600002) });
+    expect(cleaned.ok, JSON.stringify(cleaned.diagnostics)).toBe(true);
+    expect(outline(cleaned.document)).toEqual([
+      { rowId: attached.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: ordinary.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: nested.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: grandchild.id, kind: "clip", parentRowId: nested.id, sectionId: null },
+      { rowId: other.id, kind: "clip", parentRowId: null, sectionId: null },
+    ]);
+    expect(cleaned.document.stash!.flatMap((bundle) => bundle.rows).some((row) => row.id === note.id)).toBe(false);
+    expect(validateScriptDocumentV2(cleaned.document).valid).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    expect(content(session.document)).toEqual(content(a.document));
+  });
+
+  it("refuses stale, occupied, missing, malformed, referenced, nonblank-cleanup and implicit child ownership atomically", () => {
+    const { doc, note, ordinary, attached } = attachmentFixture();
+    const snapshot = JSON.stringify(doc);
+    const invalid: unknown[] = [
+      { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: note.id },
+      { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: id(9999999) },
+      { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: ordinary.id, extra: true },
+      { kind: "detach_stash_footage", noteRowId: note.id, bundleId: id(1600010) },
+      { kind: "cleanup_blank_stash_note", noteRowId: note.id, clipBundleId: id(1600011) },
+      { kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: "false" },
+      { kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: undefined },
+      { kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: false, extra: 2 },
+    ];
+    for (const value of invalid) {
+      const result = applyRowEditV2(doc, 0, value as Parameters<typeof applyRowEditV2>[2]);
+      expect(result.ok, JSON.stringify(value)).toBe(false);
+      expect(result.document).toBe(doc);
+      expect(JSON.stringify(doc)).toBe(snapshot);
+    }
+    const a = attach(doc, note.id, attached.id);
+    expect(a.ok, JSON.stringify(a.diagnostics)).toBe(true);
+    const occupied = applyRowEditV2(a.document, 1, { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: ordinary.id });
+    expect(occupied.ok).toBe(false);
+    expect(occupied.document).toBe(a.document);
+    const stale = applyRowEditV2(a.document, 0, { kind: "detach_stash_footage", noteRowId: note.id, bundleId: id(1600012) });
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    const existingId = applyRowEditV2(a.document, 1, { kind: "detach_stash_footage", noteRowId: note.id, bundleId: a.document.stash![0]!.id });
+    expect(existingId.ok).toBe(false);
+    expect(JSON.stringify(a.document)).toBe(JSON.stringify(attach(doc, note.id, attached.id).document));
+    const forbiddenDelete = applyRowEditV2(a.document, 1, { kind: "delete_rows", rowIds: [note.id, ordinary.id] });
+    expect(forbiddenDelete.ok).toBe(false);
+    expect(forbiddenDelete.document).toBe(a.document);
+
+    const referenced = structuredClone(doc);
+    referenced.rowReferences = [{ id: id(1600013), rowId: attached.id, kind: "reference", anchor: { source: "clip" } }];
+    const notTransferred = attach(referenced, note.id, attached.id);
+    expect(notTransferred.ok).toBe(false);
+    expect(notTransferred.document).toBe(referenced);
+    expect(referenced.stashOutline).toEqual(doc.stashOutline);
+  });
+
+  it("refuses unsupported full-source audio instead of silently muting footage in the note", () => {
+    const { doc, note, attached } = attachmentFixture();
+    attached.payload.audioPolicy = "full";
+    const a = attach(doc, note.id, attached.id);
+    expect(a.ok, JSON.stringify(a.diagnostics)).toBe(true);
+    const placed = applyRowEditV2(a.document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null),
+      includeDescendants: false,
+    });
+    expect(placed.ok).toBe(false);
+    expect(placed.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_VISUAL_CONFLICT");
+    expect(placed.document).toBe(a.document);
+  });
+
+  it("refuses to discard edited active visual content when a note is returned", () => {
+    const { doc, note, attached } = attachmentFixture();
+    const a = attach(doc, note.id, attached.id);
+    expect(a.ok).toBe(true);
+    const placed = applyRowEditV2(a.document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null, null), includeDescendants: false,
+    });
+    expect(placed.ok).toBe(true);
+    const changed = structuredClone(placed.document.activeDraft.blocks[0]) as NarrationBlockV2;
+    const slot = changed.primaryVisualSequence!.slots[0]!;
+    if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected derived footage");
+    slot.payload.sourceUsage = { sourceInFrame: 8 };
+    changed.version++;
+    const edited = applyRowEditV2(placed.document, 2, { kind: "edit_row", rowId: note.id, row: changed });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    const rejected = applyRowEditV2(edited.document, 3, {
+      kind: "stash_rows", rowIds: [note.id], bundleId: id(1700000),
+    });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.document).toBe(edited.document);
+    expect(edited.document.activeDraft.blocks[0]).toEqual(changed.stashOrigin
+      ? { ...changed, stashOrigin: { ...changed.stashOrigin, returnEligible: false } }
+      : changed);
+  });
+});
 
 describe("persisted plain-direction intent (phase 1)", () => {
   it("refuses unpaired UTF-16 surrogates even in an untokenized plain note", () => {

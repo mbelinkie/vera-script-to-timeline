@@ -46,6 +46,11 @@ function positions(document: ScriptDocumentV2): Map<string, Position> {
       section.rowIds.forEach((rowId, index) => result.set(rowId, { container: `stash:${section.id}:`, index, beforeSections: [], sectionId: section.id }));
     }
   }
+  for (const row of [...document.activeDraft.blocks, ...stashRows]) {
+    if (row.type === "narration" && row.attachedFootage) {
+      result.set(row.attachedFootage.clip.id, { container: `attachment:${row.id}`, index: 0, beforeSections: [], sectionId: null });
+    }
+  }
   return result;
 }
 
@@ -99,6 +104,12 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     move_stash_rows: ["kind", "rowIds", "sectionId"],
     set_stash_outline: ["kind", "entries"],
     place_stash_rows: ["kind", "rowIds", "destination"],
+    attach_stash_footage: ["kind", "noteRowId", "clipRowId"],
+    replace_stash_footage: ["kind", "noteRowId", "clipRowId", "releasedBundleId"],
+    detach_stash_footage: ["kind", "noteRowId", "bundleId"],
+    cleanup_blank_stash_note: ["kind", "noteRowId", "clipBundleId"],
+    trim_research_clip: ["kind", "clipRowId", "edge"],
+    place_attached_footage: ["kind", "noteRowId", "destination"],
     edit_row: ["kind", "rowId", "row"],
     create_row: ["kind", "row", "destination"],
     delete_rows: ["kind", "rowIds"],
@@ -111,10 +122,22 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
-  const optional = kind === "create_stash_note" ? ["mode"] : [];
+  const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] :
+    kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
   if (kind === "edit_row") return typeof value.rowId === "string";
+  if (kind === "place_stash_rows" && Object.hasOwn(value, "includeDescendants") && typeof value.includeDescendants !== "boolean") return false;
+  if (kind === "attach_stash_footage" || kind === "replace_stash_footage" || kind === "detach_stash_footage" || kind === "cleanup_blank_stash_note" || kind === "place_attached_footage") {
+    if (typeof value.noteRowId !== "string" || !value.noteRowId) return false;
+    if ((kind === "attach_stash_footage" || kind === "replace_stash_footage") && (typeof value.clipRowId !== "string" || !value.clipRowId)) return false;
+    if (kind === "replace_stash_footage" && (typeof value.releasedBundleId !== "string" || !value.releasedBundleId)) return false;
+    if (kind === "detach_stash_footage" && (typeof value.bundleId !== "string" || !value.bundleId)) return false;
+    if (kind === "cleanup_blank_stash_note" && (typeof value.clipBundleId !== "string" || !value.clipBundleId)) return false;
+    if (kind !== "place_attached_footage") return true;
+  }
+  if (kind === "trim_research_clip") return typeof value.clipRowId === "string" && !!value.clipRowId &&
+    (["in", "out"].includes(value.edge as string) && Object.hasOwn(value, "frame") && Number.isSafeInteger(value.frame) && (value.frame as number) >= 0 || value.edge === "clear_out");
   if (kind === "make_stage_direction" || kind === "make_spoken" || kind === "delete_direction_delimiter") {
     return typeof value.blockId === "string" && (kind === "delete_direction_delimiter" ? Number.isSafeInteger(value.offset) : Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset));
   }
@@ -200,7 +223,8 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
       const selected = command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "restore_stash_rows" || command.kind === "move_stash_rows" ? command.rowIds
-        : command.kind === "place_stash_rows" ? selectedOutlineRows(beforeDocument, command.rowIds)
+        : command.kind === "place_stash_rows" ? command.includeDescendants === false ? command.rowIds : selectedOutlineRows(beforeDocument, command.rowIds)
+          : command.kind === "place_attached_footage" ? beforeDocument.stash?.flatMap((bundle) => bundle.rows).flatMap((row) => row.id === command.noteRowId && row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []) ?? []
           : command.kind === "set_stash_outline" ? beforeDocument.stashOutline ? beforeDocument.stashOutline.flatMap((entry) => {
             const next = command.entries.find((item) => item.rowId === entry.rowId);
             return next && (next.kind !== entry.kind || next.parentRowId !== entry.parentRowId || next.sectionId !== entry.sectionId || beforeDocument.stashOutline!.findIndex((item) => item.rowId === entry.rowId) !== command.entries.findIndex((item) => item.rowId === entry.rowId)) ? [entry.rowId] : [];

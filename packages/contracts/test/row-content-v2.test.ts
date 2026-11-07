@@ -301,3 +301,144 @@ describe("public authored row edits", () => {
     expect(invalidContent).toMatchObject({ ok: false, diagnostics: [{ code: "ROW_COMMAND_INVALID" }] });
   });
 });
+
+// #367 phase 3: authoritative Research occurrence edits and independent return.
+import { createResearchClipOccurrenceV2, serializeAuthoringDocumentV2, deserializeAuthoringDocumentV2, validateScriptDocumentV2 } from "../src/authoring-v2.js";
+import { researchCandidate, researchId, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
+
+describe("Research footage occurrence edits and original-note return (issue 367)", () => {
+  const rev = (doc: ScriptDocumentV2) => doc.rowEditRevision ?? 0;
+  const apply = (doc: ScriptDocumentV2, command: Parameters<typeof applyRowEditV2>[2]) =>
+    applyRowEditV2(doc, rev(doc), command);
+  const returnClip = (doc: ScriptDocumentV2, clipRowId: string) =>
+    apply(doc, { kind: "stash_rows", rowIds: [clipRowId], bundleId: researchId(760101) });
+
+  it("trims in/out/clear-out only one owned occurrence, roundtrips, and refuses invalid frames atomically", () => {
+    const { doc, note, clip } = researchStashFixture();
+    const independent = researchOccurrence(730200);
+    doc.stash!.push({ id: researchId(740300), rows: [independent], supportingItems: [] });
+    doc.stashOutline!.push({ rowId: independent.id, kind: "clip", parentRowId: note.id, sectionId: null });
+    const original = structuredClone(doc);
+    const source = researchCandidate();
+    const session = createRowEditSessionV2(doc);
+    const inpoint = session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 36 });
+    expect(inpoint.ok, JSON.stringify(inpoint.diagnostics)).toBe(true);
+    const outpoint = session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 52 });
+    expect(outpoint.ok, JSON.stringify(outpoint.diagnostics)).toBe(true);
+    const clearOut = session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out" });
+    expect(clearOut.ok, JSON.stringify(clearOut.diagnostics)).toBe(true);
+    const owner = clearOut.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2;
+    expect(owner.attachedFootage?.clip.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 36, durationFrames: 72 });
+    expect(owner.attachedFootage?.clip.researchClip).toEqual(clip.researchClip);
+    expect(researchCandidate()).toEqual(source);
+    expect(clearOut.document.stash!.flatMap((b) => b.rows).find((r) => r.id === independent.id)).toEqual(independent);
+    expect(doc).toEqual(original);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(clearOut.document));
+    expect(loaded.ok).toBe(true);
+    if (loaded.ok) expect(loaded.document).toEqual(clearOut.document);
+    for (const command of [
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 109 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 108 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 36 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out", frame: 108 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 37, extra: true },
+    ] as unknown as Parameters<typeof applyRowEditV2>[2][]) {
+      const failed = session.apply(command);
+      expect(failed.ok).toBe(false);
+      expect(failed.document).toEqual(clearOut.document);
+    }
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    const prior = structuredClone(outpoint.document);
+    prior.rowEditRevision = undone.document.rowEditRevision ?? 0;
+    expect(undone.document).toEqual(prior);
+    expect(session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out" }, 0).diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+  });
+
+  it("places footage separately with stable identity and reattaches only to the original empty note", () => {
+    const { doc, note, clip, anchor } = researchStashFixture();
+    const before = structuredClone(doc);
+    const session = createRowEditSessionV2(doc);
+    const placed = session.apply({ kind: "place_attached_footage", noteRowId: note.id, destination: { sectionId: null, afterRowId: null, beforeRowId: null } });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = placed.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(active.id).toBe(clip.id);
+    expect(active.stashOrigin).toMatchObject({
+      kind: "clip", originalAttachedNoteRowId: note.id, originalAttachedNoteParentRowId: null,
+      originalAttachedNoteAfterSiblingRowId: anchor.id, returnEligible: true,
+    });
+    expect((placed.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2).attachedFootage).toBeUndefined();
+    const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(placed.document));
+    expect(saved.ok).toBe(true);
+    const returned = session.apply({ kind: "stash_rows", rowIds: [clip.id], bundleId: researchId(760101) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    const owner = returned.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2;
+    expect(owner.attachedFootage?.clip).toEqual(clip);
+    expect(returned.document.stashOutline?.map((r) => r.rowId)).toEqual([anchor.id, note.id]);
+    expect(returned.document.activeDraft.blocks).toHaveLength(0);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+    const undo = session.undo();
+    expect(undo.ok).toBe(true);
+    expect(undo.document.activeDraft.blocks[0]?.id).toBe(clip.id);
+    expect(doc).toEqual(before);
+  });
+
+  it("occupied owners keep ordinary children; edited occurrences stay independent saved rows", () => {
+    const { doc, note, clip } = researchStashFixture();
+    const placed = apply(doc, { kind: "place_attached_footage", noteRowId: note.id, destination: { sectionId: null, afterRowId: null, beforeRowId: null } });
+    expect(placed.ok).toBe(true);
+    const extra = createResearchClipOccurrenceV2({
+      rowId: researchId(730500), payloadId: researchId(730501), orderKey: "replacement",
+      candidate: researchCandidate(),
+      frameBinding: { clipId: researchId(710001), clipVersion: 3, mediaReferenceId: researchId(710008), loggedStartFrame: 12, loggedEndFrame: 108 },
+    });
+    const created = apply(placed.document, { kind: "create_stash_clip", bundleId: researchId(740500), row: extra, sectionId: null, parentRowId: note.id, afterRowId: null });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    const occupied = apply(created.document, { kind: "attach_stash_footage", noteRowId: note.id, clipRowId: extra.id });
+    expect(occupied.ok, JSON.stringify(occupied.diagnostics)).toBe(true);
+    const returned = returnClip(occupied.document, clip.id);
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    const noteRow = returned.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2;
+    expect(noteRow.attachedFootage?.clip.id).toBe(extra.id);
+    expect(returned.document.stashOutline?.find((entry) => entry.rowId === clip.id)).toMatchObject({ kind: "clip", parentRowId: note.id });
+
+    const changed = apply(placed.document, { kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 44 });
+    expect(changed.ok, JSON.stringify(changed.diagnostics)).toBe(true);
+    expect((changed.document.activeDraft.blocks[0] as VisualOnlyBlockV2).stashOrigin?.returnEligible).toBe(false);
+    const editedReturn = returnClip(changed.document, clip.id);
+    expect(editedReturn.ok, JSON.stringify(editedReturn.diagnostics)).toBe(true);
+    expect((editedReturn.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2).attachedFootage).toBeUndefined();
+    expect(editedReturn.document.stashOutline?.find((entry) => entry.rowId === clip.id)?.kind).toBe("row");
+    expect((editedReturn.document.stash!.flatMap((b) => b.rows).find((r) => r.id === clip.id) as VisualOnlyBlockV2).visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 20 });
+  });
+
+  it("uses original anchors when owner is moved or missing, and refuses ambiguous fallback", () => {
+    const { doc, note, clip, anchor } = researchStashFixture();
+    const placed = apply(doc, { kind: "place_attached_footage", noteRowId: note.id, destination: { sectionId: null, afterRowId: null, beforeRowId: null } });
+    expect(placed.ok).toBe(true);
+    const moved = apply(placed.document, { kind: "set_stash_outline", entries: [
+      { rowId: note.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: anchor.id, kind: "note", parentRowId: null, sectionId: null },
+    ] });
+    expect(moved.ok).toBe(true);
+    const returnedMoved = returnClip(moved.document, clip.id);
+    expect(returnedMoved.ok, JSON.stringify(returnedMoved.diagnostics)).toBe(true);
+    expect(returnedMoved.document.stashOutline?.find((entry) => entry.rowId === clip.id)).toMatchObject({ kind: "clip", parentRowId: null });
+    expect((returnedMoved.document.stash!.flatMap((b) => b.rows).find((r) => r.id === note.id) as NarrationBlockV2).attachedFootage).toBeUndefined();
+
+    const missing = structuredClone(placed.document);
+    missing.stash = missing.stash!.filter((b) => !b.rows.some((r) => r.id === note.id));
+    missing.stashOutline = missing.stashOutline!.filter((entry) => entry.rowId !== note.id);
+    expect(validateScriptDocumentV2(missing).valid).toBe(true);
+    const returnedMissing = returnClip(missing, clip.id);
+    expect(returnedMissing.ok, JSON.stringify(returnedMissing.diagnostics)).toBe(true);
+    expect(returnedMissing.document.stashOutline?.map((entry) => entry.rowId)).toEqual([anchor.id, clip.id]);
+
+    const ambiguous = structuredClone(missing);
+    const active = ambiguous.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    active.stashOrigin!.originalAttachedNoteAfterSiblingRowId = null;
+    const refused = returnClip(ambiguous, clip.id);
+    expect(refused.ok).toBe(false);
+    expect(refused.document).toBe(ambiguous);
+  });
+});

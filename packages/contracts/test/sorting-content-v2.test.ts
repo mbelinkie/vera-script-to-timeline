@@ -6,6 +6,7 @@ import {
   type RowEditCommandV2, type SortingAcceptanceV2,
 } from "../src/authoring-v2.js";
 import type { NarrationBlockV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 function row(n: number): NarrationBlockV2 {
@@ -75,6 +76,23 @@ function narration(doc: ScriptDocumentV2, rowId: string): NarrationBlockV2 {
 const activeIds = (doc: ScriptDocumentV2) => doc.activeDraft.blocks.map((item) => item.id);
 
 describe("content-editable Sorting", () => {
+  it("keeps attached-footage trims authored while parent-only placement remains layout", () => {
+    const { doc, note, clip } = researchStashFixture();
+    const trial = createSortingTrialV2(doc);
+    apply(trial, { kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out" });
+    apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null), includeDescendants: false });
+    const saved = trial.serialize();
+    const edits = resumeSortingTrialV2(saved).accept(doc, "edits_only");
+    const sorting = resumeSortingTrialV2(saved).accept(doc, "sorting_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === note.id)).toBe(true);
+    expect(sorting.document.activeDraft.blocks.some((row) => row.id === note.id)).toBe(true);
+    expect(narration(edits.document, note.id).attachedFootage?.clip.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 84 });
+    expect(narration(sorting.document, note.id).attachedFootage?.clip.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 36 });
+    expect(validateScriptDocumentV2(edits.document).valid).toBe(true);
+    expect(validateScriptDocumentV2(sorting.document).valid).toBe(true);
+  });
   it.each(["all", "edits_only", "sorting_only", "discard"] as const)("resolves literal note text and semantic speech separately under %s", (outcome) => {
     const raw = '  [outer [inner]] stray ] "quote" 😀\nline [ ';
     const rewritten = `${raw}\nwritten [again`;
