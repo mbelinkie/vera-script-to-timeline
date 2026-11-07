@@ -906,6 +906,24 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectSettingsInvalid(unknownSettingsField);
   });
 
+  it("accepts optional reference-only Stash groups and rejects malformed group shapes without a schema bump", () => {
+    const legacy = documentWithBlock();
+    expectDocumentValid(legacy);
+    const valid = { ...legacy, stashGroups: [{
+      id: "00000000-0000-4000-8000-000000009001",
+      rowIds: ["00000000-0000-4000-8000-000000009002", "00000000-0000-4000-8000-000000009003"],
+      createdBy: "00000000-0000-4000-8000-000000009004",
+      createdAt: "2026-11-07T12:00:00Z",
+    }] };
+    expectDocumentValid(valid); // JSON Schema checks the shape; semantic ownership is checked separately.
+    for (const rowIds of [[], [valid.stashGroups[0]!.rowIds[0]], [valid.stashGroups[0]!.rowIds[0], valid.stashGroups[0]!.rowIds[0]]]) {
+      expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], rowIds }] });
+    }
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], extra: "payload copy" }] });
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], createdBy: "not-a-uuid" }] });
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], createdAt: "not-a-date" }] });
+  });
+
   it("keeps both new schema roots outside frozen v1 generated outputs", { timeout: 120_000 }, () => {
     const output = execFileSync(
       process.execPath,

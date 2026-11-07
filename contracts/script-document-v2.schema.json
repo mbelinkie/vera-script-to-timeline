@@ -85,6 +85,13 @@
       },
       "description": "Optional canonical mixed Stash order and note-parent relationships. When present, every saved row appears exactly once and stashSections rowIds are empty."
     },
+    "stashGroups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StashRowGroupV2"
+      },
+      "description": "Optional persisted organization of adjacent ordinary saved rows. Members reference canonical Stash identities, never copied row payloads or nested groups."
+    },
     "rowTransitions": {
       "type": "array",
       "items": {
@@ -2588,6 +2595,32 @@
               "type": "null"
             }
           ]
+        }
+      }
+    },
+    "StashRowGroupV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rowIds"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "rowIds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
+        },
+        "createdBy": {
+          "$ref": "#/$defs/EntityId",
+          "description": "Optional creator identity for the group only; does not change member authorship."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

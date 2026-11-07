@@ -29,6 +29,7 @@ import type {
 } from "./authoring-v2.js";
 import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { stashGroupLocationProblemV2 } from "./authoring-v2-stash-groups.js";
 
 type DraftBlock = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -200,7 +201,7 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
-    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
+    const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({
       ...item,
       // Parked narration may have unfinished authoring work, but corrupt plain
@@ -288,8 +289,9 @@ export function validateScriptDocumentV2(
       reportClip("Only a footage clip can occupy an explicit note attachment.", `${path}/attachedFootage`, clip.id);
     }
     if (stashed && (!document.stashOutline ||
-      !document.stashOutline.some((entry) => entry.rowId === row.id && entry.kind === "note"))) {
-      reportClip("Attached footage requires its owning note in the canonical Stash outline.", `${path}/attachedFootage`, clip.id);
+      !document.stashOutline.some((entry) => entry.rowId === row.id &&
+        (entry.kind === "note" || entry.kind === "row")))) {
+      reportClip("Attached footage requires its owning row in the canonical Stash outline.", `${path}/attachedFootage`, clip.id);
     }
     inspectClip(clip, `${path}/attachedFootage/clip`);
     // Parked-row semantic validation re-runs each bundle as a synthetic
@@ -394,6 +396,22 @@ export function validateScriptDocumentV2(
     appendChildren(null, new Set());
     if (expectedPreorder.length !== document.stashOutline.length || expectedPreorder.some((rowId, index) => rowId !== document.stashOutline![index]!.rowId)) {
       diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "The Stash outline must be a deterministic depth-first preorder without cycles.", jsonPath: "/stashOutline" });
+    }
+  }
+  const groupMembers = new Set<string>();
+  for (const [index, group] of (document.stashGroups ?? []).entries()) {
+    const path = `/stashGroups/${index}`;
+    addId(group.id, `${path}/id`);
+    const problem = stashGroupLocationProblemV2(document, group);
+    if (problem) diagnostics.push({
+      code: "STASH_GROUP_INVALID", message: problem, jsonPath: `${path}/rowIds`, entityId: group.id,
+    });
+    for (const [memberIndex, rowId] of group.rowIds.entries()) {
+      if (groupMembers.has(rowId)) diagnostics.push({
+        code: "STASH_GROUP_INVALID", message: "A saved row cannot belong to multiple Stash groups.",
+        jsonPath: `${path}/rowIds/${memberIndex}`, entityId: rowId,
+      });
+      groupMembers.add(rowId);
     }
   }
   const referenceProblem = (id: string, path: string): void => {
