@@ -401,7 +401,7 @@ describe("Stash group organization transactions (issue 366 phase 2)", () => {
 
   it("preserves original active transition pairs and refuses standalone edits to an embedded grouped clip", () => {
     const { doc, members } = groupedDocument();
-    doc.stash = [{ id: researchId(970001), rows: [doc.stash![0]!.rows[0]!, doc.stash![1]!.rows[0]!], supportingItems: [] }];
+    doc.stash = [{ id: researchId(970001), rows: [doc.stash![0]!.rows[0], doc.stash![1]!.rows[0]], supportingItems: [] }];
     doc.rowTransitions = [{ id: researchId(970002), fromRowId: members[0]!, toRowId: members[1]!,
       effect: "crossfade", settings: { frames: 6 }, state: "active" }];
     expect(validateScriptDocumentV2(doc).valid).toBe(true);
