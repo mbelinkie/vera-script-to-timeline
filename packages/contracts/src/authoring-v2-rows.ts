@@ -1,4 +1,4 @@
-import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
+import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
@@ -15,6 +15,12 @@ export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string }
+  | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
+  | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
+  | { kind: "move_stash_group"; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "ungroup_stash_group"; groupId: string }
+  | { kind: "delete_stash_group"; groupId: string }
+  | { kind: "place_stash_group"; groupId: string; destination: RowGapV2 }
   | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 }
   | { kind: "restore_stash_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "create_stash_section"; sectionId: string; title: string }
@@ -39,6 +45,12 @@ export type RowEditCommandV2 =
 export type StashFootageCommandV2 = Extract<RowEditCommandV2, {
   kind: "attach_stash_footage" | "replace_stash_footage" |
     "detach_stash_footage" | "cleanup_blank_stash_note" | "trim_research_clip" | "place_attached_footage";
+}>;
+
+/** One-revision, no-nesting Stash organization commands; group IDs are not bundle IDs. */
+export type StashGroupCommandV2 = Extract<RowEditCommandV2, {
+  kind: "stash_group_rows" | "group_stash_rows" | "move_stash_group" |
+    "ungroup_stash_group" | "delete_stash_group" | "place_stash_group";
 }>;
 
 export interface RowEditResultV2 {
@@ -196,6 +208,35 @@ function attachmentKind(kind: unknown): boolean {
     kind === "trim_research_clip" || kind === "place_attached_footage";
 }
 
+function groupKind(kind: unknown): kind is StashGroupCommandV2["kind"] {
+  return ["stash_group_rows", "group_stash_rows", "move_stash_group", "ungroup_stash_group", "delete_stash_group", "place_stash_group"].includes(String(kind));
+}
+
+function validGroupCommand(value: unknown): value is StashGroupCommandV2 {
+  if (!plainObject(value) || !groupKind(value.kind) || !isJsonValue(value) ||
+    typeof value.groupId !== "string" || value.groupId.length === 0) return false;
+  const location = (): boolean =>
+    (value.sectionId === null || typeof value.sectionId === "string") &&
+    (value.parentRowId === null || typeof value.parentRowId === "string") &&
+    (value.afterRowId === null || typeof value.afterRowId === "string");
+  const metadata = (): boolean =>
+    (value.createdBy === undefined || typeof value.createdBy === "string") &&
+    (value.createdAt === undefined || typeof value.createdAt === "string");
+  const created = (): boolean => {
+    const keys = ["kind", "groupId", "rowIds", ...(value.kind === "stash_group_rows" ? ["bundleId", "sectionId", "parentRowId", "afterRowId"] : []),
+      ...(Object.hasOwn(value, "createdBy") ? ["createdBy"] : []), ...(Object.hasOwn(value, "createdAt") ? ["createdAt"] : [])];
+    return exactKeys(value, keys) && rowIdsPayload(value.rowIds) && value.rowIds.length >= 2 &&
+      new Set(value.rowIds).size === value.rowIds.length && metadata();
+  };
+  switch (value.kind) {
+    case "stash_group_rows": return created() && typeof value.bundleId === "string" && value.bundleId.length > 0 && location();
+    case "group_stash_rows": return created();
+    case "move_stash_group": return exactKeys(value, ["kind", "groupId", "sectionId", "parentRowId", "afterRowId"]) && location();
+    case "place_stash_group": return exactKeys(value, ["kind", "groupId", "destination"]) && rowGapPayload(value.destination);
+    default: return exactKeys(value, ["kind", "groupId"]);
+  }
+}
+
 /** Range selection clamps to the anchor's section, in document order. */
 export function selectRowRangeV2(document: ScriptDocumentV2, anchorRowId: string, focusRowId: string): { rowIds: string[]; boundaryReached: boolean; diagnostics: AuthoringDiagnosticV2[] } {
   const blocks = document.activeDraft.blocks;
@@ -327,6 +368,84 @@ function outlineInsertionIndex(
 
 function stashRowById(document: ScriptDocumentV2, rowId: string): Row | undefined {
   return document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === rowId);
+}
+
+function groupById(document: ScriptDocumentV2, groupId: string): StashRowGroupV2 | undefined {
+  return document.stashGroups?.find((group) => group.id === groupId);
+}
+
+function removeGroup(document: ScriptDocumentV2, groupId: string): void {
+  if (document.stashGroups) document.stashGroups = document.stashGroups.filter((group) => group.id !== groupId);
+  if (document.stashGroups?.length === 0) delete document.stashGroups;
+}
+
+/** Move only an entire flat sibling range; never silently reparent its children. */
+function relocateGroupRows(
+  document: ScriptDocumentV2, rowIds: string[], sectionId: string | null,
+  parentRowId: string | null, afterRowId: string | null,
+): string | null {
+  const outline = ensureStashOutline(document);
+  if (!sectionExists(document, sectionId)) return "Choose an existing Stash section.";
+  const selected = new Set(rowIds);
+  if (parentRowId !== null) {
+    const parent = outline.find((entry) => entry.rowId === parentRowId);
+    if (!parent || parent.kind !== "note" || parent.sectionId !== sectionId || selected.has(parentRowId)) {
+      return "Group rows may be nested only under an existing compact note in the destination section.";
+    }
+  }
+  if (afterRowId !== null && selected.has(afterRowId)) return "The destination must be outside the moving group.";
+  const moving = rowIds.map((rowId) => outline.find((entry) => entry.rowId === rowId));
+  if (moving.some((entry) => !entry)) return "Every member must exist in the Stash outline.";
+  const remaining = outline.filter((entry) => !selected.has(entry.rowId));
+  const index = outlineInsertionIndex(document, remaining, parentRowId, sectionId, afterRowId);
+  if (index === null) return "Choose a current sibling position in the destination Stash section.";
+  remaining.splice(index, 0, ...moving.map((entry) => ({
+    ...entry!, kind: "row" as const, sectionId, parentRowId,
+  })));
+  document.stashOutline = remaining;
+  return null;
+}
+
+/** Convert compact rows to full independent members, preserving each canonical payload. */
+function formStashGroup(
+  document: ScriptDocumentV2, rowIds: string[], groupId: string,
+  createdBy?: string, createdAt?: string,
+  destination?: { sectionId: string | null; parentRowId: string | null; afterRowId: string | null },
+): string | null {
+  if (groupById(document, groupId)) return "Choose an unused group identity.";
+  const outline = ensureStashOutline(document);
+  const byId = outlineMap(outline);
+  if (rowIds.some((id) => !byId.has(id) || !stashRowById(document, id) ||
+    document.stashGroups?.some((group) => group.rowIds.includes(id)))) {
+    return "Select existing, ungrouped Stash rows.";
+  }
+  const selected = new Set(rowIds);
+  if (outline.some((entry) => !selected.has(entry.rowId) &&
+    rowIds.some((id) => isOutlineDescendant(entry, id, byId)))) {
+    return "A compact Stash note with children cannot be converted without reviewing its dependent branch.";
+  }
+  if (destination) {
+    const problem = relocateGroupRows(document, rowIds, destination.sectionId, destination.parentRowId, destination.afterRowId);
+    if (problem) return problem;
+  } else {
+    const positions = rowIds.map((id) => outline.findIndex((entry) => entry.rowId === id));
+    const first = byId.get(rowIds[0]!)!;
+    if (positions.some((position, index) => position !== positions[0]! + index) ||
+      rowIds.some((id) => byId.get(id)!.parentRowId !== first.parentRowId || byId.get(id)!.sectionId !== first.sectionId)) {
+      return "Select consecutive sibling rows in the same Stash section, in visible order.";
+    }
+    for (const entry of outline) if (selected.has(entry.rowId)) entry.kind = "row";
+  }
+  for (const id of rowIds) {
+    const row = stashRowById(document, id)!;
+    if (row.stashOrigin?.kind !== "row" && row.stashOrigin) row.stashOrigin.returnEligible = false;
+  }
+  (document.stashGroups ??= []).push({
+    id: groupId, rowIds: [...rowIds] as [string, string, ...string[]],
+    ...(createdBy === undefined ? {} : { createdBy }),
+    ...(createdAt === undefined ? {} : { createdAt }),
+  });
+  return null;
 }
 
 /** An attachment is owned by a note, never by its ordinary outline children. */
@@ -770,7 +889,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || oldFlat?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
-    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows" || command.kind === "place_stash_rows") return problem();
+    if (!oldRows || command.kind === "stash_rows" || command.kind === "stash_group_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows" || command.kind === "place_stash_rows" || command.kind === "place_stash_group") return problem();
     const overlaps = spans.some((other, otherIndex) => otherIndex !== index && covered(priorLocations, other.startRowId, other.endRowId)?.some((id) => oldRows.includes(id)));
     if (overlaps) return problem();
     if (JSON.stringify(oldRows) === JSON.stringify(nextRows)) continue;
@@ -907,6 +1026,7 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
 export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
+    if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
@@ -921,8 +1041,15 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
+
+  // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
+  const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
+  if (command.kind === "edit_row" && grouped.has(command.rowId) ||
+    isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
+    return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
+  }
 
   if (isStageDirectionKind(command.kind)) {
     const stageCommand = command as unknown as StageDirectionEditCommandV2;
@@ -996,7 +1123,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const selected = blocks.splice(from, section.end - from);
     blocks.splice(index > from ? index - selected.length : index, 0, ...selected);
     moved = section.rows;
-  } else if (command.kind === "move_rows" || command.kind === "stash_rows") {
+  } else if (command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "stash_group_rows") {
     const rows = selectedRows(blocks, command.rowIds);
     if (!rows) return refused(document, "ROW_SELECTION_INVALID", "Select an ordered contiguous run within one section.");
     moved = rows;
@@ -1059,6 +1186,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         }
       }
       const ordinaryReturns = rows.filter((row) => !reattached.has(row.id));
+      if (command.kind === "stash_group_rows" && reattached.size) {
+        return refused(document, "STASH_GROUP_ATTACHMENT_REVIEW_REQUIRED", "A group must retain each selected row; returning separate footage to its old note would change membership.");
+      }
       const returnedOutline = planStashReturn(working, ordinaryReturns, outline);
       if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
       for (const row of rows) {
@@ -1071,7 +1201,55 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       for (const row of rows) delete row.stashOrigin;
       if (ordinaryReturns.length) (working.stash ??= []).push({ id: command.bundleId, rows: [ordinaryReturns[0]!, ...ordinaryReturns.slice(1)], supportingItems: items, originalGap });
       working.stashOutline = returnedOutline;
+      if (command.kind === "stash_group_rows") {
+        const problem = formStashGroup(working, command.rowIds, command.groupId, command.createdBy, command.createdAt, {
+          sectionId: command.sectionId, parentRowId: command.parentRowId, afterRowId: command.afterRowId,
+        });
+        if (problem) return refused(document, "STASH_GROUP_INVALID", problem);
+      }
     }
+  } else if (command.kind === "group_stash_rows") {
+    const problem = formStashGroup(working, command.rowIds, command.groupId, command.createdBy, command.createdAt);
+    if (problem) return refused(document, "STASH_GROUP_INVALID", problem);
+  } else if (command.kind === "move_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    if (audioSpanTouchesRows(working, new Set(group.rowIds))) return refused(document, "AUDIO_REVIEW_REQUIRED", "Review group audio intent before moving these saved rows.");
+    const problem = relocateGroupRows(working, group.rowIds, command.sectionId, command.parentRowId, command.afterRowId);
+    if (problem) return refused(document, "STASH_GROUP_DESTINATION_INVALID", problem);
+    moved = group.rowIds.map((rowId) => stashRowById(working, rowId)!);
+  } else if (command.kind === "ungroup_stash_group") {
+    if (!groupById(working, command.groupId)) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    removeGroup(working, command.groupId);
+  } else if (command.kind === "delete_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    removeGroup(working, command.groupId);
+    const deleted = deleteRows(working, group.rowIds);
+    if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
+    moved = deleted.rows;
+  } else if (command.kind === "place_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    const index = gapIndex(blocks, command.destination);
+    if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current Draft gap.");
+    const outline = ensureStashOutline(working);
+    for (const rowId of group.rowIds) {
+      const entry = outline.find((item) => item.rowId === rowId)!;
+      const anchors = outlineSiblingAnchors(outline, rowId)!;
+      const row = stashRowById(working, rowId)!;
+      row.stashOrigin = { kind: "row", parentRowId: entry.parentRowId, sectionId: entry.sectionId,
+        ...anchors, returnEligible: true };
+      if (row.type === "narration" && !presentAttachedFootageForSortingV2(row)) {
+        return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage cannot be represented safely in the active row's visual slot.");
+      }
+    }
+    const order = stashRowsInVisibleOrder(working).map((row) => row.id);
+    removeGroup(working, command.groupId);
+    const taken = takeStashRows(working, new Set(group.rowIds), order);
+    if ("code" in taken) return { ok: false, document, diagnostics: [taken] };
+    moved = taken.rows;
+    blocks.splice(index, 0, ...moved);
   } else if (command.kind === "edit_row") {
     const index = blocks.findIndex((block) => block.type !== "section" && block.id === command.rowId);
     if (index < 0) return refused(document, "ROW_NOT_FOUND", "Choose an existing Draft or Stash row to edit.");
