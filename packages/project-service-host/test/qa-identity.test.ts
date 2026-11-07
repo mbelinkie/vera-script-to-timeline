@@ -68,6 +68,18 @@ describe("trusted local QA identity verifier", () => {
     await expect(loadQaIdentity(join(alias, "identity.json"), repo)).rejects.toThrow(QaIdentityRefusal);
   });
 
+  it("refuses secrets in the main repository even when the worktree is elsewhere", async () => {
+    const initial = await fixture();
+    const dir = initial.slice(0, initial.lastIndexOf("/"));
+    const mainRepo = join(dir, "main-repository");
+    const worktree = join(dir, "external-worktree");
+    await mkdir(mainRepo);
+    await mkdir(worktree);
+    const file = join(mainRepo, "qa-identity.json");
+    await writeFile(file, JSON.stringify(config), { mode: 0o600 });
+    await expect(loadQaIdentity(file, [worktree, mainRepo])).rejects.toThrow(QaIdentityRefusal);
+  });
+
   it.each([
     ["empty", { version: 1, credentials: [] }],
     ["unknown root field", { ...config, plaintextToken: token }],

@@ -34,9 +34,10 @@ function record(value: unknown): Record<string, unknown> | null {
 }
 
 /** Open without following the final symlink; verify the same file before reading. */
-async function readPrivateFile(path: string, repositoryRoot?: string): Promise<string> {
+async function readPrivateFile(path: string, repositoryRoots?: string | readonly string[]): Promise<string> {
   try {
-    if (repositoryRoot) {
+    const roots = typeof repositoryRoots === "string" ? [repositoryRoots] : repositoryRoots ?? [];
+    for (const repositoryRoot of roots) {
       const root = await realpath(repositoryRoot);
       const actual = await realpath(path);
       const rel = relative(root, actual);
@@ -71,9 +72,11 @@ async function readPrivateFile(path: string, repositoryRoot?: string): Promise<s
 }
 
 /** Load once on startup. No route can reload, issue or change QA credentials. */
-export async function loadQaIdentity(path: string, repositoryRoot?: string): Promise<SuiteIdentityPort> {
+export async function loadQaIdentity(
+  path: string, repositoryRoots?: string | readonly string[],
+): Promise<SuiteIdentityPort> {
   let value: unknown;
-  try { value = JSON.parse(await readPrivateFile(path, repositoryRoot)) as unknown; }
+  try { value = JSON.parse(await readPrivateFile(path, repositoryRoots)) as unknown; }
   catch { throw new QaIdentityRefusal(); }
   const root = record(value);
   if (!root || !exactKeys(root, ["version", "credentials"]) || root.version !== 1 ||

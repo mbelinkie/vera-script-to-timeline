@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import type { Server } from "node:http";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
@@ -17,6 +19,15 @@ export class QaStartupRefusal extends Error {
 }
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+
+function protectedCheckoutRoots(): readonly string[] {
+  // A detached worktree can live outside the main repository. Secrets must be
+  // outside BOTH trees, including paths that enter via parent symlinks.
+  const commonGitDir = execFileSync("git", ["rev-parse", "--git-common-dir"], {
+    cwd: REPOSITORY_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+  return [REPOSITORY_ROOT, dirname(realpathSync(resolve(REPOSITORY_ROOT, commonGitDir)))];
+}
 
 export interface QaRunningServer {
   readonly server: Server;
@@ -62,7 +73,7 @@ export async function startQaServer(
     return closing;
   };
   try {
-    const identity = await loadQaIdentity(config.identityFile, REPOSITORY_ROOT);
+    const identity = await loadQaIdentity(config.identityFile, protectedCheckoutRoots());
     pool = (infrastructure.createPool ?? createQaPgPool)(config, () => {
       idleFailed = true;
       void stop().catch(() => undefined);
