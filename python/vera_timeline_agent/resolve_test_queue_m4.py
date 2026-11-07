@@ -33,8 +33,7 @@ from typing import Any
 from . import resolve_test_queue as queue
 from .resolve_native_owner import (
     NativeOwnerError,
-    preflight_independent_disposable,
-    preflight_native_owner,
+    preflight_selected_disposable,
 )
 
 SCHEMA = "vera.resolve-test-reverse-plan/v1"
@@ -618,10 +617,13 @@ def worker_tick(store: queue.Store) -> bool:
         publish(store, job_id)
         return True
     try:
-        preflight_native_owner()
-        if ordinal in (0, 3):
-            target = plan["initialTarget"] if ordinal == 0 else plan["freshTarget"]
-            preflight_independent_disposable(target["projectName"])
+        # The reviewed output host requires a pre-existing empty project and
+        # timeline with *real* Resolve UIDs. The M2 preflight instead requires
+        # its target NOT to exist, so it cannot authorize this separate M4
+        # route. Scope historical UNKNOWN only to the selected, exact UID;
+        # never clear or trust a foreign retained operation.
+        target = plan["initialTarget"] if ordinal < 3 else plan["freshTarget"]
+        preflight_selected_disposable(target, require_empty=ordinal in (0, 3))
     except (NativeOwnerError, OSError, ValueError):
         _end(store, job_id, "global_native_owner_or_host_history_unresolved", "blocked")
         publish(store, job_id)
