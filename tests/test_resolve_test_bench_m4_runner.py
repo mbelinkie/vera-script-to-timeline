@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -78,6 +79,62 @@ def test_no_setup_or_native_operation_before_472_gate(
     assert called == ["472-refused"]
 
 
+def test_preflight_refuses_insufficient_disk_before_project_provision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import v2_package
+
+    config = _config(tmp_path)
+    calls: list[str] = []
+    monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
+    monkeypatch.setattr(
+        shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(free=1024),
+    )
+    monkeypatch.setattr(
+        v2_package,
+        "verify_v2_package",
+        lambda path: calls.append("package-verified"),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_one_start_setup",
+        lambda config: calls.append("projects-created"),
+    )
+    with pytest.raises(queue.QueueError, match="free disk"):
+        runner.start(config)
+    assert calls == []
+
+
+def test_preflight_refuses_invalid_package_before_project_provision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import v2_package
+
+    config = _config(tmp_path)
+    calls: list[str] = []
+    monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
+    monkeypatch.setattr(
+        shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(free=4 * 1024**3),
+    )
+
+    def invalid(_path: Path) -> None:
+        raise ValueError("invalid source hash")
+
+    monkeypatch.setattr(v2_package, "verify_v2_package", invalid)
+    monkeypatch.setattr(
+        runner,
+        "_one_start_setup",
+        lambda config: calls.append("projects-created"),
+    )
+    with pytest.raises(ValueError, match="invalid source hash"):
+        runner.start(config)
+    assert calls == []
+
+
 def test_merge_gate_refuses_472_only_in_local_branch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -104,6 +161,23 @@ def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
 ) -> None:
     state: dict[str, Any] = {"phase": "queued", "verified": False, "commands": []}
     monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
+    monkeypatch.setattr(runner, "_preflight_before_native", lambda config: None)
+    capability_calls: list[str] = []
+
+    def capability(
+        _store: Any, _job: str, _root: Path, report: dict[str, Any]
+    ) -> dict[str, Any]:
+        capability_calls.append("inspected-only")
+        return {
+            "state": "blocked_unattended_native_roll_edit_not_proven",
+            "jobId": "resolve-reverse-" + "a" * 32,
+            "verifiedStages": [
+                row["name"] for row in report["stages"] if row["state"] == "verified"
+            ],
+            "next": "edited",
+        }
+
+    monkeypatch.setattr(runner, "_blocked_after_pristine", capability)
     monkeypatch.setattr(
         runner,
         "_one_start_setup",
@@ -173,7 +247,9 @@ def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
         "host-native-chain",
         "verified-M4-submission",
     ]
+    assert capability_calls == ["inspected-only"]
     assert runner.start(_config(tmp_path)) == outcome
+    assert capability_calls == ["inspected-only", "inspected-only"]
     assert state["commands"] == [
         "queue-intent",
         "host-native-chain",
@@ -221,6 +297,51 @@ def test_enrolled_receipt_is_written_once_and_verified_by_m4(
     }
     with pytest.raises(queue.QueueError, match="receipt differs"):
         runner._submit_original(store, job, "pristine", modified)
+
+
+def test_post_pristine_capability_is_read_only_and_never_advances_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import resolve_test_bench_edit_probe as probe
+
+    store = queue.Store(tmp_path / "queue")
+    job = "resolve-reverse-" + "a" * 32
+    receipt = {
+        "session": {"path": str(tmp_path / "session.json"), "sha256": "a" * 64},
+        "capture": {"path": str(tmp_path / "capture.json"), "sha256": "b" * 64},
+    }
+    monkeypatch.setattr(m4, "_stage_receipt", lambda *args: receipt)
+    calls: list[dict[str, Any]] = []
+
+    def inspection(root: Path, **kwargs: Any) -> dict[str, Any]:
+        calls.append({"root": root, **kwargs})
+        return {
+            "resolveVersion": [21, 1, 2, 10],
+            "supportsDocumentedOffsetMethods": True,
+            "leftItemUid": "original-left",
+            "rightItemUid": "original-right",
+        }
+
+    monkeypatch.setattr(probe, "inspect_pristine", inspection)
+    report = {
+        "stages": [
+            {"name": "pristine", "state": "verified"},
+            {"name": "edited", "state": "pending"},
+        ]
+    }
+    result = runner._blocked_after_pristine(store, job, tmp_path / "run", report)
+    assert result["state"] == "blocked_unattended_native_roll_edit_not_proven"
+    assert result["verifiedStages"] == ["pristine"]
+    assert result["editCapability"]["unqualified"] is True
+    assert calls == [
+        {
+            "root": tmp_path / "run" / "edit-capability",
+            "session_path": tmp_path / "session.json",
+            "session_sha256": "a" * 64,
+            "capture_path": tmp_path / "capture.json",
+            "capture_sha256": "b" * 64,
+        }
+    ]
 
 
 def test_no_m4_receipt_for_unenrolled_stage(

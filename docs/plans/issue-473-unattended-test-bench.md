@@ -11,13 +11,18 @@ branch and no claim that the Test Bench has completed unattended acceptance.
 
 The remaining hard blocker is a **genuine in-place 327 → 351 roll edit** that
 preserves the two original picture timeline-item UIDs and every unrelated
-media/audio UID. The documented scripting API exposes timeline-item start/end
-readback, but does not provide an approved in-place boundary setter. A
-delete-and-reappend approximation would change UIDs and is therefore **not a
-valid workaround**. This is not permission to modify arbitrary producer
-timelines or script the Resolve console. The implementation intentionally
-returns `blocked_unattended_native_roll_edit_not_proven` after any verified
-pristine stage rather than fabricating an edit or claiming final completion.
+media/audio UID. Resolve **21.1.2** added `SetLeftOffset` and `SetRightOffset`,
+but a reported live Studio 21.1.2 test found `SetLeftOffset` moved a clip to
+a large negative frame and changed its duration despite returning `True`.
+Neither setter is empirically qualified for M4. A delete-and-reappend
+approximation would change UIDs and is therefore **not a valid workaround**.
+This is not permission to modify arbitrary Producer timelines or script the
+Resolve console. The implementation intentionally returns
+`blocked_unattended_native_roll_edit_not_proven` after any verified pristine
+stage rather than fabricating an edit or claiming final completion.
+
+References: [Resolve 21.1.2 TimelineItem API](https://wheheohu.github.io/bmd_doc/ResolveAPI/21.1.2/resolve_api/TimelineItem)
+and [live destructive offset report](https://github.com/samuelgursky/davinci-resolve-mcp/issues/336).
 
 The issue author explicitly permitted investigating Hammerspoon or another
 helper. Such a fallback still needs a deliberately bounded, UID-pinned,
@@ -45,13 +50,24 @@ version. No untested GUI action is enabled in this branch.
    checks the original result and action identity, renders/polls/decodes via
    the existing host, and refuses to re-run uncertain PCM finalization.
 4. `resolve_test_bench_m4_runner.py`: one-start disposable two-project setup
-   through `resolve_test_queue_m4_provision`, a pinned pristine host session,
+   through `resolve_test_queue_m4_provision` only **after** checking actual
+   disk headroom and running the existing read-only public v2 package verifier;
+   a pinned pristine host session,
    durable original M4 job enrollment with enqueue-crash reconciliation, the
    existing serialized M4 worker gate, the output chain driver, and an
    immutable original M4 receipt submitted to its **existing verifier**. A
    required exact #472 fix commit must be an ancestor of both the checked-out
    branch and fetched `origin/main`, without locally changed verifier source,
    and contain the source-range correction before any native work.
+5. `resolve_test_bench_edit_probe.py`: automatic **read-only** post-pristine
+   SDK inspection requiring an authenticated terminal session/capture and
+   exact selected disposable target. Compares all eleven item UIDs, media
+   UIDs, positions, durations, linked identities, six tracks and idle state
+   with the genuine pristine geometry. Records current Resolve version and
+   offset-method availability, but never invokes any edit setter. The probe
+   receipt is immutable and tied to the exact original session/capture pins.
+   The one-start controller runs it automatically and remains blocked until
+   a separate sacrificial trial proves a safe same-UID editing route.
 
 The controller never attempts to sign a Producer design decision. Consent
 attribution is **not** a claim of cryptographic transcript authentication;
@@ -106,8 +122,11 @@ same original M4 job must be reused after an interrupted enrollment.
   current Mac Resolve Studio without changing #472-owned verifier/test files
   in this branch. The current source-range issue cannot be hidden as success.
 - Build and empirically qualify one native **same-UID** timeline boundary-edit
-  route, preferably product-supported. A Hammerspoon helper must be audited,
-  explicitly disposable-only, exactly once, and independently measured.
+  route, preferably product-supported. Do not call the 21.1.2 offset setters
+  on the sole M4 target based only on method presence. First prove semantics
+  on a *separate new sacrificial disposable* project under the native owner.
+  A Hammerspoon helper must also be audited, disposable-only, one-use, and
+  independently measured before it can be qualified as an alternative.
 - After pristine, run that verified 327→351 edit on the *same* project and
   timeline, then automatically prepare and verify the edited output session
   and its original M4 stage receipt.
@@ -135,7 +154,7 @@ receipt mutation, and no downstream edits when upstream proof is absent.
 Commands:
 
 ```sh
-uv run --frozen pytest -q tests/test_resolve_test_bench_carrier.py tests/test_resolve_test_bench_output.py tests/test_resolve_test_bench_m4_runner.py
+uv run --frozen pytest -q tests/test_resolve_test_bench_carrier.py tests/test_resolve_test_bench_output.py tests/test_resolve_test_bench_m4_runner.py tests/test_resolve_test_bench_edit_probe.py
 npm run validate:fast
 ```
 
@@ -145,7 +164,7 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **33 isolated fake-host/SDK/controller tests passed.** `ruff` and full
+- **46 isolated fake-host/SDK/controller/edit-probe tests passed.** `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had

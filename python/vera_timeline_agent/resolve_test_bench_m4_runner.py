@@ -13,11 +13,13 @@ import fcntl
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from . import resolve_test_bench_carrier as carrier
+from . import resolve_test_bench_edit_probe as edit_probe
 from . import resolve_test_bench_output as output
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_m4 as m4
@@ -119,6 +121,21 @@ def _find_job(store: queue.Store, plan_sha: str) -> str | None:
     return str(jobs[0]["id"]) if jobs else None
 
 
+def _preflight_before_native(value: dict[str, Any]) -> None:
+    """Refuse inadequate disk or invalid public package before project creation."""
+    from . import v2_package
+
+    root = _absolute(value["root"], "root")
+    carrier._private(root, create=True)
+    if shutil.disk_usage(root).free < value["maxDiskBytes"]:
+        raise queue.QueueError(
+            "Test Bench actual free disk below the reserved native budget"
+        )
+    # The normal public verifier is read-only, unlike host admission. Do not
+    # mutate or create any Resolve project before this package is authenticated.
+    v2_package.verify_v2_package(_absolute(value["packageRoot"], "packageRoot"))
+
+
 def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str, str]]:
     from .qualification_output_controller_v2 import prepare_output_session
 
@@ -212,6 +229,37 @@ def _submit_original(
         m4.submit(store, job_id)
 
 
+def _blocked_after_pristine(
+    store: queue.Store, job_id: str, root: Path, report: dict[str, Any]
+) -> dict[str, Any]:
+    """Read-only SDK capability inspection; never claims the edit is qualified."""
+    receipt = m4._stage_receipt(store, job_id, 0)
+    inspection = edit_probe.inspect_pristine(
+        root / "edit-capability",
+        session_path=Path(receipt["session"]["path"]),
+        session_sha256=receipt["session"]["sha256"],
+        capture_path=Path(receipt["capture"]["path"]),
+        capture_sha256=receipt["capture"]["sha256"],
+    )
+    return {
+        "state": "blocked_unattended_native_roll_edit_not_proven",
+        "jobId": job_id,
+        "verifiedStages": [
+            row["name"] for row in report["stages"] if row["state"] == "verified"
+        ],
+        "next": "edited",
+        "editCapability": {
+            "resolveVersion": inspection["resolveVersion"],
+            "supportsDocumentedOffsetMethods": inspection[
+                "supportsDocumentedOffsetMethods"
+            ],
+            "leftItemUid": inspection["leftItemUid"],
+            "rightItemUid": inspection["rightItemUid"],
+            "unqualified": True,
+        },
+    }
+
+
 def start(config: dict[str, Any]) -> dict[str, Any]:
     value = validate_config(config)
     _merged_472(value["merged472Commit"])
@@ -221,6 +269,7 @@ def start(config: dict[str, Any]) -> dict[str, Any]:
     # A restart may inspect and resume after the original controller exits,
     # but two starts cannot race to create native or queue intents.
     with carrier._lock(root):
+        _preflight_before_native(value)
         return _start_locked(value)
 
 
@@ -234,12 +283,9 @@ def _start_locked(value: dict[str, Any]) -> dict[str, Any]:
     # No reviewed same-UID roll-edit carrier exists yet. Do not claim the next
     # one-use queue stage merely because the caller retried this launcher.
     if pristine_already_verified and report["state"] == "queued":
-        return {
-            "state": "blocked_unattended_native_roll_edit_not_proven",
-            "jobId": job_id,
-            "verifiedStages": ["pristine"],
-            "next": "edited",
-        }
+        return _blocked_after_pristine(
+            store, job_id, _absolute(value["root"], "root"), report
+        )
     if report["state"] == "queued":
         _worker_once(store)
         report = m4.publish(store, job_id)
@@ -263,18 +309,13 @@ def _start_locked(value: dict[str, Any]) -> dict[str, Any]:
         )
         _submit_original(store, job_id, "pristine", result)
         report = m4.publish(store, job_id)
-    # The current supported SDK cannot roll-trim a persisted item by +24
-    # frames without replacing its UID. That fails the signed #312 geometry
-    # contract. Never manufacture edit evidence or repeat an unrelated build.
+    # SDK 21.1.2 added offset setters, but empirical reports show destructive
+    # behavior with successful return values. Capability presence is NOT
+    # permission to mutate the only actual pristine M4 target.
     if report["state"] == "queued":
-        return {
-            "state": "blocked_unattended_native_roll_edit_not_proven",
-            "jobId": job_id,
-            "verifiedStages": [
-                row["name"] for row in report["stages"] if row["state"] == "verified"
-            ],
-            "next": "edited",
-        }
+        return _blocked_after_pristine(
+            store, job_id, _absolute(value["root"], "root"), report
+        )
     return {"state": report["state"], "jobId": job_id}
 
 
