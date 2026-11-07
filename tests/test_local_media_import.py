@@ -466,6 +466,42 @@ def test_reconcile_refuses_replaced_published_bytes(
     assert source.read_bytes() == DATA
 
 
+def test_reconcile_refuses_target_changed_while_decoding(
+    fixture: tuple[LocalImportApproval, Path, Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    approval, state, source, project = fixture
+    original = engine._write_once
+
+    def crash_receipt(parent: int, name: str, data: dict[str, object]) -> None:
+        if "result" in data:
+            raise RuntimeError("injected crash after publish")
+        original(parent, name, data)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(engine, "_write_once", crash_receipt)
+        with pytest.raises(RuntimeError):
+            _run(approval, state)
+    target = _dest(approval, project)
+
+    class MutatingDecoder(FakeDecoder):
+        def decode(self, fd: int, kind: str) -> DecodedMediaFacts:
+            facts = super().decode(fd, kind)
+            target.write_bytes(b"same initially, changed after decoding")
+            return facts
+
+    _refuse(
+        "needs_inspection",
+        reconcile_inspected_import,
+        approval,
+        state_root=state,
+        authorize=lambda _: True,
+        decoder=MutatingDecoder(),
+    )
+    assert not (state / "receipts" / (approval.import_id + ".json")).exists()
+    assert source.read_bytes() == DATA
+
+
 def test_concurrent_same_id_publishes_once(
     fixture: tuple[LocalImportApproval, Path, Path, Path],
 ) -> None:

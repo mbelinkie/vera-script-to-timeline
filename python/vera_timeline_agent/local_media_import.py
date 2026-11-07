@@ -678,6 +678,12 @@ def _run(
                 _verify_target(target_fd, approval)
                 recorded_fd = target_fd
                 decoded = _decoded(decoder, target_fd, approval)
+                # Recovery is as sensitive to decoder-time mutation as normal
+                # import and read-only replay. Never write a success receipt
+                # for bytes that changed after the initial staged hash check.
+                _verify_target(target_fd, approval)
+                if _verified_source(source, approval) != source_identity:
+                    raise ImportModelError("source_changed")
                 _check_source_locator(source_root, approval, source, source_identity)
                 mode_record = _read_record(attempts, approval.import_id + ".mode.json")
                 if (
