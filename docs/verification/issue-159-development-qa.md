@@ -229,3 +229,67 @@ connection strings, private archives or manifest were committed.
 recovery, **not** an internet-hosted release, real user data migration,
 managed identity/TLS/ingress, production retention, disaster-recovery SLO,
 external expense authorization or Producer sign-off.
+
+## Phase 5 final-code repeat and independent safety audit
+
+**UTC:** 2026-11-07T04:44:01.506Z. **Mode:** local synthetic
+`development-qa` only. **Exact hardened service source revision:**
+`3d8eea70336f79433248de9e95c7552de8e710c9` (before this
+verification-document-only commit). **Runtime:** Node v24.19.0,
+PostgreSQL 16.15; loopback `127.0.0.1`. Fresh owner-scoped synthetic
+source `vera_stt_qa_p5_1794025970`, fresh restoration target
+`vera_stt_qa_restore_p5_1794025970`.
+
+`npm run smoke:qa -w @vera/project-service-host` exited 0:
+**13/13 real-process HTTP/PostgreSQL/restart/backup/restore scenarios passed**
+(in exactly the named cases above), including Editor revocation, stale CAS,
+idempotent replay, unchanged source restart, private backup, tamper refusal,
+empty fresh transactional restore, repeated restore refusal and identical
+post-restore HTTP/SQL readback. Head revision **2**, immutable document
+revisions **3**, settings revision **2**, membership audit records **4**,
+revoked write sessions **1**, checksum migration receipts **2**. Source and
+restored SQL snapshot SHA-256
+`f2e86e723dfd08021fcb61d307a5e9e94e77e7faa75b1816034953da5108928e`.
+Private custom archive **66,622 bytes**, SHA-256
+`621cbb28d11d7c3cae4d8b5302dd50a9d4eca9ef7dc5f577cf09fc0fd021391c`;
+manifest SHA-256
+`857a9cc14826a0229650e80f13a4ab3f7bf50b23123a29eb0f96b72a7a647579`.
+Migration checksums remained the exact two values listed above.
+All bearer tokens, identity JSON, private archive and raw SQL/document
+contents remain outside the checkout and are not committed.
+
+Phase-5 adversarial review additionally patched a credential-file boundary:
+when the active worktree is separate, startup now refuses files in **either**
+the worktree or the Git common/main repository, including symlink resolution.
+The new regression passed in the host suite (**67/67** in the root fast run).
+Eight separately inverted safety guards (deployment mode, identity-file
+permissions, elevated database role, migration digest, viewer authorization,
+document CAS, archive SHA-256, and populated restore target) each caused
+its targeted negative test to fail; all modifications were restored.
+
+The root `npm run validate:fast` passed generated-currentness, every TypeScript
+workspace lint and typecheck and all host tests; it did **not** exit green:
+five unchanged `packages/contracts/test/qualification-output-proposals-v2.test.ts`
+tests timed out with four parallel workers (Contracts: **1147/1152 passed**),
+matching the earlier phases' contention-sensitive failures. Consequently
+root progress/roadmap/CI scripts and Python stages were not reached in that
+invocation; do not call the aggregate gate green. An isolated rerun of the
+unchanged Contracts test file with one worker and its default timeouts
+**passed 30/30 tests**. An additional fresh, disposable unprivileged
+PostgreSQL database run of
+`npm run test -w @vera/project-service-host -- test/postgres.integration.test.ts`
+**passed 1/1**, covering populated auth/doc migration repeat. Separately
+`npm run lint:python` passed Ruff check and 967-file format verification;
+`npm run typecheck:python` passed mypy on 339 source files.
+The separately launched 8-worker `npm run test:python:fast` ran through
+approximately 97% of its 2,596 scheduled items with four failure markers,
+then stalled in a synthetic Resolve subprocess/bootstrap test. It was
+interrupted by the operator after failing to complete; **no final pytest
+summary or passing Python-test claim is available**. There were no Python
+source changes in this ticket, and this incomplete run is not considered a
+passing root gate. Do not infer failure causes without a completed traceback.
+`npm run review -- notes.md`
+was attempted exactly once but the Claude CLI reported its weekly quota had
+been exhausted; an independent source/diff self-review and mutation audit
+were completed instead. This remains **development QA**, never hosted-release
+or Producer acceptance.
