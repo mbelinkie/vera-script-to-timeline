@@ -272,6 +272,12 @@ def status(root: Path) -> dict[str, Any]:
         raw = _read(result_path)
         verified = verify_native_result(result_path, _digest(raw))
     except (OSError, ValueError, KeyError, TypeError):
+        if not result_path.exists() and _active_worker(root):
+            return {
+                "state": "live",
+                "verified": False,
+                "operationId": intent["operationId"],
+            }
         return {
             "state": "unknown",
             "verified": False,
@@ -294,6 +300,29 @@ def status(root: Path) -> dict[str, Any]:
         "operationId": intent["operationId"],
         "result": {"path": str(result_path), "sha256": _digest(raw)},
     }
+
+
+def _active_worker(root: Path) -> bool:
+    """An inherited flock, not an untrusted PID, proves liveness."""
+    lock = root / "carrier.lock"
+    if lock.is_symlink() or not lock.is_file():
+        return False
+    fd = os.open(lock, os.O_RDWR | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o077
+        ):
+            raise queue.QueueError("unsafe active carrier lock")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        return False
+    finally:
+        os.close(fd)
 
 
 def main() -> int:
