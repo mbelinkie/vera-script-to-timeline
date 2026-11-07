@@ -36,17 +36,23 @@ from vera_timeline_agent.qualification_output_native_v2 import (
 )
 from vera_timeline_agent.qualification_output_package_v2 import (
     MATRIX_PROFILE,
+    admit_qualification_package_v2,
     load_qualification_package_v2,
 )
 from vera_timeline_agent.resolve_native_owner import preflight_selected_disposable
 from vera_timeline_agent.workflow_v2_cli import build_output_release_v2
 
-PRIVATE_ROOT = Path.home() / (
-    "Library/Application Support/VERA/private-preparation/issue-312-m4-acceptance"
+PACKAGE = Path(
+    "/Volumes/Family 1A/CodexRulz/vera-issue312/"
+    "reverse-current-code-20261027/package-current-S-approved-v2/package"
 )
-ADMISSION = (
-    PRIVATE_ROOT / "compiler-refresh-01/admitted-final-01/"
-    "qualification-output-package-admission.json"
+PREPS = (
+    Path.home() / "Library/Application Support/VERA/qualification-output-preparation/"
+    "issue178-20261016-01/cases/issue312-package-current-S-approved-v2/published"
+)
+SPEECH = (
+    Path.home()
+    / ".codex/worktrees/f861/VERA Script to Timeline/out/issue312/rehearsal-speech-v1"
 )
 CASE_ID = "synthetic-472"
 CONSENT_REFERENCE = "ChatGPT producer conversation 2026-11-07: Okay go ahead"
@@ -61,11 +67,50 @@ def _pin(path: Path) -> dict[str, str]:
     return {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
-def _admission() -> Any:
-    if not ADMISSION.is_file() or ADMISSION.is_symlink():
-        raise RuntimeError("sealed original synthetic admission unavailable")
-    raw = ADMISSION.read_bytes()
-    a = load_qualification_package_v2(ADMISSION, hashlib.sha256(raw).hexdigest())
+def _inventory() -> tuple[dict[str, Path], dict[str, dict[str, Path]]]:
+    builds = list((PACKAGE / "Builds").iterdir())
+    if len(builds) != 1 or not builds[0].is_dir():
+        raise RuntimeError("original synthetic package has no unique build")
+    manifest = json.loads((builds[0] / "timeline-manifest.json").read_bytes())
+    deps = json.loads((builds[0] / "compiler-dependencies.json").read_bytes())
+    if (
+        manifest["timeline"]["durationFrames"] != 1407
+        or manifest["timeline"]["frameRate"]
+        != {"numerator": 24000, "denominator": 1001}
+        or len(manifest["events"]) != 11
+        or len(manifest["tracks"]) != 6
+        or len(manifest["preparationBindings"]) != 6
+        or len(deps["narrationBoundaryEvidence"]) != 3
+    ):
+        raise RuntimeError("retained source fixture geometry differs")
+    preps: dict[str, Path] = {}
+    for row in manifest["preparationBindings"]:
+        key = row["requirementKey"].removeprefix("sha256:")
+        path = PREPS / key / "receipt.json"
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError("retained preparation evidence unavailable")
+        preps[f"sha256:{key}"] = path
+    narration: dict[str, dict[str, Path]] = {}
+    for row in deps["narrationBoundaryEvidence"]:
+        block = row["blockId"]
+        if row["verification"].get("method") != "measured_audio_boundaries/v1":
+            raise RuntimeError("retained speech measurement type differs")
+        timing = (
+            SPEECH / "cache" / row["audio"]["locator"].rsplit("/", 1)[0] / "timing.json"
+        )
+        measurement = SPEECH / row["verification"]["measurementArtifactLocator"]
+        if any(x.is_symlink() or not x.is_file() for x in (timing, measurement)):
+            raise RuntimeError("retained speech evidence unavailable")
+        narration[block] = {"timing": timing, "measurement": measurement}
+    return preps, narration
+
+
+def _admission(root: Path) -> Any:
+    admission_path = root / "admitted/qualification-output-package-admission.json"
+    if not admission_path.is_file() or admission_path.is_symlink():
+        raise RuntimeError("fresh current-runtime admission unavailable")
+    raw = admission_path.read_bytes()
+    a = load_qualification_package_v2(admission_path, hashlib.sha256(raw).hexdigest())
     if (
         a.profile != MATRIX_PROFILE
         or a.manifest["timeline"]["durationFrames"] != 1407
@@ -103,22 +148,42 @@ def _record(root: Path) -> dict[str, Any]:
 
 
 def check() -> dict[str, Any]:
-    a = _admission()
+    preps, narrations = _inventory()
     return {
-        "state": "admission_authenticated",
-        "profile": a.profile,
-        "events": len(a.manifest["events"]),
-        "tracks": len(a.manifest["tracks"]),
-        "timelineFrames": a.manifest["timeline"]["durationFrames"],
+        "state": "source_inventory_present_before_fresh_admission",
+        "preparationReceipts": len(preps),
+        "narrationMeasurements": len(narrations),
+        "timelineFrames": 1407,
+        "nativeEffects": False,
+    }
+
+
+def admit(root: Path) -> dict[str, Any]:
+    if root.exists() or root.is_symlink():
+        raise RuntimeError("a fresh one-use run root is required")
+    preps, narrations = _inventory()
+    carrier._private(root, create=True)
+    admission = admit_qualification_package_v2(
+        root / "admitted",
+        profile=MATRIX_PROFILE,
+        package_root=PACKAGE,
+        preparation_paths=preps,
+        narration_evidence_paths=narrations,
+    )
+    a = _admission(root)
+    if a.admission_path != admission.admission_path:
+        raise RuntimeError("fresh source admission identity changed")
+    return {
+        "state": "fresh_source_admission_authenticated",
+        "admission": _pin(admission.admission_path),
         "nativeEffects": False,
     }
 
 
 def prepare(root: Path) -> dict[str, Any]:
-    if root.exists() or root.is_symlink():
-        raise RuntimeError("a fresh one-use run root is required")
-    a = _admission()  # All existing evidence checked BEFORE project creation.
-    carrier._private(root, create=True)
+    a = _admission(root)  # Verify new sealed admission BEFORE any SDK effects.
+    if (root / "provision").exists() or (root / "setup-pin.json").exists():
+        raise RuntimeError("one-use target provision already started")
     provision_root = root / "provision"
     provision.reserve(provision_root)
     advanced = provision.advance(provision_root)
@@ -143,8 +208,8 @@ def prepare(root: Path) -> dict[str, Any]:
         "schemaVersion": "qualification-output-session/v1",
         "lane": LANE,
         "profile": MATRIX_PROFILE,
-        "admissionPath": str(ADMISSION),
-        "admissionSha256": _hash(_read(ADMISSION)),
+        "admissionPath": str(a.admission_path),
+        "admissionSha256": _hash(_read(a.admission_path)),
         "releaseRoot": str(release_root),
         "context": controller.context,
         "hostJournalRoot": str(HOST_STATE_ROOT),
@@ -244,7 +309,9 @@ def tick(root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "prepare", "tick", "status"))
+    parser.add_argument(
+        "action", choices=("check", "admit", "prepare", "tick", "status")
+    )
     parser.add_argument("--root", type=Path)
     args = parser.parse_args()
     if args.action != "check" and args.root is None:
@@ -252,6 +319,8 @@ def main() -> int:
     try:
         if args.action == "check":
             result = check()
+        elif args.action == "admit":
+            result = admit(args.root)
         elif args.action == "prepare":
             result = prepare(args.root)
         elif args.action == "tick":
