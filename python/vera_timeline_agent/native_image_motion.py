@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import struct
 import zlib
 from dataclasses import asdict, dataclass
@@ -21,6 +22,22 @@ from typing import Any
 
 class MotionRefusal(ValueError):
     """The requested native image effect has no exact verified output proof."""
+
+
+_HEX_TO_LETTERS = str.maketrans("0123456789abcdef", "abcdefghijklmnop")
+_SOURCE_ID = re.compile(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\Z")
+
+
+def native_still_stem(source_id: str) -> str:
+    """Encode a UUID as a collision-free alphabetic still basename.
+
+    Installed Studio 21.1.1.10 recognizes numeric runs anywhere in a PNG
+    filename as an image sequence, even with a `-still.png` suffix. There
+    must be NO decimal digits anywhere in the delivered still filename.
+    """
+    if not isinstance(source_id, str) or _SOURCE_ID.fullmatch(source_id) is None:
+        raise MotionRefusal("native still source id must be a canonical UUID")
+    return "still-" + source_id.translate(_HEX_TO_LETTERS)
 
 
 @dataclass(frozen=True)

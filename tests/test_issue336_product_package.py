@@ -20,6 +20,7 @@ from issue177_package_fixture import (
     make_package_case,
 )
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.native_image_motion import native_still_stem
 from vera_timeline_agent.v2_package import (
     V2PackageError,
     _compiler_hash,
@@ -176,13 +177,13 @@ def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
             case.project_root / "Builds" / built.build_id / "Preparation" / "original"
         ).glob("*.png")
     )
-    # Installed Studio 21.1.1.10 interprets a still UUID ending in decimal
-    # digits as a numbered image sequence (observed "[51-74].png"). Both the
-    # delivered still and retained original must have distinct nonnumeric
-    # suffixes while preserving the independently hashed source bytes.
-    assert resolved.stem.endswith("-still")
-    assert not resolved.stem[-1].isdigit()
-    assert original.name == f"{resolved.stem.removesuffix('-still')}.original.png"
+    # Installed Studio 21.1.1.10 interprets an interior digit run even
+    # when the UUID ends in "-still.png" (observed "[51-74]-still.png").
+    # The delivered basename must contain NO decimal digits at all.
+    source_id = json.loads(case.manifest_path.read_text())["sources"][0]["id"]
+    assert resolved.stem == native_still_stem(source_id)
+    assert not any(character.isdigit() for character in resolved.stem)
+    assert original.name == f"{source_id}.original.png"
     assert original.read_bytes() == resolved.read_bytes()
     timeline = otio.adapters.read_from_file(
         str(case.project_root / "Builds" / built.build_id / "timeline.otio")

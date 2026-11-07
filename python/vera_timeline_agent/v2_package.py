@@ -1721,14 +1721,12 @@ def _media_artifacts(
         suffix = _suffix(source_path)
         if key.startswith("source:"):
             identity = _id_component(key.removeprefix("source:"), "source id")
-            # Resolve Studio treats a still filename ending in decimal digits
-            # as an image sequence.  In #336's real 24-frame import it turned
-            # the final UUID digits into a synthetic "[51-74].png" sequence,
-            # changing the verified media identity. The new authored-motion
-            # lane uses an explicit nonnumeric still suffix, while legacy
-            # packaged sources retain their original byte-identical paths.
+            # Studio 21.1.1.10 parses numeric runs anywhere in PNG filenames
+            # as image sequences, even when followed by "-still". Give new
+            # authored-motion stills a reversible alphabet-only UUID basename.
+            # Preserve byte-identical legacy package filenames.
             delivered_name = (
-                f"{identity}-still"
+                native_image_motion.native_still_stem(identity)
                 if identity in motion_source_ids and kind == "still"
                 else identity
             )
@@ -2145,7 +2143,11 @@ def _validate_delivery_view(
         expected_area = "Narration" if source.get("kind") == "audio" else "Resolved"
         if source_id in motion_still_source_ids:
             named_as_expected = source.get("kind") == "still" and (
-                relative.name.startswith(f"{source_id}-still.")
+                relative.name.startswith(
+                    f"{native_image_motion.native_still_stem(source_id)}."
+                )
+                or relative.name.startswith(f"{source_id}-still.")
+                or relative.name.startswith(f"{source_id}.")
             )
         else:
             named_as_expected = relative.name.startswith(f"{source_id}.")

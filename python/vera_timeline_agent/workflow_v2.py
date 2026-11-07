@@ -22,6 +22,7 @@ from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
+from . import native_image_motion
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -638,14 +639,18 @@ def _validate_view(
         parts = PurePosixPath(relative).parts
         expected_area = "Narration" if kind == "audio" else "Resolved"
         source_basename = PurePosixPath(parts[2]).name if len(parts) == 3 else ""
-        # Preserve validation of already-frozen legacy package names while
-        # admitting the nonnumeric still suffix used by new #336 builds. A
-        # legacy name remains subject to the independent source identity and
-        # imported media readback; accepting it here never qualifies a replay.
+        # Preserve the attested legacy names. Newly frozen motion stills use
+        # an alphabet-only UUID stem, since Resolve treats ANY decimal run
+        # in a PNG filename as a numbered sequence, including <id>-still.png.
         safe_name = source_basename.startswith(source_id + ".") or (
             source_id in motion_still_source_ids
             and kind == "still"
-            and source_basename.startswith(source_id + "-still.")
+            and (
+                source_basename.startswith(source_id + "-still.")
+                or source_basename.startswith(
+                    native_image_motion.native_still_stem(source_id) + "."
+                )
+            )
         )
         if (
             len(parts) != 3

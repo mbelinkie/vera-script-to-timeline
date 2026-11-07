@@ -15,6 +15,7 @@ from vera_timeline_agent.native_image_motion import (
     admit_motion,
     motion_hash,
     native_effect_records,
+    native_still_stem,
     production_qualification,
 )
 
@@ -67,6 +68,21 @@ def test_runtime_has_no_unearned_production_qualification() -> None:
     assert production_qualification(MOTION, BINDING, "cover") is None
     with pytest.raises(MotionRefusal, match="no qualified output"):
         admit_motion(MOTION, BINDING, None, framing="cover")
+
+
+def test_resolve_still_filename_has_no_numeric_sequence_tokens() -> None:
+    ids = [
+        "876593d6-707a-5bff-8a09-353943515a51",
+        "876593d6-707a-5bff-8a09-353943515a52",
+    ]
+    names = [native_still_stem(identity) for identity in ids]
+    assert len(set(names)) == 2
+    assert all(
+        name.startswith("still-") and not any(c.isdigit() for c in name)
+        for name in names
+    )
+    with pytest.raises(MotionRefusal, match="canonical UUID"):
+        native_still_stem("../bad")
 
 
 def _verified_png_case(
