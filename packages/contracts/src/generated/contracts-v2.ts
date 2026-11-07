@@ -913,6 +913,15 @@ export interface StashOriginV2 {
   sectionId: string | null;
   afterSiblingRowId: string | null;
   beforeSiblingRowId: string | null;
+  /**
+   * Original preceding siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.
+   */
+  precedingSiblingRowIds?: string[];
+  /**
+   * Original following siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.
+   */
+  followingSiblingRowIds?: string[];
+  originalParentContext?: StashParentOriginContextV2;
   returnEligible: boolean;
   /**
    * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
@@ -930,6 +939,24 @@ export interface StashOriginV2 {
    * Historical following sibling of the owner note for an anchored ordinary return.
    */
   originalAttachedNoteBeforeSiblingRowId?: string | null;
+}
+/**
+ * Frozen position of the original note parent, to distinguish a moved parent from an interposed unrelated peer.
+ */
+export interface StashParentOriginContextV2 {
+  /**
+   * Original parent of the note parent, or null when the note parent was a root.
+   */
+  parentRowId: string | null;
+  sectionId: string | null;
+  /**
+   * Original peers before the note parent, nearest first.
+   */
+  precedingSiblingRowIds: string[];
+  /**
+   * Original peers after the note parent, nearest first.
+   */
+  followingSiblingRowIds: string[];
 }
 export interface AttachedFootageV2 {
   clip: VisualOnlyBlockV2;

@@ -2651,6 +2651,22 @@
             }
           ]
         },
+        "precedingSiblingRowIds": {
+          "description": "Original preceding siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "followingSiblingRowIds": {
+          "description": "Original following siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "originalParentContext": {
+          "description": "Frozen position of the original note parent, to distinguish a moved parent from an interposed unrelated peer.",
+          "$ref": "#/$defs/StashParentOriginContextV2"
+        },
         "returnEligible": {
           "type": "boolean"
         },
@@ -2673,6 +2689,37 @@
         "originalAttachedNoteBeforeSiblingRowId": {
           "description": "Historical following sibling of the owner note for an anchored ordinary return.",
           "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        }
+      }
+    },
+    "StashParentOriginContextV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parentRowId",
+        "sectionId",
+        "precedingSiblingRowIds",
+        "followingSiblingRowIds"
+      ],
+      "properties": {
+        "parentRowId": {
+          "description": "Original parent of the note parent, or null when the note parent was a root.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "sectionId": {
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "precedingSiblingRowIds": {
+          "description": "Original peers before the note parent, nearest first.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "followingSiblingRowIds": {
+          "description": "Original peers after the note parent, nearest first.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
         }
       }
     },

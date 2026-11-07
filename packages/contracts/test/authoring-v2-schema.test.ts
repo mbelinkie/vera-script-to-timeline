@@ -368,6 +368,65 @@ function expectSettingsInvalid(value: unknown): void {
 }
 
 describe("authoring v2 document and project-settings schemas", () => {
+  it("accepts optional frozen Stash origin history and preserves six-field legacy origins", () => {
+    const legacy = {
+      kind: "note", parentRowId: ids.slot, sectionId: null,
+      afterSiblingRowId: ids.tokenOne, beforeSiblingRowId: ids.tokenTwo,
+      returnEligible: true,
+    };
+    const document = documentWithBlock();
+    setAt(document, ["activeDraft", "blocks", 0, "stashOrigin"], legacy);
+    expectDocumentValid(document);
+    expectDocumentValid(JSON.parse(JSON.stringify(document)));
+
+    const withHistory = structuredClone(document);
+    setAt(withHistory, ["activeDraft", "blocks", 0, "stashOrigin"], {
+      ...legacy,
+      precedingSiblingRowIds: [ids.tokenOne, ids.sequence],
+      followingSiblingRowIds: [ids.tokenTwo, ids.slot],
+      originalParentContext: {
+        parentRowId: null, sectionId: null,
+        precedingSiblingRowIds: [ids.media],
+        followingSiblingRowIds: [ids.artifact, ids.capture],
+      },
+    });
+    expectDocumentValid(withHistory);
+    expectDocumentValid(JSON.parse(JSON.stringify(withHistory)));
+  });
+
+  it("rejects duplicate, malformed and unknown frozen origin history in the closed schema", () => {
+    const base = {
+      kind: "note", parentRowId: ids.slot, sectionId: null,
+      afterSiblingRowId: ids.tokenOne, beforeSiblingRowId: ids.tokenTwo,
+      returnEligible: true,
+      precedingSiblingRowIds: [ids.tokenOne],
+      followingSiblingRowIds: [ids.tokenTwo],
+      originalParentContext: {
+        parentRowId: null, sectionId: null,
+        precedingSiblingRowIds: [ids.media], followingSiblingRowIds: [ids.artifact],
+      },
+    };
+    const invalidOrigins: unknown[] = [
+      { ...base, precedingSiblingRowIds: [ids.tokenOne, ids.tokenOne] },
+      { ...base, followingSiblingRowIds: ["not-an-id"] },
+      { ...base, precedingSiblingRowIds: null },
+      { ...base, followingSiblingRowIds: "wrong" },
+      { ...base, unrecognizedHistory: [] },
+      { ...base, originalParentContext: null },
+      { ...base, originalParentContext: { parentRowId: null, sectionId: null } },
+      { ...base, originalParentContext: { ...base.originalParentContext, futureField: true } },
+      { ...base, originalParentContext: { ...base.originalParentContext, parentRowId: "not-an-id" } },
+      { ...base, originalParentContext: { ...base.originalParentContext, sectionId: "invalid" } },
+      { ...base, originalParentContext: { ...base.originalParentContext, precedingSiblingRowIds: [ids.media, ids.media] } },
+      { ...base, originalParentContext: { ...base.originalParentContext, followingSiblingRowIds: [42] } },
+    ];
+    for (const badOrigin of invalidOrigins) {
+      const document = documentWithBlock();
+      setAt(document, ["activeDraft", "blocks", 0, "stashOrigin"], badOrigin);
+      expectDocumentInvalid(document);
+    }
+  });
+
   it("compiles as Draft 2020-12 and accepts representative independent roots", () => {
     expectDocumentValid(documentWithBlock());
     expectSettingsValid(projectSettings(presenterStillReference()));
