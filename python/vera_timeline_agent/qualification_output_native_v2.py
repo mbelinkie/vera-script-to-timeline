@@ -3820,6 +3820,135 @@ def _verified_video_start_frame_rounding(
     )
 
 
+def _verified_video_full_source_eof_readback(
+    *,
+    event: dict[str, Any],
+    manifest_event: dict[str, Any] | None,
+    manifest_source: dict[str, Any] | None,
+    verification: dict[str, Any] | None,
+    source_hash: str,
+    media_frames: Any,
+    media_fps: Any,
+    source_start: int,
+    source_end: int,
+    expected_source_start: int,
+    expected_source_end: int,
+    expected_source_duration: int,
+    record_duration: int,
+    range_times: dict[str, Any],
+    rate: dict[str, Any],
+) -> bool:
+    """Verify the #312 214/212 full-CFR EOF readback without accepting trims.
+
+    An integer end getter two frames short is not itself an EOF convention.
+    Only the independently admitted, hashed, frame-mapped full source and its
+    exact native source-time edge can disambiguate it from a truncated clip.
+    """
+    if (
+        source_start != expected_source_start
+        or expected_source_start != 0
+        or expected_source_end != expected_source_duration
+        or source_end != expected_source_end - 2
+        or record_duration != expected_source_duration
+        or type(manifest_event) is not dict
+        or type(manifest_source) is not dict
+        or type(verification) is not dict
+        or not _setting_matches("timelineFrameRate", "23.976", media_fps)
+    ):
+        return False
+
+    mapping = manifest_event.get("sourceTimeMapping")
+    source_mapping = manifest_source.get("sourceTimeMapping")
+    frame_map = manifest_source.get("sourceFrameMap")
+    view_event = event.get("v2Event")
+    frame_rate = {"numerator": rate["numerator"], "denominator": rate["denominator"]}
+    expected_range = {"startFrame": 0, "endFrame": expected_source_end}
+    if (
+        type(mapping) is not dict
+        or type(source_mapping) is not dict
+        or type(frame_map) is not dict
+        or type(view_event) is not dict
+        or mapping != source_mapping
+        or view_event.get("sourceTimeMapping") != mapping
+        or mapping.get("sourceFrameMap") != frame_map
+        or mapping.get("deliveredRate") != frame_rate
+        or mapping.get("deliveredOrigin") != {"numerator": 0, "denominator": 1}
+        or manifest_event.get("sourceRange") != expected_range
+        or view_event.get("sourceRange") != expected_range
+        or event.get("sourceRange")
+        != {"startFrame": 0, "durationFrames": expected_source_duration}
+        or frame_map.get("packageFrameZeroLogicalFrame") != 0
+        or frame_map.get("packageVideoPtsOrigin") != {"numerator": 0, "denominator": 1}
+        or frame_map.get("loggedTimeAtPackageFrameZero")
+        != {"numerator": 0, "denominator": 1}
+    ):
+        return False
+
+    # The frame map describes the *original* package media, not the delivered
+    # converted clip. In the real #312 case it has 900 frames at 30000/1001,
+    # with a nonzero source origin; the verified delivered media has 214 frames
+    # at 24000/1001 and starts at delivered frame zero. Keep both clocks pinned
+    # rather than requiring the different counts, rates or probes to coincide.
+    mapped_count = frame_map.get("decodedPackageFrameCount")
+    mapped_rate = frame_map.get("decodedPackageFrameRate")
+    source_origin = mapping.get("sourceOrigin")
+    if (
+        type(mapped_count) is not int
+        or mapped_count <= 0
+        or type(mapped_rate) is not dict
+        or mapping.get("sourceRate") != mapped_rate
+        or type(mapped_rate.get("numerator")) is not int
+        or type(mapped_rate.get("denominator")) is not int
+        or mapped_rate["numerator"] <= 0
+        or mapped_rate["denominator"] <= 0
+        or type(source_origin) is not dict
+        or type(source_origin.get("numerator")) is not int
+        or type(source_origin.get("denominator")) is not int
+        or source_origin["numerator"] < 0
+        or source_origin["denominator"] <= 0
+        or type(frame_map.get("probeHash")) is not str
+        or frame_map["probeHash"] != frame_map.get("descriptorHash")
+    ):
+        return False
+
+    count = verification.get("decodedFrameCount")
+    delivered_hash = verification.get("deliveredHash")
+    probe_hash = verification.get("probeHash")
+    if (
+        type(count) is not int
+        or count != expected_source_end
+        or verification.get("decodedFrameRate") != frame_rate
+        # The selected source interval must fit within the mapped original
+        # media, but the converted output count need not equal its frame count.
+        or Fraction(source_origin["numerator"], source_origin["denominator"])
+        + count * Fraction(rate["denominator"], rate["numerator"])
+        > mapped_count * Fraction(mapped_rate["denominator"], mapped_rate["numerator"])
+        or type(media_frames) is not str
+        or media_frames != str(count)
+        or type(delivered_hash) is not str
+        or _source_hash(delivered_hash) != _source_hash(source_hash)
+        or type(manifest_source.get("deliveredHash")) is not str
+        or _source_hash(manifest_source["deliveredHash"]) != _source_hash(source_hash)
+        or type(probe_hash) is not str
+        or probe_hash != manifest_source.get("deliveredProbeHash")
+    ):
+        return False
+
+    frame_seconds = Fraction(rate["denominator"], rate["numerator"])
+    start_error = _source_time_error_samples(
+        range_times.get("GetSourceStartTime"), 0, frame_seconds
+    )
+    end_error = _source_time_error_samples(
+        range_times.get("GetSourceEndTime"), count, frame_seconds
+    )
+    return (
+        start_error is not None
+        and abs(start_error) <= 1
+        and end_error is not None
+        and abs(end_error) <= 1
+    )
+
+
 def _native_record_frame_getter_matches(expected: int, actual: Any) -> bool:
     if type(expected) is not int:
         return False
@@ -4257,6 +4386,32 @@ def _capture_geometry(
                         method = getattr(item, method_name, None)
                         if callable(method):
                             range_times[method_name] = method()
+                if (
+                    request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
+                    and request["context"].get("phase")
+                    in {"pristine", "edited", "rebuild"}
+                    and kind == "video"
+                    and source.get("kind") == "video"
+                    and not static_picture
+                    and _verified_video_full_source_eof_readback(
+                        event=event,
+                        manifest_event=manifest_event,
+                        manifest_source=manifest_source,
+                        verification=verified_video_verification,
+                        source_hash=source["contentHash"],
+                        media_frames=props.get("Frames"),
+                        media_fps=props.get("FPS"),
+                        source_start=source_start,
+                        source_end=source_end,
+                        expected_source_start=expected_source_start,
+                        expected_source_end=expected_source_end,
+                        expected_source_duration=expected_source_duration,
+                        record_duration=duration,
+                        range_times=range_times,
+                        rate=rate,
+                    )
+                ):
+                    source_duration = expected_source_duration
                 if (
                     request.get("profile") in {MATRIX_PROFILE, PRESENTER_PROFILE}
                     and request["context"].get("phase")
