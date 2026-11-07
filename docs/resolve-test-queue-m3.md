@@ -104,6 +104,12 @@ Studio save/close/reopen/readback is mandatory to claim native success.
 ## Optional phone monitor (private Tailscale Serve HTTPS only)
 
 The HTTP server binds **only** to `127.0.0.1`, on port `51762` by default.
+If that port is occupied, use the same alternate `--port` on both
+`install-launchd` and `install-tailscale-path`; never displace an existing
+service just to satisfy the example port. On the Producer's Mac, `51762` is
+the running VERA conductor's single-run TCP lease, so the independent M3
+monitor was installed on **`127.0.0.1:51763`**. The external HTTPS path is
+still `/resolve-tests/`; the original dashboard keeps port `51761`.
 The existing `/` VERA dashboard **must not be replaced**. The intended
 topology is:
 
@@ -226,7 +232,7 @@ still require login; expired cases remain expired rather than being run late.
 
 ## Evidence and downstream use
 
-### Phase-5 real Studio acceptance checkpoint (2026-11-06)
+### Phase-5 real Studio acceptance result (2026-11-06)
 
 An independently launched macOS user LaunchAgent ran a **bounded 2-case,
 8-trial** pilot in DaVinci Resolve Studio 21.1.1 using fresh, independently
@@ -239,7 +245,7 @@ was booted out and back in **while a detached native parent was LIVE**.
 Read-only reconciliation retained its one committed intent and identity.
 
 The authenticated M2 terminal database and native readback report showed
-these four *completed_verified* **and comparable** results, each with one
+all eight *completed_verified* **and comparable** results, each with one
 expected timeline event, one media reference, zero markers, and a successful
 native save/reopen/readback. Times are parent monotonic native wall seconds,
 not render times or evidence of a production speed improvement:
@@ -250,25 +256,51 @@ not render times or evidence of a production speed improvement:
 | synthetic-case-a | 1 | candidate | 66.150 | completed_verified |
 | synthetic-case-a | 2 | candidate | 106.591 | completed_verified |
 | synthetic-case-a | 2 | baseline | 32.950 | completed_verified |
+| synthetic-case-b | 1 | baseline | 42.793 | completed_verified |
+| synthetic-case-b | 1 | candidate | 28.444 | completed_verified |
+| synthetic-case-b | 2 | candidate | 24.405 | completed_verified |
+| synthetic-case-b | 2 | baseline | 21.252 | completed_verified |
 
 Pilot campaign: `resolve-campaign-7a818136c76149aeaa451d400c5f937a`,
 frozen plan SHA-256:
 `93a3815fd9302f82b45f88650b72f2bfe2524b4dc15a7722297bb8c13f90ed6b`.
-At this checkpoint, four further case-B trials had not authenticated as
-completed; their outcomes must remain **pending/running/unknown as reported**
-until the independent worker finishes or reaches its finite budget. Full
-eight-trial acceptance and phone UI operation were **not yet proven** by this
-checkpoint. All parent requests, receipts, project paths and full logs remain
-private under the local Mac preparation root, not in this repository.
+Final authenticated status: **8/8 completed_verified; 8/8 comparable; plan
+integrity verified; `all_children_native_verified`**, ended
+`2026-11-07T00:08:01Z` (November 6, 7:08 PM Eastern). The pinned one-use
+request identities, per-trial native receipts, target identities, native
+timings, original journal, and preserved restart evidence remain under the
+private Mac queue. The published `report.json` includes eight independent
+`authenticated_native_receipt` observations and no failed/blocked/unknown
+trials. The campaign coordinator LaunchAgent was restarted while a detached
+native parent was still executing; no second native start was made for that
+intent.
+
+**Independent monitor deployment check (November 6):** the separate macOS
+Python 3.12.14 LaunchAgent is loaded and its process listens only on
+`127.0.0.1:51763`. Tailscale Serve exposes just the additional tailnet-only
+`/resolve-tests/` path to that port, without Funnel, and the pre-existing `/`
+proxy remains byte-identical at `127.0.0.1:51761`. Both HTTPS paths returned
+HTTP 200 from the Mac. Loopback acceptance verified exact Tailscale login
+plus private-token authorization, session/cookie scope, sanitized 8/8 status
+and report, refusal without identity/session/Origin/CSRF, and refusal of an
+invalid authenticated control without any command audit mutation. Private
+token values and Mac-specific evidence paths are not included here.
+
+**Still pending:** the Producer must open the tailnet HTTPS URL on the phone,
+authenticate with the token retrieved privately on the Mac, and explicitly
+confirm the 8/8 report is usable. Mac-origin HTTPS/HTTP and simulated session
+tests are not a substitute for phone acceptance. PR #462 must remain draft
+and #448 open until this confirmation and the post-documentation exact-head
+CI / merge checks pass.
 
 M1 simulated output never qualifies for native statistics. M2's genuine
 single-request Studio save/reopen/readback acceptance is recorded in the
 [#447 issue](https://github.com/mbelinkie/vera-script-to-timeline/issues/447);
-M3 **multi-case unattended** qualification, restart/reconcile, phone access
-and objective native results are separate phase-5 acceptance, not established
-by these pure HTTP tests. Phase-5 must record actual supported Studio synthetic
-trial results or explicitly report unmet acceptance. #312/#313 consume the
-same immutable trial identity, comparison key, baseline/candidate ordering,
+M3 **multi-case unattended** qualification, restart/reconcile, and objective
+native results are demonstrated by the real eight-trial Studio campaign,
+not by the pure HTTP tests alone; phone acceptance is still pending.
+#312/#313 consume the same immutable trial identity, comparison key,
+baseline/candidate ordering,
 raw timing, and verified native reports; their own representative fixtures,
 four-hour *per-issue* benchmark budgets, genuine edit decisions and numeric
 improvement targets are not part of M3's aggregate budget and are not reset
