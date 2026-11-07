@@ -79,10 +79,27 @@ normal focused suite; they do not replace real Mac acceptance.
 - Focused: `uv run --frozen pytest -q tests/test_local_media_import_model.py
   tests/test_local_media_import.py tests/test_local_media_import_cli.py`:
   **104 passed**. Changed-file Ruff check and format check: pass.
-- `npm run validate:fast`: **pending result** (see this section's final update
-  and `.pipeline/381/phase4-validate-fast.log`). Previous phase-three Linux
-  run reported 22 failures in unrelated narration/timing/legacy test suites;
-  baseline equivalence had **not** been independently established.
+- `npm run validate:fast`: **nonzero**, `22 failed, 2701 passed, 43 skipped`
+  (full log `.pipeline/381/phase4-validate-fast.log`). Generated-contract check,
+  TypeScript lint/typecheck/fast tests, Python Ruff and full Python mypy passed.
+  The 22 failures were confined to **unchanged** narration CLI, #182 campaign,
+  #208 native target identity/capability and word-timing modules; **no #381
+  focused test failed**. The prior phase-three Linux gate also had 22 failures
+  and no #381 failures, but the *individual case names differed* between the
+  runs. Therefore this is a repeat of the environment-sensitive failure
+  categories, **not an independently proven baseline-equivalent pass**. Do not
+  call the full gate green. #208 failures include wall/monotonic clock rollback
+  thresholds in this shared Linux host; narration/media failures include the
+  missing installed FFmpeg tooling.
+- Companion readiness/build-media and #174 non-slow regression test selection:
+  `65 passed, 1 deselected`. Three frozen authoring/compiler contract files:
+  `50 passed`. All rerun after the recovery-race fix.
+- The `npm run review -- notes.md` command was invoked once. Claude returned
+  `You've hit your weekly limit` (reset displayed as Nov 9 at 15:00 UTC),
+  so **no external review result was obtained**. We instead self-reviewed the
+  entire issue diff, corrected the inspected-recovery race, and performed the
+  seven independent targeted guard mutation checks. Review remains external
+  acceptance work when the limit is available again.
 - The Zodex Linux host has no `ffmpeg` or `ffprobe` executable. The available
   isolated macOS Seatbelt workspace has FFmpeg paths, but **FFprobe cannot
   start**: the sandbox denies a linked `libvmaf.3.dylib`. That workspace also
