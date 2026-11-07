@@ -10,6 +10,7 @@ import {
   type RowEditCommandV2,
 } from "../src/authoring-v2.js";
 import type { NarrationBlockV2, ScriptDocumentV2, SupportingItemV2 } from "../src/generated/contracts-v2.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
 
 const id = (value: number): string => `00000000-0000-4000-8000-${value.toString(16).padStart(12, "0")}`;
 
@@ -99,6 +100,27 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it("replays attached-footage placement and return through preview, reload, and Undo", () => {
+    const { doc, note, clip } = researchStashFixture();
+    const trial = createSortingTrialV2(doc);
+    apply(trial, { kind: "place_attached_footage", noteRowId: note.id, destination: gap(null, null) });
+    const placed = trial.document;
+    apply(trial, { kind: "stash_rows", rowIds: [clip.id], bundleId: id(760000) });
+    expect(trial.preview()).toEqual(trial.document);
+    const snapshot = trial.serialize();
+    const resumed = resumeSortingTrialV2(snapshot);
+    expect(resumed.phase).toBe("preview");
+    expect(resumed.returnToSorting()).toBe(true);
+    expect(resumed.undo().ok).toBe(true);
+    expect({ ...resumed.document, rowEditRevision: 0 }).toEqual({ ...placed, rowEditRevision: 0 });
+    expect(resumed.undo().ok).toBe(true);
+    expect({ ...resumed.document, rowEditRevision: 0 }).toEqual({ ...doc, rowEditRevision: 0 });
+    expect(resumed.accept(doc)).toMatchObject({ ok: true, changed: false });
+
+    const tampered = JSON.parse(snapshot) as { actions: Array<Record<string, unknown>> };
+    tampered.actions[0]!.noteRowId = id(999999);
+    expect(() => resumeSortingTrialV2(JSON.stringify(tampered))).toThrow(/Invalid saved Sorting operation/);
+  });
   it.each(["", "  literal [[nested] unmatched ] 'quoted' 🧵\nnew line["])("replays a plain Stash note and retains exact text and return eligibility: %j", (text) => {
     const note = rawNote(5400, text);
     let baseline = applyDocument(document(), { kind: "create_stash_section", sectionId: id(5401), title: "Ideas" });

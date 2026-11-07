@@ -138,6 +138,46 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
 }
 
 describe("saved Stash row edits", () => {
+  it("prevents ordinary whole-row edits from replacing or secretly trimming an exclusive footage attachment", () => {
+    const { document, bundleId } = stashFixtureNarration();
+    const original = document.stash!.find((bundle) => bundle.id === bundleId)!.rows[0] as NarrationBlockV2;
+    const clip: VisualOnlyBlockV2 = {
+      type: "visual_only", id: id(92000), orderKey: "owned-clip", version: 1,
+      payload: {
+        kind: "visual", payloadId: id(92001), pictureKind: "clip",
+        source: { kind: "media_reference", mediaReferenceId: id(92002) },
+        audioPolicy: "mute", framingPolicy: "contain",
+      },
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 4, durationFrames: 40 } },
+    };
+    original.attachedFootage = { clip };
+    document.stashOutline = [{ rowId: original.id, kind: "note", sectionId: null, parentRowId: null }];
+    const revision = document.rowEditRevision ?? 0;
+    const before = JSON.stringify(document);
+    const noClip = structuredClone(original);
+    delete noClip.attachedFootage;
+    const trimmed = structuredClone(original);
+    trimmed.attachedFootage!.clip.visualOnlyTiming.selectedSourceRange = { startFrame: 10, durationFrames: 20 };
+    for (const forged of [noClip, trimmed]) {
+      const result = applyStashRowEditV2(document, revision, { bundleId, rowId: original.id, row: forged });
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_REVIEW_REQUIRED");
+      expect(result.document).toBe(document);
+      const routed = applyRowEditV2(document, revision, { kind: "edit_row", rowId: original.id, row: forged });
+      expect(routed.ok).toBe(false);
+      expect(routed.document).toBe(document);
+      expect(JSON.stringify(document)).toBe(before);
+    }
+    const safe = structuredClone(original);
+    safe.notes.push("ordinary saved annotation");
+    safe.version++;
+    const accepted = applyStashRowEditV2(document, revision, { bundleId, rowId: original.id, row: safe });
+    expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+    if (accepted.ok) {
+      const note = accepted.document.stash!.find((bundle) => bundle.id === bundleId)!.rows[0] as NarrationBlockV2;
+      expect(note.attachedFootage?.clip).toEqual(clip);
+    }
+  });
   it("edits a literal compact note as raw text, preserves intent, and refuses implicit speech and corrupt tokens", () => {
     const document: ScriptDocumentV2 = {
       schemaVersion: "script-document/v2", id: id(1), projectId: id(2), title: "Literal note edits",

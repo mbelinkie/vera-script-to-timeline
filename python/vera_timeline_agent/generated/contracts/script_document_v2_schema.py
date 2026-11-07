@@ -128,6 +128,11 @@ class UrlSource(TypedDict):
     url: str
 
 
+class SelectedSourceRange(TypedDict):
+    startFrame: NonNegativeSafeInteger
+    durationFrames: PositiveSafeInteger
+
+
 class PrimaryVisualPayload1(TypedDict):
     kind: Literal["on_camera"]
     presenterChoiceId: EntityId | None
@@ -153,11 +158,6 @@ class SlotRelation3(TypedDict):
 
 
 type SlotRelation = SlotRelation1 | SlotRelation2 | SlotRelation3
-
-
-class SelectedSourceRange(TypedDict):
-    startFrame: NonNegativeSafeInteger
-    durationFrames: PositiveSafeInteger
 
 
 class VisualOnlyTimingV2(TypedDict):
@@ -200,6 +200,10 @@ class StashOriginV2(TypedDict):
     afterSiblingRowId: EntityId | None
     beforeSiblingRowId: EntityId | None
     returnEligible: bool
+    originalAttachedNoteRowId: NotRequired[EntityId]
+    originalAttachedNoteParentRowId: NotRequired[EntityId | None]
+    originalAttachedNoteAfterSiblingRowId: NotRequired[EntityId | None]
+    originalAttachedNoteBeforeSiblingRowId: NotRequired[EntityId | None]
 
 
 class RowTransitionIntentV2(TypedDict):
@@ -240,6 +244,51 @@ class OpaqueRowReferenceV2(TypedDict):
     rowId: EntityId
     kind: Literal["comment", "reference"]
     anchor: dict[str, Any]
+
+
+class Video(TypedDict):
+    youtubeVideoId: str
+    canonicalUrl: str
+    title: str
+    channel: NotRequired[str]
+    sourceLanguage: NotRequired[str]
+
+
+class LoggedSelection(TypedDict):
+    trackId: EntityId
+    transcriptVersion: PositiveSafeInteger
+    firstSegmentId: EntityId
+    lastSegmentId: EntityId
+    firstTokenId: NotRequired[EntityId]
+    lastTokenId: NotRequired[EntityId]
+    transcriptStartMs: NonNegativeSafeInteger
+    transcriptEndMs: NonNegativeSafeInteger
+    exportStartMs: NonNegativeSafeInteger
+    exportEndMs: NonNegativeSafeInteger
+    text: str
+    timingPrecision: Literal["word", "cue", "estimated"]
+
+
+class ResearchClipSnapshotV2(TypedDict):
+    researchProjectId: EntityId
+    clipId: EntityId
+    clipVersion: PositiveSafeInteger
+    catalogVideoId: EntityId
+    createdBy: NotRequired[EntityId]
+    video: Video
+    loggedSelection: LoggedSelection
+    englishText: str
+    originalText: NotRequired[str]
+    createdAt: NotRequired[str]
+    updatedAt: NotRequired[str]
+
+
+class ResearchFrameBindingV2(TypedDict):
+    clipId: EntityId
+    clipVersion: PositiveSafeInteger
+    mediaReferenceId: EntityId
+    loggedStartFrame: NonNegativeSafeInteger
+    loggedEndFrame: PositiveSafeInteger
 
 
 class PresenterStillReference(TypedDict):
@@ -321,6 +370,9 @@ class NarratedVisualPayloadV2(TypedDict):
     sourceUsage: SourceUsage | None
     audioPolicy: Literal["mute", "quiet"]
     framingPolicy: Literal["contain", "cover", "native"]
+    researchClip: NotRequired[ResearchClipSnapshotV2]
+    frameBinding: NotRequired[ResearchFrameBindingV2]
+    selectedSourceRange: NotRequired[SelectedSourceRange]
 
 
 type PrimaryVisualPayload = (
@@ -432,6 +484,62 @@ class OverlayEventV2(TypedDict):
     version: EntityVersion
 
 
+class DirectionBlock(TypedDict):
+    type: Literal["direction"]
+    id: EntityId
+    orderKey: str
+    text: str
+    buildBehavior: Literal["none", "timeline_marker"]
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
+
+
+class StandaloneVisualPayloadV2(TypedDict):
+    kind: Literal["visual"]
+    payloadId: EntityId
+    pictureKind: Literal[
+        "clip",
+        "image",
+        "capture",
+        "graphic",
+        "intentional_placeholder",
+        "unresolved_visual",
+    ]
+    source: SourceReference
+    audioPolicy: Literal["mute", "quiet", "full"]
+    framingPolicy: Literal["contain", "cover", "native"]
+
+
+class VisualOnlyBlockV2(TypedDict):
+    type: Literal["visual_only"]
+    id: EntityId
+    orderKey: str
+    payload: StandaloneVisualPayloadV2
+    visualOnlyTiming: VisualOnlyTimingV2
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
+    researchClip: NotRequired[ResearchClipSnapshotV2]
+    frameBinding: NotRequired[ResearchFrameBindingV2]
+
+
+class NoteDraftBlock(TypedDict):
+    type: Literal["note_draft"]
+    id: EntityId
+    orderKey: str
+    text: str
+    state: Literal["excluded"]
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
+
+
+class AttachedFootageV2(TypedDict):
+    clip: VisualOnlyBlockV2
+
+
+class ScriptSettings(TypedDict):
+    presenterStillOverride: NotRequired[PresenterStillReference]
+
+
 class NarrationBlockV2(TypedDict):
     type: Literal["narration"]
     id: EntityId
@@ -448,47 +556,7 @@ class NarrationBlockV2(TypedDict):
     notes: list[str]
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
-
-
-class DirectionBlock(TypedDict):
-    type: Literal["direction"]
-    id: EntityId
-    orderKey: str
-    text: str
-    buildBehavior: Literal["none", "timeline_marker"]
-    stashOrigin: NotRequired[StashOriginV2]
-    version: EntityVersion
-
-
-class StandaloneVisualPayloadV2(TypedDict):
-    kind: Literal["visual"]
-    payloadId: EntityId
-    pictureKind: Literal[
-        "clip", "image", "capture", "graphic", "intentional_placeholder"
-    ]
-    source: SourceReference
-    audioPolicy: Literal["mute", "quiet", "full"]
-    framingPolicy: Literal["contain", "cover", "native"]
-
-
-class VisualOnlyBlockV2(TypedDict):
-    type: Literal["visual_only"]
-    id: EntityId
-    orderKey: str
-    payload: StandaloneVisualPayloadV2
-    visualOnlyTiming: VisualOnlyTimingV2
-    stashOrigin: NotRequired[StashOriginV2]
-    version: EntityVersion
-
-
-class NoteDraftBlock(TypedDict):
-    type: Literal["note_draft"]
-    id: EntityId
-    orderKey: str
-    text: str
-    state: Literal["excluded"]
-    stashOrigin: NotRequired[StashOriginV2]
-    version: EntityVersion
+    attachedFootage: NotRequired[AttachedFootageV2]
 
 
 type StashedRowV2 = (
@@ -501,10 +569,6 @@ class RowStashBundleV2(TypedDict):
     rows: list[StashedRowV2]
     supportingItems: list[SupportingItemV2]
     originalGap: NotRequired[RowGapV2]
-
-
-class ScriptSettings(TypedDict):
-    presenterStillOverride: NotRequired[PresenterStillReference]
 
 
 type DraftBlock = (

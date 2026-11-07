@@ -274,6 +274,16 @@ export interface VisualSequenceEditResultV2 {
 
 export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 export {
+  snapshotResearchCandidateV2,
+  inwardUseRangeV2,
+  createResearchClipOccurrenceV2,
+  withResearchClipUseRangeV2,
+  trimResearchClipOccurrenceV2,
+  type ResearchLoggedCandidateInputV2,
+  type ResearchClipOccurrenceInputV2,
+  type FrameIntervalV2,
+} from "./authoring-v2-research-snapshot.js";
+export {
   createCommentStateV2, applyCommentOperationV2, serializeCommentStateV2, deserializeCommentStateV2,
   type CommentAnchorV2, type CommentAttachmentV2, type CommentMessageV2, type CommentThreadV2,
   type CommentOperationV2, type CommentStateV2, type CommentResultV2,
@@ -307,6 +317,7 @@ export {
   serializeAuthoringDocumentV2,
   deserializeAuthoringDocumentV2,
   type RowEditCommandV2,
+  type StashFootageCommandV2,
   type RowEditResultV2,
   type RowGapV2,
 } from "./authoring-v2-rows.js";

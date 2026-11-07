@@ -1399,3 +1399,41 @@ describe("pure v2 compiler", () => {
     }
   });
 });
+
+import { researchOccurrence } from "./issue-367-fixture.js";
+
+describe("Research snapshot readiness (issue 367 phase 3)", () => {
+  const needs = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => resolveMediaRequirementsV2(doc, {
+    timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+    sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate,
+  });
+
+  it("refuses unresolved Research footage instead of timing it as a still, even with preview overrides", () => {
+    const doc = visualOnlyDocument(researchOccurrence(730100, false));
+    const deps = visualOnlyDependencies();
+    deps.build.forcePreviewVisuals = true;
+    const original = structuredClone(doc);
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok).toBe(false);
+    if (!compiled.ok) expect(compiled.diagnostics.map((d) => d.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
+    const ready = needs(doc, deps);
+    expect(ready.ok).toBe(false);
+    if (!ready.ok) expect(ready.diagnostics.map((d) => d.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
+    expect(doc).toEqual(original);
+  });
+
+  it("does not invent a source rate or substitute an unrelated media descriptor for a bound Research occurrence", () => {
+    const clip = researchOccurrence(730200);
+    const doc = visualOnlyDocument(clip);
+    const deps = visualOnlyDependencies();
+    const needsResult = needs(doc, deps);
+    expect(needsResult.ok).toBe(false);
+    if (!needsResult.ok) expect(needsResult.diagnostics.map((d) => d.code)).toContain("SOURCE_MAPPING_MISMATCH");
+    const compiled = compileTimelineV2(doc, deps);
+    // Compilation may generate a blocked report, but cannot produce a verified visual event.
+    if (compiled.ok) {
+      expect(compiled.report.diagnostics.some((d) => d.code === "SOURCE_MAPPING_MISMATCH" || d.code === "MISSING_OCCURRENCE_BINDING")).toBe(true);
+      expect(compiled.manifest.events.some((event) => event.kind === "primary_visual")).toBe(false);
+    } else expect(compiled.diagnostics.length).toBeGreaterThan(0);
+  });
+});
