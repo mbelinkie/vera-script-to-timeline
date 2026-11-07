@@ -2,21 +2,36 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, TypedDict
 
 import pytest
 from vera_timeline_agent import resolve_test_queue_reverse as reverse
 
 
-def native_pair() -> tuple[dict, dict]:
+class _ReverseArguments(TypedDict):
+    proof_path: Path
+    proof_sha256: str
+    pristine_result_path: Path
+    pristine_result_sha256: str
+    edited_result_path: Path
+    edited_result_sha256: str
+    fresh_session_path: Path
+    fresh_session_sha256: str
+    fresh_result_path: Path
+    fresh_result_sha256: str
+
+
+def native_pair() -> tuple[dict[str, Any], dict[str, Any]]:
     target = {
         "projectUid": "fresh-project-uid",
         "timelineUid": "fresh-timeline-uid",
         "projectName": "VERA312 synthetic fresh",
         "timelineName": "VERA312 synthetic fresh",
     }
-    items = [
+    items: list[dict[str, Any]] = [
         {
             "itemUid": f"item-{i}",
             "eventId": f"picture-{i:02d}" if i <= 2 else f"event-{i}",
@@ -36,7 +51,7 @@ def native_pair() -> tuple[dict, dict]:
         }
         for i in range(1, 12)
     ]
-    geometry = {
+    geometry: dict[str, Any] = {
         "rate": "24000/1001",
         "extentFrames": 1407,
         "context": {"target": target, "phase": "pristine"},
@@ -82,7 +97,9 @@ def test_supported_boundary_exact_native_geometry() -> None:
         lambda b, a: a["tracks"].append({"trackId": "extra"}),
     ],
 )
-def test_supported_boundary_refuses_mutations(mutation) -> None:
+def test_supported_boundary_refuses_mutations(
+    mutation: Callable[[dict[str, Any], dict[str, Any]], object],
+) -> None:
     before, after = native_pair()
     mutation(before, after)
     with pytest.raises(reverse.ReverseRefusal):
@@ -90,8 +107,8 @@ def test_supported_boundary_refuses_mutations(mutation) -> None:
 
 
 def test_receipt_gate_checks_real_verifier_and_fresh_rebuild(
-    monkeypatch, tmp_path: Path
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     before, after = native_pair()
     context_before, context_after = before["context"], after["context"]
     proof = SimpleNamespace(
@@ -148,7 +165,7 @@ def test_receipt_gate_checks_real_verifier_and_fresh_rebuild(
         "_load_terminal_output_with_comparison",
         lambda controller: (object(), {"status": "compared_consistent"}),
     )
-    arguments = {
+    arguments: _ReverseArguments = {
         "proof_path": tmp_path / "proof.json",
         "proof_sha256": "b" * 64,
         "pristine_result_path": tmp_path / "pristine.json",

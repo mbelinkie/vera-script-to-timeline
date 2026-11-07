@@ -39,17 +39,17 @@ def _require(value: bool, reason: str) -> None:
 
 def _items(geometry: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     rows = geometry.get("items")
-    _require(
-        isinstance(rows, list) and len(rows) == 11, "11 real native events required"
-    )
+    if not isinstance(rows, list) or len(rows) != 11:
+        raise ReverseRefusal("11 real native events required")
     items: dict[str, dict[str, Any]] = {}
     for row in rows:
         _require(isinstance(row, dict), "native item must be an object")
         uid = row.get("itemUid")
         _require(
-            isinstance(uid, str) and uid and uid not in items,
+            isinstance(uid, str) and bool(uid) and uid not in items,
             "unique item UID required",
         )
+        assert isinstance(uid, str)
         items[uid] = row
     return items
 
@@ -99,6 +99,7 @@ def verify_supported_boundary(
         None,
     )
     _require(left is not None, "original picture boundary 327 not found")
+    assert left is not None
     right = next((uid for uid in changed if uid != left), None)
     assert right is not None
     a, b = old[left], old[right]

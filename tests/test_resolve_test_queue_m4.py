@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from vera_timeline_agent import resolve_test_queue as queue
@@ -23,7 +26,7 @@ def _target() -> dict[str, str]:
     }
 
 
-def _plan() -> dict:
+def _plan() -> dict[str, Any]:
     return {
         "schema": m4.SCHEMA,
         "name": "reverse-312",
@@ -38,7 +41,7 @@ def _plan() -> dict:
 
 def _enroll(
     store: queue.Store, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     from vera_timeline_agent import qualification_output_controller_v2 as controller
     from vera_timeline_agent import qualification_output_native_v2 as native
 
@@ -108,7 +111,9 @@ def _write_receipt(store: queue.Store, job_id: str, *, corrupt: bool = False) ->
         lambda p: p.update(caseId="../other"),
     ],
 )
-def test_closed_plan_refuses_unsafe_identities(edit) -> None:
+def test_closed_plan_refuses_unsafe_identities(
+    edit: Callable[[dict[str, Any]], object],
+) -> None:
     plan = _plan()
     edit(plan)
     with pytest.raises(queue.QueueError):
@@ -123,7 +128,13 @@ def test_queue_stages_are_one_use_and_end_only_after_four_authentications(
     job_id, _ = _enroll(store, tmp_path, monkeypatch)
     verified: list[int] = []
 
-    def check(_store, _job, ordinal, _receipt, _intent_at):
+    def check(
+        _store: queue.Store,
+        _job: str,
+        ordinal: int,
+        _receipt: dict[str, Any],
+        _intent_at: str,
+    ) -> None:
         verified.append(ordinal)
 
     monkeypatch.setattr(m4, "_verify_stage", check)
@@ -271,7 +282,7 @@ def test_actual_free_space_check_has_no_forty_gib_threshold(
     # Ten GiB is below the Producer's overridden 40-GiB threshold but above
     # the real budget reserved for this synthetic test plan.
     monkeypatch.setattr(
-        m4.shutil, "disk_usage", lambda _: SimpleNamespace(free=10 * 1024**3)
+        shutil, "disk_usage", lambda _: SimpleNamespace(free=10 * 1024**3)
     )
     assert m4.worker_tick(store)
     assert m4.publish(store, job_id)["state"] == "awaiting_operator"
@@ -284,7 +295,7 @@ def test_insufficient_actual_space_blocks_before_intent(
 ) -> None:
     store = queue.Store(tmp_path / "queue")
     job_id, _ = _enroll(store, tmp_path, monkeypatch)
-    monkeypatch.setattr(m4.shutil, "disk_usage", lambda _: SimpleNamespace(free=1))
+    monkeypatch.setattr(shutil, "disk_usage", lambda _: SimpleNamespace(free=1))
     assert m4.worker_tick(store)
     assert m4.publish(store, job_id)["state"] == "blocked"
     assert not m4.any_unresolved(store)
@@ -299,7 +310,7 @@ def test_unresolved_native_owner_blocks_without_intent(
     store = queue.Store(tmp_path / "queue")
     job_id, _ = _enroll(store, tmp_path, monkeypatch)
 
-    def blocked():
+    def blocked() -> None:
         raise NativeOwnerError("owner_busy", "private detail")
 
     monkeypatch.setattr(m4, "preflight_native_owner", blocked)
