@@ -66,7 +66,7 @@ describe("Sorting selective projections", () => {
     }
     expect(doc.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id)).toEqual(note);
   });
-  it("refuses edits-only when an edited converted note would strand its baseline child", () => {
+  it("promotes untouched children of an edited saved parent in edits-only without changing baseline", () => {
     const parent = row(10);
     const child = clip(20);
     let baseline = apply(document(), {
@@ -91,9 +91,13 @@ describe("Sorting selective projections", () => {
     });
 
     const projected = projectSortingDocumentV2(stateWithEdit, edited, "edits_only");
-    expect(projected.ok).toBe(false);
-    expect(projected.diagnostics[0]?.code).toBe("SORTING_PROJECTION_DEPENDENCY_INVALID");
-    expect(projected.document).toBe(edited);
+    expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
+    expect(projected.document.stashOutline).toEqual([
+      { rowId: parent.id, kind: "row", parentRowId: null, sectionId: null },
+      { rowId: child.id, kind: "clip", parentRowId: null, sectionId: null },
+    ]);
+    expect(projected.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === parent.id)).toMatchObject({ text: "Edited parent" });
+    expect(baseline.stashOutline?.find((entry) => entry.rowId === child.id)?.parentRowId).toBe(parent.id);
   });
 
   it("refuses an edits-only birth whose original Stash section was created during Sorting", () => {

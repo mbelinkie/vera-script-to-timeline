@@ -76,6 +76,65 @@ function narration(doc: ScriptDocumentV2, rowId: string): NarrationBlockV2 {
 const activeIds = (doc: ScriptDocumentV2) => doc.activeDraft.blocks.map((item) => item.id);
 
 describe("content-editable Sorting", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes mixed edited-parent return as %s with exact replay, original history and no orphan", (outcome) => {
+    const baseline = seed();
+    const original = structuredClone(baseline);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(500)], destination: gap(id(300), null) });
+    const placedSnapshot = trial.document;
+    const parent = narration(trial.document, id(500));
+    apply(trial, { kind: "edit_row", rowId: parent.id, row: authored(parent) });
+    const editedSnapshot = trial.document;
+    apply(trial, { kind: "stash_rows", rowIds: [id(500), id(600)], bundleId: id(8900) });
+    expect(trial.document.stashOutline?.map((entry) => [entry.rowId, entry.kind, entry.parentRowId])).toEqual([
+      [id(400), "note", null], [id(500), "row", null], [id(600), "clip", null],
+    ]);
+    const pending = trial.preview();
+    const snapshot = trial.serialize();
+    if (outcome === "all") {
+      const undone = resumeSortingTrialV2(snapshot);
+      expect(undone.returnToSorting()).toBe(true);
+      for (const previous of [editedSnapshot, placedSnapshot, baseline]) {
+        expect(undone.undo().ok).toBe(true);
+        expect({ ...undone.document, rowEditRevision: 0 }).toEqual({ ...previous, rowEditRevision: 0 });
+      }
+    }
+    const resumed = resumeSortingTrialV2(snapshot);
+    expect(resumed.document).toEqual(pending);
+    expect(resumed.returnToSorting()).toBe(true);
+    const result = outcome === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, outcome);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.document).toEqual(result.document);
+    const entries = result.document.stashOutline!;
+    expect(entries.find((entry) => entry.rowId === id(500))?.kind).toBe(outcome === "all" || outcome === "edits_only" ? "row" : "note");
+    expect(entries.find((entry) => entry.rowId === id(600))?.parentRowId).toBe(
+      outcome === "all" || outcome === "edits_only" || outcome === "sorting_only" ? null : id(500),
+    );
+    expect(narration(result.document, id(500)).text).toBe(outcome === "all" || outcome === "edits_only" ? `EDIT ${row(500).text}` : row(500).text);
+    expect(baseline).toEqual(original);
+  });
+
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("honors exact drop for a returned mixed branch in %s, not guessed historical neighbors", (outcome) => {
+    const baseline = seed();
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(500)], destination: gap(id(300), null) });
+    const parent = narration(trial.document, id(500));
+    apply(trial, { kind: "edit_row", rowId: parent.id, row: authored(parent) });
+    apply(trial, { kind: "stash_rows", rowIds: [id(500), id(600)], bundleId: id(8910),
+      destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: id(400) } });
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.document).toEqual(trial.document);
+    const result = outcome === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, outcome);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    expect(result.document.stashOutline?.map((entry) => entry.rowId)).toEqual(
+      outcome === "all" || outcome === "sorting_only" ? [id(500), id(600), id(400)] : [id(400), id(500), id(600)],
+    );
+  });
+
   it("keeps attached-footage trims authored while parent-only placement remains layout", () => {
     const { doc, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(doc);

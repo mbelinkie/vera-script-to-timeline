@@ -11,6 +11,7 @@ import type {
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
+import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import { parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2, type RowEditCommandV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
@@ -271,7 +272,10 @@ export function updateSortingProjectionV2(
     }
     if (baselineRows.has(rowId) && !next.tombstones.some((tombstone) => tombstone.rowId === rowId)) {
       const slot = beforeSlots.get(rowId);
-      const origin = beforeRows.get(rowId)?.stashOrigin;
+      // A deleted saved row has no stashOrigin; freeze the actual last Stash
+      // position now, while its siblings and original note parent still exist.
+      const origin = beforeRows.get(rowId)?.stashOrigin ??
+        (slot?.surface === "stash" ? originForSlot(slot, before) : undefined);
       if (slot) next.tombstones.push({ rowId, slot: structuredClone(slot), ...(origin ? { origin: structuredClone(origin) } : {}) });
     }
   }
@@ -589,8 +593,83 @@ function restoreStashSiblingBatch(document: ScriptDocumentV2, rows: Map<string, 
   return true;
 }
 
-function restoreStashBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string>): boolean {
-  const pending = [...tombstones];
+function restoreHistoricalStashBatch(
+  document: ScriptDocumentV2, rows: Map<string, Row>, historical: Tombstone[], bornIds: ReadonlySet<string>,
+): boolean {
+  const byId = new Map(historical.map((item) => [item.rowId, item]));
+  const outgoing = new Map(historical.map((item) => [item.rowId, new Set<string>()]));
+  const incoming = new Map(historical.map((item) => [item.rowId, 0]));
+  const addEdge = (before: string, after: string): void => {
+    if (before === after || !outgoing.has(before) || !outgoing.has(after) || outgoing.get(before)!.has(after)) return;
+    outgoing.get(before)!.add(after);
+    incoming.set(after, incoming.get(after)! + 1);
+  };
+  for (const item of historical) {
+    const origin = item.origin!;
+    if (origin.parentRowId !== null && bornIds.has(origin.parentRowId)) return false;
+    if (origin.parentRowId !== null) addEdge(origin.parentRowId, item.rowId);
+    for (const sibling of origin.precedingSiblingRowIds ?? (origin.afterSiblingRowId ? [origin.afterSiblingRowId] : [])) addEdge(sibling, item.rowId);
+    for (const sibling of origin.followingSiblingRowIds ?? (origin.beforeSiblingRowId ? [origin.beforeSiblingRowId] : [])) addEdge(item.rowId, sibling);
+  }
+  const ordered: Tombstone[] = [];
+  const pending = new Set(historical.map((item) => item.rowId));
+  while (pending.size > 0) {
+    const next = [...pending].find((id) => incoming.get(id) === 0);
+    if (!next) return false; // contradictory frozen historical order
+    ordered.push(byId.get(next)!);
+    pending.delete(next);
+    for (const after of outgoing.get(next)!) incoming.set(after, incoming.get(after)! - 1);
+  }
+  const cursors = new Map<string, string>();
+  for (const item of ordered) {
+    if (item.slot.surface !== "stash" || !item.origin) return false;
+    const origin = item.origin;
+    const entries = effectiveOutline(document);
+    const parent = origin.parentRowId === null ? { kind: "root" as const } :
+      entries.some((entry) => entry.rowId === origin.parentRowId && entry.kind === "note")
+        ? { kind: "note" as const, rowId: origin.parentRowId }
+        : { kind: "invalid" as const };
+    const chosen = chooseReturnSlotV2({
+      origin, entries, sectionIds: new Set((document.stashSections ?? []).map((section) => section.id)), parent,
+    });
+    const peers = entries.filter((entry) => entry.parentRowId === chosen.parentRowId && entry.sectionId === chosen.sectionId);
+    let afterSiblingRowId: string | null = null;
+    let beforeSiblingRowId: string | null;
+    if (chosen.kind === "after") {
+      const index = peers.findIndex((entry) => entry.rowId === chosen.siblingRowId);
+      if (index < 0) return false;
+      afterSiblingRowId = chosen.siblingRowId;
+      beforeSiblingRowId = peers[index + 1]?.rowId ?? null;
+    } else if (chosen.kind === "before") {
+      const index = peers.findIndex((entry) => entry.rowId === chosen.siblingRowId);
+      if (index < 0) return false;
+      afterSiblingRowId = peers[index - 1]?.rowId ?? null;
+      beforeSiblingRowId = chosen.siblingRowId;
+    } else {
+      const key = `${chosen.kind}:${chosen.parentRowId ?? ""}:${chosen.sectionId ?? ""}`;
+      const cursor = cursors.get(key);
+      if (cursor && peers.some((entry) => entry.rowId === cursor)) {
+        const index = peers.findIndex((entry) => entry.rowId === cursor);
+        afterSiblingRowId = cursor;
+        beforeSiblingRowId = peers[index + 1]?.rowId ?? null;
+      } else beforeSiblingRowId = peers[0]?.rowId ?? null;
+      cursors.set(key, item.rowId);
+    }
+    const slot: RowSlot = {
+      ...item.slot,
+      entry: { ...item.slot.entry, parentRowId: chosen.parentRowId, sectionId: chosen.sectionId },
+      afterSiblingRowId, beforeSiblingRowId,
+    };
+    const row = rows.get(item.rowId);
+    if (!row || !addRow(document, row, slot)) return false;
+  }
+  return true;
+}
+
+function restoreStashBatch(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string>, bornIds: ReadonlySet<string>): boolean {
+  const historical = tombstones.filter((item) => item.slot.surface === "stash" && !!item.origin);
+  if (historical.length > 0 && !restoreHistoricalStashBatch(document, rows, historical, bornIds)) return false;
+  const pending = tombstones.filter((item) => !historical.includes(item));
   while (pending.length > 0) {
     const entries = effectiveOutline(document);
     const ready = pending.filter((item) => stashParentReady(item.slot, entries));
@@ -616,11 +695,11 @@ function stashParentReady(slot: RowSlot, entries: StashOutlineEntryV2[]): boolea
   return slot.surface === "stash" && (slot.entry.parentRowId === null || entries.some((entry) => entry.rowId === slot.entry.parentRowId));
 }
 
-function restoreTombstoneBatches(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string> = new Set()): boolean {
+function restoreTombstoneBatches(document: ScriptDocumentV2, rows: Map<string, Row>, tombstones: Tombstone[], ignoredIds: ReadonlySet<string> = new Set(), bornIds: ReadonlySet<string> = new Set()): boolean {
   const draft = tombstones.filter((item) => item.slot.surface === "draft");
   const stash = tombstones.filter((item) => item.slot.surface === "stash");
   if (draft.length > 0 && !restoreDraftBatch(document, rows, draft, ignoredIds)) return false;
-  if (stash.length > 0 && !restoreStashBatch(document, rows, stash, ignoredIds)) return false;
+  if (stash.length > 0 && !restoreStashBatch(document, rows, stash, ignoredIds, bornIds)) return false;
   return true;
 }
 
@@ -660,7 +739,10 @@ function rowsByLocation(document: ScriptDocumentV2): Map<string, RowSlot> {
   return slotRecords(document);
 }
 
-function originForSlot(slot: Extract<RowSlot, { surface: "stash" }>): StashOriginV2 {
+function originForSlot(slot: Extract<RowSlot, { surface: "stash" }>, baseline: ScriptDocumentV2): StashOriginV2 {
+  const entries = effectiveOutline(baseline);
+  const neighbors = freezeOriginalSiblingCandidatesV2(entries, slot.entry.rowId);
+  const parent = freezeOriginalParentContextV2(entries, slot.entry.rowId);
   return {
     kind: slot.entry.kind,
     parentRowId: slot.entry.parentRowId,
@@ -668,6 +750,8 @@ function originForSlot(slot: Extract<RowSlot, { surface: "stash" }>): StashOrigi
     afterSiblingRowId: slot.afterSiblingRowId,
     beforeSiblingRowId: slot.beforeSiblingRowId,
     returnEligible: true,
+    ...(neighbors ?? {}),
+    ...(parent ? { originalParentContext: parent } : {}),
   };
 }
 
@@ -686,7 +770,7 @@ function normalizeRowForLocation(
     delete result.stashOrigin;
   } else if (mode === "sorting_only") {
     const original = rowMap(baseline).get(rowId);
-    const origin = layoutOrigin ?? original?.stashOrigin ?? (baselineSlot?.surface === "stash" ? originForSlot(baselineSlot) : undefined);
+    const origin = layoutOrigin ?? original?.stashOrigin ?? (baselineSlot?.surface === "stash" ? originForSlot(baselineSlot, baseline) : undefined);
     if (origin) result.stashOrigin = {
       ...structuredClone(origin),
       kind: baselineSlot?.surface === "stash" ? baselineSlot.entry.kind : original?.stashOrigin?.kind ?? origin.kind,
@@ -877,7 +961,7 @@ export function projectSortingDocumentV2(
     } else {
       const ghostByRow = new Map(state.ghostFallbacks.map((fallback) => [fallback.rowId, fallback.slot]));
       const tombstones = state.tombstones.map((item) => ghostByRow.has(item.rowId)
-        ? { ...item, slot: structuredClone(ghostByRow.get(item.rowId)!) }
+        ? { ...item, slot: structuredClone(ghostByRow.get(item.rowId)!), origin: undefined }
         : item);
       const neededBirths = deletedBirthDependencies(state, tombstones.map((item) => item.slot), "last");
       const restoreRows = new Map(baselineRows);
@@ -888,7 +972,7 @@ export function projectSortingDocumentV2(
       for (const birth of neededBirths) if (!restoreRows.has(birth.rowId)) restoreRows.set(birth.rowId, structuredClone(birth.row));
       const birthPlacements = neededBirths.map((birth) => ({ rowId: birth.rowId, slot: birth.lastSlot }));
       const ignoredIds = new Set(state.births.map((birth) => birth.rowId));
-      if (!restoreTombstoneBatches(output, restoreRows, [...tombstones, ...birthPlacements], ignoredIds)) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or exact slot no longer exists.");
+      if (!restoreTombstoneBatches(output, restoreRows, [...tombstones, ...birthPlacements], ignoredIds, new Set(state.births.map((birth) => birth.rowId)))) return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A deleted row's last section, Stash parent, or defensible historical return slot no longer exists.");
       for (const birth of state.births) {
         if (!independentDetached.has(birth.rowId) && removeRow(output, birth.rowId)) droppedIds.add(birth.rowId);
       }
@@ -1002,6 +1086,7 @@ function normalizeOutlineKinds(
   if (!output.stashOutline) return null;
   const baselineRows = rowMap(baseline);
   const currentRows = rowMap(current);
+  const outputRows = rowMap(output);
   for (const entry of output.stashOutline) {
     const baselineRow = baselineRows.get(entry.rowId);
     const currentRow = currentRows.get(entry.rowId);
@@ -1019,8 +1104,35 @@ function normalizeOutlineKinds(
         ? "row"
         : birth.slot.surface === "stash" ? birth.slot.entry.kind : "row";
     } else if (state.convertedEditedIds.includes(entry.rowId) && changed) entry.kind = "row";
-    const parent = entry.parentRowId === null ? undefined : output.stashOutline.find((candidate) => candidate.rowId === entry.parentRowId);
-    if (parent && parent.kind !== "note") return `Row ${entry.rowId} cannot remain under ${parent.rowId} after its parent becomes an ordinary row.`;
+    const wasNote = baselineSlot?.surface === "stash" && baselineSlot.entry.kind === "note" ||
+      birth?.slot.surface === "stash" && birth.slot.entry.kind === "note";
+    if (wasNote && entry.kind === "row") {
+      const row = outputRows.get(entry.rowId);
+      if (row?.type === "narration" && row.attachedFootage) return `Edited parent ${entry.rowId} still owns attached footage and cannot become a saved full row.`;
+    }
+  }
+  // Content and organization are composed separately. An edited note can
+  // become a saved full row in edits-only while its untouched children still
+  // occupy their baseline outline slots. Promote each direct child in place;
+  // the pre-order of its note/clip subtree and all row identities stay intact.
+  // Do not use this as a general repair for invalid parent/section pointers.
+  for (const entry of output.stashOutline) {
+    const visited = new Set([entry.rowId]);
+    while (entry.parentRowId !== null) {
+      if (visited.has(entry.parentRowId)) return `Row ${entry.rowId} has a cyclic Stash parent.`;
+      visited.add(entry.parentRowId);
+      const parent = output.stashOutline.find((candidate) => candidate.rowId === entry.parentRowId);
+      if (!parent) return `Row ${entry.rowId} has no surviving Stash parent.`;
+      if (parent.sectionId !== entry.sectionId) return `Row ${entry.rowId} cannot cross the section of its original parent.`;
+      if (parent.kind === "note") break;
+      const originalParent = slotFor(baseline, parent.rowId);
+      const bornParent = state.births.find((item) => item.rowId === parent.rowId);
+      const converted = mode === "edits_only" && state.convertedEditedIds.includes(parent.rowId) &&
+        (originalParent?.surface === "stash" && originalParent.entry.kind === "note" ||
+          bornParent?.slot.surface === "stash" && bornParent.slot.entry.kind === "note");
+      if (!converted) return `Row ${entry.rowId} cannot remain under ${parent.rowId} after its parent becomes an ordinary row.`;
+      entry.parentRowId = parent.parentRowId;
+    }
   }
   return null;
 }
