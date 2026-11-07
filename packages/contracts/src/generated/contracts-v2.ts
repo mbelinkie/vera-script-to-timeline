@@ -663,6 +663,10 @@ export interface ScriptDocumentV2 {
    */
   stashOutline?: StashOutlineEntryV2[];
   /**
+   * Optional persisted organization of adjacent ordinary saved rows. Members reference canonical Stash identities, never copied row payloads or nested groups.
+   */
+  stashGroups?: StashRowGroupV2[];
+  /**
    * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
    */
   rowTransitions?: RowTransitionIntentV2[];
@@ -1072,6 +1076,18 @@ export interface StashOutlineEntryV2 {
   kind: "note" | "clip" | "row";
   parentRowId: string | null;
   sectionId: string | null;
+}
+export interface StashRowGroupV2 {
+  id: string;
+  /**
+   * @minItems 2
+   */
+  rowIds: [string, string, ...string[]];
+  /**
+   * Optional creator identity for the group only; does not change member authorship.
+   */
+  createdBy?: string;
+  createdAt?: string;
 }
 export interface RowTransitionIntentV2 {
   id: string;

@@ -213,6 +213,13 @@ class StashOutlineEntryV2(TypedDict):
     sectionId: EntityId | None
 
 
+class StashRowGroupV2(TypedDict):
+    id: EntityId
+    rowIds: list[EntityId]
+    createdBy: NotRequired[EntityId]
+    createdAt: NotRequired[str]
+
+
 class StashParentOriginContextV2(TypedDict):
     parentRowId: EntityId | None
     sectionId: EntityId | None
@@ -633,6 +640,7 @@ class ScriptDocumentV2(TypedDict):
     stash: NotRequired[list[RowStashBundleV2]]
     stashSections: NotRequired[list[StashSectionV2]]
     stashOutline: NotRequired[list[StashOutlineEntryV2]]
+    stashGroups: NotRequired[list[StashRowGroupV2]]
     rowTransitions: NotRequired[list[RowTransitionIntentV2]]
     rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
     rowReferences: NotRequired[list[OpaqueRowReferenceV2]]

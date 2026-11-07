@@ -3,6 +3,7 @@ import type {
   RowTransitionIntentV2,
   RowStashBundleV2,
   ScriptDocumentV2,
+  StashRowGroupV2,
   StashOriginV2,
   StashOutlineEntryV2,
   SupportingItemV2,
@@ -12,6 +13,7 @@ import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
+import { stashGroupLocationProblemV2 } from "./authoring-v2-stash-groups.js";
 import { parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2, type RowEditCommandV2, type RowEditResultV2 } from "./authoring-v2-rows.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
@@ -53,6 +55,16 @@ interface DetachedPlacement {
   clipRowId: string;
 }
 
+interface GroupRemoval {
+  groupId: string;
+  classification: "edit" | "organization";
+}
+
+interface GroupSaveBirth {
+  groupId: string;
+  rowId: string;
+}
+
 /** Serializable sidecar for composing the four Sorting outcomes by stable row identity. */
 export interface SortingProjectionV2 {
   baseline: ScriptDocumentV2;
@@ -64,6 +76,12 @@ export interface SortingProjectionV2 {
   identityConflicts: string[];
   /** Sorting (not content) converted a pre-existing embedded clip into a standalone row. */
   detachedPlacements: DetachedPlacement[];
+  /** A removed group can be restored in sorting-only only when removal deleted authored members. */
+  groupRemovals: GroupRemoval[];
+  /** New authored members added by one-Save remain with baseline groups in edits-only. */
+  groupSaveBirths: GroupSaveBirth[];
+  /** A removed group ID cannot acquire a second, potentially unrelated meaning in one trial. */
+  groupIdentityConflicts: string[];
 }
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -167,7 +185,17 @@ function selectedRows(document: ScriptDocumentV2, command: RowEditCommandV2): st
     case "stash_rows":
     case "restore_stash_rows":
     case "move_stash_rows":
+    case "stash_group_rows":
+    case "group_stash_rows":
       return command.rowIds;
+    case "move_stash_group":
+    case "ungroup_stash_group":
+    case "delete_stash_group":
+    case "place_stash_group":
+      return document.stashGroups?.find((group) => group.id === command.groupId)?.rowIds ?? [];
+    case "save_stash_group":
+      return [...new Set([...(document.stashGroups?.find((group) => group.id === command.groupId)?.rowIds ?? []),
+        ...command.members.map((member) => member.id)])];
     case "place_stash_rows":
       return subtreeRows(document, command.rowIds);
     case "restore_stash":
@@ -201,8 +229,11 @@ function destinationRows(command: RowEditCommandV2): string[] {
     case "move_rows":
     case "restore_stash_rows":
     case "place_stash_rows":
+    case "place_stash_group":
+    case "move_stash_group":
     case "create_row":
-      return [command.destination.afterRowId, command.destination.beforeRowId].filter((id): id is string => id !== null);
+      return command.kind === "move_stash_group" ? [command.afterRowId].filter((id): id is string => id !== null) :
+        [command.destination.afterRowId, command.destination.beforeRowId].filter((id): id is string => id !== null);
     default:
       return [];
   }
@@ -211,7 +242,7 @@ function destinationRows(command: RowEditCommandV2): string[] {
 export function createSortingProjectionV2(baseline: ScriptDocumentV2): SortingProjectionV2 {
   const snapshot = structuredClone(baseline);
   const stableSlots = [...slotRecords(snapshot)].map(([rowId, slot]) => ({ rowId, slot }));
-  return { baseline: snapshot, births: [], tombstones: [], stableSlots, ghostFallbacks: [], convertedEditedIds: [], identityConflicts: [], detachedPlacements: [] };
+  return { baseline: snapshot, births: [], tombstones: [], stableSlots, ghostFallbacks: [], convertedEditedIds: [], identityConflicts: [], detachedPlacements: [], groupRemovals: [], groupSaveBirths: [], groupIdentityConflicts: [] };
 }
 
 /** Record identities and placement causes after a successful public operation; never replays it. */
@@ -227,6 +258,27 @@ export function updateSortingProjectionV2(
   const beforeSlots = slotRecords(before);
   const afterSlots = slotRecords(after);
   const baselineRows = rowMap(next.baseline);
+
+  if (command.kind === "save_stash_group") {
+    for (const member of command.members) {
+      if (!beforeRows.has(member.id) && !next.groupSaveBirths.some((item) => item.rowId === member.id)) {
+        next.groupSaveBirths.push({ groupId: command.groupId, rowId: member.id });
+      }
+    }
+  }
+  const priorGroupIds = new Set((before.stashGroups ?? []).map((group) => group.id));
+  const remainingGroupIds = new Set((after.stashGroups ?? []).map((group) => group.id));
+  for (const groupId of priorGroupIds) {
+    if (remainingGroupIds.has(groupId)) continue;
+    const classification = command.kind === "delete_stash_group" || command.kind === "save_stash_group" ? "edit" : "organization";
+    next.groupRemovals = [...next.groupRemovals.filter((item) => item.groupId !== groupId), { groupId, classification }];
+  }
+  for (const groupId of remainingGroupIds) {
+    if (!priorGroupIds.has(groupId) && next.groupRemovals.some((item) => item.groupId === groupId)) {
+      next.groupIdentityConflicts = [...new Set([...next.groupIdentityConflicts, groupId])];
+    }
+    next.groupRemovals = next.groupRemovals.filter((item) => item.groupId !== groupId);
+  }
 
   if (command.kind === "place_attached_footage") {
     const note = beforeRows.get(command.noteRowId);
@@ -294,7 +346,7 @@ export function updateSortingProjectionV2(
       continue;
     }
     const stable = next.stableSlots.find((item) => item.rowId === rowId)?.slot ?? oldSlot;
-    const ghostTarget = commandGhostTarget || command.kind === "set_stash_outline" && slotDependsOnBirth(newSlot, bornIds);
+    const ghostTarget = commandGhostTarget || ["set_stash_outline", "move_stash_group"].includes(command.kind) && slotDependsOnBirth(newSlot, bornIds);
     if (ghostTarget) {
       if (!next.ghostFallbacks.some((item) => item.rowId === rowId)) next.ghostFallbacks.push({ rowId, slot: structuredClone(stable) });
     } else {
@@ -898,6 +950,62 @@ function applyRelationships(output: ScriptDocumentV2, baseline: ScriptDocumentV2
   if (output.rowReferences.length === 0) delete output.rowReferences;
 }
 
+/** Reconcile *complete* group records after row projection, never replay partial group commands.
+ * A Save's new members are authored births; a group's location/order is organization.
+ * Any incompatible mixture refuses rather than silently ungrouping surviving members.
+ */
+function projectStashGroups(
+  output: ScriptDocumentV2,
+  baseline: ScriptDocumentV2,
+  current: ScriptDocumentV2,
+  state: SortingProjectionV2,
+  mode: "edits_only" | "sorting_only",
+): string | null {
+  const baselineGroups = new Map((baseline.stashGroups ?? []).map((group) => [group.id, group]));
+  const currentGroups = new Map((current.stashGroups ?? []).map((group) => [group.id, group]));
+  const outputSavedIds = new Set((output.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => row.id)));
+  const outputActiveIds = new Set(output.activeDraft.blocks.map((row) => row.id));
+  const entries = output.stashOutline ?? [];
+  const index = new Map(entries.map((entry, position) => [entry.rowId, position]));
+  const candidates = mode === "edits_only" ? [...baselineGroups.values()] : [
+    ...currentGroups.values(),
+    ...[...baselineGroups.values()].filter((group) => !currentGroups.has(group.id) &&
+      state.groupRemovals.some((item) => item.groupId === group.id && item.classification === "edit")),
+  ];
+  const result: StashRowGroupV2[] = [];
+  const claimed = new Set<string>();
+  for (const group of candidates) {
+    const baselineGroup = baselineGroups.get(group.id);
+    const members = new Set(group.rowIds);
+    if (mode === "edits_only") {
+      for (const addition of state.groupSaveBirths) if (addition.groupId === group.id) members.add(addition.rowId);
+    } else if (baselineGroup) {
+      // A member deleted by Save is an edit: Sorting-only restores its canonical
+      // content and membership if the group still exists, or was removed by Save.
+      for (const rowId of baselineGroup.rowIds) members.add(rowId);
+    }
+    const activeMembers = [...members].filter((rowId) => outputActiveIds.has(rowId));
+    if (activeMembers.length > 0) return `Group ${group.id} has members on the active Draft after selective projection: ${activeMembers.join(", ")}.`;
+    const rowIds = [...members].filter((rowId) => outputSavedIds.has(rowId))
+      .sort((left, right) => (index.get(left) ?? Infinity) - (index.get(right) ?? Infinity));
+    if (rowIds.length < 2) continue; // One/zero members normalize to ordinary rows.
+    if (rowIds.some((rowId) => !index.has(rowId) || claimed.has(rowId))) {
+      return `Group ${group.id} has an unlocated or multiply owned member.`;
+    }
+    const candidate: StashRowGroupV2 = { ...structuredClone(group), rowIds: rowIds as [string, string, ...string[]] };
+    // Group conversion to ordinary rows is organization, even for originally
+    // compact notes/clips whose baseline kinds normalize back in Sorting-only.
+    if (mode === "sorting_only") for (const entry of entries) if (members.has(entry.rowId)) entry.kind = "row";
+    const invalid = stashGroupLocationProblemV2(output, candidate);
+    if (invalid) return `Group ${group.id} cannot be projected atomically: ${invalid}`;
+    rowIds.forEach((rowId) => claimed.add(rowId));
+    result.push(candidate);
+  }
+  if (result.length > 0) output.stashGroups = result;
+  else delete output.stashGroups;
+  return null;
+}
+
 function newErrors(baseline: ScriptDocumentV2, projected: ScriptDocumentV2): AuthoringDiagnosticV2[] {
   const key = (item: AuthoringDiagnosticV2) => `${item.code}\0${item.entityId ?? ""}\0${item.blockId ?? ""}\0${item.message}`;
   const prior = new Map<string, number>();
@@ -924,6 +1032,7 @@ export function projectSortingDocumentV2(
 ): RowEditResultV2 {
   try {
     if (state.identityConflicts.length > 0) return refuse(current, "SORTING_PROJECTION_IDENTITY_AMBIGUOUS", `Row IDs were reused after deletion: ${state.identityConflicts.join(", ")}. Start a new Sorting trial before selective acceptance.`);
+    if (state.groupIdentityConflicts.length > 0) return refuse(current, "SORTING_PROJECTION_IDENTITY_AMBIGUOUS", `Group IDs were reused after removal: ${state.groupIdentityConflicts.join(", ")}. Accept all changes or start a new trial.`);
     const baseline = state.baseline;
     const baselineRows = rowMap(baseline);
     const currentRows = rowMap(current);
@@ -946,7 +1055,26 @@ export function projectSortingDocumentV2(
         if (!row) return refuse(current, "SORTING_PROJECTION_ROW_MISSING", `New row ${birth.rowId} has no content snapshot for the selected result.`);
         restoreRows.set(birth.rowId, structuredClone(row));
       }
-      const birthPlacements = birthsToRestore.map((birth) => ({ rowId: birth.rowId, slot: birth.slot }));
+      const birthPlacements = birthsToRestore.map((birth) => {
+        const groupBirth = state.groupSaveBirths.find((item) => item.rowId === birth.rowId);
+        const baselineGroup = groupBirth && baseline.stashGroups?.find((group) => group.id === groupBirth.groupId);
+        if (!baselineGroup || birth.slot.surface !== "stash") return { rowId: birth.rowId, slot: birth.slot };
+        // The stage may have inserted this row before/among reordered members.
+        // Edits-only rejects that organization, but retains the authored new
+        // member directly after the baseline group, without moving old members.
+        const lastBaseline = baselineGroup.rowIds.at(-1)!;
+        const groupEnd = slotFor(baseline, lastBaseline);
+        if (!groupEnd || groupEnd.surface !== "stash") return { rowId: birth.rowId, slot: birth.slot };
+        const otherBirths = state.groupSaveBirths.filter((item) => item.groupId === baselineGroup.id);
+        const birthIndex = otherBirths.findIndex((item) => item.rowId === birth.rowId);
+        return { rowId: birth.rowId, slot: {
+          ...birth.slot,
+          entry: { rowId: birth.rowId, kind: "row" as const,
+            sectionId: groupEnd.entry.sectionId, parentRowId: groupEnd.entry.parentRowId },
+          afterSiblingRowId: birthIndex > 0 ? otherBirths[birthIndex - 1]!.rowId : lastBaseline,
+          beforeSiblingRowId: groupEnd.beforeSiblingRowId,
+        } };
+      });
       const ignoredIds = new Set([
         ...state.tombstones.map((tombstone) => tombstone.rowId),
         ...state.births.filter((birth) => !birth.present).map((birth) => birth.rowId),
@@ -1036,6 +1164,8 @@ export function projectSortingDocumentV2(
 
     const shapeProblem = normalizeOutlineKinds(output, baseline, current, state, mode);
     if (shapeProblem) return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", shapeProblem);
+    const groupProblem = projectStashGroups(output, baseline, current, state, mode);
+    if (groupProblem) return refuse(current, "SORTING_PROJECTION_GROUP_INVALID", groupProblem);
     const supportProblem = routeSupportingItems(output, baseline, current, mode, droppedIds);
     if (supportProblem) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", supportProblem);
     applyRelationships(output, baseline, current, mode);

@@ -164,6 +164,66 @@ function updateSpokenTiming(
 }
 
 describe("row-edit consumers", () => {
+  it("excludes grouped SAVED rows and their citations from every consumer; flattened placement is ordinary Draft material", () => {
+    const { document, dependencies } = input();
+    const original = structuredClone(document);
+    const first = stashedRow();
+    const second = structuredClone(first);
+    second.id = id(9201);
+    second.orderKey = "z-group-second";
+    second.text = "SECOND GROUP ROW";
+    second.tokens = [{ id: id(9202), value: second.text, startOffset: 0, endOffset: second.text.length }];
+    second.primaryVisualSequence!.id = id(9203);
+    const secondSlot = second.primaryVisualSequence!.slots[0]!;
+    secondSlot.id = id(9204);
+    if (secondSlot.kind !== "content" || secondSlot.payload.kind !== "visual") throw new Error("Expected visual row");
+    secondSlot.payload.payloadId = id(9205);
+    secondSlot.payload.source = { kind: "media_reference", mediaReferenceId: id(9206) };
+    const source = citation(first);
+    document.activeDraft.blocks.push(first, second);
+    document.activeDraft.supportingItems.push(source);
+    const groupId = id(9207);
+    const saved = applyRowEditV2(document, 0, {
+      kind: "stash_group_rows", rowIds: [first.id, second.id], bundleId: id(9208), groupId,
+      sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    if (!saved.ok) return;
+    expect(saved.document.stashGroups).toEqual([{ id: groupId, rowIds: [first.id, second.id] }]);
+    expect(saved.document.stash?.[0]?.supportingItems).toEqual([source]);
+    expect(saved.document.activeDraft.supportingItems).toEqual([]);
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(saved.document));
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    const originalExport = exportPrompter(original, exportSettings);
+    const savedExport = exportPrompter(reloaded.document, exportSettings);
+    expect(savedExport).toEqual(originalExport);
+    const originalCompile = compileTimelineV2(original, dependencies);
+    const groupedCompile = compileTimelineV2(reloaded.document, dependencies);
+    expect(groupedCompile).toEqual(originalCompile);
+    expect(mediaNeeds(reloaded.document, dependencies)).toEqual(mediaNeeds(original, dependencies));
+
+    const afterRowId = original.activeDraft.blocks.at(-1)!.id;
+    const destination = { sectionId: null, afterRowId, beforeRowId: null };
+    const flattened = applyRowEditV2(reloaded.document, reloaded.document.rowEditRevision ?? 0,
+      { kind: "place_stash_group", groupId, destination });
+    expect(flattened.ok, JSON.stringify(flattened.diagnostics)).toBe(true);
+    if (!flattened.ok) return;
+    expect(flattened.document.stashGroups).toBeUndefined();
+    expect(flattened.document.activeDraft.blocks.slice(-2).map((block) => block.id)).toEqual([first.id, second.id]);
+    expect(flattened.document.activeDraft.supportingItems).toEqual([source]);
+    const ungrouped = applyRowEditV2(reloaded.document, reloaded.document.rowEditRevision ?? 0,
+      { kind: "ungroup_stash_group", groupId });
+    expect(ungrouped.ok, JSON.stringify(ungrouped.diagnostics)).toBe(true);
+    if (!ungrouped.ok) return;
+    const ordinary = applyRowEditV2(ungrouped.document, ungrouped.document.rowEditRevision ?? 0,
+      { kind: "place_stash_rows", rowIds: [first.id, second.id], destination });
+    expect(ordinary.ok, JSON.stringify(ordinary.diagnostics)).toBe(true);
+    if (!ordinary.ok) return;
+    expect(exportPrompter(flattened.document, exportSettings)).toEqual(exportPrompter(ordinary.document, exportSettings));
+    expect(compileTimelineV2(flattened.document, dependencies)).toEqual(compileTimelineV2(ordinary.document, dependencies));
+    expect(mediaNeeds(flattened.document, dependencies)).toEqual(mediaNeeds(ordinary.document, dependencies));
+  });
   it.each(["", "[nested [literal]] 🌍", "orphan ] [\n'quoted'"])(
     "keeps a saved and placed plain note unspoken without inventing duration: %j",
     (text) => {
