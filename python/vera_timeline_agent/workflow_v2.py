@@ -1,7 +1,8 @@
 """Verified v2 package delivery through the injected Resolve scripting API.
 
 This module deliberately uses only the standard library plus the already accepted
-v1 Studio adapter.  The package's OpenTimelineIO file is hash-bound, never loaded.
+v1 Studio adapter.  The immutable native OTIO is independently attested and
+structurally checked before its separate, one-use Resolve import route.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from itertools import pairwise
 from pathlib import Path, PurePosixPath
 from typing import Any, TypeGuard, cast
 
+from . import native_image_motion
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -604,6 +606,24 @@ def _validate_view(
     ):
         raise WorkflowV2Error("delivery view arrays are malformed")
 
+    motion_still_source_ids: set[str] = set()
+    for event in cast(list[Any], manifest_events_value):
+        if not isinstance(event, Mapping) or event.get("kind") not in {
+            "primary_visual",
+            "overlay_visual",
+        }:
+            continue
+        treatment = event.get("pictureTreatment")
+        provenance = event.get("provenance")
+        if (
+            isinstance(treatment, Mapping)
+            and treatment.get("kind") == "still_frame"
+            and "imageMotion" in treatment
+            and isinstance(provenance, Mapping)
+            and isinstance(provenance.get("sourceId"), str)
+        ):
+            motion_still_source_ids.add(cast(str, provenance["sourceId"]))
+
     source_by_id: dict[str, Mapping[str, Any]] = {}
     for source_value in cast(list[Any], sources_value):
         source = _closed(
@@ -618,11 +638,25 @@ def _validate_view(
         relative = _safe_relative(source["path"], "delivery source path")
         parts = PurePosixPath(relative).parts
         expected_area = "Narration" if kind == "audio" else "Resolved"
+        source_basename = PurePosixPath(parts[2]).name if len(parts) == 3 else ""
+        # Preserve the attested legacy names. Newly frozen motion stills use
+        # an alphabet-only UUID stem, since Resolve treats ANY decimal run
+        # in a PNG filename as a numbered sequence, including <id>-still.png.
+        safe_name = source_basename.startswith(source_id + ".") or (
+            source_id in motion_still_source_ids
+            and kind == "still"
+            and (
+                source_basename.startswith(source_id + "-still.")
+                or source_basename.startswith(
+                    native_image_motion.native_still_stem(source_id) + "."
+                )
+            )
+        )
         if (
             len(parts) != 3
             or parts[0] != "Media"
             or parts[1] != expected_area
-            or not PurePosixPath(parts[2]).name.startswith(source_id + ".")
+            or not safe_name
         ):
             raise WorkflowV2Error(
                 "delivery source path is outside its pinned media folder"
@@ -969,12 +1003,377 @@ def _native_treatment_supported(
         # reopened picture treatment still require the external Studio gate.
         return False
     if kind == "still_frame":
+        if "imageMotion" in picture:
+            # A motion-bearing package takes the *whole-timeline* native OTIO
+            # route. The independent package writer already refuses geometry
+            # without a source/profile-specific Studio qualification.
+            return (
+                source.get("kind") == "still"
+                and picture.get("framingPolicy") in {"contain", "cover"}
+                and isinstance(picture.get("imageMotion"), Mapping)
+            )
         # Resolve currently maps contain only; cover/native need separately
         # verified property mappings before creation.
         return picture.get("framingPolicy") == "contain"
     if kind == "still":
         return source.get("kind") in {"video", "still"}
     return False
+
+
+def _requires_native_otio(view: Mapping[str, Any]) -> bool:
+    return any(
+        isinstance(event.get("pictureTreatment"), Mapping)
+        and "imageMotion" in event["pictureTreatment"]
+        for event in cast(list[Mapping[str, Any]], view["events"])
+    )
+
+
+def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
+    """Never silently lose the Append route's contain/neutral still properties."""
+    source_kinds = {source["id"]: source["kind"] for source in view["sources"]}
+    return any(
+        _uses_still_composition(event, source_kinds[event["sourceId"]])
+        and not (
+            isinstance(event.get("pictureTreatment"), Mapping)
+            and "imageMotion" in event["pictureTreatment"]
+        )
+        for event in view["events"]
+    )
+
+
+def _otio_frames(value: object, rate: float, label: str) -> int:
+    if not isinstance(value, Mapping) or value.get("OTIO_SCHEMA") != "TimeRange.1":
+        raise WorkflowV2Error(f"native OTIO {label} is not a time range")
+    duration = value.get("duration")
+    if (
+        not isinstance(duration, Mapping)
+        or duration.get("OTIO_SCHEMA") != "RationalTime.1"
+    ):
+        raise WorkflowV2Error(f"native OTIO {label} has no rational duration")
+    frames = duration.get("value")
+    source_rate = duration.get("rate")
+    if (
+        not isinstance(frames, (int, float))
+        or isinstance(frames, bool)
+        or not isinstance(source_rate, (int, float))
+        or isinstance(source_rate, bool)
+        or not math.isfinite(frames)
+        or not math.isfinite(source_rate)
+        or source_rate <= 0
+    ):
+        raise WorkflowV2Error(f"native OTIO {label} has invalid time values")
+    output_frames = frames * rate / source_rate
+    if (
+        not math.isfinite(output_frames)
+        or abs(output_frames - round(output_frames)) > 1e-6
+    ):
+        raise WorkflowV2Error(f"native OTIO {label} is not frame-aligned")
+    return round(output_frames)
+
+
+def _otio_start(value: object, label: str) -> int:
+    if not isinstance(value, Mapping) or value.get("OTIO_SCHEMA") != "TimeRange.1":
+        raise WorkflowV2Error(f"native OTIO {label} is not a time range")
+    start = value.get("start_time")
+    if not isinstance(start, Mapping) or start.get("OTIO_SCHEMA") != "RationalTime.1":
+        raise WorkflowV2Error(f"native OTIO {label} has no rational start")
+    number = start.get("value")
+    if (
+        not isinstance(number, (int, float))
+        or isinstance(number, bool)
+        or not math.isfinite(number)
+        or abs(number - round(number)) > 1e-6
+    ):
+        raise WorkflowV2Error(f"native OTIO {label} has a non-frame start")
+    return round(number)
+
+
+def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
+    """Reject surprising tracks, effects, sources or gaps before touching Resolve.
+
+    This is a stdlib injected-runtime check, not a replacement for the host's
+    full OTIO/package verifier. Import only the *attested* file, never a rebuilt
+    or substituted timeline. A failed import is not retried with Append.
+    """
+    manifest, view, root = package.manifest, package.view, package.root
+    path = _package_path(
+        root, f"Builds/{manifest['buildId']}/timeline.otio", "native OTIO"
+    )
+    doc = _strict_object(
+        _read_regular(path, "native OTIO", max_bytes=128 * 1024 * 1024), "native OTIO"
+    )
+    tracks = doc.get("tracks")
+    meta = doc.get("metadata")
+    identity = meta.get("vera") if isinstance(meta, Mapping) else None
+    if (
+        doc.get("OTIO_SCHEMA") != "Timeline.1"
+        or not isinstance(tracks, Mapping)
+        or tracks.get("OTIO_SCHEMA") != "Stack.1"
+        or not isinstance(tracks.get("children"), list)
+        or identity
+        != {
+            "schema_version": VIEW_SCHEMA_V2,
+            "manifest_id": manifest["id"],
+            "build_id": manifest["buildId"],
+            "timeline": view["timeline"],
+            "composition": view["composition"],
+        }
+    ):
+        raise WorkflowV2Error("native OTIO build or timeline identity differs")
+    expected_tracks = {track["id"]: track for track in view["tracks"]}
+    expected_events = {event["id"]: event for event in view["events"]}
+    sources = {source["id"]: source for source in view["sources"]}
+    seen_tracks: set[str] = set()
+    seen_events: set[str] = set()
+    rate_data = view["timeline"]["frameRate"]
+    rate = rate_data["numerator"] / rate_data["denominator"]
+    start = view["timeline"]["startFrame"]
+    end = start + view["timeline"]["durationFrames"]
+    for track in tracks["children"]:
+        if not isinstance(track, Mapping) or track.get("OTIO_SCHEMA") != "Track.1":
+            raise WorkflowV2Error("native OTIO has an unexpected track")
+        metadata = track.get("metadata")
+        identity = metadata.get("vera") if isinstance(metadata, Mapping) else None
+        track_id = identity.get("track_id") if isinstance(identity, Mapping) else None
+        expected = expected_tracks.get(track_id)
+        if (
+            expected is None
+            or track_id in seen_tracks
+            or identity
+            != {
+                "track_id": track_id,
+                "track_kind": expected["kind"],
+                "track_index": expected["index"],
+            }
+            or track.get("name") != expected["name"]
+            or track.get("kind")
+            != ("Video" if expected["kind"] == "video" else "Audio")
+            or not isinstance(track.get("children"), list)
+        ):
+            raise WorkflowV2Error("native OTIO track identity/order differs")
+        if not isinstance(track_id, str):
+            raise WorkflowV2Error("native OTIO track ID must be a string")
+        seen_tracks.add(track_id)
+        cursor = start
+        for child in track["children"]:
+            if not isinstance(child, Mapping):
+                raise WorkflowV2Error("native OTIO track child is invalid")
+            schema = child.get("OTIO_SCHEMA")
+            if schema == "Gap.1":
+                if _otio_start(child.get("source_range"), "gap") != 0:
+                    raise WorkflowV2Error("native OTIO gap has a nonzero source start")
+                cursor += _otio_frames(child.get("source_range"), rate, "gap")
+                continue
+            if schema != "Clip.2":
+                raise WorkflowV2Error("native OTIO has an unexpected track item")
+            meta = child.get("metadata")
+            vera = meta.get("vera") if isinstance(meta, Mapping) else None
+            event_id = vera.get("event_id") if isinstance(vera, Mapping) else None
+            event = expected_events.get(event_id)
+            if (
+                not isinstance(vera, Mapping)
+                or not isinstance(event_id, str)
+                or event is None
+                or event_id in seen_events
+                or event["trackId"] != track_id
+            ):
+                raise WorkflowV2Error("native OTIO duplicates or substitutes an event")
+            record = event["recordRange"]
+            source = sources[event["sourceId"]]
+            if (
+                cursor != record["startFrame"]
+                or vera.get("record_range") != record
+                or vera.get("source_range") != event["sourceRange"]
+                or vera.get("v2_event") != event["v2Event"]
+                or vera.get("picture_treatment") != event["pictureTreatment"]
+                or vera.get("source_id") != source["id"]
+                or vera.get("source_kind") != source["kind"]
+                or _otio_frames(child.get("source_range"), rate, "clip")
+                != record["durationFrames"]
+                or _otio_start(child.get("source_range"), "clip")
+                != event["sourceRange"]["startFrame"]
+            ):
+                raise WorkflowV2Error("native OTIO event extent or provenance differs")
+            references = child.get("media_references")
+            ref = (
+                references.get(child.get("active_media_reference_key"))
+                if isinstance(references, Mapping)
+                else None
+            )
+            ref_meta = ref.get("metadata") if isinstance(ref, Mapping) else None
+            if (
+                not isinstance(ref, Mapping)
+                or ref.get("OTIO_SCHEMA") != "ExternalReference.1"
+                or ref.get("target_url") != source["path"]
+                or not isinstance(ref_meta, Mapping)
+                or ref_meta.get("vera")
+                != {
+                    "source_id": source["id"],
+                    "source_kind": source["kind"],
+                    "content_hash": source["contentHash"],
+                }
+            ):
+                raise WorkflowV2Error(
+                    "native OTIO media reference differs from package"
+                )
+            treatment = event.get("pictureTreatment")
+            has_motion = isinstance(treatment, Mapping) and "imageMotion" in treatment
+            effects = child.get("effects")
+            if not isinstance(effects, list) or len(effects) != (
+                2 if has_motion else 0
+            ):
+                raise WorkflowV2Error("native OTIO effect inventory differs")
+            if has_motion:
+                proof = vera.get("motion_qualification")
+                motion = treatment["imageMotion"]
+                if not isinstance(proof, str) or _CONTENT_HASH.fullmatch(proof) is None:
+                    raise WorkflowV2Error(
+                        "native OTIO has no frozen motion qualification"
+                    )
+                for effect, kind in zip(effects, (59, 22), strict=True):
+                    if (
+                        not isinstance(effect, Mapping)
+                        or effect.get("OTIO_SCHEMA") != "Effect.1"
+                        or effect.get("effect_name") != "Resolve Effect"
+                        or not isinstance(effect.get("metadata"), Mapping)
+                        or effect["metadata"].get("Resolve_OTIO", {}).get("Type")
+                        != kind
+                    ):
+                        raise WorkflowV2Error(
+                            "native OTIO effect is not the qualified Resolve type"
+                        )
+                dynamic = effects[0]["metadata"]["Resolve_OTIO"]
+                if dynamic.get("Enabled") is not (
+                    motion.get("mode") == "native_dynamic_zoom"
+                ):
+                    raise WorkflowV2Error("native OTIO None/zoom state differs")
+            elif isinstance(vera, Mapping) and "motion_qualification" in vera:
+                raise WorkflowV2Error("native OTIO unexpected motion qualification")
+            seen_events.add(event_id)
+            cursor += record["durationFrames"]
+        if cursor != end:
+            raise WorkflowV2Error("native OTIO missing end gap or event")
+    if seen_tracks != set(expected_tracks) or seen_events != set(expected_events):
+        raise WorkflowV2Error("native OTIO has missing tracks or events")
+    markers = tracks.get("markers")
+    if not isinstance(markers, list) or len(markers) != len(view["markers"]):
+        raise WorkflowV2Error("native OTIO marker inventory differs")
+    for actual, expected in zip(markers, view["markers"], strict=True):
+        if (
+            not isinstance(actual, Mapping)
+            or actual.get("OTIO_SCHEMA") != "Marker.2"
+            or not isinstance(actual.get("metadata"), Mapping)
+            or actual["metadata"].get("vera") != expected
+            or actual.get("name") != expected["name"]
+            or _otio_start(actual.get("marked_range"), "marker")
+            != expected["frame"] - start
+        ):
+            raise WorkflowV2Error("native OTIO script marker differs")
+    return path
+
+
+def _bind_native_otio_media_to_host(
+    package: VerifiedPackageV2,
+    signed_otio: Path,
+    attestation: Path,
+    attestation_sha256: str,
+) -> tuple[Path, str]:
+    """Derive one checked host-local OTIO from the unchanged signed package.
+
+    The accepted v2 OTIO must retain relative media references for immutable,
+    portable build identity. Installed Studio 21.1.1.10, however, can resolve
+    a relative still URL to an unrelated same-named original media file, or
+    omit the clip entirely. Its one-shot ImportTimelineFromFile needs an
+    *absolute* package media URL. Change only those exact URLs in a separate
+    immutable, host-specific import document; never modify the package.
+    """
+    if _verify_native_otio_plan(package) != signed_otio:
+        raise WorkflowV2Error("native OTIO source changed before host binding")
+    document = _strict_object(
+        _read_regular(signed_otio, "attested native OTIO", max_bytes=128 * 1024 * 1024),
+        "attested native OTIO",
+    )
+    track_stack = document.get("tracks")
+    if not isinstance(track_stack, dict) or not isinstance(
+        track_stack.get("children"), list
+    ):
+        raise WorkflowV2Error("native OTIO tracks changed before host binding")
+    sources = {source["id"]: source for source in package.view["sources"]}
+    events = {event["id"]: event for event in package.view["events"]}
+    rebound_events: set[str] = set()
+    for track in track_stack["children"]:
+        if not isinstance(track, dict) or not isinstance(track.get("children"), list):
+            raise WorkflowV2Error("native OTIO track changed before host binding")
+        for clip in track["children"]:
+            if not isinstance(clip, dict):
+                raise WorkflowV2Error("native OTIO item changed before host binding")
+            if clip.get("OTIO_SCHEMA") != "Clip.2":
+                continue
+            meta = clip.get("metadata")
+            vera = meta.get("vera") if isinstance(meta, dict) else None
+            event_id = vera.get("event_id") if isinstance(vera, dict) else None
+            source_id = vera.get("source_id") if isinstance(vera, dict) else None
+            event = events.get(event_id)
+            source = sources.get(source_id)
+            refs = clip.get("media_references")
+            ref = (
+                refs.get(clip.get("active_media_reference_key"))
+                if isinstance(refs, dict)
+                else None
+            )
+            if (
+                not isinstance(event_id, str)
+                or event_id in rebound_events
+                or event is None
+                or source is None
+                or event["sourceId"] != source_id
+                or not isinstance(ref, dict)
+                or ref.get("target_url") != source["path"]
+            ):
+                raise WorkflowV2Error("native OTIO media binding changed before import")
+            bound_media = _package_path(
+                package.root, source["path"], "host-local native OTIO media"
+            )
+            ref["target_url"] = str(bound_media)
+            rebound_events.add(event_id)
+    if rebound_events != set(events):
+        raise WorkflowV2Error("native OTIO host binding has missing events")
+
+    content = (
+        json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    if len(content) > 128 * 1024 * 1024:
+        raise WorkflowV2Error("host-local native OTIO exceeds the accepted size")
+    raw_id = _raw_hash(attestation_sha256, "native attestation digest")
+    parent = _regular_absolute(
+        attestation.parent, "native import destination", directory=True
+    )
+    if parent.is_relative_to(package.root):
+        raise WorkflowV2Error("host-local native OTIO cannot alter the package")
+    native_path = parent / f"native-bound-{raw_id}.otio"
+    if native_path.exists() or native_path.is_symlink():
+        if (
+            _read_regular(
+                native_path, "existing native import", max_bytes=128 * 1024 * 1024
+            )
+            != content
+        ):
+            raise WorkflowV2Error(
+                "previous host-local native OTIO changed; no overwrite"
+            )
+    else:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(native_path, flags, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except OSError as error:
+            raise WorkflowV2Error(
+                "could not bind native OTIO without overwrite"
+            ) from error
+    return native_path, _digest(content)
 
 
 def _fractional_multiframe_still(
@@ -1163,6 +1562,49 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
     return _canonical_json({"v2EventId": marker["id"], "v2EventSha256": digest})
 
 
+def _native_otio_scaling(framing: object) -> int:
+    """Independent Studio OTIO Type-22 scale readback, NOT SDK SCALE_*.
+
+    Studio 21.1.1.10's imported OTIO Type-22 scaling `2` means fit and `3`
+    means fill. The `resolve.SCALE_FIT` and `.SCALE_CROP` constants are an
+    unrelated SDK enum (on this installation they read 2.0 and 1.0). The
+    successful one-shot import was previously rejected by comparing the two
+    distinct enums. No other API-based placement route uses this mapping.
+    """
+    if framing == "contain":
+        return 2
+    if framing == "cover":
+        return 3
+    raise WorkflowV2Error("native OTIO framing policy has no measured scale value")
+
+
+def _native_otio_single_frame_hold(
+    event: Mapping[str, Any],
+    source: Mapping[str, Any],
+    manifest_source: Mapping[str, Any],
+) -> bool:
+    """Identify a frozen one-PNG-source native hold, not an ordinary video trim.
+
+    Studio reports source frames 0..0 for a one-frame PNG held for 24+ timeline
+    frames. Only the attested, motion-bearing still lane with a validated
+    one-frame media mapping can use that source clock. The authored *record*
+    duration is checked separately and never shortened or substituted.
+    """
+    picture = event.get("pictureTreatment")
+    frame_map = manifest_source.get("sourceFrameMap")
+    source_range = event.get("sourceRange")
+    return (
+        source.get("kind") == "still"
+        and isinstance(picture, Mapping)
+        and isinstance(picture.get("imageMotion"), Mapping)
+        and isinstance(frame_map, Mapping)
+        and type(frame_map.get("decodedPackageFrameCount")) is int
+        and frame_map["decodedPackageFrameCount"] == 1
+        and isinstance(source_range, Mapping)
+        and source_range.get("startFrame") == 0
+    )
+
+
 class PublicResolveAdapter(AcceptedDeliveryAdapter):
     """The accepted #109 target guard with v2-only placement and readback."""
 
@@ -1182,6 +1624,209 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_source_ranges: dict[str, tuple[int, int]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
+        self._native_otio_imported = False
+
+    def import_verified_otio(
+        self, otio_path: Path, view: Mapping[str, Any], timeline_name: str
+    ) -> None:
+        """Import exactly one attested timeline; never Append or retry on failure.
+
+        The import itself is a potentially uncertain native write. All source,
+        track, event and gap checks are performed before the first marker edit.
+        A partial import is retained rather than repaired in-place.
+        """
+        self.assert_current_target()
+        if (
+            self.expected_timeline_id is not None
+            or self.expected_events
+            or self.project.GetTimelineCount() != 0
+        ):
+            raise WorkflowV2Error("native OTIO requires one fresh empty target")
+        imported = self.pool.ImportTimelineFromFile(
+            str(otio_path), {"timelineName": timeline_name, "importSourceClips": True}
+        )
+        if imported is None or imported is False:
+            raise WorkflowV2Error(
+                "native OTIO import returned no timeline; never retry"
+            )
+        if (
+            self.project.GetTimelineCount() != 1
+            or imported.GetName() != timeline_name
+            or not self.project.SetCurrentTimeline(imported)
+        ):
+            raise WorkflowV2Error("native OTIO created an unexpected timeline target")
+        self.timeline = imported
+        self.expected_timeline_name = timeline_name
+        timeline_id = imported.GetUniqueId()
+        if not isinstance(timeline_id, str) or not timeline_id:
+            raise WorkflowV2Error("native OTIO timeline lacks a unique identity")
+        self.expected_timeline_id = timeline_id
+        self.assert_current_target()
+        self._native_otio_imported = True
+        self._bind_imported_media(view)
+        self._check_imported_items(view)
+
+        # Native OTIO can import raw timeline markers, but not VERA's custom
+        # readback stamp. Replace *only* the expected marker positions on this
+        # newly created target; unexpected imported markers are a refusal.
+        marker_frames = {marker["frame"] for marker in view["markers"]}
+        imported_markers = self.timeline.GetMarkers()
+        if (
+            not isinstance(imported_markers, Mapping)
+            or not set(imported_markers) <= marker_frames
+        ):
+            raise WorkflowV2Error("native OTIO imported unexpected script markers")
+        for frame in sorted(imported_markers):
+            self.assert_current_target()
+            if not self.timeline.DeleteMarkerAtFrame(frame):
+                raise WorkflowV2Error("native OTIO marker cannot be safely restamped")
+        for event in cast(list[Mapping[str, Any]], view["events"]):
+            self.assert_current_target()
+            track = next(t for t in view["tracks"] if t["id"] == event["trackId"])
+            items = self.timeline.GetItemListInTrack(track["kind"], track["index"])
+            item = next(
+                value
+                for value in items
+                if value.GetStart(False) == event["recordRange"]["startFrame"]
+            )
+            stamp = _stamp(event)
+            if not item.AddMarker(0, "Cyan", "VERA v2 event", event["id"], 1, stamp):
+                raise WorkflowV2Error("native OTIO event stamp failed")
+            event_id = cast(str, event["id"])
+            self.expected_events[event_id] = event
+            self.expected_stamps[event_id] = stamp
+            picture = event.get("pictureTreatment")
+            motion = (
+                picture.get("imageMotion") if isinstance(picture, Mapping) else None
+            )
+            if isinstance(motion, Mapping):
+                framing = cast(Mapping[str, Any], picture).get("framingPolicy")
+                self.expected_properties[event_id] = {
+                    "DynamicZoomEnabled": motion.get("mode") == "native_dynamic_zoom",
+                    "Scaling": _native_otio_scaling(framing),
+                }
+            else:
+                self.expected_properties[event_id] = {}
+            source_range = cast(Mapping[str, int], event["sourceRange"])
+            self.expected_source_ranges[event_id] = (
+                source_range["startFrame"],
+                source_range["startFrame"] + source_range["durationFrames"] - 1,
+            )
+
+    def _bind_imported_media(self, view: Mapping[str, Any]) -> None:
+        sources = cast(list[Mapping[str, Any]], view["sources"])
+        expected = {
+            _package_path(self._v2_root, source["path"], "native OTIO source"): source[
+                "id"
+            ]
+            for source in sources
+        }
+        if len(expected) != len(sources):
+            raise WorkflowV2Error("native OTIO reuses an ambiguous media path")
+        discovered: dict[Path, Any] = {}
+        timeline_media = self.timeline.GetMediaPoolItem()
+        timeline_media_id = timeline_media.GetMediaId() if timeline_media else None
+        pending = [self.pool.GetRootFolder()]
+        seen_folders: set[str] = set()
+        while pending:
+            folder = pending.pop()
+            folder_id = folder.GetUniqueId()
+            if not isinstance(folder_id, str) or folder_id in seen_folders:
+                raise WorkflowV2Error("native OTIO has a cyclic or duplicate media bin")
+            seen_folders.add(folder_id)
+            for item in folder.GetClipList():
+                if item.GetMediaId() == timeline_media_id:
+                    continue
+                path = item.GetClipProperty("File Path")
+                if not isinstance(path, str) or not path:
+                    raise WorkflowV2Error(
+                        "native OTIO imported a media item without a file"
+                    )
+                absolute = Path(path).resolve()
+                if absolute in discovered or absolute not in expected:
+                    raise WorkflowV2Error(
+                        "native OTIO duplicated or substituted package media"
+                    )
+                discovered[absolute] = item
+            pending.extend(folder.GetSubFolderList())
+        if set(discovered) != set(expected):
+            raise WorkflowV2Error("native OTIO media inventory is incomplete")
+        self.media_by_source = {
+            source_id: discovered[path] for path, source_id in expected.items()
+        }
+        self.media_id_by_source = {}
+        for source_id, item in self.media_by_source.items():
+            media_id = item.GetMediaId()
+            if not isinstance(media_id, str) or not media_id:
+                raise WorkflowV2Error(
+                    "native OTIO imported source lacks media identity"
+                )
+            self.media_id_by_source[source_id] = media_id
+        if len(set(self.media_id_by_source.values())) != len(sources):
+            raise WorkflowV2Error("native OTIO media identities collide")
+
+    def _check_imported_items(self, view: Mapping[str, Any]) -> None:
+        tracks = cast(list[Mapping[str, Any]], view["tracks"])
+        if self.timeline.GetStartFrame() != view["timeline"]["startFrame"] or (
+            self.timeline.GetEndFrame()
+            != view["timeline"]["startFrame"] + view["timeline"]["durationFrames"]
+        ):
+            raise WorkflowV2Error("native OTIO changed the authored timeline duration")
+        for kind in ("video", "audio", "subtitle"):
+            if self.timeline.GetTrackCount(kind) != max(
+                (t["index"] for t in tracks if t["kind"] == kind), default=0
+            ):
+                raise WorkflowV2Error("native OTIO created duplicate or missing tracks")
+        for track in tracks:
+            kind, index = track["kind"], track["index"]
+            if self.timeline.GetTrackName(kind, index) != track["name"]:
+                raise WorkflowV2Error("native OTIO changed the source track name")
+            wanted = sorted(
+                (e for e in view["events"] if e["trackId"] == track["id"]),
+                key=lambda e: e["recordRange"]["startFrame"],
+            )
+            actual = sorted(
+                self.timeline.GetItemListInTrack(kind, index),
+                key=lambda item: item.GetStart(False),
+            )
+            if len(actual) != len(wanted):
+                raise WorkflowV2Error("native OTIO duplicated or dropped an event")
+            for event, item in zip(wanted, actual, strict=True):
+                record = event["recordRange"]
+                media = item.GetMediaPoolItem()
+                picture = event.get("pictureTreatment")
+                motion = (
+                    picture.get("imageMotion") if isinstance(picture, Mapping) else None
+                )
+                expected_zoom = (
+                    motion.get("mode") == "native_dynamic_zoom"
+                    if isinstance(motion, Mapping)
+                    else None
+                )
+                if (
+                    item.GetStart(False) != record["startFrame"]
+                    or item.GetDuration(False) != record["durationFrames"]
+                    or media is None
+                    or media.GetMediaId()
+                    != self.media_id_by_source.get(event["sourceId"])
+                ):
+                    raise WorkflowV2Error(
+                        "native OTIO event order, duration or source differs"
+                    )
+                if expected_zoom is not None:
+                    properties = item.GetProperties()
+                    framing = cast(Mapping[str, Any], picture).get("framingPolicy")
+                    scale = _native_otio_scaling(framing)
+                    if (
+                        not isinstance(properties, Mapping)
+                        or not _property_equal(
+                            properties.get("DynamicZoomEnabled"), expected_zoom
+                        )
+                        or not _property_equal(properties.get("Scaling"), scale)
+                    ):
+                        raise WorkflowV2Error(
+                            "native OTIO lost qualified scaling/zoom on import"
+                        )
 
     def place_event(self, event: Mapping[str, Any]) -> None:
         self.assert_current_target()
@@ -1484,6 +2129,28 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         - 1,
                                     ),
                                 )
+                                manifest_source = getattr(
+                                    self, "_v2_manifest_sources", {}
+                                ).get(cast(str, event["sourceId"]), {})
+                                if getattr(
+                                    self, "_native_otio_imported", False
+                                ) and _native_otio_single_frame_hold(
+                                    event, source_record, manifest_source
+                                ):
+                                    # The verified PNG has ONE source frame,
+                                    # even though its output hold spans the
+                                    # independently checked record duration.
+                                    expected_source_range = (0, 0)
+                                    held_media = item.GetMediaPoolItem()
+                                    count = (
+                                        held_media.GetClipProperty("Frames")
+                                        if held_media is not None
+                                        else None
+                                    )
+                                    if count != "1" and not (
+                                        type(count) is int and count == 1
+                                    ):
+                                        discrepancies.append("event-source-frames")
                                 if (
                                     item.GetSourceStartFrame()
                                     != expected_source_range[0]
@@ -1542,6 +2209,12 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
     def _verify_media_inventory(
         self, view: Mapping[str, Any], discrepancies: list[str]
     ) -> None:
+        if self._native_otio_imported:
+            try:
+                self._bind_imported_media(view)
+            except (WorkflowV2Error, AttributeError, KeyError, TypeError):
+                discrepancies.append("native-otio-media-inventory")
+            return
         folder = self.pool.GetRootFolder()
         for name in self.created_bins:
             folder = next(
@@ -2060,6 +2733,16 @@ def run_workflow_delivery_v2(
             raise WorkflowV2Error(
                 "a picture treatment lacks a qualified native mapping"
             )
+        native_otio = _requires_native_otio(view)
+        result["nativeOtioMotionRoute"] = native_otio
+        result["nativeOtioMixedStillsQualified"] = not (
+            native_otio and _native_otio_has_unqualified_plain_stills(view)
+        )
+        if not result["nativeOtioMixedStillsQualified"] and action == "build":
+            raise WorkflowV2Error(
+                "native OTIO mixed plain-still composition is unqualified"
+            )
+        otio_path = _verify_native_otio_plan(package) if native_otio else None
         if resolve is None:
             raise WorkflowV2Error("Resolve did not inject an API object")
         settings = _native_settings(
@@ -2084,6 +2767,17 @@ def run_workflow_delivery_v2(
             not in SUPPORTED_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
+        if native_otio and (
+            getattr(connected, "version", None),
+            getattr(connected, "build", None),
+        ) != ("21.1.1", "10"):
+            # The general v2 delivery adapter accepts 21.1.0/14 too, but
+            # imported Type-22/59 still motion and raster geometry have only
+            # been positively qualified in installed Studio 21.1.1 build 10.
+            # An older otherwise-supported Studio must refuse before writes.
+            raise WorkflowV2Error(
+                "native image motion requires measured Studio 21.1.1 build 10"
+            )
         result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
         adapter.check_project_name_available(attestation["projectName"])
@@ -2095,6 +2789,17 @@ def run_workflow_delivery_v2(
             if not result["nativeRateQualified"]:
                 result["nativeRateLimitation"] = "24000/1001 is not natively qualified."
             return result
+
+        native_bound_path: Path | None = None
+        native_bound_digest: str | None = None
+        if native_otio:
+            if otio_path is None:
+                raise WorkflowV2Error("attested native OTIO is missing")
+            stage = "bind exact native OTIO media to host"
+            native_bound_path, native_bound_digest = _bind_native_otio_media_to_host(
+                package, otio_path, attestation_path, attestation_sha256
+            )
+            result["nativeBoundOtioSha256"] = native_bound_digest
 
         cast(Any, adapter)._v2_root = package.root
         cast(Any, adapter)._v2_timeline = timeline
@@ -2116,6 +2821,11 @@ def run_workflow_delivery_v2(
             current = load_verified_package_v2(attestation_path, attestation_sha256)
             if current != package:
                 raise WorkflowV2Error("package changed before a native operation")
+            if native_bound_path is not None and (
+                _digest(_read_regular(native_bound_path, "native import file"))
+                != native_bound_digest
+            ):
+                raise WorkflowV2Error("host-local native OTIO changed before mutation")
             if mutation_started:
                 adapter.assert_current_target()
             mutation_started = True
@@ -2125,24 +2835,52 @@ def run_workflow_delivery_v2(
             adapter.create_project, attestation["projectName"], label="create project"
         )
         mutate(adapter.configure_project, settings, label="configure project")
-        mutate(adapter.create_bin, "VERA Studio Assembly", label="create assembly bin")
-        mutate(adapter.create_bin, "Package Media", label="create package media bin")
-        sources = [
-            (
-                cast(str, source["id"]),
-                _package_path(package.root, source["path"], "delivery source"),
+        if native_otio:
+            # Import the whole attested OTIO once. AppendToTimeline's still
+            # duration is not exact on Studio, and mixing the two routes would
+            # duplicate clips, gaps and markers. There is no fallback/retry.
+            if native_bound_path is None:
+                raise WorkflowV2Error("native OTIO was not independently checked")
+            mutate(
+                adapter.import_verified_otio,
+                native_bound_path,
+                view,
+                attestation["timelineName"],
+                label="import exact native OTIO",
             )
-            for source in view["sources"]
-        ]
-        mutate(adapter.import_media, sources, label="import package media")
-        mutate(
-            adapter.create_timeline,
-            attestation["timelineName"],
-            label="create timeline",
-        )
-        mutate(adapter.configure_tracks, view["tracks"], label="configure tracks")
-        for event in view["events"]:
-            mutate(adapter.place_event, event, label="place timeline event")
+            # Reauthenticate the imported input immediately after the one-shot
+            # native call; a swapped package path cannot silently persist.
+            if (
+                load_verified_package_v2(attestation_path, attestation_sha256)
+                != package
+                or _verify_native_otio_plan(package) != otio_path
+                or _digest(_read_regular(native_bound_path, "native import file"))
+                != native_bound_digest
+            ):
+                raise WorkflowV2Error("native OTIO changed during one-shot import")
+        else:
+            mutate(
+                adapter.create_bin, "VERA Studio Assembly", label="create assembly bin"
+            )
+            mutate(
+                adapter.create_bin, "Package Media", label="create package media bin"
+            )
+            sources = [
+                (
+                    cast(str, source["id"]),
+                    _package_path(package.root, source["path"], "delivery source"),
+                )
+                for source in view["sources"]
+            ]
+            mutate(adapter.import_media, sources, label="import package media")
+            mutate(
+                adapter.create_timeline,
+                attestation["timelineName"],
+                label="create timeline",
+            )
+            mutate(adapter.configure_tracks, view["tracks"], label="configure tracks")
+            for event in view["events"]:
+                mutate(adapter.place_event, event, label="place timeline event")
         for marker in view["markers"]:
             mutate(adapter.add_v2_marker, marker, label="add timeline marker")
         mutate(

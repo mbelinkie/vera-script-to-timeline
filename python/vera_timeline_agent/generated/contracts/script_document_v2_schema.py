@@ -128,6 +128,26 @@ class UrlSource(TypedDict):
     url: str
 
 
+class ImageMotionFrameV1(TypedDict):
+    focusX: float
+    focusY: float
+    scale: float
+
+
+class ImageMotionV13(TypedDict):
+    mode: Literal["none"]
+
+
+class ImageMotionV14(TypedDict):
+    mode: Literal["native_dynamic_zoom"]
+    start: ImageMotionFrameV1
+    end: ImageMotionFrameV1
+    easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"]
+
+
+type ImageMotionV1 = ImageMotionV13 | ImageMotionV14
+
+
 class SelectedSourceRange(TypedDict):
     startFrame: NonNegativeSafeInteger
     durationFrames: PositiveSafeInteger
@@ -370,6 +390,7 @@ class NarratedVisualPayloadV2(TypedDict):
     sourceUsage: SourceUsage | None
     audioPolicy: Literal["mute", "quiet"]
     framingPolicy: Literal["contain", "cover", "native"]
+    imageMotion: NotRequired[ImageMotionV1]
     researchClip: NotRequired[ResearchClipSnapshotV2]
     frameBinding: NotRequired[ResearchFrameBindingV2]
     selectedSourceRange: NotRequired[SelectedSourceRange]
@@ -508,6 +529,7 @@ class StandaloneVisualPayloadV2(TypedDict):
     source: SourceReference
     audioPolicy: Literal["mute", "quiet", "full"]
     framingPolicy: Literal["contain", "cover", "native"]
+    imageMotion: NotRequired[ImageMotionV1]
 
 
 class VisualOnlyBlockV2(TypedDict):

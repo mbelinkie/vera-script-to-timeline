@@ -1,0 +1,231 @@
+"""One-use recovery of a synthetic #336 OTIO import after a bridge timeout.
+
+This is an investigation helper, not a product route.  It never reimports or
+places any clip, and refuses if the active Resolve project or source is not
+the exact disposable test target.  Do not replay an uncertain render request.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+
+def save_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload, sort_keys=True, indent=2, default=str) + "\n")
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def context(root: Path, name: str, manager: Any) -> tuple[Any, Any, Any, dict]:
+    project = manager.GetCurrentProject()
+    if project is None or project.GetName() != "VERA336-SYN-" + root.name:
+        raise RuntimeError("refuse: active project is not the exact disposable target")
+    if project.GetTimelineCount() != 1:
+        raise RuntimeError("refuse: synthetic project has unexpected timelines")
+    timeline = project.GetCurrentTimeline()
+    if timeline is None or timeline.GetName() != name:
+        raise RuntimeError("refuse: wrong native timeline")
+    clips = timeline.GetItemListInTrack("video", 1)
+    if len(clips) != 1 or clips[0].GetDuration() != 48:
+        raise RuntimeError("refuse: native occurrence duration/count changed")
+    item = clips[0].GetMediaPoolItem()
+    if item is None:
+        raise RuntimeError("refuse: no media-pool source")
+    actual = item.GetClipProperty("File Path")
+    source = root / "square.png"
+    if not isinstance(actual, str) or Path(actual).resolve() != source.resolve():
+        raise RuntimeError(
+            f"refuse: media source does not equal public grid: {actual!r}"
+        )
+    evidence = json.loads((root / "evidence.json").read_text())
+    if (
+        evidence.get("project") != project.GetName()
+        or evidence["cases"].get(name, {}).get("status") != "starting"
+        or evidence["sourceHashes"].get("square") != sha(source)
+    ):
+        raise RuntimeError("refuse: prior interrupted case/source does not match")
+    return project, timeline, clips[0], evidence
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument(
+        "--phase",
+        choices=("start", "continue-reserved", "inspect", "decode", "reopen"),
+        required=True,
+    )
+    parser.add_argument("--execute", action="store_true")
+    args = parser.parse_args()
+    if not args.execute:
+        parser.error("explicit --execute required")
+    root = args.root.resolve()
+    case = "square-none-48"
+    # Resolve rejected the hidden ~/.local destination via a modal. Keep the
+    # source/evidence there; render into this dedicated Movies directory only.
+    render_dir = Path.home() / "Movies" / ("VERA336-native-proof-" + root.name)
+    import DaVinciResolveScript  # type: ignore[import-not-found]
+
+    resolve = DaVinciResolveScript.scriptapp("Resolve")
+    if resolve is None or resolve.GetVersionString() != "21.1.1.10":
+        raise RuntimeError("refuse: unqualified Studio runtime")
+    manager = resolve.GetProjectManager()
+    project, timeline, _clip, _evidence = context(root, case, manager)
+    state_path = root / "recovery.json"
+    state = json.loads(state_path.read_text()) if state_path.exists() else None
+
+    if args.phase in {"start", "continue-reserved"}:
+        if args.phase == "start" and state is not None:
+            raise RuntimeError("refuse: render attempt already reserved; no replay")
+        if args.phase == "continue-reserved" and (
+            state is None
+            or state.get("status") != "reserved"
+            or state.get("case") != case
+            or state.get("project") != project.GetName()
+            or state.get("sourceSha256") != sha(root / "square.png")
+            or state.get("jobId") is not None
+        ):
+            raise RuntimeError("refuse: only known pre-job reservation can continue")
+        if project.IsRenderingInProgress() is not False or project.GetRenderJobList():
+            raise RuntimeError("refuse: existing render activity or jobs")
+        if (
+            not render_dir.is_dir()
+            or not (render_dir / ".write-check").is_file()
+            or list(render_dir.glob(case + "*.mov"))
+        ):
+            raise RuntimeError("refuse: output destination is unavailable or not empty")
+        if args.phase == "start":
+            profile = {
+                key: timeline.GetSetting(key)
+                for key in (
+                    "timelineResolutionWidth",
+                    "timelineResolutionHeight",
+                    "timelineFrameRate",
+                )
+            }
+            state = {
+                "status": "reserved",
+                "case": case,
+                "project": project.GetName(),
+                "profileReadback": profile,
+                "sourceSha256": sha(root / "square.png"),
+            }
+            save_json(state_path, state)  # reserve before any native render effects
+            project.SetCurrentRenderFormatAndCodec("mov", "ProRes422")
+        # Resolve sometimes returns False for an already selected render
+        # format. Only independently observed exact settings count as success.
+        if project.GetCurrentRenderFormatAndCodec() != {
+            "format": "mov",
+            "codec": "ProRes422",
+        }:
+            raise RuntimeError("refuse: actual render format/codec differ")
+        if project.GetCurrentRenderMode() != 1:
+            raise RuntimeError("refuse: actual render mode is not single clip")
+        assert state is not None
+        if state.get("renderDir") not in (None, str(render_dir)):
+            raise RuntimeError("refuse: render destination changed")
+        state["renderDir"] = str(render_dir)
+        save_json(state_path, state)
+        settings = {
+            "TargetDir": str(render_dir),
+            "CustomName": case,
+            "ExportVideo": True,
+            "ExportAudio": False,
+            "SelectAllFrames": True,
+            "FormatWidth": 1280,
+            "FormatHeight": 720,
+            "FrameRate": 24,
+            "UseUniqueFilenames": False,
+        }
+        if not project.SetRenderSettings(settings):
+            raise RuntimeError("refuse: render settings rejected")
+        job = project.AddRenderJob()
+        if not isinstance(job, str) or not job:
+            raise RuntimeError("refuse: no native render job identity")
+        state.update(status="job-added", jobId=job)
+        save_json(state_path, state)
+        if not project.StartRendering([job], False):
+            raise RuntimeError("refuse: native rendering did not start")
+        state["status"] = "render-started"
+        save_json(state_path, state)
+        print("RENDER_STARTED", job)
+        return 0
+
+    if (
+        state is None
+        or state.get("case") != case
+        or state.get("project") != project.GetName()
+    ):
+        raise RuntimeError("refuse: no exact recovery reservation")
+    if state.get("renderDir") != str(render_dir):
+        raise RuntimeError("refuse: persisted render destination differs")
+    if args.phase == "inspect":
+        job = state.get("jobId")
+        if not isinstance(job, str):
+            raise RuntimeError("refuse: reservation has no job ID; inspect manually")
+        status = project.GetRenderJobStatus(job)
+        state["lastRenderStatus"] = status
+        if status.get("JobStatus") == "Complete":
+            videos = list(render_dir.glob(case + "*.mov"))
+            if len(videos) != 1 or videos[0].stat().st_size == 0:
+                raise RuntimeError("Complete but no unique nonempty output movie")
+            state.update(
+                status="render-complete",
+                movie=videos[0].name,
+                movieSha256=sha(videos[0]),
+            )
+        save_json(state_path, state)
+        print(json.dumps({"status": state["status"], "job": status}, default=str))
+        return 0
+
+    if args.phase == "decode":
+        if state.get("status") != "render-complete":
+            raise RuntimeError("refuse: render not independently complete")
+        movie = render_dir / state["movie"]
+        if sha(movie) != state["movieSha256"]:
+            raise RuntimeError("refuse: rendered movie has changed")
+        from qualify import video_pixels
+
+        decoded = video_pixels(movie, [0, 12, 24, 36, 47])
+        if decoded["frames"] != 48:
+            raise RuntimeError("rendered duration not 48 frames")
+        state.update(status="decoded", decoded=decoded)
+        save_json(state_path, state)
+        print(
+            json.dumps(
+                {
+                    "frames": decoded["frames"],
+                    "size": decoded["size"],
+                    "samples": decoded["samples"],
+                }
+            )
+        )
+        return 0
+
+    if state.get("status") != "decoded":
+        raise RuntimeError("refuse: save/reopen requires decoded output")
+    if manager.SaveProject() is not True:
+        raise RuntimeError("save refused; preserve current target and evidence")
+    if not manager.CloseProject(project):
+        raise RuntimeError("close refused; no replay")
+    reopened = manager.LoadProject(state["project"])
+    if reopened is None:
+        raise RuntimeError("reopen refused; no replay")
+    state.update(
+        status="reopened",
+        reopenedName=reopened.GetName(),
+        reopenedTimelines=reopened.GetTimelineCount(),
+    )
+    save_json(state_path, state)
+    print("REOPENED", state["reopenedName"], state["reopenedTimelines"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

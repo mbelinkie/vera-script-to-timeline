@@ -869,7 +869,7 @@ timeline cannot fill that gap. [Sorting handoff](plans/issue-310-sorting-stash.m
 remains the API/limit reference; its older audio-rule text is historical where
 the later #326 decision differs.
 
-### RK-43 — Native image motion is real; exact focus and easing remain open
+### RK-43 — Native image motion and a bounded focus projection are measured; product contain/easing remain open
 
 **Partial / native rendered evidence.** [#325 report](investigations/issue-325-native-image-zoom.md),
 [PR #333](https://github.com/mbelinkie/vera-script-to-timeline/pull/333),
@@ -896,6 +896,76 @@ frozen occurrence values. A matte is only a candidate for the demonstrated
 background gap, not accepted fallback output. #164 retains the product contract;
 #319 capture integration. The later automatic-zoom decision supersedes older
 static-default spec text without clearing these feasibility holds.
+
+**2026-11-06 #336 phase-3 attempt — blocked before native output.** The installed
+Studio 21.1.1.10 scripting server connected after startup, but the API refused
+both `CreateProject` for a new synthetic target and `CloseProject` for the
+independently checked empty startup scratch project. No target timeline, OTIO
+import, render, decoded frame, or save/reopen occurred in this attempt. See
+[the exact phase-3 result](verification/issue-336/phase3-studio-attempt.md).
+This is an *environment/setup refusal*, **not** negative evidence about the
+native center/scale conversion, aspect ratios, contain, matte, or easing.
+`production_qualification()` must continue returning `None`; #325's partial
+evidence remains the only actual image-motion output proof.
+
+**2026-11-06 #336 phase-3 successful retry supersedes the setup refusal above.**
+After the operator closed Resolve's blocking window, a new disposable Studio
+21.1.1.10 project imported native OTIO with an absolute path. Eleven public
+synthetic 1280×720/24fps ProRes exports were fully decoded: 48-frame static
+None, linear native motion at **24/48/96/144 frames**, 48-frame square/wide/
+portrait/cover, and three 48-frame nonlinear-ease requests. Save/close/reopen
+returned the **same 11 timeline names and exact extents**. Measured marker
+centroids across 1:1, 16:9, and 9:16 sources fit a source-normalized/native
+center/reciprocal-scale projection within 4 pixels (tested center keys
+`(0,0)` → `(0.12,-0.08)`, scale `0.8` → `1.05`). Interpolation progresses by
+`frame_index/duration`, not `frame_index/(duration-1)`. A source-normalized
+candidate and strict measured-edge checks were added as **pure, non-admitting
+geometry helpers**; their limited direction/scale range is not a license to
+animate arbitrary source bytes. Fit+motion **crops** source corners; moving
+cover/fill can **expose black** at the output edge, and all three ease
+variants have **identical full decoded-frame SHA-256 to linear**. Neither
+arbitrary contain/background matte nor nonlinear easing is qualified.
+The [run5 decoded record](verification/issue-336/studio-run5-pixels.json) and
+[results/negative envelope](verification/issue-336/phase3-studio-results.md)
+are authoritative over the original startup failure; `production_qualification`
+continues fail-closed pending real source/profile-bound normal-product delivery.
+
+A **12th bounded real-app synthetic experiment** precomposed a 450×450 source
+image inside a black 1600×900 static RGB matte and then applied the **native**
+Dynamic Zoom effect. Its 48-frame render visibly moved while preserving all
+four original source corners at all five sampled times; source/matte/OTIO/render
+hashes, 11 older render hashes, and the 12th timeline's save/reopen extent are
+recorded in [the derived-matte evidence](verification/issue-336/studio-run5-matte-pixels.json).
+This is **positive only for that exact precomposed black-matte synthetic
+envelope**. The general authoring/background/profile-safe matte pipeline is
+not implemented or qualified and still refuses in product code.
+
+**2026-11-06 #336 normal-product qualification (supersedes the prior
+`production_qualification() -> None` status, NOT the limits above).**
+The [actual authored-product/Studio decoded report](verification/issue-336/product-studio-20261106.md)
+records three *different*, immutable packages through normal VERA
+authoring-data/compiler/receipt/attestation/one-use Resolve delivery on
+Studio **21.1.1.10**, Mac Python **3.12.14**: 24-frame and 96-frame
+linear native moving cover, and 48-frame explicit None with static contain.
+All three had exact **save/close/reopen**, no native readback discrepancies,
+and fully decoded **1280×720/24fps ProRes**. Five frame-indexed visual
+samples per motion case were distinct and the magenta focus witness moved;
+None's five samples were identical. The accepted input is source- and
+profile-bound public RGB PNG, **1600×900**, authoring **1920×1080/24fps**.
+Original/source hashes and each result/request/movie digest are retained.
+
+The intervening one-use failed projects were *preserved* and never replayed.
+They exposed Studio's relative-media path ambiguity and numeric PNG-filename
+image-sequence inference, native OTIO Type-22 scaling `2`/`3` versus distinct
+SDK scale constants, and single-frame PNG source-clock `0..0` versus a
+longer timeline hold. The product adapter now checks these identities and
+readbacks before accepting each new output. Other codecs, arbitrary sources,
+reverse/unsupported focus, nonlinear ease, gap-exposing cover, and moving
+contain without a separately proven, provenance-preserving matte **still
+refuse**. The earlier square/portrait and black-matte native *probe*
+evidence has not been converted into generalized product admission. #164
+owns preset/focus policy; #319 owns the web authoring consumer, not the
+underlying source/profile acceptance decision.
 
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
@@ -963,7 +1033,7 @@ clearance. Later #325 and #326 conclusions qualify the older matrix's wording.
 | A18 and B08 graphics/overlays | RK-45 and RK-04: pinned template subsets, not arbitrary graphics/finishing preservation. |
 | A19 and B13 markers | RK-01/RK-06/RK-17 observe/emit bounded markers; no general selective marker executor. #328 remains open. |
 | A20/B04 Wide/Tight; A24 presenter identity reaching native route | RK-19/RK-21 do not establish continuous presenter reframing; #118/#119 remain the owners. |
-| A21 still motion | RK-43; #325 supplies partial evidence, #336 remains held with focus/framing/ease and product seam unfinished. |
+| A21 still motion | RK-43; #336 proves bounded normal product linear moving-cover/explicit None with decoded Studio output and source/profile guards. Moving contain/background provenance and unmeasured eases/focus profiles remain unsupported; #164/#319 retain product/consumer choices. |
 | A22/A23 and B20 transition application/preservation | RK-40/RK-41/RK-42; qualified probe subsets versus cut-only portable path. #88 integration and #327 preservation remain open. |
 | B01/B03/B11 reviewed selection, skips, conflicts | RK-16–RK-18 is not outbound selection. #328 must prove frozen selection and bounded conflict composition. |
 | B07 replacement/Resolve-only items; B17 finishing | RK-41/RK-42/RK-45; arbitrary opaque effect/grade/Fusion preservation remains #327, not proved by fresh rebuild. |

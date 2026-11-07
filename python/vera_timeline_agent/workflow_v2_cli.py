@@ -27,6 +27,7 @@ RUNTIME_FILES = (
     *V1_RUNTIME_FILES,
     "workflow_v2.py",
     "workflow_v2_launcher.py",
+    "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
     "qualification_output_records_v2.py",
@@ -77,6 +78,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
     repository = Path(__file__).resolve().parents[2]
     verifier_sources = [
         Path("python/vera_timeline_agent/v2_package.py"),
+        Path("python/vera_timeline_agent/native_image_motion.py"),
         Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
         Path("python/vera_timeline_agent/workflow_v2_cli.py"),

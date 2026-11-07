@@ -18,7 +18,10 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from fractions import Fraction
+from json import encoder as json_encoder
+from json.encoder import encode_basestring, encode_basestring_ascii
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
@@ -26,6 +29,7 @@ import jsonschema  # type: ignore[import-untyped]
 import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
+from vera_timeline_agent import native_image_motion
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
 from vera_timeline_agent.qualification_output_records_v2 import (
@@ -134,7 +138,7 @@ def _canonical_json(value: object) -> bytes:
 
 
 def _compiler_hash(value: object) -> str:
-    """Match compiler-core JSON for safe integers and approved source-audio gain."""
+    """Match compiler-core JSON for safe integers and schema-approved decimals."""
     text = (
         json.dumps(
             _compiler_json_values(value),
@@ -142,6 +146,7 @@ def _compiler_hash(value: object) -> str:
             ensure_ascii=False,
             allow_nan=False,
             indent=2,
+            cls=_CompilerJSONEncoder,
         )
         + "\n"
     )
@@ -151,6 +156,45 @@ def _compiler_hash(value: object) -> str:
         for char in text
     )
     return _hash_bytes(text.encode("utf-8"))
+
+
+class _CompilerJSONEncoder(json.JSONEncoder):
+    """Use JS Number-to-string for frozen compiler decimal hashes.
+
+    Python repr emits `5e-05` where JSON.stringify emits `0.00005`, and
+    `1e-07` where JavaScript emits `1e-7`. The normal JSON token encoder is
+    reused with a narrowly replaced float formatter; strings are untouched.
+    """
+
+    def iterencode(self, o: Any, _one_shot: bool = False) -> Any:
+        def js_float(value: float) -> str:
+            if not math.isfinite(value):
+                raise ValueError("non-finite number in compiler JSON")
+            if value == 0:
+                return "0"
+            shortest = repr(value)
+            if "e" not in shortest:
+                return shortest
+            mantissa, exponent_text = shortest.split("e")
+            exponent = int(exponent_text)
+            if -6 <= exponent < 21:
+                return format(Decimal(shortest), "f")
+            return f"{mantissa}e{exponent:+d}"
+
+        # Typeshed intentionally omits this stdlib private helper; use getattr
+        # to keep the pinned runtime implementation while retaining strict mypy.
+        return getattr(json_encoder, "_make_iterencode")(  # noqa: B009
+            {} if self.check_circular else None,
+            self.default,
+            encode_basestring_ascii if self.ensure_ascii else encode_basestring,
+            self.indent,
+            js_float,
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )(o, 0)
 
 
 def _compiler_json_values(value: object, *, key: str | None = None) -> object:
@@ -164,6 +208,10 @@ def _compiler_json_values(value: object, *, key: str | None = None) -> object:
     if isinstance(value, float):
         if key in {"fullGainDb", "gainDb"} and value == -0.1:
             return value
+        if key in {"focusX", "focusY", "scale"} and math.isfinite(value):
+            # ImageMotionV1 admits finite fractions.  JS canonicalJson writes
+            # integral 1.0 as 1, and other finite decimals unchanged.
+            return int(value) if value.is_integer() and abs(value) < 1e21 else value
         if not math.isfinite(value) or not value.is_integer() or abs(value) > _MAX_SAFE:
             raise _error("compiler hash input is not a schema-supported safe integer")
         return int(value)
@@ -631,6 +679,31 @@ def narration_ceiling_frames(samples: int, sample_rate: int, rate: Fraction) -> 
 def _validate_manifest_semantics(
     document: JsonObject, dependencies: JsonObject, manifest: JsonObject
 ) -> None:
+    # Reconstruct the motion resolution independently of the compiler output.
+    # A self-consistent manifest/report hash alone must not authorize dropping
+    # an explicit None override or substituting an unrequested native zoom.
+    authored_visuals: dict[str, JsonObject] = {}
+
+    def collect_visuals(value: object) -> None:
+        if isinstance(value, dict):
+            if value.get("kind") == "visual" and isinstance(
+                value.get("payloadId"), str
+            ):
+                payload_id = cast(str, value["payloadId"])
+                previous = authored_visuals.get(payload_id)
+                if previous is not None and previous != value:
+                    raise _error(f"conflicting authored visual payload {payload_id}")
+                authored_visuals[payload_id] = value
+            for nested in value.values():
+                collect_visuals(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                collect_visuals(nested)
+
+    collect_visuals(cast(JsonObject, document["activeDraft"])["blocks"])
+    frozen_default = cast(JsonObject, dependencies["authoringDefaults"]).get(
+        "imageMotionDefault"
+    )
     timeline = cast(JsonObject, manifest["timeline"])
     rate = _fraction(timeline.get("frameRate"), "timeline frame rate", positive=True)
     start = _safe_frame(timeline.get("startFrame"), "timeline startFrame")
@@ -855,6 +928,20 @@ def _validate_manifest_semantics(
             )
             treatment = event.get("pictureTreatment")
             if isinstance(treatment, dict) and treatment.get("kind") == "still_frame":
+                provenance = cast(JsonObject, event["provenance"])
+                payload = authored_visuals.get(cast(str, provenance["payloadId"]))
+                expected_motion = (
+                    payload.get("imageMotion", frozen_default)
+                    if payload is not None
+                    else frozen_default
+                )
+                if (expected_motion is not None or "imageMotion" in treatment) and (
+                    payload is None or treatment.get("imageMotion") != expected_motion
+                ):
+                    raise _error(
+                        f"still event {event_id} motion differs from frozen "
+                        "authored override/default"
+                    )
                 if source_end - source_start != 1:
                     raise _error(
                         f"still event {event_id} must retain its one-frame range"
@@ -1482,6 +1569,19 @@ def _media_artifacts(
 ) -> dict[str, _InputArtifact]:
     sources = _unique_by_id(manifest.get("sources"), "source")
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
+    # Resolve's native OTIO import can resolve an image reference by basename
+    # when the OTIO URL is relative.  Keeping two files named <source-id>.png
+    # lets its media search bind an authored event to the archived *original*
+    # rather than the verified delivery source.  New motion-bearing packages
+    # give the immutable original a distinct basename; legacy packages remain
+    # byte-identical, and both copies retain their independent hashes.
+    motion_source_ids = {
+        cast(str, cast(JsonObject, event["provenance"])["sourceId"])
+        for event in events.values()
+        if event["kind"] in {"primary_visual", "overlay_visual"}
+        and isinstance(event.get("pictureTreatment"), dict)
+        and "imageMotion" in event["pictureTreatment"]
+    }
     expected_hashes: dict[str, tuple[str, str, str]] = {}
     source_usage: dict[str, set[str]] = defaultdict(set)
     for event in events.values():
@@ -1621,11 +1721,24 @@ def _media_artifacts(
         suffix = _suffix(source_path)
         if key.startswith("source:"):
             identity = _id_component(key.removeprefix("source:"), "source id")
-            relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
+            # Studio 21.1.1.10 parses numeric runs anywhere in PNG filenames
+            # as image sequences, even when followed by "-still". Give new
+            # authored-motion stills a reversible alphabet-only UUID basename.
+            # Preserve byte-identical legacy package filenames.
+            delivered_name = (
+                native_image_motion.native_still_stem(identity)
+                if identity in motion_source_ids and kind == "still"
+                else identity
+            )
+            relative = f"{MEDIA_DIRECTORY}/{area}/{delivered_name}{suffix}"
         elif key.startswith("original:"):
             identity = _id_component(key.removeprefix("original:"), "source id")
+            unique_original_suffix = (
+                ".original" if identity in motion_source_ids else ""
+            )
             relative = (
-                f"{BUILD_DIRECTORY}/{build_id}/Preparation/original/{identity}{suffix}"
+                f"{BUILD_DIRECTORY}/{build_id}/Preparation/original/"
+                f"{identity}{unique_original_suffix}{suffix}"
             )
         else:
             identity = _id_component(key.removeprefix("event:"), "event id")
@@ -1968,6 +2081,15 @@ def _delivery_view(
     }
     if validate:
         _validate_delivery_view(manifest, dependencies, view, prepared, artifacts)
+        source_map = _unique_by_id(sources_view, "delivery source")
+        for event in events_view:
+            _native_motion_for_event(
+                event,
+                manifest,
+                source_map[event["sourceId"]],
+                prepared=prepared,
+                artifacts=artifacts,
+            )
     return view
 
 
@@ -2000,6 +2122,13 @@ def _validate_delivery_view(
     }
     if set(sources) != expected_source_ids:
         raise _error("delivery view source set differs from its media events")
+    motion_still_source_ids = {
+        cast(str, cast(JsonObject, event["provenance"])["sourceId"])
+        for event in cast(list[JsonObject], manifest["events"])
+        if event["kind"] in {"primary_visual", "overlay_visual"}
+        and isinstance(event.get("pictureTreatment"), dict)
+        and "imageMotion" in event["pictureTreatment"]
+    }
     source_paths: dict[str, str] = {}
     for source_id, source in sources.items():
         if set(source) != {"id", "kind", "path", "contentHash"}:
@@ -2012,9 +2141,17 @@ def _validate_delivery_view(
                 f"delivery source {source_id} path is outside the package Media tree"
             )
         expected_area = "Narration" if source.get("kind") == "audio" else "Resolved"
-        if relative.parts[1] != expected_area or not relative.name.startswith(
-            f"{source_id}."
-        ):
+        if source_id in motion_still_source_ids:
+            named_as_expected = source.get("kind") == "still" and (
+                relative.name.startswith(
+                    f"{native_image_motion.native_still_stem(source_id)}."
+                )
+                or relative.name.startswith(f"{source_id}-still.")
+                or relative.name.startswith(f"{source_id}.")
+            )
+        else:
+            named_as_expected = relative.name.startswith(f"{source_id}.")
+        if relative.parts[1] != expected_area or not named_as_expected:
             raise _error(f"delivery source {source_id} has a mismatched package path")
         if source.get("kind") not in {"video", "audio", "still"}:
             raise _error(f"delivery source {source_id} has unsupported native kind")
@@ -2193,6 +2330,128 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
     )
 
 
+def _native_motion_for_event(
+    event: JsonObject,
+    manifest: JsonObject,
+    source: JsonObject,
+    *,
+    prepared: Mapping[str, _Preparation] | None = None,
+    artifacts: Mapping[str, _InputArtifact] | None = None,
+) -> tuple[list[JsonObject], str | None]:
+    """Close the frozen event/source/profile chain before projecting native effects.
+
+    Legacy image events have no new motion field and retain byte-identical OTIO.
+    Qualification is trusted code-side evidence, never inferred from the
+    authored manifest, an arbitrary user profile or an imported effect.
+    """
+    treatment = event.get("pictureTreatment")
+    if not isinstance(treatment, dict) or "imageMotion" not in treatment:
+        return [], None
+    event_id = cast(str, event["id"])
+    original = cast(JsonObject, event["v2Event"])
+    if treatment.get("kind") != "still_frame" or original.get("kind") not in {
+        "primary_visual",
+        "overlay_visual",
+    }:
+        raise _error(f"image motion {event_id} requires a source-backed image still")
+    motion = cast(JsonObject, treatment["imageMotion"])
+    source_id = source["id"]
+    manifest_source = _unique_by_id(manifest["sources"], "source").get(source_id)
+    if not isinstance(manifest_source, dict):
+        raise _error(f"image motion {event_id} has no frozen source identity")
+    provenance = cast(JsonObject, original["provenance"])
+    if (
+        original.get("pictureTreatment") != treatment
+        or source["kind"] != "still"
+        or manifest_source.get("deliveredHash") != source["contentHash"]
+        or provenance.get("deliveredSourceHash") != source["contentHash"]
+        or provenance.get("originalSourceHash") != manifest_source.get("originalHash")
+    ):
+        raise _error(f"image motion {event_id} has stale source bytes or provenance")
+    requirement_key = manifest_source.get("preparationRequirementKey")
+    prep = next(
+        (
+            binding
+            for binding in manifest["preparationBindings"]
+            if binding["requirementKey"] == requirement_key
+        ),
+        None,
+    )
+    if not isinstance(prep, dict) or original.get(
+        "preparationBindingHash"
+    ) != _compiler_hash(prep):
+        raise _error(f"image motion {event_id} has stale preparation binding")
+    profile = cast(JsonObject, prep["profile"])
+    v2_source = cast(JsonObject, original["sourceRange"])
+    v2_record = cast(JsonObject, original["recordRange"])
+    source_range = cast(JsonObject, event["sourceRange"])
+    record = cast(JsonObject, event["recordRange"])
+    if (
+        source_range["startFrame"] != v2_source["startFrame"]
+        or v2_source["endFrame"] != v2_source["startFrame"] + 1
+        or record["startFrame"] != v2_record["startFrame"]
+        or record["durationFrames"] != v2_record["endFrame"] - v2_record["startFrame"]
+        or source_range["durationFrames"] != record["durationFrames"]
+    ):
+        raise _error(
+            f"image motion {event_id} has stale or invalid duration/source range"
+        )
+    timeline = cast(JsonObject, manifest["timeline"])
+    binding = native_image_motion.MotionBinding(
+        source_hash=cast(str, source["contentHash"]),
+        original_hash=cast(str, manifest_source["originalHash"]),
+        source_probe_hash=cast(str, manifest_source["originalProbeHash"]),
+        delivered_probe_hash=cast(str, manifest_source["deliveredProbeHash"]),
+        compiler_profile_hash=cast(
+            str, cast(JsonObject, manifest["compiler"])["profileHash"]
+        ),
+        preparation_profile_hash=cast(str, profile["profileHash"]),
+        tool_hash=cast(str, profile["toolHash"]),
+        settings_hash=cast(
+            str, cast(JsonObject, manifest["authoringDefaults"])["settingsHash"]
+        ),
+        preparation_binding_hash=cast(str, original["preparationBindingHash"]),
+        record_start=cast(int, record["startFrame"]),
+        record_end=cast(int, record["startFrame"] + record["durationFrames"]),
+        source_start=cast(int, v2_source["startFrame"]),
+        source_end=cast(int, v2_source["endFrame"]),
+        timeline_width=cast(int, timeline["width"]),
+        timeline_height=cast(int, timeline["height"]),
+    )
+    framing = cast(str, treatment["framingPolicy"])
+    try:
+        source_artifact = (
+            artifacts.get(f"source:{source_id}") if artifacts is not None else None
+        )
+        preparation = (
+            prepared.get(cast(str, requirement_key)) if prepared is not None else None
+        )
+        if source_artifact is None or preparation is None:
+            proof = native_image_motion.production_qualification(
+                motion, binding, framing
+            )
+        else:
+            proof = native_image_motion.production_qualification(
+                motion,
+                binding,
+                framing,
+                verified_asset=source_artifact.origin,
+                delivered_probe=cast(JsonObject, preparation.record["deliveredProbe"]),
+                frame_rate=(
+                    cast(int, timeline["frameRate"]["numerator"]),
+                    cast(int, timeline["frameRate"]["denominator"]),
+                ),
+            )
+        qualified = native_image_motion.admit_motion(
+            motion, binding, proof, framing=framing
+        )
+        return native_image_motion.native_effect_records(
+            motion, qualified
+        ), native_image_motion.qualification_hash(qualified)
+    except (native_image_motion.MotionRefusal, TypeError, ValueError) as error:
+        raise _error(f"image motion {event_id} refused: {error}") from error
+
+
 def _plain_otio(value: Any) -> Any:
     if hasattr(value, "items"):
         return {key: _plain_otio(item) for key, item in value.items()}
@@ -2226,7 +2485,14 @@ def _event_source_rate(event: JsonObject, timeline_rate: Fraction) -> Fraction:
     return timeline_rate
 
 
-def _build_otio(view: JsonObject, manifest_id: str, build_id: str) -> Any:
+def _build_otio(
+    view: JsonObject,
+    manifest_id: str,
+    build_id: str,
+    manifest: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    artifacts: Mapping[str, _InputArtifact],
+) -> Any:
     timeline_data = cast(JsonObject, view["timeline"])
     timeline_rate = _fraction(
         timeline_data["frameRate"], "delivery view frame rate", positive=True
@@ -2345,6 +2611,18 @@ def _build_otio(view: JsonObject, manifest_id: str, build_id: str) -> Any:
                     }
                 },
             )
+            motion_effects, qualification = _native_motion_for_event(
+                event, manifest, source, prepared=prepared, artifacts=artifacts
+            )
+            if qualification is not None:
+                clip.metadata["vera"]["motion_qualification"] = qualification
+            for native_effect in motion_effects:
+                clip.effects.append(
+                    otio.schema.Effect(
+                        effect_name="Resolve Effect",
+                        metadata={"Resolve_OTIO": native_effect},
+                    )
+                )
             track.append(clip)
             cursor = record_start + duration
         if cursor < end:
@@ -2377,7 +2655,13 @@ def _build_otio(view: JsonObject, manifest_id: str, build_id: str) -> Any:
     return timeline
 
 
-def _verify_otio(package_root: Path, manifest: JsonObject, view: JsonObject) -> None:
+def _verify_otio(
+    package_root: Path,
+    manifest: JsonObject,
+    view: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    artifacts: Mapping[str, _InputArtifact],
+) -> None:
     try:
         timeline = otio.adapters.read_from_file(str(package_root / OTIO_FILENAME))
     except (OSError, RuntimeError, ValueError) as error:
@@ -2509,6 +2793,24 @@ def _verify_otio(package_root: Path, manifest: JsonObject, view: JsonObject) -> 
                 or vera.get("v2_event") != expected["v2Event"]
             ):
                 raise _error(f"OTIO event {event_id} differs from delivery view")
+            expected_effects, expected_proof = _native_motion_for_event(
+                expected, manifest, source, prepared=prepared, artifacts=artifacts
+            )
+            if vera.get("motion_qualification") != expected_proof:
+                raise _error(f"OTIO event {event_id} native qualification differs")
+            if len(child.effects) != len(expected_effects):
+                raise _error(f"OTIO event {event_id} native effect count differs")
+            for actual_effect, native_effect in zip(
+                child.effects, expected_effects, strict=True
+            ):
+                if (
+                    type(actual_effect) is not otio.schema.Effect
+                    or actual_effect.effect_name != "Resolve Effect"
+                    or actual_effect.name != ""
+                    or _plain_otio(actual_effect.metadata)
+                    != {"Resolve_OTIO": native_effect}
+                ):
+                    raise _error(f"OTIO event {event_id} native effect differs")
             actual_ids.add(event_id)
             cursor += duration
         if cursor != end:
@@ -2644,7 +2946,9 @@ def _build_staging(
         _write_exclusive(staging / item.relative_path, item.raw)
     for artifact in artifacts.values():
         _copy_artifact(artifact, staging)
-    timeline = _build_otio(view, cast(str, manifest["id"]), build_id)
+    timeline = _build_otio(
+        view, cast(str, manifest["id"]), build_id, manifest, prepared, artifacts
+    )
     try:
         otio.adapters.write_to_file(
             timeline, str(build_root / OTIO_FILENAME), adapter_name="otio_json"
@@ -3022,7 +3326,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
     if actual_directories != _expected_directories(all_files):
         raise _error("package directory inventory includes unexpected or missing paths")
 
-    _verify_otio(build_root, manifest, view)
+    _verify_otio(build_root, manifest, view, prepared, artifacts)
     expected_counts = {
         "eventCount": len(cast(list[JsonObject], view["events"])),
         "manifestEventCount": len(cast(list[JsonObject], manifest["events"])),

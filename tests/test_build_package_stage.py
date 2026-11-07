@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from issue177_package_fixture import PackageCase, make_package_case
+from vera_timeline_agent import workflow_v2
 from vera_timeline_agent.build_composition import (
     EffectState,
     FrozenBuildSnapshot,
@@ -24,6 +25,7 @@ from vera_timeline_agent.build_package_stage import (
     package_root,
 )
 from vera_timeline_agent.v2_package import V2PackageError, verify_v2_package
+from vera_timeline_agent.workflow_package import sha256
 
 PreparedCase = tuple[
     PackageCase, FrozenBuildSnapshot, Callable[[str], StageContext], dict[str, Path]
@@ -150,3 +152,39 @@ def test_package_attestation_detects_retained_media_tamper(
     media.write_bytes(b"tampered bytes")
     with pytest.raises((V2PackageError, ValueError, BuildJobError)):
         verify.inspect(imported, snap)
+
+
+def test_issue336_stages_attest_original_otio_without_rewriting_prior_output(
+    prepared_case: PreparedCase,
+) -> None:
+    """The Studio native route consumes the stage's exact immutable OTIO file."""
+    _fixture, snapshot, ctx, sources = prepared_case
+    writer = PackageStagePort(
+        extra_media={key.removeprefix("media:"): key for key in sources}
+    )
+    writing = ctx("writing_interchange")
+    writer.execute(writing, snapshot)
+    root = package_root(writing, snapshot)
+    before = {
+        path.relative_to(root).as_posix(): sha256(path)
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    verify = VerifyPackageStagePort()
+    imported = ctx("verifying_import_package")
+    verify.execute(imported, snapshot)
+    attestation = verify.attestation(imported, snapshot)
+    loaded = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    native_otio = workflow_v2._verify_native_otio_plan(loaded)
+    assert loaded.root == root
+    assert native_otio == root / "Builds" / snapshot.build_id / "timeline.otio"
+    assert not workflow_v2._requires_native_otio(loaded.view)
+    assert before == {
+        path.relative_to(root).as_posix(): sha256(path)
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    # A second attestation is never an invitation to mutate or replay a build.
+    with pytest.raises(Exception, match="existing attestation"):
+        verify.execute(imported, snapshot)
+    assert verify_v2_package(root).build_id == snapshot.build_id

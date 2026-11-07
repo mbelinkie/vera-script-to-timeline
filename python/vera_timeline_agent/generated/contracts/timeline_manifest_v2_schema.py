@@ -25,6 +25,7 @@ class StillFramePictureTreatmentV2(TypedDict):
     kind: Literal["still_frame"]
     pictureKind: Literal["image", "capture", "graphic"]
     framingPolicy: Literal["contain", "cover", "native"]
+    imageMotion: NotRequired[script_document_v2_schema.ImageMotionV1]
 
 
 class SlatePictureTreatmentV2(TypedDict):

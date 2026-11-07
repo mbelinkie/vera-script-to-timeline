@@ -17,6 +17,26 @@ type NonNegativeSafeInteger = int
 type ContentHash = str
 
 
+class ImageMotionFrameV1(TypedDict):
+    focusX: float
+    focusY: float
+    scale: float
+
+
+class ImageMotionV11(TypedDict):
+    mode: Literal["none"]
+
+
+class ImageMotionV12(TypedDict):
+    mode: Literal["native_dynamic_zoom"]
+    start: ImageMotionFrameV1
+    end: ImageMotionFrameV1
+    easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"]
+
+
+type ImageMotionV1 = ImageMotionV11 | ImageMotionV12
+
+
 type ProjectRelativePath = str
 
 
@@ -50,3 +70,4 @@ class AuthoringProjectSettingsV1(TypedDict):
     settingsHash: ContentHash
     presenterStill: NotRequired[PresenterStillReference]
     visualOnlyStillDurationMs: NotRequired[PositiveSafeInteger]
+    imageMotionDefault: NotRequired[ImageMotionV1]

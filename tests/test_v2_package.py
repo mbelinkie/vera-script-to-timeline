@@ -6,11 +6,13 @@ import json
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
-from issue177_package_fixture import make_package_case
+from issue177_package_fixture import _refresh_document_closure, make_package_case
+from vera_timeline_agent import native_image_motion, workflow_v2
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.v2_package import (
     BUILD_DIRECTORY,
@@ -29,7 +31,534 @@ from vera_timeline_agent.v2_package import (
 )
 from vera_timeline_agent.workflow_package import sha256
 from vera_timeline_agent.workflow_v2 import run_workflow_delivery_v2
-from vera_timeline_agent.workflow_v2_cli import attest_package_v2
+from vera_timeline_agent.workflow_v2_cli import (
+    _verify_release,
+    attest_package_v2,
+    build_release_v2,
+)
+
+
+def _issue336_case(
+    case: Any, motion: dict[str, Any], *, project_default: dict[str, Any] | None = None
+) -> None:
+    """Write hash-closed authored input with a new frozen motion override."""
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
+    if motion.get("mode") == "native_dynamic_zoom":
+        document["activeDraft"]["blocks"][0]["payload"]["framingPolicy"] = "cover"
+        manifest["events"][0]["pictureTreatment"]["framingPolicy"] = "cover"
+    if project_default is not None:
+        dependencies["authoringDefaults"]["imageMotionDefault"] = project_default
+        manifest["authoringDefaults"]["imageMotionDefault"] = project_default
+    manifest["events"][0]["pictureTreatment"]["imageMotion"] = motion
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+
+
+@pytest.mark.parametrize(
+    ("key", "number", "js_number"),
+    [
+        ("focusX", 0.00005, "0.00005"),
+        ("focusY", 1e-7, "1e-7"),
+        ("scale", 1e-6, "0.000001"),
+        ("scale", 1e20, "100000000000000000000"),
+        ("scale", 1e21, "1e+21"),
+    ],
+)
+def test_issue336_compiler_small_float_hash_matches_js_number_to_string(
+    key: str, number: float, js_number: str
+) -> None:
+    canonical = f'{{\n  "{key}": {js_number}\n}}\n'
+    expected = "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+    assert _compiler_hash({key: number}) == expected
+
+
+def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only tests inject this fake; production_qualification refuses all requests."""
+
+    def fake(
+        motion: dict[str, Any], binding: Any, framing: str, **_verified: Any
+    ) -> Any:
+        enabled = motion["mode"] == "native_dynamic_zoom"
+        return native_image_motion.Qualification(
+            edition="studio",
+            version="21.1.1.10",
+            route="native_otio",
+            binding=binding,
+            motion_hash=native_image_motion.motion_hash(motion),
+            framing=framing,
+            background="#000000",
+            source_width=1920,
+            source_height=1080,
+            focus_proven=enabled,
+            native_start_center=(0.0, 0.0) if enabled else None,
+            native_end_center=(0.03, -0.02) if enabled else None,
+            native_start_scale=0.8 if enabled else None,
+            native_end_scale=(1 / 1.2) if enabled else None,
+        )
+
+    monkeypatch.setattr(native_image_motion, "production_qualification", fake)
+
+
+_ISSUE336_NATIVE = {
+    "mode": "native_dynamic_zoom",
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.25},
+    "end": {"focusX": 0.53, "focusY": 0.52, "scale": 1.2},
+    "easing": "linear",
+}
+
+
+class _Issue336NativeRouteAdapter:
+    """Trace the one-use native route without claiming fake Studio pixels."""
+
+    def __init__(
+        self, *, collision: bool = False, unknown_import: bool = False
+    ) -> None:
+        self.calls: list[str] = []
+        self.collision = collision
+        self.unknown_import = unknown_import
+
+    def connected_facts(self) -> Any:
+        self.calls.append("connected")
+        return SimpleNamespace(
+            edition="studio",
+            version="21.1.1",
+            build="10",
+            suffix="",
+            scripting_available=True,
+        )
+
+    def probe(self, _settings: Any) -> tuple[str, ...]:
+        self.calls.append("probe")
+        return ()
+
+    def check_project_name_available(self, _name: str) -> None:
+        self.calls.append("collision")
+        if self.collision:
+            raise ValueError("named target has already been used")
+
+    def assert_current_target(self) -> None:
+        self.calls.append("target")
+
+    def create_project(self, _name: str) -> None:
+        self.calls.append("create_project")
+
+    def configure_project(self, _settings: Any) -> None:
+        self.calls.append("configure_project")
+
+    def import_verified_otio(self, path: Path, view: Any, _name: str) -> None:
+        self.calls.append("native_otio")
+        assert path.is_file()
+        assert len(view["events"]) > 0
+        # The signed package keeps portable relative paths, but the actual
+        # Studio import must receive an independently bound host-local file.
+        native = json.loads(path.read_text())
+        clips = [
+            child
+            for track in native["tracks"]["children"]
+            for child in track["children"]
+            if child.get("OTIO_SCHEMA") == "Clip.2"
+        ]
+        assert len(clips) == len(view["events"])
+        for clip in clips:
+            reference = clip["media_references"][clip["active_media_reference_key"]]
+            resolved = Path(reference["target_url"])
+            assert resolved.is_absolute() and resolved.is_file()
+        if self.unknown_import:
+            raise RuntimeError("uncertain Resolve timeline import")
+
+    def add_v2_marker(self, _marker: Any) -> None:
+        self.calls.append("marker")
+
+    def save_close_reopen(self, _name: str) -> None:
+        self.calls.append("save_close_reopen")
+
+    def verify(self, _view: Any) -> tuple[str, ...]:
+        self.calls.append("verify")
+        return ()
+
+
+@pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
+def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, motion: dict[str, Any]
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, motion)
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+    view = json.loads(
+        (
+            case.project_root / "Builds" / built.build_id / "delivery-view.json"
+        ).read_text()
+    )
+    bytes_before = {
+        str(path): path.read_bytes()
+        for path in case.project_root.rglob("*")
+        if path.is_file()
+    }
+    adapter = _Issue336NativeRouteAdapter()
+    result = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "verified", result
+    assert result["nativeOtioMotionRoute"] is True
+    assert adapter.calls.count("native_otio") == 1
+    assert adapter.calls.count("marker") == len(view["markers"])
+    assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
+    assert "place_event" not in adapter.calls
+    assert "import_media" not in adapter.calls
+    assert "create_timeline" not in adapter.calls
+    assert all(Path(path).read_bytes() == value for path, value in bytes_before.items())
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+    collision = _Issue336NativeRouteAdapter(collision=True)
+    duplicate = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: collision,
+    )
+    assert duplicate["status"] == "stopped_safely"
+    assert collision.calls == ["connected", "probe", "collision"]
+
+    unknown = _Issue336NativeRouteAdapter(unknown_import=True)
+    failed = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: unknown,
+    )
+    assert failed["status"] == "mutation_failed"
+    assert failed["partialTargetRetained"] is True
+    assert unknown.calls.count("native_otio") == 1
+    assert "verify" not in unknown.calls
+    assert all(Path(path).read_bytes() == value for path, value in bytes_before.items())
+
+
+def test_issue336_older_studio_must_refuse_native_motion_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, _ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+
+    class PreviousStudio(_Issue336NativeRouteAdapter):
+        def connected_facts(self) -> Any:
+            self.calls.append("connected")
+            return SimpleNamespace(
+                edition="studio",
+                version="21.1.0",
+                build="14",
+                suffix="",
+                scripting_available=True,
+            )
+
+    adapter = PreviousStudio()
+    result = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "stopped_safely", result
+    assert result["partialTargetRetained"] is False
+    assert result["verified"] is False
+    assert adapter.calls == ["connected"]
+
+
+def test_issue336_rechecks_otio_after_one_shot_import_before_saving(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, {"mode": "none"})
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+    path = case.project_root / BUILD_DIRECTORY / built.build_id / OTIO_FILENAME
+    original = path.read_bytes()
+
+    class SwappingAdapter(_Issue336NativeRouteAdapter):
+        def import_verified_otio(self, path: Path, view: Any, name: str) -> None:
+            super().import_verified_otio(path, view, name)
+            path.write_bytes(path.read_bytes() + b"\n")
+
+    adapter = SwappingAdapter()
+    try:
+        result = run_workflow_delivery_v2(
+            object(),
+            attestation,
+            sha256(attestation),
+            action="build",
+            authorize_new_nonproduction=True,
+            external_scripting="None",
+            adapter_factory=lambda _: adapter,
+        )
+        assert result["status"] == "mutation_failed", result
+        assert result["partialTargetRetained"] is True
+        assert adapter.calls.count("native_otio") == 1
+        assert "save_close_reopen" not in adapter.calls
+    finally:
+        path.write_bytes(original)
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+
+def test_issue336_host_native_binding_cannot_be_modified_or_repaired_silently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, {"mode": "none"})
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "attestation.json")
+    package = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    signed = workflow_v2._verify_native_otio_plan(package)
+    original = signed.read_bytes()
+    bound, digest = workflow_v2._bind_native_otio_media_to_host(
+        package, signed, attestation, sha256(attestation)
+    )
+    assert bound.is_file() and bound.parent == attestation.parent
+    assert bound != signed and bound.is_relative_to(case.project_root) is False
+    assert sha256(bound) == digest
+    # The portable, hash-attested source never changes when deriving the
+    # absolute host-local references consumed by Resolve.
+    assert signed.read_bytes() == original
+    bound.write_bytes(bound.read_bytes() + b"\n")
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="no overwrite"):
+        workflow_v2._bind_native_otio_media_to_host(
+            package, signed, attestation, sha256(attestation)
+        )
+    assert signed.read_bytes() == original
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["effect", "source", "gap", "duplicate", "extent", "source-start", "marker"],
+)
+def test_issue336_injected_runtime_refuses_changed_attested_otio_before_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    case = make_package_case(
+        tmp_path, rate="25fps", scenario="root-child-overlay-return"
+    )
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "handoff.json")
+    package = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    path = workflow_v2._verify_native_otio_plan(package)
+    original = path.read_bytes()
+    otio = json.loads(original)
+    tracks = otio["tracks"]["children"]
+    clip = next(
+        child
+        for track in tracks
+        for child in track["children"]
+        if child["OTIO_SCHEMA"] == "Clip.2"
+    )
+    if mutation == "effect":
+        clip["effects"].append(
+            {"OTIO_SCHEMA": "Effect.1", "effect_name": "Resolve Effect"}
+        )
+    elif mutation == "source":
+        clip["media_references"][clip["active_media_reference_key"]]["target_url"] = (
+            "Media/other.mov"
+        )
+    elif mutation == "gap":
+        gap = next(
+            child
+            for track in tracks
+            for child in track["children"]
+            if child["OTIO_SCHEMA"] == "Gap.1"
+        )
+        gap["source_range"]["duration"]["value"] += 1
+    elif mutation == "duplicate":
+        tracks.append(tracks[0])
+    elif mutation == "source-start":
+        clip["source_range"]["start_time"]["value"] += 1
+    elif mutation == "marker":
+        # This fixture has no timeline markers; adding one must be refused.
+        otio["tracks"]["markers"].append({"OTIO_SCHEMA": "Marker.2"})
+    else:
+        clip["source_range"]["duration"]["value"] += 1
+    path.write_text(json.dumps(otio), encoding="utf-8")
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="native OTIO"):
+        workflow_v2._verify_native_otio_plan(package)
+    # Independent attestation also refuses byte-changed inventory.
+    assert (
+        run_workflow_delivery_v2(
+            object(),
+            attestation,
+            sha256(attestation),
+            action="build",
+            authorize_new_nonproduction=True,
+            external_scripting="None",
+            adapter_factory=lambda _: pytest.fail("tampering reached Resolve"),
+        )["status"]
+        == "stopped_safely"
+    )
+    path.write_bytes(original)
+    assert workflow_v2._verify_native_otio_plan(package) == path
+
+
+def test_issue336_release_closes_native_motion_runtime(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    release_manifest = build_release_v2(release_dir)
+    assert _verify_release(release_dir) == release_manifest
+    module = (
+        release_dir
+        / "vera-delivery-v2/python/vera_timeline_agent/native_image_motion.py"
+    )
+    assert module.is_file()
+    module.write_bytes(module.read_bytes() + b"# altered\n")
+    with pytest.raises(ValueError, match="installed release differs"):
+        _verify_release(release_dir)
+
+
+@pytest.mark.parametrize("rate", ["25fps", "ntsc"])
+@pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
+def test_issue336_native_effect_roundtrip_and_exact_record_extent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rate: str, motion: dict[str, Any]
+) -> None:
+    case = make_package_case(tmp_path, rate=rate)
+    _issue336_case(case, motion)
+    _issue336_synthetic_qualification(monkeypatch)
+    result = case.build()
+    assert verify_v2_package(case.project_root).build_id == result.build_id
+    build_root = case.project_root / BUILD_DIRECTORY / result.build_id
+    view = json.loads((build_root / "delivery-view.json").read_text())
+    event = view["events"][0]
+    assert event["pictureTreatment"]["imageMotion"] == motion
+    assert (
+        event["recordRange"]["durationFrames"] == event["sourceRange"]["durationFrames"]
+    )
+    timeline = otio.adapters.read_from_file(str(build_root / OTIO_FILENAME))
+    clip = timeline.tracks[0][0]
+    assert len(clip.effects) == 2
+    assert clip.metadata["vera"]["motion_qualification"].startswith("sha256:")
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Type"] == 59
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Enabled"] == (
+        motion["mode"] != "none"
+    )
+    assert clip.effects[1].metadata["Resolve_OTIO"]["Type"] == 22
+    assert case.build().reused is True
+
+
+def test_issue336_unqualified_motion_refuses_before_any_package_write(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, _ISSUE336_NATIVE)
+    with pytest.raises(V2PackageError, match="no qualified output profile"):
+        case.build()
+    assert not case.project_root.exists()
+
+
+def test_issue336_explicit_none_wins_frozen_native_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, {"mode": "none"}, project_default=_ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    clip = otio.adapters.read_from_file(str(build_root / OTIO_FILENAME)).tracks[0][0]
+    assert clip.effects[0].metadata["Resolve_OTIO"]["Enabled"] is False
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+
+
+@pytest.mark.parametrize(
+    "tamper", ["drop_none", "substitute_native", "changed_override"]
+)
+def test_issue336_refuses_manifest_motion_divergence_from_authoring(
+    tmp_path: Path, tamper: str
+) -> None:
+    case = make_package_case(tmp_path)
+    if tamper == "changed_override":
+        _issue336_case(case, {"mode": "none"}, project_default=_ISSUE336_NATIVE)
+    else:
+        _issue336_case(case, {"mode": "none"})
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    if tamper == "drop_none":
+        manifest["events"][0]["pictureTreatment"].pop("imageMotion")
+    elif tamper == "substitute_native":
+        manifest["events"][0]["pictureTreatment"]["imageMotion"] = _ISSUE336_NATIVE
+    else:
+        document["activeDraft"]["blocks"][0]["payload"].pop("imageMotion")
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    with pytest.raises(V2PackageError, match="motion differs from frozen authored"):
+        case.build()
+    assert not case.project_root.exists()
+
+
+@pytest.mark.parametrize("tamper", ["type", "pointf", "double", "enabled", "extra"])
+def test_issue336_native_otio_tamper_refused_even_with_rehashed_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tamper: str
+) -> None:
+    case = make_package_case(tmp_path)
+    _issue336_case(case, _ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    built = case.build()
+    build_root = case.project_root / BUILD_DIRECTORY / built.build_id
+    path = build_root / OTIO_FILENAME
+    timeline = otio.adapters.read_from_file(str(path))
+    clip = timeline.tracks[0][0]
+    effect = clip.effects[0].metadata["Resolve_OTIO"]
+    if tamper == "type":
+        effect["Type"] = 58
+    elif tamper == "pointf":
+        effect["Parameters"][0]["Key Frames"]["-86400"]["Variant Type"] = "Double"
+    elif tamper == "double":
+        effect["Parameters"][1]["Key Frames"]["-85400"]["Value"] = 500.0
+    elif tamper == "enabled":
+        effect["Enabled"] = False
+    else:
+        clip.effects.append(otio.schema.Effect(effect_name="Resolve Effect"))
+    otio.adapters.write_to_file(timeline, str(path), adapter_name="otio_json")
+    receipt_path = build_root / VERIFICATION_FILENAME
+    receipt = json.loads(receipt_path.read_text())
+    rel = (Path(BUILD_DIRECTORY) / built.build_id / OTIO_FILENAME).as_posix()
+    receipt["fileHashes"][rel] = (
+        "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    )
+    receipt_path.write_bytes(canonical_json_bytes(receipt))
+    with pytest.raises(V2PackageError, match=r"OTIO event .* native effect"):
+        verify_v2_package(case.project_root)
 
 
 @dataclass(frozen=True)
