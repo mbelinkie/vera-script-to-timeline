@@ -1,0 +1,21 @@
+{
+  "name": "@vera/project-service-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run --maxWorkers=1",
+    "test:fast": "vitest run --maxWorkers=1 --exclude test/postgres.integration.test.ts"
+  },
+  "dependencies": {
+    "@vera/project-authorization": "0.0.0",
+    "@vera/project-documents": "0.0.0",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
