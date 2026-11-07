@@ -628,6 +628,17 @@ def worker_tick(store: queue.Store) -> bool:
         return True
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        # Selection/preflight are read-only and happen outside this transaction.
+        # A concurrent cancel may have won during that interval.  Claim the
+        # parent first so a canceled job can never acquire a native intent.
+        parent = db.execute(
+            "UPDATE reverse_jobs SET state='awaiting_operator',"
+            "started_at=COALESCE(started_at,?),updated_at=? "
+            "WHERE id=? AND state='queued'",
+            (queue.iso(now), queue.iso(now), job_id),
+        )
+        if parent.rowcount != 1:
+            return False
         changed = db.execute(
             "UPDATE reverse_stages SET state='awaiting_operator',intent_at=? "
             "WHERE job_id=? AND ordinal=? AND state='pending' AND intent_at IS NULL",
@@ -635,12 +646,6 @@ def worker_tick(store: queue.Store) -> bool:
         )
         if changed.rowcount != 1:
             raise queue.QueueError("M4 stage intent already consumed")
-        db.execute(
-            "UPDATE reverse_jobs SET state='awaiting_operator',"
-            "started_at=COALESCE(started_at,?),updated_at=? "
-            "WHERE id=? AND state='queued'",
-            (queue.iso(now), queue.iso(now), job_id),
-        )
         _event(db, job_id, "intent", f"{STAGES[ordinal]}:one_use_host_handoff")
     publish(store, job_id)
     return True

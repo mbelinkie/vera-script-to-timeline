@@ -242,6 +242,26 @@ def test_pre_intent_cancellation_does_not_claim_native_success(
     assert m4.worker_tick(store) is False
 
 
+def test_cancellation_during_read_only_preflight_cannot_create_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A simultaneous cancel wins even if it lands after worker selection."""
+    store = queue.Store(tmp_path / "queue")
+    job_id, _ = _enroll(store, tmp_path, monkeypatch)
+    monkeypatch.setattr(m4, "preflight_native_owner", lambda: m4.cancel(store, job_id))
+    m4.worker_tick(store)
+    with store.connect() as db:
+        stage = db.execute(
+            "SELECT state,intent_at FROM reverse_stages WHERE job_id=? AND ordinal=0",
+            (job_id,),
+        ).fetchone()
+    assert m4.publish(store, job_id)["state"] == "canceled"
+    assert stage["state"] == "pending"
+    assert stage["intent_at"] is None
+    assert not m4.any_unresolved(store)
+
+
 def test_actual_free_space_check_has_no_forty_gib_threshold(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
