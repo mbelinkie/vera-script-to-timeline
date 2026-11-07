@@ -1578,6 +1578,33 @@ def _native_otio_scaling(framing: object) -> int:
     raise WorkflowV2Error("native OTIO framing policy has no measured scale value")
 
 
+def _native_otio_single_frame_hold(
+    event: Mapping[str, Any],
+    source: Mapping[str, Any],
+    manifest_source: Mapping[str, Any],
+) -> bool:
+    """Identify a frozen one-PNG-source native hold, not an ordinary video trim.
+
+    Studio reports source frames 0..0 for a one-frame PNG held for 24+ timeline
+    frames. Only the attested, motion-bearing still lane with a validated
+    one-frame media mapping can use that source clock. The authored *record*
+    duration is checked separately and never shortened or substituted.
+    """
+    picture = event.get("pictureTreatment")
+    frame_map = manifest_source.get("sourceFrameMap")
+    source_range = event.get("sourceRange")
+    return (
+        source.get("kind") == "still"
+        and isinstance(picture, Mapping)
+        and isinstance(picture.get("imageMotion"), Mapping)
+        and isinstance(frame_map, Mapping)
+        and type(frame_map.get("decodedPackageFrameCount")) is int
+        and frame_map["decodedPackageFrameCount"] == 1
+        and isinstance(source_range, Mapping)
+        and source_range.get("startFrame") == 0
+    )
+
+
 class PublicResolveAdapter(AcceptedDeliveryAdapter):
     """The accepted #109 target guard with v2-only placement and readback."""
 
@@ -2102,6 +2129,28 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         - 1,
                                     ),
                                 )
+                                manifest_source = getattr(
+                                    self, "_v2_manifest_sources", {}
+                                ).get(cast(str, event["sourceId"]), {})
+                                if getattr(
+                                    self, "_native_otio_imported", False
+                                ) and _native_otio_single_frame_hold(
+                                    event, source_record, manifest_source
+                                ):
+                                    # The verified PNG has ONE source frame,
+                                    # even though its output hold spans the
+                                    # independently checked record duration.
+                                    expected_source_range = (0, 0)
+                                    held_media = item.GetMediaPoolItem()
+                                    count = (
+                                        held_media.GetClipProperty("Frames")
+                                        if held_media is not None
+                                        else None
+                                    )
+                                    if count != "1" and not (
+                                        type(count) is int and count == 1
+                                    ):
+                                        discrepancies.append("event-source-frames")
                                 if (
                                     item.GetSourceStartFrame()
                                     != expected_source_range[0]

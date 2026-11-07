@@ -577,6 +577,33 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
     assert counts["import"] == 1
 
 
+def test_issue336_native_still_hold_uses_single_source_frame() -> None:
+    event = {
+        "sourceRange": {"startFrame": 0, "durationFrames": 24},
+        "pictureTreatment": {"kind": "still_frame", "imageMotion": {"mode": "none"}},
+    }
+    source = {"kind": "still"}
+    manifest_source = {"sourceFrameMap": {"decodedPackageFrameCount": 1}}
+    assert workflow_v2._native_otio_single_frame_hold(event, source, manifest_source)
+    assert not workflow_v2._native_otio_single_frame_hold(
+        event, {"kind": "video"}, manifest_source
+    )
+    assert not workflow_v2._native_otio_single_frame_hold(
+        event, source, {"sourceFrameMap": {"decodedPackageFrameCount": 2}}
+    )
+    assert not workflow_v2._native_otio_single_frame_hold(
+        event, source, {"sourceFrameMap": {"decodedPackageFrameCount": True}}
+    )
+    assert not workflow_v2._native_otio_single_frame_hold(
+        {**event, "sourceRange": {"startFrame": 2, "durationFrames": 24}},
+        source,
+        manifest_source,
+    )
+    assert not workflow_v2._native_otio_single_frame_hold(
+        {**event, "pictureTreatment": {"kind": "still_frame"}}, source, manifest_source
+    )
+
+
 def test_native_otio_refuses_mixed_plain_stills_and_allows_video() -> None:
     motion = {"kind": "still_frame", "imageMotion": {"mode": "none"}}
     plain = {"kind": "still", "composition": {"framingPolicy": "contain"}}
