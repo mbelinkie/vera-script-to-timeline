@@ -246,6 +246,11 @@ function validGroupCommand(value: unknown): boolean {
   }
 }
 
+/** Shared exact command gate for direct edits and serialized Sorting trials. */
+export function isStashGroupCommandV2(value: unknown): value is StashGroupCommandV2 {
+  return validGroupCommand(value);
+}
+
 /** Range selection clamps to the anchor's section, in document order. */
 export function selectRowRangeV2(document: ScriptDocumentV2, anchorRowId: string, focusRowId: string): { rowIds: string[]; boundaryReached: boolean; diagnostics: AuthoringDiagnosticV2[] } {
   const blocks = document.activeDraft.blocks;

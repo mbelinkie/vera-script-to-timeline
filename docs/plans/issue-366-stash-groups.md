@@ -58,8 +58,43 @@ replacement; footage owner, speech intent and frozen clip source changes require
 the existing explicit review commands. Invalid member payloads, duplicate IDs,
 overlapping groups, nonadjacent saved additions and stale Save requests refuse
 atomically with the exact input document preserved. Save does not update media
-or Resolve. Phase 4 will add Sorting's acceptance/replay policy for the new Save.
+or Resolve.
+
+## Phase 4 — Sorting projections and consumers
+
+All seven group commands pass Sorting's shared exact JSON command gate and
+replay as **one operation** with local Undo, preview/return and saved-trial
+resume. Group member selections and move marks use canonical row IDs, not a
+synthetic group row or duplicated attachment. The four finishes are:
+
+- **All:** commit complete trial content, outline and group records once.
+- **Edits-only:** use baseline group organization while retaining authored row
+  replacements/deletions and new members. A new member authored in a group Save
+  is placed directly after the baseline group in edits-only, without adopting
+  a staged reordering of surviving baseline members. Incorporating an existing
+  independent Stash row into a group is organization, not a copied birth.
+- **Sorting-only:** keep current group organization/placements and baseline
+  row content. Reconstruct original members deleted by a group Save or deletion
+  when their exact sorted Stash slots can be proven. A converted compact
+  note/clip in a retained group remains an ordinary complete group row.
+- **Discard:** return the unmodified baseline and comment state.
+
+Zero/one-member selective results normalize without a persisted group. A
+split/nonadjacent projected group, unrecoverable sibling gap, mixed parent or
+section, duplicate membership/identity, incompatible attachment or unresolved
+supporting reference **refuses** the entire selective outcome; the pending
+trial, comment state and Undo remain available. Reuse of a removed group ID
+is ambiguous for selective acceptance and also refuses. There is no partial
+action replay on a projected document. The existing comment-reconciliation
+API applies once at acceptance, never during pending edits.
+
+`row-edit-consumers-v2.test.ts` proves grouped saved rows and citations remain
+excluded from prompter, compiler and media requirements, while an explicitly
+flattened group has the same consumer outputs as placing its independent rows.
+The Python narration/compiler boundary reads active Draft material, not
+`stashGroups`; its existing saved-Stash consumer integration test remains
+applicable and no Python code/schema change is needed for this metadata.
 
 ## Later phases
 
-Phase 4 owns Sorting's four finish outcomes and projection classification; group commands are intentionally not yet in the Sorting whitelist. Phase 5 owns the full mutation audit, complete fast gate and final review. No production UI, remote collaboration or real-Resolve acceptance is claimed by these domain tests.
+Phase 5 owns the full mutation audit, complete fast gate and final review. No production UI, remote collaboration or real-Resolve acceptance is claimed by these domain tests.
