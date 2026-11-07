@@ -40,12 +40,11 @@ from vera_timeline_agent.qualification_output_package_v2 import (
     load_qualification_package_v2,
 )
 from vera_timeline_agent.resolve_native_owner import preflight_selected_disposable
+from vera_timeline_agent.v2_package import verify_v2_package
 from vera_timeline_agent.workflow_v2_cli import build_output_release_v2
 
-PACKAGE = Path(
-    "/Volumes/Family 1A/CodexRulz/vera-issue312/"
-    "reverse-current-code-20261027/package-current-S-approved-v2/package"
-)
+PACKAGE = Path.home() / ".local/state/vera/issue-472-guarded-m4-02/package"
+EXPECTED_BUILD_ID = "4ece95a3-8b4e-413e-bef2-b4e6512341a6"
 PREPS = (
     Path.home() / "Library/Application Support/VERA/qualification-output-preparation/"
     "issue178-20261016-01/cases/issue312-package-current-S-approved-v2/published"
@@ -68,6 +67,9 @@ def _pin(path: Path) -> dict[str, str]:
 
 
 def _inventory() -> tuple[dict[str, Path], dict[str, dict[str, Path]]]:
+    checked = verify_v2_package(PACKAGE)
+    if checked.build_id != EXPECTED_BUILD_ID or checked.event_count != 11:
+        raise RuntimeError("verified current compiler synthetic package changed")
     builds = list((PACKAGE / "Builds").iterdir())
     if len(builds) != 1 or not builds[0].is_dir():
         raise RuntimeError("original synthetic package has no unique build")
@@ -81,8 +83,13 @@ def _inventory() -> tuple[dict[str, Path], dict[str, dict[str, Path]]]:
         or len(manifest["tracks"]) != 6
         or len(manifest["preparationBindings"]) != 6
         or len(deps["narrationBoundaryEvidence"]) != 3
+        or deps["compiler"]["sourceHash"]
+        != "sha256:"
+        + hashlib.sha256(
+            (Path.cwd() / "packages/contracts/src/compiler-core-v2.ts").read_bytes()
+        ).hexdigest()
     ):
-        raise RuntimeError("retained source fixture geometry differs")
+        raise RuntimeError("current compiled fixture geometry or compiler differs")
     preps: dict[str, Path] = {}
     for row in manifest["preparationBindings"]:
         key = row["requirementKey"].removeprefix("sha256:")
