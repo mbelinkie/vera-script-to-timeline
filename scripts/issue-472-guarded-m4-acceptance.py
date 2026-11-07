@@ -129,7 +129,7 @@ def _admission(root: Path) -> Any:
         (
             e
             for e in a.manifest["events"]
-            if e["id"] == "f5871317-bdb5-558b-8c05-6ed0fe4b6889"
+            if e["eventId"] == "f5871317-bdb5-558b-8c05-6ed0fe4b6889"
         ),
         None,
     )
@@ -161,6 +161,19 @@ def check() -> dict[str, Any]:
         "preparationReceipts": len(preps),
         "narrationMeasurements": len(narrations),
         "timelineFrames": 1407,
+        "nativeEffects": False,
+    }
+
+
+def verify(root: Path) -> dict[str, Any]:
+    admission = _admission(root)
+    return {
+        "state": "current_admission_authenticated",
+        "admission": _pin(admission.admission_path),
+        "profile": admission.profile,
+        "eventCount": len(admission.manifest["events"]),
+        "trackCount": len(admission.manifest["tracks"]),
+        "timelineFrames": admission.manifest["timeline"]["durationFrames"],
         "nativeEffects": False,
     }
 
@@ -310,6 +323,7 @@ def tick(root: Path) -> dict[str, Any]:
         installed=ctl.release_root,
         consent_reference=CONSENT_REFERENCE,
         consent_instruction=CONSENT_INSTRUCTION,
+        max_native_sequence=1,
     )
     return {"state": "one_host_transition", "transition": outcome}
 
@@ -317,7 +331,7 @@ def tick(root: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "action", choices=("check", "admit", "prepare", "tick", "status")
+        "action", choices=("check", "admit", "verify", "prepare", "tick", "status")
     )
     parser.add_argument("--root", type=Path)
     args = parser.parse_args()
@@ -328,6 +342,8 @@ def main() -> int:
             result = check()
         elif args.action == "admit":
             result = admit(args.root)
+        elif args.action == "verify":
+            result = verify(args.root)
         elif args.action == "prepare":
             result = prepare(args.root)
         elif args.action == "tick":
