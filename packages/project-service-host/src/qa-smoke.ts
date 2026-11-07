@@ -31,6 +31,8 @@ const ISSUER = "urn:vera:stt:development-qa";
 const TOKEN = /^[0-9a-f]{64}$/u;
 const SHA = /^[0-9a-f]{40}$/u;
 const RESTORE = /^vera_stt_qa_restore_[a-z0-9][a-z0-9_]{2,40}$/u;
+// Only static labels from this source are ever emitted on failure.
+let stage = "initial-preflight";
 const sleep = async (ms: number): Promise<void> => {
   await new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 };
@@ -187,7 +189,7 @@ async function snapshot(config: QaConfig, projectId: string): Promise<Snapshot> 
         "FROM vera_project_write_sessions s JOIN vera_identity_actors a ON a.id=s.actor_id " +
         "WHERE s.project_id=$1 ORDER BY s.id"),
       audit: await query("SELECT a.change_kind,a.old_role,a.new_role,a.membership_version,a.target_actor_id " +
-        "FROM vera_project_membership_audit a WHERE a.project_id=$1 ORDER BY a.created_at,a.id"),
+        "FROM vera_project_membership_audit a WHERE a.project_id=$1 ORDER BY a.occurred_at,a.id"),
       migrations: (await db.query<Record<string, unknown>>(
         "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
         "FROM vera_schema_migrations ORDER BY migration_name")).rows,
@@ -371,6 +373,7 @@ async function run(): Promise<void> {
     document: document2 };
   let sessionId: string;
   try {
+    stage = "initial-host";
     running = await launch(source, env, tokens.producer);
     await checkedHttp(source, randomBytes(32).toString("hex"), "", 401, "POST", creation);
     await checkedHttp(source, tokens.viewer, "/" + projectId, 403, "GET", undefined,
@@ -381,6 +384,7 @@ async function run(): Promise<void> {
     const replayed = await checkedHttp(source, tokens.producer, "", 200, "POST", creation);
     requireTrue(replayed.duplicateDelivery === true && replayed.documentDigest === created.documentDigest);
     cases.push("create-replay");
+    stage = "mutations-and-provisioning";
     const producerMutation = { expectedRevision: 0, clientMutationId: randomUUID(), document: document1 };
     const first = await checkedHttp(source, tokens.producer, "/" + projectId + "/document",
       200, "PUT", producerMutation);
@@ -408,21 +412,26 @@ async function run(): Promise<void> {
     await checkedHttp(source, tokens.editor, "/" + projectId, 403, "PATCH",
       { expectedProjectVersion: 1, clientMutationId: randomUUID(), title: "No" });
     cases.push("editor-write-producer-refusal");
+    stage = "producer-settings";
     requireTrue((await checkedHttp(source, tokens.producer, "/" + projectId + "/settings", 200, "PUT",
       { expectedSettingsRevision: 1, clientMutationId: randomUUID(), settings: updatedSettings })).revision === 2);
     requireTrue(safeObject((await checkedHttp(source, tokens.producer, "/" + projectId, 200, "PATCH",
       { expectedProjectVersion: 1, clientMutationId: randomUUID(), title: "QA renamed" })).project).projectVersion === 2);
     cases.push("producer-settings-title");
+    stage = "editor-revocation";
     await revoke(source, projectId, sessionId);
     await checkedHttp(source, tokens.editor, "/" + projectId + "/document", 403);
     await checkedHttp(source, tokens.editor, "/" + projectId + "/document", 403, "PUT",
       { ...previousMutation, writeSessionId: sessionId });
     cases.push("editor-revocation");
+    stage = "source-snapshot";
     const before = await snapshot(source, projectId);
     verifySnapshot(before);
     await readback(source, tokens, projectId, document2, updatedSettings, previousMutation, sessionId);
+    stage = "source-stop";
     await stop(running); running = undefined;
 
+    stage = "source-restart";
     running = await launch(source, env, tokens.producer);
     await readback(source, tokens, projectId, document2, updatedSettings, previousMutation, sessionId);
     requireEqual(await snapshot(source, projectId), before);
@@ -430,8 +439,10 @@ async function run(): Promise<void> {
     // Startup re-applies both checksum-verified migrations to populated data.
     requireTrue((before.migrations as unknown[]).length === 2);
     cases.push("populated-migration");
+    stage = "backup";
     await stop(running); running = undefined;
     runOperator("stt-qa-backup.sh", env, true);
+    stage = "tamper-refusal";
     const tampered = tamperCopy(archiveDir);
     try {
       runOperator("stt-qa-restore.sh",
@@ -442,11 +453,13 @@ async function run(): Promise<void> {
     }
     await preflightEmpty(target);
     cases.push("tampered-archive-refusal");
+    stage = "fresh-restore";
     runOperator("stt-qa-restore.sh", env, true);
     cases.push("fresh-restore");
     runOperator("stt-qa-restore.sh", env, false);
     cases.push("existing-restore-refusal");
 
+    stage = "restore-restart";
     running = await launch(target, env, tokens.producer);
     await readback(target, tokens, projectId, document2, updatedSettings, previousMutation, sessionId);
     const restored = await snapshot(target, projectId);
@@ -458,6 +471,7 @@ async function run(): Promise<void> {
     cases.push("restored-restart");
     assertCompleteCases(cases);
 
+    stage = "evidence";
     const manifest = safeObject(JSON.parse(readFileSync(join(archiveDir, "manifest.json"), "utf8")) as unknown);
     const summary = {
       deploymentMode: "development-qa", verifiedAtUtc: new Date().toISOString(),
@@ -491,7 +505,7 @@ async function run(): Promise<void> {
 if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   void run().catch(() => {
     // No data, credentials, paths or potentially sensitive driver errors.
-    process.stderr.write("STT development-QA real smoke unverified/refused\n");
+    process.stderr.write("STT development-QA real smoke unverified/refused at " + stage + "\n");
     process.exitCode = 1;
   });
 }
