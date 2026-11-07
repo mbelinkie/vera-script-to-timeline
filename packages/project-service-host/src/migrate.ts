@@ -1,0 +1,113 @@
+import {
+  applyProjectAuthorizationMigration,
+  MIGRATION_DIGEST,
+  MIGRATION_NAME,
+  type SqlClient,
+  type SqlPool,
+} from "@vera/project-authorization";
+import {
+  applyProjectDocumentsMigration,
+  PROJECT_DOCUMENTS_MIGRATION,
+  PROJECT_DOCUMENTS_MIGRATION_DIGEST,
+} from "@vera/project-documents";
+
+import type { QaConfig } from "./qa-config.js";
+
+export class QaDatabaseRefusal extends Error {
+  override readonly name = "QaDatabaseRefusal";
+  constructor() { super("unsafe development-QA database target or migration state"); }
+}
+
+const ALLOWED_TABLES = new Set([
+  "vera_schema_migrations",
+  "vera_identity_actors",
+  "vera_project_members",
+  "vera_project_write_sessions",
+  "vera_project_membership_audit",
+  "stt_projects",
+  "stt_document_heads",
+  "stt_document_revisions",
+  "stt_project_settings",
+  "stt_settings_revisions",
+  "stt_project_title_mutations",
+]);
+
+const EXPECTED_MIGRATIONS = [
+  { name: MIGRATION_NAME, version: 1, checksum: MIGRATION_DIGEST },
+  { name: PROJECT_DOCUMENTS_MIGRATION, version: 1, checksum: PROJECT_DOCUMENTS_MIGRATION_DIGEST },
+] as const;
+
+export interface QaMigrationReceipt {
+  readonly name: string;
+  readonly version: number;
+  readonly checksum: string;
+}
+
+/** Fail before performing DDL against any other database, privileged role or schema. */
+export async function assertQaDatabaseTarget(db: SqlClient, config: QaConfig): Promise<void> {
+  const connection = await db.query<{
+    database_name: string;
+    user_name: string;
+    superuser: boolean;
+    createdb: boolean;
+    createrole: boolean;
+    replication: boolean;
+    bypassrls: boolean;
+  }>(
+    "SELECT current_database() AS database_name, current_user AS user_name, " +
+    "r.rolsuper AS superuser, r.rolcreatedb AS createdb, " +
+    "r.rolcreaterole AS createrole, r.rolreplication AS replication, " +
+    "r.rolbypassrls AS bypassrls FROM pg_roles r WHERE r.rolname=current_user",
+  );
+  const actual = connection.rows[0];
+  if (connection.rows.length !== 1 || !actual ||
+      actual.database_name !== config.databaseName ||
+      actual.user_name !== config.databaseUser ||
+      actual.superuser !== false || actual.createdb !== false ||
+      actual.createrole !== false || actual.replication !== false ||
+      actual.bypassrls !== false) throw new QaDatabaseRefusal();
+
+  // Include views and foreign/materialized tables as well as base tables:
+  // an existing non-QA schema must not silently be accepted as a fresh QA DB.
+  const tables = await db.query<{ schema_name: string; table_name: string }>(
+    "SELECT n.nspname AS schema_name, c.relname AS table_name " +
+    "FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid " +
+    "WHERE n.nspname NOT IN ('pg_catalog', 'pg_toast', 'information_schema') " +
+    "AND n.nspname NOT LIKE 'pg_temp_%' AND n.nspname NOT LIKE 'pg_toast_temp_%' " +
+    "AND c.relkind IN ('r','p','v','m','f')",
+  );
+  if (tables.rows.some(({ schema_name, table_name }) =>
+    schema_name !== "public" || !ALLOWED_TABLES.has(table_name))) {
+    throw new QaDatabaseRefusal();
+  }
+}
+
+/** Run both *existing* checksum-verified migrations on one held connection. */
+export async function applyQaMigrations(
+  pool: SqlPool,
+  config: QaConfig,
+): Promise<readonly QaMigrationReceipt[]> {
+  const db = await pool.connect();
+  try {
+    await assertQaDatabaseTarget(db, config);
+    await applyProjectAuthorizationMigration(db);
+    await applyProjectDocumentsMigration(db);
+    const receipts = await db.query<{
+      name: string;
+      version: number;
+      checksum: string;
+    }>(
+      "SELECT migration_name AS name, schema_version AS version, " +
+      "encode(checksum,'hex') AS checksum FROM vera_schema_migrations",
+    );
+    if (receipts.rows.length !== EXPECTED_MIGRATIONS.length ||
+        EXPECTED_MIGRATIONS.some((expected) => !receipts.rows.some((actual) =>
+          actual.name === expected.name && Number(actual.version) === expected.version &&
+          actual.checksum === expected.checksum))) {
+      throw new QaDatabaseRefusal();
+    }
+    return EXPECTED_MIGRATIONS.map(({ name, version, checksum }) => ({ name, version, checksum }));
+  } finally {
+    db.release?.();
+  }
+}
