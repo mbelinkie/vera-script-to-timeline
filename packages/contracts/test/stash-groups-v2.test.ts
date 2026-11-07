@@ -123,6 +123,17 @@ describe("persisted Stash groups — identity and location (issue 366 phase 1)",
     expect(stashGroupLocationProblemV2(doc, group)).toBeNull();
   });
 
+  it("rejects semantically invalid saved groups during deserialization and serialization", () => {
+    const { doc } = groupedDocument();
+    doc.stashGroups![0]!.rowIds.reverse();
+    const diagnostics = validateScriptDocumentV2(doc).diagnostics;
+    expect(diagnostics.some((item) => item.code === "STASH_GROUP_INVALID")).toBe(true);
+    const restored = deserializeAuthoringDocumentV2(JSON.stringify(doc));
+    expect(restored.ok).toBe(false);
+    if (!restored.ok) expect(restored.diagnostics.some((item) => item.code === "STASH_GROUP_INVALID")).toBe(true);
+    expect(() => serializeAuthoringDocumentV2(doc)).toThrow(/consecutive/);
+  });
+
   it("rejects duplicate membership, duplicate group identity and stale compact-return eligibility", () => {
     const { doc, group } = groupedDocument();
     const overlap = structuredClone(doc);
