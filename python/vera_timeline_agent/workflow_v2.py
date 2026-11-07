@@ -1562,6 +1562,22 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
     return _canonical_json({"v2EventId": marker["id"], "v2EventSha256": digest})
 
 
+def _native_otio_scaling(framing: object) -> int:
+    """Independent Studio OTIO Type-22 scale readback, NOT SDK SCALE_*.
+
+    Studio 21.1.1.10's imported OTIO Type-22 scaling `2` means fit and `3`
+    means fill. The `resolve.SCALE_FIT` and `.SCALE_CROP` constants are an
+    unrelated SDK enum (on this installation they read 2.0 and 1.0). The
+    successful one-shot import was previously rejected by comparing the two
+    distinct enums. No other API-based placement route uses this mapping.
+    """
+    if framing == "contain":
+        return 2
+    if framing == "cover":
+        return 3
+    raise WorkflowV2Error("native OTIO framing policy has no measured scale value")
+
+
 class PublicResolveAdapter(AcceptedDeliveryAdapter):
     """The accepted #109 target guard with v2-only placement and readback."""
 
@@ -1658,18 +1674,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             )
             if isinstance(motion, Mapping):
                 framing = cast(Mapping[str, Any], picture).get("framingPolicy")
-                native_scale = (
-                    getattr(self.resolve, "SCALE_FIT", None)
-                    if framing == "contain"
-                    else getattr(self.resolve, "SCALE_CROP", None)
-                )
-                if native_scale is None:
-                    raise WorkflowV2Error(
-                        "native OTIO has no verified scaling constant"
-                    )
                 self.expected_properties[event_id] = {
                     "DynamicZoomEnabled": motion.get("mode") == "native_dynamic_zoom",
-                    "Scaling": native_scale,
+                    "Scaling": _native_otio_scaling(framing),
                 }
             else:
                 self.expected_properties[event_id] = {}
@@ -1782,14 +1789,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 if expected_zoom is not None:
                     properties = item.GetProperties()
                     framing = cast(Mapping[str, Any], picture).get("framingPolicy")
-                    scale = (
-                        getattr(self.resolve, "SCALE_FIT", None)
-                        if framing == "contain"
-                        else getattr(self.resolve, "SCALE_CROP", None)
-                    )
+                    scale = _native_otio_scaling(framing)
                     if (
-                        scale is None
-                        or not isinstance(properties, Mapping)
+                        not isinstance(properties, Mapping)
                         or not _property_equal(
                             properties.get("DynamicZoomEnabled"), expected_zoom
                         )

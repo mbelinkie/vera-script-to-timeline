@@ -415,15 +415,25 @@ class _FakeAdapter:
         return self.verification_discrepancies
 
 
-@pytest.mark.parametrize("scaling", ["fit", "crop"])
+@pytest.mark.parametrize(
+    ("framing", "scaling", "accepted"),
+    [
+        ("contain", 2, True),
+        ("contain", 3, False),
+        ("cover", 3, True),
+        ("cover", 1, False),
+    ],
+)
 def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stamps(
     tmp_path: Path,
-    scaling: str,
+    framing: str,
+    scaling: int,
+    accepted: bool,
 ) -> None:
     """Model public Resolve import APIs, not native pixel output."""
     picture = {
         "kind": "still_frame",
-        "framingPolicy": "contain",
+        "framingPolicy": framing,
         "imageMotion": {"mode": "none"},
     }
     attestation, digest, _ = _make_package(tmp_path, picture_treatment=picture)
@@ -549,7 +559,7 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
     adapter.assert_current_target = lambda: None  # type: ignore[method-assign]
 
     otio = package.root / "Builds" / package.manifest["buildId"] / "timeline.otio"
-    if scaling == "crop":
+    if not accepted:
         with pytest.raises(workflow_v2.WorkflowV2Error, match="scaling"):
             adapter.import_verified_otio(otio, package.view, "VERA Test")
         assert counts["import"] == 1
@@ -560,7 +570,7 @@ def test_issue336_real_adapter_imports_one_otio_without_append_or_duplicate_stam
     assert adapter.media_id_by_source[source["id"]] == "exact-source-id"
     assert adapter.expected_properties[package.view["events"][0]["id"]] == {
         "DynamicZoomEnabled": False,
-        "Scaling": "fit",
+        "Scaling": 2 if framing == "contain" else 3,
     }
     with pytest.raises(workflow_v2.WorkflowV2Error, match="fresh empty target"):
         adapter.import_verified_otio(otio, package.view, "VERA Test")
