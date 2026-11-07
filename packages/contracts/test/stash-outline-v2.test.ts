@@ -1603,4 +1603,41 @@ describe("mixed Stash outline contract", () => {
     expect(resumed.document.stashOutline).toEqual(trial.document.stashOutline);
     expect(resumed.document.activeDraft.blocks.map((block) => block.id)).toEqual([selectedRoot]);
   });
+
+  it("upgrades legacy section rowIds on placement and returns a historical six-field batch in order", () => {
+    const first = narration(610000);
+    const second = narration(620000);
+    const sectionId = id(630000);
+    const legacy = documentWith();
+    legacy.stash = [{ id: id(640000), rows: [first, second], supportingItems: [] }];
+    legacy.stashSections = [{ id: sectionId, title: "Old saved section", rowIds: [first.id, second.id] }];
+    const placed = applyRowEditV2(legacy, 0, {
+      kind: "place_stash_rows", rowIds: [first.id, second.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    if (!placed.ok) return;
+
+    // An older client persisted the original six fields but not frozen history arrays.
+    const oldJson = structuredClone(placed.document);
+    for (const block of oldJson.activeDraft.blocks) {
+      if (block.type === "section" || !block.stashOrigin) continue;
+      delete block.stashOrigin.precedingSiblingRowIds;
+      delete block.stashOrigin.followingSiblingRowIds;
+      delete block.stashOrigin.originalParentContext;
+    }
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(oldJson));
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    if (!loaded.ok) return;
+    const returned = applyRowEditV2(loaded.document, 1, {
+      kind: "stash_rows", rowIds: [first.id, second.id], bundleId: id(650000),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual([
+      { rowId: first.id, kind: "row", parentRowId: null, sectionId },
+      { rowId: second.id, kind: "row", parentRowId: null, sectionId },
+    ]);
+    expect(returned.document.stashSections).toEqual([{ id: sectionId, title: "Old saved section", rowIds: [] }]);
+    expect(returned.document.activeDraft.blocks).toEqual([]);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+  });
 });

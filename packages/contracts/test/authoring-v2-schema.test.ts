@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchemaObject } from "ajv/dist/2020.js";
 import * as formatsModule from "ajv-formats";
 import { describe, expect, it } from "vitest";
+import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "../src/authoring-v2.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const documentSchema = JSON.parse(
@@ -392,6 +393,32 @@ describe("authoring v2 document and project-settings schemas", () => {
     });
     expectDocumentValid(withHistory);
     expectDocumentValid(JSON.parse(JSON.stringify(withHistory)));
+  });
+
+  it("roundtrips a legacy six-field origin and section rowIds without inventing an outline or history", () => {
+    const source = documentWithBlock();
+    const oldSectionId = "00000000-0000-4000-8000-000000000772";
+    const parkedId = "00000000-0000-4000-8000-000000000770";
+    setAt(source, ["activeDraft", "blocks", 0, "stashOrigin"], {
+      kind: "row", parentRowId: null, sectionId: oldSectionId,
+      afterSiblingRowId: parkedId, beforeSiblingRowId: null, returnEligible: true,
+    });
+    Object.assign(source, {
+      stash: [{ id: "00000000-0000-4000-8000-000000000771", rows: [{
+        id: parkedId, type: "note_draft", orderKey: "legacy-parked", text: "Saved, not on the timeline",
+        state: "excluded", version: 1,
+      }], supportingItems: [] }],
+      stashSections: [{ id: oldSectionId, title: "Original section", rowIds: [parkedId] }],
+    });
+    expectDocumentValid(source);
+    const originalJson = JSON.stringify(source);
+    const loaded = deserializeAuthoringDocumentV2(originalJson);
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    if (!loaded.ok) return;
+    expect(serializeAuthoringDocumentV2(loaded.document)).toBe(originalJson);
+    expect(loaded.document).not.toHaveProperty("stashOutline");
+    expect(loaded.document.activeDraft.blocks[0]).not.toHaveProperty("stashOrigin.precedingSiblingRowIds");
+    expect(loaded.document.activeDraft.blocks[0]).not.toHaveProperty("stashOrigin.originalParentContext");
   });
 
   it("rejects duplicate, malformed and unknown frozen origin history in the closed schema", () => {
