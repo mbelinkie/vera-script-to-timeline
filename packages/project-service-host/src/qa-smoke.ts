@@ -193,7 +193,7 @@ async function snapshot(config: QaConfig, projectId: string): Promise<Snapshot> 
       migrations: (await db.query<Record<string, unknown>>(
         "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
         "FROM vera_schema_migrations ORDER BY migration_name")).rows,
-      postgres: (await db.query<{ version: string }>("SHOW server_version")).rows[0]?.version,
+      postgres: (await db.query<{ server_version: string }>("SHOW server_version")).rows[0]?.server_version,
     };
   });
 }
@@ -270,6 +270,7 @@ function verifySnapshot(value: Snapshot): void {
       ["synthetic-viewer", "viewer", true]]);
   requireTrue(rows("sessions")[0]?.revoked === true &&
     rows("audit").some((row) => row.change_kind === "revoke"));
+  requireTrue(typeof value.postgres === "string" && value.postgres.length > 0);
 }
 
 async function readback(config: QaConfig, tokens: Tokens, projectId: string,
