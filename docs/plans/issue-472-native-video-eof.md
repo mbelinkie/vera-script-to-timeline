@@ -12,13 +12,28 @@ hash bindings must remain independently validated. The native integer getter
 alone cannot establish that the media was truncated; the partial result itself
 does not certify a completed native edit or prove the entire fixture.
 
+**Actual admitted converted source:** The immutable package's source frame
+map contains **900 original frames at 30000/1001**, with source origin
+`1001/1250` seconds and original probe hash
+`sha256:fc5bb2bb98c21bc7c835fe111c95110afca3dfb91004010d34a11e3cd71bfee9`.
+Its prepared delivered clip instead has **214 decoded frames at 24000/1001**,
+delivered origin zero, and a *distinct* delivered probe hash
+`sha256:4286b5c88e3e9ac7af23bac1582a2297c7441ea82ce5eb499084f40856962c2a`.
+This distinction was independently read from the retained private admitted
+manifest: **requiring original and delivered counts, rates or probe hashes to
+be equal would reject the real fixture**. This was corrected in the #472
+verifier and mirrored in its converted-source regression.
+
 `qualification_output_native_v2._capture_geometry` now recognizes **only** the
 two-frame-short integer end at the full decoded-video EOF (not a +/-2
 tolerance). It requires the exact admitted full-source range, equal 214-frame
 record/source extent, 100% speed, native `Frames` and FPS, the independently
 verified decoded count and 24000/1001 rate, original media bytes and matching
-delivered/probe hashes, equal manifest/view/frame-map mapping and identity,
-zero origin, and source clock edges accurate within one 48 kHz sample of
+delivered hashes and *delivered* probe hashes, matching immutable original
+source-frame-map count/rate/probe and mapped source origin, and equal
+manifest/view/frame-map mapping and identity. The verified delivered origin is
+zero; the original source origin need not be zero. The native source clock
+edges must be accurate within one 48 kHz sample of
 frame 0 and the *exclusive* decoded EOF. The preexisting native event stamp,
 track mapping, media path/hash and subsequent frozen item-UID checks remain
 mandatory. No new media decoding, sample-count proof or external evidence is
@@ -26,7 +41,8 @@ inferred from Resolve's getter.
 
 The guard rejects interior trims, a genuinely short 212-frame source, an
 incorrect end time, an altered start time, any mismatched imported/preparation
-rate, hashes, decoded/frame-map/native counts, event/source identity or record
+rate, hashes, decoded/native counts or invalid original source-map extent,
+event/source identity or record
 duration. Other integer end getters retain prior strict behaviour. Tests use
 the immutable observation as a **mocked readback**, not as a new live Studio
 experiment; see `tests/test_issue145_native_range.py` and existing #209/#215

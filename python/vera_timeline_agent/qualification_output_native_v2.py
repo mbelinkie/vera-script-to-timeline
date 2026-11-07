@@ -3871,9 +3871,7 @@ def _verified_video_full_source_eof_readback(
         or mapping != source_mapping
         or view_event.get("sourceTimeMapping") != mapping
         or mapping.get("sourceFrameMap") != frame_map
-        or mapping.get("sourceRate") != frame_rate
         or mapping.get("deliveredRate") != frame_rate
-        or mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
         or mapping.get("deliveredOrigin") != {"numerator": 0, "denominator": 1}
         or manifest_event.get("sourceRange") != expected_range
         or view_event.get("sourceRange") != expected_range
@@ -3886,15 +3884,45 @@ def _verified_video_full_source_eof_readback(
     ):
         return False
 
+    # The frame map describes the *original* package media, not the delivered
+    # converted clip. In the real #312 case it has 900 frames at 30000/1001,
+    # with a nonzero source origin; the verified delivered media has 214 frames
+    # at 24000/1001 and starts at delivered frame zero. Keep both clocks pinned
+    # rather than requiring the different counts, rates or probes to coincide.
+    mapped_count = frame_map.get("decodedPackageFrameCount")
+    mapped_rate = frame_map.get("decodedPackageFrameRate")
+    source_origin = mapping.get("sourceOrigin")
+    if (
+        type(mapped_count) is not int
+        or mapped_count <= 0
+        or type(mapped_rate) is not dict
+        or mapping.get("sourceRate") != mapped_rate
+        or type(mapped_rate.get("numerator")) is not int
+        or type(mapped_rate.get("denominator")) is not int
+        or mapped_rate["numerator"] <= 0
+        or mapped_rate["denominator"] <= 0
+        or type(source_origin) is not dict
+        or type(source_origin.get("numerator")) is not int
+        or type(source_origin.get("denominator")) is not int
+        or source_origin["numerator"] < 0
+        or source_origin["denominator"] <= 0
+        or type(frame_map.get("probeHash")) is not str
+        or frame_map["probeHash"] != frame_map.get("descriptorHash")
+    ):
+        return False
+
     count = verification.get("decodedFrameCount")
     delivered_hash = verification.get("deliveredHash")
     probe_hash = verification.get("probeHash")
     if (
         type(count) is not int
         or count != expected_source_end
-        or frame_map.get("decodedPackageFrameCount") != count
         or verification.get("decodedFrameRate") != frame_rate
-        or frame_map.get("decodedPackageFrameRate") != frame_rate
+        # The selected source interval must fit within the mapped original
+        # media, but the converted output count need not equal its frame count.
+        or Fraction(source_origin["numerator"], source_origin["denominator"])
+        + count * Fraction(rate["denominator"], rate["numerator"])
+        > mapped_count * Fraction(mapped_rate["denominator"], mapped_rate["numerator"])
         or type(media_frames) is not str
         or media_frames != str(count)
         or type(delivered_hash) is not str
@@ -3902,8 +3930,6 @@ def _verified_video_full_source_eof_readback(
         or type(manifest_source.get("deliveredHash")) is not str
         or _source_hash(manifest_source["deliveredHash"]) != _source_hash(source_hash)
         or type(probe_hash) is not str
-        or probe_hash != frame_map.get("probeHash")
-        or probe_hash != frame_map.get("descriptorHash")
         or probe_hash != manifest_source.get("deliveredProbeHash")
     ):
         return False

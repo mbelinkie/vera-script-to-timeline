@@ -228,9 +228,9 @@ def _video_rounding_geometry_case(
 
 
 def _video_full_eof_214_case(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, *, converted: bool = True
 ) -> tuple[Any, dict[str, Any], dict[str, Any], Any]:
-    """Reproduce the immutable #312 Studio 214/212 video EOF observation."""
+    """Reproduce #312's 214/212 observation and its real converted source map."""
     resolve, request, admitted, item = _video_rounding_geometry_case(
         tmp_path, monkeypatch
     )
@@ -245,7 +245,21 @@ def _video_full_eof_214_case(
     manifest = admitted["manifest"]
     manifest["events"][0]["sourceRange"] = {"startFrame": 0, "endFrame": frame_count}
     frame_map = manifest["sources"][0]["sourceFrameMap"]
-    frame_map["decodedPackageFrameCount"] = frame_count
+    if converted:
+        # The real #312 input is a converted portion of a 900-frame 29.97 fps
+        # source; its original probe differs from the delivered 23.976 probe.
+        original_rate = {"numerator": 30000, "denominator": 1001}
+        original_probe_hash = "sha256:" + "c" * 64
+        frame_map["decodedPackageFrameCount"] = 900
+        frame_map["decodedPackageFrameRate"] = original_rate
+        frame_map["probeHash"] = original_probe_hash
+        frame_map["descriptorHash"] = original_probe_hash
+        frame_map["packageVideoTimeBase"] = {"numerator": 1, "denominator": 30000}
+        mapping = manifest["sources"][0]["sourceTimeMapping"]
+        mapping["sourceRate"] = original_rate
+        mapping["sourceOrigin"] = {"numerator": 1001, "denominator": 1250}
+    else:
+        frame_map["decodedPackageFrameCount"] = frame_count
     manifest["preparationBindings"][0]["verification"]["decodedFrameCount"] = (
         frame_count
     )
@@ -273,10 +287,13 @@ def _video_full_eof_214_case(
 
 
 @pytest.mark.parametrize("phase", ["pristine", "rebuild"])
+@pytest.mark.parametrize("converted", [True, False])
 def test_authenticated_full_video_eof_214_frames_accepts_exact_212_getter(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, phase: str
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, phase: str, converted: bool
 ) -> None:
-    resolve, request, admitted, item = _video_full_eof_214_case(tmp_path, monkeypatch)
+    resolve, request, admitted, item = _video_full_eof_214_case(
+        tmp_path, monkeypatch, converted=converted
+    )
     request["context"]["phase"] = phase
 
     geometry = native._capture_geometry(resolve, request, admitted, None)
@@ -302,6 +319,9 @@ def test_authenticated_full_video_eof_214_frames_accepts_exact_212_getter(
         "wrong probe hash",
         "wrong decoded frame rate",
         "wrong frame map rate",
+        "wrong original frame-map probe",
+        "wrong source mapping rate",
+        "invalid source origin",
         "wrong imported frame rate",
         "missing imported frame rate",
         "source interior trim",
@@ -349,6 +369,18 @@ def test_authenticated_full_video_eof_214_refuses_uncorroborated_readback(
     elif invalid == "wrong frame map rate":
         frame_map["decodedPackageFrameRate"] = wrong_rate
         item.stamp = native._event_stamp(event)
+    elif invalid == "wrong original frame-map probe":
+        frame_map["descriptorHash"] = "sha256:" + "d" * 64
+    elif invalid == "wrong source mapping rate":
+        manifest["sources"][0]["sourceTimeMapping"] = {
+            **manifest["sources"][0]["sourceTimeMapping"],
+            "sourceRate": wrong_rate,
+        }
+    elif invalid == "invalid source origin":
+        manifest["sources"][0]["sourceTimeMapping"] = {
+            **manifest["sources"][0]["sourceTimeMapping"],
+            "sourceOrigin": {"numerator": 900, "denominator": 1},
+        }
     elif invalid == "wrong imported frame rate":
         old_props = item.media.GetClipProperty
         monkeypatch.setattr(

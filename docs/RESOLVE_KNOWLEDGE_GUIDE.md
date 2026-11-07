@@ -734,7 +734,10 @@ The report records these distinct stages:
   **partially failed** at the full 214-frame source EOF: native integer end
   `212`, `Frames=214`, 214-frame timeline record, and source end time
   `8.925583333333332` at 24000/1001. The original result SHA-256 is retained
-  in [#472 analysis](plans/issue-472-native-video-eof.md). The #472 verifier
+  in [#472 analysis](plans/issue-472-native-video-eof.md). Its *original*
+  source map has 900 frames at 30000/1001 and nonzero source origin; its
+  *delivered* decoded clip has 214 frames at 24000/1001 and a different probe
+  hash. These two clocks/hashes must **not** be equated. The #472 verifier
   correction adds a *conditional*, hash/rate/frame-map/clock-bound full-source
   EOF equivalence, **not** a blanket two-frame tolerance. Mocked regressions
   do not constitute a new real saved/reopened Studio acceptance. This historical
