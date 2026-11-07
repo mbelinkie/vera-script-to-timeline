@@ -30,17 +30,36 @@ case ID. Never use the old #312 PR #323 project, original operation IDs, or
 producer source files. Use the original media/voiceover fixture and native
 source hashes; never fabricate a pristine or edited capture.
 
-**Required operator-created target preflight:** The output host's `construct`
-action requires an already selected, genuinely existing *empty* Resolve project
-and timeline whose `projectUid` and `timelineUid` are their actual read-only
-Resolve `GetUniqueId()` values. Resolve does not let a caller preselect these
-UIDs. Create **two** separately named, saved, blank disposable projects and
-timelines in the Resolve UI, and read their real identities through the
-installed supported SDK without altering either. Each project's name must
-equal its own empty timeline's name and satisfy the `VERA Delivery <UUID>
-<12-hex>` format. Record both actual UID pairs in the private M4 plan. Select
-the **initial** target in Resolve before the first worker tick; select the
-separately reserved fresh target only when the rebuild stage is next.
+**Automatic Test Bench setup (no manual project creation):** The output host's
+`construct` action requires a genuinely existing *empty* project/timeline
+with real Resolve `GetUniqueId()` values. Use the dedicated, one-use native
+provisioner rather than asking the Producer to create anything in the UI:
+
+```sh
+export TEST_RUN="$HOME/Library/Application Support/VERA/resolve-test-bench/provision/<new-test-run-id>"
+uv run --frozen python -m vera_timeline_agent.resolve_test_queue_m4_provision \
+  --root "$TEST_RUN" run
+```
+
+Replace `<new-test-run-id>` with one unique, unused private run directory.
+`run` reserves two distinct `VERA Delivery <UUID> <12-hex>` names, uses the
+supported Resolve project/timeline creation APIs, sets the 23.976 frame rate
+**before** timeline creation, saves and reads back both actual independent
+UID pairs, and leaves the initial target selected. Use
+`resolve_test_queue_m4_provision.completed(Path(TEST_RUN))` to obtain the
+read-only `{initial, fresh}` target records for the M4 plan and output-host
+session; neither the CLI nor the agent may invent native UIDs.
+
+The provisioner journals a one-use intention *before* each native effect.
+`run` is idempotent after complete success, but an incomplete intent is UNKNOWN
+and will **not** create or reuse that target on retry. Inspect the exact
+private run record; do not blindly delete, retry or repair a partially created
+project. No attempt can modify or save an existing Producer project. After
+pristine/edit/revision is fully authenticated, the operator controller can
+select the reserved fresh project using `select-fresh` (then check the M4
+preflight); `select-initial` restores the first test target. Selection refuses
+any currently selected Producer project, unknown work, active render, or
+wrong UID. No ad-hoc Resolve GUI scripting is involved.
 
 M4 performs a distinct **read-only, exact-UID selected-disposable preflight**
 for every stage; it requires an empty timeline and no render jobs for pristine
