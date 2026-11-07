@@ -109,3 +109,34 @@ compiler/prompter exclusion and the superseded ambiguous attached-footage
 expectation. Phase 5 owns full `npm run validate:fast`, independent mutation
 checks for outline/ownership/explicit-drop/revision guards, whole-diff review
 and the PR; full `npm run validate` belongs to GitHub Actions.
+
+## Phase 5 evidence (2026-11-07 Linux worktree)
+
+- Final affected run: 13 contract test files, **321/321 passed**, including
+  schema compatibility, Stash outline/return, Research owners, Sorting's four
+  outcomes, compiler and prompter. Contract generation, TypeScript lint and
+  typecheck passed in both local fast-gate runs.
+- One newly discovered boundary: an explicit top-level drop for a separately
+  placed Research clip used to auto-reattach to its now-empty original note.
+  A new regression failed on the old condition, then passed after guarding
+  auto-reattachment with `!command.destination`. An explicit drop now wins
+  even when the old owner's slot is empty; normal menu returns still reattach.
+- Each of five independent, reversible source mutations — note-only parent,
+  outline subtree/preorder, unique media owner, current exact drop gap, and
+  stale row revision — caused the intended negative test assertion failure.
+  Original source bytes were restored after each mutation; `git diff --check`
+  remained clean.
+- The **second, uncontended** `npm run validate:fast` completed all TypeScript
+  stages; the contract fast suite passed **1,189/1,189**. The first gate's
+  seven unrelated qualification-suite timeouts passed **30/30** in isolation
+  and passed again in the second full gate.
+- Overall local fast gate **did not pass**: Python fast tests ended at **2,784
+  passed, 43 skipped, 5 failed**. Exact failures were two narration CLI media
+  tool cases, the issue-182 provider campaign driver, cloud scribe without
+  `ffmpeg`, and process-child cleanup awaiting `ProcessLookupError`. All five
+  also failed in the earlier phase-1 Linux run; these tests and their backing
+  implementation were not changed for #368. No origin/main Python re-run was
+  performed, and no native Mac/Resolve acceptance is claimed.
+- The single required `npm run review -- notes.md` attempt was made; Claude
+  refused with a weekly usage limit (reset Nov 9, 15:00 UTC). It produced no
+  independent findings, so CI and an external review remain outstanding.
