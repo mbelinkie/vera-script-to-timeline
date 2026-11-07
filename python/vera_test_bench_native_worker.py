@@ -8,6 +8,7 @@ Python source, module name, shell string or callable is executed here.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import runpy
@@ -40,7 +41,25 @@ def main() -> None:
         raise RuntimeError("installed request SHA differs before native effect")
     # The pinned launcher independently verifies its own installed release,
     # authority, target, exact request and one-use native effect journal.
-    import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+    try:
+        import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+    except ImportError:
+        # The official SDK is usually installed outside PYTHONPATH on macOS.
+        sdk = Path(
+            "/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
+            "Developer/Scripting/Modules/DaVinciResolveScript.py"
+        )
+        if sdk.is_symlink() or not sdk.is_file():
+            raise RuntimeError(
+                "official installed Resolve scripting SDK unavailable"
+            ) from None
+        spec = importlib.util.spec_from_file_location("DaVinciResolveScript", sdk)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(
+                "official installed Resolve scripting SDK cannot load"
+            ) from None
+        dvr = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dvr)
 
     resolve = dvr.scriptapp("Resolve")
     if not resolve:

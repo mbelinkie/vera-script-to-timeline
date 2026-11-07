@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
 from vera_timeline_agent import resolve_test_bench_output as output
 from vera_timeline_agent import resolve_test_queue as queue
 
 
-def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def _fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, dict[str, Any], list[str], Path, Path]:
     from vera_timeline_agent import qualification_output_controller_v2 as host
     from vera_timeline_agent import qualification_output_native_v2 as native
 
@@ -27,20 +30,30 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     result = native_dir / "result.json"
 
     class Host:
-        def __init__(self):
+        def __init__(self) -> None:
             self.context = context
 
-        def prepare_operator_plan(self, path):
+        def prepare_operator_plan(self, path: Path) -> None:
             steps.append("plan")
             path.write_text("reviewed proposal")
 
-        def prepare_next_native_request(self, approval):
+        def prepare_next_native_request(self, approval: Path) -> None:
             assert approval.exists()
             steps.append("prepared")
             request.write_text("pinned one-use native request")
 
-        def finalize_output(self, path, sha):
+        def finalize_output(self, path: Path, sha: str) -> None:
             steps.append("finalize")
+
+        def ingest_native_result(self, path: Path, sha: str) -> dict[str, Any]:
+            steps.append("ingested")
+            return {
+                "sequence": 0,
+                "action": "capture_post",
+                "status": "complete",
+                "resultSha256": sha,
+                "hostStage": "post_capture_ready_to_finalize",
+            }
 
     monkeypatch.setattr(output, "_session", lambda *args: Host())
     monkeypatch.setattr(
@@ -62,7 +75,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         lambda path, sha: {"action": "capture_post", "sequence": 0},
     )
 
-    def approval(*args, **kwargs):
+    def approval(*args: Any, **kwargs: Any) -> None:
         steps.append("approval")
         args[1].write_text("attributed approval")
 
@@ -88,7 +101,9 @@ def test_driver_prepares_and_dispatches_once(
 
     root, kwargs, calls, request, _ = _fixture(tmp_path, monkeypatch)
 
-    def dispatch(step, source, digest, installed, **options):
+    def dispatch(
+        step: Path, source: Path, digest: str, installed: Path, **options: Any
+    ) -> dict[str, str]:
         calls.append("launch")
         assert source == request
         assert digest == hashlib.sha256(request.read_bytes()).hexdigest()
@@ -137,7 +152,7 @@ def test_existing_complete_native_only_after_independent_verification(
     assert (
         verified["capture"]["sha256"] == hashlib.sha256(result.read_bytes()).hexdigest()
     )
-    assert calls == []
+    assert calls == ["ingested"]
 
 
 def test_cannot_adopt_unowned_native_result(
@@ -172,3 +187,47 @@ def test_missing_actual_producer_instruction_is_refused(
     with pytest.raises(queue.QueueError, match="Producer instruction"):
         output.tick(root, **kwargs)
     assert calls == []
+
+
+def test_finalize_crash_is_inspect_only_and_cannot_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import resolve_test_bench_carrier as carrier
+
+    root, kwargs, calls, _, native_result = _fixture(tmp_path, monkeypatch)
+    root.mkdir(mode=0o700)
+    step = root / "native-00"
+    step.mkdir(mode=0o700)
+    (step / "intent.json").write_text("one-use fake host intent")
+    native_result.write_text("synthetic authenticated fixture")
+    monkeypatch.setattr(
+        carrier,
+        "status",
+        lambda path: {
+            "state": "native_result_verified",
+            "result": {
+                "path": str(native_result),
+                "sha256": hashlib.sha256(native_result.read_bytes()).hexdigest(),
+            },
+        },
+    )
+    monkeypatch.setattr(output, "_terminal", lambda controller: False)
+
+    def crash(_self: Any, _path: Path, _sha: str) -> NoReturn:
+        calls.append("finalizer-effect")
+        raise RuntimeError("finalizer died after state mutation")
+
+    original = output._session
+
+    def session(*args: Any) -> Any:
+        result = original(*args)
+        result.finalize_output = lambda path, sha: crash(result, path, sha)
+        return result
+
+    monkeypatch.setattr(output, "_session", session)
+    with pytest.raises(RuntimeError, match="finalizer died"):
+        output.tick(root, **kwargs)
+    assert (root / "finalize-intent.json").exists()
+    with pytest.raises(queue.QueueError, match="never replay"):
+        output.tick(root, **kwargs)
+    assert calls == ["ingested", "finalizer-effect"]

@@ -2,19 +2,33 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_queue as queue
 
 
-def _host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, action: str = "construct"):
+def _host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, action: str = "construct"
+) -> tuple[
+    Path,
+    Path,
+    str,
+    Path,
+    list[Any],
+    Callable[..., None],
+    list[Any],
+    Callable[..., None],
+]:
     from vera_timeline_agent import resolve_native_owner as owner
 
     root = tmp_path / "run"
@@ -35,14 +49,14 @@ def _host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, action: str = "constr
     monkeypatch.setattr(
         owner, "acquire_native_owner", lambda: os.open(os.devnull, os.O_RDONLY)
     )
-    selected = []
+    selected: list[Any] = []
 
-    def check(t, *, require_empty):
+    def check(t: Any, *, require_empty: bool) -> None:
         selected.append((t, require_empty))
 
-    spawned = []
+    spawned: list[Any] = []
 
-    def spawn(*args, **kwargs):
+    def spawn(*args: Any, **kwargs: Any) -> None:
         spawned.append((args, kwargs))
 
     return root, source, digest, installed, selected, check, spawned, spawn
@@ -80,7 +94,7 @@ def test_failure_after_intent_is_unknown_and_never_retries(
 ) -> None:
     root, source, digest, installed, _, check, _, _ = _host(tmp_path, monkeypatch)
 
-    def crash(*args, **kwargs):
+    def crash(*args: Any, **kwargs: Any) -> None:
         raise OSError("spawn failed; its effect may be uncertain")
 
     with pytest.raises(OSError, match="spawn failed"):
@@ -95,7 +109,7 @@ def test_preflight_refusal_never_writes_intent(
 ) -> None:
     root, source, digest, installed, _, _, _, spawn = _host(tmp_path, monkeypatch)
 
-    def refuse(*args, **kwargs):
+    def refuse(*args: Any, **kwargs: Any) -> None:
         raise ValueError("wrong target UID")
 
     with pytest.raises(ValueError, match="wrong target"):
@@ -253,3 +267,15 @@ def test_clean_worker_rejects_modified_request_before_sdk(
     )
     assert result.returncode != 0
     assert "installed request SHA differs" in result.stderr
+
+
+def test_active_worker_requires_inherited_kernel_flock(tmp_path: Path) -> None:
+    root = tmp_path / "run"
+    root.mkdir(mode=0o700)
+    lock = root / "carrier.lock"
+    assert not carrier._active_worker(root)
+    with lock.open("x+b") as file:
+        lock.chmod(0o600)
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert carrier._active_worker(root) is True
+    assert carrier._active_worker(root) is False

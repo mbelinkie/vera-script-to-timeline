@@ -96,10 +96,65 @@ def tick(
             verified = verify_native_result(Path(receipt["path"]), receipt["sha256"])
             if verified["action"] != action or verified["sequence"] != sequence:
                 raise queue.QueueError("native action order/identity differs")
+            host_intent = step / "host-ingest-intent.json"
+            host_receipt = step / "host-ingested.json"
+            ingestion = {
+                "schema": "vera.test-bench-host-ingest/v1",
+                "session": {"path": str(session_path), "sha256": session_sha256},
+                "result": receipt,
+                "sequence": sequence,
+                "action": action,
+            }
+            if host_receipt.exists():
+                if carrier._read(host_intent) != queue.canonical(ingestion):
+                    raise queue.QueueError("host ingest identity differs")
+                record = json.loads(carrier._read(host_receipt))
+                if (
+                    record.get("sequence") != sequence
+                    or record.get("action") != action
+                    or record.get("status") != "complete"
+                    or record.get("resultSha256") != receipt["sha256"]
+                ):
+                    raise queue.QueueError("host ingestion receipt changed")
+            else:
+                if host_intent.exists() or host_intent.is_symlink():
+                    raise queue.QueueError("host ingestion UNKNOWN; never repeat")
+                carrier._once(host_intent, queue.canonical(ingestion))
+                record = controller.ingest_native_result(
+                    Path(receipt["path"]), receipt["sha256"]
+                )
+                if (
+                    record.get("sequence") != sequence
+                    or record.get("action") != action
+                    or record.get("status") != "complete"
+                    or record.get("resultSha256") != receipt["sha256"]
+                ):
+                    raise queue.QueueError(
+                        "host ingestion rejected original native result"
+                    )
+                carrier._once(host_receipt, queue.canonical(record))
             # Ingest only authenticated original results. Repeated historical
             # inspection does not dispatch another native effect.
             if action == "capture_post":
                 if not _terminal(controller):
+                    final_intent = root / "finalize-intent.json"
+                    if final_intent.exists() or final_intent.is_symlink():
+                        raise queue.QueueError(
+                            "previous PCM finalize is UNKNOWN; inspect, never replay"
+                        )
+                    carrier._once(
+                        final_intent,
+                        queue.canonical(
+                            {
+                                "schema": "vera.test-bench-finalize-intent/v1",
+                                "session": {
+                                    "path": str(session_path),
+                                    "sha256": session_sha256,
+                                },
+                                "capture": receipt,
+                            }
+                        ),
+                    )
                     controller.finalize_output(Path(receipt["path"]), receipt["sha256"])
                 if not _terminal(controller):
                     raise queue.QueueError("native MOV/PCM is not terminal verified")
@@ -192,19 +247,20 @@ def drive(
         or type(deadline.get("deadline")) not in (int, float)
     ):
         raise queue.QueueError("immutable output-chain deadline/identity changed")
-    while time.time() < deadline["deadline"]:
-        outcome = tick(
-            root,
-            session_path=session_path,
-            session_sha256=session_sha256,
-            installed=installed,
-            consent_reference=consent_reference,
-            consent_instruction=consent_instruction,
-            minimum_free_bytes=minimum_free_bytes,
-        )
-        if outcome["state"] != "running":
-            return outcome
-        time.sleep(0.5)
+    with carrier._lock(root):
+        while time.time() < deadline["deadline"]:
+            outcome = tick(
+                root,
+                session_path=session_path,
+                session_sha256=session_sha256,
+                installed=installed,
+                consent_reference=consent_reference,
+                consent_instruction=consent_instruction,
+                minimum_free_bytes=minimum_free_bytes,
+            )
+            if outcome["state"] != "running":
+                return outcome
+            time.sleep(0.5)
     raise queue.QueueError("output deadline reached; do not replay native effects")
 
 

@@ -1,0 +1,223 @@
+"""No live Resolve, host authority, or producer project access in these tests."""
+
+from __future__ import annotations
+
+import hashlib
+from collections.abc import Callable
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, NoReturn
+
+import pytest
+from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+from vera_timeline_agent import resolve_test_bench_output as output
+from vera_timeline_agent import resolve_test_queue as queue
+from vera_timeline_agent import resolve_test_queue_m4 as m4
+
+
+def _config(tmp_path: Path) -> dict[str, Any]:
+    return {
+        "schema": runner.SCHEMA,
+        "root": str(tmp_path / "unattended"),
+        "queueRoot": str(tmp_path / "queue"),
+        "packageRoot": str(tmp_path / "pinned-package"),
+        "name": "test-bench-312",
+        "caseId": "synthetic-312",
+        "profile": "verified-v2-package/v1",
+        "maxElapsedSeconds": 3600,
+        "maxDiskBytes": 128 * 1024 * 1024,
+        "consentReference": "https://github.com/mbelinkie/vera-script-to-timeline/issues/473",
+        "consentInstruction": (
+            "Producer authorized unattended disposable Test Bench and "
+            "authentic native operations"
+        ),
+        "merged472Commit": "f" * 40,
+    }
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda x: x.update(schema="wrong"),
+        lambda x: x.update(unknown="command injection"),
+        lambda x: x.update(profile="untrusted-profile"),
+        lambda x: x.update(merged472Commit="main"),
+        lambda x: x.update(consentInstruction=""),
+        lambda x: x.update(root="relative"),
+        lambda x: x.update(maxElapsedSeconds=1),
+        lambda x: x.update(maxDiskBytes=0),
+    ],
+)
+def test_one_start_closed_configuration(
+    tmp_path: Path, change: Callable[[dict[str, Any]], Any]
+) -> None:
+    config = _config(tmp_path)
+    change(config)
+    with pytest.raises(queue.QueueError):
+        runner.validate_config(config)
+
+
+def test_no_setup_or_native_operation_before_472_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called = []
+
+    def block(_commit: str) -> NoReturn:
+        called.append("472-refused")
+        raise queue.QueueError("#472 not merged")
+
+    monkeypatch.setattr(runner, "_merged_472", block)
+    monkeypatch.setattr(
+        runner,
+        "_one_start_setup",
+        lambda config: called.append("PROVISIONED - SHOULD NOT HAPPEN"),
+    )
+    with pytest.raises(queue.QueueError, match="#472 not merged"):
+        runner.start(_config(tmp_path))
+    assert called == ["472-refused"]
+
+
+def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state: dict[str, Any] = {"phase": "queued", "verified": False, "commands": []}
+    monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
+    monkeypatch.setattr(
+        runner,
+        "_one_start_setup",
+        lambda config: (
+            SimpleNamespace(root=tmp_path),
+            "resolve-reverse-" + "a" * 32,
+            {"path": str(tmp_path / "authentic-baseline.json"), "sha256": "b" * 64},
+        ),
+    )
+
+    def report(store: Any, job_id: str) -> dict[str, Any]:
+        stage = "pristine" if state["phase"] == "awaiting_operator" else None
+        return {
+            "state": state["phase"],
+            "stage": stage,
+            "stages": [
+                {
+                    "name": "pristine",
+                    "state": "verified" if state["verified"] else "pending",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(m4, "publish", report)
+
+    def worker(_store: Any) -> bool:
+        state["commands"].append("queue-intent")
+        state["phase"] = "awaiting_operator"
+        return True
+
+    monkeypatch.setattr(runner, "_worker_once", worker)
+    monkeypatch.setattr(
+        output,
+        "_session",
+        lambda *args: SimpleNamespace(release_root=tmp_path / "reviewed-release"),
+    )
+
+    def drive(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        state["commands"].append("host-native-chain")
+        assert kwargs["installed"] == tmp_path / "reviewed-release"
+        return {
+            "state": "terminal_native_verified",
+            "session": {
+                "path": str(tmp_path / "authentic-baseline.json"),
+                "sha256": "b" * 64,
+            },
+            "capture": {"path": str(tmp_path / "native.json"), "sha256": "c" * 64},
+        }
+
+    monkeypatch.setattr(output, "drive", drive)
+
+    def submit(*args: Any) -> None:
+        state["commands"].append("verified-M4-submission")
+        state["phase"] = "queued"
+        state["verified"] = True
+
+    monkeypatch.setattr(runner, "_submit_original", submit)
+    outcome = runner.start(_config(tmp_path))
+    assert outcome == {
+        "state": "blocked_unattended_native_roll_edit_not_proven",
+        "jobId": "resolve-reverse-" + "a" * 32,
+        "verifiedStages": ["pristine"],
+        "next": "edited",
+    }
+    assert state["commands"] == [
+        "queue-intent",
+        "host-native-chain",
+        "verified-M4-submission",
+    ]
+    assert runner.start(_config(tmp_path)) == outcome
+    assert state["commands"] == [
+        "queue-intent",
+        "host-native-chain",
+        "verified-M4-submission",
+    ]
+
+
+def test_enrolled_receipt_is_written_once_and_verified_by_m4(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = queue.Store(tmp_path / "queue")
+    job = "resolve-reverse-" + "a" * 32
+    folder = store.root / job
+    folder.mkdir(mode=0o700)
+    calls: list[str] = []
+    report: dict[str, Any] = {
+        "stages": [
+            {
+                "name": "pristine",
+                "state": "awaiting_operator",
+                "operation_id": "one-use-op",
+            }
+        ]
+    }
+    monkeypatch.setattr(m4, "publish", lambda *args: report)
+
+    def submit(_store: Any, _job: str) -> None:
+        calls.append("existing M4 verifier")
+        report["stages"][0]["state"] = "verified"
+
+    monkeypatch.setattr(m4, "submit", submit)
+    receipt = {
+        "session": {"path": "/private/host-session.json", "sha256": "a" * 64},
+        "capture": {"path": "/private/native.json", "sha256": "b" * 64},
+    }
+    runner._submit_original(store, job, "pristine", receipt)
+    path = folder / "receipt-pristine.json"
+    original = path.read_bytes()
+    runner._submit_original(store, job, "pristine", receipt)
+    assert path.read_bytes() == original
+    assert calls == ["existing M4 verifier"]
+    modified = {
+        **receipt,
+        "capture": {"path": "/private/other.json", "sha256": "c" * 64},
+    }
+    with pytest.raises(queue.QueueError, match="receipt differs"):
+        runner._submit_original(store, job, "pristine", modified)
+
+
+def test_no_m4_receipt_for_unenrolled_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = queue.Store(tmp_path / "queue")
+    monkeypatch.setattr(
+        m4,
+        "publish",
+        lambda *args: {
+            "stages": [
+                {"name": "pristine", "state": "pending", "operation_id": "unknown"}
+            ]
+        },
+    )
+    with pytest.raises(queue.QueueError, match="not enrolled"):
+        runner._submit_original(store, "no-job", "pristine", {})
+
+
+def test_missing_original_queue_row_stays_unenrolled(tmp_path: Path) -> None:
+    store = queue.Store(tmp_path / "queue")
+    assert runner._find_job(store, hashlib.sha256(b"unrelated").hexdigest()) is None
