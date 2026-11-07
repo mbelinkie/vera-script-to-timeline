@@ -37,6 +37,8 @@ output only, never native or performance evidence.
 For the separately opted-in native v2 adapter, see
 [M2 guarded native queue](resolve-test-queue-m2.md). The v1 contract below stays
 mock-only.
+The separately opted-in [M3 campaign coordinator and private monitor](resolve-test-queue-m3.md)
+combine independent one-use v2 native children without widening v1 mock adapters.
 
 Plans are versioned data (`vera.resolve-test-plan/v1`), not shell strings.
 M1 accepts only `targetPolicy: synthetic_only`, `synthetic-*` fixture IDs,

@@ -5,6 +5,8 @@ explicit `vera.resolve-test-plan/v2` plan. v1 remains mock-only. v2 permits
 exactly one `native.v2.guarded_build` case, one trial, and a
 `new_disposable_native` target. It requires an independently verified synthetic
 v2 package and an existing, explicitly authorized normal guarded request.
+For finite serial collections of **independent** one-use native requests and
+the optional private phone monitor, see [M3](resolve-test-queue-m3.md).
 
 ## Prepare and schedule
 
@@ -179,7 +181,14 @@ performance claim follows from this build case.
 
 ## Acceptance
 
-Native acceptance is pending. The last host-only ownership
+The paragraphs below describe the **historical November 5 blocked preflight**,
+not the final #447 outcome. #447 subsequently recorded a real Studio 21.1.1
+single-request authenticated native save/reopen/readback PASS on November 6,
+2026, with one verified event and media item, zero markers/discrepancies and a
+22.60 s parent run; see the [#447 issue](https://github.com/mbelinkie/vera-script-to-timeline/issues/447).
+That single test does **not** establish M3 unattended multi-case acceptance.
+
+Native acceptance was pending at that earlier point. The last host-only ownership
 preflight refused with `output_operation_unresolved`: retained native effect
 records lack authenticated completion. No #447 Resolve operation was started,
 and no retained reservation was cleared or retried. The independent offline
@@ -190,5 +199,7 @@ On November 5, 2026, live verification was stopped at the Producer's direction
 while the retained-evidence drive is disconnected. Resume only after the drive
 is available and existing operations can be authenticated without retry or override.
 
-The future-scheduled LaunchAgent native case, actual save/reopen/readback,
-and later worker-restart reconciliation must pass before #447 is delivered.
+At the time of this earlier blocked preflight, the future-scheduled
+LaunchAgent, genuine save/reopen/readback and restart reconciliation still
+needed verification. See the linked #447 final acceptance above for its
+later real-app outcome; multi-case qualification remains #448 work.
