@@ -273,6 +273,8 @@ def validate_campaign_plan(source: object) -> dict[str, Any]:
     seen_requests: set[str] = set()
     seen_targets: set[str] = set()
     seen_evidence: set[str] = set()
+    protected_native_paths: list[tuple[Path, Path, Path]] = []
+    variant_commits: dict[tuple[str, str], str] = {}
     seen_slots: set[tuple[str, int, str]] = set()
     seen_cases: set[str] = set()
     rounds: dict[str, set[int]] = {key: set() for key in case_map}
@@ -298,6 +300,12 @@ def validate_campaign_plan(source: object) -> dict[str, Any]:
             trial["sourceCommit"], str
         ) or not queue.COMMIT_PATTERN.fullmatch(trial["sourceCommit"]):
             raise queue.QueueError("trial sourceCommit must be a pinned commit")
+        variant_key = (case_id, variant)
+        if variant_key in variant_commits and (
+            variant_commits[variant_key] != trial["sourceCommit"]
+        ):
+            raise queue.QueueError("one case/variant cannot mix source commits")
+        variant_commits[variant_key] = trial["sourceCommit"]
         child = trial["plan"]
         if not isinstance(child, dict) or not native.is_native(child):
             raise queue.QueueError("campaign children must be native v2 plans")
@@ -328,6 +336,11 @@ def validate_campaign_plan(source: object) -> dict[str, Any]:
         request_sha = normalized_child["native"]["requestSha256"]
         target = normalized_child["targetId"]
         evidence = request["evidenceDir"]
+        native_paths = (
+            Path(evidence).resolve(),
+            Path(normalized_child["native"]["requestPath"]).resolve(),
+            Path(request["packageDir"]).resolve(),
+        )
         if (
             request_sha in seen_requests
             or target in seen_targets
@@ -337,10 +350,23 @@ def validate_campaign_plan(source: object) -> dict[str, Any]:
             raise queue.QueueError(
                 "duplicate native request, target or evidence identity"
             )
+        if any(
+            a == b or a.is_relative_to(b) or b.is_relative_to(a)
+            for previous in protected_native_paths
+            for a in (native_paths[0],)
+            for b in previous
+        ) or any(
+            a == b or a.is_relative_to(b) or b.is_relative_to(a)
+            for previous in protected_native_paths
+            for a in (native_paths[1], native_paths[2])
+            for b in (previous[0],)
+        ):
+            raise queue.QueueError("campaign evidence overlaps another native input")
         seen_requests.add(request_sha)
         seen_targets.add(target)
         seen_targets.add(normalized_child["native"]["projectName"])
         seen_evidence.add(evidence)
+        protected_native_paths.append(native_paths)
         seen_ids.add(trial_id)
         seen_slots.add((case_id, round_, variant))
         rounds[case_id].add(round_)
@@ -819,7 +845,7 @@ def _run_bound_child(store: queue.Store, campaign_id: str, step: Any) -> bool:
             "SELECT intent_at FROM native_attempts WHERE job_id=?", (child_id,)
         ).fetchone()
         campaign = db.execute(
-            "SELECT cancel_pending FROM campaigns WHERE id=?", (campaign_id,)
+            "SELECT * FROM campaigns WHERE id=?", (campaign_id,)
         ).fetchone()
     if job is None or attempt is None or campaign is None:
         with store.connect() as db:
@@ -831,7 +857,25 @@ def _run_bound_child(store: queue.Store, campaign_id: str, step: Any) -> bool:
         # only query the exact retained request and invocation.
         queue.reconcile_native(store, child_id, worker_locked=True)
     elif job["state"] == "running" and not attempt["intent_at"]:
-        if campaign["cancel_pending"]:
+        # A bound child without native intent is an admitted *reservation*,
+        # not an exemption from the finite campaign/child budgets. This is
+        # safe to stop because no native start has ever been authorized.
+        bounds = load_frozen_campaign(store, campaign_id)
+        expired = time.time() >= job["deadline_at"]
+        problem = _budget_problem(store, campaign_id, campaign, bounds)
+        if expired or problem:
+            queue.finish(
+                store,
+                child_id,
+                job["worker_id"],
+                "blocked_native",
+                (
+                    "child_deadline_before_intent"
+                    if expired
+                    else "campaign_budget_before_intent"
+                ),
+            )
+        elif campaign["cancel_pending"]:
             queue.finish(
                 store, child_id, job["worker_id"], "canceled", "before_native_intent"
             )
@@ -861,7 +905,7 @@ def _native_slot_busy(store: queue.Store) -> bool:
         unsafe = db.execute(
             "SELECT j.id,j.state FROM jobs j JOIN native_attempts n "
             "ON n.job_id=j.id WHERE n.intent_at IS NOT NULL "
-            "AND j.state IN ('running','unknown','failed_native','blocked_native') "
+            "AND j.state IN ('running','unknown') "
             "ORDER BY j.submitted_at LIMIT 1"
         ).fetchone()
     if unsafe:
@@ -1010,6 +1054,18 @@ def _campaign_worker_tick(store: queue.Store) -> bool:
                     cancel_pending=True,
                 )
             return True
+        # Every child was already authenticated by _sync_child. Do not let a
+        # later LaunchAgent tick or a pause override a completed campaign.
+        if first is None:
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                _stop(
+                    db,
+                    campaign_id,
+                    "completed_verified",
+                    "all_children_native_verified",
+                )
+            return True
         if flags["cancel_pending"]:
             with store.connect() as db:
                 db.execute("BEGIN IMMEDIATE")
@@ -1036,16 +1092,6 @@ def _campaign_worker_tick(store: queue.Store) -> bool:
                     (campaign_id,),
                 )
                 _event(db, campaign_id, "paused", "paused_after_active")
-            return True
-        if first is None:
-            with store.connect() as db:
-                db.execute("BEGIN IMMEDIATE")
-                _stop(
-                    db,
-                    campaign_id,
-                    "completed_verified",
-                    "all_children_native_verified",
-                )
             return True
         if first["state"] != "pending":
             with store.connect() as db:
@@ -1288,7 +1334,7 @@ def reconcile_campaign(store: queue.Store, campaign_id: str) -> bool:
                 raise queue.QueueError("unknown campaign")
             step = db.execute(
                 "SELECT * FROM campaign_trials WHERE campaign_id=? "
-                "AND child_job_id IS NOT NULL AND state='running' "
+                "AND child_job_id IS NOT NULL AND state IN ('running','unknown') "
                 "ORDER BY ordinal LIMIT 1",
                 (campaign_id,),
             ).fetchone()
@@ -1405,9 +1451,9 @@ def _paired_regressions(stats: Sequence[Mapping[str, Any]]) -> list[dict[str, An
             {
                 "caseId": pair_key[0],
                 "comparisonKey": pair_key[1],
-                "environmentSha256": key[2],
-                "semanticSha256": key[3],
-                "cacheMode": key[4],
+                "environmentSha256": pair_key[2],
+                "semanticSha256": pair_key[3],
+                "cacheMode": pair_key[4],
                 "baselineMedianSeconds": baseline,
                 "candidateMedianSeconds": candidate,
                 "deltaSeconds": candidate - baseline,

@@ -283,6 +283,39 @@ def test_duplicate_trial_id_and_unknown_nested_fields_refused(tmp_path: Path) ->
         campaign.validate_campaign_plan(value)
 
 
+def test_rejects_mixed_source_commits_within_a_case_variant(tmp_path: Path) -> None:
+    value = example_campaign(tmp_path, 1, paired=True)
+    extra = example_trial(tmp_path, 100, "case-0", "baseline", 2)
+    extra["sourceCommit"] = "c" * 40
+    extra["plan"]["sourceCommit"] = extra["sourceCommit"]
+    extra["planSha256"] = hashlib.sha256(queue.canonical(extra["plan"])).hexdigest()
+    value["trials"].append(extra)
+    with pytest.raises(queue.QueueError, match="mix source commits"):
+        campaign.validate_campaign_plan(value)
+
+
+def test_rejects_cross_trial_nested_evidence_directory(tmp_path: Path) -> None:
+    value = example_campaign(tmp_path, 2)
+    first = value["trials"][0]
+    second = value["trials"][1]
+    original_request = json.loads(
+        Path(first["plan"]["native"]["requestPath"]).read_bytes()
+    )
+    nested = Path(original_request["evidenceDir"]) / "nested"
+    request_path = Path(second["plan"]["native"]["requestPath"])
+    request = json.loads(request_path.read_bytes())
+    request["evidenceDir"] = str(nested)
+    request_path.chmod(0o600)
+    request_path.write_bytes(queue.canonical(request))
+    request_path.chmod(0o400)
+    second["plan"]["native"]["requestSha256"] = hashlib.sha256(
+        request_path.read_bytes()
+    ).hexdigest()
+    second["planSha256"] = hashlib.sha256(queue.canonical(second["plan"])).hexdigest()
+    with pytest.raises(queue.QueueError, match="evidence overlaps"):
+        campaign.validate_campaign_plan(value)
+
+
 def test_reader_rejects_symlinks_fifos_oversize_duplicate_json_and_keeps_m2_limit(
     tmp_path: Path,
 ) -> None:

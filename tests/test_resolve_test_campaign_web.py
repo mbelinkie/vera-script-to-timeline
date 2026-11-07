@@ -83,6 +83,8 @@ def test_authenticated_get_and_audited_idempotent_post(web_setup: Any) -> None:
     assert code == 200 and b"authenticated" in body
     cookie = headers["Set-Cookie"].split(";", 1)[0]
     assert "Secure; HttpOnly; SameSite=Strict" in headers["Set-Cookie"]
+    assert cookie.startswith("__Secure-vera_m3=")
+    assert "Path=/resolve-tests/;" in headers["Set-Cookie"]
     assert web_setup.token.encode() not in body
     auth = {"Cookie": cookie}
     assert request("GET", "/api/campaigns", headers=auth)[0] == 200
@@ -207,6 +209,36 @@ def test_forged_headers_and_malformed_requests_fail_closed(web_setup: Any) -> No
         )
 
 
+def test_monitor_never_exposes_private_exceptions(
+    web_setup: Any, monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    request, cid = web_setup.request, web_setup.cid
+    code, headers, _ = request(
+        "POST", "/resolve-tests/api/login", data={"token": web_setup.token}
+    )
+    assert code == 200
+    cookie = headers["Set-Cookie"].split(";", 1)[0]
+    code, _, data = request("GET", "/api/session", headers={"Cookie": cookie})
+    assert code == 200
+    csrf = json.loads(data)["csrf"]
+    marker = "/private/raw/test-evidence-must-never-be-logged"
+
+    def fail(*_args: Any, **_kwargs: Any) -> Any:
+        raise OSError(marker)
+
+    monkeypatch.setattr(campaign, "control_campaign", fail)
+    code, _, body = request(
+        "POST",
+        f"/resolve-tests/api/campaign/{cid}/control",
+        data={"action": "reconcile", "commandId": "private-exception-test"},
+        headers={"Cookie": cookie, "X-VERA-CSRF": csrf},
+    )
+    assert code == 409
+    assert body == queue.canonical({"error": "control_refused"})
+    capture = capsys.readouterr()
+    assert marker not in capture.out + capture.err
+
+
 def test_monitor_lifetime_is_independent_of_queue(web_setup: Any) -> None:
     # Server does not call parent.start or a queue worker. Shutting it down
     # does not remove/mark terminal a queued campaign or its immutable data.
@@ -285,7 +317,7 @@ def test_tailscale_additive_path_preserves_existing_dashboard() -> None:
 
 def test_tailscale_refuses_absent_root_and_detects_root_damage() -> None:
     host = "node.tail123.ts.net:443"
-    config = {"Web": {host: {"Handlers": {}}}}
+    config: dict[str, Any] = {"Web": {host: {"Handlers": {}}}}
 
     def runner(args: list[str], **_kw: Any) -> subprocess.CompletedProcess[str]:
         if args[-2:] == ["status", "--json"]:

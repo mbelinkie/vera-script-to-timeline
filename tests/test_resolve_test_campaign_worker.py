@@ -162,6 +162,84 @@ def test_unknown_parent_halts_and_keeps_same_native_request(setup: Any) -> None:
     assert rows(setup.store, cid)[1]["child_job_id"] is None
 
 
+def test_read_only_reconcile_updates_unknown_child_without_restart(setup: Any) -> None:
+    cid = setup.enqueue()
+    assert campaign.campaign_worker_once(setup.store)
+    sha = setup.fake.starts[0]
+    setup.fake.responses[sha] = "unknown"
+    assert campaign.campaign_worker_once(setup.store)
+    assert rows(setup.store, cid)[0]["state"] == "unknown"
+    assert state(setup.store, cid) == "unknown"
+    verify(setup.fake, sha)
+    assert campaign.reconcile_campaign(setup.store, cid)
+    assert rows(setup.store, cid)[0]["state"] == "completed_verified"
+    # Unknown campaign remains stopped; proof must not become dispatch permission.
+    assert state(setup.store, cid) == "unknown"
+    assert setup.fake.starts == [sha]
+
+
+def test_terminal_native_intent_does_not_wedge_new_campaign(setup: Any) -> None:
+    cid = setup.enqueue()
+    foreign_plan = example_trial(setup.tmp_path, 995, "foreign")["plan"]
+    foreign_path = setup.tmp_path / "terminal-foreign.json"
+    foreign_path.write_bytes(queue.canonical(foreign_plan))
+    foreign = queue.enqueue(setup.store, foreign_path)
+    assert queue.worker_once(setup.store)
+    assert len(setup.fake.starts) == 1
+    with setup.store.connect() as db:
+        db.execute("UPDATE jobs SET state='blocked_native' WHERE id=?", (foreign,))
+        assert db.execute(
+            "SELECT intent_at FROM native_attempts WHERE job_id=?", (foreign,)
+        ).fetchone()[0]
+    assert not campaign._native_slot_busy(setup.store)
+    assert campaign.campaign_worker_once(setup.store)
+    assert len(setup.fake.starts) == 2
+    assert rows(setup.store, cid)[0]["state"] == "running"
+
+
+def test_final_verified_child_completes_despite_pause(setup: Any) -> None:
+    cid = setup.enqueue(1)
+    assert campaign.campaign_worker_once(setup.store)
+    assert campaign.control_campaign(
+        setup.store,
+        cid,
+        action="pause",
+        command_id="pause-final",
+        actor="operator",
+        authorized=True,
+    )
+    verify(setup.fake, setup.fake.starts[0])
+    assert campaign.campaign_worker_once(setup.store)
+    assert campaign.campaign_worker_once(setup.store)
+    assert state(setup.store, cid) == "completed_verified"
+
+
+def test_no_intent_bound_child_obeys_deadline_after_restart(
+    setup: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cid = setup.enqueue(1)
+
+    def abort_before_start(*_args: Any, **_kwargs: Any) -> None:
+        raise SystemExit("before first intent")
+
+    monkeypatch.setattr(queue, "run_native", abort_before_start)
+    with pytest.raises(SystemExit, match="before first intent"):
+        campaign.campaign_worker_once(setup.store)
+    child = rows(setup.store, cid)[0]["child_job_id"]
+    with setup.store.connect() as db:
+        db.execute("UPDATE jobs SET deadline_at=0 WHERE id=?", (child,))
+    assert campaign.campaign_worker_once(setup.store)
+    assert state(setup.store, cid) == "blocked"
+    with setup.store.connect() as db:
+        assert (
+            db.execute(
+                "SELECT intent_at FROM native_attempts WHERE job_id=?", (child,)
+            ).fetchone()[0]
+            is None
+        )
+    assert not setup.fake.starts
+
+
 def test_unverified_m2_terminal_is_never_promoted_to_campaign_pass(
     setup: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:

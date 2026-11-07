@@ -141,7 +141,7 @@ is not regenerated on subsequent `init-secret` calls. Open the Serve HTTPS
 page on an **authorized tailnet phone** and enter the local token in the form.
 The login step requires both an exact `Tailscale-User-Login` header and the
 unpredictable token, issuing a one-hour in-memory Secure/HttpOnly/SameSite
-cookie plus a session-bound CSRF token. GET status/report and audited POST
+cookie scoped to `/resolve-tests/` plus a session-bound CSRF token. GET status/report and audited POST
 controls require the same exact login and session; POST additionally requires
 the exact HTTPS Origin and CSRF header. A mere identity header from a direct
 loopback connection does not authorize controls. Sessions expire, and a
@@ -210,6 +210,12 @@ still require login; expired cases remain expired rather than being run late.
   access token is necessary and remains private to this Mac. A hostile process
   acting as the same OS user can also read local queue files: this is not a
   sandbox against a compromised Mac account.
+- The session cookie is restricted to `/resolve-tests/`, so normal root
+  dashboard requests do not carry it. This is **not** JavaScript-origin
+  isolation: a compromised root-dashboard script under the *same* HTTPS origin
+  could still issue same-origin requests to `/resolve-tests/`. Treat the
+  existing root dashboard as trusted code; a distinct HTTPS origin would be
+  required for isolation from a compromised dashboard.
 - Tailscale Funnel sends no Serve user identity; it is prohibited. Tailnet
   ACLs/sharing must allow only intended users. Shared devices may carry valid
   identities; the exact-login check still applies.
@@ -219,6 +225,41 @@ still require login; expired cases remain expired rather than being run late.
   No browser action drives the Resolve UI.
 
 ## Evidence and downstream use
+
+### Phase-5 real Studio acceptance checkpoint (2026-11-06)
+
+An independently launched macOS user LaunchAgent ran a **bounded 2-case,
+8-trial** pilot in DaVinci Resolve Studio 21.1.1 using fresh, independently
+verified synthetic v2 packages and authorized one-use native requests for
+every trial. Trial order was A/B followed by B/A **within each case**. The
+fixture used the same offline-generated 25-fps video source as the prior #447
+acceptance; two case IDs exercise campaign isolation, not distinct editing
+workloads. The submitter exited before due time, and the campaign LaunchAgent
+was booted out and back in **while a detached native parent was LIVE**.
+Read-only reconciliation retained its one committed intent and identity.
+
+The authenticated M2 terminal database and native readback report showed
+these four *completed_verified* **and comparable** results, each with one
+expected timeline event, one media reference, zero markers, and a successful
+native save/reopen/readback. Times are parent monotonic native wall seconds,
+not render times or evidence of a production speed improvement:
+
+| Case | Round | Variant | Native wall seconds | Authenticated result |
+| --- | --- | --- | ---: | --- |
+| synthetic-case-a | 1 | baseline | 68.801 | completed_verified |
+| synthetic-case-a | 1 | candidate | 66.150 | completed_verified |
+| synthetic-case-a | 2 | candidate | 106.591 | completed_verified |
+| synthetic-case-a | 2 | baseline | 32.950 | completed_verified |
+
+Pilot campaign: `resolve-campaign-7a818136c76149aeaa451d400c5f937a`,
+frozen plan SHA-256:
+`93a3815fd9302f82b45f88650b72f2bfe2524b4dc15a7722297bb8c13f90ed6b`.
+At this checkpoint, four further case-B trials had not authenticated as
+completed; their outcomes must remain **pending/running/unknown as reported**
+until the independent worker finishes or reaches its finite budget. Full
+eight-trial acceptance and phone UI operation were **not yet proven** by this
+checkpoint. All parent requests, receipts, project paths and full logs remain
+private under the local Mac preparation root, not in this repository.
 
 M1 simulated output never qualifies for native statistics. M2's genuine
 single-request Studio save/reopen/readback acceptance is recorded in the

@@ -17,7 +17,6 @@ import platform
 import plistlib
 import re
 import secrets
-import sqlite3
 import stat
 import subprocess
 import sys
@@ -231,6 +230,11 @@ def install_agent(store: queue.Store, host: str, login: str, port: int) -> None:
 class Monitor(ThreadingHTTPServer):
     daemon_threads = True
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        # BaseServer's default traceback contains exception text, which may
+        # include private file locators. Never disclose it to monitor logs.
+        return
+
     def __init__(self, store: queue.Store, host: str, login: str, port: int) -> None:
         if not _HOST.fullmatch(host) or ":" in host or "." not in host:
             raise queue.QueueError("expected exact Tailscale HTTPS host")
@@ -310,7 +314,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
             return None
         values = [v.strip() for v in cookies[0].split(";")]
         sessions = [
-            v.split("=", 1)[1] for v in values if v.startswith("__Host-vera_m3=")
+            v.split("=", 1)[1] for v in values if v.startswith("__Secure-vera_m3=")
         ]
         if len(sessions) != 1:
             return None
@@ -360,11 +364,14 @@ class MonitorHandler(BaseHTTPRequestHandler):
         if path == "/api/session":
             self._json(200, {"csrf": sess[1]})
         elif path == "/api/campaigns":
-            with self.server.store.connect() as db:
-                rows = db.execute(
-                    "SELECT id FROM campaigns ORDER BY submitted_at DESC LIMIT 100"
-                ).fetchall()
-            self._json(200, {"campaigns": [row[0] for row in rows]})
+            try:
+                with self.server.store.connect() as db:
+                    rows = db.execute(
+                        "SELECT id FROM campaigns ORDER BY submitted_at DESC LIMIT 100"
+                    ).fetchall()
+                self._json(200, {"campaigns": [row[0] for row in rows]})
+            except Exception:
+                self._json(409, {"error": "report_unavailable"})
         elif path and path.startswith("/api/campaign/"):
             parts = path.split("/")
             if (
@@ -385,7 +392,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
                     self._json(
                         200, result["status"] if parts[4] == "status" else result
                     )
-            except (ValueError, OSError, sqlite3.Error):
+            except Exception:
                 self._json(404, {"error": "report_unavailable"})
         else:
             self._json(404, {"error": "not_found"})
@@ -418,7 +425,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 200,
                 queue.canonical({"authenticated": True}),
                 cookie=(
-                    f"__Host-vera_m3={session}; Path=/; Secure; HttpOnly; "
+                    f"__Secure-vera_m3={session}; Path={MOUNT}; Secure; HttpOnly; "
                     f"SameSite=Strict; Max-Age={_SESSION_SECONDS}"
                 ),
             )
@@ -450,7 +457,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 authorized=True,
             )
             self._json(200, result)
-        except (TypeError, ValueError, sqlite3.Error):
+        except Exception:
             self._json(409, {"error": "control_refused"})
 
 

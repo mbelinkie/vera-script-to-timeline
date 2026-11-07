@@ -301,6 +301,32 @@ def test_paired_regression_requires_same_authenticated_environment(
     assert campaign.publish_campaign(setup.store, cid)["regressions"] == []
 
 
+def test_multi_pair_regressions_keep_their_own_metadata() -> None:
+    stats = [
+        {
+            "caseId": case,
+            "comparisonKey": "same-fixture",
+            "environmentSha256": env,
+            "semanticSha256": semantic,
+            "cacheMode": cache,
+            "variant": variant,
+            "medianSeconds": seconds,
+        }
+        for case, env, semantic, cache, a, b in (
+            ("first", "a" * 64, "1" * 64, "warm", 10.0, 12.0),
+            ("second", "b" * 64, "2" * 64, "isolated_fresh", 20.0, 25.0),
+        )
+        for variant, seconds in (("baseline", a), ("candidate", b))
+    ]
+    results = campaign._paired_regressions(stats)
+    assert [(row["caseId"], row["cacheMode"]) for row in results] == [
+        ("first", "warm"),
+        ("second", "isolated_fresh"),
+    ]
+    assert [row["environmentSha256"] for row in results] == ["a" * 64, "b" * 64]
+    assert [row["semanticSha256"] for row in results] == ["1" * 64, "2" * 64]
+
+
 def test_limits_tamper_refuses_next_dispatch(campaign_store: Any) -> None:
     store, cid, plan = campaign_store
     with store.connect() as db:
