@@ -80,6 +80,34 @@ describe("issue 367 attached footage in Sorting", () => {
     expect(independentClip(accepted, alternative.id)).toBeUndefined();
   });
 
+  it("honors an explicit clip drop even when the original note's attachment slot is empty", () => {
+    const { doc, note, clip, anchor } = researchStashFixture();
+    const released = applyRowEditV2(doc, 0, {
+      kind: "place_attached_footage", noteRowId: note.id, destination: gap(),
+    });
+    expect(released.ok, JSON.stringify(released.diagnostics)).toBe(true);
+    const command: RowEditCommandV2 = {
+      kind: "stash_rows", rowIds: [clip.id], bundleId: id(741502),
+      destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: anchor.id },
+    };
+    const returned = applyRowEditV2(released.document, 1, command);
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(returned.document.stashOutline?.[0]).toMatchObject({
+      rowId: clip.id, kind: "clip", parentRowId: null, sectionId: null,
+    });
+    expect(noteAt(returned.document, note.id).attachedFootage).toBeUndefined();
+    expect(independentClip(returned.document, clip.id)).toBeDefined();
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+
+    const trial = createSortingTrialV2(doc);
+    apply(trial, { kind: "place_attached_footage", noteRowId: note.id, destination: gap() });
+    apply(trial, command);
+    const accepted = saveAndAccept(trial, doc, "all");
+    expect(accepted.stashOutline?.[0]?.rowId).toBe(clip.id);
+    expect(noteAt(accepted, note.id).attachedFootage).toBeUndefined();
+    expect(independentClip(accepted, clip.id)).toBeDefined();
+  });
+
   it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes %s after trim plus parent-only placement, preserving descendants and mirrored source", (mode) => {
     const { doc, note, clip } = researchStashFixture();
     const child = researchOccurrence(730300);

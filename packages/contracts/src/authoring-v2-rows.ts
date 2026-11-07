@@ -1044,7 +1044,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
             origin.originalAttachedNoteAfterSiblingRowId === ownerAnchors?.afterSiblingRowId) &&
           (origin.originalAttachedNoteBeforeSiblingRowId === null ||
             origin.originalAttachedNoteBeforeSiblingRowId === ownerAnchors?.beforeSiblingRowId);
-        if (origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
+        // A deliberate Stash outline drop always wins over auto-reattachment,
+        // even when the historical note's footage slot is still empty.
+        if (!command.destination && origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
           if (hasExternalRowReferences(working, row.id) || items.some((item) => supportingRows(item, blocks).has(row.id))) {
             return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "The independently placed footage has references that cannot be transferred into an attachment.");
           }
@@ -1067,7 +1069,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       }
       const ordinaryReturns = rows.filter((row) => !reattached.has(row.id));
       const returnedOutline = planStashReturn(working, ordinaryReturns, outline, command.destination);
-      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
+      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The requested Stash outline destination, return hierarchy, or attachment ownership cannot be preserved.");
       for (const row of rows) {
         if (row.type === "narration" && !parkAttachedFootageForSortingV2(row)) {
           return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage's active visual slot changed; review it before returning the note.");
