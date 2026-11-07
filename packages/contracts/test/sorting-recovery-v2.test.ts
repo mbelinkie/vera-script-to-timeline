@@ -100,6 +100,76 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes %s after the original note parent moves and two deleted children need the historical top fallback", (outcome) => {
+    let baseline = applyDocument(document(), {
+      kind: "create_stash_note", bundleId: id(6100), row: row(6101), sectionId: null, parentRowId: null, afterRowId: null, mode: "authored",
+    });
+    for (const childId of [6102, 6103]) baseline = applyDocument(baseline, {
+      kind: "create_stash_note", bundleId: id(childId + 100), row: row(childId), sectionId: null,
+      parentRowId: id(6101), afterRowId: childId === 6102 ? null : id(6102), mode: "authored",
+    });
+    const baselineCopy = structuredClone(baseline);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "delete_rows", rowIds: [id(6102), id(6103)] });
+    apply(trial, { kind: "create_stash_section", sectionId: id(6104), title: "Moved" });
+    apply(trial, { kind: "move_stash_rows", rowIds: [id(6101)], sectionId: id(6104) });
+    const pending = trial.document;
+    const saved = trial.serialize();
+    const resumed = resumeSortingTrialV2(saved);
+    expect(resumed.document).toEqual(pending);
+    const result = outcome === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, outcome);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    const entries = result.document.stashOutline!;
+    const childIds = entries.filter((entry) => [id(6102), id(6103)].includes(entry.rowId)).map((entry) => entry.rowId);
+    expect(childIds).toEqual(outcome === "all" || outcome === "edits_only" ? [] : [id(6102), id(6103)]);
+    if (outcome === "sorting_only") {
+      expect(entries.slice(0, 2)).toMatchObject([
+        { rowId: id(6102), sectionId: null, parentRowId: null },
+        { rowId: id(6103), sectionId: null, parentRowId: null },
+      ]);
+      expect(entries.find((entry) => entry.rowId === id(6101))?.sectionId).toBe(id(6104));
+    } else if (outcome === "discard") {
+      expect(entries.find((entry) => entry.rowId === id(6102))?.parentRowId).toBe(id(6101));
+      expect(entries.find((entry) => entry.rowId === id(6103))?.parentRowId).toBe(id(6101));
+    } else expect(entries.find((entry) => entry.rowId === id(6101))?.sectionId).toBe(outcome === "all" ? id(6104) : null);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(loaded.ok).toBe(true);
+    if (loaded.ok) expect(loaded.document).toEqual(result.document);
+    expect(baseline).toEqual(baselineCopy);
+  });
+
+  it("replays a strict explicit Stash drop and refuses malformed destinations and tampered operations atomically", () => {
+    const baseline = document();
+    const trial = createSortingTrialV2(baseline);
+    const valid: RowEditCommandV2 = { kind: "stash_rows", rowIds: [id(100)], bundleId: id(6400),
+      destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: null } };
+    const before = trial.document;
+    for (const destination of [
+      { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: null, extra: "smuggled" },
+      { sectionId: null, afterRowId: null, beforeRowId: null },
+      { sectionId: null, parentRowId: {}, afterRowId: null, beforeRowId: null },
+      { sectionId: null, parentRowId: "", afterRowId: null, beforeRowId: null },
+    ]) {
+      const rejected = trial.apply({ ...valid, destination } as RowEditCommandV2);
+      expect(rejected.diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
+      expect(trial.document).toEqual(before);
+    }
+    const staleGap = trial.apply({ ...valid, destination: { sectionId: null, parentRowId: null, afterRowId: id(999), beforeRowId: null } });
+    expect(staleGap.ok).toBe(false);
+    expect(trial.document).toEqual(before);
+    apply(trial, valid);
+    const saved = trial.serialize();
+    expect(resumeSortingTrialV2(saved).document).toEqual(trial.document);
+    const tampered = JSON.parse(saved) as { actions: Array<Record<string, unknown>> };
+    (tampered.actions[0]!.destination as Record<string, unknown>).extra = true;
+    expect(() => resumeSortingTrialV2(JSON.stringify(tampered))).toThrow(/Invalid saved Sorting operation/);
+    const accepted = resumeSortingTrialV2(saved).accept(baseline, "sorting_only");
+    expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+    expect(accepted.document.stashOutline?.[0]?.rowId).toBe(id(100));
+    expect(validateScriptDocumentV2(accepted.document).valid).toBe(true);
+  });
+
   it("replays attached-footage placement and return through preview, reload, and Undo", () => {
     const { doc, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(doc);

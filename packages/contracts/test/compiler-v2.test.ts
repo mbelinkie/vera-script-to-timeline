@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-core-v2.js";
+import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -208,6 +209,47 @@ function readFrozenInput(name: string, doc: ScriptDocumentV2, deps: CompilerDepe
 }
 
 describe("pure v2 compiler", () => {
+  it("ignores parked saved rows, section order and historical origins when compiling active Draft", () => {
+    const original = document();
+    const deps = dependencies();
+    const baseline = compileTimelineV2(original, deps);
+    expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+    if (!baseline.ok) return;
+    const parked = structuredClone(original);
+    parked.stash = [{ id: id(2010), rows: [
+      { type: "note_draft", id: id(2011), orderKey: "parked", text: "Do not build this saved narration", state: "excluded", version: 1 },
+      { type: "note_draft", id: id(2012), orderKey: "parked-2", text: "Nor this later saved row", state: "excluded", version: 1 },
+    ], supportingItems: [] }];
+    parked.stashSections = [{ id: id(2013), title: "Saved planning", rowIds: [] }];
+    parked.stashOutline = [
+      { rowId: id(2012), kind: "row", parentRowId: null, sectionId: null },
+      { rowId: id(2011), kind: "row", parentRowId: null, sectionId: id(2013) },
+    ];
+    const activeRow = parked.activeDraft.blocks[0];
+    if (activeRow?.type !== "narration") throw new Error("Expected a narrated active row");
+    activeRow.stashOrigin = {
+      kind: "note", parentRowId: null, sectionId: null, afterSiblingRowId: id(2012), beforeSiblingRowId: null,
+      precedingSiblingRowIds: [id(2012)], followingSiblingRowIds: [], returnEligible: true,
+    };
+    expect(validateScriptDocumentV2(parked).valid).toBe(true);
+    const compiled = compileTimelineV2(parked, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.manifestJson).toBe(baseline.manifestJson);
+    expect(compiled.reportJson).toBe(baseline.reportJson);
+
+    parked.stashOutline.reverse();
+    const firstSaved = parked.stash[0]!.rows[0];
+    if (firstSaved?.type !== "note_draft") throw new Error("Expected a saved note draft");
+    firstSaved.text = "Entirely different parked text";
+    const reshuffled = compileTimelineV2(parked, deps);
+    expect(reshuffled.ok, JSON.stringify(reshuffled)).toBe(true);
+    if (reshuffled.ok) {
+      expect(reshuffled.manifestJson).toBe(baseline.manifestJson);
+      expect(reshuffled.reportJson).toBe(baseline.reportJson);
+    }
+  });
+
   it("compiles a synthetic derived source to byte-stable canonical artifacts", () => {
     const doc = document();
     const deps = dependencies();
@@ -1420,6 +1462,20 @@ describe("Research snapshot readiness (issue 367 phase 3)", () => {
     expect(ready.ok).toBe(false);
     if (!ready.ok) expect(ready.diagnostics.map((d) => d.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
     expect(doc).toEqual(original);
+  });
+
+  it("continues to refuse active unresolved Research footage even when a separate clip is parked in Stash", () => {
+    const doc = visualOnlyDocument(researchOccurrence(730300, false));
+    const saved = researchOccurrence(730400, false);
+    doc.stash = [{ id: id(730500), rows: [saved], supportingItems: [] }];
+    doc.stashOutline = [{ rowId: saved.id, kind: "clip", parentRowId: null, sectionId: null }];
+    const deps = visualOnlyDependencies();
+    deps.build.forcePreviewVisuals = true;
+    const before = structuredClone(doc);
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok).toBe(false);
+    if (!compiled.ok) expect(compiled.diagnostics.map((item) => item.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
+    expect(doc).toEqual(before);
   });
 
   it("does not invent a source rate or substitute an unrelated media descriptor for a bound Research occurrence", () => {

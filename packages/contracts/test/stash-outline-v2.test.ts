@@ -400,6 +400,145 @@ describe("exclusive Stash footage transactions (issue 367 phase 2)", () => {
   });
 });
 
+describe("forgiving return integration", () => {
+  it("freezes the full sibling history and falls back after an old parent is deleted", () => {
+    const parent = narration(951000);
+    const child = clip(951010);
+    const other = narration(951020);
+    let document = documentWith();
+    for (const [row, bundle, parentRowId, afterRowId] of [
+      [parent, id(951100), null, null], [child, id(951101), parent.id, null],
+      [other, id(951102), null, parent.id],
+    ] as const) {
+      const command = row.type === "narration"
+        ? { kind: "create_stash_note" as const, bundleId: bundle, row, sectionId: null, parentRowId, afterRowId }
+        : { kind: "create_stash_clip" as const, bundleId: bundle, row, sectionId: null, parentRowId, afterRowId };
+      const result = applyRowEditV2(document, document.rowEditRevision ?? 0, command);
+      expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+      document = result.document;
+    }
+    const placed = applyRowEditV2(document, 3, {
+      kind: "place_stash_rows", rowIds: [child.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const original = (placed.document.activeDraft.blocks[0] as VisualOnlyBlockV2).stashOrigin!;
+    expect(original.originalParentContext).toMatchObject({ parentRowId: null, sectionId: null, followingSiblingRowIds: [other.id] });
+    const deleted = applyRowEditV2(placed.document, 4, { kind: "delete_rows", rowIds: [parent.id] });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    const session = createRowEditSessionV2(deleted.document);
+    const returned = session.apply({ kind: "stash_rows", rowIds: [child.id], bundleId: id(951103) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual([
+      { rowId: child.id, kind: "clip", sectionId: null, parentRowId: null },
+      { rowId: other.id, kind: "note", sectionId: null, parentRowId: null },
+    ]);
+    expect(session.undo().document).toEqual({ ...deleted.document, rowEditRevision: 7 });
+  });
+
+  it("allows a deliberate exact drop over historical order but refuses stale or malformed gaps", () => {
+    const a = narration(952000);
+    const b = narration(952010);
+    const c = narration(952020);
+    let doc = documentWith();
+    for (const [index, row] of [a, b, c].entries()) {
+      const next = applyRowEditV2(doc, index, {
+        kind: "create_stash_note", row, bundleId: id(952100 + index), sectionId: null,
+        parentRowId: null, afterRowId: index === 0 ? null : [a, b][index - 1]!.id,
+      });
+      expect(next.ok, JSON.stringify(next.diagnostics)).toBe(true);
+      doc = next.document;
+    }
+    const placed = applyRowEditV2(doc, 3, {
+      kind: "place_stash_rows", rowIds: [b.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const destination = { ...gap(null, c.id, null), parentRowId: null };
+    for (const invalid of [
+      { ...destination, sectionId: id(999990) },
+      { ...destination, afterRowId: a.id },
+      { ...destination, extra: true },
+      { ...destination, parentRowId: id(999991) },
+    ]) {
+      const refused = applyRowEditV2(placed.document, 4, {
+        kind: "stash_rows", rowIds: [b.id], bundleId: id(952104), destination: invalid,
+      });
+      expect(refused.ok, JSON.stringify(invalid)).toBe(false);
+      expect(refused.document).toBe(placed.document);
+    }
+    const stale = applyRowEditV2(placed.document, 3, { kind: "stash_rows", rowIds: [b.id], bundleId: id(952104), destination });
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    const explicit = applyRowEditV2(placed.document, 4, {
+      kind: "stash_rows", rowIds: [b.id], bundleId: id(952104), destination,
+    });
+    expect(explicit.ok, JSON.stringify(explicit.diagnostics)).toBe(true);
+    expect(outline(explicit.document).map((entry) => entry.rowId)).toEqual([a.id, c.id, b.id]);
+  });
+
+  it("returns an edited parent as a saved row and preserves note/clip descendants in one Undoable batch", () => {
+    const parent = narration(953000);
+    const child = narration(953010);
+    const grandchild = clip(953020);
+    const neighbor = narration(953030);
+    let doc = documentWith();
+    const commands = [
+      { kind: "create_stash_note" as const, row: parent, bundleId: id(953100), sectionId: null, parentRowId: null, afterRowId: null },
+      { kind: "create_stash_note" as const, row: child, bundleId: id(953101), sectionId: null, parentRowId: parent.id, afterRowId: null },
+      { kind: "create_stash_clip" as const, row: grandchild, bundleId: id(953102), sectionId: null, parentRowId: child.id, afterRowId: null },
+      { kind: "create_stash_note" as const, row: neighbor, bundleId: id(953103), sectionId: null, parentRowId: null, afterRowId: parent.id },
+    ];
+    for (const command of commands) {
+      const next = applyRowEditV2(doc, doc.rowEditRevision ?? 0, command);
+      expect(next.ok, JSON.stringify(next.diagnostics)).toBe(true);
+      doc = next.document;
+    }
+    const placed = applyRowEditV2(doc, 4, {
+      kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const replacement = structuredClone(placed.document.activeDraft.blocks[0]) as NarrationBlockV2;
+    replacement.version += 1;
+    replacement.orderKey = "edited-parent";
+    const edited = applyRowEditV2(placed.document, 5, { kind: "edit_row", rowId: parent.id, row: replacement });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    expect((edited.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
+    const session = createRowEditSessionV2(edited.document);
+    const returned = session.apply({ kind: "stash_rows", rowIds: [parent.id, child.id, grandchild.id], bundleId: id(953104) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual([
+      { rowId: parent.id, kind: "row", parentRowId: null, sectionId: null },
+      { rowId: child.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: grandchild.id, kind: "clip", parentRowId: child.id, sectionId: null },
+      { rowId: neighbor.id, kind: "note", parentRowId: null, sectionId: null },
+    ]);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+    const independentlyPlaced = applyRowEditV2(returned.document, 7, {
+      kind: "place_stash_rows", rowIds: [grandchild.id], destination: gap(null, null, null),
+    });
+    expect(independentlyPlaced.ok, JSON.stringify(independentlyPlaced.diagnostics)).toBe(true);
+    const invalidParentDrop = applyRowEditV2(independentlyPlaced.document, 8, {
+      kind: "stash_rows", rowIds: [grandchild.id], bundleId: id(953105),
+      destination: { ...gap(null, null, null), parentRowId: parent.id },
+    });
+    expect(invalidParentDrop.ok).toBe(false);
+    expect(invalidParentDrop.document).toBe(independentlyPlaced.document);
+    expect(session.undo().document).toEqual({ ...edited.document, rowEditRevision: 8 });
+  });
+
+  it("returns to unsectioned top when the original named section no longer exists", () => {
+    const sectionId = id(954000);
+    const row = narration(954010);
+    let doc = applyRowEditV2(documentWith(), 0, { kind: "create_stash_section", sectionId, title: "Temporary" }).document;
+    doc = applyRowEditV2(doc, 1, { kind: "create_stash_note", row, bundleId: id(954100), sectionId, parentRowId: null, afterRowId: null }).document;
+    const placed = applyRowEditV2(doc, 2, { kind: "place_stash_rows", rowIds: [row.id], destination: gap(null, null, null) });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const withoutSection = structuredClone(placed.document);
+    delete withoutSection.stashSections;
+    const returned = applyRowEditV2(withoutSection, 3, { kind: "stash_rows", rowIds: [row.id], bundleId: id(954101) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual([{ rowId: row.id, kind: "note", parentRowId: null, sectionId: null }]);
+  });
+});
+
 describe("persisted plain-direction intent (phase 1)", () => {
   it("refuses unpaired UTF-16 surrogates even in an untokenized plain note", () => {
     for (const invalidText of ["\ud83d", "a\udc00b", "\ud83d\ud83d\ude00"]) {
@@ -713,7 +852,8 @@ describe("mixed Stash outline contract", () => {
     const childReturned = session.apply({ kind: "stash_rows", rowIds: [child.id], bundleId: id(320002) });
     expect(childReturned.ok, JSON.stringify(childReturned.diagnostics)).toBe(true);
     expect(childReturned.document.activeDraft.blocks.map((block) => block.id)).toEqual([parent.id]);
-    expect((childReturned.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.beforeSiblingRowId).toBe(child.id);
+    // Returning a child must never rewrite the parent's frozen original history.
+    expect((childReturned.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.beforeSiblingRowId).toBeNull();
     expect(outline(childReturned.document)).toEqual([{ rowId: child.id, kind: "clip", parentRowId: null, sectionId: null }]);
     const undoneChildReturn = session.undo();
     expect(undoneChildReturn.ok).toBe(true);
@@ -926,7 +1066,7 @@ describe("mixed Stash outline contract", () => {
     });
     expect(firstReturned.ok, JSON.stringify(firstReturned.diagnostics)).toBe(true);
     expect(firstReturned.document.activeDraft.blocks.map((block) => block.id)).toEqual([parent.id]);
-    expect((firstReturned.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.beforeSiblingRowId).toBe(firstChild.id);
+    expect((firstReturned.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.beforeSiblingRowId).toBeNull();
     expect(outline(firstReturned.document).map((entry) => entry.rowId)).toEqual([firstChild.id, secondChild.id]);
     const parentReturned = applyRowEditV2(firstReturned.document, 6, {
       kind: "stash_rows", rowIds: [parent.id], bundleId: id(930005),
@@ -1089,7 +1229,7 @@ describe("mixed Stash outline contract", () => {
     expect(restored.document.activeDraft.blocks.map((row) => row.id)).toEqual([sectioned.id, unsectioned.id]);
   });
 
-  it("refuses incomplete sibling returns atomically but resolves the complete return batch", () => {
+  it("returns incomplete sibling runs without inventing a missing anchor", () => {
     const first = narration(590000);
     const second = narration(600000);
     let document = applyRowEditV2(documentWith(), 0, {
@@ -1107,13 +1247,13 @@ describe("mixed Stash outline contract", () => {
     const outOfRange = applyRowEditV2(placed.document, 3, {
       kind: "stash_rows", rowIds: [second.id], bundleId: id(610002),
     });
-    expect(outOfRange.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(outOfRange.document).toBe(placed.document);
+    expect(outOfRange.ok, JSON.stringify(outOfRange.diagnostics)).toBe(true);
+    expect(outline(outOfRange.document).map((entry) => entry.rowId)).toEqual([second.id]);
     const returnedFirst = applyRowEditV2(placed.document, 3, {
       kind: "stash_rows", rowIds: [first.id], bundleId: id(610003),
     });
-    expect(returnedFirst.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(returnedFirst.document).toBe(placed.document);
+    expect(returnedFirst.ok, JSON.stringify(returnedFirst.diagnostics)).toBe(true);
+    expect(outline(returnedFirst.document).map((entry) => entry.rowId)).toEqual([first.id]);
     const returnedBoth = applyRowEditV2(placed.document, 3, {
       kind: "stash_rows", rowIds: [first.id, second.id], bundleId: id(610004),
     });
@@ -1189,7 +1329,7 @@ describe("mixed Stash outline contract", () => {
     expect(outline(returnedFirst.document).map((entry) => entry.rowId)).toEqual([first.id, middle.id, last.id]);
   });
 
-  it("refuses two rows claiming the same sibling gap instead of choosing an arbitrary order", () => {
+  it("resolves two rows with an identical historical gap in selected run order", () => {
     const first = narration(800000);
     const second = narration(810000);
     const returningA = narration(820000);
@@ -1210,15 +1350,14 @@ describe("mixed Stash outline contract", () => {
         afterSiblingRowId: first.id, beforeSiblingRowId: second.id, returnEligible: true,
       };
     }
-    const refused = applyRowEditV2(document, 2, {
+    const returned = applyRowEditV2(document, 2, {
       kind: "stash_rows", rowIds: [returningA.id, returningB.id], bundleId: id(840002),
     });
-    expect(refused.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(refused.document).toBe(document);
-    expect(outline(refused.document).map((entry) => entry.rowId)).toEqual([first.id, second.id]);
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document).map((entry) => entry.rowId)).toEqual([first.id, returningA.id, returningB.id, second.id]);
   });
 
-  it("refuses to guess a new parent section and succeeds after restoring the original context", () => {
+  it("falls back to unsectioned top after a parent moves and nests again when restored", () => {
     const sectionId = id(620000);
     const parent = narration(630000);
     const child = clip(640000);
@@ -1241,11 +1380,14 @@ describe("mixed Stash outline contract", () => {
       kind: "move_stash_rows", rowIds: [parent.id], sectionId,
     });
     expect(movedParent.ok, JSON.stringify(movedParent.diagnostics)).toBe(true);
-    const refused = applyRowEditV2(movedParent.document, 5, {
+    const fallback = applyRowEditV2(movedParent.document, 5, {
       kind: "stash_rows", rowIds: [child.id], bundleId: id(650002),
     });
-    expect(refused.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(refused.document).toBe(movedParent.document);
+    expect(fallback.ok, JSON.stringify(fallback.diagnostics)).toBe(true);
+    expect(outline(fallback.document)).toEqual([
+      { rowId: child.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: parent.id, kind: "note", parentRowId: null, sectionId },
+    ]);
     const restoredParent = applyRowEditV2(movedParent.document, 5, {
       kind: "move_stash_rows", rowIds: [parent.id], sectionId: null,
     });
@@ -1414,7 +1556,7 @@ describe("mixed Stash outline contract", () => {
     expect((visualEdit.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
   });
 
-  it("refuses missing or ambiguous source slots atomically and replays only allowed Sorting operations", () => {
+  it("resolves missing source slots and replays only allowed Sorting operations", () => {
     const parent = narration(410000);
     const created = applyRowEditV2(documentWith(), 0, {
       kind: "create_stash_note", bundleId: id(420000), row: parent,
@@ -1424,9 +1566,9 @@ describe("mixed Stash outline contract", () => {
     expect(placed.ok).toBe(true);
     const missing = structuredClone(placed.document);
     (missing.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin!.parentRowId = id(499998);
-    const refused = applyRowEditV2(missing, 2, { kind: "stash_rows", rowIds: [parent.id], bundleId: id(420001) });
-    expect(refused.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(refused.document).toBe(missing);
+    const fallback = applyRowEditV2(missing, 2, { kind: "stash_rows", rowIds: [parent.id], bundleId: id(420001) });
+    expect(fallback.ok, JSON.stringify(fallback.diagnostics)).toBe(true);
+    expect(outline(fallback.document)).toEqual([{ rowId: parent.id, kind: "note", sectionId: null, parentRowId: null }]);
 
     const sectionId = id(430000);
     let sectioned = applyRowEditV2(documentWith(), 0, { kind: "create_stash_section", sectionId, title: "Research" }).document;
@@ -1445,9 +1587,9 @@ describe("mixed Stash outline contract", () => {
     const missingSibling = structuredClone(moved.document);
     missingSibling.stash = missingSibling.stash!.filter((bundle) => !bundle.rows.some((row) => row.id === first.id));
     missingSibling.stashOutline = missingSibling.stashOutline!.filter((entry) => entry.rowId !== first.id);
-    const ambiguous = applyRowEditV2(missingSibling, 4, { kind: "stash_rows", rowIds: [second.id], bundleId: id(460002) });
-    expect(ambiguous.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
-    expect(ambiguous.document).toBe(missingSibling);
+    const recovered = applyRowEditV2(missingSibling, 4, { kind: "stash_rows", rowIds: [second.id], bundleId: id(460002) });
+    expect(recovered.ok, JSON.stringify(recovered.diagnostics)).toBe(true);
+    expect(outline(recovered.document)).toEqual([{ rowId: second.id, kind: "note", sectionId, parentRowId: null }]);
 
     const trial = createSortingTrialV2(sectioned);
     expect(trial.apply({
@@ -1460,5 +1602,42 @@ describe("mixed Stash outline contract", () => {
     const resumed = resumeSortingTrialV2(trial.serialize());
     expect(resumed.document.stashOutline).toEqual(trial.document.stashOutline);
     expect(resumed.document.activeDraft.blocks.map((block) => block.id)).toEqual([selectedRoot]);
+  });
+
+  it("upgrades legacy section rowIds on placement and returns a historical six-field batch in order", () => {
+    const first = narration(610000);
+    const second = narration(620000);
+    const sectionId = id(630000);
+    const legacy = documentWith();
+    legacy.stash = [{ id: id(640000), rows: [first, second], supportingItems: [] }];
+    legacy.stashSections = [{ id: sectionId, title: "Old saved section", rowIds: [first.id, second.id] }];
+    const placed = applyRowEditV2(legacy, 0, {
+      kind: "place_stash_rows", rowIds: [first.id, second.id], destination: gap(null, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    if (!placed.ok) return;
+
+    // An older client persisted the original six fields but not frozen history arrays.
+    const oldJson = structuredClone(placed.document);
+    for (const block of oldJson.activeDraft.blocks) {
+      if (block.type === "section" || !block.stashOrigin) continue;
+      delete block.stashOrigin.precedingSiblingRowIds;
+      delete block.stashOrigin.followingSiblingRowIds;
+      delete block.stashOrigin.originalParentContext;
+    }
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(oldJson));
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    if (!loaded.ok) return;
+    const returned = applyRowEditV2(loaded.document, 1, {
+      kind: "stash_rows", rowIds: [first.id, second.id], bundleId: id(650000),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(outline(returned.document)).toEqual([
+      { rowId: first.id, kind: "row", parentRowId: null, sectionId },
+      { rowId: second.id, kind: "row", parentRowId: null, sectionId },
+    ]);
+    expect(returned.document.stashSections).toEqual([{ id: sectionId, title: "Old saved section", rowIds: [] }]);
+    expect(returned.document.activeDraft.blocks).toEqual([]);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
   });
 });
