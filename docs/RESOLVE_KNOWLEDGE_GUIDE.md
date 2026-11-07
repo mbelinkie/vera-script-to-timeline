@@ -940,6 +940,33 @@ This is **positive only for that exact precomposed black-matte synthetic
 envelope**. The general authoring/background/profile-safe matte pipeline is
 not implemented or qualified and still refuses in product code.
 
+**2026-11-06 #336 normal-product qualification (supersedes the prior
+`production_qualification() -> None` status, NOT the limits above).**
+The [actual authored-product/Studio decoded report](verification/issue-336/product-studio-20261106.md)
+records three *different*, immutable packages through normal VERA
+authoring-data/compiler/receipt/attestation/one-use Resolve delivery on
+Studio **21.1.1.10**, Mac Python **3.12.14**: 24-frame and 96-frame
+linear native moving cover, and 48-frame explicit None with static contain.
+All three had exact **save/close/reopen**, no native readback discrepancies,
+and fully decoded **1280×720/24fps ProRes**. Five frame-indexed visual
+samples per motion case were distinct and the magenta focus witness moved;
+None's five samples were identical. The accepted input is source- and
+profile-bound public RGB PNG, **1600×900**, authoring **1920×1080/24fps**.
+Original/source hashes and each result/request/movie digest are retained.
+
+The intervening one-use failed projects were *preserved* and never replayed.
+They exposed Studio's relative-media path ambiguity and numeric PNG-filename
+image-sequence inference, native OTIO Type-22 scaling `2`/`3` versus distinct
+SDK scale constants, and single-frame PNG source-clock `0..0` versus a
+longer timeline hold. The product adapter now checks these identities and
+readbacks before accepting each new output. Other codecs, arbitrary sources,
+reverse/unsupported focus, nonlinear ease, gap-exposing cover, and moving
+contain without a separately proven, provenance-preserving matte **still
+refuse**. The earlier square/portrait and black-matte native *probe*
+evidence has not been converted into generalized product admission. #164
+owns preset/focus policy; #319 owns the web authoring consumer, not the
+underlying source/profile acceptance decision.
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
@@ -1006,7 +1033,7 @@ clearance. Later #325 and #326 conclusions qualify the older matrix's wording.
 | A18 and B08 graphics/overlays | RK-45 and RK-04: pinned template subsets, not arbitrary graphics/finishing preservation. |
 | A19 and B13 markers | RK-01/RK-06/RK-17 observe/emit bounded markers; no general selective marker executor. #328 remains open. |
 | A20/B04 Wide/Tight; A24 presenter identity reaching native route | RK-19/RK-21 do not establish continuous presenter reframing; #118/#119 remain the owners. |
-| A21 still motion | RK-43; #325 supplies partial evidence, #336 remains held with focus/framing/ease and product seam unfinished. |
+| A21 still motion | RK-43; #336 proves bounded normal product linear moving-cover/explicit None with decoded Studio output and source/profile guards. Moving contain/background provenance and unmeasured eases/focus profiles remain unsupported; #164/#319 retain product/consumer choices. |
 | A22/A23 and B20 transition application/preservation | RK-40/RK-41/RK-42; qualified probe subsets versus cut-only portable path. #88 integration and #327 preservation remain open. |
 | B01/B03/B11 reviewed selection, skips, conflicts | RK-16–RK-18 is not outbound selection. #328 must prove frozen selection and bounded conflict composition. |
 | B07 replacement/Resolve-only items; B17 finishing | RK-41/RK-42/RK-45; arbitrary opaque effect/grade/Fusion preservation remains #327, not proved by fresh rebuild. |
