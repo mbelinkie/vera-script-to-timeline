@@ -257,6 +257,42 @@ def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
     assert all(Path(path).read_bytes() == value for path, value in bytes_before.items())
 
 
+def test_issue336_older_studio_must_refuse_native_motion_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, _ISSUE336_NATIVE)
+    _issue336_synthetic_qualification(monkeypatch)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+
+    class PreviousStudio(_Issue336NativeRouteAdapter):
+        def connected_facts(self) -> Any:
+            self.calls.append("connected")
+            return SimpleNamespace(
+                edition="studio",
+                version="21.1.0",
+                build="14",
+                suffix="",
+                scripting_available=True,
+            )
+
+    adapter = PreviousStudio()
+    result = run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "stopped_safely", result
+    assert result["partialTargetRetained"] is False
+    assert result["verified"] is False
+    assert adapter.calls == ["connected"]
+
+
 def test_issue336_rechecks_otio_after_one_shot_import_before_saving(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

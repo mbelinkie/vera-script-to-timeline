@@ -2767,6 +2767,17 @@ def run_workflow_delivery_v2(
             not in SUPPORTED_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
+        if native_otio and (
+            getattr(connected, "version", None),
+            getattr(connected, "build", None),
+        ) != ("21.1.1", "10"):
+            # The general v2 delivery adapter accepts 21.1.0/14 too, but
+            # imported Type-22/59 still motion and raster geometry have only
+            # been positively qualified in installed Studio 21.1.1 build 10.
+            # An older otherwise-supported Studio must refuse before writes.
+            raise WorkflowV2Error(
+                "native image motion requires measured Studio 21.1.1 build 10"
+            )
         result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
         adapter.check_project_name_available(attestation["projectName"])
