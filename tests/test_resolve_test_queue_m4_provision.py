@@ -133,6 +133,7 @@ def host(monkeypatch: pytest.MonkeyPatch) -> tuple[Manager, list[str]]:
         "_local_resolve_connection",
         lambda: type("Resolve", (), {"GetProjectManager": lambda self: manager})(),
     )
+
     def fake_owner(*, output_lane: bool) -> nullcontext[None]:
         assert output_lane is True
         calls.append("native-owner")
