@@ -339,7 +339,11 @@ export function validateScriptDocumentV2(
       if (entry.sectionId !== null && !(document.stashSections ?? []).some((section) => section.id === entry.sectionId)) {
         diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A Stash outline entry names a missing section.", jsonPath: `${path}/sectionId`, entityId: entry.sectionId });
       }
-      if (entry.kind === "note" && row?.type !== "narration" || entry.kind === "clip" && !(row?.type === "visual_only" && row.payload.pictureKind === "clip")) {
+      const compactClip = row?.type === "visual_only" &&
+        (row.payload.pictureKind === "clip" ||
+          row.payload.pictureKind === "unresolved_visual" && row.researchClip !== undefined &&
+          row.payload.source.kind === "unresolved_visual" && row.frameBinding === undefined);
+      if (entry.kind === "note" && row?.type !== "narration" || entry.kind === "clip" && !compactClip) {
         diagnostics.push({ code: "ROW_REFERENCE_INVALID", message: "A compact Stash note or clip must use its matching saved-row payload.", jsonPath: `${path}/kind`, entityId: entry.rowId });
       }
       if (entry.parentRowId !== null && (entry.parentRowId === entry.rowId || !stashedRowIds.has(entry.parentRowId))) {

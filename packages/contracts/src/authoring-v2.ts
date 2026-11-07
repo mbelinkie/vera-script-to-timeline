@@ -316,6 +316,7 @@ export {
   serializeAuthoringDocumentV2,
   deserializeAuthoringDocumentV2,
   type RowEditCommandV2,
+  type StashFootageCommandV2,
   type RowEditResultV2,
   type RowGapV2,
 } from "./authoring-v2-rows.js";
