@@ -328,16 +328,19 @@ function tamperCopy(dir: string): string {
 
 async function run(): Promise<void> {
   const env = process.env;
+  stage = "opt-in-and-checkout";
   requireTrue(env.VERA_STT_QA_SMOKE === "synthetic-disposable");
   const rev = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" });
   const status = spawnSync("git", ["status", "--porcelain", "--untracked-files=normal"],
     { cwd: ROOT, encoding: "utf8" });
   requireTrue(rev.status === 0 && status.status === 0 && status.stdout.trim() === "" &&
     SHA.test(rev.stdout.trim()) && rev.stdout.trim() === env.VERA_STT_SOURCE_SHA);
+  stage = "config";
   const source = parseQaConfig(env, rev.stdout.trim(), ROOT);
   const target = parseQaConfig({ ...env, VERA_STT_QA_DATABASE_URL: env.VERA_STT_QA_RESTORE_DATABASE_URL },
     rev.stdout.trim(), ROOT);
   requireTrue(RESTORE.test(target.databaseName) && source.databaseName !== target.databaseName);
+  stage = "tokens-and-identity";
   const tokens = secretTokens(env);
   const identity = await loadQaIdentity(source.identityFile, ROOT);
   for (const role of ["producer", "editor", "viewer"] as const) {
@@ -346,11 +349,14 @@ async function run(): Promise<void> {
     }));
     requireEqual(verified, { issuer: ISSUER, subject: "synthetic-" + role });
   }
+  stage = "archive-path";
   const archiveDir = env.VERA_STT_QA_ARCHIVE_DIR;
   requireTrue(typeof archiveDir === "string" && archiveDir.startsWith("/") &&
     !archiveDir.includes("\0") && !archiveDir.startsWith(ROOT + "/") &&
     relative(realpathSync(join(ROOT, "../../")), archiveDir).startsWith("../"));
+  stage = "source-database-preflight";
   await preflightEmpty(source);
+  stage = "restore-database-preflight";
   await preflightEmpty(target);
   const cases: string[] = [];
   let running: ChildProcess | undefined;
