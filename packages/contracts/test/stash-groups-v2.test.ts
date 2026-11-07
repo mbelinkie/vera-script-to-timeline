@@ -10,7 +10,7 @@ import {
   stashGroupMembershipProblemV2,
   validateScriptDocumentV2,
 } from "../src/authoring-v2.js";
-import type { ScriptDocumentV2, StashRowGroupV2 } from "../src/generated/contracts-v2.js";
+import type { ScriptDocumentV2, StashRowGroupV2, SupportingItemV2 } from "../src/generated/contracts-v2.js";
 import { presentAttachedFootageForSortingV2 } from "../src/authoring-v2-rows.js";
 import { researchId, researchNote, researchStashFixture } from "./issue-367-fixture.js";
 
@@ -331,5 +331,86 @@ describe("Stash group organization transactions (issue 366 phase 2)", () => {
       parentRowId: null, afterRowId: members[0]! });
     expect(badMove.ok).toBe(false);
     expect(badMove.document).toBe(grouped);
+  });
+
+  it("keeps row-local citations with a flattened group and refuses cross-boundary supporting anchors atomically", () => {
+    const { doc, members } = groupedDocument();
+    const row = doc.stash![0]!.rows[0];
+    if (row.type !== "narration") throw new Error("Fixture requires a narration member");
+    delete row.plainDirection;
+    for (const token of row.tokens) delete token.spoken;
+    const word = row.tokens[0]!;
+    const wordAnchor = (blockId: string, tokenId: string, quotedWord: string) => ({
+      kind: "word" as const,
+      anchor: { blockId, tokenId, quotedWord, affinity: "before" as const, anchorVersion: 1 },
+    });
+    const citation: SupportingItemV2 = {
+      id: researchId(950001), version: 1, orderKey: "cited",
+      role: "citation", content: "Evidence from this shot",
+      placement: { kind: "point", anchor: wordAnchor(row.id, word.id, word.value) },
+      displayAttachment: wordAnchor(row.id, word.id, word.value),
+    };
+    doc.stash![0]!.supportingItems.push(citation);
+    const original = structuredClone(doc);
+    const placed = apply(doc, { kind: "place_stash_group", groupId: researchId(780001), destination: gap });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.activeDraft.supportingItems).toEqual([citation]);
+    expect(placed.document.activeDraft.blocks.map((block) => block.id)).toEqual(members);
+    expect(doc).toEqual(original);
+
+    const mixed = structuredClone(doc);
+    const extra = researchNote(950100);
+    delete extra.plainDirection;
+    for (const token of extra.tokens) delete token.spoken;
+    mixed.stash![0]!.rows.push(extra);
+    mixed.stashOutline!.push({ rowId: extra.id, kind: "row", parentRowId: null, sectionId: null });
+    mixed.stash![0]!.supportingItems[0]!.displayAttachment = wordAnchor(extra.id, extra.tokens[0]!.id, extra.tokens[0]!.value);
+    const before = structuredClone(mixed);
+    const refused = apply(mixed, { kind: "place_stash_group", groupId: researchId(780001), destination: gap });
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics.some((item) => item.code === "ROW_REFERENCE_REVIEW_REQUIRED")).toBe(true);
+    expect(refused.document).toBe(mixed);
+    expect(mixed).toEqual(before);
+  });
+
+  it("guards audio intent and refuses dependent outline children instead of flattening a compact note", () => {
+    const { doc, members } = groupedDocument();
+    doc.rowAudioSpans = [{ id: researchId(960001), startRowId: members[0]!, endRowId: members[0]!,
+      source: { mediaReferenceId: researchId(960002), artifactId: researchId(960003),
+        artifactVersion: 1, contentHash: `sha256:${"c".repeat(64)}` }, settings: {} }];
+    const original = structuredClone(doc);
+    const moving = apply(doc, { kind: "move_stash_group", groupId: researchId(780001),
+      sectionId: null, parentRowId: null, afterRowId: null });
+    expect(moving.ok).toBe(false);
+    expect(moving.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    const placing = apply(doc, { kind: "place_stash_group", groupId: researchId(780001), destination: gap });
+    expect(placing.ok).toBe(false);
+    expect(placing.diagnostics.some((item) => item.code === "AUDIO_REVIEW_REQUIRED")).toBe(true);
+    const reordered = apply(doc, { kind: "set_stash_outline", entries: [...doc.stashOutline!].reverse() });
+    expect(reordered.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(doc).toEqual(original);
+
+    const { doc: compact, anchor, note } = researchStashFixture();
+    compact.stashOutline![1]!.parentRowId = anchor.id;
+    // The parent and its child are both selected. Converting the parent would
+    // silently discard the child relationship unless refused explicitly.
+    const refused = apply(compact, { kind: "group_stash_rows", rowIds: [anchor.id, note.id], groupId: researchId(960004) });
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics[0]?.message).toMatch(/dependent branch/);
+  });
+
+  it("preserves original active transition pairs and refuses standalone edits to an embedded grouped clip", () => {
+    const { doc, members } = groupedDocument();
+    doc.stash = [{ id: researchId(970001), rows: [doc.stash![0]!.rows[0]!, doc.stash![1]!.rows[0]!], supportingItems: [] }];
+    doc.rowTransitions = [{ id: researchId(970002), fromRowId: members[0]!, toRowId: members[1]!,
+      effect: "crossfade", settings: { frames: 6 }, state: "active" }];
+    expect(validateScriptDocumentV2(doc).valid).toBe(true);
+    const trim = apply(doc, { kind: "trim_research_clip", clipRowId: researchId(730100), edge: "in", frame: 30 });
+    expect(trim.ok).toBe(false);
+    expect(trim.diagnostics[0]?.code).toBe("STASH_GROUP_ATOMIC_REQUIRED");
+    const placed = apply(doc, { kind: "place_stash_group", groupId: researchId(780001), destination: gap });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.rowTransitions).toEqual(doc.rowTransitions);
+    expect(validateScriptDocumentV2(placed.document).valid).toBe(true);
   });
 });

@@ -420,8 +420,8 @@ function formStashGroup(
     return "Select existing, ungrouped Stash rows.";
   }
   const selected = new Set(rowIds);
-  if (outline.some((entry) => !selected.has(entry.rowId) &&
-    rowIds.some((id) => isOutlineDescendant(entry, id, byId)))) {
+  if (outline.some((entry) => rowIds.some((id) =>
+    entry.rowId !== id && isOutlineDescendant(entry, id, byId)))) {
     return "A compact Stash note with children cannot be converted without reviewing its dependent branch.";
   }
   if (destination) {
@@ -1050,6 +1050,11 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
+  if (command.kind === "trim_research_clip" && (grouped.has(command.clipRowId) ||
+    document.stash?.some((bundle) => bundle.rows.some((row) =>
+      grouped.has(row.id) && row.type === "narration" && row.attachedFootage?.clip.id === command.clipRowId)))) {
+    return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Trim a grouped row's footage through the staged group editor, not an independent row edit.");
+  }
 
   if (isStageDirectionKind(command.kind)) {
     const stageCommand = command as unknown as StageDirectionEditCommandV2;
@@ -1482,6 +1487,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const currentKinds = outlineMap(current);
     if (command.entries.some((entry) => !entry || typeof entry !== "object" || currentKinds.get(entry.rowId)?.kind !== entry.kind) || command.entries.length !== current.length) {
       return refused(document, "STASH_OUTLINE_KIND_IMMUTABLE", "Organizing the outline cannot create, remove, or reclassify saved rows.");
+    }
+    for (const group of working.stashGroups ?? []) {
+      if (!audioSpanTouchesRows(working, new Set(group.rowIds))) continue;
+      const location = (entries: StashOutlineEntryV2[]) => entries.flatMap((entry, index) =>
+        group.rowIds.includes(entry.rowId) ? [{ rowId: entry.rowId, index, parentRowId: entry.parentRowId, sectionId: entry.sectionId }] : []);
+      if (!sameAuthoringJsonV2(location(current), location(command.entries))) {
+        return refused(document, "AUDIO_REVIEW_REQUIRED", "Review the grouped audio intent before changing this Stash outline location.");
+      }
     }
     working.stashOutline = structuredClone(command.entries);
   } else if (command.kind === "place_stash_rows") {
