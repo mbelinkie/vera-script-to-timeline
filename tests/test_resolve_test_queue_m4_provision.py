@@ -7,7 +7,8 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
-from vera_timeline_agent import resolve_test_queue_m4_provision as provision
+import vera_timeline_agent.resolve_test_queue as queue
+import vera_timeline_agent.resolve_test_queue_m4_provision as provision
 
 
 class Timeline:
@@ -132,11 +133,12 @@ def host(monkeypatch: pytest.MonkeyPatch) -> tuple[Manager, list[str]]:
         "_local_resolve_connection",
         lambda: type("Resolve", (), {"GetProjectManager": lambda self: manager})(),
     )
-    monkeypatch.setattr(
-        provision,
-        "native_owner",
-        lambda *, output_lane: calls.append("native-owner") or nullcontext(),
-    )
+    def fake_owner(*, output_lane: bool) -> nullcontext[None]:
+        assert output_lane is True
+        calls.append("native-owner")
+        return nullcontext()
+
+    monkeypatch.setattr(provision, "native_owner", fake_owner)
 
     def preflight(name: str) -> None:
         calls.append(f"preflight:{name}")
@@ -257,22 +259,24 @@ def test_auto_selection_refuses_unresolved_current_host_operation(
     host: tuple[Manager, list[str]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from vera_timeline_agent import resolve_native_owner as owner
+    import vera_timeline_agent.resolve_native_owner as owner
 
     manager, _ = host
     root = tmp_path / "job"
     provision.provision(root)
     current_uid = manager.current.GetUniqueId()
+    timeline = manager.current.GetCurrentTimeline()
+    assert timeline is not None
     chain = {
         "projectUid": current_uid,
-        "timelineUid": manager.current.GetCurrentTimeline().GetUniqueId(),
+        "timelineUid": timeline.GetUniqueId(),
         "caseId": "synthetic-test",
         "phase": "edited",
     }
     key = "one-use-active"
     path = owner.OUTPUT_ATTEMPTS_ROOT / key / "chain.json"
     path.parent.mkdir(parents=True)
-    path.write_bytes(provision.queue.canonical(chain))
+    path.write_bytes(queue.canonical(chain))
     path.chmod(0o600)
     monkeypatch.setattr(owner, "_active_output_host_chains", lambda _: {key: "unknown"})
     with pytest.raises(provision.ProvisionError, match="unresolved output work"):
@@ -384,7 +388,7 @@ def test_tampered_plan_and_proof_cannot_be_reinterpreted(
     provision.reserve(root)
     plan = json.loads((root / "plan.json").read_bytes())
     plan["targets"]["initial"] = "Producer project"
-    (root / "plan.json").write_bytes(provision.queue.canonical(plan))
+    (root / "plan.json").write_bytes(queue.canonical(plan))
     with pytest.raises(provision.ProvisionError, match="disposable"):
         provision.advance(root)
 
@@ -398,6 +402,6 @@ def test_no_completion_without_real_project_and_timeline_uids(
     provision.advance(root)
     row = provision._read(root / "complete-initial.json")
     row["timelineUid"] = row["projectUid"]
-    (root / "complete-initial.json").write_bytes(provision.queue.canonical(row))
+    (root / "complete-initial.json").write_bytes(queue.canonical(row))
     with pytest.raises(provision.ProvisionError, match="UID"):
         provision.advance(root)
