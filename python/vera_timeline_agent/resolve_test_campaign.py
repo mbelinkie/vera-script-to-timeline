@@ -893,6 +893,10 @@ def _run_bound_child(store: queue.Store, campaign_id: str, step: Any) -> bool:
 
 def _native_slot_busy(store: queue.Store) -> bool:
     """Never bypass a foreign M2 pending/running or uncertain native owner."""
+    from . import resolve_test_queue_m4 as reverse
+
+    if reverse.any_unresolved(store):
+        return True
     with store.connect() as db:
         occupied = db.execute(
             "SELECT j.id,j.state FROM jobs j "
@@ -936,6 +940,10 @@ def _activate_child(
     started = queue.iso(queue.now_utc())
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        from . import resolve_test_queue_m4 as reverse
+
+        if reverse.target_reserved(db, plan["native"]["projectName"]):
+            return False
         campaign = db.execute(
             "SELECT * FROM campaigns WHERE id=?", (campaign_id,)
         ).fetchone()
