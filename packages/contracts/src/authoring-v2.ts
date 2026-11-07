@@ -278,6 +278,7 @@ export {
   inwardUseRangeV2,
   createResearchClipOccurrenceV2,
   withResearchClipUseRangeV2,
+  trimResearchClipOccurrenceV2,
   type ResearchLoggedCandidateInputV2,
   type ResearchClipOccurrenceInputV2,
   type FrameIntervalV2,

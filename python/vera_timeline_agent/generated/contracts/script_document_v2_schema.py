@@ -201,6 +201,9 @@ class StashOriginV2(TypedDict):
     beforeSiblingRowId: EntityId | None
     returnEligible: bool
     originalAttachedNoteRowId: NotRequired[EntityId]
+    originalAttachedNoteParentRowId: NotRequired[EntityId | None]
+    originalAttachedNoteAfterSiblingRowId: NotRequired[EntityId | None]
+    originalAttachedNoteBeforeSiblingRowId: NotRequired[EntityId | None]
 
 
 class RowTransitionIntentV2(TypedDict):

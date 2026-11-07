@@ -884,6 +884,18 @@ export interface StashOriginV2 {
    * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
    */
   originalAttachedNoteRowId?: string;
+  /**
+   * The note's Stash parent at separation; null for a root. Used to reject stale reattachment after a move.
+   */
+  originalAttachedNoteParentRowId?: string | null;
+  /**
+   * Historical preceding sibling of the owner note for an anchored ordinary return.
+   */
+  originalAttachedNoteAfterSiblingRowId?: string | null;
+  /**
+   * Historical following sibling of the owner note for an anchored ordinary return.
+   */
+  originalAttachedNoteBeforeSiblingRowId?: string | null;
 }
 export interface AttachedFootageV2 {
   clip: VisualOnlyBlockV2;

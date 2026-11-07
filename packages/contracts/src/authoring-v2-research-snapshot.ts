@@ -208,3 +208,23 @@ export function withResearchClipUseRangeV2(
   copy.visualOnlyTiming.selectedSourceRange = newRange;
   return copy;
 }
+
+/** Change just one occurrence's in/out. The source candidate and frame mapping are immutable. */
+export function trimResearchClipOccurrenceV2(
+  row: VisualOnlyBlockV2,
+  change: { edge: "in" | "out"; frame: number } | { edge: "clear_out" },
+): VisualOnlyBlockV2 {
+  if (!change || !(change.edge === "clear_out" ||
+    ((change.edge === "in" || change.edge === "out") && Number.isSafeInteger(change.frame)))) {
+    throw new RangeError("An exact source-frame trim is required");
+  }
+  const selected = row.visualOnlyTiming.selectedSourceRange;
+  if (!selected || !Number.isSafeInteger(selected.startFrame + selected.durationFrames)) {
+    throw new RangeError("An existing valid source-frame selection is required");
+  }
+  const startFrame = change.edge === "in" ? change.frame : selected.startFrame;
+  const endFrame = change.edge === "out" ? change.frame :
+    change.edge === "clear_out" ? row.frameBinding?.loggedEndFrame : selected.startFrame + selected.durationFrames;
+  if (endFrame === undefined) throw new RangeError("An evidenced logged end is required");
+  return withResearchClipUseRangeV2(row, { startFrame, endFrame });
+}

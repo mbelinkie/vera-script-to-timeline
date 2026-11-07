@@ -493,3 +493,70 @@ describe("row-edit consumers", () => {
     expect(needs.diagnostics.map((diagnostic) => diagnostic.code)).toContain(expectedCode);
   });
 });
+
+import { projectPrimarySequenceV2 } from "../src/authoring-v2-projection.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
+
+describe("Stash Research footage consumer honesty (issue 367 phase 3)", () => {
+  it("keeps unresolved saved footage out of builds, then blocks readiness when its note is placed", () => {
+    const { document, dependencies } = input();
+    const original = compileTimelineV2(document, dependencies);
+    expect(original.ok).toBe(true);
+    const { doc: research, note, clip } = researchStashFixture(false);
+    document.stash = research.stash!;
+    document.stashOutline = research.stashOutline!;
+    const untouched = compileTimelineV2(document, dependencies);
+    expect(untouched.ok).toBe(true);
+    expect(mediaNeeds(document, dependencies).ok).toBe(true);
+    const placed = applyRowEditV2(document, 0, {
+      kind: "place_stash_rows", rowIds: [note.id],
+      destination: { sectionId: null, afterRowId: activeNarration(document).id, beforeRowId: null }, includeDescendants: false,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.activeDraft.blocks.some((block) => block.id === clip.id)).toBe(false);
+    const view = projectPrimarySequenceV2(placed.document);
+    const row = view.rows.find((item) => item.blockId === note.id);
+    expect(row?.renderable).toBe(false);
+    expect(row?.diagnostics.some((item) => item.code === "RESEARCH_MEDIA_UNRESOLVED")).toBe(true);
+    const build = compileTimelineV2(placed.document, dependencies);
+    expect(build.ok).toBe(false);
+    if (!build.ok) expect(build.diagnostics.map((d) => d.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
+    const readiness = mediaNeeds(placed.document, dependencies);
+    expect(readiness.ok).toBe(false);
+    if (!readiness.ok) expect(readiness.diagnostics.map((d) => d.code)).toContain("RESEARCH_MEDIA_UNRESOLVED");
+  });
+
+  it("refuses a stale or substituted active clip mirror even after an explicit authored visual edit", () => {
+    const { doc, note } = researchStashFixture();
+    const placed = applyRowEditV2(doc, 0, {
+      kind: "place_stash_rows", rowIds: [note.id],
+      destination: { sectionId: null, afterRowId: null, beforeRowId: null }, includeDescendants: false,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = structuredClone(placed.document.activeDraft.blocks[0]) as NarrationBlockV2;
+    const slot = active.primaryVisualSequence!.slots[0]!;
+    if (slot.kind !== "content" || slot.payload.kind !== "visual" || slot.payload.source.kind !== "media_reference") {
+      throw new Error("Expected a mirrored saved Research clip");
+    }
+    slot.payload.source.mediaReferenceId = id(920001);
+    active.version++;
+    const substituted = applyRowEditV2(placed.document, 1, { kind: "edit_row", rowId: active.id, row: active });
+    expect(substituted.ok).toBe(false);
+    expect(substituted.document).toEqual(placed.document);
+    expect(substituted.diagnostics.map((d) => d.code)).toContain("RESEARCH_CLIP_INVALID");
+    slot.payload.source.mediaReferenceId = active.attachedFootage!.clip.frameBinding!.mediaReferenceId;
+    slot.payload.framingPolicy = "cover";
+    const edited = applyRowEditV2(placed.document, 1, { kind: "edit_row", rowId: active.id, row: active });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    const view = projectPrimarySequenceV2(edited.document);
+    expect(view.rows[0]?.renderable).toBe(false);
+    expect(view.rows[0]?.diagnostics.map((d) => d.code)).toContain("ATTACHED_FOOTAGE_VISUAL_STALE");
+    const deps = input().dependencies;
+    const build = compileTimelineV2(edited.document, deps);
+    expect(build.ok).toBe(false);
+    if (!build.ok) expect(build.diagnostics.map((d) => d.code)).toContain("ATTACHED_FOOTAGE_VISUAL_STALE");
+    const ready = mediaNeeds(edited.document, deps);
+    expect(ready.ok).toBe(false);
+    if (!ready.ok) expect(ready.diagnostics.map((d) => d.code)).toContain("ATTACHED_FOOTAGE_VISUAL_STALE");
+  });
+});

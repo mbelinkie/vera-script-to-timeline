@@ -28,6 +28,7 @@ import type {
   AuthoringValidationResultV2,
 } from "./authoring-v2.js";
 import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 
 type DraftBlock = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -291,6 +292,24 @@ export function validateScriptDocumentV2(
       reportClip("Attached footage requires its owning note in the canonical Stash outline.", `${path}/attachedFootage`, clip.id);
     }
     inspectClip(clip, `${path}/attachedFootage/clip`);
+    // Parked-row semantic validation re-runs each bundle as a synthetic
+    // activeDraft; only a converted note with its Stash origin has a mirror.
+    if (!stashed && row.stashOrigin?.kind === "note" && row.stashOrigin.returnEligible) {
+      const slots = row.primaryVisualSequence?.slots;
+      const slot = slots?.length === 1 ? slots[0] : undefined;
+      const payload = slot?.kind === "content" && slot.payload.kind === "visual" ? slot.payload : undefined;
+      const selected = clip.visualOnlyTiming.selectedSourceRange;
+      if (!payload || !sameAuthoringJsonV2(payload.source, clip.payload.source) ||
+        payload.framingPolicy !== clip.payload.framingPolicy ||
+        payload.audioPolicy !== (clip.payload.audioPolicy === "quiet" ? "quiet" : "mute") ||
+        payload.pictureKind !== clip.payload.pictureKind ||
+        !sameAuthoringJsonV2(payload.researchClip, clip.researchClip) ||
+        !sameAuthoringJsonV2(payload.frameBinding, clip.frameBinding) ||
+        !sameAuthoringJsonV2(payload.selectedSourceRange, selected) ||
+        !sameAuthoringJsonV2(payload.sourceUsage, selected ? { sourceInFrame: selected.startFrame } : null)) {
+        reportClip("Active attached footage must have an exact mirror of its owning clip; no alternate media or stale range may be substituted.", `${path}/primaryVisualSequence`, clip.id);
+      }
+    }
   };
   document.activeDraft.blocks.forEach((row, index) => {
     const path = `/activeDraft/blocks/${index}`;

@@ -2606,6 +2606,18 @@
               "$ref": "#/$defs/EntityId"
             }
           ]
+        },
+        "originalAttachedNoteParentRowId": {
+          "description": "The note's Stash parent at separation; null for a root. Used to reject stale reattachment after a move.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "originalAttachedNoteAfterSiblingRowId": {
+          "description": "Historical preceding sibling of the owner note for an anchored ordinary return.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "originalAttachedNoteBeforeSiblingRowId": {
+          "description": "Historical following sibling of the owner note for an anchored ordinary return.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
         }
       }
     },
