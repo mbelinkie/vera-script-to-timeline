@@ -539,6 +539,11 @@ def _read_and_validate_receipt(
         # a replacement, not a trusted replay of the original publication.
         raise ImportModelError("needs_inspection")
     decoded = _decoded(decoder, fd, approval)
+    # Decoder work is allowed to take time; a concurrent writer must not
+    # mutate the project-owned target after the initial hash/receipt check.
+    _verify_target(fd, approval)
+    if record.get("destinationIdentity") != list(_identity(fd)):
+        raise ImportModelError("needs_inspection")
     completed_mode = existing.get("completedMode")
     if completed_mode not in ("clone", "copy"):
         raise ImportModelError("needs_inspection")
@@ -826,3 +831,62 @@ def reconcile_inspected_import(
         free_bytes=None,
         inspected_recovery=True,
     )
+
+
+def reverify_materialized_source(
+    approval: LocalImportApproval | None,
+    *,
+    state_root: Path,
+    authorize: Authorize,
+    decoder: Decoder,
+) -> PortableImportResult:
+    """Read-only identity handoff, *not* a build/preparation qualification.
+
+    Reopen the script-owned bytes and private receipt through no-follow fds;
+    reject missing/replaced sources even if the old receipt reports success.
+    The downstream frozen build still must bind its own exact source/probe and
+    prepared artifacts at consumption time. No source original is needed.
+    """
+    if (
+        not isinstance(approval, LocalImportApproval)
+        or not callable(authorize)
+        or not callable(getattr(decoder, "decode", None))
+    ):
+        raise ImportModelError("approval_required")
+    try:
+        permitted = authorize(approval)
+    except Exception as error:
+        raise ImportModelError("permission_denied") from error
+    if permitted is not True:
+        raise ImportModelError("permission_denied")
+    try:
+        with ExitStack() as stack:
+            project, project_ids = _open_root(approval.project_root, stack)
+            private, private_ids = _open_root(state_root, stack)
+            if (
+                _identity(project)[:2] in private_ids
+                or _identity(private)[:2] in project_ids
+            ):
+                raise ImportModelError("root_overlap")
+            state_info = os.fstat(private)
+            if state_info.st_uid != os.getuid() or state_info.st_mode & 0o077:
+                raise ImportModelError("permission_denied")
+            attempts = _child_dir(private, "attempts", stack, create=False)
+            receipts = _child_dir(private, "receipts", stack, create=False)
+            for directory in (attempts, receipts):
+                info = os.fstat(directory)
+                if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                    raise ImportModelError("permission_denied")
+            attempt = _read_record(attempts, approval.import_id + ".json")
+            if attempt is None:
+                raise ImportModelError("incomplete_attempt")
+            if attempt.get("fingerprint") != approval.request_fingerprint():
+                raise ImportModelError("import_conflict")
+            asset = _asset_directory(project, approval, stack, create=False)
+            return _read_and_validate_receipt(approval, receipts, asset, decoder, stack)
+    except ImportModelError:
+        raise
+    except (OSError, ValueError, TypeError) as error:
+        if isinstance(error, OSError) and error.errno == errno.ENOENT:
+            raise ImportModelError("needs_inspection") from error
+        raise ImportModelError("io_failure") from error
