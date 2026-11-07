@@ -7,6 +7,7 @@ import {
   type ResearchLoggedCandidateInputV2,
 } from "../src/authoring-v2-research-snapshot.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
+import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import type {
   NarrationBlockV2, ResearchFrameBindingV2, ScriptDocumentV2, VisualOnlyBlockV2,
 } from "../src/generated/contracts-v2.js";
@@ -156,5 +157,26 @@ describe("Research logged-clip snapshot and exclusive owner", () => {
     const attachment = (unknown.stash![0]!.rows[0] as NarrationBlockV2).attachedFootage!;
     (attachment as unknown as Record<string, unknown>).unexpected = true;
     expect(validateScriptDocumentV2(unknown).valid).toBe(false);
+  });
+
+  it("preserves the exact Research frame binding and single clip owner through explicit Stash return and Undo", () => {
+    const before = document();
+    const placed = applyRowEditV2(before, 0, {
+      kind: "place_stash_rows", rowIds: [id(100)],
+      destination: { sectionId: null, afterRowId: null, beforeRowId: null },
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const session = createRowEditSessionV2(placed.document);
+    const returned = session.apply({
+      kind: "stash_rows", rowIds: [id(100)], bundleId: id(700),
+      destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: null },
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    const saved = returned.document.stash!.flatMap((bundle) => bundle.rows);
+    expect(saved).toHaveLength(1);
+    expect((saved[0] as NarrationBlockV2).attachedFootage?.clip).toEqual(ready());
+    expect(returned.document.stashOutline).toEqual([{ rowId: id(100), kind: "note", parentRowId: null, sectionId: null }]);
+    expect(diagnostics(returned.document)).toEqual([]);
+    expect(session.undo().document).toEqual({ ...placed.document, rowEditRevision: 3 });
   });
 });
