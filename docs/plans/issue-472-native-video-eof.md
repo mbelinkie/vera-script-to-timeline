@@ -24,6 +24,18 @@ manifest: **requiring original and delivered counts, rates or probe hashes to
 be equal would reject the real fixture**. This was corrected in the #472
 verifier and mirrored in its converted-source regression.
 
+**Independent read-only media check on the actual Mac:** FFprobe with
+`-count_frames` on the retained delivered
+`Media/Resolved/42b82702-d6df-59b0-8b9b-201fb3518c64.mp4` measured
+`nb_read_frames=214` and `r_frame_rate=24000/1001`. The actual file's
+SHA-256 is `803b9a7375d1da5aa52ecac6a9c02071891d8bcb59fddde22410e37f514ce023`,
+matching that video's admitted delivered content hash. These checks read
+existing bytes only: no Resolve target, result or operation was touched.
+Together with the authenticated native full 214-frame record/source time,
+this rules out an actually 212-frame delivered file as the cause of the
+discrepant integer getter. A *new* native save/reopen experiment is still
+needed before calling the application behaviour independently reproduced.
+
 `qualification_output_native_v2._capture_geometry` now recognizes **only** the
 two-frame-short integer end at the full decoded-video EOF (not a +/-2
 tolerance). It requires the exact admitted full-source range, equal 214-frame

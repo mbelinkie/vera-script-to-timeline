@@ -737,7 +737,10 @@ The report records these distinct stages:
   in [#472 analysis](plans/issue-472-native-video-eof.md). Its *original*
   source map has 900 frames at 30000/1001 and nonzero source origin; its
   *delivered* decoded clip has 214 frames at 24000/1001 and a different probe
-  hash. These two clocks/hashes must **not** be equated. The #472 verifier
+  hash. Independent read-only Mac FFprobe checked the actual delivered MP4:
+  214 decoded frames at 24000/1001, with SHA-256 equal to its admitted
+  delivered hash. These two source clocks/probes must **not** be equated. The
+  #472 verifier
   correction adds a *conditional*, hash/rate/frame-map/clock-bound full-source
   EOF equivalence, **not** a blanket two-frame tolerance. Mocked regressions
   do not constitute a new real saved/reopened Studio acceptance. This historical
