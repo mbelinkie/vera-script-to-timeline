@@ -12,8 +12,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from vera_timeline_agent import resolve_test_queue as queue
-from vera_timeline_agent import resolve_test_queue_m4 as m4
+import vera_timeline_agent.resolve_test_queue as queue
+import vera_timeline_agent.resolve_test_queue_m4 as m4
 
 
 def _target() -> dict[str, str]:
@@ -218,16 +218,37 @@ def test_tampering_after_durable_receipt_pin_fails_closed(
             "WHERE job_id=? AND ordinal=0",
             (str(path), m4._sha(path.read_bytes()), job_id),
         )
-    path.write_bytes(b'{"modified":true}\n')
+    # A valid, canonical replacement must still fail before the downstream
+    # verifier sees it. Malformed JSON would not prove the digest guard.
+    receipt = json.loads(path.read_bytes())
+    receipt["capture"]["sha256"] = "d" * 64
+    path.write_bytes(queue.canonical(receipt))
+    monkeypatch.setattr(m4, "_verify_stage", lambda *_: None)
     m4.reconcile(store, job_id)
     assert m4.publish(store, job_id)["state"] == "unknown"
+
+
+def test_reverse_receipt_read_refuses_symlinks_and_hardlinks(
+    tmp_path: Path,
+) -> None:
+    original = tmp_path / "receipt.json"
+    original.write_bytes(b"safe\n")
+    assert m4._read_bounded(original, limit=16) == b"safe\n"
+    symlink = tmp_path / "receipt-link.json"
+    symlink.symlink_to(original)
+    with pytest.raises(queue.QueueError, match="symbolic-link"):
+        m4._read_bounded(symlink, limit=16)
+    hardlink = tmp_path / "receipt-hardlink.json"
+    hardlink.hardlink_to(original)
+    with pytest.raises(queue.QueueError, match="single-linked"):
+        m4._read_bounded(hardlink, limit=16)
 
 
 def test_native_slot_owner_remains_reserved_through_human_required_pause(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from vera_timeline_agent import resolve_test_campaign as campaign
+    import vera_timeline_agent.resolve_test_campaign as campaign
 
     store = queue.Store(tmp_path / "queue")
     job_id, plan = _enroll(store, tmp_path, monkeypatch)
