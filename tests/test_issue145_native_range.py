@@ -228,7 +228,11 @@ def _video_rounding_geometry_case(
 
 
 def _video_full_eof_214_case(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, *, converted: bool = True
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    converted: bool = True,
+    record_start: int = 0,
 ) -> tuple[Any, dict[str, Any], dict[str, Any], Any]:
     """Reproduce #312's 214/212 observation and its real converted source map."""
     resolve, request, admitted, item = _video_rounding_geometry_case(
@@ -236,9 +240,13 @@ def _video_full_eof_214_case(
     )
     frame_count = 214
     event = admitted["view"]["events"][0]
-    event["recordRange"] = {"startFrame": 0, "durationFrames": frame_count}
+    event["recordRange"] = {
+        "startFrame": record_start,
+        "durationFrames": frame_count,
+    }
     event["sourceRange"] = {"startFrame": 0, "durationFrames": frame_count}
     event["v2Event"]["sourceRange"] = {"startFrame": 0, "endFrame": frame_count}
+    item.true_start = record_start
     item.source_start_frame = 0
     item.source_end_frame = 212
     item.media.frame_count = frame_count
@@ -263,13 +271,13 @@ def _video_full_eof_214_case(
     manifest["preparationBindings"][0]["verification"]["decodedFrameCount"] = (
         frame_count
     )
-    manifest["timeline"]["durationFrames"] = frame_count
-    admitted["view"]["timeline"]["durationFrames"] = frame_count
+    manifest["timeline"]["durationFrames"] = record_start + frame_count
+    admitted["view"]["timeline"]["durationFrames"] = record_start + frame_count
     item.stamp = native._event_stamp(event)
     timeline = resolve.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
-    monkeypatch.setattr(timeline, "GetEndFrame", lambda: frame_count)
+    monkeypatch.setattr(timeline, "GetEndFrame", lambda: record_start + frame_count)
     monkeypatch.setattr(item, "GetDuration", lambda _in_frames: frame_count)
-    monkeypatch.setattr(item, "GetEnd", lambda _in_frames: frame_count)
+    monkeypatch.setattr(item, "GetEnd", lambda _in_frames: record_start + frame_count)
     monkeypatch.setattr(item, "GetSourceStartTime", lambda: 0.0, raising=False)
     monkeypatch.setattr(
         item,
@@ -288,11 +296,16 @@ def _video_full_eof_214_case(
 
 @pytest.mark.parametrize("phase", ["pristine", "rebuild"])
 @pytest.mark.parametrize("converted", [True, False])
+@pytest.mark.parametrize("record_start", [0, 715])
 def test_authenticated_full_video_eof_214_frames_accepts_exact_212_getter(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, phase: str, converted: bool
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    phase: str,
+    converted: bool,
+    record_start: int,
 ) -> None:
     resolve, request, admitted, item = _video_full_eof_214_case(
-        tmp_path, monkeypatch, converted=converted
+        tmp_path, monkeypatch, converted=converted, record_start=record_start
     )
     request["context"]["phase"] = phase
 
@@ -302,6 +315,7 @@ def test_authenticated_full_video_eof_214_frames_accepts_exact_212_getter(
     assert geometry["items"][0]["sourceStart"] == 0
     assert geometry["items"][0]["sourceDuration"] == 214
     assert geometry["items"][0]["recordDuration"] == 214
+    assert geometry["items"][0]["recordStart"] == record_start
 
 
 @pytest.mark.parametrize(
