@@ -310,6 +310,8 @@ export {
 export { createSortingTrialV2, resumeSortingTrialV2, type SortingAcceptanceV2, type SortingResultV2 } from "./authoring-v2-sorting.js";
 export { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
 export { applyStashRowEditV2, type StashRowEditCommandV2, type StashedRowV2 } from "./authoring-v2-stash.js";
+export type { StashRowGroupV2 } from "./generated/contracts-v2.js";
+export { stashGroupLocationProblemV2, stashGroupMembershipProblemV2 } from "./authoring-v2-stash-groups.js";
 export {
   applyRowEditV2,
   selectRowRangeV2,
