@@ -3,16 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   applyRowEditV2,
   applyStashRowEditV2,
+  beginStashGroupMemberStageV2,
+  cancelStashGroupMemberStageV2,
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
+  saveStashGroupStageCommandV2,
+  stageStashGroupMembersV2,
   stashGroupLocationProblemV2,
   stashGroupMembershipProblemV2,
   validateScriptDocumentV2,
 } from "../src/authoring-v2.js";
 import type { ScriptDocumentV2, StashRowGroupV2, SupportingItemV2 } from "../src/generated/contracts-v2.js";
 import { presentAttachedFootageForSortingV2 } from "../src/authoring-v2-rows.js";
-import { researchId, researchNote, researchStashFixture } from "./issue-367-fixture.js";
+import { researchId, researchNote, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
 
 function groupedDocument(): { doc: ScriptDocumentV2; group: StashRowGroupV2; members: string[] } {
   const { doc, anchor, note } = researchStashFixture();
@@ -412,5 +416,248 @@ describe("Stash group organization transactions (issue 366 phase 2)", () => {
     expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
     expect(placed.document.rowTransitions).toEqual(doc.rowTransitions);
     expect(validateScriptDocumentV2(placed.document).valid).toBe(true);
+  });
+});
+
+describe("one-Save staged Stash group member editor (issue 366 phase 3)", () => {
+  const revision = (doc: ScriptDocumentV2) => doc.rowEditRevision ?? 0;
+  const apply = (doc: ScriptDocumentV2, command: Parameters<typeof applyRowEditV2>[2]) =>
+    applyRowEditV2(doc, revision(doc), command);
+  const withoutOwnedFootage = () => {
+    const { doc, group, members } = groupedDocument();
+    const note = doc.stash![1]!.rows[0];
+    if (note.type !== "narration") throw new Error("Expected a narration member");
+    delete note.attachedFootage;
+    return { doc, group, members };
+  };
+
+  it("stages independently and Cancel leaves the exact document and revision untouched", () => {
+    const { doc, group } = groupedDocument();
+    const original = structuredClone(doc);
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    expect(opened.expectedRowIds).toEqual(group.rowIds);
+    const edited = structuredClone(opened.members);
+    edited[0]!.orderKey = "edited only in staging";
+    const staged = stageStashGroupMembersV2(opened, [...edited, researchNote(980001)]);
+    staged.members[0]!.orderKey = "further local edits";
+    expect(opened.members[0]!.orderKey).not.toBe(staged.members[0]!.orderKey);
+    expect(cancelStashGroupMemberStageV2(staged)).toBeNull();
+    expect(doc).toEqual(original);
+    expect(revision(doc)).toBe(0);
+    expect(beginStashGroupMemberStageV2(doc, researchId(980000))).toBeNull();
+  });
+
+  it("commits mixed replacement, new member, removed member and anchored citation in one revision / one Undo", () => {
+    const { doc, group } = withoutOwnedFootage();
+    const anchor = doc.stash![0]!.rows[0];
+    if (anchor.type !== "narration") throw new Error("Expected narration");
+    delete anchor.plainDirection;
+    for (const token of anchor.tokens) delete token.spoken;
+    const token = anchor.tokens[0]!;
+    const cite: SupportingItemV2 = {
+      id: researchId(981100), version: 1, orderKey: "citation", role: "citation", content: "Original research",
+      placement: { kind: "point", anchor: { kind: "word", anchor: {
+        blockId: anchor.id, tokenId: token.id, quotedWord: token.value, affinity: "before", anchorVersion: 1,
+      } } },
+    };
+    doc.stash![0]!.supportingItems.push(cite);
+    doc.rowReferences = [{ id: researchId(981101), rowId: anchor.id, kind: "comment", anchor: { tokenId: token.id } }];
+    anchor.stashOrigin = { kind: "row", parentRowId: null, sectionId: null,
+      afterSiblingRowId: null, beforeSiblingRowId: null, returnEligible: true };
+    const original = structuredClone(doc);
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    const edited = structuredClone(opened.members[0]!);
+    edited.orderKey = "authored reorder label";
+    edited.stashOrigin = { ...anchor.stashOrigin, returnEligible: true, sectionId: researchId(981102) };
+    const newRow = researchNote(982000);
+    const session = createRowEditSessionV2(doc);
+    const command = saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [newRow, edited]));
+    const saved = session.apply(command, opened.expectedRevision);
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.rowEditRevision).toBe(1);
+    expect(session.undoDepth).toBe(1);
+    expect(saved.document.stashGroups).toEqual([{ ...group, rowIds: [newRow.id, anchor.id] }]);
+    expect(saved.document.stashOutline!.map((entry) => entry.rowId)).toEqual([newRow.id, anchor.id]);
+    const surviving = saved.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === anchor.id)!;
+    expect(surviving.orderKey).toBe(edited.orderKey);
+    expect(surviving.stashOrigin).toEqual({ ...anchor.stashOrigin, returnEligible: false });
+    expect(saved.document.stash!.flatMap((bundle) => bundle.supportingItems)).toEqual([cite]);
+    expect(saved.document.rowReferences).toEqual(original.rowReferences);
+    expect(saved.document.stashGroups![0]!.createdBy).toBe(group.createdBy);
+    expect(validateScriptDocumentV2(saved.document).valid).toBe(true);
+    const restored = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(saved.document));
+    expect(restored.ok).toBe(true);
+    if (restored.ok) expect(restored.document).toEqual(saved.document);
+    expect(session.undo().ok).toBe(true);
+    expect({ ...session.document, rowEditRevision: undefined }).toEqual({ ...original, rowEditRevision: undefined });
+    expect(doc).toEqual(original);
+  });
+
+  it("reorders existing members and incorporates adjacent independent saved rows without copying provenance", () => {
+    const { doc, group, members } = groupedDocument();
+    const extra = researchNote(983000);
+    doc.stash!.push({ id: researchId(983100), rows: [extra], supportingItems: [] });
+    doc.stashOutline!.push({ rowId: extra.id, kind: "row", parentRowId: null, sectionId: null });
+    const input = structuredClone(doc);
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    const stage = stageStashGroupMembersV2(opened, [opened.members[1]!, extra, opened.members[0]!]);
+    const saved = apply(doc, saveStashGroupStageCommandV2(stage));
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.stashGroups![0]!.rowIds).toEqual([members[1], extra.id, members[0]]);
+    expect(saved.document.stashOutline!.map((entry) => entry.rowId)).toEqual([members[1], extra.id, members[0]]);
+    expect(saved.document.stash!.flatMap((bundle) => bundle.rows).length).toBe(3);
+    expect(saved.document.stash![2]!.rows).toEqual([extra]);
+    expect(validateScriptDocumentV2(saved.document).valid).toBe(true);
+    expect(doc).toEqual(input);
+  });
+
+  it("normalizes one member to an ordinary saved row and zero to no group or saved members", () => {
+    const one = withoutOwnedFootage();
+    const original = structuredClone(one.doc);
+    const session = createRowEditSessionV2(one.doc);
+    const opened = beginStashGroupMemberStageV2(one.doc, one.group.id)!;
+    const saved = session.apply(saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [opened.members[0]!])), opened.expectedRevision);
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.stashGroups).toBeUndefined();
+    expect(saved.document.stashOutline!.map((entry) => entry.rowId)).toEqual([one.members[0]]);
+    expect(saved.document.stash!.flatMap((bundle) => bundle.rows).length).toBe(1);
+    expect(session.undo().ok).toBe(true);
+    expect({ ...session.document, rowEditRevision: undefined }).toEqual({ ...original, rowEditRevision: undefined });
+
+    const zero = withoutOwnedFootage();
+    const stage = beginStashGroupMemberStageV2(zero.doc, zero.group.id)!;
+    const removed = apply(zero.doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(stage, [])));
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document.stashGroups).toBeUndefined();
+    expect(removed.document.stash).toEqual([]);
+    expect(removed.document.stashOutline).toBeUndefined();
+    expect(validateScriptDocumentV2(removed.document).valid).toBe(true);
+  });
+
+  it("refuses stale membership, stale revisions, malformed or duplicate members with original-object identity", () => {
+    const { doc, group } = groupedDocument();
+    const stage = beginStashGroupMemberStageV2(doc, group.id)!;
+    const command = saveStashGroupStageCommandV2(stage);
+    const candidates: Parameters<typeof applyRowEditV2>[2][] = [
+      { ...command, expectedRowIds: [...stage.expectedRowIds].reverse() },
+      { ...command, members: [stage.members[0]!, stage.members[0]!] },
+      { ...command, members: [stage.members[0]!, { ...stage.members[1]!, id: stage.members[0]!.id }] },
+      { ...command, members: [researchNote(984200), ...stage.members], ignored: true } as unknown as Parameters<typeof applyRowEditV2>[2],
+      { ...command, members: [{ ...researchNote(984400), stashOrigin: {
+        kind: "row", sectionId: null, parentRowId: null, afterSiblingRowId: null, beforeSiblingRowId: null, returnEligible: true,
+      } }, ...stage.members] },
+    ];
+    for (const candidate of candidates) {
+      const before = structuredClone(doc);
+      const refused = apply(doc, candidate);
+      expect(refused.ok, JSON.stringify(refused.diagnostics)).toBe(false);
+      expect(refused.document).toBe(doc);
+      expect(doc).toEqual(before);
+    }
+    const stale = applyRowEditV2(doc, 8, command);
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(stale.document).toBe(doc);
+    const advanced = apply(doc, { kind: "create_stash_section", sectionId: researchId(984500), title: "After opening" });
+    expect(advanced.ok, JSON.stringify(advanced.diagnostics)).toBe(true);
+    const staleStage = apply(advanced.document, command);
+    expect(staleStage.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(staleStage.document).toBe(advanced.document);
+    const missing = apply(doc, { ...command, groupId: researchId(984300) });
+    expect(missing.diagnostics[0]?.code).toBe("STASH_GROUP_NOT_FOUND");
+  });
+
+  it("refuses nonadjacent additions, identity/type swaps, owned-clip changes and audio without partial publication", () => {
+    const { doc, group } = groupedDocument();
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    const extra = researchNote(985000);
+    const separator = researchNote(985100);
+    doc.stash!.push({ id: researchId(985200), rows: [separator, extra], supportingItems: [] });
+    doc.stashOutline!.push({ rowId: separator.id, kind: "row", parentRowId: null, sectionId: null },
+      { rowId: extra.id, kind: "row", parentRowId: null, sectionId: null });
+    const no = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [...opened.members, extra])));
+    expect(no.ok).toBe(false);
+    expect(no.diagnostics[0]?.code).toBe("STASH_GROUP_MEMBERS_INVALID");
+    expect(no.document).toBe(doc);
+
+    const attached = structuredClone(opened.members[1]!);
+    if (attached.type !== "narration" || !attached.attachedFootage) throw new Error("Expected owned clip");
+    attached.attachedFootage.clip.id = researchId(985300);
+    const clipEdit = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [opened.members[0]!, attached])));
+    expect(clipEdit.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_REVIEW_REQUIRED");
+    const removedOwner = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [opened.members[0]!])));
+    expect(removedOwner.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_REVIEW_REQUIRED");
+    const badType = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [
+      { ...researchOccurrence(985500), id: opened.members[0]!.id }, opened.members[1]!,
+    ])));
+    expect(badType.ok).toBe(false);
+    expect(badType.diagnostics[0]?.code).toBe("STASH_GROUP_MEMBERS_INVALID");
+    doc.rowAudioSpans = [{ id: researchId(985400), startRowId: opened.members[0]!.id,
+      endRowId: opened.members[0]!.id, source: { mediaReferenceId: researchId(985401),
+        artifactId: researchId(985402), artifactVersion: 1, contentHash: `sha256:${"b".repeat(64)}` }, settings: {} }];
+    const original = structuredClone(doc);
+    const reordered = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [...opened.members].reverse())));
+    expect(reordered.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(reordered.document).toBe(doc);
+    expect(doc).toEqual(original);
+  });
+
+  it("refuses missing supporting evidence and source identity conflicts rather than silently dropping citations", () => {
+    const { doc, group } = withoutOwnedFootage();
+    const first = doc.stash![0]!.rows[0];
+    if (first.type !== "narration") throw new Error("Expected note");
+    delete first.plainDirection;
+    first.tokens.forEach((token) => { delete token.spoken; });
+    doc.stash![0]!.supportingItems.push({ id: researchId(986000), version: 1, orderKey: "citation", role: "citation", content: "Evidence",
+      placement: { kind: "point", anchor: { kind: "word", anchor: {
+        blockId: first.id, tokenId: first.tokens[0]!.id, quotedWord: first.tokens[0]!.value,
+        affinity: "before", anchorVersion: 1,
+      } } },
+    });
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    const lost = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [opened.members[1]!])));
+    expect(lost.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    const edited = structuredClone(opened.members[0]!);
+    if (edited.type !== "narration") throw new Error("Expected note");
+    edited.tokens[0]!.value = "WRONG";
+    const invalid = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [edited, opened.members[1]!])));
+    expect(invalid.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    const collision = researchNote(986100);
+    collision.id = opened.members[0]!.id;
+    expect(apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [opened.members[0]!, collision, opened.members[1]!]))).ok).toBe(false);
+  });
+
+  it("refuses missing Research source provenance, duplicate embedded clip owners and stale comment token anchors", () => {
+    const { doc, group } = groupedDocument();
+    const opened = beginStashGroupMemberStageV2(doc, group.id)!;
+    const missingSource = researchOccurrence(987000);
+    delete missingSource.researchClip;
+    const invalidSource = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [
+      ...opened.members, missingSource,
+    ])));
+    expect(invalidSource.ok).toBe(false);
+    expect(invalidSource.diagnostics.some((item) => item.code === "RESEARCH_CLIP_INVALID")).toBe(true);
+    expect(invalidSource.document).toBe(doc);
+
+    const duplicateOwner = researchOccurrence(987100);
+    duplicateOwner.id = researchId(730100);
+    const duplicate = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [
+      ...opened.members, duplicateOwner,
+    ])));
+    expect(duplicate.ok).toBe(false);
+    expect(duplicate.diagnostics.some((item) => item.code === "FOOTAGE_OWNER_DUPLICATE" || item.code === "ENTITY_ID_DUPLICATE")).toBe(true);
+    expect(duplicate.document).toBe(doc);
+
+    const anchor = doc.stash![0]!.rows[0];
+    if (anchor.type !== "narration") throw new Error("Expected narration");
+    doc.rowReferences = [{ id: researchId(987200), kind: "comment", rowId: anchor.id,
+      anchor: { tokenId: anchor.tokens[0]!.id, quotedWord: anchor.tokens[0]!.value } }];
+    const prior = structuredClone(doc);
+    const changed = structuredClone(opened.members[0]!);
+    if (changed.type !== "narration") throw new Error("Expected narration");
+    changed.tokens[0]!.id = researchId(987201);
+    const refused = apply(doc, saveStashGroupStageCommandV2(stageStashGroupMembersV2(opened, [changed, opened.members[1]!])));
+    expect(refused.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(refused.document).toBe(doc);
+    expect(doc).toEqual(prior);
   });
 });
