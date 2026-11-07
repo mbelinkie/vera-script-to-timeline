@@ -104,6 +104,33 @@ def test_failure_after_intent_is_unknown_and_never_retries(
         carrier.start(root, source, digest, installed, spawn=crash, preflight=check)
 
 
+def test_native_preflight_runs_before_long_lived_owner_lock_without_self_deadlock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import resolve_native_owner as owner
+
+    root, source, digest, installed, _, _, _, spawn = _host(tmp_path, monkeypatch)
+    events: list[str] = []
+
+    def acquire() -> int:
+        events.append("long-lived-owner")
+        return os.open(os.devnull, os.O_RDONLY)
+
+    monkeypatch.setattr(owner, "acquire_native_owner", acquire)
+
+    def nested(target: Any, *, require_empty: bool) -> None:
+        events.append("preflight")
+        assert require_empty is True
+        assert target["projectUid"] == "project-1"
+        assert events == ["preflight"]
+
+    result = carrier.start(
+        root, source, digest, installed, spawn=spawn, preflight=nested
+    )
+    assert result["state"] == "dispatched_once"
+    assert events == ["preflight", "long-lived-owner"]
+
+
 def test_preflight_refusal_never_writes_intent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -49,8 +49,9 @@ version. No untested GUI action is enabled in this branch.
    durable original M4 job enrollment with enqueue-crash reconciliation, the
    existing serialized M4 worker gate, the output chain driver, and an
    immutable original M4 receipt submitted to its **existing verifier**. A
-   required exact #472 fix commit must be an ancestor of the local checkout
-   and contain the source-range verifier correction before any native work.
+   required exact #472 fix commit must be an ancestor of both the checked-out
+   branch and fetched `origin/main`, without locally changed verifier source,
+   and contain the source-range correction before any native work.
 
 The controller never attempts to sign a Producer design decision. Consent
 attribution is **not** a claim of cryptographic transcript authentication;
@@ -141,3 +142,22 @@ npm run validate:fast
 Do not use full `npm run validate` locally. Do not modify #472 verifier tests,
 clear historical M4 operations, mark #312 complete on fake data, or convert
 this draft PR to ready merely because isolated tests pass.
+
+## Local validation and independent review status (November 7, 2026)
+
+- **33 isolated fake-host/SDK/controller tests passed.** `ruff` and full
+  `mypy python tests` passed with no typing findings.
+- `npm run validate:fast` was run after `npm ci`. It did **not pass**:
+  `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
+  three timeouts under the normal four-worker gate (the other 50 contract
+  test files passed). An isolated, one-worker rerun of this **unmodified**
+  TypeScript test file also timed out (four cases, 26 passed). The branch
+  changes only Python, Python tests and this document; no TypeScript code or
+  tests were edited or their timeouts relaxed. Treat the gate as red until
+  the upstream CI/environment failure is diagnosed.
+- The required **one** `npm run review -- notes.md` adversarial review was
+  attempted and could not run: Claude CLI reported its weekly usage limit
+  (reset November 9 at 15:00 UTC). The draft PR remains pending independent
+  code review; no review approval is claimed.
+- No live Resolve Studio run was attempted. Issue #472 remained open when
+  checked. Full native M4 success and #312 completion are **not verified**.

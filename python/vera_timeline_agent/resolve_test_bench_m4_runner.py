@@ -90,14 +90,21 @@ def _merged_472(commit: str) -> None:
             check=False,
         )
 
-    if git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
-        raise queue.QueueError("#472 correction commit not present in this checkout")
-    changes = git("diff-tree", "--no-commit-id", "--name-only", "-r", commit)
     if (
-        changes.returncode != 0
-        or "python/vera_timeline_agent/qualification_output_native_v2.py"
-        not in changes.stdout.splitlines()
+        git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0
+        or git("merge-base", "--is-ancestor", commit, "origin/main").returncode != 0
+        or git("merge-base", "--is-ancestor", "origin/main", "HEAD").returncode != 0
     ):
+        raise queue.QueueError(
+            "#472 correction not merged into origin/main and current checkout"
+        )
+    # A locally modified verifier would defeat the merge provenance check;
+    # that source belongs to #472 and must be exactly the fetched main version.
+    verifier_path = "python/vera_timeline_agent/qualification_output_native_v2.py"
+    if git("diff", "--quiet", "origin/main", "--", verifier_path).returncode != 0:
+        raise queue.QueueError("#472 verifier has unmerged local modifications")
+    changes = git("diff-tree", "--no-commit-id", "--name-only", "-r", commit)
+    if changes.returncode != 0 or verifier_path not in changes.stdout.splitlines():
         raise queue.QueueError("#472 source-range verifier commit not authenticated")
 
 

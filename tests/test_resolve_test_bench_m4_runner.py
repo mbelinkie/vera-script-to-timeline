@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,6 +76,27 @@ def test_no_setup_or_native_operation_before_472_gate(
     with pytest.raises(queue.QueueError, match="#472 not merged"):
         runner.start(_config(tmp_path))
     assert called == ["472-refused"]
+
+
+def test_merge_gate_refuses_472_only_in_local_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[tuple[str, ...]] = []
+
+    def git(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(tuple(command))
+        return subprocess.CompletedProcess(
+            command,
+            1
+            if command[1:5] == ["merge-base", "--is-ancestor", "f" * 40, "origin/main"]
+            else 0,
+            stdout="python/vera_timeline_agent/qualification_output_native_v2.py\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", git)
+    with pytest.raises(queue.QueueError, match="not merged into origin/main"):
+        runner._merged_472("f" * 40)
+    assert any("origin/main" in command for command in commands)
 
 
 def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(

@@ -150,9 +150,8 @@ def start(
 ) -> dict[str, Any]:
     """Reserve, install and spawn once; NEVER resume by calling start again."""
     from .resolve_native_owner import (
-        acquire_native_owner,
+        native_owner,
         preflight_selected_disposable,
-        release_native_owner,
     )
 
     _private(root, create=True)
@@ -174,11 +173,15 @@ def start(
         # Resolve its target once before spawning, unlike untrusted input files.
         if not python.is_absolute() or not python.resolve(strict=True).is_file():
             raise queue.QueueError("fixed local Python executable required")
-        owner_fd = acquire_native_owner()
-        try:
-            (preflight or preflight_selected_disposable)(
-                target, require_empty=request["action"] == "construct"
-            )
+        # preflight_selected_disposable directly acquires the shared owner
+        # lock itself (it does NOT consult native_owner's contextvar). It must
+        # run BEFORE our longer-lived owner scope, or it would self-deadlock.
+        # The installed native engine independently rechecks exact UIDs and
+        # retained history while holding the inherited owner before effects.
+        (preflight or preflight_selected_disposable)(
+            target, require_empty=request["action"] == "construct"
+        )
+        with native_owner(output_lane=True) as owner_fd:
             # Preserve the exact previous installed request, including failed
             # historical one-use requests; never erase its source evidence.
             if slot.exists() or slot.is_symlink():
@@ -227,8 +230,6 @@ def start(
                 if temporary.exists():
                     # Only our unique, never-published staging path is deleted.
                     temporary.unlink()
-        finally:
-            release_native_owner(owner_fd)
     return {"state": "dispatched_once", "operationId": request["operationId"]}
 
 
