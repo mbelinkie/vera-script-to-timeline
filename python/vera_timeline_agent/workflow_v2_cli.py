@@ -30,11 +30,13 @@ RUNTIME_FILES = (
     "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
+    "resolve_native_owner.py",
+    "workflow_v2_parent.py",
 )
 OUTPUT_RUNTIME_FILES = (
     *RUNTIME_FILES,
     "qualification_output_native_v2.py",
-    "qualification_output_records_v2.py",
 )
 SAMPLE_PRECISION_RUNTIME_FILES = (*RUNTIME_FILES, "sample_precision_probe_v2.py")
 # The #259 import probe reuses the #257 helpers, so it ships both modules.

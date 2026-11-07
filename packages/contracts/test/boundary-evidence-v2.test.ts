@@ -308,7 +308,7 @@ test("punctuation, repeated words, combining characters and surrogate pairs bind
   const input = specimen(); const block = row(input);
   const words = ["😀", "don't,", "don't,", "e\u0301", "é"];
   block.text = words.join(" "); let cursor = 0;
-  block.tokens = words.map((value, index) => { const startOffset = cursor; cursor += value.length + 1; return { id: id(700 + index), value, startOffset, endOffset: cursor - 1 }; }) as NarrationBlockV2["tokens"];
+  block.tokens = words.map((value, index) => { const startOffset = cursor; cursor += value.length + 1; return { id: id(700 + index), value, startOffset, endOffset: cursor - 1 }; });
   evidence(input).textHash = hash(block.text); input.dependencies.document.textHash = hash(block.text);
   const a = anchor(input, 1); if (a.affinity !== "before") throw new Error("edge");
   child(input).boundaryBefore = { kind: "spoken_word", anchor: a }; returned(input).inpoint = anchor(input, 3);
@@ -317,7 +317,7 @@ test("punctuation, repeated words, combining characters and surrogate pairs bind
   evidence(input).tokens[0]!.tokenId = block.tokens[2]!.id; refused(input, "STALE_TIMING_MAP");
   evidence(input).tokens[0]!.tokenId = block.tokens[1]!.id; evidence(input).tokens[1]!.quotedText = "é"; refused(input, "STALE_TIMING_MAP");
   evidence(input).tokens[1]!.quotedText = "e\u0301";
-  evidence(input).tokens.unshift({ tokenId: block.tokens[0].id, startOffset: 1, endOffset: 2, quotedText: "\ude00", onset: time(0) });
+  evidence(input).tokens.unshift({ tokenId: block.tokens[0]!.id, startOffset: 1, endOffset: 2, quotedText: "\ude00", onset: time(0) });
   refused(input, "STALE_TIMING_MAP");
 });
 
@@ -491,7 +491,7 @@ test("picture requirements tolerate holes before, between and after requested on
   const input = specimen(); const block = row(input);
   block.text = "alpha beta missing delta tail";
   const values = ["alpha", "beta", "missing", "delta", "tail"]; let offset = 0;
-  block.tokens = values.map((value, index) => { const startOffset = offset; offset += value.length + 1; return { id: id(1300 + index), value, startOffset, endOffset: offset - 1 }; }) as NarrationBlockV2["tokens"];
+  block.tokens = values.map((value, index) => { const startOffset = offset; offset += value.length + 1; return { id: id(1300 + index), value, startOffset, endOffset: offset - 1 }; });
   evidence(input).textHash = hash(block.text); input.dependencies.document.textHash = hash(block.text);
   const before = anchor(input, 1); if (before.affinity !== "before") throw new Error("edge");
   child(input).boundaryBefore = { kind: "spoken_word", anchor: before }; returned(input).inpoint = anchor(input, 3);

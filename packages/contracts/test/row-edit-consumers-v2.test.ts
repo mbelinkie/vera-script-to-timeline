@@ -81,7 +81,7 @@ function stashedRow(): NarrationBlockV2 {
 }
 
 function citation(row: NarrationBlockV2): SupportingItemV2 {
-  const token = row.tokens[0];
+  const token = row.tokens[0]!;
   const anchor = {
     blockId: row.id,
     tokenId: token.id,
@@ -164,6 +164,62 @@ function updateSpokenTiming(
 }
 
 describe("row-edit consumers", () => {
+  it.each(["", "[nested [literal]] 🌍", "orphan ] [\n'quoted'"])(
+    "keeps a saved and placed plain note unspoken without inventing duration: %j",
+    (text) => {
+      const { document, dependencies } = input();
+      const baseline = exportPrompter(document, exportSettings);
+      expect(baseline.ok).toBe(true);
+      if (!baseline.ok) return;
+      const row = stashedRow();
+      row.text = text;
+      row.tokens = text === "" ? [] : [{ id: id(9002), value: text, startOffset: 0, endOffset: text.length }];
+      const created = applyRowEditV2(document, 0, {
+        kind: "create_stash_note", bundleId: id(9080), row,
+        sectionId: null, parentRowId: null, afterRowId: null,
+      });
+      expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+      if (!created.ok) return;
+      const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(created.document));
+      expect(saved.ok).toBe(true);
+      if (!saved.ok) return;
+      const stored = saved.document.stash?.[0]?.rows[0];
+      expect(stored).toMatchObject({ type: "narration", id: row.id, text, plainDirection: true });
+      if (stored?.type !== "narration") return;
+      expect(stored.tokens.every((token) => token.spoken === false)).toBe(true);
+      const savedExport = exportPrompter(saved.document, exportSettings);
+      expect(savedExport.ok).toBe(true);
+      if (savedExport.ok) expect(savedExport.sidecarJson).toBe(baseline.sidecarJson);
+      expect(compileTimelineV2(saved.document, dependencies).ok).toBe(true);
+      expect(mediaNeeds(saved.document, dependencies).ok).toBe(true);
+
+      const placed = applyRowEditV2(saved.document, saved.document.rowEditRevision ?? 0, {
+        kind: "place_stash_rows", rowIds: [row.id],
+        destination: { sectionId: null, afterRowId: activeNarration(document).id, beforeRowId: null },
+      });
+      expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+      if (!placed.ok) return;
+      dependencies.document.textHash = digest(
+        placed.document.activeDraft.blocks.filter((block): block is NarrationBlockV2 => block.type === "narration")
+          .map((block) => block.text).join("\n"),
+      );
+      const activeNote = placed.document.activeDraft.blocks.find((block) => block.id === row.id);
+      expect(activeNote).toMatchObject({ text, plainDirection: true });
+      const exported = exportPrompter(placed.document, exportSettings);
+      expect(exported.ok).toBe(true);
+      if (exported.ok) {
+        expect(exported.sidecarJson).toBe(baseline.sidecarJson);
+        if (text) expect(exported.text).not.toContain(text);
+      }
+      const compiled = compileTimelineV2(placed.document, dependencies);
+      expect(compiled.ok).toBe(false);
+      if (!compiled.ok) expect(compiled.diagnostics.map((item) => item.code)).toContain("NARRATION_DURATION_UNKNOWN");
+      const needs = mediaNeeds(placed.document, dependencies);
+      expect(needs.ok).toBe(false);
+      if (!needs.ok) expect(needs.diagnostics.map((item) => item.code)).toContain("STALE_TIMING_MAP");
+    },
+  );
+
   it("keeps stashed rows and their support out of prompter, timeline, and media needs", () => {
     const { document, dependencies } = input();
     const activeRow = activeNarration(document);
@@ -203,7 +259,7 @@ describe("row-edit consumers", () => {
     const editedRow = structuredClone(row);
     editedRow.text = "EDITED STASHED";
     editedRow.tokens = [{
-      ...editedRow.tokens[0],
+      ...editedRow.tokens[0]!,
       value: editedRow.text,
       startOffset: 0,
       endOffset: editedRow.text.length,
@@ -371,7 +427,7 @@ describe("row-edit consumers", () => {
     expect(stashed.ok).toBe(true);
     const editedRow = structuredClone(row);
     editedRow.text = "goodbye";
-    editedRow.tokens[0] = { ...editedRow.tokens[0], value: "goodbye", endOffset: 7 };
+    editedRow.tokens[0] = { ...editedRow.tokens[0]!, value: "goodbye", endOffset: 7 };
     editedRow.version++;
     const edited = applyStashRowEditV2(stashed.document, 1, { bundleId, rowId: row.id, row: editedRow });
     expect(edited.ok).toBe(true);

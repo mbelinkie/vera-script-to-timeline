@@ -41,6 +41,10 @@ function row(value: number): NarrationBlockV2 {
     version: 1,
   };
 }
+function rawNote(value: number, text: string): NarrationBlockV2 {
+  const original = row(value);
+  return { ...original, text, tokens: text ? [{ ...original.tokens[0]!, value: text, endOffset: text.length }] : [] };
+}
 
 function document(): ScriptDocumentV2 {
   return {
@@ -75,7 +79,7 @@ function activeIds(value: ScriptDocumentV2): string[] {
 }
 
 function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
-  const token = rowValue.tokens[0];
+  const token = rowValue.tokens[0]!;
   const anchor = {
     blockId: rowValue.id,
     tokenId: token.id,
@@ -95,6 +99,77 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it.each(["", "  literal [[nested] unmatched ] 'quoted' 🧵\nnew line["])("replays a plain Stash note and retains exact text and return eligibility: %j", (text) => {
+    const note = rawNote(5400, text);
+    let baseline = applyDocument(document(), { kind: "create_stash_section", sectionId: id(5401), title: "Ideas" });
+    baseline = applyDocument(baseline, {
+      kind: "create_stash_note", row: note, bundleId: id(5402), sectionId: id(5401), parentRowId: null, afterRowId: null,
+    });
+    const original = baseline.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(original).toMatchObject({ text, plainDirection: true });
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });
+    const pending = trial.preview();
+    const serialized = trial.serialize();
+    const resumed = resumeSortingTrialV2(serialized);
+    expect(resumed.document).toEqual(pending);
+    expect(resumed.returnToSorting()).toBe(true);
+    expect(resumed.undo().ok).toBe(true);
+    expect(resumed.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id)).toEqual(original);
+    expect(resumed.accept(baseline)).toMatchObject({ ok: true, changed: false });
+
+    const sorted = resumeSortingTrialV2(serialized);
+    const accepted = sorted.accept(baseline, "sorting_only");
+    expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+    if (!accepted.ok) return;
+    const placed = accepted.document.activeDraft.blocks.find((block) => block.id === note.id);
+    expect(placed).toMatchObject({ text, plainDirection: true, stashOrigin: { kind: "note", sectionId: id(5401), returnEligible: true } });
+    const returned = applyDocument(accepted.document, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5403) });
+    expect(returned.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id)).toEqual(original);
+    expect(returned.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: id(5401) });
+  });
+
+  it("refuses corrupt semantic metadata, stale trials, and a cross-row attachment without changing the pending trial", () => {
+    const literal = "[literal] ] 🌙";
+    const note = rawNote(5500, literal);
+    let baseline = applyDocument(document(), {
+      kind: "create_stash_note", bundleId: id(5501), row: note, sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    baseline = { ...baseline, activeDraft: { ...baseline.activeDraft, supportingItems: [{
+      id: id(5502), version: 1, orderKey: "source", role: "citation", content: "Cross-row link",
+      placement: { kind: "point", anchor: { kind: "between_blocks", beforeBlockId: id(100), afterBlockId: id(200) } },
+    }] } };
+    expect(validateScriptDocumentV2(baseline).valid, JSON.stringify(validateScriptDocumentV2(baseline).diagnostics)).toBe(true);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });
+    const pending = trial.document;
+    const snapshot = trial.serialize();
+    const revision = trial.revision;
+    const stale = trial.apply({ kind: "move_rows", rowIds: [id(100)], destination: gap(id(400), note.id) }, revision - 1);
+    expect(stale.ok).toBe(false);
+    expect(trial.document).toEqual(pending);
+    const attached = trial.apply({ kind: "stash_rows", rowIds: [id(200)], bundleId: id(5503) });
+    expect(attached.ok).toBe(false);
+    expect(attached.diagnostics[0]?.code).toBe("ROW_REFERENCE_REVIEW_REQUIRED");
+    expect(trial.document).toEqual(pending);
+    expect(trial.serialize()).toBe(snapshot);
+
+    const badBaseline = JSON.parse(snapshot) as { baseline: ScriptDocumentV2 };
+    const savedNote = badBaseline.baseline.stash![0]!.rows[0] as NarrationBlockV2;
+    savedNote.plainDirection = false as unknown as true;
+    expect(() => resumeSortingTrialV2(JSON.stringify(badBaseline))).toThrow(/Invalid Sorting baseline/);
+    const badToken = JSON.parse(snapshot) as { baseline: ScriptDocumentV2 };
+    (badToken.baseline.stash![0]!.rows[0] as NarrationBlockV2).tokens[0]!.spoken = true;
+    expect(() => resumeSortingTrialV2(JSON.stringify(badToken))).toThrow(/Invalid Sorting baseline/);
+
+    const badAction = JSON.parse(snapshot) as { actions: Array<Record<string, unknown>> };
+    badAction.actions.push({ kind: "edit_row", rowId: note.id, row: {
+      ...row(5500), text: literal, tokens: [{ ...note.tokens[0]!, value: literal, endOffset: literal.length }], version: 2,
+    } });
+    expect(() => resumeSortingTrialV2(JSON.stringify(badAction))).toThrow(/Invalid saved Sorting operation/);
+    expect(trial.document).toEqual(pending);
+    expect(resumeSortingTrialV2(snapshot).document).toEqual(pending);
+  });
   it.each([false, true])("refuses a return origin whose new parent sorting-only removes (deleted: %s)", (deleted) => {
     const baseline = applyDocument(document(), { kind: "stash_rows", rowIds: [id(100)], bundleId: id(5200) });
     const trial = createSortingTrialV2(baseline);
@@ -129,7 +204,7 @@ describe("Sorting recovery", () => {
     const editedText = "Edited note";
     apply(trial, {
       kind: "edit_row", rowId: note.id,
-      row: { ...placed, text: editedText, tokens: [{ ...placed.tokens[0], value: editedText, startOffset: 0, endOffset: editedText.length }], version: placed.version + 1 },
+      row: { ...placed, text: editedText, tokens: [{ ...placed.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: placed.version + 1 },
     });
     if (deleteAfterEdit) apply(trial, { kind: "delete_rows", rowIds: [note.id] });
 
@@ -162,7 +237,7 @@ describe("Sorting recovery", () => {
     const editedText = "Edited note";
     apply(trial, {
       kind: "edit_row", rowId: note.id,
-      row: { ...original, text: editedText, tokens: [{ ...original.tokens[0], value: editedText, startOffset: 0, endOffset: editedText.length }], version: original.version + 1 },
+      row: { ...original, text: editedText, tokens: [{ ...original.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: original.version + 1 },
     });
     apply(trial, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5102) });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });

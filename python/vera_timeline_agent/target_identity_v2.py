@@ -38,6 +38,9 @@ TI_RUNTIME_FILES = (
     "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
+    "resolve_native_owner.py",
+    "workflow_v2_parent.py",
 )
 TI_SOURCE_FILES = (
     *(f"python/vera_timeline_agent/{name}" for name in TI_RUNTIME_FILES),

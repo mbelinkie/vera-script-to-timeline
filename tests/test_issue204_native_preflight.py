@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent import native_qualification_v2 as preflight
 from vera_timeline_agent.workflow_package import read_object, sha256
 from vera_timeline_agent.workflow_v2_cli import (
@@ -339,7 +340,13 @@ def test_installed_bootstrap_refuses_untrusted_runtime(
             "n='vera_timeline_agent'; sys.modules[n]=types.ModuleType(n); "
             f"runpy.run_path({str(release / LAUNCHER_NAME)!r})",
         ]
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=True,
+        env=isolated_native_owner_env(release.parent),
+    )
     assert "workflow_v2_launcher_failed" in result.stdout
     assert not list((tmp_path / "evidence").glob("result-*.json"))
 
@@ -393,6 +400,7 @@ def launcher(release: Path, request: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=True,
+        env=isolated_native_owner_env(release.parent),
     )
 
 

@@ -373,6 +373,40 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectSettingsValid(projectSettings(presenterStillReference()));
   });
 
+  it("allows zero-length literal directions only under explicit whole-row intent", () => {
+    const empty = narrationBlock();
+    empty.text = "";
+    empty.tokens = [];
+    empty.plainDirection = true;
+    expectDocumentValid(documentWithBlock(empty));
+
+    const literal = narrationBlock();
+    literal.text = " [nested [brackets]] ] unmatched\n‘quoted’ 😀 ";
+    literal.tokens = [{
+      id: ids.tokenOne,
+      value: "[nested",
+      startOffset: 1,
+      endOffset: 8,
+      spoken: false,
+    }];
+    literal.plainDirection = true;
+    expectDocumentValid(documentWithBlock(literal));
+
+    for (const field of ["text", "tokens"] as const) {
+      const ordinary = narrationBlock();
+      if (field === "text") ordinary.text = "";
+      else ordinary.tokens = [];
+      expectDocumentInvalid(documentWithBlock(ordinary));
+    }
+
+    for (const marker of [false, null, "true", 0, {}]) {
+      expectDocumentInvalid(documentWithBlock({ ...narrationBlock(), plainDirection: marker }));
+    }
+    expectDocumentInvalid(documentWithBlock({ ...visualOnlyBlock(), plainDirection: true }));
+    // Absence of the marker must remain compatible with saved pre-#365 rows.
+    expectDocumentValid(documentWithBlock(narrationBlock()));
+  });
+
   it("accepts each structural content-slot, relation, boundary, payload, and return variant", () => {
     const slots = [
       contentSlot({ relation: "base", boundaryBefore: { kind: "row_start" } }),

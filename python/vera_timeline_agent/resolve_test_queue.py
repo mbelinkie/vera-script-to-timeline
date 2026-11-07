@@ -1,15 +1,15 @@
-"""Persistent M1 synthetic test queue. No native Resolve adapter exists here.
+"""Persistent local test queue with mock v1 and opt-in guarded native v2 plans.
 
 The queue is deliberately independent of the product build-job engine and of
 the separate GitHub CI queue. It accepts only versioned declarative plans whose
-adapters come from a hard-coded mock allowlist, so no plan can start a process,
-touch media, or contact the network.
+adapters come from a closed allowlist: v1 mock adapters and one explicit v2
+guarded native build. No plan supplies executable commands or imports.
 
 SQLite (WAL, ``synchronous=FULL``) is authoritative. Derived ``status.json``,
 ``report.json`` and ``report.md`` files are rebuilt from it atomically whenever
 a job is inspected or changes state. A single ``flock`` gives one worker at a
-time per queue root; a worker that finds a job left ``running`` by a dead
-process records it as ``unknown`` and never redispatches it.
+time per queue root. Mock orphans become unknown; native attempts reconcile
+the same detached parent and never redispatch.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
 import platform
 import plistlib
@@ -35,6 +36,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from . import resolve_test_queue_native as native
+from . import workflow_v2_parent as parent
+from .resolve_native_owner import (
+    NativeOwnerError,
+    preflight_independent_disposable,
+)
+
 PLAN_SCHEMA = "vera.resolve-test-plan/v1"
 REPORT_SCHEMA = "vera.resolve-test-report/v1"
 MOCK_ADAPTERS = frozenset({"mock.pass", "mock.fail", "mock.block"})
@@ -51,6 +59,9 @@ TERMINAL = frozenset(
         "expired",
         "timed_out",
         "unknown",
+        "completed_verified",
+        "failed_native",
+        "blocked_native",
     }
 )
 LAUNCH_LABEL = "org.vera.resolve-test-queue.m1"
@@ -127,6 +138,11 @@ def limited_int(value: object, name: str, minimum: int, maximum: int) -> int:
 
 
 def validate_plan(source: object, at: str | None = None) -> dict[str, Any]:
+    if native.is_native(source):
+        try:
+            return native.validate_native_plan(source, at)
+        except ValueError as error:
+            raise QueueError(str(error)) from error
     if not isinstance(source, dict):
         raise QueueError("plan must be a JSON object")
     plan = cast(dict[str, Any], source.copy())
@@ -285,6 +301,15 @@ class Store:
                     outcome TEXT NOT NULL,
                     native_verified INTEGER NOT NULL DEFAULT 0
                 );
+                CREATE TABLE IF NOT EXISTS native_attempts (
+                    job_id TEXT PRIMARY KEY,
+                    request_sha TEXT NOT NULL UNIQUE,
+                    locator TEXT NOT NULL,
+                    intent_at TEXT,
+                    invocation_id TEXT,
+                    parent_state TEXT,
+                    native_verified INTEGER NOT NULL DEFAULT 0
+                );
             """)
 
     @contextmanager
@@ -356,6 +381,11 @@ class Store:
                         (job_id,),
                     )
                 ]
+                attempt = db.execute(
+                    "SELECT intent_at,invocation_id,parent_state,native_verified "
+                    "FROM native_attempts WHERE job_id=?",
+                    (job_id,),
+                ).fetchone()
             folder.mkdir(mode=0o700, exist_ok=True)
             identity = frozen_plan_identity(self, job_id, row["plan_sha"])
             status = {
@@ -371,7 +401,7 @@ class Store:
                 "workerId": row["worker_id"],
                 "cancelRequested": bool(row["cancel_requested"]),
                 "planSha256": row["plan_sha"],
-                "nativeVerified": False,
+                "nativeVerified": bool(attempt and attempt["native_verified"]),
             }
             report = {
                 "schema": REPORT_SCHEMA,
@@ -382,11 +412,17 @@ class Store:
                 ),
                 "trials": trials,
                 "journal": journal,
-                "syntheticOnly": True,
-                "nativeVerified": False,
+                "syntheticOnly": attempt is None,
+                "nativeVerified": status["nativeVerified"],
                 "verifiedStatistics": None,
-                "warning": "M1 mock records are not real Resolve or output proof.",
+                "warning": (
+                    "Native build readback only; no render or PCM proof."
+                    if attempt
+                    else "M1 mock records are not real Resolve or output proof."
+                ),
             }
+            if attempt:
+                report["native"] = dict(attempt)
             atomic_write(folder / "status.json", canonical(status))
             atomic_write(folder / "report.json", canonical(report))
             if identity is None:
@@ -409,6 +445,15 @@ class Store:
                 f"Recorded synthetic trials: {len(trials)}. Native proof: NO.\n\n"
                 "No Resolve, actual media, save/reopen or performance conclusions.\n"
             )
+            if attempt:
+                markdown = (
+                    f"# Native queue {job_id}\n\n"
+                    f"State: {row['state']}; reason: {row['reason'] or 'none'}.\n\n"
+                    f"{identity_line}"
+                    "Native save/reopen/readback verified: "
+                    f"{status['nativeVerified']}.\n\n"
+                    "No render or PCM proof. Live/unknown work is never replayed.\n"
+                )
             atomic_write(folder / "report.md", markdown.encode("utf-8"))
             return report
 
@@ -481,7 +526,16 @@ def enqueue(store: Store, plan_path: Path, at: str | None = None) -> str:
                 digest,
             ),
         )
-        store.append(db, job_id, "enqueued", "synthetic_only")
+        if native.is_native(plan):
+            db.execute(
+                "INSERT INTO native_attempts(job_id,request_sha,locator) VALUES(?,?,?)",
+                (
+                    job_id,
+                    plan["native"]["requestSha256"],
+                    canonical(plan["native"]).decode(),
+                ),
+            )
+        store.append(db, job_id, "enqueued", plan["targetPolicy"])
     store.publish(job_id)
     return job_id
 
@@ -491,7 +545,12 @@ def cancel(store: Store, job_id: str) -> None:
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
-        if row["state"] in TERMINAL:
+        attempt = db.execute(
+            "SELECT intent_at FROM native_attempts WHERE job_id=?", (job_id,)
+        ).fetchone()
+        if row["state"] in TERMINAL and not (
+            attempt and attempt["intent_at"] and row["state"] == "unknown"
+        ):
             return
         if row["state"] == "queued":
             db.execute(
@@ -501,7 +560,16 @@ def cancel(store: Store, job_id: str) -> None:
             store.append(db, job_id, "canceled", "before_execution")
         else:
             db.execute("UPDATE jobs SET cancel_requested=1 WHERE id=?", (job_id,))
-            store.append(db, job_id, "cancel_requested", "cooperative_mock_boundary")
+            store.append(
+                db,
+                job_id,
+                "cancel_requested",
+                (
+                    "native_reconciliation_required"
+                    if attempt
+                    else "cooperative_mock_boundary"
+                ),
+            )
     store.publish(job_id)
 
 
@@ -628,6 +696,303 @@ def run_mock(store: Store, job_id: str, worker_id: str) -> None:
     finish(store, job_id, worker_id, "completed_simulated", "all_mock_cases_completed")
 
 
+RESOLVE_PYTHON = Path(
+    "/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Resources/"
+    "ResolvePython/ResolvePython"
+)
+
+
+def load_frozen_plan(store: Store, job_id: str) -> dict[str, Any]:
+    row = store.get(job_id)
+    path = store.jobdir(job_id) / "plan.json"
+    content = path.read_bytes()
+    if path.is_symlink() or hashlib.sha256(content).hexdigest() != row["plan_sha"]:
+        raise QueueError("frozen plan changed")
+    return validate_plan(json.loads(content))
+
+
+def reconcile_native(store: Store, job_id: str, *, worker_locked: bool = False) -> None:
+    """Read the same guarded operation; never dispatch from reconciliation."""
+    if not worker_locked:
+        with (store.root / "worker.lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            _reconcile_native_locked(store, job_id)
+        return
+    _reconcile_native_locked(store, job_id)
+
+
+def _reconcile_native_locked(store: Store, job_id: str) -> None:
+    with store.connect() as db:
+        attempt = db.execute(
+            "SELECT * FROM native_attempts WHERE job_id=?", (job_id,)
+        ).fetchone()
+    row = store.get(job_id)
+    if (
+        not attempt
+        or not attempt["intent_at"]
+        or row["state"] not in {"running", "unknown"}
+    ):
+        return
+    locator = json.loads(attempt["locator"])
+    response = parent.status(Path(locator["requestPath"]), attempt["request_sha"])
+    verdict = native.classify_parent_status(
+        response,
+        request_sha256=attempt["request_sha"],
+        project_name=locator["projectName"],
+        timeline_name=locator["timelineName"],
+        cancel_requested=bool(row["cancel_requested"]),
+        release_sha256=locator["releaseSha256"],
+        attestation_sha256=locator["attestationSha256"],
+        expected=locator["expected"],
+    )
+    reason = verdict.reason
+    state = {
+        "live": "running",
+        "verified": "completed_verified",
+        "failed": "failed_native",
+        "blocked": "blocked_native",
+        "unknown": "unknown",
+    }[verdict.disposition]
+    verified = verdict.native_verified
+    invocation: str | None = None
+    completed_at: datetime | None = None
+    parent_elapsed: float | None = None
+    try:
+        plan = load_frozen_plan(store, job_id)
+        request = native.preflight(plan)
+        intent = parent._read(Path(request["evidenceDir"]) / "queue-intent.json")
+        if intent != {
+            "jobId": job_id,
+            "attempt": row["attempt"],
+            "planSha256": row["plan_sha"],
+            "requestSha256": attempt["request_sha"],
+        }:
+            raise QueueError("native intent belongs to another job")
+        record = parent._read(Path(request["evidenceDir"]) / "parent.json")
+        invocation = record["invocationId"]
+        if (
+            not isinstance(invocation, str)
+            or not invocation
+            or record["requestSha256"] != attempt["request_sha"]
+            or record["requestPath"] != locator["requestPath"]
+            or (attempt["invocation_id"] and invocation != attempt["invocation_id"])
+        ):
+            raise QueueError("parent identity changed")
+        if state == "completed_verified" or response.get("state") == "terminal":
+            elapsed = response.get("elapsedSeconds")
+            if (
+                isinstance(elapsed, bool)
+                or not isinstance(elapsed, (int, float))
+                or not math.isfinite(elapsed)
+                or elapsed < 0
+            ):
+                raise ValueError("authenticated parent elapsed time is invalid")
+            parent_elapsed = float(elapsed)
+            completed_at_value = response.get("completedAt")
+            if not isinstance(completed_at_value, str):
+                raise ValueError("authenticated parent completion time is missing")
+            completed_at = dt(completed_at_value)
+            started_at = dt(row["started_at"])
+            intent_at = dt(attempt["intent_at"])
+            if intent_at < started_at or completed_at < intent_at:
+                raise ValueError("authenticated parent completion predates dispatch")
+            if state == "completed_verified":
+                pre_dispatch = (intent_at - started_at).total_seconds()
+                if completed_at.timestamp() >= row["deadline_at"]:
+                    state, reason, verified = (
+                        "timed_out",
+                        "deadline_exceeded_native_completed",
+                        False,
+                    )
+                elif parent_elapsed + pre_dispatch >= plan["maxElapsedSeconds"]:
+                    state, reason, verified = (
+                        "timed_out",
+                        "elapsed_budget_exceeded_native_completed",
+                        False,
+                    )
+                elif (
+                    folder_bytes(Path(request["evidenceDir"]))
+                    + folder_bytes(store.jobdir(job_id))
+                    > plan["maxDiskBytes"]
+                ):
+                    state, reason, verified = (
+                        "blocked_native",
+                        "disk_budget_exceeded_native_completed",
+                        False,
+                    )
+        elif state in {"running", "unknown"}:
+            # Budget expiry does not prove native work stopped.
+            elapsed = (now_utc() - dt(row["started_at"])).total_seconds()
+            budget = None
+            if time.time() >= row["deadline_at"]:
+                budget = "deadline_exceeded"
+            elif elapsed >= plan["maxElapsedSeconds"]:
+                budget = "elapsed_budget_exceeded"
+            elif (
+                folder_bytes(Path(request["evidenceDir"]))
+                + folder_bytes(store.jobdir(job_id))
+                > plan["maxDiskBytes"]
+            ):
+                budget = "disk_budget_exceeded"
+            elif shutil.disk_usage(store.root).free < plan["maxDiskBytes"]:
+                budget = "insufficient_space"
+            if budget:
+                reason = (
+                    budget
+                    + "_native_"
+                    + ("live" if state == "running" else "uncertain")
+                )
+        else:
+            elapsed = response.get("elapsedSeconds")
+            if (
+                not isinstance(elapsed, bool)
+                and isinstance(elapsed, (int, float))
+                and math.isfinite(elapsed)
+                and elapsed >= 0
+            ):
+                parent_elapsed = float(elapsed)
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        state, reason, verified = (
+            "unknown",
+            "native_identity_input_or_completion_clock_unavailable",
+            False,
+        )
+    terminal = state not in {"running", "unknown"}
+    finished_at = iso(completed_at) if completed_at is not None else iso(now_utc())
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute(
+            "SELECT state,reason FROM jobs WHERE id=?", (job_id,)
+        ).fetchone()
+        if current["state"] not in {"running", "unknown"}:
+            return
+        db.execute(
+            "UPDATE native_attempts SET invocation_id=COALESCE(invocation_id,?),"
+            "parent_state=?,native_verified=? WHERE job_id=?",
+            (invocation, response.get("state", "unknown"), int(verified), job_id),
+        )
+        db.execute(
+            "UPDATE jobs SET state=?,reason=?,ended_at=? WHERE id=?",
+            (state, reason, finished_at if terminal else None, job_id),
+        )
+        if current["state"] != state or current["reason"] != reason:
+            store.append(db, job_id, state, reason)
+        if terminal:
+            db.execute(
+                "INSERT INTO trials(job_id,case_id,iteration,adapter,"
+                "started_at,ended_at,"
+                "wall_seconds,outcome,native_verified) VALUES(?,?,1,?,?,?,?,?,?)",
+                (
+                    job_id,
+                    "native-build",
+                    "native.v2.guarded_build",
+                    attempt["intent_at"],
+                    finished_at,
+                    parent_elapsed or 0.0,
+                    state,
+                    int(verified),
+                ),
+            )
+    store.publish(job_id)
+
+
+def run_native(
+    store: Store, job_id: str, worker_id: str, *, worker_locked: bool = False
+) -> None:
+    """One preflight and one dispatch after a durable intent. No retries."""
+    try:
+        plan = load_frozen_plan(store, job_id)
+        request = native.preflight(plan)
+        evidence = Path(request["evidenceDir"])
+        if evidence.exists() and any(evidence.iterdir()):
+            raise QueueError("native request/evidence already used")
+        # The final parent rechecks under the exclusive host owner lock. This
+        # first read-only check prevents consuming a queue intent needlessly.
+        preflight_independent_disposable(plan["native"]["projectName"])
+        if (
+            folder_bytes(store.jobdir(job_id)) > plan["maxDiskBytes"]
+            or shutil.disk_usage(store.root).free < plan["maxDiskBytes"]
+        ):
+            finish(store, job_id, worker_id, "blocked_native", "insufficient_space")
+            return
+    except NativeOwnerError:
+        finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+        return
+    except (OSError, ValueError, KeyError, TypeError):
+        finish(store, job_id, worker_id, "blocked_native", "native_preflight_refused")
+        return
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        elapsed = (now_utc() - dt(row["started_at"])).total_seconds()
+        predispatch_result: tuple[str, str] | None = None
+        if elapsed < 0:
+            predispatch_result = (
+                "blocked_native",
+                "clock_uncertain_before_native_dispatch",
+            )
+        elif row["cancel_requested"]:
+            predispatch_result = ("canceled", "before_native_dispatch")
+        elif time.time() >= row["deadline_at"]:
+            predispatch_result = ("expired", "before_native_dispatch")
+        elif elapsed >= plan["maxElapsedSeconds"]:
+            predispatch_result = ("timed_out", "before_native_dispatch")
+        if predispatch_result is not None:
+            state, reason = predispatch_result
+            db.execute(
+                "UPDATE jobs SET state=?,reason=?,ended_at=? WHERE id=?",
+                (state, reason, iso(now_utc()), job_id),
+            )
+            store.append(db, job_id, state, reason)
+            return
+        changed = db.execute(
+            "UPDATE native_attempts SET intent_at=? "
+            "WHERE job_id=? AND intent_at IS NULL",
+            (iso(now_utc()), job_id),
+        )
+        if changed.rowcount != 1:
+            raise QueueError("native dispatch intent already consumed")
+        store.append(db, job_id, "native_dispatch_intent", "one_use_guarded_build")
+    try:
+        evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
+        parent._write(
+            evidence / "queue-intent.json",
+            {
+                "jobId": job_id,
+                "attempt": row["attempt"],
+                "planSha256": row["plan_sha"],
+                "requestSha256": plan["native"]["requestSha256"],
+            },
+        )
+        sync_directory(evidence)
+        start_result = parent.start(
+            Path(plan["native"]["requestPath"]),
+            plan["native"]["requestSha256"],
+            RESOLVE_PYTHON,
+            independent_disposable=True,
+        )
+        if start_result.get("state") == "busy":
+            with store.connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "UPDATE native_attempts SET parent_state='busy' WHERE job_id=?",
+                    (job_id,),
+                )
+            finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+            return
+    except NativeOwnerError:
+        # The parent raises this only before reserving or launching our request.
+        finish(store, job_id, worker_id, "blocked_native", "blocked_resource_owner")
+        return
+    except Exception:
+        # A lost reply or spawn error cannot authorize a second invocation.
+        pass
+    reconcile_native(store, job_id, worker_locked=worker_locked)
+
+
 def worker_once(store: Store) -> bool:
     """Execute at most one due job. Return False for busy/no-work."""
     with (store.root / "worker.lock").open("a+b") as lock:
@@ -635,6 +1000,16 @@ def worker_once(store: Store) -> bool:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return False
+        with store.connect() as db:
+            active_native = db.execute(
+                "SELECT j.id,n.intent_at FROM jobs j "
+                "JOIN native_attempts n ON j.id=n.job_id "
+                "WHERE j.state IN ('running','unknown') AND n.intent_at IS NOT NULL "
+                "ORDER BY j.submitted_at LIMIT 1"
+            ).fetchone()
+        if active_native and active_native["intent_at"]:
+            reconcile_native(store, active_native["id"], worker_locked=True)
+            return True
         orphaned: list[str] = []
         job_id: str | None = None
         worker_id = uuid.uuid4().hex
@@ -681,7 +1056,14 @@ def worker_once(store: Store) -> bool:
         store.publish(job_id)
         if store.get(job_id)["state"] == "running":
             try:
-                run_mock(store, job_id, worker_id)
+                with store.connect() as db:
+                    native_job = db.execute(
+                        "SELECT 1 FROM native_attempts WHERE job_id=?", (job_id,)
+                    ).fetchone()
+                if native_job:
+                    run_native(store, job_id, worker_id, worker_locked=True)
+                else:
+                    run_mock(store, job_id, worker_id)
             except Exception:
                 # Do not invent or overwrite a result; preserve the journal and
                 # refuse retry. A terminal state committed before a publication
@@ -694,6 +1076,7 @@ def worker_once(store: Store) -> bool:
                         "unknown",
                         "unexpected_worker_failure",
                     )
+        store.publish(job_id)
         return True
 
 
@@ -762,13 +1145,19 @@ def install_agent(store: Store) -> None:
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(
-        description="M1 offline synthetic test queue; no Resolve access"
+        description="Local mock queue and opt-in guarded native v2 build queue"
     )
     value.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     sub = value.add_subparsers(dest="command", required=True)
     new = sub.add_parser("enqueue")
     new.add_argument("--plan", type=Path, required=True)
     new.add_argument("--at")
+    prepare = sub.add_parser("prepare-native")
+    prepare.add_argument("--request", type=Path, required=True)
+    prepare.add_argument("--output", type=Path, required=True)
+    prepare.add_argument("--at")
+    prepare.add_argument("--max-elapsed-seconds", type=int, default=900)
+    prepare.add_argument("--max-disk-bytes", type=int, default=67108864)
     sub.add_parser("list")
     lookup = sub.add_parser("status")
     lookup.add_argument("job_id")
@@ -790,6 +1179,56 @@ def main(argv: Sequence[str] | None = None) -> int:
         store = Store(options.root)
         if options.command == "enqueue":
             print(enqueue(store, options.plan, options.at))
+        elif options.command == "prepare-native":
+            from .workflow_package import sha256
+            from .workflow_v2 import load_verified_package_v2
+
+            request_path = options.request.absolute()
+            request = parent._read(request_path)
+            package = load_verified_package_v2(
+                Path(request["attestationPath"]), request["attestationSha256"]
+            )
+            build_id = package.attestation["buildId"]
+            plan = validate_plan(
+                {
+                    "schema": native.NATIVE_SCHEMA,
+                    "name": "native-guarded-build",
+                    "fixtureId": "synthetic-" + build_id,
+                    "fixtureSha256": request["attestationSha256"],
+                    "targetId": "disposable-" + build_id,
+                    "targetPolicy": "new_disposable_native",
+                    "category": "native-save-reopen",
+                    "maxElapsedSeconds": options.max_elapsed_seconds,
+                    "maxDiskBytes": options.max_disk_bytes,
+                    "cases": [
+                        {
+                            "id": "native-build",
+                            "adapter": "native.v2.guarded_build",
+                            "iterations": 1,
+                            "delayMs": 0,
+                        }
+                    ],
+                    "native": {
+                        "requestPath": str(request_path),
+                        "requestSha256": sha256(request_path),
+                        "releaseSha256": request["releaseSha256"],
+                        "attestationSha256": request["attestationSha256"],
+                        "projectName": request["projectName"],
+                        "timelineName": request["timelineName"],
+                        "expected": native.expected_for_package(package),
+                    },
+                },
+                options.at,
+            )
+            native.preflight(plan)
+            reject_unsafe_path(options.output, "native plan output")
+            with options.output.open("xb") as output:
+                os.fchmod(output.fileno(), 0o600)
+                output.write(canonical(plan))
+                output.flush()
+                os.fsync(output.fileno())
+            sync_directory(options.output.absolute().parent)
+            print("Prepared private native plan; no Resolve operation started.")
         elif options.command == "list":
             with store.connect() as db:
                 result = [
@@ -801,8 +1240,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ]
             print(json.dumps(result, sort_keys=True))
         elif options.command == "status":
+            reconcile_native(store, options.job_id)
             print(json.dumps(store.publish(options.job_id)["status"], sort_keys=True))
         elif options.command == "report":
+            reconcile_native(store, options.job_id)
             report = store.publish(options.job_id)
             if options.format == "json":
                 print(json.dumps(report, sort_keys=True))
@@ -826,7 +1267,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif options.command == "install-launchd":
             install_agent(store)
         return 0
-    except (QueueError, OSError, json.JSONDecodeError, sqlite3.Error) as exc:
+    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error) as exc:
         print(f"queue refused: {exc}", file=sys.stderr)
         return 2
 

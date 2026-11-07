@@ -12,7 +12,12 @@ from vera_timeline_agent.build_composition import (
     FrozenBuildSnapshot,
     SnapshotRepository,
 )
-from vera_timeline_agent.build_jobs import NeedsAction, StageContext, UncertainResult
+from vera_timeline_agent.build_jobs import (
+    BuildJobError,
+    NeedsAction,
+    StageContext,
+    UncertainResult,
+)
 from vera_timeline_agent.build_narration_stage import (
     NarrationAuthorization,
     NarrationStagePort,
@@ -167,6 +172,115 @@ def service(tmp_path: Path, provider: LocalProvider) -> NarrationService:
 
 def consent(snapshot: FrozenBuildSnapshot) -> NarrationAuthorization:
     return NarrationAuthorization(True, snapshot.project_id, snapshot.snapshot_id, 1.0)
+
+
+def _snapshot_with_notes(
+    setup: NarrationCase, *, notes: list[dict[str, Any]], include_spoken: bool = True
+) -> tuple[FrozenBuildSnapshot, StageContext]:
+    tmp, original, ctx = setup
+    source = tmp / "note-inputs"
+    source.mkdir()
+    document = json.loads(original.file("document").read_text())
+    spoken = document["activeDraft"]["blocks"] if include_spoken else []
+    document["activeDraft"]["blocks"] = [*notes, *spoken]
+    document["stash"] = [
+        {"rows": [{"text": "saved and not active", "plainDirection": True}]}
+    ]
+    doc_file = source / "document.json"
+    doc_file.write_text(json.dumps(document))
+    deps_file = source / "deps.json"
+    deps_file.write_text("{}")
+    repo = SnapshotRepository(
+        tmp / "note-snapshots",
+        read_roots=(source,),
+        write_root=tmp / "note-build",
+        live_head=lambda _: (1, "d" * 64, "rev-1"),
+        live_settings=lambda _: "a" * 64,
+    )
+    frozen = repo.freeze(
+        project_id="p",
+        mode="free",
+        build_id="build-notes",
+        build_class="preview",
+        settings_hash="a" * 64,
+        inputs={"document": doc_file, "dependencies": deps_file},
+        adapter_versions={"narration-v2": "local-test/v1"},
+    )
+    return frozen, replace(ctx, snapshot_id=frozen.snapshot_id)
+
+
+def _plain(text: str) -> dict[str, Any]:
+    return {
+        "id": "10000000-0000-4000-8000-000000000002",
+        "type": "narration",
+        "state": "active",
+        "orderKey": "a0",
+        "version": 1,
+        "text": text,
+        "plainDirection": True,
+        "tokens": (
+            [
+                {
+                    "id": "20000000-0000-4000-8000-000000000002",
+                    "value": text,
+                    "startOffset": 0,
+                    "endOffset": len(text.encode("utf-16-le")) // 2,
+                    "spoken": False,
+                }
+            ]
+            if text
+            else []
+        ),
+    }
+
+
+@pytest.mark.parametrize("raw", ["", "[nested [literal]] 🌍", "orphan ] [\n'quote'"])
+def test_active_plain_directions_are_excluded_before_planning_and_provider(
+    setup: NarrationCase, raw: str
+) -> None:
+    tmp, _, _ = setup
+    frozen, ctx = _snapshot_with_notes(setup, notes=[_plain(raw)])
+    provider = LocalProvider()
+    port = NarrationStagePort(service(tmp, provider), consent(frozen))
+    assert [block["id"] for block in port._block_rows(frozen)] == [BLOCK_ID]
+    port.execute(ctx, frozen)
+    evidence = port.inspect(ctx, frozen)
+    assert evidence.state == EffectState.VERIFIED
+    assert evidence.evidence is not None
+    assets = json.loads(evidence.evidence.outputs["assets"].read_bytes())["assets"]
+    assert [asset["blockId"] for asset in assets] == [BLOCK_ID]
+    assert provider.calls == 1
+
+
+def test_only_plain_direction_needs_no_provider_or_speech_budget(
+    setup: NarrationCase,
+) -> None:
+    tmp, _, _ = setup
+    frozen, ctx = _snapshot_with_notes(setup, notes=[_plain("")], include_spoken=False)
+    provider = LocalProvider()
+    port = NarrationStagePort(service(tmp, provider))
+    assert port._block_rows(frozen) == []
+    port.execute(ctx, frozen)
+    evidence = port.inspect(ctx, frozen)
+    assert evidence.state == EffectState.VERIFIED
+    assert evidence.evidence is not None
+    assert json.loads(evidence.evidence.outputs["timingMaps"].read_bytes()) == []
+    assert provider.calls == 0
+
+
+def test_corrupt_plain_direction_refuses_before_provider_planning(
+    setup: NarrationCase,
+) -> None:
+    tmp, _, _ = setup
+    bad = _plain("[literal]")
+    bad["tokens"][0]["spoken"] = True
+    frozen, ctx = _snapshot_with_notes(setup, notes=[bad])
+    provider = LocalProvider()
+    port = NarrationStagePort(service(tmp, provider), consent(frozen))
+    with pytest.raises(BuildJobError, match="invalid frozen direction intent"):
+        port.execute(ctx, frozen)
+    assert provider.calls == 0
+    assert not port._paths(ctx, frozen)[0].exists()
 
 
 def test_ready_voice_asset_and_frozen_word_map_are_reverified(

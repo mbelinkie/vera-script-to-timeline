@@ -108,6 +108,9 @@ RELEASE_RUNTIME_FILES = (
     "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
+    "resolve_native_owner.py",
+    "workflow_v2_parent.py",
     "sample_precision_probe_v2.py",
 )
 _MAX_RECORD_BYTES = 4 * 1024 * 1024

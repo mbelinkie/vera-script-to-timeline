@@ -36,6 +36,9 @@ TI_RUNTIME_FILES = (
     "native_image_motion.py",
     "native_qualification_v2.py",
     "target_identity_v2.py",
+    "qualification_output_records_v2.py",
+    "resolve_native_owner.py",
+    "workflow_v2_parent.py",
 )
 TI_SOURCE_FILES = (
     *(f"python/vera_timeline_agent/{name}" for name in TI_RUNTIME_FILES),
@@ -1082,7 +1085,6 @@ def ti_cap_started(request: dict[str, Any], expected: str) -> dict[str, Any]:
 TI_OUTPUT_RUNTIME_FILES = (
     *TI_RUNTIME_FILES,
     "qualification_output_native_v2.py",
-    "qualification_output_records_v2.py",
 )
 TI_SAMPLE_PRECISION_RUNTIME_FILES = (*TI_RUNTIME_FILES, "sample_precision_probe_v2.py")
 TI_SAMPLE_IMPORT_RUNTIME_FILES = (

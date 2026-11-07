@@ -6,7 +6,55 @@ from collections.abc import Mapping
 from typing import Any
 
 
+def _plain_direction(block: Mapping[str, Any]) -> bool:
+    """Validate persisted whole-row intent before any direct Python consumer uses it."""
+
+    if "plainDirection" not in block:
+        return False
+    if block["plainDirection"] is not True:
+        raise ValueError("plainDirection must be true when present")
+    text = block.get("text")
+    tokens = block.get("tokens")
+    if not isinstance(text, str) or not isinstance(tokens, list):
+        raise ValueError("plain direction requires text and frozen tokens")
+    try:
+        encoded = text.encode("utf-16-le")
+    except UnicodeEncodeError as error:
+        raise ValueError("plain direction contains an unpaired surrogate") from error
+    prior_end = 0
+    for token in tokens:
+        if not isinstance(token, Mapping) or token.get("spoken") is not False:
+            raise ValueError("plain direction tokens must all be nonspoken")
+        start, end, value = (
+            token.get("startOffset"),
+            token.get("endOffset"),
+            token.get("value"),
+        )
+        if (
+            not isinstance(start, int)
+            or isinstance(start, bool)
+            or not isinstance(end, int)
+            or isinstance(end, bool)
+            or not isinstance(value, str)
+            or not value
+            or start < prior_end
+            or start >= end
+            or end > len(encoded) // 2
+        ):
+            raise ValueError("plain direction token range is invalid")
+        try:
+            quoted = encoded[start * 2 : end * 2].decode("utf-16-le")
+        except UnicodeDecodeError as error:
+            raise ValueError("plain direction token splits a surrogate pair") from error
+        if quoted != value:
+            raise ValueError("plain direction frozen token differs from text")
+        prior_end = end
+    return True
+
+
 def spoken_tokens(block: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    if _plain_direction(block):
+        return []
     tokens = block.get("tokens")
     if not isinstance(tokens, list):
         raise ValueError("narration tokens are required")
@@ -18,14 +66,17 @@ def spoken_tokens(block: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 
 
 def is_direction_only(block: Mapping[str, Any]) -> bool:
+    if _plain_direction(block):
+        return True
     tokens = block.get("tokens")
     return (
         isinstance(tokens, list)
         and any(
-            isinstance(token, dict) and token.get("spoken") is False for token in tokens
+            isinstance(token, Mapping) and token.get("spoken") is False
+            for token in tokens
         )
         and not any(
-            isinstance(token, dict) and token.get("spoken") is not False
+            isinstance(token, Mapping) and token.get("spoken") is not False
             for token in tokens
         )
     )
@@ -38,6 +89,10 @@ def masked_text(block: Mapping[str, Any]) -> str:
     tokens = block.get("tokens")
     if not isinstance(text, str) or not isinstance(tokens, list):
         raise ValueError("narration text and tokens are required")
+    if _plain_direction(block):
+        # No brackets are structural here. Preserve provider UTF-16 offsets,
+        # including a surrogate pair's two code units, without leaking text.
+        return "".join(" " * (len(char.encode("utf-16-le")) // 2) for char in text)
     for token in tokens:
         if (
             isinstance(token, Mapping)

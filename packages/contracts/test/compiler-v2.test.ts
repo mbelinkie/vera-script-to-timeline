@@ -461,7 +461,7 @@ describe("pure v2 compiler", () => {
     const malformedRow = document();
     const malformed = malformedRow.activeDraft.blocks[0] as NarrationBlockV2;
     malformed.text = "hello\ud800";
-    malformed.tokens[0] = { ...malformed.tokens[0], value: "hello\ud800", endOffset: 6 };
+    malformed.tokens[0] = { ...malformed.tokens[0]!, value: "hello\ud800", endOffset: 6 };
     const invalidText = compileTimelineV2(malformedRow, dependencies());
     expect(invalidText.ok).toBe(false);
     if (!invalidText.ok) expect(invalidText.diagnostics.map((item) => item.code)).toContain("DOCUMENT_TEXT_INVALID");
@@ -469,7 +469,7 @@ describe("pure v2 compiler", () => {
     const splitPairRow = document();
     const splitPair = splitPairRow.activeDraft.blocks[0] as NarrationBlockV2;
     splitPair.text = "🌍";
-    splitPair.tokens[0] = { ...splitPair.tokens[0], value: "\ud83c", startOffset: 0, endOffset: 1 };
+    splitPair.tokens[0] = { ...splitPair.tokens[0]!, value: "\ud83c", startOffset: 0, endOffset: 1 };
     const invalidToken = compileTimelineV2(splitPairRow, dependencies());
     expect(invalidToken.ok).toBe(false);
     if (!invalidToken.ok) expect(invalidToken.diagnostics.map((item) => item.code)).toContain("DOCUMENT_TOKEN_TEXT_INVALID");

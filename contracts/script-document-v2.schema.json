@@ -299,7 +299,7 @@
       }
     },
     "NarrationToken": {
-      "description": "Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a paired stage-direction token.",
+      "description": "Stable text-token identity plus UTF-16 offsets into NarrationBlockV2.text. Omitted spoken means spoken; false marks a nonspoken token in a recognized paired direction or a whole-row plain direction.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1803,15 +1803,17 @@
           "minLength": 1
         },
         "text": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "tokens": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "$ref": "#/$defs/NarrationToken"
           }
+        },
+        "plainDirection": {
+          "description": "Whole-row nonspoken intent: text is exact literal content, including square brackets, never a parsed direction delimiter. Omit for ordinary and legacy narration; false is not a valid value.",
+          "const": true
         },
         "annotations": {
           "description": "Optional typed narration annotations. Omission is equivalent to an empty array.",
@@ -1861,6 +1863,20 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "required": ["plainDirection"],
+            "properties": {
+              "plainDirection": { "const": true }
+            }
+          },
+          "else": {
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "tokens": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
         {
           "if": {
             "type": "object",
