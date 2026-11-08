@@ -345,10 +345,10 @@ no new audio; the source-pinned `accept-proposal` step finished and emitted
 `original_picture_only_revision_accepted`. This is **not** yet the independent
 M4 revision verification.
 
-**Active owner/fail-stop:** the preexisting launchd job
+**Initial active-owner audit:** the preexisting launchd job
 `vera-473-revision-continue05` remained running (launchd parent PID 45805)
 and progressed without intervention from `accept-proposal` to `submit`. At
-the final read-only inspection, M4 remained
+the initial read-only inspection, M4 remained
 `verified, verified, awaiting_operator, pending`; no
 `receipt-revision.json` had been observed and the `submit` step was still
 in flight. No competing worker, re-submission or one-use native operation may
@@ -375,3 +375,29 @@ with 45 `@typescript-eslint` unresolved-type errors. This worktree had no
 `node_modules` directory before the attempt. No source code or test was changed
 in this phase, and no assertion is made that the lint failure is new or
 identical to `origin/main` without a separate baseline comparison.
+
+**Phase 1 terminal reconciliation, 2026-11-07 22:49 EST:** Without any new
+worker, native operation or replay from this Conductor phase, the *original*
+launchd owner completed `submit` and emitted `original_M4_revision_verified`,
+followed by `original_revision_step_completed submit`. Independent direct
+inspection of the original M4 `report.json` confirmed the exact stage sequence
+`[verified, verified, verified, pending]`. The revision receipt SHA-256 is
+`a484161a433dd2e3792641c80dfbed5ad63356828a442788f2ae8ab9a1717ef5`,
+equal to independently run `shasum -a 256` of the original 304-byte
+`receipt-revision.json`. That receipt has original revision operation ID
+`5dd1a010-fdcb-4dc2-a82f-c0740411465e` and exact source-pinned proof
+`run/revision/session.json` with SHA-256
+`c49f1278acdcab2fd6c4d809d6ba93ea6a71d50f16e62cb4ea2316f37026f319`.
+M4 `status.json` is `queued`, `humanRequired=false`, `readyFor312Phase2=false`
+because the fourth rebuild receipt has not yet been produced. **Phase 1 is
+verified; only the separate phase 2 can now pursue the provisioned distinct
+fresh rebuild target.**
+
+The retired `vera-473-revision-continue05` launchd entry remained registered
+after success (`launchctl list` showed PID `-`, last exit `1`). Subsequent
+auto-restarted `inspect` attempts fail closed before any stage operation with
+`#473 original revision refused: original edited M4 not verified or revision
+already attempted`. This is a residual service-cleanup consideration for the
+next phase, not permission to reset or replay revision. Confirm there is no
+active native owner before fresh rebuild and preserve original source hashes,
+queue and one-use receipts. This phase did not modify any Mac service.
