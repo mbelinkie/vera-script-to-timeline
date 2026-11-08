@@ -49,6 +49,23 @@ export function requireRevision(value: unknown): number {
   return value;
 }
 
+/** Bound history pages before querying or returning untrusted stored snapshots. */
+export function requireHistoryLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > 100) {
+    throw new ProjectDocumentInputError("History page limit must be an integer from 1 to 100.");
+  }
+  return value;
+}
+
+/** Checkpoint names are case-folded by the database for project-local uniqueness. */
+export function requireCheckpointName(value: unknown): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 120 ||
+      value.trim() !== value || !value.trim() || /\p{Cc}/u.test(value)) {
+    throw new ProjectDocumentInputError("Checkpoint name must be 1–120 non-control characters without surrounding whitespace.");
+  }
+  return value;
+}
+
 export function requireObject(value: unknown): Record<string, unknown> {
   if (!value || Array.isArray(value) || typeof value !== "object") {
     throw new ProjectDocumentInputError();

@@ -8,7 +8,9 @@ import {
 import {
   ProjectDocumentError,
   ProjectDocumentInputError,
+  requireHistoryLimit,
   requireObject,
+  requireRevision,
 } from "./model.js";
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
@@ -42,6 +44,26 @@ function fields(value: unknown, allowed: readonly string[], required: readonly s
     throw new ProjectDocumentInputError("Unexpected or missing request fields.");
   }
   return record;
+}
+
+/** Whitelist unique query keys rather than silently taking the first duplicate. */
+function queryFields(url: URL, allowed: readonly string[], required: readonly string[] = []): Record<string, string> {
+  const found: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const [key, value] of url.searchParams) {
+    if (!allowed.includes(key) || Object.hasOwn(found, key) || !value) {
+      throw new ProjectDocumentInputError("Invalid query parameters.");
+    }
+    found[key] = value;
+  }
+  if (required.some((key) => !Object.hasOwn(found, key))) {
+    throw new ProjectDocumentInputError("Missing query parameter.");
+  }
+  return found;
+}
+
+function numericParam(value: string): number {
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(value)) throw new ProjectDocumentInputError("Invalid revision.");
+  return requireRevision(Number(value));
 }
 
 async function jsonBody(request: Request): Promise<Record<string, unknown>> {
@@ -103,8 +125,75 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       // Authenticate even for malformed or oversize bodies: no anonymous bypass.
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
-      if (url.search) throw new ProjectDocumentInputError("Query parameters are not supported.");
       const path = url.pathname;
+      const history = /^\/v1\/projects\/([^/]+)\/history(?:\/(compare|[^/]+))?$/u.exec(path);
+      if (history && request.method === "GET") {
+        const id = history[1]!;
+        if (!history[2]) {
+          const query = queryFields(url, ["limit", "beforeRevision"]);
+          return response(200, await deps.documents.listDocumentRevisions(id, principal, {
+            ...(query.limit === undefined ? {} : { limit: requireHistoryLimit(numericParam(query.limit)) }),
+            ...(query.beforeRevision === undefined ? {} : { beforeRevision: numericParam(query.beforeRevision) }),
+          }));
+        }
+        if (history[2] === "compare") {
+          const query = queryFields(url, ["fromRevision", "toRevision"], ["fromRevision", "toRevision"]);
+          return response(200, await deps.documents.compareDocumentRevisions(id, principal,
+            numericParam(query.fromRevision!), numericParam(query.toRevision!)));
+        }
+        queryFields(url, []);
+        return response(200, await deps.documents.getDocumentRevision(id, principal, numericParam(history[2])));
+      }
+      const checkpoint = /^\/v1\/projects\/([^/]+)\/checkpoints(?:\/([^/]+)(?:\/(approve|restore))?)?$/u.exec(path);
+      if (checkpoint) {
+        const id = checkpoint[1]!;
+        const checkpointId = checkpoint[2];
+        const operation = checkpoint[3];
+        if (request.method === "GET" && !operation) {
+          if (checkpointId) {
+            queryFields(url, []);
+            return response(200, await deps.documents.getCheckpoint(id, principal, checkpointId));
+          }
+          const query = queryFields(url, ["limit", "beforeCheckpointId"]);
+          return response(200, await deps.documents.listCheckpoints(id, principal, {
+            ...(query.limit === undefined ? {} : { limit: requireHistoryLimit(numericParam(query.limit)) }),
+            ...(query.beforeCheckpointId === undefined ? {} : { beforeCheckpointId: query.beforeCheckpointId }),
+          }));
+        }
+        if (request.method === "POST") {
+          queryFields(url, []);
+          if (!checkpointId) {
+            const data = fields(await jsonBody(request),
+              ["checkpointId", "clientMutationId", "name", "sourceRevision"],
+              ["checkpointId", "clientMutationId", "name", "sourceRevision"]);
+            const created = await deps.documents.createCheckpoint(id, principal, {
+              checkpointId: data.checkpointId as string,
+              clientMutationId: data.clientMutationId as string,
+              name: data.name as string,
+              sourceRevision: data.sourceRevision as number,
+            });
+            return response(created.duplicateDelivery ? 200 : 201, created);
+          }
+          if (operation === "approve") {
+            const data = fields(await jsonBody(request), ["clientMutationId"], ["clientMutationId"]);
+            const approved = await deps.documents.approveCheckpoint(id, principal, checkpointId,
+              { clientMutationId: data.clientMutationId as string });
+            return response(approved.duplicateDelivery ? 200 : 201, approved);
+          }
+          if (operation === "restore") {
+            const data = fields(await jsonBody(request),
+              ["expectedRevision", "clientMutationId", "writeSessionId"],
+              ["expectedRevision", "clientMutationId"]);
+            return response(200, await deps.documents.restoreCheckpoint(id, principal, checkpointId, {
+              expectedRevision: data.expectedRevision as number,
+              clientMutationId: data.clientMutationId as string,
+              ...(Object.hasOwn(data, "writeSessionId") ? { writeSessionId: data.writeSessionId as string } : {}),
+            }));
+          }
+        }
+        return response(404, { error: "not_found" });
+      }
+      if (url.search) throw new ProjectDocumentInputError("Query parameters are not supported.");
       if (path === "/v1/projects" && request.method === "POST") {
         const body = fields(await jsonBody(request),
           ["clientRequestId", "projectId", "title", "document", "settings"],

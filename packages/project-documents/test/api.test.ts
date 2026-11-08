@@ -51,6 +51,123 @@ async function setup() {
 afterEach(async () => { for (const cleanup of cleaners.splice(0)) await cleanup(); });
 
 describe("authenticated and bounded project-document API", () => {
+  it("exposes trusted attributed history and bounded typed comparisons without relaxing other routes", async () => {
+    const { api, auth, owner, editor, viewer } = await setup();
+    const initial = initialProject();
+    expect((await api(request("", "POST", "owner", initial))).status).toBe(201);
+    await auth.changeMembership(initial.projectId, owner, editor.principalId, "editor");
+    await auth.changeMembership(initial.projectId, owner, viewer.principalId, "viewer");
+    const id = "/" + initial.projectId;
+    const mutation = { expectedRevision: 0, clientMutationId: randomUUID(),
+      document: { ...initial.document, title: "Second version" } };
+    expect((await api(request(id + "/document", "PUT", "editor", mutation))).status).toBe(200);
+    const page = await api(request(id + "/history?limit=1", "GET", "viewer"));
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await body(page)).toMatchObject({ nextBeforeRevision: 1,
+      revisions: [{ revision: 1, actorId: editor.principalId,
+        clientMutationId: mutation.clientMutationId, expectedRevision: 0 }] });
+    expect(await body(await api(request(id + "/history?beforeRevision=1", "GET", "viewer"))))
+      .toMatchObject({ revisions: [{ revision: 0, expectedRevision: null }],
+        nextBeforeRevision: null });
+    expect(await body(await api(request(id + "/history/0", "GET", "viewer"))))
+      .toMatchObject({ revision: 0, document: initial.document });
+    const compared = await body(await api(request(
+      id + "/history/compare?fromRevision=0&toRevision=1", "GET", "viewer")));
+    expect(compared).toMatchObject({ totalChanges: 1, truncated: false,
+      changes: [{ surface: "document", kind: "modified", fields: ["title"] }] });
+    expect((await api(request(id + "/history/99", "GET", "viewer"))).status).toBe(404);
+    expect((await api(request(id + "/history?limit=101", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history?limit=1&limit=2", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history?beforeRevision=-1", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history?beforeRevision=9007199254740993", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history?actorId=" + owner.principalId, "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history/compare?fromRevision=0", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history/0?limit=1", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(id + "/history", "POST", "owner", {}))).status).toBe(404);
+    expect((await api(request(id + "/document?limit=1", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request("/" + randomUUID() + "/history", "GET", "viewer"))).status).toBe(403);
+  });
+
+  it("creates/approves/restores checkpoints via strict HTTP with auth-before-body and foreign-project denial", async () => {
+    const { api, auth, owner, editor, viewer } = await setup();
+    const project = initialProject();
+    const other = initialProject();
+    await api(request("", "POST", "owner", project));
+    await api(request("", "POST", "owner", other));
+    await auth.changeMembership(project.projectId, owner, editor.principalId, "editor");
+    await auth.changeMembership(project.projectId, owner, viewer.principalId, "viewer");
+    const path = "/" + project.projectId + "/checkpoints";
+    const checkpointId = randomUUID();
+    const create = { checkpointId, clientMutationId: randomUUID(), name: "First snapshot", sourceRevision: 0 };
+    expect((await api(request(path, "POST", "viewer", create))).status).toBe(403);
+    const created = await api(request(path, "POST", "editor", create));
+    expect(created.status).toBe(201);
+    expect((await body(created)).approval).toBeNull();
+    expect((await body(await api(request(path, "POST", "editor", create)))).duplicateDelivery).toBe(true);
+    expect((await api(request(path, "POST", "editor", {
+      ...create, clientMutationId: randomUUID(), name: "FIRST SNAPSHOT",
+    }))).status).toBe(409);
+    const list = await api(request(path + "?limit=1", "GET", "viewer"));
+    expect(await body(list)).toMatchObject({ checkpoints: [{ checkpointId, approval: null }] });
+    expect(await body(await api(request(path + "/" + checkpointId, "GET", "viewer"))))
+      .toMatchObject({ name: create.name, sourceRevision: 0, document: project.document });
+    const approve = { clientMutationId: randomUUID() };
+    expect((await api(request(path + "/" + checkpointId + "/approve", "POST", "editor", approve))).status).toBe(403);
+    expect((await api(request(path + "/" + checkpointId + "/approve", "POST", "owner", approve))).status).toBe(201);
+    expect((await api(request(path + "/" + checkpointId + "/approve", "POST", "owner", approve))).status).toBe(200);
+    const mutation = { expectedRevision: 0, clientMutationId: randomUUID(),
+      document: { ...project.document, title: "Changed" } };
+    expect((await api(request("/" + project.projectId + "/document", "PUT", "editor", mutation))).status).toBe(200);
+    const restore = { expectedRevision: 1, clientMutationId: randomUUID() };
+    expect((await api(request(path + "/" + checkpointId + "/restore", "POST", "viewer", restore))).status).toBe(403);
+    const first = await api(request(path + "/" + checkpointId + "/restore", "POST", "editor", restore));
+    expect(first.status).toBe(200);
+    expect(await body(first)).toMatchObject({ revision: 2, duplicateDelivery: false });
+    expect(await body(await api(request(path + "/" + checkpointId + "/restore", "POST", "editor", restore))))
+      .toMatchObject({ revision: 2, duplicateDelivery: true });
+    expect(await body(await api(request("/" + project.projectId + "/history/2", "GET", "viewer"))))
+      .toMatchObject({ attribution: { restoreOrigin: { checkpointId, sourceRevision: 0 } } });
+    expect((await api(request(path + "/" + checkpointId + "/restore", "POST", "editor",
+      { ...restore, expectedRevision: 2, clientMutationId: randomUUID() }))).status).toBe(200);
+    expect((await api(request("/" + other.projectId + "/checkpoints/" + checkpointId, "GET", "owner"))).status).toBe(404);
+    expect((await api(request("/" + other.projectId + "/checkpoints/" + checkpointId +
+      "/restore", "POST", "owner", restore))).status).toBe(404);
+    expect((await api(request(path + "?beforeCheckpointId=bad", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(path + "/bad", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(path + "?limit=0", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(path + "/extra/extra/extra", "GET", "viewer"))).status).toBe(404);
+    expect((await api(request(path + "/" + checkpointId + "/restore", "GET", "editor"))).status).toBe(404);
+    expect((await api(request(path + "/" + checkpointId + "/restore", "POST", "owner",
+      { ...restore, actorId: owner.principalId }))).status).toBe(400);
+    expect((await api(request(path + "/" + checkpointId + "/restore", "POST", "owner",
+      { ...restore, approved: true }))).status).toBe(400);
+    expect((await api(request(path + "/" + checkpointId + "/approve", "POST", "owner",
+      { ...approve, role: "producer" }))).status).toBe(400);
+    expect((await api(request(path, "POST", "editor", {
+      ...create, approval: { approvedBy: editor.principalId },
+    }))).status).toBe(400);
+    expect((await api(request(path + "/" + checkpointId + "/restore?actorId=x",
+      "POST", "editor", restore))).status).toBe(400);
+    expect((await api(request(path + "/" + checkpointId + "/restore", "POST", "editor", restore,
+      { "content-length": String(MAX_PROJECT_API_BODY_BYTES + 1) }))).status).toBe(400);
+    const streamed = new Request(base + path + "/" + checkpointId + "/restore", {
+      method: "POST", headers: { "content-type": "application/json",
+        "X-Test-Suite-Identity": "editor", "content-length": "1" },
+      body: JSON.stringify(restore) + " ".repeat(MAX_PROJECT_API_BODY_BYTES),
+    });
+    expect((await api(streamed)).status).toBe(400);
+    const anonymous = new Request(base + path + "/" + checkpointId + "/restore", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{broken",
+    });
+    expect((await api(anonymous)).status).toBe(401);
+    const malformed = new Request(base + path + "/" + checkpointId + "/restore", {
+      method: "POST", headers: { "content-type": "application/json",
+        "X-Test-Suite-Identity": "editor" }, body: "{broken",
+    });
+    expect((await api(malformed)).status).toBe(400);
+  });
   it("creates, reads, updates and refuses other identities without leaking a head", async () => {
     const { api } = await setup();
     const initial = initialProject();
