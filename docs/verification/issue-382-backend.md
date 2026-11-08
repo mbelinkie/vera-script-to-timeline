@@ -57,7 +57,8 @@ Commands from the isolated #382 worktree (UTC 2026-11-08):
 * `uv run --frozen ruff format --check python/vera_timeline_agent/build_agent_service.py tests/test_issue382_build_agent.py` — **passed**.
 * `uv run --frozen mypy python/vera_timeline_agent/build_agent_service.py tests/test_issue382_build_agent.py` — **passed, 2 files**.
 * `npm run lint -w @vera/project-service-host` and `npm run typecheck -w @vera/project-service-host` — **passed**.
-* `npm run test -w @vera/project-service-host` — **67 passed, 1 skipped** (real PostgreSQL integration requires explicit isolated test URL). Four earlier failing fake backup inventory tests were corrected to sort fixture migration names exactly as the production inventory; all 4 then passed without weakening refusal guards.
+* `npm run test -w @vera/project-service-host` — **67 passed, 1 skipped** (the separately configured PostgreSQL integration test requires a test URL). The 4 backup-guard fixtures pass, including the exact owned-sequence allowlist; bad sequence names still fail closed.
+* `npm run test -w @vera/project-builds` — **36 passed**, including authenticated project-scoped queue polling, foreign-project refusal, and revoked agent credential refusal.
 
 The new route tests exercise scoped user/machine identity separation, no
 external Host/forwarded authorization, lease epoch, malformed body refusal,
@@ -74,13 +75,60 @@ worker cannot access the Mac's Resolve GUI or its native owner, and #382 does
 not authorize a new one-use Studio mutation. Independent native readback
 remains a separate acceptance authority.
 
-**Real PostgreSQL HTTP/backup/restore:** Record the phase-4 local result and
-fresh SHA/DB inventory after an actual disposable QA run; fixture-only
-guards must not be represented as full database recovery. The opt-in #159
-real smoke must be invoked only with two empty, distinct owner-scoped
-`vera_stt_qa_*` databases, private outside-repo 0600 identity file, trusted
-source SHA, and private backup root, with no other client connections.
+## Real PostgreSQL/loopback recovery verification (synthetic-only)
+
+`npm run smoke:qa -w @vera/project-service-host` — **PASS, 15/15 scenarios**,
+`2026-11-08T16:49:58.695Z`; actual PostgreSQL `16.15` and separate CLI host
+processes on `127.0.0.1`. Source commit pinned at
+`496b1a207caa16f040a7e3f1d34dc4e72c0c7ec9`. The operator provisioned
+two **new empty databases** under the same dedicated nonprivileged QA owner:
+source `vera_stt_qa_p382_1794156574` and fresh destination
+`vera_stt_qa_restore_p382_1794156574`. 0600 identity mapping and bearer
+tokens were kept outside the repository and omitted from this report.
+
+The checks completed in sequence: loopback auth refusal, exact creation
+replay, document CAS and role checks, producer settings, editor revocation,
+new build freeze/replay/conflict/Viewer refusal, one-use pairing, agent
+credential and epoch checks, untrusted running-to-`waiting_reconcile`
+progress, populated source process restart, four checksum migrations,
+private custom-format database backup, intentionally corrupted archive
+rejection, fresh target restore, refusal to restore into a populated
+destination, and exact authenticated readback after restored host restart.
+The original source and restored DB were compared for full state equality;
+both retained a single frozen build and its four append-only events.
+
+**Recovery inventory:** 19 allowlisted tables, 4 checksum-verified migrations.
+Build rows: 1 pairing offer, 1 agent, 1 frozen submission, 1 dispatch,
+4 events, 0 selected source pins, 0 independently classified evidence,
+0 preflight refusals. No app/native effect was executed; all four events
+remained untrusted observations. Archive length **135,377 bytes**.
+SHA-256 manifest:
+`e9ef0259f31f9486acdf5a567db2c18514be5aea3a3a5eeebd9ce23d0128f09f`;
+SHA-256 archive:
+`f2f25988f7dead1b99ca62653db7fa7fa9a3d2049ade01fd090a29e3c5af38fd`.
+The actual archive and credentials are private and **not committed**.
+
+The first real QA run had rejected backup because the newly allowed event
+sequence guard was accidentally inverted. No archive/restore was claimed
+on that run. Phase-4 fix `496b1a20` corrected the exact-name predicate,
+and a fake `pg_class` fixture now includes the owned sequence. The second
+run used fresh databases and passed all checks; the guard was not bypassed.
+
+## Whole-repository fast-gate limitation
+
+`VITEST_MAX_WORKERS=1 npm run validate:fast` was run on the Linux Zodex
+worktree after the source commits: **exit 1**, total **345.644 s**. The
+single Python xdist phase reported **2,813 passed, 43 skipped and 19 failed**;
+the failing tests belong to narration CLI, word timing/consent, issue #182
+campaign portability, and issue #208 target/authority capabilities. **No
+test in `tests/test_issue382_build_agent.py` failed.** The target-scoped
+Python run above passed **28/28**, host run passed **67/67** runnable unit
+tests, build-service run passed **36/36**, and the real PostgreSQL recovery
+smoke passed **15/15**. We did not alter unrelated tests, broaden the allowed
+native capabilities, or mark this whole-repo gate green. Phase 5 must retain
+this explicit gate failure in final review and decide appropriate escalation.
 
 **No production deployment:** This listener is local QA only, no TLS or remote
 host, no automated Studio driver, and no accepted source integration. The
-subsequent phase 5 owns final fast-gate, mutation and whole-diff review.
+subsequent phase 5 owns whole-diff/mutation review and the above
+whole-repository gate disposition.
