@@ -66,6 +66,17 @@ def approve_existing_render_output(
     from vera_timeline_agent import qualification_output_controller_v2 as host
     from vera_timeline_agent.workflow_v2_cli import _verify_output_release
 
+    # A clean child may be executing its already-claimed one-use operation.
+    # Do not examine its uncommitted tail or issue a new authority mid-effect.
+    count = len(native.action_plan_for_context(controller.context))
+    for prior_sequence in range(count):
+        native_result, _, _, _ = native.native_request_paths(
+            controller.context, prior_sequence
+        )
+        if (
+            root / f"native-{prior_sequence:02d}" / "intent.json"
+        ).exists() and not native_result.exists():
+            return
     sequence, _ = native.next_native_operation(controller.context)
     action = native.native_action(controller.context, sequence)
     if action not in {"poll_render", "capture_post"}:
@@ -80,6 +91,8 @@ def approve_existing_render_output(
         return
     predecessor = "start_render" if action == "poll_render" else "poll_render"
     previous = root / f"native-{sequence - 1:02d}"
+    if not (previous / "host-ingested.json").exists():
+        return  # Original controller must authenticate and ingest first.
     state = carrier.status(previous)
     need(
         state["state"] == "native_result_verified" and state["verified"] is True,
@@ -264,6 +277,13 @@ def main() -> None:
                 consent_instruction="Continue until closed",
                 minimum_free_bytes=1073741824,
             )
+        except native.OutputConsistencyError as error:
+            need(
+                str(error) == "approved output already exists",
+                "host refused original output for an unrelated reason",
+            )
+            approve_existing_render_output(root, controller, carrier, native)
+            continue
         except owner.NativeOwnerError as refusal:
             need(
                 refusal.reason == "selected_disposable_not_idle"
