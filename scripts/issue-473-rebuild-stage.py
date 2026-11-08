@@ -116,6 +116,130 @@ def start() -> None:
     )
 
 
+def _exact_media_file(root: Path, identity: str) -> Path:
+    """Select only an original verified package artifact by UUID basename."""
+    import re
+
+    need(
+        re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity)
+        is not None,
+        "non-UUID media identity",
+    )
+    need(root.is_dir() and not root.is_symlink(), "original media directory missing")
+    matches = [path for path in root.glob(identity + ".*") if path.is_file()]
+    need(
+        len(matches) == 1 and not matches[0].is_symlink(),
+        "original media identity absent or ambiguous: " + identity,
+    )
+    return matches[0]
+
+
+def _original_media_paths(
+    package_root: Path, old_build: str, revised: dict[str, Any]
+) -> dict[str, Path]:
+    """Constrain the revision to the same already verified #312 media bytes."""
+    base = package_root / "Builds" / old_build / "Preparation/original"
+    paths: dict[str, Path] = {}
+    for source in revised["sources"]:
+        identity = source["id"]
+        if isinstance(source.get("narrationAudio"), dict):
+            paths["source:" + identity] = _exact_media_file(
+                package_root / "Media/Narration", identity
+            )
+        else:
+            paths["source:" + identity] = _exact_media_file(
+                package_root / "Media/Resolved", identity
+            )
+            paths["original:" + identity] = _exact_media_file(base, identity)
+    for event in revised["events"]:
+        if event["kind"] == "placeholder":
+            paths["event:" + event["eventId"]] = _exact_media_file(
+                package_root / "Media/Resolved", event["eventId"]
+            )
+        else:
+            need(
+                event["kind"] != "source_audio",
+                "unexpected media-binding source-audio event",
+            )
+    return paths
+
+
+def build_package() -> None:
+    """Produce the accepted revision as a NEW immutable v2 public package."""
+    from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+    from vera_timeline_agent import v2_package
+    from vera_timeline_agent.qualification_output_proof_v2 import (
+        QualificationOutputProofV2,
+        build_output_revision_package,
+    )
+
+    _store, m4, job_id, _plan, config = prerequisites()
+    report = m4.publish(_store, job_id)
+    need(
+        report["state"] == "awaiting_operator" and report["stage"] == "rebuild",
+        "original M4 rebuild stage is not awaiting operator",
+    )
+    need(not (ROOT / "run/rebuild-actions").exists(), "native rebuild already started")
+    proof_path = ROOT / "run/revision/session.json"
+    proof = QualificationOutputProofV2(proof_path, sha(proof_path.read_bytes()))
+    proof.accepted_revision()
+    package_root = Path(config["packageRoot"])
+    verified = v2_package.verify_v2_package(package_root)
+    old_manifest = json.loads(
+        (
+            package_root / "Builds" / verified.build_id / v2_package.MANIFEST_FILENAME
+        ).read_bytes()
+    )
+    revised = json.loads((ROOT / "run/revision/revision-manifest.json").read_bytes())
+    need(
+        old_manifest["sources"] == revised["sources"],
+        "revised sources differ from original media",
+    )
+    need(
+        [
+            (event["eventId"], event["pictureTreatment"])
+            for event in old_manifest["events"]
+            if event["kind"] == "placeholder"
+        ]
+        == [
+            (event["eventId"], event["pictureTreatment"])
+            for event in revised["events"]
+            if event["kind"] == "placeholder"
+        ],
+        "revision changed original placeholder media",
+    )
+    media = _original_media_paths(package_root, verified.build_id, revised)
+    preparations = runner._matrix_preparation_paths(
+        package_root, case_id=config["caseId"]
+    )
+    output = ROOT / "run/rebuild-package"
+    need(
+        not output.exists() and not output.is_symlink(),
+        "revision package already attempted",
+    )
+    build_output_revision_package(
+        proof_path,
+        sha(proof_path.read_bytes()),
+        output,
+        media_paths=media,
+        preparation_paths=preparations,
+    )
+    built = v2_package.verify_v2_package(output)
+    need(built.build_id == revised["buildId"], "new package build identity differs")
+    print(
+        json.dumps(
+            {
+                "state": "accepted_revision_public_package_verified",
+                "jobId": job_id,
+                "buildId": built.build_id,
+                "packageRoot": str(output),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
 def prepare() -> None:
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner
     from vera_timeline_agent.qualification_output_proof_v2 import (
@@ -139,6 +263,11 @@ def prepare() -> None:
         "fresh rebuild session already attempted; do not replay",
     )
     package_root = Path(config["packageRoot"])
+    revised_package = ROOT / "run/rebuild-package"
+    need(
+        revised_package.is_dir() and not revised_package.is_symlink(),
+        "new accepted revision public package not built",
+    )
     preparation_paths = runner._matrix_preparation_paths(
         package_root, case_id=config["caseId"]
     )
@@ -151,7 +280,7 @@ def prepare() -> None:
         destination,
         proof_session=proof_path,
         proof_sha256=sha(proof_path.read_bytes()),
-        package_root=package_root,
+        package_root=revised_package,
         preparation_paths=preparation_paths,
         target=plan["freshTarget"],
         narration_evidence_paths=narration,
@@ -266,10 +395,14 @@ def drive() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("start", "prepare", "drive"))
+    parser.add_argument(
+        "action", choices=("start", "build-package", "prepare", "drive")
+    )
     action = parser.parse_args().action
     if action == "start":
         start()
+    elif action == "build-package":
+        build_package()
     elif action == "prepare":
         prepare()
     else:
