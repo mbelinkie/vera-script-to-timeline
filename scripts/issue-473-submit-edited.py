@@ -139,6 +139,10 @@ def inspect(
         package._sha(package._admission_code_source_graph_raw()) == OLD_SOURCE_SHA,
         "signed native source graph differs",
     )
+    if stage == "rebuild":
+        from issue473_proof_bridge import load
+
+        load()
     corrected_reverse()
     m4 = corrected_m4()
     store = queue.Store(ROOT / "queue")

@@ -158,7 +158,7 @@ def observe() -> None:
         and not (p.root / "evidence-receipt.json").exists(),
         "original observation already exists; inspect instead",
     )
-    path = p.observe("A")
+    path = p.observe("synthetic-312")
     print(
         json.dumps(
             {
@@ -398,4 +398,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # The original native controller remains SHA-pinned and unmodified. The
+    # separately reviewed proof-only reader preserves its synthetic-312 case
+    # identity instead of inventing an A-labelled native receipt.
+    from issue473_proof_bridge import load
+
+    load()
     main()

@@ -277,4 +277,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from issue473_proof_bridge import load
+
+    load()
     main()

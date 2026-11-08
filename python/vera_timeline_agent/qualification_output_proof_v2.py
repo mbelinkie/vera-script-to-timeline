@@ -347,7 +347,19 @@ class QualificationOutputProofV2:
         enters a timestamp, token or review.
         """
         self._current()
-        _require(case_id in {"A", "B", "C"}, "supported isolated case required")
+        # The native Test Bench uses a distinct authenticated campaign ID
+        # for its semantic A specimen. Preserve that real identity in the
+        # observation; never relabel the signed native geometry as case A.
+        # Legacy A/B/C callers retain their original input and identity.
+        studio_a = case_id == "synthetic-312"
+        if studio_a:
+            _require(
+                self.baseline.context["caseId"] == case_id,
+                "studio A identity differs from authenticated native case",
+            )
+        kind = "A" if studio_a else case_id
+        evidence_case_id = case_id
+        _require(kind in {"A", "B", "C"}, "supported isolated case required")
         pristine, pristine_comparison = _load_terminal_output_with_comparison(
             self.baseline
         )
@@ -355,7 +367,7 @@ class QualificationOutputProofV2:
         before, after = pristine.output, edited.output
         pair = None
         equality = None
-        if case_id == "A":
+        if kind == "A":
             _require(
                 before.prediction == after.prediction
                 and before.decoded_samples == after.decoded_samples,
@@ -364,7 +376,7 @@ class QualificationOutputProofV2:
             equality = {
                 "schemaVersion": "qualification-output-audio-equality/v1",
                 "lane": LANE,
-                "caseId": case_id,
+                "caseId": evidence_case_id,
                 "pristinePredictionSha256": _hash(before.prediction),
                 "editedPredictionSha256": _hash(after.prediction),
                 "pristineDecodedSamplesSha256": _hash(before.decoded_samples),
@@ -381,7 +393,7 @@ class QualificationOutputProofV2:
         observation = {
             "schemaVersion": "qualification-output-observation/v1",
             "lane": LANE,
-            "caseId": case_id,
+            "caseId": evidence_case_id,
             "pristineGeometryJson": before.inputs.geometry.decode(),
             "editedGeometryJson": after.inputs.geometry.decode(),
             "pristineInputBindingJson": before.inputs.input_binding.decode(),
@@ -399,7 +411,7 @@ class QualificationOutputProofV2:
             "dependenciesHash": facts["dependenciesHash"],
             "cases": [observation],
         }
-        if case_id == "C":
+        if kind == "C":
             # Machine-derived by the TypeScript bridge from the measured
             # evidence and the observed native cut; `infer` below re-derives it.
             observation["omissionSupport"] = self.derive_omission_support(value)

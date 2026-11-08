@@ -609,6 +609,71 @@ def test_observation_transports_original_phase_input_binding_bytes(
     assert currentness_checks == 6
 
 
+def test_studio_matrix_semantic_A_preserves_real_host_case_in_both_proofs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The signed synthetic-312 host identity cannot be relabeled as A.
+
+    This pure transport test is deliberately independent of the real native
+    verifier. The actual TS bridge subsequently binds the original input
+    geometry context, ensuring the caller cannot forge an A-shaped capture.
+    """
+    original = SimpleNamespace(
+        output=SimpleNamespace(
+            prediction=b"audio-original",
+            decoded_samples=b"pcm-original",
+            inputs=SimpleNamespace(geometry=b"{}", input_binding=b"{}"),
+        ),
+        comparison=b"{}",
+    )
+    edited = SimpleNamespace(
+        output=SimpleNamespace(
+            prediction=b"audio-original",
+            decoded_samples=b"pcm-original",
+            inputs=SimpleNamespace(geometry=b"{}", input_binding=b"{}"),
+        ),
+        comparison=b"{}",
+    )
+    baseline_controller = SimpleNamespace(context={"caseId": "synthetic-312"})
+    edited_controller = SimpleNamespace(context={"caseId": "synthetic-312"})
+    monkeypatch.setattr(
+        proof,
+        "_load_terminal_output_with_comparison",
+        lambda ctrl: (
+            (original if ctrl is baseline_controller else edited),
+            {},
+        ),
+    )
+    session: Any = object.__new__(proof.QualificationOutputProofV2)
+    session.baseline = baseline_controller
+    session.edited = edited_controller
+    session._current = lambda: None
+    calls: list[dict[str, Any]] = []
+
+    def pure(request: dict[str, Any]) -> dict[str, Any]:
+        calls.append(request)
+        return (
+            {"documentHash": "document", "dependenciesHash": "dependencies"}
+            if request["mode"] == "baseline"
+            else {"caseKinds": ["A"]}
+        )
+
+    session._pure = pure
+    evidence = session.evidence("synthetic-312")
+    case_value = evidence["cases"][0]
+    assert case_value["caseId"] == "synthetic-312"
+    assert case_value["audioEquality"]["caseId"] == "synthetic-312"
+    assert case_value["pairJson"] is None
+    assert calls[-1]["mode"] == "infer"
+    assert calls[-1]["evidence"] == evidence
+
+    with pytest.raises(OutputConsistencyError, match="supported isolated case"):
+        session.evidence("synthetic-313")
+    baseline_controller.context["caseId"] = "some-other-synthetic"
+    with pytest.raises(OutputConsistencyError, match="authenticated native case"):
+        session.evidence("synthetic-312")
+
+
 @pytest.mark.parametrize(
     "attack", ["missing_terminal", "uncertain", "changed_decode", "changed_comparison"]
 )
