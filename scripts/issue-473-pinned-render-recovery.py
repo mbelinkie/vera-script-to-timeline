@@ -15,6 +15,7 @@ operation, other owner or native-start record stops permanently.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -51,7 +52,13 @@ def sha(raw: bytes) -> str:
 
 
 def approve_existing_render_output(
-    root: Path, controller: Any, carrier: Any, native: Any
+    root: Path,
+    controller: Any,
+    carrier: Any,
+    native: Any,
+    *,
+    session_path: Path,
+    session_sha: str,
 ) -> None:
     """Issue genuine attributed authority for ONLY signed polling/post-capture.
 
@@ -180,8 +187,8 @@ def approve_existing_render_output(
                     "https://github.com/mbelinkie/vera-script-to-timeline/issues/473"
                 ),
                 "consentInstruction": consent,
-                "sessionPath": str(RUN / "run/pristine/session.json"),
-                "sessionSha256": SESSION_SHA,
+                "sessionPath": str(session_path),
+                "sessionSha256": session_sha,
                 "planSha256": sha(raw),
                 "approvalSha256": sha(approved_raw),
                 "scope": approval,
@@ -192,7 +199,7 @@ def approve_existing_render_output(
     print("approved_existing_original_MOV_for", action, sequence, flush=True)
 
 
-def main() -> None:
+def main(phase: str = "pristine") -> None:
     # Checked before any import of the original host; no source-graph patching.
     need(Path.cwd().resolve() == FROZEN.resolve(), "run in original frozen checkout")
     head = subprocess.run(
@@ -221,10 +228,32 @@ def main() -> None:
         package._sha(package._admission_code_source_graph_raw()) == SOURCE_GRAPH_SHA,
         "retained Python/TypeScript source graph is not original",
     )
-    session_path = RUN / "run/pristine/session.json"
-    need(sha(session_path.read_bytes()) == SESSION_SHA, "original session byte changed")
-    controller = load_output_session(session_path, SESSION_SHA)
-    need(controller.context.get("phase") == "pristine", "not original pristine phase")
+    need(phase in {"pristine", "edited"}, "unsupported recovery phase")
+    session_path = RUN / f"run/{phase}/session.json"
+    session_sha = SESSION_SHA
+    if phase == "edited":
+        launch_intent = RUN / "run/edited-actions/one-use-run-intent.json"
+        need(
+            launch_intent.is_file() and not launch_intent.is_symlink(),
+            "original edited one-use host launch is missing",
+        )
+        pinned = json.loads(launch_intent.read_bytes())
+        need(
+            pinned.get("schema") == "vera.issue473-original-edited-host-once/v1"
+            and pinned.get("pristineSessionSha256") == SESSION_SHA
+            and pinned.get("session", {}).get("path") == str(session_path),
+            "edited launch provenance differs",
+        )
+        session_sha = pinned["session"]["sha256"]
+        need(
+            isinstance(session_sha, str)
+            and len(session_sha) == 64
+            and all(ch in "0123456789abcdef" for ch in session_sha),
+            "invalid original edited session digest",
+        )
+    need(sha(session_path.read_bytes()) == session_sha, "original session byte changed")
+    controller = load_output_session(session_path, session_sha)
+    need(controller.context.get("phase") == phase, "original host phase differs")
     need(controller.context.get("caseId") == "synthetic-312", "original case changed")
 
     # Import as a *separate external preflight*, never add files to frozen
@@ -243,14 +272,15 @@ def main() -> None:
         raise
     need(isinstance(helper, ModuleType), "verified helper is not a module")
 
-    root = RUN / "run/pristine-actions"
+    root = RUN / f"run/{phase}-actions"
     need(root.is_dir(), "original stage journal absent")
     actions = native.action_plan_for_context(controller.context)
-    need(
-        actions[:3] == ("construct", "save_reopen", "capture_pre")
-        or actions[:3] == ["construct", "save_reopen", "capture_pre"],
-        "original native prefix changed",
+    expected_prefix = (
+        ("construct", "save_reopen", "capture_pre")
+        if phase == "pristine"
+        else ("observe_edited", "save_reopen", "capture_pre")
     )
+    need(tuple(actions[:3]) == expected_prefix, "original native prefix changed")
     # Original immutable complete receipts must have been *already* ingested.
     for sequence, action in enumerate(actions[:3]):
         step = root / f"native-{sequence:02d}"
@@ -266,12 +296,19 @@ def main() -> None:
 
     expires = time.monotonic() + 1800
     while time.monotonic() < expires:
-        approve_existing_render_output(root, controller, carrier, native)
+        approve_existing_render_output(
+            root,
+            controller,
+            carrier,
+            native,
+            session_path=session_path,
+            session_sha=session_sha,
+        )
         try:
             result = output.tick(
                 root,
                 session_path=session_path,
-                session_sha256=SESSION_SHA,
+                session_sha256=session_sha,
                 installed=controller.release_root,
                 consent_reference="https://github.com/mbelinkie/vera-script-to-timeline/issues/473",
                 consent_instruction="Continue until closed",
@@ -282,7 +319,14 @@ def main() -> None:
                 str(error) == "approved output already exists",
                 "host refused original output for an unrelated reason",
             )
-            approve_existing_render_output(root, controller, carrier, native)
+            approve_existing_render_output(
+                root,
+                controller,
+                carrier,
+                native,
+                session_path=session_path,
+                session_sha=session_sha,
+            )
             continue
         except owner.NativeOwnerError as refusal:
             need(
@@ -354,8 +398,33 @@ def main() -> None:
             plan_path = RUN / "run/m4-plan.json"
             job_id = runner._find_job(store, sha(carrier._read(plan_path)))
             need(job_id is not None, "original M4 job not enrolled")
-            runner._submit_original(store, job_id, "pristine", result)
-            print("original_pristine_receipt_submitted", job_id, flush=True)
+            if phase == "pristine":
+                runner._submit_original(store, job_id, "pristine", result)
+                print("original_pristine_receipt_submitted", job_id, flush=True)
+            else:
+                from vera_timeline_agent import resolve_test_queue_m4 as m4
+
+                report = m4.publish(store, job_id)
+                need(
+                    report["stage"] == "edited"
+                    and report["stages"][1]["state"] == "awaiting_operator",
+                    "edited M4 stage is not awaiting original receipt",
+                )
+                receipt = {
+                    "schema": m4.RECEIPT_SCHEMA,
+                    "stage": "edited",
+                    "operationId": report["stages"][1]["operation_id"],
+                    "session": result["session"],
+                    "capture": result["capture"],
+                }
+                retained = store.root / job_id / "receipt-edited.json"
+                carrier._once(retained, queue.canonical(receipt))
+                print(
+                    "original_edited_receipt_preserved_for_independent_M4",
+                    str(retained),
+                    sha(carrier._read(retained)),
+                    flush=True,
+                )
             return
         need(result.get("state") == "running", "unexpected host output state")
         time.sleep(0.5)
@@ -363,8 +432,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("--phase", choices=("pristine", "edited"), default="pristine")
+    args = cli.parse_args()
     try:
-        main()
+        main(args.phase)
     except Exception as error:
         print("original_recovery_refused", type(error).__name__, str(error), flush=True)
         raise
