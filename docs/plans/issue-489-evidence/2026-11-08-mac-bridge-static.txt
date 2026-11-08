@@ -1,0 +1,105 @@
+# #489 — read-only Mac Bridge static evidence; 2026-11-08
+# Host bridge v0.5.0; explicit selected installed 21.1.1.10 paths.
+# All commands below were read-only; no SDK import, Resolve/MCP execution or native edits.
+# Output below is copied from successful tool results; "no match" is not proof of universal impossibility.
+
+$ plutil -p '/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Info.plist' | grep CFBundle
+"CFBundleShortVersionString" => "21.1.1"
+"CFBundleVersion" => "21.1.10010"
+
+$ shasum -a 256 '/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Info.plist'
+7539507115e554d8b936253934c394d9ded2b8f509eb5edd1cb58b047391a2f4
+$ shasum -a 256 '/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/DaVinciResolveScript.pyi'
+2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651
+$ shasum -a 256 '/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.md'
+5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b
+$ shasum -a 256 '/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/CHANGELOG.md'
+b12c961176d79a5fc87757a21dc7ce2e147f13fb4dab927ed9154943c7de1491
+
+$ ls -l selected installed binaries
+-rwxr-xr-x  1 root staff     430432 Oct 1 01:33 .../Contents/Applications/ResolveMCP
+-rwxr-xr-x  1 root staff 1049754864 Oct 1 01:33 .../Contents/MacOS/Resolve
+$ file selected installed binaries
+.../Contents/MacOS/Resolve: Mach-O universal binary with x86_64 and arm64
+.../Contents/Applications/ResolveMCP: Mach-O universal binary with x86_64 and arm64
+
+$ shasum -a 256 '.../Contents/MacOS/Resolve'
+d14f64e789f214fbfccbd9cad54b2e61b90d4bd202a9eb0105a74011306cbea5
+$ shasum -a 256 '.../Contents/Applications/ResolveMCP'
+0e7a874ccf91f59a9816b2414a80859ff7ff1056528a4c9ed5eb17e0affccf67
+$ codesign -dv --verbose=2 '.../Contents/Applications/ResolveMCP'
+Identifier=com.blackmagic-design.resolve.mcp
+Format=Mach-O universal (x86_64 arm64)
+Authority=Developer ID Application: Blackmagic Design Inc (9ZGFBWLSYP)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=9ZGFBWLSYP
+
+$ shasum -a 256 '.../Contents/Resources/DaVinciResolve.mcpb'
+2d92e52a9b09918f09d9ae803e83640cef0e856c5b5f8332ff73fa31f92baddf
+$ unzip -Z -1 '.../Contents/Resources/DaVinciResolve.mcpb'
+LICENSE
+icon.png
+manifest.json
+package.json
+server/index.js
+$ unzip -p '.../Contents/Resources/DaVinciResolve.mcpb' manifest.json | python3 -c 'import json,sys;print("\n".join(t["name"] for t in json.load(sys.stdin)["tools"]))'
+launch_resolve
+get_resolve_status
+get_whats_new
+get_scripting_api
+search_scripting_api
+run_script
+run_script_unsafe
+get_scripting_docs
+list_dctls
+list_luts
+update_dctl
+delete_dctl
+delete_lut
+generate_lut
+
+$ strings -a '.../Contents/Applications/ResolveMCP' | grep -oE 'AddTake|FinalizeTake|GetSmartReframeStatus|SetLeftOffset|SetRightOffset|MoveItems|RollEdit|RippleTrim' | sort -u
+(empty stdout; exit 0 from sort)
+
+# Main executable probes: Python3 opens a file as bytes and reads in 1-MiB
+# chunks with two-chunk overlap, checking raw names only. Never imports SDK,
+# loads Mach-O, connects to Resolve or writes to disk.
+# Each successfully completed command returned exit 0 and the boolean below:
+raw substring AddTake = True
+raw substring FinalizeTake = True
+raw substring GetSmartReframeStatus = True
+raw substring SetLeftOffset = False
+raw substring SetRightOffset = False
+raw substring MoveItems = True
+raw substring SetPosition = True
+raw substring GetPosition = True
+raw substring RollEdit = True
+raw substring RippleTrim = False
+
+# Additional full-file regex word-boundary probes (these expensive passes use
+# pairwise chunk scanning and \b around each name):
+MoveItems = True (exit 0)
+SetPosition = True (exit 0)
+GetPosition, RollEdit, AddTake, FinalizeTake, GetSmartReframeStatus =
+  timed_out at bridge 35-second cap; do NOT interpret as failed probes.
+# The impossible-name negative-control command was rejected as >240 chars,
+# and no full executable negative result was obtained for that control.
+# mmap() of the executable failed PermissionError; the fallback streaming
+# probe read file data only. A strings/grep attempt had a bridge internal error.
+
+$ find '/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Examples' -type f
+21 public .py/.lua example paths enumerated (no private files read).
+$ grep -RnlE 'AddTake|FinalizeTake|recordFrame|Offset' '/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Examples'
+(empty stdout, exit 1: no match)
+# rg was not installed; equivalent grep substituted.
+
+# Source #336: GitHub fetch_issue_comments yielded 6 issue comments, including
+# reporter's two corrections and maintainer's 2026-11-06 retest request.
+# https://github.com/samuelgursky/davinci-resolve-mcp/issues/336
+
+# Evidence boundaries:
+# - Mac's helper/manifest and *one* large main binary only (no dylib/.so sweep).
+# - "string present" != callable API; "no string" != impossible runtime call.
+# - No Mac run of standalone new issue489_static_resolve_audit module.
+# - No native effects, no change to #473/#312 gates.
