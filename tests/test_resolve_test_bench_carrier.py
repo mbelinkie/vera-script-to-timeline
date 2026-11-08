@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 import subprocess
@@ -294,6 +295,64 @@ def test_clean_worker_rejects_modified_request_before_sdk(
     )
     assert result.returncode != 0
     assert "installed request SHA differs" in result.stderr
+
+
+def test_clean_worker_accepts_vendor_sdk_module_replacement(
+    tmp_path: Path,
+) -> None:
+    """Installed vendor bootstrap replaces its own module with fusionscript."""
+    worker_path = (
+        Path(__file__).resolve().parents[1] / "python/vera_test_bench_native_worker.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "test_bench_clean_worker", worker_path
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sdk = tmp_path / "DaVinciResolveScript.py"
+    sdk.write_text(
+        "import sys, types\n"
+        "class Resolve:\n"
+        "    def GetProductName(self): return 'DaVinci Resolve Studio'\n"
+        "def scriptapp(name):\n"
+        "    assert name == 'Resolve'\n"
+        "    return Resolve()\n"
+        "sys.modules[__name__] = types.SimpleNamespace(scriptapp=scriptapp)\n"
+    )
+    old = sys.modules.pop("DaVinciResolveScript", None)
+    try:
+        resolve = module._resolve_via_official_sdk(sdk_override=sdk)
+        assert resolve.GetProductName() == "DaVinci Resolve Studio"
+        assert callable(sys.modules["DaVinciResolveScript"].scriptapp)
+    finally:
+        sys.modules.pop("DaVinciResolveScript", None)
+        if old is not None:
+            sys.modules["DaVinciResolveScript"] = old
+
+
+def test_clean_worker_fails_before_native_for_sdk_without_scriptapp(
+    tmp_path: Path,
+) -> None:
+    worker_path = (
+        Path(__file__).resolve().parents[1] / "python/vera_test_bench_native_worker.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "test_bench_clean_worker", worker_path
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sdk = tmp_path / "DaVinciResolveScript.py"
+    sdk.write_text("value = 'bootstrap did not expose the vendor scriptapp'\n")
+    old = sys.modules.pop("DaVinciResolveScript", None)
+    try:
+        with pytest.raises(RuntimeError, match="did not expose scriptapp"):
+            module._resolve_via_official_sdk(sdk_override=sdk)
+    finally:
+        sys.modules.pop("DaVinciResolveScript", None)
+        if old is not None:
+            sys.modules["DaVinciResolveScript"] = old
 
 
 def test_active_worker_requires_inherited_kernel_flock(tmp_path: Path) -> None:
