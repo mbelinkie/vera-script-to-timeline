@@ -17,7 +17,9 @@ import {
   requireRevision,
   requireTitle,
   requireUuid,
+  sha256,
 } from "./model.js";
+import { reconcileCommentsForDocumentRevision } from "./comments.js";
 
 type Digest = string;
 interface HeadRow {
@@ -340,11 +342,21 @@ export class ProjectDocumentService {
       }
       const head = await db.query<HeadRow>(
         "SELECT document_id,revision::text,document_json,content_digest " +
-          "FROM stt_document_heads WHERE project_id=$1",
+          "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE",
         [projectId],
       );
       const current = head.rows[0];
       if (!current) throw missing();
+      // Comment mutations lock this same row before the comment head. Holding
+      // it through replacement prevents a comment write from racing the edit.
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      let previousDocument: ScriptDocumentV2;
+      try {
+        previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch {
+        throw unavailable();
+      }
       if (requireUuid(document.document.id) !== requireUuid(current.document_id)) {
         throw new ProjectDocumentInputError("Document ID cannot change.");
       }
@@ -365,6 +377,10 @@ export class ProjectDocumentService {
         [projectId, expected, revision, document.documentJson, document.digest, actor],
       );
       if (!changed.rows[0]) throw conflict({ currentRevision: expected });
+      // Atomic with the head and immutable document revision. Corrupt or stale
+      // comment state aborts the entire edit, never leaving skewed heads.
+      await reconcileCommentsForDocumentRevision(db, projectId, previousDocument, expected,
+        document.document, revision, actor);
       return { projectId, clientMutationId: mutationId, revision,
         digest: document.digest, duplicateDelivery: false };
     }, sessionId);

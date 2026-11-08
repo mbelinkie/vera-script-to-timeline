@@ -10,6 +10,7 @@ import {
   ProjectDocumentInputError,
   requireObject,
 } from "./model.js";
+import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
 
 /** Max request bytes, including a full typed ScriptDocumentV2. */
@@ -91,6 +92,7 @@ export interface ProjectApiDependencies {
   identity?: SuiteIdentityPort;
   authorization: ProjectAuthorizationService;
   documents: ProjectDocumentService;
+  comments?: ProjectCommentService;
 }
 
 /** Unmounted Request -> Response handler. Hosting and identity implementation are outside #380. */
@@ -115,6 +117,25 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
           ...(Object.hasOwn(body, "settings") ? { settings: body.settings as AuthoringProjectSettingsV1 } : {}),
         });
         return response(result.duplicateDelivery ? 200 : 201, result);
+      }
+      const commentPath = /^\/v1\/projects\/([^/]+)\/comments(?:\/(operations))?$/u.exec(path);
+      if (commentPath) {
+        if (!deps.comments) throw new ProjectDocumentError("service_unavailable", 503);
+        const projectId = commentPath[1]!;
+        if (request.method === "GET" && !commentPath[2]) {
+          return response(200, await deps.comments.getComments(projectId, principal));
+        }
+        if (request.method === "POST" && commentPath[2] === "operations") {
+          const input = fields(await jsonBody(request),
+            ["expectedCommentRevision", "clientMutationId", "operation"],
+            ["expectedCommentRevision", "clientMutationId", "operation"]);
+          return response(200, await deps.comments.applyOperation(projectId, principal, {
+            expectedCommentRevision: input.expectedCommentRevision as number,
+            clientMutationId: input.clientMutationId as string,
+            operation: input.operation,
+          }));
+        }
+        return response(404, { error: "not_found" });
       }
       const project = /^\/v1\/projects\/([^/]+)(?:\/(document|settings))?$/u.exec(path);
       if (!project) return response(404, { error: "not_found" });
