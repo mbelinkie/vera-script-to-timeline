@@ -1,7 +1,8 @@
 # #382 — Backend build submission, pairing and immutable evidence
 
-Status: phase-1 contract and additive schema design (2026-11-08). The plan is
-not an assertion that pairing, dispatch, or native completion is operational.
+Status: phase-2 pairing/agent-auth implementation (2026-11-08). Pairing and
+observational polling are implemented in an **unmounted** private API, not a
+deployed host, active dispatcher or native-completion verifier.
 
 ## Authority and boundaries
 
@@ -156,3 +157,44 @@ Free can reach ready-to-import but not automatically imported; Studio can
 be called verified-native **only** after current readback evidence. This
 issue's backend tests cannot establish production deployment or general
 native parity. Dependencies are exactly #157, #158, #159 and #379.
+
+## Phase 2 implementation notes (unmounted developer-only transport)
+
+- `ProjectAgentPairingService` creates a 5-minute, random 256-bit
+  `stto_` offer through #379's `manage_settings` transaction. Only a Producer
+  can create or cancel an outstanding offer; the agent consumes it by proving
+  possession while the service rechecks the issuing Producer's *current* role
+  in the same transaction. A locked, atomic
+  one-use consume stores only a SHA-256 digest and issues a separate random
+  256-bit `sttag_` machine credential. The raw offer and agent credential are
+  returned only in their single successful creation/consume responses.
+- Machine authentication does not use `SuiteIdentityPort` and never produces
+  a user actor. Each heartbeat or observational assigned-job poll locks and
+  rechecks credential digest, version, revocation, exact project ID,
+  supported protocol and issuing Producer's current role. Revoked Producer
+  authority disables their previously paired agent. A current credential
+  permits reconnect; Producer rotation increments credential version and
+  invalidates the old token; revocation is permanent. No machine credential
+  grants membership, submission, stage execution, native effects or payments.
+- Valid protocol is `stt-build-agent/v1`. The bounded, strictly validated
+  claimed capability names are `free_package_v1` and
+  `studio_readback_v1`; they are *claims*, not native authorization or proof.
+  `GET /v1/agent/projects/:id/jobs` only describes existing assignments
+  (job ID, status, lease epoch and expiry) for a matching authenticated agent.
+  It does **not** claim or lease, fetch frozen inputs or dispatch effects;
+  those are phase-3/4 obligations.
+- Other phase-2 endpoints: `POST /v1/projects/:id/agent-pairing-offers`,
+  `DELETE /v1/projects/:id/agent-pairing-offers/:offerId`,
+  `POST /v1/agent-pairing/consume`, `POST /v1/agent/projects/:id/heartbeat`,
+  `POST /v1/projects/:id/agents/:agentId/rotate`,
+  `DELETE /v1/projects/:id/agents/:agentId`, and
+  `GET /v1/projects/:id/agent-readiness`. User routes require a trusted suite
+  identity adapter, agent routes require a scoped Bearer token plus positive
+  `X-Agent-Credential-Version`; API JSON is strictly shaped and 4-KiB bounded.
+  Readiness reports a recent authenticated heartbeat but **always** returns
+  `canBuild=false` and `nativeVerified=false`, never granting authority from
+  #158 untrusted operator observations.
+- This TypeScript handler intentionally remains **unmounted** until phase 4
+  extends the existing QA host's loopback-only transport restrictions,
+  migration allowlists and backup rules. The HTTP handler alone does not
+  establish local transport safety, TLS, deployment or a usable build runner.
