@@ -420,6 +420,92 @@ end run
     )
 
 
+def audit_spent_attempt(root: Path) -> None:
+    """Read-only native audit of the exact failed attempt; no replay or save."""
+    from vera_timeline_agent import qualification_output_native_v2 as native
+    from vera_timeline_agent import resolve_native_owner as owner
+    from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+    from vera_timeline_agent import resolve_test_queue as queue
+    from vera_timeline_agent import resolve_test_queue_m4 as m4
+
+    need(root in ALLOWED_ROOTS and root.is_dir(), "not an enrolled 473 campaign")
+    store = queue.Store(root / "queue")
+    plan_file = root / "run/m4-plan.json"
+    job_id = runner._find_job(store, digest(plan_file.read_bytes()))
+    need(job_id is not None, "original M4 job absent")
+    assert isinstance(job_id, str)
+    status = m4.publish(store, job_id)
+    need(
+        status["stages"][0]["state"] == "verified"
+        and status["stages"][1]["state"] == "awaiting_operator",
+        "edited one-use M4 handoff changed",
+    )
+    intent_path = root / "run/edit-ui-intent.json"
+    need(
+        intent_path.is_file() and not intent_path.is_symlink(),
+        "original one-use edit intent missing",
+    )
+    intent = json.loads(intent_path.read_bytes())
+    plan = m4._load_plan(store, job_id)
+    receipt = m4._stage_receipt(store, job_id, 0)
+    sha = receipt["capture"]["sha256"]
+    need(
+        intent.get("schema") == UI_SCHEMA
+        and intent.get("stageOperationId") == status["stages"][1]["operation_id"]
+        and intent.get("pristineCaptureSha256") == sha
+        and intent.get("initialTarget") == plan["initialTarget"],
+        "one-use edit intent provenance differs",
+    )
+    verified = native.verify_native_result(Path(receipt["capture"]["path"]), sha)
+    original = verified["nativeGeometry"]
+    expected = _expect_geometry(original)
+    left_uid, right_uid = _pair(expected)
+    need(
+        intent["leftItemUid"] == left_uid and intent["rightItemUid"] == right_uid,
+        "one-use edit intent source items differ",
+    )
+    resolve = owner._local_resolve_connection()
+    need(resolve is not None, "SDK connection missing")
+    actual = snapshot(resolve, plan["initialTarget"], original)
+    need(
+        actual.keys() == expected.keys(),
+        "native timeline item UIDs changed; stop instead of replay",
+    )
+    compared = {
+        uid: {
+            key: {"captured": expected[uid][key], "observed": actual[uid][key]}
+            for key in (
+                "recordStart",
+                "recordDuration",
+                "sourceStart",
+                "sourceDuration",
+            )
+        }
+        for uid in (left_uid, right_uid)
+    }
+    unrelated = sorted(
+        uid
+        for uid in expected
+        if uid not in {left_uid, right_uid}
+        and any(
+            actual[uid][key] != expected[uid][key]
+            for key in ("recordStart", "recordDuration", "mediaUid")
+        )
+    )
+    print(
+        json.dumps(
+            {
+                "state": "read_only_spent_edit_audit",
+                "oneUseIntentSha256": digest(intent_path.read_bytes()),
+                "leftRight": compared,
+                "unrelatedItemUidsChanged": unrelated,
+                "noNativeEffectOrReplay": True,
+            },
+            sort_keys=True,
+        )
+    )
+
+
 def run(root: Path, *, inspect_only: bool = False) -> None:
     from vera_timeline_agent import qualification_output_native_v2 as native
     from vera_timeline_agent import resolve_native_owner as owner
@@ -575,8 +661,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--inspect", action="store_true", default=False)
+    parser.add_argument("--audit-after", action="store_true", default=False)
     args = parser.parse_args()
-    run(args.root, inspect_only=args.inspect)
+    need(
+        not (args.inspect and args.audit_after),
+        "inspection and spent-attempt audit are mutually exclusive",
+    )
+    if args.audit_after:
+        audit_spent_attempt(args.root)
+    else:
+        run(args.root, inspect_only=args.inspect)
 
 
 if __name__ == "__main__":
