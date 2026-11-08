@@ -304,9 +304,13 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
     )
     preflight_root = root / "source-preflight"
     if preflight_root.exists() or preflight_root.is_symlink():
-        raise queue.QueueError(
-            "source preflight already attempted; inspect before any replay"
-        )
+        # A killed *static* admission is not permission to silently replay.
+        # Only the separate one-use, signed recovery path is acceptable, and
+        # only before any M4/native state has ever been enrolled.
+        from . import resolve_test_bench_source_recovery as recovery
+
+        recovery.verify(root, value)
+        return
     admission = admit_qualification_package_v2(
         preflight_root,
         profile=value["profile"],
