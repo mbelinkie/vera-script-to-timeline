@@ -116,6 +116,24 @@ async function checkedHttp(config: QaConfig, token: string, path: string,
   return result.body;
 }
 
+async function agentHttp(config: QaConfig, token: string, path: string,
+  status: number, method = "GET", data?: unknown): Promise<Record<string, unknown>> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${config.port}${path}`, {
+      method, signal: AbortSignal.timeout(7_000),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Agent-Credential-Version": "1",
+        ...(data === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+    });
+    requireStatus(response.status, status);
+    requireTrue(response.headers.get("Cache-Control") === "no-store");
+    return safeObject(await response.json() as unknown);
+  } catch { throw new QaSmokeRefusal(); }
+}
+
 async function launch(config: QaConfig, env: NodeJS.ProcessEnv, token: string): Promise<ChildProcess> {
   // Start the real operator CLI, not startQaServer's injectable test seam.
   const child = spawn(join(ROOT, "node_modules/.bin/tsx"),
@@ -190,6 +208,18 @@ async function snapshot(config: QaConfig, projectId: string): Promise<Snapshot> 
         "WHERE s.project_id=$1 ORDER BY s.id"),
       audit: await query("SELECT a.change_kind,a.old_role,a.new_role,a.membership_version,a.target_actor_id " +
         "FROM vera_project_membership_audit a WHERE a.project_id=$1 ORDER BY a.occurred_at,a.id"),
+      builds: await query("SELECT id,target_id,build_class,mode,expected_revision,document_digest," +
+        "settings_digest,snapshot_digest FROM stt_build_submissions WHERE project_id=$1 ORDER BY id"),
+      dispatches: await query("SELECT job_id,status,lease_epoch,reason_code,assigned_agent_id " +
+        "FROM stt_build_dispatches WHERE project_id=$1 ORDER BY job_id"),
+      buildEvents: await query("SELECT id,job_id,lease_epoch,status,stage_key,evidence_kind,reason_code " +
+        "FROM stt_build_events WHERE project_id=$1 ORDER BY id"),
+      selectedPins: await query("SELECT job_id,source_id,source_revision,source_digest " +
+        "FROM stt_build_source_pins WHERE project_id=$1 ORDER BY job_id,source_id"),
+      agents: await query("SELECT id,credential_version,protocol_version,revoked_at IS NOT NULL AS revoked " +
+        "FROM stt_project_build_agents WHERE project_id=$1 ORDER BY id"),
+      offers: await query("SELECT id,consumed_at IS NOT NULL AS consumed " +
+        "FROM stt_build_pairing_offers WHERE project_id=$1 ORDER BY id"),
       migrations: (await db.query<Record<string, unknown>>(
         "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
         "FROM vera_schema_migrations ORDER BY migration_name")).rows,
@@ -261,7 +291,7 @@ function verifySnapshot(value: Snapshot): void {
   requireTrue(rows("project").length === 1 && rows("head").length === 1 &&
     rows("revisions").length === 3 && rows("settings").length === 1 &&
     rows("settingsHistory").length === 2 && rows("audit").length === 4 &&
-    rows("sessions").length === 1 && rows("migrations").length === 2);
+    rows("sessions").length === 1 && rows("migrations").length === 4);
   requireTrue(Number(rows("head")[0]?.revision) === 2 &&
     Number(rows("settings")[0]?.settings_revision) === 2 &&
     Number(rows("project")[0]?.project_version) === 2);
@@ -270,6 +300,13 @@ function verifySnapshot(value: Snapshot): void {
       ["synthetic-viewer", "viewer", true]]);
   requireTrue(rows("sessions")[0]?.revoked === true &&
     rows("audit").some((row) => row.change_kind === "revoke"));
+  requireTrue(rows("builds").length === 1 && rows("dispatches").length === 1 &&
+    rows("buildEvents").length === 4 && rows("selectedPins").length === 0 &&
+    rows("agents").length === 1 && rows("offers").length === 1 &&
+    rows("dispatches")[0]?.status === "waiting_reconcile" &&
+    Number(rows("dispatches")[0]?.lease_epoch) === 1 &&
+    rows("agents")[0]?.revoked === false && rows("offers")[0]?.consumed === true &&
+    rows("buildEvents").every((event) => event.evidence_kind === "untrusted_report"));
   requireTrue(typeof value.postgres === "string" && value.postgres.length > 0);
 }
 
@@ -431,6 +468,71 @@ async function run(): Promise<void> {
     await checkedHttp(source, tokens.editor, "/" + projectId + "/document", 403, "PUT",
       { ...previousMutation, writeSessionId: sessionId });
     cases.push("editor-revocation");
+    stage = "build-freeze-and-replay";
+    const initialBuildSnapshot = await snapshot(source, projectId);
+    const currentHead = (initialBuildSnapshot.head as Array<Record<string, unknown>>)[0];
+    requireTrue(typeof currentHead?.content_digest === "string");
+    const intent = {
+      buildClass: "preview", mode: "free", expectedRevision: 2,
+      expectedDigest: currentHead.content_digest, idempotencyKey: randomUUID(),
+      selectedSources: [], render: false, delivery: false,
+    };
+    await checkedHttp(source, tokens.viewer, "/" + projectId + "/builds", 403, "POST", intent);
+    await checkedHttp(source, tokens.editor, "/" + projectId + "/builds", 403, "POST", intent);
+    const submission = await checkedHttp(source, tokens.producer,
+      "/" + projectId + "/builds", 202, "POST", intent);
+    requireTrue(submission.status === "queued" && submission.duplicateDelivery === false &&
+      typeof submission.jobId === "string" && typeof submission.snapshotDigest === "string");
+    const jobId = submission.jobId;
+    const replay = await checkedHttp(source, tokens.producer,
+      "/" + projectId + "/builds", 202, "POST", intent);
+    requireTrue(replay.jobId === jobId && replay.duplicateDelivery === true);
+    await checkedHttp(source, tokens.producer, "/" + projectId + "/builds", 409,
+      "POST", { ...intent, mode: "studio" });
+    const initiallyQueued = await checkedHttp(source, tokens.viewer,
+      "/" + projectId + "/builds/" + jobId, 200);
+    requireTrue(initiallyQueued.status === "queued" && initiallyQueued.snapshotDigest === submission.snapshotDigest);
+    cases.push("build-freeze-and-replay");
+
+    stage = "agent-lease-partial";
+    const offer = await checkedHttp(source, tokens.producer,
+      "/" + projectId + "/agent-pairing-offers", 201, "POST",
+      { agentLabel: "synthetic-only-qa", protocolVersion: "stt-build-agent/v1" });
+    requireTrue(typeof offer.offerToken === "string");
+    const consumed = await agentHttp(source, "unused-pairing-not-bearer",
+      "/v1/agent-pairing/consume", 201, "POST",
+      { projectId, offerToken: offer.offerToken,
+        protocolVersion: "stt-build-agent/v1", capabilities: ["free_package_v1"] });
+    requireTrue(typeof consumed.agentToken === "string" && consumed.credentialVersion === 1);
+    const agentToken = consumed.agentToken;
+    await agentHttp(source, agentToken, "/v1/agent-pairing/consume", 401,
+      "POST", { projectId, offerToken: offer.offerToken,
+        protocolVersion: "stt-build-agent/v1", capabilities: ["free_package_v1"] });
+    const agentPath = "/v1/agent/projects/" + projectId;
+    await agentHttp(source, "sttag_" + "z".repeat(43), agentPath + "/queue", 401);
+    const queue = await agentHttp(source, agentToken, agentPath + "/queue", 200);
+    requireTrue(Array.isArray(queue.jobIds) && queue.jobIds.length === 1 && queue.jobIds[0] === jobId);
+    const claim = await agentHttp(source, agentToken, agentPath + "/jobs/" + jobId + "/claim", 200, "POST");
+    requireTrue(claim.leaseEpoch === 1 && claim.snapshotDigest === submission.snapshotDigest);
+    const leasePath = agentPath + "/jobs/" + jobId + "/leases/1";
+    const frozen = await agentHttp(source, agentToken, leasePath + "/frozen", 200);
+    requireTrue(frozen.documentDigest === currentHead.content_digest && frozen.mode === "free" &&
+      frozen.settingsRevision === 2 && Array.isArray(frozen.selectedSources) &&
+      frozen.selectedSources.length === 0);
+    await agentHttp(source, agentToken, agentPath + "/jobs/" + jobId + "/leases/2/frozen", 409);
+    await agentHttp(source, agentToken, leasePath + "/progress", 400, "POST",
+      { status: "verified_native", stageKey: "generating_speech", receiptDigest: null, reasonCode: null });
+    await agentHttp(source, agentToken, leasePath + "/progress", 202, "POST",
+      { status: "running", stageKey: "generating_speech", receiptDigest: null, reasonCode: null });
+    await agentHttp(source, agentToken, leasePath + "/progress", 202, "POST",
+      { status: "waiting_reconcile", stageKey: "generating_speech",
+        receiptDigest: null, reasonCode: "synthetic_uncertain" });
+    const waiting = await checkedHttp(source, tokens.viewer, "/" + projectId + "/builds/" + jobId, 200);
+    requireTrue(waiting.status === "waiting_reconcile" && waiting.leaseEpoch === 1 &&
+      Array.isArray(waiting.events) && waiting.events.length === 4 &&
+      Array.isArray(waiting.evidence) && waiting.evidence.length === 0);
+    await agentHttp(source, agentToken, leasePath + "/frozen", 409);
+    cases.push("agent-lease-partial");
     stage = "source-snapshot";
     const before = await snapshot(source, projectId);
     verifySnapshot(before);
@@ -441,10 +543,12 @@ async function run(): Promise<void> {
     stage = "source-restart";
     running = await launch(source, env, tokens.producer);
     await readback(source, tokens, projectId, document2, updatedSettings, previousMutation, sessionId);
+    requireTrue((await checkedHttp(source, tokens.viewer, "/" + projectId + "/builds/" + jobId, 200))
+      .status === "waiting_reconcile");
     requireEqual(await snapshot(source, projectId), before);
     cases.push("source-restart");
-    // Startup re-applies both checksum-verified migrations to populated data.
-    requireTrue((before.migrations as unknown[]).length === 2);
+    // Startup re-applies all four checksum-verified migrations to populated data.
+    requireTrue((before.migrations as unknown[]).length === 4);
     cases.push("populated-migration");
     stage = "backup";
     await stop(running); running = undefined;
@@ -469,6 +573,8 @@ async function run(): Promise<void> {
     stage = "restore-restart";
     running = await launch(target, env, tokens.producer);
     await readback(target, tokens, projectId, document2, updatedSettings, previousMutation, sessionId);
+    requireTrue((await checkedHttp(target, tokens.viewer, "/" + projectId + "/builds/" + jobId, 200))
+      .status === "waiting_reconcile");
     const restored = await snapshot(target, projectId);
     verifySnapshot(restored);
     requireEqual(restored, before);
@@ -503,7 +609,7 @@ async function run(): Promise<void> {
         writer.once("finish", resolve); writer.once("error", reject);
       });
     } finally { closeSync(fd); }
-    process.stdout.write("STT development-QA real HTTP/PostgreSQL/recovery smoke passed (13 scenarios)\n");
+    process.stdout.write("STT development-QA real HTTP/PostgreSQL/recovery smoke passed (15 scenarios)\n");
   } finally {
     if (running) await stop(running).catch(() => undefined);
   }
