@@ -279,4 +279,20 @@ describe("immutable, authorized project checkpoints", () => {
     expect((await service.listCheckpoints(project.projectId, viewer,
       { beforeCheckpointId: ids.sort()[0]! })).checkpoints).toEqual([]);
   });
+
+  it("fails closed on a partially installed history schema without appending a document revision", async () => {
+    const { db, service, owner } = await setup();
+    const project = initialProject();
+    await service.createProject(owner, project);
+    // A broken/partial deployment is not the supported legacy 001+002-only state.
+    await db.query("DROP TABLE stt_checkpoint_approvals");
+    await expect(service.putDocument(project.projectId, owner, {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: project.document,
+    })).rejects.toMatchObject({ status: 503 });
+    expect((await db.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM stt_document_revisions WHERE project_id=$1",
+      [project.projectId],
+    )).rows[0]?.count).toBe("1");
+    expect((await service.getDocument(project.projectId, owner)).revision).toBe(0);
+  });
 });

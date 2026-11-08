@@ -456,6 +456,19 @@ export class ProjectDocumentService {
     db: SqlClient, projectId: string, actor: string, mutationId: string,
     operation: "create_checkpoint" | "approve_checkpoint" | "edit_document",
   ): Promise<void> {
+    if (operation === "edit_document") {
+      // Existing independent build consumers can still host document schema
+      // 001+comments 002 without the additive history 003 tables. A missing
+      // pair means no checkpoint mutation keys can exist; a partial pair is
+      // a broken migration and must not silently weaken protection.
+      const installed = await db.query<{ checkpoints: boolean; approvals: boolean }>(
+        "SELECT to_regclass('stt_document_checkpoints') IS NOT NULL AS checkpoints," +
+          " to_regclass('stt_checkpoint_approvals') IS NOT NULL AS approvals",
+      );
+      const state = installed.rows[0];
+      if (!state || state.checkpoints !== state.approvals) throw unavailable();
+      if (!state.checkpoints) return;
+    }
     const tables = operation === "edit_document" ?
       ["stt_document_checkpoints", "stt_checkpoint_approvals"] :
       ["stt_document_revisions", operation === "create_checkpoint" ?
