@@ -116,6 +116,24 @@ export class ProjectBuildStatusService {
     return await this.auth.withAuthorizedMutation(projectId, viewer, "view_build_results", async (db) => {
       const frozen = await loadFrozen(db, projectId, jobId);
       const dispatch = await dispatchForUpdate(db, projectId, jobId);
+      // A crashed/offline worker must not appear indefinitely "running" after
+      // its transport lease expires. Reconcile once on authorized readback;
+      // never re-queue an uncertain stage or discard its earlier receipts.
+      const now = checkedNow(this.clock);
+      if ((dispatch.status === "leased" || dispatch.status === "running") &&
+          dispatch.lease_expires_at !== null &&
+          new Date(dispatch.lease_expires_at).getTime() <= new Date(now).getTime()) {
+        await db.query(
+          "UPDATE stt_build_dispatches SET status='waiting_reconcile'," +
+            "reason_code='lease_expired',lease_expires_at=NULL,updated_at=$3 " +
+            "WHERE project_id=$1 AND job_id=$2",
+          [projectId, jobId, now],
+        );
+        await appendEvent(db, projectId, jobId, "waiting_reconcile",
+          safeNumber(dispatch.lease_epoch), now, "lease_expired", dispatch.assigned_agent_id);
+        dispatch.status = "waiting_reconcile";
+        dispatch.reason_code = "lease_expired";
+      }
       const events = (await db.query<{
         id: string; lease_epoch: string | number; status: BuildStatus;
         stage_key: string | null; evidence_kind: string; receipt_digest: string | null;

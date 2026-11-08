@@ -130,5 +130,67 @@ this explicit gate failure in final review and decide appropriate escalation.
 
 **No production deployment:** This listener is local QA only, no TLS or remote
 host, no automated Studio driver, and no accepted source integration. The
-subsequent phase 5 owns whole-diff/mutation review and the above
-whole-repository gate disposition.
+phase-5 review and whole-repository disposition are recorded below.
+
+## Phase 5 — independent integrity review and final handoff (2026-11-08 UTC)
+
+The whole #382 diff was reviewed against its accepted backend-only scope,
+including the identity/pairing and issuer-role boundary, one-use offer TTL and
+credential hashes, same-transaction document/settings freeze, source-pin
+authority, idempotency, append-only SQL, epoch/lease checks, private host and
+backup allowlists, and synthetic/independent native-evidence separation.
+
+**One correctness finding fixed:** an expired `leased` or `running` transport
+lease previously remained displayed as active indefinitely after a worker
+disconnected. An authorized status read now atomically appends one
+`waiting_reconcile` / `lease_expired` event and clears the expired lease,
+without deleting earlier receipt events, re-queuing work, or authorizing a
+second native effect. Repeated reads do not append duplicate expiry events.
+The focused epoch/expiry and prior-receipt regression passed, as did package
+lint and typecheck.
+
+**Mutation evidence:** seven deliberately broken guards each caused the
+appropriate targeted Vitest regression to fail, then the exact original
+source bytes were restored: (1) current pairing issuer role, (2) one-use
+offer TTL, (3) frozen document SHA-256, (4) transport lease epoch, (5) exact
+idempotency replay fingerprint, (6) forged native status via untrusted
+progress, and (7) revoked agent credential. Mutation logs were retained in
+the private `.pipeline/382/` ticket folder, not in the published repository.
+`git diff --check` was clean after restoration.
+
+**Focused checks, fresh phase-5 run:** the four workspaces
+`@vera/project-builds`, `@vera/project-authorization`,
+`@vera/project-documents`, and `@vera/project-service-host` passed their
+respective Vitest suites. The host suite had **67 passed, 1 opt-in PostgreSQL
+test skipped**; the build package had **36 passed**. Build and host lint and
+typechecks passed. `uv run --frozen pytest -q
+tests/test_issue382_build_agent.py tests/test_build_composition.py
+tests/test_build_jobs.py tests/test_companion_readiness.py` passed **82/82**;
+focused Ruff, format and mypy checks also passed. The separately recorded
+phase-4 real PostgreSQL/loopback **15/15** recovery run was not repeated in
+phase 5, and remains synthetic-only evidence.
+
+**Final whole-repository gate (not green):**
+`VITEST_MAX_WORKERS=1 npm run validate:fast` exited **1** after **480.405 s**.
+Generated contracts, TypeScript lint, TypeScript types, TypeScript tests,
+Python lint and Python types all **PASSED**. The Python xdist phase reported
+**2,808 passed, 43 skipped, 24 failed**. Every failure was confined to
+`tests/test_narration_cli.py`, `tests/test_issue208_target_identity.py`,
+`tests/test_issue208_gate_coverage.py`, `tests/test_issue208_review_fixes.py`,
+`tests/test_issue182_campaign.py`, or `tests/test_word_timing_package.py`.
+These test modules and their Python implementation paths are unchanged from
+the branch's `56f09372` main baseline; #382 added only
+`build_agent_service.py` and `test_issue382_build_agent.py` under Python/tests.
+Phases 1–4 already observed 14/16/18/19 failures in the same unrelated
+families, including phase 1 before any new Python agent code existed.
+Another VERA issue's fast validation was observed overlapping this run, but
+contention has **not** been established as the cause of any particular failure.
+No assertion was deleted or relaxed. An independent rerun of the exact 24
+cases at current `origin/main` was not performed; this is a source-equivalent
+baseline comparison, not a claim that the current main gate was observed green.
+
+`npm run review -- <ticket>/notes.md` was attempted **once**; the Claude CLI
+replied that its weekly usage limit was reached and returned no findings.
+The independent local self-review above supplied the fix; no paid review
+output or native acceptance is fabricated. **Native Resolve save/reopen,
+real provider effects, and production/remote pairing remain UNVERIFIED.**

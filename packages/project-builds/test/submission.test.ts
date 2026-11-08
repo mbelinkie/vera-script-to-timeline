@@ -382,7 +382,16 @@ describe("epoch-CAS durable status and independently classified evidence", () =>
     await expect(h.status().appendProgress(agent, job.jobId, report))
       .rejects.toMatchObject({ code: "lease_conflict", status: 409 });
     view = await h.status().get(h.projectId, h.viewer, job.jobId);
-    expect(view.events).toHaveLength(3);
+    expect(view.status).toBe("waiting_reconcile");
+    expect(view.reasonCode).toBe("lease_expired");
+    expect(view.events.map((e) => e.status))
+      .toEqual(["queued", "leased", "running", "waiting_reconcile"]);
+    // Readback is idempotent: never erase a prior receipt or append a second expiry.
+    const again = await h.status().get(h.projectId, h.viewer, job.jobId);
+    expect(again.events).toHaveLength(4);
+    expect(again.events[2]?.receiptDigest).toBe(report.receiptDigest);
+    await expect(h.status().claim(agent, job.jobId))
+      .rejects.toMatchObject({ status: 409 });
   });
 
   it("appends inspected synthetic evidence without elevating it to native proof", async () => {
