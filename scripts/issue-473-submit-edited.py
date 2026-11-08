@@ -68,7 +68,7 @@ def corrected_m4() -> ModuleType:
     return module
 
 
-def inspect() -> tuple[Any, Any, str, dict[str, Any]]:
+def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]:
     from vera_timeline_agent import qualification_output_package_v2 as package
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner
     from vera_timeline_agent import resolve_test_queue as queue
@@ -121,15 +121,20 @@ def inspect() -> tuple[Any, Any, str, dict[str, Any]]:
         == {"path": str(prepared), "sha256": sha(prepared.read_bytes())},
         "edited source-pinned host session differs",
     )
-    intent_time = m4._intent(store, job_id, 1)
-    # Existing M4 acceptance verifies current v2 session and admission, all
-    # independently authenticated native operations, saved same-target IDs,
-    # exact signed +24 frame roll and terminal MOV/PCM comparison. Pure check.
-    m4._verify_stage(store, job_id, 1, receipt, intent_time)
+    if verify_host:
+        intent_time = m4._intent(store, job_id, 1)
+        # Existing M4 acceptance verifies current v2 session and admission,
+        # independently authenticated native operations, same-target IDs,
+        # exact signed +24 frame roll, and terminal MOV/PCM. Pure check.
+        m4._verify_stage(store, job_id, 1, receipt, intent_time)
     print(
         json.dumps(
             {
-                "state": "edited_m4_independently_verified_read_only",
+                "state": (
+                    "edited_m4_independently_verified_read_only"
+                    if verify_host
+                    else "edited_m4_original_receipt_preflight_only"
+                ),
                 "jobId": job_id,
                 "sourcePinnedNativeCommit": OLD_GIT_SHA,
                 "correctedM4SourceSha256": EXPECTED_M4_SHA,
@@ -151,7 +156,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("inspect", "submit"))
     action = parser.parse_args().action
-    m4, store, job_id, _receipt = inspect()
+    # A separately executed inspect has already run the complete comparison.
+    # M4.submit *itself* reruns the complete stage verifier, so do not double
+    # that expensive independent readback before pinning its one-use receipt.
+    m4, store, job_id, _receipt = inspect(verify_host=action == "inspect")
     if action == "submit":
         m4.submit(store, job_id)
         report = m4.publish(store, job_id)
