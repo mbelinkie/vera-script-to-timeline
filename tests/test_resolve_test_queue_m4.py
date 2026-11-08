@@ -416,6 +416,28 @@ def test_wrong_target_context_cannot_count_as_native_capture(
         )
 
 
+def test_actual_native_rational_geometry_accepted_without_string_coercion() -> None:
+    geometry: dict[str, Any] = {
+        "rate": {"numerator": 24000, "denominator": 1001},
+        "extentFrames": 1407,
+        "items": [{} for _ in range(11)],
+        "tracks": [{} for _ in range(6)],
+    }
+    m4._assert_qualified_output_geometry(geometry)
+    for mutation in (
+        {"rate": "24000/1001"},
+        {"rate": {"numerator": 24, "denominator": 1}},
+        {"rate": {"numerator": 24000, "denominator": 1001, "extra": 1}},
+        {"extentFrames": True},
+        {"extentFrames": 1406},
+        {"items": geometry["items"][:-1]},
+        {"tracks": geometry["tracks"][:-1]},
+    ):
+        changed = {**geometry, **mutation}
+        with pytest.raises(queue.QueueError, match="qualified native"):
+            m4._assert_qualified_output_geometry(changed)
+
+
 def test_accepted_revision_must_bind_both_pinned_sessions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

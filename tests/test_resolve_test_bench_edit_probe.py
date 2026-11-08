@@ -103,7 +103,7 @@ def _fixture() -> tuple[Any, dict[str, str], dict[str, Any], dict[str, Any]]:
         GetVersion=lambda: [21, 1, 2, 10],
     )
     geometry = {
-        "rate": "24000/1001",
+        "rate": {"numerator": 24000, "denominator": 1001},
         "extentFrames": 1407,
         "context": {"target": target},
         "tracks": tracks,

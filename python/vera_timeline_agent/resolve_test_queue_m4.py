@@ -380,6 +380,28 @@ def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _assert_qualified_output_geometry(geometry: Any) -> None:
+    """Check the actual native v2 rational-rate geometry, not a display label.
+
+    The authenticated Studio 21.1.1 capture encodes a rational object; the
+    legacy string literal accidentally rejected the genuine #473 fixture.
+    Never coerce unsupported strings or approximated frame rates to acceptance.
+    """
+    if (
+        not isinstance(geometry, dict)
+        or geometry.get("rate") != {"numerator": 24000, "denominator": 1001}
+        or type(geometry.get("extentFrames")) is not int
+        or geometry["extentFrames"] != 1407
+        or not isinstance(geometry.get("items"), list)
+        or len(geometry["items"]) != 11
+        or not isinstance(geometry.get("tracks"), list)
+        or len(geometry["tracks"]) != 6
+    ):
+        raise queue.QueueError(
+            "qualified native 11-event, 6-track 1407-frame geometry required"
+        )
+
+
 def _verified_output(
     receipt: Mapping[str, Any],
     phase: str,
@@ -433,18 +455,7 @@ def _verified_output(
     if queue.dt(intent["createdAt"]) < queue.dt(intent_at):
         raise queue.QueueError("native operation predates the durable M4 intent")
     _load_terminal_output_with_comparison(controller)
-    geometry = result["nativeGeometry"]
-    if (
-        geometry.get("rate") != "24000/1001"
-        or geometry.get("extentFrames") != 1407
-        or not isinstance(geometry.get("items"), list)
-        or len(geometry["items"]) != 11
-        or not isinstance(geometry.get("tracks"), list)
-        or len(geometry["tracks"]) != 6
-    ):
-        raise queue.QueueError(
-            "qualified native 11-event, 6-track 1407-frame geometry required"
-        )
+    _assert_qualified_output_geometry(result["nativeGeometry"])
     return controller, result
 
 

@@ -52,7 +52,7 @@ def native_pair() -> tuple[dict[str, Any], dict[str, Any]]:
         for i in range(1, 12)
     ]
     geometry: dict[str, Any] = {
-        "rate": "24000/1001",
+        "rate": {"numerator": 24000, "denominator": 1001},
         "extentFrames": 1407,
         "context": {"target": target, "phase": "pristine"},
         "tracks": [{"trackId": f"track-{i}"} for i in range(6)],
@@ -91,6 +91,9 @@ def test_supported_boundary_exact_native_geometry() -> None:
         lambda b, a: a["items"][0].update(sourceMappingSha256="changed"),
         lambda b, a: a["context"]["target"].update(timelineUid="wrong"),
         lambda b, a: a.update(rate="24"),
+        lambda b, a: a.update(rate="24000/1001"),
+        lambda b, a: a["rate"].update(denominator=1000),
+        lambda b, a: a["rate"].update(extra=1),
         lambda b, a: a.update(extentFrames=1406),
         lambda b, a: a["items"].pop(),
         lambda b, a: a["items"][1].update(recordDuration=96, sourceDuration=97),

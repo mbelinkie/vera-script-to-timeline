@@ -285,6 +285,60 @@ def test_one_explicit_instruction_covers_noninteractive_replan_and_permitted_ret
     assert retry["outputPath"].endswith("-retry-1.mov")
 
 
+@pytest.mark.parametrize(
+    ("sequence", "existing_output_allowed"),
+    [(0, False), (4, False), (5, True), (6, True)],
+)
+def test_agent_existing_mov_only_allowed_for_own_poll_and_post_capture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sequence: int,
+    existing_output_allowed: bool,
+) -> None:
+    controller, session_path, session_sha256, release_manifest = _case(
+        tmp_path, monkeypatch
+    )
+    plan_path = _plan(controller, tmp_path / "operator-plan.json")
+    proposal = json.loads(plan_path.read_text())["proposal"]
+    actual_mov = Path(proposal["outputPath"])
+    actual_mov.parent.mkdir(parents=True, exist_ok=True)
+    actual_mov.write_bytes(b"existing-original-native-render-output")
+    monkeypatch.setattr(
+        native,
+        "next_native_operation",
+        lambda _context, *, retry=False: (sequence, "head"),
+    )
+    monkeypatch.setattr(
+        native,
+        "native_action",
+        lambda _context, index: {
+            0: "construct",
+            4: "start_render",
+            5: "poll_render",
+            6: "capture_post",
+        }[index],
+    )
+    approval_path = _approval_dir(tmp_path) / "approval.json"
+    if existing_output_allowed:
+        _issue(plan_path, approval_path, session_path, session_sha256)
+        approval = native.verify_operator_approval(
+            approval_path.read_bytes(),
+            context=controller.context,
+            profile=controller.admission.profile,
+            admission_sha256=_hash(controller.admission.admission_path.read_bytes()),
+            release_manifest_sha256=_hash(release_manifest.read_bytes()),
+            require_output_absent=False,
+        )
+        assert approval["outputPath"] == str(actual_mov)
+        assert approval_path.with_name(approval_path.name + ".issuance.json").is_file()
+    else:
+        with pytest.raises(
+            OutputConsistencyError, match="approved output already exists"
+        ):
+            _issue(plan_path, approval_path, session_path, session_sha256)
+        assert not approval_path.exists()
+
+
 def test_progressed_native_run_can_be_replanned_without_new_terminal_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

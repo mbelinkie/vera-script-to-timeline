@@ -704,6 +704,7 @@ def issue_operator_approval(
     )
     agent_issued = any(value is not None for value in agent_fields)
     approval = _approval_from_proposal(proposal)
+    subsequent_read_only_render = False
     if agent_issued:
         _require(
             isinstance(session_path, Path)
@@ -723,12 +724,18 @@ def issue_operator_approval(
             NATIVE_STATE_ROOT,
             RETRY_ACTION_PLAN,
             action_plan_for_context,
+            native_action,
             next_native_operation,
         )
         from .workflow_v2_cli import _verify_output_release
 
         retry = approval["actionPlan"] == list(RETRY_ACTION_PLAN)
         sequence, _ = next_native_operation(controller.context, retry=retry)
+        subsequent_read_only_render = (
+            not retry
+            and native_action(controller.context, sequence)
+            in {"poll_render", "capture_post"}
+        )
         _require(
             retry or sequence < len(action_plan_for_context(controller.context)),
             "completed run or retry requires its own bounded retry plan",
@@ -783,6 +790,7 @@ def issue_operator_approval(
         profile=proposal["profile"],
         admission_sha256=proposal["admissionSha256"],
         release_manifest_sha256=proposal["releaseManifestSha256"],
+        require_output_absent=not subsequent_read_only_render,
     )
     if agent_issued:
         _publish(

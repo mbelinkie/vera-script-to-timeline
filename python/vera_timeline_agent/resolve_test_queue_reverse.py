@@ -22,7 +22,7 @@ from .qualification_output_proof_v2 import (
     _load_terminal_output_with_comparison,
 )
 
-EXPECTED_RATE = "24000/1001"
+EXPECTED_RATE = {"numerator": 24000, "denominator": 1001}
 EXPECTED_EXTENT = 1407
 BEFORE_BOUNDARY = 327
 AFTER_BOUNDARY = 351

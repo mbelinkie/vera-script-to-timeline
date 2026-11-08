@@ -6,9 +6,13 @@
 from a freshly fetched `origin/main`, separate from #312, #472, the existing
 PR #323, historical operation IDs, and retained evidence. All new native
 operations use disposable project/timeline identities and an existing VERA
-Delivery v2 signed request chain. The first #473 Mac-native campaign reached
-disposable provisioning only, then failed package admission **before construct**;
-there are no new #473 native effect receipts and no claim of unattended acceptance.
+Delivery v2 signed request chain. A full **real** pristine Studio 21.1.1.10
+seven-operation chain with MOV/PCM comparison was later completed under
+`issue-473-studio-05`. Its pinned first M4 stage was nevertheless correctly
+marked **unknown** by the then-current incompatible native-frame-rate
+representation guard. Neither the immutable M4 receipt nor original native
+results are replayed, rewritten or backdated; unattended #312 acceptance is
+**not** achieved. A fresh distinct campaign must re-prove the corrected gate.
 
 The remaining hard blocker is a **genuine in-place 327 → 351 roll edit** that
 preserves the two original picture timeline-item UIDs and every unrelated
@@ -176,7 +180,8 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **53 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
+- **135 focused contracts/controller/M4/native-carrier/edit-probe tests passed**
+  after the render-source fixes. `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
@@ -269,4 +274,37 @@ this draft PR to ready merely because isolated tests pass.
   intent, while refusing foreign/uncertain owners and unknown/active render
   jobs. Do not monkeypatch, clear the owner, reuse this target or replay
   sequence 3. Real render/PCM and final M4 are not yet proven.
-- Full native M4 success and #312 completion remain **unverified**.
+- **Original campaign 05 continuation, Nov 7:** Recovered via the **exact
+  frozen commit** `3ea32582`, with the original sealed source graph hash
+  `1dc6db11389bb6f322b0f05446f142d9fdd072d873019aa507803c3f0cd1c7cc`.
+  A separate hash-pinned, read-only stage-aware owner guard was used solely
+  through the original carrier's explicit preflight parameter; the actual
+  native effects, source verifier and operator-approval envelope remained
+  original and signed, not patched. `queue_render` (3), `start_render` (4),
+  `poll_render` (5) and `capture_post` (6) each obtained **distinct, genuine,
+  complete** Studio results and authenticated ingestion, with no replay of
+  operations 0–2. The actual Resolve job was `Complete`, 100% (11,434 ms).
+  An exact scope-and-consent bound post-render approval was necessary because
+  the old `issue_operator_approval` mistakenly required the MOV to be absent
+  even when the next fixed action was `poll_render` or `capture_post`; this is
+  now corrected in the new code with four regression cases. The original
+  controller then returned `terminal_native_verified` after source/geometry,
+  render, decode and PCM comparison and submitted its original pristine M4
+  receipt. The launch job was removed; the exhausted native action plan
+  correctly refused the launch service's next invocation.
+- **M4 independent refusal is immutable:** job
+  `resolve-reverse-6d7e20fad0b64b418d6a94930526557d` marked the pristine
+  stage `unknown` / `unverified_stage_do_not_replay`. Live authenticated
+  `capture_post` geometry has `rate={"numerator":24000,"denominator":1001}`,
+  `extentFrames=1407`, 11 real items and six tracks. The old M4 and reverse
+  boundary validators erroneously required the **string** `"24000/1001"`,
+  despite the canonical verified native rational-object encoding. The new
+  code strictly accepts only the exact rational object, not arbitrary strings
+  or approximations, with mutation checks for extra fields/wrong rates.
+  **Never reclassify the spent M4 job as verified or resubmit its receipt**.
+  New source admission and fresh M4 IDs are mandatory to prove acceptance.
+- **Attempt 06** was refused by its own safety preflight during disposable
+  creation because campaign 05's legitimate render reservation was still
+  active. No #06 native effects were dispatched; its launch job was removed.
+- Full four-stage M4 and #312 acceptance remain **unverified**. Same-target
+  identity-preserving 327→351 edit and revised fresh rebuild are still pending.
