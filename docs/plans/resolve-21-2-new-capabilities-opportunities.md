@@ -10,6 +10,8 @@
 
 There is **no dependency** on #480/#473 for this static research: the issue's later Producer-approved ordering correction supersedes the older prep brief's suggestion to stop read-only work. Physical testing still requires #479 compatibility **GO**, #480 independently verified old-version fallback, #473 completed native acceptance and new authorized disposable targets. A #479 Intel NO-GO forbids 21.2 installation on that Intel host even though this report is independently useful for a supported future machine.
 
+**Current installation gate (merged #479, 2026-11-08):** [the Intel coexistence feasibility review](resolve-21-2-coexistence-feasibility.md) returned **NO-GO for installation/testing on the existing Mac**. Published Apple-silicon minimum requirements are adverse, and direct-installer binary slices, shared-state isolation and rollback have not been verified. This is *not* proof that the direct 21.2 binary has no Intel slice; the installed working 21.1.1 app has both architectures. #480 stays blocked; this offline capability roadmap does not change that verdict.
+
 ## Evidence ledger: official bytes vs published transcripts
 
 | Label | Version / exact path or URL | Provenance and integrity |
@@ -74,4 +76,10 @@ Each promotion requires actual method availability, a source-pinned fresh target
 
 - `origin/main` at phase start: `4968d2c2`, freshly fetched; isolated locked #484 worktree. Existing Producer main/dashboard edits were not touched.
 - Source-level review of actual named VERA functions and existing [#477 static SDK inventory helper](../../python/vera_timeline_agent/issue477_sdk_inventory.py). No running Resolve SDK, local Resolve installation, .pyi outside the repository, original projects, user media, external model installation or native operation contacted here.
-- This report supplies explicit hypotheses and refusal criteria. Actual SDK 21.1.2/21.2 authenticated bytes/examples, runtime method reality, Intel binary support, app license/OS/CPU, performance measurements and all native proofs remain **unknown** for #484. If #479 returns NO-GO, retain this report for a separately supported future machine and refuse any Intel experiment.
+- This report supplies explicit hypotheses and refusal criteria. Actual SDK 21.1.2/21.2 authenticated bytes/examples, runtime method reality, Intel binary support, app license/OS/CPU, performance measurements and all native proofs remain **unknown** for #484. Because #479 returned an installation NO-GO, retain this report for a separately supported future machine and refuse any Intel experiment.
+
+### Phase-two verification and baseline gate limitation
+
+- The offline matrix's **22 focused pytest cases pass**; Ruff checks and strict mypy across **365 source files** pass after bringing the branch onto the merged #479 baseline. Four reversible guard-disabling mutations (native-execution policy, protection of existing native targets, duplicate JSON object keys and existing in-repository code references) each produced a failing focused test; all were restored and the clean suite passed.
+- `VITEST_MAX_WORKERS=1 npm run validate:fast` completed with **contracts, TypeScript lint/typecheck/tests, Python Ruff and Python mypy PASS** but the overall gate **FAIL** at Python parallel pytest: **2,860 passed, 43 skipped, 19 failed**. No #484 test failed. Failures were in unchanged #208 target-identity/capability time checks, narration CLI, word-timing subprocesses and #182 campaign parsing; the sandbox also lacks `ffmpeg` for an affected legacy test.
+- This is a **documented baseline failure, not a green gate**. The now-merged [#479 baseline verification](resolve-21-2-coexistence-feasibility.md#phase-two-verification-on-the-isolated-linux-worker-2026-11-08) separately archived `origin/main` `4968d2c2` and ran the same fast Python selection: **2,824 passed, 43 skipped, 21 failed**, with the overlapping failure classes. #484 adds only this research report, its JSON data and isolated offline Python validation/tests; no implicated production path or legacy test was changed. CI must independently judge the PR.
