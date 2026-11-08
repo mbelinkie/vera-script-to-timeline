@@ -1,6 +1,6 @@
 # #484 — Resolve 21.1.2 / 21.2 new-capability opportunities for VERA
 
-**2026-11-08 | Read-only source/code research | Phase 1 draft for #482/#483.** Companion structured input: [resolve-21-2-new-capabilities-opportunities.json](resolve-21-2-new-capabilities-opportunities.json) (`vera-resolve-opportunity-input/v1`, 16 candidate rows). All proposed native probes are **NOT EXECUTED**. This is neither compatibility qualification nor permission to upgrade, operate Resolve or unblock #473.
+**2026-11-08 | Read-only source/code research | Offline input for #482/#483.** Companion structured input: [resolve-21-2-new-capabilities-opportunities.json](resolve-21-2-new-capabilities-opportunities.json) (`vera-resolve-opportunity-input/v1`, 16 candidate rows). All proposed native probes are **NOT EXECUTED**. This is neither compatibility qualification nor permission to upgrade, operate Resolve or unblock #473.
 
 ## Executive disposition
 
