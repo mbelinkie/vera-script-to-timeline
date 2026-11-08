@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -243,6 +244,31 @@ def test_pinned_node_refuses_launchctl_missing_or_wrong_runtime(
         lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, "v24.19.0\n"),
     )
     runner._require_pinned_node(mac=True)
+
+
+def test_mac_preflight_requires_full_host_runtime_before_source_or_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import qualification_output_controller_v2 as controller
+
+    calls: list[str] = []
+    config = _config(tmp_path)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(runner, "_require_pinned_node", lambda: calls.append("node"))
+
+    def missing_uv() -> NoReturn:
+        calls.append("runtime")
+        raise ValueError("locked uv unavailable")
+
+    monkeypatch.setattr(controller, "output_runtime_snapshot", missing_uv)
+    monkeypatch.setattr(
+        runner,
+        "_matrix_preparation_paths",
+        lambda *a, **k: calls.append("source preflight should not run"),
+    )
+    with pytest.raises(ValueError, match="locked uv unavailable"):
+        runner._preflight_before_native(config)
+    assert calls == ["node", "runtime"]
 
 
 def test_no_setup_or_native_operation_before_472_gate(

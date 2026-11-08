@@ -282,6 +282,12 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
     root = _absolute(value["root"], "root")
     carrier._private(root, create=True)
     _require_pinned_node()
+    if sys.platform == "darwin":
+        from .qualification_output_controller_v2 import output_runtime_snapshot
+
+        # The host will require ALL THREE versions on each phase; don't find
+        # out after creating projects that launchctl omitted uv or npm.
+        output_runtime_snapshot()
     if shutil.disk_usage(root).free < value["maxDiskBytes"]:
         raise queue.QueueError(
             "Test Bench actual free disk below the reserved native budget"

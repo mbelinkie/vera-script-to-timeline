@@ -55,8 +55,9 @@ version. No untested GUI action is enabled in this branch.
    disk headroom, running the public v2 package verifier, verifying the exact
    six published #312 matrix preparation receipts, and reauthenticating the
    *three* original measured narration/cache artifacts. The Mac launch service
-   must expose the independently verified **pinned Node 24.19.0** binary in
-   `PATH` before even starting a costly source admission or native project.
+   must expose the independently verified **pinned Node 24.19.0**, **npm
+   11.17.0** and **uv 0.12.5** binaries in `PATH` before even starting a costly
+   source admission or native project.
    A fresh, private,
    write-once **complete package admission is performed before provisioning**:
    an interrupted or refused preflight cannot create any Resolve project and
@@ -175,7 +176,7 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **52 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
+- **53 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
@@ -228,4 +229,15 @@ this draft PR to ready merely because isolated tests pass.
   launcher must set the pinned Node 24 directory first, and
   `_require_pinned_node` now prevents an incorrect launch-service PATH from
   creating any new Resolve project.
+- **Fourth distinct Mac-native campaign:**
+  `~/.local/state/vera/issue-473-studio-04` successfully used pinned Node
+  24.19.0, performed its fresh sealed source-only and target-bound admission,
+  and independently provisioned two new Studio targets. It then refused
+  before constructing any native clip with `locked uv unavailable`: the
+  launch-service PATH had the Node folder but omitted `~/.local/bin` (the
+  installed verified `uv 0.12.5`). The original one-use directory and
+  disposable targets remain retained, and `vera-473-test04` was removed.
+  The controller now validates all three host runtime versions (Node, npm,
+  uv) before provisioning, and the next fresh launch needs both the pinned
+  Node and user-local uv directories in its PATH. The old run is not retried.
 - Full native M4 success and #312 completion remain **unverified**.
