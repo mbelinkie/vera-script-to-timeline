@@ -14,12 +14,14 @@ import {
   fingerprint,
   ProjectDocumentError,
   ProjectDocumentInputError,
+  requireHistoryLimit,
   requireRevision,
   requireTitle,
   requireUuid,
   sha256,
 } from "./model.js";
 import { reconcileCommentsForDocumentRevision } from "./comments.js";
+import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
 
 type Digest = string;
 interface HeadRow {
@@ -50,6 +52,61 @@ interface TitleMutationRow {
   project_version: string;
   title: string;
 }
+interface RevisionRow {
+  document_id: string;
+  revision: string;
+  expected_revision: string | null;
+  actor_id: string;
+  client_mutation_id: string;
+  content_digest: Digest;
+  document_json: string;
+  created_at: Date | string;
+  restore_checkpoint_id: string | null;
+  restore_source_revision: string | null;
+  restore_source_digest: string | null;
+  restored_by: string | null;
+  restore_mutation_id: string | null;
+}
+
+// Restoration attribution lives in the separate append-only provenance table.
+const REVISION_COLUMNS =
+  "r.document_id,r.revision::text,r.expected_revision::text,r.actor_id," +
+  "r.client_mutation_id,r.content_digest,r.document_json,r.created_at," +
+  "x.checkpoint_id AS restore_checkpoint_id,x.source_revision::text AS restore_source_revision," +
+  "x.source_digest AS restore_source_digest,x.restored_by," +
+  "x.client_mutation_id AS restore_mutation_id";
+const REVISION_FROM =
+  " FROM stt_document_revisions r LEFT JOIN stt_document_restores x " +
+  "ON x.project_id=r.project_id AND x.new_revision=r.revision";
+
+export interface DocumentRevisionSummary {
+  revision: number;
+  expectedRevision: number | null;
+  actorId: string;
+  clientMutationId: string;
+  digest: string;
+  createdAt: string;
+  restoreOrigin: { checkpointId: string; sourceRevision: number; sourceDigest: string } | null;
+}
+export interface DocumentHistoryPage {
+  projectId: string;
+  revisions: readonly DocumentRevisionSummary[];
+  /** Exclusive cursor for the next page, or null when fully consumed. */
+  nextBeforeRevision: number | null;
+}
+export interface DocumentRevisionView extends DocumentView {
+  attribution: DocumentRevisionSummary;
+}
+export interface DocumentComparisonView {
+  projectId: string;
+  from: DocumentRevisionSummary;
+  to: DocumentRevisionSummary;
+  changes: readonly SemanticChange[];
+  totalChanges: number;
+  truncated: boolean;
+}
+
+const MAX_COMPARISON_CHANGES = 200;
 
 export interface CreateProjectInput {
   clientRequestId: string;
@@ -165,6 +222,41 @@ function viewSettings(projectId: string, row: SettingsRow): SettingsView {
     settings: JSON.parse(row.settings_json) as AuthoringProjectSettingsV1 };
 }
 
+/** Reject corrupted historical bytes, typed documents or provenance; never return partial history. */
+function verifiedRevision(projectId: string, row: RevisionRow): DocumentRevisionView {
+  if (sha256(row.document_json) !== row.content_digest) throw unavailable();
+  let document: ScriptDocumentV2;
+  try {
+    document = checkedDocument(JSON.parse(row.document_json) as unknown,
+      projectId, row.document_id).document;
+  } catch {
+    throw unavailable();
+  }
+  const revision = int(row.revision);
+  const expectedRevision = row.expected_revision === null ? null : int(row.expected_revision);
+  if ((revision === 0 && expectedRevision !== null) ||
+      (revision > 0 && expectedRevision !== revision - 1)) throw unavailable();
+  let createdAt: string;
+  try {
+    createdAt = new Date(row.created_at).toISOString();
+  } catch {
+    throw unavailable();
+  }
+  let restoreOrigin: DocumentRevisionSummary["restoreOrigin"] = null;
+  if (row.restore_checkpoint_id !== null) {
+    if (row.restore_source_revision === null || row.restore_source_digest === null ||
+        row.restore_source_digest !== row.content_digest || row.restored_by !== row.actor_id ||
+        row.restore_mutation_id !== row.client_mutation_id) throw unavailable();
+    restoreOrigin = { checkpointId: row.restore_checkpoint_id,
+      sourceRevision: int(row.restore_source_revision), sourceDigest: row.restore_source_digest };
+  }
+  return {
+    projectId, revision, digest: row.content_digest, document,
+    attribution: { revision, expectedRevision, actorId: row.actor_id,
+      clientMutationId: row.client_mutation_id, digest: row.content_digest, createdAt, restoreOrigin },
+  };
+}
+
 export class ProjectDocumentService {
   constructor(
     private readonly pool: SqlPool,
@@ -193,7 +285,7 @@ export class ProjectDocumentService {
   private async authorized<T>(
     projectId: string,
     principal: PrincipalRef,
-    action: "view_document" | "edit_document" | "manage_settings",
+    action: "view_document" | "view_history" | "edit_document" | "manage_settings",
     operation: (db: SqlClient, actor: string) => Promise<T>,
     writeSessionId?: string,
   ): Promise<T> {
@@ -209,6 +301,64 @@ export class ProjectDocumentService {
     const row = result.rows[0];
     if (!row) throw missing();
     return row;
+  }
+
+  /** Only call inside a transaction that has already passed view_history authorization. */
+  private async selectRevision(db: SqlClient, projectId: string, revision: number): Promise<DocumentRevisionView> {
+    const result = await db.query<RevisionRow>(
+      "SELECT " + REVISION_COLUMNS + REVISION_FROM + " WHERE r.project_id=$1 AND r.revision=$2",
+      [projectId, revision],
+    );
+    if (!result.rows[0]) throw missing();
+    return verifiedRevision(projectId, result.rows[0]);
+  }
+
+  async listDocumentRevisions(
+    projectIdInput: string, principal: PrincipalRef,
+    options: { limit?: number; beforeRevision?: number } = {},
+  ): Promise<DocumentHistoryPage> {
+    const projectId = requireUuid(projectIdInput);
+    const limit = requireHistoryLimit(options.limit ?? 50);
+    const before = options.beforeRevision === undefined ? null : requireRevision(options.beforeRevision);
+    return await this.authorized(projectId, principal, "view_history", async (db) => {
+      const result = await db.query<RevisionRow>(
+        "SELECT " + REVISION_COLUMNS + REVISION_FROM +
+          " WHERE r.project_id=$1 AND ($2::bigint IS NULL OR r.revision < $2)" +
+          " ORDER BY r.revision DESC LIMIT $3",
+        [projectId, before, limit + 1],
+      );
+      const revisions = result.rows.slice(0, limit)
+        .map((row) => verifiedRevision(projectId, row).attribution);
+      return { projectId, revisions, nextBeforeRevision: result.rows.length > limit ?
+        (revisions[revisions.length - 1]?.revision ?? null) : null };
+    });
+  }
+
+  async getDocumentRevision(
+    projectIdInput: string, principal: PrincipalRef, revisionInput: number,
+  ): Promise<DocumentRevisionView> {
+    const projectId = requireUuid(projectIdInput);
+    const revision = requireRevision(revisionInput);
+    return await this.authorized(projectId, principal, "view_history", async (db) =>
+      await this.selectRevision(db, projectId, revision));
+  }
+
+  async compareDocumentRevisions(
+    projectIdInput: string, principal: PrincipalRef, fromInput: number, toInput: number,
+  ): Promise<DocumentComparisonView> {
+    const projectId = requireUuid(projectIdInput);
+    const fromRevision = requireRevision(fromInput);
+    const toRevision = requireRevision(toInput);
+    return await this.authorized(projectId, principal, "view_history", async (db) => {
+      // Both snapshots are read under the same authorization and SQL snapshot.
+      const from = await this.selectRevision(db, projectId, fromRevision);
+      const to = fromRevision === toRevision ? from :
+        await this.selectRevision(db, projectId, toRevision);
+      const allChanges = compareDocuments(from.document, to.document);
+      return { projectId, from: from.attribution, to: to.attribution,
+        changes: allChanges.slice(0, MAX_COMPARISON_CHANGES),
+        totalChanges: allChanges.length, truncated: allChanges.length > MAX_COMPARISON_CHANGES };
+    });
   }
 
   async createProject(principal: PrincipalRef, input: CreateProjectInput): Promise<{

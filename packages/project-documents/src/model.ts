@@ -49,6 +49,14 @@ export function requireRevision(value: unknown): number {
   return value;
 }
 
+/** Bound history pages before querying or returning untrusted stored snapshots. */
+export function requireHistoryLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > 100) {
+    throw new ProjectDocumentInputError("History page limit must be an integer from 1 to 100.");
+  }
+  return value;
+}
+
 export function requireObject(value: unknown): Record<string, unknown> {
   if (!value || Array.isArray(value) || typeof value !== "object") {
     throw new ProjectDocumentInputError();
