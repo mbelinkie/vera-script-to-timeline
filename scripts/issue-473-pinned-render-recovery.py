@@ -53,7 +53,7 @@ def sha(raw: bytes) -> str:
 
 def first_missing_native_result(
     root: Path, controller: Any, carrier: Any, native: Any
-) -> tuple[int, str, Path]:
+) -> tuple[int, str, Path] | None:
     """Identify the sole prepared/unstarted native action from original files.
 
     Never call native.next_native_operation to cross an immutable prepared
@@ -88,7 +88,9 @@ def first_missing_native_result(
             and verified.get("context") == controller.context,
             "preceding signed native result differs",
         )
-    raise RuntimeError("all original native results already complete")
+    # A complete native chain is a valid state: the official host may already
+    # have finalized the original MOV/PCM comparison. Never seek a new action.
+    return None
 
 
 def approve_existing_render_output(
@@ -124,9 +126,10 @@ def approve_existing_render_output(
             root / f"native-{prior_sequence:02d}" / "intent.json"
         ).exists() and not native_result.exists():
             return
-    sequence, action, pending_request = first_missing_native_result(
-        root, controller, carrier, native
-    )
+    pending = first_missing_native_result(root, controller, carrier, native)
+    if pending is None:
+        return
+    sequence, action, pending_request = pending
     if action not in {"poll_render", "capture_post"}:
         return
     result_path, _, _, native_request = native.native_request_paths(
@@ -256,9 +259,10 @@ def dispatch_exact_prepared_render(
     started/uncertain effects. Require both to be ABSENT and all predecessors
     authenticated, then delegate only preflight to the strict reviewed helper.
     """
-    sequence, action, request_path = first_missing_native_result(
-        root, controller, carrier, native
-    )
+    pending = first_missing_native_result(root, controller, carrier, native)
+    need(pending is not None, "native chain already complete; no dispatch")
+    assert pending is not None
+    sequence, action, request_path = pending
     need(action in helper.RENDER_ACTIONS, "non-render stage cannot use helper")
     native_result, authority_path, intent_path, source_request = (
         native.native_request_paths(controller.context, sequence)
