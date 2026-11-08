@@ -57,6 +57,15 @@ export function requireHistoryLimit(value: unknown): number {
   return value;
 }
 
+/** Checkpoint names are case-folded by the database for project-local uniqueness. */
+export function requireCheckpointName(value: unknown): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 120 ||
+      value.trim() !== value || !value.trim() || /\p{Cc}/u.test(value)) {
+    throw new ProjectDocumentInputError("Checkpoint name must be 1–120 non-control characters without surrounding whitespace.");
+  }
+  return value;
+}
+
 export function requireObject(value: unknown): Record<string, unknown> {
   if (!value || Array.isArray(value) || typeof value !== "object") {
     throw new ProjectDocumentInputError();
