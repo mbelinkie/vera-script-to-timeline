@@ -41,7 +41,10 @@ from vera_timeline_agent.qualification_output_package_v2 import (
 )
 from vera_timeline_agent.resolve_native_owner import preflight_selected_disposable
 from vera_timeline_agent.v2_package import verify_v2_package
-from vera_timeline_agent.workflow_v2_cli import build_output_release_v2
+from vera_timeline_agent.workflow_v2_cli import (
+    _verify_output_release,
+    build_output_release_v2,
+)
 
 PACKAGE = Path.home() / ".local/state/vera/issue-472-guarded-m4-02/package"
 EXPECTED_BUILD_ID = "4ece95a3-8b4e-413e-bef2-b4e6512341a6"
@@ -201,7 +204,7 @@ def admit(root: Path) -> dict[str, Any]:
 
 
 def prepare(root: Path) -> dict[str, Any]:
-    a = _admission(root)  # Verify new sealed admission BEFORE any SDK effects.
+    _admission(root)  # Verify new sealed admission BEFORE any SDK effects.
     if (root / "provision").exists() or (root / "setup-pin.json").exists():
         raise RuntimeError("one-use target provision already started")
     provision_root = root / "provision"
@@ -209,12 +212,40 @@ def prepare(root: Path) -> dict[str, Any]:
     advanced = provision.advance(provision_root)
     if advanced != {"state": "stage_verified", "stage": "initial", "created": True}:
         raise RuntimeError("independent native project creation was not verified")
+    release_root = root / "release"
+    build_output_release_v2(release_root)
+    return finish(root)
+
+
+def finish(root: Path) -> dict[str, Any]:
+    """Finish only a previously provisioned, exactly identified project.
+
+    This never creates, retries, or loads a Resolve project. A crash after
+    project provisioning can safely finish host metadata once, but a partial
+    host setup cannot be replayed or silently overwritten.
+    """
+    a = _admission(root)
+    if any(
+        path.exists() or path.is_symlink()
+        for path in (
+            root / "setup-pin.json",
+            root / "session.json",
+            root / "operator-plan.json",
+        )
+    ):
+        raise RuntimeError("native host session setup already attempted")
+    provision_root = root / "provision"
     target = provision._target(
         provision_root, "initial", provision._plan(provision_root)
     )
+    if any(
+        (provision_root / f"{name}-fresh.json").exists()
+        for name in ("intent", "complete")
+    ):
+        raise RuntimeError("second disposable project unexpectedly provisioned")
     preflight_selected_disposable(target, require_empty=True)
     release_root = root / "release"
-    build_output_release_v2(release_root)
+    _verify_output_release(release_root)
     controller = QualificationOutputController(
         HOST_STATE_ROOT,
         admission=a,
@@ -331,7 +362,8 @@ def tick(root: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "action", choices=("check", "admit", "verify", "prepare", "tick", "status")
+        "action",
+        choices=("check", "admit", "verify", "prepare", "finish", "tick", "status"),
     )
     parser.add_argument("--root", type=Path)
     args = parser.parse_args()
@@ -346,6 +378,8 @@ def main() -> int:
             result = verify(args.root)
         elif args.action == "prepare":
             result = prepare(args.root)
+        elif args.action == "finish":
+            result = finish(args.root)
         elif args.action == "tick":
             result = tick(args.root)
         else:
