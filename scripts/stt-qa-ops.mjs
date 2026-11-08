@@ -26,10 +26,15 @@ const tableNames = [
   "vera_project_write_sessions", "vera_project_membership_audit",
   "stt_projects", "stt_document_heads", "stt_document_revisions",
   "stt_project_settings", "stt_settings_revisions", "stt_project_title_mutations",
+  "stt_build_pairing_offers", "stt_project_build_agents", "stt_build_submissions",
+  "stt_build_source_pins", "stt_build_dispatches", "stt_build_events",
+  "stt_build_evidence", "stt_build_preflight_refusals",
 ];
 const migrations = [
   ["vera_project_identity_membership_001", "packages/project-authorization/migrations/001_identity_membership.sql"],
   ["stt_project_documents_001", "packages/project-documents/migrations/001_stt_projects_documents.sql"],
+  ["stt_project_builds_001", "packages/project-builds/migrations/001_project_builds.sql"],
+  ["stt_project_builds_002_preflight_refusals", "packages/project-builds/migrations/002_preflight_refusals.sql"],
 ].map(([name, file]) => ({
   name, version: 1,
   checksum: createHash("sha256").update(readFileSync(join(root, file))).digest("hex"),
@@ -136,7 +141,8 @@ function targetGuard(db, fresh) {
     if (!name?.startsWith("public.")) return true;
     if (fresh) return true;
     if (kind === "r") return !tableNames.includes(name.slice(7));
-    // The schema-only migrations create indexes but no sequences or views.
+    // Identity sequences are owned by the append-only build event ID column.
+    if (kind === "S") return name === "public.stt_build_events_id_seq";
     return kind !== "i" || !/^(stt_|vera_|ix_vera_)[a-z0-9_]+$/u.test(name.slice(7));
   }));
   refuse(query(db, "SELECT count(*) FROM pg_namespace WHERE nspname NOT IN " +
@@ -151,7 +157,7 @@ function targetGuard(db, fresh) {
     refuse(tableNames.some((name) => !entries.includes(`public.${name}|r`)));
     refuse(query(db, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace " +
       "WHERE n.nspname='public' AND p.proname NOT IN " +
-      "('stt_revision_immutable','vera_membership_audit_immutable')") !== "0");
+      "('stt_revision_immutable','vera_membership_audit_immutable','stt_build_record_immutable')") !== "0");
   }
   // The operator must stop the HTTP host and all other clients first.
   refuse(query(db, "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() " +

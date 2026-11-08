@@ -268,6 +268,19 @@ describe("transactionally frozen submission from #380 and #379", () => {
 });
 
 describe("epoch-CAS durable status and independently classified evidence", () => {
+  it("polls only project-scoped queued builds and refuses revoked agent identity", async () => {
+    const h = await buildHarness();
+    const ready = await h.submissions.submit(h.projectId, h.producer, h.intent());
+    const blocked = await h.submissions.submit(h.projectId, h.producer, h.intent([source()]));
+    expect(blocked.status).toBe("blocked");
+    const agent = await h.pair();
+    expect(await h.status().pollQueued(agent)).toEqual([ready.jobId]);
+    await expect(h.status().pollQueued({ ...agent, projectId: randomUUID() }))
+      .rejects.toMatchObject({ status: 401 });
+    await h.pairing.revokeAgent(h.projectId, h.producer, agent.agentId);
+    await expect(h.status().pollQueued(agent)).rejects.toMatchObject({ status: 401 });
+  });
+
   it("rejects stale head before claim and retains the refusal after service restart", async () => {
     const h = await buildHarness();
     const intent = h.intent();

@@ -5,6 +5,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
+import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
+  ProjectAgentAuthenticationService, ProjectAgentPairingService,
+  ProjectBuildSubmissionService, ProjectBuildStatusService } from "@vera/project-builds";
 import { createProjectApiHandler, ProjectDocumentService } from "@vera/project-documents";
 
 import { listenQaHttp } from "./http.js";
@@ -82,8 +85,24 @@ export async function startQaServer(
     if (idleFailed) throw new QaStartupRefusal();
     const auth = new ProjectAuthorizationService(pool);
     const documents = new ProjectDocumentService(pool, auth);
-    server = await listenQaHttp(config.bindHost, config.port,
-      createProjectApiHandler({ identity, authorization: auth, documents }));
+    const agents = new ProjectAgentAuthenticationService(pool, auth);
+    const pairing = createProjectBuildPairingApiHandler({ identity, authorization: auth,
+      pairing: new ProjectAgentPairingService(pool, auth), agents });
+    const builds = createProjectBuildHttpHandler({ identity, authorization: auth,
+      submissions: new ProjectBuildSubmissionService(pool, auth),
+      status: new ProjectBuildStatusService(pool, auth, agents) });
+    const projects = createProjectApiHandler({ identity, authorization: auth, documents });
+    server = await listenQaHttp(config.bindHost, config.port, (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/v1/agent-pairing/consume" ||
+          /^\/v1\/agent\/projects\/[^/]+\/(jobs|heartbeat)$/u.test(path) ||
+          /^\/v1\/projects\/[^/]+\/(agent-pairing-offers|agent-readiness|agents\/)/u.test(path)) {
+        return pairing(request);
+      }
+      if (/^\/v1\/projects\/[^/]+\/builds(?:\/|$)/u.test(path) ||
+          /^\/v1\/agent\/projects\/[^/]+\/(jobs\/|queue$)/u.test(path)) return builds(request);
+      return projects(request);
+    });
     if (idleFailed) throw new QaStartupRefusal();
     return { server, stop };
   } catch {

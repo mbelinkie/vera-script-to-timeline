@@ -97,6 +97,19 @@ export class ProjectBuildStatusService {
     private readonly evidenceInspector?: IndependentEvidenceInspector,
   ) {}
 
+  /** Scoped discovery only; discovering a job never assigns or authorizes an effect. */
+  async pollQueued(input: AgentCredentialInput): Promise<readonly string[]> {
+    return await this.agents.withAuthenticatedAgent(input, async (db) => {
+      const rows = await db.query<{ job_id: string }>(
+        "SELECT job_id FROM stt_build_dispatches WHERE project_id=$1 " +
+          "AND status='queued' AND assigned_agent_id IS NULL AND lease_expires_at IS NULL " +
+          "ORDER BY updated_at,job_id LIMIT 50",
+        [input.projectId],
+      );
+      return rows.rows.map(({ job_id }) => job_id);
+    });
+  }
+
   /** Redacted durable event/evidence readback, authorized on every request. */
   async get(projectId: string, viewer: UserPrincipal, jobId: string) {
     if (!validId(projectId) || !validId(jobId)) return invalid();

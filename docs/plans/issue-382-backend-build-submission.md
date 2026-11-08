@@ -1,9 +1,10 @@
 # #382 — Backend build submission, pairing and immutable evidence
 
-Status: phase-3 frozen submission and durable status implementation (2026-11-08).
-Pairing and observational polling are in an **unmounted** private API.
-Submission and epoch-CAS status are service methods, not deployed HTTP
-routes or a local-agent runner. No native completion has been verified.
+Status: phase-4 private development-QA routing and local-agent stage seam
+(2026-11-08). Pairing, frozen submissions, and lease-fenced status have
+loopback-only HTTP routes; local execution uses the existing #157 store and
+only explicitly injected Free StagePorts. No native completion has been
+verified; see `docs/verification/issue-382-backend.md`.
 
 ## Authority and boundaries
 
@@ -133,8 +134,8 @@ build 001 → build refusal 002. The two build migration steps require the
 existing receipt table, hold a PostgreSQL advisory transaction lock, hash
 exact checked-in SQL with SHA-256, reject mismatched receipt versions/checksums
 and are idempotent. No existing migration file is edited. Host startup,
-smoke tests and ops allowlists must be changed *together in phase 4*;
-until then host startup does **not** apply build migrations. Backup/restore to
+smoke tests and ops allowlists have been changed *together in phase 4*;
+host startup now applies build migrations. Backup/restore to
 a new private QA database must include all eight new tables and both new
 receipts before deployment is claimed. No down migration/destructive rollback; a failed
 DDL transaction rolls back, a rolled-forward installation stays additive.

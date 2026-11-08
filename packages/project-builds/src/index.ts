@@ -5,3 +5,4 @@ export * from "./agent-auth.js";
 export * from "./api.js";
 export * from "./submission.js";
 export * from "./status.js";
+export * from "./http-builds.js";
