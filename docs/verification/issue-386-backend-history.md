@@ -68,9 +68,19 @@ issue diff (service, model, migration, semantic comparison, API, host and tests)
   `016a41fb` reproduced **2/2** known Python failures in a three-case
   representative run (`phase5-clean-main-baseline.log`): narration CLI
   and cloud word-timing both lack the system `ffmpeg` executable;
-  the tested issue-208 target case passed alone. These two baseline
-  failures are proven unrelated to #386, but that isolated selection does
-  not alone establish the origin of all 27 fast-gate Python failures.
+  the tested issue-208 target case passed alone.
+- The **complete** unmodified clean-main Python fast matrix, using the same
+  `uv run --frozen pytest -m '(not slow) or fast' -n 8 --dist=worksteal`
+  command, also **failed: 24 failed, 2907 passed, 43 skipped**
+  (`phase5-clean-main-full-python.log`). Of the issue-branch's 27 failed
+  test node IDs, **17 failed on clean main too**, including FFmpeg-dependent
+  cases and target-identity checks. The remaining **10 failed only in the
+  issue-branch run**, while **7 different tests failed only on clean main**.
+  The divergent cases are in untouched issue-208 suites, consistent with
+  load-sensitive timing/parallelism; their precise cause was not proven.
+  Thus the repository-wide fast gate remains **red**, but clean-main evidence
+  establishes a substantial pre-existing failure baseline. No Python code or
+  test was altered to conceal those failures.
 
 ## Independent review disposition
 
