@@ -31,6 +31,12 @@ NEW_M4 = (
     / "vera_timeline_agent/resolve_test_queue_m4.py"
 )
 EXPECTED_M4_SHA = "fd1239e3dcaf175a073a44db45c15194da79e7b05d9cca044ccad8d89ef2b325"
+NEW_REVERSE = NEW_M4.with_name("resolve_test_queue_reverse.py")
+OLD_REVERSE = PINNED / "python/vera_timeline_agent/resolve_test_queue_reverse.py"
+EXPECTED_REVERSE_SHA = (
+    "b6c66ad4ac126e547c37056a456449a61962465b4910fed3c58e4c2c1783dc32"
+)
+OLD_REVERSE_SHA = "fcc499511260ead513dddb42e49919f6cdcc8c968b17c4086827ad8b82d7f354"
 OLD_GIT_SHA = "3ea32582a6761ead588762ba2df2f95bf80bd8e9"
 OLD_SOURCE_SHA = "1dc6db11389bb6f322b0f05446f142d9fdd072d873019aa507803c3f0cd1c7cc"
 PRISTINE_SESSION_SHA = (
@@ -45,6 +51,51 @@ def require(condition: bool, reason: str) -> None:
 
 def sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def corrected_reverse() -> ModuleType:
+    """Load the ONLY audited rational-rate correction in the verifier domain.
+
+    Preserve all actual native, admission, journal, source and output code.
+    A complete byte-for-byte comparison proves that the newer verifier differs
+    from the frozen prior copy by exactly one data-representation literal.
+    No normalization of captures or relaxation of boundary/UID/audio checks.
+    """
+    require(
+        OLD_REVERSE.is_file()
+        and not OLD_REVERSE.is_symlink()
+        and NEW_REVERSE.is_file()
+        and not NEW_REVERSE.is_symlink(),
+        "one-line corrected reverse verifier unavailable",
+    )
+    prior = OLD_REVERSE.read_bytes()
+    corrected = NEW_REVERSE.read_bytes()
+    old_literal = b'EXPECTED_RATE = "24000/1001"'
+    new_literal = b'EXPECTED_RATE = {"numerator": 24000, "denominator": 1001}'
+    require(
+        sha(prior) == OLD_REVERSE_SHA
+        and sha(corrected) == EXPECTED_REVERSE_SHA
+        and prior.count(old_literal) == 1
+        and prior.replace(old_literal, new_literal) == corrected,
+        "reverse verifier contains an unreviewed source change",
+    )
+    spec = importlib.util.spec_from_file_location(
+        "vera_timeline_agent.resolve_test_queue_reverse", NEW_REVERSE
+    )
+    require(
+        spec is not None and spec.loader is not None,
+        "corrected reverse verifier loader unavailable",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+    require(isinstance(module, ModuleType), "corrected reverse module not loaded")
+    return module
 
 
 def corrected_m4() -> ModuleType:
@@ -86,6 +137,7 @@ def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]
         package._sha(package._admission_code_source_graph_raw()) == OLD_SOURCE_SHA,
         "signed native source graph differs",
     )
+    corrected_reverse()
     m4 = corrected_m4()
     store = queue.Store(ROOT / "queue")
     plan_path = ROOT / "run/m4-plan.json"
@@ -138,6 +190,7 @@ def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]
                 "jobId": job_id,
                 "sourcePinnedNativeCommit": OLD_GIT_SHA,
                 "correctedM4SourceSha256": EXPECTED_M4_SHA,
+                "correctedReverseSourceSha256": EXPECTED_REVERSE_SHA,
                 "originalReceipt": {
                     "path": str(receipt_file),
                     "sha256": sha(receipt_file.read_bytes()),

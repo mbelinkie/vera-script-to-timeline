@@ -87,12 +87,44 @@ def proof() -> Any:
     return QualificationOutputProofV2(session, sha(session.read_bytes()))
 
 
+def start() -> None:
+    from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+
+    store, m4, job_id, _plan = original()
+    report = m4.publish(store, job_id)
+    require(
+        report["state"] == "queued" and report["stages"][2]["state"] == "pending",
+        "original M4 revision must be pending and unstarted",
+    )
+    require(
+        runner._worker_once(store),
+        "reviewed M4 worker could not acquire revision one-use handoff",
+    )
+    report = m4.publish(store, job_id)
+    require(
+        report["state"] == "awaiting_operator" and report["stage"] == "revision",
+        "original revision stage did not acquire durable M4 intent",
+    )
+    print(
+        json.dumps(
+            {"state": "M4_revision_one_use_handoff", "jobId": job_id},
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
 def prepare() -> None:
     from vera_timeline_agent.qualification_output_proof_v2 import (
         prepare_output_proof_v2,
     )
 
-    original()
+    store, m4, job_id, _plan = original()
+    report = m4.publish(store, job_id)
+    require(
+        report["state"] == "awaiting_operator" and report["stage"] == "revision",
+        "revision must have its original durable M4 intent before proof work",
+    )
     pristine = ROOT / "run/pristine/session.json"
     edited = ROOT / "run/edited/session.json"
     destination = ROOT / "run/revision"
@@ -218,14 +250,138 @@ def propose() -> None:
     )
 
 
+def accept_proposal() -> None:
+    original()
+    p = proof()
+    require(
+        not (p.root / "revision-ledger.json").exists(),
+        "revision already decided; no replay",
+    )
+    inference = p.infer()
+    require(
+        inference["caseKinds"] == ["A"]
+        and inference["boundaryConflicts"] == []
+        and inference["omission"] is None
+        and inference["commands"]["boundary"] is not None
+        and inference["commands"]["trim"] is None,
+        "proposal no longer matches accepted picture-only A boundary",
+    )
+    stage = p._stage()
+    require(
+        stage["outcome"] == "accept" and stage["regeneration"] is None,
+        "proposal needs unsanctioned replacement audio or a new choice",
+    )
+    candidate = json.loads((p.root / "proposal.json").read_bytes())
+    require(
+        candidate["inference"]["inferenceHash"] == inference["inferenceHash"]
+        and candidate["inferenceDecision"] == p._accepted_inference()
+        and candidate["inferenceHistory"] == []
+        and candidate["request"]["commands"]
+        == {
+            "boundary": inference["commands"]["boundary"],
+            "trim": None,
+            "omission": None,
+        }
+        and candidate["request"]["preparedMedia"] == []
+        and candidate["request"]["handoff"] is None,
+        "revision proposal alters scope, media, narration or source lineage",
+    )
+    decision = {
+        "schemaVersion": "qualification-output-decision/v1",
+        "proposalHash": candidate["proposalHash"],
+        "historyHash": "sha256:" + sha(b"[]\n"),
+        "outcome": "accept",
+    }
+    result = p.decide(decision)
+    require(
+        result["outcome"] == "accept"
+        and result["history"] == [candidate["proposalHash"]],
+        "original host did not accept only the authenticated proposal",
+    )
+    p.accepted_revision()
+    print(
+        json.dumps(
+            {
+                "state": "original_picture_only_revision_accepted",
+                "proposalHash": candidate["proposalHash"],
+                "revisedDocumentSha256": sha(
+                    (p.root / "revision-document.json").read_bytes()
+                ),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
+def submit() -> None:
+    from vera_timeline_agent import resolve_test_bench_carrier as carrier
+    from vera_timeline_agent import resolve_test_queue as queue
+
+    store, m4, job_id, _plan = original()
+    report = m4.publish(store, job_id)
+    require(
+        report["stage"] == "revision"
+        and report["stages"][2]["state"] == "awaiting_operator",
+        "original M4 revision not awaiting authenticated proof",
+    )
+    p = proof()
+    p.accepted_revision()
+    receipt = {
+        "schema": m4.RECEIPT_SCHEMA,
+        "stage": "revision",
+        "operationId": report["stages"][2]["operation_id"],
+        "proof": {
+            "path": str(p.session_path),
+            "sha256": sha(p.session_path.read_bytes()),
+        },
+    }
+    path = store.root / job_id / "receipt-revision.json"
+    require(
+        not path.exists() and not path.is_symlink(),
+        "original revision receipt already submitted; no replay",
+    )
+    carrier._once(path, queue.canonical(receipt))
+    m4.submit(store, job_id)
+    report = m4.publish(store, job_id)
+    require(
+        report["state"] == "queued"
+        and [stage["state"] for stage in report["stages"]]
+        == ["verified", "verified", "verified", "pending"],
+        "reviewed M4 revision did not independently accept its proof",
+    )
+    print(
+        json.dumps(
+            {
+                "state": "original_M4_revision_verified",
+                "jobId": job_id,
+                "next": "rebuild",
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("prepare", "observe", "inspect", "accept-inference", "propose"),
+        choices=(
+            "start",
+            "prepare",
+            "observe",
+            "inspect",
+            "accept-inference",
+            "propose",
+            "accept-proposal",
+            "submit",
+        ),
     )
     action = parser.parse_args().action
-    if action == "prepare":
+    if action == "start":
+        start()
+    elif action == "prepare":
         prepare()
     elif action == "observe":
         observe()
@@ -233,8 +389,12 @@ def main() -> None:
         inspect_inference()
     elif action == "accept-inference":
         accept_inference()
-    else:
+    elif action == "propose":
         propose()
+    elif action == "accept-proposal":
+        accept_proposal()
+    else:
+        submit()
 
 
 if __name__ == "__main__":
