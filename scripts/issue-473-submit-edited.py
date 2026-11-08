@@ -119,7 +119,9 @@ def corrected_m4() -> ModuleType:
     return module
 
 
-def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]:
+def inspect(
+    *, stage: str = "edited", verify_host: bool = True
+) -> tuple[Any, Any, str, dict[str, Any]]:
     from vera_timeline_agent import qualification_output_package_v2 as package
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner
     from vera_timeline_agent import resolve_test_queue as queue
@@ -146,12 +148,18 @@ def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]
     assert isinstance(job_id, str)
     plan = m4._load_plan(store, job_id)
     report = m4.publish(store, job_id)
+    require(stage in {"edited", "rebuild"}, "unsupported acceptance stage")
+    ordinal = 1 if stage == "edited" else 3
+    expected_states = (
+        ["verified", "awaiting_operator", "pending", "pending"]
+        if stage == "edited"
+        else ["verified", "verified", "verified", "awaiting_operator"]
+    )
     require(
         report["state"] == "awaiting_operator"
-        and report["stage"] == "edited"
-        and [stage["state"] for stage in report["stages"]]
-        == ["verified", "awaiting_operator", "pending", "pending"],
-        "M4 edited stage not pending first signed submission",
+        and report["stage"] == stage
+        and [stage["state"] for stage in report["stages"]] == expected_states,
+        "M4 stage not pending first signed native submission",
     )
     first = m4._stage_receipt(store, job_id, 0)
     require(
@@ -159,34 +167,35 @@ def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]
         and first["session"]["sha256"] == PRISTINE_SESSION_SHA,
         "original baseline receipt differs",
     )
-    receipt_file = store.root / job_id / "receipt-edited.json"
+    receipt_file = store.root / job_id / f"receipt-{stage}.json"
     require(
         receipt_file.is_file() and not receipt_file.is_symlink(),
-        "original terminal edited receipt missing",
+        "original terminal native receipt missing",
     )
     receipt = m4._parse_receipt(
-        receipt_file.read_bytes(), "edited", report["stages"][1]["operation_id"]
+        receipt_file.read_bytes(), stage, report["stages"][ordinal]["operation_id"]
     )
-    prepared = ROOT / "run/edited/session.json"
+    prepared = ROOT / f"run/{stage}/session.json"
     require(
         receipt["session"]
         == {"path": str(prepared), "sha256": sha(prepared.read_bytes())},
-        "edited source-pinned host session differs",
+        "source-pinned native host session differs",
     )
     if verify_host:
-        intent_time = m4._intent(store, job_id, 1)
+        intent_time = m4._intent(store, job_id, ordinal)
         # Existing M4 acceptance verifies current v2 session and admission,
         # independently authenticated native operations, same-target IDs,
         # exact signed +24 frame roll, and terminal MOV/PCM. Pure check.
-        m4._verify_stage(store, job_id, 1, receipt, intent_time)
+        m4._verify_stage(store, job_id, ordinal, receipt, intent_time)
     print(
         json.dumps(
             {
                 "state": (
-                    "edited_m4_independently_verified_read_only"
+                    f"{stage}_m4_independently_verified_read_only"
                     if verify_host
-                    else "edited_m4_original_receipt_preflight_only"
+                    else f"{stage}_m4_original_receipt_preflight_only"
                 ),
+                "stage": stage,
                 "jobId": job_id,
                 "sourcePinnedNativeCommit": OLD_GIT_SHA,
                 "correctedM4SourceSha256": EXPECTED_M4_SHA,
@@ -208,23 +217,33 @@ def inspect(*, verify_host: bool = True) -> tuple[Any, Any, str, dict[str, Any]]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("inspect", "submit"))
-    action = parser.parse_args().action
+    parser.add_argument("--stage", choices=("edited", "rebuild"), default="edited")
+    args = parser.parse_args()
+    action, stage = args.action, args.stage
     # A separately executed inspect has already run the complete comparison.
     # M4.submit *itself* reruns the complete stage verifier, so do not double
     # that expensive independent readback before pinning its one-use receipt.
-    m4, store, job_id, _receipt = inspect(verify_host=action == "inspect")
+    m4, store, job_id, _receipt = inspect(stage=stage, verify_host=action == "inspect")
     if action == "submit":
         m4.submit(store, job_id)
         report = m4.publish(store, job_id)
+        wanted_states = (
+            ["verified", "verified", "pending", "pending"]
+            if stage == "edited"
+            else ["verified"] * 4
+        )
         require(
-            report["state"] == "queued"
-            and [row["state"] for row in report["stages"]]
-            == ["verified", "verified", "pending", "pending"],
-            "edited M4 verification did not accept the original receipt",
+            report["state"] == ("queued" if stage == "edited" else "completed_verified")
+            and [row["state"] for row in report["stages"]] == wanted_states,
+            "M4 verification did not accept the original signed native receipt",
         )
         print(
             json.dumps(
-                {"state": "edited_m4_verified", "jobId": job_id, "next": "revision"},
+                {
+                    "state": f"{stage}_m4_verified",
+                    "jobId": job_id,
+                    "next": "revision" if stage == "edited" else "final_312_acceptance",
+                },
                 sort_keys=True,
             ),
             flush=True,
