@@ -109,6 +109,34 @@ def test_bad_or_contradictory_macho_refused(tmp_path: Path, bad_binary: bytes) -
         macho_arches(app / "Contents" / "MacOS" / "Resolve")
 
 
+@pytest.mark.parametrize("fat64", [False, True])
+def test_overlapping_fat_architecture_slices_refused(
+    tmp_path: Path, fat64: bool
+) -> None:
+    header = bytearray(_fat(fat64=fat64))
+    # Overlap the arm64 slice with the x86_64 slice while retaining valid
+    # distinct CPU IDs and in-file bounds. Both table encodings must fail.
+    start = 8 + (32 if fat64 else 20)
+    if fat64:
+        struct.pack_into(">Q", header, start + 8, 8 + 64 + 8)
+    else:
+        struct.pack_into(">I", header, start + 8, 8 + 40 + 8)
+    app = _fake_app(tmp_path, bytes(header))
+    with pytest.raises(ValueError, match="overlapping"):
+        macho_arches(app / "Contents" / "MacOS" / "Resolve")
+
+
+@pytest.mark.parametrize("fat64", [False, True])
+def test_fat_architecture_slice_past_eof_refused(tmp_path: Path, fat64: bool) -> None:
+    header = bytearray(_fat(fat64=fat64))
+    # A second slice can begin inside the file but extend past its end.
+    size_field = 8 + (32 if fat64 else 20) + (16 if fat64 else 12)
+    struct.pack_into(">Q" if fat64 else ">I", header, size_field, 65535)
+    app = _fake_app(tmp_path, bytes(header))
+    with pytest.raises(ValueError, match="bounds"):
+        macho_arches(app / "Contents" / "MacOS" / "Resolve")
+
+
 def test_file_symlink_and_parent_symlink_refused(tmp_path: Path) -> None:
     app = _fake_app(tmp_path)
     exe = app / "Contents" / "MacOS" / "Resolve"

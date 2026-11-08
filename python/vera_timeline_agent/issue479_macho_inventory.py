@@ -80,6 +80,7 @@ def macho_arches(path: Path) -> list[str]:
     if len(data) < header_size:
         raise ValueError("truncated Mach-O architecture table")
     result: list[str] = []
+    slice_ranges: list[tuple[int, int]] = []
     for index in range(count):
         offset = 8 + index * entry_size
         cpu = struct.unpack_from(f"{endian}I", data, offset)[0]
@@ -97,6 +98,12 @@ def macho_arches(path: Path) -> list[str]:
             or slice_offset + slice_size > size
         ):
             raise ValueError("invalid Mach-O architecture bounds")
+        if any(
+            slice_offset < end and start < slice_offset + slice_size
+            for start, end in slice_ranges
+        ):
+            raise ValueError("overlapping Mach-O architecture slices")
+        slice_ranges.append((slice_offset, slice_offset + slice_size))
         architecture = _CPU_NAMES.get(cpu, f"unknown-0x{cpu:08x}")
         if architecture in result:
             raise ValueError("duplicate Mach-O CPU architecture")
