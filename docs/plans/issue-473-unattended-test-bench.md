@@ -240,4 +240,33 @@ this draft PR to ready merely because isolated tests pass.
   The controller now validates all three host runtime versions (Node, npm,
   uv) before provisioning, and the next fresh launch needs both the pinned
   Node and user-local uv directories in its PATH. The old run is not retried.
+- **Fifth distinct Mac-native campaign (first real native effects):**
+  `~/.local/state/vera/issue-473-studio-05`, on Studio 21.1.1.10, with
+  verified Node 24.19.0 / npm 11.17.0 / uv 0.12.5 runtime, passed the sealed
+  source preflight and target-bound admission, provisioned **two new** exact-UID
+  disposable targets, enrolled a real M4 plan and authenticated **three
+  complete, distinct, one-use native results** on the initial target:
+  `construct` (sequence 0), `save_reopen` (1) and `capture_pre` (2), each with
+  `host-ingested.json` status `complete`. The real native target key is
+  `3dbdd327c8bfc4e6c7c842f288924bc4e28bd4a39d9b646404a01ffc174687bc`
+  under the existing official private host/native vaults. The host then
+  prepared the signed `queue_render` request (sequence 3) and entered its
+  legitimate `reserved_by_render_intent` state. The carrier's generic
+  `preflight_selected_disposable` rejected that **same target's own active
+  output-host reservation** with `Resolve is owned by another VERA operation
+  or is unresolved`. **No sequence-3 carrier intent or native effect was
+  issued** (`native-03/` contains only its empty lock). No render was queued.
+  An independent read-only inspection of `_active_output_host_chains(None)`
+  confirmed this target's own chain as `reserved_by_render_intent`; the
+  preflight currently unconditionally treats every active chain on the
+  selected project as foreign, including its own valid render intent. This
+  is a genuine integration safety incompatibility, not a reason to clear a
+  lock or force execution. Removed launchctl job `vera-473-test05` and
+  confirmed no Test Bench worker was still running. All original operation
+  IDs, requests, results and complete/partial evidence remain preserved.
+  **Next:** a separately reviewed, exact-request-and-job scoped, stage-aware
+  read-only owner preflight that permits only its authenticated own render
+  intent, while refusing foreign/uncertain owners and unknown/active render
+  jobs. Do not monkeypatch, clear the owner, reuse this target or replay
+  sequence 3. Real render/PCM and final M4 are not yet proven.
 - Full native M4 success and #312 completion remain **unverified**.

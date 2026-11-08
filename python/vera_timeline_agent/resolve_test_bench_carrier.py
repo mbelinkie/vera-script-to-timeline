@@ -178,9 +178,22 @@ def start(
         # run BEFORE our longer-lived owner scope, or it would self-deadlock.
         # The installed native engine independently rechecks exact UIDs and
         # retained history while holding the inherited owner before effects.
-        (preflight or preflight_selected_disposable)(
-            target, require_empty=request["action"] == "construct"
-        )
+        if preflight is not None:
+            preflight(target, require_empty=request["action"] == "construct")
+        elif request["action"] in {
+            "queue_render", "start_render", "poll_render", "capture_post"
+        }:
+            # Host preparation of a real render intent intentionally reserves
+            # this target. The generic disposable preflight treats that own
+            # signed reservation as foreign. Do not weaken the shared guard;
+            # use a bounded read-only owner+job check for these actions only.
+            from .resolve_test_bench_render_preflight import preflight_owned_render
+
+            preflight_owned_render(request)
+        else:
+            preflight_selected_disposable(
+                target, require_empty=request["action"] == "construct"
+            )
         with native_owner(output_lane=True) as owner_fd:
             # Preserve the exact previous installed request, including failed
             # historical one-use requests; never erase its source evidence.
