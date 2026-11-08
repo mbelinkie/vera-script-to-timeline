@@ -298,6 +298,8 @@ def test_one_os_event_batch_with_verified_window_and_no_retry(
     assert "Resolve Trim menu disabled outside the Edit page" in called[0][2]
     assert 'menu item "Roll"' in called[0][2]
     assert 'menu item "One Frame Right"' in called[0][2]
+    assert 'menu item "Auto Deselect All Tracks"' in called[0][2]
+    assert 'menu item "Auto Select/Deselect V1"' in called[0][2]
     assert "repeat 24 times" not in called[0][2]
 
 

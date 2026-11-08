@@ -402,6 +402,19 @@ tell application "System Events"
     set workspaceMenu to menu "Workspace" of menu bar 1
     click menu item "Edit" of menu 1 of menu item "Switch to Page" of workspaceMenu
     delay 0.4
+    set timelineMenu to menu "Timeline" of menu bar 1
+    set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
+    if not (enabled of menu item "Auto Deselect All Tracks" of autoMenu) then
+      error "Resolve track targeting menu unavailable"
+    end if
+    click menu item "Auto Deselect All Tracks" of autoMenu
+    delay 0.2
+    set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
+    if not (enabled of menu item "Auto Select/Deselect V1" of autoMenu) then
+      error "Resolve original video track V1 cannot be targeted"
+    end if
+    click menu item "Auto Select/Deselect V1" of autoMenu
+    delay 0.2
     set trimMenu to menu "Trim" of menu bar 1
     if not (enabled of menu item "Normal Edit Mode" of trimMenu) then
       error "Resolve Trim menu disabled outside the Edit page"
@@ -758,7 +771,7 @@ def run(root: Path, *, inspect_only: bool = False) -> None:
             "rightItemUid": right_uid,
             "fromFrame": START_FRAME,
             "toFrame": END_FRAME,
-            "command": "Resolve_Edit_timeline_V_24_period_nudges_once",
+            "command": "Resolve_Edit_V1_only_menu_roll_verify_1_then_23_once",
         }
     )
     descriptor = os.open(
