@@ -6,8 +6,9 @@
 from a freshly fetched `origin/main`, separate from #312, #472, the existing
 PR #323, historical operation IDs, and retained evidence. All new native
 operations use disposable project/timeline identities and an existing VERA
-Delivery v2 signed request chain. There are no live Studio receipts from this
-branch and no claim that the Test Bench has completed unattended acceptance.
+Delivery v2 signed request chain. The first #473 Mac-native campaign reached
+disposable provisioning only, then failed package admission **before construct**;
+there are no new #473 native effect receipts and no claim of unattended acceptance.
 
 The remaining hard blocker is a **genuine in-place 327 → 351 roll edit** that
 preserves the two original picture timeline-item UIDs and every unrelated
@@ -51,7 +52,8 @@ version. No untested GUI action is enabled in this branch.
    the existing host, and refuses to re-run uncertain PCM finalization.
 4. `resolve_test_bench_m4_runner.py`: one-start disposable two-project setup
    through `resolve_test_queue_m4_provision` only **after** checking actual
-   disk headroom and running the existing read-only public v2 package verifier;
+   disk headroom, running the existing read-only public v2 package verifier,
+   and verifying the exact six published #312 matrix preparation receipts;
    a pinned pristine host session,
    durable original M4 job enrollment with enqueue-crash reconciliation, the
    existing serialized M4 worker gate, the output chain driver, and an
@@ -88,7 +90,7 @@ runtime accepts only the following closed configuration shape:
   "name": "test-bench-312",
   "caseId": "synthetic-312",
   "packageRoot": "/absolute/approved/verified-v2-package",
-  "profile": "verified-v2-package/v1",
+  "profile": "qualification-output-studio-matrix/v1",
   "maxElapsedSeconds": 14400,
   "maxDiskBytes": 1073741824,
   "consentReference": "https://github.com/mbelinkie/vera-script-to-timeline/issues/473",
@@ -118,9 +120,9 @@ same original M4 job must be reused after an interrupted enrollment.
 
 ## Remaining engineering before this issue is accepted
 
-- Merge and integrate #472's authentic source-range correction; verify on
-  current Mac Resolve Studio without changing #472-owned verifier/test files
-  in this branch. The current source-range issue cannot be hidden as success.
+- #472's source-range correction is merged and independently accepted on
+  Resolve Studio 21.1.1.10. This branch has merged the corrected main and
+  the official SDK self-replacing-module bootstrap fix from `39cf3114`.
 - Build and empirically qualify one native **same-UID** timeline boundary-edit
   route, preferably product-supported. Do not call the 21.1.2 offset setters
   on the sole M4 target based only on method presence. First prove semantics
@@ -164,7 +166,7 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **46 isolated fake-host/SDK/controller/edit-probe tests passed.** `ruff` and full
+- **49 isolated fake-host/SDK/controller/edit-probe/matrix-pinning tests passed.** `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
@@ -178,5 +180,18 @@ this draft PR to ready merely because isolated tests pass.
   attempted and could not run: Claude CLI reported its weekly usage limit
   (reset November 9 at 15:00 UTC). The draft PR remains pending independent
   code review; no review approval is claimed.
-- No live Resolve Studio run was attempted. Issue #472 remained open when
-  checked. Full native M4 success and #312 completion are **not verified**.
+- **Real Mac native check (Nov 7, 19:27 Eastern):** verified direct connection
+  through official Studio 21.1.1.10 SDK; independently validated the retained
+  11-event public V2 synthetic package; created two *new* disposable projects
+  under `~/.local/state/vera/issue-473-studio-01/run/provision` with original
+  one-use journal receipts. The run then failed during output admission with
+  `first smoke profile requires one actual picture/source-audio pair`: the
+  closed config had incorrectly selected the two-event smoke profile instead
+  of #312's 11-event **studio matrix**. A subsequent launch-service execution
+  correctly refused to reuse the already-created incomplete session root with
+  `new output session root required`. The launch job `vera-473-test01` was
+  immediately removed; no `construct` or other #473 native-effect intent was
+  dispatched. **Do not reuse** this run root, provisioned targets or session.
+  The fixed profile and six published preparation-receipt checks are now
+  required *before* creating any further disposable project.
+- Full native M4 success and #312 completion remain **unverified**.

@@ -25,7 +25,7 @@ def _config(tmp_path: Path) -> dict[str, Any]:
         "packageRoot": str(tmp_path / "pinned-package"),
         "name": "test-bench-312",
         "caseId": "synthetic-312",
-        "profile": "verified-v2-package/v1",
+        "profile": "qualification-output-studio-matrix/v1",
         "maxElapsedSeconds": 3600,
         "maxDiskBytes": 128 * 1024 * 1024,
         "consentReference": "https://github.com/mbelinkie/vera-script-to-timeline/issues/473",
@@ -59,6 +59,66 @@ def test_one_start_closed_configuration(
         runner.validate_config(config)
 
 
+def test_matrix_profile_binds_all_six_original_published_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from vera_timeline_agent import qualification_output_package_v2 as package
+    from vera_timeline_agent import v2_package
+
+    build_id = "sample-original-build"
+    root = tmp_path / "original-package"
+    build = root / "Builds" / build_id
+    published = tmp_path / "published"
+    monkeypatch.setattr(
+        v2_package,
+        "verify_v2_package",
+        lambda path: SimpleNamespace(build_id=build_id),
+    )
+    monkeypatch.setattr(package, "MATRIX_PREPARATION_ROOT", published)
+    bindings = [{"requirementKey": f"sha256:{index:064x}"} for index in range(6)]
+    (build / v2_package.MANIFEST_FILENAME).parent.mkdir(parents=True)
+    (build / v2_package.MANIFEST_FILENAME).write_text(
+        json.dumps(
+            {
+                "events": [{}] * 11,
+                "timeline": {"durationFrames": 1407},
+                "preparationBindings": bindings,
+            }
+        )
+    )
+    for index, binding in enumerate(bindings):
+        key = binding["requirementKey"]
+        embedded = (
+            build
+            / "Preparation/receipts"
+            / hashlib.sha256(key.encode()).hexdigest()
+            / "receipt.json"
+        )
+        external = (
+            published
+            / runner._CASE_312_PREPARATION
+            / "published"
+            / key[7:]
+            / "receipt.json"
+        )
+        embedded.parent.mkdir(parents=True)
+        external.parent.mkdir(parents=True)
+        original_bytes = f"exact-published-receipt-{index}".encode()
+        embedded.write_bytes(original_bytes)
+        external.write_bytes(original_bytes)
+    resolved = runner._matrix_preparation_paths(root, case_id="synthetic-312")
+    assert set(resolved) == {binding["requirementKey"] for binding in bindings}
+    assert len(resolved) == 6
+    first = resolved[bindings[0]["requirementKey"]]
+    first.write_bytes(b"swapped evidence")
+    with pytest.raises(queue.QueueError, match="published source receipt differs"):
+        runner._matrix_preparation_paths(root, case_id="synthetic-312")
+    with pytest.raises(queue.QueueError, match="unsupported unattended"):
+        runner._matrix_preparation_paths(root, case_id="not-312")
+
+
 def test_no_setup_or_native_operation_before_472_gate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -82,8 +142,6 @@ def test_no_setup_or_native_operation_before_472_gate(
 def test_preflight_refuses_insufficient_disk_before_project_provision(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from vera_timeline_agent import v2_package
-
     config = _config(tmp_path)
     calls: list[str] = []
     monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
@@ -93,9 +151,7 @@ def test_preflight_refuses_insufficient_disk_before_project_provision(
         lambda path: SimpleNamespace(free=1024),
     )
     monkeypatch.setattr(
-        v2_package,
-        "verify_v2_package",
-        lambda path: calls.append("package-verified"),
+        runner, "_matrix_preparation_paths", lambda *a, **k: calls.append("verified")
     )
     monkeypatch.setattr(
         runner,
@@ -110,8 +166,6 @@ def test_preflight_refuses_insufficient_disk_before_project_provision(
 def test_preflight_refuses_invalid_package_before_project_provision(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from vera_timeline_agent import v2_package
-
     config = _config(tmp_path)
     calls: list[str] = []
     monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
@@ -121,10 +175,10 @@ def test_preflight_refuses_invalid_package_before_project_provision(
         lambda path: SimpleNamespace(free=4 * 1024**3),
     )
 
-    def invalid(_path: Path) -> None:
+    def invalid(_path: Path, *, case_id: str) -> None:
         raise ValueError("invalid source hash")
 
-    monkeypatch.setattr(v2_package, "verify_v2_package", invalid)
+    monkeypatch.setattr(runner, "_matrix_preparation_paths", invalid)
     monkeypatch.setattr(
         runner,
         "_one_start_setup",

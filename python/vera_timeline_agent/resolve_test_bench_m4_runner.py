@@ -26,6 +26,7 @@ from . import resolve_test_queue_m4 as m4
 from . import resolve_test_queue_m4_provision as provision
 
 SCHEMA = "vera.test-bench-one-start/v1"
+_CASE_312_PREPARATION = "issue312-package-current-S-approved-v2"
 FIELDS = frozenset(
     {
         "schema",
@@ -54,12 +55,16 @@ def _absolute(value: Any, name: str) -> Path:
 
 
 def validate_config(value: Any) -> dict[str, Any]:
-    from .qualification_output_native_v2 import SYNTHETIC_PROFILE
+    from .qualification_output_native_v2 import MATRIX_PROFILE
 
     if not isinstance(value, dict) or set(value) != FIELDS:
         raise queue.QueueError("closed one-start Test Bench configuration required")
-    if value["schema"] != SCHEMA or value["profile"] != SYNTHETIC_PROFILE:
-        raise queue.QueueError("only the approved synthetic qualification profile")
+    if (
+        value["schema"] != SCHEMA
+        or value["profile"] != MATRIX_PROFILE
+        or value["caseId"] != "synthetic-312"
+    ):
+        raise queue.QueueError("only the approved #312 studio-matrix fixture")
     for key in ("root", "queueRoot", "packageRoot"):
         _absolute(value[key], key)
     if len({value[k] for k in ("root", "queueRoot", "packageRoot")}) != 3:
@@ -121,9 +126,63 @@ def _find_job(store: queue.Store, plan_sha: str) -> str | None:
     return str(jobs[0]["id"]) if jobs else None
 
 
-def _preflight_before_native(value: dict[str, Any]) -> None:
-    """Refuse inadequate disk or invalid public package before project creation."""
+def _matrix_preparation_paths(package_root: Path, *, case_id: str) -> dict[str, Path]:
+    """Prove the EXACT #312 published preparation receipts before any effect.
+
+    Never select an arbitrary filesystem directory, substitute an embedded
+    receipt without its real published media, or guess a creative revision.
+    This is the already approved fixed synthetic source for #312 only.
+    """
     from . import v2_package
+    from .qualification_output_package_v2 import MATRIX_PREPARATION_ROOT
+
+    if case_id != "synthetic-312":
+        raise queue.QueueError("unsupported unattended studio-matrix case")
+    verified = v2_package.verify_v2_package(package_root)
+    build = package_root / "Builds" / verified.build_id
+    manifest = json.loads((build / v2_package.MANIFEST_FILENAME).read_bytes())
+    bindings = manifest.get("preparationBindings")
+    if (
+        not isinstance(bindings, list)
+        or len(bindings) != 6
+        or len(manifest.get("events", [])) != 11
+        or manifest.get("timeline", {}).get("durationFrames") != 1407
+    ):
+        raise queue.QueueError("approved 11-event #312 matrix package required")
+    published = MATRIX_PREPARATION_ROOT / _CASE_312_PREPARATION / "published"
+    prepared: dict[str, Path] = {}
+    for binding in bindings:
+        key = binding.get("requirementKey") if isinstance(binding, dict) else None
+        if (
+            not isinstance(key, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", key) is None
+            or key in prepared
+        ):
+            raise queue.QueueError("malformed/duplicate approved preparation key")
+        embedded = (
+            build
+            / "Preparation"
+            / "receipts"
+            / hashlib.sha256(key.encode()).hexdigest()
+            / "receipt.json"
+        )
+        receipt = published / key[7:] / "receipt.json"
+        for path in (embedded, receipt):
+            v2_package._require_path_components_no_symlink(path, "matrix receipt")
+        if (
+            not embedded.is_file()
+            or not receipt.is_file()
+            or embedded.read_bytes() != receipt.read_bytes()
+        ):
+            raise queue.QueueError(
+                "current published source receipt differs from reviewed package"
+            )
+        prepared[key] = receipt
+    return prepared
+
+
+def _preflight_before_native(value: dict[str, Any]) -> None:
+    """Refuse inadequate disk or wrong matrix fixture before project creation."""
 
     root = _absolute(value["root"], "root")
     carrier._private(root, create=True)
@@ -131,9 +190,12 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
         raise queue.QueueError(
             "Test Bench actual free disk below the reserved native budget"
         )
-    # The normal public verifier is read-only, unlike host admission. Do not
-    # mutate or create any Resolve project before this package is authenticated.
-    v2_package.verify_v2_package(_absolute(value["packageRoot"], "packageRoot"))
+    # Authenticates each actual published source receipt and all 11 events
+    # before provision creates even a disposable project in Resolve.
+    _matrix_preparation_paths(
+        _absolute(value["packageRoot"], "packageRoot"),
+        case_id=value["caseId"],
+    )
 
 
 def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str, str]]:
@@ -153,6 +215,10 @@ def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str,
             pristine_root,
             profile=value["profile"],
             package_root=_absolute(value["packageRoot"], "packageRoot"),
+            preparation_paths=_matrix_preparation_paths(
+                _absolute(value["packageRoot"], "packageRoot"),
+                case_id=value["caseId"],
+            ),
             target=targets["initial"],
             case_id=value["caseId"],
         )
