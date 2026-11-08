@@ -308,3 +308,70 @@ this draft PR to ready merely because isolated tests pass.
   active. No #06 native effects were dispatched; its launch job was removed.
 - Full four-stage M4 and #312 acceptance remain **unverified**. Same-target
   identity-preserving 327→351 edit and revised fresh rebuild are still pending.
+
+## Conductor adoption: phase 1 read-only native-state reconciliation (2026-11-07)
+
+This is an evidence snapshot of the **existing** campaign, not a new acceptance
+attempt. Original draft PR #474 was adopted at exact source commit
+`920adcac979a575672cf4fae5d5fad2de7adb7f8`, without replay, reset, new
+Resolve targets, or changes to the original Codex branch. On the Mac, the
+frozen original native host checkout at
+`~/.local/state/vera/issue-473-studio-05/pinned-code` independently returned
+`3ea32582a6761ead588762ba2df2f95bf80bd8e9` from `git rev-parse HEAD`.
+The originally recorded sealed source graph is
+`1dc6db11389bb6f322b0f05446f142d9fdd072d873019aa507803c3f0cd1c7cc`.
+
+The original queue ID remains
+`resolve-reverse-6d7e20fad0b64b418d6a94930526557d`. Its real M4
+`report.json` (read directly on the Mac) reports the first two independently
+verified receipts and no receipt for the third or fourth stage yet:
+
+| Stage | M4 state at 2026-11-07 22:44 EST | Original receipt SHA-256 |
+| --- | --- | --- |
+| pristine | `verified` | `60bab65ad24bd2d0942fb70bd1f09b4c3c912ff8b9f1fe6855a6b3265281c748` |
+| edited | `verified` | `bf6ce57b471b09d766a1edaabad8aa07cedc322190f1deca2007fc2018d4d468` |
+| revision | `awaiting_operator` | none; one-use operation `5dd1a010-fdcb-4dc2-a82f-c0740411465e` |
+| rebuild | `pending` | none; one-use operation `3371430a-fccb-4662-93ac-eced922d0d81` |
+
+The original source-pinned proof session is
+`run/revision/session.json`, SHA-256
+`c49f1278acdcab2fd6c4d809d6ba93ea6a71d50f16e62cb4ea2316f37026f319`.
+Its signed `revision-ledger.json` has `outcome=accept`, history containing only
+proposal `sha256:0d87abdf59bc941797eec2b0080cf0b17711a70bc471fedc7eaeb22e4b3f8afd`,
+and its signed `decision-receipt.json` identifies the original approved
+proposal decision. `run/revision/comparison.md` shows the picture-only slate
+boundary 327→351, unchanged total 1407 programme frames, unchanged mapping,
+no new audio; the source-pinned `accept-proposal` step finished and emitted
+`original_picture_only_revision_accepted`. This is **not** yet the independent
+M4 revision verification.
+
+**Active owner/fail-stop:** the preexisting launchd job
+`vera-473-revision-continue05` remained running (launchd parent PID 45805)
+and progressed without intervention from `accept-proposal` to `submit`. At
+the final read-only inspection, M4 remained
+`verified, verified, awaiting_operator, pending`; no
+`receipt-revision.json` had been observed and the `submit` step was still
+in flight. No competing worker, re-submission or one-use native operation may
+be started. Protect the entire campaign directory, `run/revision/`, the
+original queue directory/SQLite DB/owner lock, `pinned-code/`, all source pins,
+original disposable project UIDs and previous native operation IDs, and the
+historically damaged #312 target and its results.
+
+**Next read-only reconciliation:** wait for that *same* launchd owner to become
+terminal; inspect its stdout/stderr, receipt bytes and SHA-256, original
+proof-session pin and M4 `report.json`. Advance to separate rebuild phase
+only upon independently established stage states
+`verified, verified, verified, pending` with the original signed revision
+receipt. If the owner ends after the one-use decision or receipt intent but
+before M4 verification, fail closed; never replay or relaunch the consumed
+step. Full #473 still has the documented menu-driven GUI roll versus
+non-GUI acceptance gap, so stage verification alone cannot close #473 or
+unblock #312.
+
+Linux worktree verification for this **documentation-only** reconciliation:
+`git diff --check` passed. `npm run validate:fast` was attempted using
+Node 24.19.0/npm 11.17.0 and exited 1 at `@vera/public-page-capture` lint
+with 45 `@typescript-eslint` unresolved-type errors. This worktree had no
+`node_modules` directory before the attempt. No source code or test was changed
+in this phase, and no assertion is made that the lint failure is new or
+identical to `origin/main` without a separate baseline comparison.
