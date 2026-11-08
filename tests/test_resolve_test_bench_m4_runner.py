@@ -213,6 +213,38 @@ def test_full_source_admission_refuses_before_any_disposable_creation(
     assert calls == ["real-admission-refused"]
 
 
+def test_pinned_node_refuses_launchctl_missing_or_wrong_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import qualification_output_package_v2 as package
+
+    node = tmp_path / "node"
+    node.write_bytes(b"real locked executable fixture")
+    monkeypatch.setattr(package, "_NODE", node)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    with pytest.raises(queue.QueueError, match="must expose"):
+        runner._require_pinned_node(mac=True)
+    different = tmp_path / "foreign-node"
+    different.write_bytes(b"wrong")
+    monkeypatch.setattr(shutil, "which", lambda name: str(different))
+    with pytest.raises(queue.QueueError, match="must expose"):
+        runner._require_pinned_node(mac=True)
+    monkeypatch.setattr(shutil, "which", lambda name: str(node))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, "v26.5.0\n"),
+    )
+    with pytest.raises(queue.QueueError, match="version differs"):
+        runner._require_pinned_node(mac=True)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, "v24.19.0\n"),
+    )
+    runner._require_pinned_node(mac=True)
+
+
 def test_no_setup_or_native_operation_before_472_gate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

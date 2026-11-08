@@ -54,7 +54,10 @@ version. No untested GUI action is enabled in this branch.
    through `resolve_test_queue_m4_provision` only **after** checking actual
    disk headroom, running the public v2 package verifier, verifying the exact
    six published #312 matrix preparation receipts, and reauthenticating the
-   *three* original measured narration/cache artifacts. A fresh, private,
+   *three* original measured narration/cache artifacts. The Mac launch service
+   must expose the independently verified **pinned Node 24.19.0** binary in
+   `PATH` before even starting a costly source admission or native project.
+   A fresh, private,
    write-once **complete package admission is performed before provisioning**:
    an interrupted or refused preflight cannot create any Resolve project and
    cannot be replayed on the same root. The later target-bound session repeats
@@ -172,7 +175,7 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **51 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
+- **52 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
@@ -212,4 +215,17 @@ this draft PR to ready merely because isolated tests pass.
   input and strict source-derived timing/measurement pins now route them to
   independent admission **before** any new project creation. Neither spent
   campaign is reused or represented as a successful M4 stage.
+- **Third distinct Mac-native campaign:**
+  `~/.local/state/vera/issue-473-studio-03`, using original exact published
+  6 preparation/3 narration evidence bindings, **passed both** source-only
+  and target-bound authenticated admission (sealed before any effects) and
+  auto-provisioned two new disposable Studio targets. It then failed **before
+  native construct** with `locked node unavailable`. The `launchctl submit`
+  environment omitted Node from PATH, although the Mac has the pinned Node
+  `v24.19.0` executable. Auto-restarted job correctly refused the already
+  spent preflight root; removed `vera-473-test03`, no native operation was
+  dispatched and no original evidence or target was reused. The next fresh
+  launcher must set the pinned Node 24 directory first, and
+  `_require_pinned_node` now prevents an incorrect launch-service PATH from
+  creating any new Resolve project.
 - Full native M4 success and #312 completion remain **unverified**.

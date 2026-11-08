@@ -15,6 +15,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -280,6 +281,7 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
 
     root = _absolute(value["root"], "root")
     carrier._private(root, create=True)
+    _require_pinned_node()
     if shutil.disk_usage(root).free < value["maxDiskBytes"]:
         raise queue.QueueError(
             "Test Bench actual free disk below the reserved native budget"
@@ -304,6 +306,41 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
         narration_evidence_paths=narrations,
     )
     admission.assert_current()
+
+
+def _require_pinned_node(*, mac: bool | None = None) -> None:
+    """Refuse a launchd environment without the VERA-pinned Node runtime.
+
+    Source admission's separate locked compiler already uses its own absolute
+    Node 24 path. The proof/host bridge instead uses shutil.which("node");
+    launchctl submit normally omits third-party PATH entries. Failing before
+    Resolve project creation is better than an unknowable mid-campaign stop.
+    """
+    from .qualification_output_package_v2 import _NODE
+
+    if mac is None:
+        mac = sys.platform == "darwin"
+    if not mac:
+        return
+    chosen = shutil.which("node")
+    if (
+        chosen is None
+        or not _NODE.is_file()
+        or _NODE.is_symlink()
+        or Path(chosen).resolve() != _NODE.resolve()
+    ):
+        raise queue.QueueError(
+            "launch service must expose the pinned Node 24.19.0 runtime"
+        )
+    version = subprocess.run(
+        [str(_NODE), "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    if version.returncode != 0 or version.stdout.strip() != "v24.19.0":
+        raise queue.QueueError("pinned Node runtime version differs")
 
 
 def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str, str]]:
