@@ -51,6 +51,46 @@ def sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def first_missing_native_result(
+    root: Path, controller: Any, carrier: Any, native: Any
+) -> tuple[int, str, Path]:
+    """Identify the sole prepared/unstarted native action from original files.
+
+    Never call native.next_native_operation to cross an immutable prepared
+    request: that official operation-tail API intentionally refuses an intent
+    without a completed result. Observe already-published genuine results and
+    the carrier's authenticated ingestion instead of pretending it is new.
+    """
+    for sequence, action in enumerate(
+        native.action_plan_for_context(controller.context)
+    ):
+        result, _authority, _native_intent, request = native.native_request_paths(
+            controller.context, sequence
+        )
+        if not result.is_file() or result.is_symlink():
+            need(
+                not result.exists() and not result.is_symlink(),
+                "native result is not a regular completed file",
+            )
+            return sequence, action, request
+        step = root / f"native-{sequence:02d}"
+        state = carrier.status(step)
+        need(
+            state["state"] == "native_result_verified"
+            and state["verified"] is True
+            and (step / "host-ingested.json").is_file(),
+            "preceding native effect not independently host authenticated",
+        )
+        verified = native.verify_native_result(result, sha(result.read_bytes()))
+        need(
+            verified.get("status") == "complete"
+            and verified.get("action") == action
+            and verified.get("context") == controller.context,
+            "preceding signed native result differs",
+        )
+    raise RuntimeError("all original native results already complete")
+
+
 def approve_existing_render_output(
     root: Path,
     controller: Any,
@@ -84,14 +124,19 @@ def approve_existing_render_output(
             root / f"native-{prior_sequence:02d}" / "intent.json"
         ).exists() and not native_result.exists():
             return
-    sequence, _ = native.next_native_operation(controller.context)
-    action = native.native_action(controller.context, sequence)
+    sequence, action, pending_request = first_missing_native_result(
+        root, controller, carrier, native
+    )
     if action not in {"poll_render", "capture_post"}:
         return
     result_path, _, _, native_request = native.native_request_paths(
         controller.context, sequence
     )
-    if native_request.exists() or result_path.exists():
+    if (
+        native_request != pending_request
+        or native_request.exists()
+        or result_path.exists()
+    ):
         return
     approval_path = root / f"operator-approval-{sequence:02d}.json"
     if approval_path.exists() or approval_path.is_symlink():
@@ -197,6 +242,75 @@ def approve_existing_render_output(
     )
     host._publish(approval_path, approved_raw)
     print("approved_existing_original_MOV_for", action, sequence, flush=True)
+
+
+def dispatch_exact_prepared_render(
+    root: Path, controller: Any, carrier: Any, native: Any, helper: Any
+) -> None:
+    """Dispatch a prepared original signed render effect, never reprepare it.
+
+    The reviewed host may write its native *preparation intent* before its
+    generic idle-target preflight discovers the host's own reservation. That
+    intent blocks next_native_operation by design. It does not mean Resolve
+    executed anything: the native-start file and carrier intent distinguish
+    started/uncertain effects. Require both to be ABSENT and all predecessors
+    authenticated, then delegate only preflight to the strict reviewed helper.
+    """
+    sequence, action, request_path = first_missing_native_result(
+        root, controller, carrier, native
+    )
+    need(action in helper.RENDER_ACTIONS, "non-render stage cannot use helper")
+    native_result, authority_path, intent_path, source_request = (
+        native.native_request_paths(controller.context, sequence)
+    )
+    need(
+        source_request == request_path
+        and not native_result.exists()
+        and not native_result.is_symlink()
+        and authority_path.is_file()
+        and not authority_path.is_symlink()
+        and intent_path.is_file()
+        and not intent_path.is_symlink()
+        and request_path.is_file()
+        and not request_path.is_symlink(),
+        "original native signed preparation is incomplete or ambiguous",
+    )
+    step = root / f"native-{sequence:02d}"
+    need(
+        not (step / "intent.json").exists()
+        and not (step / "intent.json").is_symlink()
+        and not (request_path.parent / "native-start.json").exists()
+        and not (request_path.parent / "native-start.json").is_symlink(),
+        "original native effect is already started or uncertain; never replay",
+    )
+    request_sha = sha(carrier._read(request_path))
+    verified = carrier._checked_request(
+        request_path, request_sha, controller.release_root
+    )
+    need(
+        verified["sequence"] == sequence
+        and verified["action"] == action
+        and verified["context"] == controller.context,
+        "original signed operation identity differs",
+    )
+
+    def preflight(
+        target: Any, *, require_empty: bool, signed: dict[str, Any] = verified
+    ) -> None:
+        need(
+            target == controller.context["target"] and not require_empty,
+            "not the exact signed render-stage target",
+        )
+        helper.preflight_owned_render(signed)
+
+    carrier.start(
+        step,
+        request_path,
+        request_sha,
+        controller.release_root,
+        preflight=preflight,
+    )
+    print("original_native_dispatched_once", sequence, action, flush=True)
 
 
 def main(phase: str = "pristine") -> None:
@@ -315,18 +429,27 @@ def main(phase: str = "pristine") -> None:
                 minimum_free_bytes=1073741824,
             )
         except native.OutputConsistencyError as error:
-            need(
-                str(error) == "approved output already exists",
-                "host refused original output for an unrelated reason",
-            )
-            approve_existing_render_output(
-                root,
-                controller,
-                carrier,
-                native,
-                session_path=session_path,
-                session_sha=session_sha,
-            )
+            if str(error) == "approved output already exists":
+                approve_existing_render_output(
+                    root,
+                    controller,
+                    carrier,
+                    native,
+                    session_path=session_path,
+                    session_sha=session_sha,
+                )
+            else:
+                need(
+                    str(error)
+                    == (
+                        "native operation has an immutable intent without "
+                        "a terminal result; read-only recovery required"
+                    ),
+                    "host refused an unknown or foreign native operation",
+                )
+                dispatch_exact_prepared_render(
+                    root, controller, carrier, native, helper
+                )
             continue
         except owner.NativeOwnerError as refusal:
             need(
@@ -338,59 +461,9 @@ def main(phase: str = "pristine") -> None:
                 ),
                 "foreign/shared native owner refused stage",
             )
-            # The old generic preflight only refuses the host's OWN signed
-            # reservation. Delegate that one read-only stage check to the
-            # reviewed external helper, then use the OLD carrier for effects.
-            pending = None
-            for sequence, action in enumerate(actions):
-                result_path, _auth, _intent, request_path = native.native_request_paths(
-                    controller.context, sequence
-                )
-                if not result_path.exists():
-                    pending = (sequence, action, request_path)
-                    break
-            need(pending is not None, "no unfinished original native step")
-            sequence, action, request_path = pending
-            need(action in helper.RENDER_ACTIONS, "non-render stage cannot use helper")
-            need(
-                request_path.is_file() and not request_path.is_symlink(),
-                "exact original prepared native request missing",
-            )
-            step = root / f"native-{sequence:02d}"
-            need(
-                not (step / "intent.json").exists()
-                and not (step / "intent.json").is_symlink()
-                and not (request_path.parent / "native-start.json").exists(),
-                "original native effect is started or uncertain; never replay",
-            )
-            digest = sha(carrier._read(request_path))
-            verified = carrier._checked_request(
-                request_path, digest, controller.release_root
-            )
-            need(
-                verified["sequence"] == sequence
-                and verified["action"] == action
-                and verified["context"] == controller.context,
-                "original signed operation identity differs",
-            )
-
-            def preflight(
-                target: Any, *, require_empty: bool, signed: dict[str, Any] = verified
-            ) -> None:
-                need(
-                    target == controller.context["target"] and not require_empty,
-                    "not an exact signed render-stage target",
-                )
-                helper.preflight_owned_render(signed)
-
-            carrier.start(
-                step,
-                request_path,
-                digest,
-                controller.release_root,
-                preflight=preflight,
-            )
-            print("original_native_dispatched_once", sequence, action, flush=True)
+            # Only the original signed/prepared render stage is eligible;
+            # never restart a previously started or unknown operation.
+            dispatch_exact_prepared_render(root, controller, carrier, native, helper)
             continue
 
         if result["state"] == "terminal_native_verified":
