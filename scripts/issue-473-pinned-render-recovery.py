@@ -346,22 +346,43 @@ def main(phase: str = "pristine") -> None:
         package._sha(package._admission_code_source_graph_raw()) == SOURCE_GRAPH_SHA,
         "retained Python/TypeScript source graph is not original",
     )
-    need(phase in {"pristine", "edited"}, "unsupported recovery phase")
+    need(phase in {"pristine", "edited", "rebuild"}, "unsupported recovery phase")
     session_path = RUN / f"run/{phase}/session.json"
     session_sha = SESSION_SHA
-    if phase == "edited":
-        launch_intent = RUN / "run/edited-actions/one-use-run-intent.json"
+    if phase in {"edited", "rebuild"}:
+        launch_intent = RUN / f"run/{phase}-actions/one-use-run-intent.json"
         need(
             launch_intent.is_file() and not launch_intent.is_symlink(),
-            "original edited one-use host launch is missing",
+            "original one-use host launch is missing",
         )
         pinned = json.loads(launch_intent.read_bytes())
+        stage_schema = (
+            "vera.issue473-original-edited-host-once/v1"
+            if phase == "edited"
+            else "vera.issue473-original-rebuild-host-once/v1"
+        )
         need(
-            pinned.get("schema") == "vera.issue473-original-edited-host-once/v1"
+            pinned.get("schema") == stage_schema
             and pinned.get("pristineSessionSha256") == SESSION_SHA
             and pinned.get("session", {}).get("path") == str(session_path),
-            "edited launch provenance differs",
+            "signed stage launch provenance differs",
         )
+        if phase == "rebuild":
+            store = queue.Store(RUN / "queue")
+            plan_path = RUN / "run/m4-plan.json"
+            job_id = runner._find_job(store, sha(carrier._read(plan_path)))
+            need(job_id is not None, "rebuild original queue missing")
+            from vera_timeline_agent import resolve_test_queue_m4 as m4
+
+            plan = m4._load_plan(store, job_id)
+            report = m4.publish(store, job_id)
+            need(
+                pinned.get("jobId") == job_id
+                and pinned.get("freshTarget") == plan["freshTarget"]
+                and report["stage"] == "rebuild"
+                and report["stages"][3]["state"] == "awaiting_operator",
+                "fresh target or original M4 stage identity changed",
+            )
         session_sha = pinned["session"]["sha256"]
         need(
             isinstance(session_sha, str)
@@ -373,6 +394,11 @@ def main(phase: str = "pristine") -> None:
     controller = load_output_session(session_path, session_sha)
     need(controller.context.get("phase") == phase, "original host phase differs")
     need(controller.context.get("caseId") == "synthetic-312", "original case changed")
+    if phase == "rebuild":
+        need(
+            controller.context["target"] == pinned["freshTarget"],
+            "rebuild native host target differs from immutable fresh reservation",
+        )
 
     # Import as a *separate external preflight*, never add files to frozen
     # vera_timeline_agent package or mutate its sealed code source graph.
@@ -395,7 +421,7 @@ def main(phase: str = "pristine") -> None:
     actions = native.action_plan_for_context(controller.context)
     expected_prefix = (
         ("construct", "save_reopen", "capture_pre")
-        if phase == "pristine"
+        if phase in {"pristine", "rebuild"}
         else ("observe_edited", "save_reopen", "capture_pre")
     )
     need(tuple(actions[:3]) == expected_prefix, "original native prefix changed")
@@ -482,22 +508,24 @@ def main(phase: str = "pristine") -> None:
                 from vera_timeline_agent import resolve_test_queue_m4 as m4
 
                 report = m4.publish(store, job_id)
+                ordinal = 1 if phase == "edited" else 3
                 need(
-                    report["stage"] == "edited"
-                    and report["stages"][1]["state"] == "awaiting_operator",
-                    "edited M4 stage is not awaiting original receipt",
+                    report["stage"] == phase
+                    and report["stages"][ordinal]["state"] == "awaiting_operator",
+                    "M4 stage is not awaiting original signed native receipt",
                 )
                 receipt = {
                     "schema": m4.RECEIPT_SCHEMA,
-                    "stage": "edited",
-                    "operationId": report["stages"][1]["operation_id"],
+                    "stage": phase,
+                    "operationId": report["stages"][ordinal]["operation_id"],
                     "session": result["session"],
                     "capture": result["capture"],
                 }
-                retained = store.root / job_id / "receipt-edited.json"
+                retained = store.root / job_id / f"receipt-{phase}.json"
                 carrier._once(retained, queue.canonical(receipt))
                 print(
-                    "original_edited_receipt_preserved_for_independent_M4",
+                    "original_native_receipt_preserved_for_independent_M4",
+                    phase,
                     str(retained),
                     sha(carrier._read(retained)),
                     flush=True,
@@ -510,7 +538,9 @@ def main(phase: str = "pristine") -> None:
 
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
-    cli.add_argument("--phase", choices=("pristine", "edited"), default="pristine")
+    cli.add_argument(
+        "--phase", choices=("pristine", "edited", "rebuild"), default="pristine"
+    )
     args = cli.parse_args()
     try:
         main(args.phase)
