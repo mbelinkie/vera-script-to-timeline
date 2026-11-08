@@ -142,8 +142,8 @@ Do not claim #473 acceptance, release PR #474, advance #312/#313, replay the
 expired M4 campaign or create/edit/save/reopen any Resolve timeline under
 #477. No same-UID change, native result or modified media was observed here.
 
-Phase 2 will add a **pure, bounded, no-SDK-import** declaration inventory
-and fake-only regressions. Phase 3 will finish the feasibility decision and
+Phase 2 adds the **pure, bounded, no-SDK-import** declaration inventory
+and fake-only regressions described below. Phase 3 will finish the feasibility decision and
 **document only** a one-use, separately Producer-approved **NEW** synthetic
 experiment with source/version pins, ownership, UID/media/link/audio/6-track
 identity, 24000/1001, 1,407 frames, the exact 327→351 boundary,
@@ -151,3 +151,25 @@ independent signed before/after plus save/close/reopen readback and fail-stop
 with no retry. `verify_supported_boundary` in
 `python/vera_timeline_agent/resolve_test_queue_reverse.py` (lines 25–147)
 specifies the minimum geometry delta, not a standalone signed native proof.
+
+### Phase 2: offline declaration scanner (no native access)
+
+`python/vera_timeline_agent/issue477_sdk_inventory.py` reads only selected
+local text files, with a 2,000,000-byte limit **per file** and no SDK import,
+Resolve connection, or filesystem output. For example, with a separately
+obtained, existing `.pyi` (do not download or install anything as a side effect):
+
+```sh
+uv run --frozen python -m vera_timeline_agent.issue477_sdk_inventory \
+  /path/to/DaVinciResolveScript.pyi --version-label 21.1.2
+```
+
+Optional `--readme` and `--changelog` arguments inventory local Markdown byte
+hashes too. The AST-only parser records method signatures and exact input SHA-256;
+it rejects invalid syntax, non-UTF-8, duplicate classes/methods, repeated file
+identities, symlinks, non-regular files and oversize text. `versionLabel` is
+**caller-supplied and unverified**; even `candidate_unverified` never attests
+the running/installed SDK or edit semantics. Every result hard-sets
+`installedBuildVerified=false`, `sameUidRollNativeVerified=false` and
+`mayExecuteNativeEdit=false`. Fake fixtures cover 21.1.1, 21.1.2, 21.2 and
+contradictory/malformed/negative cases; no fake is native evidence.
