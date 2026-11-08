@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 from collections.abc import Iterator
 from dataclasses import replace
@@ -12,6 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 from vera_timeline_agent import resolve_gui_roll as gui
+from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_gui_stage as stage
 from vera_timeline_agent import resolve_test_queue_m4 as m4
 
@@ -283,18 +285,18 @@ def test_crash_after_fsync_before_os_dispatch_preserves_spent_intent(
     ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original_once = stage.carrier._once
+    original_once = carrier._once
 
     def crash_after_fsync(path: Path, raw: bytes) -> None:
         original_once(path, raw)
         raise OSError("simulated loss after durable one-use write")
 
-    monkeypatch.setattr(stage.carrier, "_once", crash_after_fsync)
+    monkeypatch.setattr(carrier, "_once", crash_after_fsync)
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         _call(setup)
     assert (_journal_root(setup) / "gui-intent.json").exists()
     assert setup[4].calls == 0
-    monkeypatch.setattr(stage.carrier, "_once", original_once)
+    monkeypatch.setattr(carrier, "_once", original_once)
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         _call(setup)
     assert setup[4].calls == 0
@@ -469,7 +471,7 @@ def test_pristine_session_source_pin_mismatch_fails_before_gui(
     original = m4._stage_receipt
 
     def tampered(store: FakeStore, job_id: str, ordinal: int) -> dict[str, object]:
-        receipt = dict(original(store, job_id, ordinal))
+        receipt = dict(original(store, job_id, ordinal))  # type: ignore[arg-type]
         receipt["session"] = {"path": "/tmp/other-session.json", "sha256": SHA}
         return receipt
 
@@ -490,9 +492,7 @@ def test_m4_disk_reserve_blocks_before_spend(
     ],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        stage.shutil, "disk_usage", lambda *_args: SimpleNamespace(free=0)
-    )
+    monkeypatch.setattr(shutil, "disk_usage", lambda *_args: SimpleNamespace(free=0))
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         _call(setup)
     assert not (_journal_root(setup) / "gui-intent.json").exists()

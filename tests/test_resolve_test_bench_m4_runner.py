@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any, NoReturn
 
 import pytest
+from vera_timeline_agent import resolve_gui_roll as gui
 from vera_timeline_agent import resolve_test_bench_m4_runner as runner
 from vera_timeline_agent import resolve_test_bench_output as output
 from vera_timeline_agent import resolve_test_queue as queue
@@ -589,7 +590,7 @@ def test_post_pristine_capability_is_read_only_and_never_advances_edit(
     assert result["approvedF1GuiTransport"] == {
         "actuatorClass": "gui",
         "operation": "M4.edited",
-        "scriptSha256": runner.ROLL_SCRIPT_SHA256,
+        "scriptSha256": gui.ROLL_SCRIPT_SHA256,
         "codeOnly": True,
         "nativeEffectAttempted": False,
         "requiresFreshCaseSpecificApproval": True,
