@@ -624,10 +624,23 @@ def select_initial(root: Path) -> None:
                 in {"Complete", "Failed", "Cancelled"},
                 "native render job still unresolved",
             )
-        need(
-            not any(key for key in owner._active_output_host_chains(None) if key),
-            "cannot switch with an active output host reservation",
-        )
+        # Historical reservations on *other* projects must not block this
+        # already-verified disposable target. They remain protected by the
+        # exclusive native-owner lock, actual current render-job checks, and
+        # their own preserved history. Refuse even one current/target chain.
+        protected_uids = {identity[0], wanted["projectUid"]}
+        active = owner._active_output_host_chains(None)
+        for key in active:
+            chain_path = owner.OUTPUT_ATTEMPTS_ROOT / key / "chain.json"
+            chain = json.loads(owner._read(chain_path))
+            need(
+                isinstance(chain, dict) and type(chain.get("projectUid")) is str,
+                "active output host project cannot be authenticated",
+            )
+            need(
+                chain["projectUid"] not in protected_uids,
+                "selected or desired target has unresolved output work",
+            )
         if identity[0] != wanted["projectUid"]:
             need(
                 manager.LoadProject(wanted["projectName"]) is not None,
