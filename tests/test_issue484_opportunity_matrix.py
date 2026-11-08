@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from vera_timeline_agent.issue484_opportunity_matrix import (
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "docs/plans/resolve-21-2-new-capabilities-opportunities.json"
 
 
-def baseline() -> dict:
+def baseline() -> dict[str, Any]:
     return copy.deepcopy(read_matrix(MATRIX, repo_root=ROOT))
 
 
