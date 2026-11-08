@@ -60,7 +60,7 @@ def test_proposed_native_execution_or_evidence_promotion_is_rejected(
     path: tuple[str | int, ...], value: object
 ) -> None:
     data = baseline()
-    current = data
+    current: Any = data
     for key in path[:-1]:
         current = current[key]
     current[path[-1]] = value
