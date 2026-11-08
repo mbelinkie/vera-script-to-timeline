@@ -350,7 +350,7 @@ end run
     )
 
 
-def run(root: Path) -> None:
+def run(root: Path, *, inspect_only: bool = False) -> None:
     from vera_timeline_agent import qualification_output_native_v2 as native
     from vera_timeline_agent import resolve_native_owner as owner
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner
@@ -405,6 +405,23 @@ def run(root: Path) -> None:
     owner.preflight_selected_disposable(initial, require_empty=False)
     before = snapshot(resolve, initial, geometry)
     _assert_before(before, geometry)
+    if inspect_only:
+        print(
+            json.dumps(
+                {
+                    "state": "read_only_roll_ready_no_native_effect",
+                    "jobId": job_id,
+                    "target": initial,
+                    "captureSha256": capture_sha,
+                    "nativeItemSnapshotSha256": digest(queue.canonical(before)),
+                    "leftItemUid": left_uid,
+                    "rightItemUid": right_uid,
+                    "editIntentCreated": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return
     need(
         runner._worker_once(store),
         "one-use M4 edited handoff not available",
@@ -487,8 +504,9 @@ def run(root: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--inspect", action="store_true", default=False)
     args = parser.parse_args()
-    run(args.root)
+    run(args.root, inspect_only=args.inspect)
 
 
 if __name__ == "__main__":
