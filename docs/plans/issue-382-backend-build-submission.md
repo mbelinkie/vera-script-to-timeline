@@ -1,8 +1,9 @@
 # #382 — Backend build submission, pairing and immutable evidence
 
-Status: phase-2 pairing/agent-auth implementation (2026-11-08). Pairing and
-observational polling are implemented in an **unmounted** private API, not a
-deployed host, active dispatcher or native-completion verifier.
+Status: phase-3 frozen submission and durable status implementation (2026-11-08).
+Pairing and observational polling are in an **unmounted** private API.
+Submission and epoch-CAS status are service methods, not deployed HTTP
+routes or a local-agent runner. No native completion has been verified.
 
 ## Authority and boundaries
 
@@ -90,7 +91,9 @@ is rejected before any row is created.
 
 ## Database: finite additive schema and ownership
 
-Only \`packages/project-builds/migrations/001_project_builds.sql\` creates:
+\`packages/project-builds/migrations/001_project_builds.sql\` creates the
+original seven tables; a separate additive \`002_preflight_refusals.sql\`
+retains missing-settings refusals without changing the first migration:
 
 | Table | Role | Mutable? |
 | --- | --- | --- |
@@ -101,6 +104,7 @@ Only \`packages/project-builds/migrations/001_project_builds.sql\` creates:
 | \`stt_build_dispatches\` | one status/assigned agent/epoch/expiry per job | CAS guarded by service |
 | \`stt_build_events\` | sequenced job/epoch/stage/state/reason/attestation metadata | **no UPDATE/DELETE** |
 | \`stt_build_evidence\` | job/stage receipt digest, independently classified evidence/provenance | **no UPDATE/DELETE** |
+| \`stt_build_preflight_refusals\` | actor/request UUID scoped refusal when no #380 settings exist (not a build or dispatch) | **no UPDATE/DELETE** |
 
 Additive foreign keys enforce project scope; unique offer/agent digests,
 unique \`(project, actor, request_uuid)\`, unique \`(job, source_id)\`, one
@@ -125,14 +129,14 @@ trusted SuiteIdentityPort → #379 SERIALIZABLE project authorization
 \`\`\`
 
 Apply migrations in order: #379 identity → #380 project-documents → #382
-project-builds. The build migration requires the existing receipt table,
-holds its own PostgreSQL advisory transaction lock, hashes exact checked-in
-SQL with SHA-256, rejects changed receipt version/checksum and is idempotent.
-No existing migration file is edited. Host startup, smoke tests and ops
-allowlists must be changed *together in phase 4*; until then host startup
-does **not** apply the build migration. Backup/restore to a new private QA
-database must include all seven new tables and the third receipt before
-deployment is claimed. No down migration/destructive rollback; a failed
+build 001 → build refusal 002. The two build migration steps require the
+existing receipt table, hold a PostgreSQL advisory transaction lock, hash
+exact checked-in SQL with SHA-256, reject mismatched receipt versions/checksums
+and are idempotent. No existing migration file is edited. Host startup,
+smoke tests and ops allowlists must be changed *together in phase 4*;
+until then host startup does **not** apply build migrations. Backup/restore to
+a new private QA database must include all eight new tables and both new
+receipts before deployment is claimed. No down migration/destructive rollback; a failed
 DDL transaction rolls back, a rolled-forward installation stays additive.
 
 ## Validation ladder and phase owners
@@ -198,3 +202,51 @@ native parity. Dependencies are exactly #157, #158, #159 and #379.
   extends the existing QA host's loopback-only transport restrictions,
   migration allowlists and backup rules. The HTTP handler alone does not
   establish local transport safety, TLS, deployment or a usable build runner.
+
+## Phase 3 implementation and evidence
+
+- \`ProjectBuildSubmissionService.submit\` locks #379 project membership inside
+  the SERIALIZABLE transaction that reads exact #380 document/settings bytes
+  and freezes the build. Digest and project identity are rechecked against
+  those original stored JSON bytes, not caller-supplied payloads. Preview is
+  Editor/Producer; release is Producer. The frozen record binds immutable
+  job/target UUIDs, actor, intent hash, head revision, settings revision and
+  an independent snapshot fingerprint over the selected source pins. A live
+  head mismatch returns 409; a changed head/settings at claim/manifest fetch
+  retains an explicit \`stale_snapshot\` event and requires a new job.
+- \`AcceptedSourceAuthority\` is an explicit trusted, SQL-transaction-scoped
+  adapter. It must confirm *every* selected source identity/revision/hash from
+  previously accepted records; the client list is never proof. The current
+  project-documents schema has **no authoritative accepted-source table**.
+  Tests supply a SQL-backed fake to exercise successful exact matching,
+  cross-project mismatch, unselected source exclusion and later revocation.
+  Until an actual adapter exists, nonempty selections remain durably
+  \`blocked/source_unverified\`; zero selected sources means an explicit empty
+  set, **not** a verified runnable build or permission to use providers.
+- Missing #380 settings cannot be frozen as fake JSON. Migration 002 therefore
+  records an immutable actor/request-key-scoped \`settings_unavailable\`
+  preflight refusal. Reusing the UUID gives the same refusal, conflicting
+  request bytes return 409 and submitting after fixing settings requires a
+  new UUID. The accepted/refused key namespaces share a transaction advisory
+  lock and whole-transaction serialization retries.
+- Only a pre-execution \`blocked\` source-selection refusal may be rechecked
+  by \`resume\`. \`needs_action\`, \`failed\`, and \`waiting_reconcile\` might
+  already contain an uncertain native effect, and cannot be automatically
+  requeued. Such partials require independent manual/local reconciliation
+  through the #157 safety path.
+- \`ProjectBuildStatusService\` provides authorized, redacted viewer status
+  and append-only event/evidence readback. A separate authenticated machine
+  credential can claim a bounded service lease and fetch only its assigned
+  frozen manifest. Every claim/progress/fetch rechecks agent credential,
+  credential version, current issuer/submitter role, project, epoch and lease
+  expiry. Leases are NOT #157 stage authorizations. Expired work never
+  silently retries; cancelling in-flight work moves to \`waiting_reconcile\`.
+- Machine progress remains \`untrusted_report\`, with no verified-native
+  status upgrade from a client claim. A trusted
+  \`IndependentEvidenceInspector\` adapter must independently inspect a
+  receipt/output and return verified hashes before any evidence row is
+  accepted. Tests exercise only \`synthetic\` evidence; real package verification
+  and Studio save/close/reopen readback are still unverified and remain for
+  later phases. The API/host/Python transport are **not** implemented in
+  phase 3. This phase's PostgreSQL-shaped PGlite tests (including DB dump and
+  re-import) demonstrate backend persistence, not deployed native capability.

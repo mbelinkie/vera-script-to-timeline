@@ -51,7 +51,8 @@ export class ProjectAgentAuthenticationService {
   ) {}
 
   /** Reauthenticate every call, holding a lock through the scoped operation. */
-  private async withAgent<T>(
+  /** Internal server-side transactional seam. Never expose the SQL callback on HTTP. */
+  async withAuthenticatedAgent<T>(
     input: AgentCredentialInput,
     action: (db: SqlClient, agentId: string, now: string) => Promise<T>,
   ): Promise<T> {
@@ -109,7 +110,7 @@ export class ProjectAgentAuthenticationService {
   async heartbeat(input: AgentCredentialInput): Promise<{
     agentId: string; projectId: string; credentialVersion: number; authenticated: true;
   }> {
-    return await this.withAgent(input, async (db, agentId, now) => {
+    return await this.withAuthenticatedAgent(input, async (db, agentId, now) => {
       await db.query(
         "UPDATE stt_project_build_agents SET last_heartbeat_at=$3 " +
           "WHERE project_id=$1 AND id=$2 AND revoked_at IS NULL",
@@ -124,7 +125,7 @@ export class ProjectAgentAuthenticationService {
 
   /** Poll is observational: assignment/epoch claims and stage effects belong to later phases. */
   async pollAssignedJobs(input: AgentCredentialInput): Promise<readonly AssignedJobNotice[]> {
-    return await this.withAgent(input, async (db, agentId, now) => {
+    return await this.withAuthenticatedAgent(input, async (db, agentId, now) => {
       const rows = await db.query<{
         job_id: string; status: AssignedJobNotice["status"];
         lease_epoch: number | string; lease_expires_at: Date | string | null;

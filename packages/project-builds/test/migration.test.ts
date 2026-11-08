@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyProjectBuildsMigration,
+  BUILD_REFUSALS_MIGRATION,
+  BUILD_REFUSALS_MIGRATION_DIGEST,
   PROJECT_BUILDS_MIGRATION,
   PROJECT_BUILDS_MIGRATION_DIGEST,
 } from "../src/migration.js";
@@ -75,14 +77,20 @@ describe("forward-only checksum-pinned build schema", () => {
       "stt_build_pairing_offers", "stt_project_build_agents", "stt_build_submissions",
       "stt_build_source_pins", "stt_build_dispatches", "stt_build_events",
       "stt_build_evidence",
+      "stt_build_preflight_refusals",
     ]) expect(names).toContain(name);
-    expect(names).toHaveLength(18); // original 11 + 7 new
+    expect(names).toHaveLength(19); // original 11 + 8 new, including preflight refusals
     const receipts = await db.query<{ checksum: string; version: number }>(
       "SELECT encode(checksum,'hex') AS checksum,schema_version AS version " +
         "FROM vera_schema_migrations WHERE migration_name=$1", [PROJECT_BUILDS_MIGRATION],
     );
     expect(receipts.rows).toEqual([{ checksum: PROJECT_BUILDS_MIGRATION_DIGEST, version: 1 }]);
-    expect((await db.query("SELECT * FROM vera_schema_migrations")).rows).toHaveLength(3);
+    const refusalReceipt = await db.query<{ checksum: string }>(
+      "SELECT encode(checksum,'hex') AS checksum FROM vera_schema_migrations " +
+        "WHERE migration_name=$1", [BUILD_REFUSALS_MIGRATION],
+    );
+    expect(refusalReceipt.rows[0]?.checksum).toBe(BUILD_REFUSALS_MIGRATION_DIGEST);
+    expect((await db.query("SELECT * FROM vera_schema_migrations")).rows).toHaveLength(4);
   });
 
   it("rejects tampered checksum/version and leaves the original tables/data untouched", async () => {
@@ -160,5 +168,25 @@ describe("forward-only checksum-pinned build schema", () => {
       .rejects.toThrow("append-only");
     await expect(db.query("UPDATE stt_build_evidence SET evidence_kind='native_readback' " +
       "WHERE job_id=$1", [job])).rejects.toThrow("append-only");
+  });
+
+  it("refusal receipts are scoped, unique, hash-checked and append-only", async () => {
+    const db = await migrated();
+    const first = await actorAndProject(db);
+    const request = randomUUID();
+    await db.query(
+      "INSERT INTO stt_build_preflight_refusals(project_id,submitted_by,idempotency_key," +
+        "request_digest,expected_revision,reason_code) VALUES($1,$2,$3,$4,0,'settings_unavailable')",
+      [first.project, first.actor, request, digest],
+    );
+    await expect(db.query(
+      "INSERT INTO stt_build_preflight_refusals(project_id,submitted_by,idempotency_key," +
+        "request_digest,expected_revision,reason_code) VALUES($1,$2,$3,$4,0,'settings_unavailable')",
+      [first.project, first.actor, request, digest],
+    )).rejects.toThrow();
+    await expect(db.query("UPDATE stt_build_preflight_refusals SET reason_code='settings_unavailable'"))
+      .rejects.toThrow("append-only");
+    await expect(db.query("DELETE FROM stt_build_preflight_refusals"))
+      .rejects.toThrow("append-only");
   });
 });
