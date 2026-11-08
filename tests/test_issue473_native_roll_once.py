@@ -15,6 +15,8 @@ SPEC = importlib.util.spec_from_file_location("issue473_native_roll", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 ROLL = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ROLL)
+LEFT_UID = "295df80e-1411-42b5-ad2d-37373587aba5"
+RIGHT_UID = "1e3a869e-8781-4793-bc5e-0ec51781fb4f"
 
 
 def baseline() -> dict[str, Any]:
@@ -34,7 +36,7 @@ def baseline() -> dict[str, Any]:
         }
         if index == 0:
             row.update(
-                itemUid=ROLL.LEFT_UID,
+                itemUid=LEFT_UID,
                 trackId="root",
                 kind="video",
                 recordStart=0,
@@ -43,7 +45,7 @@ def baseline() -> dict[str, Any]:
             )
         elif index == 1:
             row.update(
-                itemUid=ROLL.RIGHT_UID,
+                itemUid=RIGHT_UID,
                 trackId="root",
                 kind="video",
                 recordStart=327,
@@ -162,35 +164,79 @@ def test_sdk_refuses_wrong_native_project_before_touching_timeline() -> None:
 
 def edited(before: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     after = copy.deepcopy(before)
-    after[ROLL.LEFT_UID]["recordDuration"] += 24
-    after[ROLL.LEFT_UID]["sourceDuration"] += 24
-    after[ROLL.RIGHT_UID]["recordStart"] += 24
-    after[ROLL.RIGHT_UID]["recordDuration"] -= 24
-    after[ROLL.RIGHT_UID]["sourceDuration"] -= 24
+    after[LEFT_UID]["recordDuration"] += 24
+    after[LEFT_UID]["sourceDuration"] += 24
+    after[RIGHT_UID]["recordStart"] += 24
+    after[RIGHT_UID]["recordDuration"] -= 24
+    after[RIGHT_UID]["sourceDuration"] -= 24
     return after
 
 
 def test_exact_pure_boundary_and_all_other_native_metadata() -> None:
     rows = snapshot_fixture()
+    assert ROLL._pair(rows) == (LEFT_UID, RIGHT_UID)
     ROLL._expect_geometry(baseline())
     ROLL._assert_before(rows, baseline())
     ROLL._assert_after(rows, edited(rows))
 
 
+def test_new_campaign_recovers_boundary_ids_from_real_geometry() -> None:
+    geometry = baseline()
+    rows = geometry["items"]
+    rows[0]["itemUid"] = "different-pristine-left-uid"
+    rows[1]["itemUid"] = "different-pristine-right-uid"
+    actual = snapshot_fixture()
+    left = actual.pop(LEFT_UID)
+    right = actual.pop(RIGHT_UID)
+    left["itemUid"] = "different-pristine-left-uid"
+    right["itemUid"] = "different-pristine-right-uid"
+    actual[left["itemUid"]] = left
+    actual[right["itemUid"]] = right
+    assert ROLL._pair(ROLL._expect_geometry(geometry)) == (
+        "different-pristine-left-uid",
+        "different-pristine-right-uid",
+    )
+    ROLL._assert_before(actual, geometry)
+    ROLL._assert_after(
+        actual, edited_dynamic(actual, left["itemUid"], right["itemUid"])
+    )
+
+
+def edited_dynamic(
+    before: dict[str, dict[str, Any]], left_uid: str, right_uid: str
+) -> dict[str, dict[str, Any]]:
+    after = copy.deepcopy(before)
+    after[left_uid]["recordDuration"] += 24
+    after[left_uid]["sourceDuration"] += 24
+    after[right_uid]["recordStart"] += 24
+    after[right_uid]["recordDuration"] -= 24
+    after[right_uid]["sourceDuration"] -= 24
+    return after
+
+
+def test_boundary_is_ambiguous_if_another_video_cut_ends_at_327() -> None:
+    rows = {**snapshot_fixture()}
+    additional = copy.deepcopy(rows[LEFT_UID])
+    additional["itemUid"] = "same-boundary-foreign-video"
+    rows[additional["itemUid"]] = additional
+    with pytest.raises(ValueError, match="left boundary item is ambiguous"):
+        ROLL._pair(rows)
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda a: a[ROLL.LEFT_UID].update(recordDuration=350),
-        lambda a: a[ROLL.RIGHT_UID].update(recordStart=350),
-        lambda a: a[ROLL.RIGHT_UID].update(sourceStart=24),
-        lambda a: a[ROLL.RIGHT_UID].update(sourceEndGetter=24),
-        lambda a: a[ROLL.LEFT_UID].update(mediaUid="new-media"),
-        lambda a: a[ROLL.LEFT_UID].update(marker="changed"),
-        lambda a: a[ROLL.RIGHT_UID].update(itemUid="new-item"),
+        lambda a: a[LEFT_UID].update(recordDuration=350),
+        lambda a: a[RIGHT_UID].update(recordStart=350),
+        lambda a: a[RIGHT_UID].update(sourceStart=24),
+        lambda a: a[RIGHT_UID].update(sourceEndGetter=24),
+        lambda a: a[LEFT_UID].update(mediaUid="new-media"),
+        lambda a: a[LEFT_UID].update(marker="changed"),
+        lambda a: a[RIGHT_UID].update(itemUid="new-item"),
         lambda a: a["audio-2"].update(recordStart=225),
         lambda a: a["audio-2"].update(sourceStart=12),
         lambda a: a["audio-2"].update(linkedItemUids=["foreign"]),
-        lambda a: a.pop(ROLL.LEFT_UID),
+        lambda a: a.pop(LEFT_UID),
     ],
 )
 def test_unsafe_roll_or_changed_audio_uid_is_never_a_saved_candidate(

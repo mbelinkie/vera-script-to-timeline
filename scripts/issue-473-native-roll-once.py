@@ -27,11 +27,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-ROOT = Path.home() / ".local/state/vera/issue-473-studio-05"
-JOB = "resolve-reverse-6d7e20fad0b64b418d6a94930526557d"
-CAPTURE_SHA = "3b83ec5801ca58e0da0f2392a2fe27ebf98ec37dd6592e36593a6ce5b5a8da74"
-LEFT_UID = "295df80e-1411-42b5-ad2d-37373587aba5"
-RIGHT_UID = "1e3a869e-8781-4793-bc5e-0ec51781fb4f"
+ALLOWED_ROOTS = frozenset(
+    {
+        Path.home() / f".local/state/vera/issue-473-studio-{index:02d}"
+        for index in (5, 7)
+    }
+)
 START_FRAME = 327
 END_FRAME = 351
 UI_SCHEMA = "vera.issue473-native-roll-intent/v1"
@@ -58,6 +59,40 @@ def need(ok: bool, message: str) -> None:
 
 def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def _pair(rows: Mapping[str, Mapping[str, Any]]) -> tuple[str, str]:
+    lefts = [
+        row
+        for row in rows.values()
+        if row.get("kind") == "video"
+        and type(row.get("recordStart")) is int
+        and type(row.get("recordDuration")) is int
+        and row["recordStart"] + row["recordDuration"] == START_FRAME
+    ]
+    need(len(lefts) == 1, "original 327 left boundary item is ambiguous")
+    left = lefts[0]
+    rights = [
+        row
+        for row in rows.values()
+        if row.get("kind") == "video"
+        and row.get("recordStart") == START_FRAME
+        and row.get("trackId") == left.get("trackId")
+        and row.get("itemUid") != left.get("itemUid")
+        and type(row.get("recordDuration")) is int
+        and row["recordDuration"] > END_FRAME - START_FRAME
+    ]
+    need(len(rights) == 1, "original 327 right boundary item is ambiguous")
+    left_uid, right_uid = left["itemUid"], rights[0]["itemUid"]
+    need(
+        type(left_uid) is str
+        and bool(left_uid)
+        and type(right_uid) is str
+        and bool(right_uid)
+        and left_uid != right_uid,
+        "actual boundary UID is invalid",
+    )
+    return left_uid, right_uid
 
 
 def _expect_geometry(geometry: Any) -> dict[str, dict[str, Any]]:
@@ -87,8 +122,8 @@ def _expect_geometry(geometry: Any) -> dict[str, dict[str, Any]]:
         )
         assert isinstance(uid, str)
         rows[uid] = item
-    need(LEFT_UID in rows and RIGHT_UID in rows, "original two boundary IDs changed")
-    left, right = rows[LEFT_UID], rows[RIGHT_UID]
+    left_uid, right_uid = _pair(rows)
+    left, right = rows[left_uid], rows[right_uid]
     need(
         left.get("kind") == right.get("kind") == "video"
         and left.get("trackId") == right.get("trackId")
@@ -210,11 +245,12 @@ def snapshot(
 
 def _assert_before(actual: dict[str, Any], geometry: Mapping[str, Any]) -> None:
     expected = _expect_geometry(geometry)
+    left_uid, right_uid = _pair(expected)
     need(actual.keys() == expected.keys(), "actual native item UID set differs")
     for uid, row in actual.items():
         baseline = expected[uid]
         comparable = NATIVE_ITEM_FIELDS - {"marker"}
-        if uid not in {LEFT_UID, RIGHT_UID}:
+        if uid not in {left_uid, right_uid}:
             # The host authenticates off-by-one EOF source clock forms from
             # immutable media provenance; the SDK getter alone cannot
             # reproduce that branch. Both raw getters remain fixed across UI.
@@ -232,16 +268,17 @@ def _assert_after(
     after: Mapping[str, Mapping[str, Any]],
 ) -> None:
     need(before.keys() == after.keys(), "one or more native item UIDs replaced")
+    left_uid, right_uid = _pair(before)
     for uid, current in after.items():
         old = before[uid]
-        if uid == LEFT_UID:
+        if uid == left_uid:
             allowed = {"recordDuration", "sourceDuration"}
             need(
                 current.get("recordDuration") == old["recordDuration"] + 24
                 and current.get("sourceDuration") == old["sourceDuration"] + 24,
                 "left native held-picture clip did not extend exactly 24 frames",
             )
-        elif uid == RIGHT_UID:
+        elif uid == right_uid:
             allowed = {"recordStart", "recordDuration", "sourceDuration"}
             need(
                 current.get("recordStart") == old["recordStart"] + 24
@@ -320,28 +357,46 @@ def run(root: Path) -> None:
     from vera_timeline_agent import resolve_test_queue as queue
     from vera_timeline_agent import resolve_test_queue_m4 as m4
 
-    need(root == ROOT and root.is_dir(), "only the original M4 target is eligible")
-    store = queue.Store(ROOT / "queue")
-    status = m4.publish(store, JOB)
+    need(
+        root in ALLOWED_ROOTS and root.is_dir() and not root.is_symlink(),
+        "only the two explicitly enrolled #473 campaigns are eligible",
+    )
+    store = queue.Store(root / "queue")
+    pinned_plan = root / "run/m4-plan.json"
+    need(
+        pinned_plan.is_file() and not pinned_plan.is_symlink(),
+        "original M4 plan is unavailable",
+    )
+    job_id = runner._find_job(store, digest(pinned_plan.read_bytes()))
+    need(job_id is not None, "original M4 job not enrolled")
+    assert isinstance(job_id, str)
+    status = m4.publish(store, job_id)
     need(
         status["state"] == "queued"
         and [row["state"] for row in status["stages"]]
         == ["verified", "pending", "pending", "pending"],
         "M4 pristine receipt is not independently verified and awaiting edit",
     )
-    plan = m4._load_plan(store, JOB)
+    plan = m4._load_plan(store, job_id)
+    need(plan["caseId"] == "synthetic-312", "not an approved reverse fixture")
     initial = plan["initialTarget"]
-    receipt = m4._stage_receipt(store, JOB, 0)
+    receipt = m4._stage_receipt(store, job_id, 0)
     need(
-        receipt["capture"]["sha256"] == CAPTURE_SHA, "original capture identity differs"
+        receipt["session"] == plan["baselineSession"],
+        "signed pristine session differs from original M4 enrollment",
     )
-    result = native.verify_native_result(Path(receipt["capture"]["path"]), CAPTURE_SHA)
+    capture_sha = receipt["capture"]["sha256"]
+    result = native.verify_native_result(Path(receipt["capture"]["path"]), capture_sha)
     need(
-        result["status"] == "complete" and result["action"] == "capture_post",
+        result["status"] == "complete"
+        and result["action"] == "capture_post"
+        and result["context"]["target"] == initial
+        and result["context"]["phase"] == "pristine"
+        and result["context"]["caseId"] == plan["caseId"],
         "native pristine source is not complete",
     )
     geometry = result["nativeGeometry"]
-    _expect_geometry(geometry)
+    left_uid, right_uid = _pair(_expect_geometry(geometry))
     # Do not mark the M4 job blocked just because another caller selected a
     # different target. Check the actual project BEFORE the M4 worker tick.
     resolve = owner._local_resolve_connection()
@@ -354,7 +409,7 @@ def run(root: Path) -> None:
         runner._worker_once(store),
         "one-use M4 edited handoff not available",
     )
-    status = m4.publish(store, JOB)
+    status = m4.publish(store, job_id)
     need(
         status["stage"] == "edited"
         and status["stages"][1]["state"] == "awaiting_operator",
@@ -370,10 +425,10 @@ def run(root: Path) -> None:
             "schema": UI_SCHEMA,
             "stageOperationId": status["stages"][1]["operation_id"],
             "initialTarget": initial,
-            "pristineCaptureSha256": CAPTURE_SHA,
+            "pristineCaptureSha256": capture_sha,
             "beforeSnapshotSha256": digest(queue.canonical(before)),
-            "leftItemUid": LEFT_UID,
-            "rightItemUid": RIGHT_UID,
+            "leftItemUid": left_uid,
+            "rightItemUid": right_uid,
             "fromFrame": START_FRAME,
             "toFrame": END_FRAME,
             "command": "Resolve_Edit_timeline_V_24_period_nudges_once",
@@ -421,7 +476,7 @@ def run(root: Path) -> None:
                 "state": "edit_candidate_saved_unqualified",
                 "operationId": status["stages"][1]["operation_id"],
                 "target": initial,
-                "nativeEdits": [LEFT_UID, RIGHT_UID],
+                "nativeEdits": [left_uid, right_uid],
                 "replayed": False,
             },
             sort_keys=True,
