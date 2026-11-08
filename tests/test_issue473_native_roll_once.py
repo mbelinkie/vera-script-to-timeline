@@ -187,6 +187,8 @@ def test_exact_pure_boundary_and_all_other_native_metadata() -> None:
     ROLL._expect_geometry(baseline())
     ROLL._assert_before(rows, baseline())
     ROLL._assert_after(rows, edited(rows))
+    one = edited_dynamic(rows, LEFT_UID, RIGHT_UID, frames=1)
+    ROLL._assert_after(rows, one, delta_frames=1)
 
 
 def test_new_campaign_recovers_boundary_ids_from_real_geometry() -> None:
@@ -212,14 +214,18 @@ def test_new_campaign_recovers_boundary_ids_from_real_geometry() -> None:
 
 
 def edited_dynamic(
-    before: dict[str, dict[str, Any]], left_uid: str, right_uid: str
+    before: dict[str, dict[str, Any]],
+    left_uid: str,
+    right_uid: str,
+    *,
+    frames: int = 24,
 ) -> dict[str, dict[str, Any]]:
     after = copy.deepcopy(before)
-    after[left_uid]["recordDuration"] += 24
-    after[left_uid]["sourceDuration"] += 24
-    after[right_uid]["recordStart"] += 24
-    after[right_uid]["recordDuration"] -= 24
-    after[right_uid]["sourceDuration"] -= 24
+    after[left_uid]["recordDuration"] += frames
+    after[left_uid]["sourceDuration"] += frames
+    after[right_uid]["recordStart"] += frames
+    after[right_uid]["recordDuration"] -= frames
+    after[right_uid]["sourceDuration"] -= frames
     return after
 
 
@@ -288,8 +294,28 @@ def test_one_os_event_batch_with_verified_window_and_no_retry(
     assert called[0][0] == "osascript"
     assert called[0][-1] == "original-disposable-only"
     assert "if name of front window is not expectedProjectName" in called[0][2]
-    assert "repeat 24 times" in called[0][2]
-    assert "key code 47" in called[0][2]
+    assert 'menu item "Edit"' in called[0][2]
+    assert "Resolve Trim menu disabled outside the Edit page" in called[0][2]
+    assert 'menu item "Roll"' in called[0][2]
+    assert 'menu item "One Frame Right"' in called[0][2]
+    assert "repeat 24 times" not in called[0][2]
+
+
+def test_remaining_23_uses_one_ui_batch_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> Any:
+        called.append(argv)
+        assert kwargs["timeout"] == 90
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(ROLL.subprocess, "run", fake_run)
+    ROLL._roll_ui_remaining("original-disposable-only")
+    assert len(called) == 1
+    assert "repeat 23 times" in called[0][2]
+    assert 'menu item "One Frame Right"' in called[0][2]
 
 
 def test_os_failure_does_not_retry(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -336,7 +336,10 @@ def _assert_before(actual: dict[str, Any], geometry: Mapping[str, Any]) -> None:
 def _assert_after(
     before: Mapping[str, Mapping[str, Any]],
     after: Mapping[str, Mapping[str, Any]],
+    *,
+    delta_frames: int = 24,
 ) -> None:
+    need(delta_frames in {1, 24}, "unsupported edit delta")
     need(before.keys() == after.keys(), "one or more native item UIDs replaced")
     left_uid, right_uid = _pair(before)
     for uid, current in after.items():
@@ -344,17 +347,20 @@ def _assert_after(
         if uid == left_uid:
             allowed = {"recordDuration", "sourceDuration"}
             need(
-                current.get("recordDuration") == old["recordDuration"] + 24
-                and current.get("sourceDuration") == old["sourceDuration"] + 24,
-                "left native held-picture clip did not extend exactly 24 frames",
+                current.get("recordDuration") == old["recordDuration"] + delta_frames
+                and current.get("sourceDuration")
+                == old["sourceDuration"] + delta_frames,
+                f"left native held-picture clip did not extend {delta_frames} frames",
             )
         elif uid == right_uid:
             allowed = {"recordStart", "recordDuration", "sourceDuration"}
             need(
-                current.get("recordStart") == old["recordStart"] + 24
-                and current.get("recordDuration") == old["recordDuration"] - 24
-                and current.get("sourceDuration") == old["sourceDuration"] - 24,
-                "right native held-picture clip did not shift exactly 24 frames",
+                current.get("recordStart") == old["recordStart"] + delta_frames
+                and current.get("recordDuration")
+                == old["recordDuration"] - delta_frames
+                and current.get("sourceDuration")
+                == old["sourceDuration"] - delta_frames,
+                f"right native held-picture clip did not shift {delta_frames} frames",
             )
         else:
             allowed = set()
@@ -381,7 +387,7 @@ def _timecode(start: str, delta: int) -> str:
 
 
 def _roll_ui_once(expected_project_name: str) -> None:
-    """One verified edit command; NEVER retry any failed OS interaction."""
+    """Select specifically a roll edit, move *one* frame, then SDK must check."""
     source = """
 on run argv
 set expectedProjectName to item 1 of argv
@@ -393,16 +399,20 @@ tell application "System Events"
     if name of front window is not expectedProjectName then
       error "Resolve window target differs"
     end if
-    keystroke "4" using shift down
+    set workspaceMenu to menu "Workspace" of menu bar 1
+    click menu item "Edit" of menu 1 of menu item "Switch to Page" of workspaceMenu
     delay 0.4
-    keystroke "4" using command down
+    set trimMenu to menu "Trim" of menu bar 1
+    if not (enabled of menu item "Normal Edit Mode" of trimMenu) then
+      error "Resolve Trim menu disabled outside the Edit page"
+    end if
+    click menu item "Roll" of menu 1 of menu item "Select Nearest Edit To" of trimMenu
     delay 0.2
-    keystroke "v"
-    delay 0.2
-    repeat 24 times
-      key code 47
-      delay 0.07
-    end repeat
+    set nudgeMenu to menu 1 of menu item "Nudge" of trimMenu
+    if not (enabled of menu item "One Frame Right" of nudgeMenu) then
+      error "Resolve native nudge command unavailable"
+    end if
+    click menu item "One Frame Right" of nudgeMenu
   end tell
 end tell
 end run
@@ -417,6 +427,40 @@ end run
     need(
         result.returncode == 0,
         "one-use UI edit returned an error; inspect without replay",
+    )
+
+
+def _roll_ui_remaining(expected_project_name: str) -> None:
+    """Advance only the 23 remaining frames of an SDK-confirmed 1-frame roll."""
+    source = """
+on run argv
+set expectedProjectName to item 1 of argv
+tell application "DaVinci Resolve" to activate
+tell application "System Events"
+  tell process "Resolve"
+    if not frontmost then error "Resolve is not the frontmost UI"
+    if name of front window is not expectedProjectName then
+      error "Resolve window target differs"
+    end if
+    set trimMenu to menu "Trim" of menu bar 1
+    repeat 23 times
+      click menu item "One Frame Right" of menu 1 of menu item "Nudge" of trimMenu
+      delay 0.08
+    end repeat
+  end tell
+end tell
+end run
+"""
+    result = subprocess.run(
+        ["osascript", "-e", source, expected_project_name],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=90,
+    )
+    need(
+        result.returncode == 0,
+        "one-use remaining roll returned an error; inspect without replay",
     )
 
 
@@ -500,6 +544,103 @@ def audit_spent_attempt(root: Path) -> None:
                 "leftRight": compared,
                 "unrelatedItemUidsChanged": unrelated,
                 "noNativeEffectOrReplay": True,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+def select_initial(root: Path) -> None:
+    """Switch only between independently enrolled #473 disposable native UIDs.
+
+    Neither a Producer project nor an unverified/still-running Test Bench
+    campaign may be selected. This is not a timeline edit or a replay.
+    """
+    from vera_timeline_agent import resolve_native_owner as owner
+    from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+    from vera_timeline_agent import resolve_test_queue as queue
+    from vera_timeline_agent import resolve_test_queue_m4 as m4
+
+    need(root in ALLOWED_ROOTS and root.is_dir(), "target campaign unapproved")
+    candidate_targets: list[dict[str, str]] = []
+    wanted: dict[str, str] | None = None
+    for campaign in sorted(ALLOWED_ROOTS):
+        store = queue.Store(campaign / "queue")
+        plan_path = campaign / "run/m4-plan.json"
+        need(plan_path.is_file(), "one verified campaign plan is missing")
+        job_id = runner._find_job(store, digest(plan_path.read_bytes()))
+        need(job_id is not None, "missing pre-enrolled M4 identity")
+        assert isinstance(job_id, str)
+        m4_plan = m4._load_plan(store, job_id)
+        report = m4.publish(store, job_id)
+        need(
+            report["stages"][0]["state"] == "verified",
+            "only a native-verified pristine target can be selected",
+        )
+        candidate_targets.append(m4_plan["initialTarget"])
+        candidate_targets.append(m4_plan["freshTarget"])
+        if campaign == root:
+            need(
+                report["state"] == "queued"
+                and report["stages"][1]["state"] == "pending"
+                and not (root / "run/edit-ui-intent.json").exists(),
+                "chosen campaign has already consumed its one-use edit",
+            )
+            wanted = m4_plan["initialTarget"]
+    need(wanted is not None, "missing selected candidate")
+    assert wanted is not None
+    with owner.native_owner(output_lane=True):
+        resolve = owner._local_resolve_connection()
+        need(resolve is not None, "official Resolve connection missing")
+        manager = resolve.GetProjectManager()
+        current = manager.GetCurrentProject()
+        timeline = current.GetCurrentTimeline() if current else None
+        need(current is not None and timeline is not None, "no selected target")
+        identity = (
+            current.GetUniqueId(),
+            current.GetName(),
+            timeline.GetUniqueId(),
+            timeline.GetName(),
+        )
+        enrolled = any(
+            identity
+            == (
+                t["projectUid"],
+                t["projectName"],
+                t["timelineUid"],
+                t["timelineName"],
+            )
+            for t in candidate_targets
+        )
+        need(enrolled, "selected app project is not an enrolled disposable target")
+        need(current.IsRenderingInProgress() is False, "current project rendering")
+        jobs = current.GetRenderJobList()
+        need(isinstance(jobs, (tuple, list)), "current render queue unreadable")
+        for job in jobs:
+            need(
+                isinstance(job, dict)
+                and type(job.get("JobId")) is str
+                and current.GetRenderJobStatus(job["JobId"]).get("JobStatus")
+                in {"Complete", "Failed", "Cancelled"},
+                "native render job still unresolved",
+            )
+        need(
+            not any(key for key in owner._active_output_host_chains(None) if key),
+            "cannot switch with an active output host reservation",
+        )
+        if identity[0] != wanted["projectUid"]:
+            need(
+                manager.LoadProject(wanted["projectName"]) is not None,
+                "exact provisioned project load failed",
+            )
+        _selected(resolve, wanted)
+    print(
+        json.dumps(
+            {
+                "state": "original_disposable_selected_verified",
+                "target": wanted,
+                "oneUseEditConsumed": False,
+                "nativeTimelineEdited": False,
             },
             sort_keys=True,
         )
@@ -635,6 +776,9 @@ def run(root: Path, *, inspect_only: bool = False) -> None:
         )
         need(timeline.GetCurrentTimecode() == t, "playhead readback differs")
         _roll_ui_once(initial["projectName"])
+        first = snapshot(resolve, initial, geometry)
+        _assert_after(before, first, delta_frames=1)
+        _roll_ui_remaining(initial["projectName"])
         actual = snapshot(resolve, initial, geometry)
         _assert_after(before, actual)
         manager, _project, _timeline = _selected(resolve, initial)
@@ -662,12 +806,15 @@ def main() -> None:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--inspect", action="store_true", default=False)
     parser.add_argument("--audit-after", action="store_true", default=False)
+    parser.add_argument("--select-initial", action="store_true", default=False)
     args = parser.parse_args()
     need(
-        not (args.inspect and args.audit_after),
-        "inspection and spent-attempt audit are mutually exclusive",
+        sum((args.inspect, args.audit_after, args.select_initial)) <= 1,
+        "inspection, selection and spent-audit modes are exclusive",
     )
-    if args.audit_after:
+    if args.select_initial:
+        select_initial(args.root)
+    elif args.audit_after:
         audit_spent_attempt(args.root)
     else:
         run(args.root, inspect_only=args.inspect)
