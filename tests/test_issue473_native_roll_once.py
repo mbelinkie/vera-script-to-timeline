@@ -63,7 +63,11 @@ def baseline() -> dict[str, Any]:
 
 def snapshot_fixture() -> dict[str, dict[str, Any]]:
     return {
-        row["itemUid"]: {**row, "sourceEndGetter": 0 if row["kind"] == "video" else 41}
+        row["itemUid"]: {
+            **row,
+            "sourceStartGetter": 7489 if row["kind"] == "video" else 0,
+            "sourceEndGetter": 7489 if row["kind"] == "video" else 41,
+        }
         for row in baseline()["items"]
     }
 
@@ -103,15 +107,20 @@ def _sdk_fixture() -> tuple[Any, dict[str, str], dict[str, Any]]:
             GetUniqueId=lambda: row["itemUid"],
             GetStart=lambda subframe=False: row["recordStart"],
             GetDuration=lambda subframe=False: row["recordDuration"],
-            GetSourceStartFrame=lambda: row["sourceStart"],
+            GetSourceStartFrame=lambda: 7489 if frozen else row["sourceStart"],
             GetSourceEndFrame=lambda: (
-                row["sourceStart"]
-                if frozen
-                else row["sourceStart"] + row["sourceDuration"] - 1
+                7489 if frozen else row["sourceStart"] + row["sourceDuration"] - 1
             ),
             GetMediaPoolItem=lambda: SimpleNamespace(
-                GetUniqueId=lambda: row["mediaUid"]
+                GetUniqueId=lambda: row["mediaUid"],
+                GetClipProperty=lambda: {
+                    "Frames": "1" if frozen else "42",
+                    "FPS": "24",
+                    "Online Status": "Online",
+                },
             ),
+            GetSourceStartTime=lambda: 0.0,
+            GetSourceEndTime=lambda: 1 / 24,
             GetLinkedItems=lambda: [],
             GetMarkerCustomData=lambda offset: row["marker"],
         )

@@ -24,6 +24,8 @@ import os
 import re
 import subprocess
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +160,10 @@ def snapshot(
     resolve: Any, target: Mapping[str, str], geometry: Mapping[str, Any]
 ) -> dict[str, Any]:
     """Independently observe the SDK; never patch or infer any native metadata."""
+    from vera_timeline_agent.qualification_output_native_v2 import (
+        _source_time_error_samples,
+    )
+
     _expect_geometry(geometry)
     _manager, _project, timeline = _selected(resolve, target)
     tracks = geometry["tracks"]
@@ -210,31 +216,86 @@ def snapshot(
                     and rec_duration > 0,
                     "native item frame getters invalid",
                 )
-                # Studio stills have a *frozen* source clock (0..0) while
-                # their admitted held duration tracks record duration. Video
-                # sources ordinarily report an exclusive end, but can
-                # saturate at EOF; preserve raw getter exactly for all others.
+                # Studio stills can report an arbitrary nonzero single-frame
+                # counter, which the original #472 native verifier correctly
+                # normalizes only after verifying independent source-time
+                # getters, single-frame media and approved still FPS.
+                # Retain the original raw frame counters separately and demand
+                # that both stay unchanged during this one-use UI edit.
                 expected_rows = _expect_geometry(geometry)
                 baseline = expected_rows.get(uid)
-                is_held = (
+                candidate_held = (
                     kind == "video"
                     and baseline is not None
                     and baseline.get("sourceStart") == 0
                     and baseline.get("sourceDuration") == baseline.get("recordDuration")
-                    and src_start == src_end == 0
+                    and src_start == src_end
+                    and src_start >= 0
                 )
+                is_held = False
+                if candidate_held:
+                    props = media.GetClipProperty()
+                    need(
+                        isinstance(props, dict)
+                        and props.get("Frames") == "1"
+                        and props.get("Online Status") == "Online",
+                        "held media lacks authentic online single-frame properties",
+                    )
+                    raw_fps = props.get("FPS")
+                    fps_period: Fraction | None = None
+                    if type(raw_fps) in {str, int, float}:
+                        try:
+                            fps = Decimal(str(raw_fps))
+                            if fps.is_finite() and fps > 0:
+                                fps_period = Fraction(1, 1) / Fraction(fps)
+                        except (InvalidOperation, ZeroDivisionError):
+                            pass
+                    start_time = getattr(item, "GetSourceStartTime", None)
+                    end_time = getattr(item, "GetSourceEndTime", None)
+                    need(
+                        callable(start_time) and callable(end_time),
+                        "held single-frame source time getters are unavailable",
+                    )
+                    start_error = _source_time_error_samples(
+                        start_time(), 0, Fraction(1)
+                    )
+                    timeline_end_error = _source_time_error_samples(
+                        end_time(), 1, Fraction(1001, 24000)
+                    )
+                    still_end_error = (
+                        _source_time_error_samples(end_time(), 1, fps_period)
+                        if fps_period is not None
+                        else None
+                    )
+                    need(
+                        start_error is not None
+                        and abs(start_error) <= 1
+                        and (
+                            (
+                                timeline_end_error is not None
+                                and abs(timeline_end_error) <= 1
+                            )
+                            or (
+                                still_end_error is not None
+                                and abs(still_end_error) <= 1
+                            )
+                        ),
+                        "held still source-time edges differ from admitted frame",
+                    )
+                    is_held = True
                 observed[uid] = {
                     "itemUid": uid,
                     "trackId": spec["trackId"],
                     "kind": kind,
                     "recordStart": rec_start,
                     "recordDuration": rec_duration,
-                    "sourceStart": src_start,
+                    "sourceStart": 0 if is_held else src_start,
                     "sourceDuration": (
                         rec_duration
                         if is_held
                         else src_end - src_start + (kind == "audio")
                     ),
+                    "sourceStartGetter": src_start,
                     "sourceEndGetter": src_end,
                     "mediaUid": media.GetUniqueId(),
                     "linkedItemUids": sorted(peer.GetUniqueId() for peer in links),
