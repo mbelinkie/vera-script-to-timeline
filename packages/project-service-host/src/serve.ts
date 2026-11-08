@@ -8,7 +8,7 @@ import { ProjectAuthorizationService } from "@vera/project-authorization";
 import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
   ProjectAgentAuthenticationService, ProjectAgentPairingService,
   ProjectBuildSubmissionService, ProjectBuildStatusService } from "@vera/project-builds";
-import { createProjectApiHandler, ProjectDocumentService } from "@vera/project-documents";
+import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService } from "@vera/project-documents";
 
 import { listenQaHttp } from "./http.js";
 import { loadQaIdentity } from "./qa-identity.js";
@@ -91,7 +91,8 @@ export async function startQaServer(
     const builds = createProjectBuildHttpHandler({ identity, authorization: auth,
       submissions: new ProjectBuildSubmissionService(pool, auth),
       status: new ProjectBuildStatusService(pool, auth, agents) });
-    const projects = createProjectApiHandler({ identity, authorization: auth, documents });
+    const projects = createProjectApiHandler({ identity, authorization: auth, documents,
+      comments: new ProjectCommentService(pool, auth) });
     server = await listenQaHttp(config.bindHost, config.port, (request) => {
       const path = new URL(request.url).pathname;
       if (path === "/v1/agent-pairing/consume" ||

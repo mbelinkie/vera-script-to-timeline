@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
+import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
   applyProjectAuthorizationMigration, ProjectAuthorizationService, type SqlPool,
 } from "@vera/project-authorization";
 import {
-  applyProjectDocumentsMigration, ProjectDocumentService, sha256,
+  applyProjectCommentsMigration, applyProjectDocumentsMigration, ProjectCommentService,
+  ProjectDocumentService, sha256,
 } from "@vera/project-documents";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +16,7 @@ import { ProjectAgentAuthenticationService } from "../src/agent-auth.js";
 import { applyProjectBuildsMigration } from "../src/migration.js";
 import { AGENT_PROTOCOL_VERSION, ProjectAgentPairingService } from "../src/pairing.js";
 import {
-  ProjectBuildSubmissionService, type AcceptedSourceAuthority,
+  loadFrozen, ProjectBuildSubmissionService, type AcceptedSourceAuthority,
 } from "../src/submission.js";
 import {
   ProjectBuildStatusService, type IndependentEvidenceInspector,
@@ -27,12 +30,15 @@ const d = (value: string) => sha256(value);
 const source = (sourceId = randomUUID(), revision = "v1", payload = "sample-media") =>
   ({ sourceId, revision, sha256: d(payload) });
 
-async function buildHarness(options?: { settings?: boolean }) {
+async function buildHarness(options?: { settings?: boolean; anchoredDocument?: boolean }) {
   const db = new PGlite();
   databases.push(db);
   await db.waitReady;
   await applyProjectAuthorizationMigration(db);
   await applyProjectDocumentsMigration(db);
+  // Document PUT now atomically checks the separate comment-head store, even
+  // for build-only projects that have never created a comment.
+  await applyProjectCommentsMigration(db);
   await applyProjectBuildsMigration(db);
   const pool: SqlPool = { connect: async () => db };
   const auth = new ProjectAuthorizationService(pool);
@@ -44,12 +50,18 @@ async function buildHarness(options?: { settings?: boolean }) {
   const projectId = randomUUID();
   const documentId = randomUUID();
   const settingsId = randomUUID();
-  const document = {
+  const document: ScriptDocumentV2 = {
     schemaVersion: "script-document/v2" as const, id: documentId, projectId,
     title: "synthetic build test", activeDraft: { blocks: [], supportingItems: [] },
     ideaOutline: [], extras: [], liveHeadSequence: 1, liveStateVector: "",
     liveContentHash: d("live-head-1"),
   };
+  if (options?.anchoredDocument) {
+    const fixture = JSON.parse(readFileSync(new URL(
+      "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url,
+    ), "utf8")) as { document: ScriptDocumentV2 };
+    document.activeDraft.blocks.push(structuredClone(fixture.document.activeDraft.blocks[0]!));
+  }
   const settings = {
     schemaVersion: "authoring-project-settings/v1" as const, id: settingsId, projectId,
     version: 1, settingsHash: d("settings-v1"),
@@ -133,6 +145,63 @@ afterEach(async () => {
 });
 
 describe("transactionally frozen submission from #380 and #379", () => {
+  it("never freezes persisted comment bodies, mentions, quote or history in build or agent bytes", async () => {
+    const h = await buildHarness({ anchoredDocument: true });
+    const sentinel = `BUILD_COMMENT_LEAK_${randomUUID().replaceAll("-", "")}`;
+    const beforeIntent = h.intent();
+    const before = await h.submissions.submit(h.projectId, h.producer, beforeIntent);
+    const snapshotBefore = await loadFrozen(h.db, h.projectId, before.jobId);
+    const comments = new ProjectCommentService(h.pool, h.auth);
+    const block = h.document.activeDraft.blocks[0]!;
+    const threadId = randomUUID();
+    const created = await comments.applyOperation(h.projectId, h.editor, {
+      expectedCommentRevision: 0, clientMutationId: randomUUID(), operation: {
+        kind: "create", threadId, messageId: randomUUID(),
+        body: `${sentinel} body`, mentionActorIds: [h.viewer.principalId],
+        anchor: { kind: "block", blockId: block.id },
+      },
+    });
+    expect(created.commentRevision).toBe(1);
+    await comments.applyOperation(h.projectId, h.editor, {
+      expectedCommentRevision: 1, clientMutationId: randomUUID(), operation: {
+        kind: "reply", threadId, messageId: randomUUID(),
+        body: `${sentinel} reply`, mentionActorIds: [h.producer.principalId],
+      },
+    });
+    const stored = (await h.db.query<{ state_json: string }>(
+      "SELECT state_json FROM stt_comment_heads WHERE project_id=$1", [h.projectId],
+    )).rows[0]!;
+    expect(stored.state_json).toContain(sentinel); // Positive control: the comment really was persisted.
+    const after = await h.submissions.submit(h.projectId, h.producer, h.intent());
+    const snapshotAfter = await loadFrozen(h.db, h.projectId, after.jobId);
+    const liveHead = (await h.db.query<{ document_json: string; content_digest: string }>(
+      "SELECT document_json,content_digest FROM stt_document_heads WHERE project_id=$1",
+      [h.projectId],
+    )).rows[0]!;
+    for (const frozen of [snapshotBefore, snapshotAfter]) {
+      expect(frozen.row.document_json).toBe(liveHead.document_json);
+      expect(frozen.row.document_digest).toBe(liveHead.content_digest);
+      expect(frozen.row.document_digest).toBe(sha256(frozen.row.document_json));
+      expect(JSON.stringify(frozen)).not.toContain(sentinel);
+      expect(frozen.row.snapshot_digest).not.toContain(sentinel);
+    }
+    expect(snapshotAfter.row.document_json).toBe(snapshotBefore.row.document_json);
+    expect(snapshotAfter.row.document_digest).toBe(snapshotBefore.row.document_digest);
+    // Each build has its own target ID, so its snapshot digest is intentionally different.
+    // Replaying the same frozen submission across comment-only edits preserves its digest.
+    expect(await h.submissions.submit(h.projectId, h.producer, beforeIntent))
+      .toEqual({ ...before, duplicateDelivery: true });
+    const agent = await h.pair();
+    const claim = await h.status().claim(agent, after.jobId);
+    const manifest = await h.status().frozenForAgent(agent, after.jobId, claim.leaseEpoch);
+    expect(manifest.documentJson).toBe(liveHead.document_json);
+    expect(manifest.documentDigest).toBe(liveHead.content_digest);
+    expect(manifest.snapshotDigest).toBe(after.snapshotDigest);
+    expect(JSON.stringify(manifest)).not.toContain(sentinel);
+    expect(JSON.stringify(await h.status().get(h.projectId, h.viewer, after.jobId)))
+      .not.toContain(sentinel);
+  });
+
   it("freezes exactly selected accepted revisions, exact stored bytes and one unique target", async () => {
     const h = await buildHarness();
     const one = source(), two = source(), unselected = source();
