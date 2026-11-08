@@ -160,3 +160,37 @@ separately by the read-only `file` and `codesign` commands.
 hashes. **Published but not directly package-verified:** 21.2 Apple-silicon
 minimum. **Unverified:** direct 21.2 installer binary, exact PKG side effects,
 supported parallel operation, database isolation, activation and rollback.
+
+## Phase-two verification on the isolated Linux worker (2026-11-08)
+
+- `uv run --frozen pytest -q tests/test_issue479_macho_inventory.py`: **21
+  passed**, with only synthetic app/plist/Mach-O fixtures. Focused Ruff check,
+  Ruff format check, strict mypy and `git diff --check` passed.
+- Four independently executed, **temporary Python-module overlay** mutations
+  were detected by the corresponding tests: `mayPromote480=True`, bypass of
+  fat-slice overlap rejection, bypass of fat-slice file bounds, and bypass of
+  parent symlink rejection. The actual worktree source was never mutated.
+- `VITEST_MAX_WORKERS=1 npm run validate:fast`, first run: overall **FAIL**
+  after 406.822 seconds because two timeouts occurred in the unchanged
+  `packages/contracts/test/qualification-output-proposals-v2.test.ts` (1,244
+  other contracts tests passed). The same file then passed **30/30 tests** in
+  isolation, and passed in the complete TypeScript suite on the second run.
+- Second `VITEST_MAX_WORKERS=1 npm run validate:fast`: contract-currentness,
+  TypeScript lint, typechecking and fast tests, Python Ruff lint/format, and
+  Python mypy **all PASS**. Parallel Python pytest reported **2,845 passed,
+  43 skipped, 21 failed**, so the **overall fast gate did not pass** (397.472
+  seconds). None of those failures was in the new #479 tests.
+- To establish whether those Python failures are baseline defects, archived
+  untouched `origin/main` **4968d2c2** into a temporary scratch directory
+  and ran its identical Python fast selection under the same local Python
+  environment and eight-worker work-stealing configuration. It reported
+  **2,824 passed, 43 skipped, 21 failed**. The failure classes overlapped:
+  target-identity/capability wall-versus-monotonic clock checks (#208),
+  narration CLI, word-timing subprocess tests and #182 campaign parsing.
+  The 21-test pass-count difference is exactly the new #479 synthetic suite.
+  The failures reproduce on `origin/main`; they are **not** a green gate, and
+  must not be represented as such. CI must independently validate the PR.
+
+These checks made **no** Resolve call, SDK import, host installation, project
+read or native effect. The NO-GO and **#480 blocked** instruction remain in
+force regardless of validation status or future PR merge.
