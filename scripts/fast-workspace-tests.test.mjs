@@ -11,7 +11,7 @@ test("selects exactly the existing fast workspace scripts and keeps all their or
   const root = fileURLToPath(new URL("..", import.meta.url));
   const selected = fastWorkspaces(root);
   const expected = [
-    "contracts", "project-authorization", "project-documents",
+    "contracts", "project-authorization", "project-builds", "project-documents",
     "project-service-host", "public-page-capture", "spotlight-evidence",
     "spotlight-matte", "tooling-smoke",
   ];

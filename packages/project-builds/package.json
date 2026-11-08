@@ -1,0 +1,20 @@
+{
+  "name": "@vera/project-builds",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "lint": "eslint src test --max-warnings=0",
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run --maxWorkers=1",
+    "test:fast": "vitest run --maxWorkers=1"
+  },
+  "dependencies": {
+    "@vera/project-authorization": "0.0.0",
+    "@vera/project-documents": "0.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}
