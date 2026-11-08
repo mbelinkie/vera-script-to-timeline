@@ -20,6 +20,8 @@ The only issue dependencies are #379 and #380. Browser discussion UI belongs to 
 | `VERA_PROJECT_DOCUMENTS_TEST_DATABASE_URL=<disposable local PostgreSQL> npm run test --workspace @vera/project-documents -- test/postgres.integration.test.ts` | **2/2 passed, real PostgreSQL 16** | Independent connections serialize competing document writes, two first comment creations, concurrent replies, document/comment writes and rechecked revocation. Exactly one of each same-CAS pair commits; surviving head/revision/event counts and state digest reconcile |
 | `npm run test --workspace @vera/project-builds -- test/submission.test.ts` | **14/14 passed** | An authenticated Editor stores an anchored thread plus reply and active-member mentions; the unique comment sentinel exists in durable comment state. Builds created before and after contain identical exact live typed-document JSON and document digest. Frozen payload and authenticated, leased agent manifest exclude the comment sentinel |
 | `npm run lint --workspace @vera/project-documents && npm run typecheck --workspace @vera/project-documents && npm run lint --workspace @vera/project-builds && npm run typecheck --workspace @vera/project-builds` | **Passed** | Static checks for changed service/test packages |
+| `VITEST_MAX_WORKERS=1 npm run validate:fast` | **Exit 1**: generated-contract check, TS lint and TS typechecks passed. All fast workspaces passed except `@vera/contracts`, where four #215 tests **timed out** (1,242/1,246 contracts tests passed). Host 67/67, documents 44/44, builds 37/37, authorization 23/23, public-page-capture 54/54, spotlight-evidence 10/10, spotlight-matte 6/6, tooling-smoke 1/1 passed | The whole gate is **not green**. It stopped at TypeScript tests, before the Python stages. No #385 assertion failure appeared |
+| `npm run test --workspace @vera/contracts -- test/qualification-output-proposals-v2.test.ts` | **30/30 passed in isolation**, including the four previously timed-out tests | The affected #215 file and the entire `packages/contracts` tree are byte-identical to `origin/main` (`git diff --name-only origin/main -- packages/contracts` returned nothing). The full-suite timeouts are consistent with resource contention from concurrent conductor validations; this is not proof the full gate passes |
 
 The build regression obtains the real `ProjectCommentService` state and positive-checks
 that a unique comment-body/reply sentinel is present in `stt_comment_heads.state_json`.
@@ -84,3 +86,6 @@ database-superuser resistance, or an end-to-end running QA-host session.
 CRDT relative positions, notifications and browser UI remain out of scope.
 No local-agent or Resolve process was launched and no private Producer data
 was read. CI, PR review and merge remain conductor-owned after handoff.
+The full local fast gate did not proceed to Python lint, Python typechecks or
+Python tests after the unrelated contracts timeouts; those stages are
+**unverified in this phase**, not recorded as passes.
