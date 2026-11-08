@@ -12,7 +12,9 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectCommentService } from "../src/comments.js";
-import { applyProjectCommentsMigration, applyProjectDocumentsMigration } from "../src/migration.js";
+import {
+  applyProjectCommentsMigration, applyProjectDocumentsMigration, applyProjectHistoryMigration,
+} from "../src/migration.js";
 import { ProjectDocumentService } from "../src/service.js";
 import { documentFor, initialProject } from "./helpers.js";
 
@@ -22,6 +24,79 @@ const postgres = scratchUrl ? describe : describe.skip;
 vi.setConfig({ testTimeout: 90_000 });
 
 postgres("independent PostgreSQL connections", () => {
+  it("serializes a checkpoint restore against an edit and two competing restores with independent clients", async () => {
+    const server = new pg.Pool({ connectionString: scratchUrl, max: 8 });
+    const pool: SqlPool = { connect: async (): Promise<SqlClient> => {
+      const client = await server.connect();
+      return {
+        query: async <R>(sql: string, params?: readonly unknown[]) => {
+          const result = await client.query(sql, params ? [...params] : []);
+          return { rows: result.rows as R[] };
+        },
+        release: () => { client.release(); },
+      };
+    } };
+    try {
+      const migrationClient = await pool.connect();
+      try {
+        await applyProjectAuthorizationMigration(migrationClient);
+        await applyProjectDocumentsMigration(migrationClient);
+        await applyProjectCommentsMigration(migrationClient);
+        await applyProjectHistoryMigration(migrationClient);
+      } finally { migrationClient.release?.(); }
+      const auth = new ProjectAuthorizationService(pool);
+      const documents = new ProjectDocumentService(pool, auth);
+      const owner = await auth.resolveActor({ issuer: "https://integration.test", subject: randomUUID() });
+      const initial = initialProject();
+      await documents.createProject(owner, initial);
+      const checkpointId = randomUUID();
+      await documents.createCheckpoint(initial.projectId, owner, {
+        checkpointId, clientMutationId: randomUUID(), name: "Concurrent baseline", sourceRevision: 0,
+      });
+      const race = await Promise.allSettled([
+        documents.restoreCheckpoint(initial.projectId, owner, checkpointId, {
+          expectedRevision: 0, clientMutationId: randomUUID(),
+        }),
+        documents.putDocument(initial.projectId, owner, {
+          expectedRevision: 0, clientMutationId: randomUUID(),
+          document: { ...initial.document, title: "Concurrent edit" },
+        }),
+      ]);
+      expect(race.filter((value) => value.status === "fulfilled")).toHaveLength(1);
+      expect(race.filter((value) => value.status === "rejected")).toMatchObject([
+        { status: "rejected", reason: { status: 409 } },
+      ]);
+      expect((await documents.getDocument(initial.projectId, owner)).revision).toBe(1);
+      const twoRestores = await Promise.allSettled([
+        documents.restoreCheckpoint(initial.projectId, owner, checkpointId, {
+          expectedRevision: 1, clientMutationId: randomUUID(),
+        }),
+        documents.restoreCheckpoint(initial.projectId, owner, checkpointId, {
+          expectedRevision: 1, clientMutationId: randomUUID(),
+        }),
+      ]);
+      expect(twoRestores.filter((value) => value.status === "fulfilled")).toHaveLength(1);
+      expect(twoRestores.filter((value) => value.status === "rejected")).toMatchObject([
+        { status: "rejected", reason: { status: 409 } },
+      ]);
+      const reopened = new ProjectDocumentService(pool, auth);
+      expect((await reopened.getDocument(initial.projectId, owner)).revision).toBe(2);
+      expect((await reopened.getDocumentRevision(initial.projectId, owner, 2)).attribution.restoreOrigin)
+        .toMatchObject({ checkpointId, sourceRevision: 0 });
+      const db = await pool.connect();
+      try {
+        const count = await db.query<{ revisions: number; restores: number }>(
+          "SELECT (SELECT count(*)::integer FROM stt_document_revisions WHERE project_id=$1) AS revisions," +
+            "(SELECT count(*)::integer FROM stt_document_restores WHERE project_id=$1) AS restores",
+          [initial.projectId],
+        );
+        expect(count.rows[0]).toMatchObject({
+          revisions: 3, restores: race[0]?.status === "fulfilled" ? 2 : 1,
+        });
+      } finally { db.release?.(); }
+    } finally { await server.end(); }
+  });
+
   it("serializes competing document writers and permission revocation", async () => {
     const server = new pg.Pool({ connectionString: scratchUrl, max: 6 });
     const pool: SqlPool = {

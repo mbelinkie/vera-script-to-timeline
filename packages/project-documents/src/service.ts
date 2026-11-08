@@ -185,6 +185,11 @@ export interface CreateCheckpointInput {
 export interface ApproveCheckpointInput {
   clientMutationId: string;
 }
+export interface RestoreCheckpointInput {
+  expectedRevision: number;
+  clientMutationId: string;
+  writeSessionId?: string;
+}
 
 const MAX_COMPARISON_CHANGES = 200;
 
@@ -484,6 +489,43 @@ export class ProjectDocumentService {
     }
   }
 
+  /** Append a new immutable revision before CAS, all in the caller's authorized transaction. */
+  private async appendDocumentHead(
+    db: SqlClient, projectId: string, current: HeadRow, previousDocument: ScriptDocumentV2,
+    expected: number, actor: string, mutationId: string, requestDigest: string,
+    next: { document: ScriptDocumentV2; documentJson: string; digest: string },
+    restore?: { checkpointId: string; sourceRevision: number; sourceDigest: string },
+  ): Promise<MutationReceipt> {
+    if (expected >= Number.MAX_SAFE_INTEGER) throw new ProjectDocumentInputError("Revision exhausted.");
+    const revision = expected + 1;
+    await db.query(
+      "INSERT INTO stt_document_revisions(project_id,revision,document_id,expected_revision,actor_id," +
+        "client_mutation_id,request_digest,content_digest,document_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [projectId, revision, current.document_id, expected, actor, mutationId,
+        requestDigest, next.digest, next.documentJson],
+    );
+    if (restore) {
+      await db.query(
+        "INSERT INTO stt_document_restores(project_id,new_revision,checkpoint_id,source_revision," +
+          "source_digest,restored_by,client_mutation_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [projectId, revision, restore.checkpointId, restore.sourceRevision,
+          restore.sourceDigest, actor, mutationId],
+      );
+    }
+    const changed = await db.query<{ revision: string }>(
+      "UPDATE stt_document_heads SET revision=$3,document_json=$4,content_digest=$5," +
+        "updated_by=$6,updated_at=now() WHERE project_id=$1 AND revision=$2 RETURNING revision::text",
+      [projectId, expected, revision, next.documentJson, next.digest, actor],
+    );
+    if (!changed.rows[0]) throw conflict({ currentRevision: expected });
+    // Keep anchored comments in lockstep with the restored document as well
+    // as ordinary PUTs; a comment failure rolls back revision, origin and head.
+    await reconcileCommentsForDocumentRevision(db, projectId, previousDocument, expected,
+      next.document, revision, actor);
+    return { projectId, clientMutationId: mutationId, revision,
+      digest: next.digest, duplicateDelivery: false };
+  }
+
   async createCheckpoint(
     projectIdInput: string, principal: PrincipalRef, input: CreateCheckpointInput,
   ): Promise<CheckpointCreateReceipt> {
@@ -594,6 +636,76 @@ export class ProjectDocumentService {
       return { projectId, checkpointId, clientMutationId: mutationId,
         ...approved.approval, duplicateDelivery: false };
     });
+  }
+
+  async restoreCheckpoint(
+    projectIdInput: string, principal: PrincipalRef,
+    checkpointIdInput: string, input: RestoreCheckpointInput,
+  ): Promise<MutationReceipt> {
+    const projectId = requireUuid(projectIdInput);
+    const checkpointId = requireUuid(checkpointIdInput);
+    const mutationId = requireUuid(input.clientMutationId);
+    const expected = requireRevision(input.expectedRevision);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    const requestDigest = fingerprint({ kind: "restore_checkpoint", projectId, checkpointId,
+      expectedRevision: expected });
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) => {
+      await this.assertNoForeignMutation(db, projectId, actor, mutationId, "edit_document");
+      const prior = await db.query<MutationRow>(
+        "SELECT request_digest,revision::text,content_digest FROM stt_document_revisions" +
+          " WHERE project_id=$1 AND actor_id=$2 AND client_mutation_id=$3",
+        [projectId, actor, mutationId],
+      );
+      if (prior.rows[0]) {
+        if (prior.rows[0].request_digest !== requestDigest) throw reused();
+        // Replay is an immutable receipt, not a new head update, but still
+        // refuse malformed provenance and corruption of frozen source bytes.
+        const revision = await this.selectRevision(db, projectId, int(prior.rows[0].revision));
+        const checkpoint = await this.selectCheckpoint(db, projectId, checkpointId);
+        if (revision.attribution.restoreOrigin?.checkpointId !== checkpointId ||
+            revision.attribution.restoreOrigin.sourceRevision !== checkpoint.sourceRevision ||
+            revision.digest !== checkpoint.sourceDigest ||
+            prior.rows[0].content_digest !== revision.digest) throw unavailable();
+        return { projectId, clientMutationId: mutationId, revision: revision.revision,
+          digest: revision.digest, duplicateDelivery: true };
+      }
+      const checkpoint = await this.selectCheckpoint(db, projectId, checkpointId);
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE",
+        [projectId],
+      );
+      const current = head.rows[0];
+      if (!current) throw missing();
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      let previousDocument: ScriptDocumentV2;
+      try {
+        previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch {
+        throw unavailable();
+      }
+      if (checkpoint.documentId !== current.document_id) {
+        throw new ProjectDocumentInputError("Document ID cannot change.");
+      }
+      if (int(current.revision) !== expected) {
+        throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
+      }
+      // The saved JSON is authoritative: serialize no replacement from the
+      // caller, and retain its collaboration fields byte-for-byte.
+      const snapshot = await db.query<{ document_json: string; source_digest: string }>(
+        "SELECT document_json,source_digest FROM stt_document_checkpoints" +
+          " WHERE project_id=$1 AND checkpoint_id=$2",
+        [projectId, checkpointId],
+      );
+      const frozen = snapshot.rows[0];
+      if (!frozen || sha256(frozen.document_json) !== checkpoint.sourceDigest ||
+          frozen.source_digest !== checkpoint.sourceDigest) throw unavailable();
+      return await this.appendDocumentHead(db, projectId, current, previousDocument,
+        expected, actor, mutationId, requestDigest,
+        { document: checkpoint.document, documentJson: frozen.document_json, digest: checkpoint.sourceDigest },
+        { checkpointId, sourceRevision: checkpoint.sourceRevision, sourceDigest: checkpoint.sourceDigest });
+    }, sessionId);
   }
 
   async listDocumentRevisions(
@@ -797,26 +909,8 @@ export class ProjectDocumentService {
       if (int(current.revision) !== expected) {
         throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
       }
-      if (expected >= Number.MAX_SAFE_INTEGER) throw new ProjectDocumentInputError("Revision exhausted.");
-      const revision = expected + 1;
-      await db.query(
-        "INSERT INTO stt_document_revisions(project_id,revision,document_id,expected_revision,actor_id," +
-          "client_mutation_id,request_digest,content_digest,document_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-        [projectId, revision, current.document_id, expected, actor, mutationId,
-          requestDigest, document.digest, document.documentJson],
-      );
-      const changed = await db.query<{ revision: string }>(
-        "UPDATE stt_document_heads SET revision=$3,document_json=$4,content_digest=$5," +
-          "updated_by=$6,updated_at=now() WHERE project_id=$1 AND revision=$2 RETURNING revision::text",
-        [projectId, expected, revision, document.documentJson, document.digest, actor],
-      );
-      if (!changed.rows[0]) throw conflict({ currentRevision: expected });
-      // Atomic with the head and immutable document revision. Corrupt or stale
-      // comment state aborts the entire edit, never leaving skewed heads.
-      await reconcileCommentsForDocumentRevision(db, projectId, previousDocument, expected,
-        document.document, revision, actor);
-      return { projectId, clientMutationId: mutationId, revision,
-        digest: document.digest, duplicateDelivery: false };
+      return await this.appendDocumentHead(db, projectId, current, previousDocument,
+        expected, actor, mutationId, requestDigest, document);
     }, sessionId);
   }
 
