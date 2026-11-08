@@ -255,11 +255,13 @@ def _assert_before(actual: dict[str, Any], geometry: Mapping[str, Any]) -> None:
             # immutable media provenance; the SDK getter alone cannot
             # reproduce that branch. Both raw getters remain fixed across UI.
             comparable -= {"sourceDuration"}
+        different = sorted(
+            field for field in comparable if row[field] != baseline[field]
+        )
         need(
-            all(row[field] == baseline[field] for field in comparable)
-            and isinstance(row["marker"], str)
-            and row["marker"],
-            "actual native clip/media/links/ranges differ BEFORE the edit",
+            not different and isinstance(row["marker"], str) and bool(row["marker"]),
+            "actual native clip/media/links/ranges differ BEFORE the edit "
+            f"(itemUid={uid}; fields={different})",
         )
 
 
