@@ -258,10 +258,17 @@ def _assert_before(actual: dict[str, Any], geometry: Mapping[str, Any]) -> None:
         different = sorted(
             field for field in comparable if row[field] != baseline[field]
         )
+        numeric_difference = {
+            field: {"observed": row[field], "captured": baseline[field]}
+            for field in different
+            if field
+            in {"sourceStart", "sourceDuration", "recordStart", "recordDuration"}
+        }
         need(
             not different and isinstance(row["marker"], str) and bool(row["marker"]),
             "actual native clip/media/links/ranges differ BEFORE the edit "
-            f"(itemUid={uid}; fields={different})",
+            f"(itemUid={uid}; fields={different}; frames={numeric_difference}; "
+            f"sourceEndGetter={row['sourceEndGetter']})",
         )
 
 
