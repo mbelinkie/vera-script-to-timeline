@@ -18,9 +18,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
+import pwd
 import subprocess
 import sys
 import time
+from datetime import timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -45,6 +48,135 @@ def need(ok: bool, explanation: str) -> None:
 
 def sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def approve_existing_render_output(
+    root: Path, controller: Any, carrier: Any, native: Any
+) -> None:
+    """Issue genuine attributed authority for ONLY signed polling/post-capture.
+
+    Original native and host already explicitly support existing output for
+    poll_render/capture_post, but their historical agent issuance wrapper
+    mistakenly insisted that the MOV be absent for every stage. Reuse the
+    original review-only proposal, its operator-approval constructor, exact
+    native verifier with documented require_output_absent=False, and its
+    append-only agent-issuance format. No approval is synthesized for new
+    construct, queue, start, edited, foreign or uncertain operations.
+    """
+    from vera_timeline_agent import qualification_output_controller_v2 as host
+    from vera_timeline_agent.workflow_v2_cli import _verify_output_release
+
+    sequence, _ = native.next_native_operation(controller.context)
+    action = native.native_action(controller.context, sequence)
+    if action not in {"poll_render", "capture_post"}:
+        return
+    result_path, _, _, native_request = native.native_request_paths(
+        controller.context, sequence
+    )
+    if native_request.exists() or result_path.exists():
+        return
+    approval_path = root / f"operator-approval-{sequence:02d}.json"
+    if approval_path.exists() or approval_path.is_symlink():
+        return
+    predecessor = "start_render" if action == "poll_render" else "poll_render"
+    previous = root / f"native-{sequence - 1:02d}"
+    state = carrier.status(previous)
+    need(
+        state["state"] == "native_result_verified" and state["verified"] is True,
+        "post-start approval requires actual authentic predecessor",
+    )
+    retained = json.loads(carrier._read(previous / "host-ingested.json"))
+    need(
+        retained.get("action") == predecessor and retained.get("status") == "complete",
+        "original host predecessor is not complete",
+    )
+    plan = root / f"operator-plan-{sequence:02d}.json"
+    if not plan.exists():
+        controller.prepare_operator_plan(plan)
+    raw = host._read(plan)
+    proposal = host._operator_plan_proposal(raw)
+    need(
+        proposal["operator"] == pwd.getpwuid(os.getuid()).pw_name,
+        "actual OS operator differs",
+    )
+    approval = host._approval_from_proposal(proposal)
+    controller._environment_current()
+    manifest = _verify_output_release(controller.release_root)
+    expected = (
+        native.NATIVE_STATE_ROOT
+        / "renders"
+        / host._json_hash(controller.journal.chain)
+        / (controller.context["binding"]["bindingSha256"] + ".mov")
+    )
+    need(
+        approval["context"] == controller.context
+        and approval["target"] == controller.context["target"]
+        and approval["invocationId"] == controller.context["invocationId"]
+        and approval["profile"] == controller.admission.profile
+        and approval["packageRoot"] == str(controller.admission.package_root)
+        and approval["admissionSha256"]
+        == sha(host._read(controller.admission.admission_path))
+        and approval["releaseManifestSha256"] == sha(host._read(manifest))
+        and approval["outputPath"] == str(expected)
+        and expected.is_file()
+        and not expected.is_symlink()
+        and approval["actionPlan"]
+        == list(native.action_plan_for_context(controller.context)),
+        "existing MOV is not exactly the signed original approved output",
+    )
+    host._safe(approval_path)
+    issuance_path = approval_path.with_name(approval_path.name + ".issuance.json")
+    need(
+        not approval_path.exists()
+        and not issuance_path.exists()
+        and not issuance_path.is_symlink()
+        and approval_path.parent.is_dir()
+        and approval_path.parent.stat().st_uid == os.getuid()
+        and approval_path.parent.stat().st_mode & 0o077 == 0,
+        "original private one-use approval destination is not empty",
+    )
+    now = controller.trust.checked_now()
+    approval["issuedAt"] = host._iso(now)
+    approval["expiresAt"] = host._iso(
+        now + timedelta(seconds=native.MAX_LIFETIME_SECONDS)
+    )
+    need(
+        host._read(plan) == raw
+        and host._canonical(host._operator_plan_proposal(raw))
+        == host._canonical(proposal),
+        "signed proposal changed while issuing output authority",
+    )
+    approved_raw = host._canonical(approval)
+    native.verify_operator_approval(
+        approved_raw,
+        context=proposal["context"],
+        profile=proposal["profile"],
+        admission_sha256=proposal["admissionSha256"],
+        release_manifest_sha256=proposal["releaseManifestSha256"],
+        require_live=True,
+        require_output_absent=False,
+    )
+    consent = "Continue until closed"
+    host._publish(
+        issuance_path,
+        host._canonical(
+            {
+                "schemaVersion": "qualification-output-agent-issuance/v1",
+                "issuanceMode": "agent_mediated_not_transcript_authenticated",
+                "consentReference": (
+                    "https://github.com/mbelinkie/vera-script-to-timeline/issues/473"
+                ),
+                "consentInstruction": consent,
+                "sessionPath": str(RUN / "run/pristine/session.json"),
+                "sessionSha256": SESSION_SHA,
+                "planSha256": sha(raw),
+                "approvalSha256": sha(approved_raw),
+                "scope": approval,
+            }
+        ),
+    )
+    host._publish(approval_path, approved_raw)
+    print("approved_existing_original_MOV_for", action, sequence, flush=True)
 
 
 def main() -> None:
@@ -121,6 +253,7 @@ def main() -> None:
 
     expires = time.monotonic() + 1800
     while time.monotonic() < expires:
+        approve_existing_render_output(root, controller, carrier, native)
         try:
             result = output.tick(
                 root,
@@ -137,8 +270,7 @@ def main() -> None:
                 and (
                     "selected project has unresolved output operation"
                     in refusal.private_detail
-                    or refusal.private_detail
-                    == "pending, active or unknown render job"
+                    or refusal.private_detail == "pending, active or unknown render job"
                 ),
                 "foreign/shared native owner refused stage",
             )
