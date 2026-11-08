@@ -17,6 +17,12 @@ RES_REL = Path("Contents/Resources/mcp-tools.json")
 OLD = b"AddTake\x00FinalizeTake\x00GetSmartReframeStatus\x00"
 
 
+def test_installed_main_executable_fits_hard_binary_ceiling() -> None:
+    """Mac-read-only 21.1.1.10 file size; no real vendor bytes loaded here."""
+    assert 1_049_754_864 <= scanner.MAX_FILE_BYTES < 2 * 1024**3
+    assert scanner.MAX_FILE_BYTES <= scanner.MAX_TOTAL_BYTES < 2 * 1024**3
+
+
 def _macho(symbols: bytes) -> bytes:
     # Fake 64-bit little-endian Mach-O header plus inert strings.
     return b"\xcf\xfa\xed\xfe" + struct.pack("<I", 0x01000007) + b"\x00" * 24 + symbols
@@ -277,7 +283,7 @@ def test_file_count_individual_and_aggregate_limits(
     monkeypatch.setattr(scanner, "MAX_FILE_BYTES", 8)
     with pytest.raises(ValueError, match="byte limit"):
         scanner.audit(app, binaries=[APP_REL])
-    monkeypatch.setattr(scanner, "MAX_FILE_BYTES", 512 * 1024 * 1024)
+    monkeypatch.setattr(scanner, "MAX_FILE_BYTES", 1200 * 1024 * 1024)
     monkeypatch.setattr(scanner, "MAX_TOTAL_BYTES", 5)
     with pytest.raises(ValueError, match="aggregate"):
         scanner.audit(app, binaries=[APP_REL])

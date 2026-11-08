@@ -18,8 +18,10 @@ from pathlib import Path
 from typing import Any
 
 MAX_FILES = 48
-MAX_FILE_BYTES = 512 * 1024 * 1024
-MAX_TOTAL_BYTES = 1024 * 1024 * 1024
+# Installed 21.1.1.10 Resolve universal executable is 1,049,754,864 bytes.
+# Keep a hard, bounded per-file ceiling that can actually inspect this file.
+MAX_FILE_BYTES = 1200 * 1024 * 1024
+MAX_TOTAL_BYTES = 1600 * 1024 * 1024
 MAX_RESOURCE_BYTES = 2 * 1024 * 1024
 CHUNK_BYTES = 1024 * 1024
 MAX_RELATIVE_PARTS = 16
