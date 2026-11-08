@@ -61,6 +61,12 @@ def macho_arches(path: Path) -> list[str]:
         raise ValueError("truncated Mach-O header")
     magic = data[:4]
     if magic in _THIN_FORMATS:
+        # Require a full 28/32-byte Mach-O header, not a forged magic+CPU stub.
+        expected_header = (
+            32 if magic in {b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe"} else 28
+        )
+        if len(data) < expected_header:
+            raise ValueError("truncated thin Mach-O header")
         cpu = struct.unpack_from(f"{_THIN_FORMATS[magic]}I", data, 4)[0]
         return [_CPU_NAMES.get(cpu, f"unknown-0x{cpu:08x}")]
     if magic not in _FAT_FORMATS:

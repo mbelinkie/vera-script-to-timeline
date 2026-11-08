@@ -85,7 +85,7 @@ def test_thin_x86_and_arm64_are_only_declarations(tmp_path: Path) -> None:
         (b"\xcf\xfa\xed\xfe", 0x01000007, "x86_64"),
         (b"\xcf\xfa\xed\xfe", 0x0100000C, "arm64"),
     ]:
-        app = _fake_app(tmp_path, magic + struct.pack("<I", cpu) + b"\0" * 8)
+        app = _fake_app(tmp_path, magic + struct.pack("<I", cpu) + b"\0" * 24)
         assert macho_arches(app / "Contents" / "MacOS" / "Resolve") == [expected]
 
 
@@ -95,6 +95,7 @@ def test_thin_x86_and_arm64_are_only_declarations(tmp_path: Path) -> None:
         b"",
         b"junk",
         b"\0" * 64,
+        b"\xcf\xfa\xed\xfe" + struct.pack("<I", 0x01000007),
         b"\xca\xfe\xba\xbe" + struct.pack(">I", MAX_ARCHES + 1),
         b"\xca\xfe\xba\xbe" + struct.pack(">I", 0),
         b"\xca\xfe\xba\xbe" + struct.pack(">I", 1),
