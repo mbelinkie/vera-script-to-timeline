@@ -20,6 +20,7 @@ export function requireTrue(condition: unknown): asserts condition {
 export const REQUIRED_CASES = [
   "loopback-auth", "create-replay", "document-cas-replay", "viewer-read-refusal",
   "editor-write-producer-refusal", "producer-settings-title", "editor-revocation",
+  "build-freeze-and-replay", "agent-lease-partial",
   "source-restart", "populated-migration", "tampered-archive-refusal",
   "fresh-restore", "existing-restore-refusal", "restored-restart",
 ] as const;

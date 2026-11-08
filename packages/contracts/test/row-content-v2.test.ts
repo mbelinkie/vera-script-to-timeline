@@ -412,7 +412,7 @@ describe("Research footage occurrence edits and original-note return (issue 367)
     expect((editedReturn.document.stash!.flatMap((b) => b.rows).find((r) => r.id === clip.id) as VisualOnlyBlockV2).visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 20 });
   });
 
-  it("uses original anchors when owner is moved or missing, and refuses ambiguous fallback", () => {
+  it("uses original anchors when owner is moved or missing, and safely falls back for an ambiguous owner", () => {
     const { doc, note, clip, anchor } = researchStashFixture();
     const placed = apply(doc, { kind: "place_attached_footage", noteRowId: note.id, destination: { sectionId: null, afterRowId: null, beforeRowId: null } });
     expect(placed.ok).toBe(true);
@@ -437,8 +437,15 @@ describe("Research footage occurrence edits and original-note return (issue 367)
     const ambiguous = structuredClone(missing);
     const active = ambiguous.activeDraft.blocks[0] as VisualOnlyBlockV2;
     active.stashOrigin!.originalAttachedNoteAfterSiblingRowId = null;
-    const refused = returnClip(ambiguous, clip.id);
-    expect(refused.ok).toBe(false);
-    expect(refused.document).toBe(ambiguous);
+    const fallback = returnClip(ambiguous, clip.id);
+    expect(fallback.ok, JSON.stringify(fallback.diagnostics)).toBe(true);
+    if (!fallback.ok) return;
+    expect(fallback.document.stashOutline?.find((entry) => entry.rowId === clip.id)).toMatchObject({
+      kind: "clip", parentRowId: null, sectionId: null,
+    });
+    expect(fallback.document.stash!.flatMap((bundle) => bundle.rows).filter((row) => row.id === clip.id)).toHaveLength(1);
+    expect(fallback.document.activeDraft.blocks).toEqual([]);
+    expect(validateScriptDocumentV2(fallback.document).valid).toBe(true);
+    expect(ambiguous.activeDraft.blocks).toHaveLength(1);
   });
 });

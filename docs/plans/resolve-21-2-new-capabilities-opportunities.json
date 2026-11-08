@@ -1,0 +1,858 @@
+{
+  "schemaVersion": "vera-resolve-opportunity-input/v1",
+  "issue": 484,
+  "generatedFrom": "origin/main@4968d2c2",
+  "baseline": "Installed 21.1.1.10 Mac bundle/SDK only; 21.1.2 and 21.2 uninstalled/unauthenticated; all proposed probes NOT EXECUTED",
+  "sourceLedger": {
+    "I1": {
+      "kind": "installed-vendor-sdk",
+      "version": "21.1.1.10",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/DaVinciResolveScript.pyi",
+      "sha256": "2755259ef5f57b5d477786f799892e5b86ed3945db84bf88fb69bf751b36e651",
+      "provenance": "Read-only Mac-side hash/line inventory already obtained by #477; bytes not copied into this worktree"
+    },
+    "I2": {
+      "kind": "installed-vendor-sdk",
+      "version": "21.1.1.10",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/README.md",
+      "sha256": "5f58c94da8ec3c1f390d77ad9c60675263591dc101159b302e50b5774513830b",
+      "provenance": "Read-only Mac-side evidence in #477"
+    },
+    "I3": {
+      "kind": "installed-vendor-sdk",
+      "version": "21.1.1.10",
+      "path": "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/CHANGELOG.md",
+      "sha256": "b12c961176d79a5fc87757a21dc7ce2e147f13fb4dab927ed9154943c7de1491",
+      "provenance": "Read-only Mac-side evidence in #477; latest section 21.1"
+    },
+    "M1": {
+      "kind": "community-transcription-of-vendor-sdk",
+      "version": "21.1.2",
+      "url": "https://wheheohu.github.io/bmd_doc/ResolveAPI/21.1.2/resolve_api/TimelineItem",
+      "sha256": null,
+      "provenance": "Version-labeled transcription, NOT authenticated vendor stub"
+    },
+    "M2": {
+      "kind": "community-transcription-of-vendor-sdk",
+      "version": "21.2",
+      "url": "https://wheheohu.github.io/bmd_doc/versions",
+      "sha256": null,
+      "provenance": "Secondary change inventory, NOT authenticated vendor stub"
+    },
+    "M3": {
+      "kind": "community-transcription-of-vendor-sdk",
+      "version": "21.2",
+      "url": "https://wheheohu.github.io/bmd_doc/ResolveAPI/resolve_api/Timeline",
+      "sha256": null,
+      "provenance": "Version-labeled API documentation; no local SDK bytes"
+    },
+    "M4": {
+      "kind": "community-transcription-of-vendor-sdk",
+      "version": "21.2",
+      "url": "https://wheheohu.github.io/bmd_doc/ResolveAPI/resolve_api/TimelineItem",
+      "sha256": null,
+      "provenance": "Version-labeled API documentation; no local SDK bytes"
+    },
+    "M5": {
+      "kind": "community-transcription-of-vendor-sdk",
+      "version": "21.2",
+      "url": "https://wheheohu.github.io/bmd_doc/ResolveAPI/resolve_api/Resolve",
+      "sha256": null,
+      "provenance": "Version-labeled API documentation; no local SDK bytes"
+    },
+    "R1": {
+      "kind": "vendor-release-news-reproduced-third-party",
+      "version": "21.1.2",
+      "url": "https://www.newsshooter.com/2026/10/26/davinci-resolve-21-1-2/",
+      "sha256": null,
+      "provenance": "Reports vendor release notes; NOT per-method signature authority"
+    },
+    "R2": {
+      "kind": "vendor-release-news-reproduced-third-party",
+      "version": "21.2",
+      "url": "https://www.newsshooter.com/2026/11/04/blackmagic-design-davinci-resolve-21-2/",
+      "sha256": null,
+      "provenance": "Reports vendor release notes; NOT per-method signature authority"
+    }
+  },
+  "evidencePolicy": {
+    "tiers": [
+      "SDK declared",
+      "fake-tested",
+      "real native-proven",
+      "product-qualified",
+      "not viable"
+    ],
+    "currentEvidence": "SDK declared",
+    "nativeProofRequires": [
+      "separately authorized disposable target",
+      "actual supported OS/CPU/edition handshake",
+      "no competing native owner",
+      "signed before/after/negative-control/readback and reopen",
+      "renderer/audio/geometry/UID comparison",
+      "#479 #480 #473 gates"
+    ],
+    "noNativeExecution": true,
+    "noAutomaticInstallation": true,
+    "noPermissionPromotion": true
+  },
+  "opportunities": [
+    {
+      "id": "C01",
+      "rank": "high-impact-near-term",
+      "introduced": "21.1.2",
+      "capability": "Discover and manage effect instances",
+      "declaredApis": [
+        "Resolve.GetEffectsList(mediaType)",
+        "TimelineItem.AddEffect(category, id)",
+        "TimelineItem.GetEffects(category)",
+        "TimelineItem.DeleteEffects([effects])",
+        "Effect.GetInfo()",
+        "Effect.GetIsEnabled()",
+        "Effect.SetIsEnabled(enabled)",
+        "Effect.GetIndex()",
+        "Effect.SetIndex(index)"
+      ],
+      "codeRefs": [
+        "scripts/issue292_transition_probe.py",
+        "python/vera_timeline_agent/studio_spike.py",
+        "docs/investigations/issue-318-capability-audit.md"
+      ],
+      "workaround": "Named transition/effect probes and pinned templates; #88 cannot infer universal installed catalog or opaque finishing",
+      "replacement": "Build a bounded supported-ID effects registry and preserve or refuse exact effect identity/order/enabled state, without auto-applying unqualified effects",
+      "newBehavior": "Potential programmatic discovery of effects not available through VERA's named-transition probe",
+      "benefits": [
+        "reliability",
+        "editability",
+        "observability"
+      ],
+      "risk": "Effect IDs availability/version variability, OFX licensing, opaque effect parameters and reordering fidelity; no general preservation guarantee",
+      "prerequisites": [
+        "supported 21.1.2+ Studio host",
+        "installed/activated effect plugins",
+        "Producer-approved synthetic target"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "List available effects on fresh host; apply a known effect to a disposable item, disable/reorder and compare readback, rendered frames and reopen; ensure original source and audio unaffected",
+        "negativeControl": "Nonexistent effect ID and disabled plugin must fail closed with no side effects; order changes must be measured, not presumed",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Add version+effect catalog and exact selection probes to #482; report unsupported IDs instead of guessing",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M1",
+        "R1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C02",
+      "rank": "high-impact-near-term",
+      "introduced": "21.1.2",
+      "capability": "Selective paste attributes for editable finishing",
+      "declaredApis": [
+        "TimelineItem.CopyAttributes([targetItems], {copyAttributesOptions})"
+      ],
+      "codeRefs": [
+        "docs/investigations/issue-318-capability-audit.md",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "python/vera_timeline_agent/studio_spike.py"
+      ],
+      "workaround": "Fresh timeline rebuild cannot assert copy of arbitrary grades/Fusion/transforms (#327/#104)",
+      "replacement": "Probe a restricted supported attribute subset on disposable clone; refuse unknown or loss rather than implying transparent finishing migration",
+      "newBehavior": "Potential preservation of selected native edits impossible through current package-only rebuild",
+      "benefits": [
+        "product-quality",
+        "editability",
+        "reliability"
+      ],
+      "risk": "The options contract is incomplete without authentic SDK; opaque attributes/links/source effects can change",
+      "prerequisites": [
+        "supported 21.1.2+ Studio host; selected Copy Attributes Options keys checked against authentic vendor stub"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Copy one measured grade/transform/audio gain to selected other item, compare all attributes and unaffected media before/after/reopen, plus render diff",
+        "negativeControl": "Unsupported option/unknown effect or mismatched source must refuse; copy must not modify unselected item",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Separate mutation/proof case for #482; only promote named fields after independent proof",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C03",
+      "rank": "worth-testing",
+      "introduced": "21.1.2",
+      "capability": "Same-UID non-GUI left/right edit offsets",
+      "declaredApis": [
+        "TimelineItem.SetLeftOffset(offset, subframePrecision=False, updateLinkedItems=True)",
+        "TimelineItem.SetRightOffset(offset, subframePrecision=False, updateLinkedItems=True)"
+      ],
+      "codeRefs": [
+        "docs/plans/issue-477-native-roll-feasibility.md",
+        "python/vera_timeline_agent/resolve_test_queue_reverse.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ],
+      "workaround": "#477 cannot produce a supported 327→351 atomic two-neighbor roll with stable original native item UIDs; getters report available source extension only",
+      "replacement": "Investigate exact pair of setter semantics without equating an offset argument to a roll; preserve the strict #473 failure boundary",
+      "newBehavior": "Potential previously unavailable non-GUI trim, but not demonstrated as roll or safe",
+      "benefits": [
+        "automation",
+        "editability"
+      ],
+      "risk": "Possible source extension, unexpected clip movement, invalid geometry, non-atomic partial mutation; community malformed-fixture report inconclusive",
+      "prerequisites": [
+        "properly formed start-frame fixture; approved newer supported host; sufficient handles; independent native ownership"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Use six-track synthetic joined clips with correct nonzero timeline start; attempt exactly 327→351 edit on disposable copy, demand SAME two original item UIDs, constant aggregate duration/right edge and source-boundary transfer +24; capture all tracks and linked audio",
+        "negativeControl": "Invalid handles and intentionally malformed start-frame fixture must be rejected before native call; truthy setter response with wrong geometry is FAIL",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Keep #473 blocked regardless of declaration; #482 may only stage this test after all gates",
+      "effort": "large",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "I1",
+        "M1",
+        "M2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C04",
+      "rank": "high-impact-near-term",
+      "introduced": "21.1.2",
+      "capability": "Single/group timeline moves with linked AV",
+      "declaredApis": [
+        "TimelineItem.GetPosition(subframePrecision=False)",
+        "TimelineItem.SetPosition({position}, moveLinkedItems=True, subframePrecision=False)",
+        "Timeline.MoveItems([timelineItems], {position}, moveLinkedItems=True, subframePrecision=False)"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "docs/investigations/issue-318-capability-audit.md",
+        "python/vera_timeline_agent/resolve_test_queue_reverse.py"
+      ],
+      "workaround": "VERA authoring supports pure row/reorder intent but broad native group motion/preservation remains unproved (#104/#328)",
+      "replacement": "Try absolute and grouped native moves only for qualified, disjoint supported items with ID-pinned preflight",
+      "newBehavior": "Programmatic grouped movement of existing native items, distinct from a roll trim",
+      "benefits": [
+        "automation",
+        "reliability",
+        "editability"
+      ],
+      "risk": "Collision/overlap, linked-audio propagation, source identity, subframe preference and start-frame arithmetic",
+      "prerequisites": [
+        "supported 21.1.2+ Studio, correctly based timeline start, explicit linked policy"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Move two disjoint disposable items including linked audio 48 frames using both APIs; compare GetPosition, GetStart and original UIDs, all other-track geometry, save/reopen",
+        "negativeControl": "Blocked destination/cross-track collision, invalid trackIndex and non-frame audio preference must refuse or produce no change",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Add version-paired group-move and collision matrix; no roll claim",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M1",
+        "M2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C05",
+      "rank": "high-impact-near-term",
+      "introduced": "21.1.2",
+      "capability": "Export exact still frames through scripting",
+      "declaredApis": [
+        "Timeline.ExportFrame(frameOffset, [{exportFrameOptions}])",
+        "TimelineItem.ExportFrame(frameOffset, [{exportFrameOptions}])",
+        "MediaPoolItem.ExportFrame(frameOffset, [{exportFrameOptions}])"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/native_qualification_v2.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "python/vera_timeline_agent/native_image_motion.py"
+      ],
+      "workaround": "Visual qualification relies on rendered outputs, external decoding and targeted captures; preview sampling often costs render/inspection time",
+      "replacement": "Read-only one-frame captures on disposable saved timelines for faster visual regression evidence, retaining output hash+geometry",
+      "newBehavior": "Previously missing still-frame export on public scripting surface",
+      "benefits": [
+        "observability",
+        "performance",
+        "product-quality"
+      ],
+      "risk": "Return shape/encoding, off-by-one 0-based frameOffset, color management, current-timeline context, path overwrite, signed authority",
+      "prerequisites": [
+        "supported 21.1.2+ Studio, writable scratch output only, synthetic footage"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Export first/middle/last frames from item and timeline; compare pixel hashes and image geometry to known rendered ground truth before/after reopen",
+        "negativeControl": "Out-of-bounds offsets, bad options, absent media and unwritable scratch path must not be accepted as proof",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Use as optional image evidence, not replacement for UID/audio/render attestation",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M3"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C06",
+      "rank": "high-impact-near-term",
+      "introduced": "21.2",
+      "capability": "Multi-frame thumbnail grid and ROI-quality export",
+      "declaredApis": [
+        "Timeline.ExportThumbnails(frames, [{exportThumbnailsOptions}])",
+        "TimelineItem.ExportThumbnails(frames, [{exportThumbnailsOptions}])",
+        "MediaPoolItem.ExportThumbnails(frames, [{exportThumbnailsOptions}])",
+        "ExportFrameOptions: quality, roiX, roiY, roiWidth, roiHeight; result width/height"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/native_qualification_v2.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+      ],
+      "workaround": "Separate rendered captures/decoded images for each proof frame; no supported scripted grid/ROI proof route on installed baseline",
+      "replacement": "Batch named boundary frames into one bounded grid for autonomous QA; ROI check exact region without pretending it measures full output",
+      "newBehavior": "21.2 grid rendering and bounded frame geometry/quality controls",
+      "benefits": [
+        "observability",
+        "performance",
+        "product-quality"
+      ],
+      "risk": "Grid ordering/labels, quality loss, frame range, changing render state, image cropping masks defects",
+      "prerequisites": [
+        "supported 21.2 Studio host, supported CPU/OS and media decoders; no UI prompt"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Export before/cut/after/six-track sample grid, compare cells to separate reference render, label mapping, dimensions and ROI, then reopen and repeat",
+        "negativeControl": "Duplicate frame labels, invalid ROI, missing source, wrong dimensions must fail and not be silently dropped",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "#482 can greatly reduce visual matrix cost only after independent cell-level checks",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M3",
+        "M4",
+        "R2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C07",
+      "rank": "high-impact-near-term",
+      "introduced": "21.1.2",
+      "capability": "Native loudness analysis readback",
+      "declaredApis": [
+        "TimelineItem.AnalyzeAudioLevels(standard)"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/roundtrip_audio.py",
+        "python/vera_timeline_agent/source_audio_endpoint.py",
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+      ],
+      "workaround": "Fairlight mute/mapping state reads do not prove audible attachment; VERA resorts to decoded PCM correlation #166/RK-05",
+      "replacement": "Add optional native loudness precheck to detect silent/too-quiet/wrong gain, but retain decoded render as decisive",
+      "newBehavior": "New per-item level analysis without full rendered PCM for every precheck",
+      "benefits": [
+        "observability",
+        "reliability",
+        "performance"
+      ],
+      "risk": "LUFS modes differ, analysis of stale cached audio or ignored routing, normalization modes excluded, channel mapping mismatch",
+      "prerequisites": [
+        "Studio 21.1.2+; supported loudness mode from Timeline.GetNormalizeAudioModes"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Measure known -18/-30 dB synthetic tones and silence on six tracks against decoded WAV and render; verify source/media UID and saved state",
+        "negativeControl": "Muted clip/zero sample and unsupported mode must not produce a passing audible-attachment verdict",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Candidate first-stage #482 audio health metric, never stand-alone pass",
+      "effort": "small",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C08",
+      "rank": "worth-testing",
+      "introduced": "21.1.2",
+      "capability": "Effect-specific Fusion graph handle",
+      "declaredApis": [
+        "Effect.GetFusionComp()",
+        "Effect.GetInfo()"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/studio_graphics.py",
+        "python/vera_timeline_agent/studio_spike.py",
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+      ],
+      "workaround": "Text+ uses pinned append/template and specific fingerprint, not an arbitrary Fusion automation or lossless graph transfer",
+      "replacement": "Explore effect-to-FusionComp introspection and stable graph fingerprint within authorized disposable target",
+      "newBehavior": "Potential direct editable effect composition access beyond pinned title path",
+      "benefits": [
+        "editability",
+        "product-quality",
+        "automation"
+      ],
+      "risk": "Version-specific Fusion tool IDs, graph invalidation, cross-context resolution and opaque parameters",
+      "prerequisites": [
+        "installed Fusion effect on supported 21.1.2+ Studio; no external plugin assumptions"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Insert one known Fusion effect on synthetic title, read FusionComp graph and control fields, mutate only disposable graph, verify pixels + reopen",
+        "negativeControl": "Non-Fusion OFX/audio effect GetFusionComp must return None; unknown tool or null graph refuses",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Falsifiable Fusion regression schema, not universal graphic support",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C09",
+      "rank": "worth-testing",
+      "introduced": "21.1.2",
+      "capability": "Color-node naming and labeling",
+      "declaredApis": [
+        "Graph.SetNodeLabel(nodeIndex, label)",
+        "Graph.GetNodeColor(nodeIndex)",
+        "Graph.SetNodeColor(nodeIndex, colorName)"
+      ],
+      "codeRefs": [
+        "docs/investigations/issue-318-capability-audit.md",
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+      ],
+      "workaround": "Opaque Color graph preservation/version readback is not general; no stable VERA node annotation",
+      "replacement": "Annotate exact known node identities in a synthetic grade and verify tags survive save/reopen; potential failure diagnostics",
+      "newBehavior": "Machine-readable per-node labeling/color customization",
+      "benefits": [
+        "observability",
+        "editability"
+      ],
+      "risk": "Node index 1-based and invalidated graph handles after ApplyGradeFromDRX; no grade parameters copied",
+      "prerequisites": [
+        "valid graph on 21.1.2+ Studio, supported node/palette"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Set/get label+color of exact node in isolated graph; read node count and original grade before/after/reopen",
+        "negativeControl": "Invalid index and stale graph object must refuse; untouched node properties should remain unchanged",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Optional Color node trace for #482, not full grade fidelity proof",
+      "effort": "small",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C10",
+      "rank": "worth-testing",
+      "introduced": "21.2",
+      "capability": "Color graph node enabled state and CDL readback",
+      "declaredApis": [
+        "Graph.GetNodeEnabled(nodeIndex)",
+        "TimelineItem.GetCDL(nodeIndex)"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "docs/investigations/issue-318-capability-audit.md",
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+      ],
+      "workaround": "Current #327 finishing preservation has no complete portable native node-state/grade fingerprint",
+      "replacement": "Read node-enabled and primaries CDL as additional checks for selected preserved grades",
+      "newBehavior": "Richer programmatic pre/post color-state readback",
+      "benefits": [
+        "observability",
+        "product-quality"
+      ],
+      "risk": "CDL is partial grade representation, excludes OFX/qualifiers, disabled graph semantics and graph cache; readback does not imply copy",
+      "prerequisites": [
+        "supported 21.2 Studio with known primary nodes"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Read known CDL+enabled of two nodes across save/reopen and compare rendered color patches and unchanged clip UID",
+        "negativeControl": "Missing node, non-primary grade, empty graph must return unknown/fail rather than approximate grade equality",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "New non-destructive #482 color diagnostics only",
+      "effort": "small",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M4"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C11",
+      "rank": "worth-testing",
+      "introduced": "21.2",
+      "capability": "Automatic color grade controls",
+      "declaredApis": [
+        "TimelineItem.ApplyAutoColor()",
+        "TimelineItem.SetAutoColorEnabled(enabled)",
+        "TimelineItem.GetAutoColorEnabled()",
+        "TimelineItem.ClearAutoColor()"
+      ],
+      "codeRefs": [
+        "docs/investigations/issue-318-capability-audit.md",
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ],
+      "workaround": "VERA does not qualify optional automatic grade or full editor finishing behavior",
+      "replacement": "Investigate an optional, opt-in editable auto-grade for synthetic image; never replace artist's existing grade by default",
+      "newBehavior": "New scripted auto-grade lifecycle and off/on readback",
+      "benefits": [
+        "product-quality",
+        "editability"
+      ],
+      "risk": "AI/effect computation, potential grade replacement and non-reversible visual intent, required assets/hardware/license unknown",
+      "prerequisites": [
+        "21.2 Studio host with feature supported and any models installed already; Producer opt-in before product behavior"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "On new isolated neutral synthetic chart, apply/disable/clear; compare rendered chart and native readback after reopen",
+        "negativeControl": "Existing graded clip must be refused in safe experimental plan unless exact backup/restore clone proves preservation",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Defer activation; research only until quality and consent",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M4",
+        "R2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C12",
+      "rank": "worth-testing",
+      "introduced": "21.2",
+      "capability": "Observe optional AI extras readiness",
+      "declaredApis": [
+        "Resolve.GetExtrasPackages()"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/studio_spike.py",
+        "python/vera_timeline_agent/build_studio_stage.py",
+        "python/vera_timeline_agent/resolve_native_owner.py"
+      ],
+      "workaround": "Generated speech/AI depends on optional models; missing extras currently need explicit needs-action rather than guessed availability",
+      "replacement": "Read-only package name/status/size inventory to refuse model-dependent tasks before submission; no install/uninstall",
+      "newBehavior": "New diagnostic API for optional AI availability and progress",
+      "benefits": [
+        "observability",
+        "reliability"
+      ],
+      "risk": "No unattended licensing, model downloads, third-party permissions or unexpected network side effects; package registry varies by platform",
+      "prerequisites": [
+        "21.2 Studio only; read-only query, no automatic install; correct current-project identity"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Read package status on isolated supported host only after permission; compare one already-installed and one absent package with UI-independent listing",
+        "negativeControl": "Absent model, download pending or API absent -> blocked not attempted; do NOT call InstallExtrasPackage/UninstallExtrasPackage",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Model readiness row in #482; no AI download automation authorization",
+      "effort": "small",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M5",
+        "R2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C13",
+      "rank": "defer",
+      "introduced": "21.1.2",
+      "capability": "Audio silent-region ripple removal",
+      "declaredApis": [
+        "TimelineItem.RippleDeleteSilence([{removeSilenceOptions}])"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/source_audio_endpoint.py",
+        "python/vera_timeline_agent/roundtrip_audio.py",
+        "docs/investigations/issue-318-capability-audit.md"
+      ],
+      "workaround": "VERA's authored word and row boundaries are deterministic; silent spans may be meaningful and custom audio retiming constrained",
+      "replacement": "Investigate only as opt-in disposable import-preparation helper, not direct automatic manuscript cuts",
+      "newBehavior": "Native audio silence trimming/rippling potential",
+      "benefits": [
+        "performance",
+        "automation"
+      ],
+      "risk": "Destroys authored timing, causes cross-track drift, may detach music/links and revise timeline geometry",
+      "prerequisites": [
+        "supported 21.1.2+ Studio, reviewed silence threshold, synthetic only"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "On speech-tone-silence fixture, record exact deleted spans and all track anchors after reopen, with decoded PCM alignment",
+        "negativeControl": "Intentional pause and quiet speech must not be removed; reject if linked tracks shift unexpectedly",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Defer until product decision; never automatically run in #482 destructive baseline",
+      "effort": "large",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C14",
+      "rank": "defer",
+      "introduced": "21.1.2",
+      "capability": "Photo album and batch photo export",
+      "declaredApis": [
+        "MediaPool.CreateEmptyPhotoAlbum(name)",
+        "Project.GetPhotoAlbumCount()",
+        "Project.RenderPhotosWithQuickExport(quickExportPresetName, {presetInfo})"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/studio_graphics.py",
+        "python/vera_timeline_agent/build_package_stage.py"
+      ],
+      "workaround": "VERA builds timelines and pinned still graphic packages, not photo editing album products",
+      "replacement": "Only explore if image/graphic workflow later explicitly needs editable photo catalog or export",
+      "newBehavior": "New photo album objects and separate photo render path",
+      "benefits": [
+        "editability",
+        "product-quality"
+      ],
+      "risk": "Separate media/product domain; no immediate timeline fidelity benefit; photo render settings vary",
+      "prerequisites": [
+        "supported 21.1.2+ Studio; photo-lane product scope not adopted"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "Create isolated synthetic still album, duplicate/import and export scratch image; verify metadata, hashes and reread",
+        "negativeControl": "Unavailable album/still or conflicting name refuses; no link to user photo library",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Outside current #482 core timeline matrix unless scope adopted",
+      "effort": "large",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C15",
+      "rank": "unsupported",
+      "introduced": "21.1.2",
+      "capability": "Use DeleteGaps as general VERA timeline normalizer",
+      "declaredApis": [
+        "Timeline.DeleteGaps()"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "docs/investigations/issue-318-capability-audit.md",
+        "python/vera_timeline_agent/studio_spike.py"
+      ],
+      "workaround": "VERA intentional gaps, narration timing and cross-track offsets must remain exact",
+      "replacement": "No automatic use: normalized gap removal conflicts with explicit authored timing",
+      "newBehavior": "Can ripple close every gap, but cannot preserve explicit empty beats as a generic operation",
+      "benefits": [
+        "automation"
+      ],
+      "risk": "Would change all downstream record positions and break authored/linked alignment",
+      "prerequisites": [
+        "None for production: do not enable"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "If independently revisited, disposable mixed intentional/accidental gap fixture must prove only selected gaps close; published API only deletes all gaps",
+        "negativeControl": "Any intentional gap collapse is immediate product failure",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "Exclude from automated edits; negative example for #482",
+      "effort": "small",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "M3"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    },
+    {
+      "id": "C16",
+      "rank": "defer",
+      "introduced": "21.1.2",
+      "capability": "Expanded photo/transcription, keyframe and speech controls",
+      "declaredApis": [
+        "MediaPoolItem.SetTranscription({transcription})",
+        "Resolve.GetKeyframeMode() and SetKeyframeMode() usable on any page",
+        "Project.GenerateSpeech({speechGenerationSettings}, timecode) clarifies missing Extra failure"
+      ],
+      "codeRefs": [
+        "python/vera_timeline_agent/build_narration_stage.py",
+        "python/vera_timeline_agent/studio_spike.py",
+        "docs/investigations/issue-318-capability-audit.md"
+      ],
+      "workaround": "VERA's source transcription and external narration generation are separately governed; injected/local page assumptions persist",
+      "replacement": "Consider only a metadata-only transcript bridge or page-independent state readback; do not substitute paid/model-specific speech",
+      "newBehavior": "Expanded transcription and page-independent keyframe context; not a self-contained new TTS provider",
+      "benefits": [
+        "observability",
+        "automation"
+      ],
+      "risk": "Transcript may overwrite source metadata; GenerateSpeech mutates currently active timeline, requires optional AI Extra and license",
+      "prerequisites": [
+        "Studio 21.1.2+, installed model and explicit authorization for any speech generation"
+      ],
+      "nativeProbe": {
+        "status": "NOT EXECUTED",
+        "fixture": "New, isolated, identity-pinned synthetic project on separately approved supported Studio test host; preserve six video/audio track positions, linked narration, synthetic tone, media IDs and neutral baseline",
+        "procedure": "For readback-only probe verify keyframe mode from non-Color pages and source transcript on synthetic clip; for generation require separately authorized scratch target",
+        "negativeControl": "No-model GenerateSpeech=None is blocked and must not modify project; never call without permission",
+        "saveReopen": "Record before/after/reopened project and timeline identity, each affected item UID/source in-out/record geometry/linked audio, markers, six-track topology and rendered AV/fidelity as relevant; independent readback, not return value alone",
+        "mustNotOperateExistingTargets": true
+      },
+      "testBench": "A readiness/metadata branch in #482, no automatic speech provider cutover",
+      "effort": "medium",
+      "confidence": "SDK declared",
+      "provenance": "Published secondary SDK transcription only; real method availability and behavior unknown",
+      "sourceIds": [
+        "M2",
+        "R1"
+      ],
+      "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
+      "newerVersionRequired": true,
+      "productQualified": false,
+      "realNativeProven": false
+    }
+  ]
+}

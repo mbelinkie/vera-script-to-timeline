@@ -76,6 +76,12 @@ describe("development QA service bootstrap and shutdown", () => {
     expect(h.connect).toHaveBeenCalled();
     expect(h.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO vera_identity_actors"),
       expect.arrayContaining(["urn:vera:stt:development-qa", subject]));
+    const anonymousBuild = await fetch(`http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}/builds`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+    });
+    expect(anonymousBuild.status).toBe(401);
+    const anonymousAgent = await fetch(`http://127.0.0.1:${config.port}/v1/agent/projects/${randomUUID()}/queue`);
+    expect(anonymousAgent.status).toBe(401);
     await server.stop();
     await server.stop();
     expect(h.close).toHaveBeenCalledOnce();

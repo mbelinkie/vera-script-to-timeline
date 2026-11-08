@@ -373,6 +373,46 @@ class Store:
                     seq INTEGER NOT NULL DEFAULT 0,
                     at TEXT NOT NULL
                 );
+                -- M4 owns its own closed, non-replayable reverse stages. No
+                -- M2/M3 identity, adapter or historical operation is changed.
+                CREATE TABLE IF NOT EXISTS reverse_jobs (
+                    id TEXT PRIMARY KEY,
+                    state TEXT NOT NULL,
+                    plan_sha TEXT NOT NULL,
+                    submitted_at TEXT NOT NULL,
+                    run_at REAL NOT NULL,
+                    deadline_at REAL NOT NULL,
+                    started_at TEXT,
+                    ended_at TEXT,
+                    updated_at TEXT NOT NULL,
+                    reason TEXT,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS reverse_stages (
+                    job_id TEXT NOT NULL REFERENCES reverse_jobs(id),
+                    ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 3),
+                    name TEXT NOT NULL,
+                    state TEXT NOT NULL DEFAULT 'pending',
+                    intent_at TEXT,
+                    operation_id TEXT NOT NULL UNIQUE,
+                    receipt_path TEXT,
+                    receipt_sha TEXT UNIQUE,
+                    verified_at TEXT,
+                    PRIMARY KEY(job_id, ordinal)
+                );
+                CREATE TABLE IF NOT EXISTS reverse_targets (
+                    name TEXT PRIMARY KEY,
+                    project_uid TEXT NOT NULL UNIQUE,
+                    timeline_uid TEXT NOT NULL UNIQUE,
+                    job_id TEXT NOT NULL REFERENCES reverse_jobs(id)
+                );
+                CREATE TABLE IF NOT EXISTS reverse_events (
+                    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL REFERENCES reverse_jobs(id),
+                    at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    detail TEXT NOT NULL
+                );
             """)
             # Existing phase-1/2 stores predate optional authenticated M3
             # measurement metadata. Never alter M1/M2 tables or report bytes.
@@ -599,6 +639,10 @@ def enqueue(store: Store, plan_path: Path, at: str | None = None) -> str:
             ),
         )
         if native.is_native(plan):
+            from . import resolve_test_queue_m4 as reverse
+
+            if reverse.target_reserved(db, plan["native"]["projectName"]):
+                raise QueueError("native target reserved by a guarded reverse workflow")
             existing = db.execute(
                 "SELECT 1 FROM campaign_trials WHERE request_sha=?",
                 (plan["native"]["requestSha256"],),
@@ -982,6 +1026,10 @@ def run_native(
 ) -> None:
     """One preflight and one dispatch after a durable intent. No retries."""
     try:
+        from . import resolve_test_queue_m4 as reverse
+
+        if reverse.any_unresolved(store):
+            raise QueueError("another M4 native target has an unclosed stage")
         plan = load_frozen_plan(store, job_id)
         request = native.preflight(plan)
         evidence = Path(request["evidenceDir"])
@@ -1078,6 +1126,10 @@ def worker_once(store: Store) -> bool:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return False
+        from . import resolve_test_queue_m4 as reverse
+
+        if reverse.worker_tick(store):
+            return True
         with store.connect() as db:
             active_native = db.execute(
                 "SELECT j.id,n.intent_at FROM jobs j "
@@ -1114,7 +1166,13 @@ def worker_once(store: Store) -> bool:
                     "SELECT j.id,j.deadline_at FROM jobs j "
                     "LEFT JOIN campaign_trials c ON c.child_job_id=j.id "
                     "WHERE j.state='queued' AND j.run_at<=? "
-                    "AND c.child_job_id IS NULL ORDER BY j.run_at,j.id LIMIT 1",
+                    "AND c.child_job_id IS NULL "
+                    "AND (NOT EXISTS (SELECT 1 FROM reverse_stages s WHERE "
+                    "s.intent_at IS NOT NULL AND "
+                    "s.state IN ('awaiting_operator','verifying','unknown')) "
+                    "OR NOT EXISTS (SELECT 1 FROM native_attempts n "
+                    "WHERE n.job_id=j.id)) "
+                    "ORDER BY j.run_at,j.id LIMIT 1",
                     (time.time(),),
                 ).fetchone()
                 if selected is not None:
@@ -1264,8 +1322,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     options = parser().parse_args(argv)
     try:
         store = Store(options.root)
+        from . import resolve_test_queue_m4 as reverse
+
         if options.command == "enqueue":
-            print(enqueue(store, options.plan, options.at))
+            source = read_plan_file(options.plan)
+            if isinstance(source, dict) and source.get("schema") == reverse.SCHEMA:
+                print(reverse.enqueue(store, options.plan, at=options.at))
+            else:
+                print(enqueue(store, options.plan, options.at))
         elif options.command == "prepare-native":
             from .workflow_package import sha256
             from .workflow_v2 import load_verified_package_v2
@@ -1325,24 +1389,49 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "ORDER BY submitted_at DESC,id DESC"
                     )
                 ]
+                result.extend(
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT id,state,submitted_at,started_at,ended_at "
+                        "FROM reverse_jobs ORDER BY submitted_at DESC,id DESC"
+                    )
+                )
             print(json.dumps(result, sort_keys=True))
         elif options.command == "status":
-            reconcile_native(store, options.job_id)
-            print(json.dumps(store.publish(options.job_id)["status"], sort_keys=True))
+            if reverse.ID_RE.fullmatch(options.job_id):
+                reverse.reconcile(store, options.job_id)
+                status = reverse.publish(store, options.job_id)
+            else:
+                reconcile_native(store, options.job_id)
+                status = store.publish(options.job_id)["status"]
+            print(json.dumps(status, sort_keys=True))
         elif options.command == "report":
-            reconcile_native(store, options.job_id)
-            report = store.publish(options.job_id)
+            if reverse.ID_RE.fullmatch(options.job_id):
+                reverse.reconcile(store, options.job_id)
+                report = reverse.publish(store, options.job_id)
+            else:
+                reconcile_native(store, options.job_id)
+                report = store.publish(options.job_id)
             if options.format == "json":
                 print(json.dumps(report, sort_keys=True))
             else:
-                print(
-                    (store.jobdir(options.job_id) / "report.md").read_text(
-                        encoding="utf-8"
-                    )
+                folder = (
+                    reverse._jobdir(store, options.job_id)
+                    if reverse.ID_RE.fullmatch(options.job_id)
+                    else store.jobdir(options.job_id)
                 )
+                print((folder / "report.md").read_text(encoding="utf-8"))
         elif options.command == "cancel":
-            cancel(store, options.job_id)
-            print(json.dumps(store.publish(options.job_id)["status"], sort_keys=True))
+            if reverse.ID_RE.fullmatch(options.job_id):
+                reverse.cancel(store, options.job_id)
+                print(
+                    json.dumps(reverse.publish(store, options.job_id), sort_keys=True)
+                )
+            else:
+                cancel(store, options.job_id)
+                print(
+                    json.dumps(store.publish(options.job_id)["status"], sort_keys=True)
+                )
         elif options.command == "worker":
             if options.action == "once":
                 worker_once(store)

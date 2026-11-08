@@ -730,6 +730,21 @@ The report records these distinct stages:
   output verifier now uses the derivation/byte/rate-bound precise clock check
   already used by delivery. This is a different verifier from RK-13, not a
   reason to dismiss the refusal or loosen all integer checks.
+- On **2026-11-07**, a separate authenticated #312 M4 video `construct`
+  **partially failed** at the full 214-frame source EOF: native integer end
+  `212`, `Frames=214`, 214-frame timeline record, and source end time
+  `8.925583333333332` at 24000/1001. The original result SHA-256 is retained
+  in [#472 analysis](plans/issue-472-native-video-eof.md). Its *original*
+  source map has 900 frames at 30000/1001 and nonzero source origin; its
+  *delivered* decoded clip has 214 frames at 24000/1001 and a different probe
+  hash. Independent read-only Mac FFprobe checked the actual delivered MP4:
+  214 decoded frames at 24000/1001, with SHA-256 equal to its admitted
+  delivered hash. These two source clocks/probes must **not** be equated. The
+  #472 verifier
+  correction adds a *conditional*, hash/rate/frame-map/clock-bound full-source
+  EOF equivalence, **not** a blanket two-frame tolerance. Mocked regressions
+  do not constitute a new real saved/reopened Studio acceptance. This historical
+  partial remains partial; #312 is still Blocked pending an entirely new full M4.
 - The later pristine companion chain reports actual construction, save/reopen,
   capture, render completion and same-MOV `compared_consistent`. This is a
   checkpoint assertion backed by private retained artifacts; this collection

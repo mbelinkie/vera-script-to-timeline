@@ -85,6 +85,13 @@
       },
       "description": "Optional canonical mixed Stash order and note-parent relationships. When present, every saved row appears exactly once and stashSections rowIds are empty."
     },
+    "stashGroups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StashRowGroupV2"
+      },
+      "description": "Optional persisted organization of adjacent ordinary saved rows. Members reference canonical Stash identities, never copied row payloads or nested groups."
+    },
     "rowTransitions": {
       "type": "array",
       "items": {
@@ -2591,6 +2598,32 @@
         }
       }
     },
+    "StashRowGroupV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rowIds"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "rowIds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          }
+        },
+        "createdBy": {
+          "$ref": "#/$defs/EntityId",
+          "description": "Optional creator identity for the group only; does not change member authorship."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "StashOriginV2": {
       "type": "object",
       "additionalProperties": false,
@@ -2651,6 +2684,22 @@
             }
           ]
         },
+        "precedingSiblingRowIds": {
+          "description": "Original preceding siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "followingSiblingRowIds": {
+          "description": "Original following siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "originalParentContext": {
+          "description": "Frozen position of the original note parent, to distinguish a moved parent from an interposed unrelated peer.",
+          "$ref": "#/$defs/StashParentOriginContextV2"
+        },
         "returnEligible": {
           "type": "boolean"
         },
@@ -2673,6 +2722,37 @@
         "originalAttachedNoteBeforeSiblingRowId": {
           "description": "Historical following sibling of the owner note for an anchored ordinary return.",
           "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        }
+      }
+    },
+    "StashParentOriginContextV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parentRowId",
+        "sectionId",
+        "precedingSiblingRowIds",
+        "followingSiblingRowIds"
+      ],
+      "properties": {
+        "parentRowId": {
+          "description": "Original parent of the note parent, or null when the note parent was a root.",
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "sectionId": {
+          "anyOf": [{ "$ref": "#/$defs/EntityId" }, { "type": "null" }]
+        },
+        "precedingSiblingRowIds": {
+          "description": "Original peers before the note parent, nearest first.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
+        },
+        "followingSiblingRowIds": {
+          "description": "Original peers after the note parent, nearest first.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/EntityId" }
         }
       }
     },

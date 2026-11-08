@@ -24,8 +24,8 @@
     "check:contracts-generated": "node packages/contracts/scripts/generate-contracts.mjs --check",
     "lint:typescript": "eslint scripts/*.mjs --max-warnings=0 && npm run lint --workspaces --if-present",
     "typecheck:typescript": "npm run typecheck --workspaces --if-present",
-    "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci && node --test scripts/prep-board.test.mjs && npm run test:conductor-sessions",
-    "test:typescript:fast": "node scripts/verify-fast-workspaces.mjs && npm run test:fast --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci && node --test scripts/prep-board.test.mjs && npm run test:conductor-sessions",
+    "test:typescript": "npm run test --workspaces --if-present && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci && node --test scripts/prep-board.test.mjs && node --test scripts/fast-workspace-tests.test.mjs && node --test scripts/validate-fast.test.mjs && npm run test:conductor-sessions",
+    "test:typescript:fast": "node scripts/verify-fast-workspaces.mjs && node scripts/fast-workspace-tests.mjs && npm run test:progress && npm run test:roadmap && npm run test:agent-safety && npm run test:ci && node --test scripts/prep-board.test.mjs && node --test scripts/fast-workspace-tests.test.mjs && node --test scripts/validate-fast.test.mjs && npm run test:conductor-sessions",
     "check:typescript": "npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript",
     "lint:python": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
     "typecheck:python": "uv run --frozen mypy python tests",
@@ -37,7 +37,7 @@
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
     "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 8 --dist=worksteal",
-    "validate:fast": "npm run check:contracts-generated && npm run lint:typescript && npm run typecheck:typescript && npm run test:typescript:fast && npm run lint:python && npm run typecheck:python && npm run test:python:fast",
+    "validate:fast": "node scripts/validate-fast.mjs",
     "test:ci": "node --test scripts/ci-docs-only.test.mjs"
   },
   "devDependencies": {

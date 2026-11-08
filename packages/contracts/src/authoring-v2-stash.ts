@@ -21,6 +21,7 @@ const fatalDocumentDiagnostics = new Set([
   "PLAIN_DIRECTION_INTENT_INVALID",
   "FOOTAGE_OWNER_DUPLICATE",
   "RESEARCH_CLIP_INVALID",
+  "STASH_GROUP_INVALID",
 ]);
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -63,6 +64,9 @@ export function applyStashRowEditV2(
   if (rowIndex < 0) return refused(document, "STASH_ROW_NOT_FOUND", "Choose a row in the selected Stash bundle.");
 
   const current = bundle.rows[rowIndex]!;
+  if (document.stashGroups?.some((group) => group.rowIds.includes(current.id))) {
+    return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save rather than a saved-row edit.");
+  }
   if (command.row.id !== current.id || command.row.type !== current.type) {
     return refused(document, "STASH_ROW_IDENTITY_INVALID", "A saved row edit must preserve the row's existing ID and type.");
   }

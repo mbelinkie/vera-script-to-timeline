@@ -7,6 +7,7 @@ import type {
   NarrationBlock,
   ScriptDocumentV1,
 } from "../src/generated/contracts.js";
+import type { ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 import { exportPrompter } from "../src/prompter-export.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -43,6 +44,53 @@ const allCues = {
 } as const;
 
 describe("exportPrompter", () => {
+  it("keeps v2 prompter text and beat sidecar identical with parked Stash content and origin history", () => {
+    const activeId = "00000000-0000-4000-8000-000000006001";
+    const savedId = "00000000-0000-4000-8000-000000006002";
+    const active: ScriptDocumentV2 = {
+      schemaVersion: "script-document/v2",
+      id: "00000000-0000-4000-8000-000000006003",
+      projectId: "00000000-0000-4000-8000-000000006004",
+      title: "Prompter excludes Stash", liveHeadSequence: 0, liveStateVector: "",
+      liveContentHash: `sha256:${"a".repeat(64)}`,
+      activeDraft: { blocks: [{
+        type: "narration", id: activeId, orderKey: "active", text: "Spoken words.",
+        tokens: [
+          { id: "00000000-0000-4000-8000-000000006005", value: "Spoken", startOffset: 0, endOffset: 6 },
+          { id: "00000000-0000-4000-8000-000000006006", value: "words.", startOffset: 7, endOffset: 13 },
+        ],
+        primaryVisualSequence: { id: "00000000-0000-4000-8000-000000006007", version: 1, slots: [{
+          id: "00000000-0000-4000-8000-000000006008", version: 1,
+          kind: "content", relation: { kind: "base" }, boundaryBefore: { kind: "row_start" },
+          payload: { kind: "on_camera", presenterChoiceId: null }, playoutPolicy: "match_structural_interval",
+        }] },
+        overlayEvents: [], timingPolicy: "narration_spine", state: "active", notes: [], version: 1,
+      }], supportingItems: [] }, ideaOutline: [], extras: [],
+    };
+    const baseline = exportPrompter(active, allCues);
+    expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+    if (!baseline.ok) return;
+    expect(baseline.text).toContain("Spoken words.");
+
+    const parked = structuredClone(active);
+    parked.stash = [{ id: "00000000-0000-4000-8000-000000006009", rows: [{
+      id: savedId, type: "note_draft", orderKey: "saved", text: "Do not speak me", state: "excluded", version: 1,
+    }], supportingItems: [] }];
+    parked.stashOutline = [{ rowId: savedId, kind: "row", parentRowId: null, sectionId: null }];
+    const narrated = parked.activeDraft.blocks[0];
+    if (narrated?.type !== "narration") throw new Error("Expected narration");
+    narrated.stashOrigin = {
+      kind: "note", parentRowId: null, sectionId: null, afterSiblingRowId: savedId,
+      beforeSiblingRowId: null, precedingSiblingRowIds: [savedId], followingSiblingRowIds: [],
+      returnEligible: true,
+    };
+    const before = structuredClone(parked);
+    const result = exportPrompter(parked, allCues);
+    expect(result).toEqual(baseline);
+    expect(result.ok && result.text).not.toContain("Do not speak me");
+    expect(parked).toEqual(before);
+  });
+
   it("derives sentence beats when punctuation is part of tokens", () => {
     const result = exportPrompter(plainScript("First sentence. Second sentence! Third?"), allCues);
     expect(result.ok).toBe(true);

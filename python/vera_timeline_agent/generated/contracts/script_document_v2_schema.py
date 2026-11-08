@@ -213,17 +213,18 @@ class StashOutlineEntryV2(TypedDict):
     sectionId: EntityId | None
 
 
-class StashOriginV2(TypedDict):
-    kind: Literal["note", "clip", "row"]
+class StashRowGroupV2(TypedDict):
+    id: EntityId
+    rowIds: list[EntityId]
+    createdBy: NotRequired[EntityId]
+    createdAt: NotRequired[str]
+
+
+class StashParentOriginContextV2(TypedDict):
     parentRowId: EntityId | None
     sectionId: EntityId | None
-    afterSiblingRowId: EntityId | None
-    beforeSiblingRowId: EntityId | None
-    returnEligible: bool
-    originalAttachedNoteRowId: NotRequired[EntityId]
-    originalAttachedNoteParentRowId: NotRequired[EntityId | None]
-    originalAttachedNoteAfterSiblingRowId: NotRequired[EntityId | None]
-    originalAttachedNoteBeforeSiblingRowId: NotRequired[EntityId | None]
+    precedingSiblingRowIds: list[EntityId]
+    followingSiblingRowIds: list[EntityId]
 
 
 class RowTransitionIntentV2(TypedDict):
@@ -505,16 +506,6 @@ class OverlayEventV2(TypedDict):
     version: EntityVersion
 
 
-class DirectionBlock(TypedDict):
-    type: Literal["direction"]
-    id: EntityId
-    orderKey: str
-    text: str
-    buildBehavior: Literal["none", "timeline_marker"]
-    stashOrigin: NotRequired[StashOriginV2]
-    version: EntityVersion
-
-
 class StandaloneVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
@@ -530,6 +521,36 @@ class StandaloneVisualPayloadV2(TypedDict):
     audioPolicy: Literal["mute", "quiet", "full"]
     framingPolicy: Literal["contain", "cover", "native"]
     imageMotion: NotRequired[ImageMotionV1]
+
+
+class StashOriginV2(TypedDict):
+    kind: Literal["note", "clip", "row"]
+    parentRowId: EntityId | None
+    sectionId: EntityId | None
+    afterSiblingRowId: EntityId | None
+    beforeSiblingRowId: EntityId | None
+    precedingSiblingRowIds: NotRequired[list[EntityId]]
+    followingSiblingRowIds: NotRequired[list[EntityId]]
+    originalParentContext: NotRequired[StashParentOriginContextV2]
+    returnEligible: bool
+    originalAttachedNoteRowId: NotRequired[EntityId]
+    originalAttachedNoteParentRowId: NotRequired[EntityId | None]
+    originalAttachedNoteAfterSiblingRowId: NotRequired[EntityId | None]
+    originalAttachedNoteBeforeSiblingRowId: NotRequired[EntityId | None]
+
+
+class ScriptSettings(TypedDict):
+    presenterStillOverride: NotRequired[PresenterStillReference]
+
+
+class DirectionBlock(TypedDict):
+    type: Literal["direction"]
+    id: EntityId
+    orderKey: str
+    text: str
+    buildBehavior: Literal["none", "timeline_marker"]
+    stashOrigin: NotRequired[StashOriginV2]
+    version: EntityVersion
 
 
 class VisualOnlyBlockV2(TypedDict):
@@ -556,10 +577,6 @@ class NoteDraftBlock(TypedDict):
 
 class AttachedFootageV2(TypedDict):
     clip: VisualOnlyBlockV2
-
-
-class ScriptSettings(TypedDict):
-    presenterStillOverride: NotRequired[PresenterStillReference]
 
 
 class NarrationBlockV2(TypedDict):
@@ -623,6 +640,7 @@ class ScriptDocumentV2(TypedDict):
     stash: NotRequired[list[RowStashBundleV2]]
     stashSections: NotRequired[list[StashSectionV2]]
     stashOutline: NotRequired[list[StashOutlineEntryV2]]
+    stashGroups: NotRequired[list[StashRowGroupV2]]
     rowTransitions: NotRequired[list[RowTransitionIntentV2]]
     rowAudioSpans: NotRequired[list[RowAudioSpanIntentV2]]
     rowReferences: NotRequired[list[OpaqueRowReferenceV2]]

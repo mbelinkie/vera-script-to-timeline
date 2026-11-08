@@ -185,6 +185,151 @@ def test_disposable_preflight_cannot_accept_arbitrary_target_names(
         assert exc.value.reason == "disposable_target_invalid"
 
 
+def _m4_selected_resolve(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    project_uid: str = "fresh-project-uid",
+    timeline_uid: str = "fresh-timeline-uid",
+    occupied: bool = False,
+    rendering: bool | None = False,
+    jobs: list[dict[str, str]] | None = None,
+) -> dict[str, str]:
+    """Mock a genuinely selected operator-created disposable, never old media."""
+    target = {
+        "projectUid": "fresh-project-uid",
+        "timelineUid": "fresh-timeline-uid",
+        "projectName": DISPOSABLE,
+        "timelineName": DISPOSABLE,
+    }
+    timeline = SimpleNamespace(
+        GetUniqueId=lambda: timeline_uid,
+        GetName=lambda: DISPOSABLE,
+        GetTrackCount=lambda kind: 1 if kind == "video" else 0,
+        GetItemListInTrack=lambda kind, index: (
+            ["synthetic picture"] if occupied else []
+        ),
+    )
+    project = SimpleNamespace(
+        GetUniqueId=lambda: project_uid,
+        GetName=lambda: DISPOSABLE,
+        GetCurrentTimeline=lambda: timeline,
+        IsRenderingInProgress=lambda: rendering,
+        GetRenderJobList=lambda: [] if jobs is None else jobs,
+        GetRenderJobStatus=lambda job_id: {
+            "JobStatus": next(
+                (
+                    row.get("MockJobStatus", "Complete")
+                    for row in (jobs or [])
+                    if row.get("JobId") == job_id
+                ),
+                None,
+            )
+        },
+    )
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: project,
+        GetProjectListInCurrentFolder=lambda: [DISPOSABLE],
+    )
+    monkeypatch.setattr(
+        owner,
+        "_local_resolve_connection",
+        lambda: SimpleNamespace(GetProjectManager=lambda: manager),
+    )
+    return target
+
+
+def test_m4_selected_preflight_accepts_real_uid_and_foreign_unknown_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = _m4_selected_resolve(monkeypatch)
+    foreign = {
+        "projectUid": "historic-unrelated-uid",
+        "timelineUid": "historic-timeline",
+        "caseId": "historic-case",
+        "phase": "edited",
+    }
+    key = controller._json_hash(foreign)
+    chain_path = owner.OUTPUT_ATTEMPTS_ROOT / key / "chain.json"
+    chain_path.parent.mkdir(parents=True)
+    raw = _canonical(foreign)
+    chain_path.write_bytes(raw)
+    monkeypatch.setattr(owner, "_active_output_host_chains", lambda _: {key: "unknown"})
+
+    owner.preflight_selected_disposable(target, require_empty=True)
+    assert chain_path.read_bytes() == raw
+    assert not owner.PAUSED_OUTPUT_ROOT.exists()
+
+
+@pytest.mark.parametrize(
+    ("mismatch", "occupied", "rendering", "jobs"),
+    [
+        ("project", False, False, None),
+        ("timeline", False, False, None),
+        (None, True, False, None),
+        (None, False, True, None),
+        (None, False, False, [{"JobId": "old-render"}]),
+    ],
+)
+def test_m4_selected_pristine_refuses_wrong_uid_or_not_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    mismatch: str | None,
+    occupied: bool,
+    rendering: bool,
+    jobs: list[dict[str, str]] | None,
+) -> None:
+    target = _m4_selected_resolve(
+        monkeypatch,
+        project_uid="wrong-project" if mismatch == "project" else "fresh-project-uid",
+        timeline_uid="wrong-timeline"
+        if mismatch == "timeline"
+        else "fresh-timeline-uid",
+        occupied=occupied,
+        rendering=rendering,
+        jobs=jobs,
+    )
+    with pytest.raises(owner.NativeOwnerError) as exc:
+        owner.preflight_selected_disposable(target, require_empty=True)
+    assert exc.value.reason == "selected_disposable_not_idle"
+
+
+def test_m4_selected_edited_allows_items_but_refuses_current_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = _m4_selected_resolve(monkeypatch, occupied=True)
+    owner.preflight_selected_disposable(target, require_empty=False)
+    active = {
+        "projectUid": target["projectUid"],
+        "timelineUid": target["timelineUid"],
+        "caseId": "m4-new",
+        "phase": "edited",
+    }
+    key = controller._json_hash(active)
+    path = owner.OUTPUT_ATTEMPTS_ROOT / key / "chain.json"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(_canonical(active))
+    monkeypatch.setattr(owner, "_active_output_host_chains", lambda _: {key: "unknown"})
+    with pytest.raises(owner.NativeOwnerError) as exc:
+        owner.preflight_selected_disposable(target, require_empty=False)
+    assert exc.value.reason == "selected_disposable_not_idle"
+
+
+def test_m4_selected_respects_host_lock_and_rejects_real_project_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = _m4_selected_resolve(monkeypatch)
+    bad = {**target, "projectName": "Producer's real project"}
+    with pytest.raises(owner.NativeOwnerError) as exc:
+        owner.preflight_selected_disposable(bad, require_empty=True)
+    assert exc.value.reason == "selected_disposable_invalid"
+    fd = owner.acquire_native_owner()
+    try:
+        with pytest.raises(owner.NativeOwnerError) as exc:
+            owner.preflight_selected_disposable(target, require_empty=True)
+        assert exc.value.reason == "owner_busy"
+    finally:
+        owner.release_native_owner(fd)
+
+
 def _result(
     directory: Path,
     sequence: int,

@@ -6,6 +6,7 @@ import type { CommentStateV2 } from "./authoring-v2-comments.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
+  isStashGroupCommandV2,
   serializeAuthoringDocumentV2,
   type RowEditCommandV2,
   type RowEditResultV2,
@@ -94,6 +95,10 @@ function originalRowPositions(baseline: Map<string, Position>, containers: Map<s
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
   if (!command || typeof command !== "object" || Array.isArray(command)) return false;
+  if ("kind" in command && ["stash_group_rows", "group_stash_rows", "move_stash_group", "ungroup_stash_group",
+    "delete_stash_group", "place_stash_group", "save_stash_group"].includes(String(command.kind))) {
+    return isStashGroupCommandV2(command);
+  }
   const keys: Record<string, string[]> = {
     move_rows: ["kind", "rowIds", "destination"],
     move_section: ["kind", "sectionId", "destination"],
@@ -122,7 +127,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   const kind = (command as { kind: string }).kind;
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
-  const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] :
+  const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
     kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
@@ -151,7 +156,15 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   }
   if ((kind === "stash_rows" || kind === "restore_stash") && typeof value.bundleId !== "string") return false;
   if (kind === "move_section" && typeof value.sectionId !== "string") return false;
-  if (kind === "stash_rows") return true;
+  if (kind === "stash_rows") {
+    if (!Object.hasOwn(value, "destination")) return true;
+    const destination = value.destination;
+    if (!destination || typeof destination !== "object" || Array.isArray(destination)) return false;
+    const fields = destination as Record<string, unknown>;
+    const keys = ["sectionId", "parentRowId", "afterRowId", "beforeRowId"];
+    return Object.keys(fields).length === keys.length && keys.every((key) => Object.hasOwn(fields, key) &&
+      (fields[key] === null || typeof fields[key] === "string" && (key !== "parentRowId" || fields[key] !== "")));
+  }
   if (kind === "create_stash_section") return typeof value.sectionId === "string" && typeof value.title === "string";
   if (kind === "move_stash_rows") return value.sectionId === null || typeof value.sectionId === "string";
   if (kind === "set_stash_outline") {
@@ -222,7 +235,10 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
       const beforeDocument = session.document;
       const before = positions(beforeDocument);
-      const selected = command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "restore_stash_rows" || command.kind === "move_stash_rows" ? command.rowIds
+      const group = "groupId" in command ? beforeDocument.stashGroups?.find((candidate) => candidate.id === command.groupId) : undefined;
+      const selected = command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "restore_stash_rows" || command.kind === "move_stash_rows" || command.kind === "stash_group_rows" || command.kind === "group_stash_rows" ? command.rowIds
+        : command.kind === "save_stash_group" ? [...new Set([...(group?.rowIds ?? []), ...command.members.map((member) => member.id)])]
+        : group ? group.rowIds
         : command.kind === "place_stash_rows" ? command.includeDescendants === false ? command.rowIds : selectedOutlineRows(beforeDocument, command.rowIds)
           : command.kind === "place_attached_footage" ? beforeDocument.stash?.flatMap((bundle) => bundle.rows).flatMap((row) => row.id === command.noteRowId && row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []) ?? []
           : command.kind === "set_stash_outline" ? beforeDocument.stashOutline ? beforeDocument.stashOutline.flatMap((entry) => {

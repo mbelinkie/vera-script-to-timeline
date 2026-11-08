@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchemaObject } from "ajv/dist/2020.js";
 import * as formatsModule from "ajv-formats";
 import { describe, expect, it } from "vitest";
+import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "../src/authoring-v2.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const documentSchema = JSON.parse(
@@ -368,6 +369,91 @@ function expectSettingsInvalid(value: unknown): void {
 }
 
 describe("authoring v2 document and project-settings schemas", () => {
+  it("accepts optional frozen Stash origin history and preserves six-field legacy origins", () => {
+    const legacy = {
+      kind: "note", parentRowId: ids.slot, sectionId: null,
+      afterSiblingRowId: ids.tokenOne, beforeSiblingRowId: ids.tokenTwo,
+      returnEligible: true,
+    };
+    const document = documentWithBlock();
+    setAt(document, ["activeDraft", "blocks", 0, "stashOrigin"], legacy);
+    expectDocumentValid(document);
+    expectDocumentValid(JSON.parse(JSON.stringify(document)));
+
+    const withHistory = structuredClone(document);
+    setAt(withHistory, ["activeDraft", "blocks", 0, "stashOrigin"], {
+      ...legacy,
+      precedingSiblingRowIds: [ids.tokenOne, ids.sequence],
+      followingSiblingRowIds: [ids.tokenTwo, ids.slot],
+      originalParentContext: {
+        parentRowId: null, sectionId: null,
+        precedingSiblingRowIds: [ids.media],
+        followingSiblingRowIds: [ids.artifact, ids.capture],
+      },
+    });
+    expectDocumentValid(withHistory);
+    expectDocumentValid(JSON.parse(JSON.stringify(withHistory)));
+  });
+
+  it("roundtrips a legacy six-field origin and section rowIds without inventing an outline or history", () => {
+    const source = documentWithBlock();
+    const oldSectionId = "00000000-0000-4000-8000-000000000772";
+    const parkedId = "00000000-0000-4000-8000-000000000770";
+    setAt(source, ["activeDraft", "blocks", 0, "stashOrigin"], {
+      kind: "row", parentRowId: null, sectionId: oldSectionId,
+      afterSiblingRowId: parkedId, beforeSiblingRowId: null, returnEligible: true,
+    });
+    Object.assign(source, {
+      stash: [{ id: "00000000-0000-4000-8000-000000000771", rows: [{
+        id: parkedId, type: "note_draft", orderKey: "legacy-parked", text: "Saved, not on the timeline",
+        state: "excluded", version: 1,
+      }], supportingItems: [] }],
+      stashSections: [{ id: oldSectionId, title: "Original section", rowIds: [parkedId] }],
+    });
+    expectDocumentValid(source);
+    const originalJson = JSON.stringify(source);
+    const loaded = deserializeAuthoringDocumentV2(originalJson);
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    if (!loaded.ok) return;
+    expect(serializeAuthoringDocumentV2(loaded.document)).toBe(originalJson);
+    expect(loaded.document).not.toHaveProperty("stashOutline");
+    expect(loaded.document.activeDraft.blocks[0]).not.toHaveProperty("stashOrigin.precedingSiblingRowIds");
+    expect(loaded.document.activeDraft.blocks[0]).not.toHaveProperty("stashOrigin.originalParentContext");
+  });
+
+  it("rejects duplicate, malformed and unknown frozen origin history in the closed schema", () => {
+    const base = {
+      kind: "note", parentRowId: ids.slot, sectionId: null,
+      afterSiblingRowId: ids.tokenOne, beforeSiblingRowId: ids.tokenTwo,
+      returnEligible: true,
+      precedingSiblingRowIds: [ids.tokenOne],
+      followingSiblingRowIds: [ids.tokenTwo],
+      originalParentContext: {
+        parentRowId: null, sectionId: null,
+        precedingSiblingRowIds: [ids.media], followingSiblingRowIds: [ids.artifact],
+      },
+    };
+    const invalidOrigins: unknown[] = [
+      { ...base, precedingSiblingRowIds: [ids.tokenOne, ids.tokenOne] },
+      { ...base, followingSiblingRowIds: ["not-an-id"] },
+      { ...base, precedingSiblingRowIds: null },
+      { ...base, followingSiblingRowIds: "wrong" },
+      { ...base, unrecognizedHistory: [] },
+      { ...base, originalParentContext: null },
+      { ...base, originalParentContext: { parentRowId: null, sectionId: null } },
+      { ...base, originalParentContext: { ...base.originalParentContext, futureField: true } },
+      { ...base, originalParentContext: { ...base.originalParentContext, parentRowId: "not-an-id" } },
+      { ...base, originalParentContext: { ...base.originalParentContext, sectionId: "invalid" } },
+      { ...base, originalParentContext: { ...base.originalParentContext, precedingSiblingRowIds: [ids.media, ids.media] } },
+      { ...base, originalParentContext: { ...base.originalParentContext, followingSiblingRowIds: [42] } },
+    ];
+    for (const badOrigin of invalidOrigins) {
+      const document = documentWithBlock();
+      setAt(document, ["activeDraft", "blocks", 0, "stashOrigin"], badOrigin);
+      expectDocumentInvalid(document);
+    }
+  });
+
   it("compiles as Draft 2020-12 and accepts representative independent roots", () => {
     expectDocumentValid(documentWithBlock());
     expectSettingsValid(projectSettings(presenterStillReference()));
@@ -904,6 +990,24 @@ describe("authoring v2 document and project-settings schemas", () => {
     const unknownSettingsField = projectSettings();
     setAt(unknownSettingsField, ["schemaVersion"], "authoring-project-settings/v2");
     expectSettingsInvalid(unknownSettingsField);
+  });
+
+  it("accepts optional reference-only Stash groups and rejects malformed group shapes without a schema bump", () => {
+    const legacy = documentWithBlock();
+    expectDocumentValid(legacy);
+    const valid = { ...legacy, stashGroups: [{
+      id: "00000000-0000-4000-8000-000000009001",
+      rowIds: ["00000000-0000-4000-8000-000000009002", "00000000-0000-4000-8000-000000009003"],
+      createdBy: "00000000-0000-4000-8000-000000009004",
+      createdAt: "2026-11-07T12:00:00Z",
+    }] };
+    expectDocumentValid(valid); // JSON Schema checks the shape; semantic ownership is checked separately.
+    for (const rowIds of [[], [valid.stashGroups[0]!.rowIds[0]], [valid.stashGroups[0]!.rowIds[0], valid.stashGroups[0]!.rowIds[0]]]) {
+      expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], rowIds }] });
+    }
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], extra: "payload copy" }] });
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], createdBy: "not-a-uuid" }] });
+    expectDocumentInvalid({ ...valid, stashGroups: [{ ...valid.stashGroups[0], createdAt: "not-a-date" }] });
   });
 
   it("keeps both new schema roots outside frozen v1 generated outputs", { timeout: 120_000 }, () => {

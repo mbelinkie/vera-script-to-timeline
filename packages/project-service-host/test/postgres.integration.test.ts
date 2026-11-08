@@ -41,7 +41,7 @@ postgres("real PostgreSQL QA migrations", () => {
         const migrations = await db.query<{ n: number }>(
           "SELECT count(*)::integer AS n FROM vera_schema_migrations",
         );
-        expect(migrations.rows[0]?.n).toBe(2);
+          expect(migrations.rows[0]?.n).toBe(4);
       } finally {
         db.release?.();
       }

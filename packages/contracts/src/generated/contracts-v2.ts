@@ -663,6 +663,10 @@ export interface ScriptDocumentV2 {
    */
   stashOutline?: StashOutlineEntryV2[];
   /**
+   * Optional persisted organization of adjacent ordinary saved rows. Members reference canonical Stash identities, never copied row payloads or nested groups.
+   */
+  stashGroups?: StashRowGroupV2[];
+  /**
    * Original pair intent only. No automatic reapplication to new neighbors or runtime effect delivery.
    */
   rowTransitions?: RowTransitionIntentV2[];
@@ -913,6 +917,15 @@ export interface StashOriginV2 {
   sectionId: string | null;
   afterSiblingRowId: string | null;
   beforeSiblingRowId: string | null;
+  /**
+   * Original preceding siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.
+   */
+  precedingSiblingRowIds?: string[];
+  /**
+   * Original following siblings, nearest first. Frozen when leaving Stash; absent in legacy documents.
+   */
+  followingSiblingRowIds?: string[];
+  originalParentContext?: StashParentOriginContextV2;
   returnEligible: boolean;
   /**
    * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
@@ -930,6 +943,24 @@ export interface StashOriginV2 {
    * Historical following sibling of the owner note for an anchored ordinary return.
    */
   originalAttachedNoteBeforeSiblingRowId?: string | null;
+}
+/**
+ * Frozen position of the original note parent, to distinguish a moved parent from an interposed unrelated peer.
+ */
+export interface StashParentOriginContextV2 {
+  /**
+   * Original parent of the note parent, or null when the note parent was a root.
+   */
+  parentRowId: string | null;
+  sectionId: string | null;
+  /**
+   * Original peers before the note parent, nearest first.
+   */
+  precedingSiblingRowIds: string[];
+  /**
+   * Original peers after the note parent, nearest first.
+   */
+  followingSiblingRowIds: string[];
 }
 export interface AttachedFootageV2 {
   clip: VisualOnlyBlockV2;
@@ -1045,6 +1076,18 @@ export interface StashOutlineEntryV2 {
   kind: "note" | "clip" | "row";
   parentRowId: string | null;
   sectionId: string | null;
+}
+export interface StashRowGroupV2 {
+  id: string;
+  /**
+   * @minItems 2
+   */
+  rowIds: [string, string, ...string[]];
+  /**
+   * Optional creator identity for the group only; does not change member authorship.
+   */
+  createdBy?: string;
+  createdAt?: string;
 }
 export interface RowTransitionIntentV2 {
   id: string;

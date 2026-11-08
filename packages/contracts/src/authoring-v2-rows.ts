@@ -1,4 +1,4 @@
-import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
+import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
 import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
@@ -6,15 +6,27 @@ import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
 import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
+import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
 export type { RowGapV2 } from "./generated/contracts-v2.js";
 
+/** Exact outline gap for a deliberate Stash drop (not an active-Draft RowGap). */
+export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null };
+
 export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
-  | { kind: "stash_rows"; rowIds: string[]; bundleId: string }
+  | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
+  | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
+  | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
+  | { kind: "move_stash_group"; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  | { kind: "ungroup_stash_group"; groupId: string }
+  | { kind: "delete_stash_group"; groupId: string }
+  | { kind: "place_stash_group"; groupId: string; destination: RowGapV2 }
+  | { kind: "save_stash_group"; groupId: string; expectedRevision: number; expectedRowIds: string[]; members: Row[] }
   | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 }
   | { kind: "restore_stash_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "create_stash_section"; sectionId: string; title: string }
@@ -39,6 +51,12 @@ export type RowEditCommandV2 =
 export type StashFootageCommandV2 = Extract<RowEditCommandV2, {
   kind: "attach_stash_footage" | "replace_stash_footage" |
     "detach_stash_footage" | "cleanup_blank_stash_note" | "trim_research_clip" | "place_attached_footage";
+}>;
+
+/** One-revision, no-nesting Stash organization commands; group IDs are not bundle IDs. */
+export type StashGroupCommandV2 = Extract<RowEditCommandV2, {
+  kind: "stash_group_rows" | "group_stash_rows" | "move_stash_group" |
+    "ungroup_stash_group" | "delete_stash_group" | "place_stash_group" | "save_stash_group";
 }>;
 
 export interface RowEditResultV2 {
@@ -112,6 +130,14 @@ function rowPayload(value: unknown): value is Row {
 
 function rowGapPayload(value: unknown): value is RowGapV2 {
   return plainObject(value) && exactKeys(value, ["sectionId", "afterRowId", "beforeRowId"]) &&
+    (value.sectionId === null || typeof value.sectionId === "string") &&
+    (value.afterRowId === null || typeof value.afterRowId === "string") &&
+    (value.beforeRowId === null || typeof value.beforeRowId === "string");
+}
+
+function stashReturnDestinationPayload(value: unknown): value is StashReturnDestinationV2 {
+  return plainObject(value) && exactKeys(value, ["sectionId", "parentRowId", "afterRowId", "beforeRowId"]) &&
+    (value.parentRowId === null || typeof value.parentRowId === "string" && value.parentRowId.length > 0) &&
     (value.sectionId === null || typeof value.sectionId === "string") &&
     (value.afterRowId === null || typeof value.afterRowId === "string") &&
     (value.beforeRowId === null || typeof value.beforeRowId === "string");
@@ -194,6 +220,47 @@ function attachmentKind(kind: unknown): boolean {
   return kind === "attach_stash_footage" || kind === "replace_stash_footage" ||
     kind === "detach_stash_footage" || kind === "cleanup_blank_stash_note" ||
     kind === "trim_research_clip" || kind === "place_attached_footage";
+}
+
+function groupKind(kind: unknown): kind is StashGroupCommandV2["kind"] {
+  return ["stash_group_rows", "group_stash_rows", "move_stash_group", "ungroup_stash_group", "delete_stash_group", "place_stash_group", "save_stash_group"].includes(String(kind));
+}
+
+function validGroupCommand(value: unknown): boolean {
+  if (!plainObject(value) || !groupKind(value.kind) || !isJsonValue(value) ||
+    typeof value.groupId !== "string" || value.groupId.length === 0) return false;
+  const location = (): boolean =>
+    (value.sectionId === null || typeof value.sectionId === "string") &&
+    (value.parentRowId === null || typeof value.parentRowId === "string") &&
+    (value.afterRowId === null || typeof value.afterRowId === "string");
+  const metadata = (): boolean =>
+    (value.createdBy === undefined || typeof value.createdBy === "string") &&
+    (value.createdAt === undefined || typeof value.createdAt === "string");
+  const created = (): boolean => {
+    const keys = ["kind", "groupId", "rowIds", ...(value.kind === "stash_group_rows" ? ["bundleId", "sectionId", "parentRowId", "afterRowId"] : []),
+      ...(Object.hasOwn(value, "createdBy") ? ["createdBy"] : []), ...(Object.hasOwn(value, "createdAt") ? ["createdAt"] : [])];
+    return exactKeys(value, keys) && rowIdsPayload(value.rowIds) && value.rowIds.length >= 2 &&
+      new Set(value.rowIds).size === value.rowIds.length && metadata();
+  };
+  switch (value.kind) {
+    case "save_stash_group":
+      return exactKeys(value, ["kind", "groupId", "expectedRevision", "expectedRowIds", "members"]) &&
+        Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number) >= 0 &&
+        rowIdsPayload(value.expectedRowIds) && value.expectedRowIds.length >= 2 &&
+        new Set(value.expectedRowIds).size === value.expectedRowIds.length &&
+        Array.isArray(value.members) && value.members.every(rowPayload) &&
+        new Set(value.members.map((row) => row.id)).size === value.members.length;
+    case "stash_group_rows": return created() && typeof value.bundleId === "string" && value.bundleId.length > 0 && location();
+    case "group_stash_rows": return created();
+    case "move_stash_group": return exactKeys(value, ["kind", "groupId", "sectionId", "parentRowId", "afterRowId"]) && location();
+    case "place_stash_group": return exactKeys(value, ["kind", "groupId", "destination"]) && rowGapPayload(value.destination);
+    default: return exactKeys(value, ["kind", "groupId"]);
+  }
+}
+
+/** Shared exact command gate for direct edits and serialized Sorting trials. */
+export function isStashGroupCommandV2(value: unknown): value is StashGroupCommandV2 {
+  return validGroupCommand(value);
 }
 
 /** Range selection clamps to the anchor's section, in document order. */
@@ -327,6 +394,84 @@ function outlineInsertionIndex(
 
 function stashRowById(document: ScriptDocumentV2, rowId: string): Row | undefined {
   return document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === rowId);
+}
+
+function groupById(document: ScriptDocumentV2, groupId: string): StashRowGroupV2 | undefined {
+  return document.stashGroups?.find((group) => group.id === groupId);
+}
+
+function removeGroup(document: ScriptDocumentV2, groupId: string): void {
+  if (document.stashGroups) document.stashGroups = document.stashGroups.filter((group) => group.id !== groupId);
+  if (document.stashGroups?.length === 0) delete document.stashGroups;
+}
+
+/** Move only an entire flat sibling range; never silently reparent its children. */
+function relocateGroupRows(
+  document: ScriptDocumentV2, rowIds: string[], sectionId: string | null,
+  parentRowId: string | null, afterRowId: string | null,
+): string | null {
+  const outline = ensureStashOutline(document);
+  if (!sectionExists(document, sectionId)) return "Choose an existing Stash section.";
+  const selected = new Set(rowIds);
+  if (parentRowId !== null) {
+    const parent = outline.find((entry) => entry.rowId === parentRowId);
+    if (!parent || parent.kind !== "note" || parent.sectionId !== sectionId || selected.has(parentRowId)) {
+      return "Group rows may be nested only under an existing compact note in the destination section.";
+    }
+  }
+  if (afterRowId !== null && selected.has(afterRowId)) return "The destination must be outside the moving group.";
+  const moving = rowIds.map((rowId) => outline.find((entry) => entry.rowId === rowId));
+  if (moving.some((entry) => !entry)) return "Every member must exist in the Stash outline.";
+  const remaining = outline.filter((entry) => !selected.has(entry.rowId));
+  const index = outlineInsertionIndex(document, remaining, parentRowId, sectionId, afterRowId);
+  if (index === null) return "Choose a current sibling position in the destination Stash section.";
+  remaining.splice(index, 0, ...moving.map((entry) => ({
+    ...entry!, kind: "row" as const, sectionId, parentRowId,
+  })));
+  document.stashOutline = remaining;
+  return null;
+}
+
+/** Convert compact rows to full independent members, preserving each canonical payload. */
+function formStashGroup(
+  document: ScriptDocumentV2, rowIds: string[], groupId: string,
+  createdBy?: string, createdAt?: string,
+  destination?: { sectionId: string | null; parentRowId: string | null; afterRowId: string | null },
+): string | null {
+  if (groupById(document, groupId)) return "Choose an unused group identity.";
+  const outline = ensureStashOutline(document);
+  const byId = outlineMap(outline);
+  if (rowIds.some((id) => !byId.has(id) || !stashRowById(document, id) ||
+    document.stashGroups?.some((group) => group.rowIds.includes(id)))) {
+    return "Select existing, ungrouped Stash rows.";
+  }
+  const selected = new Set(rowIds);
+  if (outline.some((entry) => rowIds.some((id) =>
+    entry.rowId !== id && isOutlineDescendant(entry, id, byId)))) {
+    return "A compact Stash note with children cannot be converted without reviewing its dependent branch.";
+  }
+  if (destination) {
+    const problem = relocateGroupRows(document, rowIds, destination.sectionId, destination.parentRowId, destination.afterRowId);
+    if (problem) return problem;
+  } else {
+    const positions = rowIds.map((id) => outline.findIndex((entry) => entry.rowId === id));
+    const first = byId.get(rowIds[0]!)!;
+    if (positions.some((position, index) => position !== positions[0]! + index) ||
+      rowIds.some((id) => byId.get(id)!.parentRowId !== first.parentRowId || byId.get(id)!.sectionId !== first.sectionId)) {
+      return "Select consecutive sibling rows in the same Stash section, in visible order.";
+    }
+    for (const entry of outline) if (selected.has(entry.rowId)) entry.kind = "row";
+  }
+  for (const id of rowIds) {
+    const row = stashRowById(document, id)!;
+    if (row.stashOrigin?.kind !== "row" && row.stashOrigin) row.stashOrigin.returnEligible = false;
+  }
+  (document.stashGroups ??= []).push({
+    id: groupId, rowIds: [...rowIds] as [string, string, ...string[]],
+    ...(createdBy === undefined ? {} : { createdBy }),
+    ...(createdAt === undefined ? {} : { createdAt }),
+  });
+  return null;
 }
 
 /** An attachment is owned by a note, never by its ordinary outline children. */
@@ -467,199 +612,196 @@ function selectedOutlineSubtree(entries: StashOutlineEntryV2[], roots: string[])
   return entries.filter((entry) => rootSet.has(entry.rowId) || roots.some((rootRowId) => isOutlineDescendant(entry, rootRowId, byId)));
 }
 
-interface StashReturnPlan {
-  entry: StashOutlineEntryV2;
-  afterSiblingRowId: string | null;
-  beforeSiblingRowId: string | null;
-  appendToSection: boolean;
-  activeOrder: number;
-}
-
-function orderReturningSiblings(entries: StashOutlineEntryV2[], plans: StashReturnPlan[]): string[] | null {
-  if (plans.length === 0) return [];
-  const parentRowId = plans[0]!.entry.parentRowId;
-  const sectionId = plans[0]!.entry.sectionId;
-  if (plans.some((plan) => plan.entry.parentRowId !== parentRowId || plan.entry.sectionId !== sectionId)) return null;
-  const current = entries.filter((entry) => entry.parentRowId === parentRowId && entry.sectionId === sectionId);
-  const ids = [...current.map((entry) => entry.rowId), ...plans.map((plan) => plan.entry.rowId)];
-  const nodeIds = new Set(ids);
-  if (nodeIds.size !== ids.length) return null;
-  const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
-  const incoming = new Map(ids.map((id) => [id, 0]));
-  const addEdge = (before: string, after: string): void => {
-    if (before === after || !nodeIds.has(before) || !nodeIds.has(after)) return;
-    const edges = outgoing.get(before)!;
-    if (edges.has(after)) return;
-    edges.add(after);
-    incoming.set(after, incoming.get(after)! + 1);
-  };
-  for (let index = 1; index < current.length; index += 1) addEdge(current[index - 1]!.rowId, current[index]!.rowId);
-
-  for (const plan of plans) {
-    const { afterSiblingRowId: after, beforeSiblingRowId: before } = plan;
-    if (after === plan.entry.rowId || before === plan.entry.rowId) return null;
-    const hasAfter = after !== null && nodeIds.has(after);
-    const hasBefore = before !== null && nodeIds.has(before);
-    const historicalAnchors = Number(after !== null) + Number(before !== null);
-    if (historicalAnchors > 0 && !hasAfter && !hasBefore && !plan.appendToSection) return null;
-    if (hasAfter) addEdge(after, plan.entry.rowId);
-    if (hasBefore) addEdge(plan.entry.rowId, before);
-
-    if (hasAfter && hasBefore && current.some((entry) => entry.rowId === after) && current.some((entry) => entry.rowId === before)) {
-      const afterIndex = current.findIndex((entry) => entry.rowId === after);
-      const beforeIndex = current.findIndex((entry) => entry.rowId === before);
-      if (beforeIndex !== afterIndex + 1) return null;
-    }
-    if (!plan.appendToSection && Number(hasAfter) + Number(hasBefore) === 1) {
-      if (hasAfter && current.some((entry) => entry.rowId === after) && !hasBefore) {
-        const index = current.findIndex((entry) => entry.rowId === after);
-        const next = current[index + 1];
-        if (next) addEdge(plan.entry.rowId, next.rowId);
-      } else if (hasBefore && current.some((entry) => entry.rowId === before) && !hasAfter) {
-        const index = current.findIndex((entry) => entry.rowId === before);
-        const previous = current[index - 1];
-        if (previous) addEdge(previous.rowId, plan.entry.rowId);
-      }
-    }
-  }
-
-  const appended = plans.filter((plan) => plan.appendToSection).sort((left, right) => left.activeOrder - right.activeOrder);
-  if (appended.length > 0) {
-    if (current.length > 0) for (const plan of appended) addEdge(current.at(-1)!.rowId, plan.entry.rowId);
-    for (let index = 1; index < appended.length; index += 1) addEdge(appended[index - 1]!.entry.rowId, appended[index]!.entry.rowId);
-  }
-
-  const remaining = new Set(ids);
-  const order: string[] = [];
-  while (remaining.size > 0) {
-    const ready = [...remaining].filter((id) => incoming.get(id) === 0);
-    if (ready.length !== 1) return null;
-    const next = ready[0]!;
-    order.push(next);
-    remaining.delete(next);
-    for (const child of outgoing.get(next)!) incoming.set(child, incoming.get(child)! - 1);
-  }
-  for (const plan of plans) {
-    if (plan.appendToSection) continue;
-    const index = order.indexOf(plan.entry.rowId);
-    const hasAfter = plan.afterSiblingRowId !== null && nodeIds.has(plan.afterSiblingRowId);
-    const hasBefore = plan.beforeSiblingRowId !== null && nodeIds.has(plan.beforeSiblingRowId);
-    if (hasAfter && order[index - 1] !== plan.afterSiblingRowId) return null;
-    if (hasBefore && order[index + 1] !== plan.beforeSiblingRowId) return null;
-  }
-  return order;
-}
-
-function insertReturningSiblingGroup(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], plans: StashReturnPlan[], order: string[]): boolean {
-  const planById = new Map(plans.map((plan) => [plan.entry.rowId, plan]));
-  for (let index = 0; index < order.length; index += 1) {
-    const plan = planById.get(order[index]!);
-    if (!plan) continue;
-    const isSibling = (entry: StashOutlineEntryV2): boolean => entry.parentRowId === plan.entry.parentRowId && entry.sectionId === plan.entry.sectionId;
-    const previous = order.slice(0, index).reverse().find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
-    const next = order.slice(index + 1).find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
-    const parentIndex = plan.entry.parentRowId === null ? -1 : entries.findIndex((entry) => entry.rowId === plan.entry.parentRowId);
-    const insertAt = previous
-      ? outlineSubtreeEnd(entries, previous) + 1
-      : next
-        ? entries.findIndex((entry) => entry.rowId === next)
-        : parentIndex >= 0
-          ? outlineSubtreeEnd(entries, plan.entry.parentRowId!) + 1
-          : outlineInsertionIndex(document, entries, null, plan.entry.sectionId, null) ?? -1;
-    if (insertAt < 0) return false;
-    entries.splice(insertAt, 0, plan.entry);
-  }
-  return true;
-}
-
-function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[]): StashOutlineEntryV2[] | null {
-  const selected = new Set(rows.map((row) => row.id));
+/**
+ * Plan against a cloned outline. Selected rows are inserted as one transaction;
+ * no live parent, unrelated outline peer, or media owner is moved to make room.
+ */
+function planStashReturn(
+  document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[],
+  destination?: StashReturnDestinationV2,
+  asGroup = false,
+): StashOutlineEntryV2[] | null {
   const result = structuredClone(entries);
-  const originalParents = outlineMap(entries);
-  const resultingKinds = new Map(rows.map((row) => [row.id, row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
-  const activeParentContexts = new Map<string, { row: Row; origin: StashOriginV2 | undefined; returnedChildIds: Set<string> }>();
-  for (const row of rows) {
-    const parentRowId = row.stashOrigin?.parentRowId;
-    if (!parentRowId || activeParentContexts.has(parentRowId)) continue;
-    const parent = document.activeDraft.blocks.find((block) => block.id === parentRowId && block.type !== "section");
-    if (parent && parent.type !== "section") activeParentContexts.set(parentRowId, {
-      row: parent,
-      origin: parent.stashOrigin ? { ...parent.stashOrigin } : undefined,
-      returnedChildIds: new Set(),
-    });
-  }
-  const pending: StashReturnPlan[] = [];
-  for (const [activeOrder, row] of rows.entries()) {
-    const origin: StashOriginV2 | undefined = row.stashOrigin;
-    const kind = origin?.returnEligible && origin.kind !== "row" ? origin.kind : "row";
-    let parentRowId = origin?.parentRowId ?? null;
-    let afterSiblingRowId = origin?.afterSiblingRowId ?? null;
-    let beforeSiblingRowId = origin?.beforeSiblingRowId ?? null;
-    const sectionId = origin?.sectionId ?? null;
-    // A separated attachment has no historical *clip* sibling slot. With an
-    // unchanged owner it can safely append as an ordinary child when occupied.
-    let appendToSection = origin === undefined || !!origin?.originalAttachedNoteRowId &&
-      parentRowId === origin.originalAttachedNoteRowId && afterSiblingRowId === null && beforeSiblingRowId === null;
-    if (parentRowId !== null) {
-      if (selected.has(parentRowId)) {
-        if (resultingKinds.get(parentRowId) !== "note") return null;
-      } else if (document.activeDraft.blocks.some((block) => block.id === parentRowId && block.type !== "section")) {
-        const originalParentRowId = parentRowId;
-        const parentContext = activeParentContexts.get(originalParentRowId);
-        const parentOrigin = parentContext?.origin;
-        if (parentOrigin && parentOrigin.sectionId !== sectionId) return null;
-        const currentRoots = entries.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
-        const currentRootIds = new Set(currentRoots.map((entry) => entry.rowId));
-        const returningSiblingIds = new Set(rows
-          .filter((candidate) => candidate.id !== row.id && candidate.stashOrigin?.parentRowId === originalParentRowId && candidate.stashOrigin.sectionId === sectionId)
-          .map((candidate) => candidate.id));
-        const isTopLevelAnchor = (anchor: string | null): boolean => anchor !== null && (currentRootIds.has(anchor) || returningSiblingIds.has(anchor));
-        if (parentOrigin) {
-          const resolvedAfter = isTopLevelAnchor(afterSiblingRowId);
-          const resolvedBefore = isTopLevelAnchor(beforeSiblingRowId);
-          if (!resolvedAfter) afterSiblingRowId = parentOrigin.afterSiblingRowId;
-          if (!resolvedBefore && !(resolvedAfter && afterSiblingRowId === parentOrigin.beforeSiblingRowId)) beforeSiblingRowId = parentOrigin.beforeSiblingRowId;
-          if (!resolvedAfter && resolvedBefore && beforeSiblingRowId === parentOrigin.afterSiblingRowId) afterSiblingRowId = null;
-        }
-        parentRowId = null;
-        appendToSection = currentRoots.length === 0;
-        parentContext?.returnedChildIds.add(row.id);
-      } else {
-        const parent = originalParents.get(parentRowId);
-        if (!parent || parent.kind !== "note") return null;
-      }
-    }
-    if (!sectionExists(document, sectionId)) return null;
-    const selectedParent = selected.has(origin?.parentRowId ?? "") ? rows.find((candidate) => candidate.id === origin!.parentRowId) : undefined;
-    if (selectedParent?.stashOrigin && selectedParent.stashOrigin.sectionId !== sectionId) return null;
-    const existingParent = parentRowId === null ? undefined : originalParents.get(parentRowId);
-    if (existingParent && existingParent.sectionId !== sectionId) return null;
-    pending.push({
-      entry: { rowId: row.id, kind, parentRowId, sectionId },
-      afterSiblingRowId,
-      beforeSiblingRowId,
-      appendToSection,
-      activeOrder,
-    });
+  const selected = new Map(rows.map((row) => [row.id, row]));
+  const returnedKinds = new Map(rows.map((row) => [row.id,
+    row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
+  // An edited note cannot turn into an ordinary full row while carrying an
+  // embedded clip owner. Never copy or silently detach that owned occurrence.
+  // Group formation explicitly retains the full canonical note (and its owned
+  // clip) as a member. Ordinary returns must never make that conversion.
+  if (!asGroup && rows.some((row) => row.type === "narration" && row.attachedFootage && returnedKinds.get(row.id) === "row")) return null;
+  const sectionIds = new Set((document.stashSections ?? []).map((section) => section.id));
+  const original = new Map(rows.map((row) => [row.id, row.stashOrigin] as const));
+  const placed = new Set<string>();
+  const cursors = new Map<string, string>();
+
+  if (destination) {
+    if (!sectionExists(document, destination.sectionId)) return null;
+    if (destination.parentRowId !== null && !result.some((entry) =>
+      entry.rowId === destination.parentRowId && entry.kind === "note" && entry.sectionId === destination.sectionId)) return null;
+    const peers = result.filter((entry) =>
+      entry.parentRowId === destination.parentRowId && entry.sectionId === destination.sectionId);
+    const after = peers.findIndex((entry) => entry.rowId === destination.afterRowId);
+    const before = peers.findIndex((entry) => entry.rowId === destination.beforeRowId);
+    // An explicit drop names the CURRENT adjacent gap, including its edges.
+    if (destination.afterRowId === null ? before !== 0 && peers.length !== 0 :
+      after < 0 || (destination.beforeRowId === null ? after !== peers.length - 1 : before !== after + 1)) return null;
+    if (destination.beforeRowId !== null && before < 0) return null;
+    if (destination.afterRowId === null && destination.beforeRowId === null && peers.length !== 0) return null;
   }
 
+  // A row must wait until its selected ancestor is placed: no row may become
+  // the child of a saved full row (only a genuine saved note owns children).
+  const pending = [...rows];
   while (pending.length > 0) {
-    const ready = pending.find((plan) => plan.entry.parentRowId === null || result.some((entry) => entry.rowId === plan.entry.parentRowId));
-    if (!ready) return null;
-    const groupPlans = pending.filter((plan) => plan.entry.parentRowId === ready.entry.parentRowId && plan.entry.sectionId === ready.entry.sectionId);
-    const order = orderReturningSiblings(result, groupPlans);
-    if (!order) return null;
-    for (const context of activeParentContexts.values()) {
-      const firstReturnedChild = order.find((rowId) => context.returnedChildIds.has(rowId));
-      if (!firstReturnedChild || !context.row.stashOrigin) continue;
-      const oldBefore = context.origin?.beforeSiblingRowId ?? null;
-      const oldBeforeIndex = oldBefore === null ? -1 : order.indexOf(oldBefore);
-      if (oldBefore === null || oldBeforeIndex < 0 || order.indexOf(firstReturnedChild) < oldBeforeIndex) {
-        context.row.stashOrigin.beforeSiblingRowId = firstReturnedChild;
+    const index = pending.findIndex((row) => {
+      const parentId = original.get(row.id)?.parentRowId;
+      return !parentId || !selected.has(parentId) || placed.has(parentId);
+    });
+    if (index < 0) return null; // cyclic/corrupt selected parent chain
+    const row = pending.splice(index, 1)[0]!;
+    const source = original.get(row.id);
+    const sourceParentId = source?.parentRowId ?? null;
+    const selectedParent = sourceParentId ? selected.get(sourceParentId) : undefined;
+    const parentEntry = selectedParent ? result.find((entry) => entry.rowId === sourceParentId) : undefined;
+    if (selectedParent && !parentEntry) return null;
+    const nestedInSelectedNote = !!parentEntry && parentEntry.kind === "note";
+    const promotedBySelectedRow = !!parentEntry && parentEntry.kind !== "note";
+    const activeParent = sourceParentId && !selectedParent
+      ? document.activeDraft.blocks.find((item): item is Row => item.type !== "section" && item.id === sourceParentId)
+      : undefined;
+    const storedParent = sourceParentId && !selectedParent
+      ? result.find((entry) => entry.rowId === sourceParentId)
+      : undefined;
+    const ownerAnchors = storedParent ? outlineSiblingAnchors(result, storedParent.rowId) : null;
+    const stableFormerAttachment = !destination && !!source?.originalAttachedNoteRowId &&
+      storedParent?.kind === "note" && storedParent.rowId === source.originalAttachedNoteRowId &&
+      storedParent.sectionId === source.sectionId &&
+      storedParent.parentRowId === (source.originalAttachedNoteParentRowId ?? null) &&
+      (source.originalAttachedNoteAfterSiblingRowId == null || source.originalAttachedNoteAfterSiblingRowId === ownerAnchors?.afterSiblingRowId) &&
+      (source.originalAttachedNoteBeforeSiblingRowId == null || source.originalAttachedNoteBeforeSiblingRowId === ownerAnchors?.beforeSiblingRowId);
+    const promotedByActiveParent = !!activeParent;
+    let parentRowId: string | null = null;
+    let sectionId: string | null = source?.sectionId ?? null;
+    let parentChoice: { kind: "root" } | { kind: "note"; rowId: string } | { kind: "invalid" } = { kind: "root" };
+    let historical = source;
+    let promotedRootPreceding: string[] | undefined;
+    let promotedRootFollowing: string[] | undefined;
+
+    if (destination && !selectedParent) {
+      parentRowId = destination.parentRowId;
+      sectionId = destination.sectionId;
+    } else if (nestedInSelectedNote) {
+      parentRowId = parentEntry.rowId;
+      sectionId = parentEntry.sectionId;
+      parentChoice = { kind: "note", rowId: parentRowId };
+      // The selected note was just returned in this same atomic transaction.
+      // Its location is intentional even if its own old parent disappeared.
+      historical = source && { ...source, sectionId, parentRowId,
+        originalParentContext: {
+          parentRowId: parentEntry.parentRowId, sectionId,
+          precedingSiblingRowIds: [], followingSiblingRowIds: [],
+        } };
+    } else if (promotedBySelectedRow) {
+      parentRowId = parentEntry.parentRowId;
+      sectionId = parentEntry.sectionId;
+      parentChoice = parentRowId === null ? { kind: "root" } : { kind: "note", rowId: parentRowId };
+      historical = source && { ...source, sectionId,
+        ...(parentRowId !== null ? { parentRowId, originalParentContext: {
+          parentRowId: result.find((entry) => entry.rowId === parentRowId)?.parentRowId ?? null,
+          sectionId, precedingSiblingRowIds: [], followingSiblingRowIds: [],
+        } } : {}) };
+      promotedRootPreceding = [parentEntry.rowId];
+      promotedRootFollowing = [];
+    } else if (storedParent) {
+      parentRowId = storedParent.rowId;
+      parentChoice = { kind: "note", rowId: parentRowId };
+    } else if (promotedByActiveParent) {
+      // A formerly nested child becomes a root while its note is still Draft.
+      // Only historical *root* anchors or previously returned sibling roots
+      // can give evidence; current unrelated neighbors cannot.
+      const parentOrigin = activeParent.stashOrigin;
+      parentRowId = null;
+      if (parentOrigin && parentOrigin.sectionId === sectionId) {
+        const siblingRoots = result.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+        const oldSiblings = (ids: readonly string[] | undefined) => (ids ?? []).filter((id) =>
+          siblingRoots.some((entry) => entry.rowId === id));
+        const siblingBefore = oldSiblings(source?.precedingSiblingRowIds ?? (source?.afterSiblingRowId ? [source.afterSiblingRowId] : []));
+        const siblingAfter = oldSiblings(source?.followingSiblingRowIds ?? (source?.beforeSiblingRowId ? [source.beforeSiblingRowId] : []));
+        // A formerly nested sibling returned separately outranks the original
+        // parent's root neighbors; otherwise reversed Draft order wins.
+        const hasReturnedSibling = siblingBefore.length > 0 || siblingAfter.length > 0;
+        promotedRootPreceding = hasReturnedSibling ? siblingBefore :
+          oldSiblings(parentOrigin.precedingSiblingRowIds ?? (parentOrigin.afterSiblingRowId ? [parentOrigin.afterSiblingRowId] : []));
+        promotedRootFollowing = hasReturnedSibling ? siblingAfter :
+          oldSiblings(parentOrigin.followingSiblingRowIds ?? (parentOrigin.beforeSiblingRowId ? [parentOrigin.beforeSiblingRowId] : []));
+      } else parentChoice = { kind: "invalid" };
+    } else if (sourceParentId !== null) {
+      parentChoice = { kind: "invalid" };
+    }
+
+    let insertAt: number;
+    if (destination) {
+      if (!selectedParent) {
+        const cursor = cursors.get("explicit-root");
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : destination.beforeRowId !== null
+          ? result.findIndex((entry) => entry.rowId === destination.beforeRowId)
+          : destination.afterRowId !== null
+            ? outlineSubtreeEnd(result, destination.afterRowId) + 1
+            : outlineInsertionIndex(document, result, parentRowId, sectionId, null) ?? -1;
+        if (destination.afterRowId === null && destination.beforeRowId === null) {
+          // The exact empty target may be a named section or an empty note.
+          insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 :
+            parentRowId === null ? (result.findIndex((entry) => entry.parentRowId === null && entry.sectionId === sectionId) >= 0
+              ? -1 : outlineInsertionIndex(document, result, null, sectionId, null) ?? -1)
+              : result.findIndex((entry) => entry.rowId === parentRowId) + 1;
+        }
+        cursors.set("explicit-root", row.id);
+      } else if (nestedInSelectedNote) {
+        const cursor = cursors.get(`explicit-child:${parentRowId}`);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : result.findIndex((entry) => entry.rowId === parentRowId) + 1;
+        cursors.set(`explicit-child:${parentRowId}`, row.id);
+      } else {
+        const cursor = cursors.get(`explicit-promoted:${parentEntry!.rowId}`);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : outlineSubtreeEnd(result, parentEntry!.rowId) + 1;
+        cursors.set(`explicit-promoted:${parentEntry!.rowId}`, row.id);
+      }
+    } else if (stableFormerAttachment) {
+      // #367: a separately placed clip returns as an ordinary saved child if
+      // the original note remains in its proven slot but is now occupied.
+      // Never create a second embedded owner or overwrite the occupied slot.
+      parentRowId = storedParent.rowId;
+      sectionId = storedParent.sectionId;
+      insertAt = outlineSubtreeEnd(result, parentRowId) + 1;
+    } else {
+      const slot = chooseReturnSlotV2({
+        origin: historical, entries: result, sectionIds, parent: parentChoice,
+        ...(promotedByActiveParent || promotedBySelectedRow && parentRowId === null
+          ? { promotedRootPreceding: promotedRootPreceding ?? [], promotedRootFollowing: promotedRootFollowing ?? [] } : {}),
+      });
+      parentRowId = slot.parentRowId;
+      sectionId = slot.sectionId;
+      if (slot.kind === "after") {
+        const key = `after:${slot.siblingRowId}`;
+        const anchor = cursors.get(key) ?? slot.siblingRowId;
+        insertAt = outlineSubtreeEnd(result, anchor) + 1;
+        cursors.set(key, row.id);
+      } else if (slot.kind === "before") {
+        insertAt = result.findIndex((entry) => entry.rowId === slot.siblingRowId);
+      } else {
+        const key = `${slot.kind}:${parentRowId ?? ""}:${sectionId ?? ""}`;
+        const cursor = cursors.get(key);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 :
+          slot.kind === "unsectioned_top" ? 0 :
+          slot.kind === "first_child" ? result.findIndex((entry) => entry.rowId === parentRowId) + 1 :
+          (() => { const first = result.findIndex((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+            return first >= 0 ? first : outlineInsertionIndex(document, result, null, sectionId, null) ?? -1; })();
+        cursors.set(key, row.id);
       }
     }
-    if (!insertReturningSiblingGroup(document, result, groupPlans, order)) return null;
-    for (const plan of groupPlans) pending.splice(pending.indexOf(plan), 1);
+    if (insertAt < 0 || insertAt > result.length) return null;
+    result.splice(insertAt, 0, { rowId: row.id, kind: returnedKinds.get(row.id)!, parentRowId, sectionId });
+    placed.add(row.id);
   }
   return result;
 }
@@ -770,7 +912,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const touches = moved.has(span.startRowId) || moved.has(span.endRowId) || oldRows?.some((id) => moved.has(id)) || oldFlat?.some((id) => moved.has(id)) || JSON.stringify(oldRows) !== JSON.stringify(nextRows) || JSON.stringify(oldFlat) !== JSON.stringify(nextFlat);
     if (!touches) continue;
     const problem = () => diagnostic("AUDIO_REVIEW_REQUIRED", "This audio-span edit has no adopted audible policy. Review it explicitly before moving these rows.");
-    if (!oldRows || command.kind === "stash_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows" || command.kind === "place_stash_rows") return problem();
+    if (!oldRows || command.kind === "stash_rows" || command.kind === "stash_group_rows" || command.kind === "restore_stash" || command.kind === "restore_stash_rows" || command.kind === "place_stash_rows" || command.kind === "place_stash_group") return problem();
     const overlaps = spans.some((other, otherIndex) => otherIndex !== index && covered(priorLocations, other.startRowId, other.endRowId)?.some((id) => oldRows.includes(id)));
     if (overlaps) return problem();
     if (JSON.stringify(oldRows) === JSON.stringify(nextRows)) continue;
@@ -836,13 +978,8 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
     if (fromSelected !== toSelected) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A row transition links a selected row to a surviving row. Review or remove that transition before deleting these rows.");
   }
 
-  const survivingRows = [...activeRows, ...stashedRows].filter((row) => !selected.has(row.id));
-  for (const row of survivingRows) {
-    const origin = row.stashOrigin;
-    if (origin && [origin.parentRowId, origin.afterSiblingRowId, origin.beforeSiblingRowId].some((rowId) => rowId !== null && selected.has(rowId))) {
-      return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A surviving row's Stash return location uses a selected row. Review that saved relationship before deleting these rows.");
-    }
-  }
+  // stashOrigin holds *historical location evidence*, not a live relationship.
+  // Deleting an old anchor/parent is safe: the return resolver can fall back.
   if (activeSelected.length > 0 && (working.stash ?? []).some((bundle) =>
     bundle.rows.some((row) => !selected.has(row.id)) &&
     (selected.has(bundle.originalGap?.afterRowId ?? "") || selected.has(bundle.originalGap?.beforeRowId ?? "")))) {
@@ -903,10 +1040,136 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
   return { rows: removedRows };
 }
 
+/** Save a detached group stage against the exact membership it was opened with. */
+function saveStashGroup(working: ScriptDocumentV2, command: SaveStashGroupCommandV2): AuthoringDiagnosticV2 | null {
+  const problem = (code: string, message: string) => diagnostic(code, message);
+  const group = groupById(working, command.groupId);
+  if (!group) return problem("STASH_GROUP_NOT_FOUND", "Choose an existing Stash group to save.");
+  if (!sameAuthoringJsonV2(group.rowIds, command.expectedRowIds)) {
+    return problem("STASH_GROUP_STALE", "The saved group membership changed while the member editor was open.");
+  }
+  const outline = ensureStashOutline(working);
+  const currentIds = new Set(group.rowIds);
+  const desiredIds = new Set(command.members.map((row) => row.id));
+  const deletedIds = group.rowIds.filter((id) => !desiredIds.has(id));
+  const stored = new Map((working.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
+  const activeIds = new Set(working.activeDraft.blocks.map((row) => row.id));
+  const addedSaved = command.members.filter((row) => !currentIds.has(row.id) && stored.has(row.id));
+  const outsideGroup = new Set((working.stashGroups ?? []).filter((other) => other.id !== group.id).flatMap((other) => other.rowIds));
+  const first = outline.find((entry) => entry.rowId === group.rowIds[0])!;
+  const selected = new Set([...group.rowIds, ...addedSaved.map((row) => row.id)]);
+  const existingPositions = outline.flatMap((entry, index) => selected.has(entry.rowId) ? [index] : []);
+  if (addedSaved.some((row) => {
+    const entry = outline.find((candidate) => candidate.rowId === row.id);
+    return !entry || entry.kind !== "row" || entry.sectionId !== first.sectionId ||
+      entry.parentRowId !== first.parentRowId || outsideGroup.has(row.id);
+  }) || existingPositions.length !== selected.size ||
+      existingPositions.some((index, offset) => index !== existingPositions[0]! + offset)) {
+    return problem("STASH_GROUP_MEMBERS_INVALID", "Additional saved members must be ungrouped, adjacent sibling rows in the group's current Stash location.");
+  }
+  if (command.members.some((row) => activeIds.has(row.id))) {
+    return problem("STASH_GROUP_MEMBERS_INVALID", "An active Draft row cannot be copied into a saved group.");
+  }
+  const proposedOrder = command.members.map((row) => row.id);
+  if ((!sameAuthoringJsonV2(proposedOrder, group.rowIds) || deletedIds.length > 0) &&
+      audioSpanTouchesRows(working, selected)) {
+    return problem("AUDIO_REVIEW_REQUIRED", "Review the saved audio span before changing group membership or order.");
+  }
+  const allItems = [...working.activeDraft.supportingItems, ...(working.stash ?? []).flatMap((bundle) => bundle.supportingItems)];
+  if (deletedIds.some((id) => (working.rowReferences ?? []).some((reference) => reference.rowId === id) ||
+      allItems.some((item) => supportingRows(item, [...working.activeDraft.blocks, ...stored.values()]).has(id)))) {
+    return problem("ROW_REFERENCE_REVIEW_REQUIRED", "Removing a group member would discard a citation or saved row reference. Review its anchors first.");
+  }
+
+  const anchorBundle = working.stash?.find((bundle) => bundle.rows.some((row) => row.id === group.rowIds[0]));
+  if (!anchorBundle) return problem("STASH_GROUP_MEMBERS_INVALID", "The group's original saved-row bundle is missing.");
+  for (const member of command.members) {
+    const previous = stored.get(member.id);
+    if (!previous) {
+      if (member.stashOrigin) return problem("STASH_GROUP_MEMBERS_INVALID", "New group members cannot forge saved-return provenance.");
+      anchorBundle.rows.push(structuredClone(member));
+      continue;
+    }
+    if (previous.type !== member.type) {
+      return problem("STASH_GROUP_MEMBERS_INVALID", "Existing saved members must keep their row identity and type.");
+    }
+    if (previous.type === "narration" && member.type === "narration" &&
+        (previous.plainDirection !== member.plainDirection ||
+          !sameAuthoringJsonV2(previous.attachedFootage, member.attachedFootage))) {
+      return problem("STASH_ATTACHMENT_REVIEW_REQUIRED", "A group Save cannot silently change speech intent or owned footage. Use explicit review commands.");
+    }
+    if (previous.type === "visual_only" && member.type === "visual_only" &&
+        (!sameAuthoringJsonV2(previous.researchClip, member.researchClip) ||
+         !sameAuthoringJsonV2(previous.frameBinding, member.frameBinding) ||
+         !sameAuthoringJsonV2(previous.payload, member.payload) ||
+         !sameAuthoringJsonV2(previous.visualOnlyTiming, member.visualOnlyTiming))) {
+      return problem("STASH_ATTACHMENT_REVIEW_REQUIRED", "Footage identity and source ranges require an explicit clip command, not a group member replacement.");
+    }
+    // Exact provenance is kept until an authored change marks an origin ineligible.
+    const authoredBefore = structuredClone(previous);
+    const authoredNext = structuredClone(member);
+    delete authoredBefore.stashOrigin;
+    delete authoredNext.stashOrigin;
+    const edited = !sameAuthoringJsonV2(authoredBefore, authoredNext);
+    const replacement = edited ? preserveStashOriginAfterEditV2(previous, structuredClone(member)) : structuredClone(previous);
+    if (!currentIds.has(member.id) && replacement.stashOrigin?.kind !== "row" && replacement.stashOrigin) {
+      replacement.stashOrigin.returnEligible = false;
+    }
+    // A surviving supporting anchor must still identify its original word/event.
+    const inspect = (value: unknown, referenceRowId?: string): boolean => {
+        if (!value || typeof value !== "object") return true;
+        if (!Array.isArray(value) && ("blockId" in value && value.blockId === member.id || referenceRowId === member.id) &&
+            "tokenId" in value && typeof value.tokenId === "string") {
+          const tokens = replacement.type === "narration" ? replacement.tokens : [];
+          const token = tokens.find((candidate) => candidate.id === value.tokenId);
+          if (!token || "quotedWord" in value && token.value !== value.quotedWord) return false;
+        }
+        if (!Array.isArray(value) && "eventId" in value && typeof value.eventId === "string" &&
+            previous.type === "narration" && previous.overlayEvents.some((event) => event.id === value.eventId) &&
+            (replacement.type !== "narration" || !replacement.overlayEvents.some((event) => event.id === value.eventId))) {
+          return false;
+        }
+        return Object.values(value).every((child) => inspect(child, referenceRowId));
+    };
+    if (allItems.some((item) => !inspect(item.placement) || !inspect(item.displayAttachment)) ||
+        (working.rowReferences ?? []).some((reference) => reference.rowId === member.id && !inspect(reference.anchor, member.id))) {
+      return problem("ROW_REFERENCE_REVIEW_REQUIRED", "A group edit would invalidate an existing citation or comment anchor.");
+      }
+    const bundle = working.stash!.find((candidate) => candidate.rows.some((row) => row.id === member.id))!;
+    bundle.rows[bundle.rows.findIndex((row) => row.id === member.id)] = replacement;
+  }
+
+  // Remove the group metadata before using the regular protected row deletion.
+  // No intermediate state is returned or revisioned; any refusal discards it all.
+  removeGroup(working, group.id);
+  if (deletedIds.length > 0) {
+    const deleted = deleteRows(working, deletedIds);
+    if ("code" in deleted) return deleted;
+  }
+  const insertion = outline.slice(0, existingPositions[0]).filter((entry) => !selected.has(entry.rowId)).length;
+  const otherEntries = outline.filter((entry) => !selected.has(entry.rowId));
+  const oldEntries = new Map(outline.map((entry) => [entry.rowId, entry] as const));
+  otherEntries.splice(insertion, 0, ...command.members.map((member) => oldEntries.get(member.id) ?? {
+    rowId: member.id, kind: "row" as const, sectionId: first.sectionId, parentRowId: first.parentRowId,
+  }));
+  working.stashOutline = otherEntries;
+  if (command.members.length >= 2) {
+    (working.stashGroups ??= []).push({ ...group, rowIds: proposedOrder as [string, string, ...string[]] });
+  }
+  return null;
+}
+
 /** One immutable local transaction. A refusal returns the original input object. */
 export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
+    if (command.kind === "stash_rows" && (!isJsonValue(command) ||
+      !exactKeys(command, Object.hasOwn(command, "destination") ? ["kind", "rowIds", "bundleId", "destination"] : ["kind", "rowIds", "bundleId"]) ||
+      !rowIdsPayload(command.rowIds) || typeof command.bundleId !== "string" || command.bundleId.length === 0 ||
+      Object.hasOwn(command, "destination") && !stashReturnDestinationPayload(command.destination))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash return and an exact optional outline drop destination.");
+    }
+    if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
@@ -921,8 +1184,23 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
+  if (command.kind === "save_stash_group" && command.expectedRevision !== expectedRevision) {
+    return refused(document, "ROW_REVISION_STALE", "A staged group Save must use the exact revision at which its member editor opened.");
+  }
+
+  // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
+  const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
+  if (command.kind === "edit_row" && grouped.has(command.rowId) ||
+    isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
+    return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
+  }
+  if (command.kind === "trim_research_clip" && (grouped.has(command.clipRowId) ||
+    document.stash?.some((bundle) => bundle.rows.some((row) =>
+      grouped.has(row.id) && row.type === "narration" && row.attachedFootage?.clip.id === command.clipRowId)))) {
+    return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Trim a grouped row's footage through the staged group editor, not an independent row edit.");
+  }
 
   if (isStageDirectionKind(command.kind)) {
     const stageCommand = command as unknown as StageDirectionEditCommandV2;
@@ -996,7 +1274,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const selected = blocks.splice(from, section.end - from);
     blocks.splice(index > from ? index - selected.length : index, 0, ...selected);
     moved = section.rows;
-  } else if (command.kind === "move_rows" || command.kind === "stash_rows") {
+  } else if (command.kind === "move_rows" || command.kind === "stash_rows" || command.kind === "stash_group_rows") {
     const rows = selectedRows(blocks, command.rowIds);
     if (!rows) return refused(document, "ROW_SELECTION_INVALID", "Select an ordered contiguous run within one section.");
     moved = rows;
@@ -1037,7 +1315,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
             origin.originalAttachedNoteAfterSiblingRowId === ownerAnchors?.afterSiblingRowId) &&
           (origin.originalAttachedNoteBeforeSiblingRowId === null ||
             origin.originalAttachedNoteBeforeSiblingRowId === ownerAnchors?.beforeSiblingRowId);
-        if (origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
+        // A deliberate Stash outline drop always wins over auto-reattachment,
+        // even when the historical note's footage slot is still empty.
+        if ((command.kind === "stash_group_rows" || !command.destination) && origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
           if (hasExternalRowReferences(working, row.id) || items.some((item) => supportingRows(item, blocks).has(row.id))) {
             return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "The independently placed footage has references that cannot be transferred into an attachment.");
           }
@@ -1059,8 +1339,12 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         }
       }
       const ordinaryReturns = rows.filter((row) => !reattached.has(row.id));
-      const returnedOutline = planStashReturn(working, ordinaryReturns, outline);
-      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
+      if (command.kind === "stash_group_rows" && reattached.size) {
+        return refused(document, "STASH_GROUP_ATTACHMENT_REVIEW_REQUIRED", "A group must retain each selected row; returning separate footage to its old note would change membership.");
+      }
+      const returnedOutline = planStashReturn(working, ordinaryReturns, outline,
+        command.kind === "stash_rows" ? command.destination : undefined, command.kind === "stash_group_rows");
+      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The requested Stash outline destination, return hierarchy, or attachment ownership cannot be preserved.");
       for (const row of rows) {
         if (row.type === "narration" && !parkAttachedFootageForSortingV2(row)) {
           return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage's active visual slot changed; review it before returning the note.");
@@ -1071,7 +1355,60 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       for (const row of rows) delete row.stashOrigin;
       if (ordinaryReturns.length) (working.stash ??= []).push({ id: command.bundleId, rows: [ordinaryReturns[0]!, ...ordinaryReturns.slice(1)], supportingItems: items, originalGap });
       working.stashOutline = returnedOutline;
+      if (command.kind === "stash_group_rows") {
+        const problem = formStashGroup(working, command.rowIds, command.groupId, command.createdBy, command.createdAt, {
+          sectionId: command.sectionId, parentRowId: command.parentRowId, afterRowId: command.afterRowId,
+        });
+        if (problem) return refused(document, "STASH_GROUP_INVALID", problem);
+      }
     }
+  } else if (command.kind === "group_stash_rows") {
+    const problem = formStashGroup(working, command.rowIds, command.groupId, command.createdBy, command.createdAt);
+    if (problem) return refused(document, "STASH_GROUP_INVALID", problem);
+  } else if (command.kind === "move_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    if (audioSpanTouchesRows(working, new Set(group.rowIds))) return refused(document, "AUDIO_REVIEW_REQUIRED", "Review group audio intent before moving these saved rows.");
+    const problem = relocateGroupRows(working, group.rowIds, command.sectionId, command.parentRowId, command.afterRowId);
+    if (problem) return refused(document, "STASH_GROUP_DESTINATION_INVALID", problem);
+    moved = group.rowIds.map((rowId) => stashRowById(working, rowId)!);
+  } else if (command.kind === "ungroup_stash_group") {
+    if (!groupById(working, command.groupId)) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    removeGroup(working, command.groupId);
+  } else if (command.kind === "delete_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    removeGroup(working, command.groupId);
+    const deleted = deleteRows(working, group.rowIds);
+    if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
+    moved = deleted.rows;
+  } else if (command.kind === "place_stash_group") {
+    const group = groupById(working, command.groupId);
+    if (!group) return refused(document, "STASH_GROUP_NOT_FOUND", "Choose an existing saved group.");
+    const index = gapIndex(blocks, command.destination);
+    if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current Draft gap.");
+    const outline = ensureStashOutline(working);
+    for (const rowId of group.rowIds) {
+      const entry = outline.find((item) => item.rowId === rowId)!;
+      const anchors = outlineSiblingAnchors(outline, rowId)!;
+      const row = stashRowById(working, rowId)!;
+      row.stashOrigin = { kind: "row", parentRowId: entry.parentRowId, sectionId: entry.sectionId,
+        ...anchors, returnEligible: true };
+      if (row.type === "narration" && !presentAttachedFootageForSortingV2(row)) {
+        return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage cannot be represented safely in the active row's visual slot.");
+      }
+    }
+    const order = stashRowsInVisibleOrder(working).map((row) => row.id);
+    removeGroup(working, command.groupId);
+    const taken = takeStashRows(working, new Set(group.rowIds), order);
+    if ("code" in taken) return { ok: false, document, diagnostics: [taken] };
+    moved = taken.rows;
+    blocks.splice(index, 0, ...moved);
+  } else if (command.kind === "save_stash_group") {
+    const problem = saveStashGroup(working, command);
+    if (problem) return { ok: false, document, diagnostics: [problem] };
+    // All surviving and removed members participate in relationship/audio review.
+    moved = document.stash?.flatMap((bundle) => bundle.rows).filter((row) => command.expectedRowIds.includes(row.id)) ?? [];
   } else if (command.kind === "edit_row") {
     const index = blocks.findIndex((block) => block.type !== "section" && block.id === command.rowId);
     if (index < 0) return refused(document, "ROW_NOT_FOUND", "Choose an existing Draft or Stash row to edit.");
@@ -1305,6 +1642,14 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (command.entries.some((entry) => !entry || typeof entry !== "object" || currentKinds.get(entry.rowId)?.kind !== entry.kind) || command.entries.length !== current.length) {
       return refused(document, "STASH_OUTLINE_KIND_IMMUTABLE", "Organizing the outline cannot create, remove, or reclassify saved rows.");
     }
+    for (const group of working.stashGroups ?? []) {
+      if (!audioSpanTouchesRows(working, new Set(group.rowIds))) continue;
+      const location = (entries: StashOutlineEntryV2[]) => entries.flatMap((entry, index) =>
+        group.rowIds.includes(entry.rowId) ? [{ rowId: entry.rowId, index, parentRowId: entry.parentRowId, sectionId: entry.sectionId }] : []);
+      if (!sameAuthoringJsonV2(location(current), location(command.entries))) {
+        return refused(document, "AUDIO_REVIEW_REQUIRED", "Review the grouped audio intent before changing this Stash outline location.");
+      }
+    }
     working.stashOutline = structuredClone(command.entries);
   } else if (command.kind === "place_stash_rows") {
     const index = gapIndex(blocks, command.destination);
@@ -1322,6 +1667,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         parentRowId: entry.parentRowId,
         sectionId: entry.sectionId,
         ...anchors,
+        ...(freezeOriginalSiblingCandidatesV2(entries, entry.rowId) ?? {}),
+        ...(freezeOriginalParentContextV2(entries, entry.rowId) ? {
+          originalParentContext: freezeOriginalParentContextV2(entries, entry.rowId)!,
+        } : {}),
         returnEligible: true,
       });
     }
@@ -1374,7 +1723,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") {
+  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group") {
     const saved = serializedDocument(working);
     return saved
       ? { ok: true, document: saved, diagnostics: [] }
@@ -1414,7 +1763,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
   let document: unknown;
   try { document = JSON.parse(json); } catch { return { ok: false, diagnostics: [diagnostic("DOCUMENT_JSON_INVALID", "The saved document is not valid JSON.")] }; }
   const validation = validateScriptDocumentV2(document);
-  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID"].includes(item.code));
+  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID"].includes(item.code));
   return fatal.length ? { ok: false, diagnostics: fatal } : { ok: true, document: document as ScriptDocumentV2 };
 }
 
