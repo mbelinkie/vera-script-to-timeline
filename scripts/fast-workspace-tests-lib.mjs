@@ -32,6 +32,16 @@ export function fastWorkspaces(root) {
   return selected;
 }
 
+// The development-QA backup guards invoke real subprocesses under 5-second
+// assertions. Concurrent CPU-heavy suites make those guards time out on the
+// reference Mac. Run this existing fast workspace before the parallel batch;
+// do not omit or modify any tests or their timeouts.
+export function scheduleFastWorkspaces(selected) {
+  const exclusive = selected.filter(({ path }) => path === "packages/project-service-host");
+  const parallel = selected.filter(({ path }) => path !== "packages/project-service-host");
+  return { exclusive, parallel };
+}
+
 // Once a child fails, do not start new suites. Already-running suites finish,
 // so no partial or stale test processes are left behind before the next phase.
 export async function runWorkspaces(selected, { run, write, concurrency = 3 }) {

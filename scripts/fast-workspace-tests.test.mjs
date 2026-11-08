@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
-import { fastWorkspaces, runWorkspaces } from "./fast-workspace-tests-lib.mjs";
+import { fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
 
 test("selects exactly the existing fast workspace scripts and keeps all their original commands", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
@@ -39,6 +39,15 @@ test("new test workspace without an explicit fast script fails closed", () => {
   }
 });
 
+test("time-sensitive backup guard suite runs alone without dropping or duplicating fast workspaces", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const selected = fastWorkspaces(root);
+  const { exclusive, parallel } = scheduleFastWorkspaces(selected);
+  assert.deepEqual(exclusive.map(({ path }) => path), ["packages/project-service-host"]);
+  assert.deepEqual([...exclusive, ...parallel].map(({ path }) => path).sort(),
+    selected.map(({ path }) => path).sort());
+});
+
 test("bounded parallel runner executes each workspace once, including the final suite", async () => {
   const selected = Array.from({ length: 8 }, (_, index) => ({ name: `suite-${index}` }));
   const started = [];
@@ -68,6 +77,8 @@ test("failure stops scheduling new suites and propagates nonzero after in-flight
     concurrency: 2,
     run: (name) => {
       called.push(name);
+      // Unexpected follow-on suites must settle rather than hanging the test.
+      if (name === "c" || name === "d") return Promise.resolve(0);
       return new Promise((resolve) => pending.push(resolve));
     },
     write: () => {},

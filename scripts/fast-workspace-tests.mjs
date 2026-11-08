@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { performance } from "node:perf_hooks";
 
-import { fastWorkspaces, runWorkspaces } from "./fast-workspace-tests-lib.mjs";
+import { fastWorkspaces, runWorkspaces, scheduleFastWorkspaces } from "./fast-workspace-tests-lib.mjs";
 
 const root = process.cwd();
 const selected = fastWorkspaces(root);
+const { exclusive, parallel } = scheduleFastWorkspaces(selected);
 const run = (workspace) => new Promise((resolve) => {
   const start = performance.now();
   console.log(`[fast-workspaces] starting ${workspace.name}`);
@@ -24,7 +25,9 @@ const run = (workspace) => new Promise((resolve) => {
   });
 });
 
-process.exitCode = await runWorkspaces(selected, {
+const options = {
   run,
   write: (line) => console.log(line),
-});
+};
+const firstResult = await runWorkspaces(exclusive, { ...options, concurrency: 1 });
+process.exitCode = firstResult || await runWorkspaces(parallel, options);
