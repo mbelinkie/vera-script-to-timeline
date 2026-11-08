@@ -23,6 +23,7 @@ def _config(tmp_path: Path) -> dict[str, Any]:
         "root": str(tmp_path / "unattended"),
         "queueRoot": str(tmp_path / "queue"),
         "packageRoot": str(tmp_path / "pinned-package"),
+        "narrationEvidenceRoot": str(tmp_path / "original-narration-evidence"),
         "name": "test-bench-312",
         "caseId": "synthetic-312",
         "profile": "qualification-output-studio-matrix/v1",
@@ -117,6 +118,99 @@ def test_matrix_profile_binds_all_six_original_published_receipts(
         runner._matrix_preparation_paths(root, case_id="synthetic-312")
     with pytest.raises(queue.QueueError, match="unsupported unattended"):
         runner._matrix_preparation_paths(root, case_id="not-312")
+
+
+def test_matrix_narration_uses_original_three_measured_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from vera_timeline_agent import roundtrip_v2_audio, v2_package
+
+    build = tmp_path / "pkg" / "Builds" / "build-one"
+    build.mkdir(parents=True)
+    evidence_root = tmp_path / "original-narration"
+    bound: list[str] = []
+    rows: list[dict[str, Any]] = []
+    for index in range(3):
+        block_id = f"{index:08x}-abcd-4000-8000-000000000000"
+        asset_id = f"{index:064x}"
+        wav_data = f"original-waveform-{index}".encode()
+        audio_locator = f"v1/assets/{block_id}/{asset_id}/narration.wav"
+        measure_locator = f"narration-measurements/{asset_id}.measurement.json"
+        wav = evidence_root / "cache" / audio_locator
+        measure = evidence_root / measure_locator
+        wav.parent.mkdir(parents=True)
+        measure.parent.mkdir(parents=True, exist_ok=True)
+        wav.write_bytes(wav_data)
+        (wav.parent / "timing.json").write_bytes(b"timing")
+        measure.write_bytes(b"measurement")
+        rows.append(
+            {
+                "blockId": block_id,
+                "audio": {
+                    "locator": audio_locator,
+                    "audioHash": "sha256:" + hashlib.sha256(wav_data).hexdigest(),
+                },
+                "verification": {
+                    "method": "measured_audio_boundaries/v1",
+                    "measurementArtifactLocator": measure_locator,
+                },
+            }
+        )
+    (build / v2_package.DEPENDENCIES_FILENAME).write_text(
+        json.dumps({"narrationBoundaryEvidence": rows})
+    )
+    monkeypatch.setattr(
+        v2_package,
+        "verify_v2_package",
+        lambda path: SimpleNamespace(build_id="build-one"),
+    )
+    monkeypatch.setattr(
+        roundtrip_v2_audio,
+        "verify_measured_narration_evidence",
+        lambda row, **kwargs: bound.append(row["blockId"]),
+    )
+    actual = runner._matrix_narration_paths(
+        tmp_path / "pkg", evidence_root, case_id="synthetic-312"
+    )
+    assert len(actual) == 3
+    assert set(bound) == {row["blockId"] for row in rows}
+    wav = evidence_root / "cache" / rows[0]["audio"]["locator"]
+    wav.write_bytes(b"mutated")
+    with pytest.raises(queue.QueueError, match="narration audio differs"):
+        runner._matrix_narration_paths(
+            tmp_path / "pkg", evidence_root, case_id="synthetic-312"
+        )
+
+
+def test_full_source_admission_refuses_before_any_disposable_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import qualification_output_package_v2 as package
+
+    config = _config(tmp_path)
+    calls: list[str] = []
+    monkeypatch.setattr(runner, "_merged_472", lambda commit: None)
+    monkeypatch.setattr(
+        shutil, "disk_usage", lambda path: SimpleNamespace(free=4 * 1024**3)
+    )
+    monkeypatch.setattr(runner, "_matrix_preparation_paths", lambda *a, **k: {})
+    monkeypatch.setattr(runner, "_matrix_narration_paths", lambda *a, **k: {})
+
+    def refuse_admission(root: Path, **kwargs: Any) -> None:
+        calls.append("real-admission-refused")
+        raise ValueError("unverified source evidence")
+
+    monkeypatch.setattr(package, "admit_qualification_package_v2", refuse_admission)
+    monkeypatch.setattr(
+        runner,
+        "_one_start_setup",
+        lambda config: calls.append("PROJECTS SHOULD NOT BE CREATED"),
+    )
+    with pytest.raises(ValueError, match="unverified source evidence"):
+        runner.start(config)
+    assert calls == ["real-admission-refused"]
 
 
 def test_no_setup_or_native_operation_before_472_gate(

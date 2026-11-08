@@ -35,6 +35,7 @@ FIELDS = frozenset(
         "name",
         "caseId",
         "packageRoot",
+        "narrationEvidenceRoot",
         "profile",
         "maxElapsedSeconds",
         "maxDiskBytes",
@@ -65,10 +66,20 @@ def validate_config(value: Any) -> dict[str, Any]:
         or value["caseId"] != "synthetic-312"
     ):
         raise queue.QueueError("only the approved #312 studio-matrix fixture")
-    for key in ("root", "queueRoot", "packageRoot"):
+    for key in ("root", "queueRoot", "packageRoot", "narrationEvidenceRoot"):
         _absolute(value[key], key)
-    if len({value[k] for k in ("root", "queueRoot", "packageRoot")}) != 3:
-        raise queue.QueueError("separate private run, queue and package roots required")
+    if (
+        len(
+            {
+                value[k]
+                for k in ("root", "queueRoot", "packageRoot", "narrationEvidenceRoot")
+            }
+        )
+        != 4
+    ):
+        raise queue.QueueError(
+            "four independent source, evidence and run roots required"
+        )
     queue.simple_id(value["name"], "name")
     queue.simple_id(value["caseId"], "caseId")
     queue.limited_int(value["maxElapsedSeconds"], "maxElapsedSeconds", 60, 14400)
@@ -181,8 +192,91 @@ def _matrix_preparation_paths(package_root: Path, *, case_id: str) -> dict[str, 
     return prepared
 
 
+def _matrix_narration_paths(
+    package_root: Path, evidence_root: Path, *, case_id: str
+) -> dict[str, dict[str, Path]]:
+    """Bind exactly the original three measured #312 narration cache assets.
+
+    The private evidence root is an *input*, never a directory we create or
+    modify. The published v2 compiler dependency row pins the expected block,
+    asset, timing and measurement locator. All files are reauthenticated by
+    the existing admission verifier before any native use.
+    """
+    from . import v2_package
+    from .roundtrip_v2_audio import verify_measured_narration_evidence
+
+    if case_id != "synthetic-312":
+        raise queue.QueueError("unsupported narration evidence case")
+    if not evidence_root.is_absolute() or ".." in evidence_root.parts:
+        raise queue.QueueError("absolute original narration evidence root required")
+    v2_package._require_path_components_no_symlink(
+        evidence_root, "narration evidence root"
+    )
+    verified = v2_package.verify_v2_package(package_root)
+    dependencies = json.loads(
+        (
+            package_root
+            / "Builds"
+            / verified.build_id
+            / v2_package.DEPENDENCIES_FILENAME
+        ).read_bytes()
+    )
+    rows = dependencies.get("narrationBoundaryEvidence")
+    if not isinstance(rows, list) or len(rows) != 3:
+        raise queue.QueueError("three original #312 narration evidence rows required")
+    out: dict[str, dict[str, Path]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise queue.QueueError("malformed source narration evidence")
+        block_id = row.get("blockId")
+        audio = row.get("audio")
+        verification = row.get("verification")
+        if not isinstance(audio, dict) or not isinstance(verification, dict):
+            raise queue.QueueError("original measured narration data missing")
+        audio_locator = audio.get("locator")
+        measurement_locator = verification.get("measurementArtifactLocator")
+        if (
+            not isinstance(block_id, str)
+            or re.fullmatch(r"[0-9a-f-]{36}", block_id) is None
+            or block_id in out
+            or not isinstance(audio_locator, str)
+            or re.fullmatch(
+                rf"v1/assets/{re.escape(block_id)}/[0-9a-f]{{64}}/narration\.wav",
+                audio_locator,
+            )
+            is None
+            or not isinstance(measurement_locator, str)
+            or re.fullmatch(
+                r"narration-measurements/[0-9a-f]{64}\.measurement\.json",
+                measurement_locator,
+            )
+            is None
+            or verification.get("method") != "measured_audio_boundaries/v1"
+        ):
+            raise queue.QueueError("original measured narration locator differs")
+        wav = evidence_root / "cache" / audio_locator
+        timing = wav.parent / "timing.json"
+        measurement = evidence_root / measurement_locator
+        for path in (wav, timing, measurement):
+            v2_package._require_path_components_no_symlink(path, "narration source")
+            if not path.is_file() or path.stat().st_size > 128 * 1024 * 1024:
+                raise queue.QueueError("original measured narration file unavailable")
+        wav_sha = hashlib.sha256(wav.read_bytes()).hexdigest()
+        if audio.get("audioHash") != "sha256:" + wav_sha:
+            raise queue.QueueError("original measured narration audio differs")
+        verify_measured_narration_evidence(
+            row,
+            timing=timing.read_bytes(),
+            artifact=measurement.read_bytes(),
+            audio_sha256=wav_sha,
+        )
+        out[block_id] = {"timing": timing, "measurement": measurement}
+    return out
+
+
 def _preflight_before_native(value: dict[str, Any]) -> None:
-    """Refuse inadequate disk or wrong matrix fixture before project creation."""
+    """Finish real source admission before creating any Resolve project."""
+    from .qualification_output_package_v2 import admit_qualification_package_v2
 
     root = _absolute(value["root"], "root")
     carrier._private(root, create=True)
@@ -190,12 +284,26 @@ def _preflight_before_native(value: dict[str, Any]) -> None:
         raise queue.QueueError(
             "Test Bench actual free disk below the reserved native budget"
         )
-    # Authenticates each actual published source receipt and all 11 events
-    # before provision creates even a disposable project in Resolve.
-    _matrix_preparation_paths(
-        _absolute(value["packageRoot"], "packageRoot"),
+    package_root = _absolute(value["packageRoot"], "packageRoot")
+    preparations = _matrix_preparation_paths(package_root, case_id=value["caseId"])
+    narrations = _matrix_narration_paths(
+        package_root,
+        _absolute(value["narrationEvidenceRoot"], "narrationEvidenceRoot"),
         case_id=value["caseId"],
     )
+    preflight_root = root / "source-preflight"
+    if preflight_root.exists() or preflight_root.is_symlink():
+        raise queue.QueueError(
+            "source preflight already attempted; inspect before any replay"
+        )
+    admission = admit_qualification_package_v2(
+        preflight_root,
+        profile=value["profile"],
+        package_root=package_root,
+        preparation_paths=preparations,
+        narration_evidence_paths=narrations,
+    )
+    admission.assert_current()
 
 
 def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str, str]]:
@@ -217,6 +325,11 @@ def _one_start_setup(value: dict[str, Any]) -> tuple[queue.Store, str, dict[str,
             package_root=_absolute(value["packageRoot"], "packageRoot"),
             preparation_paths=_matrix_preparation_paths(
                 _absolute(value["packageRoot"], "packageRoot"),
+                case_id=value["caseId"],
+            ),
+            narration_evidence_paths=_matrix_narration_paths(
+                _absolute(value["packageRoot"], "packageRoot"),
+                _absolute(value["narrationEvidenceRoot"], "narrationEvidenceRoot"),
                 case_id=value["caseId"],
             ),
             target=targets["initial"],

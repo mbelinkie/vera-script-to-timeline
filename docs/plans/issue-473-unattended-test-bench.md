@@ -52,8 +52,13 @@ version. No untested GUI action is enabled in this branch.
    the existing host, and refuses to re-run uncertain PCM finalization.
 4. `resolve_test_bench_m4_runner.py`: one-start disposable two-project setup
    through `resolve_test_queue_m4_provision` only **after** checking actual
-   disk headroom, running the existing read-only public v2 package verifier,
-   and verifying the exact six published #312 matrix preparation receipts;
+   disk headroom, running the public v2 package verifier, verifying the exact
+   six published #312 matrix preparation receipts, and reauthenticating the
+   *three* original measured narration/cache artifacts. A fresh, private,
+   write-once **complete package admission is performed before provisioning**:
+   an interrupted or refused preflight cannot create any Resolve project and
+   cannot be replayed on the same root. The later target-bound session repeats
+   independent admission, with no shortcut around v2 source currentness;
    a pinned pristine host session,
    durable original M4 job enrollment with enqueue-crash reconciliation, the
    existing serialized M4 worker gate, the output chain driver, and an
@@ -90,6 +95,7 @@ runtime accepts only the following closed configuration shape:
   "name": "test-bench-312",
   "caseId": "synthetic-312",
   "packageRoot": "/absolute/approved/verified-v2-package",
+  "narrationEvidenceRoot": "/absolute/approved/original-narration-campaign",
   "profile": "qualification-output-studio-matrix/v1",
   "maxElapsedSeconds": 14400,
   "maxDiskBytes": 1073741824,
@@ -166,7 +172,7 @@ this draft PR to ready merely because isolated tests pass.
 
 ## Local validation and independent review status (November 7, 2026)
 
-- **49 isolated fake-host/SDK/controller/edit-probe/matrix-pinning tests passed.** `ruff` and full
+- **51 isolated fake-host/SDK/controller/edit-probe/matrix-and-narration tests passed.** `ruff` and full
   `mypy python tests` passed with no typing findings.
 - `npm run validate:fast` was run after `npm ci`. It did **not pass**:
   `packages/contracts/test/qualification-output-proposals-v2.test.ts` had
@@ -194,4 +200,16 @@ this draft PR to ready merely because isolated tests pass.
   dispatched. **Do not reuse** this run root, provisioned targets or session.
   The fixed profile and six published preparation-receipt checks are now
   required *before* creating any further disposable project.
+- **Second distinct Mac-native campaign:** new root
+  `~/.local/state/vera/issue-473-studio-02` passed the exact six published
+  preparation-receipt checks and provisioned two new disposable Studio
+  targets, but target-bound admission refused
+  `measured narration requires its timing and measurement artifact paths`.
+  Removed the `vera-473-test02` launch job before any native construct and
+  retained all original one-use project/target records. The missing three
+  **original** narration artifacts were located in the existing #312
+  `rehearsal-speech-v1` campaign; the new closed `narrationEvidenceRoot`
+  input and strict source-derived timing/measurement pins now route them to
+  independent admission **before** any new project creation. Neither spent
+  campaign is reused or represented as a successful M4 stage.
 - Full native M4 success and #312 completion remain **unverified**.
