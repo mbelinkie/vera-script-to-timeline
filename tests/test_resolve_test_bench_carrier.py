@@ -105,6 +105,76 @@ def test_failure_after_intent_is_unknown_and_never_retries(
         carrier.start(root, source, digest, installed, spawn=crash, preflight=check)
 
 
+def test_deadline_expires_during_preflight_without_spending_intent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, source, digest, installed, _, _, spawned, spawn = _host(tmp_path, monkeypatch)
+    clock = [100.0]
+    monkeypatch.setattr(
+        "vera_timeline_agent.resolve_test_bench_carrier.time.time",
+        lambda: clock[0],
+    )
+
+    def slow_preflight(target: Any, *, require_empty: bool) -> None:
+        clock[0] = 105.0
+
+    with pytest.raises(queue.QueueError, match="before intent"):
+        carrier.start(
+            root,
+            source,
+            digest,
+            installed,
+            preflight=slow_preflight,
+            spawn=spawn,
+            not_after=104,
+        )
+    assert spawned == []
+    assert not (root / "intent.json").exists()
+
+
+def test_deadline_expires_after_intent_and_never_spawns_or_retries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, source, digest, installed, _, check, spawned, spawn = _host(
+        tmp_path, monkeypatch
+    )
+    clock = [100.0]
+    monkeypatch.setattr(
+        "vera_timeline_agent.resolve_test_bench_carrier.time.time",
+        lambda: clock[0],
+    )
+    original_once = carrier._once
+
+    def intercept_once(path: Path, data: bytes) -> None:
+        original_once(path, data)
+        if path.name == "intent.json":
+            clock[0] = 105.0
+
+    monkeypatch.setattr(carrier, "_once", intercept_once)
+    with pytest.raises(queue.QueueError, match="before spawn"):
+        carrier.start(
+            root,
+            source,
+            digest,
+            installed,
+            preflight=check,
+            spawn=spawn,
+            not_after=104,
+        )
+    assert (root / "intent.json").exists()
+    assert spawned == []
+    with pytest.raises(queue.QueueError, match="already spent"):
+        carrier.start(
+            root,
+            source,
+            digest,
+            installed,
+            preflight=check,
+            spawn=spawn,
+            not_after=110,
+        )
+
+
 def test_native_preflight_runs_before_long_lived_owner_lock_without_self_deadlock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

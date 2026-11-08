@@ -167,9 +167,7 @@ def preflight_owned_render(request: Mapping[str, Any]) -> None:
                 "render queue requires an idle, unclaimed new job",
             )
         elif expected_job is None:
-            raise queue.QueueError(
-                "authenticated previous native render job required"
-            )
+            raise queue.QueueError("authenticated previous native render job required")
         elif action == "start_render":
             _require(
                 statuses.get(expected_job) == "Ready" and not rendering,

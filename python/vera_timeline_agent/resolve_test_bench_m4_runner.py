@@ -19,8 +19,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from . import resolve_test_bench_campaign as campaign
 from . import resolve_test_bench_carrier as carrier
 from . import resolve_test_bench_edit_probe as edit_probe
+from . import resolve_test_bench_non_gui_edit as non_gui_edit
 from . import resolve_test_bench_output as output
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_m4 as m4
@@ -463,6 +465,7 @@ def _blocked_after_pristine(
         capture_path=Path(receipt["capture"]["path"]),
         capture_sha256=receipt["capture"]["sha256"],
     )
+    route = non_gui_edit.assess(inspection)
     return {
         "state": "blocked_unattended_native_roll_edit_not_proven",
         "jobId": job_id,
@@ -470,6 +473,7 @@ def _blocked_after_pristine(
             row["name"] for row in report["stages"] if row["state"] == "verified"
         ],
         "next": "edited",
+        "nonGuiRoute": route,
         "editCapability": {
             "resolveVersion": inspection["resolveVersion"],
             "supportsDocumentedOffsetMethods": inspection[
@@ -480,6 +484,47 @@ def _blocked_after_pristine(
             "unqualified": True,
         },
     }
+
+
+def _run_pristine(
+    value: dict[str, Any], store: queue.Store, job_id: str, pristine: dict[str, str]
+) -> dict[str, Any]:
+    """Original M4 authority bounds the reusable stage; no renewed deadline."""
+    from .workflow_v2_cli import _verify_output_release
+
+    original = m4._load_plan(store, job_id)
+    if (
+        original["baselineSession"] != pristine
+        or original["caseId"] != value["caseId"]
+        or original["maxDiskBytes"] != value["maxDiskBytes"]
+    ):
+        raise queue.QueueError("original M4 and native stage pins differ")
+    controller = output._session(Path(pristine["path"]), pristine["sha256"])
+    manifest = _verify_output_release(controller.release_root)
+    # The M4 queue's original absolute time AND elapsed ceilings still apply.
+    deadline = min(
+        queue.dt(original["deadlineAt"]).timestamp(),
+        queue.dt(original["runAt"]).timestamp() + original["maxElapsedSeconds"],
+    )
+    outcome = campaign.start(
+        {
+            "schema": campaign.SCHEMA,
+            "root": str(_absolute(value["root"], "root") / "pristine-stage"),
+            "session": pristine,
+            "installed": str(controller.release_root),
+            "releaseManifestSha256": hashlib.sha256(
+                carrier._read(manifest)
+            ).hexdigest(),
+            "caseId": value["caseId"],
+            "phase": "pristine",
+            "target": original["initialTarget"],
+            "deadlineUnix": deadline,
+            "maxDiskBytes": original["maxDiskBytes"],
+            "consentReference": value["consentReference"],
+            "consentInstruction": value["consentInstruction"],
+        }
+    )
+    return {"session": pristine, "capture": outcome["capture"]}
 
 
 def start(config: dict[str, Any]) -> dict[str, Any]:
@@ -517,18 +562,7 @@ def _start_locked(value: dict[str, Any]) -> dict[str, Any]:
     if report["state"] in {"unknown", "blocked", "canceled", "completed_verified"}:
         return {"state": report["state"], "jobId": job_id}
     if report["stage"] == "pristine":
-        baseline = Path(pristine["path"])
-        controller = output._session(baseline, pristine["sha256"])
-        result = output.drive(
-            _absolute(value["root"], "root") / "pristine-actions",
-            session_path=baseline,
-            session_sha256=pristine["sha256"],
-            installed=controller.release_root,
-            consent_reference=value["consentReference"],
-            consent_instruction=value["consentInstruction"],
-            max_seconds=value["maxElapsedSeconds"],
-            minimum_free_bytes=value["maxDiskBytes"],
-        )
+        result = _run_pristine(value, store, job_id, pristine)
         _submit_original(store, job_id, "pristine", result)
         report = m4.publish(store, job_id)
     # SDK 21.1.2 added offset setters, but empirical reports show destructive

@@ -412,3 +412,79 @@ queue and one-use receipts. This phase did not modify any Mac service.
 - The original three verified M4 receipts and original signed/native results are retained. **Do not submit an expired receipt, reset deadlines, delete the native journal, recreate the project, launch another phase-2 driver, or unblock #312.** A new campaign or remediation requires separately reviewed authorization, with updated compatible source-pinned host and fresh target/IDs. Phase 3 can investigate and test the reusable render-aware guard without adopting or replaying these consumed operations.
 
 The full chronological Mac evidence, owners, receipt hashes, run log paths, and prior test/gate results are in `.pipeline/473/progress.md`. Local `npm run validate:fast` reproduced the pre-existing `@vera/public-page-capture` lint failure (45 type-resolution errors); the phase's focused rebuild-stage unit tests, Ruff and strict mypy passed. This phase is **closed out as an exact protected fail-stop**, not as a native acceptance pass.
+
+### Adopted Conductor phase 3: native-only compatibility and reusable safety
+
+**Non-GUI acceptance verdict: BLOCKED, not waived.** The genuinely verified
+327→351 same-target edit in `issue-473-studio-05` used the now-retired Edit-page
+menu/keyboard workaround. Resolve Studio 21.1.1.10 lacks a documented
+in-place timeline-item boundary setter. The later 21.1.2
+`TimelineItem.SetLeftOffset` and `SetRightOffset` change available *source
+handles*, not a dual-item roll edit; a reported Studio 21.1.2 result was
+destructive despite returning true. A file-import route creates another
+timeline with different native UIDs. None is a qualified API route for M4.
+References: the [published 21.1.2 API](https://wheheohu.github.io/bmd_doc/ResolveAPI/21.1.2/resolve_api/TimelineItem)
+and [empirical offset failure](https://github.com/samuelgursky/davinci-resolve-mcp/issues/336).
+This is a technical compatibility finding, not an excuse to bypass the
+requirement. The historical `scripts/issue-473-native-roll-once.py` now
+**refuses all GUI edit and selection calls** while retaining read-only
+inspection and immutable forensic checks.
+
+The new `resolve_test_bench_non_gui_edit.py` keeps a capability probe
+read-only and returns explicit `blocked_no_qualified_non_gui_roll` even
+for hypothetical 21.1.2/22 SDK method presence. Before enabling any real
+new stage, an *independent* signed one-use sacrificial Studio trial must
+prove, after save/reopen, the exact original two timeline-item UIDs, same
+media/audio UIDs, complete six-track geometry and 327→351 programme while
+invoking only an **official supported native editor API** or reviewed
+equivalent. No arbitrary script/GUI commands, edited-M4 assertion or
+source-pinned old-campaign replay are authorized.
+
+**Reusable controller, code-reviewed boundary:**
+
+- `resolve_test_bench_campaign.py` exposes `start` and
+  read-only `inspect` for a **new**, explicitly authorized
+  stage. Exact closed config pins the original V2 session SHA, installed
+  release manifest SHA, case/phase/target UIDs, real Producer instruction,
+  cumulative UTC Unix deadline and free-space reserve. The original
+  `_verify_output_release` / `load_output_session` validators
+  independently enforce source and release currentness.
+- The stage intent is durable before the first action. A later call
+  **cannot repeat** a stage after an UNKNOWN, crash after spawn or crash
+  during signed terminal commit; `inspect` only reports
+  original host/capture evidence. It never fabricates an M4 receipt.
+- The #312 one-start M4 runner calls this stage controller for **new**
+  pristine stages and derives the strictest deadline from the original
+  M4 `runAt + maxElapsedSeconds` and `deadlineAt`.
+  The lower-level native carrier rechecks deadlines before intent and
+  immediately before spawn, even when source verification is slow; an
+  expired already-spent intent is **not retried**. Disk reserve is rechecked
+  before dispatch.
+- The controller's case-specific checks are bound to the authenticated
+  V2 host; mock tests demonstrate a later `synthetic-313` session
+  can use the **same interface** without GUI, but do not authorize or
+  claim a real #313 benchmark. #313 requires merged #312 source and its own
+  exact fixture, deadlines, approval and independent native evidence.
+
+The existing expired phase-2 Mac campaign remains completely untouched:
+three original M4 receipts verified, rebuild awaiting_operator without
+fourth receipt, and no final #312 evidence. The **source-pinned frozen
+native host is NOT changed by this branch**. No new Mac native operation
+was performed or claimed in phase 3. Fake SDK tests are only software
+fault injection; a real Mac smoke and supported same-UID native edit
+remain necessary before phase 4 or any #312/#313 acceptance.
+
+**Phase-3 local verification:** 85 affected focused Python tests pass, including
+the fake-host #313 reuse and crash/deadline cases; affected Ruff and strict
+mypy pass, and full-tree mypy reported no issues in 375 files after the test
+import correction. Local `npm run validate:fast` was attempted twice with
+the pinned Node/npm installation: its second pass completed TypeScript checks
+and full-tree Ruff, but stopped at four mypy test import declarations
+(subsequently corrected; focused tests were rerun). No green *entire*
+`validate:fast` completion or CI/Mac Studio smoke is claimed here. Two
+semantics-preserving existing source formatter changes were needed in
+`qualification_output_controller_v2.py` and
+`resolve_test_bench_render_preflight.py`; the original frozen Mac
+runtime and in-flight receipts were **not** modified. For any future new
+source-pinned campaign, a fresh installed release and authorization are
+mandatory.

@@ -415,15 +415,10 @@ def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
         return True
 
     monkeypatch.setattr(runner, "_worker_once", worker)
-    monkeypatch.setattr(
-        output,
-        "_session",
-        lambda *args: SimpleNamespace(release_root=tmp_path / "reviewed-release"),
-    )
 
     def drive(*args: Any, **kwargs: Any) -> dict[str, Any]:
         state["commands"].append("host-native-chain")
-        assert kwargs["installed"] == tmp_path / "reviewed-release"
+        assert args[0]["caseId"] == "synthetic-312"
         return {
             "state": "terminal_native_verified",
             "session": {
@@ -433,7 +428,7 @@ def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
             "capture": {"path": str(tmp_path / "native.json"), "sha256": "c" * 64},
         }
 
-    monkeypatch.setattr(output, "drive", drive)
+    monkeypatch.setattr(runner, "_run_pristine", drive)
 
     def submit(*args: Any) -> None:
         state["commands"].append("verified-M4-submission")
@@ -461,6 +456,58 @@ def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
         "host-native-chain",
         "verified-M4-submission",
     ]
+
+
+def test_reusable_pristine_controller_uses_original_m4_elapsed_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import resolve_test_bench_campaign as campaign
+    from vera_timeline_agent import workflow_v2_cli as workflow
+
+    config = _config(tmp_path)
+    pristine = {"path": str(tmp_path / "session.json"), "sha256": "b" * 64}
+    installed = tmp_path / "frozen-installed"
+    manifest = tmp_path / "release.json"
+    manifest.write_bytes(b"fixed original installed manifest")
+    original = {
+        "baselineSession": pristine,
+        "initialTarget": {
+            "projectUid": "new-project",
+            "timelineUid": "new-timeline",
+            "projectName": "exact-new-disposable",
+            "timelineName": "exact-new-disposable",
+        },
+        "caseId": "synthetic-312",
+        "runAt": "2026-11-08T00:00:00Z",
+        "deadlineAt": "2026-11-08T02:00:00Z",
+        "maxElapsedSeconds": 3600,
+        "maxDiskBytes": config["maxDiskBytes"],
+    }
+    monkeypatch.setattr(m4, "_load_plan", lambda store, job: original)
+    monkeypatch.setattr(
+        output, "_session", lambda *args: SimpleNamespace(release_root=installed)
+    )
+    monkeypatch.setattr(workflow, "_verify_output_release", lambda path: manifest)
+    observed: list[dict[str, Any]] = []
+
+    def fake_start(plan: dict[str, Any]) -> dict[str, Any]:
+        observed.append(plan)
+        return {"capture": {"path": str(tmp_path / "capture.json"), "sha256": "c" * 64}}
+
+    monkeypatch.setattr(campaign, "start", fake_start)
+    result = runner._run_pristine(config, object(), "test-job", pristine)  # type: ignore[arg-type]
+    assert result["session"] == pristine
+    assert len(observed) == 1
+    assert observed[0]["deadlineUnix"] == queue.dt("2026-11-08T01:00:00Z").timestamp()
+    assert observed[0]["target"] == original["initialTarget"]
+    assert (
+        observed[0]["releaseManifestSha256"]
+        == hashlib.sha256(manifest.read_bytes()).hexdigest()
+    )
+    original["maxDiskBytes"] += 1
+    with pytest.raises(queue.QueueError, match="M4 and native stage pins differ"):
+        runner._run_pristine(config, object(), "test-job", pristine)  # type: ignore[arg-type]
+    assert len(observed) == 1
 
 
 def test_enrolled_receipt_is_written_once_and_verified_by_m4(

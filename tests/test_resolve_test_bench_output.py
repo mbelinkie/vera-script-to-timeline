@@ -231,3 +231,33 @@ def test_finalize_crash_is_inspect_only_and_cannot_replay(
     with pytest.raises(queue.QueueError, match="never replay"):
         output.tick(root, **kwargs)
     assert calls == ["ingested", "finalizer-effect"]
+
+
+def test_deadline_expiration_after_request_preparation_never_dispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import qualification_output_controller_v2 as host
+    from vera_timeline_agent import resolve_test_bench_carrier as carrier
+
+    root, kwargs, calls, request, _ = _fixture(tmp_path, monkeypatch)
+    clock = [100.0]
+    monkeypatch.setattr(
+        "vera_timeline_agent.resolve_test_bench_output.time.time",
+        lambda: clock[0],
+    )
+
+    def expire_after_approval(*args: Any, **kwargs: Any) -> None:
+        args[1].write_text("test-only attributed approval")
+        calls.append("approval")
+        clock[0] = 105.0
+
+    monkeypatch.setattr(host, "issue_operator_approval", expire_after_approval)
+    monkeypatch.setattr(
+        carrier,
+        "start",
+        lambda *args, **kwargs: pytest.fail("expired host must not dispatch"),
+    )
+    with pytest.raises(queue.QueueError, match="before native dispatch"):
+        output.tick(root, **kwargs, hard_deadline=104)
+    assert calls == ["plan", "approval", "prepared"]
+    assert request.exists()

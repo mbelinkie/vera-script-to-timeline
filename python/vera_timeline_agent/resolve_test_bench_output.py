@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,7 @@ def tick(
     consent_instruction: str,
     minimum_free_bytes: int = 256 * 1024 * 1024,
     python: Path | None = None,
+    hard_deadline: float | None = None,
 ) -> dict[str, Any]:
     """Advance at most one host effect, or inspect an already-issued one.
 
@@ -81,6 +84,10 @@ def tick(
         raise queue.QueueError("actual bounded Producer instruction required")
     if minimum_free_bytes < 1 or shutil.disk_usage(root).free < minimum_free_bytes:
         raise queue.QueueError("Test Bench actual free disk below reserved bound")
+    if hard_deadline is not None and (
+        not math.isfinite(hard_deadline) or time.time() >= hard_deadline
+    ):
+        raise queue.QueueError("original cumulative deadline expired; no effect")
     controller = _session(session_path, session_sha256)
     actions = action_plan_for_context(controller.context)
     for sequence, action in enumerate(actions):
@@ -170,6 +177,8 @@ def tick(
         plan = root / f"operator-plan-{sequence:02d}.json"
         approval = root / f"operator-approval-{sequence:02d}.json"
         if not request.exists():
+            if hard_deadline is not None and time.time() >= hard_deadline:
+                raise queue.QueueError("deadline expired before operator preparation")
             if not plan.exists():
                 controller.prepare_operator_plan(plan)
             if not approval.exists():
@@ -190,13 +199,18 @@ def tick(
             raise queue.QueueError("native effect already started outside Test Bench")
         if not request.exists():
             raise queue.QueueError("reviewed host did not create exact native request")
+        # Source admission and signed request preparation can run for minutes.
+        # Recheck the original absolute bound immediately before dispatch.
+        if hard_deadline is not None and time.time() >= hard_deadline:
+            raise queue.QueueError("deadline expired before native dispatch")
         request_pin = _pin(request)
         carrier.start(
             step,
             request,
             request_pin["sha256"],
             installed,
-            **({} if python is None else {"python": python}),
+            python=Path(sys.executable) if python is None else python,
+            not_after=hard_deadline,
         )
         return {"state": "running", "action": action, "sequence": sequence}
 
@@ -220,12 +234,23 @@ def drive(
     consent_instruction: str,
     max_seconds: int = 14400,
     minimum_free_bytes: int = 256 * 1024 * 1024,
+    hard_deadline: float | None = None,
 ) -> dict[str, Any]:
     """One start, bounded polling; on failure return without replaying."""
     if not isinstance(max_seconds, int) or not 60 <= max_seconds <= 14400:
         raise queue.QueueError("bounded 1-minute to 4-hour run required")
+    if hard_deadline is not None and (
+        type(hard_deadline) not in (int, float) or not math.isfinite(hard_deadline)
+    ):
+        raise queue.QueueError("finite original cumulative deadline required")
     _root(root)
     deadline_file = root / "deadline.json"
+    current = time.time()
+    effective_deadline = current + max_seconds
+    if hard_deadline is not None:
+        effective_deadline = min(effective_deadline, hard_deadline)
+    if current >= effective_deadline:
+        raise queue.QueueError("cumulative deadline already expired")
     if not deadline_file.exists():
         carrier._once(
             deadline_file,
@@ -234,7 +259,9 @@ def drive(
                     "schema": "vera.test-bench-output-deadline/v1",
                     "session": {"path": str(session_path), "sha256": session_sha256},
                     "installed": str(installed),
-                    "deadline": time.time() + max_seconds,
+                    "deadline": effective_deadline,
+                    "hardDeadline": hard_deadline,
+                    "startedAt": current,
                 }
             ),
         )
@@ -245,10 +272,21 @@ def drive(
         != {"path": str(session_path), "sha256": session_sha256}
         or deadline.get("installed") != str(installed)
         or type(deadline.get("deadline")) not in (int, float)
+        or deadline.get("hardDeadline") != hard_deadline
+        or type(deadline.get("startedAt")) not in (int, float)
+        or not math.isfinite(deadline["deadline"])
+        or not math.isfinite(deadline["startedAt"])
+        or deadline["deadline"] > deadline["startedAt"] + max_seconds
+        or (hard_deadline is not None and deadline["deadline"] > hard_deadline)
     ):
         raise queue.QueueError("immutable output-chain deadline/identity changed")
     with carrier._lock(root):
-        while time.time() < deadline["deadline"]:
+        while True:
+            now = time.time()
+            if now < deadline["startedAt"] - 2:
+                raise queue.QueueError("host clock regression; no replay")
+            if now >= deadline["deadline"]:
+                break
             outcome = tick(
                 root,
                 session_path=session_path,
@@ -257,6 +295,7 @@ def drive(
                 consent_reference=consent_reference,
                 consent_instruction=consent_instruction,
                 minimum_free_bytes=minimum_free_bytes,
+                hard_deadline=deadline["deadline"],
             )
             if outcome["state"] != "running":
                 return outcome

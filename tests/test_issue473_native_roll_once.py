@@ -164,6 +164,13 @@ def test_read_only_native_sdk_snapshot_matches_all_original_uids() -> None:
     ROLL._assert_before(live, geometry)
 
 
+def test_retired_menu_edit_and_selection_are_refused_before_sdk_or_gui() -> None:
+    with pytest.raises(ValueError, match="non-GUI"):
+        ROLL.run(Path("/historical/private/campaign"), inspect_only=False)
+    with pytest.raises(ValueError, match="non-GUI"):
+        ROLL.select_initial(Path("/historical/private/campaign"))
+
+
 def test_sdk_refuses_wrong_native_project_before_touching_timeline() -> None:
     resolve, target, geometry = _sdk_fixture()
     target["projectUid"] = "another-project"

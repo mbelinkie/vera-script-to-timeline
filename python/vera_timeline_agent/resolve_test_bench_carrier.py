@@ -16,6 +16,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -147,6 +148,7 @@ def start(
     python: Path = Path(sys.executable),
     spawn: Any = subprocess.Popen,
     preflight: Any = None,
+    not_after: float | None = None,
 ) -> dict[str, Any]:
     """Reserve, install and spawn once; NEVER resume by calling start again."""
     from .resolve_native_owner import (
@@ -155,6 +157,8 @@ def start(
     )
 
     _private(root, create=True)
+    if not_after is not None and time.time() >= not_after:
+        raise queue.QueueError("native effect deadline expired before preflight")
     with _lock(root) as lock_fd:
         if (root / "intent.json").exists() or (root / "intent.json").is_symlink():
             raise queue.QueueError(
@@ -181,7 +185,10 @@ def start(
         if preflight is not None:
             preflight(target, require_empty=request["action"] == "construct")
         elif request["action"] in {
-            "queue_render", "start_render", "poll_render", "capture_post"
+            "queue_render",
+            "start_render",
+            "poll_render",
+            "capture_post",
         }:
             # Host preparation of a real render intent intentionally reserves
             # this target. The generic disposable preflight treats that own
@@ -195,6 +202,10 @@ def start(
                 target, require_empty=request["action"] == "construct"
             )
         with native_owner(output_lane=True) as owner_fd:
+            # Source/release verification and shared-owner preflight can take
+            # substantial time. Refuse an expired stage before spending intent.
+            if not_after is not None and time.time() >= not_after:
+                raise queue.QueueError("native effect deadline expired before intent")
             # Preserve the exact previous installed request, including failed
             # historical one-use requests; never erase its source evidence.
             if slot.exists() or slot.is_symlink():
@@ -222,6 +233,12 @@ def start(
                 queue.sync_directory(slot.parent)
                 if _digest(_read(slot)) != digest:
                     raise queue.QueueError("installed request copy differs")
+                # Even if the deadline elapsed after the durable intent, never
+                # start a late effect. This spent slot stays UNKNOWN; no replay.
+                if not_after is not None and time.time() >= not_after:
+                    raise queue.QueueError(
+                        "native effect deadline expired before spawn"
+                    )
                 with (root / "carrier-console.log").open("x") as console:
                     spawn(
                         [

@@ -569,6 +569,8 @@ def select_initial(root: Path) -> None:
     Neither a Producer project nor an unverified/still-running Test Bench
     campaign may be selected. This is not a timeline edit or a replay.
     """
+    # Historical only. Never use project selection as an unattended edit path.
+    need(False, "menu-driven selection retired; #473 requires non-GUI native route")
     from vera_timeline_agent import resolve_native_owner as owner
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner
     from vera_timeline_agent import resolve_test_queue as queue
@@ -674,6 +676,14 @@ def select_initial(root: Path) -> None:
 
 
 def run(root: Path, *, inspect_only: bool = False) -> None:
+    # Keep historical verifier/read-only inspection callable so the real
+    # retained 327->351 evidence can still be audited. The previous one-use
+    # menu workaround MUST NOT run again or qualify future #312/#313 runs.
+    need(
+        inspect_only,
+        "menu-driven roll retired; #473 requires independently qualified "
+        "same-UID non-GUI adapter",
+    )
     from vera_timeline_agent import qualification_output_native_v2 as native
     from vera_timeline_agent import resolve_native_owner as owner
     from vera_timeline_agent import resolve_test_bench_m4_runner as runner

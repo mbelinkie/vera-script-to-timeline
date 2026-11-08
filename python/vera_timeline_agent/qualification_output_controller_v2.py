@@ -731,11 +731,9 @@ def issue_operator_approval(
 
         retry = approval["actionPlan"] == list(RETRY_ACTION_PLAN)
         sequence, _ = next_native_operation(controller.context, retry=retry)
-        subsequent_read_only_render = (
-            not retry
-            and native_action(controller.context, sequence)
-            in {"poll_render", "capture_post"}
-        )
+        subsequent_read_only_render = not retry and native_action(
+            controller.context, sequence
+        ) in {"poll_render", "capture_post"}
         _require(
             retry or sequence < len(action_plan_for_context(controller.context)),
             "completed run or retry requires its own bounded retry plan",
