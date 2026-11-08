@@ -5,7 +5,7 @@ import {
   applyProjectAuthorizationMigration, ProjectAuthorizationService, type SqlPool,
 } from "@vera/project-authorization";
 import {
-  applyProjectDocumentsMigration, ProjectDocumentService, sha256,
+  applyProjectCommentsMigration, applyProjectDocumentsMigration, ProjectDocumentService, sha256,
 } from "@vera/project-documents";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -33,6 +33,9 @@ async function buildHarness(options?: { settings?: boolean }) {
   await db.waitReady;
   await applyProjectAuthorizationMigration(db);
   await applyProjectDocumentsMigration(db);
+  // Document PUT now atomically checks the separate comment-head store, even
+  // for build-only projects that have never created a comment.
+  await applyProjectCommentsMigration(db);
   await applyProjectBuildsMigration(db);
   const pool: SqlPool = { connect: async () => db };
   const auth = new ProjectAuthorizationService(pool);
