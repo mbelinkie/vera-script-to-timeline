@@ -12,11 +12,17 @@ const names = [
   "vera_schema_migrations", "vera_identity_actors", "vera_project_members", "vera_project_write_sessions",
   "vera_project_membership_audit", "stt_projects", "stt_document_heads", "stt_document_revisions",
   "stt_project_settings", "stt_settings_revisions", "stt_project_title_mutations",
+  "stt_build_pairing_offers", "stt_project_build_agents", "stt_build_submissions",
+  "stt_build_source_pins", "stt_build_dispatches", "stt_build_events",
+  "stt_build_evidence", "stt_build_preflight_refusals",
 ];
 const receipts = [
   ["stt_project_documents_001", "packages/project-documents/migrations/001_stt_projects_documents.sql"],
   ["vera_project_identity_membership_001", "packages/project-authorization/migrations/001_identity_membership.sql"],
+  ["stt_project_builds_001", "packages/project-builds/migrations/001_project_builds.sql"],
+  ["stt_project_builds_002_preflight_refusals", "packages/project-builds/migrations/002_preflight_refusals.sql"],
 ].map(([name, file]) => `${name}|1|${createHash("sha256").update(readFileSync(join(root, file!))).digest("hex")}`);
+receipts.sort((a, b) => a.split("|")[0]!.localeCompare(b.split("|")[0]!));
 
 interface Manifest {
   archiveSha256: string;
@@ -66,6 +72,7 @@ case "$sql" in
   *'FROM pg_class c'*)
     if [[ "$db" != *restore* || "$db" == *existing* || -e '${join(scratch, "restored")}' ]]; then
       ${names.map((n) => `echo 'public.${n}|r'`).join("\n      ")}
+      echo 'public.stt_build_events_id_seq|S'
     fi;;
   *'FROM vera_schema_migrations'*)
     printf '%s\\n' ${receipts.map((r) => `'${r}'`).join(" ")};;
@@ -104,7 +111,7 @@ touch '${join(scratch, "restored")}'`;
     expect(backup.status, backup.stderr).toBe(0);
     const manifest = readManifest(join(archive, "manifest.json"));
     expect(manifest.archiveSha256).toBe(createHash("sha256").update("PRIVATE_FAKE_DUMP_159").digest("hex"));
-    expect(manifest.inventory.migrations).toHaveLength(2);
+    expect(manifest.inventory.migrations).toHaveLength(4);
     expect(Object.keys(manifest.inventory.tables)).toEqual(names);
     expect(manifest.inventory.tables.stt_document_heads).toEqual({ rows: 0, sha256: emptySha });
     expect(run("restore").status).toBe(0);

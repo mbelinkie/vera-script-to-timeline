@@ -1,10 +1,18 @@
+import { randomUUID } from "node:crypto";
+
 import { PGlite } from "@electric-sql/pglite";
 import { applyProjectAuthorizationMigration } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  applyProjectCommentsMigration,
   applyProjectDocumentsMigration,
+  applyProjectHistoryMigration,
+  PROJECT_COMMENTS_MIGRATION,
+  PROJECT_COMMENTS_MIGRATION_DIGEST,
   PROJECT_DOCUMENTS_MIGRATION,
+  PROJECT_HISTORY_MIGRATION,
+  PROJECT_HISTORY_MIGRATION_DIGEST,
 } from "../src/migration.js";
 
 // Cold PGlite startup on mounted Linux filesystems can be unusually slow.
@@ -19,6 +27,115 @@ async function database() {
 }
 afterEach(async () => {
   for (const db of databases.splice(0)) await db.close();
+});
+
+describe("forward-only STT history schema 003", () => {
+  it("requires document schema, records its exact receipt and repeats without changing prior migrations", async () => {
+    const db = await database();
+    await expect(applyProjectHistoryMigration(db)).rejects.toThrow();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectHistoryMigration(db);
+    const before = await db.query<{ migration_name: string; schema_version: number; checksum: string }>(
+      "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
+      "FROM vera_schema_migrations WHERE migration_name LIKE 'stt_project_%' ORDER BY migration_name",
+    );
+    expect(before.rows).toHaveLength(3);
+    expect(before.rows.find((row) => row.migration_name === PROJECT_HISTORY_MIGRATION)).toMatchObject({
+      schema_version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST,
+    });
+    await applyProjectHistoryMigration(db);
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    const after = await db.query<typeof before.rows[number]>(
+      "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
+      "FROM vera_schema_migrations WHERE migration_name LIKE 'stt_project_%' ORDER BY migration_name",
+    );
+    expect(after.rows).toEqual(before.rows);
+    const tables = await db.query<{ name: string }>(
+      "SELECT tablename AS name FROM pg_tables WHERE schemaname='public' " +
+      "AND tablename IN ('stt_document_checkpoints','stt_checkpoint_approvals','stt_document_restores')",
+    );
+    expect(tables.rows.map(({ name }) => name).sort()).toEqual([
+      "stt_checkpoint_approvals", "stt_document_checkpoints", "stt_document_restores",
+    ]);
+  });
+
+  it("fails closed on checksum or version tampering without altering schema/data", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectHistoryMigration(db);
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex') WHERE migration_name=$2",
+      ["0".repeat(64), PROJECT_HISTORY_MIGRATION]);
+    await expect(applyProjectHistoryMigration(db)).rejects.toThrow("checksum mismatch");
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex'),schema_version=44 " +
+      "WHERE migration_name=$2", [PROJECT_HISTORY_MIGRATION_DIGEST, PROJECT_HISTORY_MIGRATION]);
+    await expect(applyProjectHistoryMigration(db)).rejects.toThrow("checksum mismatch");
+    const rows = await db.query<{ count: number }>(
+      "SELECT count(*)::integer AS count FROM stt_document_checkpoints",
+    );
+    expect(rows.rows[0]?.count).toBe(0);
+  });
+
+  it("enforces project FKs, unique checkpoint name/receipts, immutable history and provenance", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectHistoryMigration(db);
+    const actor = randomUUID(), project = randomUUID(), document = randomUUID();
+    const checkpoint = randomUUID(), approval = randomUUID(), mutation = randomUUID();
+    const digest = `sha256:${"a".repeat(64)}`;
+    await db.query("INSERT INTO vera_identity_actors(id,issuer,subject) VALUES($1,'test','history-actor')", [actor]);
+    await db.query("INSERT INTO stt_projects(id,title,created_by,client_create_request_id,create_request_digest) " +
+      "VALUES($1,'History',$2,$3,$4)", [project, actor, randomUUID(), digest]);
+    const revisionSql = "INSERT INTO stt_document_revisions(project_id,revision,document_id," +
+      "expected_revision,actor_id,client_mutation_id,request_digest,content_digest,document_json) " +
+      "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)";
+    await db.query(revisionSql, [project, 0, document, null, actor, randomUUID(), digest, digest, "{}"]);
+    await db.query(revisionSql, [project, 1, document, 0, actor, randomUUID(), digest, digest, "{}"]);
+    await db.query(revisionSql, [project, 2, document, 1, actor, randomUUID(), digest, digest, "{}"]);
+    const checkpointSql = "INSERT INTO stt_document_checkpoints(project_id,checkpoint_id,name," +
+      "source_revision,document_id,document_json,source_digest,created_by,client_mutation_id," +
+      "request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)";
+    const values = [project, checkpoint, "Draft A", 0, document, "{}", digest, actor, mutation, digest];
+    await db.query(checkpointSql, values);
+    await expect(db.query(checkpointSql, [...values.slice(0, 1), randomUUID(), "draft a",
+      ...values.slice(3, 8), randomUUID(), digest])).rejects.toThrow();
+    await expect(db.query(checkpointSql, [project, randomUUID(), "B", 0, document, "{}",
+      digest, actor, mutation, digest])).rejects.toThrow();
+    await expect(db.query(checkpointSql, [project, randomUUID(), "Missing", 999, document,
+      "{}", digest, actor, randomUUID(), digest])).rejects.toThrow();
+    await expect(db.query(checkpointSql, [randomUUID(), randomUUID(), "Foreign", 0, document,
+      "{}", digest, actor, randomUUID(), digest])).rejects.toThrow();
+    await db.query("INSERT INTO stt_checkpoint_approvals(project_id,checkpoint_id,approved_by," +
+      "client_mutation_id,request_digest) VALUES($1,$2,$3,$4,$5)",
+    [project, checkpoint, actor, approval, digest]);
+    await expect(db.query("INSERT INTO stt_checkpoint_approvals(project_id,checkpoint_id,approved_by," +
+      "client_mutation_id,request_digest) VALUES($1,$2,$3,$4,$5)",
+    [project, checkpoint, actor, randomUUID(), digest])).rejects.toThrow();
+    await db.query("INSERT INTO stt_document_restores(project_id,new_revision,checkpoint_id," +
+      "source_revision,source_digest,restored_by,client_mutation_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
+    [project, 1, checkpoint, 0, digest, actor, randomUUID()]);
+    // The new revision exists, so this specifically exercises the composite
+    // source-checkpoint tuple FK rather than the new-revision FK.
+    await expect(db.query("INSERT INTO stt_document_restores(project_id,new_revision,checkpoint_id," +
+      "source_revision,source_digest,restored_by,client_mutation_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
+    [project, 2, checkpoint, 0, `sha256:${"b".repeat(64)}`, actor, randomUUID()])).rejects.toThrow();
+    await expect(db.query("INSERT INTO stt_document_restores(project_id,new_revision,checkpoint_id," +
+      "source_revision,source_digest,restored_by,client_mutation_id) " +
+      "VALUES($1,2,$2,1,$3,$4,$5)",
+    [project, checkpoint, digest, actor, randomUUID()])).rejects.toThrow();
+    for (const table of ["stt_document_checkpoints", "stt_checkpoint_approvals", "stt_document_restores"]) {
+      await expect(db.query(`UPDATE ${table} SET project_id=project_id WHERE project_id=$1`,
+        [project])).rejects.toThrow(/append-only/u);
+      await expect(db.query(`DELETE FROM ${table} WHERE project_id=$1`, [project]))
+        .rejects.toThrow(/append-only/u);
+      const rows = await db.query<{ count: number }>(
+        `SELECT count(*)::integer AS count FROM ${table} WHERE project_id=$1`, [project]);
+      expect(rows.rows[0]?.count).toBe(1);
+    }
+  });
 });
 
 describe("additive STT project schema", () => {
@@ -50,5 +167,79 @@ describe("additive STT project schema", () => {
         "33333333-3333-4333-8333-333333333333", "sha256:" + "a".repeat(64),
         ["44444444-4444-4444-8444-444444444444"]],
     )).rejects.toThrow();
+  });
+});
+
+describe("forward-only STT comment schema 002", () => {
+  it("runs after 001, records exact SHA/version, and is repeatable without touching 001", async () => {
+    const db = await database();
+    await expect(applyProjectCommentsMigration(db)).rejects.toThrow();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectDocumentsMigration(db);
+    const rows = await db.query<{ migration_name: string; schema_version: number; checksum: string }>(
+      "SELECT migration_name,schema_version,encode(checksum,'hex') AS checksum " +
+      "FROM vera_schema_migrations WHERE migration_name LIKE 'stt_project_%' ORDER BY migration_name",
+    );
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.find((row) => row.migration_name === PROJECT_COMMENTS_MIGRATION)).toMatchObject({
+      schema_version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST,
+    });
+    expect(rows.rows.some((row) => row.migration_name === PROJECT_DOCUMENTS_MIGRATION)).toBe(true);
+    const tables = await db.query<{ name: string }>(
+      "SELECT tablename AS name FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'stt_comment_%'",
+    );
+    expect(tables.rows.map((row) => row.name).sort()).toEqual(["stt_comment_events", "stt_comment_heads"]);
+  });
+
+  it("refuses mismatched digest or version without applying another migration", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex') WHERE migration_name=$2",
+      ["00".repeat(32), PROJECT_COMMENTS_MIGRATION]);
+    await expect(applyProjectCommentsMigration(db)).rejects.toThrow("checksum mismatch");
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex'),schema_version=99 " +
+      "WHERE migration_name=$2", [PROJECT_COMMENTS_MIGRATION_DIGEST, PROJECT_COMMENTS_MIGRATION]);
+    await expect(applyProjectCommentsMigration(db)).rejects.toThrow("checksum mismatch");
+    const result = await db.query<{ count: number }>(
+      "SELECT count(*)::integer AS count FROM stt_comment_events",
+    );
+    expect(result.rows[0]?.count).toBe(0);
+  });
+
+  it("enforces event uniqueness, revision monotonicity, checksums and append-only triggers", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    const actor = randomUUID();
+    const project = randomUUID();
+    const request = randomUUID();
+    const digest = `sha256:${"a".repeat(64)}`;
+    await db.query("INSERT INTO vera_identity_actors(id,issuer,subject) VALUES($1,'test','synthetic')", [actor]);
+    await db.query("INSERT INTO stt_projects(id,title,created_by,client_create_request_id,create_request_digest) " +
+      "VALUES($1,'Test',$2,$3,$4)", [project, actor, randomUUID(), digest]);
+    const headSql = "INSERT INTO stt_comment_heads(project_id,document_id,document_revision,comment_revision," +
+      "state_json,state_digest,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7)";
+    await db.query(headSql, [project, randomUUID(), 0, 1, "{}", digest, actor]);
+    await expect(db.query(headSql, [randomUUID(), randomUUID(), 0, 0, "{}", digest, actor])).rejects.toThrow();
+    await expect(db.query("UPDATE stt_comment_heads SET state_digest=$2 WHERE project_id=$1",
+      [project, "invalid"])).rejects.toThrow();
+    const eventSql = "INSERT INTO stt_comment_events(project_id,comment_revision,expected_comment_revision," +
+      "document_revision,actor_id,client_mutation_id,request_digest,operation_json) " +
+      "VALUES($1,$2,$3,0,$4,$5,$6,$7)";
+    await db.query(eventSql, [project, 1, 0, actor, request, digest, "{}"]);
+    await expect(db.query(eventSql, [project, 3, 0, actor, randomUUID(), digest, "{}"])).rejects.toThrow();
+    await expect(db.query(eventSql, [project, 2, 1, actor, request, digest, "{}"])).rejects.toThrow();
+    await expect(db.query(eventSql, [project, 2, 1, actor, randomUUID(), "invalid", "{}"])).rejects.toThrow();
+    await expect(db.query("UPDATE stt_comment_events SET operation_json='{}' WHERE project_id=$1",
+      [project])).rejects.toThrow(/append-only/u);
+    await expect(db.query("DELETE FROM stt_comment_events WHERE project_id=$1", [project]))
+      .rejects.toThrow(/append-only/u);
+    const history = await db.query<{ count: number }>(
+      "SELECT count(*)::integer AS count FROM stt_comment_events WHERE project_id=$1", [project],
+    );
+    expect(history.rows[0]?.count).toBe(1);
   });
 });

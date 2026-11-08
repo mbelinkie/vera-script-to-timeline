@@ -213,6 +213,43 @@ function programModel(items, projectNumber, projectTitle) {
     projectNumber, projectTitle };
 }
 
+test("Queue Order accepts positive finite fractional positions without truncation", () => {
+  const cases = [
+    [15, 15, false],
+    [15.5, 15.5, false],
+    [{ number: 15.7 }, 15.7, false],
+    ["15.9", 15.9, false],
+    [0, null, true],
+    [-0.5, null, true],
+    ["NaN", null, true],
+    ["Infinity", null, true],
+    ["not a number", null, true],
+    [Number.MAX_SAFE_INTEGER + 1, null, true],
+  ];
+  for (const [raw, expected, invalid] of cases) {
+    const item = programIssue(500, "application", raw, "M1");
+    const parsed = parseProjectItems({ items: [item] }).workItems[0];
+    assert.equal(parsed.queueOrder, expected, `value ${JSON.stringify(raw)}`);
+    assert.equal(parsed.queueOrderInvalid, invalid, `value ${JSON.stringify(raw)}`);
+  }
+});
+
+test("fractional Queue Order sorts numerically and detects duplicate and reversed dependencies", () => {
+  const model = programModel([
+    programIssue(5, "application", 15, "M1"),
+    programIssue(6, "application", 15.5, "M1", { blockedBy: ["https://github.com/test/application/issues/5"] }),
+    programIssue(7, "application", 15.7, "M1", { blockedBy: ["https://github.com/test/application/issues/8"] }),
+    programIssue(8, "application", 15.9, "M1"),
+    programIssue(9, "application", 15.7, "M1"),
+    programIssue(10, "application", 16, "M1"),
+  ], 2, "VERA Shared");
+  const roadmap = buildSharedRoadmap(model);
+  assert.deepEqual(roadmap.queue.map((item) => item.queueOrder), [15, 15.5, 15.7, 15.7, 15.9, 16]);
+  assert.match(roadmap.warnings.join(" "), /Queue #15\.7 is assigned to both/);
+  assert.match(roadmap.warnings.join(" "), /depends on test\/application#8 at #15\.9/);
+  assert.doesNotMatch(roadmap.warnings.join(" "), /positive finite number/);
+});
+
 test("flags reversed, missing, and duplicate queue positions instead of auto-fixing them", () => {
   const model = programModel([
     programIssue(5, "research", 40, "M1", { blockedBy: [] }),

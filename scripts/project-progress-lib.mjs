@@ -126,7 +126,9 @@ function readQueueOrder(item) {
   const raw = projectField(item, "Queue Order");
   if (raw === null || raw === undefined || raw === "") return { value: null, invalid: false };
   const value = Number(typeof raw === "object" && raw !== null ? raw.number ?? raw.value : raw);
-  return Number.isSafeInteger(value) && value > 0
+  // GitHub's Project Number field supports fractional queue slots (e.g. 15.5).
+  // Keep exact numeric ordering while rejecting non-finite and unsafe ranks.
+  return Number.isFinite(value) && value > 0 && value <= Number.MAX_SAFE_INTEGER
     ? { value, invalid: false }
     : { value: null, invalid: true };
 }
@@ -401,7 +403,7 @@ export function buildSharedRoadmap(models, dependencySnapshot = {}) {
   }
 
   const invalidRankCount = all.filter((item) => item.queueOrderInvalid).length;
-  if (invalidRankCount) warnings.push(`${invalidRankCount} issues have an invalid Queue Order (must be a positive integer).`);
+  if (invalidRankCount) warnings.push(`${invalidRankCount} issues have an invalid Queue Order (must be a positive finite number).`);
   const unassignedMilestones = queue.filter((item) => !item.programMilestone).length;
   if (unassignedMilestones) warnings.push(`${unassignedMilestones} queued issues have no Program Milestone.`);
 

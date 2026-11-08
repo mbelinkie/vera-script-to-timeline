@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const migrations = vi.hoisted(() => ({ auth: vi.fn(), docs: vi.fn() }));
+const migrations = vi.hoisted(() => ({
+  auth: vi.fn(), docs: vi.fn(), comments: vi.fn(), history: vi.fn(), builds: vi.fn(),
+}));
 vi.mock("@vera/project-authorization", async (importOriginal) => ({
   ...await importOriginal<object>(),
   applyProjectAuthorizationMigration: migrations.auth,
@@ -8,10 +10,20 @@ vi.mock("@vera/project-authorization", async (importOriginal) => ({
 vi.mock("@vera/project-documents", async (importOriginal) => ({
   ...await importOriginal<object>(),
   applyProjectDocumentsMigration: migrations.docs,
+  applyProjectCommentsMigration: migrations.comments,
+  applyProjectHistoryMigration: migrations.history,
+}));
+vi.mock("@vera/project-builds", async (importOriginal) => ({
+  ...await importOriginal<object>(),
+  applyProjectBuildsMigration: migrations.builds,
 }));
 
 import { MIGRATION_DIGEST, MIGRATION_NAME, type SqlClient, type SqlPool } from "@vera/project-authorization";
-import { PROJECT_DOCUMENTS_MIGRATION, PROJECT_DOCUMENTS_MIGRATION_DIGEST } from "@vera/project-documents";
+import { PROJECT_DOCUMENTS_MIGRATION, PROJECT_DOCUMENTS_MIGRATION_DIGEST,
+  PROJECT_COMMENTS_MIGRATION, PROJECT_COMMENTS_MIGRATION_DIGEST } from "@vera/project-documents";
+import { PROJECT_HISTORY_MIGRATION, PROJECT_HISTORY_MIGRATION_DIGEST } from "@vera/project-documents";
+import { PROJECT_BUILDS_MIGRATION, PROJECT_BUILDS_MIGRATION_DIGEST,
+  BUILD_REFUSALS_MIGRATION, BUILD_REFUSALS_MIGRATION_DIGEST } from "@vera/project-builds";
 
 import { applyQaMigrations, assertQaDatabaseTarget, QaDatabaseRefusal } from "../src/migrate.js";
 import type { QaConfig } from "../src/qa-config.js";
@@ -27,6 +39,10 @@ const user = {
 const receipts = [
   { name: MIGRATION_NAME, version: 1, checksum: MIGRATION_DIGEST },
   { name: PROJECT_DOCUMENTS_MIGRATION, version: 1, checksum: PROJECT_DOCUMENTS_MIGRATION_DIGEST },
+  { name: PROJECT_COMMENTS_MIGRATION, version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST },
+  { name: PROJECT_HISTORY_MIGRATION, version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST },
+  { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
+  { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
 ];
 
 function harness(args: { user?: typeof user; tables?: { schema_name: string; table_name: string }[];
@@ -48,12 +64,20 @@ describe("QA target preflight and ordered migrations", () => {
     vi.clearAllMocks();
     migrations.auth.mockResolvedValue(undefined);
     migrations.docs.mockResolvedValue(undefined);
+    migrations.comments.mockResolvedValue(undefined);
+    migrations.history.mockResolvedValue(undefined);
+    migrations.builds.mockResolvedValue(undefined);
   });
 
   it("checks identity and all preexisting tables before any DDL", async () => {
     const h = harness({ tables: [
       { schema_name: "public", table_name: "vera_project_members" },
       { schema_name: "public", table_name: "stt_document_heads" },
+      { schema_name: "public", table_name: "stt_comment_heads" },
+      { schema_name: "public", table_name: "stt_comment_events" },
+      { schema_name: "public", table_name: "stt_document_checkpoints" },
+      { schema_name: "public", table_name: "stt_checkpoint_approvals" },
+      { schema_name: "public", table_name: "stt_document_restores" },
     ] });
     await expect(assertQaDatabaseTarget(h.client, config)).resolves.toBeUndefined();
     expect(h.query).toHaveBeenCalledTimes(2);
@@ -72,6 +96,8 @@ describe("QA target preflight and ordered migrations", () => {
     await expect(applyQaMigrations(h.pool, config)).rejects.toThrow(QaDatabaseRefusal);
     expect(migrations.auth).not.toHaveBeenCalled();
     expect(migrations.docs).not.toHaveBeenCalled();
+    expect(migrations.comments).not.toHaveBeenCalled();
+    expect(migrations.history).not.toHaveBeenCalled();
     expect(h.release).toHaveBeenCalledOnce();
   });
 
@@ -79,6 +105,8 @@ describe("QA target preflight and ordered migrations", () => {
     for (const table of [
       { schema_name: "public", table_name: "research_clips" },
       { schema_name: "research", table_name: "stt_projects" },
+      { schema_name: "public", table_name: "stt_comment_notifications" },
+      { schema_name: "public", table_name: "stt_document_restore_unsafe" },
     ]) {
       const h = harness({ tables: [table] });
       await expect(applyQaMigrations(h.pool, config)).rejects.toThrow(QaDatabaseRefusal);
@@ -96,9 +124,21 @@ describe("QA target preflight and ordered migrations", () => {
       calls.push("docs"); expect(db).toBe(h.client);
       return Promise.resolve();
     });
+    migrations.comments.mockImplementation((db: SqlClient) => {
+      calls.push("comments"); expect(db).toBe(h.client);
+      return Promise.resolve();
+    });
+    migrations.history.mockImplementation((db: SqlClient) => {
+      calls.push("history"); expect(db).toBe(h.client);
+      return Promise.resolve();
+    });
+    migrations.builds.mockImplementation((db: SqlClient) => {
+      calls.push("builds"); expect(db).toBe(h.client);
+      return Promise.resolve();
+    });
     const h = harness();
     expect(await applyQaMigrations(h.pool, config)).toEqual(receipts);
-    expect(calls).toEqual(["auth", "docs"]);
+    expect(calls).toEqual(["auth", "docs", "comments", "history", "builds"]);
     expect(h.query.mock.calls.map(([sql]) => sql.includes("FROM vera_schema_migrations")))
       .toEqual([false, false, true]);
     expect(h.release).toHaveBeenCalledOnce();
@@ -106,7 +146,10 @@ describe("QA target preflight and ordered migrations", () => {
 
   it("fails shut on bad or extra migration receipts", async () => {
     for (const changed of [
-      [receipts[0]!, { ...receipts[1]!, checksum: "0".repeat(64) }],
+      receipts.map((row) => row.name === PROJECT_HISTORY_MIGRATION ?
+        { ...row, checksum: "0".repeat(64) } : row),
+      receipts.map((row) => row.name === PROJECT_HISTORY_MIGRATION ?
+        { ...row, version: 99 } : row),
       [receipts[0]!],
       [...receipts, { name: "unexpected", version: 1, checksum: "c".repeat(64) }],
     ]) {
@@ -121,6 +164,9 @@ describe("QA target preflight and ordered migrations", () => {
     const h = harness();
     await expect(applyQaMigrations(h.pool, config)).rejects.toThrow("checksum refused");
     expect(migrations.docs).not.toHaveBeenCalled();
+    expect(migrations.comments).not.toHaveBeenCalled();
+    expect(migrations.history).not.toHaveBeenCalled();
+    expect(migrations.builds).not.toHaveBeenCalled();
     expect(h.release).toHaveBeenCalledOnce();
   });
 });

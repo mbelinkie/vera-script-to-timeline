@@ -7,6 +7,14 @@ export const PROJECT_DOCUMENTS_MIGRATION = "stt_project_documents_001";
 const SQL = readFileSync(new URL("../migrations/001_stt_projects_documents.sql", import.meta.url), "utf8");
 export const PROJECT_DOCUMENTS_MIGRATION_DIGEST = createHash("sha256").update(SQL).digest("hex");
 
+export const PROJECT_COMMENTS_MIGRATION = "stt_project_comments_002";
+const COMMENTS_SQL = readFileSync(new URL("../migrations/002_stt_project_comments.sql", import.meta.url), "utf8");
+export const PROJECT_COMMENTS_MIGRATION_DIGEST = createHash("sha256").update(COMMENTS_SQL).digest("hex");
+
+export const PROJECT_HISTORY_MIGRATION = "stt_project_history_003";
+const HISTORY_SQL = readFileSync(new URL("../migrations/003_stt_project_history.sql", import.meta.url), "utf8");
+export const PROJECT_HISTORY_MIGRATION_DIGEST = createHash("sha256").update(HISTORY_SQL).digest("hex");
+
 /** Run after applyProjectAuthorizationMigration, using the same PostgreSQL database. */
 export async function applyProjectDocumentsMigration(db: SqlClient): Promise<void> {
   await db.query("BEGIN");
@@ -27,6 +35,64 @@ export async function applyProjectDocumentsMigration(db: SqlClient): Promise<voi
       await db.query(
         "INSERT INTO vera_schema_migrations(migration_name,schema_version,checksum) VALUES($1,1,decode($2,'hex'))",
         [PROJECT_DOCUMENTS_MIGRATION, PROJECT_DOCUMENTS_MIGRATION_DIGEST],
+      );
+    }
+    await db.query("COMMIT");
+  } catch (error) {
+    await db.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Run only after applyProjectDocumentsMigration; never rewrite/checksum-bypass 001. */
+export async function applyProjectCommentsMigration(db: SqlClient): Promise<void> {
+  await db.query("BEGIN");
+  try {
+    await db.query("SELECT pg_advisory_xact_lock($1)", [38_000_002]);
+    const old = await db.query<{ checksum: string; schema_version: number }>(
+      "SELECT encode(checksum,'hex') AS checksum,schema_version FROM vera_schema_migrations WHERE migration_name=$1",
+      [PROJECT_COMMENTS_MIGRATION],
+    );
+    if (old.rows.length) {
+      if (old.rows[0]?.checksum !== PROJECT_COMMENTS_MIGRATION_DIGEST ||
+          Number(old.rows[0]?.schema_version) !== 2) {
+        throw new Error("project comments migration checksum mismatch");
+      }
+    } else {
+      if (db.exec) await db.exec(COMMENTS_SQL);
+      else await db.query(COMMENTS_SQL);
+      await db.query(
+        "INSERT INTO vera_schema_migrations(migration_name,schema_version,checksum) VALUES($1,2,decode($2,'hex'))",
+        [PROJECT_COMMENTS_MIGRATION, PROJECT_COMMENTS_MIGRATION_DIGEST],
+      );
+    }
+    await db.query("COMMIT");
+  } catch (error) {
+    await db.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Run after 001/002 on the same identity-enabled database; append-only and checksum-pinned. */
+export async function applyProjectHistoryMigration(db: SqlClient): Promise<void> {
+  await db.query("BEGIN");
+  try {
+    await db.query("SELECT pg_advisory_xact_lock($1)", [38_000_003]);
+    const old = await db.query<{ checksum: string; schema_version: number }>(
+      "SELECT encode(checksum,'hex') AS checksum,schema_version FROM vera_schema_migrations WHERE migration_name=$1",
+      [PROJECT_HISTORY_MIGRATION],
+    );
+    if (old.rows.length) {
+      if (old.rows[0]?.checksum !== PROJECT_HISTORY_MIGRATION_DIGEST ||
+          Number(old.rows[0]?.schema_version) !== 3) {
+        throw new Error("project history migration checksum mismatch");
+      }
+    } else {
+      if (db.exec) await db.exec(HISTORY_SQL);
+      else await db.query(HISTORY_SQL);
+      await db.query(
+        "INSERT INTO vera_schema_migrations(migration_name,schema_version,checksum) VALUES($1,3,decode($2,'hex'))",
+        [PROJECT_HISTORY_MIGRATION, PROJECT_HISTORY_MIGRATION_DIGEST],
       );
     }
     await db.query("COMMIT");

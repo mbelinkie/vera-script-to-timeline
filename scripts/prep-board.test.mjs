@@ -72,6 +72,24 @@ test("only implementation/bug issues with finished dependencies are groomable", 
   assert.equal(byNumber[7].stage, "running");
 });
 
+test("conductor prep rows preserve fractional order without promoting design work", () => {
+  const timeline = model("VERA Script-to-Timeline Roadmap", [
+    issue(TL, 491, { type: "design", status: "Blocked", queue: 15.9 }),
+    issue(TL, 490, { type: "investigation", status: "Blocked", queue: 15.7 }),
+    issue(TL, 489, { status: "Done", queue: 15.5 }),
+    issue(TL, 473, { status: "Ready", queue: 16, labels: ["codex-prepped"] }),
+  ]);
+  const verified = [491, 490, 489, 473].map((n) => url(TL, n));
+  const board = buildBoard([timeline], {
+    verified,
+    dependencies: Object.fromEntries(verified.map((key) => [key, []])),
+  }, { [TL]: [] });
+  assert.deepEqual(board.rows.map((row) => row.queueOrder), [15.7, 15.9, 16]);
+  assert.equal(board.rows.find((row) => row.number === 491).canGroom, false);
+  assert.equal(board.rows.find((row) => row.number === 490).canGroom, false);
+  assert.equal(board.nextPrepped.number, 473);
+});
+
 test("summary reports progress, code lines and the next milestone", () => {
   const { summary } = fixture();
   assert.equal(summary.total, 10);

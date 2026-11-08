@@ -8,7 +8,11 @@ import {
   type SqlPool,
 } from "@vera/project-authorization";
 
-import { applyProjectDocumentsMigration } from "../src/migration.js";
+import {
+  applyProjectCommentsMigration,
+  applyProjectDocumentsMigration,
+  applyProjectHistoryMigration,
+} from "../src/migration.js";
 import { ProjectDocumentService } from "../src/service.js";
 
 /* eslint-disable @typescript-eslint/require-await -- Test pool implements the asynchronous SQL port. */
@@ -33,6 +37,8 @@ export async function harness() {
   await db.waitReady;
   await applyProjectAuthorizationMigration(db);
   await applyProjectDocumentsMigration(db);
+  await applyProjectCommentsMigration(db);
+  await applyProjectHistoryMigration(db);
   const pool: SqlPool = { connect: async () => db };
   const auth = new ProjectAuthorizationService(pool);
   const service = new ProjectDocumentService(pool, auth);

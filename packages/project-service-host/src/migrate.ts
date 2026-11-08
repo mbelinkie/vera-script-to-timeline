@@ -6,10 +6,23 @@ import {
   type SqlPool,
 } from "@vera/project-authorization";
 import {
+  applyProjectCommentsMigration,
   applyProjectDocumentsMigration,
+  applyProjectHistoryMigration,
+  PROJECT_COMMENTS_MIGRATION,
+  PROJECT_COMMENTS_MIGRATION_DIGEST,
   PROJECT_DOCUMENTS_MIGRATION,
   PROJECT_DOCUMENTS_MIGRATION_DIGEST,
+  PROJECT_HISTORY_MIGRATION,
+  PROJECT_HISTORY_MIGRATION_DIGEST,
 } from "@vera/project-documents";
+import {
+  applyProjectBuildsMigration,
+  BUILD_REFUSALS_MIGRATION,
+  BUILD_REFUSALS_MIGRATION_DIGEST,
+  PROJECT_BUILDS_MIGRATION,
+  PROJECT_BUILDS_MIGRATION_DIGEST,
+} from "@vera/project-builds";
 
 import type { QaConfig } from "./qa-config.js";
 
@@ -30,11 +43,28 @@ const ALLOWED_TABLES = new Set([
   "stt_project_settings",
   "stt_settings_revisions",
   "stt_project_title_mutations",
+  "stt_comment_heads",
+  "stt_comment_events",
+  "stt_document_checkpoints",
+  "stt_checkpoint_approvals",
+  "stt_document_restores",
+  "stt_build_pairing_offers",
+  "stt_project_build_agents",
+  "stt_build_submissions",
+  "stt_build_source_pins",
+  "stt_build_dispatches",
+  "stt_build_events",
+  "stt_build_evidence",
+  "stt_build_preflight_refusals",
 ]);
 
 const EXPECTED_MIGRATIONS = [
   { name: MIGRATION_NAME, version: 1, checksum: MIGRATION_DIGEST },
   { name: PROJECT_DOCUMENTS_MIGRATION, version: 1, checksum: PROJECT_DOCUMENTS_MIGRATION_DIGEST },
+  { name: PROJECT_COMMENTS_MIGRATION, version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST },
+  { name: PROJECT_HISTORY_MIGRATION, version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST },
+  { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
+  { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
 ] as const;
 
 export interface QaMigrationReceipt {
@@ -82,7 +112,7 @@ export async function assertQaDatabaseTarget(db: SqlClient, config: QaConfig): P
   }
 }
 
-/** Run both *existing* checksum-verified migrations on one held connection. */
+/** Apply only the checksum-pinned QA migrations, in dependency order. */
 export async function applyQaMigrations(
   pool: SqlPool,
   config: QaConfig,
@@ -92,6 +122,9 @@ export async function applyQaMigrations(
     await assertQaDatabaseTarget(db, config);
     await applyProjectAuthorizationMigration(db);
     await applyProjectDocumentsMigration(db);
+    await applyProjectCommentsMigration(db);
+    await applyProjectHistoryMigration(db);
+    await applyProjectBuildsMigration(db);
     const receipts = await db.query<{
       name: string;
       version: number;
