@@ -221,6 +221,8 @@ describe("immutable, authorized project checkpoints", () => {
     });
     for (const change of [
       { source_digest: `sha256:${"0".repeat(64)}` },
+      { source_digest: `sha256:${"0".repeat(64)}`,
+        revision_digest: `sha256:${"0".repeat(64)}` },
       { document_json: "{}" },
       { revision_document_json: "{}" },
       { document_id: randomUUID() },
