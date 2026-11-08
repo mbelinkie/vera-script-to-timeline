@@ -6,16 +6,20 @@ import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
 import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
 export type { RowGapV2 } from "./generated/contracts-v2.js";
 
+/** Exact outline gap for a deliberate Stash drop (not an active-Draft RowGap). */
+export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null };
+
 export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
-  | { kind: "stash_rows"; rowIds: string[]; bundleId: string }
+  | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
   | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
   | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
   | { kind: "move_stash_group"; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
@@ -126,6 +130,14 @@ function rowPayload(value: unknown): value is Row {
 
 function rowGapPayload(value: unknown): value is RowGapV2 {
   return plainObject(value) && exactKeys(value, ["sectionId", "afterRowId", "beforeRowId"]) &&
+    (value.sectionId === null || typeof value.sectionId === "string") &&
+    (value.afterRowId === null || typeof value.afterRowId === "string") &&
+    (value.beforeRowId === null || typeof value.beforeRowId === "string");
+}
+
+function stashReturnDestinationPayload(value: unknown): value is StashReturnDestinationV2 {
+  return plainObject(value) && exactKeys(value, ["sectionId", "parentRowId", "afterRowId", "beforeRowId"]) &&
+    (value.parentRowId === null || typeof value.parentRowId === "string" && value.parentRowId.length > 0) &&
     (value.sectionId === null || typeof value.sectionId === "string") &&
     (value.afterRowId === null || typeof value.afterRowId === "string") &&
     (value.beforeRowId === null || typeof value.beforeRowId === "string");
@@ -600,199 +612,196 @@ function selectedOutlineSubtree(entries: StashOutlineEntryV2[], roots: string[])
   return entries.filter((entry) => rootSet.has(entry.rowId) || roots.some((rootRowId) => isOutlineDescendant(entry, rootRowId, byId)));
 }
 
-interface StashReturnPlan {
-  entry: StashOutlineEntryV2;
-  afterSiblingRowId: string | null;
-  beforeSiblingRowId: string | null;
-  appendToSection: boolean;
-  activeOrder: number;
-}
-
-function orderReturningSiblings(entries: StashOutlineEntryV2[], plans: StashReturnPlan[]): string[] | null {
-  if (plans.length === 0) return [];
-  const parentRowId = plans[0]!.entry.parentRowId;
-  const sectionId = plans[0]!.entry.sectionId;
-  if (plans.some((plan) => plan.entry.parentRowId !== parentRowId || plan.entry.sectionId !== sectionId)) return null;
-  const current = entries.filter((entry) => entry.parentRowId === parentRowId && entry.sectionId === sectionId);
-  const ids = [...current.map((entry) => entry.rowId), ...plans.map((plan) => plan.entry.rowId)];
-  const nodeIds = new Set(ids);
-  if (nodeIds.size !== ids.length) return null;
-  const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
-  const incoming = new Map(ids.map((id) => [id, 0]));
-  const addEdge = (before: string, after: string): void => {
-    if (before === after || !nodeIds.has(before) || !nodeIds.has(after)) return;
-    const edges = outgoing.get(before)!;
-    if (edges.has(after)) return;
-    edges.add(after);
-    incoming.set(after, incoming.get(after)! + 1);
-  };
-  for (let index = 1; index < current.length; index += 1) addEdge(current[index - 1]!.rowId, current[index]!.rowId);
-
-  for (const plan of plans) {
-    const { afterSiblingRowId: after, beforeSiblingRowId: before } = plan;
-    if (after === plan.entry.rowId || before === plan.entry.rowId) return null;
-    const hasAfter = after !== null && nodeIds.has(after);
-    const hasBefore = before !== null && nodeIds.has(before);
-    const historicalAnchors = Number(after !== null) + Number(before !== null);
-    if (historicalAnchors > 0 && !hasAfter && !hasBefore && !plan.appendToSection) return null;
-    if (hasAfter) addEdge(after, plan.entry.rowId);
-    if (hasBefore) addEdge(plan.entry.rowId, before);
-
-    if (hasAfter && hasBefore && current.some((entry) => entry.rowId === after) && current.some((entry) => entry.rowId === before)) {
-      const afterIndex = current.findIndex((entry) => entry.rowId === after);
-      const beforeIndex = current.findIndex((entry) => entry.rowId === before);
-      if (beforeIndex !== afterIndex + 1) return null;
-    }
-    if (!plan.appendToSection && Number(hasAfter) + Number(hasBefore) === 1) {
-      if (hasAfter && current.some((entry) => entry.rowId === after) && !hasBefore) {
-        const index = current.findIndex((entry) => entry.rowId === after);
-        const next = current[index + 1];
-        if (next) addEdge(plan.entry.rowId, next.rowId);
-      } else if (hasBefore && current.some((entry) => entry.rowId === before) && !hasAfter) {
-        const index = current.findIndex((entry) => entry.rowId === before);
-        const previous = current[index - 1];
-        if (previous) addEdge(previous.rowId, plan.entry.rowId);
-      }
-    }
-  }
-
-  const appended = plans.filter((plan) => plan.appendToSection).sort((left, right) => left.activeOrder - right.activeOrder);
-  if (appended.length > 0) {
-    if (current.length > 0) for (const plan of appended) addEdge(current.at(-1)!.rowId, plan.entry.rowId);
-    for (let index = 1; index < appended.length; index += 1) addEdge(appended[index - 1]!.entry.rowId, appended[index]!.entry.rowId);
-  }
-
-  const remaining = new Set(ids);
-  const order: string[] = [];
-  while (remaining.size > 0) {
-    const ready = [...remaining].filter((id) => incoming.get(id) === 0);
-    if (ready.length !== 1) return null;
-    const next = ready[0]!;
-    order.push(next);
-    remaining.delete(next);
-    for (const child of outgoing.get(next)!) incoming.set(child, incoming.get(child)! - 1);
-  }
-  for (const plan of plans) {
-    if (plan.appendToSection) continue;
-    const index = order.indexOf(plan.entry.rowId);
-    const hasAfter = plan.afterSiblingRowId !== null && nodeIds.has(plan.afterSiblingRowId);
-    const hasBefore = plan.beforeSiblingRowId !== null && nodeIds.has(plan.beforeSiblingRowId);
-    if (hasAfter && order[index - 1] !== plan.afterSiblingRowId) return null;
-    if (hasBefore && order[index + 1] !== plan.beforeSiblingRowId) return null;
-  }
-  return order;
-}
-
-function insertReturningSiblingGroup(document: ScriptDocumentV2, entries: StashOutlineEntryV2[], plans: StashReturnPlan[], order: string[]): boolean {
-  const planById = new Map(plans.map((plan) => [plan.entry.rowId, plan]));
-  for (let index = 0; index < order.length; index += 1) {
-    const plan = planById.get(order[index]!);
-    if (!plan) continue;
-    const isSibling = (entry: StashOutlineEntryV2): boolean => entry.parentRowId === plan.entry.parentRowId && entry.sectionId === plan.entry.sectionId;
-    const previous = order.slice(0, index).reverse().find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
-    const next = order.slice(index + 1).find((rowId) => entries.some((entry) => entry.rowId === rowId && isSibling(entry)));
-    const parentIndex = plan.entry.parentRowId === null ? -1 : entries.findIndex((entry) => entry.rowId === plan.entry.parentRowId);
-    const insertAt = previous
-      ? outlineSubtreeEnd(entries, previous) + 1
-      : next
-        ? entries.findIndex((entry) => entry.rowId === next)
-        : parentIndex >= 0
-          ? outlineSubtreeEnd(entries, plan.entry.parentRowId!) + 1
-          : outlineInsertionIndex(document, entries, null, plan.entry.sectionId, null) ?? -1;
-    if (insertAt < 0) return false;
-    entries.splice(insertAt, 0, plan.entry);
-  }
-  return true;
-}
-
-function planStashReturn(document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[]): StashOutlineEntryV2[] | null {
-  const selected = new Set(rows.map((row) => row.id));
+/**
+ * Plan against a cloned outline. Selected rows are inserted as one transaction;
+ * no live parent, unrelated outline peer, or media owner is moved to make room.
+ */
+function planStashReturn(
+  document: ScriptDocumentV2, rows: Row[], entries: StashOutlineEntryV2[],
+  destination?: StashReturnDestinationV2,
+  asGroup = false,
+): StashOutlineEntryV2[] | null {
   const result = structuredClone(entries);
-  const originalParents = outlineMap(entries);
-  const resultingKinds = new Map(rows.map((row) => [row.id, row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
-  const activeParentContexts = new Map<string, { row: Row; origin: StashOriginV2 | undefined; returnedChildIds: Set<string> }>();
-  for (const row of rows) {
-    const parentRowId = row.stashOrigin?.parentRowId;
-    if (!parentRowId || activeParentContexts.has(parentRowId)) continue;
-    const parent = document.activeDraft.blocks.find((block) => block.id === parentRowId && block.type !== "section");
-    if (parent && parent.type !== "section") activeParentContexts.set(parentRowId, {
-      row: parent,
-      origin: parent.stashOrigin ? { ...parent.stashOrigin } : undefined,
-      returnedChildIds: new Set(),
-    });
-  }
-  const pending: StashReturnPlan[] = [];
-  for (const [activeOrder, row] of rows.entries()) {
-    const origin: StashOriginV2 | undefined = row.stashOrigin;
-    const kind = origin?.returnEligible && origin.kind !== "row" ? origin.kind : "row";
-    let parentRowId = origin?.parentRowId ?? null;
-    let afterSiblingRowId = origin?.afterSiblingRowId ?? null;
-    let beforeSiblingRowId = origin?.beforeSiblingRowId ?? null;
-    const sectionId = origin?.sectionId ?? null;
-    // A separated attachment has no historical *clip* sibling slot. With an
-    // unchanged owner it can safely append as an ordinary child when occupied.
-    let appendToSection = origin === undefined || !!origin?.originalAttachedNoteRowId &&
-      parentRowId === origin.originalAttachedNoteRowId && afterSiblingRowId === null && beforeSiblingRowId === null;
-    if (parentRowId !== null) {
-      if (selected.has(parentRowId)) {
-        if (resultingKinds.get(parentRowId) !== "note") return null;
-      } else if (document.activeDraft.blocks.some((block) => block.id === parentRowId && block.type !== "section")) {
-        const originalParentRowId = parentRowId;
-        const parentContext = activeParentContexts.get(originalParentRowId);
-        const parentOrigin = parentContext?.origin;
-        if (parentOrigin && parentOrigin.sectionId !== sectionId) return null;
-        const currentRoots = entries.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
-        const currentRootIds = new Set(currentRoots.map((entry) => entry.rowId));
-        const returningSiblingIds = new Set(rows
-          .filter((candidate) => candidate.id !== row.id && candidate.stashOrigin?.parentRowId === originalParentRowId && candidate.stashOrigin.sectionId === sectionId)
-          .map((candidate) => candidate.id));
-        const isTopLevelAnchor = (anchor: string | null): boolean => anchor !== null && (currentRootIds.has(anchor) || returningSiblingIds.has(anchor));
-        if (parentOrigin) {
-          const resolvedAfter = isTopLevelAnchor(afterSiblingRowId);
-          const resolvedBefore = isTopLevelAnchor(beforeSiblingRowId);
-          if (!resolvedAfter) afterSiblingRowId = parentOrigin.afterSiblingRowId;
-          if (!resolvedBefore && !(resolvedAfter && afterSiblingRowId === parentOrigin.beforeSiblingRowId)) beforeSiblingRowId = parentOrigin.beforeSiblingRowId;
-          if (!resolvedAfter && resolvedBefore && beforeSiblingRowId === parentOrigin.afterSiblingRowId) afterSiblingRowId = null;
-        }
-        parentRowId = null;
-        appendToSection = currentRoots.length === 0;
-        parentContext?.returnedChildIds.add(row.id);
-      } else {
-        const parent = originalParents.get(parentRowId);
-        if (!parent || parent.kind !== "note") return null;
-      }
-    }
-    if (!sectionExists(document, sectionId)) return null;
-    const selectedParent = selected.has(origin?.parentRowId ?? "") ? rows.find((candidate) => candidate.id === origin!.parentRowId) : undefined;
-    if (selectedParent?.stashOrigin && selectedParent.stashOrigin.sectionId !== sectionId) return null;
-    const existingParent = parentRowId === null ? undefined : originalParents.get(parentRowId);
-    if (existingParent && existingParent.sectionId !== sectionId) return null;
-    pending.push({
-      entry: { rowId: row.id, kind, parentRowId, sectionId },
-      afterSiblingRowId,
-      beforeSiblingRowId,
-      appendToSection,
-      activeOrder,
-    });
+  const selected = new Map(rows.map((row) => [row.id, row]));
+  const returnedKinds = new Map(rows.map((row) => [row.id,
+    row.stashOrigin?.returnEligible && row.stashOrigin.kind !== "row" ? row.stashOrigin.kind : "row"] as const));
+  // An edited note cannot turn into an ordinary full row while carrying an
+  // embedded clip owner. Never copy or silently detach that owned occurrence.
+  // Group formation explicitly retains the full canonical note (and its owned
+  // clip) as a member. Ordinary returns must never make that conversion.
+  if (!asGroup && rows.some((row) => row.type === "narration" && row.attachedFootage && returnedKinds.get(row.id) === "row")) return null;
+  const sectionIds = new Set((document.stashSections ?? []).map((section) => section.id));
+  const original = new Map(rows.map((row) => [row.id, row.stashOrigin] as const));
+  const placed = new Set<string>();
+  const cursors = new Map<string, string>();
+
+  if (destination) {
+    if (!sectionExists(document, destination.sectionId)) return null;
+    if (destination.parentRowId !== null && !result.some((entry) =>
+      entry.rowId === destination.parentRowId && entry.kind === "note" && entry.sectionId === destination.sectionId)) return null;
+    const peers = result.filter((entry) =>
+      entry.parentRowId === destination.parentRowId && entry.sectionId === destination.sectionId);
+    const after = peers.findIndex((entry) => entry.rowId === destination.afterRowId);
+    const before = peers.findIndex((entry) => entry.rowId === destination.beforeRowId);
+    // An explicit drop names the CURRENT adjacent gap, including its edges.
+    if (destination.afterRowId === null ? before !== 0 && peers.length !== 0 :
+      after < 0 || (destination.beforeRowId === null ? after !== peers.length - 1 : before !== after + 1)) return null;
+    if (destination.beforeRowId !== null && before < 0) return null;
+    if (destination.afterRowId === null && destination.beforeRowId === null && peers.length !== 0) return null;
   }
 
+  // A row must wait until its selected ancestor is placed: no row may become
+  // the child of a saved full row (only a genuine saved note owns children).
+  const pending = [...rows];
   while (pending.length > 0) {
-    const ready = pending.find((plan) => plan.entry.parentRowId === null || result.some((entry) => entry.rowId === plan.entry.parentRowId));
-    if (!ready) return null;
-    const groupPlans = pending.filter((plan) => plan.entry.parentRowId === ready.entry.parentRowId && plan.entry.sectionId === ready.entry.sectionId);
-    const order = orderReturningSiblings(result, groupPlans);
-    if (!order) return null;
-    for (const context of activeParentContexts.values()) {
-      const firstReturnedChild = order.find((rowId) => context.returnedChildIds.has(rowId));
-      if (!firstReturnedChild || !context.row.stashOrigin) continue;
-      const oldBefore = context.origin?.beforeSiblingRowId ?? null;
-      const oldBeforeIndex = oldBefore === null ? -1 : order.indexOf(oldBefore);
-      if (oldBefore === null || oldBeforeIndex < 0 || order.indexOf(firstReturnedChild) < oldBeforeIndex) {
-        context.row.stashOrigin.beforeSiblingRowId = firstReturnedChild;
+    const index = pending.findIndex((row) => {
+      const parentId = original.get(row.id)?.parentRowId;
+      return !parentId || !selected.has(parentId) || placed.has(parentId);
+    });
+    if (index < 0) return null; // cyclic/corrupt selected parent chain
+    const row = pending.splice(index, 1)[0]!;
+    const source = original.get(row.id);
+    const sourceParentId = source?.parentRowId ?? null;
+    const selectedParent = sourceParentId ? selected.get(sourceParentId) : undefined;
+    const parentEntry = selectedParent ? result.find((entry) => entry.rowId === sourceParentId) : undefined;
+    if (selectedParent && !parentEntry) return null;
+    const nestedInSelectedNote = !!parentEntry && parentEntry.kind === "note";
+    const promotedBySelectedRow = !!parentEntry && parentEntry.kind !== "note";
+    const activeParent = sourceParentId && !selectedParent
+      ? document.activeDraft.blocks.find((item): item is Row => item.type !== "section" && item.id === sourceParentId)
+      : undefined;
+    const storedParent = sourceParentId && !selectedParent
+      ? result.find((entry) => entry.rowId === sourceParentId)
+      : undefined;
+    const ownerAnchors = storedParent ? outlineSiblingAnchors(result, storedParent.rowId) : null;
+    const stableFormerAttachment = !destination && !!source?.originalAttachedNoteRowId &&
+      storedParent?.kind === "note" && storedParent.rowId === source.originalAttachedNoteRowId &&
+      storedParent.sectionId === source.sectionId &&
+      storedParent.parentRowId === (source.originalAttachedNoteParentRowId ?? null) &&
+      (source.originalAttachedNoteAfterSiblingRowId == null || source.originalAttachedNoteAfterSiblingRowId === ownerAnchors?.afterSiblingRowId) &&
+      (source.originalAttachedNoteBeforeSiblingRowId == null || source.originalAttachedNoteBeforeSiblingRowId === ownerAnchors?.beforeSiblingRowId);
+    const promotedByActiveParent = !!activeParent;
+    let parentRowId: string | null = null;
+    let sectionId: string | null = source?.sectionId ?? null;
+    let parentChoice: { kind: "root" } | { kind: "note"; rowId: string } | { kind: "invalid" } = { kind: "root" };
+    let historical = source;
+    let promotedRootPreceding: string[] | undefined;
+    let promotedRootFollowing: string[] | undefined;
+
+    if (destination && !selectedParent) {
+      parentRowId = destination.parentRowId;
+      sectionId = destination.sectionId;
+    } else if (nestedInSelectedNote) {
+      parentRowId = parentEntry.rowId;
+      sectionId = parentEntry.sectionId;
+      parentChoice = { kind: "note", rowId: parentRowId };
+      // The selected note was just returned in this same atomic transaction.
+      // Its location is intentional even if its own old parent disappeared.
+      historical = source && { ...source, sectionId, parentRowId,
+        originalParentContext: {
+          parentRowId: parentEntry.parentRowId, sectionId,
+          precedingSiblingRowIds: [], followingSiblingRowIds: [],
+        } };
+    } else if (promotedBySelectedRow) {
+      parentRowId = parentEntry.parentRowId;
+      sectionId = parentEntry.sectionId;
+      parentChoice = parentRowId === null ? { kind: "root" } : { kind: "note", rowId: parentRowId };
+      historical = source && { ...source, sectionId,
+        ...(parentRowId !== null ? { parentRowId, originalParentContext: {
+          parentRowId: result.find((entry) => entry.rowId === parentRowId)?.parentRowId ?? null,
+          sectionId, precedingSiblingRowIds: [], followingSiblingRowIds: [],
+        } } : {}) };
+      promotedRootPreceding = [parentEntry.rowId];
+      promotedRootFollowing = [];
+    } else if (storedParent) {
+      parentRowId = storedParent.rowId;
+      parentChoice = { kind: "note", rowId: parentRowId };
+    } else if (promotedByActiveParent) {
+      // A formerly nested child becomes a root while its note is still Draft.
+      // Only historical *root* anchors or previously returned sibling roots
+      // can give evidence; current unrelated neighbors cannot.
+      const parentOrigin = activeParent.stashOrigin;
+      parentRowId = null;
+      if (parentOrigin && parentOrigin.sectionId === sectionId) {
+        const siblingRoots = result.filter((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+        const oldSiblings = (ids: readonly string[] | undefined) => (ids ?? []).filter((id) =>
+          siblingRoots.some((entry) => entry.rowId === id));
+        const siblingBefore = oldSiblings(source?.precedingSiblingRowIds ?? (source?.afterSiblingRowId ? [source.afterSiblingRowId] : []));
+        const siblingAfter = oldSiblings(source?.followingSiblingRowIds ?? (source?.beforeSiblingRowId ? [source.beforeSiblingRowId] : []));
+        // A formerly nested sibling returned separately outranks the original
+        // parent's root neighbors; otherwise reversed Draft order wins.
+        const hasReturnedSibling = siblingBefore.length > 0 || siblingAfter.length > 0;
+        promotedRootPreceding = hasReturnedSibling ? siblingBefore :
+          oldSiblings(parentOrigin.precedingSiblingRowIds ?? (parentOrigin.afterSiblingRowId ? [parentOrigin.afterSiblingRowId] : []));
+        promotedRootFollowing = hasReturnedSibling ? siblingAfter :
+          oldSiblings(parentOrigin.followingSiblingRowIds ?? (parentOrigin.beforeSiblingRowId ? [parentOrigin.beforeSiblingRowId] : []));
+      } else parentChoice = { kind: "invalid" };
+    } else if (sourceParentId !== null) {
+      parentChoice = { kind: "invalid" };
+    }
+
+    let insertAt: number;
+    if (destination) {
+      if (!selectedParent) {
+        const cursor = cursors.get("explicit-root");
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : destination.beforeRowId !== null
+          ? result.findIndex((entry) => entry.rowId === destination.beforeRowId)
+          : destination.afterRowId !== null
+            ? outlineSubtreeEnd(result, destination.afterRowId) + 1
+            : outlineInsertionIndex(document, result, parentRowId, sectionId, null) ?? -1;
+        if (destination.afterRowId === null && destination.beforeRowId === null) {
+          // The exact empty target may be a named section or an empty note.
+          insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 :
+            parentRowId === null ? (result.findIndex((entry) => entry.parentRowId === null && entry.sectionId === sectionId) >= 0
+              ? -1 : outlineInsertionIndex(document, result, null, sectionId, null) ?? -1)
+              : result.findIndex((entry) => entry.rowId === parentRowId) + 1;
+        }
+        cursors.set("explicit-root", row.id);
+      } else if (nestedInSelectedNote) {
+        const cursor = cursors.get(`explicit-child:${parentRowId}`);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : result.findIndex((entry) => entry.rowId === parentRowId) + 1;
+        cursors.set(`explicit-child:${parentRowId}`, row.id);
+      } else {
+        const cursor = cursors.get(`explicit-promoted:${parentEntry!.rowId}`);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 : outlineSubtreeEnd(result, parentEntry!.rowId) + 1;
+        cursors.set(`explicit-promoted:${parentEntry!.rowId}`, row.id);
+      }
+    } else if (stableFormerAttachment) {
+      // #367: a separately placed clip returns as an ordinary saved child if
+      // the original note remains in its proven slot but is now occupied.
+      // Never create a second embedded owner or overwrite the occupied slot.
+      parentRowId = storedParent.rowId;
+      sectionId = storedParent.sectionId;
+      insertAt = outlineSubtreeEnd(result, parentRowId) + 1;
+    } else {
+      const slot = chooseReturnSlotV2({
+        origin: historical, entries: result, sectionIds, parent: parentChoice,
+        ...(promotedByActiveParent || promotedBySelectedRow && parentRowId === null
+          ? { promotedRootPreceding: promotedRootPreceding ?? [], promotedRootFollowing: promotedRootFollowing ?? [] } : {}),
+      });
+      parentRowId = slot.parentRowId;
+      sectionId = slot.sectionId;
+      if (slot.kind === "after") {
+        const key = `after:${slot.siblingRowId}`;
+        const anchor = cursors.get(key) ?? slot.siblingRowId;
+        insertAt = outlineSubtreeEnd(result, anchor) + 1;
+        cursors.set(key, row.id);
+      } else if (slot.kind === "before") {
+        insertAt = result.findIndex((entry) => entry.rowId === slot.siblingRowId);
+      } else {
+        const key = `${slot.kind}:${parentRowId ?? ""}:${sectionId ?? ""}`;
+        const cursor = cursors.get(key);
+        insertAt = cursor ? outlineSubtreeEnd(result, cursor) + 1 :
+          slot.kind === "unsectioned_top" ? 0 :
+          slot.kind === "first_child" ? result.findIndex((entry) => entry.rowId === parentRowId) + 1 :
+          (() => { const first = result.findIndex((entry) => entry.parentRowId === null && entry.sectionId === sectionId);
+            return first >= 0 ? first : outlineInsertionIndex(document, result, null, sectionId, null) ?? -1; })();
+        cursors.set(key, row.id);
       }
     }
-    if (!insertReturningSiblingGroup(document, result, groupPlans, order)) return null;
-    for (const plan of groupPlans) pending.splice(pending.indexOf(plan), 1);
+    if (insertAt < 0 || insertAt > result.length) return null;
+    result.splice(insertAt, 0, { rowId: row.id, kind: returnedKinds.get(row.id)!, parentRowId, sectionId });
+    placed.add(row.id);
   }
   return result;
 }
@@ -969,13 +978,8 @@ function deleteRows(working: ScriptDocumentV2, rowIds: string[]): { rows: Row[] 
     if (fromSelected !== toSelected) return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A row transition links a selected row to a surviving row. Review or remove that transition before deleting these rows.");
   }
 
-  const survivingRows = [...activeRows, ...stashedRows].filter((row) => !selected.has(row.id));
-  for (const row of survivingRows) {
-    const origin = row.stashOrigin;
-    if (origin && [origin.parentRowId, origin.afterSiblingRowId, origin.beforeSiblingRowId].some((rowId) => rowId !== null && selected.has(rowId))) {
-      return diagnostic("ROW_REFERENCE_REVIEW_REQUIRED", "A surviving row's Stash return location uses a selected row. Review that saved relationship before deleting these rows.");
-    }
-  }
+  // stashOrigin holds *historical location evidence*, not a live relationship.
+  // Deleting an old anchor/parent is safe: the return resolver can fall back.
   if (activeSelected.length > 0 && (working.stash ?? []).some((bundle) =>
     bundle.rows.some((row) => !selected.has(row.id)) &&
     (selected.has(bundle.originalGap?.afterRowId ?? "") || selected.has(bundle.originalGap?.beforeRowId ?? "")))) {
@@ -1159,6 +1163,12 @@ function saveStashGroup(working: ScriptDocumentV2, command: SaveStashGroupComman
 export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: number, command: RowEditCommandV2): RowEditResultV2 {
   if (!plainObject(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a row edit command.");
   try {
+    if (command.kind === "stash_rows" && (!isJsonValue(command) ||
+      !exactKeys(command, Object.hasOwn(command, "destination") ? ["kind", "rowIds", "bundleId", "destination"] : ["kind", "rowIds", "bundleId"]) ||
+      !rowIdsPayload(command.rowIds) || typeof command.bundleId !== "string" || command.bundleId.length === 0 ||
+      Object.hasOwn(command, "destination") && !stashReturnDestinationPayload(command.destination))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash return and an exact optional outline drop destination.");
+    }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
@@ -1305,7 +1315,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
             origin.originalAttachedNoteAfterSiblingRowId === ownerAnchors?.afterSiblingRowId) &&
           (origin.originalAttachedNoteBeforeSiblingRowId === null ||
             origin.originalAttachedNoteBeforeSiblingRowId === ownerAnchors?.beforeSiblingRowId);
-        if (origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
+        // A deliberate Stash outline drop always wins over auto-reattachment,
+        // even when the historical note's footage slot is still empty.
+        if ((command.kind === "stash_group_rows" || !command.destination) && origin.returnEligible && ownerUnmoved && !owner.attachedFootage) {
           if (hasExternalRowReferences(working, row.id) || items.some((item) => supportingRows(item, blocks).has(row.id))) {
             return refused(document, "ROW_REFERENCE_REVIEW_REQUIRED", "The independently placed footage has references that cannot be transferred into an attachment.");
           }
@@ -1330,8 +1342,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       if (command.kind === "stash_group_rows" && reattached.size) {
         return refused(document, "STASH_GROUP_ATTACHMENT_REVIEW_REQUIRED", "A group must retain each selected row; returning separate footage to its old note would change membership.");
       }
-      const returnedOutline = planStashReturn(working, ordinaryReturns, outline);
-      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The original Stash section or sibling slot is missing, ambiguous, or no longer accepts this branch.");
+      const returnedOutline = planStashReturn(working, ordinaryReturns, outline,
+        command.kind === "stash_rows" ? command.destination : undefined, command.kind === "stash_group_rows");
+      if (!returnedOutline) return refused(document, "STASH_ORIGIN_DESTINATION_INVALID", "The requested Stash outline destination, return hierarchy, or attachment ownership cannot be preserved.");
       for (const row of rows) {
         if (row.type === "narration" && !parkAttachedFootageForSortingV2(row)) {
           return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage's active visual slot changed; review it before returning the note.");
@@ -1654,6 +1667,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
         parentRowId: entry.parentRowId,
         sectionId: entry.sectionId,
         ...anchors,
+        ...(freezeOriginalSiblingCandidatesV2(entries, entry.rowId) ?? {}),
+        ...(freezeOriginalParentContextV2(entries, entry.rowId) ? {
+          originalParentContext: freezeOriginalParentContextV2(entries, entry.rowId)!,
+        } : {}),
         returnEligible: true,
       });
     }

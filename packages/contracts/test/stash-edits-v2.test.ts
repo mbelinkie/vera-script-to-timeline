@@ -138,6 +138,32 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
 }
 
 describe("saved Stash row edits", () => {
+  it("preserves frozen return history through active edits and an atomic saved-row return", () => {
+    const state = stashFixtureNarration();
+    const placed = applyRowEditV2(state.document, 1, {
+      kind: "place_stash_rows", rowIds: [state.originalRow.id], destination: state.originalGap,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = placed.document.activeDraft.blocks.find((row) => row.id === state.originalRow.id) as NarrationBlockV2;
+    const historical = structuredClone(active.stashOrigin);
+    expect(historical).toMatchObject({ kind: "row", precedingSiblingRowIds: [], followingSiblingRowIds: [] });
+    const replacement = structuredClone(active);
+    replacement.notes.push("Saved edited version");
+    replacement.version += 1;
+    const session = createRowEditSessionV2(placed.document);
+    const edited = session.apply({ kind: "edit_row", rowId: active.id, row: replacement });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    const editedRow = edited.document.activeDraft.blocks.find((row) => row.id === active.id) as NarrationBlockV2;
+    expect(editedRow.stashOrigin).toEqual({ ...historical, returnEligible: false });
+    const returned = session.apply({ kind: "stash_rows", rowIds: [active.id], bundleId: id(98000) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(returned.document.stashOutline?.find((entry) => entry.rowId === active.id)?.kind).toBe("row");
+    expect(returned.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === active.id)).toMatchObject({ notes: ["Saved edited version"] });
+    expect(returned.document.stash?.flatMap((bundle) => bundle.supportingItems)).toContainEqual(state.supportingItem);
+    const undo = session.undo();
+    expect(undo.ok).toBe(true);
+    expect(undo.document.activeDraft.blocks.find((row) => row.id === active.id)).toEqual(editedRow);
+  });
   it("prevents ordinary whole-row edits from replacing or secretly trimming an exclusive footage attachment", () => {
     const { document, bundleId } = stashFixtureNarration();
     const original = document.stash!.find((bundle) => bundle.id === bundleId)!.rows[0] as NarrationBlockV2;
