@@ -235,9 +235,22 @@ def preflight_independent_disposable(target_name: str) -> None:
         manager = resolve.GetProjectManager()
         if manager is None:
             raise ValueError("project manager unavailable")
+        # Resolve can legitimately start at Project Manager with no project
+        # selected.  That is the safest place to provision an *independently
+        # named* disposable: never load or save a Producer/old M4 project just
+        # to make the old current-project preflight pass.
         current = manager.GetCurrentProject()
         if current is None:
-            raise ValueError("no current project to establish idle state")
+            available = manager.GetProjectListInCurrentFolder()
+            if not isinstance(available, (list, tuple)) or any(
+                not isinstance(name, str) for name in available
+            ):
+                raise ValueError("project inventory unavailable at Project Manager")
+            if target_name in available:
+                raise ValueError("new target already exists")
+            if manager.GetCurrentProject() is not None:
+                raise ValueError("project selected during Project Manager preflight")
+            return
         current_uid = current.GetUniqueId()
         if not isinstance(current_uid, str) or not current_uid:
             raise ValueError("current project UID unavailable")

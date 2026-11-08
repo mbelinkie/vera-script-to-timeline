@@ -25,7 +25,7 @@ def _independent_resolve(
     *,
     rendering: bool | None = False,
     jobs: list[dict[str, str]] | None = None,
-    selected: str = "Existing Project",
+    selected: str | None = "Existing Project",
     projects: list[str] | None = None,
 ) -> None:
     project = SimpleNamespace(
@@ -45,7 +45,7 @@ def _independent_resolve(
         },
     )
     manager = SimpleNamespace(
-        GetCurrentProject=lambda: project,
+        GetCurrentProject=lambda: project if selected is not None else None,
         GetProjectListInCurrentFolder=lambda: (
             ["Existing Project"] if projects is None else projects
         ),
@@ -80,6 +80,44 @@ def test_disposable_preflight_isolates_foreign_unknown_without_mutating_it(
     owner.preflight_independent_disposable(DISPOSABLE)
     assert (directory / "chain.json").read_bytes() == source
     assert not owner.PAUSED_OUTPUT_ROOT.exists()
+
+
+def test_disposable_preflight_allows_project_manager_without_loading_old_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A fresh Resolve launch opens Project Manager.  Never select an existing
+    # Producer project merely to satisfy the disposable preflight.
+    _independent_resolve(monkeypatch, selected=None)
+    owner.preflight_independent_disposable(DISPOSABLE)
+
+
+def test_disposable_preflight_refuses_project_manager_name_collision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _independent_resolve(monkeypatch, selected=None, projects=[DISPOSABLE])
+    with pytest.raises(owner.NativeOwnerError) as error:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert error.value.reason == "independent_disposable_not_idle"
+    assert "already exists" in error.value.private_detail
+
+
+def test_disposable_preflight_refuses_project_manager_selection_race(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = iter([None, object()])
+    manager = SimpleNamespace(
+        GetCurrentProject=lambda: next(selected),
+        GetProjectListInCurrentFolder=lambda: [],
+    )
+    monkeypatch.setattr(
+        owner,
+        "_local_resolve_connection",
+        lambda: SimpleNamespace(GetProjectManager=lambda: manager),
+    )
+    with pytest.raises(owner.NativeOwnerError) as error:
+        owner.preflight_independent_disposable(DISPOSABLE)
+    assert error.value.reason == "independent_disposable_not_idle"
+    assert "selected during" in error.value.private_detail
 
 
 def test_disposable_preflight_loads_installed_sdk_without_pythonpath(
