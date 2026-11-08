@@ -72,6 +72,7 @@ case "$sql" in
   *'FROM pg_class c'*)
     if [[ "$db" != *restore* || "$db" == *existing* || -e '${join(scratch, "restored")}' ]]; then
       ${names.map((n) => `echo 'public.${n}|r'`).join("\n      ")}
+      echo 'public.stt_build_events_id_seq|S'
     fi;;
   *'FROM vera_schema_migrations'*)
     printf '%s\\n' ${receipts.map((r) => `'${r}'`).join(" ")};;

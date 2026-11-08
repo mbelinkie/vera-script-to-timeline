@@ -142,7 +142,7 @@ function targetGuard(db, fresh) {
     if (fresh) return true;
     if (kind === "r") return !tableNames.includes(name.slice(7));
     // Identity sequences are owned by the append-only build event ID column.
-    if (kind === "S") return name === "public.stt_build_events_id_seq";
+    if (kind === "S") return name !== "public.stt_build_events_id_seq";
     return kind !== "i" || !/^(stt_|vera_|ix_vera_)[a-z0-9_]+$/u.test(name.slice(7));
   }));
   refuse(query(db, "SELECT count(*) FROM pg_namespace WHERE nspname NOT IN " +
