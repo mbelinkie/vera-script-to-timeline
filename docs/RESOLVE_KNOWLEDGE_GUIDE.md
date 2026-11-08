@@ -751,6 +751,13 @@ The report records these distinct stages:
   did not inspect those raw artifacts. It is not accepted main evidence.
   At this revision the actual editor boundary move, edited output/inference,
   accepted revision and rebuilt target remain unfinished.
+- On **2026-11-08**, a *separate fresh #473* native smoke under the official
+  Studio **21.1.1.10** Local SDK created, saved, reopened and UID-verified two
+  immutable disposable project/timeline targets from Project Manager, with
+  one-use intents and no old operation replay. See
+  [native disposable verification](verification/issue-473-mac-native-disposable-20261108.md).
+  This establishes provisioning/readback only: the targets are empty and no
+  new 327-to-351 M4 edit, fourth receipt or MOV/PCM has been verified.
 
 **Reuse/delta:** #312 owns its fixture/instrumentation and forward optimization;
 #313 consumes the **actual merged** fixture and resulting main baseline. No
