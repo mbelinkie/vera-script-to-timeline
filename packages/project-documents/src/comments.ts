@@ -245,6 +245,10 @@ export class ProjectCommentService {
             threads: structuredClone(state.threads) };
         } catch (error) {
           if (error instanceof ProjectDocumentError) throw error;
+          // Let the outer retry replay the entire authorized transaction after
+          // a SERIALIZABLE write conflict, not disguise it as an outage.
+          if (error instanceof ProjectSerializationConflictError ||
+              pgCode(error) === "40001" || pgCode(error) === "40P01") throw error;
           throw unavailable();
         }
       },
@@ -314,6 +318,10 @@ export class ProjectCommentService {
             digest, duplicateDelivery: false };
         } catch (error) {
           if (error instanceof ProjectDocumentError) throw error;
+          // Never swallow PostgreSQL's serialization/deadlock signal here:
+          // the bounded retry must obtain a fresh authorized snapshot.
+          if (error instanceof ProjectSerializationConflictError ||
+              pgCode(error) === "40001" || pgCode(error) === "40P01") throw error;
           throw unavailable();
         }
       },

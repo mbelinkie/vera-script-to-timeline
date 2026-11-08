@@ -177,6 +177,32 @@ describe("durable anchored comments", () => {
       .toBe(0);
   });
 
+  it("refuses an inactive same-project mention even when the actor identity remains enabled", async () => {
+    const h = await setup();
+    await h.auth.changeMembership(h.projectId, h.owner, h.viewer.principalId, null);
+    await expect(operation(h, h.editor, 0,
+      create(h.anchors[0]!, id(), id(), [h.viewer.principalId])))
+      .rejects.toMatchObject({ status: 400 });
+    expect((await h.comments.getComments(h.projectId, h.owner)).commentRevision).toBe(0);
+    expect((await h.db.query<{ n: number }>(
+      "SELECT count(*)::integer AS n FROM stt_comment_events WHERE project_id=$1", [h.projectId],
+    )).rows[0]?.n).toBe(0);
+  });
+
+  it("cannot reattach an already-attached thread or invent a new event", async () => {
+    const h = await setup();
+    const first = create(h.anchors[0]!);
+    await operation(h, h.editor, 0, first);
+    await expect(operation(h, h.editor, 1, {
+      kind: "reattach", threadId: first.threadId, anchor: h.anchors[1],
+    })).rejects.toMatchObject({ status: 400 });
+    expect((await h.comments.getComments(h.projectId, h.owner)).threads[0]?.attachment)
+      .toMatchObject({ status: "attached", anchor: h.anchors[0] });
+    expect((await h.db.query<{ n: number }>(
+      "SELECT count(*)::integer AS n FROM stt_comment_events WHERE project_id=$1", [h.projectId],
+    )).rows[0]?.n).toBe(1);
+  });
+
   it("rejects corrupt checksums, replay corruption and mismatched document bindings instead of resetting", async () => {
     const h = await setup();
     await operation(h, h.owner, 0, create(h.anchors[0]!));
