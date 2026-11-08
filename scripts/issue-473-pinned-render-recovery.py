@@ -134,8 +134,12 @@ def main() -> None:
         except owner.NativeOwnerError as refusal:
             need(
                 refusal.reason == "selected_disposable_not_idle"
-                and "selected project has unresolved output operation"
-                in refusal.private_detail,
+                and (
+                    "selected project has unresolved output operation"
+                    in refusal.private_detail
+                    or refusal.private_detail
+                    == "pending, active or unknown render job"
+                ),
                 "foreign/shared native owner refused stage",
             )
             # The old generic preflight only refuses the host's OWN signed
