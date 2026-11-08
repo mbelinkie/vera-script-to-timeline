@@ -143,6 +143,39 @@ def test_fixed_f1_script_is_24_named_menu_events_no_arbitrary_input() -> None:
     assert "SaveProject" not in source
 
 
+def test_script_changed_before_admission_does_not_spend_or_dispatch(
+    monkeypatch: pytest.MonkeyPatch, admitted_owner: None
+) -> None:
+    intent, inventory, readiness = valid()
+    journal, executor = FakeJournal(), FakeExecutor()
+    monkeypatch.setattr(gui, "ROLL_APPLESCRIPT", gui.ROLL_APPLESCRIPT + "\n-- changed")
+    with pytest.raises(gui.GuiRollRefused, match="reviewed GUI script hash differs"):
+        gui.OneUseGuiRollActuator(journal, executor).attempt(
+            intent, inventory, readiness, now=NOW
+        )
+    assert journal.calls == 0 and executor.calls == []
+
+
+def test_script_changed_after_journal_consume_cannot_reach_osascript(
+    monkeypatch: pytest.MonkeyPatch, admitted_owner: None
+) -> None:
+    intent, inventory, readiness = valid()
+
+    class TamperJournal(FakeJournal):
+        def consume_before_effect(self, intent: gui.GuiRollIntent) -> bool:
+            consumed = super().consume_before_effect(intent)
+            monkeypatch.setattr(gui, "ROLL_APPLESCRIPT", "-- altered after consume")
+            return consumed
+
+    journal = TamperJournal()
+    actuator = gui.OneUseGuiRollActuator(journal, gui.SystemEventsRollExecutor())
+    with pytest.raises(gui.GuiRollUnknown, match="no retry"):
+        actuator.attempt(intent, inventory, readiness, now=NOW)
+    with pytest.raises(gui.GuiRollRefused, match="already been dispatched"):
+        actuator.attempt(intent, inventory, readiness, now=NOW)
+    assert journal.spent == {intent.stage_operation_id}
+
+
 def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
     intent, inventory, readiness = valid()
     journal = FakeJournal()

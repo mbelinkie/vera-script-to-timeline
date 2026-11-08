@@ -118,7 +118,9 @@ on run argv
   end tell
 end run
 """.strip()
-ROLL_SCRIPT_SHA256 = hashlib.sha256(ROLL_APPLESCRIPT.encode("utf-8")).hexdigest()
+# Independent, review-pinned digest: edits to the script do not implicitly
+# authorize themselves by recalculating the expected value on import.
+ROLL_SCRIPT_SHA256 = "306aa13e1917d58f7006e65c12c105b0bfe4eff8cf912638fc4de4d5832c4de4"
 
 
 class GuiRollRefused(ValueError):
@@ -238,6 +240,11 @@ class SystemEventsRollExecutor:
         # without the actuator's already-consumed journal and current lock.
         _require(_CONSUMED_DISPATCH.get(), "no consumed F1 dispatch")
         _require_owner_lock()
+        _require(
+            hashlib.sha256(ROLL_APPLESCRIPT.encode("utf-8")).hexdigest()
+            == ROLL_SCRIPT_SHA256,
+            "reviewed GUI script changed before OS dispatch",
+        )
         # An argv value, not interpolated into AppleScript or a shell string.
         # Subprocess exit 0 says nothing about the *native* result.
         if not _safe_name(expected_window_name):
@@ -322,7 +329,9 @@ def _validate(
     )
     _require(
         type(intent.script_sha256) is str
-        and intent.script_sha256 == ROLL_SCRIPT_SHA256,
+        and intent.script_sha256 == ROLL_SCRIPT_SHA256
+        and hashlib.sha256(ROLL_APPLESCRIPT.encode("utf-8")).hexdigest()
+        == ROLL_SCRIPT_SHA256,
         "reviewed GUI script hash differs",
     )
     _require(
