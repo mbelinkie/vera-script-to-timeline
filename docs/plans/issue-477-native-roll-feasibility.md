@@ -370,3 +370,44 @@ or restarting #312/#313. Those require their own reviewed acceptance path.
   no native operation created, modified, accepted or replayed. Focused test
   verification belongs to the local phase log; the final full fast gate,
   reversible negative-control mutation and review are phase **4**.
+
+### Phase 4: verification and review evidence (2026-11-08)
+
+- `uv run --frozen pytest -q tests/test_issue477_sdk_inventory.py
+  tests/test_resolve_test_queue_reverse.py tests/test_resolve_native_owner.py`:
+  **113 passed**, both before and after the safety mutation exercise.
+- Focused `ruff check` and `ruff format --check`: **passed**;
+  `uv run --frozen mypy python tests`: **passed**, 359 source files.
+- **Reversible negative controls:** nine categories were challenged: the
+  three hard-false proof/authorization/installed-build flags; symlink inputs;
+  hardlinked repeated inputs; duplicate classes; duplicate methods; input byte
+  bounds; and invalid UTF-8. The focused tests failed with each effective
+  guard bypass. Removing **only the metadata-size check** stayed green because
+  the independent bounded-read check still rejected the input; removing
+  **both** size checks produced the expected red test. All changes were
+  restored; source SHA-256 returned to
+  `d954ce2c37da2f14d6d1800aaf48359efc68716ea042ab70cf7d72c11fcbc0ef`.
+- First `VITEST_MAX_WORKERS=1 npm run validate:fast` attempt exited at
+  TypeScript lint while the separate worktree had **no local `node_modules`**.
+  `npm ci --no-audit --no-fund` installed the pinned dependencies without a
+  tracked source change. The subsequent fast gate passed generated contracts,
+  TypeScript lint, TypeScript typecheck, TypeScript tests, Python Ruff and Python
+  mypy, but **did not pass overall**: its Python fast suite ended with
+  **2,825 passed, 43 skipped, 20 failed** (total gate 355.715 seconds).
+- All twenty failures were in pre-existing, **unchanged** test paths; the branch
+  changes only this report, the new offline scanner and its new fake tests.
+  Main-equivalence is established for the affected tracked code by the branch
+  diff, **not** by a separate complete clean-main test execution. Observed
+  environmental symptoms include missing `ffmpeg` **and** `ffprobe`,
+  wall-clock/monotonic-clock mismatch in issue-208 identity tests, and a
+  process-signal expectation mismatch. Serial `pytest -q --lf -n 0` retested
+  the 20 failed cases: **11 passed, 9 failed**. No assertion or timing/data
+  guard was relaxed to manufacture a green gate. Full traces remain under the
+  conductor ticket folder in `phase4-validate-fast-after-ci.log` and
+  `phase4-lastfailed-serial.log`.
+- Adversarial `npm run review -- notes.md` was invoked **once**, but the Claude
+  CLI returned its **weekly usage limit** without a review. A manual full-diff
+  review found no new blocker in the offline-only change; no external review is
+  claimed. `git diff --check` and the source-restoration/clean-status check
+  passed. No live SDK, Resolve project, edit, native receipt or #473 acceptance
+  path was invoked or changed; the feasibility verdict remains **NO-GO**.
