@@ -27,6 +27,7 @@ from . import resolve_test_bench_output as output
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_m4 as m4
 from . import resolve_test_queue_m4_provision as provision
+from .resolve_gui_roll import ROLL_SCRIPT_SHA256
 
 SCHEMA = "vera.test-bench-one-start/v1"
 _CASE_312_PREPARATION = "issue312-package-current-S-approved-v2"
@@ -456,7 +457,13 @@ def _submit_original(
 def _blocked_after_pristine(
     store: queue.Store, job_id: str, root: Path, report: dict[str, Any]
 ) -> dict[str, Any]:
-    """Read-only SDK capability inspection; never claims the edit is qualified."""
+    """Read-only SDK capability inspection; expose *only* code-ready F1 fallback.
+
+    An old/native-expired campaign is not revived by the Producer's *product*
+    approval for #491. The one-use F1 transport is separately bound by the
+    exact new M4 operation, signed pristine receipt, fresh Producer authority,
+    trusted Mac OS/SDK preflight, and existing native owner in gui_stage.
+    """
     receipt = m4._stage_receipt(store, job_id, 0)
     inspection = edit_probe.inspect_pristine(
         root / "edit-capability",
@@ -474,6 +481,18 @@ def _blocked_after_pristine(
         ],
         "next": "edited",
         "nonGuiRoute": route,
+        "approvedF1GuiTransport": {
+            "actuatorClass": "gui",
+            "operation": "M4.edited",
+            "scriptSha256": ROLL_SCRIPT_SHA256,
+            "codeOnly": True,
+            "nativeEffectAttempted": False,
+            "requiresFreshCaseSpecificApproval": True,
+            "requiresNewSacrificialTargetAndVerifiedSdkReadback": True,
+            "requiresExistingNativeOwnerAndOneUseIntent": True,
+            "requiresIndependentSaveReopenAndReverseReceipts": True,
+            "historicalCampaignEligible": False,
+        },
         "editCapability": {
             "resolveVersion": inspection["resolveVersion"],
             "supportsDocumentedOffsetMethods": inspection[

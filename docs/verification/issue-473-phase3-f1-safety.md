@@ -1,0 +1,20 @@
+# #473 phase 3 recovery — approved F1 transport, code-only safety audit
+
+## Contract and provenance
+
+- The Producer's #491 decision **supersedes only** the no-GUI rule for the exact M4 `edited` +24-frame (327→351) same-item-UID roll. The installed 21.1.1.10 SDK has no qualified non-GUI route; #477/#489 negative investigations do not establish impossibility. Future vendor support can replace this narrow temporary exception.
+- Reused the exact merged #495/#496 reviewed F1 `resolve_gui_roll.py` and fixed `ROLL_SCRIPT_SHA256` without modifying its pinned AppleScript. The original #473 branch, M4 SQLite job, signed receipts, expired Mac campaign and existing PR #474 are retained. The imported #495 tests do not operate Resolve.
+- `resolve_test_bench_gui_stage.py` binds F1 to **one existing, freshly enrolled M4 edited-stage operation**, the independently verified pristine `capture_post` SHA, all eleven native UIDs, exact same target and boundary, and original M4 absolute/elapsed deadline. A canonical queue-owned `f1-gui-edit/gui-intent.json` is written once with O_EXCL/fsync **before** any OS dispatch. Its script hash, target, UID and stage receipt pins cannot be replaced. A second attempt cannot supply another journal directory.
+- The caller must already hold the shared native-owner descriptor, have independently verified fresh Producer authority for the **specific** new sacrificial target/one-use operation, and provide trusted read-only SDK and OS/TCC/UI readiness. The F1 actuator itself rechecks the target, focus, UI menus, script SHA and expiry, and never grants permissions or calls arbitrary scripts. No CLI/native dispatch entry point is created by this integration.
+- The F1 result is explicitly `unknown`, `native_verified=False`, `receipt_issued=False` **even if** the fixed menu command exits successfully. No GUI return value can submit M4. After any attempted effect, the same official Resolve SDK and original independent M4 verifier still must prove save/close/reopen, all original UID/source/audio/PCM identities, supported 327→351 geometry and real receipt chain.
+- The existing source-pinned v2 carrier remains the only path for pristine, revised build, rebuild/render and capture. `resolve_test_bench_m4_runner.py` reports the approved code-only fallback, but it deliberately does **not** auto-dispatch a GUI operation from a read-only probe or use prior authorization.
+
+## Failure-mode checks
+
+Fake-only unit tests cover exact one-use success-as-UNKNOWN, GUI crash-after-dispatch, duplicate/restart refusal, altered signed capture, stale/foreign UID and source pin, wrong stage/status/parent, expired M4 authority and missing OS/TCC permission. The pre-existing #473 reusable native controller tests cover source/release pins, accumulated budget/disk ceilings, UNKNOWN carrier crash and #312/#313 fake-host reuse. Import tests also lock the reviewed 24 fixed named menu events and script digest.
+
+## External acceptance status — fail-stop
+
+Original M4 campaign `issue-473-studio-05` remains expired. Its first three original M4 receipts were previously independently verified; the fourth rebuild receipt never materialized. Its historic queue state, frozen source snapshot, partial render, Mac projects, operation IDs and signed evidence must **not** be retried, extended or substituted. No Mac Resolve/GUI effect, TCC change, new project, or sacrificial trial was attempted in this Linux recovery. A newly connected external drive has not been checked for mount/health/available space, and is not authorization to use it.
+
+Remaining prerequisites for real acceptance: new separate Producer authorization scoped to a newly admitted sacrificial target and one-use F1 operation; trusted Mac SDK/OS preflight (including programmatic exact 327 playhead readiness); same-target official SDK post-edit and save/close/reopen proof; four signed M4 stage receipts; independent reverse/final #312 verifier; CI/review and original PR merge. No #312/#313 promotion on this code-only phase. Independent Mac smoke is **not verified** and must be done only under that fresh authority.

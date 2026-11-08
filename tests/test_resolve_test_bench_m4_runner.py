@@ -586,6 +586,18 @@ def test_post_pristine_capability_is_read_only_and_never_advances_edit(
     assert result["state"] == "blocked_unattended_native_roll_edit_not_proven"
     assert result["verifiedStages"] == ["pristine"]
     assert result["editCapability"]["unqualified"] is True
+    assert result["approvedF1GuiTransport"] == {
+        "actuatorClass": "gui",
+        "operation": "M4.edited",
+        "scriptSha256": runner.ROLL_SCRIPT_SHA256,
+        "codeOnly": True,
+        "nativeEffectAttempted": False,
+        "requiresFreshCaseSpecificApproval": True,
+        "requiresNewSacrificialTargetAndVerifiedSdkReadback": True,
+        "requiresExistingNativeOwnerAndOneUseIntent": True,
+        "requiresIndependentSaveReopenAndReverseReceipts": True,
+        "historicalCampaignEligible": False,
+    }
     assert calls == [
         {
             "root": tmp_path / "run" / "edit-capability",
