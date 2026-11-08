@@ -13,6 +13,7 @@ In particular, this module cannot resurrect the expired historical #473 run.
 from __future__ import annotations
 
 import hashlib
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -45,6 +46,11 @@ def _verify_original_capture(
 ) -> None:
     """Re-verify signed M4 pristine evidence, not caller-provided JSON alone."""
     receipt = m4._stage_receipt(store, job_id, 0)
+    plan = m4._load_plan(store, job_id)
+    _require(
+        receipt["session"] == plan["baselineSession"],
+        "signed pristine session/source pin differs from original M4 baseline",
+    )
     original = verify_native_result(
         Path(receipt["capture"]["path"]), receipt["capture"]["sha256"]
     )
@@ -170,6 +176,10 @@ class OriginalM4GuiJournal:
             "GUI intent expired, unbounded or outside original M4 ceiling",
         )
         carrier._private(self.root, create=True)
+        _require(
+            shutil.disk_usage(self.root).free >= plan["maxDiskBytes"],
+            "original M4 actual free disk budget unavailable",
+        )
         _require(
             not (self.root / "gui-intent.json").exists()
             and not (self.root / "gui-intent.json").is_symlink(),

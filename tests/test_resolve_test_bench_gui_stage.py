@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from vera_timeline_agent import resolve_gui_roll as gui
@@ -112,6 +113,7 @@ def setup(
     )
     plan = {
         "caseId": "synthetic-312",
+        "baselineSession": {"path": str(tmp_path / "baseline.json"), "sha256": SHA},
         "initialTarget": stage._target_dict(TARGET),
         "freshTarget": {
             "projectUid": "another-project",
@@ -122,13 +124,15 @@ def setup(
         "deadlineAt": (now + timedelta(minutes=10)).isoformat(),
         "runAt": (now - timedelta(minutes=1)).isoformat(),
         "maxElapsedSeconds": 3600,
+        "maxDiskBytes": 1048576,
     }
     monkeypatch.setattr(m4, "_load_plan", lambda _store, _job: plan)
     monkeypatch.setattr(
         m4,
         "_stage_receipt",
         lambda _store, _job, _ordinal: {
-            "capture": {"path": str(tmp_path / "signed-pristine.json"), "sha256": SHA}
+            "session": plan["baselineSession"],
+            "capture": {"path": str(tmp_path / "signed-pristine.json"), "sha256": SHA},
         },
     )
     geometry = {
@@ -356,11 +360,13 @@ def test_no_spend_with_expired_original_m4_deadline(
         "_load_plan",
         lambda _store, _job: {
             "caseId": "synthetic-312",
+            "baselineSession": {"path": str(tmp_path / "baseline.json"), "sha256": SHA},
             "initialTarget": stage._target_dict(TARGET),
             "freshTarget": {"projectUid": "different"},
             "deadlineAt": (now - timedelta(minutes=2)).isoformat(),
             "runAt": (now - timedelta(hours=2)).isoformat(),
             "maxElapsedSeconds": 3600,
+            "maxDiskBytes": 1048576,
         },
     )
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
@@ -448,3 +454,46 @@ def test_wrong_m4_operation_id_refuses_without_spend(
         )
     assert not (_journal_root(setup) / "gui-intent.json").exists()
     assert executor.calls == 0
+
+
+def test_pristine_session_source_pin_mismatch_fails_before_gui(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = m4._stage_receipt
+
+    def tampered(store: FakeStore, job_id: str, ordinal: int) -> dict[str, object]:
+        receipt = dict(original(store, job_id, ordinal))
+        receipt["session"] = {"path": "/tmp/other-session.json", "sha256": SHA}
+        return receipt
+
+    monkeypatch.setattr(m4, "_stage_receipt", tampered)
+    with pytest.raises(gui.GuiRollRefused, match="session/source pin differs"):
+        _call(setup)
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+    assert setup[4].calls == 0
+
+
+def test_m4_disk_reserve_blocks_before_spend(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        stage.shutil, "disk_usage", lambda *_args: SimpleNamespace(free=0)
+    )
+    with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
+        _call(setup)
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+    assert setup[4].calls == 0
