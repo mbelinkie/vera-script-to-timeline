@@ -13,9 +13,11 @@ In particular, this module cannot resurrect the expired historical #473 run.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from . import resolve_gui_roll as gui
 from . import resolve_test_bench_carrier as carrier
@@ -226,3 +228,218 @@ def attempt_once(
     return gui.OneUseGuiRollActuator(
         OriginalM4GuiJournal(store, job_id), executor
     ).attempt(intent, inventory, readiness)
+
+
+def _read_only_playhead_frame(timeline: Any) -> int:
+    """Read the SDK timecode without setting the playhead or clip position.
+
+    Studio's exact 24000/1001 synthetic case has 24 nominal, non-drop-frame
+    timecode; a semicolon, malformed component or nonzero start-frame breaks
+    this narrow qualification rather than guessing a frame.
+    """
+
+    def frames(value: object) -> int:
+        _require(
+            type(value) is str
+            and re.fullmatch(r"\d{2}:\d{2}:\d{2}:\d{2}", value) is not None,
+            "actual SDK playhead/timecode unavailable or drop-frame",
+        )
+        assert isinstance(value, str)
+        hours, minutes, seconds, frame = map(int, value.split(":"))
+        _require(
+            hours < 24 and minutes < 60 and seconds < 60 and frame < 24,
+            "actual SDK timecode component outside 24 nominal fps",
+        )
+        return ((hours * 60 + minutes) * 60 + seconds) * 24 + frame
+
+    current = timeline.GetCurrentTimecode()
+    start = timeline.GetStartTimecode()
+    start_frame = timeline.GetStartFrame()
+    _require(
+        type(start_frame) is int and start_frame >= 0,
+        "actual SDK timeline start frame unavailable",
+    )
+    return frames(current) - frames(start)
+
+
+def prepare_owned_f1_inputs(
+    store: queue.Store, job_id: str, resolve: Any
+) -> tuple[gui.GuiRollIntent, gui.PristineSdkInventory]:
+    """Produce trustworthy SDK-based inputs; NO edit, UI, queue, or journal effects.
+
+    A currently owned native host must still separately prove exact UI/TCC
+    readiness and enroll the same M4 edited operation before GUI dispatch.
+    Reauthenticates the original static admission seal and signed pristine
+    output. Source graph drift fails closed: do NOT reseal historical evidence.
+    """
+    from .qualification_output_controller_v2 import load_output_session
+    from .qualification_output_proof_v2 import _load_terminal_output_with_comparison
+    from .resolve_test_bench_edit_probe import inspect_selected
+
+    gui._require_owner_lock()
+    plan = m4._load_plan(store, job_id)
+    receipt = m4._stage_receipt(store, job_id, 0)
+    _require(
+        plan["caseId"] == "synthetic-312"
+        and plan["initialTarget"] != plan["freshTarget"]
+        and receipt["session"] == plan["baselineSession"],
+        "new original M4 and pristine session source pin required",
+    )
+    with store.connect() as db:
+        parent = db.execute(
+            "SELECT state,started_at,deadline_at FROM reverse_jobs WHERE id=?",
+            (job_id,),
+        ).fetchone()
+        rows = [
+            dict(row)
+            for row in db.execute(
+                "SELECT ordinal,name,state,operation_id,receipt_sha "
+                "FROM reverse_stages WHERE job_id=? ORDER BY ordinal",
+                (job_id,),
+            )
+        ]
+    _require(
+        parent is not None
+        and parent["state"] in {"queued", "awaiting_operator"}
+        and parent["started_at"] is not None
+        and len(rows) == 4
+        and rows[0]["name"] == "pristine"
+        and rows[0]["state"] == "verified"
+        and rows[0]["receipt_sha"] is not None
+        and rows[1]["name"] == "edited"
+        and rows[1]["state"] in {"pending", "awaiting_operator"}
+        and rows[1]["receipt_sha"] is None
+        and all(row["state"] == "pending" for row in rows[2:]),
+        "not an eligible one-use M4 edited operation after verified pristine",
+    )
+    now = datetime.now(UTC)
+    deadline = min(
+        queue.dt(plan["deadlineAt"]),
+        queue.dt(plan["runAt"]) + timedelta(seconds=plan["maxElapsedSeconds"]),
+        queue.dt(parent["started_at"]) + timedelta(seconds=plan["maxElapsedSeconds"]),
+    )
+    _require(
+        now + timedelta(seconds=60) < deadline,
+        "original cumulative M4 deadline too close or expired",
+    )
+    session = load_output_session(
+        Path(receipt["session"]["path"]), receipt["session"]["sha256"]
+    )
+    _require(
+        session.context.get("phase") == "pristine"
+        and session.context.get("target") == plan["initialTarget"],
+        "signed original session phase or native target differs",
+    )
+    _load_terminal_output_with_comparison(session)
+    capture = verify_native_result(
+        Path(receipt["capture"]["path"]), receipt["capture"]["sha256"]
+    )
+    geometry = capture.get("nativeGeometry")
+    _require(
+        capture.get("status") == "complete"
+        and capture.get("action") == "capture_post"
+        and capture.get("target") == plan["initialTarget"]
+        and capture.get("context") == session.context
+        and isinstance(geometry, dict),
+        "authenticated original native geometry/capture required",
+    )
+    assert isinstance(geometry, dict)
+    sdk = inspect_selected(resolve, plan["initialTarget"], geometry)
+    _require(
+        sdk.get("disposition") == "read_only_no_edit_authorized"
+        and sdk.get("resolveVersion") == [21, 1, 1, 10, ""],
+        "installed SDK differs from approved Studio 21.1.1.10",
+    )
+    target = gui.NativeTarget(
+        project_uid=plan["initialTarget"]["projectUid"],
+        project_name=plan["initialTarget"]["projectName"],
+        timeline_uid=plan["initialTarget"]["timelineUid"],
+        timeline_name=plan["initialTarget"]["timelineName"],
+        expected_window_name=plan["initialTarget"]["projectName"],
+    )
+    manager = resolve.GetProjectManager()
+    project = manager.GetCurrentProject() if manager is not None else None
+    timeline = project.GetCurrentTimeline() if project is not None else None
+    _require(timeline is not None, "actual selected SDK timeline unavailable")
+    playhead_frame = _read_only_playhead_frame(timeline)
+    rows_by_uid = {
+        row.get("itemUid"): row
+        for row in geometry.get("items", [])
+        if isinstance(row, dict)
+    }
+    left = rows_by_uid.get(sdk["leftItemUid"])
+    right = rows_by_uid.get(sdk["rightItemUid"])
+    _require(
+        isinstance(left, dict) and isinstance(right, dict),
+        "original signed adjacent native item UID missing",
+    )
+    assert isinstance(left, dict) and isinstance(right, dict)
+    tracks = geometry.get("tracks")
+    _require(isinstance(tracks, list), "original six-track matrix unavailable")
+    assert isinstance(tracks, list)
+    slot = next(
+        (
+            row
+            for row in tracks
+            if isinstance(row, dict) and row.get("trackId") == left.get("trackId")
+        ),
+        None,
+    )
+    _require(
+        isinstance(slot, dict)
+        and slot.get("kind") == "video"
+        and slot.get("index") == 1,
+        "original boundary is not on exact V1 track",
+    )
+    item_rows = geometry.get("items")
+    _require(
+        isinstance(item_rows, list)
+        and len(item_rows) == gui.NATIVE_ITEM_COUNT
+        and all(
+            isinstance(item, dict) and type(item.get("itemUid")) is str
+            for item in item_rows
+        ),
+        "eleven signed native item IDs required",
+    )
+    assert isinstance(item_rows, list)
+    inventory = gui.PristineSdkInventory(
+        target=target,
+        capture_sha256=receipt["capture"]["sha256"],
+        item_uids=tuple(row["itemUid"] for row in item_rows),
+        left_item_uid=sdk["leftItemUid"],
+        right_item_uid=sdk["rightItemUid"],
+        left_track_id=left["trackId"],
+        right_track_id=right["trackId"],
+        left_track_kind="video",
+        right_track_kind="video",
+        left_track_index=1,
+        right_track_index=1,
+        left_record_start=left["recordStart"],
+        left_record_duration=left["recordDuration"],
+        right_record_start=right["recordStart"],
+        right_record_duration=right["recordDuration"],
+        boundary_frame=gui.BEFORE_BOUNDARY,
+        playhead_frame=playhead_frame,
+        track_count=len(tracks),
+        extent_frames=geometry["extentFrames"],
+        rate=(geometry["rate"]["numerator"], geometry["rate"]["denominator"]),
+        pristine_verified=True,
+    )
+    intent = gui.GuiRollIntent(
+        actuator_class="gui",
+        operation="M4.edited",
+        stage_operation_id=rows[1]["operation_id"],
+        target=target,
+        pristine_capture_sha256=receipt["capture"]["sha256"],
+        item_uids=inventory.item_uids,
+        left_item_uid=inventory.left_item_uid,
+        right_item_uid=inventory.right_item_uid,
+        script_sha256=gui.ROLL_SCRIPT_SHA256,
+        expires_at=min(deadline, now + timedelta(minutes=4)),
+    )
+    _verify_original_capture(store, job_id, intent, inventory)
+    _require(
+        inventory.playhead_frame == gui.BEFORE_BOUNDARY,
+        "actual SDK playhead must already be at 327 before GUI intent",
+    )
+    return intent, inventory

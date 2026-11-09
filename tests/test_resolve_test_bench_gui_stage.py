@@ -497,3 +497,208 @@ def test_m4_disk_reserve_blocks_before_spend(
         _call(setup)
     assert not (_journal_root(setup) / "gui-intent.json").exists()
     assert setup[4].calls == 0
+
+
+def _setup_read_only_f1_preparation(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    current_timecode: str = "00:00:13:15",
+    version: list[object] | None = None,
+) -> tuple[SimpleNamespace, list[str]]:
+    """Fake SDK and signed-loader boundaries, never any GUI dispatch."""
+    from vera_timeline_agent import qualification_output_controller_v2 as controller
+    from vera_timeline_agent import qualification_output_proof_v2 as proof
+    from vera_timeline_agent import resolve_test_bench_edit_probe as probe
+
+    expected_target = stage._target_dict(TARGET)
+    events: list[str] = []
+    monkeypatch.setattr(
+        controller,
+        "load_output_session",
+        lambda *_args: SimpleNamespace(
+            context={"phase": "pristine", "target": expected_target}
+        ),
+    )
+
+    def verified(*_args: object) -> None:
+        events.append("verified")
+
+    monkeypatch.setattr(proof, "_load_terminal_output_with_comparison", verified)
+    original_result = stage.__dict__["verify_native_result"](Path(""), SHA)
+    geometry = dict(original_result["nativeGeometry"])
+    geometry["tracks"] = [
+        {"trackId": "original-V1", "kind": "video", "index": 1},
+        *(
+            {"trackId": f"track-{index}", "kind": "audio", "index": index}
+            for index in range(1, 6)
+        ),
+    ]
+
+    def signed(*_args: object) -> dict[str, object]:
+        return {
+            **original_result,
+            "context": {"phase": "pristine", "target": expected_target},
+            "nativeGeometry": geometry,
+        }
+
+    monkeypatch.setattr(stage, "verify_native_result", signed)
+
+    def inspect(_resolve: object, target: object, signed: object) -> dict[str, object]:
+        events.append("read-only SDK inspected")
+        assert target == expected_target and signed is geometry
+        return {
+            "disposition": "read_only_no_edit_authorized",
+            "resolveVersion": [21, 1, 1, 10, ""] if version is None else version,
+            "leftItemUid": UIDS[0],
+            "rightItemUid": UIDS[1],
+        }
+
+    monkeypatch.setattr(probe, "inspect_selected", inspect)
+    timeline = SimpleNamespace(
+        GetCurrentTimecode=lambda: current_timecode,
+        GetStartTimecode=lambda: "00:00:00:00",
+        GetStartFrame=lambda: 0,
+    )
+    sdk = SimpleNamespace(
+        GetProjectManager=lambda: SimpleNamespace(
+            GetCurrentProject=lambda: SimpleNamespace(
+                GetCurrentTimeline=lambda: timeline
+            )
+        )
+    )
+    return sdk, events
+
+
+def test_owned_f1_input_factory_binds_exact_verified_sdk_evidence_no_effect(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
+    intent, inventory = stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert intent.stage_operation_id == setup[1].stage_operation_id
+    assert intent.script_sha256 == gui.ROLL_SCRIPT_SHA256
+    assert intent.item_uids == UIDS
+    assert inventory.playhead_frame == 327
+    assert inventory.left_record_duration == 327
+    assert inventory.right_record_start == 327
+    assert inventory.right_record_duration == 151
+    assert inventory.target == TARGET
+    assert events == ["verified", "read-only SDK inspected"]
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+    assert (
+        setup[0]
+        .db.execute("SELECT state FROM reverse_stages WHERE ordinal=1")
+        .fetchone()[0]
+        == "awaiting_operator"
+    )
+
+
+@pytest.mark.parametrize(
+    ("timecode", "version", "expected"),
+    [
+        ("00:00:00:00", None, "playhead must already"),
+        ("00:00:13:14", None, "playhead must already"),
+        ("00:00:13;15", None, "playhead/timecode unavailable"),
+        ("00:00:13:24", None, "timecode component"),
+        ("00:00:13:15", [21, 1, 1, 10, None], "installed SDK differs"),
+        ("00:00:13:15", [21, 1, 2, 10, ""], "installed SDK differs"),
+    ],
+)
+def test_owned_f1_input_factory_refuses_unproved_playhead_and_sdk(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    timecode: str,
+    version: list[object] | None,
+    expected: str,
+) -> None:
+    sdk, _ = _setup_read_only_f1_preparation(
+        setup, monkeypatch, current_timecode=timecode, version=version
+    )
+    with pytest.raises(gui.GuiRollRefused, match=expected):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_owned_f1_input_factory_refuses_changed_source_seal_before_sdk(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vera_timeline_agent import qualification_output_controller_v2 as controller
+
+    sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
+
+    def reject_seal(*_args: object) -> None:
+        raise ValueError("admission seal metadata differs")
+
+    monkeypatch.setattr(controller, "load_output_session", reject_seal)
+    with pytest.raises(ValueError, match="admission seal metadata differs"):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert events == []
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_owned_f1_input_factory_refuses_edited_or_later_stage_replay(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
+    setup[0].db.execute("UPDATE reverse_stages SET state='verified' WHERE ordinal=2")
+    with pytest.raises(gui.GuiRollRefused, match="eligible one-use"):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert events == []
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_owned_f1_input_factory_requires_original_m4_time_budget(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
+    setup[0].db.execute(
+        "UPDATE reverse_jobs SET started_at=? WHERE id=?",
+        ((datetime.now(UTC) - timedelta(hours=3)).isoformat(), JOB),
+    )
+    with pytest.raises(gui.GuiRollRefused, match="deadline"):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert events == []
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
