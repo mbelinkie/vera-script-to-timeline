@@ -180,6 +180,86 @@ def test_unknown_and_injected_keys_fail() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "observed"),
+    [
+        ("windowFrontmost", False),  # actual Qt AXMain=true, AXFocused=false
+        ("windowFrontmost", None),
+        ("editPage", False),  # actual SDK is Deliver, AX page mark unavailable
+        ("editPage", None),
+        ("timelineFocused", False),  # actual AX group is not a timeline
+        ("timelineFocused", None),
+        ("v1Only", False),  # actual AX six-track checkmarks unavailable
+        ("v1Only", None),
+        ("trimRollMenu", None),
+        ("nudgeMenu", None),
+        ("keyboardFocus", None),  # actual AXMenuItemCmdChar unavailable
+        ("keyboardNudge", None),
+        ("automation", None),
+        ("modalPresent", None),
+    ],
+)
+def test_503_a_real_qt_missing_ax_evidence_never_becomes_ready(
+    field: str, observed: object
+) -> None:
+    intent, inventory = sdk_inputs()
+    facts = os_snapshot()
+    facts[field] = observed
+    with pytest.raises(gui.GuiRollRefused):
+        ready = ui._readiness_from_os(facts, TARGET)
+        gui._validate(intent, inventory, ready, datetime.now(UTC))
+
+
+@pytest.mark.parametrize(
+    "unsupported_claim",
+    [
+        "AXFocusedWindow",  # matching window name is not proven AX identity
+        "AXMain",  # AXMain alone does not imply AXFocused
+        "sdkEditPage",  # caller may not replace the observed AX source
+        "normalEditModeEnabled",  # enabled != selected/active
+        "linkedSelectionEnabled",
+        "dynamicTrimDisabled",
+        "rippleEditDisabled",
+        "keyboardPresetProvesShortcut",
+    ],
+)
+def test_503_a_extra_os_sdk_claims_cannot_promote_unknowns(
+    unsupported_claim: str,
+) -> None:
+    facts = os_snapshot()
+    facts["windowFrontmost"] = False
+    facts["editPage"] = False
+    facts["v1Only"] = False
+    facts[unsupported_claim] = True
+    with pytest.raises(gui.GuiRollRefused, match="unrecognized or incomplete"):
+        ui._readiness_from_os(facts, TARGET)
+
+
+def test_503_a_actual_frontmost_name_must_not_be_invented() -> None:
+    intent, inventory = sdk_inputs()
+    facts = os_snapshot()
+    facts["processName"] = "DaVinci Resolve"
+    facts["frontmostProcess"] = "DaVinci Resolve"
+    ready = ui._readiness_from_os(facts, TARGET)
+    assert ready.frontmost_process == "DaVinci Resolve"  # not fabricated Resolve
+    with pytest.raises(gui.GuiRollRefused, match="app identity"):
+        gui._validate(intent, inventory, ready, datetime.now(UTC))
+
+
+def test_503_a_same_disposable_name_cannot_replace_signed_sdk_uids() -> None:
+    intent, inventory = sdk_inputs()
+    fake_target = replace(TARGET, project_uid="wrong-sdk-project-id")
+    assert fake_target.project_name == TARGET.project_name
+    ready = ui._readiness_from_os(os_snapshot(), TARGET)
+    with pytest.raises(gui.GuiRollRefused, match="selected SDK target"):
+        gui._validate(
+            intent,
+            replace(inventory, target=fake_target),
+            ready,
+            datetime.now(UTC),
+        )
+
+
+@pytest.mark.parametrize(
     "bad_sdk",
     [
         {"pristine_verified": False},

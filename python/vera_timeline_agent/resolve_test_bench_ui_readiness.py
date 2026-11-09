@@ -255,6 +255,9 @@ function run() {
     if (windows.length !== 1) return JSON.stringify(result);
     const win = windows[0];
     result.windowName = win.name();
+    // Qt's AXMain=true and a separately reported AXFocusedWindow title do NOT
+    // make win.AXFocused=true. Real Studio 21.1.1.10 reports AXFocused=false;
+    // an alternative must be independently validated before this gate changes.
     // System Events' windows need not expose a `frontmost` property. Demand
     // both explicit AXMain and AXFocused marks, never infer from one window.
     result.windowFrontmost = attr(win, 'AXMain') === true &&
@@ -506,7 +509,10 @@ def _readiness_from_os(
         resolve_version=gui.RESOLVE_VERSION,  # independently SDK-pinned by owner
         resolve_bundle_id=observation["bundleId"],
         frontmost_bundle_id=observation["frontmostBundleId"],
-        frontmost_process=gui.RESOLVE_PROCESS,
+        # Copy the independently observed name. Never manufacture `Resolve`
+        # from the bundle, frontmost PID or a matching window title: the
+        # actuator currently targets the named System Events process.
+        frontmost_process=observation["frontmostProcess"],
         front_window_name=observation["windowName"],
         accessibility_trusted=observation["accessibility"],
         automation_trusted=observation["automation"],
