@@ -76,7 +76,7 @@ func menuObservation(_ app: AXUIElement, _ path: [String]) -> [String: Any] {
 func queryAutomationNoPrompt(_ targetBundle: String) -> [String: Any] {
     var target = AEDesc()
     let bytes = Array(targetBundle.utf8)
-    let createStatus: OSStatus = bytes.withUnsafeBytes { buffer in
+    let createStatus: OSErr = bytes.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) -> OSErr in
         AECreateDesc(typeApplicationBundleID, buffer.baseAddress, buffer.count, &target)
     }
     guard createStatus == noErr else {

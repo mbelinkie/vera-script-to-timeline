@@ -147,7 +147,7 @@ def assess(native: dict[str, Any], expected_window: str | None) -> dict[str, Any
     version = app.get("version")
     build = app.get("build")
     correct_version = version == STUDIO_VERSION or (
-        version == "21.1.1" and str(build) == "10"
+        version == "21.1.1" and str(build) == "21.1.10010"
     )
     checks["studio_version"] = check(
         "pass" if correct_version else ("unknown" if version is None else "fail"),

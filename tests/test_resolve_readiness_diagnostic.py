@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import platform
+import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -30,7 +32,7 @@ def synthetic() -> dict[str, Any]:
                     "/Contents/MacOS/Resolve"
                 ),
                 "version": "21.1.1",
-                "build": "10",
+                "build": "21.1.10010",
                 "frontmost": True,
             }
         ],
@@ -100,6 +102,16 @@ def test_observed_ax_main_does_not_imply_focused_edit_or_track_ready() -> None:
         ),
         (
             lambda v: v["applications"][0].update(version="22.0"),
+            "studio_version",
+            "fail",
+        ),
+        (
+            lambda v: v["applications"][0].update(build="10"),
+            "studio_version",
+            "fail",
+        ),
+        (
+            lambda v: v["applications"][0].update(build="21.1.10009"),
             "studio_version",
             "fail",
         ),
@@ -283,6 +295,8 @@ def test_swift_diagnostic_is_read_only_no_prompt_and_uses_correct_abi() -> None:
     assert "AEDeterminePermissionToAutomateTarget(" in swift
     assert "&target, typeWildCard, typeWildCard, false" in swift
     assert "AECreateDesc(typeApplicationBundleID" in swift
+    assert "let createStatus: OSErr = bytes.withUnsafeBytes" in swift
+    assert "(buffer: UnsafeRawBufferPointer) -> OSErr" in swift
     assert "AXIsProcessTrustedWithOptions" in swift
     assert "kAXTrustedCheckOptionPrompt" in swift
     assert "AXUIElementCopyAttributeValue" in swift
@@ -295,6 +309,23 @@ def test_swift_diagnostic_is_read_only_no_prompt_and_uses_correct_abi() -> None:
         "AEEventSend(",
     ):
         assert prohibited not in swift
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform != "darwin", reason="requires the macOS SDK")
+def test_swift_probe_typechecks_on_actual_macos_sdk() -> None:
+    """Host-only compile check: never launches or alters Resolve."""
+    swiftc = shutil.which("swiftc")
+    if swiftc is None:
+        pytest.skip("Swift compiler unavailable on this Mac")
+    result = subprocess.run(
+        [swiftc, "-typecheck", str(diag.PROBE)],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_assessment_is_json_serializable() -> None:
