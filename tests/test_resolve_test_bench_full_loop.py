@@ -23,6 +23,7 @@ from vera_timeline_agent import resolve_test_bench_edited_stage as edited
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
 from vera_timeline_agent import resolve_test_bench_gui_stage as gui
 from vera_timeline_agent import resolve_test_bench_m4_runner as runner
+from vera_timeline_agent import resolve_test_bench_page_stage as page
 from vera_timeline_agent import resolve_test_bench_playhead_stage as playhead
 from vera_timeline_agent import resolve_test_bench_revision_stage as revision
 from vera_timeline_agent import resolve_test_queue as queue
@@ -203,6 +204,11 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
     monkeypatch.setattr(loop, "native_owner", fake_owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
     monkeypatch.setattr(
+        page,
+        "open_owned_edit_page",
+        lambda *_args, **_kwargs: events.append("SDK:edit-page"),
+    )
+    monkeypatch.setattr(
         playhead, "position_owned_327", lambda *_: events.append("SDK:playhead-327")
     )
 
@@ -253,6 +259,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "pristine:verified",
         "claim:edited",
         "owner:acquire",
+        "SDK:edit-page",
         "SDK:playhead-327",
         "GUI:unknown:not-verified",
         "owner:release",
@@ -277,6 +284,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "pristine:verified",
         "claim:edited",
         "owner:acquire",
+        "SDK:edit-page",
         "SDK:playhead-327",
         "GUI:unknown:not-verified",
         "owner:release",
@@ -290,6 +298,48 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
     assert (
         carrier._read(fixture["root"] / "complete-loop-intent.json") == original_intent
     )
+
+
+def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
+    prepared: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = prepared
+    events: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "start",
+        lambda *_: {
+            "state": "blocked_unattended_native_roll_edit_not_proven",
+            "jobId": ORIGINAL_JOB,
+        },
+    )
+    monkeypatch.setattr(queue, "Store", lambda *_: object())
+    monkeypatch.setattr(loop, "_advance", lambda *_: events.append("stage-claimed"))
+
+    @contextmanager
+    def owner(*, output_lane: bool) -> Iterator[None]:
+        assert output_lane
+        events.append("owner-held")
+        yield
+
+    monkeypatch.setattr(loop, "native_owner", owner)
+    monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+
+    def refuse(*_args: Any, **_kwargs: Any) -> None:
+        events.append("page-refused")
+        raise queue.QueueError("signed new target mismatched")
+
+    monkeypatch.setattr(page, "open_owned_edit_page", refuse)
+    monkeypatch.setattr(
+        playhead, "position_owned_327", lambda *_: pytest.fail("playhead moved")
+    )
+    monkeypatch.setattr(
+        gui, "dispatch_owned_f1_once", lambda *_: pytest.fail("GUI roll dispatched")
+    )
+    with pytest.raises(queue.QueueError, match="signed new target mismatched"):
+        loop.start(fixture["config_path"], fixture["auth_path"], frozen_commit=FROZEN)
+    assert events == ["stage-claimed", "owner-held", "page-refused"]
+    assert (fixture["root"] / "complete-loop-intent.json").is_file()
 
 
 @pytest.mark.parametrize(
@@ -332,6 +382,7 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
 
     monkeypatch.setattr(loop, "native_owner", fake_owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+    monkeypatch.setattr(page, "open_owned_edit_page", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(playhead, "position_owned_327", lambda *_: None)
 
     def attempt(*_: Any) -> Any:

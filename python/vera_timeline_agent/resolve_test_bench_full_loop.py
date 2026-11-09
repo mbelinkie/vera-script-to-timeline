@@ -22,6 +22,7 @@ from . import resolve_test_bench_carrier as carrier
 from . import resolve_test_bench_edited_stage as edited
 from . import resolve_test_bench_gui_stage as gui
 from . import resolve_test_bench_m4_runner as runner
+from . import resolve_test_bench_page_stage as page
 from . import resolve_test_bench_playhead_stage as playhead
 from . import resolve_test_bench_revision_stage as revision
 from . import resolve_test_queue as queue
@@ -167,7 +168,7 @@ def start(
     value = runner.validate_config(json.loads(config_raw))
     _require(config_raw == queue.canonical(value), "noncanonical immutable new config")
     authorization_raw = carrier._read(authority_path, 32768)
-    _authority(authorization_raw, value, frozen_commit, graph)
+    authority = _authority(authorization_raw, value, frozen_commit, graph)
     root = runner._absolute(value["root"], "root")
     carrier._private(root)
     _require(
@@ -235,6 +236,9 @@ def start(
     with native_owner(output_lane=True):
         resolve = _local_resolve_connection()
         _require(resolve is not None, "official Studio SDK unavailable")
+        page.open_owned_edit_page(
+            store, job_id, resolve, case_root=root, authority=authority
+        )
         playhead.position_owned_327(store, job_id, resolve)
         attempted = gui.dispatch_owned_f1_once(store, job_id, resolve)
         _require(
