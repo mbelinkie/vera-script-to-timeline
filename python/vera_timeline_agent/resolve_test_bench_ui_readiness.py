@@ -57,6 +57,9 @@ ObjC.import('Carbon');
 ObjC.bindFunction('AEDeterminePermissionToAutomateTarget',
   ['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]);
 function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
+function noPromptOSStatusAllowed(status) {
+  return typeof status === 'number' && status === 0;
+}
 function focusExistingViaSystemEvents(pid) {
   try {
     // Cooperative App Activation can decline a request on current macOS.
@@ -68,8 +71,7 @@ function focusExistingViaSystemEvents(pid) {
     const permission = $.AEDeterminePermissionToAutomateTarget(
       descriptor.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
     );
-    if (typeof permission !== 'number' ||
-        !Number.isInteger(Number(permission)) || Number(permission) !== 0) {
+    if (!noPromptOSStatusAllowed(permission)) {
       return false;
     }
     const proc = Application('System Events').applicationProcesses.byName('Resolve');
@@ -98,9 +100,9 @@ function run() {
   }
   const front = workspace.frontmostApplication;
   if (front === null || Number(front.processIdentifier) !== pid) {
-    if (!Boolean(app.activateWithOptions(0))) {
-      return JSON.stringify({activated:false,processPid:pid});
-    }
+    // A declined cooperative activation must not skip the separately
+    // authorized, one-use PID-bound System Events fallback below.
+    try { app.activateWithOptions(0); } catch (_) { /* fallback only */ }
     $.NSThread.sleepForTimeInterval(0.2);
   }
   // macOS can finish the Spaces/window transition shortly after activation
@@ -137,6 +139,9 @@ ObjC.import('Carbon');
 ObjC.bindFunction('AEDeterminePermissionToAutomateTarget',
   ['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]);
 function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
+function noPromptOSStatusAllowed(status) {
+  return typeof status === 'number' && status === 0;
+}
 function attr(obj, name) {
   try { return obj.attributes.byName(name).value(); } catch (_) { return null; }
 }
@@ -213,21 +218,24 @@ function run() {
     const systemEvents = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
       $('com.apple.systemevents')
     );
-    // JXA represents the returned OSStatus as a bridged number which can
-    // compare unequal to primitive 0 under === despite serializing as 0.
-    // Check its actual numeric type first: null, false and missing may NOT
-    // become permission via Number(x) coercion. Never request a TCC prompt.
+    // The actual Mac Carbon binding returned primitive number 0 (noErr).
+    // Accept only that exact type/value; never coerce null, false, strings
+    // or bridged wrapper objects to authorization, or request a TCC prompt.
     const permission = $.AEDeterminePermissionToAutomateTarget(
       systemEvents.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
     );
-    result.automation = typeof permission === 'number' &&
-      Number.isInteger(Number(permission)) && Number(permission) === 0;
+    result.automation = noPromptOSStatusAllowed(permission);
   } catch (_) { result.automation = false; }
   if (!result.automation) return JSON.stringify(result);
   try {
     const events = Application('System Events');
     const proc = events.applicationProcesses.byName('Resolve');
-    if (!proc.exists() || !proc.frontmost()) return JSON.stringify(result);
+    if (!proc.exists()) return JSON.stringify(result);
+    const osProcessPid = proc.unixId();
+    if (typeof osProcessPid !== 'number' ||
+        osProcessPid !== result.processPid || !proc.frontmost()) {
+      return JSON.stringify(result);
+    }
     // A successful read is evidence of this OS actor's automation access;
     // a missing permission, denial or AX failure must never be set true.
     const windows = proc.windows();

@@ -426,8 +426,9 @@ def test_foreground_activation_script_only_targets_existing_exact_resolve() -> N
     assert "focusExistingViaSystemEvents(pid)" in source
     assert "AEDeterminePermissionToAutomateTarget" in source
     assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
-    assert "typeof permission !== 'number'" in source
-    assert "Number(permission) !== 0" in source
+    assert "noPromptOSStatusAllowed(permission)" in source
+    assert "try { app.activateWithOptions(0); } catch" in source
+    assert "return JSON.stringify({activated:false,processPid:pid})" not in source
     assert "proc.unixId() !== pid" in source
     assert source.count("proc.frontmost = true") == 1
     for forbidden in (
@@ -492,9 +493,9 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert source.index("ObjC.bindFunction(") < source.index("function run()")
     assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
     assert "const permission = $.AEDeterminePermissionToAutomateTarget(" in source
-    assert "typeof permission === 'number'" in source
-    assert "Number.isInteger(Number(permission))" in source
-    assert "Number(permission) === 0" in source
+    assert "result.automation = noPromptOSStatusAllowed(permission);" in source
+    assert "const osProcessPid = proc.unixId();" in source
+    assert "osProcessPid !== result.processPid" in source
     assert "['V1', 'A1', 'A2', 'A3', 'A4', 'A5']" in source
     assert "AXMenuItemCmdChar" in source
     assert "AXMenuItemCmdModifiers" in source
@@ -504,6 +505,44 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "'.', 8, '.'" in source
     assert "attr(item, 'AXMenuItemCmdChar') !== expectedChar" in source
     assert "attr(item, 'AXMenuItemCmdModifiers') !== expectedModifiers" in source
+
+
+def test_no_prompt_automation_status_runtime_rejects_coercions() -> None:
+    """Execute the identical pure JXA status gate, not just source strings."""
+    marker = "function noPromptOSStatusAllowed(status) {"
+    helpers: list[str] = []
+    for source in (ui._FOREGROUND_EXISTING_JXA, ui._OS_READ_ONLY_JXA):
+        start = source.index(marker)
+        helpers.append(source[start : source.index("\n}", start) + 2])
+    assert helpers[0] == helpers[1]
+    script = (
+        helpers[0]
+        + "\nconst values = [0, -0, 1, -1, NaN, null, false, true, "
+        + "undefined, '0', new Number(0), {}, Infinity];\n"
+        + "console.log(JSON.stringify(values.map(noPromptOSStatusAllowed)));"
+    )
+    completed = subprocess.run(
+        ["node", "-e", script],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert json.loads(completed.stdout) == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
 
 
 def _write_keyboard_preferences(tmp_path: Any) -> tuple[Any, Any]:
