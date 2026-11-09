@@ -219,6 +219,7 @@ def test_production_entrypoint_reauthenticates_under_owner_and_uses_os_not_calle
         return os_snapshot()
 
     monkeypatch.setattr(stage, "prepare_owned_f1_inputs", authenticated)
+
     def activate_existing(_self: object) -> int:
         calls.append("activate existing Resolve")
         return 1234
