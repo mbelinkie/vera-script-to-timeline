@@ -104,3 +104,14 @@ authorize this protocol; no human action is requested by this phase.
 - One independent Claude Opus review (phase11-claude-review.log) reported exactly three actionable issues; fixes and focused negatives are in the final code. No second independent review of the fix commit is claimed.
 - `VITEST_MAX_WORKERS=1 npm run validate:fast` was **RED** on a single **5-second timeout** in the unchanged `@vera/contracts` `qualification-output-proposals-v2.test.ts` (#215); all 1,245 other contracts tests passed, plus contract generation, TypeScript lint and types and the other executed workspaces. The failed test's git blob `374126dab54f357c260599d83e0567b4560b7a30` is identical at current HEAD, phase-10 frozen 7ba02962 and origin/main. Running the complete test file alone at the same checkout passed **30/30**, including the timed-out test in 1.526 seconds. The full gate exited **1** at TypeScript tests; its Python phase was **not reached**. This is not a green full-gate claim or a complete contemporary main-baseline reproduction.
 - Native M4 remains **0/4**, and no distinct new sacrificial project, signed native receipts, strict #312 verification or tested real-Mac actor-v2 readiness exists. The source-script SHA is updated but this is **not** a current-head CI/authorized proof freeze.
+
+## Subsequent candidate (2026-11-09; not an override)
+
+The installed Studio SDK exposes `Timeline.GetSelectedClips` and
+`GetIsTrackLocked`. A separately tested, **read-only** candidate to
+independently check exact selected left/right UIDs on a fresh disposable
+target is documented in
+[selected UID containment candidate](issue-499-selected-uid-containment-candidate.md).
+It is **not** wired into F1 production dispatch and does not establish that
+Roll edit-point selections appear in that SDK getter. All unproven Qt
+preconditions remain unchanged. Native 0/4 and the blocked handoff persist.
