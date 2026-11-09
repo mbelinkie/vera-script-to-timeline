@@ -71,9 +71,21 @@ class FakeTimeline:
             ("video", i): (i != 1) for i in range(1, 6)
         }
         self.locks[("audio", 1)] = True
-        self.selection: object = [
-            SimpleNamespace(GetUniqueId=lambda uid=uid: uid) for uid in UIDS[:2]
-        ]
+        self.items_by_track: dict[tuple[str, int], list[Any]] = {
+            (kind, index): []
+            for kind, index in (
+                ("video", 1),
+                ("video", 2),
+                ("video", 3),
+                ("video", 4),
+                ("video", 5),
+                ("audio", 1),
+            )
+        }
+        for row in signed_geometry()["items"]:
+            item = FakeItem(row["itemUid"], row["recordStart"], row["recordDuration"])
+            self.items_by_track[(row["kind"], 1)].append(item)
+        self.selection: object = list(self.items_by_track[("video", 1)])
 
     def GetUniqueId(self) -> str:
         return self.uid
@@ -87,6 +99,9 @@ class FakeTimeline:
     def GetIsTrackLocked(self, kind: str, index: int) -> object:
         return self.locks[kind, index]
 
+    def GetItemListInTrack(self, kind: str, index: int) -> list[Any]:
+        return self.items_by_track[kind, index]
+
     def GetSelectedClips(self) -> object:
         return self.selection
 
@@ -98,6 +113,26 @@ class FakeTimeline:
 
     def GetStartFrame(self) -> int:
         return 0
+
+
+class FakeItem:
+    def __init__(self, uid: str, start: int, duration: int) -> None:
+        self.uid = uid
+        self.start = start
+        self.duration = duration
+        self.links: list[FakeItem] = []
+
+    def GetUniqueId(self) -> str:
+        return self.uid
+
+    def GetStart(self, _subframe: bool) -> int:
+        return self.start
+
+    def GetDuration(self, _subframe: bool) -> int:
+        return self.duration
+
+    def GetLinkedItems(self) -> list[FakeItem]:
+        return self.links
 
 
 class FakeProject:
@@ -175,6 +210,11 @@ def test_exact_selected_uids_and_sdk_track_locks_are_read_only() -> None:
         "unknown-selection",
         "not-a-list",
         "late-page-drift",
+        "native-boundary-already-rolled",
+        "native-extra-item",
+        "native-missing-item",
+        "native-wrong-track",
+        "selected-stale-start",
     ],
 )
 def test_candidate_containment_refuses_unknown_and_wrong_target(fault: str) -> None:
@@ -229,6 +269,24 @@ def test_candidate_containment_refuses_unknown_and_wrong_target(fault: str) -> N
         ]
     elif fault == "not-a-list":
         resolve.timeline.selection = {"0": UIDS[0], "1": UIDS[1]}
+    elif fault == "native-boundary-already-rolled":
+        items = resolve.timeline.items_by_track[("video", 1)]
+        items[0].duration = 351
+        items[1].start = 351
+    elif fault == "native-extra-item":
+        resolve.timeline.items_by_track[("audio", 1)].append(
+            FakeItem("extra-uid", 950, 10)
+        )
+    elif fault == "native-missing-item":
+        resolve.timeline.items_by_track[("audio", 1)].pop()
+    elif fault == "native-wrong-track":
+        item = resolve.timeline.items_by_track[("audio", 1)].pop()
+        resolve.timeline.items_by_track[("video", 2)].append(item)
+    elif fault == "selected-stale-start":
+        resolve.timeline.selection = [
+            FakeItem(UIDS[0], 7, 327),
+            FakeItem(UIDS[1], 327, 151),
+        ]
     else:
         count = 0
 
@@ -253,6 +311,8 @@ def test_candidate_containment_refuses_unknown_and_wrong_target(fault: str) -> N
         "linked-boundary",
         "other-cut-at-327",
         "wrong-boundary-track",
+        "list-track-id",
+        "list-item-uid",
     ],
 )
 def test_candidate_selection_refuses_unbound_or_invalid_provenance(fault: str) -> None:
@@ -273,7 +333,56 @@ def test_candidate_selection_refuses_unbound_or_invalid_provenance(fault: str) -
         geom["items"][5]["recordStart"] = 327
     elif fault == "wrong-boundary-track":
         geom["items"][0]["trackId"] = "v2"
+    elif fault == "list-track-id":
+        geom["tracks"][0]["trackId"] = ["v1"]
+    elif fault == "list-item-uid":
+        geom["items"][0]["itemUid"] = [UIDS[0]]
     else:
         resolve.timeline.locks[("video", 3)] = "true"
     with pytest.raises(gui.GuiRollRefused):
         selection.inspect_selected_boundary(resolve, inv, geom)
+
+
+def test_losing_owner_during_selection_readback_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = 0
+
+    def check_owner() -> None:
+        nonlocal checks
+        checks += 1
+        if checks >= 2:
+            raise gui.GuiRollRefused("original native owner lost")
+
+    monkeypatch.setattr(gui, "_require_owner_lock", check_owner)
+    with pytest.raises(gui.GuiRollRefused, match="owner lost"):
+        selection.inspect_selected_boundary(
+            FakeResolve(), inventory(), signed_geometry()
+        )
+    assert checks == 2
+
+
+@pytest.mark.parametrize("late_change", ["new-track", "new-item", "new-link"])
+def test_live_inventory_rechecked_after_sdk_selection(
+    late_change: str,
+) -> None:
+    resolve = FakeResolve()
+    original = resolve.timeline.GetSelectedClips
+
+    def selected_then_drift() -> object:
+        selected = original()
+        if late_change == "new-track":
+            resolve.timeline.counts["video"] = 6
+        elif late_change == "new-item":
+            resolve.timeline.items_by_track[("audio", 1)].append(
+                FakeItem("new-after-selection", 990, 2)
+            )
+        else:
+            resolve.timeline.items_by_track[("video", 1)][0].links = [
+                resolve.timeline.items_by_track[("audio", 1)][0]
+            ]
+        return selected
+
+    resolve.timeline.GetSelectedClips = selected_then_drift  # type: ignore[method-assign]
+    with pytest.raises(gui.GuiRollRefused):
+        selection.inspect_selected_boundary(resolve, inventory(), signed_geometry())

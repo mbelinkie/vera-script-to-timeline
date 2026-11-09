@@ -77,3 +77,33 @@ protocol and actual Mac evidence are additionally required.
 pristine 11/6 capture is only a geometry test oracle. New candidate source
 code changes the source graph and invalidates earlier freezes even when its
 function is not invoked.
+
+## Independent Claude review and repairs (same adopted branch)
+
+The first candidate commit `7028c460` underwent one independent Claude Opus
+code review. The review returned four actionable findings, all repaired in
+the subsequent local implementation without a second review claim:
+
+1. **Live native geometry:** re-enumerate all 11 actual SDK native item UIDs,
+   track membership, record start/duration and links against signed pristine
+   geometry, before *and* after SDK selection readback. An UNKNOWN/partially
+   completed earlier roll at 351, 12th inserted item or missing item cannot
+   produce a passing candidate result.
+2. **True V1:** bind both inventory boundary track IDs/kind/index to the
+   signed `(video,1)` track ID, not merely to each other.
+3. **Last-moment drift:** recheck native owner, exact project/timeline
+   names/UIDs, render-idle, counts for video/audio/subtitle tracks, locks,
+   playhead, page and 11 native item geometry again after selected clips.
+4. **Closed input parsing:** validate native track/item types before building
+   hash maps or sets, so unhashable corrupted values yield the deliberate
+   fail-closed `GuiRollRefused`, not an uncaught `TypeError`.
+
+Regression cases cover moved 327→351 boundary before selection, extra,
+missing or wrong-track native item, stale selected clip position, missing
+owner after readback, post-readback track/item/link drift, wrong V1 and
+malformed list-valued UIDs. The larger test run across thirteen related
+Test Bench / F1 / M4 files passed **516/516**, and repository-wide Ruff,
+Ruff format and strict mypy passed (**407** source files). These are all
+injected tests; **no actual Mac selected Roll edit-point behavior was tested**.
+The production actor remains unchanged and blocked; this commit does not
+replace phase 12 source freeze, native qualification or case authorization.
