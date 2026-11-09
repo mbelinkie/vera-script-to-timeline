@@ -14,6 +14,7 @@ it must stop; a replay may not retarget or apply a second GUI operation.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,51 @@ def position_owned_327(store: queue.Store, job_id: str, resolve: Any) -> None:
         and plan["initialTarget"] != plan["freshTarget"],
         "only new distinct Test Bench targets eligible",
     )
+    gui_root = m4._jobdir(store, job_id) / "f1-gui-edit"
+    gui_intent = gui_root / "gui-intent.json"
+
+    def check_unspent_and_fresh() -> None:
+        _require(
+            not gui_root.is_symlink()
+            and not gui_intent.exists()
+            and not gui_intent.is_symlink(),
+            "one-use GUI journal already spent or uncertain",
+        )
+        with store.connect() as db:
+            parent = db.execute(
+                "SELECT state,started_at,deadline_at FROM reverse_jobs WHERE id=?",
+                (job_id,),
+            ).fetchone()
+            edited = db.execute(
+                "SELECT state,intent_at,receipt_sha FROM reverse_stages "
+                "WHERE job_id=? AND ordinal=1",
+                (job_id,),
+            ).fetchone()
+        _require(
+            parent is not None
+            and edited is not None
+            and parent["state"] == "awaiting_operator"
+            and parent["started_at"] is not None
+            and parent["deadline_at"] == queue.dt(plan["deadlineAt"]).timestamp()
+            and edited["state"] == "awaiting_operator"
+            and edited["receipt_sha"] is None
+            and isinstance(edited["intent_at"], str),
+            "one newly enrolled, unspent edited operation required",
+        )
+        started = queue.dt(parent["started_at"])
+        intent = queue.dt(edited["intent_at"])
+        deadline = min(
+            queue.dt(plan["deadlineAt"]),
+            queue.dt(plan["runAt"]) + timedelta(seconds=plan["maxElapsedSeconds"]),
+            started + timedelta(seconds=plan["maxElapsedSeconds"]),
+        )
+        now = datetime.now(UTC)
+        _require(
+            started <= intent <= now and now + timedelta(seconds=60) < deadline,
+            "one-use edited intent or cumulative M4 deadline expired",
+        )
+
+    check_unspent_and_fresh()
     receipt = m4._stage_receipt(store, job_id, 0)
     _require(
         receipt["session"] == plan["baselineSession"],
@@ -142,6 +188,7 @@ def position_owned_327(store: queue.Store, job_id: str, resolve: Any) -> None:
     assert timeline is not None
     current = gui._read_only_playhead_frame(timeline)
     if current != roll.BEFORE_BOUNDARY:
+        check_unspent_and_fresh()
         start = _frames(timeline.GetStartTimecode())
         wanted = _timecode(start + roll.BEFORE_BOUNDARY)
         _require(
@@ -152,6 +199,7 @@ def position_owned_327(store: queue.Store, job_id: str, resolve: Any) -> None:
         gui._read_only_playhead_frame(timeline) == roll.BEFORE_BOUNDARY,
         "SDK playhead did not land on exact 327-frame cut",
     )
+    check_unspent_and_fresh()
     after = inspect_selected(resolve, plan["initialTarget"], native_geometry)
     _require(
         after == before,

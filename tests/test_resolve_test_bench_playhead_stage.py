@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -64,14 +65,23 @@ class FakeTimeline:
 
 @pytest.fixture
 def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    started = datetime.now(UTC) - timedelta(seconds=5)
+    intent = datetime.now(UTC) - timedelta(seconds=3)
+    deadline = datetime.now(UTC) + timedelta(minutes=45)
     db = sqlite3.connect(":memory:")
     db.row_factory = sqlite3.Row
-    db.execute("CREATE TABLE reverse_jobs (id TEXT, state TEXT)")
+    db.execute(
+        "CREATE TABLE reverse_jobs "
+        "(id TEXT, state TEXT, started_at TEXT, deadline_at REAL)"
+    )
     db.execute(
         "CREATE TABLE reverse_stages (job_id TEXT, ordinal INTEGER, state TEXT, "
         "receipt_sha TEXT, intent_at TEXT)"
     )
-    db.execute("INSERT INTO reverse_jobs VALUES (?, 'awaiting_operator')", (JOB,))
+    db.execute(
+        "INSERT INTO reverse_jobs VALUES (?, 'awaiting_operator', ?, ?)",
+        (JOB, started.isoformat(), deadline.timestamp()),
+    )
     for ordinal in range(4):
         db.execute(
             "INSERT INTO reverse_stages VALUES (?,?,?,?,?)",
@@ -84,7 +94,7 @@ def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 if ordinal == 1
                 else "pending",
                 "c" * 64 if ordinal == 0 else None,
-                "2026-11-08T00:00:00Z" if ordinal == 1 else None,
+                intent.isoformat() if ordinal == 1 else None,
             ),
         )
 
@@ -98,8 +108,14 @@ def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "initialTarget": INITIAL,
         "freshTarget": FRESH,
         "baselineSession": PRISTINE,
+        "runAt": started.isoformat(),
+        "deadlineAt": deadline.isoformat(),
+        "maxElapsedSeconds": 7200,
     }
     monkeypatch.setattr(m4, "_load_plan", lambda *_: plan)
+    job_root = tmp_path / "m4-job"
+    job_root.mkdir()
+    monkeypatch.setattr(m4, "_jobdir", lambda *_: job_root)
     monkeypatch.setattr(
         m4, "_stage_receipt", lambda *_: {"session": PRISTINE, "capture": CAPTURE}
     )
@@ -153,6 +169,7 @@ def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "resolve": resolve,
         "inspections": inspections,
         "plan": plan,
+        "job_root": job_root,
     }
 
 
@@ -178,6 +195,28 @@ def test_already_on_boundary_does_not_repeat_navigation(fake: dict[str, Any]) ->
     timeline.current = "00:00:13:15"
     playhead.position_owned_327(fake["store"], JOB, fake["resolve"])
     assert timeline.setter_calls == []
+
+
+@pytest.mark.parametrize("unsafe", ["spent", "symlink", "deadline"])
+def test_503_d_navigation_never_touches_spent_or_expired_one_use_stage(
+    fake: dict[str, Any], tmp_path: Path, unsafe: str
+) -> None:
+    journal_dir = fake["job_root"] / "f1-gui-edit"
+    if unsafe == "symlink":
+        journal_dir.symlink_to(tmp_path, target_is_directory=True)
+    elif unsafe == "spent":
+        journal_dir.mkdir()
+        (journal_dir / "gui-intent.json").write_text('{"state":"UNKNOWN"}')
+    else:
+        past = datetime.now(UTC) - timedelta(seconds=1)
+        fake["plan"]["deadlineAt"] = past.isoformat()
+        fake["db"].execute(
+            "UPDATE reverse_jobs SET deadline_at=? WHERE id=?",
+            (past.timestamp(), JOB),
+        )
+    with pytest.raises(queue.QueueError, match=r"journal|deadline"):
+        playhead.position_owned_327(fake["store"], JOB, fake["resolve"])
+    assert fake["timeline"].setter_calls == []
 
 
 @pytest.mark.parametrize(

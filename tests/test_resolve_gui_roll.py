@@ -73,6 +73,7 @@ def valid() -> tuple[
         v1_only=True,
         trim_roll_menu_enabled=True,
         nudge_menu_enabled=True,
+        normal_edit_mode=True,
         keyboard_preset="DaVinci Resolve",
         keyboard_focus_binding="Command-4",
         keyboard_nudge_binding=".",
@@ -255,8 +256,6 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         ("readiness", {"trim_roll_menu_enabled": False}),
         ("readiness", {"nudge_menu_enabled": False}),
         ("readiness", {"keyboard_preset": "Other"}),
-        ("readiness", {"keyboard_focus_binding": "Command-5"}),
-        ("readiness", {"keyboard_nudge_binding": ","}),
     ],
 )
 def test_preflight_denials_have_no_journal_or_gui_effect(

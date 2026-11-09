@@ -15,6 +15,7 @@ import sqlite3
 import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +101,8 @@ def _authority(
         "sourceGraphSha256",
         "approvalReference",
         "approvalInstruction",
+        "issuedAt",
+        "expiresAt",
         "initialTarget",
         "freshTarget",
         "operation",
@@ -129,6 +132,29 @@ def _authority(
         and authority["toFrame"] == 351
         and authority["scriptSha256"] == ROLL_SCRIPT_SHA256,
         "new precise Producer instruction, source hash or fixed GUI action differs",
+    )
+    # This is an operator-authenticated attribution, not a cryptographic
+    # signature. Its freshness is still independently bounded: stale case
+    # consent and the earlier generic #491 exception cannot start a new run.
+    _require(
+        type(authority["issuedAt"]) is str
+        and type(authority["expiresAt"]) is str
+        and type(authority["approvalReference"]) is str
+        and bool(authority["approvalReference"].strip())
+        and "491" not in authority["approvalReference"],
+        "fresh case-specific authority timestamp/reference required; #491 is obsolete",
+    )
+    try:
+        issued = queue.dt(authority["issuedAt"])
+        expires = queue.dt(authority["expiresAt"])
+    except (ValueError, TypeError, OverflowError) as error:
+        raise queue.QueueError("invalid case-specific authorization time") from error
+    now = datetime.now(UTC)
+    _require(
+        issued <= now < expires
+        and now - issued <= timedelta(minutes=30)
+        and timedelta(0) < expires - issued <= timedelta(minutes=30),
+        "case-specific authorization expired, future-dated or not fresh",
     )
     targets = provision.completed(Path(value["root"]) / "provision")
     _require(

@@ -83,6 +83,7 @@ def os_snapshot() -> dict[str, object]:
         "v1Only": True,
         "trimRollMenu": True,
         "nudgeMenu": True,
+        "normalEditMode": True,
         "keyboardPreset": gui.KEYBOARD_PRESET,
         "keyboardFocus": "Command-4",
         "keyboardNudge": ".",
@@ -109,6 +110,7 @@ def test_mock_trusted_mac_positive_exact_sdk_and_fixed_hash() -> None:
         v1_only=True,
         trim_roll_menu_enabled=True,
         nudge_menu_enabled=True,
+        normal_edit_mode=True,
         keyboard_preset="DaVinci Resolve",
         keyboard_focus_binding="Command-4",
         keyboard_nudge_binding=".",
@@ -141,9 +143,8 @@ def test_mock_trusted_mac_positive_exact_sdk_and_fixed_hash() -> None:
         ("v1Only", False),
         ("trimRollMenu", False),
         ("nudgeMenu", False),
+        ("normalEditMode", False),
         ("keyboardPreset", "Adobe Premiere Pro"),
-        ("keyboardFocus", "Command-5"),
-        ("keyboardNudge", ","),
         ("keyboardPreset", None),
         ("processPid", True),
         ("accessibility", 1),
@@ -193,8 +194,6 @@ def test_unknown_and_injected_keys_fail() -> None:
         ("v1Only", None),
         ("trimRollMenu", None),
         ("nudgeMenu", None),
-        ("keyboardFocus", None),  # actual AXMenuItemCmdChar unavailable
-        ("keyboardNudge", None),
         ("automation", None),
         ("modalPresent", None),
     ],
@@ -208,6 +207,17 @@ def test_503_a_real_qt_missing_ax_evidence_never_becomes_ready(
     with pytest.raises(gui.GuiRollRefused):
         ready = ui._readiness_from_os(facts, TARGET)
         gui._validate(intent, inventory, ready, datetime.now(UTC))
+
+
+def test_503_d_menu_only_actor_does_not_require_unobservable_shortcuts() -> None:
+    intent, inventory = sdk_inputs()
+    facts = os_snapshot()
+    facts["keyboardFocus"] = None
+    facts["keyboardNudge"] = None
+    ready = ui._readiness_from_os(facts, TARGET)
+    gui._validate(intent, inventory, ready, datetime.now(UTC))
+    assert ready.keyboard_focus_binding is None
+    assert ready.keyboard_nudge_binding is None
 
 
 @pytest.mark.parametrize(
@@ -644,6 +654,11 @@ def test_malformed_or_failed_system_events_never_returns_green(
 
 def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     source = ui._OS_READ_ONLY_JXA
+    assert (
+        "result.normalEditMode = enabled(normalMode) && checked(normalMode) === true"
+        in source
+    )
+    assert "menuItem(proc, 'Trim', ['Normal Edit Mode'])" in source
     for forbidden in (
         ".activate(",
         ".click(",
@@ -677,6 +692,23 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "'.', 8, '.'" in source
     assert "attr(item, 'AXMenuItemCmdChar') !== expectedChar" in source
     assert "attr(item, 'AXMenuItemCmdModifiers') !== expectedModifiers" in source
+
+
+def test_503_d_os_menu_marks_match_fixed_actor_before_journal() -> None:
+    """An alternate/mixed mark may not pass OS preflight then fail in actor."""
+    source = ui._OS_READ_ONLY_JXA
+    start = source.index("function checked(item) {")
+    function = source[start : source.index("\n}", start) + 2]
+    program = (
+        "function attr(item, name) { return item.mark; }\n"
+        + function
+        + "\nconst marks = ['✓', '✔', '', '-', '•', ' ', null];\n"
+        + "console.log(JSON.stringify(marks.map(mark => checked({mark}))));"
+    )
+    run = subprocess.run(
+        ["node", "-e", program], check=True, capture_output=True, text=True, timeout=5
+    )
+    assert json.loads(run.stdout) == [True, None, False, None, None, None, None]
 
 
 def test_no_prompt_automation_status_runtime_rejects_coercions() -> None:

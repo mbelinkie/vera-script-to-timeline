@@ -233,8 +233,9 @@ class TrustedUiReadiness:
     trim_roll_menu_enabled: bool
     nudge_menu_enabled: bool
     keyboard_preset: str
-    keyboard_focus_binding: str
-    keyboard_nudge_binding: str
+    keyboard_focus_binding: str | None
+    keyboard_nudge_binding: str | None
+    normal_edit_mode: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,15 +453,14 @@ def _validate(
         and readiness.edit_page is True
         and readiness.timeline_focused is True
         and readiness.v1_only is True
+        and readiness.normal_edit_mode is True
         and readiness.trim_roll_menu_enabled is True
         and readiness.nudge_menu_enabled is True,
         "Accessibility/TCC or fixed Edit/V1/menu preflight denied",
     )
     _require(
-        readiness.keyboard_preset == KEYBOARD_PRESET
-        and readiness.keyboard_focus_binding == "Command-4"
-        and readiness.keyboard_nudge_binding == NUDGE_RIGHT_BINDING,
-        "fixed keyboard preset/mapping differs",
+        readiness.keyboard_preset == KEYBOARD_PRESET,
+        "unexpected preset provenance",
     )
 
 

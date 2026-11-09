@@ -12,6 +12,7 @@ import json
 import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -86,6 +87,8 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "sourceGraphSha256": SOURCE_GRAPH,
         "approvalReference": config["consentReference"],
         "approvalInstruction": config["consentInstruction"],
+        "issuedAt": datetime.now(UTC).isoformat(),
+        "expiresAt": (datetime.now(UTC) + timedelta(minutes=15)).isoformat(),
         "initialTarget": first,
         "freshTarget": second,
         "operation": "M4.edited.one-use-gui-roll",
@@ -113,6 +116,8 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "configSha256",
         "approvalReference",
         "approvalInstruction",
+        "issuedAt",
+        "expiresAt",
         "caseId",
         "operation",
         "fromFrame",
@@ -160,6 +165,34 @@ def test_noncanonical_or_truncated_authority_is_not_a_signature(
         loop._authority(raw, fixture["config"], FROZEN, SOURCE_GRAPH)
     with pytest.raises(queue.QueueError, match="not JSON"):
         loop._authority(b"{", fixture["config"], FROZEN, SOURCE_GRAPH)
+
+
+@pytest.mark.parametrize("invalid", ["expired", "future", "too_long", "old_491"])
+def test_503_d_old_or_recycled_authority_never_starts_native(
+    prepared: dict[str, Any], invalid: str
+) -> None:
+    authority = copy.deepcopy(prepared["authority"])
+    now = datetime.now(UTC)
+    if invalid == "expired":
+        authority["issuedAt"] = (now - timedelta(hours=2)).isoformat()
+        authority["expiresAt"] = (now - timedelta(hours=1)).isoformat()
+    elif invalid == "future":
+        authority["issuedAt"] = (now + timedelta(minutes=2)).isoformat()
+        authority["expiresAt"] = (now + timedelta(minutes=12)).isoformat()
+    elif invalid == "too_long":
+        authority["expiresAt"] = (now + timedelta(hours=3)).isoformat()
+    else:
+        config = {**prepared["config"], "consentReference": "issue-491"}
+        authority["approvalReference"] = config["consentReference"]
+        authority["configSha256"] = hashlib.sha256(queue.canonical(config)).hexdigest()
+        with pytest.raises(queue.QueueError, match="491"):
+            loop._authority(queue.canonical(authority), config, FROZEN, SOURCE_GRAPH)
+        return
+    with pytest.raises(queue.QueueError, match="authorization"):
+        loop._authority(
+            queue.canonical(authority), prepared["config"], FROZEN, SOURCE_GRAPH
+        )
+    assert not (prepared["root"] / "complete-loop-intent.json").exists()
 
 
 def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay(

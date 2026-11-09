@@ -172,9 +172,11 @@ function shortcut(item, expectedChar, expectedModifiers, result) {
 }
 function checked(item) {
   const mark = item === null ? null : attr(item, 'AXMenuItemMarkChar');
-  // A missing/unknown AX mark is NOT an unchecked or checked item.
-  if (mark === null) return null;
-  return String(mark) === '\u2713' || String(mark) === '\u2714';
+  // Match the fixed AppleScript exactly; ambiguous mixed/alternate marks
+  // must not consume a one-use journal before the actor would refuse.
+  if (mark === '\u2713') return true;
+  if (mark === '') return false;
+  return null;
 }
 function autoSelectStates(proc, tracks) {
   // Resolve's AX menu lookup crosses a process boundary. Read the common
@@ -209,7 +211,7 @@ function run() {
     accessibility: false, automation: false,
     windowCount: null, windowName: null, windowFrontmost: null,
     modalPresent: null, editPage: null, timelineFocused: null,
-    v1Only: null, trimRollMenu: null, nudgeMenu: null,
+    v1Only: null, normalEditMode: null, trimRollMenu: null, nudgeMenu: null,
     keyboardPreset: null, keyboardFocus: null, keyboardNudge: null
   };
   if (app !== null && app.bundleURL !== null) {
@@ -278,6 +280,8 @@ function run() {
     const auto = ['V1', 'A1', 'A2', 'A3', 'A4', 'A5'];
     const states = autoSelectStates(proc, auto);
     result.v1Only = states[0] === true && states.slice(1).every(s => s === false);
+    const normalMode = menuItem(proc, 'Trim', ['Normal Edit Mode']);
+    result.normalEditMode = enabled(normalMode) && checked(normalMode) === true;
     result.trimRollMenu = enabled(menuItem(
       proc, 'Trim', ['Select Nearest Edit To', 'Roll']
     ));
@@ -452,6 +456,13 @@ class MacReadOnlyObserver:
 
 def _field(snapshot: Mapping[str, object], name: str, kind: type) -> Any:
     value = snapshot.get(name)
+    # The reviewed #503 actor sends only menus, no keyboard events. Qt's
+    # missing effective shortcut characters are diagnostics, not permission
+    # to infer them and not a required input to one-use menu-only dispatch.
+    if name in {"keyboardFocus", "keyboardNudge"} and (
+        value is None or type(value) is str
+    ):
+        return value
     if type(value) is not kind:
         raise gui.GuiRollRefused("OS UI observation missing or ambiguous: " + name)
     return value
@@ -481,6 +492,7 @@ def _readiness_from_os(
         "editPage": bool,
         "timelineFocused": bool,
         "v1Only": bool,
+        "normalEditMode": bool,
         "trimRollMenu": bool,
         "nudgeMenu": bool,
         "keyboardPreset": str,
@@ -526,6 +538,7 @@ def _readiness_from_os(
         edit_page=observation["editPage"],
         timeline_focused=observation["timelineFocused"],
         v1_only=observation["v1Only"],
+        normal_edit_mode=observation["normalEditMode"],
         trim_roll_menu_enabled=observation["trimRollMenu"],
         nudge_menu_enabled=observation["nudgeMenu"],
         keyboard_preset=observation["keyboardPreset"],

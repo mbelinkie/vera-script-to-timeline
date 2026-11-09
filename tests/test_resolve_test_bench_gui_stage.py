@@ -111,6 +111,7 @@ def setup(
         v1_only=True,
         trim_roll_menu_enabled=True,
         nudge_menu_enabled=True,
+        normal_edit_mode=True,
         keyboard_preset=gui.KEYBOARD_PRESET,
         keyboard_focus_binding="Command-4",
         keyboard_nudge_binding=".",
@@ -734,6 +735,7 @@ def _injected_os_and_system_events(
         v1Only=True,
         trimRollMenu=True,
         nudgeMenu=True,
+        normalEditMode=True,
         keyboardPreset=gui.KEYBOARD_PRESET,
         keyboardFocus="Command-4",
         keyboardNudge=".",
@@ -805,7 +807,6 @@ def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
         ("windowFrontmost", False),
         ("modalPresent", True),
         ("v1Only", False),
-        ("keyboardNudge", ","),
         ("keyboardPreset", None),
     ],
 )
