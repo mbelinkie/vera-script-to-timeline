@@ -12,11 +12,15 @@ positions the playhead, invokes the #495 actuator, or writes a native receipt.
 from __future__ import annotations
 
 import json
+import os
 import platform
+import stat
 import subprocess
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from contextvars import ContextVar
 from datetime import UTC, datetime
+from pathlib import Path
 from time import monotonic
 from typing import Any, Protocol
 
@@ -32,9 +36,14 @@ _ATTESTED: ContextVar[
 
 # JXA uses NSWorkspace (actual process identity) and System Events (read-only
 # AX state). No activate/click/keystroke, no user-supplied code, no shell. It
-# deliberately does NOT open Keyboard Customization to discover the preset.
-# Absent an independently readable active mapping, the three keyboard values
-# stay null and the production readiness gate refuses to dispatch.
+# deliberately does NOT open Keyboard Customization. Instead, it obtains the
+# two active *menu item* accelerators through AX. The independent local
+# preferences read below confirms the unmodified default preset. Both proofs
+# are mandatory; a config file alone cannot prove the live effective binding.
+_KEYBOARD_DIR = Path.home() / "Library/Preferences/Blackmagic Design/DaVinci Resolve"
+_KEYBOARD_CONFIG_PATH = _KEYBOARD_DIR / "config.user.xml"
+_KEYBOARD_PRESETS_PATH = _KEYBOARD_DIR / "keyboard.preset.xml"
+
 _OS_READ_ONLY_JXA = r"""
 ObjC.import('AppKit');
 ObjC.import('ApplicationServices');
@@ -56,6 +65,14 @@ function menuItem(proc, menuName, path) {
 function enabled(item) {
   try { return item !== null && item.enabled() === true; }
   catch (_) { return false; }
+}
+function shortcut(item, expectedChar, expectedModifiers, result) {
+  // AX advertises the *live effective* menu accelerator, not an assumed
+  // factory default. No inferred keyboard map, fallback glyph, or coercion.
+  if (!enabled(item) ||
+      attr(item, 'AXMenuItemCmdChar') !== expectedChar ||
+      attr(item, 'AXMenuItemCmdModifiers') !== expectedModifiers) return null;
+  return result;
 }
 function checked(item) {
   const mark = item === null ? null : attr(item, 'AXMenuItemMarkChar');
@@ -145,6 +162,14 @@ function run() {
       proc, 'Trim', ['Select Nearest Edit To', 'Roll']
     ));
     result.nudgeMenu = enabled(menuItem(proc, 'Trim', ['Nudge', 'One Frame Right']));
+    result.keyboardFocus = shortcut(menuItem(
+      proc, 'Workspace', ['Active Panel Selection', 'Timeline']
+    ), '4', 0, 'Command-4');
+    // kAXMenuItemModifierNoCommand=8; the F1 actuator uses the menu item,
+    // but we also verify its expected default accelerator without using it.
+    result.keyboardNudge = shortcut(menuItem(
+      proc, 'Trim', ['Nudge', 'One Frame Right']
+    ), '.', 8, '.');
   } catch (_) {
     // An AX/TCC exception must fail closed; never synthesize positive flags.
     result.automation = false;
@@ -160,12 +185,86 @@ class OsSnapshot(Protocol):
         """Return raw OS observations; no expectation or target assertions."""
 
 
+def _keyboard_file(path: Path) -> bytes:
+    """Read one fixed owned regular XML file, without following a swapped leaf."""
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.getuid()
+                or before.st_nlink != 1
+                or not 0 < before.st_size <= 128 * 1024
+            ):
+                raise gui.GuiRollRefused("keyboard preferences owner/type/size differ")
+            raw = stream.read(128 * 1024 + 1)
+            after = os.fstat(stream.fileno())
+            if len(raw) != before.st_size or (
+                before.st_dev,
+                before.st_ino,
+                before.st_size,
+                before.st_mtime_ns,
+            ) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+                raise gui.GuiRollRefused("keyboard preferences changed during read")
+            return raw
+    except OSError as error:
+        raise gui.GuiRollRefused("keyboard preferences unreadable") from error
+
+
+def _keyboard_sources(config_path: Path, presets_path: Path) -> tuple[bytes, bytes]:
+    return _keyboard_file(config_path), _keyboard_file(presets_path)
+
+
+def _parse_keyboard_preset(sources: tuple[bytes, bytes]) -> str:
+    """Verify Resolve's default active mapping and absence of stored overrides.
+
+    This is only half the proof. AX separately verifies the effective menu
+    shortcuts on the foreground Resolve process before admission.
+    """
+    try:
+        if any(b"<!DOCTYPE" in raw or b"<!ENTITY" in raw for raw in sources):
+            raise ValueError("XML declarations unsupported")
+        config, presets = (ET.fromstring(raw) for raw in sources)
+        mapping = config.findall(".//KeyboardMappings")
+        custom = config.findall(".//CustomKeyboardPreset")
+        fields = presets.findall(".//FieldsBlob")
+        overrides = presets.findall(".//PresetListBA")
+        if not (
+            config.tag == "SM_UserPrefs"
+            and presets.tag == "SmKeyboardPresetList"
+            and len(mapping) == len(custom) == len(fields) == len(overrides) == 1
+            and mapping[0].text == "0"
+            and not mapping[0].attrib
+            and not list(custom[0])
+            and not custom[0].attrib
+            and not (custom[0].text or "").strip()
+            and not list(fields[0])
+            and not fields[0].attrib
+            and not (fields[0].text or "").strip()
+            and not list(overrides[0])
+            and not overrides[0].attrib
+            and not (overrides[0].text or "").strip()
+        ):
+            raise ValueError("nondefault active keyboard mapping or overrides")
+    except (ET.ParseError, ValueError) as error:
+        raise gui.GuiRollRefused(
+            "keyboard preset not independently verified as unmodified default"
+        ) from error
+    return gui.KEYBOARD_PRESET
+
+
+def _trusted_keyboard_preset(config_path: Path, presets_path: Path) -> str:
+    return _parse_keyboard_preset(_keyboard_sources(config_path, presets_path))
+
+
 class MacReadOnlyObserver:
     """Fixed, no-action OS observer; injectable *only* in unit-level tests."""
 
     def observe(self) -> Mapping[str, object]:
         if platform.system() != "Darwin":
             raise gui.GuiRollRefused("read-only UI probe requires macOS")
+        before = _keyboard_sources(_KEYBOARD_CONFIG_PATH, _KEYBOARD_PRESETS_PATH)
         try:
             completed = subprocess.run(
                 ["/usr/bin/osascript", "-l", "JavaScript", "-e", _OS_READ_ONLY_JXA],
@@ -181,6 +280,15 @@ class MacReadOnlyObserver:
             raise gui.GuiRollRefused("read-only macOS UI probe unavailable") from error
         if not isinstance(snapshot, dict):
             raise gui.GuiRollRefused("untrusted OS UI observation format")
+        # The fixed JXA deliberately cannot assert a keyboard preset by itself.
+        # Reject any OS-supplied green preset, then check the same bytes again
+        # after the live OS observation (refuse a preset swapped mid-preflight).
+        if snapshot.get("keyboardPreset") is not None:
+            raise gui.GuiRollRefused("keyboard preset must come from owned files")
+        after = _keyboard_sources(_KEYBOARD_CONFIG_PATH, _KEYBOARD_PRESETS_PATH)
+        if before != after:
+            raise gui.GuiRollRefused("keyboard preferences changed during OS probe")
+        snapshot["keyboardPreset"] = _parse_keyboard_preset(after)
         return snapshot
 
 

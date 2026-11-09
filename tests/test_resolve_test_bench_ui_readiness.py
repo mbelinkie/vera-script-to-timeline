@@ -346,12 +346,120 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "AEDeterminePermissionToAutomateTarget" in source
     assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
     assert "['V1', 'A1', 'A2', 'A3', 'A4', 'A5']" in source
+    assert "AXMenuItemCmdChar" in source
+    assert "AXMenuItemCmdModifiers" in source
+    assert "'Active Panel Selection', 'Timeline'" in source
+    assert "'Nudge', 'One Frame Right'" in source
+    assert "'4', 0, 'Command-4'" in source
+    assert "'.', 8, '.'" in source
+    assert "attr(item, 'AXMenuItemCmdChar') !== expectedChar" in source
+    assert "attr(item, 'AXMenuItemCmdModifiers') !== expectedModifiers" in source
+
+
+def _write_keyboard_preferences(tmp_path: Any) -> tuple[Any, Any]:
+    config = tmp_path / "config.user.xml"
+    preset = tmp_path / "keyboard.preset.xml"
+    config.write_text(
+        '<?xml version="1.0"?><SM_UserPrefs>'
+        "<KeyboardMappings>0</KeyboardMappings>"
+        "<CustomKeyboardPreset/></SM_UserPrefs>"
+    )
+    preset.write_text(
+        '<?xml version="1.0"?><SmKeyboardPresetList>'
+        "<FieldsBlob/><PresetListBA/></SmKeyboardPresetList>"
+    )
+    return config, preset
+
+
+def test_real_read_only_default_keyboard_preset_files(tmp_path: Any) -> None:
+    config, preset = _write_keyboard_preferences(tmp_path)
+    assert ui._trusted_keyboard_preset(config, preset) == gui.KEYBOARD_PRESET
+
+
+@pytest.mark.parametrize(
+    ("config_change", "preset_change"),
+    [
+        ("<KeyboardMappings>1</KeyboardMappings>", None),
+        (
+            "<KeyboardMappings>0</KeyboardMappings><KeyboardMappings>0</KeyboardMappings>",
+            None,
+        ),
+        ("<CustomKeyboardPreset>Custom</CustomKeyboardPreset>", None),
+        ("<CustomKeyboardPreset><Key/></CustomKeyboardPreset>", None),
+        ('<CustomKeyboardPreset name="forged"/>', None),
+        ("<!DOCTYPE x [ <!ENTITY x 'DaVinci Resolve'> ]>", None),
+        (None, "<PresetListBA>overrides</PresetListBA>"),
+        (None, "<PresetListBA><Shortcut/></PresetListBA>"),
+    ],
+)
+def test_refuses_nondefault_or_ambiguous_active_mapping(
+    tmp_path: Any, config_change: str | None, preset_change: str | None
+) -> None:
+    config, preset = _write_keyboard_preferences(tmp_path)
+    if config_change is not None:
+        original = config.read_text()
+        if config_change.startswith("<!DOCTYPE"):
+            config.write_text(config_change + original)
+        elif config_change.startswith("<KeyboardMappings>"):
+            config.write_text(
+                original.replace(
+                    "<KeyboardMappings>0</KeyboardMappings>", config_change
+                )
+            )
+        else:
+            config.write_text(
+                original.replace("<CustomKeyboardPreset/>", config_change)
+            )
+    if preset_change is not None:
+        preset.write_text(preset.read_text().replace("<PresetListBA/>", preset_change))
+    with pytest.raises(gui.GuiRollRefused, match="keyboard"):
+        ui._trusted_keyboard_preset(config, preset)
+
+
+def test_missing_symlinked_and_oversized_preferences_fail_closed(tmp_path: Any) -> None:
+    config, preset = _write_keyboard_preferences(tmp_path)
+    other = tmp_path / "other.xml"
+    other.write_bytes(config.read_bytes())
+    config.unlink()
+    config.symlink_to(other)
+    with pytest.raises(gui.GuiRollRefused, match="keyboard"):
+        ui._trusted_keyboard_preset(config, preset)
+    config.unlink()
+    config.write_bytes(other.read_bytes())
+    preset.write_bytes(b"x" * 131073)
+    with pytest.raises(gui.GuiRollRefused, match="keyboard"):
+        ui._trusted_keyboard_preset(config, preset)
+
+
+def test_observer_rejects_changed_live_keyboard_preferences(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    config, preset = _write_keyboard_preferences(tmp_path)
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(ui, "_KEYBOARD_CONFIG_PATH", config)
+    monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
+
+    def replaced(_args: object, **_kwargs: object) -> Any:
+        snapshot = os_snapshot()
+        snapshot["keyboardPreset"] = None
+        # Still a valid default preset. Only the *two-read change detection*
+        # can catch this mid-probe change, not the parser's preset validation.
+        config.write_text(config.read_text() + "\n")
+        return SimpleNamespace(returncode=0, stdout=json.dumps(snapshot))
+
+    monkeypatch.setattr(subprocess, "run", replaced)
+    with pytest.raises(gui.GuiRollRefused, match="keyboard"):
+        ui.MacReadOnlyObserver().observe()
 
 
 def test_observer_returns_raw_not_authenticated_data(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
 ) -> None:
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    config, preset = _write_keyboard_preferences(tmp_path)
+    monkeypatch.setattr(ui, "_KEYBOARD_CONFIG_PATH", config)
+    monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
 
     def run(args: list[str], **kwargs: object) -> Any:
         assert args[:5] == [
@@ -362,7 +470,27 @@ def test_observer_returns_raw_not_authenticated_data(
             ui._OS_READ_ONLY_JXA,
         ]
         assert kwargs["timeout"] == 12
-        return SimpleNamespace(returncode=0, stdout=json.dumps(os_snapshot()))
+        snapshot = os_snapshot()
+        snapshot["keyboardPreset"] = None
+        return SimpleNamespace(returncode=0, stdout=json.dumps(snapshot))
 
     monkeypatch.setattr(subprocess, "run", run)
     assert ui.MacReadOnlyObserver().observe() == os_snapshot()
+
+
+def test_observer_does_not_trust_forged_preset_claim(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    config, preset = _write_keyboard_preferences(tmp_path)
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(ui, "_KEYBOARD_CONFIG_PATH", config)
+    monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0, stdout=json.dumps(os_snapshot())
+        ),
+    )
+    with pytest.raises(gui.GuiRollRefused, match="keyboard preset must come"):
+        ui.MacReadOnlyObserver().observe()
