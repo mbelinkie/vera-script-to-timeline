@@ -173,9 +173,9 @@ class OriginalM4GuiJournal:
             + timedelta(seconds=plan["maxElapsedSeconds"]),
         )
         _require(
-            now < intent.expires_at <= absolute_deadline
+            now + timedelta(seconds=60) < intent.expires_at <= absolute_deadline
             and intent.expires_at - now <= timedelta(minutes=5),
-            "GUI intent expired, unbounded or outside original M4 ceiling",
+            "GUI intent stale, too close to expiry or outside original M4 ceiling",
         )
         carrier._private(self.root, create=True)
         _require(
@@ -237,6 +237,27 @@ def attempt_once(
     return gui.OneUseGuiRollActuator(
         OriginalM4GuiJournal(store, job_id), executor
     ).attempt(intent, inventory, readiness)
+
+
+def dispatch_owned_f1_once(
+    store: queue.Store, job_id: str, resolve: Any
+) -> gui.GuiRollAttempt:
+    """Single production transport for a separately authorized *new* M4 run.
+
+    The caller already owns the host-wide native lock and has verified fresh
+    case-specific Producer authority. Nothing here can grant that authority,
+    acquire another owner, choose a target, set a playhead, or resume an old
+    campaign. Only the fixed, reviewed #495 System Events script is dispatched.
+    An OS success means UNKNOWN pending the independent phase-3 native host;
+    no native write/receipt/promotion is attempted in this phase.
+    """
+    from .resolve_test_bench_ui_readiness import prepare_owned_ui_readiness
+
+    gui._require_owner_lock()
+    intent, inventory, readiness = prepare_owned_ui_readiness(store, job_id, resolve)
+    return attempt_once(
+        store, job_id, intent, inventory, readiness, gui.SystemEventsRollExecutor()
+    )
 
 
 def _read_only_playhead_frame(timeline: Any) -> int:

@@ -702,3 +702,224 @@ def test_owned_f1_input_factory_requires_original_m4_time_budget(
         stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert events == []
     assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def _injected_os_and_system_events(
+    monkeypatch: pytest.MonkeyPatch, *, error: bool = False
+) -> tuple[dict[str, object], list[str]]:
+    """The complete production path with fake read-only OS and fake effects."""
+    from vera_timeline_agent import resolve_test_bench_ui_readiness as ui
+
+    snapshot: dict[str, object] = dict(
+        runningResolveCount=1,
+        processPid=1234,
+        processName="Resolve",
+        bundleId=gui.RESOLVE_BUNDLE_ID,
+        bundlePath="/Applications/DaVinci Resolve/DaVinci Resolve.app",
+        bundleShortVersion="21.1.1",
+        bundleBuild="21.1.10010",
+        frontmostPid=1234,
+        frontmostBundleId=gui.RESOLVE_BUNDLE_ID,
+        frontmostProcess="Resolve",
+        accessibility=True,
+        automation=True,
+        windowCount=1,
+        windowName=NAME,
+        windowFrontmost=True,
+        modalPresent=False,
+        editPage=True,
+        timelineFocused=True,
+        v1Only=True,
+        trimRollMenu=True,
+        nudgeMenu=True,
+        keyboardPreset=gui.KEYBOARD_PRESET,
+        keyboardFocus="Command-4",
+        keyboardNudge=".",
+    )
+    calls: list[str] = []
+
+    class FakeOs:
+        def observe(self) -> dict[str, object]:
+            return dict(snapshot)
+
+    class FakeSystemEvents(gui.SystemEventsRollExecutor):
+        def execute_once(self, expected_window_name: str) -> None:
+            assert expected_window_name == NAME
+            assert gui._CONSUMED_DISPATCH.get() is True
+            calls.append("one fixed 24-event invocation")
+            if error:
+                raise OSError("lost focus / unknown partial GUI event")
+
+    monkeypatch.setattr(ui, "MacReadOnlyObserver", FakeOs)
+    monkeypatch.setattr(gui, "SystemEventsRollExecutor", FakeSystemEvents)
+    return snapshot, calls
+
+
+def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sdk, observations = _setup_read_only_f1_preparation(setup, monkeypatch)
+    _, calls = _injected_os_and_system_events(monkeypatch)
+    report = stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert report.state == "unknown" and report.requested_frame_events == 24
+    assert report.native_verified is False and report.receipt_issued is False
+    assert observations == ["verified", "read-only SDK inspected"]
+    assert calls == ["one fixed 24-event invocation"]
+    intent = json.loads((_journal_root(setup) / "gui-intent.json").read_text())
+    assert intent["operationId"] == setup[1].stage_operation_id
+    assert intent["itemUids"] == list(UIDS)
+    assert intent["scriptSha256"] == gui.ROLL_SCRIPT_SHA256
+    assert (
+        setup[0]
+        .db.execute("SELECT state FROM reverse_stages WHERE ordinal=1")
+        .fetchone()[0]
+        == "awaiting_operator"
+    )
+    with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("windowName", "wrong-project"),
+        ("frontmostPid", 999),
+        ("automation", False),
+        ("accessibility", False),
+        ("windowFrontmost", False),
+        ("modalPresent", True),
+        ("v1Only", False),
+        ("keyboardNudge", ","),
+        ("keyboardPreset", None),
+    ],
+)
+def test_integrated_os_failure_cannot_consume_or_dispatch(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    bad: object,
+) -> None:
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    snapshot, calls = _injected_os_and_system_events(monkeypatch)
+    snapshot[field] = bad
+    with pytest.raises(gui.GuiRollRefused):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+    assert calls == []
+
+
+@pytest.mark.parametrize("crash_point", ["fsync", "gui"])
+def test_integrated_partial_or_crash_is_irrevocable(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    crash_point: str,
+) -> None:
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    _, calls = _injected_os_and_system_events(monkeypatch, error=crash_point == "gui")
+    original_once = carrier._once
+    if crash_point == "fsync":
+
+        def lose_power(path: Path, raw: bytes) -> None:
+            original_once(path, raw)
+            raise OSError("lost process after fsynced pre-effect intent")
+
+        monkeypatch.setattr(carrier, "_once", lose_power)
+    with pytest.raises(gui.GuiRollUnknown):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert (_journal_root(setup) / "gui-intent.json").is_file()
+    monkeypatch.setattr(carrier, "_once", original_once)
+    with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert len(calls) == (0 if crash_point == "fsync" else 1)
+
+
+def test_original_m4_last_minute_is_not_enough_for_gui(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, intent, inventory, readiness, executor = setup
+    near = datetime.now(UTC) + timedelta(seconds=30)
+    old_plan = m4._load_plan(store, JOB)  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        m4,
+        "_load_plan",
+        lambda _store, _job: {**old_plan, "deadlineAt": near.isoformat()},
+    )
+    store.db.execute(
+        "UPDATE reverse_jobs SET deadline_at=? WHERE id=?",
+        (near.timestamp(), JOB),
+    )
+    with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
+        stage.attempt_once(
+            store,
+            JOB,
+            replace(intent, expires_at=near),
+            inventory,
+            readiness,
+            executor,
+        )  # type: ignore[arg-type]
+    assert executor.calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_owner_lock_contention_cannot_start_os_or_intent(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import fcntl
+    import os
+
+    from vera_timeline_agent import resolve_native_owner as owner
+
+    sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
+    _, calls = _injected_os_and_system_events(monkeypatch)
+    monkeypatch.setattr(owner, "OWNER_LOCK_PATH", tmp_path / "native-owner.lock")
+
+    def real_guard() -> None:
+        gui._require(owner._HELD_OWNER_FD.get() is not None, "owner absent")
+
+    monkeypatch.setattr(gui, "_require_owner_lock", real_guard)
+    fd = os.open(owner.OWNER_LOCK_PATH, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(gui.GuiRollRefused, match="owner absent"):
+            stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+        with pytest.raises(owner.NativeOwnerError), owner.native_owner():
+            pytest.fail("second owner unexpectedly acquired")
+    finally:
+        os.close(fd)
+    assert events == [] and calls == []
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
