@@ -209,6 +209,47 @@ function readFrozenInput(name: string, doc: ScriptDocumentV2, deps: CompilerDepe
 }
 
 describe("pure v2 compiler", () => {
+  it("refuses Ideas in the frozen contract and emits only active Draft content, never an excluded promoted note", () => {
+    const original = document();
+    const deps = dependencies();
+    const baseline = compileTimelineV2(original, deps);
+    expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+    const mediaInput = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    const baselineNeeds = resolveMediaRequirementsV2(original, mediaInput);
+    expect(baselineNeeds.ok, JSON.stringify(baselineNeeds)).toBe(true);
+    if (!baseline.ok || !baselineNeeds.ok) return;
+
+    const ideaText = "UNPROMOTED_IDEA_NEVER_COMPILED";
+    const sidecar = { schemaVersion: "stt-idea-outline/v1", documentId: original.id,
+      items: [{ id: id(200), parentId: null, orderKey: "a", text: ideaText,
+        state: "open", linkedDraftBlockIds: [], collapsed: false, version: 1 }] };
+    const invalid = { ...original, ideaOutline: sidecar.items };
+    expect(validateScriptDocumentV2(invalid).valid).toBe(false);
+    expect(compileTimelineV2(invalid, deps).ok).toBe(false);
+    expect(resolveMediaRequirementsV2(invalid, mediaInput).ok).toBe(false);
+
+    // A deliberately promoted Idea becomes a Draft note, not a narration/media row.
+    const promoted = structuredClone(original);
+    const noteId = id(201);
+    promoted.activeDraft.blocks.push({ type: "note_draft", id: noteId, orderKey: "a1",
+      text: sidecar.items[0]!.text, state: "excluded", version: 1 });
+    expect(validateScriptDocumentV2(promoted).valid).toBe(true);
+    expect(promoted.ideaOutline).toEqual([]);
+    const compiled = compileTimelineV2(promoted, deps);
+    const needs = resolveMediaRequirementsV2(promoted, mediaInput);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    expect(needs.ok, JSON.stringify(needs)).toBe(true);
+    if (compiled.ok && needs.ok) {
+      expect(compiled.manifestJson).toBe(baseline.manifestJson);
+      expect(compiled.reportJson).toBe(baseline.reportJson);
+      expect(needs).toEqual(baselineNeeds);
+      expect(compiled.manifestJson).not.toContain(ideaText);
+      expect(compiled.manifestJson).not.toContain(noteId);
+    }
+    expect(JSON.stringify(original)).not.toContain(ideaText);
+  });
+
   it("ignores parked saved rows, section order and historical origins when compiling active Draft", () => {
     const original = document();
     const deps = dependencies();
