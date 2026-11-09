@@ -445,9 +445,12 @@ def _submit_original(
         "schema": m4.RECEIPT_SCHEMA,
         "stage": stage,
         "operationId": expected["operation_id"],
-        "session": result["session"],
-        "capture": result["capture"],
     }
+    if stage == "revision":
+        receipt["proof"] = m4._ref(result["proof"], "accepted revision proof")
+    else:
+        receipt["session"] = m4._ref(result["session"], "native output session")
+        receipt["capture"] = m4._ref(result["capture"], "native output capture")
     path = store.root / job_id / f"receipt-{stage}.json"
     raw = queue.canonical(receipt)
     if not path.exists():
