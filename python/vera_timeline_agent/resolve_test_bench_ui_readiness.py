@@ -48,6 +48,13 @@ _OS_READ_ONLY_JXA = r"""
 ObjC.import('AppKit');
 ObjC.import('ApplicationServices');
 ObjC.import('Carbon');
+// NSAppleEventDescriptor.aeDesc is an AEDesc pointer. JXA's imported typed
+// Carbon binding rejects it with "Ref has incompatible type" before macOS can
+// answer the permission query. Bind the same native function with its pointer
+// argument as void*; the address, wildcard event codes and no-prompt flag stay
+// unchanged. Independently exercised on Studio 21.1.1.10's foreground Mac.
+ObjC.bindFunction('AEDeterminePermissionToAutomateTarget',
+  ['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]);
 function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
 function attr(obj, name) {
   try { return obj.attributes.byName(name).value(); } catch (_) { return null; }
