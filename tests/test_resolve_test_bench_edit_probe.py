@@ -124,6 +124,38 @@ def test_probe_reports_new_api_without_calling_any_setter() -> None:
     assert all(result["methodPresent"].values())
 
 
+def test_real_studio_21110_five_part_sdk_version_is_authenticated_read_only() -> None:
+    resolve, target, geometry, _ = _fixture()
+    # Verified live Studio 21.1.1.10 GetVersion() response, including the
+    # documented release-suffix field; never call the SDK edit setters.
+    resolve.GetVersion = lambda: [21, 1, 1, 10, ""]
+    result = probe.inspect_selected(resolve, target, geometry)
+    assert result["resolveVersion"] == [21, 1, 1, 10, ""]
+    assert result["supportsDocumentedOffsetMethods"] is False
+    assert result["disposition"] == "read_only_no_edit_authorized"
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        [21, 1, 1, 10, None],
+        [21, 1, 1, "10", ""],
+        [21, 1, 1, 10, "", "injected"],
+        [21, 1, 1, 10, "" * 0 + "x" * 129],
+        [20, 9, 0, 10, ""],
+        [21, 1, 1, -1, ""],
+        [21, 1, 1, True, ""],
+    ],
+)
+def test_untrusted_resolve_version_shapes_still_fail_closed(
+    version: list[object],
+) -> None:
+    resolve, target, geometry, _ = _fixture()
+    resolve.GetVersion = lambda: version
+    with pytest.raises(probe.EditProbeRefusal, match="version cannot be authenticated"):
+        probe.inspect_selected(resolve, target, geometry)
+
+
 def test_older_api_remains_blocked_without_mutation() -> None:
     resolve, target, geometry, _ = _fixture()
     resolve.GetVersion = lambda: [21, 0, 4, 1]

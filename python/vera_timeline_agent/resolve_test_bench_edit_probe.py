@@ -127,10 +127,22 @@ def inspect_selected(
         "selected project/UID/idle state differs",
     )
     version = resolve.GetVersion()
+    # The official Resolve 21.1.1.10 SDK returns
+    # [21, 1, 1, 10, ""].  The trailing release suffix is a string,
+    # not a fifth numeric component; rejecting it falsely blocks a
+    # pristine-verified native target.  Keep malformed shapes fail-closed.
     _require(
         isinstance(version, (tuple, list))
-        and len(version) >= 3
-        and all(type(value) is int and 0 <= value < 100000 for value in version)
+        and (
+            (len(version) == 4 and all(type(v) is int for v in version))
+            or (
+                len(version) == 5
+                and all(type(v) is int for v in version[:4])
+                and type(version[4]) is str
+                and len(version[4]) <= 128
+            )
+        )
+        and all(0 <= v < 100000 for v in version[:4])
         and version[0] >= 21,
         "Resolve Studio version cannot be authenticated",
     )
