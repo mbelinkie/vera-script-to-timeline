@@ -758,6 +758,15 @@ The report records these distinct stages:
   [native disposable verification](verification/issue-473-mac-native-disposable-20261108.md).
   This establishes provisioning/readback only: the targets are empty and no
   new 327-to-351 M4 edit, fourth receipt or MOV/PCM has been verified.
+- Later on **2026-11-08**, that fresh campaign completed an authentic
+  **pristine M4 receipt (stage 1/4)** and real 11-item/six-track construction.
+  The 21.1.1.10 SDK's five-element `GetVersion()` result exposed a read-only
+  probe bug, since fixed. Subsequent source edits changed the source graph
+  pinned by the pristine admission seal, correctly blocking further use of
+  that state under the updated checkout. See
+  [F1 source-freeze follow-up](verification/issue-473-f1-source-freeze-followup.md).
+  Complete the trusted one-use GUI/host integration, **then** freeze its code
+  before the next new sacrificial campaign; never reseal/replay the old run.
 
 **Reuse/delta:** #312 owns its fixture/instrumentation and forward optimization;
 #313 consumes the **actual merged** fixture and resulting main baseline. No
