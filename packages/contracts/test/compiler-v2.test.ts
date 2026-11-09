@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-core-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
-import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import { applyRowEditV2 } from "../src/authoring-v2-rows.js";
+import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const fixture = (name: string): string => `${repo}tests/data/authoring_v2/${name}`;
@@ -209,6 +210,91 @@ function readFrozenInput(name: string, doc: ScriptDocumentV2, deps: CompilerDepe
 }
 
 describe("pure v2 compiler", () => {
+  it("excludes a real parked narration, footage and word citation from output and requirements until restored", () => {
+    const authored = document();
+    const row = authored.activeDraft.blocks[0] as NarrationBlockV2;
+    const slate = intentionalSlateBlock(1000);
+    slate.orderKey = "z0";
+    authored.activeDraft.blocks.push(slate);
+    const word = row.tokens[0]!;
+    const attachment = { kind: "word" as const, anchor: { blockId: row.id,
+      tokenId: word.id, quotedWord: word.value, affinity: "before" as const, anchorVersion: 1 } };
+    const citation: SupportingItemV2 = { id: id(2030), version: 1, orderKey: "citation",
+      role: "citation", content: "Keep original Research evidence", placement: { kind: "point", anchor: attachment },
+      displayAttachment: attachment };
+    authored.activeDraft.supportingItems.push(citation);
+    const parkedResult = applyRowEditV2(authored, 0, {
+      kind: "stash_rows", rowIds: [row.id], bundleId: id(2031),
+    });
+    expect(parkedResult.ok, JSON.stringify(parkedResult.diagnostics)).toBe(true);
+    if (!parkedResult.ok) return;
+    const parked = parkedResult.document;
+    expect(parked.stash?.[0]?.rows).toEqual([row]);
+    expect(parked.stash?.[0]?.supportingItems).toEqual([citation]);
+    expect(parked.activeDraft.blocks).toEqual([slate]);
+
+    const baseline = visualOnlyDocument(structuredClone(slate));
+    const deps = visualOnlyDependencies();
+    const media = (doc: ScriptDocumentV2, input: CompilerDependenciesV2) => resolveMediaRequirementsV2(doc, {
+      timing: input.narrationTimingMaps, defaults: input.authoringDefaults,
+      sourceDescriptors: input.occurrenceResolutions, frameRate: input.timeline.frameRate,
+    });
+    const expected = compileTimelineV2(baseline, deps);
+    const expectedNeeds = media(baseline, deps);
+    const compiled = compileTimelineV2(parked, deps);
+    const needs = media(parked, deps);
+    expect(expected.ok, JSON.stringify(expected)).toBe(true);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    expect(needs).toEqual(expectedNeeds);
+    if (!expected.ok || !compiled.ok || !needs.ok) return;
+    expect(needs.requirements).toEqual([]);
+    expect(compiled.manifestJson).toBe(expected.manifestJson);
+    expect(compiled.reportJson).toBe(expected.reportJson);
+    expect(JSON.stringify(compiled)).not.toContain(row.id);
+    expect(JSON.stringify(compiled)).not.toContain(citation.content);
+
+    // Change only saved typed contents and footage; even source needs stay byte-identical.
+    const revised = structuredClone(parked);
+    const saved = revised.stash?.[0]?.rows[0];
+    if (!saved || saved.type !== "narration") throw new Error("Missing parked typed row");
+    saved.text = "world";
+    saved.tokens[0]!.value = "world";
+    const slot = saved.primaryVisualSequence?.slots[0];
+    if (!slot || slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Missing saved footage");
+    slot.payload.source = { kind: "media_reference", mediaReferenceId: id(2032) };
+    slot.payload.framingPolicy = "cover";
+    revised.stash![0]!.supportingItems[0]!.content = "Different saved evidence";
+    expect(validateScriptDocumentV2(revised).valid).toBe(true);
+    const afterSavedEdit = compileTimelineV2(revised, deps);
+    expect(afterSavedEdit.ok, JSON.stringify(afterSavedEdit)).toBe(true);
+    if (afterSavedEdit.ok) {
+      expect(afterSavedEdit.manifestJson).toBe(expected.manifestJson);
+      expect(afterSavedEdit.reportJson).toBe(expected.reportJson);
+    }
+    expect(media(revised, deps)).toEqual(expectedNeeds);
+
+    // Restore the original typed row to a *new* gap, after the active slate.
+    const restoredResult = applyRowEditV2(parked, parked.rowEditRevision ?? 0, {
+      kind: "restore_stash", bundleId: id(2031),
+      destination: { sectionId: null, afterRowId: slate.id, beforeRowId: null },
+    });
+    expect(restoredResult.ok, JSON.stringify(restoredResult.diagnostics)).toBe(true);
+    if (!restoredResult.ok) return;
+    expect(restoredResult.document.activeDraft.supportingItems).toEqual([citation]);
+    expect(restoredResult.document.activeDraft.blocks.map((item) => item.id)).toEqual([slate.id, row.id]);
+    const restoredDeps = dependencies();
+    const restored = compileTimelineV2(restoredResult.document, restoredDeps);
+    const restoredNeeds = media(restoredResult.document, restoredDeps);
+    expect(restored.ok, JSON.stringify(restored)).toBe(true);
+    expect(restoredNeeds.ok, JSON.stringify(restoredNeeds)).toBe(true);
+    if (restored.ok && restoredNeeds.ok) {
+      expect(restored.manifestJson).not.toBe(expected.manifestJson);
+      expect(restored.manifest.events.some((event) => event.kind === "narration")).toBe(true);
+      expect(restored.manifest.events.some((event) => event.kind === "primary_visual")).toBe(true);
+      expect(restoredNeeds.requirements.some((item) => item.payloadId === id(17))).toBe(true);
+    }
+  });
+
   it("ignores parked saved rows, section order and historical origins when compiling active Draft", () => {
     const original = document();
     const deps = dependencies();

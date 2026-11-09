@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { compileTimelineV2, resolveMediaRequirementsV2 } from "@vera/contracts/compiler-core-v2";
+import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
   applyProjectAuthorizationMigration, ProjectAuthorizationService, type SqlPool,
 } from "@vera/project-authorization";
@@ -145,6 +146,97 @@ afterEach(async () => {
 });
 
 describe("transactionally frozen submission from #380 and #379", () => {
+  it("freezes parked typed footage and citation bytes intact without compiling Extras or leaking comments", async () => {
+    const h = await buildHarness({ anchoredDocument: true });
+    const row = h.document.activeDraft.blocks[0];
+    if (!row || row.type !== "narration") throw new Error("expected typed narration fixture");
+    const token = row.tokens[0]!;
+    const anchor = { kind: "word" as const, anchor: { blockId: row.id, tokenId: token.id,
+      affinity: "before" as const, quotedWord: token.value, anchorVersion: 1 } };
+    const citation = { id: randomUUID(), version: 1, role: "citation" as const, orderKey: "source",
+      content: "Saved source evidence", placement: { kind: "point" as const, anchor }, displayAttachment: anchor };
+    const annotated = structuredClone(h.document);
+    annotated.activeDraft.supportingItems.push(citation);
+    const activeSlate = { type: "visual_only" as const, id: randomUUID(), orderKey: "z0", version: 1,
+      payload: { kind: "visual" as const, payloadId: randomUUID(), pictureKind: "intentional_placeholder" as const,
+        source: { kind: "intentional_placeholder" as const, text: "Keep this Draft slate" },
+        audioPolicy: "mute" as const, framingPolicy: "contain" as const },
+      visualOnlyTiming: { kind: "visual_only" as const, durationOverrideMs: 1000 } };
+    annotated.activeDraft.blocks.push(activeSlate);
+    const annotatedHead = await h.documents.putDocument(h.projectId, h.producer, {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: annotated,
+    });
+    expect(annotatedHead.revision).toBe(1);
+    const comments = new ProjectCommentService(h.pool, h.auth);
+    const privateComment = `EXTRAS_COMMENT_NOT_BUILDABLE_${randomUUID()}`;
+    await comments.applyOperation(h.projectId, h.producer, {
+      expectedCommentRevision: 0, clientMutationId: randomUUID(),
+      operation: { kind: "create", threadId: randomUUID(), messageId: randomUUID(),
+        body: privateComment, mentionActorIds: [], anchor: { kind: "block", blockId: row.id } },
+    });
+    const bundleId = randomUUID();
+    const parked = await h.documents.applyExtrasOperation(h.projectId, h.producer, {
+      expectedRevision: 1, clientMutationId: randomUUID(),
+      operation: { kind: "stash_rows", rowIds: [row.id], bundleId },
+    });
+    expect(parked.revision).toBe(2);
+    const head = await h.documents.getDocument(h.projectId, h.producer);
+    expect(head.document.activeDraft.blocks).toEqual([activeSlate]);
+    expect(head.document.activeDraft.supportingItems).toEqual([]);
+    expect(head.document.stash?.[0]?.rows).toEqual([row]);
+    expect(head.document.stash?.[0]?.supportingItems).toEqual([citation]);
+
+    const result = await h.submissions.submit(h.projectId, h.producer, h.intent([], {
+      expectedRevision: parked.revision, expectedDigest: parked.digest,
+    }));
+    const frozen = await loadFrozen(h.db, h.projectId, result.jobId);
+    const stored = (await h.db.query<{ document_json: string; content_digest: string }>(
+      "SELECT document_json, content_digest FROM stt_document_heads WHERE project_id=$1", [h.projectId],
+    )).rows[0]!;
+    expect(frozen.row.document_json).toBe(stored.document_json);
+    expect(frozen.row.document_digest).toBe(stored.content_digest);
+    expect(frozen.row.document_digest).toBe(sha256(frozen.row.document_json));
+    expect(frozen.row.document_digest).toBe(parked.digest);
+    const frozenDoc = JSON.parse(frozen.row.document_json) as ScriptDocumentV2;
+    expect(frozenDoc.stash?.[0]?.rows).toEqual([row]);
+    expect(frozenDoc.stash?.[0]?.supportingItems).toEqual([citation]);
+    expect(frozenDoc.activeDraft.blocks).toEqual([activeSlate]);
+    expect(JSON.stringify(frozen)).not.toContain(privateComment);
+
+    const fixture = JSON.parse(readFileSync(new URL(
+      "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url,
+    ), "utf8")) as { dependencies: CompilerDependenciesV2 };
+    const deps = fixture.dependencies;
+    deps.document.documentId = frozenDoc.id;
+    deps.document.projectId = h.projectId;
+    deps.document.revision = parked.revision;
+    deps.document.liveHeadSequence = frozenDoc.liveHeadSequence;
+    deps.document.contentHash = frozenDoc.liveContentHash;
+    deps.document.textHash = sha256("");
+    deps.narrationTimingMaps = [];
+    deps.occurrenceResolutions = [];
+    deps.preparedMedia = [];
+    const compilation = compileTimelineV2(frozenDoc, deps);
+    expect(compilation.ok, JSON.stringify(compilation)).toBe(true);
+    if (compilation.ok) {
+      expect(compilation.manifest.events.length).toBeGreaterThan(0);
+      expect(compilation.manifest.events.every((event) => event.kind !== "narration" &&
+        event.kind !== "primary_visual")).toBe(true);
+      expect(compilation.manifestJson).not.toContain(row.id);
+      expect(compilation.reportJson).not.toContain(citation.content);
+    }
+    const needs = resolveMediaRequirementsV2(frozenDoc, { timing: [],
+      defaults: deps.authoringDefaults, sourceDescriptors: [], frameRate: deps.timeline.frameRate });
+    expect(needs).toMatchObject({ ok: true, requirements: [] });
+
+    const agent = await h.pair();
+    const claim = await h.status().claim(agent, result.jobId);
+    const delivered = await h.status().frozenForAgent(agent, result.jobId, claim.leaseEpoch);
+    expect(delivered.documentJson).toBe(frozen.row.document_json);
+    expect(delivered.documentDigest).toBe(frozen.row.document_digest);
+    expect(JSON.stringify(delivered)).not.toContain(privateComment);
+  });
+
   it("never freezes persisted comment bodies, mentions, quote or history in build or agent bytes", async () => {
     const h = await buildHarness({ anchoredDocument: true });
     const sentinel = `BUILD_COMMENT_LEAK_${randomUUID().replaceAll("-", "")}`;
