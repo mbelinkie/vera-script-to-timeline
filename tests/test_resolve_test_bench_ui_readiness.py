@@ -423,13 +423,20 @@ def test_foreground_activation_script_only_targets_existing_exact_resolve() -> N
     assert "frontmostApplication" in source
     assert "matches.length !== 1" in source
     assert "processIdentifier" in source
+    assert "focusExistingViaSystemEvents(pid)" in source
+    assert "AEDeterminePermissionToAutomateTarget" in source
+    assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
+    assert "typeof permission !== 'number'" in source
+    assert "Number(permission) !== 0" in source
+    assert "proc.unixId() !== pid" in source
+    assert source.count("proc.frontmost = true") == 1
     for forbidden in (
-        "Application('System Events')",
         "click(",
         "keystroke(",
         "openApplication",
         "launchApplication",
         "AXSet",
+        "set frontmost of",
         "SetCurrentTimecode",
         "SaveProject",
         "tccutil",

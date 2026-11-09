@@ -53,7 +53,32 @@ _KEYBOARD_PRESETS_PATH = _KEYBOARD_DIR / "keyboard.preset.xml"
 # below must still recheck every fact; this is not a readiness attestation.
 _FOREGROUND_EXISTING_JXA = r"""
 ObjC.import('AppKit');
+ObjC.import('Carbon');
+ObjC.bindFunction('AEDeterminePermissionToAutomateTarget',
+  ['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]);
 function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
+function focusExistingViaSystemEvents(pid) {
+  try {
+    // Cooperative App Activation can decline a request on current macOS.
+    // Only an already-allowed, no-prompt System Events actor may set the
+    // *same existing process* frontmost. Never launch or manipulate windows.
+    const descriptor = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
+      $('com.apple.systemevents')
+    );
+    const permission = $.AEDeterminePermissionToAutomateTarget(
+      descriptor.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
+    );
+    if (typeof permission !== 'number' ||
+        !Number.isInteger(Number(permission)) || Number(permission) !== 0) {
+      return false;
+    }
+    const proc = Application('System Events').applicationProcesses.byName('Resolve');
+    if (!proc.exists() || typeof proc.unixId() !== 'number' ||
+        proc.unixId() !== pid) return false;
+    proc.frontmost = true;
+    return true;
+  } catch (_) { return false; }
+}
 function run() {
   const workspace = $.NSWorkspace.sharedWorkspace;
   const matches = unwrap(workspace.runningApplications).filter(
@@ -85,6 +110,12 @@ function run() {
   if (observed === null || Number(observed.processIdentifier) !== pid) {
     $.NSThread.sleepForTimeInterval(0.3);
     observed = workspace.frontmostApplication;
+  }
+  if (observed === null || Number(observed.processIdentifier) !== pid) {
+    if (focusExistingViaSystemEvents(pid)) {
+      $.NSThread.sleepForTimeInterval(0.2);
+      observed = workspace.frontmostApplication;
+    }
   }
   return JSON.stringify({
     activated: observed !== null && Number(observed.processIdentifier) === pid,
