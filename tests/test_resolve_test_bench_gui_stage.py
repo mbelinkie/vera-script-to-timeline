@@ -39,7 +39,8 @@ class FakeExecutor:
         self.calls = 0
         self.fail = False
 
-    def execute_once(self, window_name: str) -> None:
+    def execute_once(self, window_name: str, process_pid: int) -> None:
+        assert process_pid == 1234
         assert window_name == NAME
         self.calls += 1
         if self.fail:
@@ -100,6 +101,7 @@ def setup(
         resolve_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_process=gui.RESOLVE_PROCESS,
+        process_pid=1234,
         front_window_name=NAME,
         accessibility_trusted=True,
         automation_trusted=True,
@@ -743,7 +745,8 @@ def _injected_os_and_system_events(
             return dict(snapshot)
 
     class FakeSystemEvents(gui.SystemEventsRollExecutor):
-        def execute_once(self, expected_window_name: str) -> None:
+        def execute_once(self, expected_window_name: str, process_pid: int) -> None:
+            assert process_pid == 1234
             assert expected_window_name == NAME
             assert gui._CONSUMED_DISPATCH.get() is True
             calls.append("one fixed 24-event invocation")
@@ -775,7 +778,7 @@ def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
     report = stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert report.state == "unknown" and report.requested_frame_events == 24
     assert report.native_verified is False and report.receipt_issued is False
-    assert observations == ["verified", "read-only SDK inspected"]
+    assert observations == ["verified", "read-only SDK inspected"] * 2
     assert calls == ["one fixed 24-event invocation"]
     intent = json.loads((_journal_root(setup) / "gui-intent.json").read_text())
     assert intent["operationId"] == setup[1].stage_operation_id

@@ -47,47 +47,68 @@ _DISPOSABLE_PROJECT = re.compile(
 # the caller's trusted read-only UI probe is not a substitute for these checks.
 ROLL_APPLESCRIPT = r"""
 on run argv
-  if (count of argv) is not 1 then error "exactly one pinned window required"
-  set expectedProjectWindow to item 1 of argv
+  if (count of argv) is not 2 then error "exactly one PID and pinned window required"
+  set expectedPidText to item 1 of argv
+  if expectedPidText is "" then error "empty process PID"
+  repeat with digitChar in characters of expectedPidText
+    if (contents of digitChar) is not in "0123456789" then error "invalid process PID"
+  end repeat
+  set expectedPid to expectedPidText as integer
+  if expectedPid <= 0 then error "invalid process PID"
+  set expectedProjectWindow to item 2 of argv
   tell application "System Events"
-    tell process "Resolve"
+    set matches to every application process whose unix id is expectedPid
+    if (count of matches) is not 1 then error "pinned process disappeared"
+    tell item 1 of matches
+      if unix id is not expectedPid then error "pinned process PID changed"
+      if bundle identifier is not "com.blackmagic-design.DaVinciResolve" then
+        error "pinned process bundle changed"
+      end if
       if not frontmost then error "Resolve is not frontmost"
       if (count of windows) is not 1 then error "unexpected Resolve windows"
       if (name of front window) is not expectedProjectWindow then
         error "Resolve target window differs"
       end if
+      if (value of attribute "AXMain" of front window) is not true then
+        error "target window is not main"
+      end if
+      if (value of attribute "AXFocused" of front window) is not true then
+        error "target window is not focused"
+      end if
       if (exists sheet 1 of front window) then error "Resolve modal is open"
+      -- SDK has already selected Edit and exact 327-frame target. This
+      -- actuator may not navigate, focus by keyboard or toggle tracks.
       set workspaceMenu to menu "Workspace" of menu bar 1
       set pageMenu to menu 1 of menu item "Switch to Page" of workspaceMenu
-      if not (enabled of menu item "Edit" of pageMenu) then
-        error "Resolve Edit page unavailable"
+      set pageItem to menu item "Edit" of pageMenu
+      set pageMark to value of attribute "AXMenuItemMarkChar" of pageItem
+      if pageMark is not "✓" then
+        error "Edit page selection not independently visible"
       end if
-      click menu item "Edit" of pageMenu
-      delay 0.4
-      if not frontmost then error "Resolve lost UI focus"
-      if (name of front window) is not expectedProjectWindow then
-        error "Resolve window changed"
+      set focusedElement to value of attribute "AXFocusedUIElement"
+      set focusRole to value of attribute "AXRoleDescription" of focusedElement
+      if focusRole is not "timeline" then
+        error "timeline focus not independently visible"
       end if
-      if (exists sheet 1 of front window) then error "Resolve modal after page switch"
-      -- Historical Studio 21.1.1 Edit-page timeline focus shortcut.
-      keystroke "4" using {command down}
-      delay 0.2
       set timelineMenu to menu "Timeline" of menu bar 1
       set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
-      if not (enabled of menu item "Auto Deselect All Tracks" of autoMenu) then
-        error "track targeting unavailable"
-      end if
-      click menu item "Auto Deselect All Tracks" of autoMenu
-      delay 0.2
-      set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
-      if not (enabled of menu item "Auto Select/Deselect V1" of autoMenu) then
-        error "V1 track cannot be targeted"
-      end if
-      click menu item "Auto Select/Deselect V1" of autoMenu
-      delay 0.2
+      repeat with trackName in {"V1", "A1", "A2", "A3", "A4", "A5"}
+        set itemName to "Auto Select/Deselect " & (contents of trackName)
+        set trackItem to menu item itemName of autoMenu
+        set trackMark to value of attribute "AXMenuItemMarkChar" of trackItem
+        if (contents of trackName) is "V1" then
+          if trackMark is not "✓" then error "V1 targeting not independently selected"
+        else
+          if trackMark is not "" then error "non-V1 track state unknown or selected"
+        end if
+      end repeat
       set trimMenu to menu "Trim" of menu bar 1
       if not (enabled of menu item "Normal Edit Mode" of trimMenu) then
         error "Resolve Trim menu unavailable"
+      end if
+      set normalMode to menu item "Normal Edit Mode" of trimMenu
+      if (value of attribute "AXMenuItemMarkChar" of normalMode) is not "✓" then
+        error "Normal Edit Mode selection not independently visible"
       end if
       set nearestMenu to menu 1 of menu item "Select Nearest Edit To" of trimMenu
       if not (enabled of menu item "Roll" of nearestMenu) then
@@ -98,12 +119,21 @@ on run argv
         error "one-frame nudge unavailable"
       end if
       if (exists sheet 1 of front window) then error "Resolve modal before roll"
+      if unix id is not expectedPid then error "PID changed before roll"
       click menu item "Roll" of nearestMenu
       delay 0.2
       repeat 24 times
+        if unix id is not expectedPid then error "PID changed during roll"
+        if bundle identifier is not "com.blackmagic-design.DaVinciResolve" then
+          error "bundle changed during roll"
+        end if
         if not frontmost then error "Resolve lost focus during roll"
         if (name of front window) is not expectedProjectWindow then
           error "Resolve window changed during roll"
+        end if
+        if (value of attribute "AXMain" of front window) is not true or ¬
+           (value of attribute "AXFocused" of front window) is not true then
+          error "window lost focus during roll"
         end if
         if (exists sheet 1 of front window) then error "Resolve modal during roll"
         set trimMenu to menu "Trim" of menu bar 1
@@ -120,7 +150,7 @@ end run
 """.strip()
 # Independent, review-pinned digest: edits to the script do not implicitly
 # authorize themselves by recalculating the expected value on import.
-ROLL_SCRIPT_SHA256 = "306aa13e1917d58f7006e65c12c105b0bfe4eff8cf912638fc4de4d5832c4de4"
+ROLL_SCRIPT_SHA256 = "9469ed9b14a290663381395a5c857330c0ebc85c20e9cfbaa777ca3eba352ed5"
 
 
 class GuiRollRefused(ValueError):
@@ -192,6 +222,7 @@ class TrustedUiReadiness:
     resolve_bundle_id: str
     frontmost_bundle_id: str
     frontmost_process: str
+    process_pid: int
     front_window_name: str
     accessibility_trusted: bool
     automation_trusted: bool
@@ -228,14 +259,14 @@ class ExistingOneUseJournal(Protocol):
 
 
 class FixedRollExecutor(Protocol):
-    def execute_once(self, expected_window_name: str) -> None:
+    def execute_once(self, expected_window_name: str, process_pid: int) -> None:
         """Attempt exactly the reviewed, fixed 24-event GUI sequence."""
 
 
 class SystemEventsRollExecutor:
     """Opt-in production executor. Never instantiated by the adapter/tests."""
 
-    def execute_once(self, expected_window_name: str) -> None:
+    def execute_once(self, expected_window_name: str, process_pid: int) -> None:
         # This is NOT a second invocation path: a direct call cannot operate
         # without the actuator's already-consumed journal and current lock.
         _require(_CONSUMED_DISPATCH.get(), "no consumed F1 dispatch")
@@ -249,9 +280,16 @@ class SystemEventsRollExecutor:
         # Subprocess exit 0 says nothing about the *native* result.
         if not _safe_name(expected_window_name):
             raise GuiRollRefused("invalid fixed window name")
+        _require(type(process_pid) is int and process_pid > 0, "invalid exact PID")
         try:
             result = subprocess.run(
-                ["osascript", "-e", ROLL_APPLESCRIPT, expected_window_name],
+                [
+                    "/usr/bin/osascript",
+                    "-e",
+                    ROLL_APPLESCRIPT,
+                    str(process_pid),
+                    expected_window_name,
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -401,7 +439,9 @@ def _validate(
         and readiness.resolve_version == RESOLVE_VERSION
         and readiness.resolve_bundle_id == RESOLVE_BUNDLE_ID
         and readiness.frontmost_bundle_id == RESOLVE_BUNDLE_ID
-        and readiness.frontmost_process == RESOLVE_PROCESS
+        and _safe_name(readiness.frontmost_process)
+        and type(readiness.process_pid) is int
+        and readiness.process_pid > 0
         and readiness.front_window_name == target.expected_window_name,
         "installed Resolve version, app identity, focus or window differs",
     )
@@ -458,7 +498,9 @@ class OneUseGuiRollActuator:
             _require(consumed is True, "one-use intent already spent or not authorized")
             dispatch_scope = _CONSUMED_DISPATCH.set(True)
             try:
-                self._executor.execute_once(intent.target.expected_window_name)
+                self._executor.execute_once(
+                    intent.target.expected_window_name, readiness.process_pid
+                )
             except Exception as error:
                 raise GuiRollUnknown(
                     "GUI attempt uncertain; no retry, save, or acceptance"

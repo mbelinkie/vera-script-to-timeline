@@ -8,7 +8,7 @@ import subprocess
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from vera_timeline_agent import resolve_gui_roll as gui
@@ -99,6 +99,7 @@ def test_mock_trusted_mac_positive_exact_sdk_and_fixed_hash() -> None:
         resolve_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_process=gui.RESOLVE_PROCESS,
+        process_pid=1234,
         front_window_name=NAME,
         accessibility_trusted=True,
         automation_trusted=True,
@@ -234,15 +235,18 @@ def test_503_a_extra_os_sdk_claims_cannot_promote_unknowns(
         ui._readiness_from_os(facts, TARGET)
 
 
-def test_503_a_actual_frontmost_name_must_not_be_invented() -> None:
+def test_503_c_actual_frontmost_name_not_invented_and_pid_not_name_targeted() -> None:
     intent, inventory = sdk_inputs()
     facts = os_snapshot()
     facts["processName"] = "DaVinci Resolve"
     facts["frontmostProcess"] = "DaVinci Resolve"
     ready = ui._readiness_from_os(facts, TARGET)
     assert ready.frontmost_process == "DaVinci Resolve"  # not fabricated Resolve
-    with pytest.raises(gui.GuiRollRefused, match="app identity"):
-        gui._validate(intent, inventory, ready, datetime.now(UTC))
+    gui._validate(intent, inventory, ready, datetime.now(UTC))
+    assert ready.process_pid == facts["processPid"]
+    # The app's observed localized name is NOT the executor's targeting key;
+    # the independently verified exact PID and bundle identity are.
+    assert 'process "Resolve"' not in gui.ROLL_APPLESCRIPT
 
 
 def test_503_a_same_disposable_name_cannot_replace_signed_sdk_uids() -> None:
@@ -313,11 +317,97 @@ def test_production_entrypoint_reauthenticates_under_owner_and_uses_os_not_calle
     outcome = ui.prepare_owned_ui_readiness(object(), "original-M4-job", object())
     assert outcome[0] is intent and outcome[1] is inventory
     assert outcome[2].v1_only is True
-    assert calls == ["owner", "signed SDK", "activate existing Resolve", "read OS"]
+    assert calls == [
+        "owner",
+        "signed SDK",
+        "activate existing Resolve",
+        "read OS",
+        "signed SDK",
+    ]
     ui._consume_attested_ui_readiness(*outcome)
     assert calls[-1] == "owner"
     with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
         ui._consume_attested_ui_readiness(*outcome)
+
+
+@pytest.mark.parametrize(
+    "drift",
+    [
+        {"target": replace(TARGET, project_uid="other-project")},
+        {"item_uids": (*UIDS[:-1], "unknown-native-uid")},
+        {"playhead_frame": 351},
+        {"track_count": 5},
+        {"left_track_id": "wrong-V1"},
+        {"pristine_verified": False},
+    ],
+)
+def test_503_c_sdk_os_sdk_drift_refuses_before_one_use_intent(
+    monkeypatch: pytest.MonkeyPatch, drift: dict[str, object]
+) -> None:
+    intent, inventory = sdk_inputs()
+    reads: list[str] = []
+
+    def double_sdk(*_args: object) -> tuple[Any, Any]:
+        reads.append("SDK")
+        if len(reads) == 1:
+            return intent, inventory
+        return intent, replace(inventory, **cast(Any, drift))
+
+    monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(stage, "prepare_owned_f1_inputs", double_sdk)
+
+    def activate_existing(_self: object) -> int:
+        reads.append("activate")
+        return 1234
+
+    def observe_os(_self: object) -> dict[str, object]:
+        reads.append("OS")
+        return os_snapshot()
+
+    monkeypatch.setattr(
+        ui.MacResolveForegroundActivator, "activate_existing", activate_existing
+    )
+    monkeypatch.setattr(ui.MacReadOnlyObserver, "observe", observe_os)
+    with pytest.raises(gui.GuiRollRefused, match="SDK target or one-use stage changed"):
+        ui.prepare_owned_ui_readiness(object(), "new-M4-job", object())
+    assert reads == ["SDK", "activate", "OS", "SDK"]
+    assert ui._ATTESTED.get() is None
+
+
+def test_503_c_second_sdk_operation_or_deadline_may_not_be_swapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent, inventory = sdk_inputs()
+    for alteration in (
+        {"stage_operation_id": "different-stage-12345"},
+        {"pristine_capture_sha256": "b" * 64},
+        {"expires_at": datetime.now(UTC) - timedelta(seconds=1)},
+    ):
+        read_count = 0
+
+        def double_sdk(
+            *_args: object, expected_change: Any = alteration
+        ) -> tuple[Any, Any]:
+            nonlocal read_count
+            read_count += 1
+            return (
+                (intent, inventory)
+                if read_count == 1
+                else (replace(intent, **cast(Any, expected_change)), inventory)
+            )
+
+        monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+        monkeypatch.setattr(stage, "prepare_owned_f1_inputs", double_sdk)
+        monkeypatch.setattr(
+            ui.MacResolveForegroundActivator, "activate_existing", lambda _self: 1234
+        )
+        monkeypatch.setattr(
+            ui.MacReadOnlyObserver, "observe", lambda _self: os_snapshot()
+        )
+        with pytest.raises(gui.GuiRollRefused):
+            ui.prepare_owned_ui_readiness(object(), "new-M4-job", object())
+        assert read_count == 2
+        assert ui._ATTESTED.get() is None
 
 
 def test_real_executor_cannot_consume_forged_green_ui_data(
@@ -326,6 +416,7 @@ def test_real_executor_cannot_consume_forged_green_ui_data(
     intent, inventory = sdk_inputs()
     readiness = ui._readiness_from_os(os_snapshot(), TARGET)
     monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(stage, "_verify_original_capture", lambda *_args: None)
     with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
         stage.attempt_once(
             object(),  # type: ignore[arg-type]
@@ -345,6 +436,7 @@ def test_subclass_of_real_executor_cannot_skip_attestation(
 
     intent, inventory = sdk_inputs()
     monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(stage, "_verify_original_capture", lambda *_args: None)
     with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
         stage.attempt_once(
             object(),  # type: ignore[arg-type]

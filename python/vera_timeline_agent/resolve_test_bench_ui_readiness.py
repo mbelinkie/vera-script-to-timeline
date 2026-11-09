@@ -21,6 +21,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from contextvars import ContextVar
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
@@ -74,9 +75,11 @@ function focusExistingViaSystemEvents(pid) {
     if (!noPromptOSStatusAllowed(permission)) {
       return false;
     }
-    const proc = Application('System Events').applicationProcesses.byName('Resolve');
-    if (!proc.exists() || typeof proc.unixId() !== 'number' ||
-        proc.unixId() !== pid) return false;
+    const matches = Application('System Events').applicationProcesses
+      .whose({unixId:pid})();
+    if (matches.length !== 1) return false;
+    const proc = matches[0];
+    if (typeof proc.unixId() !== 'number' || proc.unixId() !== pid) return false;
     proc.frontmost = true;
     return true;
   } catch (_) { return false; }
@@ -241,8 +244,10 @@ function run() {
   if (!result.automation) return JSON.stringify(result);
   try {
     const events = Application('System Events');
-    const proc = events.applicationProcesses.byName('Resolve');
-    if (!proc.exists()) return JSON.stringify(result);
+    const matchesByPid = events.applicationProcesses
+      .whose({unixId:result.processPid})();
+    if (matchesByPid.length !== 1) return JSON.stringify(result);
+    const proc = matchesByPid[0];
     const osProcessPid = proc.unixId();
     if (typeof osProcessPid !== 'number' ||
         osProcessPid !== result.processPid || !proc.frontmost()) {
@@ -493,7 +498,7 @@ def _readiness_from_os(
         and observation["processPid"] == observation["frontmostPid"]
         and observation["windowCount"] == 1
         and observation["windowFrontmost"] is True
-        and observation["processName"] in {"Resolve", "DaVinci Resolve"}
+        and gui._safe_name(observation["processName"])
         and observation["bundleId"] == gui.RESOLVE_BUNDLE_ID
         and observation["frontmostBundleId"] == gui.RESOLVE_BUNDLE_ID
         and observation["frontmostProcess"] == observation["processName"]
@@ -513,6 +518,7 @@ def _readiness_from_os(
         # from the bundle, frontmost PID or a matching window title: the
         # actuator currently targets the named System Events process.
         frontmost_process=observation["frontmostProcess"],
+        process_pid=observation["processPid"],
         front_window_name=observation["windowName"],
         accessibility_trusted=observation["accessibility"],
         automation_trusted=observation["automation"],
@@ -550,6 +556,21 @@ def prepare_owned_ui_readiness(
         "Resolve process changed after foreground activation",
     )
     readiness = _readiness_from_os(snapshot, intent.target)
+    gui._validate(intent, inventory, readiness, datetime.now(UTC))
+    # Independent SDK→OS→SDK bracket: a page/selected target/playhead/UID
+    # change in the OS observation window invalidates the one-use intent.
+    # The second SDK pass rereads the signed session and ALL 11 native item
+    # UIDs, six tracks and 327 playhead, rather than trusting the first data.
+    intent_after, inventory_after = stage.prepare_owned_f1_inputs(
+        store, job_id, resolve
+    )
+    gui._require(
+        inventory_after == inventory
+        and intent_after == replace(intent, expires_at=intent_after.expires_at),
+        "original signed SDK target or one-use stage changed during OS preflight",
+    )
+    gui._validate(intent_after, inventory_after, readiness, datetime.now(UTC))
+    # A second SDK read must not renew a previously issued one-use deadline.
     gui._validate(intent, inventory, readiness, datetime.now(UTC))
     _ATTESTED.set((intent, inventory, readiness, monotonic()))
     return intent, inventory, readiness

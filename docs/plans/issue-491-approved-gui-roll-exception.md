@@ -28,6 +28,44 @@ There is deliberately **no CLI or default executor**. Unit tests use fake journa
 
 ## Ownership and integration handoff
 
+### #503 C / #499 phase 7 safety revision (2026-11-09)
+
+The original #495 fixed script above remains historical design evidence, **not**
+the currently admissible executable. Phase 7's candidate fixed script SHA-256
+is `9469ed9b14a290663381395a5c857330c0ebc85c20e9cfbaa777ca3eba352ed5`.
+This is a **new source graph**, so old consent, source seals, and pristine
+receipts cannot authorize a fresh operation. Code/tests alone do not approve
+or demonstrate a real Mac GUI effect.
+
+The revised `FixedRollExecutor.execute_once(expected_window_name, process_pid)`
+accepts only an already OS-attested positive **integer PID** and exact signed
+disposable project/window name. The single pinned `osascript` invocation passes
+them as separate argument-vector values, never shell interpolation or a
+caller-provided script. The script resolves System Events processes by the
+**exact PID**, rechecks bundle identifier, PID, frontmost state, one exact named
+main/focused window, no modal, actual Edit page, timeline focus, selected V1
+and deselected five audio tracks, selected Normal Edit Mode, and live Roll/Nudge
+menus. It rechecks focus/PID/bundle/window/modal/nudge during each of its 24
+single-frame-right menu events. If a required AX mark is missing it errors;
+it never infers Qt selection from menu enabled status.
+
+**Removed:** historic Cmd-4 keystroke, GUI Edit-page navigation, and GUI
+auto-select toggles. The #503 B SDK owner preselects Edit only after fresh
+signed target admission. The owner independently rereads the exact signed
+SDK project/timeline, eleven UIDs, six tracks, Studio build, and frame-327
+playhead both **before and after** the OS observation; any drift blocks
+the journal. The original fsynced pre-effect one-use journal and crash/partial
+UNKNOWN/no-replay boundary are retained. The existing conservative keyboard
+preflight remains a *further refusal*, not permission to use a shortcut.
+
+**Real-Mac limitation:** retained Studio 21.1.1.10 Qt evidence does *not*
+expose independently reliable AXFocused, selected Edit/V1/Normal mode marks,
+or timeline focus. No real GUI attempt, source re-authorization, TCC change,
+or acceptance was performed in phase C. Actor syntax/AX behavior is not
+verified on macOS from the Linux test host, so no one may use this candidate
+as a real-operation authorization or bypass the missing evidence. Original M4
+acceptance remains **0/4**; #473 → #312 → #313 remains blocked.
+
 - Merge #495 **to main first**. Do not modify #473's draft PR #474, its worktree, native request carrier, immutable historical evidence or the retired `scripts/issue-473-native-roll-once.py` refusal here.
 - **#473 owner** integrates the adapter with `resolve_test_bench_m4_runner.py` / `resolve_test_bench_campaign.py` / `resolve_test_bench_edit_probe.py` and the existing host's journal. Translate its authentic pristine SDK readback to `PristineSdkInventory`; perform real read-only OS/TCC/menu/keyboard verification before creating `TrustedUiReadiness`. Do not create an alternative signed-receipt mechanism. Keep the existing official SDK stages/lock and original independently verified UID/source/PCM gates.
 - A **fresh, exact Producer authorization** identifying the new sacrificial project and one operation must precede **any** actual Mac Resolve UI effect. Do not replay a previously consumed/UNKNOWN edit, alter or tidy its native target, auto-dispatch #312, or mark #473 accepted after a Python test. #473 alone runs the real Edit-page test and then its official SDK readbacks and independent save/close/reopen verification. Any failure remains fail-stop.

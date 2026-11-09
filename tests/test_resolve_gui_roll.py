@@ -63,6 +63,7 @@ def valid() -> tuple[
         resolve_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_bundle_id=gui.RESOLVE_BUNDLE_ID,
         frontmost_process="Resolve",
+        process_pid=1234,
         front_window_name=NAME,
         accessibility_trusted=True,
         automation_trusted=True,
@@ -97,11 +98,12 @@ class FakeJournal:
 
 class FakeExecutor:
     def __init__(self, error: Exception | None = None) -> None:
-        self.calls: list[str] = []
+        self.calls: list[tuple[str, int]] = []
         self.error = error
 
-    def execute_once(self, expected_window_name: str) -> None:
-        self.calls.append(expected_window_name)
+    def execute_once(self, expected_window_name: str, process_pid: int) -> None:
+        assert process_pid == 1234
+        self.calls.append((expected_window_name, process_pid))
         if self.error is not None:
             raise self.error
 
@@ -129,8 +131,7 @@ def test_fixed_f1_script_is_24_named_menu_events_no_arbitrary_input() -> None:
         'menu "Workspace"',
         'menu item "Edit"',
         'menu "Timeline"',
-        'menu item "Auto Deselect All Tracks"',
-        'menu item "Auto Select/Deselect V1"',
+        '"Auto Select/Deselect "',
         'menu "Trim"',
         'menu item "Select Nearest Edit To"',
         'menu item "Roll"',
@@ -141,6 +142,13 @@ def test_fixed_f1_script_is_24_named_menu_events_no_arbitrary_input() -> None:
     assert "do shell script" not in source
     assert "grant" not in source.lower()
     assert "SaveProject" not in source
+    assert "keystroke" not in source
+    assert 'click menu item "Edit"' not in source
+    assert 'click menu item "Auto Deselect All Tracks"' not in source
+    assert 'click menu item "Auto Select/Deselect V1"' not in source
+    assert "whose unix id is expectedPid" in source
+    assert 'bundle identifier is not "com.blackmagic-design.DaVinciResolve"' in source
+    assert "AXFocused" in source and "AXMenuItemMarkChar" in source
 
 
 def test_script_changed_before_admission_does_not_spend_or_dispatch(
@@ -185,7 +193,7 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
     )
     assert journal.calls == 1
     assert journal.spent == {intent.stage_operation_id}
-    assert executor.calls == [NAME]
+    assert executor.calls == [(NAME, 1234)]
     assert result == gui.GuiRollAttempt(
         state="unknown",
         actuator_class="gui",
@@ -234,7 +242,9 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         ("readiness", {"resolve_version": "21.1.2.0"}),
         ("readiness", {"resolve_bundle_id": "other-app"}),
         ("readiness", {"frontmost_bundle_id": "com.apple.finder"}),
-        ("readiness", {"frontmost_process": "Finder"}),
+        ("readiness", {"frontmost_process": ""}),
+        ("readiness", {"process_pid": 0}),
+        ("readiness", {"process_pid": True}),
         ("readiness", {"front_window_name": "Other Project"}),
         ("readiness", {"accessibility_trusted": False}),
         ("readiness", {"automation_trusted": False}),
@@ -315,7 +325,7 @@ def test_journal_replay_across_actuator_instances_is_refused(
             readiness,
             now=NOW,
         )
-    assert journal.calls == 2 and executor.calls == [NAME]
+    assert journal.calls == 2 and executor.calls == [(NAME, 1234)]
 
 
 def test_ambiguous_durable_journal_consumption_fails_without_gui(
@@ -352,7 +362,7 @@ def test_partial_crash_timeout_unknown_is_spent_and_never_retried(
         actuator.attempt(intent, inventory, readiness, now=NOW)
     with pytest.raises(gui.GuiRollRefused, match="already been dispatched"):
         actuator.attempt(intent, inventory, readiness, now=NOW)
-    assert journal.calls == 1 and executor.calls == [NAME]
+    assert journal.calls == 1 and executor.calls == [(NAME, 1234)]
 
 
 def test_fixed_production_executor_only_passes_pinned_script_and_argv(
@@ -367,7 +377,7 @@ def test_fixed_production_executor_only_passes_pinned_script_and_argv(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
-        gui.SystemEventsRollExecutor().execute_once(NAME)
+        gui.SystemEventsRollExecutor().execute_once(NAME, 1234)
     assert not calls
     intent, inventory, readiness = valid()
     journal = FakeJournal()
@@ -381,10 +391,10 @@ def test_fixed_production_executor_only_passes_pinned_script_and_argv(
     assert journal.spent == {intent.stage_operation_id}
     assert len(calls) == 1
     argv, options = calls[0]
-    assert argv == ["osascript", "-e", gui.ROLL_APPLESCRIPT, NAME]
+    assert argv == ["/usr/bin/osascript", "-e", gui.ROLL_APPLESCRIPT, "1234", NAME]
     assert options["timeout"] == 90 and options["check"] is False
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
-        gui.SystemEventsRollExecutor().execute_once("bad\nwindow")
+        gui.SystemEventsRollExecutor().execute_once("bad\nwindow", 1234)
     assert len(calls) == 1
 
 
@@ -408,4 +418,4 @@ def test_os_exit_failure_cannot_be_accepted_even_if_script_was_dispatched(
             now=NOW,
         )
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
-        gui.SystemEventsRollExecutor().execute_once(NAME)
+        gui.SystemEventsRollExecutor().execute_once(NAME, 1234)
