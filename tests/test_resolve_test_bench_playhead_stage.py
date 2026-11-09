@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from vera_timeline_agent import resolve_gui_roll as roll
 from vera_timeline_agent import resolve_test_bench_playhead_stage as playhead
 from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent import resolve_test_queue_m4 as m4
@@ -102,7 +103,7 @@ def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(
         m4, "_stage_receipt", lambda *_: {"session": PRISTINE, "capture": CAPTURE}
     )
-    monkeypatch.setattr(playhead.roll, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(roll, "_require_owner_lock", lambda: None)
     session = SimpleNamespace(
         context={"phase": "pristine", "target": INITIAL, "caseId": "synthetic-312"}
     )

@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from vera_timeline_agent import resolve_gui_roll as roll
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_edited_stage as edited
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
@@ -26,6 +27,7 @@ from vera_timeline_agent import resolve_test_bench_playhead_stage as playhead
 from vera_timeline_agent import resolve_test_bench_revision_stage as revision
 from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent import resolve_test_queue_m4 as m4
+from vera_timeline_agent import resolve_test_queue_m4_provision as provision
 
 FROZEN = "c" * 40
 SOURCE_GRAPH = "d" * 64
@@ -52,7 +54,7 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "VERA Delivery 123e4567-e89b-12d3-a456-426614174001 012345abcdee", "fresh"
     )
     targets = {"initial": first, "fresh": second}
-    monkeypatch.setattr(loop.provision, "completed", lambda *_: targets)
+    monkeypatch.setattr(provision, "completed", lambda *_: targets)
     monkeypatch.setattr(loop, "_frozen_source", lambda *_: SOURCE_GRAPH)
     config = runner.validate_config(
         {
@@ -88,7 +90,7 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "operation": "M4.edited.one-use-gui-roll",
         "fromFrame": 327,
         "toFrame": 351,
-        "scriptSha256": loop.ROLL_SCRIPT_SHA256,
+        "scriptSha256": roll.ROLL_SCRIPT_SHA256,
     }
     auth_path = root / "producer-approval.json"
     carrier._once(auth_path, queue.canonical(auth))
@@ -177,9 +179,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         }
 
     monkeypatch.setattr(runner, "start", fake_pristine)
-    monkeypatch.setattr(
-        loop.queue, "Store", lambda _root: SimpleNamespace(root="injected")
-    )
+    monkeypatch.setattr(queue, "Store", lambda _root: SimpleNamespace(root="injected"))
 
     def claim(_store: Any, job: str, name: str) -> None:
         assert job == ORIGINAL_JOB
@@ -224,7 +224,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         revision, "revision", lambda *_: events.append("revision:proof")
     )
     monkeypatch.setattr(
-        loop.provision,
+        provision,
         "select",
         lambda _root, stage: events.append(f"SDK:select-{stage}"),
     )
@@ -320,7 +320,7 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
         }
 
     monkeypatch.setattr(runner, "start", beginning)
-    monkeypatch.setattr(loop.queue, "Store", lambda _root: object())
+    monkeypatch.setattr(queue, "Store", lambda _root: object())
     monkeypatch.setattr(
         loop, "_advance", lambda _store, _job, name: events.append("claim:" + name)
     )
@@ -358,7 +358,7 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
 
     monkeypatch.setattr(revision, "revision", revised)
     monkeypatch.setattr(
-        loop.provision,
+        provision,
         "select",
         lambda *_: events.append("SDK:select-fresh"),
     )
@@ -395,7 +395,7 @@ def test_frozen_sha_refuses_wrong_checkout_and_modified_seal_graph(
             )
         return subprocess.CompletedProcess(args, 0, stdout=value, stderr="")
 
-    monkeypatch.setattr(loop.subprocess, "run", git)
+    monkeypatch.setattr(subprocess, "run", git)
     monkeypatch.setattr(loop, "_source_hash", lambda: SOURCE_GRAPH)
     with pytest.raises(queue.QueueError, match=r"git|frozen|dirty"):
         loop._frozen_source(FROZEN)

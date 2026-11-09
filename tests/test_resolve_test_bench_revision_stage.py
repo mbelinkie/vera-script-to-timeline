@@ -8,7 +8,7 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 from vera_timeline_agent import qualification_output_proof_v2 as proof_module
@@ -70,17 +70,17 @@ def geometry(phase: str, selected: dict[str, str]) -> dict[str, Any]:
 
 
 class FakeProof:
-    inference: ClassVar[dict[str, Any]] = {
-        "caseKinds": ["A"],
-        "boundaryConflicts": [],
-        "omission": None,
-        "commands": {"boundary": {"kind": "move_word_boundary"}, "trim": None},
-        "inferenceHash": "sha256:" + "1" * 64,
-    }
     regeneration: Any = None
     accepted: str = "accept"
 
     def __init__(self, _path: Path, _digest: str, original: dict[str, Any]):
+        self.inference: dict[str, Any] = {
+            "caseKinds": ["A"],
+            "boundaryConflicts": [],
+            "omission": None,
+            "commands": {"boundary": {"kind": "move_word_boundary"}, "trim": None},
+            "inferenceHash": "sha256:" + "1" * 64,
+        }
         self.session = {
             "baselineSession": original["baselineSession"],
             "editedSession": original["editedSession"],
@@ -279,9 +279,12 @@ def test_policy_refuses_unapproved_or_ambiguous_inference(
     tmp_path: Path,
     defect: str,
 ) -> None:
-    source = {"baselineSession": {}, "editedSession": {}, "initialTarget": {}}
+    source: dict[str, Any] = {
+        "baselineSession": {},
+        "editedSession": {},
+        "initialTarget": {},
+    }
     fake = FakeProof(tmp_path / "session.json", "a" * 64, source)
-    fake.inference = copy.deepcopy(FakeProof.inference)
     if defect == "wrong_case":
         fake.inference["caseKinds"] = ["B"]
     elif defect == "conflict":
