@@ -128,10 +128,13 @@ func run() -> [String: Any] {
             window["title"] = string(read(first, kAXTitleAttribute as String)) as Any? ?? NSNull()
             window["main"] = boolean(read(first, kAXMainAttribute as String)) as Any? ?? NSNull()
             window["focused"] = boolean(read(first, kAXFocusedAttribute as String)) as Any? ?? NSNull()
-            if let descendants = children(first) {
-                window["modalPresent"] = descendants.contains {
-                    string(read($0, kAXRoleAttribute as String)) == "AXSheet"
-                }
+            if let descendants = children(first), descendants.contains(where: {
+                string(read($0, kAXRoleAttribute as String)) == "AXSheet"
+            }) {
+                // Direct-child enumeration can prove a sheet exists, but cannot
+                // prove none exists deeper in the AX hierarchy. Leave absent
+                // sheets unknown rather than falsely reporting modal-free.
+                window["modalPresent"] = true
             }
             if let focused = element(read(appAX, kAXFocusedUIElementAttribute as String)) {
                 window["focusRole"] = string(read(focused, kAXRoleAttribute as String)) as Any? ?? NSNull()

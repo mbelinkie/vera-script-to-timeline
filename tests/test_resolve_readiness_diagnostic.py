@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from scripts import resolve_readiness_diagnostic as diag
 
 
-def synthetic() -> dict[str, object]:
+def synthetic() -> dict[str, Any]:
     return {
         "schema": 1,
         "source": "native-swift-ax",
@@ -58,7 +61,7 @@ def synthetic() -> dict[str, object]:
     }
 
 
-def states(report: dict[str, object]) -> dict[str, str]:
+def states(report: dict[str, Any]) -> dict[str, str]:
     return {name: entry["state"] for name, entry in report["checks"].items()}
 
 
@@ -134,7 +137,9 @@ def test_observed_ax_main_does_not_imply_focused_edit_or_track_ready() -> None:
         ),
     ],
 )
-def test_fail_closed_guards(change: object, field: str, expected: str) -> None:
+def test_fail_closed_guards(
+    change: Callable[[dict[str, Any]], None], field: str, expected: str
+) -> None:
     data = synthetic()
     change(data)
     result = diag.assess(data, "VERA Delivery disposable")
@@ -159,10 +164,26 @@ def test_marked_edit_requires_observed_selection_not_merely_menu_enabled() -> No
         states(diag.assess(observed, "VERA Delivery disposable"))["edit_page"]
         == "unknown"
     )
+    observed["menuItems"]["page_edit"]["mark"] = "-"
+    assert (
+        states(diag.assess(observed, "VERA Delivery disposable"))["edit_page"]
+        == "unknown"
+    )
 
 
 def test_real_menu_accelerator_control_is_not_imputed_when_absent() -> None:
     observed = synthetic()
+    observed["menuItems"]["timeline_focus"] = {
+        "found": False,
+        "cmdChar": "4",
+        "cmdModifiers": 0,
+    }
+    assert (
+        states(diag.assess(observed, "VERA Delivery disposable"))["focus_accelerator"]
+        == "unknown"
+    )
+    observed["menuItems"]["timeline_focus"]["found"] = True
+    observed["menuItems"]["timeline_focus"]["cmdChar"] = None
     observed["menuItems"]["save_control"]["cmdChar"] = (
         "s"  # AX control also absent on Mac
     )
@@ -212,12 +233,21 @@ def test_wrong_platform_or_bad_process_shape_refuse() -> None:
     assert states(diag.assess(observed, None))["executable_identity"] == "fail"
 
 
+def test_native_probe_bundle_id_must_match_before_classifying_checks() -> None:
+    observed = synthetic()
+    observed["bundleId"] = "com.example.impostor"
+    report = diag.assess(observed, "VERA Delivery disposable")
+    assert report["ready"] is False
+    assert report["errors"] == ["unexpected_bundle_id"]
+    assert states(report)["native_host"] == "unknown"
+
+
 def test_linux_cannot_claim_actual_host_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(diag.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
     monkeypatch.setattr(
-        diag.subprocess, "run", lambda *args, **kwargs: pytest.fail("native call")
+        subprocess, "run", lambda *args, **kwargs: pytest.fail("native call")
     )
     report = diag.run_probe("VERA Delivery disposable")
     assert report["evidence"] == "not-run"
@@ -230,7 +260,7 @@ def test_probe_error_never_reports_host_verified(
     monkeypatch: pytest.MonkeyPatch,
     scenario: str,
 ) -> None:
-    monkeypatch.setattr(diag.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
 
     def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
         if scenario == "timeout":
@@ -241,7 +271,7 @@ def test_probe_error_never_reports_host_verified(
             return SimpleNamespace(returncode=0, stdout="[]", stderr="")
         return SimpleNamespace(returncode=1, stdout="", stderr="failed")
 
-    monkeypatch.setattr(diag.subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", fake_run)
     report = diag.run_probe(None)
     assert report["evidence"] == "probe-error"
     assert report["hostVerified"] is False

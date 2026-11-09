@@ -42,7 +42,7 @@ UI state guess: unknown is not pass, and AXMain is not AXFocused.
 | Accessibility | AX trusted | `AXIsProcessTrustedWithOptions(prompt=false)` | Never open permissions dialog or promote untrusted AX |
 | Foreground | `windowFrontmost=false` reported | `NSWorkspace.frontmostApplication` PID, not window existence | App not frontmost → fail; no activation attempted |
 | Window | One correct project window; `AXMain=true`, `AXFocused=false` | `AXWindows`, exact `AXTitle`, independent `AXMain`, `AXFocused` | Main does not imply focused; unknown/focused=false blocks |
-| Session/modal | No positive screen-unlocked proof | `CGSession` signals and read-only `AXChildren` sheet inspection | Console/login signals don't independently prove unlocked; unknown blocks |
+| Session/modal | No positive screen-unlocked proof | `CGSession` hints and read-only direct-child `AXSheet` detection | No direct sheet is **unknown**, not proof no nested modal exists; console/login do not independently prove unlocked |
 | Edit page | `editPage=false`; `AXMenuItemMarkChar` absent | Query `Workspace → Switch to Page → Edit` mark; enabled is only available, not selected | Missing mark → unknown; never guess active page |
 | Timeline focus | `timelineFocused=false`; AX focused element described `group` | AX focused element role/description/ancestry | Generic group/description is not timeline proof → unknown |
 | V1-only targeting | `v1Only=false` | Menu inventory for `Auto Deselect All Tracks` and `Auto Select/Deselect V1` | Enabled menus don't reveal all selected tracks → unknown |
@@ -56,17 +56,31 @@ These observations concern the original #499 actor/source only as **reported in
 the issue**; this diagnostic does not read or modify #499's worktree, sealed
 hashes, native receipts, case-specific authorization, or original PR.
 
-## Real-Mac run and #499 handoff still required
+## Phase 2 verification and real-Mac handoff
 
-The next phase must execute the exact diagnostic source on the **actual** Mac,
-preserve stdout, stderr, exit code, installed app version and process identity,
-inspect whether the Swift ABI compiles and really returns OSStatus, compare its
-System Events target with the fixed original JXA binding, and repeat safe
-positive/negative/control observations without GUI actions. A live status 0
-proves only a narrow no-prompt permission query; it does not prove permission
-to edit. If `AXMenuItemMarkChar`, accelerators or timeline/track identity remain
-missing, return an explicit `unknown` and an actionable production/UI handoff
-to #499, **not** a green readiness claim.
+The phase-2 worker also runs in a **Linux** container. The independent Python
+classifier can be tested here, but the Swift/Cocoa implementation cannot be
+compiled against the macOS SDK, and the actual Resolve 21.1.1.10 GUI cannot be
+observed. **No actual-host field test has been performed for this new probe.**
+Its host correctness, including real TCC status, menu paths, Accessibility
+attributes, window identity and foreground state, remains **unverified**.
+
+Before #499 relies on a result, run the *exact committed #500 diagnostic source*
+on the **actual** Mac with the expected project title. Preserve its complete
+JSON stdout, stderr, exit code, installed app version, executable path and PID;
+confirm Swift compilation and the narrow System Events OSStatus with the
+already-corrected JXA binding on #499. Repeat safe control observations and
+record each unavailable AX field as unknown. No probe invocation authorizes
+GUI navigation, native edits, source resealing, or M4 receipt creation.
+
+A live TCC status 0 proves only a narrow no-prompt permission query, not
+permission to edit. If `AXMenuItemMarkChar`, effective accelerators or
+timeline/track identity remain missing, return an explicit `unknown`. #499
+must distinguish a verified production-code correction from a UI state that
+requires the operator to focus/select Edit and the actual timeline, then
+validate an exact-current source/target and obtain genuinely fresh case-specific
+authority before any native effect. **Do not turn these absent read-only
+observations into a green readiness claim.**
 
 After the small #500 PR merges, #499 owns production-source changes and any
 new exact-head source sealing; #499 must acquire genuinely valid fresh

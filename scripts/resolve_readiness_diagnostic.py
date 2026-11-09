@@ -70,6 +70,8 @@ def _menu(native: dict[str, Any], key: str) -> dict[str, Any]:
 
 def _accelerator(native: dict[str, Any], key: str, expected: str) -> dict[str, Any]:
     item = _menu(native, key)
+    if item.get("found") is not True:
+        return check("unknown", item, f"{key}: menu item not observed")
     char = item.get("cmdChar")
     if char is None:
         return check(
@@ -217,7 +219,7 @@ def assess(native: dict[str, Any], expected_window: str | None) -> dict[str, Any
         checks["edit_page"] = check(
             "unknown", edit, "Edit menu item missing; page not observed"
         )
-    elif isinstance(mark, str) and mark.strip():
+    elif isinstance(mark, str) and mark.strip() in {"✓", "✔"}:
         checks["edit_page"] = check(
             "pass", mark, "Edit item has an observable selected mark"
         )
@@ -225,7 +227,8 @@ def assess(native: dict[str, Any], expected_window: str | None) -> dict[str, Any
         checks["edit_page"] = check(
             "unknown",
             mark,
-            "AXMenuItemMarkChar absent; enabled item does not prove active Edit page",
+            "AXMenuItemMarkChar missing or unrecognized; "
+            "menu enablement does not prove Edit page",
         )
 
     role = window.get("focusRole")
