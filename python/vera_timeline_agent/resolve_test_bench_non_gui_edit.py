@@ -27,8 +27,16 @@ def assess(probe: Mapping[str, Any]) -> dict[str, Any]:
     version = probe.get("resolveVersion")
     if (
         not isinstance(version, list)
-        or len(version) < 3
-        or not all(type(part) is int and 0 <= part < 100000 for part in version)
+        or not (
+            (3 <= len(version) <= 4 and all(type(part) is int for part in version))
+            or (
+                len(version) == 5
+                and all(type(part) is int for part in version[:4])
+                and type(version[4]) is str
+                and len(version[4]) <= 128
+            )
+        )
+        or not all(0 <= part < 100000 for part in version[: min(4, len(version))])
     ):
         raise queue.QueueError("Test Bench: authenticated Resolve version required")
     observed = probe.get("methodPresent")

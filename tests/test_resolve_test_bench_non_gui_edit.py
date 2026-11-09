@@ -7,7 +7,9 @@ from vera_timeline_agent import resolve_test_bench_non_gui_edit as edit
 from vera_timeline_agent import resolve_test_queue as queue
 
 
-@pytest.mark.parametrize("version", [[21, 1, 1, 10], [21, 1, 2, 10], [22, 0, 0]])
+@pytest.mark.parametrize(
+    "version", [[21, 1, 1, 10, ""], [21, 1, 1, 10], [21, 1, 2, 10], [22, 0, 0]]
+)
 def test_no_false_native_roll_qualification(version: list[int]) -> None:
     probe = {
         "resolveVersion": version,
@@ -29,6 +31,9 @@ def test_forged_proof_or_bad_version_never_authorizes_edit() -> None:
     for probe in (
         {"resolveVersion": "latest"},
         {"resolveVersion": [21, True, 2]},
+        {"resolveVersion": [21, 1, 1, 10, None]},
+        {"resolveVersion": [21, 1, 1, 10, "x" * 129]},
+        {"resolveVersion": [21, 1, 1, 10, "", "extra"]},
         {"resolveVersion": [21, 1, 2], "methodPresent": {"SetLeftOffset": "yes"}},
         {"resolveVersion": [21, 1, 2], "disposition": "qualified_gui_roll"},
     ):
