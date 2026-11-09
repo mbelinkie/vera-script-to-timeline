@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createProjectApiHandler, MAX_PROJECT_API_BODY_BYTES } from "../src/api.js";
 import { ProjectCommentService } from "../src/comments.js";
-import { documentFor, harness, initialProject, settingsFor } from "./helpers.js";
+import { documentFor, extrasDocumentFor, harness, initialProject, settingsFor } from "./helpers.js";
 
 /* eslint-disable @typescript-eslint/require-await -- Injected fake suite identity for HTTP tests only. */
 vi.setConfig({ testTimeout: 90_000 });
@@ -51,6 +51,74 @@ async function setup() {
 afterEach(async () => { for (const cleanup of cleaners.splice(0)) await cleanup(); });
 
 describe("authenticated and bounded project-document API", () => {
+  it("enforces strict Extras HTTP shapes, Editor lease, opaque failures, CAS and idempotent replay", async () => {
+    const { api, auth, owner, editor, viewer, service } = await setup();
+    const projectId = randomUUID();
+    const { document, rowId, sectionId } = extrasDocumentFor(projectId);
+    expect((await api(request("", "POST", "owner", {
+      projectId, title: "Extras API", clientRequestId: randomUUID(), document,
+    }))).status).toBe(201);
+    await auth.changeMembership(projectId, owner, editor.principalId, "editor");
+    await auth.changeMembership(projectId, owner, viewer.principalId, "viewer");
+    const route = `/${projectId}/document/extras-operations`;
+    const writeSessionId = await auth.openWriteSession(projectId, editor);
+    const operation = { kind: "stash_rows", rowIds: [rowId], bundleId: randomUUID() };
+    const mutation = { expectedRevision: 0, clientMutationId: randomUUID(), writeSessionId, operation };
+    expect((await api(request(route, "GET", "editor"))).status).toBe(404);
+    expect((await api(request(route + "?x=1", "POST", "editor", mutation))).status).toBe(400);
+    expect((await api(request(route, "POST", "viewer", mutation))).status).toBe(403);
+    expect((await api(request(`/${randomUUID()}/document/extras-operations`, "POST", "editor", mutation))).status)
+      .toBe(403);
+    expect((await api(request(route, "POST", "editor", {
+      ...mutation, writeSessionId: randomUUID(),
+    }))).status).toBe(403);
+    for (const bad of [
+      { ...mutation, role: "producer" },
+      { ...mutation, operation: { ...operation, actorId: owner.principalId } },
+      { ...mutation, operation: { kind: "delete_rows", rowIds: [rowId] } },
+      { ...mutation, operation: { ...operation, rowIds: [rowId, rowId] } },
+      { ...mutation, operation: null },
+      { ...mutation, expectedRevision: "0" },
+      { clientMutationId: randomUUID(), operation },
+    ]) {
+      const rejected = await api(request(route, "POST", "editor", bad));
+      expect(rejected.status).toBe(400);
+    }
+    expect((await api(request(route, "POST", "editor", mutation, {
+      "content-length": String(MAX_PROJECT_API_BODY_BYTES + 1),
+    }))).status).toBe(400);
+    expect((await api(new Request(base + route, { method: "POST",
+      headers: { "content-type": "application/json" }, body: "{invalid" }))).status).toBe(401);
+    expect((await api(new Request(base + route, { method: "POST", headers: {
+      "content-type": "application/json", "X-Test-Suite-Identity": "editor",
+    }, body: "{invalid" }))).status).toBe(400);
+    expect((await service.getDocument(projectId, viewer)).revision).toBe(0);
+
+    const written = await api(request(route, "POST", "editor", mutation));
+    expect(written.status).toBe(200);
+    const receipt = await body(written);
+    expect(receipt).toMatchObject({ revision: 1, duplicateDelivery: false });
+    expect(await body(await api(request(route, "POST", "editor", mutation))))
+      .toMatchObject({ ...receipt, duplicateDelivery: true });
+    expect((await api(request(route, "POST", "editor", { ...mutation,
+      operation: { ...operation, bundleId: randomUUID() } }))).status).toBe(409);
+    const stale = await body(await api(request(route, "POST", "editor", {
+      ...mutation, clientMutationId: randomUUID(),
+    })));
+    expect(stale).toMatchObject({ error: "version_conflict", currentRevision: 1 });
+    const refused = await body(await api(request(route, "POST", "editor", {
+      ...mutation, expectedRevision: 1, clientMutationId: randomUUID(),
+      operation: { kind: "restore_stash", bundleId: operation.bundleId,
+        destination: { sectionId, afterRowId: randomUUID(), beforeRowId: null } },
+    })));
+    expect(refused).toMatchObject({ error: "invalid_request", operationCode: "ROW_DESTINATION_INVALID" });
+    const current = await service.getDocument(projectId, viewer);
+    expect(current.revision).toBe(1);
+    await auth.changeMembership(projectId, owner, editor.principalId, null);
+    expect((await api(request(route, "POST", "editor", mutation))).status).toBe(403);
+    expect(await service.getDocument(projectId, viewer)).toEqual(current);
+  });
+
   it("serves strict authorized Ideas GET/PUT and atomic Draft promotion with stable replay", async () => {
     const { api, auth, owner, editor, viewer, service } = await setup();
     const initial = initialProject();

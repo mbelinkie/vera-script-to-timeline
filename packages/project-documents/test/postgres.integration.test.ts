@@ -16,7 +16,7 @@ import {
   applyProjectCommentsMigration, applyProjectDocumentsMigration, applyProjectHistoryMigration,
 } from "../src/migration.js";
 import { ProjectDocumentService } from "../src/service.js";
-import { documentFor, initialProject } from "./helpers.js";
+import { documentFor, extrasDocumentFor, initialProject } from "./helpers.js";
 
 /** Run only with a disposable PostgreSQL DB, never a live deployment. */
 const scratchUrl = process.env.VERA_PROJECT_DOCUMENTS_TEST_DATABASE_URL;
@@ -24,6 +24,93 @@ const postgres = scratchUrl ? describe : describe.skip;
 vi.setConfig({ testTimeout: 90_000 });
 
 postgres("independent PostgreSQL connections", () => {
+  it("serializes concurrent Extras CAS with another Extras writer and ordinary PUT; revoked sessions cannot replay", async () => {
+    const server = new pg.Pool({ connectionString: scratchUrl, max: 8 });
+    const pool: SqlPool = { connect: async (): Promise<SqlClient> => {
+      const client = await server.connect();
+      return {
+        query: async <R>(sql: string, params?: readonly unknown[]) => {
+          const result = await client.query(sql, params ? [...params] : []);
+          return { rows: result.rows as R[] };
+        },
+        release: () => { client.release(); },
+      };
+    } };
+    try {
+      const migrations = await pool.connect();
+      try {
+        await applyProjectAuthorizationMigration(migrations);
+        await applyProjectDocumentsMigration(migrations);
+        await applyProjectCommentsMigration(migrations);
+        await applyProjectHistoryMigration(migrations);
+      } finally { migrations.release?.(); }
+      const auth = new ProjectAuthorizationService(pool);
+      const documents = new ProjectDocumentService(pool, auth);
+      const owner = await auth.resolveActor({ issuer: "https://extras-races.test", subject: randomUUID() });
+      const editor = await auth.resolveActor({ issuer: "https://extras-races.test", subject: randomUUID() });
+      const projectId = randomUUID();
+      const { document, rowId, sectionId, citationId } = extrasDocumentFor(projectId);
+      await documents.createProject(owner, {
+        projectId, title: "Disposable Extras races", clientRequestId: randomUUID(), document,
+      });
+      await auth.changeMembership(projectId, owner, editor.principalId, "editor");
+      const writeSessionId = await auth.openWriteSession(projectId, editor);
+      const parks = [randomUUID(), randomUUID()].map((bundleId) => ({
+        expectedRevision: 0, clientMutationId: randomUUID(), writeSessionId,
+        operation: { kind: "stash_rows", rowIds: [rowId], bundleId },
+      }));
+      const competing = await Promise.allSettled(parks.map(async (input) =>
+        await documents.applyExtrasOperation(projectId, editor, input)));
+      expect(competing.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(competing.filter((result) => result.status === "rejected"))
+        .toMatchObject([{ status: "rejected", reason: { status: 409 } }]);
+      const winnerIndex = competing.findIndex((result) => result.status === "fulfilled");
+      const winner = parks[winnerIndex]!;
+      const parked = await documents.getDocument(projectId, owner);
+      expect(parked.revision).toBe(1);
+      expect(parked.document.activeDraft.blocks.map((row) => row.id)).toEqual([sectionId]);
+      expect(parked.document.stash?.[0]?.rows[0]?.id).toBe(rowId);
+      expect(parked.document.stash?.[0]?.supportingItems[0]?.id).toBe(citationId);
+      expect(parked.document.stash?.[0]?.id).toBe(winner.operation.bundleId);
+      const ordinaryPut = { expectedRevision: 1, clientMutationId: randomUUID(),
+        document: { ...parked.document, title: "Competing ordinary PUT" } };
+      const restore = { expectedRevision: 1, clientMutationId: randomUUID(), writeSessionId,
+        operation: { kind: "restore_stash", bundleId: winner.operation.bundleId,
+          destination: { sectionId, afterRowId: null, beforeRowId: null } } };
+      const mixed = await Promise.allSettled([
+        documents.applyExtrasOperation(projectId, editor, restore),
+        documents.putDocument(projectId, owner, ordinaryPut),
+      ]);
+      expect(mixed.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(mixed.filter((result) => result.status === "rejected"))
+        .toMatchObject([{ status: "rejected", reason: { status: 409 } }]);
+      const head = await new ProjectDocumentService(pool, auth).getDocument(projectId, owner);
+      expect(head.revision).toBe(2);
+      expect(head.document.activeDraft.blocks.some((row) => row.id === rowId))
+        .toBe(mixed[0]?.status === "fulfilled");
+      expect(head.document.stash?.some((bundle) => bundle.id === winner.operation.bundleId))
+        .toBe(mixed[1]?.status === "fulfilled");
+      expect(head.digest).toMatch(/^sha256:[a-f\d]{64}$/u);
+
+      await auth.changeMembership(projectId, owner, editor.principalId, null);
+      await Promise.all([
+        expect(documents.applyExtrasOperation(projectId, editor, winner)).rejects.toMatchObject({ status: 403 }),
+        expect(documents.applyExtrasOperation(projectId, editor, {
+          ...restore, expectedRevision: 2, clientMutationId: randomUUID(),
+        })).rejects.toMatchObject({ status: 403 }),
+      ]);
+      const afterRevoke = await new ProjectDocumentService(pool, auth).getDocument(projectId, owner);
+      expect(afterRevoke).toEqual(head);
+      const db = await pool.connect();
+      try {
+        const counts = await db.query<{ count: number }>(
+          "SELECT count(*)::integer AS count FROM stt_document_revisions WHERE project_id=$1", [projectId],
+        );
+        expect(counts.rows[0]?.count).toBe(3); // creation + exactly two winning revisions
+      } finally { db.release?.(); }
+    } finally { await server.end(); }
+  });
+
   it("serializes a checkpoint restore against an edit and two competing restores with independent clients", async () => {
     const server = new pg.Pool({ connectionString: scratchUrl, max: 8 });
     const pool: SqlPool = { connect: async (): Promise<SqlClient> => {

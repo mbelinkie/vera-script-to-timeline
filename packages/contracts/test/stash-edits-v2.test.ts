@@ -138,6 +138,42 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
 }
 
 describe("saved Stash row edits", () => {
+  it("preserves the typed visual, token and anchored citation identities over two explicit cross-section returns", () => {
+    const state = stashFixtureNarration();
+    const original = structuredClone(state.document.stash![0]!.rows[0]);
+    const firstSection = id(98500);
+    const laterSection = id(98501);
+    const document = structuredClone(state.document);
+    document.activeDraft.blocks.push(
+      { type: "section", id: firstSection, title: "First", orderKey: "1", version: 1 },
+      { type: "section", id: laterSection, title: "Later", orderKey: "2", version: 1 },
+    );
+    const placed = applyRowEditV2(document, 1, {
+      kind: "restore_stash", bundleId: state.bundleId,
+      destination: { sectionId: laterSection, afterRowId: null, beforeRowId: null },
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    expect(placed.document.activeDraft.blocks.at(-1)).toEqual(original);
+    expect(placed.document.activeDraft.supportingItems).toEqual([state.supportingItem]);
+    const returned = applyRowEditV2(placed.document, 2, {
+      kind: "stash_rows", rowIds: [original.id], bundleId: id(98502),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(returned.document.stash?.flatMap((bundle) => bundle.supportingItems)).toContainEqual(state.supportingItem);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(returned.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const restored = applyRowEditV2(loaded.document, 3, {
+      kind: "restore_stash", bundleId: id(98502),
+      destination: { sectionId: firstSection, afterRowId: null, beforeRowId: null },
+    });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    expect(restored.document.activeDraft.blocks[1]).toEqual(original);
+    expect(restored.document.activeDraft.supportingItems).toEqual([state.supportingItem]);
+    expect(restored.document.extras).toEqual([]);
+    expect(state.document.stash![0]!.rows[0]).toEqual(original);
+  });
+
   it("preserves frozen return history through active edits and an atomic saved-row return", () => {
     const state = stashFixtureNarration();
     const placed = applyRowEditV2(state.document, 1, {

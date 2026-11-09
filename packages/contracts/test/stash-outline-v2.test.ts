@@ -152,6 +152,46 @@ describe("exclusive Stash footage transactions (issue 367 phase 2)", () => {
   const attach = (doc: ScriptDocumentV2, noteId: string, clipId: string) =>
     applyRowEditV2(doc, doc.rowEditRevision ?? 0, { kind: "attach_stash_footage", noteRowId: noteId, clipRowId: clipId });
 
+  it("keeps an exclusive parked clip through a cross-section place, return and re-place", () => {
+    const { doc, note, attached } = attachmentFixture();
+    const originalFootage = structuredClone(attached);
+    const owned = attach(doc, note.id, attached.id);
+    expect(owned.ok, JSON.stringify(owned.diagnostics)).toBe(true);
+    const first = id(1190000);
+    const later = id(1190001);
+    const document = structuredClone(owned.document);
+    document.activeDraft.blocks.push(
+      { type: "section", id: first, title: "First", orderKey: "1", version: 1 },
+      { type: "section", id: later, title: "Later", orderKey: "2", version: 1 },
+    );
+    const placed = applyRowEditV2(document, 1, {
+      kind: "place_stash_rows", rowIds: [note.id], includeDescendants: false,
+      destination: gap(later, null, null),
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = placed.document.activeDraft.blocks.at(-1) as NarrationBlockV2;
+    expect(active.attachedFootage?.clip).toEqual(originalFootage);
+    const parked = applyRowEditV2(placed.document, 2, {
+      kind: "stash_rows", rowIds: [note.id], bundleId: id(1190002),
+    });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    const parkedNote = parked.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id) as NarrationBlockV2;
+    expect(parkedNote.attachedFootage?.clip).toEqual(originalFootage);
+    expect(parkedNote.primaryVisualSequence?.slots[0]).toMatchObject({ payload: { kind: "on_camera" } });
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(parked.document));
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    const restored = applyRowEditV2(reloaded.document, 3, {
+      kind: "place_stash_rows", rowIds: [note.id], includeDescendants: false,
+      destination: gap(first, null, null),
+    });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    expect((restored.document.activeDraft.blocks[1] as NarrationBlockV2).attachedFootage?.clip).toEqual(originalFootage);
+    expect(restored.document.extras).toEqual([]);
+    expect(validateScriptDocumentV2(restored.document).valid).toBe(true);
+    expect(doc).toEqual(attachmentFixture().doc);
+  });
+
   it("attaches only an explicitly selected clip, persists exactly one owner, and places parent-only with descendants promoted", () => {
     const { doc, note, ordinary, attached, nested, grandchild, other } = attachmentFixture();
     const original = structuredClone(doc);

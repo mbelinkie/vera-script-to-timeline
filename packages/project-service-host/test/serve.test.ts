@@ -82,6 +82,13 @@ describe("development QA service bootstrap and shutdown", () => {
     expect((await fetch(`${commentUrl}/operations`, { method: "POST", headers: {
       Authorization: `Bearer ${privateToken}`, "Content-Type": "application/json",
     }, body: "{}" })).status).toBe(400);
+    const extrasUrl = `http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}/document/extras-operations`;
+    expect((await fetch(extrasUrl, { method: "POST", headers: {
+      "Content-Type": "application/json", "X-Forwarded-User": "producer",
+    }, body: "{}" })).status).toBe(401);
+    expect((await fetch(extrasUrl, { method: "POST", headers: {
+      Authorization: `Bearer ${privateToken}`, "Content-Type": "application/json",
+    }, body: "{}" })).status).toBe(400); // Strict operation envelope; no backend bypass.
     const anonymousBuild = await fetch(`http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}/builds`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
     });
