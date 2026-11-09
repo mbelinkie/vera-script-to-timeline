@@ -219,11 +219,20 @@ def test_production_entrypoint_reauthenticates_under_owner_and_uses_os_not_calle
         return os_snapshot()
 
     monkeypatch.setattr(stage, "prepare_owned_f1_inputs", authenticated)
+    def activate_existing(_self: object) -> int:
+        calls.append("activate existing Resolve")
+        return 1234
+
+    monkeypatch.setattr(
+        ui.MacResolveForegroundActivator,
+        "activate_existing",
+        activate_existing,
+    )
     monkeypatch.setattr(ui.MacReadOnlyObserver, "observe", observed)
     outcome = ui.prepare_owned_ui_readiness(object(), "original-M4-job", object())
     assert outcome[0] is intent and outcome[1] is inventory
     assert outcome[2].v1_only is True
-    assert calls == ["owner", "signed SDK", "read OS"]
+    assert calls == ["owner", "signed SDK", "activate existing Resolve", "read OS"]
     ui._consume_attested_ui_readiness(*outcome)
     assert calls[-1] == "owner"
     with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
@@ -301,6 +310,132 @@ def test_production_entrypoint_fails_before_observing_if_owner_invalid(
         ui.prepare_owned_ui_readiness(object(), "original-M4-job", object())
 
 
+def test_existing_resolve_activation_refuses_any_non_mac_without_spawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_kw: pytest.fail("never spawn on Linux"),
+    )
+    with pytest.raises(gui.GuiRollRefused, match="macOS"):
+        ui.MacResolveForegroundActivator().activate_existing()
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout"),
+    [
+        (1, '{"activated":true}'),
+        (0, "not JSON"),
+        (0, "[]"),
+        (0, '{"activated":false}'),
+        (0, '{"activated":true,"processPid":0}'),
+        (0, '{"activated":true,"processPid":true}'),
+        (0, '{"activated":true,"processPid":123,"extra":true}'),
+    ],
+)
+def test_existing_resolve_activation_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, stdout: str
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kwargs: (
+            argv[:4] == ["/usr/bin/osascript", "-l", "JavaScript", "-e"]
+            and kwargs["timeout"] == 8
+            and SimpleNamespace(returncode=returncode, stdout=stdout)
+        ),
+    )
+    with pytest.raises(gui.GuiRollRefused, match="foreground activation"):
+        ui.MacResolveForegroundActivator().activate_existing()
+
+
+def test_existing_resolve_activation_only_reports_frontmost_and_never_trusts_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kwargs: SimpleNamespace(
+            returncode=0, stdout='{"activated":true,"processPid":1234}'
+        ),
+    )
+    assert ui.MacResolveForegroundActivator().activate_existing() == 1234
+    intent, inventory = sdk_inputs()
+    facts = os_snapshot()
+    facts["frontmostPid"] = 9000
+    with pytest.raises(gui.GuiRollRefused):
+        gui._validate(
+            intent,
+            inventory,
+            ui._readiness_from_os(facts, TARGET),
+            datetime.now(UTC),
+        )
+
+
+def test_production_refuses_failed_activation_without_os_or_gui_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent, inventory = sdk_inputs()
+    monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(
+        stage, "prepare_owned_f1_inputs", lambda *_args: (intent, inventory)
+    )
+
+    def deny(_self: object) -> None:
+        raise gui.GuiRollRefused("foreground activation denied")
+
+    monkeypatch.setattr(ui.MacResolveForegroundActivator, "activate_existing", deny)
+    monkeypatch.setattr(
+        ui.MacReadOnlyObserver,
+        "observe",
+        lambda _self: pytest.fail("no OS readiness after failed activation"),
+    )
+    with pytest.raises(gui.GuiRollRefused, match="foreground activation denied"):
+        ui.prepare_owned_ui_readiness(object(), "original-M4-job", object())
+
+
+def test_production_refuses_process_replacement_after_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent, inventory = sdk_inputs()
+    monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
+    monkeypatch.setattr(
+        stage, "prepare_owned_f1_inputs", lambda *_: (intent, inventory)
+    )
+    monkeypatch.setattr(
+        ui.MacResolveForegroundActivator, "activate_existing", lambda _: 9999
+    )
+    monkeypatch.setattr(ui.MacReadOnlyObserver, "observe", lambda _: os_snapshot())
+    with pytest.raises(gui.GuiRollRefused, match="process changed"):
+        ui.prepare_owned_ui_readiness(object(), "original-M4-job", object())
+
+
+def test_foreground_activation_script_only_targets_existing_exact_resolve() -> None:
+    source = ui._FOREGROUND_EXISTING_JXA
+    assert "com.blackmagic-design.DaVinciResolve" in source
+    assert "/Applications/DaVinci Resolve/DaVinci Resolve.app" in source
+    assert "activateWithOptions" in source
+    assert "frontmostApplication" in source
+    assert "matches.length !== 1" in source
+    assert "processIdentifier" in source
+    for forbidden in (
+        "Application('System Events')",
+        "click(",
+        "keystroke(",
+        "openApplication",
+        "launchApplication",
+        "AXSet",
+        "SetCurrentTimecode",
+        "SaveProject",
+        "tccutil",
+    ):
+        assert forbidden not in source
+
+
 def test_non_mac_does_not_spawn_or_edit_os(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(platform, "system", lambda: "Linux")
     monkeypatch.setattr(
@@ -348,6 +483,8 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]" in source
     assert source.index("ObjC.bindFunction(") < source.index("function run()")
     assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
+    assert "result.automation = $.AEDeterminePermissionToAutomateTarget(" in source
+    assert ") === 0;" in source
     assert "['V1', 'A1', 'A2', 'A3', 'A4', 'A5']" in source
     assert "AXMenuItemCmdChar" in source
     assert "AXMenuItemCmdModifiers" in source

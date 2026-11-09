@@ -751,6 +751,11 @@ def _injected_os_and_system_events(
                 raise OSError("lost focus / unknown partial GUI event")
 
     monkeypatch.setattr(ui, "MacReadOnlyObserver", FakeOs)
+    monkeypatch.setattr(
+        ui.MacResolveForegroundActivator,
+        "activate_existing",
+        lambda _self: 1234,
+    )
     monkeypatch.setattr(gui, "SystemEventsRollExecutor", FakeSystemEvents)
     return snapshot, calls
 

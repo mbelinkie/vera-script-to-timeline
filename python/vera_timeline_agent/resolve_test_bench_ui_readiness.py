@@ -5,8 +5,10 @@ point re-authenticates the original M4 capture through the held native owner,
 then obtains OS observations using a fixed, read-only System Events probe.
 Unknown macOS properties are *not* guessed from the SDK or earlier trials.
 
-This module never switches pages, focuses windows, selects tracks, alters TCC,
-positions the playhead, invokes the #495 actuator, or writes a native receipt.
+The production preflight may bring the *already-running, exact signed-app*
+Resolve process to the foreground before independently observing it. It never
+switches pages, selects tracks, alters TCC, positions the playhead, invokes
+the #495 actuator, or writes a native receipt.
 """
 
 from __future__ import annotations
@@ -43,6 +45,54 @@ _ATTESTED: ContextVar[
 _KEYBOARD_DIR = Path.home() / "Library/Preferences/Blackmagic Design/DaVinci Resolve"
 _KEYBOARD_CONFIG_PATH = _KEYBOARD_DIR / "config.user.xml"
 _KEYBOARD_PRESETS_PATH = _KEYBOARD_DIR / "keyboard.preset.xml"
+
+# A separate, bounded preflight action: focus only an existing trusted Resolve
+# process after the SDK/owner have identified the intended disposable target.
+# Never launch the app (which could open an arbitrary recent producer project),
+# choose a document, or send a keyboard/menu event. The OS read-only observer
+# below must still recheck every fact; this is not a readiness attestation.
+_FOREGROUND_EXISTING_JXA = r"""
+ObjC.import('AppKit');
+function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
+function run() {
+  const workspace = $.NSWorkspace.sharedWorkspace;
+  const matches = unwrap(workspace.runningApplications).filter(
+    x => unwrap(x.bundleIdentifier) === 'com.blackmagic-design.DaVinciResolve'
+  );
+  if (matches.length !== 1) return JSON.stringify({activated:false,processPid:0});
+  const app = matches[0];
+  const info = $.NSBundle.bundleWithURL(app.bundleURL).infoDictionary;
+  const version = unwrap(info.objectForKey($('CFBundleShortVersionString')));
+  const build = unwrap(info.objectForKey($('CFBundleVersion')));
+  const pid = Number(app.processIdentifier);
+  if (unwrap(app.bundleURL.path) !==
+        '/Applications/DaVinci Resolve/DaVinci Resolve.app' ||
+      version !== '21.1.1' || build !== '21.1.10010' ||
+      !Number.isInteger(pid) || pid <= 0 || app.terminated) {
+    return JSON.stringify({activated:false,processPid:0});
+  }
+  const front = workspace.frontmostApplication;
+  if (front === null || Number(front.processIdentifier) !== pid) {
+    if (!Boolean(app.activateWithOptions(0))) {
+      return JSON.stringify({activated:false,processPid:pid});
+    }
+    $.NSThread.sleepForTimeInterval(0.2);
+  }
+  // macOS can finish the Spaces/window transition shortly after activation
+  // returns. Observe once more after a small, bounded settle; do not dispatch
+  // another activation or infer success from the API's return value alone.
+  let observed = workspace.frontmostApplication;
+  if (observed === null || Number(observed.processIdentifier) !== pid) {
+    $.NSThread.sleepForTimeInterval(0.3);
+    observed = workspace.frontmostApplication;
+  }
+  return JSON.stringify({
+    activated: observed !== null && Number(observed.processIdentifier) === pid,
+    processPid: pid
+  });
+}
+run();
+""".strip()
 
 _OS_READ_ONLY_JXA = r"""
 ObjC.import('AppKit');
@@ -132,6 +182,8 @@ function run() {
     const systemEvents = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
       $('com.apple.systemevents')
     );
+    // Only the exact OSStatus noErr (numeric 0) grants permission. Do not
+    // coerce null or false to zero, and never request an Automation prompt.
     result.automation = $.AEDeterminePermissionToAutomateTarget(
       systemEvents.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
     ) === 0;
@@ -190,6 +242,44 @@ run();
 class OsSnapshot(Protocol):
     def observe(self) -> Mapping[str, object]:
         """Return raw OS observations; no expectation or target assertions."""
+
+
+class MacResolveForegroundActivator:
+    """Focus existing exact Resolve only; not a source of trusted UI state."""
+
+    def activate_existing(self) -> int:
+        if platform.system() != "Darwin":
+            raise gui.GuiRollRefused("Resolve foreground activation requires macOS")
+        try:
+            completed = subprocess.run(
+                [
+                    "/usr/bin/osascript",
+                    "-l",
+                    "JavaScript",
+                    "-e",
+                    _FOREGROUND_EXISTING_JXA,
+                ],
+                check=False,
+                text=True,
+                capture_output=True,
+                timeout=8,
+            )
+            if completed.returncode != 0 or len(completed.stdout) > 256:
+                raise gui.GuiRollRefused("Resolve foreground activation failed")
+            outcome = json.loads(completed.stdout)
+            if (
+                not isinstance(outcome, dict)
+                or set(outcome) != {"activated", "processPid"}
+                or outcome["activated"] is not True
+                or type(outcome["processPid"]) is not int
+                or outcome["processPid"] <= 0
+            ):
+                raise gui.GuiRollRefused("Resolve foreground activation refused")
+            return outcome["processPid"]
+        except (OSError, subprocess.TimeoutExpired, ValueError) as error:
+            raise gui.GuiRollRefused(
+                "Resolve foreground activation unavailable"
+            ) from error
 
 
 def _keyboard_file(path: Path) -> bytes:
@@ -393,7 +483,13 @@ def prepare_owned_ui_readiness(
     _ATTESTED.set(None)
     gui._require_owner_lock()
     intent, inventory = stage.prepare_owned_f1_inputs(store, job_id, resolve)
+    activated_pid = MacResolveForegroundActivator().activate_existing()
     snapshot = MacReadOnlyObserver().observe()
+    gui._require(
+        type(snapshot.get("processPid")) is int
+        and snapshot["processPid"] == activated_pid,
+        "Resolve process changed after foreground activation",
+    )
     readiness = _readiness_from_os(snapshot, intent.target)
     gui._validate(intent, inventory, readiness, datetime.now(UTC))
     _ATTESTED.set((intent, inventory, readiness, monotonic()))
