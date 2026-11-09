@@ -25,7 +25,7 @@ from vera_timeline_agent.resolve_test_bench_gui_stage import _read_only_playhead
 NAME = "VERA Delivery 75ba39c0-4c56-4d85-ac88-58f0092163a8 c191e694fc19"
 BASE_COMMIT = "bbe5c64be58e0c841a985ea6a5aed41b3372a873"
 GRAPH = "54ffaaeef7d5f21a631f9aa478a98c431e0cd3e0a9831f454306b170b5821ba1"
-ROOT = Path.home() / ".local/state/vera/issue-499-one-roll-75ba39c0"
+ROOT = Path.home() / ".local/state/vera/issue-499-one-roll-75ba39c0-v2"
 AUTH = ROOT.with_name(ROOT.name + "-authority.json")
 EXPECTED = (("video", 1, "Root"), ("video", 2, "Overlay"),
             ("video", 3, "Presenter"), ("video", 4, "Placeholder"),
@@ -220,7 +220,9 @@ def construct() -> None:
         from vera_timeline_agent.resolve_test_queue_m4_provision import _new_target
         original_manager = resolve.GetProjectManager()
         original_folder = original_manager.GetCurrentFolder()
-        need(type(original_folder) is str and bool(original_folder),
+        # Studio 21.1.1.10 returns the *empty string* for the root project
+        # folder. It is an authenticated folder ID here, not a missing value.
+        need(type(original_folder) is str,
              "original project folder getter unavailable")
         p_uid, t_uid = _new_target(resolve, NAME)
         receipt = {"projectUid": p_uid, "timelineUid": t_uid, "folder": original_folder}
