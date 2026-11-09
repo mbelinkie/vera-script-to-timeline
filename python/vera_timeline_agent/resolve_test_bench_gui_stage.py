@@ -224,6 +224,15 @@ def attempt_once(
     may call it after separate case-specific authority and read-only preflight.
     """
     gui._require_owner_lock()
+    # Only an independent, owner-held OS+SDK probe may authorize the REAL
+    # System Events executor. The public dataclass remains fakeable for tests;
+    # it is not a production-ready privilege or permission claim.
+    if isinstance(executor, gui.SystemEventsRollExecutor):
+        from .resolve_test_bench_ui_readiness import (
+            _consume_attested_ui_readiness,
+        )
+
+        _consume_attested_ui_readiness(intent, inventory, readiness)
     _verify_original_capture(store, job_id, intent, inventory)
     return gui.OneUseGuiRollActuator(
         OriginalM4GuiJournal(store, job_id), executor
