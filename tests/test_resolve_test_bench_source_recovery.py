@@ -82,7 +82,7 @@ def environment(
             raise ValueError("admission digest mismatch")
         return SimpleNamespace(
             profile=admission.MATRIX_PROFILE,
-            package_root=root / recovery.RECOVERY / "package",
+            package_root=path.parent / "package",
             assert_current=lambda: events.append("reopened-assert-current"),
         )
 
@@ -181,3 +181,63 @@ def test_config_drift_refuses_reopening_recovered_static_proof(
     with pytest.raises(ValueError, match="admission digest mismatch"):
         recovery.verify(root, config)
     assert events.count("new-static-admission") == 1
+
+
+def test_second_static_slot_only_after_preserved_failed_first(
+    environment: tuple[Path, dict[str, Any], list[str]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, config, events = environment
+    original = admission.admit_qualification_package_v2
+    primary = (root / "source-preflight/attestation.json").read_bytes()
+
+    def interrupted(path: Path, **_kwargs: Any) -> None:
+        path.mkdir()
+        (path / "attestation.json").write_text("partial, not adopted")
+        raise OSError("compiler runtime was missing")
+
+    monkeypatch.setattr(admission, "admit_qualification_package_v2", interrupted)
+    with pytest.raises(OSError, match="compiler runtime"):
+        recovery.recover(root / "config.json")
+    assert (root / recovery.INTENT).exists()
+    assert (root / recovery.RECOVERY / "attestation.json").exists()
+    assert not (root / recovery.RECEIPT).exists()
+    monkeypatch.setattr(admission, "admit_qualification_package_v2", original)
+    result = recovery.recover(root / "config.json", slot=2)
+    assert result["nativeEffects"] is False
+    assert result["recovery"] == recovery.RETRY_RECOVERY
+    assert (root / "source-preflight/attestation.json").read_bytes() == primary
+    assert (
+        root / recovery.RECOVERY / "attestation.json"
+    ).read_text() == "partial, not adopted"
+    assert events.count("new-static-admission") == 1
+    recovery.verify(root, config)
+    runner._preflight_before_native(config)
+    assert not (root / "queue").exists()
+    with pytest.raises(queue.QueueError, match="already attempted"):
+        recovery.recover(root / "config.json", slot=2)
+    with pytest.raises(queue.QueueError, match="already attempted"):
+        recovery.recover(root / "config.json")
+
+
+def test_second_static_slot_cannot_replay_completed_first_or_create_native_job(
+    environment: tuple[Path, dict[str, Any], list[str]],
+) -> None:
+    root, config, events = environment
+    recovery.recover(root / "config.json")
+    with pytest.raises(queue.QueueError, match="first recovery was completed"):
+        recovery.recover(root / "config.json", slot=2)
+    assert events.count("new-static-admission") == 1
+    (root / "queue").mkdir()
+    with pytest.raises(queue.QueueError, match="native state already enrolled"):
+        recovery.verify(root, config)
+
+
+def test_second_static_slot_requires_original_first_intent(
+    environment: tuple[Path, dict[str, Any], list[str]],
+) -> None:
+    root, _config, events = environment
+    with pytest.raises(FileNotFoundError):
+        recovery.recover(root / "config.json", slot=2)
+    assert events == []
+    assert not (root / recovery.RETRY_INTENT).exists()
