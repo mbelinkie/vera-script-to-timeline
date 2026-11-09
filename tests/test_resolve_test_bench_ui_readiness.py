@@ -427,7 +427,7 @@ def test_real_executor_cannot_consume_forged_green_ui_data(
     readiness = ui._readiness_from_os(os_snapshot(), TARGET)
     monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
     monkeypatch.setattr(stage, "_verify_original_capture", lambda *_args: None)
-    with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
+    with pytest.raises(gui.GuiRollRefused, match="real transport needs original SDK"):
         stage.attempt_once(
             object(),  # type: ignore[arg-type]
             "original-M4-job",
@@ -447,7 +447,7 @@ def test_subclass_of_real_executor_cannot_skip_attestation(
     intent, inventory = sdk_inputs()
     monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
     monkeypatch.setattr(stage, "_verify_original_capture", lambda *_args: None)
-    with pytest.raises(gui.GuiRollRefused, match="no fresh authenticated"):
+    with pytest.raises(gui.GuiRollRefused, match="real transport needs original SDK"):
         stage.attempt_once(
             object(),  # type: ignore[arg-type]
             "original-M4-job",
@@ -683,7 +683,7 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "result.automation = noPromptOSStatusAllowed(permission);" in source
     assert "const osProcessPid = proc.unixId();" in source
     assert "osProcessPid !== result.processPid" in source
-    assert "['V1', 'A1', 'A2', 'A3', 'A4', 'A5']" in source
+    assert "['V1', 'V2', 'V3', 'V4', 'V5', 'A1']" in source
     assert "AXMenuItemCmdChar" in source
     assert "AXMenuItemCmdModifiers" in source
     assert "'Active Panel Selection', 'Timeline'" in source

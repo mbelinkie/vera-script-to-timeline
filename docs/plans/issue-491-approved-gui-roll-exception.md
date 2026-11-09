@@ -76,10 +76,13 @@ acceptance remains **0/4**; #473 → #312 → #313 remains blocked.
 Phase 10's actual Qt observation showed frontmost PID, one `AXMain` window
 and TCC, **but not** timeline focus, selected Normal Edit Mode or V1-only
 auto-select. A matching window *name* is not focused-AX-object identity.
-The 24-event fixed PID-bound actor retains its strict gates, and phase 11
-**did not** implement or re-pin a replacement actuator. Phase 11 added
-official dual-pass SDK Edit-page and newly signed unlinked/unique-327
-geometry checks, with an explicit **BLOCKED** verdict; see
+The 24-event fixed PID-bound actor retains its strict Qt focus/mode/track
+guards; phase 11 corrected the Auto Select enumeration to the actual
+V1–V5/A1 topology and re-pinned its SHA to
+`0ad776430984f35b816c481bd0319e3fd620cb03a603a4253b2df0abd1c6a8fb`.
+Phase 11 also added owner-attested real-executor dispatch, a late SDK
+page/playhead/UID check, dual-pass SDK Edit-page and signed unlinked/
+unique-327 geometry checks, with an explicit **BLOCKED** verdict; see
 [phase-11 stop](../verification/issue-499-phase11-safety-stop.md).
 The #491 permission is an exception to transport, not permission to
 assume an unobservable pre-effect state or substitute post-effect checks

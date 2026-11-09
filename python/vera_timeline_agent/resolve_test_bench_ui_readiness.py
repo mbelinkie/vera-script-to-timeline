@@ -276,8 +276,8 @@ function run() {
     // No guessing from a visible timeline. AX must identify the focused area.
     result.timelineFocused = focused !== null &&
       attr(focused, 'AXRoleDescription') === 'timeline';
-    // Original signed M4 has precisely V1 and A1 through A5 (six tracks).
-    const auto = ['V1', 'A1', 'A2', 'A3', 'A4', 'A5'];
+    // Native six-track M4 is V1-V5 plus A1, per the signed Phase10 matrix.
+    const auto = ['V1', 'V2', 'V3', 'V4', 'V5', 'A1'];
     const states = autoSelectStates(proc, auto);
     result.v1Only = states[0] === true && states.slice(1).every(s => s === false);
     const normalMode = menuItem(proc, 'Trim', ['Normal Edit Mode']);

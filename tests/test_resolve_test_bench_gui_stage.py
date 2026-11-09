@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import sqlite3
+import subprocess
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -143,12 +144,19 @@ def setup(
     geometry = {
         "rate": {"numerator": 24000, "denominator": 1001},
         "extentFrames": 1407,
-        "tracks": [{"trackId": f"track-{i}"} for i in range(6)],
+        "tracks": [
+            {"trackId": "original-V1", "kind": "video", "index": 1},
+            *(
+                {"trackId": f"track-V{i}", "kind": "video", "index": i}
+                for i in range(2, 6)
+            ),
+            {"trackId": "track-A1", "kind": "audio", "index": 1},
+        ],
         "items": [
             {
                 "itemUid": uid,
                 "kind": "video" if i < 2 else "audio",
-                "trackId": "original-V1" if i < 2 else f"track-{i}",
+                "trackId": "original-V1" if i < 2 else "track-A1",
                 "recordStart": 0 if i == 0 else 327 if i == 1 else 500 + i * 50,
                 "recordDuration": 327 if i == 0 else 151,
                 "linkedItemUids": [],
@@ -540,9 +548,10 @@ def _setup_read_only_f1_preparation(
     geometry["tracks"] = [
         {"trackId": "original-V1", "kind": "video", "index": 1},
         *(
-            {"trackId": f"track-{index}", "kind": "audio", "index": index}
-            for index in range(1, 6)
+            {"trackId": f"track-V{index}", "kind": "video", "index": index}
+            for index in range(2, 6)
         ),
+        {"trackId": "track-A1", "kind": "audio", "index": 1},
     ]
 
     def signed(*_args: object) -> dict[str, object]:
@@ -566,6 +575,7 @@ def _setup_read_only_f1_preparation(
 
     monkeypatch.setattr(probe, "inspect_selected", inspect)
     timeline = SimpleNamespace(
+        GetUniqueId=lambda: TARGET.timeline_uid,
         GetCurrentTimecode=lambda: current_timecode,
         GetStartTimecode=lambda: "00:00:00:00",
         GetStartFrame=lambda: 0,
@@ -574,7 +584,8 @@ def _setup_read_only_f1_preparation(
         GetCurrentPage=lambda: "edit",
         GetProjectManager=lambda: SimpleNamespace(
             GetCurrentProject=lambda: SimpleNamespace(
-                GetCurrentTimeline=lambda: timeline
+                GetUniqueId=lambda: TARGET.project_uid,
+                GetCurrentTimeline=lambda: timeline,
             )
         ),
     )
@@ -702,6 +713,103 @@ def test_phase11_sdk_page_drift_during_os_bracket_never_spends_intent(
         stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert calls == []
     assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+@pytest.mark.parametrize("mutation", ["other-video-track", "wrong-audio-index"])
+def test_phase11_signed_track_topology_must_match_fixed_actor(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    original = stage.__dict__["verify_native_result"](Path(""), SHA)
+    geometry = original["nativeGeometry"]
+    tracks = [dict(row) for row in geometry["tracks"]]
+    if mutation == "other-video-track":
+        tracks[1]["kind"] = "audio"
+    else:
+        tracks[-1]["index"] = 2
+    monkeypatch.setattr(
+        stage,
+        "verify_native_result",
+        lambda *_args: {
+            **original,
+            "nativeGeometry": {**geometry, "tracks": tracks},
+        },
+    )
+    with pytest.raises(gui.GuiRollRefused, match="signed six-track topology"):
+        _call(setup)
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+@pytest.mark.parametrize("late_drift", ["page", "playhead", "project_uid"])
+def test_phase11_last_moment_sdk_drift_after_fsync_is_unknown_no_replay(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    late_drift: str,
+) -> None:
+    """Even with pre-effect OS/SDK checks, a late drift cannot dispatch."""
+    from vera_timeline_agent import resolve_test_bench_ui_readiness as ui
+
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    original_actor = gui.SystemEventsRollExecutor
+    facts, calls = _injected_os_and_system_events(monkeypatch)
+    assert facts["windowFrontmost"] is True
+    page = {"value": "edit"}
+    sdk.GetCurrentPage = lambda: page["value"]
+    current_timecode = {"value": "00:00:13:15"}
+    current_project_uid = {"value": TARGET.project_uid}
+    timeline = sdk.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    timeline.GetCurrentTimecode = lambda: current_timecode["value"]
+    project = SimpleNamespace(
+        GetUniqueId=lambda: current_project_uid["value"],
+        GetCurrentTimeline=lambda: timeline,
+    )
+    sdk.GetProjectManager = lambda: SimpleNamespace(GetCurrentProject=lambda: project)
+
+    monkeypatch.setattr(gui, "SystemEventsRollExecutor", original_actor)
+
+    class LateDriftActor(gui.SystemEventsRollExecutor):
+        def execute_once(self, window: str, pid: int) -> None:
+            if late_drift == "page":
+                page["value"] = "deliver"
+            elif late_drift == "playhead":
+                current_timecode["value"] = "00:00:19:22"  # frame 478
+            else:
+                current_project_uid["value"] = "different-project"
+            original_actor.execute_once(self, window, pid)
+
+    monkeypatch.setattr(gui, "SystemEventsRollExecutor", LateDriftActor)
+    monkeypatch.setattr(ui.MacReadOnlyObserver, "observe", lambda _self: dict(facts))
+    os_dispatches: list[object] = []
+
+    def unexpected_osascript(*args: object, **_kwargs: object) -> SimpleNamespace:
+        os_dispatches.append(args)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", unexpected_osascript)
+    with pytest.raises(gui.GuiRollUnknown, match="no retry"):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert calls == []
+    assert os_dispatches == []  # no real transport attempted on late SDK drift
+    assert (_journal_root(setup) / "gui-intent.json").is_file()
+    page["value"] = "edit"
+    current_timecode["value"] = "00:00:13:15"
+    current_project_uid["value"] = TARGET.project_uid
+    with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert (
         setup[0]
         .db.execute("SELECT state FROM reverse_stages WHERE ordinal=1")

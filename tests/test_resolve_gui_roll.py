@@ -178,8 +178,12 @@ def test_script_changed_after_journal_consume_cannot_reach_osascript(
 
     journal = TamperJournal()
     actuator = gui.OneUseGuiRollActuator(journal, gui.SystemEventsRollExecutor())
-    with pytest.raises(gui.GuiRollUnknown, match="no retry"):
-        actuator.attempt(intent, inventory, readiness, now=NOW)
+    scope = gui._VERIFIED_HOST_DISPATCH.set((NAME, 1234, lambda: None))
+    try:
+        with pytest.raises(gui.GuiRollUnknown, match="no retry"):
+            actuator.attempt(intent, inventory, readiness, now=NOW)
+    finally:
+        gui._VERIFIED_HOST_DISPATCH.reset(scope)
     with pytest.raises(gui.GuiRollRefused, match="already been dispatched"):
         actuator.attempt(intent, inventory, readiness, now=NOW)
     assert journal.spent == {intent.stage_operation_id}
@@ -380,12 +384,20 @@ def test_fixed_production_executor_only_passes_pinned_script_and_argv(
     assert not calls
     intent, inventory, readiness = valid()
     journal = FakeJournal()
-    result = gui.OneUseGuiRollActuator(journal, gui.SystemEventsRollExecutor()).attempt(
-        intent,
-        inventory,
-        readiness,
-        now=NOW,
-    )
+    with pytest.raises(gui.GuiRollRefused, match="no independently attested"):
+        gui.OneUseGuiRollActuator(journal, gui.SystemEventsRollExecutor()).attempt(
+            intent, inventory, readiness, now=NOW
+        )
+    assert journal.calls == 0 and calls == []
+    # Only injected tests can explicitly simulate the internal attested-host
+    # scope; production mints it after original-M4 owner/SDK/OS revalidation.
+    scope = gui._VERIFIED_HOST_DISPATCH.set((NAME, 1234, lambda: None))
+    try:
+        result = gui.OneUseGuiRollActuator(
+            journal, gui.SystemEventsRollExecutor()
+        ).attempt(intent, inventory, readiness, now=NOW)
+    finally:
+        gui._VERIFIED_HOST_DISPATCH.reset(scope)
     assert result.state == "unknown" and not result.native_verified
     assert journal.spent == {intent.stage_operation_id}
     assert len(calls) == 1
@@ -395,6 +407,26 @@ def test_fixed_production_executor_only_passes_pinned_script_and_argv(
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
         gui.SystemEventsRollExecutor().execute_once("bad\nwindow", 1234)
     assert len(calls) == 1
+
+
+def test_wrapped_real_executor_cannot_bypass_host_attestation(
+    admitted_owner: None,
+) -> None:
+    """No fake adapter or caller-made green dataclass may invoke osascript."""
+    intent, inventory, readiness = valid()
+    journal = FakeJournal()
+
+    class WrappedExecutor:
+        def execute_once(self, window: str, pid: int) -> None:
+            gui.SystemEventsRollExecutor().execute_once(window, pid)
+
+    with pytest.raises(gui.GuiRollUnknown, match="no retry"):
+        gui.OneUseGuiRollActuator(journal, WrappedExecutor()).attempt(
+            intent, inventory, readiness, now=NOW
+        )
+    # The wrapper cannot dispatch a real native operation; its fake journal
+    # still spends the test intent, so the only safe outcome is UNKNOWN.
+    assert journal.spent == {intent.stage_operation_id}
 
 
 def test_os_exit_failure_cannot_be_accepted_even_if_script_was_dispatched(
@@ -407,14 +439,13 @@ def test_os_exit_failure_cannot_be_accepted_even_if_script_was_dispatched(
         lambda *args, **kwargs: SimpleNamespace(returncode=1),
     )
     intent, inventory, readiness = valid()
-    with pytest.raises(gui.GuiRollUnknown, match="uncertain"):
-        gui.OneUseGuiRollActuator(
-            FakeJournal(), gui.SystemEventsRollExecutor()
-        ).attempt(
-            intent,
-            inventory,
-            readiness,
-            now=NOW,
-        )
+    scope = gui._VERIFIED_HOST_DISPATCH.set((NAME, 1234, lambda: None))
+    try:
+        with pytest.raises(gui.GuiRollUnknown, match="uncertain"):
+            gui.OneUseGuiRollActuator(
+                FakeJournal(), gui.SystemEventsRollExecutor()
+            ).attempt(intent, inventory, readiness, now=NOW)
+    finally:
+        gui._VERIFIED_HOST_DISPATCH.reset(scope)
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
         gui.SystemEventsRollExecutor().execute_once(NAME, 1234)

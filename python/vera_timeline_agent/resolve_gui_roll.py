@@ -12,6 +12,7 @@ import hashlib
 import re
 import subprocess
 import threading
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -36,6 +37,12 @@ NATIVE_TRACK_COUNT = 6
 _HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 _CONSUMED_DISPATCH: ContextVar[bool] = ContextVar(
     "f1_consumed_gui_dispatch", default=False
+)
+# The real System Events transport requires *both* an already-consumed
+# one-use journal and an independently SDK→OS→SDK-attested original M4 host.
+# A caller-supplied TrustedUiReadiness or a wrapper executor cannot mint this.
+_VERIFIED_HOST_DISPATCH: ContextVar[tuple[str, int, Callable[[], None]] | None] = (
+    ContextVar("issue499_verified_host_dispatch", default=None)
 )
 _DISPOSABLE_PROJECT = re.compile(
     r"VERA Delivery [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12} [0-9a-f]{12}\Z"
@@ -92,7 +99,7 @@ on run argv
       end if
       set timelineMenu to menu "Timeline" of menu bar 1
       set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
-      repeat with trackName in {"V1", "A1", "A2", "A3", "A4", "A5"}
+      repeat with trackName in {"V1", "V2", "V3", "V4", "V5", "A1"}
         set itemName to "Auto Select/Deselect " & (contents of trackName)
         set trackItem to menu item itemName of autoMenu
         set trackMark to value of attribute "AXMenuItemMarkChar" of trackItem
@@ -150,7 +157,7 @@ end run
 """.strip()
 # Independent, review-pinned digest: edits to the script do not implicitly
 # authorize themselves by recalculating the expected value on import.
-ROLL_SCRIPT_SHA256 = "9469ed9b14a290663381395a5c857330c0ebc85c20e9cfbaa777ca3eba352ed5"
+ROLL_SCRIPT_SHA256 = "0ad776430984f35b816c481bd0319e3fd620cb03a603a4253b2df0abd1c6a8fb"
 
 
 class GuiRollRefused(ValueError):
@@ -272,6 +279,14 @@ class SystemEventsRollExecutor:
         # without the actuator's already-consumed journal and current lock.
         _require(_CONSUMED_DISPATCH.get(), "no consumed F1 dispatch")
         _require_owner_lock()
+        verified = _VERIFIED_HOST_DISPATCH.get()
+        _require(
+            verified is not None
+            and verified[0] == expected_window_name
+            and verified[1] == process_pid,
+            "no independently attested original-M4 host transport",
+        )
+        assert verified is not None
         _require(
             hashlib.sha256(ROLL_APPLESCRIPT.encode("utf-8")).hexdigest()
             == ROLL_SCRIPT_SHA256,
@@ -282,6 +297,10 @@ class SystemEventsRollExecutor:
         if not _safe_name(expected_window_name):
             raise GuiRollRefused("invalid fixed window name")
         _require(type(process_pid) is int and process_pid > 0, "invalid exact PID")
+        # Re-read the same selected SDK target/page/playhead immediately
+        # before launching osascript. A late drift *after* journal fsync is
+        # UNKNOWN and may NEVER be retried.
+        verified[2]()
         try:
             result = subprocess.run(
                 [
@@ -483,6 +502,11 @@ class OneUseGuiRollActuator:
     ) -> GuiRollAttempt:
         with self._guard:
             _require(not self._spent, "this actuator has already been dispatched")
+            if isinstance(self._executor, SystemEventsRollExecutor):
+                _require(
+                    _VERIFIED_HOST_DISPATCH.get() is not None,
+                    "no independently attested original-M4 host transport",
+                )
             _validate(
                 intent, inventory, readiness, datetime.now(UTC) if now is None else now
             )

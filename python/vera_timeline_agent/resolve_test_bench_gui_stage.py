@@ -83,6 +83,28 @@ def _verify_original_capture(
         "signed pristine geometry incomplete or not the approved matrix",
     )
     assert isinstance(items, list)
+    assert isinstance(tracks, list)
+    # The original signed native topology is five *video* tracks and one
+    # *audio* track. Earlier mock data mislabeled these as V1+A1..A5;
+    # inspecting those AX menus would leave V2..V5 entirely unchecked.
+    expected_slots = {
+        ("video", 1),
+        ("video", 2),
+        ("video", 3),
+        ("video", 4),
+        ("video", 5),
+        ("audio", 1),
+    }
+    _require(
+        len({row.get("trackId") for row in tracks if isinstance(row, dict)}) == 6
+        and {
+            (row.get("kind"), row.get("index"))
+            for row in tracks
+            if isinstance(row, dict)
+        }
+        == expected_slots,
+        "signed six-track topology differs from fixed V1-V5/A1 menu actor",
+    )
     by_uid = {row.get("itemUid"): row for row in items if isinstance(row, dict)}
     _require(
         len(by_uid) == gui.NATIVE_ITEM_COUNT
@@ -242,6 +264,8 @@ def attempt_once(
     inventory: gui.PristineSdkInventory,
     readiness: gui.TrustedUiReadiness,
     executor: gui.FixedRollExecutor,
+    *,
+    resolve: Any | None = None,
 ) -> gui.GuiRollAttempt:
     """Only for a *new*, independently authorized, already-owned host run.
 
@@ -255,15 +279,46 @@ def attempt_once(
     # it is not a production-ready privilege or permission claim.
     real_executor = isinstance(executor, gui.SystemEventsRollExecutor)
     _verify_original_capture(store, job_id, intent, inventory)
+    transport_scope = None
     if real_executor:
         from .resolve_test_bench_ui_readiness import (
             _consume_attested_ui_readiness,
         )
 
+        _require(resolve is not None, "real transport needs original SDK handle")
+        assert resolve is not None
+
+        def recheck_sdk() -> None:
+            gui._require_owner_lock()
+            _require(
+                resolve.GetCurrentPage() == "edit",
+                "SDK Edit page changed just before fixed GUI transport",
+            )
+            manager = resolve.GetProjectManager()
+            project = manager.GetCurrentProject() if manager is not None else None
+            timeline = project.GetCurrentTimeline() if project is not None else None
+            _require(
+                project is not None
+                and timeline is not None
+                and project.GetUniqueId() == intent.target.project_uid
+                and timeline.GetUniqueId() == intent.target.timeline_uid
+                and _read_only_playhead_frame(timeline) == gui.BEFORE_BOUNDARY
+                and datetime.now(UTC) < intent.expires_at,
+                "SDK target/playhead/deadline changed before fixed GUI transport",
+            )
+
+        recheck_sdk()  # pre-journal: protect one-use intent from stale SDK
         _consume_attested_ui_readiness(intent, inventory, readiness)
-    return gui.OneUseGuiRollActuator(
-        OriginalM4GuiJournal(store, job_id), executor
-    ).attempt(intent, inventory, readiness)
+        transport_scope = gui._VERIFIED_HOST_DISPATCH.set(
+            (intent.target.expected_window_name, readiness.process_pid, recheck_sdk)
+        )
+    try:
+        return gui.OneUseGuiRollActuator(
+            OriginalM4GuiJournal(store, job_id), executor
+        ).attempt(intent, inventory, readiness)
+    finally:
+        if transport_scope is not None:
+            gui._VERIFIED_HOST_DISPATCH.reset(transport_scope)
 
 
 def dispatch_owned_f1_once(
@@ -283,7 +338,13 @@ def dispatch_owned_f1_once(
     gui._require_owner_lock()
     intent, inventory, readiness = prepare_owned_ui_readiness(store, job_id, resolve)
     return attempt_once(
-        store, job_id, intent, inventory, readiness, gui.SystemEventsRollExecutor()
+        store,
+        job_id,
+        intent,
+        inventory,
+        readiness,
+        gui.SystemEventsRollExecutor(),
+        resolve=resolve,
     )
 
 

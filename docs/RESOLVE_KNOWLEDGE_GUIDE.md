@@ -1105,6 +1105,8 @@ geometry and independent actor-level focus/mode/selection *before* a one-use
 GUI event; post-edit save/reopen/MOV/PCM checks cannot replace pre-effect
 safety. Phase 11 code now refuses changed SDK page, linked boundary clips and
 other 327 cuts, but does not certify a production-ready GUI actuator.
+The fixed observer/actor track enumeration was corrected to V1–V5/A1;
+no actual Qt mode/focus-selection attestation was added or inferred.
 #473/#312/#313 remain blocked; a human-operated one-case fallback would
 require separate Producer authority, a specific operation protocol and
 independent readback.

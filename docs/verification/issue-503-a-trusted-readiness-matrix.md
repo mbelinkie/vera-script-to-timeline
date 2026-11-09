@@ -117,7 +117,9 @@ suggestion that an `AXMain=true` Resolve window proves usable focused
 timeline state. `AXFocused=false`, focused-role group and missing selection
 marks remain actual Qt observations. The owner now checks the SDK Edit
 page in both read passes and rejects newly signed linked/ambiguous 327
-geometry before one-use journal consumption; it **does not** remove the
+geometry before one-use journal consumption. The fixed actor/observer now
+verify the actual V1–V5/A1 topology, and a real executor requires owner-
+attested transport with a final SDK UID/page/playhead check; it **does not** remove the
 timeline-focus, V1 auto-select or Normal-mode requirements or offer an
 unreviewed click substitute. See
 [phase-11 safety stop](issue-499-phase11-safety-stop.md).
