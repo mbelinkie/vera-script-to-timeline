@@ -207,6 +207,42 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
         });
         return response(result.duplicateDelivery ? 200 : 201, result);
       }
+      const ideasPath = /^\/v1\/projects\/([^/]+)\/ideas(?:\/(promotions))?$/u.exec(path);
+      if (ideasPath) {
+        const projectId = ideasPath[1]!;
+        if (request.method === "GET" && !ideasPath[2]) {
+          return response(200, await deps.documents.getIdeas(projectId, principal));
+        }
+        if (request.method === "PUT" && !ideasPath[2]) {
+          const input = fields(await jsonBody(request),
+            ["expectedIdeasRevision", "clientMutationId", "ideas", "writeSessionId"],
+            ["expectedIdeasRevision", "clientMutationId", "ideas"]);
+          return response(200, await deps.documents.putIdeas(projectId, principal, {
+            expectedIdeasRevision: input.expectedIdeasRevision as number,
+            clientMutationId: input.clientMutationId as string,
+            ideas: input.ideas as Parameters<ProjectDocumentService["putIdeas"]>[2]["ideas"],
+            ...(Object.hasOwn(input, "writeSessionId") ? { writeSessionId: input.writeSessionId as string } : {}),
+          }));
+        }
+        if (request.method === "POST" && ideasPath[2] === "promotions") {
+          const input = fields(await jsonBody(request),
+            ["expectedIdeasRevision", "expectedRevision", "clientMutationId", "ideaId",
+              "draftBlockId", "orderKey", "destination", "writeSessionId"],
+            ["expectedIdeasRevision", "expectedRevision", "clientMutationId", "ideaId",
+              "draftBlockId", "orderKey", "destination"]);
+          return response(200, await deps.documents.promoteIdea(projectId, principal, {
+            expectedIdeasRevision: input.expectedIdeasRevision as number,
+            expectedRevision: input.expectedRevision as number,
+            clientMutationId: input.clientMutationId as string,
+            ideaId: input.ideaId as string,
+            draftBlockId: input.draftBlockId as string,
+            orderKey: input.orderKey as string,
+            destination: input.destination as Parameters<ProjectDocumentService["promoteIdea"]>[2]["destination"],
+            ...(Object.hasOwn(input, "writeSessionId") ? { writeSessionId: input.writeSessionId as string } : {}),
+          }));
+        }
+        return response(404, { error: "not_found" });
+      }
       const commentPath = /^\/v1\/projects\/([^/]+)\/comments(?:\/(operations))?$/u.exec(path);
       if (commentPath) {
         if (!deps.comments) throw new ProjectDocumentError("service_unavailable", 503);

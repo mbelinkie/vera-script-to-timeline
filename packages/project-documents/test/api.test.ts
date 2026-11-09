@@ -51,6 +51,90 @@ async function setup() {
 afterEach(async () => { for (const cleanup of cleaners.splice(0)) await cleanup(); });
 
 describe("authenticated and bounded project-document API", () => {
+  it("serves strict authorized Ideas GET/PUT and atomic Draft promotion with stable replay", async () => {
+    const { api, auth, owner, editor, viewer, service } = await setup();
+    const initial = initialProject();
+    const other = initialProject();
+    expect((await api(request("", "POST", "owner", initial))).status).toBe(201);
+    expect((await api(request("", "POST", "owner", other))).status).toBe(201);
+    await auth.changeMembership(initial.projectId, owner, editor.principalId, "editor");
+    await auth.changeMembership(initial.projectId, owner, viewer.principalId, "viewer");
+    const url = `/${initial.projectId}/ideas`;
+    const empty = await api(request(url, "GET", "viewer"));
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("cache-control")).toBe("no-store");
+    expect(await body(empty)).toMatchObject({ projectId: initial.projectId, ideasRevision: 0,
+      ideas: { schemaVersion: "stt-idea-outline/v1", documentId: initial.document.id, items: [] } });
+    const idea = { id: randomUUID(), parentId: null, orderKey: "a", text: "  exact\nIdea  ",
+      state: "open", linkedDraftBlockIds: [], collapsed: false, version: 1 };
+    const put = { expectedIdeasRevision: 0, clientMutationId: randomUUID(),
+      ideas: { schemaVersion: "stt-idea-outline/v1", documentId: initial.document.id, items: [idea] } };
+    expect((await api(request(url, "PUT", "viewer", put))).status).toBe(403);
+    const created = await api(request(url, "PUT", "editor", put));
+    expect(created.status).toBe(200);
+    expect(await body(created)).toMatchObject({ ideasRevision: 1, duplicateDelivery: false });
+    expect(await body(await api(request(url, "PUT", "editor", put))))
+      .toMatchObject({ ideasRevision: 1, duplicateDelivery: true });
+    expect((await api(request(url, "PUT", "editor", { ...put, ideas: {
+      ...put.ideas, items: [{ ...idea, text: "changed" }],
+    } }))).status).toBe(409);
+    expect((await api(request(url, "PUT", "editor", {
+      ...put, clientMutationId: randomUUID(),
+    }))).status).toBe(409);
+    expect((await api(request(url, "GET", "viewer"))).status).toBe(200);
+    expect((await body(await api(request(url, "GET", "viewer")))).ideas)
+      .toEqual(put.ideas);
+
+    const promote = { expectedIdeasRevision: 1, expectedRevision: 0,
+      clientMutationId: randomUUID(), ideaId: idea.id, draftBlockId: randomUUID(),
+      orderKey: "a", destination: { sectionId: null, afterRowId: null, beforeRowId: null } };
+    expect((await api(request(url + "/promotions", "POST", "viewer", promote))).status).toBe(403);
+    expect((await api(request(url + "/promotions", "POST", "editor", {
+      ...promote, expectedRevision: 1,
+    }))).status).toBe(409);
+    const promoted = await api(request(url + "/promotions", "POST", "editor", promote));
+    expect(promoted.status).toBe(200);
+    expect(await body(promoted)).toMatchObject({ ideasRevision: 2, documentRevision: 1,
+      duplicateDelivery: false });
+    expect(await body(await api(request(url + "/promotions", "POST", "editor", promote))))
+      .toMatchObject({ ideasRevision: 2, documentRevision: 1, duplicateDelivery: true });
+    expect((await api(request(url + "/promotions", "POST", "editor", {
+      ...promote, clientMutationId: randomUUID(),
+    }))).status).toBe(409);
+    const after = await service.getDocument(initial.projectId, owner);
+    expect(after.document.activeDraft.blocks).toEqual([{
+      type: "note_draft", id: promote.draftBlockId, orderKey: "a", text: idea.text,
+      state: "excluded", version: 1,
+    }]);
+    expect(after.document.ideaOutline).toEqual([]);
+    expect((await body(await api(request(url, "GET", "viewer")))).ideas)
+      .toMatchObject({ items: [{ ...idea, state: "incorporated", version: 2,
+        linkedDraftBlockIds: [promote.draftBlockId] }] });
+
+    // Authentication precedes body decoding, and neither auth nor parsing can be bypassed.
+    expect((await api(new Request(base + url, { method: "PUT", headers:
+      { "content-type": "application/json" }, body: "{broken" }))).status).toBe(401);
+    expect((await api(new Request(base + url + "/promotions", { method: "POST", headers:
+      { "content-type": "application/json", "X-Test-Suite-Identity": "editor" },
+    body: "{broken" }))).status).toBe(400);
+    expect((await api(request(url, "PUT", "editor", { ...put, role: "producer" }))).status).toBe(400);
+    expect((await api(request(url + "/promotions", "POST", "editor", {
+      ...promote, actorId: editor.principalId,
+    }))).status).toBe(400);
+    expect((await api(request(url + "/promotions", "POST", "editor", {
+      ...promote, destination: { ...promote.destination, role: "producer" },
+    }))).status).toBe(400);
+    expect((await api(request(url + "/promotions?actorId=x", "POST", "editor", promote))).status).toBe(400);
+    expect((await api(request(url + "?includeDraft=true", "GET", "viewer"))).status).toBe(400);
+    expect((await api(request(url, "POST", "owner", put))).status).toBe(404);
+    expect((await api(request(url + "/promotions", "GET", "owner"))).status).toBe(404);
+    expect((await api(request(`/${other.projectId}/ideas`, "GET", "editor"))).status).toBe(403);
+    expect((await api(request(`/${other.projectId}/ideas/promotions`, "POST", "editor", promote))).status).toBe(403);
+    await auth.changeMembership(initial.projectId, owner, editor.principalId, null);
+    expect((await api(request(url, "PUT", "editor", put))).status).toBe(403);
+    expect((await api(request(url + "/promotions", "POST", "editor", promote))).status).toBe(403);
+  });
+
   it("exposes trusted attributed history and bounded typed comparisons without relaxing other routes", async () => {
     const { api, auth, owner, editor, viewer } = await setup();
     const initial = initialProject();

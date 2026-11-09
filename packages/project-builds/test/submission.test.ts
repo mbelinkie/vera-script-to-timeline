@@ -8,7 +8,7 @@ import {
 } from "@vera/project-authorization";
 import {
   applyProjectCommentsMigration, applyProjectDocumentsMigration, ProjectCommentService,
-  ProjectDocumentService, sha256,
+  applyProjectIdeasMigration, ProjectDocumentService, sha256,
 } from "@vera/project-documents";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -39,6 +39,7 @@ async function buildHarness(options?: { settings?: boolean; anchoredDocument?: b
   // Document PUT now atomically checks the separate comment-head store, even
   // for build-only projects that have never created a comment.
   await applyProjectCommentsMigration(db);
+  await applyProjectIdeasMigration(db);
   await applyProjectBuildsMigration(db);
   const pool: SqlPool = { connect: async () => db };
   const auth = new ProjectAuthorizationService(pool);
@@ -145,6 +146,75 @@ afterEach(async () => {
 });
 
 describe("transactionally frozen submission from #380 and #379", () => {
+  it("never freezes unpromoted Ideas, and only a deliberate excluded Draft note changes the document head", async () => {
+    const h = await buildHarness();
+    const source = `UNPROMOTED_IDEA_${randomUUID().replaceAll("-", "")}  \nline two`;
+    const ideaId = randomUUID();
+    const idea = { id: ideaId, parentId: null, orderKey: "a", text: source,
+      state: "open" as const, linkedDraftBlockIds: [], collapsed: true, version: 1 };
+    const outline = { schemaVersion: "stt-idea-outline/v1" as const,
+      documentId: h.document.id, items: [idea] };
+    const beforeIntent = h.intent();
+    const before = await h.submissions.submit(h.projectId, h.producer, beforeIntent);
+    const originalFrozen = await loadFrozen(h.db, h.projectId, before.jobId);
+    const saved = await h.documents.putIdeas(h.projectId, h.editor, {
+      expectedIdeasRevision: 0, clientMutationId: randomUUID(), ideas: outline,
+    });
+    expect(saved.ideasRevision).toBe(1);
+    const positiveControl = (await h.db.query<{ ideas_json: string }>(
+      "SELECT ideas_json FROM stt_idea_heads WHERE project_id=$1", [h.projectId],
+    )).rows[0]!;
+    // Persisted JSON escapes newlines; compare the exact encoded text bytes.
+    expect(positiveControl.ideas_json).toContain(JSON.stringify(source));
+    const priorDocument = await h.documents.getDocument(h.projectId, h.producer);
+    expect(priorDocument.revision).toBe(0);
+    expect(priorDocument.document).toEqual(h.document);
+    expect(await h.submissions.submit(h.projectId, h.producer, beforeIntent))
+      .toEqual({ ...before, duplicateDelivery: true });
+    const afterIdea = await h.submissions.submit(h.projectId, h.producer, h.intent());
+    const frozenAfterIdea = await loadFrozen(h.db, h.projectId, afterIdea.jobId);
+    expect(frozenAfterIdea.row.document_json).toBe(originalFrozen.row.document_json);
+    expect(frozenAfterIdea.row.document_digest).toBe(originalFrozen.row.document_digest);
+    expect(JSON.stringify([originalFrozen, frozenAfterIdea])).not.toContain("UNPROMOTED_IDEA_");
+    const agent = await h.pair();
+    const lease = await h.status().claim(agent, afterIdea.jobId);
+    const forAgent = await h.status().frozenForAgent(agent, afterIdea.jobId, lease.leaseEpoch);
+    expect(forAgent.documentJson).toBe(originalFrozen.row.document_json);
+    expect(JSON.stringify(forAgent)).not.toContain("UNPROMOTED_IDEA_");
+
+    const promotedId = randomUUID();
+    const promoted = await h.documents.promoteIdea(h.projectId, h.editor, {
+      expectedIdeasRevision: 1, expectedRevision: 0, clientMutationId: randomUUID(),
+      ideaId, draftBlockId: promotedId, orderKey: "a",
+      destination: { sectionId: null, afterRowId: null, beforeRowId: null },
+    });
+    expect(promoted).toMatchObject({ ideasRevision: 2, documentRevision: 1 });
+    const liveDocument = await h.documents.getDocument(h.projectId, h.producer);
+    expect(liveDocument.document.activeDraft.blocks).toEqual([{
+      type: "note_draft", id: promotedId, orderKey: "a", text: source,
+      state: "excluded", version: 1,
+    }]);
+    expect(liveDocument.document.ideaOutline).toEqual([]);
+    expect(liveDocument.document.extras).toEqual([]);
+    const liveIdeas = await h.documents.getIdeas(h.projectId, h.producer);
+    expect(liveIdeas.ideas.items).toMatchObject([{
+      ...idea, version: 2, state: "incorporated", linkedDraftBlockIds: [promotedId],
+    }]);
+    const afterPromotion = await h.submissions.submit(h.projectId, h.producer, h.intent([], {
+      expectedRevision: promoted.documentRevision, expectedDigest: promoted.documentDigest,
+    }));
+    const latest = await loadFrozen(h.db, h.projectId, afterPromotion.jobId);
+    expect(latest.row.document_json).toContain(JSON.stringify(source));
+    expect(latest.row.document_json).toBe(JSON.stringify(liveDocument.document));
+    expect(latest.row.document_digest).toBe(promoted.documentDigest);
+    expect(latest.row.document_json).not.toContain("stt-idea-outline/v1");
+    // Older frozen jobs are immutable even after an explicit later promotion.
+    expect((await loadFrozen(h.db, h.projectId, before.jobId)).row)
+      .toEqual(originalFrozen.row);
+    expect((await loadFrozen(h.db, h.projectId, afterIdea.jobId)).row)
+      .toEqual(frozenAfterIdea.row);
+  });
+
   it("never freezes persisted comment bodies, mentions, quote or history in build or agent bytes", async () => {
     const h = await buildHarness({ anchoredDocument: true });
     const sentinel = `BUILD_COMMENT_LEAK_${randomUUID().replaceAll("-", "")}`;
