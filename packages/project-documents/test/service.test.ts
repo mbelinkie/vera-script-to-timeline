@@ -37,6 +37,13 @@ describe("durable Extras operations", () => {
       operation: { kind: "stash_rows", rowIds: [rowId], bundleId: randomUUID() } };
     const before = await service.getDocument(projectId, viewer);
     expect(before.digest).toBe(created.documentDigest);
+    // No session supplied: authorization alone must bar Viewer writes. A
+    // foreign Editor lease would independently reject and mask this defect.
+    await expect(service.applyExtrasOperation(projectId, viewer, {
+      expectedRevision: park.expectedRevision,
+      clientMutationId: park.clientMutationId,
+      operation: park.operation,
+    })).rejects.toMatchObject({ status: 403 });
     await expect(service.applyExtrasOperation(projectId, viewer, park)).rejects.toMatchObject({ status: 403 });
     await expect(service.applyExtrasOperation(randomUUID(), editor, park)).rejects.toMatchObject({ status: 403 });
     expect(await service.getDocument(projectId, viewer)).toEqual(before);
@@ -125,6 +132,11 @@ describe("durable Extras operations", () => {
     })).rejects.toMatchObject({ status: 400, metadata: { operationCode: "EXTRAS_COMMAND_INVALID" } });
     const park = { expectedRevision: 0, clientMutationId: randomUUID(), writeSessionId: session,
       operation: { kind: "stash_rows", rowIds: [rowId], bundleId: randomUUID() } };
+    // A current Editor still cannot supply a missing/foreign write session.
+    await expect(service.applyExtrasOperation(projectId, editor, {
+      ...park, writeSessionId: randomUUID(), clientMutationId: randomUUID(),
+    })).rejects.toMatchObject({ status: 403 });
+    expect(await service.getDocument(projectId, owner)).toEqual(original);
     await service.applyExtrasOperation(projectId, editor, park);
     const committed = await service.getDocument(projectId, owner);
     await auth.changeMembership(projectId, owner, editor.principalId, null);

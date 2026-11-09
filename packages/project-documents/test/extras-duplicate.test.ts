@@ -153,6 +153,8 @@ describe("Extras atomic duplicate-as-new", () => {
     document.stashOutline![0]!.kind = "note";
     expect(validateScriptDocumentV2(document).diagnostics.filter((d) => d.severity !== "warning")).toEqual([]);
     refuseWithoutMutation(document, command([row.id]), "EXTRAS_DUPLICATE_REVIEW_REQUIRED");
+    expect(applyExtrasStorageOperation(document, command([row.id]), allocator()).diagnostics[0]?.message)
+      .toContain("Attached footage must have one exact");
   });
 
   it("remaps previous-media slot edges and event timing anchors while retaining their literal timing", () => {
@@ -252,6 +254,8 @@ describe("Extras atomic duplicate-as-new", () => {
     delete document.stashGroups;
     document.rowReferences = [{ id: id(705), rowId: row.id, kind: "comment", anchor: { untrusted: true } }];
     refuseWithoutMutation(document, command([row.id]), "EXTRAS_DUPLICATE_REVIEW_REQUIRED");
+    expect(applyExtrasStorageOperation(document, command([row.id]), allocator()).diagnostics[0]?.message)
+      .toContain("Review external row references");
     delete document.rowReferences;
     document.rowAudioSpans = [{ id: id(706), startRowId: row.id, endRowId: second.id,
       source: { mediaReferenceId: id(707), artifactId: id(708), artifactVersion: 1, contentHash: `sha256:${"a".repeat(64)}` }, settings: {} }];
