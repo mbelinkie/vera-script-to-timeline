@@ -877,13 +877,13 @@ def test_original_m4_last_minute_is_not_enough_for_gui(
     )
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         stage.attempt_once(
-            store,
+            store,  # type: ignore[arg-type]
             JOB,
             replace(intent, expires_at=near),
             inventory,
             readiness,
             executor,
-        )  # type: ignore[arg-type]
+        )
     assert executor.calls == 0
     assert not (_journal_root(setup) / "gui-intent.json").exists()
 
