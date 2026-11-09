@@ -149,8 +149,9 @@ def setup(
                 "itemUid": uid,
                 "kind": "video" if i < 2 else "audio",
                 "trackId": "original-V1" if i < 2 else f"track-{i}",
-                "recordStart": 0 if i == 0 else 327,
+                "recordStart": 0 if i == 0 else 327 if i == 1 else 500 + i * 50,
                 "recordDuration": 327 if i == 0 else 151,
+                "linkedItemUids": [],
             }
             for i, uid in enumerate(UIDS)
         ],
@@ -570,11 +571,12 @@ def _setup_read_only_f1_preparation(
         GetStartFrame=lambda: 0,
     )
     sdk = SimpleNamespace(
+        GetCurrentPage=lambda: "edit",
         GetProjectManager=lambda: SimpleNamespace(
             GetCurrentProject=lambda: SimpleNamespace(
                 GetCurrentTimeline=lambda: timeline
             )
-        )
+        ),
     )
     return sdk, events
 
@@ -601,6 +603,104 @@ def test_owned_f1_input_factory_binds_exact_verified_sdk_evidence_no_effect(
     assert inventory.target == TARGET
     assert events == ["verified", "read-only SDK inspected"]
     assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+@pytest.mark.parametrize("page", ["deliver", "cut", None, True, ""])
+def test_phase11_sdk_edit_page_is_required_before_any_os_or_gui(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    page: object,
+) -> None:
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    sdk.GetCurrentPage = lambda: page
+    with pytest.raises(gui.GuiRollRefused, match="current Edit page"):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("corruption", "detail"),
+    [
+        ("other-track-start", "another boundary"),
+        ("other-track-end", "another boundary"),
+        ("other-v1-cut", "another boundary"),
+        ("left-link", "linked items"),
+        ("right-link", "linked items"),
+        ("links-unknown", "linked items"),
+    ],
+)
+def test_phase11_new_signed_capture_coselection_refused_before_intent(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    corruption: str,
+    detail: str,
+) -> None:
+    original = stage.__dict__["verify_native_result"](Path(""), SHA)
+    pristine = original["nativeGeometry"]
+    rows = [dict(row) for row in pristine["items"]]
+    if corruption == "other-track-start":
+        rows[2]["recordStart"] = 327
+    elif corruption == "other-track-end":
+        rows[2]["recordStart"] = 200
+        rows[2]["recordDuration"] = 127
+    elif corruption == "other-v1-cut":
+        rows[2]["trackId"] = "original-V1"
+        rows[2]["recordStart"] = 327
+    elif corruption == "left-link":
+        rows[0]["linkedItemUids"] = [UIDS[3]]
+    elif corruption == "right-link":
+        rows[1]["linkedItemUids"] = [UIDS[4]]
+    else:
+        rows[0].pop("linkedItemUids")
+    malicious = {**original, "nativeGeometry": {**pristine, "items": rows}}
+    monkeypatch.setattr(stage, "verify_native_result", lambda *_args: malicious)
+    with pytest.raises(gui.GuiRollRefused, match=detail):
+        _call(setup)
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_phase11_sdk_page_drift_during_os_bracket_never_spends_intent(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vera_timeline_agent import resolve_test_bench_ui_readiness as ui
+
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    facts, calls = _injected_os_and_system_events(monkeypatch)
+    assert facts["windowFrontmost"] is True
+    page = {"current": "edit"}
+    sdk.GetCurrentPage = lambda: page["current"]
+
+    class DriftOs:
+        def observe(self) -> dict[str, object]:
+            page["current"] = "deliver"
+            return dict(facts)
+
+    monkeypatch.setattr(ui, "MacReadOnlyObserver", DriftOs)
+    with pytest.raises(gui.GuiRollRefused, match="current Edit page"):
+        stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
+    assert calls == []
     assert not (_journal_root(setup) / "gui-intent.json").exists()
     assert (
         setup[0]

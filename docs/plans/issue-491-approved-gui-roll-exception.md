@@ -70,3 +70,18 @@ acceptance remains **0/4**; #473 → #312 → #313 remains blocked.
 - **#473 owner** integrates the adapter with `resolve_test_bench_m4_runner.py` / `resolve_test_bench_campaign.py` / `resolve_test_bench_edit_probe.py` and the existing host's journal. Translate its authentic pristine SDK readback to `PristineSdkInventory`; perform real read-only OS/TCC/menu/keyboard verification before creating `TrustedUiReadiness`. Do not create an alternative signed-receipt mechanism. Keep the existing official SDK stages/lock and original independently verified UID/source/PCM gates.
 - A **fresh, exact Producer authorization** identifying the new sacrificial project and one operation must precede **any** actual Mac Resolve UI effect. Do not replay a previously consumed/UNKNOWN edit, alter or tidy its native target, auto-dispatch #312, or mark #473 accepted after a Python test. #473 alone runs the real Edit-page test and then its official SDK readbacks and independent save/close/reopen verification. Any failure remains fail-stop.
 - When a vendor-supported, independently verified UID-preserving native API becomes available, remove this special GUI adapter rather than broaden it; track vendor support in #490 and the separate Resolve 21.1.2+ adoption gates.
+
+### #499 phase 11 (2026-11-09): do not treat GUI v2 as approved
+
+Phase 10's actual Qt observation showed frontmost PID, one `AXMain` window
+and TCC, **but not** timeline focus, selected Normal Edit Mode or V1-only
+auto-select. A matching window *name* is not focused-AX-object identity.
+The 24-event fixed PID-bound actor retains its strict gates, and phase 11
+**did not** implement or re-pin a replacement actuator. Phase 11 added
+official dual-pass SDK Edit-page and newly signed unlinked/unique-327
+geometry checks, with an explicit **BLOCKED** verdict; see
+[phase-11 stop](../verification/issue-499-phase11-safety-stop.md).
+The #491 permission is an exception to transport, not permission to
+assume an unobservable pre-effect state or substitute post-effect checks
+for safe targeting. A separately authorized one-case human-operated roll
+is a contingency, not a hidden automated fallback.

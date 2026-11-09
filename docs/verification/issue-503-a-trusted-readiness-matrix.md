@@ -109,3 +109,15 @@ verification exists. Phase B may implement authenticated page preparation
 **code and mocks only**; phase C must solve the single-script actor and
 evidence question or deliver BLOCKED. Do not reuse old authority/campaign,
 infer Qt marks, relax #208, dispatch F1, or push/merge PR #474 from this agent.
+
+## #499 phase 11 reconciliation (2026-11-09)
+
+The later actual Mac phase-10 read-only census supersedes any earlier
+suggestion that an `AXMain=true` Resolve window proves usable focused
+timeline state. `AXFocused=false`, focused-role group and missing selection
+marks remain actual Qt observations. The owner now checks the SDK Edit
+page in both read passes and rejects newly signed linked/ambiguous 327
+geometry before one-use journal consumption; it **does not** remove the
+timeline-focus, V1 auto-select or Normal-mode requirements or offer an
+unreviewed click substitute. See
+[phase-11 safety stop](issue-499-phase11-safety-stop.md).

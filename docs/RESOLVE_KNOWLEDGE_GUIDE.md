@@ -1087,3 +1087,24 @@ These are source-based comparisons, not a count of wasted runs or hours saved.
 | [#297](https://github.com/mbelinkie/vera-script-to-timeline/pull/299) sample correlation → [#300](investigations/issue-300-normalization.md) qualified-clock admission | **Changed measurement assumption.** The retained rows legitimately refused correlation; exact replay alone was insufficient. Source semantics and same-coordinate traces supplied independent clock evidence. New provider generation or another Resolve import would not resolve that clock question. |
 | [#325](investigations/issue-325-native-image-zoom.md) setters persisted ease/centers → [#336](https://github.com/mbelinkie/vera-script-to-timeline/issues/336) normal-product image motion | **New combined path plus unresolved visual behavior.** Reuse motion/None and reconstructed extents. Setter-only repetition would miss the already measured linear-equivalent ease and black extremes; the needed delta is safe focus/framing/ease output through compiled saved intent. |
 | [#109's currentness rules](resolve-workflow-integration-v1.md) and [#302's reservations](resolve-parent-delivery-v2.md) → [#312/#313](https://github.com/mbelinkie/vera-script-to-timeline/issues/313) overhead reduction | **Necessary per-operation freshness versus avoidable rediscovery.** Package bytes and current target can change after a prior success, so current authorization/integrity/identity and consume-time observation must still run. Historical format facts can be reused. Measure duplicate work within one invocation; an earlier success cannot justify a cross-operation trust cache or skipping a fresh observation before accepting a decision. |
+
+### RK-46 — Studio 21.1.1.10 Qt GUI safety is not proven by AXMain (2026-11-09)
+
+**Native, read-only / bounded negative.** Exact-head #499 phase-10
+[read-only census](verification/issue-499-phase11-safety-stop.md)
+found a trusted foreground Resolve Studio 21.1.1.10 PID, an `AXMain=true`
+main window and no-prompt Automation, while Qt reported `AXFocused=false`,
+generic focused element and absent Edit/Normal-mode/track-selection menu
+marks. The SDK selected Deliver, so a genuine newly authorized Edit-page
+GUI mode/target was not observed. No GUI action was made. The retained
+historical pristine has one unlinked V1 cut at 327 but cannot authorize
+a new case.
+
+**Reuse/delta:** confirm fresh exact SDK Edit page, target/UID/track
+geometry and independent actor-level focus/mode/selection *before* a one-use
+GUI event; post-edit save/reopen/MOV/PCM checks cannot replace pre-effect
+safety. Phase 11 code now refuses changed SDK page, linked boundary clips and
+other 327 cuts, but does not certify a production-ready GUI actuator.
+#473/#312/#313 remain blocked; a human-operated one-case fallback would
+require separate Producer authority, a specific operation protocol and
+independent readback.

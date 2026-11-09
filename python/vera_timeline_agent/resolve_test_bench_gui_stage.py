@@ -111,6 +111,32 @@ def _verify_original_capture(
         and right.get("recordDuration") == inventory.right_record_duration == 151,
         "signed SDK left/right boundary differs",
     )
+    assert isinstance(left, dict) and isinstance(right, dict)
+    # The retained Phase-10 *historical* capture had only this V1 cut and no
+    # links, but it is not authority for a NEW case. Independently require
+    # these facts in that new case's signed pristine capture before the OS
+    # preflight or durable one-use journal. A selection on another track at
+    # 327 (or linked boundary clip) could widen a menu Roll unexpectedly.
+    _require(
+        all(
+            type(row.get("recordStart")) is int
+            and type(row.get("recordDuration")) is int
+            and row["recordStart"] >= 0
+            and row["recordDuration"] > 0
+            and (
+                row["itemUid"] in {intent.left_item_uid, intent.right_item_uid}
+                or (
+                    row["recordStart"] != gui.BEFORE_BOUNDARY
+                    and row["recordStart"] + row["recordDuration"]
+                    != gui.BEFORE_BOUNDARY
+                )
+            )
+            for row in items
+        )
+        and left.get("linkedItemUids") == []
+        and right.get("linkedItemUids") == [],
+        "another boundary or linked items make F1 GUI co-selection unsafe",
+    )
 
 
 class OriginalM4GuiJournal:
@@ -381,6 +407,7 @@ def prepare_owned_f1_inputs(
         and sdk.get("resolveVersion") == [21, 1, 1, 10, ""],
         "installed SDK differs from approved Studio 21.1.1.10",
     )
+    _require(resolve.GetCurrentPage() == "edit", "current Edit page not SDK-proven")
     target = gui.NativeTarget(
         project_uid=plan["initialTarget"]["projectUid"],
         project_name=plan["initialTarget"]["projectName"],
