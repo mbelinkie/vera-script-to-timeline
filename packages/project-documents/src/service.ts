@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { PrincipalRef } from "@vera/contracts";
 import type { AuthoringProjectSettingsV1, ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
@@ -23,6 +25,7 @@ import {
 } from "./model.js";
 import { reconcileCommentsForDocumentRevision } from "./comments.js";
 import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
+import { applyExtrasStorageOperation, parseExtrasOperationCommand } from "./extras-operations.js";
 
 type Digest = string;
 interface HeadRow {
@@ -204,6 +207,13 @@ export interface PutDocumentInput {
   expectedRevision: number;
   clientMutationId: string;
   document: ScriptDocumentV2;
+  writeSessionId?: string;
+}
+export interface ExtrasOperationInput {
+  expectedRevision: number;
+  clientMutationId: string;
+  /** Validated as an exact Extras command inside the authorized transaction. */
+  operation: unknown;
   writeSessionId?: string;
 }
 export interface PutSettingsInput {
@@ -911,6 +921,75 @@ export class ProjectDocumentService {
       }
       return await this.appendDocumentHead(db, projectId, current, previousDocument,
         expected, actor, mutationId, requestDigest, document);
+    }, sessionId);
+  }
+
+  /** Extras edits are a locked, authorized document write, never a read-then-PUT. */
+  async applyExtrasOperation(
+    projectIdInput: string, principal: PrincipalRef, input: ExtrasOperationInput,
+  ): Promise<MutationReceipt> {
+    const projectId = requireUuid(projectIdInput);
+    const mutationId = requireUuid(input.clientMutationId);
+    const expected = requireRevision(input.expectedRevision);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) => {
+      // Recheck permissions and the write-session lease BEFORE honoring a replay.
+      let command: ReturnType<typeof parseExtrasOperationCommand>;
+      try {
+        command = parseExtrasOperationCommand(input.operation);
+      } catch {
+        command = null;
+      }
+      if (!command) throw new ProjectDocumentError("invalid_request", 400,
+        { operationCode: "EXTRAS_COMMAND_INVALID" });
+      const requestDigest = fingerprint({ kind: "extras_operation", projectId,
+        expectedRevision: expected, operation: command });
+      await this.assertNoForeignMutation(db, projectId, actor, mutationId, "edit_document");
+      const prior = await db.query<MutationRow>(
+        "SELECT request_digest,revision::text,content_digest FROM stt_document_revisions " +
+          "WHERE project_id=$1 AND actor_id=$2 AND client_mutation_id=$3",
+        [projectId, actor, mutationId],
+      );
+      if (prior.rows[0]) {
+        if (prior.rows[0].request_digest !== requestDigest) throw reused();
+        const revision = await this.selectRevision(db, projectId, int(prior.rows[0].revision));
+        if (revision.digest !== prior.rows[0].content_digest) throw unavailable();
+        return { projectId, clientMutationId: mutationId, revision: revision.revision,
+          digest: revision.digest, duplicateDelivery: true };
+      }
+      // Comments acquire this same head lock: the edit and comment rebase
+      // either commit together or roll back together.
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE",
+        [projectId],
+      );
+      const current = head.rows[0];
+      if (!current) throw missing();
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      let previousDocument: ScriptDocumentV2;
+      try {
+        previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch {
+        throw unavailable();
+      }
+      if (int(current.revision) !== expected) {
+        throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
+      }
+      const result = applyExtrasStorageOperation(previousDocument, command, randomUUID);
+      if (!result.ok) {
+        const operationCode = result.diagnostics[0]?.code ?? "EXTRAS_OPERATION_INVALID";
+        const stale = operationCode === "ROW_REVISION_STALE";
+        throw new ProjectDocumentError(stale ? "version_conflict" : "invalid_request", stale ? 409 : 400,
+          { operationCode });
+      }
+      const next = checkedDocument(result.document, projectId, current.document_id);
+      if (next.documentJson === current.document_json) {
+        throw new ProjectDocumentError("invalid_request", 400, { operationCode: "ROW_EDIT_NO_CHANGE" });
+      }
+      return await this.appendDocumentHead(db, projectId, current, previousDocument,
+        expected, actor, mutationId, requestDigest, next);
     }, sessionId);
   }
 

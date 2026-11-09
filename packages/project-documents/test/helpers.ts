@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { NarrationBlockV2, ScriptDocumentV2, SupportingItemV2 } from "@vera/contracts/v2";
 import {
   applyProjectAuthorizationMigration,
   ProjectAuthorizationService,
@@ -23,6 +24,27 @@ export function documentFor(projectId: string, documentId = randomUUID()): Scrip
     activeDraft: { blocks: [], supportingItems: [] }, ideaOutline: [], extras: [],
     liveHeadSequence: 4, liveStateVector: "", liveContentHash: "sha256:" + "a".repeat(64),
   };
+}
+
+/** Real typed narration, primary footage and cited anchors for durable Extras tests. */
+export function extrasDocumentFor(projectId: string) {
+  const original = JSON.parse(readFileSync(new URL(
+    "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url,
+  ), "utf8")) as { document: ScriptDocumentV2 };
+  const document = documentFor(projectId);
+  const sectionId = randomUUID();
+  const row = structuredClone(original.document.activeDraft.blocks[0]) as NarrationBlockV2;
+  const token = row.tokens[0]!;
+  const anchor = { kind: "word" as const, anchor: { blockId: row.id,
+    tokenId: token.id, affinity: "before" as const, quotedWord: token.value, anchorVersion: 1 } };
+  const citation: SupportingItemV2 = { id: randomUUID(), role: "citation", version: 1,
+    orderKey: "evidence", content: "Verified evidence", placement: { kind: "point", anchor },
+    displayAttachment: anchor };
+  document.activeDraft.blocks = [
+    { type: "section", id: sectionId, title: "Draft", orderKey: "1", version: 1 }, row,
+  ];
+  document.activeDraft.supportingItems = [citation];
+  return { document, sectionId, rowId: row.id, citationId: citation.id };
 }
 
 export function settingsFor(projectId: string, id = randomUUID()) {

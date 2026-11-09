@@ -226,6 +226,20 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
         }
         return response(404, { error: "not_found" });
       }
+      const extras = /^\/v1\/projects\/([^/]+)\/document\/extras-operations$/u.exec(path);
+      if (extras) {
+        if (request.method !== "POST") return response(404, { error: "not_found" });
+        queryFields(url, []);
+        const data = fields(await jsonBody(request),
+          ["expectedRevision", "clientMutationId", "operation", "writeSessionId"],
+          ["expectedRevision", "clientMutationId", "operation"]);
+        return response(200, await deps.documents.applyExtrasOperation(extras[1]!, principal, {
+          expectedRevision: data.expectedRevision as number,
+          clientMutationId: data.clientMutationId as string,
+          operation: data.operation,
+          ...(Object.hasOwn(data, "writeSessionId") ? { writeSessionId: data.writeSessionId as string } : {}),
+        }));
+      }
       const project = /^\/v1\/projects\/([^/]+)(?:\/(document|settings))?$/u.exec(path);
       if (!project) return response(404, { error: "not_found" });
       const id = project[1]!;
