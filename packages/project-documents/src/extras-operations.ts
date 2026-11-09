@@ -5,6 +5,7 @@ import {
   type RowEditResultV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { duplicateExtrasRows, type ExtrasDuplicateCommand } from "./extras-duplicate.js";
 
 /** Extras currently uses the existing Stash backing store, NOT the reserved v2 extras field. */
 export type ExtrasStorageCommand = Extract<RowEditCommandV2, {
@@ -85,20 +86,30 @@ export function parseExtrasStorageCommand(value: unknown): ExtrasStorageCommand 
   }
 }
 
+/** Duplicate is a separate exact operation: never cast it as a row-engine command. */
+export function parseExtrasOperationCommand(value: unknown): ExtrasStorageCommand | ExtrasDuplicateCommand | null {
+  if (exactObject(value, ["kind", "rowIds", "destination"]) &&
+      value.kind === "duplicate_stash_rows" && rowIds(value.rowIds) && gap(value.destination)) {
+    return value as ExtrasDuplicateCommand;
+  }
+  return parseExtrasStorageCommand(value);
+}
+
 /** Pure adapter: the service layer will supply authorization and locked server-head CAS. */
 export function applyExtrasStorageOperation(
-  document: ScriptDocumentV2, rawCommand: unknown,
+  document: ScriptDocumentV2, rawCommand: unknown, allocateId?: () => string,
 ): RowEditResultV2 {
   const refused = (code: string, message: string): RowEditResultV2 => ({
     ok: false, document, diagnostics: [{ code, message, jsonPath: "/stash" }],
   });
-  let command: ExtrasStorageCommand | null;
+  let command: ExtrasStorageCommand | ExtrasDuplicateCommand | null;
   try {
-    command = parseExtrasStorageCommand(rawCommand);
+    command = parseExtrasOperationCommand(rawCommand);
   } catch {
     return refused("EXTRAS_COMMAND_INVALID", "Provide a plain JSON Extras operation without custom object behavior.");
   }
   if (!command) return refused("EXTRAS_COMMAND_INVALID", "Provide a supported whole-row Extras operation with exact identifiers and locations.");
+  if (command.kind === "duplicate_stash_rows") return duplicateExtrasRows(document, command, allocateId);
   try {
     const edited = applyRowEditV2(document, document.rowEditRevision ?? 0, command);
     if (!edited.ok) return edited;
