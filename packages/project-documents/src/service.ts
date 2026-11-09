@@ -1,5 +1,5 @@
 import type { PrincipalRef } from "@vera/contracts";
-import type { AuthoringProjectSettingsV1, ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { AuthoringProjectSettingsV1, RowGapV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
   ProjectAuthError,
   ProjectAuthorizationService,
@@ -23,7 +23,10 @@ import {
 } from "./model.js";
 import { reconcileCommentsForDocumentRevision } from "./comments.js";
 import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
-import { checkedIdeas, emptyIdeasV1, type IdeaOutlineV1, type IdeaItemV1 } from "./ideas-model.js";
+import {
+  checkedIdeas, checkedPromotionPositionV1, emptyIdeasV1, promoteIdeaToNoteV1,
+  type IdeaOutlineV1, type IdeaItemV1,
+} from "./ideas-model.js";
 
 type Digest = string;
 interface HeadRow {
@@ -76,6 +79,16 @@ interface IdeasReceiptRow {
   revision_mutation_id: string | null;
   revision_expected: string | null;
   revision_number: string | null;
+}
+interface PromotionDocumentRow {
+  revision: string;
+  expected_revision: string | null;
+  document_id: string;
+  actor_id: string;
+  client_mutation_id: string;
+  request_digest: string;
+  content_digest: string;
+  document_json: string;
 }
 interface TitleMutationRow {
   request_digest: string;
@@ -253,6 +266,20 @@ export interface IdeasMutationReceipt {
   ideasRevision: number;
   ideasDigest: string;
   duplicateDelivery: boolean;
+}
+export interface PromoteIdeaInput {
+  expectedIdeasRevision: number;
+  expectedRevision: number;
+  clientMutationId: string;
+  ideaId: string;
+  draftBlockId: string;
+  orderKey: string;
+  destination: RowGapV2;
+  writeSessionId?: string;
+}
+export interface IdeaPromotionReceipt extends IdeasMutationReceipt {
+  documentRevision: number;
+  documentDigest: string;
 }
 export interface PutSettingsInput {
   expectedSettingsRevision: number;
@@ -549,7 +576,7 @@ export class ProjectDocumentService {
   /** Mutation IDs are per actor/project across document writes, checkpoints, and approvals. */
   private async assertNoForeignMutation(
     db: SqlClient, projectId: string, actor: string, mutationId: string,
-    operation: "create_checkpoint" | "approve_checkpoint" | "edit_document" | "put_ideas",
+    operation: "create_checkpoint" | "approve_checkpoint" | "edit_document" | "put_ideas" | "promote_idea",
   ): Promise<void> {
     // Independent legacy hosts may not have migrated history/Ideas yet.
     // Reject partial installs, but allow complete absent extensions for old consumers.
@@ -567,12 +594,15 @@ export class ProjectDocumentService {
     if (!state || state.checkpoints !== state.approvals ||
         state.ideas_heads !== state.ideas_revisions ||
         state.ideas_revisions !== state.ideas_receipts ||
-        (operation === "put_ideas" && !state.ideas_receipts)) throw unavailable();
+        ((operation === "put_ideas" || operation === "promote_idea") && !state.ideas_receipts)) {
+      throw unavailable();
+    }
     const tables = [
-      ...(operation === "edit_document" ? [] : ["stt_document_revisions"]),
+      ...(operation === "edit_document" || operation === "promote_idea" ? [] : ["stt_document_revisions"]),
       ...(state.checkpoints && operation !== "create_checkpoint" ? ["stt_document_checkpoints"] : []),
       ...(state.approvals && operation !== "approve_checkpoint" ? ["stt_checkpoint_approvals"] : []),
-      ...(state.ideas_receipts && operation !== "put_ideas" ? ["stt_ideas_mutation_receipts"] : []),
+      ...(state.ideas_receipts && operation !== "put_ideas" && operation !== "promote_idea" ?
+        ["stt_ideas_mutation_receipts"] : []),
     ];
     for (const table of tables) {
       const actorColumn = table === "stt_document_revisions" ? "actor_id" :
@@ -1082,6 +1112,162 @@ export class ProjectDocumentService {
       );
       return { projectId, clientMutationId: mutationId,
         ideasRevision: revision, ideasDigest: digest, duplicateDelivery: false };
+    }, sessionId);
+  }
+
+  /** Place one excluded Draft note and record its Ideas backlink as one durable transaction. */
+  async promoteIdea(
+    projectIdInput: string, principal: PrincipalRef, input: PromoteIdeaInput,
+  ): Promise<IdeaPromotionReceipt> {
+    const keys = input && typeof input === "object" && !Array.isArray(input) &&
+      Object.getPrototypeOf(input) === Object.prototype ? Reflect.ownKeys(input) : [];
+    const required = ["expectedIdeasRevision", "expectedRevision", "clientMutationId",
+      "ideaId", "draftBlockId", "orderKey", "destination"];
+    if (keys.length < required.length || keys.length > required.length + 1 ||
+        !required.every((key) => Object.hasOwn(input, key)) ||
+        keys.some((key) => typeof key !== "string" ||
+          ![...required, "writeSessionId"].includes(key))) {
+      throw new ProjectDocumentInputError("Invalid Ideas promotion envelope.");
+    }
+    const projectId = requireUuid(projectIdInput);
+    const mutationId = requireUuid(input.clientMutationId);
+    const expectedIdeas = requireRevision(input.expectedIdeasRevision);
+    const expectedDocument = requireRevision(input.expectedRevision);
+    const ideaId = requireUuid(input.ideaId);
+    const blockId = requireUuid(input.draftBlockId);
+    if (ideaId === blockId) throw new ProjectDocumentInputError("Draft and Idea IDs must differ.");
+    const placement = checkedPromotionPositionV1(input.orderKey, input.destination);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    const requestDigest = fingerprint({ kind: "promote_idea", projectId,
+      expectedIdeasRevision: expectedIdeas, expectedRevision: expectedDocument,
+      ideaId, draftBlockId: blockId, ...placement });
+
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) => {
+      // Promotion uses the document revision key *and* the Ideas receipt key.
+      // Check each directly: a complete pair is replayable, a partial or
+      // foreign operation is not. Cross-endpoint checkpoint keys are reserved.
+      await this.assertNoForeignMutation(db, projectId, actor, mutationId, "promote_idea");
+      const prior = await db.query<IdeasReceiptRow>(
+        "SELECT m.operation,m.request_digest,m.ideas_revision::text,m.ideas_digest," +
+          "m.document_revision::text,m.document_digest," +
+          "r.document_id AS revision_document_id,r.request_digest AS revision_request_digest," +
+          "r.ideas_json AS revision_json,r.content_digest AS revision_digest," +
+          "r.operation AS revision_operation,r.document_revision::text AS revision_document_revision," +
+          "r.actor_id AS revision_actor_id,r.client_mutation_id AS revision_mutation_id," +
+          "r.expected_revision::text AS revision_expected,r.revision::text AS revision_number" +
+          " FROM stt_ideas_mutation_receipts m LEFT JOIN stt_idea_revisions r" +
+          " ON r.project_id=m.project_id AND r.revision=m.ideas_revision" +
+          " WHERE m.project_id=$1 AND m.actor_id=$2 AND m.client_mutation_id=$3",
+        [projectId, actor, mutationId],
+      );
+      const priorDocument = await db.query<PromotionDocumentRow>(
+        "SELECT revision::text,expected_revision::text,document_id,actor_id,client_mutation_id," +
+          "request_digest,content_digest,document_json FROM stt_document_revisions" +
+          " WHERE project_id=$1 AND actor_id=$2 AND client_mutation_id=$3",
+        [projectId, actor, mutationId],
+      );
+      const receipt = prior.rows[0];
+      const savedDocument = priorDocument.rows[0];
+      if (receipt) {
+        if (receipt.operation !== "promote_idea" || receipt.request_digest !== requestDigest) throw reused();
+        if (!savedDocument || receipt.document_revision === null || receipt.document_digest === null ||
+            receipt.revision_document_id !== savedDocument.document_id ||
+            receipt.revision_operation !== "promote_idea" ||
+            receipt.revision_actor_id !== actor || receipt.revision_mutation_id !== mutationId ||
+            receipt.revision_number !== receipt.ideas_revision ||
+            receipt.revision_expected === null || int(receipt.revision_expected) !== expectedIdeas ||
+            int(receipt.ideas_revision) !== expectedIdeas + 1 ||
+            receipt.revision_request_digest !== requestDigest ||
+            receipt.revision_digest !== receipt.ideas_digest ||
+            receipt.revision_json === null || sha256(receipt.revision_json) !== receipt.ideas_digest ||
+            receipt.revision_document_revision !== receipt.document_revision ||
+            savedDocument.revision !== receipt.document_revision ||
+            savedDocument.expected_revision === null ||
+            int(savedDocument.expected_revision) !== expectedDocument ||
+            int(savedDocument.revision) !== expectedDocument + 1 ||
+            savedDocument.actor_id !== actor || savedDocument.client_mutation_id !== mutationId ||
+            savedDocument.request_digest !== requestDigest ||
+            savedDocument.content_digest !== receipt.document_digest ||
+            sha256(savedDocument.document_json) !== receipt.document_digest) throw unavailable();
+        try {
+          const ideas = checkedIdeas(JSON.parse(receipt.revision_json) as unknown, savedDocument.document_id);
+          const doc = checkedDocument(JSON.parse(savedDocument.document_json) as unknown,
+            projectId, savedDocument.document_id);
+          const source = ideas.items.find((item) => item.id === ideaId);
+          const notes = doc.document.activeDraft.blocks.filter((row) => row.id === blockId);
+          if (JSON.stringify(ideas) !== receipt.revision_json ||
+              doc.documentJson !== savedDocument.document_json ||
+              !source || !source.linkedDraftBlockIds.includes(blockId) ||
+              notes.length !== 1 || notes[0]?.type !== "note_draft" ||
+              notes[0].state !== "excluded" || notes[0].text !== source.text ||
+              notes[0].orderKey !== placement.orderKey) throw unavailable();
+        } catch { throw unavailable(); }
+        return { projectId, clientMutationId: mutationId,
+          ideasRevision: int(receipt.ideas_revision), ideasDigest: receipt.ideas_digest,
+          documentRevision: int(receipt.document_revision), documentDigest: receipt.document_digest,
+          duplicateDelivery: true };
+      }
+      if (savedDocument) throw reused();
+
+      // Lock the ordinary Draft head first, exactly as putDocument does. All
+      // state and expected-version checks run under the authorized transaction.
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE", [projectId],
+      );
+      const current = head.rows[0];
+      if (!current) throw missing();
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      let previousDocument: ScriptDocumentV2;
+      try {
+        previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch { throw unavailable(); }
+      const ideasHead = await this.selectIdeas(db, projectId);
+      if (int(current.revision) !== expectedDocument) {
+        throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
+      }
+      if (ideasHead.ideasRevision !== expectedIdeas) {
+        throw conflict({ currentIdeasRevision: ideasHead.ideasRevision, currentDigest: ideasHead.digest });
+      }
+      if (expectedIdeas === Number.MAX_SAFE_INTEGER || expectedDocument === Number.MAX_SAFE_INTEGER) {
+        throw new ProjectDocumentInputError("Revision exhausted.");
+      }
+      const next = promoteIdeaToNoteV1(previousDocument, ideasHead.ideas,
+        ideaId, blockId, placement.orderKey, placement.destination);
+      const document = checkedDocument(next.document, projectId, current.document_id);
+      const ideas = checkedIdeas(next.ideas, current.document_id);
+      const ideasJson = JSON.stringify(ideas);
+      const ideasDigest = sha256(ideasJson);
+      const documentReceipt = await this.appendDocumentHead(db, projectId, current, previousDocument,
+        expectedDocument, actor, mutationId, requestDigest, document);
+      const ideasRevision = expectedIdeas + 1;
+      await db.query(
+        "INSERT INTO stt_idea_revisions(project_id,revision,expected_revision,document_id," +
+          "actor_id,client_mutation_id,operation,request_digest,content_digest,ideas_json," +
+          "document_revision,document_digest)" +
+          " VALUES($1,$2,$3,$4,$5,$6,'promote_idea',$7,$8,$9,$10,$11)",
+        [projectId, ideasRevision, expectedIdeas, current.document_id, actor, mutationId,
+          requestDigest, ideasDigest, ideasJson, documentReceipt.revision, documentReceipt.digest],
+      );
+      const updated = await db.query<{ revision: string }>(
+        "UPDATE stt_idea_heads SET revision=$3,ideas_json=$4,content_digest=$5," +
+          "updated_by=$6,updated_at=now() WHERE project_id=$1 AND revision=$2" +
+          " AND content_digest=$7 AND document_id=$8 RETURNING revision::text",
+        [projectId, expectedIdeas, ideasRevision, ideasJson, ideasDigest, actor,
+          ideasHead.digest, current.document_id],
+      );
+      if (!updated.rows[0]) throw conflict({ currentIdeasRevision: expectedIdeas });
+      await db.query(
+        "INSERT INTO stt_ideas_mutation_receipts(project_id,actor_id,client_mutation_id," +
+          "operation,request_digest,ideas_revision,ideas_digest,document_revision,document_digest)" +
+          " VALUES($1,$2,$3,'promote_idea',$4,$5,$6,$7,$8)",
+        [projectId, actor, mutationId, requestDigest, ideasRevision, ideasDigest,
+          documentReceipt.revision, documentReceipt.digest],
+      );
+      return { projectId, clientMutationId: mutationId, ideasRevision, ideasDigest,
+        documentRevision: documentReceipt.revision, documentDigest: documentReceipt.digest,
+        duplicateDelivery: false };
     }, sessionId);
   }
 

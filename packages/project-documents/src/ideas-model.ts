@@ -124,6 +124,22 @@ export function checkedIdeas(input: unknown, expectedDocumentId: string): IdeaOu
   return result;
 }
 
+/** Validate the closed placement envelope before any authorized DB transaction. */
+export function checkedPromotionPositionV1(
+  requestedOrderKey: unknown, destination: unknown,
+): { orderKey: string; destination: RowGapV2 } {
+  if (!orderKey(requestedOrderKey) || !plainObject(destination) ||
+      !exactKeys(destination, ["sectionId", "afterRowId", "beforeRowId"])) return invalid();
+  return {
+    orderKey: requestedOrderKey,
+    destination: {
+      sectionId: destination.sectionId === null ? null : requireUuid(destination.sectionId),
+      afterRowId: destination.afterRowId === null ? null : requireUuid(destination.afterRowId),
+      beforeRowId: destination.beforeRowId === null ? null : requireUuid(destination.beforeRowId),
+    },
+  };
+}
+
 /**
  * Does not mutate source objects or grant build eligibility: the only inserted
  * Draft row is a normal, explicitly excluded note_draft. Authorization and
@@ -134,7 +150,7 @@ export function promoteIdeaToNoteV1(
   ideaId: string, blockId: string, requestedOrderKey: string, destination: RowGapV2,
 ): { document: ScriptDocumentV2; ideas: IdeaOutlineV1 } {
   const ideas = checkedIdeas(outline, document.id);
-  if (!orderKey(requestedOrderKey)) return invalid();
+  const placement = checkedPromotionPositionV1(requestedOrderKey, destination);
   const sourceId = requireUuid(ideaId);
   const newId = requireUuid(blockId);
   const source = ideas.items.find((item) => item.id === sourceId);
@@ -142,18 +158,12 @@ export function promoteIdeaToNoteV1(
       ideas.items.some((item) => item.id === newId || item.linkedDraftBlockIds.includes(newId))) {
     return invalid();
   }
-  if (!plainObject(destination) || !exactKeys(destination, ["sectionId", "afterRowId", "beforeRowId"])) return invalid();
-  const normalizedDestination: RowGapV2 = {
-    sectionId: destination.sectionId === null ? null : requireUuid(destination.sectionId),
-    afterRowId: destination.afterRowId === null ? null : requireUuid(destination.afterRowId),
-    beforeRowId: destination.beforeRowId === null ? null : requireUuid(destination.beforeRowId),
-  };
   const row: NoteDraftBlock = {
-    type: "note_draft", id: newId, orderKey: requestedOrderKey,
+    type: "note_draft", id: newId, orderKey: placement.orderKey,
     text: source.text, state: "excluded", version: 1,
   };
   const edited = applyRowEditV2(document, document.rowEditRevision ?? 0,
-    { kind: "create_row", row, destination: normalizedDestination });
+    { kind: "create_row", row, destination: placement.destination });
   if (!edited.ok) return invalid();
   const promoted = {
     ...ideas,
