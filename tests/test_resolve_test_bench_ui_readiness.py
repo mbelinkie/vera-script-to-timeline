@@ -484,8 +484,10 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]" in source
     assert source.index("ObjC.bindFunction(") < source.index("function run()")
     assert "0x2a2a2a2a, 0x2a2a2a2a, false" in source
-    assert "result.automation = $.AEDeterminePermissionToAutomateTarget(" in source
-    assert ") === 0;" in source
+    assert "const permission = $.AEDeterminePermissionToAutomateTarget(" in source
+    assert "typeof permission === 'number'" in source
+    assert "Number.isInteger(Number(permission))" in source
+    assert "Number(permission) === 0" in source
     assert "['V1', 'A1', 'A2', 'A3', 'A4', 'A5']" in source
     assert "AXMenuItemCmdChar" in source
     assert "AXMenuItemCmdModifiers" in source

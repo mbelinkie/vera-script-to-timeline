@@ -182,11 +182,15 @@ function run() {
     const systemEvents = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
       $('com.apple.systemevents')
     );
-    // Only the exact OSStatus noErr (numeric 0) grants permission. Do not
-    // coerce null or false to zero, and never request an Automation prompt.
-    result.automation = $.AEDeterminePermissionToAutomateTarget(
+    // JXA represents the returned OSStatus as a bridged number which can
+    // compare unequal to primitive 0 under === despite serializing as 0.
+    // Check its actual numeric type first: null, false and missing may NOT
+    // become permission via Number(x) coercion. Never request a TCC prompt.
+    const permission = $.AEDeterminePermissionToAutomateTarget(
       systemEvents.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
-    ) === 0;
+    );
+    result.automation = typeof permission === 'number' &&
+      Number.isInteger(Number(permission)) && Number(permission) === 0;
   } catch (_) { result.automation = false; }
   if (!result.automation) return JSON.stringify(result);
   try {
