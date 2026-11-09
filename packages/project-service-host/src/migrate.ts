@@ -9,12 +9,15 @@ import {
   applyProjectCommentsMigration,
   applyProjectDocumentsMigration,
   applyProjectHistoryMigration,
+  applyProjectIdeasMigration,
   PROJECT_COMMENTS_MIGRATION,
   PROJECT_COMMENTS_MIGRATION_DIGEST,
   PROJECT_DOCUMENTS_MIGRATION,
   PROJECT_DOCUMENTS_MIGRATION_DIGEST,
   PROJECT_HISTORY_MIGRATION,
   PROJECT_HISTORY_MIGRATION_DIGEST,
+  PROJECT_IDEAS_MIGRATION,
+  PROJECT_IDEAS_MIGRATION_DIGEST,
 } from "@vera/project-documents";
 import {
   applyProjectBuildsMigration,
@@ -48,6 +51,9 @@ const ALLOWED_TABLES = new Set([
   "stt_document_checkpoints",
   "stt_checkpoint_approvals",
   "stt_document_restores",
+  "stt_idea_heads",
+  "stt_idea_revisions",
+  "stt_ideas_mutation_receipts",
   "stt_build_pairing_offers",
   "stt_project_build_agents",
   "stt_build_submissions",
@@ -63,6 +69,7 @@ const EXPECTED_MIGRATIONS = [
   { name: PROJECT_DOCUMENTS_MIGRATION, version: 1, checksum: PROJECT_DOCUMENTS_MIGRATION_DIGEST },
   { name: PROJECT_COMMENTS_MIGRATION, version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST },
   { name: PROJECT_HISTORY_MIGRATION, version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST },
+  { name: PROJECT_IDEAS_MIGRATION, version: 4, checksum: PROJECT_IDEAS_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
 ] as const;
@@ -124,6 +131,7 @@ export async function applyQaMigrations(
     await applyProjectDocumentsMigration(db);
     await applyProjectCommentsMigration(db);
     await applyProjectHistoryMigration(db);
+    await applyProjectIdeasMigration(db);
     await applyProjectBuildsMigration(db);
     const receipts = await db.query<{
       name: string;

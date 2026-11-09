@@ -13,6 +13,7 @@ import {
   applyProjectCommentsMigration,
   applyProjectDocumentsMigration,
   applyProjectHistoryMigration,
+  applyProjectIdeasMigration,
 } from "../src/migration.js";
 import { ProjectDocumentService } from "../src/service.js";
 
@@ -61,6 +62,7 @@ export async function harness() {
   await applyProjectDocumentsMigration(db);
   await applyProjectCommentsMigration(db);
   await applyProjectHistoryMigration(db);
+  await applyProjectIdeasMigration(db);
   const pool: SqlPool = { connect: async () => db };
   const auth = new ProjectAuthorizationService(pool);
   const service = new ProjectDocumentService(pool, auth);
