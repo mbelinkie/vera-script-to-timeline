@@ -173,6 +173,18 @@ function checked(item) {
   if (mark === null) return null;
   return String(mark) === '\u2713' || String(mark) === '\u2714';
 }
+function autoSelectStates(proc, tracks) {
+  // Resolve's AX menu lookup crosses a process boundary. Read the common
+  // Auto Select submenu once, not six times; each leaf and its live mark
+  // must still exist independently. Missing/unknown remains null, never false.
+  const root = menuItem(proc, 'Timeline', ['Auto Select']);
+  const menu = root === null ? null : root.menus[0];
+  return tracks.map(track => {
+    if (menu === null) return null;
+    const item = menu.menuItems.byName('Auto Select/Deselect ' + track);
+    return item.exists() ? checked(item) : null;
+  });
+}
 function run() {
   const workspace = $.NSWorkspace.sharedWorkspace;
   const running = unwrap(workspace.runningApplications);
@@ -256,9 +268,7 @@ function run() {
       attr(focused, 'AXRoleDescription') === 'timeline';
     // Original signed M4 has precisely V1 and A1 through A5 (six tracks).
     const auto = ['V1', 'A1', 'A2', 'A3', 'A4', 'A5'];
-    const states = auto.map(t => checked(menuItem(
-      proc, 'Timeline', ['Auto Select', 'Auto Select/Deselect ' + t]
-    )));
+    const states = autoSelectStates(proc, auto);
     result.v1Only = states[0] === true && states.slice(1).every(s => s === false);
     result.trimRollMenu = enabled(menuItem(
       proc, 'Trim', ['Select Nearest Edit To', 'Roll']

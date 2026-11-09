@@ -545,6 +545,52 @@ def test_no_prompt_automation_status_runtime_rejects_coercions() -> None:
     ]
 
 
+def test_batched_autoselect_menu_queries_preserve_missing_and_unknown() -> None:
+    """Execute the fixed JXA submenu reader with mocked AX item references."""
+    source = ui._OS_READ_ONLY_JXA
+    start = source.index("function autoSelectStates(proc, tracks) {")
+    helper = source[start : source.index("\nfunction run() {", start)]
+    assert "const states = autoSelectStates(proc, auto);" in source
+    program = (
+        helper
+        + """
+const tracks = ['V1', 'A1', 'A2', 'A3', 'A4', 'A5'];
+let rootCalls = 0;
+let missing = null;
+const marks = {V1:true, A1:false, A2:false, A3:false, A4:false, A5:false};
+function menuItem(_p, menu, path) {
+  rootCalls++;
+  if (missing === 'root') return null;
+  if (menu !== 'Timeline' || path.join('/') !== 'Auto Select') throw Error('path');
+  return {menus:[{menuItems:{byName(name) {
+    const track = name.replace('Auto Select/Deselect ', '');
+    return {exists() {return track !== missing;}, track};
+  }}}]};
+}
+function checked(item) { return marks[item.track]; }
+const valid = autoSelectStates({}, tracks);
+missing = 'A2';
+const absent = autoSelectStates({}, tracks);
+missing = 'root';
+const noSubmenu = autoSelectStates({}, tracks);
+console.log(JSON.stringify({valid, absent, noSubmenu, rootCalls}));
+"""
+    )
+    completed = subprocess.run(
+        ["node", "-e", program],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert json.loads(completed.stdout) == {
+        "valid": [True, False, False, False, False, False],
+        "absent": [True, False, None, False, False, False],
+        "noSubmenu": [None] * 6,
+        "rootCalls": 3,
+    }
+
+
 def _write_keyboard_preferences(tmp_path: Any) -> tuple[Any, Any]:
     config = tmp_path / "config.user.xml"
     preset = tmp_path / "keyboard.preset.xml"
