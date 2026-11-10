@@ -242,7 +242,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         lambda *_args, **_kwargs: events.append("SDK:edit-page"),
     )
     monkeypatch.setattr(
-        playhead, "position_owned_327", lambda *_: events.append("SDK:playhead-327")
+        playhead, "position_owned_351", lambda *_: events.append("SDK:playhead-351")
     )
 
     def gui_attempt(_store: Any, job: str, _resolve: Any) -> Any:
@@ -293,7 +293,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "claim:edited",
         "owner:acquire",
         "SDK:edit-page",
-        "SDK:playhead-327",
+        "SDK:playhead-351",
         "GUI:unknown:not-verified",
         "owner:release",
         "edited:SDK-MOV-PCM-verified",
@@ -318,7 +318,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "claim:edited",
         "owner:acquire",
         "SDK:edit-page",
-        "SDK:playhead-327",
+        "SDK:playhead-351",
         "GUI:unknown:not-verified",
         "owner:release",
         "edited:SDK-MOV-PCM-verified",
@@ -364,7 +364,7 @@ def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
 
     monkeypatch.setattr(page, "open_owned_edit_page", refuse)
     monkeypatch.setattr(
-        playhead, "position_owned_327", lambda *_: pytest.fail("playhead moved")
+        playhead, "position_owned_351", lambda *_: pytest.fail("playhead moved")
     )
     monkeypatch.setattr(
         gui, "dispatch_owned_f1_once", lambda *_: pytest.fail("GUI roll dispatched")
@@ -416,7 +416,7 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
     monkeypatch.setattr(loop, "native_owner", fake_owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
     monkeypatch.setattr(page, "open_owned_edit_page", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(playhead, "position_owned_327", lambda *_: None)
+    monkeypatch.setattr(playhead, "position_owned_351", lambda *_: None)
 
     def attempt(*_: Any) -> Any:
         events.append("gui")

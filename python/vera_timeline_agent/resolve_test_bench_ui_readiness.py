@@ -262,13 +262,11 @@ function run() {
     if (windows.length !== 1) return JSON.stringify(result);
     const win = windows[0];
     result.windowName = win.name();
-    // Qt's AXMain=true and a separately reported AXFocusedWindow title do NOT
-    // make win.AXFocused=true. Real Studio 21.1.1.10 reports AXFocused=false;
-    // an alternative must be independently validated before this gate changes.
-    // System Events' windows need not expose a `frontmost` property. Demand
-    // both explicit AXMain and AXFocused marks, never infer from one window.
-    result.windowFrontmost = attr(win, 'AXMain') === true &&
-      attr(win, 'AXFocused') === true;
+    // Real Qt reports AXFocused=false even for the sole correct AXMain window
+    // with separately verified NSWorkspace frontmost PID. Named menu dispatch
+    // uses that exact AXMain window, not timeline keyboard focus. This field
+    // represents frontmost process + AXMain, NOT an inferred AXFocused mark.
+    result.windowFrontmost = attr(win, 'AXMain') === true;
     result.modalPresent = win.sheets().length !== 0;
     const edit = menuItem(proc, 'Workspace', ['Switch to Page', 'Edit']);
     result.editPage = checked(edit) === true;
@@ -282,9 +280,13 @@ function run() {
     result.v1Only = states[0] === true && states.slice(1).every(s => s === false);
     const normalMode = menuItem(proc, 'Trim', ['Normal Edit Mode']);
     result.normalEditMode = enabled(normalMode) && checked(normalMode) === true;
-    result.trimRollMenu = enabled(menuItem(
-      proc, 'Trim', ['Select Nearest Edit To', 'Roll']
-    ));
+    // Check all named setup and effect menu availability; no AX mark inference.
+    result.trimRollMenu = menuItem(proc, 'Edit', ['Deselect All']) !== null &&
+      enabled(menuItem(proc, 'Timeline',
+        ['Auto Select', 'Auto Deselect All Tracks'])) &&
+      enabled(menuItem(proc, 'Timeline', ['Auto Select', 'Auto Select/Deselect V1'])) &&
+      enabled(normalMode) &&
+      menuItem(proc, 'Trim', ['Roll', 'Start to Playhead']) !== null;
     result.nudgeMenu = enabled(menuItem(proc, 'Trim', ['Nudge', 'One Frame Right']));
     result.keyboardFocus = shortcut(menuItem(
       proc, 'Workspace', ['Active Panel Selection', 'Timeline']

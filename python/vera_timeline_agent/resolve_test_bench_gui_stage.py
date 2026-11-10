@@ -102,8 +102,12 @@ def _verify_original_capture(
             for row in tracks
             if isinstance(row, dict)
         }
-        == expected_slots,
-        "signed six-track topology differs from fixed V1-V5/A1 menu actor",
+        == expected_slots
+        and all(
+            row.get("locked") is ((row.get("kind"), row.get("index")) != ("video", 1))
+            for row in tracks
+        ),
+        "signed V1-only unlocked, five other locked track topology differs",
     )
     by_uid = {row.get("itemUid"): row for row in items if isinstance(row, dict)}
     _require(
@@ -302,9 +306,9 @@ def attempt_once(
                 and timeline is not None
                 and project.GetUniqueId() == intent.target.project_uid
                 and timeline.GetUniqueId() == intent.target.timeline_uid
-                and _read_only_playhead_frame(timeline) == gui.BEFORE_BOUNDARY
+                and _read_only_playhead_frame(timeline) == gui.AFTER_BOUNDARY
                 and datetime.now(UTC) < intent.expires_at,
-                "SDK target/playhead/deadline changed before fixed GUI transport",
+                "SDK target/frame351/deadline changed before fixed GUI transport",
             )
 
         recheck_sdk()  # pre-journal: protect one-use intent from stale SDK
@@ -480,6 +484,12 @@ def prepare_owned_f1_inputs(
     project = manager.GetCurrentProject() if manager is not None else None
     timeline = project.GetCurrentTimeline() if project is not None else None
     _require(timeline is not None, "actual selected SDK timeline unavailable")
+    assert timeline is not None
+    selected_clips = timeline.GetSelectedClips()
+    _require(
+        type(selected_clips) is list and selected_clips == [],
+        "whole-clip SDK selection must be empty before named Roll setup",
+    )
     playhead_frame = _read_only_playhead_frame(timeline)
     rows_by_uid = {
         row.get("itemUid"): row
@@ -558,7 +568,7 @@ def prepare_owned_f1_inputs(
     )
     _verify_original_capture(store, job_id, intent, inventory)
     _require(
-        inventory.playhead_frame == gui.BEFORE_BOUNDARY,
-        "actual SDK playhead must already be at 327 before GUI intent",
+        inventory.playhead_frame == gui.AFTER_BOUNDARY,
+        "actual SDK playhead must already be at 351 before GUI intent",
     )
     return intent, inventory

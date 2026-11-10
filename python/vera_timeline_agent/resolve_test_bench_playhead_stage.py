@@ -1,8 +1,8 @@
-"""Narrow, SDK-owned frame-327 navigation before one-use F1 GUI dispatch.
+"""Narrow, SDK-owned frame-351 navigation before one-use named Roll.
 
-The original output host does not promise to leave its playhead at the 327
-picture cut. A fresh unattended one-start would otherwise fail the already
-reviewed read-only F1 precondition. This does not edit, save or render media:
+The original output host does not promise to leave its playhead at frame 351,
+twenty-four frames after the picture cut. A new one-start could otherwise
+fail the reviewed read-only F1 precondition. This does not edit/save/render media:
 it moves only the *exact* independently verified pristine disposable timeline
 playhead, then rechecks position and native geometry under the same owner.
 
@@ -60,7 +60,7 @@ def _timecode(frames: int) -> str:
     return f"{seconds // 3600:02}:{seconds // 60 % 60:02}:{seconds % 60:02}:{frame:02}"
 
 
-def position_owned_327(store: queue.Store, job_id: str, resolve: Any) -> None:
+def position_owned_351(store: queue.Store, job_id: str, resolve: Any) -> None:
     """Safe fixed SDK navigation, verified before *and* after touching playhead."""
     roll._require_owner_lock()
     plan = m4._load_plan(store, job_id)
@@ -187,17 +187,17 @@ def position_owned_327(store: queue.Store, job_id: str, resolve: Any) -> None:
     )
     assert timeline is not None
     current = gui._read_only_playhead_frame(timeline)
-    if current != roll.BEFORE_BOUNDARY:
+    if current != roll.AFTER_BOUNDARY:
         check_unspent_and_fresh()
         start = _frames(timeline.GetStartTimecode())
-        wanted = _timecode(start + roll.BEFORE_BOUNDARY)
+        wanted = _timecode(start + roll.AFTER_BOUNDARY)
         _require(
             timeline.SetCurrentTimecode(wanted) is True,
             "exact reversible SDK playhead navigation refused",
         )
     _require(
-        gui._read_only_playhead_frame(timeline) == roll.BEFORE_BOUNDARY,
-        "SDK playhead did not land on exact 327-frame cut",
+        gui._read_only_playhead_frame(timeline) == roll.AFTER_BOUNDARY,
+        "SDK playhead did not land on exact frame 351",
     )
     check_unspent_and_fresh()
     after = inspect_selected(resolve, plan["initialTarget"], native_geometry)

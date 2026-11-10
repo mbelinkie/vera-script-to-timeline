@@ -38,7 +38,7 @@ def sdk_inputs() -> tuple[gui.GuiRollIntent, gui.PristineSdkInventory]:
         right_record_start=327,
         right_record_duration=151,
         boundary_frame=327,
-        playhead_frame=327,
+        playhead_frame=351,
         track_count=6,
         extent_frames=1407,
         rate=(24000, 1001),
@@ -138,12 +138,7 @@ def test_mock_trusted_mac_positive_exact_sdk_and_fixed_hash() -> None:
         ("windowName", "Producer Personal"),
         ("windowFrontmost", False),
         ("modalPresent", True),
-        ("editPage", False),
-        ("timelineFocused", False),
-        ("v1Only", False),
         ("trimRollMenu", False),
-        ("nudgeMenu", False),
-        ("normalEditMode", False),
         ("keyboardPreset", "Adobe Premiere Pro"),
         ("keyboardPreset", None),
         ("processPid", True),
@@ -186,11 +181,8 @@ def test_unknown_and_injected_keys_fail() -> None:
     [
         ("windowFrontmost", False),  # actual Qt AXMain=true, AXFocused=false
         ("windowFrontmost", None),
-        ("editPage", False),  # actual SDK is Deliver, AX page mark unavailable
         ("editPage", None),
-        ("timelineFocused", False),  # actual AX group is not a timeline
         ("timelineFocused", None),
-        ("v1Only", False),  # actual AX six-track checkmarks unavailable
         ("v1Only", None),
         ("trimRollMenu", None),
         ("nudgeMenu", None),
@@ -218,6 +210,26 @@ def test_503_d_menu_only_actor_does_not_require_unobservable_shortcuts() -> None
     gui._validate(intent, inventory, ready, datetime.now(UTC))
     assert ready.keyboard_focus_binding is None
     assert ready.keyboard_nudge_binding is None
+
+
+def test_phase15_qt_unknown_marks_remain_false_but_signed_sdk_controls_page() -> None:
+    intent, inventory = sdk_inputs()
+    facts = os_snapshot()
+    for field in (
+        "editPage",
+        "timelineFocused",
+        "v1Only",
+        "normalEditMode",
+        "nudgeMenu",
+    ):
+        facts[field] = False
+    readiness = ui._readiness_from_os(facts, TARGET)
+    assert not readiness.edit_page and not readiness.v1_only
+    assert not readiness.normal_edit_mode and not readiness.timeline_focused
+    # Positive readiness now requires original-M4 SDK→OS→SDK and fixed
+    # deterministic V1 setup. Qt marks are not silently manufactured as True.
+    gui._validate(intent, inventory, readiness, datetime.now(UTC))
+    assert facts["editPage"] is False
 
 
 @pytest.mark.parametrize(
@@ -345,7 +357,7 @@ def test_production_entrypoint_reauthenticates_under_owner_and_uses_os_not_calle
     [
         {"target": replace(TARGET, project_uid="other-project")},
         {"item_uids": (*UIDS[:-1], "unknown-native-uid")},
-        {"playhead_frame": 351},
+        {"playhead_frame": 350},
         {"track_count": 5},
         {"left_track_id": "wrong-V1"},
         {"pristine_verified": False},

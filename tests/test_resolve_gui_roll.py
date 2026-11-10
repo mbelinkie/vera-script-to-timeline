@@ -51,7 +51,7 @@ def valid() -> tuple[
         right_record_start=327,
         right_record_duration=151,
         boundary_frame=327,
-        playhead_frame=327,
+        playhead_frame=351,
         track_count=6,
         extent_frames=1407,
         rate=(24000, 1001),
@@ -123,20 +123,22 @@ def admitted_owner(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(gui, "_require_owner_lock", lambda: None)
 
 
-def test_fixed_f1_script_is_24_named_menu_events_no_arbitrary_input() -> None:
+def test_fixed_f1_script_has_one_named_roll_and_absolute_v1_setup() -> None:
     source = gui.ROLL_APPLESCRIPT
     assert hashlib.sha256(source.encode()).hexdigest() == gui.ROLL_SCRIPT_SHA256
-    assert source.count("repeat 24 times") == 1
-    assert source.count('click menu item "One Frame Right"') == 1
+    assert "repeat 24 times" not in source
+    assert "One Frame Right" not in source
+    assert source.count("click rollItem") == 1
+    assert 'menu item "Start to Playhead"' in source
+    assert "click allOff" in source and "click deselectItem" in source
     for exact_menu in (
-        'menu "Workspace"',
-        'menu item "Edit"',
+        'menu "Edit"',
         'menu "Timeline"',
-        '"Auto Select/Deselect "',
+        'menu item "Auto Deselect All Tracks"',
+        'menu item "Auto Select/Deselect V1"',
         'menu "Trim"',
-        'menu item "Select Nearest Edit To"',
         'menu item "Roll"',
-        'menu item "Nudge"',
+        'menu item "Normal Edit Mode"',
     ):
         assert exact_menu in source
     assert "click at" not in source
@@ -145,11 +147,11 @@ def test_fixed_f1_script_is_24_named_menu_events_no_arbitrary_input() -> None:
     assert "SaveProject" not in source
     assert "keystroke" not in source
     assert 'click menu item "Edit"' not in source
-    assert 'click menu item "Auto Deselect All Tracks"' not in source
-    assert 'click menu item "Auto Select/Deselect V1"' not in source
+    assert 'click menu item "Auto Select/Deselect V1"' in source
     assert "whose unix id is expectedPid" in source
     assert 'bundle identifier is not "com.blackmagic-design.DaVinciResolve"' in source
-    assert "AXFocused" in source and "AXMenuItemMarkChar" in source
+    assert "AXMain" in source and "AXFocused" not in source
+    assert "AXMenuItemMarkChar" not in source
 
 
 def test_script_changed_before_admission_does_not_spend_or_dispatch(
@@ -203,7 +205,7 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         state="unknown",
         actuator_class="gui",
         stage_operation_id=intent.stage_operation_id,
-        requested_frame_events=24,
+        named_roll_commands=1,
         native_verified=False,
         receipt_issued=False,
     )
@@ -239,7 +241,7 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         ("inventory", {"right_record_start": 351}),
         ("inventory", {"right_record_duration": 127}),
         ("inventory", {"boundary_frame": 351}),
-        ("inventory", {"playhead_frame": 326}),
+        ("inventory", {"playhead_frame": 327}),
         ("inventory", {"track_count": 5}),
         ("inventory", {"extent_frames": 1408}),
         ("inventory", {"rate": (24, 1)}),
@@ -254,11 +256,7 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         ("readiness", {"accessibility_trusted": False}),
         ("readiness", {"automation_trusted": False}),
         ("readiness", {"modal_present": True}),
-        ("readiness", {"edit_page": False}),
-        ("readiness", {"timeline_focused": False}),
-        ("readiness", {"v1_only": False}),
         ("readiness", {"trim_roll_menu_enabled": False}),
-        ("readiness", {"nudge_menu_enabled": False}),
         ("readiness", {"keyboard_preset": "Other"}),
     ],
 )

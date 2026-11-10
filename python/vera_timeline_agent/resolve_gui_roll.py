@@ -26,7 +26,6 @@ RESOLVE_VERSION = "21.1.1.10"
 RESOLVE_BUNDLE_ID = "com.blackmagic-design.DaVinciResolve"
 RESOLVE_PROCESS = "Resolve"
 KEYBOARD_PRESET = "DaVinci Resolve"
-NUDGE_RIGHT_BINDING = "."
 BEFORE_BOUNDARY = 327
 AFTER_BOUNDARY = 351
 ROLL_FRAMES: Literal[24] = 24
@@ -50,8 +49,10 @@ _DISPOSABLE_PROJECT = re.compile(
 
 # One fixed, reviewed menu operation. No caller-supplied script, shell,
 # coordinates, target index, edit delta or generic keyboard command is accepted.
-# Every check and menu lookup remains INSIDE the script as a last-moment guard;
-# the caller's trusted read-only UI probe is not a substitute for these checks.
+# The SDK pins the 327 cut and frame-351 playhead; the actor performs absolute
+# track deselection, a single V1 toggle from the known all-off state, whole-
+# clip deselection and normal-mode setting before ONE named Roll. Qt's missing
+# AXFocused/menu checkmarks are not fabricated by this actor.
 ROLL_APPLESCRIPT = r"""
 on run argv
   if (count of argv) is not 2 then error "exactly one PID and pinned window required"
@@ -79,85 +80,60 @@ on run argv
       if (value of attribute "AXMain" of front window) is not true then
         error "target window is not main"
       end if
-      if (value of attribute "AXFocused" of front window) is not true then
-        error "target window is not focused"
-      end if
       if (exists sheet 1 of front window) then error "Resolve modal is open"
-      -- SDK has already selected Edit and exact 327-frame target. This
-      -- actuator may not navigate, focus by keyboard or toggle tracks.
-      set workspaceMenu to menu "Workspace" of menu bar 1
-      set pageMenu to menu 1 of menu item "Switch to Page" of workspaceMenu
-      set pageItem to menu item "Edit" of pageMenu
-      set pageMark to value of attribute "AXMenuItemMarkChar" of pageItem
-      if pageMark is not "✓" then
-        error "Edit page selection not independently visible"
-      end if
-      set focusedElement to value of attribute "AXFocusedUIElement"
-      set focusRole to value of attribute "AXRoleDescription" of focusedElement
-      if focusRole is not "timeline" then
-        error "timeline focus not independently visible"
-      end if
+      -- Double official-SDK admission already authenticated Edit, full 11-UID
+      -- unchanged pristine geometry and playhead 351. Qt does not expose
+      -- reliable page/selected-track/normal-mode AX checkmarks.
+      set editMenu to menu "Edit" of menu bar 1
+      set deselectItem to menu item "Deselect All" of editMenu
       set timelineMenu to menu "Timeline" of menu bar 1
       set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
-      repeat with trackName in {"V1", "V2", "V3", "V4", "V5", "A1"}
-        set itemName to "Auto Select/Deselect " & (contents of trackName)
-        set trackItem to menu item itemName of autoMenu
-        set trackMark to value of attribute "AXMenuItemMarkChar" of trackItem
-        if (contents of trackName) is "V1" then
-          if trackMark is not "✓" then error "V1 targeting not independently selected"
-        else
-          if trackMark is not "" then error "non-V1 track state unknown or selected"
-        end if
-      end repeat
+      set allOff to menu item "Auto Deselect All Tracks" of autoMenu
+      set v1On to menu item "Auto Select/Deselect V1" of autoMenu
+      if not (enabled of allOff) or not (enabled of v1On) then
+        error "absolute V1-only track setup unavailable"
+      end if
       set trimMenu to menu "Trim" of menu bar 1
-      if not (enabled of menu item "Normal Edit Mode" of trimMenu) then
-        error "Resolve Trim menu unavailable"
-      end if
       set normalMode to menu item "Normal Edit Mode" of trimMenu
-      if (value of attribute "AXMenuItemMarkChar" of normalMode) is not "✓" then
-        error "Normal Edit Mode selection not independently visible"
+      set rollMenu to menu 1 of menu item "Roll" of trimMenu
+      set rollItem to menu item "Start to Playhead" of rollMenu
+      if not (enabled of normalMode) then error "normal mode unavailable"
+      -- Resolve disables Deselect All when the SDK-proved clip selection is
+      -- already empty. It is an idempotent clean-up, not a required enabled
+      -- state; missing menu items still throw rather than being assumed.
+      if (enabled of deselectItem) then click deselectItem
+      click allOff
+      -- Reacquire submenu after the absolute setter; the V1 leaf is a
+      -- toggle, therefore it is safe ONLY after Auto Deselect All Tracks.
+      set autoMenu to menu 1 of menu item "Auto Select" of menu "Timeline" of menu bar 1
+      click menu item "Auto Select/Deselect V1" of autoMenu
+      click normalMode
+      if (enabled of menu item "Deselect All" of menu "Edit" of menu bar 1) then
+        click menu item "Deselect All" of menu "Edit" of menu bar 1
       end if
-      set nearestMenu to menu 1 of menu item "Select Nearest Edit To" of trimMenu
-      if not (enabled of menu item "Roll" of nearestMenu) then
-        error "Roll selection unavailable"
+      if unix id is not expectedPid or ¬
+         bundle identifier is not "com.blackmagic-design.DaVinciResolve" then
+        error "Resolve process identity changed after setup"
       end if
-      set nudgeMenu to menu 1 of menu item "Nudge" of trimMenu
-      if not (enabled of menu item "One Frame Right" of nudgeMenu) then
-        error "one-frame nudge unavailable"
+      if not frontmost or (count of windows) is not 1 or ¬
+         name of front window is not expectedProjectWindow or ¬
+         (value of attribute "AXMain" of front window) is not true or ¬
+         (exists sheet 1 of front window) then
+        error "Resolve target window/modal changed after setup"
       end if
-      if (exists sheet 1 of front window) then error "Resolve modal before roll"
-      if unix id is not expectedPid then error "PID changed before roll"
-      click menu item "Roll" of nearestMenu
-      delay 0.2
-      repeat 24 times
-        if unix id is not expectedPid then error "PID changed during roll"
-        if bundle identifier is not "com.blackmagic-design.DaVinciResolve" then
-          error "bundle changed during roll"
-        end if
-        if not frontmost then error "Resolve lost focus during roll"
-        if (name of front window) is not expectedProjectWindow then
-          error "Resolve window changed during roll"
-        end if
-        if (value of attribute "AXMain" of front window) is not true or ¬
-           (value of attribute "AXFocused" of front window) is not true then
-          error "window lost focus during roll"
-        end if
-        if (exists sheet 1 of front window) then error "Resolve modal during roll"
-        set trimMenu to menu "Trim" of menu bar 1
-        set nudgeMenu to menu 1 of menu item "Nudge" of trimMenu
-        if not (enabled of menu item "One Frame Right" of nudgeMenu) then
-          error "one-frame nudge changed during roll"
-        end if
-        click menu item "One Frame Right" of nudgeMenu
-        delay 0.08
-      end repeat
+      -- No ambiguous target retry: exactly one native effect command.
+      set trimMenu to menu "Trim" of menu bar 1
+      set rollMenu to menu 1 of menu item "Roll" of trimMenu
+      set rollItem to menu item "Start to Playhead" of rollMenu
+      if not (enabled of rollItem) then error "named Roll unavailable after setup"
+      click rollItem
     end tell
   end tell
 end run
 """.strip()
 # Independent, review-pinned digest: edits to the script do not implicitly
 # authorize themselves by recalculating the expected value on import.
-ROLL_SCRIPT_SHA256 = "0ad776430984f35b816c481bd0319e3fd620cb03a603a4253b2df0abd1c6a8fb"
+ROLL_SCRIPT_SHA256 = "9595f41eb5a943e245628d0f537aead0e6cc49447554294153aa7281314c0845"
 
 
 class GuiRollRefused(ValueError):
@@ -252,7 +228,7 @@ class GuiRollAttempt:
     state: Literal["unknown"]
     actuator_class: Literal["gui"]
     stage_operation_id: str
-    requested_frame_events: Literal[24]
+    named_roll_commands: Literal[1]
     native_verified: Literal[False]
     receipt_issued: Literal[False]
 
@@ -268,7 +244,7 @@ class ExistingOneUseJournal(Protocol):
 
 class FixedRollExecutor(Protocol):
     def execute_once(self, expected_window_name: str, process_pid: int) -> None:
-        """Attempt exactly the reviewed, fixed 24-event GUI sequence."""
+        """Attempt exactly one fixed, reviewed named Roll plus deterministic setup."""
 
 
 class SystemEventsRollExecutor:
@@ -440,11 +416,12 @@ def _validate(
         and inventory.left_record_duration == BEFORE_BOUNDARY
         and inventory.right_record_start == BEFORE_BOUNDARY
         and inventory.right_record_duration == 151
-        and inventory.boundary_frame == inventory.playhead_frame == BEFORE_BOUNDARY
+        and inventory.boundary_frame == BEFORE_BOUNDARY
+        and inventory.playhead_frame == AFTER_BOUNDARY
         and inventory.extent_frames == EXTENT_FRAMES
         and inventory.track_count == NATIVE_TRACK_COUNT
         and inventory.rate == EXPECTED_RATE,
-        "original 327 boundary / 1407-frame six-track SDK inventory differs",
+        "original 327 cut, SDK frame 351 playhead, six-track inventory differs",
     )
     _require(
         type(now) is datetime
@@ -469,13 +446,8 @@ def _validate(
         readiness.accessibility_trusted is True
         and readiness.automation_trusted is True
         and readiness.modal_present is False
-        and readiness.edit_page is True
-        and readiness.timeline_focused is True
-        and readiness.v1_only is True
-        and readiness.normal_edit_mode is True
-        and readiness.trim_roll_menu_enabled is True
-        and readiness.nudge_menu_enabled is True,
-        "Accessibility/TCC or fixed Edit/V1/menu preflight denied",
+        and readiness.trim_roll_menu_enabled is True,
+        "Accessibility/TCC or named Roll/setup menu preflight denied",
     )
     _require(
         readiness.keyboard_preset == KEYBOARD_PRESET,
@@ -536,7 +508,7 @@ class OneUseGuiRollActuator:
                 state="unknown",
                 actuator_class=ACTUATOR_CLASS,
                 stage_operation_id=intent.stage_operation_id,
-                requested_frame_events=ROLL_FRAMES,
+                named_roll_commands=1,
                 native_verified=False,
                 receipt_issued=False,
             )

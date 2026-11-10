@@ -90,7 +90,7 @@ def setup(
         right_record_start=327,
         right_record_duration=151,
         boundary_frame=327,
-        playhead_frame=327,
+        playhead_frame=351,
         track_count=6,
         extent_frames=1407,
         rate=(24000, 1001),
@@ -145,12 +145,12 @@ def setup(
         "rate": {"numerator": 24000, "denominator": 1001},
         "extentFrames": 1407,
         "tracks": [
-            {"trackId": "original-V1", "kind": "video", "index": 1},
+            {"trackId": "original-V1", "kind": "video", "index": 1, "locked": False},
             *(
-                {"trackId": f"track-V{i}", "kind": "video", "index": i}
+                {"trackId": f"track-V{i}", "kind": "video", "index": i, "locked": True}
                 for i in range(2, 6)
             ),
-            {"trackId": "track-A1", "kind": "audio", "index": 1},
+            {"trackId": "track-A1", "kind": "audio", "index": 1, "locked": True},
         ],
         "items": [
             {
@@ -521,7 +521,7 @@ def _setup_read_only_f1_preparation(
     ],
     monkeypatch: pytest.MonkeyPatch,
     *,
-    current_timecode: str = "00:00:13:15",
+    current_timecode: str = "00:00:14:15",
     version: list[object] | None = None,
 ) -> tuple[SimpleNamespace, list[str]]:
     """Fake SDK and signed-loader boundaries, never any GUI dispatch."""
@@ -546,12 +546,17 @@ def _setup_read_only_f1_preparation(
     original_result = stage.__dict__["verify_native_result"](Path(""), SHA)
     geometry = dict(original_result["nativeGeometry"])
     geometry["tracks"] = [
-        {"trackId": "original-V1", "kind": "video", "index": 1},
+        {"trackId": "original-V1", "kind": "video", "index": 1, "locked": False},
         *(
-            {"trackId": f"track-V{index}", "kind": "video", "index": index}
+            {
+                "trackId": f"track-V{index}",
+                "kind": "video",
+                "index": index,
+                "locked": True,
+            }
             for index in range(2, 6)
         ),
-        {"trackId": "track-A1", "kind": "audio", "index": 1},
+        {"trackId": "track-A1", "kind": "audio", "index": 1, "locked": True},
     ]
 
     def signed(*_args: object) -> dict[str, object]:
@@ -579,6 +584,7 @@ def _setup_read_only_f1_preparation(
         GetCurrentTimecode=lambda: current_timecode,
         GetStartTimecode=lambda: "00:00:00:00",
         GetStartFrame=lambda: 0,
+        GetSelectedClips=lambda: [],
     )
     sdk = SimpleNamespace(
         GetCurrentPage=lambda: "edit",
@@ -607,12 +613,33 @@ def test_owned_f1_input_factory_binds_exact_verified_sdk_evidence_no_effect(
     assert intent.stage_operation_id == setup[1].stage_operation_id
     assert intent.script_sha256 == gui.ROLL_SCRIPT_SHA256
     assert intent.item_uids == UIDS
-    assert inventory.playhead_frame == 327
+    assert inventory.playhead_frame == 351
     assert inventory.left_record_duration == 327
     assert inventory.right_record_start == 327
     assert inventory.right_record_duration == 151
     assert inventory.target == TARGET
     assert events == ["verified", "read-only SDK inspected"]
+    assert setup[4].calls == 0
+    assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+@pytest.mark.parametrize("selected", [["old-clip"], None, {"clip": "uid"}])
+def test_phase15_whole_clip_selection_refuses_before_gui_intent(
+    setup: tuple[
+        FakeStore,
+        gui.GuiRollIntent,
+        gui.PristineSdkInventory,
+        gui.TrustedUiReadiness,
+        FakeExecutor,
+    ],
+    monkeypatch: pytest.MonkeyPatch,
+    selected: object,
+) -> None:
+    sdk, _ = _setup_read_only_f1_preparation(setup, monkeypatch)
+    timeline = sdk.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
+    timeline.GetSelectedClips = lambda: selected
+    with pytest.raises(gui.GuiRollRefused, match="whole-clip SDK selection"):
+        stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert setup[4].calls == 0
     assert not (_journal_root(setup) / "gui-intent.json").exists()
 
@@ -715,7 +742,9 @@ def test_phase11_sdk_page_drift_during_os_bracket_never_spends_intent(
     assert not (_journal_root(setup) / "gui-intent.json").exists()
 
 
-@pytest.mark.parametrize("mutation", ["other-video-track", "wrong-audio-index"])
+@pytest.mark.parametrize(
+    "mutation", ["other-video-track", "wrong-audio-index", "V2-unlocked", "V1-locked"]
+)
 def test_phase11_signed_track_topology_must_match_fixed_actor(
     setup: tuple[
         FakeStore,
@@ -732,8 +761,12 @@ def test_phase11_signed_track_topology_must_match_fixed_actor(
     tracks = [dict(row) for row in geometry["tracks"]]
     if mutation == "other-video-track":
         tracks[1]["kind"] = "audio"
-    else:
+    elif mutation == "wrong-audio-index":
         tracks[-1]["index"] = 2
+    elif mutation == "V2-unlocked":
+        tracks[1]["locked"] = False
+    else:
+        tracks[0]["locked"] = True
     monkeypatch.setattr(
         stage,
         "verify_native_result",
@@ -742,7 +775,7 @@ def test_phase11_signed_track_topology_must_match_fixed_actor(
             "nativeGeometry": {**geometry, "tracks": tracks},
         },
     )
-    with pytest.raises(gui.GuiRollRefused, match="signed six-track topology"):
+    with pytest.raises(gui.GuiRollRefused, match="locked track topology"):
         _call(setup)
     assert setup[4].calls == 0
     assert not (_journal_root(setup) / "gui-intent.json").exists()
@@ -769,7 +802,7 @@ def test_phase11_last_moment_sdk_drift_after_fsync_is_unknown_no_replay(
     assert facts["windowFrontmost"] is True
     page = {"value": "edit"}
     sdk.GetCurrentPage = lambda: page["value"]
-    current_timecode = {"value": "00:00:13:15"}
+    current_timecode = {"value": "00:00:14:15"}
     current_project_uid = {"value": TARGET.project_uid}
     timeline = sdk.GetProjectManager().GetCurrentProject().GetCurrentTimeline()
     timeline.GetCurrentTimecode = lambda: current_timecode["value"]
@@ -806,7 +839,7 @@ def test_phase11_last_moment_sdk_drift_after_fsync_is_unknown_no_replay(
     assert os_dispatches == []  # no real transport attempted on late SDK drift
     assert (_journal_root(setup) / "gui-intent.json").is_file()
     page["value"] = "edit"
-    current_timecode["value"] = "00:00:13:15"
+    current_timecode["value"] = "00:00:14:15"
     current_project_uid["value"] = TARGET.project_uid
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
@@ -822,11 +855,11 @@ def test_phase11_last_moment_sdk_drift_after_fsync_is_unknown_no_replay(
     ("timecode", "version", "expected"),
     [
         ("00:00:00:00", None, "playhead must already"),
-        ("00:00:13:14", None, "playhead must already"),
+        ("00:00:14:14", None, "playhead must already"),
         ("00:00:13;15", None, "playhead/timecode unavailable"),
         ("00:00:13:24", None, "timecode component"),
-        ("00:00:13:15", [21, 1, 1, 10, None], "installed SDK differs"),
-        ("00:00:13:15", [21, 1, 2, 10, ""], "installed SDK differs"),
+        ("00:00:14:15", [21, 1, 1, 10, None], "installed SDK differs"),
+        ("00:00:14:15", [21, 1, 2, 10, ""], "installed SDK differs"),
     ],
 )
 def test_owned_f1_input_factory_refuses_unproved_playhead_and_sdk(
@@ -959,7 +992,7 @@ def _injected_os_and_system_events(
             assert process_pid == 1234
             assert expected_window_name == NAME
             assert gui._CONSUMED_DISPATCH.get() is True
-            calls.append("one fixed 24-event invocation")
+            calls.append("one fixed named-Roll invocation")
             if error:
                 raise OSError("lost focus / unknown partial GUI event")
 
@@ -986,10 +1019,10 @@ def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
     sdk, observations = _setup_read_only_f1_preparation(setup, monkeypatch)
     _, calls = _injected_os_and_system_events(monkeypatch)
     report = stage.dispatch_owned_f1_once(setup[0], JOB, sdk)  # type: ignore[arg-type]
-    assert report.state == "unknown" and report.requested_frame_events == 24
+    assert report.state == "unknown" and report.named_roll_commands == 1
     assert report.native_verified is False and report.receipt_issued is False
     assert observations == ["verified", "read-only SDK inspected"] * 2
-    assert calls == ["one fixed 24-event invocation"]
+    assert calls == ["one fixed named-Roll invocation"]
     intent = json.loads((_journal_root(setup) / "gui-intent.json").read_text())
     assert intent["operationId"] == setup[1].stage_operation_id
     assert intent["itemUids"] == list(UIDS)
@@ -1014,7 +1047,6 @@ def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
         ("accessibility", False),
         ("windowFrontmost", False),
         ("modalPresent", True),
-        ("v1Only", False),
         ("keyboardPreset", None),
     ],
 )

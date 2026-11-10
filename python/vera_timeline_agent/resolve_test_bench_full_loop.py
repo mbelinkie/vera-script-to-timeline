@@ -265,7 +265,7 @@ def start(
         page.open_owned_edit_page(
             store, job_id, resolve, case_root=root, authority=authority
         )
-        playhead.position_owned_327(store, job_id, resolve)
+        playhead.position_owned_351(store, job_id, resolve)
         attempted = gui.dispatch_owned_f1_once(store, job_id, resolve)
         _require(
             attempted.state == "unknown"

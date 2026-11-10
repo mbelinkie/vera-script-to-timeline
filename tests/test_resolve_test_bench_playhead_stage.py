@@ -181,9 +181,9 @@ def test_bounded_sdk_navigation_only_on_authenticated_original_target(
     timeline = fake["timeline"]
     timeline.start = start
     timeline.current = start
-    playhead.position_owned_327(fake["store"], JOB, fake["resolve"])
+    playhead.position_owned_351(fake["store"], JOB, fake["resolve"])
     assert timeline.setter_calls == [
-        "00:00:13:15" if start == "00:00:00:00" else "01:00:13:15"
+        "00:00:14:15" if start == "00:00:00:00" else "01:00:14:15"
     ]
     assert timeline.current == timeline.setter_calls[0]
     assert len(fake["inspections"]) == 2
@@ -192,8 +192,8 @@ def test_bounded_sdk_navigation_only_on_authenticated_original_target(
 
 def test_already_on_boundary_does_not_repeat_navigation(fake: dict[str, Any]) -> None:
     timeline = fake["timeline"]
-    timeline.current = "00:00:13:15"
-    playhead.position_owned_327(fake["store"], JOB, fake["resolve"])
+    timeline.current = "00:00:14:15"
+    playhead.position_owned_351(fake["store"], JOB, fake["resolve"])
     assert timeline.setter_calls == []
 
 
@@ -215,7 +215,7 @@ def test_503_d_navigation_never_touches_spent_or_expired_one_use_stage(
             (past.timestamp(), JOB),
         )
     with pytest.raises(queue.QueueError, match=r"journal|deadline"):
-        playhead.position_owned_327(fake["store"], JOB, fake["resolve"])
+        playhead.position_owned_351(fake["store"], JOB, fake["resolve"])
     assert fake["timeline"].setter_calls == []
 
 
@@ -308,7 +308,7 @@ def test_refuses_unsafe_navigation_and_never_claims_edit_receipt(
         timeline.start = "23:59:59:23"
         timeline.current = timeline.start
     with pytest.raises((queue.QueueError, ValueError)):
-        playhead.position_owned_327(fixture["store"], JOB, fixture["resolve"])
+        playhead.position_owned_351(fixture["store"], JOB, fixture["resolve"])
     if mutate not in {"setter_failed", "setter_no_readback", "geometry_drift"}:
         assert timeline.setter_calls == []
 
