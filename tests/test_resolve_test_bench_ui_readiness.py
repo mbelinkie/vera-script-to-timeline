@@ -666,11 +666,13 @@ def test_malformed_or_failed_system_events_never_returns_green(
 
 def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     source = ui._OS_READ_ONLY_JXA
-    assert (
-        "result.normalEditMode = enabled(normalMode) && checked(normalMode) === true"
-        in source
+    assert "result.normalEditMode = false;" in source
+    assert "result.editPage = false;" in source
+    assert "result.v1Only = false;" in source
+    assert "result.trimRollMenu = false;" in source
+    assert 'set normalMode to menu item "Normal Edit Mode"' in (
+        ui._OS_ACTOR_MENU_READ_ONLY_APPLESCRIPT
     )
-    assert "menuItem(proc, 'Trim', ['Normal Edit Mode'])" in source
     for forbidden in (
         ".activate(",
         ".click(",
@@ -695,15 +697,9 @@ def test_fixed_jxa_never_activates_clicks_or_changes_keyboard_or_tcc() -> None:
     assert "result.automation = noPromptOSStatusAllowed(permission);" in source
     assert "const osProcessPid = proc.unixId();" in source
     assert "osProcessPid !== result.processPid" in source
-    assert "['V1', 'V2', 'V3', 'V4', 'V5', 'A1']" in source
-    assert "AXMenuItemCmdChar" in source
-    assert "AXMenuItemCmdModifiers" in source
-    assert "'Active Panel Selection', 'Timeline'" in source
-    assert "'Nudge', 'One Frame Right'" in source
-    assert "'4', 0, 'Command-4'" in source
-    assert "'.', 8, '.'" in source
-    assert "attr(item, 'AXMenuItemCmdChar') !== expectedChar" in source
-    assert "attr(item, 'AXMenuItemCmdModifiers') !== expectedModifiers" in source
+    assert "const states = autoSelectStates(proc, auto);" not in source
+    assert "result.keyboardFocus = shortcut(" not in source
+    assert "result.keyboardNudge = shortcut(" not in source
 
 
 def test_503_d_os_menu_marks_match_fixed_actor_before_journal() -> None:
@@ -814,49 +810,25 @@ console.log(JSON.stringify([good.descriptorType, noData, noDescriptor, wrongType
 
 
 def test_batched_autoselect_menu_queries_preserve_missing_and_unknown() -> None:
-    """Execute the fixed JXA submenu reader with mocked AX item references."""
+    """No misleading Qt marks: direct actor menu proof is bounded and read-only."""
     source = ui._OS_READ_ONLY_JXA
-    start = source.index("function autoSelectStates(proc, tracks) {")
-    helper = source[start : source.index("\nfunction run() {", start)]
-    assert "const states = autoSelectStates(proc, auto);" in source
-    program = (
-        helper
-        + """
-const tracks = ['V1', 'A1', 'A2', 'A3', 'A4', 'A5'];
-let rootCalls = 0;
-let missing = null;
-const marks = {V1:true, A1:false, A2:false, A3:false, A4:false, A5:false};
-function menuItem(_p, menu, path) {
-  rootCalls++;
-  if (missing === 'root') return null;
-  if (menu !== 'Timeline' || path.join('/') !== 'Auto Select') throw Error('path');
-  return {menus:[{menuItems:{byName(name) {
-    const track = name.replace('Auto Select/Deselect ', '');
-    return {exists() {return track !== missing;}, track};
-  }}}]};
-}
-function checked(item) { return marks[item.track]; }
-const valid = autoSelectStates({}, tracks);
-missing = 'A2';
-const absent = autoSelectStates({}, tracks);
-missing = 'root';
-const noSubmenu = autoSelectStates({}, tracks);
-console.log(JSON.stringify({valid, absent, noSubmenu, rootCalls}));
-"""
-    )
-    completed = subprocess.run(
-        ["node", "-e", program],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
-    assert json.loads(completed.stdout) == {
-        "valid": [True, False, False, False, False, False],
-        "absent": [True, False, None, False, False, False],
-        "noSubmenu": [None] * 6,
-        "rootCalls": 3,
-    }
+    assert "const states = autoSelectStates(proc, auto);" not in source
+    actor = ui._OS_ACTOR_MENU_READ_ONLY_APPLESCRIPT
+    for required in (
+        'menu item "Deselect All"',
+        'menu item "Auto Deselect All Tracks"',
+        'menu item "Auto Select/Deselect V1"',
+        'menu item "Normal Edit Mode"',
+        'menu item "Start to Playhead"',
+        "unix id is not expectedPid",
+        "name of front window) is not expectedWindow",
+        'value of attribute "AXMain"',
+        "exists sheet 1 of front window",
+        'return "READY"',
+    ):
+        assert required in actor
+    for forbidden in ("click ", "keystroke ", "set frontmost", "activate "):
+        assert forbidden not in actor
 
 
 def _write_keyboard_preferences(tmp_path: Any) -> tuple[Any, Any]:
@@ -945,6 +917,7 @@ def test_observer_rejects_changed_live_keyboard_preferences(
     def replaced(_args: object, **_kwargs: object) -> Any:
         snapshot = os_snapshot()
         snapshot["keyboardPreset"] = None
+        snapshot["trimRollMenu"] = False
         # Still a valid default preset. Only the *two-read change detection*
         # can catch this mid-probe change, not the parser's preset validation.
         config.write_text(config.read_text() + "\n")
@@ -965,6 +938,17 @@ def test_observer_returns_raw_not_authenticated_data(
     monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
 
     def run(args: list[str], **kwargs: object) -> Any:
+        assert kwargs["timeout"] == 12
+        if args[2] == "AppleScript":
+            assert args[:5] == [
+                "/usr/bin/osascript",
+                "-l",
+                "AppleScript",
+                "-e",
+                ui._OS_ACTOR_MENU_READ_ONLY_APPLESCRIPT,
+            ]
+            assert args[5:] == ["1234", os_snapshot()["windowName"]]
+            return SimpleNamespace(returncode=0, stdout="READY\n")
         assert args[:5] == [
             "/usr/bin/osascript",
             "-l",
@@ -972,13 +956,70 @@ def test_observer_returns_raw_not_authenticated_data(
             "-e",
             ui._OS_READ_ONLY_JXA,
         ]
-        assert kwargs["timeout"] == 12
+        snapshot = os_snapshot()
+        snapshot["keyboardPreset"] = None
+        snapshot["trimRollMenu"] = False
+        return SimpleNamespace(returncode=0, stdout=json.dumps(snapshot))
+
+    monkeypatch.setattr(subprocess, "run", run)
+    assert ui.MacReadOnlyObserver().observe() == os_snapshot()
+
+
+def test_observer_refuses_forged_jxa_menu_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    config, preset = _write_keyboard_preferences(tmp_path)
+    monkeypatch.setattr(ui, "_KEYBOARD_CONFIG_PATH", config)
+    monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
+
+    def run(args: list[str], **_kwargs: object) -> Any:
+        assert args[2] == "JavaScript", "no second OS actor after forged proof"
         snapshot = os_snapshot()
         snapshot["keyboardPreset"] = None
         return SimpleNamespace(returncode=0, stdout=json.dumps(snapshot))
 
     monkeypatch.setattr(subprocess, "run", run)
-    assert ui.MacReadOnlyObserver().observe() == os_snapshot()
+    with pytest.raises(gui.GuiRollRefused, match="menu readiness must come"):
+        ui.MacReadOnlyObserver().observe()
+
+
+@pytest.mark.parametrize(
+    "automation,menu_exit,menu_output",
+    [
+        (False, 0, "READY\n"),
+        (True, 1, "READY\n"),
+        (True, 0, "NOT_READY\n"),
+    ],
+)
+def test_observer_menu_requires_prior_tcc_and_exact_actor_result(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
+    automation: bool,
+    menu_exit: int,
+    menu_output: str,
+) -> None:
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    config, preset = _write_keyboard_preferences(tmp_path)
+    monkeypatch.setattr(ui, "_KEYBOARD_CONFIG_PATH", config)
+    monkeypatch.setattr(ui, "_KEYBOARD_PRESETS_PATH", preset)
+    calls: list[str] = []
+
+    def run(args: list[str], **_kwargs: object) -> Any:
+        calls.append(args[2])
+        if args[2] == "JavaScript":
+            snapshot = os_snapshot()
+            snapshot["keyboardPreset"] = None
+            snapshot["automation"] = automation
+            snapshot["trimRollMenu"] = False
+            return SimpleNamespace(returncode=0, stdout=json.dumps(snapshot))
+        assert args[2] == "AppleScript" and automation is True
+        return SimpleNamespace(returncode=menu_exit, stdout=menu_output)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    observed = ui.MacReadOnlyObserver().observe()
+    assert observed["trimRollMenu"] is False
+    assert calls == (["JavaScript", "AppleScript"] if automation else ["JavaScript"])
 
 
 def test_observer_does_not_trust_forged_preset_claim(
@@ -992,7 +1033,8 @@ def test_observer_does_not_trust_forged_preset_claim(
         subprocess,
         "run",
         lambda *_args, **_kwargs: SimpleNamespace(
-            returncode=0, stdout=json.dumps(os_snapshot())
+            returncode=0,
+            stdout=json.dumps({**os_snapshot(), "trimRollMenu": False}),
         ),
     )
     with pytest.raises(gui.GuiRollRefused, match="keyboard preset must come"):

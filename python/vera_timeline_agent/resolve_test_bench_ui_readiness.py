@@ -289,34 +289,19 @@ function run() {
     // represents frontmost process + AXMain, NOT an inferred AXFocused mark.
     result.windowFrontmost = attr(win, 'AXMain') === true;
     result.modalPresent = win.sheets().length !== 0;
-    const edit = menuItem(proc, 'Workspace', ['Switch to Page', 'Edit']);
-    result.editPage = checked(edit) === true;
-    const focused = attr(proc, 'AXFocusedUIElement');
-    // No guessing from a visible timeline. AX must identify the focused area.
-    result.timelineFocused = focused !== null &&
-      attr(focused, 'AXRoleDescription') === 'timeline';
-    // Native six-track M4 is V1-V5 plus A1, per the signed Phase10 matrix.
-    const auto = ['V1', 'V2', 'V3', 'V4', 'V5', 'A1'];
-    const states = autoSelectStates(proc, auto);
-    result.v1Only = states[0] === true && states.slice(1).every(s => s === false);
-    const normalMode = menuItem(proc, 'Trim', ['Normal Edit Mode']);
-    result.normalEditMode = enabled(normalMode) && checked(normalMode) === true;
-    // Check all named setup and effect menu availability; no AX mark inference.
-    result.trimRollMenu = menuItem(proc, 'Edit', ['Deselect All']) !== null &&
-      enabled(menuItem(proc, 'Timeline',
-        ['Auto Select', 'Auto Deselect All Tracks'])) &&
-      enabled(menuItem(proc, 'Timeline', ['Auto Select', 'Auto Select/Deselect V1'])) &&
-      enabled(normalMode) &&
-      menuItem(proc, 'Trim', ['Roll', 'Start to Playhead']) !== null;
-    result.nudgeMenu = enabled(menuItem(proc, 'Trim', ['Nudge', 'One Frame Right']));
-    result.keyboardFocus = shortcut(menuItem(
-      proc, 'Workspace', ['Active Panel Selection', 'Timeline']
-    ), '4', 0, 'Command-4');
-    // kAXMenuItemModifierNoCommand=8; the F1 actuator uses the menu item,
-    // but we also verify its expected default accelerator without using it.
-    result.keyboardNudge = shortcut(menuItem(
-      proc, 'Trim', ['Nudge', 'One Frame Right']
-    ), '.', 8, '.');
+    // Qt does not expose reliable selected page, timeline focus, Auto Select,
+    // normal-mode marks or shortcut characters through AX. Never assert these
+    // fields true. The official SDK independently checks Edit + pinned 11 UIDs
+    // on both sides of this OS check, and the fixed actuator performs absolute
+    // menu setup before its one native effect. Required named menu availability
+    // is independently read below via bounded AppleScript, not many JXA proxy
+    // menu traversals (which exhaust the real host's osascript process).
+    result.editPage = false;
+    result.timelineFocused = false;
+    result.v1Only = false;
+    result.normalEditMode = false;
+    result.trimRollMenu = false;
+    result.nudgeMenu = false;
   } catch (_) {
     // An AX/TCC exception must fail closed; never synthesize positive flags.
     result.automation = false;
@@ -324,6 +309,54 @@ function run() {
   return JSON.stringify(result);
 }
 run();
+""".strip()
+
+
+_OS_ACTOR_MENU_READ_ONLY_APPLESCRIPT = r"""
+on run argv
+  if (count of argv) is not 2 then error "exact PID and window required"
+  set expectedPidText to item 1 of argv
+  if expectedPidText is "" then error "missing PID"
+  repeat with digitChar in characters of expectedPidText
+    if (contents of digitChar) is not in "0123456789" then error "invalid PID"
+  end repeat
+  set expectedPid to expectedPidText as integer
+  set expectedWindow to item 2 of argv
+  tell application "System Events"
+    set matches to every application process whose unix id is expectedPid
+    if (count of matches) is not 1 then error "Resolve PID changed"
+    tell item 1 of matches
+      if unix id is not expectedPid then error "Resolve PID changed"
+      if bundle identifier is not "com.blackmagic-design.DaVinciResolve" then
+        error "Resolve bundle changed"
+      end if
+      if not frontmost or (count of windows) is not 1 then
+        error "Resolve window no longer frontmost/unique"
+      end if
+      if (name of front window) is not expectedWindow then
+        error "Resolve selected window changed"
+      end if
+      if (value of attribute "AXMain" of front window) is not true then
+        error "Resolve main window changed"
+      end if
+      if (exists sheet 1 of front window) then error "Resolve modal opened"
+      set editMenu to menu "Edit" of menu bar 1
+      set deselectItem to menu item "Deselect All" of editMenu
+      set timelineMenu to menu "Timeline" of menu bar 1
+      set autoMenu to menu 1 of menu item "Auto Select" of timelineMenu
+      set allOff to menu item "Auto Deselect All Tracks" of autoMenu
+      set v1On to menu item "Auto Select/Deselect V1" of autoMenu
+      set trimMenu to menu "Trim" of menu bar 1
+      set normalMode to menu item "Normal Edit Mode" of trimMenu
+      set rollMenu to menu 1 of menu item "Roll" of trimMenu
+      set rollItem to menu item "Start to Playhead" of rollMenu
+      if not (exists deselectItem) or not (enabled of allOff) or ¬
+         not (enabled of v1On) or not (enabled of normalMode) or ¬
+         not (exists rollItem) then error "required single-Roll menus unavailable"
+      return "READY"
+    end tell
+  end tell
+end run
 """.strip()
 
 
@@ -465,6 +498,45 @@ class MacReadOnlyObserver:
             raise gui.GuiRollRefused("read-only macOS UI probe unavailable") from error
         if not isinstance(snapshot, dict):
             raise gui.GuiRollRefused("untrusted OS UI observation format")
+        if snapshot.get("trimRollMenu") is not False:
+            raise gui.GuiRollRefused("menu readiness must come from the fixed actor")
+        # The no-prompt TCC/AX query above must succeed *before* another
+        # System Events actor. This fixed, read-only AppleScript checks the
+        # very same named setup menus the pinned one-Roll actuator will use.
+        # It binds PID, bundle, frontmost, exact window, AXMain and no modal,
+        # rather than trusting inaccessible Qt checkmarks or setting a flag.
+        if (
+            snapshot.get("automation") is True
+            and snapshot.get("accessibility") is True
+            and type(snapshot.get("processPid")) is int
+            and snapshot.get("processPid") == snapshot.get("frontmostPid")
+            and type(snapshot.get("windowName")) is str
+            and snapshot.get("windowFrontmost") is True
+            and snapshot.get("modalPresent") is False
+        ):
+            try:
+                menus = subprocess.run(
+                    [
+                        "/usr/bin/osascript",
+                        "-l",
+                        "AppleScript",
+                        "-e",
+                        _OS_ACTOR_MENU_READ_ONLY_APPLESCRIPT,
+                        str(snapshot["processPid"]),
+                        snapshot["windowName"],
+                    ],
+                    check=False,
+                    text=True,
+                    capture_output=True,
+                    timeout=12,
+                )
+            except (OSError, subprocess.TimeoutExpired) as error:
+                raise gui.GuiRollRefused(
+                    "read-only actor menu preflight unavailable"
+                ) from error
+            snapshot["trimRollMenu"] = (
+                menus.returncode == 0 and menus.stdout.strip() == "READY"
+            )
         # The fixed JXA deliberately cannot assert a keyboard preset by itself.
         # Reject any OS-supplied green preset, then check the same bytes again
         # after the live OS observation (refuse a preset swapped mid-preflight).
