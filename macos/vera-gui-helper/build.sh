@@ -55,9 +55,11 @@ xcrun swiftc -O -sdk "$sdk" \
     -import-objc-header "$root/Sources/VERAGUIHelper/LegacyForeground.h" \
     "$root/Sources/VERAGUIHelper/FocusProtocol.swift" \
     "$root/Sources/VERAGUIHelper/TargetInspection.swift" \
+    "$root/Sources/VERAGUIHelper/RollActuator.swift" \
+    "$root/Sources/VERAGUIHelper/RollSpool.swift" \
     "$root/Sources/VERAGUIHelper/main.swift" \
     "$stage/LegacyForeground.o" \
-    -framework AppKit -framework ApplicationServices -framework Carbon \
+    -framework AppKit -framework ApplicationServices -framework Carbon -framework Security \
     -o "$app/Contents/MacOS/VERAGUIHelper"
 codesign --force --sign "$identity" --options runtime --timestamp=none "$app"
 codesign --verify --strict --deep --verbose=2 "$app"

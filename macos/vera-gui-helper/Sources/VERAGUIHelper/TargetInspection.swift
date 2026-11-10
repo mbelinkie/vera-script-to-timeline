@@ -4,9 +4,8 @@ import Carbon
 import Foundation
 import CoreFoundation
 
-// Phase 3 deliberately supports observation and the bounded, previously
-// measured legacy foreground route ONLY. There is no AXPress in this file.
-// The Phase 4 Roll actor must be implemented and tested independently.
+// Focus and bounded observation remain independent of the fixed one-use Roll
+// actor. This file supplies its exact-target and fresh-menu read-only probes.
 enum TargetInspection {
     private static let resolveBundle = "com.blackmagic-design.DaVinciResolve"
     private static let rollPath = ["Trim", "Roll", "Start to Playhead"]
@@ -64,17 +63,18 @@ enum TargetInspection {
         return found[0]
     }
 
-    private static func rollEnabled(_ app: AXUIElement) throws -> Bool {
+    private static func menuLeaf(_ app: AXUIElement, path: [String]) throws -> AXUIElement {
+        guard !path.isEmpty else { throw FocusFailure.refused("empty menu path") }
         let rawBar = try attribute(app, kAXMenuBarAttribute as String)
         guard CFGetTypeID(rawBar) == AXUIElementGetTypeID() else {
             throw FocusFailure.refused("AX menu bar element has wrong type")
         }
         let bar = rawBar as! AXUIElement
         var current = bar
-        for name in rollPath {
+        for (index, name) in path.enumerated() {
             let item = try exactChild(current, name)
-            if name == rollPath.last {
-                return try bool(item, kAXEnabledAttribute as String)
+            if index == path.count - 1 {
+                return item
             }
             let children = try elements(item, kAXChildrenAttribute as String)
             guard children.count == 1 else {
@@ -82,7 +82,11 @@ enum TargetInspection {
             }
             current = children[0]
         }
-        throw FocusFailure.refused("Roll leaf unavailable")
+        throw FocusFailure.refused("menu leaf unavailable")
+    }
+
+    private static func rollEnabled(_ app: AXUIElement) throws -> Bool {
+        return try bool(menuLeaf(app, path: rollPath), kAXEnabledAttribute as String)
     }
 
     private static func noSheet(_ window: AXUIElement) throws -> Bool {
@@ -119,14 +123,16 @@ enum TargetInspection {
         return true
     }
 
-    private static func authenticatedWindow(_ request: FocusRequest) throws -> (AXUIElement, AXUIElement) {
+    private static func authenticatedWindow(
+        pid: pid_t, windowName: String
+    ) throws -> (AXUIElement, AXUIElement) {
         try requireAccessibility()
-        guard let process = NSRunningApplication(processIdentifier: request.resolvePid),
+        guard let process = NSRunningApplication(processIdentifier: pid),
               !process.isTerminated,
               process.bundleIdentifier == resolveBundle else {
             throw FocusFailure.refused("Resolve PID/bundle mismatch or process replaced")
         }
-        let app = AXUIElementCreateApplication(request.resolvePid)
+        let app = AXUIElementCreateApplication(pid)
         // We refuse if Resolve has multiple windows, including a deceptive
         // same-title duplicate. The case must have one exact disposable window.
         let windows = try elements(app, kAXWindowsAttribute as String)
@@ -136,8 +142,8 @@ enum TargetInspection {
         let window = windows[0]
         var windowPID: pid_t = 0
         guard AXUIElementGetPid(window, &windowPID) == .success,
-              windowPID == request.resolvePid,
-              try title(window) == request.windowName else {
+              windowPID == pid,
+              try title(window) == windowName else {
             throw FocusFailure.refused("Resolve window identity mismatch")
         }
         guard let role = try attribute(window, kAXRoleAttribute as String) as? String,
@@ -153,24 +159,53 @@ enum TargetInspection {
         return (app, window)
     }
 
-    static func inspect(_ request: FocusRequest) throws -> FocusObservation {
-        let (app, window) = try authenticatedWindow(request)
+    static func inspectTarget(pid: pid_t, windowName: String) throws -> FocusObservation {
+        let (app, window) = try authenticatedWindow(pid: pid, windowName: windowName)
         // Re-evaluate PID/bundle and modal state immediately before reporting
         // any readiness, not merely when finding the original handle.
-        guard let process = NSRunningApplication(processIdentifier: request.resolvePid),
+        guard let process = NSRunningApplication(processIdentifier: pid),
               !process.isTerminated, process.bundleIdentifier == resolveBundle,
               try !bool(window, kAXModalAttribute as String),
               try noSheet(window) else {
             throw FocusFailure.refused("target changed or acquired modal/sheet")
         }
         let main = try bool(window, kAXMainAttribute as String)
-        let foreground = NSWorkspace.shared.frontmostApplication?.processIdentifier == request.resolvePid
+        let foreground = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
         let enabled = try rollEnabled(app)
         return FocusObservation(
-            pid: request.resolvePid, bundle: resolveBundle,
-            title: request.windowName, main: main, foreground: foreground,
+            pid: pid, bundle: resolveBundle,
+            title: windowName, main: main, foreground: foreground,
             noModalOrSheet: true, rollEnabled: enabled
         )
+    }
+
+    static func inspect(_ request: FocusRequest) throws -> FocusObservation {
+        return try inspectTarget(pid: request.resolvePid, windowName: request.windowName)
+    }
+
+    // Every query traverses the real hierarchy anew; the slash in
+    // "Auto Select/Deselect V1" is a literal title, never a path separator.
+    static func menuEnabled(pid: pid_t, windowName: String, path: [String]) throws -> Bool {
+        let (app, _) = try authenticatedWindow(pid: pid, windowName: windowName)
+        return try bool(menuLeaf(app, path: path), kAXEnabledAttribute as String)
+    }
+
+    static func pressMenu(pid: pid_t, windowName: String, path: [String]) throws -> AXError {
+        // Revalidate PID, window, foreground, modal/sheet AND menu enabled
+        // immediately before the only AXPress. Never retry an ambiguous API.
+        let observation = try inspectTarget(pid: pid, windowName: windowName)
+        guard observation.main && observation.foreground && observation.noModalOrSheet else {
+            throw FocusFailure.refused("lost exact foreground/main editor")
+        }
+        let (app, _) = try authenticatedWindow(pid: pid, windowName: windowName)
+        let leaf = try menuLeaf(app, path: path)
+        guard try bool(leaf, kAXEnabledAttribute as String) else {
+            throw FocusFailure.refused("menu leaf disabled before press")
+        }
+        guard AXUIElementSetMessagingTimeout(leaf, 1.0) == .success else {
+            throw FocusFailure.refused("AX messaging timeout could not be bounded")
+        }
+        return AXUIElementPerformAction(leaf, kAXPressAction as CFString)
     }
 
     static func perform(
@@ -190,7 +225,9 @@ enum TargetInspection {
                 guard request.operation == "focus" else {
                     throw FocusFailure.refused("unsupported focus operation")
                 }
-                let (_, window) = try authenticatedWindow(request)
+                let (_, window) = try authenticatedWindow(
+                    pid: request.resolvePid, windowName: request.windowName
+                )
                 let setResult = AXUIElementSetAttributeValue(
                     window, kAXMainAttribute as CFString, kCFBooleanTrue
                 )

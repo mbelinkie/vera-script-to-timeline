@@ -114,6 +114,7 @@ struct FocusObservation {
 final class FocusSpool {
     private let directory: URL
     private var inFlight = false
+    var isBusy: Bool { inFlight }
 
     init() throws {
         guard let base = ProcessInfo.processInfo.environment["VERA_GUI_HELPER_SPOOL"],

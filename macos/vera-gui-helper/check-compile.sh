@@ -17,9 +17,11 @@ xcrun swiftc -Onone -sdk "$sdk" \
     -import-objc-header "$root/Sources/VERAGUIHelper/LegacyForeground.h" \
     "$root/Sources/VERAGUIHelper/FocusProtocol.swift" \
     "$root/Sources/VERAGUIHelper/TargetInspection.swift" \
+    "$root/Sources/VERAGUIHelper/RollActuator.swift" \
+    "$root/Sources/VERAGUIHelper/RollSpool.swift" \
     "$root/Sources/VERAGUIHelper/main.swift" \
     "$scratch/LegacyForeground.o" \
-    -framework AppKit -framework ApplicationServices -framework Carbon \
+    -framework AppKit -framework ApplicationServices -framework Carbon -framework Security \
     -o "$scratch/VERAGUIHelper"
 test -x "$scratch/VERAGUIHelper"
 echo 'SWIFT_HELPER_COMPILE_LINK_PASS (no signing, app launch, or GUI operation)'
