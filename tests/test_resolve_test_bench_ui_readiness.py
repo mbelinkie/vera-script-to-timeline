@@ -538,9 +538,14 @@ def test_existing_resolve_activation_fails_closed(
         subprocess,
         "run",
         lambda argv, **kwargs: (
-            argv[:4] == ["/usr/bin/osascript", "-l", "JavaScript", "-e"]
-            and kwargs["timeout"] == 8
-            and SimpleNamespace(returncode=returncode, stdout=stdout)
+            SimpleNamespace(returncode=0, stdout="")
+            if argv == ["/usr/bin/open", "-g", "-a", "System Events"]
+            and kwargs["timeout"] == 5
+            else (
+                argv[:4] == ["/usr/bin/osascript", "-l", "JavaScript", "-e"]
+                and kwargs["timeout"] == 8
+                and SimpleNamespace(returncode=returncode, stdout=stdout)
+            )
         ),
     )
     with pytest.raises(gui.GuiRollRefused, match="foreground activation"):

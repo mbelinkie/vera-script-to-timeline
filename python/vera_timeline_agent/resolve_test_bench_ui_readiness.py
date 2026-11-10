@@ -372,6 +372,23 @@ class MacResolveForegroundActivator:
         if platform.system() != "Darwin":
             raise gui.GuiRollRefused("Resolve foreground activation requires macOS")
         try:
+            # System Events is an auto-terminating Apple helper: a pristine
+            # native render may last longer than its idle lifetime. Without
+            # starting the helper in the background, the subsequent no-prompt
+            # Automation query returns -600 despite valid Terminal TCC/AX and
+            # makes the pinned one-use GUI operation fail prematurely. This
+            # ONLY brings up System Events, not Resolve or a media project;
+            # the existing OS actor still independently requires the exact
+            # running Resolve PID, installed build, TCC 0 and foreground readback.
+            helper = subprocess.run(
+                ["/usr/bin/open", "-g", "-a", "System Events"],
+                check=False,
+                text=True,
+                capture_output=True,
+                timeout=5,
+            )
+            if helper.returncode != 0:
+                raise gui.GuiRollRefused("System Events helper unavailable")
             completed = subprocess.run(
                 [
                     "/usr/bin/osascript",
