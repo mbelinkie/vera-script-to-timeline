@@ -350,6 +350,11 @@ def observe_settled_edited_geometry(
                     type(uid) is str and uid in original and uid not in observed,
                     "new, aliased or duplicate item UID after dispatch",
                 )
+                _require(
+                    original[uid]["trackId"] == spec["trackId"]
+                    and original[uid]["kind"] == kind,
+                    "native item changed track after dispatch",
+                )
                 start, duration = item.GetStart(False), item.GetDuration(False)
                 _require(
                     type(start) is int and type(duration) is int,

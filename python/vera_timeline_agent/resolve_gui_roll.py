@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-import subprocess
 import threading
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -275,35 +274,6 @@ class SystemEventsRollExecutor:
         # Historical System Events transport is permanently ineligible for the
         # new versioned helper authority. This cannot execute a consumed case.
         raise GuiRollRefused("legacy System Events actuator has no helper authority")
-        # An argv value, not interpolated into AppleScript or a shell string.
-        # Subprocess exit 0 says nothing about the *native* result.
-        if not _safe_name(expected_window_name):
-            raise GuiRollRefused("invalid fixed window name")
-        _require(type(process_pid) is int and process_pid > 0, "invalid exact PID")
-        # Re-read the same selected SDK target/page/playhead immediately
-        # before launching osascript. A late drift *after* journal fsync is
-        # UNKNOWN and may NEVER be retried.
-        verified[2]()
-        try:
-            result = subprocess.run(
-                [
-                    "/usr/bin/osascript",
-                    "-e",
-                    ROLL_APPLESCRIPT,
-                    str(process_pid),
-                    expected_window_name,
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=90,
-            )
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise GuiRollUnknown(
-                "GUI result unknown; inspect without replay"
-            ) from error
-        if result.returncode != 0:
-            raise GuiRollUnknown("GUI result unknown; inspect without replay")
 
 
 def _safe_name(value: object) -> bool:

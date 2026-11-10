@@ -524,7 +524,13 @@ def verify_prepared_identity(
         and set(session) == {"path", "sha256"}
         and type(session["path"]) is str
         and Path(session["path"]).is_absolute()
-        and not Path(session["path"]).is_symlink(),
+        and ".." not in Path(session["path"]).parts
+        and not any(
+            component.is_symlink()
+            for component in (Path(session["path"]), *Path(session["path"]).parents)
+        )
+        and Path(session["path"]).is_file()
+        and Path(session["path"]).stat().st_nlink == 1,
         "aliased or invalid edited-session path",
     )
     prepared = output._session(Path(session["path"]), session["sha256"])

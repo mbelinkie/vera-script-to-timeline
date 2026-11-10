@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from _actor_pin import actor_pin
+from vera_timeline_agent import resolve_gui_roll as native_roll
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_edited_stage as edited
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
@@ -445,6 +446,7 @@ def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
     [
         "pristine_unverified",
         "gui_uncertain",
+        "geometry_unknown",
         "edited_unknown",
         "revision_unknown",
         "rebuild_unknown",
@@ -506,8 +508,15 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
         )
 
     monkeypatch.setattr(helper_stage, "dispatch_owned_helper_f1_once", attempt)
+
+    def observe_geometry(*_args: Any) -> None:
+        if stop == "geometry_unknown":
+            raise native_roll.GuiRollUnknown(
+                "unexpected geometry; no edited receipt or retry"
+            )
+
     monkeypatch.setattr(
-        helper_stage, "observe_settled_edited_geometry", lambda *_: None
+        helper_stage, "observe_settled_edited_geometry", observe_geometry
     )
 
     def edited_host(*_: Any) -> None:
@@ -538,10 +547,12 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
     monkeypatch.setattr(
         m4, "publish", lambda *_: pytest.fail("false final M4 acceptance")
     )
-    with pytest.raises(queue.QueueError):
+    with pytest.raises((queue.QueueError, native_roll.GuiRollUnknown)):
         loop.start(fixture["config_path"], fixture["auth_path"], frozen_commit=FROZEN)
     assert (fixture["root"] / "complete-loop-intent.json").is_file()
     assert events[:1] == ["pristine"]
+    if stop == "geometry_unknown":
+        assert events == ["pristine", "claim:edited", "gui"]
     assert "rebuild" in events if stop == "rebuild_unknown" else "rebuild" not in events
 
 

@@ -428,6 +428,7 @@ def test_mac_runner_uses_exact_native_process_census_not_system_events(
         "duplicate-uid",
         "wrong-target",
         "wrong-track",
+        "moved-uid",
     ],
 )
 def test_read_only_sdk_settle_is_bounded_and_never_infers_edit(
@@ -503,6 +504,7 @@ def test_read_only_sdk_settle_is_bounded_and_never_infers_edit(
                     "duplicate-uid",
                     "wrong-target",
                     "wrong-track",
+                    "moved-uid",
                 }
                 and self.row["itemUid"] == "uid-1"
             ):
@@ -538,6 +540,10 @@ def test_read_only_sdk_settle_is_bounded_and_never_infers_edit(
                 matched = matched[:1]
             if mode == "duplicate-uid" and kind == "video" and index == 1:
                 matched = matched + matched[:1]
+            if mode == "moved-uid" and kind == "video" and index == 1:
+                matched = [row for row in matched if row["itemUid"] != "uid-1"]
+            if mode == "moved-uid" and kind == "video" and index == 2:
+                matched = [*matched, items[1]]
             return [Item(row) for row in matched]
 
     timeline = Timeline()
@@ -567,7 +573,10 @@ def test_read_only_sdk_settle_is_bounded_and_never_infers_edit(
             )
 
 
-@pytest.mark.parametrize("change", ["tamper-record", "alias-path", "reverify-drift"])
+@pytest.mark.parametrize(
+    "change",
+    ["tamper-record", "alias-path", "alias-parent", "hardlink-path", "reverify-drift"],
+)
 def test_prepared_edit_session_pin_reauthenticated_without_gui_effect(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -582,6 +591,16 @@ def test_prepared_edit_session_pin_reauthenticated_without_gui_effect(
     if change == "alias-path":
         (tmp_path / "alias-session.json").symlink_to(ref["path"])
         ref["path"] = str(tmp_path / "alias-session.json")
+    elif change == "alias-parent":
+        real_parent = tmp_path / "session-parent"
+        real_parent.mkdir()
+        (real_parent / "session.json").write_text("synthetic-only")
+        (tmp_path / "alias-parent").symlink_to(real_parent, target_is_directory=True)
+        ref["path"] = str(tmp_path / "alias-parent" / "session.json")
+    elif change == "hardlink-path":
+        hardlink = tmp_path / "hardlink-session.json"
+        hardlink.hardlink_to(Path(ref["path"]))
+        ref["path"] = str(hardlink)
     pristine = {
         "capture": {"sha256": "b" * 64},
         "session": {"path": str(tmp_path / "pristine.json"), "sha256": "c" * 64},
@@ -623,5 +642,5 @@ def test_prepared_edit_session_pin_reauthenticated_without_gui_effect(
         (ValueError, queue.QueueError), match=r"pin|aliased|admission changed"
     ):
         edited.verify_prepared_identity(object(), job, config, ref)  # type: ignore[arg-type]
-    if change in {"tamper-record", "alias-path"}:
+    if change in {"tamper-record", "alias-path", "alias-parent", "hardlink-path"}:
         assert effects == []

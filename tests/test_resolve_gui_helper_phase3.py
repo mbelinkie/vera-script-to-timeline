@@ -93,18 +93,19 @@ def test_direct_aqua_launchagent_is_no_edit_and_no_python_worker() -> None:
 
 
 def test_phase3_build_and_source_never_expose_menu_press() -> None:
-    sources = [
-        (HELPER / "Sources/VERAGUIHelper/FocusProtocol.swift").read_text(),
-        (HELPER / "Sources/VERAGUIHelper/TargetInspection.swift").read_text(),
-        (HELPER / "Sources/VERAGUIHelper/main.swift").read_text(),
-    ]
+    # The later Phase 4 intentionally adds the separately authorized Roll
+    # actuator to TargetInspection. The Phase 3 focus/inspection entrypoint
+    # must stay incapable of executing a menu leaf.
+    focus_source = (HELPER / "Sources/VERAGUIHelper/FocusProtocol.swift").read_text()
+    inspection_source = (
+        HELPER / "Sources/VERAGUIHelper/TargetInspection.swift"
+    ).read_text()
+    focus_entrypoint = inspection_source.split("    static func perform(", 1)[1]
     source = "\n".join(
         line
-        for text in sources
-        for line in text.splitlines()
+        for line in (focus_source + focus_entrypoint).splitlines()
         if not line.lstrip().startswith("//")
     )
-    # This phase may read menu attributes but must never execute a menu leaf.
     assert "AXUIElementPerformAction" not in source
     assert "AXPress" not in source
     assert "osascript" not in source
