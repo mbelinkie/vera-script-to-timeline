@@ -77,6 +77,53 @@ JOB = "resolve-reverse-" + "f" * 32
 OPERATION = "original-edited-operation"
 
 
+def _mock_fresh_sessions(tmp_path: Path) -> tuple[Any, Any]:
+    """Two independently admitted sessions, same authenticated source bytes."""
+    excluded = {"phase", "invocationId", "binding", "caseId", "target", "lane"}
+    common = {
+        **{key: "a" * 64 for key in edited._SESSION_CONTEXT_FIELDS - excluded},
+        "caseId": "synthetic-312",
+        "target": TARGET,
+        "lane": "bounded_output_residual_consistency",
+    }
+
+    def session(phase: str) -> Any:
+        return SimpleNamespace(
+            context={
+                **common,
+                "phase": phase,
+                "invocationId": f"{phase}-unique-invocation",
+                "binding": {"kind": "baseline", "bindingSha256": "b" * 64},
+            },
+            release_root=tmp_path / phase / "release",
+            admission=SimpleNamespace(
+                package_root=tmp_path / phase / "admitted" / "package",
+                admission_path=tmp_path / phase / "admitted" / "receipt.json",
+                profile="studio",
+            ),
+        )
+
+    return session("edited"), session("pristine")
+
+
+def test_separate_edited_admission_requires_identical_signed_source(
+    tmp_path: Path,
+) -> None:
+    fresh, original = _mock_fresh_sessions(tmp_path)
+    assert edited._same_source_distinct_edited_admission(fresh, original)
+    fresh.context["packageSha256"] = "c" * 64
+    assert not edited._same_source_distinct_edited_admission(fresh, original)
+    fresh.context["packageSha256"] = "a" * 64
+    fresh.context["target"] = {**TARGET, "timelineUid": "foreign"}
+    assert not edited._same_source_distinct_edited_admission(fresh, original)
+    fresh.context["target"] = TARGET
+    fresh.admission.package_root = original.admission.package_root
+    assert not edited._same_source_distinct_edited_admission(fresh, original)
+    fresh.admission.package_root = tmp_path / "edited" / "admitted" / "package"
+    fresh.context["invocationId"] = original.context["invocationId"]
+    assert not edited._same_source_distinct_edited_admission(fresh, original)
+
+
 class Store:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -340,13 +387,14 @@ def test_no_original_m4_receipt_without_true_terminal_and_independent_proof(
     host_state: str,
 ) -> None:
     store = evidence["store"]
-    admitted = SimpleNamespace(package_root=tmp_path / "package", profile="studio")
-    controller = SimpleNamespace(
-        context={"phase": "edited", "caseId": "synthetic-312", "target": TARGET},
-        release_root=tmp_path / "release",
-        admission=admitted,
+    controller, baseline_controller = _mock_fresh_sessions(tmp_path)
+    monkeypatch.setattr(
+        output,
+        "_session",
+        lambda path, sha: (
+            controller if path == Path(SESSION["path"]) else baseline_controller
+        ),
     )
-    monkeypatch.setattr(output, "_session", lambda path, sha: controller)
     manifest = tmp_path / "manifest.json"
     manifest.write_text("trusted-manifest")
     monkeypatch.setattr(workflow, "_verify_output_release", lambda path: manifest)
@@ -408,13 +456,14 @@ def test_signed_host_and_exact_boundary_promote_one_original_edited_receipt(
     evidence: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = evidence["store"]
-    admitted = SimpleNamespace(package_root=tmp_path / "package", profile="studio")
-    controller = SimpleNamespace(
-        context={"phase": "edited", "caseId": "synthetic-312", "target": TARGET},
-        release_root=tmp_path / "release",
-        admission=admitted,
+    controller, baseline_controller = _mock_fresh_sessions(tmp_path)
+    monkeypatch.setattr(
+        output,
+        "_session",
+        lambda path, sha: (
+            controller if path == Path(SESSION["path"]) else baseline_controller
+        ),
     )
-    monkeypatch.setattr(output, "_session", lambda *_: controller)
     manifest = tmp_path / "manifest.json"
     manifest.write_text("pinned installed release")
     monkeypatch.setattr(workflow, "_verify_output_release", lambda *_: manifest)

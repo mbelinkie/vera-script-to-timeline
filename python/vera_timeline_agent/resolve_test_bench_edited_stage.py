@@ -194,6 +194,65 @@ def _prove_edited(
     )
 
 
+_SESSION_CONTEXT_FIELDS = frozenset(
+    {
+        "binding",
+        "caseId",
+        "executionDependenciesSha256",
+        "executionDocumentSha256",
+        "hostSourceGraphSha256",
+        "installedReleaseSha256",
+        "invocationId",
+        "lane",
+        "manifestSha256",
+        "nativeSourceGraphSha256",
+        "originalDependenciesSha256",
+        "originalDocumentSha256",
+        "packageSha256",
+        "phase",
+        "preflightSha256",
+        "preparationSha256",
+        "profileSha256",
+        "reportSha256",
+        "runtimeSha256",
+        "target",
+    }
+)
+
+
+def _same_source_distinct_edited_admission(controller: Any, baseline: Any) -> bool:
+    """Authenticate byte-identical source across *distinct* sealed admissions.
+
+    `prepare_output_session` copies the same source into a fresh output root for
+    each phase, so the two verified admission.package_root absolute paths MUST
+    differ. Checking absolute path equality rejects all legitimate fresh M4
+    edited sessions. Compare the complete closed set of source/manifest/runtime
+    hashes instead, after the independent loader authenticated each admission.
+    """
+    edited_context = controller.context
+    pristine_context = baseline.context
+    if (
+        not isinstance(edited_context, dict)
+        or not isinstance(pristine_context, dict)
+        or set(edited_context) != _SESSION_CONTEXT_FIELDS
+        or set(pristine_context) != _SESSION_CONTEXT_FIELDS
+        or edited_context.get("phase") != "edited"
+        or pristine_context.get("phase") != "pristine"
+        or edited_context.get("invocationId") == pristine_context.get("invocationId")
+        or edited_context.get("binding", {}).get("kind") != "baseline"
+        or pristine_context.get("binding", {}).get("kind") != "baseline"
+        or controller.admission.package_root == baseline.admission.package_root
+        or controller.admission.admission_path == baseline.admission.admission_path
+        or controller.release_root == baseline.release_root
+        or controller.admission.profile != baseline.admission.profile
+    ):
+        return False
+    excluded = {"phase", "invocationId", "binding"}
+    return {k: v for k, v in edited_context.items() if k not in excluded} == {
+        k: v for k, v in pristine_context.items() if k not in excluded
+    }
+
+
 def continue_from_session(
     store: queue.Store,
     job_id: str,
@@ -230,12 +289,9 @@ def continue_from_session(
             Path(pristine["session"]["path"]), pristine["session"]["sha256"]
         )
         _require(
-            controller.context.get("phase") == "edited"
+            _same_source_distinct_edited_admission(controller, baseline_controller)
             and controller.context.get("caseId") == plan["caseId"]
-            and controller.context.get("target") == plan["initialTarget"]
-            and controller.admission.package_root
-            == baseline_controller.admission.package_root
-            and controller.admission.profile == baseline_controller.admission.profile,
+            and controller.context.get("target") == plan["initialTarget"],
             "edited session is not a fresh admission of the original source/target",
         )
     manifest = _verify_output_release(controller.release_root)
