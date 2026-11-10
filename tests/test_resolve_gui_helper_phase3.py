@@ -52,6 +52,20 @@ def test_focus_spool_publish_is_private_exclusive_and_fsynced(tmp_path: Path) ->
     assert target.read_bytes() == raw
 
 
+def test_installed_swift_focus_reply_is_byte_canonical_for_python_verifier() -> None:
+    """Physical Phase25 discovered Swift's default escaped '/' in reply schema.
+
+    The no-edit reply can be genuinely READY but falsely rejected by the
+    production Python verifier unless Swift uses this exact canonical format.
+    Keep the reply serializer aligned with queue.canonical, not just parsing.
+    """
+    source = (HELPER / "Sources/VERAGUIHelper/FocusProtocol.swift").read_text()
+    reply = source.split("private func publishReply(", 1)[1]
+    reply = reply.split("\n    func poll(", 1)[0]
+    assert "options: [.sortedKeys, .withoutEscapingSlashes]" in reply
+    assert "+ Data([10])" in reply
+
+
 def test_focus_spool_refuses_public_dir_or_alias(tmp_path: Path) -> None:
     probe = _probe()
     private = tmp_path / "private"

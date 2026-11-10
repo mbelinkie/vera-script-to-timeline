@@ -250,7 +250,9 @@ final class FocusSpool {
             "detail": error ?? "exact read-only target and menu observations complete",
         ]
         if let observation { record["observation"] = observation.json() }
-        let content = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+        // Python's queue.canonical uses sorted keys, unescaped `/` and LF.
+        // An otherwise valid signed focus reply must be byte-canonical too.
+        let content = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys, .withoutEscapingSlashes])
             + Data([10])
         let temp = directory.appendingPathComponent(request.requestId + ".focus-reply.tmp")
         let fd = open(temp.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
