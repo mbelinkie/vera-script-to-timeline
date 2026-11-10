@@ -79,6 +79,12 @@ def _deadline(
     return absolute, str(stages[1]["operation_id"])
 
 
+def _job_actor_pin(store: queue.Store, job_id: str) -> dict[str, object]:
+    from . import resolve_test_bench_gui_stage as stage
+
+    return stage.helper_actor_pin_from_authority(store, job_id)
+
+
 def _consumed_gui(
     store: queue.Store, job_id: str, plan: dict[str, Any], operation: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -100,7 +106,7 @@ def _consumed_gui(
             "operationId",
             "actuatorClass",
             "target",
-            "scriptSha256",
+            "actorPin",
             "captureSha256",
             "itemUids",
             "expiresAt",
@@ -108,12 +114,13 @@ def _consumed_gui(
             "m4PlanSha256",
         }
         and carrier._read(path, 32768) == queue.canonical(intent)
-        and intent["schema"] == "vera.issue473-one-use-f1-gui/v1"
+        and intent["schema"] == "vera.issue473-one-use-f1-gui/v2"
         and intent["jobId"] == job_id
         and intent["operationId"] == operation
         and intent["actuatorClass"] == gui.ACTUATOR_CLASS
         and intent["target"] == plan["initialTarget"]
-        and intent["scriptSha256"] == gui.ROLL_SCRIPT_SHA256
+        and gui._valid_actor_pin(intent["actorPin"])
+        and intent["actorPin"] == _job_actor_pin(store, job_id)
         and intent["captureSha256"] == pristine["capture"]["sha256"]
         and intent["m4PlanSha256"] == hashlib.sha256(queue.canonical(plan)).hexdigest()
         and isinstance(intent["itemUids"], list)

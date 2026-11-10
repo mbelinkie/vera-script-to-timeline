@@ -13,11 +13,12 @@ In particular, this module cannot resurrect the expired historical #473 run.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from . import resolve_gui_roll as gui
 from . import resolve_test_bench_carrier as carrier
@@ -242,12 +243,12 @@ class OriginalM4GuiJournal:
         # An earlier crash, even after writing only part of the O_EXCL file,
         # permanently spends the operation. Never unlink or rewrite it.
         record = {
-            "schema": "vera.issue473-one-use-f1-gui/v1",
+            "schema": "vera.issue473-one-use-f1-gui/v2",
             "jobId": self.job_id,
             "operationId": intent.stage_operation_id,
             "actuatorClass": gui.ACTUATOR_CLASS,
             "target": _target_dict(intent.target),
-            "scriptSha256": intent.script_sha256,
+            "actorPin": intent.actor_pin,
             "captureSha256": intent.pristine_capture_sha256,
             "itemUids": list(intent.item_uids),
             "expiresAt": queue.iso(intent.expires_at),
@@ -382,6 +383,58 @@ def _read_only_playhead_frame(timeline: Any) -> int:
         "actual SDK timeline start frame unavailable",
     )
     return frames(current) - frames(start)
+
+
+def helper_actor_pin_from_authority(
+    store: queue.Store, job_id: str
+) -> dict[str, object]:
+    """Bind the edited operation to the Conductor's original case attribution.
+
+    A journal must never invent its own actor pin or fall back to AppleScript.
+    """
+    plan = m4._load_plan(store, job_id)
+    path = m4._jobdir(store, job_id) / "f1-gui-edit" / "actor-authority.json"
+    try:
+        raw = carrier._read(path, 32768)
+        record = json.loads(raw)
+        _require(
+            isinstance(record, dict)
+            and set(record) == {"jobId", "actorPin", "planSha256"}
+            and record["jobId"] == job_id
+            and record["planSha256"]
+            == hashlib.sha256(queue.canonical(plan)).hexdigest()
+            and raw == queue.canonical(record),
+            "immutable per-job helper identity missing",
+        )
+        from . import resolve_gui_helper_protocol as helper
+
+        helper.validate_actor_pin(record["actorPin"])
+        return cast(dict[str, object], record["actorPin"])
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise gui.GuiRollRefused(
+            "missing, altered or obsolete case helper actor pin"
+        ) from error
+
+
+def seal_case_actor_pin(store: queue.Store, job_id: str, actor_pin: object) -> None:
+    """Bind one immutable Conductor authority actor to the fresh job before edit."""
+    from . import resolve_gui_helper_protocol as helper
+
+    helper.validate_actor_pin(actor_pin)
+    plan = m4._load_plan(store, job_id)
+    _require(plan["caseId"] == helper.FIXTURE, "original fixture identity required")
+    root = m4._jobdir(store, job_id) / "f1-gui-edit"
+    carrier._private(root, create=True)
+    carrier._once(
+        root / "actor-authority.json",
+        queue.canonical(
+            {
+                "jobId": job_id,
+                "actorPin": actor_pin,
+                "planSha256": hashlib.sha256(queue.canonical(plan)).hexdigest(),
+            }
+        ),
+    )
 
 
 def prepare_owned_f1_inputs(
@@ -563,7 +616,7 @@ def prepare_owned_f1_inputs(
         item_uids=inventory.item_uids,
         left_item_uid=inventory.left_item_uid,
         right_item_uid=inventory.right_item_uid,
-        script_sha256=gui.ROLL_SCRIPT_SHA256,
+        actor_pin=helper_actor_pin_from_authority(store, job_id),
         expires_at=min(deadline, now + timedelta(minutes=4)),
     )
     _verify_original_capture(store, job_id, intent, inventory)

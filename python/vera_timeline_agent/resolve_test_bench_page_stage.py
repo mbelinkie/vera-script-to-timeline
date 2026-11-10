@@ -65,7 +65,7 @@ def open_owned_edit_page(
         and authority.get("operation") == "M4.edited.one-use-gui-roll"
         and authority.get("fromFrame") == 327
         and authority.get("toFrame") == 351
-        and authority.get("scriptSha256") == roll.ROLL_SCRIPT_SHA256,
+        and roll._valid_actor_pin(authority.get("actorPin")),
         "fresh one-start case authority and source binding missing",
     )
     targets = provision.completed(case_root / "provision")

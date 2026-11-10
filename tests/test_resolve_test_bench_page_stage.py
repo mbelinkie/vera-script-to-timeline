@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_gui_roll as roll
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
@@ -87,7 +88,7 @@ def prepared(
         "operation": "M4.edited.one-use-gui-roll",
         "fromFrame": 327,
         "toFrame": 351,
-        "scriptSha256": roll.ROLL_SCRIPT_SHA256,
+        "actorPin": actor_pin(),
         "initialTarget": dict(INITIAL),
         "freshTarget": dict(FRESH),
     }

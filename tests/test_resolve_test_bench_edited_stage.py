@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_gui_roll as gui
 from vera_timeline_agent import resolve_native_owner as owner
 from vera_timeline_agent import resolve_test_bench_campaign as campaign
@@ -200,18 +201,28 @@ def evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     root = store.root / JOB / "f1-gui-edit"
     carrier._private(root, create=True)
     intent = {
-        "schema": "vera.issue473-one-use-f1-gui/v1",
+        "schema": "vera.issue473-one-use-f1-gui/v2",
         "jobId": JOB,
         "operationId": OPERATION,
         "actuatorClass": gui.ACTUATOR_CLASS,
         "target": TARGET,
-        "scriptSha256": gui.ROLL_SCRIPT_SHA256,
+        "actorPin": actor_pin(),
         "captureSha256": REF["sha256"],
         "itemUids": [f"item-{i}" for i in range(11)],
         "expiresAt": queue.iso(current + timedelta(minutes=4)),
         "m4DeadlineAt": deadline,
         "m4PlanSha256": hashlib.sha256(queue.canonical(plan)).hexdigest(),
     }
+    carrier._once(
+        root / "actor-authority.json",
+        queue.canonical(
+            {
+                "jobId": JOB,
+                "actorPin": actor_pin(),
+                "planSha256": hashlib.sha256(queue.canonical(plan)).hexdigest(),
+            }
+        ),
+    )
     carrier._once(root / "gui-intent.json", queue.canonical(intent))
     return {"store": store, "plan": plan, "intent": intent, "root": root}
 
@@ -229,7 +240,7 @@ def test_consumed_f1_is_not_evidence_of_success(evidence: dict[str, Any]) -> Non
     ("field", "replacement"),
     [
         ("operationId", "other-operation"),
-        ("scriptSha256", "0" * 64),
+        ("actorPin", "0" * 64),
         ("captureSha256", "0" * 64),
         ("itemUids", [f"replacement-{i}" for i in range(11)]),
         ("m4DeadlineAt", "2999-01-01T00:00:00Z"),
@@ -543,4 +554,23 @@ def test_missing_gui_journal_never_creates_native_stage(
 ) -> None:
     (evidence["root"] / "gui-intent.json").rename(evidence["root"] / "elsewhere.json")
     with pytest.raises((ValueError, OSError)):
+        edited._consumed_gui(evidence["store"], JOB, evidence["plan"], OPERATION)
+
+
+def test_post_roll_actor_identity_must_match_pre_roll_case_pin(
+    evidence: dict[str, Any],
+) -> None:
+    """Same syntactically valid actor source but DIFFERENT installed binary fails."""
+    old = evidence["intent"]
+    altered = copy.deepcopy(old)
+    altered["actorPin"]["binary"]["sha256"] = "e" * 64
+    path = evidence["root"] / "gui-intent.json"
+    path.write_bytes(queue.canonical(altered))
+    with pytest.raises(queue.QueueError, match="GUI journal/source/operation"):
+        edited._consumed_gui(evidence["store"], JOB, evidence["plan"], OPERATION)
+    # Old AppleScript-only journal can never become a V2 helper receipt.
+    legacy = copy.deepcopy(old)
+    legacy["schema"] = "vera.issue473-one-use-f1-gui/v1"
+    path.write_bytes(queue.canonical(legacy))
+    with pytest.raises(queue.QueueError, match="GUI journal/source/operation"):
         edited._consumed_gui(evidence["store"], JOB, evidence["plan"], OPERATION)

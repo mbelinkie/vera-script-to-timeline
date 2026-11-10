@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import sqlite3
@@ -13,9 +14,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_gui_roll as gui
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_gui_stage as stage
+from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent import resolve_test_queue_m4 as m4
 
 JOB = "resolve-reverse-" + "a" * 32
@@ -70,7 +73,7 @@ def setup(
         item_uids=UIDS,
         left_item_uid=UIDS[0],
         right_item_uid=UIDS[1],
-        script_sha256=gui.ROLL_SCRIPT_SHA256,
+        actor_pin=actor_pin(),
         expires_at=now + timedelta(minutes=2),
     )
     inventory = gui.PristineSdkInventory(
@@ -208,8 +211,23 @@ def setup(
                 SHA if ordinal == 0 else None,
             ),
         )
+    store = FakeStore(db, tmp_path / "queue")
+    from vera_timeline_agent import resolve_test_bench_carrier as carrier
+
+    actor_root = store.root / JOB / "f1-gui-edit"
+    carrier._private(actor_root, create=True)
+    carrier._once(
+        actor_root / "actor-authority.json",
+        queue.canonical(
+            {
+                "jobId": JOB,
+                "actorPin": actor_pin(),
+                "planSha256": hashlib.sha256(queue.canonical(plan)).hexdigest(),
+            }
+        ),
+    )
     yield (
-        FakeStore(db, tmp_path / "queue"),
+        store,
         intent,
         inventory,
         readiness,
@@ -262,7 +280,7 @@ def test_exact_new_stage_spends_once_never_fabricates_receipt(
     assert journal["actuatorClass"] == "gui"
     assert journal["operationId"] == "fresh-edited-001"
     assert journal["captureSha256"] == SHA
-    assert journal["scriptSha256"] == gui.ROLL_SCRIPT_SHA256
+    assert journal["actorPin"] == actor_pin()
     with pytest.raises(gui.GuiRollUnknown, match="no GUI dispatch"):
         _call(setup)
     assert setup[4].calls == 1
@@ -414,7 +432,7 @@ def test_gui_admission_fails_closed_on_source_and_environment(
     elif corruption == "missing-permission":
         readiness = replace(readiness, accessibility_trusted=False)
     elif corruption == "unreviewed-script":
-        intent = replace(intent, script_sha256="b" * 64)
+        intent = replace(intent, actor_pin={**actor_pin(), "schema": "legacy"})
     else:
         inventory = replace(inventory, item_uids=(*UIDS[:-1], "substituted"))
     with pytest.raises((gui.GuiRollUnknown, gui.GuiRollRefused)):
@@ -611,7 +629,7 @@ def test_owned_f1_input_factory_binds_exact_verified_sdk_evidence_no_effect(
     sdk, events = _setup_read_only_f1_preparation(setup, monkeypatch)
     intent, inventory = stage.prepare_owned_f1_inputs(setup[0], JOB, sdk)  # type: ignore[arg-type]
     assert intent.stage_operation_id == setup[1].stage_operation_id
-    assert intent.script_sha256 == gui.ROLL_SCRIPT_SHA256
+    assert intent.actor_pin == actor_pin()
     assert intent.item_uids == UIDS
     assert inventory.playhead_frame == 351
     assert inventory.left_record_duration == 327
@@ -1026,7 +1044,7 @@ def test_integrated_owner_sdk_os_journal_fixed_one_start_unknown(
     intent = json.loads((_journal_root(setup) / "gui-intent.json").read_text())
     assert intent["operationId"] == setup[1].stage_operation_id
     assert intent["itemUids"] == list(UIDS)
-    assert intent["scriptSha256"] == gui.ROLL_SCRIPT_SHA256
+    assert intent["actorPin"] == actor_pin()
     assert (
         setup[0]
         .db.execute("SELECT state FROM reverse_stages WHERE ordinal=1")
@@ -1172,3 +1190,47 @@ def test_owner_lock_contention_cannot_start_os_or_intent(
         os.close(fd)
     assert events == [] and calls == []
     assert not (_journal_root(setup) / "gui-intent.json").exists()
+
+
+def test_new_case_actor_pin_is_immutable_and_old_authority_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a fresh, original-job sealed actor can survive into edited admission."""
+    plan = {"caseId": "synthetic-312", "initialTarget": stage._target_dict(TARGET)}
+    monkeypatch.setattr(m4, "_load_plan", lambda *_: plan)
+    root = tmp_path / "queue"
+    root.mkdir(mode=0o700)
+    store = SimpleNamespace(root=root)
+    stage.seal_case_actor_pin(store, JOB, actor_pin())  # type: ignore[arg-type]
+    assert stage.helper_actor_pin_from_authority(store, JOB) == actor_pin()  # type: ignore[arg-type]
+    pin_file = root / JOB / "f1-gui-edit" / "actor-authority.json"
+    original = pin_file.read_bytes()
+    with pytest.raises(FileExistsError):
+        stage.seal_case_actor_pin(store, JOB, actor_pin())  # type: ignore[arg-type]
+    assert pin_file.read_bytes() == original
+    pin_file.write_bytes(
+        queue.canonical(
+            {
+                "jobId": JOB,
+                "actorPin": {"scriptSha256": gui.ROLL_SCRIPT_SHA256},
+                "planSha256": hashlib.sha256(queue.canonical(plan)).hexdigest(),
+            }
+        )
+    )
+    with pytest.raises(gui.GuiRollRefused, match="obsolete case helper actor pin"):
+        stage.helper_actor_pin_from_authority(store, JOB)  # type: ignore[arg-type]
+
+
+def test_case_actor_pin_rejects_aliased_private_spool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(m4, "_load_plan", lambda *_: {"caseId": "synthetic-312"})
+    root = tmp_path / "queue"
+    root.mkdir(mode=0o700)
+    job = root / JOB
+    job.mkdir(mode=0o700)
+    link = job / "f1-gui-edit"
+    link.symlink_to(tmp_path / "other", target_is_directory=True)
+    store = SimpleNamespace(root=root)
+    with pytest.raises(queue.QueueError, match="unsafe carrier directory"):
+        stage.seal_case_actor_pin(store, JOB, actor_pin())  # type: ignore[arg-type]

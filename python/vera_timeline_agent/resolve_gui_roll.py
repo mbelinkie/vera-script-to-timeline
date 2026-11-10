@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Protocol
 
+from . import resolve_gui_helper_protocol as helper
 from . import resolve_native_owner
 
 ACTUATOR_CLASS: Literal["gui"] = "gui"
@@ -192,7 +193,7 @@ class GuiRollIntent:
     item_uids: tuple[str, ...]
     left_item_uid: str
     right_item_uid: str
-    script_sha256: str
+    actor_pin: dict[str, object]
     expires_at: datetime
 
 
@@ -268,6 +269,9 @@ class SystemEventsRollExecutor:
             == ROLL_SCRIPT_SHA256,
             "reviewed GUI script changed before OS dispatch",
         )
+        # Historical System Events transport is permanently ineligible for the
+        # new versioned helper authority. This cannot execute a consumed case.
+        raise GuiRollRefused("legacy System Events actuator has no helper authority")
         # An argv value, not interpolated into AppleScript or a shell string.
         # Subprocess exit 0 says nothing about the *native* result.
         if not _safe_name(expected_window_name):
@@ -362,11 +366,8 @@ def _validate(
         "authenticated pristine receipt differs",
     )
     _require(
-        type(intent.script_sha256) is str
-        and intent.script_sha256 == ROLL_SCRIPT_SHA256
-        and hashlib.sha256(ROLL_APPLESCRIPT.encode("utf-8")).hexdigest()
-        == ROLL_SCRIPT_SHA256,
-        "reviewed GUI script hash differs",
+        _valid_actor_pin(intent.actor_pin),
+        "versioned helper source/signing identity differs",
     )
     _require(
         intent.target == inventory.target and inventory.pristine_verified is True,
@@ -453,6 +454,14 @@ def _validate(
         readiness.keyboard_preset == KEYBOARD_PRESET,
         "unexpected preset provenance",
     )
+
+
+def _valid_actor_pin(value: object) -> bool:
+    try:
+        helper.validate_actor_pin(value)
+    except helper.HelperProtocolError:
+        return False
+    return True
 
 
 class OneUseGuiRollActuator:

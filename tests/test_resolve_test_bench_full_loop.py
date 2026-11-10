@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from vera_timeline_agent import resolve_gui_roll as roll
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_edited_stage as edited
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
@@ -94,7 +94,9 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "operation": "M4.edited.one-use-gui-roll",
         "fromFrame": 327,
         "toFrame": 351,
-        "scriptSha256": roll.ROLL_SCRIPT_SHA256,
+        "actorPin": actor_pin(),
+        "authorizationBasis": "standing-producer-instruction",
+        "authorityIssuedBy": "VERA Conductor",
     }
     auth_path = root / "producer-approval.json"
     carrier._once(auth_path, queue.canonical(auth))
@@ -122,7 +124,9 @@ def prepared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "operation",
         "fromFrame",
         "toFrame",
-        "scriptSha256",
+        "actorPin",
+        "authorizationBasis",
+        "authorityIssuedBy",
         "initialTarget",
         "freshTarget",
         "newField",
@@ -195,6 +199,12 @@ def test_503_d_old_or_recycled_authority_never_starts_native(
     assert not (prepared["root"] / "complete-loop-intent.json").exists()
 
 
+def _assert_test_actor(job: str, actor: object, fixture: dict[str, Any]) -> None:
+    """Stub only the persistent queue in otherwise synthetic orchestration."""
+    assert job == ORIGINAL_JOB
+    assert actor == fixture["authority"]["actorPin"]
+
+
 def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay(
     prepared: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
@@ -212,6 +222,13 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
             "jobId": ORIGINAL_JOB,
         }
 
+    actor_seals: list[tuple[str, object]] = []
+
+    def seal_actor(_store: Any, job: str, actor: object) -> None:
+        assert job == ORIGINAL_JOB and actor == fixture["authority"]["actorPin"]
+        actor_seals.append((job, actor))
+
+    monkeypatch.setattr(gui, "seal_case_actor_pin", seal_actor)
     monkeypatch.setattr(runner, "start", fake_pristine)
     monkeypatch.setattr(queue, "Store", lambda _root: SimpleNamespace(root="injected"))
 
@@ -288,6 +305,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "frozenCommit": FROZEN,
         "sourceGraphSha256": SOURCE_GRAPH,
     }
+    assert actor_seals == [(ORIGINAL_JOB, fixture["authority"]["actorPin"])]
     assert events == [
         "pristine:verified",
         "claim:edited",
@@ -346,6 +364,11 @@ def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
             "jobId": ORIGINAL_JOB,
         },
     )
+    monkeypatch.setattr(
+        gui,
+        "seal_case_actor_pin",
+        lambda _store, job, actor: _assert_test_actor(job, actor, fixture),
+    )
     monkeypatch.setattr(queue, "Store", lambda *_: object())
     monkeypatch.setattr(loop, "_advance", lambda *_: events.append("stage-claimed"))
 
@@ -403,6 +426,11 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
         }
 
     monkeypatch.setattr(runner, "start", beginning)
+    monkeypatch.setattr(
+        gui,
+        "seal_case_actor_pin",
+        lambda _store, job, actor: _assert_test_actor(job, actor, fixture),
+    )
     monkeypatch.setattr(queue, "Store", lambda _root: object())
     monkeypatch.setattr(
         loop, "_advance", lambda _store, _job, name: events.append("claim:" + name)

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_gui_roll as gui
 
 NOW = datetime(2026, 11, 8, 20, 0, tzinfo=UTC)
@@ -31,7 +32,7 @@ def valid() -> tuple[
         item_uids=UIDS,
         left_item_uid=UIDS[0],
         right_item_uid=UIDS[1],
-        script_sha256=gui.ROLL_SCRIPT_SHA256,
+        actor_pin=actor_pin(),
         expires_at=NOW + timedelta(minutes=5),
     )
     inventory = gui.PristineSdkInventory(
@@ -159,8 +160,11 @@ def test_script_changed_before_admission_does_not_spend_or_dispatch(
 ) -> None:
     intent, inventory, readiness = valid()
     journal, executor = FakeJournal(), FakeExecutor()
-    monkeypatch.setattr(gui, "ROLL_APPLESCRIPT", gui.ROLL_APPLESCRIPT + "\n-- changed")
-    with pytest.raises(gui.GuiRollRefused, match="reviewed GUI script hash differs"):
+    altered = {**intent.actor_pin, "sourceManifestSha256": "0" * 64}
+    intent = replace(intent, actor_pin=altered)
+    with pytest.raises(
+        gui.GuiRollRefused, match="helper source/signing identity differs"
+    ):
         gui.OneUseGuiRollActuator(journal, executor).attempt(
             intent, inventory, readiness, now=NOW
         )
@@ -226,7 +230,7 @@ def test_single_dispatch_reports_unknown_only(admitted_owner: None) -> None:
         ("intent", {"item_uids": (*UIDS[:-1], "replaced-item")}),
         ("intent", {"left_item_uid": "other-item"}),
         ("intent", {"right_item_uid": UIDS[0]}),
-        ("intent", {"script_sha256": "b" * 64}),
+        ("intent", {"actor_pin": {**actor_pin(), "schema": "legacy"}}),
         ("intent", {"expires_at": NOW}),
         ("inventory", {"target": replace(TARGET, timeline_uid="new-native-timeline")}),
         ("inventory", {"pristine_verified": False}),
@@ -423,24 +427,21 @@ def test_fixed_production_executor_only_passes_pinned_script_and_argv(
             intent, inventory, readiness, now=NOW
         )
     assert journal.calls == 0 and calls == []
-    # Only injected tests can explicitly simulate the internal attested-host
-    # scope; production mints it after original-M4 owner/SDK/OS revalidation.
+    # An old executor must NEVER use new actor pins, even with a simulated
+    # host-attested context. The one-use intent remains spent/UNKNOWN.
     scope = gui._VERIFIED_HOST_DISPATCH.set((NAME, 1234, lambda: None))
     try:
-        result = gui.OneUseGuiRollActuator(
-            journal, gui.SystemEventsRollExecutor()
-        ).attempt(intent, inventory, readiness, now=NOW)
+        with pytest.raises(gui.GuiRollUnknown, match="no retry"):
+            gui.OneUseGuiRollActuator(journal, gui.SystemEventsRollExecutor()).attempt(
+                intent, inventory, readiness, now=NOW
+            )
     finally:
         gui._VERIFIED_HOST_DISPATCH.reset(scope)
-    assert result.state == "unknown" and not result.native_verified
     assert journal.spent == {intent.stage_operation_id}
-    assert len(calls) == 1
-    argv, options = calls[0]
-    assert argv == ["/usr/bin/osascript", "-e", gui.ROLL_APPLESCRIPT, "1234", NAME]
-    assert options["timeout"] == 90 and options["check"] is False
+    assert calls == []
     with pytest.raises(gui.GuiRollRefused, match="no consumed"):
         gui.SystemEventsRollExecutor().execute_once("bad\nwindow", 1234)
-    assert len(calls) == 1
+    assert calls == []
 
 
 def test_wrapped_real_executor_cannot_bypass_host_attestation(

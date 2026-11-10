@@ -1,0 +1,444 @@
+"""Closed, source-pinned VERA GUI helper protocol and one-use Python spool client.
+
+The signed Aqua LaunchAgent, NOT Python, owns the future GUI process. This
+module issues no native GUI/Resolve operation and never infers an edit from a
+helper reply. The helper is deliberately not installed until phase 3.
+"""
+
+from __future__ import annotations
+
+import ctypes
+import hashlib
+import json
+import re
+import subprocess
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any, cast
+
+from . import resolve_test_bench_carrier as carrier
+from . import resolve_test_queue as queue
+from .roundtrip_v2_records import ROOT, ProofNativeError, _file_hash
+
+BUNDLE_ID = "org.vera.resolve-test-bench.gui"
+SOURCE_SCHEMA = "vera.gui-helper-source/v1"
+ACTOR_SCHEMA = "vera.gui-helper-actor/v1"
+REQUEST_SCHEMA = "vera.gui-helper-request/v1"
+REPLY_SCHEMA = "vera.gui-helper-reply/v1"
+OPERATION = "M4.edited.roll-start-to-playhead"
+FIXTURE = "synthetic-312"
+SOURCE_FILES = (
+    "macos/vera-gui-helper/Info.plist",
+    "macos/vera-gui-helper/LaunchAgent.plist.in",
+    "macos/vera-gui-helper/build.sh",
+    "macos/vera-gui-helper/Sources/VERAGUIHelper/main.swift",
+)
+HEX64 = re.compile(r"[0-9a-f]{64}\Z")
+HEX40 = re.compile(r"[0-9a-f]{40}\Z")
+TOKEN = re.compile(r"[a-zA-Z0-9_-]{8,128}\Z")
+BINARY_KEYS = frozenset(
+    {
+        "executablePath",
+        "sha256",
+        "codeDirectoryHash",
+        "designatedRequirement",
+        "teamIdentifier",
+        "bundleIdentifier",
+    }
+)
+ACTOR_KEYS = frozenset({"schema", "sourceManifestSha256", "binary"})
+REQUEST_KEYS = frozenset(
+    {
+        "schema",
+        "requestId",
+        "deadlineAt",
+        "operation",
+        "jobId",
+        "stageOperationId",
+        "fixtureId",
+        "trialId",
+        "resolvePid",
+        "windowName",
+        "projectUid",
+        "timelineUid",
+        "sourceGraphSha256",
+        "actorPin",
+        "pristineCaptureSha256",
+        "oneUseIntentSha256",
+        "authoritySha256",
+    }
+)
+REPLY_KEYS = frozenset(
+    {
+        "schema",
+        "requestId",
+        "requestSha256",
+        "status",
+        "helperPid",
+        "actorPin",
+        "detail",
+    }
+)
+
+# Every caller-derived field must equal the *same* Conductor-authorized case.
+# The helper may not choose a new request ID, deadline, trial, actor, PID, or
+# sealed source/authority/one-use receipt to re-issue an existing operation.
+OWNER_KEYS = REQUEST_KEYS - {"schema", "operation", "fixtureId"}
+
+
+class HelperProtocolError(ValueError):
+    """No helper effect was admitted or a response is untrusted/unknown."""
+
+
+def _check(ok: bool, message: str) -> None:
+    if not ok:
+        raise HelperProtocolError(message)
+
+
+def _hex(value: Any) -> bool:
+    return type(value) is str and HEX64.fullmatch(value) is not None
+
+
+def _token(value: Any) -> bool:
+    return type(value) is str and TOKEN.fullmatch(value) is not None
+
+
+def _name(value: Any) -> bool:
+    return (
+        type(value) is str
+        and 0 < len(value) <= 160
+        and all(31 < ord(c) < 127 or ord(c) > 127 for c in value)
+    )
+
+
+def _parse(raw: bytes, keys: frozenset[str], schema: str) -> dict[str, Any]:
+    _check(type(raw) is bytes and len(raw) <= 32768, "bounded record required")
+
+    def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            _check(key not in result, "duplicate JSON member")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(
+                HelperProtocolError("nonfinite JSON")
+            ),
+        )
+    except (UnicodeError, ValueError, TypeError) as error:
+        raise HelperProtocolError("invalid canonical JSON") from error
+    _check(
+        type(value) is dict and set(value) == keys and value.get("schema") == schema,
+        "wrong schema or extra/missing fields",
+    )
+    _check(queue.canonical(value) == raw, "noncanonical JSON")
+    return cast(dict[str, Any], value)
+
+
+def source_manifest() -> dict[str, Any]:
+    """No manifest file hashes itself; hardlinks and symlink paths are refused."""
+    directory = ROOT / "macos/vera-gui-helper"
+    paths = sorted(
+        file for file in directory.rglob("*") if file.is_file() or file.is_symlink()
+    )
+    names = {str(file.relative_to(ROOT)) for file in paths}
+    _check(
+        set(SOURCE_FILES) <= names, "required helper source/build/launch files absent"
+    )
+    try:
+        files = {str(file.relative_to(ROOT)): _file_hash(file) for file in paths}
+    except (OSError, ProofNativeError) as error:
+        raise HelperProtocolError(
+            "unsafe helper source path or source drift"
+        ) from error
+    return {"schema": SOURCE_SCHEMA, "bundleIdentifier": BUNDLE_ID, "files": files}
+
+
+def source_manifest_sha256() -> str:
+    return hashlib.sha256(queue.canonical(source_manifest())).hexdigest()
+
+
+def verify_source_manifest(
+    expected: str, claimed: dict[str, Any] | None = None
+) -> None:
+    _check(_hex(expected), "actor source digest required")
+    current = source_manifest()
+    _check(
+        expected == hashlib.sha256(queue.canonical(current)).hexdigest(),
+        "helper source changed",
+    )
+    if claimed is not None:
+        _check(
+            type(claimed) is dict
+            and set(claimed) == {"schema", "bundleIdentifier", "files"}
+            and claimed == current,
+            "claimed helper source manifest differs",
+        )
+
+
+def validate_binary_pin(binary: Any) -> dict[str, str]:
+    _check(
+        type(binary) is dict and set(binary) == BINARY_KEYS,
+        "closed signed binary pin required",
+    )
+    _check(
+        type(binary["executablePath"]) is str
+        and Path(binary["executablePath"]).is_absolute()
+        and ".." not in Path(binary["executablePath"]).parts
+        and binary["executablePath"].endswith(
+            "/VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"
+        ),
+        "exact helper app executable path required",
+    )
+    _check(
+        _hex(binary["sha256"])
+        and type(binary["codeDirectoryHash"]) is str
+        and HEX40.fullmatch(binary["codeDirectoryHash"]) is not None,
+        "binary and code-directory digests required",
+    )
+    _check(
+        type(binary["designatedRequirement"]) is str
+        and 20 <= len(binary["designatedRequirement"]) <= 2048
+        and 'identifier "' + BUNDLE_ID + '"' in binary["designatedRequirement"],
+        "helper designated requirement required",
+    )
+    _check(
+        type(binary["teamIdentifier"]) is str
+        and re.fullmatch(r"[A-Z0-9]{10}", binary["teamIdentifier"]) is not None
+        and binary["bundleIdentifier"] == BUNDLE_ID,
+        "helper team/bundle signing identity required",
+    )
+    return cast(dict[str, str], binary)
+
+
+def observe_installed_binary(binary: dict[str, str]) -> dict[str, str]:
+    """Read-only macOS code signature probe; no fabricated fallback on Linux."""
+    path = Path(binary["executablePath"])
+    try:
+        actual = _file_hash(path)
+    except (OSError, ProofNativeError) as error:
+        raise HelperProtocolError("unsafe installed executable path") from error
+    _check(actual == "sha256:" + binary["sha256"], "installed executable changed")
+    try:
+        validated = subprocess.run(
+            ["/usr/bin/codesign", "--verify", "--strict", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+        info = subprocess.run(
+            ["/usr/bin/codesign", "-dv", "--verbose=4", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+        requirement = subprocess.run(
+            ["/usr/bin/codesign", "-dr", "-", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise HelperProtocolError("codesign observation unavailable") from error
+    _check(
+        all(p.returncode == 0 for p in (validated, info, requirement)),
+        "helper code signature invalid",
+    )
+    lines = info.stdout + info.stderr
+    req = requirement.stdout + requirement.stderr
+    _check(
+        re.search(r"(?m)^Identifier=" + re.escape(BUNDLE_ID) + r"$", lines) is not None
+        and re.search(
+            r"(?m)^CDHash=" + re.escape(binary["codeDirectoryHash"]) + r"$", lines
+        )
+        is not None
+        and re.search(
+            r"(?m)^TeamIdentifier=" + re.escape(binary["teamIdentifier"]) + r"$", lines
+        )
+        is not None
+        and binary["designatedRequirement"] in req,
+        "installed helper signing identity drift",
+    )
+    try:
+        still_installed = _file_hash(path)
+    except (OSError, ProofNativeError) as error:
+        raise HelperProtocolError("installed binary changed while verifying") from error
+    _check(
+        still_installed == "sha256:" + binary["sha256"],
+        "executable changed during code signature verification",
+    )
+    return binary
+
+
+def observe_helper_pid(pid: int, executable: str) -> bool:
+    """Bind reply's process ID to the *running* signed bundle executable.
+
+    proc_pidpath returns the actual process image, not a caller-picked name.
+    Refuse on Linux or an unavailable macOS process observer.
+    """
+    if type(pid) is not int or pid <= 0 or type(executable) is not str:
+        return False
+    try:
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+        path = ctypes.create_string_buffer(4096)
+        observed = libproc.proc_pidpath(pid, path, ctypes.sizeof(path))
+        return observed > 0 and path.value.decode("utf-8") == executable
+    except (OSError, ValueError, UnicodeError):
+        return False
+
+
+def validate_actor_pin(
+    value: Any,
+    *,
+    installed: bool = False,
+    observer: Callable[[dict[str, str]], dict[str, str]] = observe_installed_binary,
+) -> dict[str, Any]:
+    _check(
+        type(value) is dict
+        and set(value) == ACTOR_KEYS
+        and value.get("schema") == ACTOR_SCHEMA,
+        "closed helper actor identity required; legacy actuator refused",
+    )
+    verify_source_manifest(value["sourceManifestSha256"])
+    binary = validate_binary_pin(value["binary"])
+    if installed:
+        _check(observer(binary) == binary, "installed helper binary differs")
+    return cast(dict[str, Any], value)
+
+
+def _deadline(value: Any, *, now: datetime) -> None:
+    _check(type(value) is str and value.endswith("Z"), "UTC deadline required")
+    try:
+        expires = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, OverflowError) as error:
+        raise HelperProtocolError("invalid deadline") from error
+    _check(
+        expires.tzinfo is not None and now < expires <= now + timedelta(seconds=120),
+        "helper deadline stale or unbounded",
+    )
+
+
+def validate_request(
+    raw: bytes,
+    *,
+    now: datetime | None = None,
+    installed: bool = False,
+    observer: Callable[[dict[str, str]], dict[str, str]] | None = None,
+    expected: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    value = _parse(raw, REQUEST_KEYS, REQUEST_SCHEMA)
+    _check(
+        _token(value["requestId"])
+        and _token(value["jobId"])
+        and _token(value["stageOperationId"])
+        and _token(value["trialId"]),
+        "invalid request/job/operation/trial identity",
+    )
+    _check(
+        value["operation"] == OPERATION and value["fixtureId"] == FIXTURE,
+        "unsupported helper operation/fixture",
+    )
+    _check(
+        type(value["resolvePid"]) is int
+        and value["resolvePid"] > 0
+        and all(_name(value[k]) for k in ("windowName", "projectUid", "timelineUid")),
+        "target identity invalid",
+    )
+    _check(
+        all(
+            _hex(value[k])
+            for k in (
+                "sourceGraphSha256",
+                "pristineCaptureSha256",
+                "oneUseIntentSha256",
+                "authoritySha256",
+            )
+        ),
+        "source and one-use digests required",
+    )
+    _deadline(value["deadlineAt"], now=datetime.now(UTC) if now is None else now)
+    validate_actor_pin(
+        value["actorPin"],
+        installed=installed,
+        observer=observe_installed_binary if observer is None else observer,
+    )
+    if expected is not None:
+        _check(
+            type(expected) is dict
+            and set(expected) == OWNER_KEYS
+            and all(value[k] == expected[k] for k in OWNER_KEYS),
+            "request does not match the owning job, authority or target",
+        )
+    return value
+
+
+def validate_reply(
+    raw: bytes, request: bytes, *, now: datetime | None = None
+) -> dict[str, Any]:
+    expected = validate_request(request, now=now)
+    reply = _parse(raw, REPLY_KEYS, REPLY_SCHEMA)
+    _check(
+        reply["requestId"] == expected["requestId"]
+        and reply["requestSha256"] == hashlib.sha256(request).hexdigest()
+        and reply["actorPin"] == expected["actorPin"]
+        and type(reply["helperPid"]) is int
+        and reply["helperPid"] > 0
+        and reply["status"] in {"ready", "refused", "dispatched-unknown"}
+        and _name(reply["detail"]),
+        "reply mismatch; never infer a native edit",
+    )
+    return reply
+
+
+class HelperClient:
+    """One immutable private-spool request; no polling code resubmits it."""
+
+    def __init__(self, root: Path):
+        carrier._private(root, create=True)
+        self.root = root
+
+    def publish_once(
+        self,
+        request: bytes,
+        *,
+        now: datetime | None = None,
+        expected: dict[str, Any],
+    ) -> str:
+        # Production publish has no user-provided signature-verification hook.
+        value = validate_request(request, now=now, installed=True, expected=expected)
+        carrier._private(self.root)
+        # Exclusive creation permanently consumes the ID even after failed writes.
+        carrier._once(self.root / (value["requestId"] + ".request.json"), request)
+        return hashlib.sha256(request).hexdigest()
+
+    def read_reply(
+        self,
+        request: bytes,
+        *,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        value = validate_request(request, now=now)
+        carrier._private(self.root)
+        actual_request = carrier._read(
+            self.root / (value["requestId"] + ".request.json"), 32768
+        )
+        _check(actual_request == request, "immutable request changed")
+        raw = carrier._read(self.root / (value["requestId"] + ".reply.json"), 32768)
+        # A helper response is not SDK proof of a Roll, even on 'dispatched-unknown'.
+        reply = validate_reply(raw, request, now=now)
+        _check(
+            observe_helper_pid(
+                reply["helperPid"], value["actorPin"]["binary"]["executablePath"]
+            )
+            is True,
+            "reply is not from the actual helper process",
+        )
+        return reply

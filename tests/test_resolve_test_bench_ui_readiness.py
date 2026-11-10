@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from _actor_pin import actor_pin
 from vera_timeline_agent import resolve_gui_roll as gui
 from vera_timeline_agent import resolve_test_bench_gui_stage as stage
 from vera_timeline_agent import resolve_test_bench_ui_readiness as ui
@@ -53,7 +54,7 @@ def sdk_inputs() -> tuple[gui.GuiRollIntent, gui.PristineSdkInventory]:
         item_uids=UIDS,
         left_item_uid=UIDS[0],
         right_item_uid=UIDS[1],
-        script_sha256=gui.ROLL_SCRIPT_SHA256,
+        actor_pin=actor_pin(),
         expires_at=datetime.now(UTC) + timedelta(minutes=3),
     )
     return intent, inventory

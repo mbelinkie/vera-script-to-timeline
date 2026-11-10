@@ -191,6 +191,11 @@ def proof_source_hashes_v2() -> JsonObject:
         ROOT / "package-lock.json",
         ROOT / "uv.lock",
         ROOT / "pyproject.toml",
+        *sorted(
+            p
+            for p in (ROOT / "macos/vera-gui-helper").rglob("*")
+            if p.is_file() or p.is_symlink()
+        ),
         *sorted((ROOT / "python/vera_timeline_agent").rglob("*.py")),
     }
     return {str(path.relative_to(ROOT)): _file_hash(path) for path in sorted(paths)}

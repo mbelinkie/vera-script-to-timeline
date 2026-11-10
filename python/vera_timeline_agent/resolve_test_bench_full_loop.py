@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from . import resolve_gui_helper_protocol as helper
 from . import resolve_test_bench_carrier as carrier
 from . import resolve_test_bench_edited_stage as edited
 from . import resolve_test_bench_gui_stage as gui
@@ -29,12 +30,11 @@ from . import resolve_test_bench_revision_stage as revision
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_m4 as m4
 from . import resolve_test_queue_m4_provision as provision
-from .resolve_gui_roll import ROLL_SCRIPT_SHA256
 from .resolve_native_owner import _local_resolve_connection, native_owner
 from .roundtrip_v2_records import proof_source_hashes_v2
 
-AUTHORITY_SCHEMA = "vera.test-bench-473-case-specific-authority/v1"
-INTENT_SCHEMA = "vera.test-bench-473-complete-loop/v1"
+AUTHORITY_SCHEMA = "vera.test-bench-473-case-specific-authority/v2"
+INTENT_SCHEMA = "vera.test-bench-473-complete-loop/v2"
 _HEX = re.compile(r"[0-9a-f]{40}\Z")
 
 
@@ -108,7 +108,9 @@ def _authority(
         "operation",
         "fromFrame",
         "toFrame",
-        "scriptSha256",
+        "actorPin",
+        "authorizationBasis",
+        "authorityIssuedBy",
     }
     _require(
         isinstance(authority, dict)
@@ -130,7 +132,9 @@ def _authority(
         and type(authority["toFrame"]) is int
         and authority["fromFrame"] == 327
         and authority["toFrame"] == 351
-        and authority["scriptSha256"] == ROLL_SCRIPT_SHA256,
+        and authority["authorizationBasis"] == "standing-producer-instruction"
+        and authority["authorityIssuedBy"] == "VERA Conductor"
+        and _valid_actor_pin(authority["actorPin"]),
         "new precise Producer instruction, source hash or fixed GUI action differs",
     )
     # This is an operator-authenticated attribution, not a cryptographic
@@ -164,6 +168,14 @@ def _authority(
         "newly provisioned native targets differ from fresh authorization",
     )
     return dict(authority)
+
+
+def _valid_actor_pin(value: object) -> bool:
+    try:
+        helper.validate_actor_pin(value)
+    except helper.HelperProtocolError:
+        return False
+    return True
 
 
 def _advance(store: queue.Store, job_id: str, stage: str) -> None:
@@ -257,6 +269,9 @@ def start(
     assert isinstance(job_id, str)
     store = queue.Store(runner._absolute(value["queueRoot"], "queueRoot"))
     _advance(store, job_id, "edited")
+    # One immutable helper identity is the same pre-edit, at dispatch and
+    # during post-Roll edited admission. Never derive a new pin per stage.
+    gui.seal_case_actor_pin(store, job_id, authority["actorPin"])
     # The shared native owner protects the sole GUI action. Release BEFORE
     # carrier.start, which independently preflights and acquires that owner.
     with native_owner(output_lane=True):

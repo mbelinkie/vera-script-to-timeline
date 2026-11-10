@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from . import resolve_gui_helper_protocol as helper
 from . import resolve_test_bench_campaign as campaign
 from . import resolve_test_bench_carrier as carrier
 from . import resolve_test_bench_edit_probe as edit_probe
@@ -27,7 +28,6 @@ from . import resolve_test_bench_output as output
 from . import resolve_test_queue as queue
 from . import resolve_test_queue_m4 as m4
 from . import resolve_test_queue_m4_provision as provision
-from .resolve_gui_roll import ROLL_SCRIPT_SHA256
 
 SCHEMA = "vera.test-bench-one-start/v1"
 _CASE_312_PREPARATION = "issue312-package-current-S-approved-v2"
@@ -498,7 +498,8 @@ def _blocked_after_pristine(
         "approvedF1GuiTransport": {
             "actuatorClass": "gui",
             "operation": "M4.edited",
-            "scriptSha256": ROLL_SCRIPT_SHA256,
+            "actorSourceManifestSha256": helper.source_manifest_sha256(),
+            "requiresSignedHelperBinaryPin": True,
             "codeOnly": True,
             "nativeEffectAttempted": False,
             "requiresFreshCaseSpecificApproval": True,
