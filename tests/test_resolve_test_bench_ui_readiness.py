@@ -761,6 +761,58 @@ def test_no_prompt_automation_status_runtime_rejects_coercions() -> None:
     ]
 
 
+def test_system_events_descriptor_is_identical_fail_closed_and_no_prompt() -> None:
+    """Both OS actors construct the correct descriptor without a TCC request."""
+    scripts = (ui._FOREGROUND_EXISTING_JXA, ui._OS_READ_ONLY_JXA)
+    marker = "function systemEventsTargetDescriptor() {"
+    helpers = []
+    for source in scripts:
+        assert "descriptorWithBundleIdentifier" not in source
+        assert source.count("0x2a2a2a2a, 0x2a2a2a2a, false") == 1
+        assert "0x62756e64" in source
+        assert "AEDeterminePermissionToAutomateTarget" in source
+        assert source.index("systemEventsTargetDescriptor();") < source.index(
+            "$.AEDeterminePermissionToAutomateTarget("
+        )
+        start = source.index(marker)
+        helpers.append(source[start : source.index("\n}", start) + 2])
+    assert helpers[0] == helpers[1]
+    assert ui._OS_READ_ONLY_JXA.index("$.AEDeterminePermissionToAutomateTarget(") < (
+        ui._OS_READ_ONLY_JXA.index("Application('System Events')")
+    )
+    assert ui._FOREGROUND_EXISTING_JXA.index(
+        "$.AEDeterminePermissionToAutomateTarget("
+    ) < ui._FOREGROUND_EXISTING_JXA.index(".applicationProcesses")
+
+    program = (
+        helpers[0]
+        + """
+let nilData = false, nilDescriptor = false, type = 0x62756e64;
+function $(bundle) { return {dataUsingEncoding(encoding) {
+  if (bundle !== 'com.apple.systemevents' || encoding !== 4) throw Error('bad bundle');
+  return {isNil() {return nilData;}};
+}}; }
+$.NSUTF8StringEncoding = 4;
+$.NSAppleEventDescriptor = {descriptorWithDescriptorTypeData(kind, data) {
+  if (kind !== 0x62756e64 || !data) throw Error('wrong descriptor');
+  return {isNil() {return nilDescriptor;}, descriptorType:type};
+}};
+const good = systemEventsTargetDescriptor();
+nilData = true;
+const noData = systemEventsTargetDescriptor();
+nilData = false; nilDescriptor = true;
+const noDescriptor = systemEventsTargetDescriptor();
+nilDescriptor = false; type = 0;
+const wrongType = systemEventsTargetDescriptor();
+console.log(JSON.stringify([good.descriptorType, noData, noDescriptor, wrongType]));
+"""
+    )
+    completed = subprocess.run(
+        ["node", "-e", program], check=True, capture_output=True, text=True, timeout=5
+    )
+    assert json.loads(completed.stdout) == [0x62756E64, None, None, None]
+
+
 def test_batched_autoselect_menu_queries_preserve_missing_and_unknown() -> None:
     """Execute the fixed JXA submenu reader with mocked AX item references."""
     source = ui._OS_READ_ONLY_JXA

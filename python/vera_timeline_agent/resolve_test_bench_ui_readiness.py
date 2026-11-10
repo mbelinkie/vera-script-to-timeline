@@ -61,14 +61,24 @@ function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x
 function noPromptOSStatusAllowed(status) {
   return typeof status === 'number' && status === 0;
 }
+function systemEventsTargetDescriptor() {
+  // 'bund' is typeApplicationBundleID; the old JXA bridge selector fails.
+  const bundleData = $('com.apple.systemevents')
+    .dataUsingEncoding($.NSUTF8StringEncoding);
+  if (bundleData.isNil()) return null;
+  const descriptor = $.NSAppleEventDescriptor.descriptorWithDescriptorTypeData(
+    0x62756e64, bundleData
+  );
+  if (descriptor.isNil() || descriptor.descriptorType !== 0x62756e64) return null;
+  return descriptor;
+}
 function focusExistingViaSystemEvents(pid) {
   try {
     // Cooperative App Activation can decline a request on current macOS.
     // Only an already-allowed, no-prompt System Events actor may set the
     // *same existing process* frontmost. Never launch or manipulate windows.
-    const descriptor = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
-      $('com.apple.systemevents')
-    );
+    const descriptor = systemEventsTargetDescriptor();
+    if (descriptor === null) return false;
     const permission = $.AEDeterminePermissionToAutomateTarget(
       descriptor.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false
     );
@@ -138,12 +148,24 @@ ObjC.import('Carbon');
 // Carbon binding rejects it with "Ref has incompatible type" before macOS can
 // answer the permission query. Bind the same native function with its pointer
 // argument as void*; the address, wildcard event codes and no-prompt flag stay
-// unchanged. Independently exercised on Studio 21.1.1.10's foreground Mac.
+// unchanged. Only the void* binding was exercised on the Mac prior to the
+// descriptor construction repair below; no live TCC grant is inferred.
 ObjC.bindFunction('AEDeterminePermissionToAutomateTarget',
   ['int', ['void*', 'uint32_t', 'uint32_t', 'bool']]);
 function unwrap(x) { return x === null || x === undefined ? null : ObjC.unwrap(x); }
 function noPromptOSStatusAllowed(status) {
   return typeof status === 'number' && status === 0;
+}
+function systemEventsTargetDescriptor() {
+  // 'bund' is typeApplicationBundleID; the old JXA bridge selector fails.
+  const bundleData = $('com.apple.systemevents')
+    .dataUsingEncoding($.NSUTF8StringEncoding);
+  if (bundleData.isNil()) return null;
+  const descriptor = $.NSAppleEventDescriptor.descriptorWithDescriptorTypeData(
+    0x62756e64, bundleData
+  );
+  if (descriptor.isNil() || descriptor.descriptorType !== 0x62756e64) return null;
+  return descriptor;
 }
 function attr(obj, name) {
   try { return obj.attributes.byName(name).value(); } catch (_) { return null; }
@@ -232,9 +254,8 @@ function run() {
   // itself can trigger a TCC prompt if permission has not already been granted.
   // 0x2a2a2a2a is typeWildCard ('****') for both event class and event ID.
   try {
-    const systemEvents = $.NSAppleEventDescriptor.descriptorWithBundleIdentifier(
-      $('com.apple.systemevents')
-    );
+    const systemEvents = systemEventsTargetDescriptor();
+    if (systemEvents === null) return JSON.stringify(result);
     // The actual Mac Carbon binding returned primitive number 0 (noErr).
     // Accept only that exact type/value; never coerce null, false, strings
     // or bridged wrapper objects to authorization, or request a TCC prompt.
