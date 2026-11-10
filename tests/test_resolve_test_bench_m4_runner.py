@@ -363,6 +363,55 @@ def test_merge_gate_refuses_472_only_in_local_branch(
     assert any("origin/main" in command for command in commands)
 
 
+def test_merge_gate_allows_older_frozen_head_with_reviewed_verifier_extensions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """New unrelated main merges must not invalidate an immutable M4 source."""
+    commands: list[tuple[str, ...]] = []
+
+    def git(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(tuple(command))
+        return subprocess.CompletedProcess(
+            command,
+            1
+            if command[1:5] == ["merge-base", "--is-ancestor", "origin/main", "HEAD"]
+            or command[1:4] == ["diff", "--quiet", "origin/main"]
+            else 0,
+            stdout="python/vera_timeline_agent/qualification_output_native_v2.py\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", git)
+    runner._merged_472("f" * 40)
+    assert any(
+        command[1:5] == ("merge-base", "--is-ancestor", "f" * 40, "HEAD")
+        for command in commands
+    )
+    assert any(
+        command[1:5] == ("merge-base", "--is-ancestor", "f" * 40, "origin/main")
+        for command in commands
+    )
+    assert not any(
+        command[1:5] == ("merge-base", "--is-ancestor", "origin/main", "HEAD")
+        for command in commands
+    )
+    assert any(command[1:4] == ("diff", "--quiet", "HEAD") for command in commands)
+
+
+def test_merge_gate_rejects_uncommitted_native_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def git(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command,
+            1 if command[1:4] == ["diff", "--quiet", "HEAD"] else 0,
+            stdout="python/vera_timeline_agent/qualification_output_native_v2.py\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", git)
+    with pytest.raises(queue.QueueError, match="uncommitted local modifications"):
+        runner._merged_472("f" * 40)
+
+
 def test_single_start_drives_only_verified_pristine_then_blocks_unknown_edit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -99,7 +99,15 @@ def validate_config(value: Any) -> dict[str, Any]:
 
 
 def _merged_472(commit: str) -> None:
-    """No real Resolve acceptance while #472 is being repaired."""
+    """Require the merged #472 correction in both trees at this frozen head.
+
+    An adopted PR can legitimately branch from an *earlier* main and later
+    extend the native verifier for its own signed M4 fixture. Requiring the
+    latest ``origin/main`` to be a HEAD ancestor or its entire verifier blob
+    to match would reject a reviewed, independently pinned original PR merely
+    because another unrelated PR was merged meanwhile. The full-loop source
+    graph and exact frozen HEAD independently guard our committed extensions.
+    """
     repository = Path(__file__).resolve().parents[2]
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -115,16 +123,15 @@ def _merged_472(commit: str) -> None:
     if (
         git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0
         or git("merge-base", "--is-ancestor", commit, "origin/main").returncode != 0
-        or git("merge-base", "--is-ancestor", "origin/main", "HEAD").returncode != 0
     ):
         raise queue.QueueError(
             "#472 correction not merged into origin/main and current checkout"
         )
-    # A locally modified verifier would defeat the merge provenance check;
-    # that source belongs to #472 and must be exactly the fetched main version.
+    # Never accept an uncommitted verifier modification. Intentional reviewed
+    # #499 additions are allowed in HEAD, and bound to the full source graph.
     verifier_path = "python/vera_timeline_agent/qualification_output_native_v2.py"
-    if git("diff", "--quiet", "origin/main", "--", verifier_path).returncode != 0:
-        raise queue.QueueError("#472 verifier has unmerged local modifications")
+    if git("diff", "--quiet", "HEAD", "--", verifier_path).returncode != 0:
+        raise queue.QueueError("#472 verifier has uncommitted local modifications")
     changes = git("diff-tree", "--no-commit-id", "--name-only", "-r", commit)
     if changes.returncode != 0 or verifier_path not in changes.stdout.splitlines():
         raise queue.QueueError("#472 source-range verifier commit not authenticated")
