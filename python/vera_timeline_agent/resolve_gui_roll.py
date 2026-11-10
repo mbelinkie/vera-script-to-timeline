@@ -220,6 +220,9 @@ class TrustedUiReadiness:
     keyboard_focus_binding: str | None
     keyboard_nudge_binding: str | None
     normal_edit_mode: bool = False
+    # True is useful only with the privately attested signed-helper transport.
+    # A caller-created dataclass never authorizes its own native effect.
+    helper_proven: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -445,13 +448,13 @@ def _validate(
     )
     _require(
         readiness.accessibility_trusted is True
-        and readiness.automation_trusted is True
+        and (readiness.helper_proven is True or readiness.automation_trusted is True)
         and readiness.modal_present is False
         and readiness.trim_roll_menu_enabled is True,
-        "Accessibility/TCC or named Roll/setup menu preflight denied",
+        "helper Accessibility or named Roll/setup menu preflight denied",
     )
     _require(
-        readiness.keyboard_preset == KEYBOARD_PRESET,
+        readiness.helper_proven is True or readiness.keyboard_preset == KEYBOARD_PRESET,
         "unexpected preset provenance",
     )
 

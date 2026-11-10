@@ -401,3 +401,158 @@ def start(store: queue.Store, job_id: str, config: dict[str, Any]) -> dict[str, 
         consent_reference=value["consentReference"],
         consent_instruction=value["consentInstruction"],
     )
+
+
+def prepare_before_gui(
+    store: queue.Store, job_id: str, config: dict[str, Any]
+) -> dict[str, str]:
+    """Prepare/authenticate ONE edited admission before Edit page or Roll.
+
+    This intentionally does not require a consumed GUI journal: that journal
+    MUST NOT exist yet. A caller cannot reprepare after a spent/unknown edit.
+    """
+    from .qualification_output_controller_v2 import prepare_output_session
+    from .resolve_test_bench_gui_stage import helper_actor_pin_from_authority
+
+    value = runner.validate_config(config)
+    plan = m4._load_plan(store, job_id)
+    root = runner._absolute(value["root"], "root")
+    _require(
+        Path(value["queueRoot"]) == store.root
+        and value["caseId"] == plan["caseId"] == "synthetic-312"
+        and value["maxDiskBytes"] == plan["maxDiskBytes"]
+        and carrier._read(root / "m4-plan.json") == queue.canonical(plan),
+        "fresh M4 configuration/source is not enrolled",
+    )
+    _, operation = _deadline(store, job_id, plan)
+    journal_path = m4._jobdir(store, job_id) / "f1-gui-edit" / "gui-intent.json"
+    admission_path = root / "edited-session-admission.json"
+    _require(
+        not journal_path.exists()
+        and not journal_path.is_symlink()
+        and not admission_path.exists()
+        and not admission_path.is_symlink(),
+        "prior edit/journal/admission cannot be re-used",
+    )
+    pristine = m4._stage_receipt(store, job_id, 0)
+    _require(pristine["session"] == plan["baselineSession"], "pristine pin changed")
+    source = runner._absolute(value["packageRoot"], "packageRoot")
+    session_path = prepare_output_session(
+        root / "edited",
+        profile=value["profile"],
+        package_root=source,
+        preparation_paths=runner._matrix_preparation_paths(
+            source, case_id=value["caseId"]
+        ),
+        narration_evidence_paths=runner._matrix_narration_paths(
+            source,
+            runner._absolute(value["narrationEvidenceRoot"], "narrationEvidenceRoot"),
+            case_id=value["caseId"],
+        ),
+        target=plan["initialTarget"],
+        case_id=value["caseId"],
+        phase="edited",
+    )
+    ref = output._pin(session_path)
+    prepared = output._session(Path(ref["path"]), ref["sha256"])
+    baseline = output._session(
+        Path(pristine["session"]["path"]), pristine["session"]["sha256"]
+    )
+    _require(
+        _same_source_distinct_edited_admission(prepared, baseline)
+        and prepared.context.get("target") == plan["initialTarget"],
+        "edited session is not a fresh same-source admission",
+    )
+    carrier._once(
+        admission_path,
+        queue.canonical(
+            {
+                "schema": "vera.test-bench-edited-pre-gui-admission/v1",
+                "jobId": job_id,
+                "operationId": operation,
+                "session": ref,
+                "actorPin": helper_actor_pin_from_authority(store, job_id),
+                "pristineCaptureSha256": pristine["capture"]["sha256"],
+            }
+        ),
+    )
+    return ref
+
+
+def verify_prepared_identity(
+    store: queue.Store,
+    job_id: str,
+    config: dict[str, Any],
+    session: dict[str, str],
+) -> None:
+    """Read-only same-session/source check before Roll and after it.
+
+    Neither a caller-provided pin nor an alternative path can silently
+    substitute a new edited admission for this consumed one-use operation.
+    """
+    from .resolve_test_bench_gui_stage import helper_actor_pin_from_authority
+
+    value = runner.validate_config(config)
+    root = runner._absolute(value["root"], "root")
+    plan = m4._load_plan(store, job_id)
+    _absolute_deadline, operation = _deadline(store, job_id, plan)
+    raw = carrier._read(root / "edited-session-admission.json", 32768)
+    admission = json.loads(raw)
+    pristine = m4._stage_receipt(store, job_id, 0)
+    _require(
+        type(admission) is dict
+        and queue.canonical(admission) == raw
+        and set(admission)
+        == {
+            "schema",
+            "jobId",
+            "operationId",
+            "session",
+            "actorPin",
+            "pristineCaptureSha256",
+        }
+        and admission["schema"] == "vera.test-bench-edited-pre-gui-admission/v1"
+        and admission["jobId"] == job_id
+        and admission["operationId"] == operation
+        and admission["session"] == session
+        and admission["actorPin"] == helper_actor_pin_from_authority(store, job_id)
+        and admission["pristineCaptureSha256"] == pristine["capture"]["sha256"],
+        "pre-Roll edited session, actor or pristine pins changed",
+    )
+    _require(
+        type(session) is dict
+        and set(session) == {"path", "sha256"}
+        and type(session["path"]) is str
+        and Path(session["path"]).is_absolute()
+        and not Path(session["path"]).is_symlink(),
+        "aliased or invalid edited-session path",
+    )
+    prepared = output._session(Path(session["path"]), session["sha256"])
+    baseline = output._session(
+        Path(pristine["session"]["path"]), pristine["session"]["sha256"]
+    )
+    _require(
+        _same_source_distinct_edited_admission(prepared, baseline)
+        and prepared.context.get("target") == plan["initialTarget"],
+        "same edited session no longer authenticates after Roll",
+    )
+
+
+def continue_prepared_after_gui(
+    store: queue.Store,
+    job_id: str,
+    config: dict[str, Any],
+    session: dict[str, str],
+) -> dict[str, Any]:
+    """Reauthenticate the SAME pre-Roll session, then invoke original host."""
+    verify_prepared_identity(store, job_id, config, session)
+    value = runner.validate_config(config)
+    root = runner._absolute(value["root"], "root")
+    return continue_from_session(
+        store,
+        job_id,
+        session=session,
+        stage_root=root / "edited-stage",
+        consent_reference=value["consentReference"],
+        consent_instruction=value["consentInstruction"],
+    )

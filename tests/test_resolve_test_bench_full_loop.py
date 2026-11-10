@@ -23,6 +23,8 @@ from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_edited_stage as edited
 from vera_timeline_agent import resolve_test_bench_full_loop as loop
 from vera_timeline_agent import resolve_test_bench_gui_stage as gui
+from vera_timeline_agent import resolve_test_bench_helper_stage as helper_stage
+from vera_timeline_agent import resolve_test_bench_helper_transport as helper_transport
 from vera_timeline_agent import resolve_test_bench_m4_runner as runner
 from vera_timeline_agent import resolve_test_bench_page_stage as page
 from vera_timeline_agent import resolve_test_bench_playhead_stage as playhead
@@ -253,6 +255,22 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
 
     monkeypatch.setattr(loop, "native_owner", fake_owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+
+    def prepare_edited(*_args: Any) -> dict[str, str]:
+        events.append("edited:prepared-authenticated")
+        return {"path": "edited", "sha256": "a" * 64}
+
+    monkeypatch.setattr(edited, "prepare_before_gui", prepare_edited)
+    monkeypatch.setattr(
+        edited,
+        "verify_prepared_identity",
+        lambda *_: events.append("edited:pre-dispatch-rechecked"),
+    )
+    monkeypatch.setattr(
+        helper_transport,
+        "SignedHelperDesktop",
+        lambda _pin: SimpleNamespace(readiness=lambda: events.append("helper:ready")),
+    )
     monkeypatch.setattr(
         page,
         "open_owned_edit_page",
@@ -262,20 +280,25 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         playhead, "position_owned_351", lambda *_: events.append("SDK:playhead-351")
     )
 
-    def gui_attempt(_store: Any, job: str, _resolve: Any) -> Any:
+    def gui_attempt(_store: Any, job: str, _resolve: Any, **_kwargs: Any) -> Any:
         assert job == ORIGINAL_JOB and lock_held[0]
         events.append("GUI:unknown:not-verified")
         return SimpleNamespace(
             state="unknown", native_verified=False, receipt_issued=False
         )
 
-    monkeypatch.setattr(gui, "dispatch_owned_f1_once", gui_attempt)
+    monkeypatch.setattr(helper_stage, "dispatch_owned_helper_f1_once", gui_attempt)
+    monkeypatch.setattr(
+        helper_stage,
+        "observe_settled_edited_geometry",
+        lambda *_: events.append("SDK:roll-settled"),
+    )
 
-    def edited_host(_store: Any, job: str, _value: Any) -> None:
+    def edited_host(_store: Any, job: str, _value: Any, _session: Any) -> None:
         assert job == ORIGINAL_JOB and not lock_held[0]
         events.append("edited:SDK-MOV-PCM-verified")
 
-    monkeypatch.setattr(edited, "start", edited_host)
+    monkeypatch.setattr(edited, "continue_prepared_after_gui", edited_host)
     monkeypatch.setattr(
         revision, "revision", lambda *_: events.append("revision:proof")
     )
@@ -309,10 +332,14 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
     assert events == [
         "pristine:verified",
         "claim:edited",
+        "edited:prepared-authenticated",
+        "helper:ready",
         "owner:acquire",
         "SDK:edit-page",
         "SDK:playhead-351",
+        "edited:pre-dispatch-rechecked",
         "GUI:unknown:not-verified",
+        "SDK:roll-settled",
         "owner:release",
         "edited:SDK-MOV-PCM-verified",
         "claim:revision",
@@ -334,10 +361,14 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
     assert events == [
         "pristine:verified",
         "claim:edited",
+        "edited:prepared-authenticated",
+        "helper:ready",
         "owner:acquire",
         "SDK:edit-page",
         "SDK:playhead-351",
+        "edited:pre-dispatch-rechecked",
         "GUI:unknown:not-verified",
+        "SDK:roll-settled",
         "owner:release",
         "edited:SDK-MOV-PCM-verified",
         "claim:revision",
@@ -380,6 +411,15 @@ def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
 
     monkeypatch.setattr(loop, "native_owner", owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+    monkeypatch.setattr(
+        edited, "prepare_before_gui", lambda *_: {"path": "edited", "sha256": "a" * 64}
+    )
+    monkeypatch.setattr(edited, "verify_prepared_identity", lambda *_: None)
+    monkeypatch.setattr(
+        helper_transport,
+        "SignedHelperDesktop",
+        lambda _pin: SimpleNamespace(readiness=lambda: None),
+    )
 
     def refuse(*_args: Any, **_kwargs: Any) -> None:
         events.append("page-refused")
@@ -390,7 +430,9 @@ def test_denied_edit_page_never_positions_playhead_or_dispatches_gui(
         playhead, "position_owned_351", lambda *_: pytest.fail("playhead moved")
     )
     monkeypatch.setattr(
-        gui, "dispatch_owned_f1_once", lambda *_: pytest.fail("GUI roll dispatched")
+        helper_stage,
+        "dispatch_owned_helper_f1_once",
+        lambda *_args, **_kwargs: pytest.fail("GUI roll dispatched"),
     )
     with pytest.raises(queue.QueueError, match="signed new target mismatched"):
         loop.start(fixture["config_path"], fixture["auth_path"], frozen_commit=FROZEN)
@@ -443,10 +485,19 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
 
     monkeypatch.setattr(loop, "native_owner", fake_owner)
     monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+    monkeypatch.setattr(
+        edited, "prepare_before_gui", lambda *_: {"path": "edited", "sha256": "a" * 64}
+    )
+    monkeypatch.setattr(edited, "verify_prepared_identity", lambda *_: None)
+    monkeypatch.setattr(
+        helper_transport,
+        "SignedHelperDesktop",
+        lambda _pin: SimpleNamespace(readiness=lambda: None),
+    )
     monkeypatch.setattr(page, "open_owned_edit_page", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(playhead, "position_owned_351", lambda *_: None)
 
-    def attempt(*_: Any) -> Any:
+    def attempt(*_: Any, **_kwargs: Any) -> Any:
         events.append("gui")
         return SimpleNamespace(
             state="unknown",
@@ -454,14 +505,17 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
             receipt_issued=False,
         )
 
-    monkeypatch.setattr(gui, "dispatch_owned_f1_once", attempt)
+    monkeypatch.setattr(helper_stage, "dispatch_owned_helper_f1_once", attempt)
+    monkeypatch.setattr(
+        helper_stage, "observe_settled_edited_geometry", lambda *_: None
+    )
 
     def edited_host(*_: Any) -> None:
         events.append("edited")
         if stop == "edited_unknown":
             raise queue.QueueError("native edited chain UNKNOWN; do not replay")
 
-    monkeypatch.setattr(edited, "start", edited_host)
+    monkeypatch.setattr(edited, "continue_prepared_after_gui", edited_host)
 
     def revised(*_: Any) -> None:
         events.append("revision")
@@ -590,3 +644,70 @@ def test_advance_claims_original_operation_only_once_and_rejects_partial_queue(
     with pytest.raises(queue.QueueError, match="prior original M4 stage"):
         loop._advance(object(), ORIGINAL_JOB, "revision")  # type: ignore[arg-type]
     assert calls == ["enrolled revision"]
+
+
+@pytest.mark.parametrize("refuse_at", ["admission", "pre-dispatch"])
+def test_phase24_fail_closed_before_any_roll_and_without_legacy_fallback(
+    prepared: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    refuse_at: str,
+) -> None:
+    events: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "start",
+        lambda *_: {
+            "state": "blocked_unattended_native_roll_edit_not_proven",
+            "jobId": ORIGINAL_JOB,
+        },
+    )
+    monkeypatch.setattr(gui, "seal_case_actor_pin", lambda *_: None)
+    monkeypatch.setattr(queue, "Store", lambda *_: SimpleNamespace(root="fake"))
+    monkeypatch.setattr(loop, "_advance", lambda *_: None)
+
+    @contextmanager
+    def owner(*, output_lane: bool) -> Iterator[None]:
+        assert output_lane
+        yield
+
+    monkeypatch.setattr(loop, "native_owner", owner)
+    monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+
+    def admission(*_args: Any) -> dict[str, str]:
+        events.append("admission")
+        if refuse_at == "admission":
+            raise queue.QueueError("edited-session admission invalid")
+        return {"path": "original-edited", "sha256": "a" * 64}
+
+    monkeypatch.setattr(edited, "prepare_before_gui", admission)
+    monkeypatch.setattr(
+        helper_transport,
+        "SignedHelperDesktop",
+        lambda _pin: SimpleNamespace(readiness=lambda: events.append("helper-ready")),
+    )
+    monkeypatch.setattr(
+        page, "open_owned_edit_page", lambda *_args, **_kwargs: events.append("page")
+    )
+    monkeypatch.setattr(playhead, "position_owned_351", lambda *_: events.append("351"))
+
+    def reauthenticate(*_args: Any) -> None:
+        events.append("session-recheck")
+        raise queue.QueueError("pre-Roll edited-session pin changed")
+
+    monkeypatch.setattr(edited, "verify_prepared_identity", reauthenticate)
+    monkeypatch.setattr(
+        helper_stage,
+        "dispatch_owned_helper_f1_once",
+        lambda *_args, **_kwargs: pytest.fail("unexpected Roll after refusal"),
+    )
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("legacy subprocess fallback"),
+    )
+    with pytest.raises(queue.QueueError, match=r"admission invalid|pin changed"):
+        loop.start(prepared["config_path"], prepared["auth_path"], frozen_commit=FROZEN)
+    if refuse_at == "admission":
+        assert events == ["admission"]
+    else:
+        assert events == ["admission", "helper-ready", "page", "351", "session-recheck"]

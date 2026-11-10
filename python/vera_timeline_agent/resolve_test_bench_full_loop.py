@@ -23,6 +23,8 @@ from . import resolve_gui_helper_protocol as helper
 from . import resolve_test_bench_carrier as carrier
 from . import resolve_test_bench_edited_stage as edited
 from . import resolve_test_bench_gui_stage as gui
+from . import resolve_test_bench_helper_stage as helper_stage
+from . import resolve_test_bench_helper_transport as helper_transport
 from . import resolve_test_bench_m4_runner as runner
 from . import resolve_test_bench_page_stage as page
 from . import resolve_test_bench_playhead_stage as playhead
@@ -272,6 +274,10 @@ def start(
     # One immutable helper identity is the same pre-edit, at dispatch and
     # during post-Roll edited admission. Never derive a new pin per stage.
     gui.seal_case_actor_pin(store, job_id, authority["actorPin"])
+    # A failure of admission or the actual helper's Accessibility identity
+    # MUST happen before SDK Edit-page/playhead changes or any menu action.
+    session = edited.prepare_before_gui(store, job_id, value)
+    helper_transport.SignedHelperDesktop(authority["actorPin"]).readiness()
     # The shared native owner protects the sole GUI action. Release BEFORE
     # carrier.start, which independently preflights and acquires that owner.
     with native_owner(output_lane=True):
@@ -281,14 +287,22 @@ def start(
             store, job_id, resolve, case_root=root, authority=authority
         )
         playhead.position_owned_351(store, job_id, resolve)
-        attempted = gui.dispatch_owned_f1_once(store, job_id, resolve)
+        # Detect swapped/aliased edited admissions before the first GUI menu
+        # effect. Recheck AGAIN after dispatch before independent host starts.
+        edited.verify_prepared_identity(store, job_id, value, session)
+        attempted = helper_stage.dispatch_owned_helper_f1_once(
+            store, job_id, resolve, case_root=root, authority=authority
+        )
         _require(
             attempted.state == "unknown"
             and attempted.native_verified is False
             and attempted.receipt_issued is False,
             "GUI OS result cannot certify edited M4",
         )
-    edited.start(store, job_id, value)
+        # This can only observe SDK geometry while this owner still holds the
+        # lock. A delayed edit may settle; unexpected geometry is terminal.
+        helper_stage.observe_settled_edited_geometry(store, job_id, resolve)
+    edited.continue_prepared_after_gui(store, job_id, value, session)
     _advance(store, job_id, "revision")
     revision.revision(store, job_id, value)
     # The M4 queue's fresh-stage worker requires its newly provisioned empty

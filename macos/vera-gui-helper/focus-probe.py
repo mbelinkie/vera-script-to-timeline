@@ -22,12 +22,18 @@ RESOLVE_BUNDLE = "com.blackmagic-design.DaVinciResolve"
 
 
 def canonical(obj: object) -> bytes:
-    return (json.dumps(obj, separators=(",", ":"), sort_keys=True, ensure_ascii=True) + "\n").encode()
+    return (
+        json.dumps(obj, separators=(",", ":"), sort_keys=True, ensure_ascii=True) + "\n"
+    ).encode()
 
 
 def private_spool(path: Path) -> None:
     meta = path.lstat()
-    if not stat.S_ISDIR(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_mode & 0o077:
+    if (
+        not stat.S_ISDIR(meta.st_mode)
+        or meta.st_uid != os.getuid()
+        or meta.st_mode & 0o077
+    ):
         raise ValueError("refuse missing/non-private/aliased helper spool")
 
 
@@ -56,16 +62,26 @@ def main() -> None:
     parser.add_argument("--window", required=True)
     parser.add_argument("--operation", choices=("inspect", "focus"), default="inspect")
     parser.add_argument("--id", required=True)
-    parser.add_argument("--spool", type=Path, default=Path.home() / "Library/Application Support/VERA/GUI Helper/spool")
+    parser.add_argument(
+        "--spool",
+        type=Path,
+        default=Path.home() / "Library/Application Support/VERA/GUI Helper/spool",
+    )
     args = parser.parse_args()
-    if args.pid <= 0 or not 8 <= len(args.id) <= 128 or not args.id.replace("-", "").replace("_", "").isalnum():
+    if (
+        args.pid <= 0
+        or not 8 <= len(args.id) <= 128
+        or not args.id.replace("-", "").replace("_", "").isalnum()
+    ):
         parser.error("invalid PID or unique request ID")
     if "\n" in args.window or not args.window:
         parser.error("invalid exact target window")
     request: dict[str, object] = {
         "schema": SCHEMA,
         "requestId": args.id,
-        "deadlineAt": (datetime.now(UTC) + timedelta(seconds=30)).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "deadlineAt": (datetime.now(UTC) + timedelta(seconds=30))
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
         "operation": args.operation,
         "resolvePid": args.pid,
         "resolveBundleIdentifier": RESOLVE_BUNDLE,
@@ -79,7 +95,11 @@ def main() -> None:
         if not reply_path.exists():
             continue
         reply = json.loads(reply_path.read_bytes())
-        if reply.get("schema") != REPLY_SCHEMA or reply.get("requestSha256") != expected_sha or reply.get("requestId") != args.id:
+        if (
+            reply.get("schema") != REPLY_SCHEMA
+            or reply.get("requestSha256") != expected_sha
+            or reply.get("requestId") != args.id
+        ):
             raise ValueError("untrusted helper focus reply")
         print(json.dumps(reply, sort_keys=True))
         return
