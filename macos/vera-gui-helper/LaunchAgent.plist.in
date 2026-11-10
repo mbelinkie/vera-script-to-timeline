@@ -3,6 +3,11 @@
 <plist version="1.0"><dict>
 <key>Label</key><string>org.vera.resolve-test-bench.gui</string>
 <key>ProgramArguments</key><array><string>@VERA_GUI_HELPER_EXECUTABLE@</string></array>
+<key>EnvironmentVariables</key><dict>
+<key>VERA_GUI_HELPER_SPOOL</key><string>@VERA_GUI_HELPER_SPOOL@</string>
+</dict>
+<key>LimitLoadToSessionType</key><string>Aqua</string>
+<key>ProcessType</key><string>Interactive</string>
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><true/>
 </dict></plist>

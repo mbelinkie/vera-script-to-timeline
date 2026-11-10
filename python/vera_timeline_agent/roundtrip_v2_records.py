@@ -195,6 +195,9 @@ def proof_source_hashes_v2() -> JsonObject:
             p
             for p in (ROOT / "macos/vera-gui-helper").rglob("*")
             if p.is_file() or p.is_symlink()
+            if "__pycache__" not in p.parts
+            and p.suffix not in {".pyc", ".pyo"}
+            and p.name != ".DS_Store"
         ),
         *sorted((ROOT / "python/vera_timeline_agent").rglob("*.py")),
     }
