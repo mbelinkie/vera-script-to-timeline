@@ -200,14 +200,29 @@ def _advance(store: queue.Store, job_id: str, stage: str) -> None:
 
 
 def start(
-    config_path: Path, authority_path: Path, *, frozen_commit: str
+    config_path: Path,
+    authority_path: Path,
+    *,
+    frozen_commit: str,
+    expected_config_sha256: str | None = None,
+    expected_authority_sha256: str | None = None,
 ) -> dict[str, Any]:
     """One foreground call; no repeat invocation may ever dispatch an effect."""
     graph = _frozen_source(frozen_commit)
     config_raw = carrier._read(config_path, 16384)
+    _require(
+        expected_config_sha256 is None
+        or hashlib.sha256(config_raw).hexdigest() == expected_config_sha256,
+        "Conductor immutable config differs at full-loop admission",
+    )
     value = runner.validate_config(json.loads(config_raw))
     _require(config_raw == queue.canonical(value), "noncanonical immutable new config")
     authorization_raw = carrier._read(authority_path, 32768)
+    _require(
+        expected_authority_sha256 is None
+        or hashlib.sha256(authorization_raw).hexdigest() == expected_authority_sha256,
+        "Conductor immutable authority differs at full-loop admission",
+    )
     authority = _authority(authorization_raw, value, frozen_commit, graph)
     root = runner._absolute(value["root"], "root")
     carrier._private(root)
