@@ -296,6 +296,42 @@ def test_missing_existing_native_owner_refuses_before_journal() -> None:
     assert executor.calls == []
 
 
+def test_matching_non_disposable_project_names_still_refuse_before_intent(
+    admitted_owner: None,
+) -> None:
+    """All matching SDK/window names do not authorize a Producer project."""
+    intent, inventory, readiness = valid()
+    name = "Producer Current Timeline"
+    other = replace(
+        TARGET, project_name=name, timeline_name=name, expected_window_name=name
+    )
+    journal, executor = FakeJournal(), FakeExecutor()
+    with pytest.raises(gui.GuiRollRefused, match="fresh disposable"):
+        gui.OneUseGuiRollActuator(journal, executor).attempt(
+            replace(intent, target=other),
+            replace(inventory, target=other),
+            replace(readiness, front_window_name=name),
+            now=NOW,
+        )
+    assert journal.calls == 0 and executor.calls == []
+
+
+def test_unique_substituted_native_uid_cannot_pass_original_capture(
+    admitted_owner: None,
+) -> None:
+    """A different eleven-UID set must fail even without duplicate values."""
+    intent, inventory, readiness = valid()
+    journal, executor = FakeJournal(), FakeExecutor()
+    with pytest.raises(gui.GuiRollRefused, match="eleven native UIDs"):
+        gui.OneUseGuiRollActuator(journal, executor).attempt(
+            intent,
+            replace(inventory, item_uids=(*UIDS[:-1], "foreign-native-uid")),
+            readiness,
+            now=NOW,
+        )
+    assert journal.calls == 0 and executor.calls == []
+
+
 def test_expired_or_timezone_naive_intent_refuses(admitted_owner: None) -> None:
     intent, inventory, readiness = valid()
     for timestamp in (NOW - timedelta(seconds=1), NOW.replace(tzinfo=None)):

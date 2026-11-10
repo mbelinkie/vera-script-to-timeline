@@ -2944,8 +2944,21 @@ def _private_effect(
             request.get("action") == "construct"
             and request.get("profile") == MATRIX_PROFILE
             and request.get("context", {}).get("caseId") == "synthetic-312"
-            and request["context"].get("phase") in {"pristine", "rebuild"},
-            "track locking is limited to fresh synthetic-312 construction",
+            and request["context"].get("phase") in {"pristine", "rebuild"}
+            and type(arguments) is dict
+            and set(arguments) == {"kind", "index", "locked"}
+            and type(arguments["kind"]) is str
+            and type(arguments["index"]) is int
+            and (arguments["kind"], arguments["index"])
+            in {
+                ("audio", 1),
+                ("video", 2),
+                ("video", 3),
+                ("video", 4),
+                ("video", 5),
+            }
+            and arguments["locked"] is True,
+            "track locking is limited to fresh synthetic-312 V2-V5/A1 true",
         )
     index = len(state["effects"])
     directory = Path(state["request"]["resultPath"]).parent / "effects"

@@ -158,6 +158,42 @@ def test_successful_setter_without_lock_readback_is_still_unknown(
     assert [entry[0] for entry in host["events"]] == ["durable-intent"]
 
 
+def test_partial_native_lock_failure_is_not_rolled_back_or_replayed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After one SDK lock, the next failure spends its intent; no undo guess."""
+    timeline, host = _host(monkeypatch)
+    original_setter = timeline.SetTrackLock
+    attempted = 0
+
+    def fail_second(kind: str, index: int, locked: bool) -> bool:
+        nonlocal attempted
+        attempted += 1
+        if attempted == 2:
+            return False
+        return original_setter(kind, index, locked) is True
+
+    monkeypatch.setattr(timeline, "SetTrackLock", fail_second)
+    with pytest.raises(OutputConsistencyError, match="did not read back"):
+        native._seal_synthetic_m4_roll_tracks(
+            object(), _request(), {"view": _view()}, timeline, {}
+        )
+    assert attempted == 2
+    assert sum(value is True for value in host["locks"].values()) == 1
+    assert [e[0] for e in host["events"]] == [
+        "durable-intent",
+        "sdk-lock",
+        "observed",
+        "durable-intent",
+    ]
+    # The partial SDK effect persists. Re-entering must refuse before a setter.
+    with pytest.raises(OutputConsistencyError, match="preexisting locked"):
+        native._seal_synthetic_m4_roll_tracks(
+            object(), _request(), {"view": _view()}, timeline, {}
+        )
+    assert attempted == 2
+
+
 @pytest.mark.parametrize("change", ["case", "phase", "profile", "action"])
 def test_native_effect_allowlist_refuses_other_lock_authorities_before_intent(
     change: str,
@@ -176,6 +212,29 @@ def test_native_effect_allowlist_refuses_other_lock_authorities_before_intent(
             {"request": request},
             "Timeline.SetTrackLock",
             {"kind": "video", "index": 2, "locked": True},
+        )
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"kind": "video", "index": 1, "locked": True},
+        {"kind": "video", "index": 6, "locked": True},
+        {"kind": "audio", "index": 2, "locked": True},
+        {"kind": "video", "index": 2, "locked": False},
+        {"kind": "video", "index": 2, "locked": 1},
+        {"kind": "video", "index": True, "locked": True},
+        {"kind": "video", "index": 2, "locked": True, "extra": 1},
+        {"kind": ["video"], "index": 2, "locked": True},
+    ],
+)
+def test_native_effect_allowlist_never_mints_wrong_lock_intent(
+    arguments: dict[str, Any],
+) -> None:
+    """Effect allowlist itself, not only the constructor, limits native locks."""
+    with pytest.raises(OutputConsistencyError, match="track locking"):
+        native._private_effect(
+            {"request": _request()}, "Timeline.SetTrackLock", arguments
         )
 
 

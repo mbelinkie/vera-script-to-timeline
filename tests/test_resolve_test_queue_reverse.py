@@ -89,6 +89,8 @@ def test_supported_boundary_exact_native_geometry() -> None:
         lambda b, a: a["items"][1].update(sourceStart=24),
         lambda b, a: a["items"][3].update(recordDuration=61),
         lambda b, a: a["items"][0].update(sourceMappingSha256="changed"),
+        lambda b, a: a["items"][1].update(mediaUid="foreign-native-media"),
+        lambda b, a: a["sourceMappings"][1].update(sha256="changed-source"),
         lambda b, a: a["context"]["target"].update(timelineUid="wrong"),
         lambda b, a: a.update(rate="24"),
         lambda b, a: a.update(rate="24000/1001"),
