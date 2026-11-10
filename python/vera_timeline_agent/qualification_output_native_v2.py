@@ -358,6 +358,7 @@ ALLOWED_EFFECT_METHODS = frozenset(
         "MediaPool.ImportMedia",
         "Timeline.AddTrack",
         "Timeline.SetTrackName",
+        "Timeline.SetTrackLock",
         "MediaPoolItem.SetMarkInOut",
         "MediaPool.AppendToTimeline",
         "MediaPoolItem.ClearMarkInOut",
@@ -2937,6 +2938,15 @@ def _private_effect(
             and request.get("profile") in CONSTRUCTOR_LINK_PROFILES,
             "qualification AV linking is limited to MATRIX/PRESENTER construction",
         )
+    if method == "Timeline.SetTrackLock":
+        request = state["request"]
+        _require(
+            request.get("action") == "construct"
+            and request.get("profile") == MATRIX_PROFILE
+            and request.get("context", {}).get("caseId") == "synthetic-312"
+            and request["context"].get("phase") in {"pristine", "rebuild"},
+            "track locking is limited to fresh synthetic-312 construction",
+        )
     index = len(state["effects"])
     directory = Path(state["request"]["resultPath"]).parent / "effects"
     directory.mkdir(mode=0o700, exist_ok=True)
@@ -5077,6 +5087,83 @@ def _link_constructed_av_pairs(
         )
 
 
+def _seal_synthetic_m4_roll_tracks(
+    resolve: Any,
+    request: dict[str, Any],
+    admitted: dict[str, Any],
+    timeline: Any,
+    state: dict[str, Any],
+) -> None:
+    """Lock only the five non-V1 tracks in a NEW, journaled M4 construction.
+
+    The signed pristine capture and the named GUI Roll both require V1 only.
+    Never retrofit a previously constructed/signed project or change locks in
+    the edited phase. The constructor's one-use native intent is already
+    durable; each individual SDK setter additionally gets its own effect intent.
+    """
+    context = request["context"]
+    if context.get("caseId") != "synthetic-312":
+        return
+    _require(
+        request.get("action") == "construct"
+        and request.get("profile") == MATRIX_PROFILE
+        and context.get("phase") in {"pristine", "rebuild"},
+        "M4 track isolation only permitted during new matrix construction",
+    )
+    view = admitted["view"]
+    expected_slots = {
+        ("video", 1),
+        ("video", 2),
+        ("video", 3),
+        ("video", 4),
+        ("video", 5),
+        ("audio", 1),
+    }
+    slots = [
+        (row.get("kind"), row.get("index"))
+        for row in view.get("tracks", [])
+        if isinstance(row, dict)
+    ]
+    _require(
+        len(slots) == 6
+        and set(slots) == expected_slots
+        and len(view.get("events", [])) == 11
+        and callable(getattr(timeline, "SetTrackLock", None)),
+        "new eleven-event, six-track Studio M4 lock fixture required",
+    )
+    _require(
+        all(timeline.GetIsTrackLocked(kind, index) is False for kind, index in slots),
+        "M4 construction cannot adopt preexisting locked or unreadable tracks",
+    )
+    for kind, index in sorted(expected_slots):
+        _, project, selected = _project_timeline(resolve, request)
+        _require(
+            selected.GetUniqueId() == timeline.GetUniqueId()
+            and project.IsRenderingInProgress() is False,
+            "M4 target or render status changed during track lock preparation",
+        )
+        if (kind, index) == ("video", 1):
+            continue  # V1 is the only unlocked trim track; never toggle it.
+        row = _private_effect(
+            state,
+            "Timeline.SetTrackLock",
+            {"kind": kind, "index": index, "locked": True},
+        )
+        result = timeline.SetTrackLock(kind, index, True)
+        _require(
+            result is True and timeline.GetIsTrackLocked(kind, index) is True,
+            "new synthetic M4 track lock did not read back",
+        )
+        _effect_observed(state, row, {"return": result, "locked": True})
+    _require(
+        all(
+            timeline.GetIsTrackLocked(kind, index) is ((kind, index) != ("video", 1))
+            for kind, index in expected_slots
+        ),
+        "signed M4 track isolation changed before native capture",
+    )
+
+
 def _construct(
     resolve: Any,
     request: dict[str, Any],
@@ -5371,6 +5458,7 @@ def _construct(
             },
         )
     _link_constructed_av_pairs(timeline, av_link_pairs, items_by_event, state)
+    _seal_synthetic_m4_roll_tracks(resolve, request, admitted, timeline, state)
     geometry = _capture_geometry(resolve, request, admitted, None)
     return {"nativeGeometry": geometry, "nativeIdentity": connected}
 

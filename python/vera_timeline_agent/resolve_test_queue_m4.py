@@ -402,6 +402,41 @@ def _assert_qualified_output_geometry(geometry: Any) -> None:
         )
 
 
+def _assert_roll_isolated_tracks(geometry: dict[str, Any]) -> None:
+    """A new pristine/rebuild M4 receipt cannot certify an unlocked GUI hazard.
+
+    The native constructor performs the actual SDK locks before signing its
+    capture; this only reauthenticates the resulting immutable evidence. The
+    edited reverse gate independently requires the exact same six track rows.
+    """
+    expected = {
+        ("video", 1),
+        ("video", 2),
+        ("video", 3),
+        ("video", 4),
+        ("video", 5),
+        ("audio", 1),
+    }
+    rows = geometry.get("tracks")
+    if (
+        not isinstance(rows, list)
+        or len(rows) != 6
+        or not all(isinstance(row, dict) for row in rows)
+    ):
+        raise queue.QueueError("signed M4 Roll track inventory is incomplete")
+    slots = [(row.get("kind"), row.get("index")) for row in rows]
+    if (
+        len(set(slots)) != 6
+        or set(slots) != expected
+        or any(
+            row.get("enabled") is not True
+            or row.get("locked") is not (slot != ("video", 1))
+            for row, slot in zip(rows, slots, strict=True)
+        )
+    ):
+        raise queue.QueueError("signed M4 Roll must leave only V1 unlocked")
+
+
 def _verified_output(
     receipt: Mapping[str, Any],
     phase: str,
@@ -478,13 +513,14 @@ def _verify_stage(
             raise queue.QueueError(
                 "pristine session is not the enrolled host authority"
             )
-        _verified_output(
+        _, pristine_output = _verified_output(
             receipt,
             "pristine",
             plan["initialTarget"],
             plan["caseId"],
             intent_at,
         )
+        _assert_roll_isolated_tracks(pristine_output["nativeGeometry"])
         return
     pristine = _stage_receipt(store, job_id, 0)
     if ordinal == 1:
@@ -529,13 +565,14 @@ def _verify_stage(
     )
     if fresh.context.get("target") != plan["freshTarget"]:
         raise queue.QueueError("rebuild is not the separately reserved fresh target")
-    _verified_output(
+    _, rebuilt_output = _verified_output(
         receipt,
         "rebuild",
         plan["freshTarget"],
         plan["caseId"],
         intent_at,
     )
+    _assert_roll_isolated_tracks(rebuilt_output["nativeGeometry"])
     verdict = verify_reverse_receipts(
         proof_path=Path(revision["proof"]["path"]),
         proof_sha256=revision["proof"]["sha256"],
