@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "scope": "TEST_ONLY_SIGNED_READ_ONLY_FIXTURES_NOT_NATIVE_EVIDENCE",
+  "frozenNow": 1794412800000,
+  "issuer": "fixture-only-verifier",
+  "fixtureSha256": {
+    "verified.signed.json": "260d8a2a4ae42cee4e3b006c93c917a0350559f5133dc8e6b6a49c6b24b03b23",
+    "failed.signed.json": "b16d7776d1bb9214e51de094f84ea278dec94f876dbe8c7676391a98eaa04c33",
+    "unknown.signed.json": "817e8a67f11441432f8014b89483ab545f8c229c823a2c7d4030ff9cc6d896ef"
+  }
+}
