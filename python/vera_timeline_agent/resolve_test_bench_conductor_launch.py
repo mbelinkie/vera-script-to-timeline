@@ -25,6 +25,7 @@ from typing import Any
 from . import resolve_gui_helper_protocol as helper
 from . import resolve_gui_roll as gui
 from . import resolve_test_bench_carrier as carrier
+from . import resolve_test_bench_diagnostic_journal as diagnostics
 from . import resolve_test_bench_full_loop as full_loop
 from . import resolve_test_bench_helper_transport as transport
 from . import resolve_test_queue as queue
@@ -376,11 +377,31 @@ def start(request_path: Path) -> dict[str, Any]:
             and not (root / "launch-result.json").is_symlink(),
             "launch already claimed or completed, no replay",
         )
+        # A preclaim publication failure refuses START; the native one-use
+        # intent has NOT been spent.  Use only the already authenticated pins.
+        case_id = (
+            json.loads(config_raw)["caseId"] if config_raw else request["requestId"]
+        )
+        diagnostic = diagnostics.DiagnosticJournal(
+            root,
+            case_id=case_id,
+            phase="launch",
+            operation_id=request["requestId"],
+            pins={
+                "frozenSourceSha256": request["sourceGraphSha256"],
+                "actorSha256": request["actorPin"]["sourceManifestSha256"],
+                "authorizationSha256": request["authority"]["sha256"]
+                if request["authority"]
+                else None,
+            },
+        )
+        diagnostic.emit("claim", "before_claim", status="pending")
         carrier._once(
             root / "launch-intent.json",
             queue.canonical({"schema": SCHEMA, "requestSha256": _digest(raw)}),
         )
         try:
+            diagnostic.emit("claim", "after_claim")
             if request["mode"] == "focus-only":
                 observation = transport.SignedHelperDesktop(request["actorPin"]).focus(
                     request["requestId"],
@@ -426,7 +447,11 @@ def start(request_path: Path) -> dict[str, Any]:
                     "authenticated original M4 handoff incomplete",
                 )
                 result = _result(request, raw, "four-stages-verified", job_id=job_id)
-        except BaseException:
+        except BaseException as error:
+            # Preserve the original UNKNOWN if diagnostic storage itself fails.
+            # Never run full_loop, helper, or native carrier a second time.
+            with suppress(BaseException):
+                diagnostic.emit("exception", "after_claim", exception=error)
             # The claim has already been fsynced.  We cannot know whether an
             # external effect happened; never turn this into a retryable error.
             result = _result(request, raw, "unknown-after-claim")

@@ -72,7 +72,11 @@ def _fixture(
     monkeypatch.setattr(
         native,
         "verify_native_result",
-        lambda path, sha: {"action": "capture_post", "sequence": 0},
+        lambda path, sha: {
+            "action": "capture_post",
+            "sequence": 0,
+            "status": "complete",
+        },
     )
 
     def approval(*args: Any, **kwargs: Any) -> None:

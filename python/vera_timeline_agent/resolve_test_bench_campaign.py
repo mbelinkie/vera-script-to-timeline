@@ -17,10 +17,12 @@ import math
 import shutil
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from . import resolve_test_bench_carrier as carrier
+from . import resolve_test_bench_diagnostic_journal as diagnostics
 from . import resolve_test_bench_output as output
 from . import resolve_test_queue as queue
 
@@ -179,7 +181,25 @@ def start(plan: dict[str, Any]) -> dict[str, Any]:
             and not (root / "stage-intent.json").is_symlink(),
             "one-use stage spent; use inspect, never replay",
         )
-        _host(value)
+        diagnostic = diagnostics.DiagnosticJournal(
+            root,
+            case_id=value["caseId"],
+            phase=value["phase"],
+            stage=value["phase"],
+            pins={
+                "targetSha256": hashlib.sha256(
+                    queue.canonical(value["target"])
+                ).hexdigest(),
+            },
+        )
+        diagnostic.emit("admission", "before_admission", status="pending")
+        try:
+            _host(value)
+            diagnostic.emit("admission", "after_admission")
+        except BaseException as error:
+            with suppress(BaseException):
+                diagnostic.emit("exception", "before_admission", exception=error)
+            raise
         clock = time.time()
         _require(
             math.isfinite(clock) and 60 <= value["deadlineUnix"] - clock <= 14400,
@@ -191,19 +211,27 @@ def start(plan: dict[str, Any]) -> dict[str, Any]:
         )
         # Every action also checks this same absolute ceiling immediately
         # before dispatch (including after a slow source preflight).
+        diagnostic.emit("claim", "before_claim", status="pending")
         carrier._once(root / "stage-intent.json", queue.canonical(value))
-        remaining = min(14400, math.ceil(value["deadlineUnix"] - clock))
-        result = output.drive(
-            root / "native-actions",
-            session_path=_path(value["session"]["path"]),
-            session_sha256=value["session"]["sha256"],
-            installed=_path(value["installed"]),
-            consent_reference=value["consentReference"],
-            consent_instruction=value["consentInstruction"],
-            max_seconds=remaining,
-            hard_deadline=value["deadlineUnix"],
-            minimum_free_bytes=value["maxDiskBytes"],
-        )
+        try:
+            diagnostic.emit("claim", "after_claim")
+            remaining = min(14400, math.ceil(value["deadlineUnix"] - clock))
+            result = output.drive(
+                root / "native-actions",
+                session_path=_path(value["session"]["path"]),
+                session_sha256=value["session"]["sha256"],
+                installed=_path(value["installed"]),
+                consent_reference=value["consentReference"],
+                consent_instruction=value["consentInstruction"],
+                max_seconds=remaining,
+                hard_deadline=value["deadlineUnix"],
+                minimum_free_bytes=value["maxDiskBytes"],
+                diagnostic=diagnostic,
+            )
+        except BaseException as error:
+            with suppress(BaseException):
+                diagnostic.emit("exception", "after_claim", exception=error)
+            raise
         _require(
             result.get("state") == "terminal_native_verified",
             "reviewed native driver did not return terminal MOV/PCM",
@@ -221,6 +249,7 @@ def start(plan: dict[str, Any]) -> dict[str, Any]:
             and verified.get("context") == controller.context,
             "signed capture target/source differs",
         )
+        diagnostic.emit("verification", "before_finalize", status="pending")
         carrier._once(
             root / "terminal.json",
             queue.canonical(
@@ -231,6 +260,7 @@ def start(plan: dict[str, Any]) -> dict[str, Any]:
                 }
             ),
         )
+        diagnostic.emit("verification", "after_finalize")
         return {
             "state": "terminal_native_verified",
             "verified": True,

@@ -16,10 +16,12 @@ import math
 import shutil
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from . import resolve_test_bench_carrier as carrier
+from . import resolve_test_bench_diagnostic_journal as diagnostics
 from . import resolve_test_queue as queue
 
 
@@ -61,6 +63,7 @@ def tick(
     minimum_free_bytes: int = 256 * 1024 * 1024,
     python: Path | None = None,
     hard_deadline: float | None = None,
+    diagnostic: diagnostics.DiagnosticJournal | None = None,
 ) -> dict[str, Any]:
     """Advance at most one host effect, or inspect an already-issued one.
 
@@ -90,6 +93,11 @@ def tick(
         raise queue.QueueError("original cumulative deadline expired; no effect")
     controller = _session(session_path, session_sha256)
     actions = action_plan_for_context(controller.context)
+    if diagnostic is not None and (
+        controller.context.get("caseId") != diagnostic.identity["caseId"]
+        or controller.context.get("phase") != diagnostic.identity["phase"]
+    ):
+        raise queue.QueueError("diagnostic case/phase differs from signed host context")
     for sequence, action in enumerate(actions):
         path, _, _, request = native_request_paths(controller.context, sequence)
         step = root / f"native-{sequence:02d}"
@@ -101,10 +109,49 @@ def tick(
                 raise queue.QueueError("partial, stale, or UNKNOWN native result")
             receipt = state["result"]
             verified = verify_native_result(Path(receipt["path"]), receipt["sha256"])
-            if verified["action"] != action or verified["sequence"] != sequence:
-                raise queue.QueueError("native action order/identity differs")
+            if (
+                verified["action"] != action
+                or verified["sequence"] != sequence
+                or verified.get("status") != "complete"
+            ):
+                raise queue.QueueError(
+                    "native action incomplete or order/identity differs"
+                )
             host_intent = step / "host-ingest-intent.json"
             host_receipt = step / "host-ingested.json"
+            if diagnostic is not None:
+                # Advance cursor ONLY after the ORIGINAL signed verifier.
+                # Avoid repeated timeline events for already-ingested actions.
+                diagnostic.cursor(
+                    action=action,
+                    sequence=sequence,
+                    next_pending={
+                        "nativeSequence": sequence + 1,
+                        "action": actions[sequence + 1],
+                    }
+                    if sequence + 1 < len(actions)
+                    else None,
+                )
+                if not host_receipt.exists():
+                    diagnostic.emit(
+                        "carrier_result",
+                        "after_carrier",
+                        proof_layer="authenticated_native_result",
+                        proof_sha256=receipt["sha256"],
+                    )
+                    special = {
+                        "queue_render": "render_queue",
+                        "start_render": "render_start",
+                        "poll_render": "render_poll",
+                        "capture_post": "render_capture",
+                    }.get(action)
+                    if special is not None:
+                        diagnostic.emit(
+                            special,
+                            "after_carrier",
+                            proof_layer="authenticated_native_result",
+                            proof_sha256=receipt["sha256"],
+                        )
             ingestion = {
                 "schema": "vera.test-bench-host-ingest/v1",
                 "session": {"path": str(session_path), "sha256": session_sha256},
@@ -112,6 +159,7 @@ def tick(
                 "sequence": sequence,
                 "action": action,
             }
+            newly_ingested = not host_receipt.exists()
             if host_receipt.exists():
                 if carrier._read(host_intent) != queue.canonical(ingestion):
                     raise queue.QueueError("host ingest identity differs")
@@ -126,6 +174,8 @@ def tick(
             else:
                 if host_intent.exists() or host_intent.is_symlink():
                     raise queue.QueueError("host ingestion UNKNOWN; never repeat")
+                if diagnostic is not None:
+                    diagnostic.emit("ingestion", "before_ingest", status="pending")
                 carrier._once(host_intent, queue.canonical(ingestion))
                 record = controller.ingest_native_result(
                     Path(receipt["path"]), receipt["sha256"]
@@ -140,6 +190,26 @@ def tick(
                         "host ingestion rejected original native result"
                     )
                 carrier._once(host_receipt, queue.canonical(record))
+            if diagnostic is not None:
+                # This original host receipt is required before claiming an
+                # action was fully ingested, even when prior data was signed.
+                diagnostic.cursor(
+                    action=action,
+                    sequence=sequence,
+                    last_verified={
+                        "nativeSequence": sequence,
+                        "action": action,
+                        "resultSha256": receipt["sha256"],
+                    },
+                    next_pending={
+                        "nativeSequence": sequence + 1,
+                        "action": actions[sequence + 1],
+                    }
+                    if sequence + 1 < len(actions)
+                    else None,
+                )
+                if newly_ingested:
+                    diagnostic.emit("ingestion", "after_ingest")
             # Ingest only authenticated original results. Repeated historical
             # inspection does not dispatch another native effect.
             if action == "capture_post":
@@ -171,6 +241,13 @@ def tick(
             if state["state"] == "live":
                 return {"state": "running", "action": action, "sequence": sequence}
             raise queue.QueueError("lost/uncertain native reply; inspect, never retry")
+        if diagnostic is not None:
+            diagnostic.cursor(
+                action=action,
+                sequence=sequence,
+                next_pending={"nativeSequence": sequence, "action": action},
+            )
+            diagnostic.emit("preparation", "before_preparation", status="pending")
         # Preparing a reviewed native request itself reserves an immutable
         # effect slot. If it exists without our carrier, check it was never
         # started; a crash after request preparation is inspectable.
@@ -204,6 +281,9 @@ def tick(
         if hard_deadline is not None and time.time() >= hard_deadline:
             raise queue.QueueError("deadline expired before native dispatch")
         request_pin = _pin(request)
+        if diagnostic is not None:
+            diagnostic.emit("preparation", "after_preparation")
+            diagnostic.emit("native_dispatch", "before_dispatch", status="pending")
         carrier.start(
             step,
             request,
@@ -212,6 +292,8 @@ def tick(
             python=Path(sys.executable) if python is None else python,
             not_after=hard_deadline,
         )
+        if diagnostic is not None:
+            diagnostic.emit("native_dispatch", "after_dispatch")
         return {"state": "running", "action": action, "sequence": sequence}
 
     if not _terminal(controller):
@@ -235,6 +317,7 @@ def drive(
     max_seconds: int = 14400,
     minimum_free_bytes: int = 256 * 1024 * 1024,
     hard_deadline: float | None = None,
+    diagnostic: diagnostics.DiagnosticJournal | None = None,
 ) -> dict[str, Any]:
     """One start, bounded polling; on failure return without replaying."""
     if not isinstance(max_seconds, int) or not 60 <= max_seconds <= 14400:
@@ -287,16 +370,24 @@ def drive(
                 raise queue.QueueError("host clock regression; no replay")
             if now >= deadline["deadline"]:
                 break
-            outcome = tick(
-                root,
-                session_path=session_path,
-                session_sha256=session_sha256,
-                installed=installed,
-                consent_reference=consent_reference,
-                consent_instruction=consent_instruction,
-                minimum_free_bytes=minimum_free_bytes,
-                hard_deadline=deadline["deadline"],
-            )
+            try:
+                outcome = tick(
+                    root,
+                    session_path=session_path,
+                    session_sha256=session_sha256,
+                    installed=installed,
+                    consent_reference=consent_reference,
+                    consent_instruction=consent_instruction,
+                    minimum_free_bytes=minimum_free_bytes,
+                    hard_deadline=deadline["deadline"],
+                    diagnostic=diagnostic,
+                )
+            except BaseException as error:
+                if diagnostic is not None:
+                    # Logging errors cannot permit another carrier call.
+                    with suppress(BaseException):
+                        diagnostic.emit("exception", "before_dispatch", exception=error)
+                raise
             if outcome["state"] != "running":
                 return outcome
             time.sleep(0.5)
