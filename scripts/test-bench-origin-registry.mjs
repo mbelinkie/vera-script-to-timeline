@@ -283,7 +283,7 @@ export function createOriginRegistry({ filePath, signingKey, encryptionKey, trus
     });
   }
 
-  function resolveOrigin(attestation) {
+  function resolveRegisteredOrigin(attestation) {
     const signed = validated(attestation, 'resolve');
     return withState(state => {
       consumeNonce(state, signed);
@@ -294,9 +294,13 @@ export function createOriginRegistry({ filePath, signingKey, encryptionKey, trus
         throw new Error('Origin mismatch: refusing foreign, redirected or stale binding');
       }
       if (entry.binding.authorizationExpiresAt <= now()) throw new Error('Origin authorization expired');
-      return JSON.parse(stableJson(entry.binding));
+      return { bindingId: entry.bindingId, binding: JSON.parse(stableJson(entry.binding)) };
     });
   }
 
-  return Object.freeze({ registerOrigin, resolveOrigin });
+  function resolveOrigin(attestation) {
+    return resolveRegisteredOrigin(attestation).binding;
+  }
+
+  return Object.freeze({ registerOrigin, resolveOrigin, resolveRegisteredOrigin });
 }

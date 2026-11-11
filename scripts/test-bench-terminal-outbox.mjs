@@ -156,6 +156,14 @@ function validateEvent(event, eventKey) {
   });
 }
 
+// Phase 3's delivery boundary re-authenticates an inspected event instead
+// of trusting the shape of data returned by a caller-provided object.
+export function verifyTerminalEvent(event, eventKey) {
+  key(eventKey, 'Event signing key');
+  validateEvent(event, eventKey);
+  return clone(event);
+}
+
 function ensureDir(directory) {
   if (!existsSync(directory)) mkdirSync(directory, { recursive: true, mode: 0o700 });
   const s = lstatSync(directory);
