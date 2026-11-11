@@ -1,0 +1,58 @@
+{
+  "schema": "vera.issue512.seventh-case-source-map/v1",
+  "purpose": "Read-only reconstruction from previously retained Mac observations, not a newly signed receipt",
+  "macEvidenceNotMountedHere": true,
+  "caseId": "vera499phase26h2426ee095c73443d",
+  "caseRootBasename": "issue-499-helper26g-2426ee095c73443d",
+  "resolveVersion": "21.1.1.10 Studio",
+  "frozenCommit": "91e260291ed279a3789e1022afc2e0250c2d5b0a",
+  "sourceGraphSha256": "cfa1407c14572d1b5135bd1b5ac0b60d7523862054aa4514c30bbdfeaf71bee3",
+  "helperSourceManifestSha256": "aa2ec2334eaf7ab048c3915bb31da87e072b61629283266058c49f88172c5c5e",
+  "helperBinarySha256": "76cbbbad909bef0fa9f123126c171824e2cb408ff68f855de994489dbb138a7f",
+  "helperActorPinSha256": "0671b06a0cafcf15723084e1bc9fb5a9508f70e07c3822269c32f064d951433a",
+  "origin": {
+    "pointerFile": ".pipeline/499/phase26h-physical-start.json",
+    "pointerSha256": "af593351675d6c47e388a05abfae01d56fdd456a2139cff70295f329f51ee09e",
+    "bootstrapFile": ".pipeline/499/phase26h-bootstrap-result.json",
+    "bootstrapSha256": "31bcfd02533cd932006825acb1c13b35a5b7a9636f2fd793da8aff4ac02eba16",
+    "readOnlyMacAudit": "2026-11-11 issue #512 prep brief and preserved #499 phase26h postmortem",
+    "nativeResultSha256Copied": false
+  },
+  "conductor": {
+    "launchSubmitted": true,
+    "launchClaimSpent": true,
+    "launchResult": "unknown-after-claim",
+    "runnerExited": true,
+    "rootException": "unobserved",
+    "nativeRetryPermitted": false
+  },
+  "sourceReadiness": {
+    "sourceAndHelperPrepared": true,
+    "newInitialAndRebuildTargetProvisionReceipts": 2,
+    "sourcePreflightAttestationPresent": true
+  },
+  "stages": [
+    {
+      "name": "pristine",
+      "state": "unknown",
+      "authenticatedNativeResults": [
+        {"nativeSequence": 0, "action": "construct", "status": "complete"},
+        {"nativeSequence": 1, "action": "save_reopen", "status": "complete"},
+        {"nativeSequence": 2, "action": "capture_pre", "status": "complete"},
+        {"nativeSequence": 3, "action": "queue_render", "status": "complete"},
+        {"nativeSequence": 4, "action": "start_render", "status": "complete"}
+      ],
+      "firstAbsentNativeRequest": {"nativeSequence": 5, "action": "poll_render"},
+      "signedM4Receipt": false
+    },
+    {"name": "edited", "state": "not_started", "signedM4Receipt": false},
+    {"name": "revision", "state": "not_started", "signedM4Receipt": false},
+    {"name": "rebuild", "state": "not_started", "signedM4Receipt": false}
+  ],
+  "signedM4ReceiptsPresent": 0,
+  "signedM4ReceiptsRequired": 4,
+  "strict312Acceptance": "not_run",
+  "knownFailureBoundary": "after original launch claim; after pristine start_render host ingest; before poll_render request",
+  "rootCause": "unknown: launch.start swallowed original BaseException",
+  "nextAuthorizedAction": "read-only postmortem and new code-only diagnostics; never reissue operation 5 or the spent case"
+}
