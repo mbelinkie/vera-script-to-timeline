@@ -144,6 +144,7 @@ class DiagnosticJournal:
         exception: BaseException | None = None,
         proof_layer: str = "none",
         proof_sha256: str | None = None,
+        evidence: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         value = {
             "schema": contract.SCHEMA,
@@ -160,7 +161,7 @@ class DiagnosticJournal:
             "pins": dict(self.pins),
             "lastVerified": self.last_verified,
             "nextPending": self.next_pending,
-            "evidence": [],
+            "evidence": [] if evidence is None else evidence,
             "exception": contract.exception_details(exception)
             if exception is not None
             else None,
@@ -206,8 +207,12 @@ class DiagnosticJournal:
         exception: BaseException | None = None,
         proof_layer: str = "none",
         proof_sha256: str | None = None,
+        evidence: list[dict[str, Any]] | None = None,
     ) -> None:
-        """O_EXCL + file/dir fsync, or raise before caller's next side effect."""
+        """O_EXCL/fsync; evidence contains only vetted hashes, never file paths.
+
+        Raw MOV/PCM files are never opened or duplicated by this writer.
+        """
         try:
             if self._poisoned:
                 raise DiagnosticWriteError("writer failed previously; never resume")
@@ -238,6 +243,7 @@ class DiagnosticJournal:
                         exception=exception,
                         proof_layer=proof_layer,
                         proof_sha256=proof_sha256,
+                        evidence=evidence,
                     )
                 )
                 path = self.records / f"record-{index:06d}.json"
