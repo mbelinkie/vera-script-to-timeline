@@ -165,6 +165,131 @@ def legacy_exact(plist_bytes: bytes, expected_exec: str, expected_spool: str) ->
     return plist_bytes == plistlib.dumps(source, sort_keys=True)
 
 
+def authenticated_prior_pinned(raw: bytes, *, current_commit: str) -> bool:
+    """Upgrade ONLY a prior installer-owned pinned actor from signed archive.
+
+    The preceding pinned LaunchAgent has a DIFFERENT binary/source identity;
+    it can be migrated only if its exact bytes, prior frozen build provenance,
+    and archived Apple-signed executable independently reconstruct its digest.
+    Caller-provided pin fields alone NEVER authenticate migration.
+    """
+    try:
+        previous = plistlib.loads(raw)
+    except (TypeError, ValueError, plistlib.InvalidFileException):
+        return False
+    if not isinstance(previous, dict):
+        return False
+    env = previous.get("EnvironmentVariables")
+    if not isinstance(env, dict) or set(env) != {
+        "VERA_GUI_HELPER_SPOOL",
+        "VERA_GUI_HELPER_ACTOR_PIN_SHA256",
+        "VERA_GUI_HELPER_SOURCE_GRAPH_SHA256",
+    }:
+        return False
+    old_actor = env["VERA_GUI_HELPER_ACTOR_PIN_SHA256"]
+    old_graph = env["VERA_GUI_HELPER_SOURCE_GRAPH_SHA256"]
+    if not all(
+        type(x) is str and re.fullmatch(r"[0-9a-f]{64}", x)
+        for x in (old_actor, old_graph)
+    ) or env["VERA_GUI_HELPER_SPOOL"] != str(SPOOL):
+        return False
+    template = plistlib.loads(TEMPLATE.read_bytes())
+    template["ProgramArguments"] = [str(EXE)]
+    template["EnvironmentVariables"] = dict(env)
+    if previous != template or raw != plistlib.dumps(template, sort_keys=True):
+        return False
+    archive = BASE / "retained-signed-helpers"
+    owner_directory(archive)
+    matches = 0
+    for candidate in sorted(archive.iterdir()):
+        if (
+            candidate.is_symlink()
+            or not candidate.is_dir()
+            or not re.fullmatch(r"[0-9a-f]{64}", candidate.name)
+        ):
+            raise PinInstallRefused("untrusted prior signed-helper archive entry")
+        owner_directory(candidate)
+        binary = candidate / "VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"
+        if not binary.is_file() or binary.is_symlink():
+            raise PinInstallRefused("prior signed helper archive incomplete")
+        digest = sha(binary.read_bytes())
+        require(digest == candidate.name, "archived helper code bytes altered")
+        record_path = BASE / ("built-source-pins-" + digest + ".json")
+        if not record_path.exists():
+            # Pre-provenance archived helpers cannot authorize pinned migration.
+            continue
+        proof_raw = private_file(record_path, maximum=4096)
+        try:
+            proof = json.loads(proof_raw)
+        except (ValueError, UnicodeError) as exc:
+            raise PinInstallRefused("prior helper provenance malformed") from exc
+        require(
+            type(proof) is dict
+            and set(proof)
+            == {
+                "schema",
+                "binarySha256",
+                "frozenCommit",
+                "sourceGraphSha256",
+                "sourceManifestSha256",
+            }
+            and proof["schema"] == "vera.gui-helper-signed-build-source/v1"
+            and proof["binarySha256"] == digest
+            and queue.canonical(proof) == proof_raw,
+            "prior helper build provenance altered",
+        )
+        if proof["sourceGraphSha256"] != old_graph:
+            continue
+        prior_commit = proof["frozenCommit"]
+        require(
+            isinstance(prior_commit, str)
+            and re.fullmatch(r"[0-9a-f]{40}", prior_commit)
+            and type(proof["sourceManifestSha256"]) is str
+            and re.fullmatch(r"[0-9a-f]{64}", proof["sourceManifestSha256"]),
+            "prior helper provenance not closed",
+        )
+        repo = Path(__file__).resolve().parents[2]
+        sh(
+            "git",
+            "-C",
+            str(repo),
+            "merge-base",
+            "--is-ancestor",
+            prior_commit,
+            current_commit,
+        )
+        old_bundle = candidate / "VERA GUI Helper.app"
+        sh("/usr/bin/codesign", "--verify", "--strict", "--deep", str(old_bundle))
+        info = sh("/usr/bin/codesign", "-dv", "--verbose=4", str(binary))
+        details = info.stdout + info.stderr
+        req = sh("/usr/bin/codesign", "-dr", "-", str(binary))
+        requirement = req.stdout + req.stderr
+        team = re.search(r"(?m)^TeamIdentifier=([A-Z0-9]{10})$", details)
+        cdhash = re.search(r"(?m)^CDHash=([0-9a-f]{40})$", details)
+        designated = re.search(r"(?m)^designated => (.+)$", requirement)
+        require(
+            bool(team and cdhash and designated), "archived signing identity absent"
+        )
+        assert team is not None and cdhash is not None and designated is not None
+        old_binary = {
+            "executablePath": str(EXE),
+            "sha256": digest,
+            "codeDirectoryHash": cdhash.group(1),
+            "designatedRequirement": designated.group(1),
+            "teamIdentifier": team.group(1),
+            "bundleIdentifier": protocol.BUNDLE_ID,
+        }
+        protocol.validate_binary_pin(old_binary)
+        actor = {
+            "schema": protocol.ACTOR_SCHEMA,
+            "sourceManifestSha256": proof["sourceManifestSha256"],
+            "binary": old_binary,
+        }
+        if sha(queue.canonical(actor)) == old_actor:
+            matches += 1
+    return matches == 1
+
+
 def render(actor: dict[str, object], graph: str) -> bytes:
     value = plistlib.loads(TEMPLATE.read_bytes())
     require(
@@ -332,8 +457,11 @@ def install() -> dict[str, object]:
     destination = render(actor, graph)
     old = private_file(PLIST) if PLIST.exists() or PLIST.is_symlink() else b""
     require(
-        not old or old == destination or legacy_exact(old, str(EXE), str(SPOOL)),
-        "existing LaunchAgent differs from exact legacy or current pinned template",
+        not old
+        or old == destination
+        or legacy_exact(old, str(EXE), str(SPOOL))
+        or authenticated_prior_pinned(old, current_commit=commit),
+        "existing LaunchAgent lacks authenticated prior pinned/legacy identity",
     )
     old_self = SPOOL / "self-status.json"
     old_pid: int | None = None

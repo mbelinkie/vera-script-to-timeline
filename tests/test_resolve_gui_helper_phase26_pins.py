@@ -322,3 +322,94 @@ def test_signed_helper_build_and_install_require_same_long_lived_carrier_lock() 
         'require(not active, "native campaign owns Conductor carrier lock")'
         in installer
     )
+
+
+def test_authenticated_previous_pinned_launchagent_migration_requires_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    installer = module()
+    monkeypatch.setattr(installer, "BASE", tmp_path)
+    binary_path = Path(
+        "/Users/test/Library/Application Support/VERA/GUI Helper/"
+        "VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"
+    )
+    monkeypatch.setattr(installer, "EXE", binary_path)
+    monkeypatch.setattr(installer, "SPOOL", Path("/Users/test/VERA GUI Helper/spool"))
+    signed = b"archived signed helper dummy bytes"
+    old_sha = hashlib.sha256(signed).hexdigest()
+    graph = "e" * 64
+    manifest = "f" * 64
+    old_commit = "a" * 40
+    archive_root = tmp_path / "retained-signed-helpers"
+    archive_root.mkdir(mode=0o700)
+    old_root = archive_root / old_sha
+    old_root.mkdir(mode=0o700)
+    archived_binary = old_root / "VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"
+    archived_binary.parent.mkdir(parents=True, mode=0o700)
+    archived_binary.write_bytes(signed)
+    provenance = {
+        "schema": "vera.gui-helper-signed-build-source/v1",
+        "binarySha256": old_sha,
+        "frozenCommit": old_commit,
+        "sourceGraphSha256": graph,
+        "sourceManifestSha256": manifest,
+    }
+    receipt = tmp_path / ("built-source-pins-" + old_sha + ".json")
+    receipt.write_bytes(queue.canonical(provenance))
+    receipt.chmod(0o600)
+    requirement = (
+        'identifier "org.vera.resolve-test-bench.gui" and anchor apple generic'
+    )
+    signing_info = "TeamIdentifier=D3Z8Y24NKY\nCDHash=" + "d" * 40 + "\n"
+
+    def signing(*args: str, timeout: int = 18) -> Any:
+        if args[0] == "git":
+            assert old_commit in args and "b" * 40 in args
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        assert args[0] == "/usr/bin/codesign"
+        if "-dv" in args:
+            return SimpleNamespace(returncode=0, stdout=signing_info, stderr="")
+        if "-dr" in args:
+            return SimpleNamespace(
+                returncode=0, stdout="designated => " + requirement + "\n", stderr=""
+            )
+        assert "--verify" in args
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(installer, "sh", signing)
+    prior_actor = {
+        "schema": "vera.gui-helper-actor/v1",
+        "sourceManifestSha256": manifest,
+        "binary": {
+            "executablePath": str(binary_path),
+            "sha256": old_sha,
+            "codeDirectoryHash": "d" * 40,
+            "designatedRequirement": requirement,
+            "teamIdentifier": "D3Z8Y24NKY",
+            "bundleIdentifier": "org.vera.resolve-test-bench.gui",
+        },
+    }
+    previous = plistlib.loads(installer.TEMPLATE.read_bytes())
+    previous["ProgramArguments"] = [str(binary_path)]
+    previous["EnvironmentVariables"] = {
+        "VERA_GUI_HELPER_SPOOL": str(installer.SPOOL),
+        "VERA_GUI_HELPER_ACTOR_PIN_SHA256": hashlib.sha256(
+            queue.canonical(prior_actor)
+        ).hexdigest(),
+        "VERA_GUI_HELPER_SOURCE_GRAPH_SHA256": graph,
+    }
+    canonical = plistlib.dumps(previous, sort_keys=True)
+    assert installer.authenticated_prior_pinned(canonical, current_commit="b" * 40)
+    changed = dict(previous)
+    changed["EnvironmentVariables"] = dict(previous["EnvironmentVariables"])
+    changed["EnvironmentVariables"]["VERA_GUI_HELPER_ACTOR_PIN_SHA256"] = "0" * 64
+    assert not installer.authenticated_prior_pinned(
+        plistlib.dumps(changed, sort_keys=True), current_commit="b" * 40
+    )
+    assert not installer.authenticated_prior_pinned(
+        canonical + b" ", current_commit="b" * 40
+    )
+    receipt.unlink()
+    assert not installer.authenticated_prior_pinned(canonical, current_commit="b" * 40)
