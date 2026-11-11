@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -141,6 +142,7 @@ def open_owned_edit_page(
 
     _require(started <= intent_time <= now, "edited operation intent is not current")
     check_time()
+
     session = load_output_session(
         Path(receipt["session"]["path"]), receipt["session"]["sha256"]
     )
@@ -191,3 +193,100 @@ def open_owned_edit_page(
     after = inspect_selected(resolve, plan["initialTarget"], geometry)
     _require(after == before, "selected SDK UID/inventory drifted during page setup")
     check_time()
+
+
+def verify_pre_roll_source_origins(
+    store: queue.Store,
+    job_id: str,
+    resolve: Any,
+    *,
+    session: Mapping[str, str],
+) -> None:
+    """Read-only original-media path gate BEFORE spending the GUI Roll intent.
+
+    Resolve retains media references to the imported pristine package. The
+    edited package is a distinct SHA-equivalent verification copy, never a
+    command to relink the timeline. Prove this while the SDK owner is held,
+    before the one-use F1 GUI request or any further effect is claimed.
+    """
+    from .qualification_output_controller_v2 import load_output_session
+    from .qualification_output_native_v2 import (
+        MATRIX_PROFILE,
+        _admitted_media_path,
+        _hash_file,
+        _m4_edited_original_source_admission,
+        _path,
+        _source_hash,
+    )
+
+    roll._require_owner_lock()
+    plan = m4._load_plan(store, job_id)
+    ref = m4._ref(dict(session), "edited pre-Roll session")
+    controller = load_output_session(Path(ref["path"]), ref["sha256"])
+    _require(
+        controller.context.get("phase") == "edited"
+        and controller.context.get("caseId") == "synthetic-312"
+        and controller.context.get("target") == plan["initialTarget"]
+        and controller.admission.profile == MATRIX_PROFILE,
+        "edited M4 source preflight context differs",
+    )
+    original = _m4_edited_original_source_admission(
+        {
+            "context": controller.context,
+            "target": plan["initialTarget"],
+            "profile": controller.admission.profile,
+        },
+        {
+            "sourceRoot": controller.admission.package_root / "PublicPackage",
+            "manifest": controller.admission.manifest,
+            "view": controller.admission.view,
+            "admission": controller.admission.admission,
+        },
+    )
+    paths = {
+        str(_admitted_media_path(original, row)): row
+        for row in original["view"]["sources"]
+    }
+    project = resolve.GetProjectManager().GetCurrentProject()
+    _require(project is not None, "pre-Roll project is unavailable")
+    timeline = project.GetCurrentTimeline()
+    _require(
+        timeline is not None
+        and project.GetUniqueId() == plan["initialTarget"]["projectUid"]
+        and timeline.GetUniqueId() == plan["initialTarget"]["timelineUid"],
+        "pre-Roll exact disposable UID selection differs",
+    )
+    seen = 0
+    for kind in ("video", "audio"):
+        count = timeline.GetTrackCount(kind)
+        _require(type(count) is int and 0 <= count <= 6, "unsupported M4 track count")
+        for index in range(1, count + 1):
+            items = timeline.GetItemListInTrack(kind, index)
+            _require(
+                type(items) in (list, tuple) and len(items) <= 24,
+                "pre-Roll item inventory unavailable",
+            )
+            for item in items:
+                media = item.GetMediaPoolItem()
+                _require(media is not None, "pre-Roll media pool item missing")
+                props = media.GetClipProperty()
+                value = props.get("File Path") if type(props) is dict else None
+                _require(type(value) is str, "pre-Roll native File Path unreadable")
+                assert isinstance(value, str)
+                _path(value, "pre-Roll original imported media")
+                _require(
+                    os.path.normpath(value) == value,
+                    "pre-Roll native media path is aliased",
+                )
+                source = paths.get(value)
+                _require(
+                    source is not None,
+                    "pre-Roll media is not from signed pristine package",
+                )
+                assert source is not None
+                _require(
+                    _hash_file(Path(value))[0] == _source_hash(source["contentHash"]),
+                    "pre-Roll original imported source bytes changed",
+                )
+                seen += 1
+    _require(seen == 11, "pre-Roll native 11-item source inventory incomplete")

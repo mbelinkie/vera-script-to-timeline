@@ -16,6 +16,8 @@ import json
 import math
 import os
 import pwd
+import re
+import sqlite3
 import stat
 import struct
 import sys
@@ -4010,6 +4012,247 @@ def _native_audio_gain_readback_matches(expected: Any, actual: Any) -> bool:
     return actual in (expected, float32_expected)
 
 
+def _m4_edited_original_source_admission(
+    request: dict[str, Any], admitted: dict[str, Any]
+) -> dict[str, Any]:
+    """Allow ONLY the original M4 pristine import for an edited same-UID target.
+
+    This runs inside the separately installed, hermetic Resolve runtime. It
+    imports ONLY stdlib and the already shipped workflow_v2 module, never
+    host/controller/conductor modules unavailable in the installed release.
+    The original SQLite-pinned pristine receipt plus native capture, both
+    immutable sessions and separately attested packages bind the source root.
+    All errors refuse; none may fall back to arbitrary source paths.
+    """
+    context = request["context"]
+    if not (
+        context.get("phase") == "edited"
+        and context.get("caseId") == "synthetic-312"
+        and request["profile"] == MATRIX_PROFILE
+    ):
+        return admitted
+
+    from .workflow_v2 import load_verified_package_v2
+
+    def exact_ref(value: Any, label: str) -> dict[str, str]:
+        row = _shape(value, frozenset({"path", "sha256"}), label)
+        _path(row["path"], label)
+        _digest(row["sha256"])
+        return row
+
+    def pinned_json(path: Path, expected: str, label: str) -> dict[str, Any]:
+        raw = _read(path, label, maximum=131072)
+        _require(_hash(raw) == _digest(expected), f"{label} SHA256 differs")
+        item = _parse(raw)
+        _require(
+            type(item) is dict and _canonical(item) == raw,
+            f"{label} must be canonical immutable JSON",
+        )
+        return item
+
+    root = _path(str(admitted["sourceRoot"]), "M4 edited source root")
+    _require(
+        root.name == "PublicPackage"
+        and root.parent.name == "package"
+        and root.parent.parent.name == "admitted"
+        and root.parent.parent.parent.name == "edited",
+        "M4 edited package does not use the closed case layout",
+    )
+    case_root = _path(str(root.parents[3]), "M4 original case root")
+    _require(
+        case_root.parent == Path.home() / ".local/state/vera"
+        and root == case_root / "edited/admitted/package/PublicPackage",
+        "M4 source origin escaped the authorized private case",
+    )
+    queue_root = _path(str(case_root / "queue"), "M4 original queue")
+    database = _path(str(queue_root / "queue.sqlite3"), "M4 original queue database")
+    _require(database.is_file(), "M4 original queue database missing")
+    jobs = [
+        p
+        for p in queue_root.iterdir()
+        if p.is_dir()
+        and not p.is_symlink()
+        and re.fullmatch(r"resolve-reverse-[0-9a-f]{32}", p.name)
+    ]
+    _require(len(jobs) == 1, "M4 edited source has no unique original job")
+    job = jobs[0]
+    job_id = job.name
+    # Immutable original queue evidence is READ-ONLY; no SQLite WAL changes,
+    # receipt publishing or import of host queue writers into the native app.
+    connection = sqlite3.connect(
+        f"file:{database}?mode=ro", uri=True, timeout=5, isolation_level=None
+    )
+    connection.row_factory = sqlite3.Row
+    try:
+        parent = connection.execute(
+            "SELECT plan_sha FROM reverse_jobs WHERE id=?", (job_id,)
+        ).fetchone()
+        prior = connection.execute(
+            "SELECT state, name, operation_id, receipt_path, receipt_sha "
+            "FROM reverse_stages WHERE job_id=? AND ordinal=0",
+            (job_id,),
+        ).fetchone()
+        _require(
+            parent is not None and prior is not None, "original M4 evidence absent"
+        )
+        assert parent is not None and prior is not None
+        plan_sha = parent["plan_sha"]
+        _require(
+            type(plan_sha) is str
+            and prior["state"] == "verified"
+            and prior["name"] == "pristine"
+            and type(prior["operation_id"]) is str
+            and bool(re.fullmatch(r"[0-9a-f-]{36}", prior["operation_id"]))
+            and prior["receipt_path"] == str(job / "receipt-pristine.json")
+            and type(prior["receipt_sha"]) is str,
+            "signed original M4 pristine receipt was not verified",
+        )
+        plan = pinned_json(job / "plan.json", plan_sha, "M4 signed plan")
+        receipt = pinned_json(
+            job / "receipt-pristine.json",
+            prior["receipt_sha"],
+            "M4 signed pristine receipt",
+        )
+    finally:
+        connection.close()
+    _require(
+        plan.get("schema") == "vera.resolve-test-reverse-plan/v1"
+        and plan.get("caseId") == "synthetic-312"
+        and plan.get("initialTarget") == request["target"] == context["target"]
+        and receipt.get("schema") == "vera.resolve-test-reverse-receipt/v1"
+        and receipt.get("stage") == "pristine"
+        and receipt.get("operationId") == prior["operation_id"]
+        and set(receipt) == {"schema", "stage", "operationId", "session", "capture"},
+        "M4 original source is not bound to the signed pristine receipt/UID",
+    )
+    baseline_ref = exact_ref(plan["baselineSession"], "M4 baseline session")
+    receipt_ref = exact_ref(receipt["session"], "M4 pristine receipt session")
+    capture_ref = exact_ref(receipt["capture"], "M4 pristine signed capture")
+    baseline_path = _path(
+        str(case_root / "pristine/session.json"), "M4 original session path"
+    )
+    _require(
+        baseline_ref == receipt_ref and receipt_ref["path"] == str(baseline_path),
+        "M4 original source is not bound to the signed pristine receipt/UID",
+    )
+    baseline = pinned_json(
+        baseline_path, baseline_ref["sha256"], "M4 signed original session"
+    )
+    edited_path = _path(
+        str(case_root / "edited/session.json"), "M4 edited session path"
+    )
+    edited_session = _parse(_read(edited_path, "M4 edited session"))
+    _require(
+        type(edited_session) is dict
+        and baseline.get("schemaVersion") == "qualification-output-session/v1"
+        and edited_session.get("schemaVersion") == "qualification-output-session/v1"
+        and baseline.get("profile") == edited_session.get("profile") == MATRIX_PROFILE
+        and set(baseline)
+        == set(edited_session)
+        == {
+            "admissionPath",
+            "admissionSha256",
+            "context",
+            "hostJournalRoot",
+            "lane",
+            "profile",
+            "releaseRoot",
+            "schemaVersion",
+        },
+        "M4 immutable original/edited session shapes differ",
+    )
+    baseline_context = _context(baseline["context"])
+    edited_context = _context(edited_session["context"])
+
+    def comparable(value: dict[str, Any]) -> dict[str, Any]:
+        return {
+            k: v
+            for k, v in value.items()
+            if k not in {"phase", "binding", "invocationId"}
+        }
+
+    _require(
+        baseline_context.get("phase") == "pristine"
+        and edited_context == _context(context)
+        and baseline_context["binding"].get("kind") == "baseline"
+        and edited_context["binding"].get("kind") == "baseline"
+        and baseline_context["invocationId"] != edited_context["invocationId"]
+        and comparable(baseline_context) == comparable(edited_context),
+        "M4 original source/session context identity changed",
+    )
+    original_admission_path = _path(
+        str(
+            case_root / "pristine/admitted/qualification-output-package-admission.json"
+        ),
+        "original M4 package admission",
+    )
+    edited_admission_path = _path(
+        str(case_root / "edited/admitted/qualification-output-package-admission.json"),
+        "edited M4 package admission",
+    )
+    _require(
+        baseline["admissionPath"] == str(original_admission_path)
+        and edited_session["admissionPath"] == str(edited_admission_path)
+        and baseline["releaseRoot"] == str(case_root / "pristine/release")
+        and edited_session["releaseRoot"] == str(case_root / "edited/release"),
+        "M4 edited/original admission root changed",
+    )
+    original_admission = pinned_json(
+        original_admission_path, baseline["admissionSha256"], "M4 pristine admission"
+    )
+    edited_admission = pinned_json(
+        edited_admission_path, edited_session["admissionSha256"], "M4 edited admission"
+    )
+    _require(
+        edited_admission == admitted.get("admission")
+        and original_admission.get("schemaVersion")
+        == edited_admission.get("schemaVersion")
+        and original_admission.get("profile")
+        == edited_admission.get("profile")
+        == MATRIX_PROFILE
+        and original_admission.get("manifestSha256")
+        == edited_admission.get("manifestSha256")
+        and original_admission.get("viewSha256") == edited_admission.get("viewSha256")
+        and original_admission.get("originalDocumentSha256")
+        == edited_admission.get("originalDocumentSha256")
+        and original_admission.get("executionDocumentSha256")
+        == edited_admission.get("executionDocumentSha256"),
+        "M4 edited/original admitted package manifest or evidence differs",
+    )
+    original_capture = verify_native_result(
+        Path(capture_ref["path"]), capture_ref["sha256"]
+    )
+    _require(
+        original_capture.get("status") == "complete"
+        and original_capture.get("action") == "capture_post"
+        and original_capture.get("context") == baseline_context
+        and original_capture.get("target") == request["target"]
+        and isinstance(original_capture.get("nativeGeometry"), dict),
+        "M4 original signed pristine native capture is not authentic",
+    )
+
+    attestation_path = _path(
+        str(case_root / "pristine/admitted/attestation.json"),
+        "M4 pristine PublicPackage attestation",
+    )
+    attestation_raw = _read(
+        attestation_path, "M4 pristine PublicPackage attestation", maximum=131072
+    )
+    pristine = load_verified_package_v2(attestation_path, _hash(attestation_raw))
+    pristine_root = _path(
+        str(case_root / "pristine/admitted/package/PublicPackage"),
+        "M4 original immutable imported media root",
+    )
+    _require(
+        pristine.root == pristine_root
+        and pristine.view == admitted["view"]
+        and pristine.manifest == admitted["manifest"]
+        and pristine_root != root,
+        "M4 signed pristine media origin or exact inventory differs",
+    )
+    return {**admitted, "sourceRoot": pristine_root}
+
+
 def _capture_geometry(
     resolve: Any,
     request: dict[str, Any],
@@ -4073,8 +4316,21 @@ def _capture_geometry(
     tracks: list[dict[str, Any]] = []
     items: list[dict[str, Any]] = []
     sources = {row["id"]: row for row in view["sources"]}
+    # For the one signed M4 edited stage, the surviving same-UID timeline
+    # references the *original* authenticated pristine import directory, not
+    # the separately copied edited-admission package. No other root is allowed.
+    m4_origin = (
+        _observed_edit
+        and request["context"].get("caseId") == "synthetic-312"
+        and request["profile"] == MATRIX_PROFILE
+    )
+    source_admission = (
+        _m4_edited_original_source_admission(request, admitted)
+        if m4_origin
+        else admitted
+    )
     source_paths = {
-        str(_admitted_media_path(admitted, row)): row for row in view["sources"]
+        str(_admitted_media_path(source_admission, row)): row for row in view["sources"]
     }
     expected_events = {row["id"]: row for row in view["events"]}
     manifest_events = {row["eventId"]: row for row in manifest.get("events", [])}
@@ -4209,7 +4465,17 @@ def _capture_geometry(
                 media_path = props.get("File Path")
                 _require(type(media_path) is str, "native source path is unreadable")
                 assert type(media_path) is str
-                source = source_paths.get(str(Path(media_path).resolve()))
+                if m4_origin:
+                    # Strict literal original path, not `resolve()` accepting
+                    # a symlink or an unrelated equal-content duplicate.
+                    _path(media_path, "M4 original imported source")
+                    _require(
+                        os.path.normpath(media_path) == media_path,
+                        "M4 original imported path is not normalized",
+                    )
+                    source = source_paths.get(media_path)
+                else:
+                    source = source_paths.get(str(Path(media_path).resolve()))
                 _require(
                     source is not None,
                     "native source path is outside the admitted package",

@@ -305,6 +305,11 @@ def start(
         # Detect swapped/aliased edited admissions before the first GUI menu
         # effect. Recheck AGAIN after dispatch before independent host starts.
         edited.verify_prepared_identity(store, job_id, value, session)
+        # Resolve retains the original pristine imported media paths; the
+        # edited output session is a distinct copy of the same package. Prove
+        # the exact original receipt/source bytes BEFORE spending F1's single
+        # GUI Roll intent. A media alias/relink cannot pass this read-only gate.
+        page.verify_pre_roll_source_origins(store, job_id, resolve, session=session)
         attempted = helper_stage.dispatch_owned_helper_f1_once(
             store, job_id, resolve, case_root=root, authority=authority
         )

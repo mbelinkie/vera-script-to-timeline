@@ -280,6 +280,11 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
     monkeypatch.setattr(
         playhead, "position_owned_351", lambda *_: events.append("SDK:playhead-351")
     )
+    monkeypatch.setattr(
+        page,
+        "verify_pre_roll_source_origins",
+        lambda *_args, **_kwargs: events.append("source-origin:verified"),
+    )
 
     def gui_attempt(_store: Any, job: str, _resolve: Any, **_kwargs: Any) -> Any:
         assert job == ORIGINAL_JOB and lock_held[0]
@@ -339,6 +344,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "SDK:edit-page",
         "SDK:playhead-351",
         "edited:pre-dispatch-rechecked",
+        "source-origin:verified",
         "GUI:unknown:not-verified",
         "SDK:roll-settled",
         "owner:release",
@@ -368,6 +374,7 @@ def test_full_one_start_fake_injected_four_stage_host_single_owner_and_no_replay
         "SDK:edit-page",
         "SDK:playhead-351",
         "edited:pre-dispatch-rechecked",
+        "source-origin:verified",
         "GUI:unknown:not-verified",
         "SDK:roll-settled",
         "owner:release",
@@ -498,6 +505,11 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
     )
     monkeypatch.setattr(page, "open_owned_edit_page", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(playhead, "position_owned_351", lambda *_: None)
+    monkeypatch.setattr(
+        page,
+        "verify_pre_roll_source_origins",
+        lambda *_args, **_kwargs: events.append("source-origin:verified"),
+    )
 
     def attempt(*_: Any, **_kwargs: Any) -> Any:
         events.append("gui")
@@ -552,7 +564,7 @@ def test_pipeline_stops_after_first_unverified_or_unknown_effect(
     assert (fixture["root"] / "complete-loop-intent.json").is_file()
     assert events[:1] == ["pristine"]
     if stop == "geometry_unknown":
-        assert events == ["pristine", "claim:edited", "gui"]
+        assert events == ["pristine", "claim:edited", "source-origin:verified", "gui"]
     assert "rebuild" in events if stop == "rebuild_unknown" else "rebuild" not in events
 
 
@@ -722,3 +734,93 @@ def test_phase24_fail_closed_before_any_roll_and_without_legacy_fallback(
         assert events == ["admission"]
     else:
         assert events == ["admission", "helper-ready", "page", "351", "session-recheck"]
+
+
+def test_pre_roll_source_provenance_refusal_never_dispatches_gui(
+    prepared: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wrong-source copy is found BEFORE the one-use Swift F1 Roll intent."""
+    events: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "start",
+        lambda *_: {
+            "state": "blocked_unattended_native_roll_edit_not_proven",
+            "jobId": ORIGINAL_JOB,
+        },
+    )
+    monkeypatch.setattr(
+        gui,
+        "seal_case_actor_pin",
+        lambda _store, job, actor: _assert_test_actor(job, actor, prepared),
+    )
+    monkeypatch.setattr(queue, "Store", lambda *_args: object())
+    monkeypatch.setattr(
+        loop, "_advance", lambda _store, _job, name: events.append("claim:" + name)
+    )
+
+    @contextmanager
+    def owner(*, output_lane: bool) -> Iterator[None]:
+        assert output_lane
+        events.append("owner-enter")
+        try:
+            yield
+        finally:
+            events.append("owner-release")
+
+    monkeypatch.setattr(loop, "native_owner", owner)
+    monkeypatch.setattr(loop, "_local_resolve_connection", lambda: object())
+    monkeypatch.setattr(
+        edited,
+        "prepare_before_gui",
+        lambda *_: {"path": "fresh-edited", "sha256": "a" * 64},
+    )
+    monkeypatch.setattr(
+        edited, "verify_prepared_identity", lambda *_: events.append("pin-check")
+    )
+    monkeypatch.setattr(
+        helper_transport,
+        "SignedHelperDesktop",
+        lambda _pin: SimpleNamespace(readiness=lambda: events.append("helper-ready")),
+    )
+    monkeypatch.setattr(
+        page,
+        "open_owned_edit_page",
+        lambda *_args, **_kwargs: events.append("read-only-sdk-page"),
+    )
+    monkeypatch.setattr(
+        playhead,
+        "position_owned_351",
+        lambda *_: events.append("SDK:playhead"),
+    )
+
+    def refused_origin(*_args: Any, **_kwargs: Any) -> None:
+        events.append("source-origin-refused")
+        raise queue.QueueError("original pristine media source not authenticated")
+
+    monkeypatch.setattr(page, "verify_pre_roll_source_origins", refused_origin)
+    monkeypatch.setattr(
+        helper_stage,
+        "dispatch_owned_helper_f1_once",
+        lambda *_args, **_kwargs: pytest.fail(
+            "F1 Roll cannot run after source refusal"
+        ),
+    )
+    monkeypatch.setattr(
+        helper_stage,
+        "observe_settled_edited_geometry",
+        lambda *_args: pytest.fail("no post-Roll observation after source refusal"),
+    )
+    with pytest.raises(queue.QueueError, match="original pristine media source"):
+        loop.start(prepared["config_path"], prepared["auth_path"], frozen_commit=FROZEN)
+    assert events == [
+        "claim:edited",
+        "helper-ready",
+        "owner-enter",
+        "read-only-sdk-page",
+        "SDK:playhead",
+        "pin-check",
+        "source-origin-refused",
+        "owner-release",
+    ]
+    assert (prepared["root"] / "complete-loop-intent.json").is_file()
