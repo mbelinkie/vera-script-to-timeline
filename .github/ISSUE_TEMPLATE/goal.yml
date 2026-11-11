@@ -10,6 +10,24 @@ body:
     validations:
       required: true
   - type: textarea
+    id: prework
+    attributes:
+      label: Pre-work questions (keep the heading in your answer)
+      description: Answer each in one or two lines. Keep the level-two heading so the Ready check recognizes it.
+      value: |
+        ## Pre-work check
+
+        1. **Who can do what afterwards?** Name a person and a new ability, not "another issue can proceed":
+        2. **Where was it asked for?** Quote Matthew or the product spec, not an agent-written issue:
+        3. **What is the simplest version?** Explain any additional scope and its benefit:
+        4. **Does it fit in a day?** If not, split it:
+        5. **Does it add any checking machinery?** If yes, link the actual failure and Matthew's approval:
+        6. **Can Matthew see it finished?** Give an observable result or command and time budget:
+        7. **Is the real-Resolve check cheap and repeatable?** Under five minutes, a throwaway project, rerunnable, never one-use (or N/A):
+        8. **How deep is the chain?** At most one open blocker, which must also name a new human ability:
+    validations:
+      required: true
+  - type: textarea
     id: exit
     attributes:
       label: Exit criteria

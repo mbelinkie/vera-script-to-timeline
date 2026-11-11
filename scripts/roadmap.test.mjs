@@ -6,9 +6,16 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { acceptanceReady, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, routingProfile } from "./roadmap.mjs";
+import { acceptanceReady, assertPreWorkCheck, assertDependenciesResolved, assertClaimAvailable, latestClaim, parseArguments, parseDependencies, routingProfile } from "./roadmap.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("Ready requires the literal level-two pre-work heading", () => {
+  assert.throws(() => assertPreWorkCheck("## Acceptance criteria\n\n- [ ] Works"), /## Pre-work check/);
+  assert.throws(() => assertPreWorkCheck("### Pre-work check\n\nAnswered"), /## Pre-work check/);
+  assert.throws(() => assertPreWorkCheck("A mention of ## Pre-work check is not a heading"), /## Pre-work check/);
+  assert.doesNotThrow(() => assertPreWorkCheck("## Pre-work check\r\n\r\n1. Answer\r\n\r\n## Dependencies"));
+});
 
 test("acceptance heading permits a parenthetical clarification without changing the approved issue", () => {
   assert.equal(acceptanceReady("## Acceptance criteria (all required for #401 delivery)\n\n- [ ] Works"), true);
@@ -169,7 +176,7 @@ if (query.includes("RoadmapRateLimit")) {
   process.stdout.write('HTTP/2 200 OK\\nX-RateLimit-Limit: 5000\\nX-RateLimit-Remaining: 50\\nX-RateLimit-Used: 4950\\nX-RateLimit-Reset: 1788215569\\nX-RateLimit-Resource: graphql\\n\\n{"data":{"rateLimit":{"limit":5000,"remaining":50,"used":4950,"resetAt":"2026-08-31T22:32:49Z","cost":1}}}');
 } else if (query.includes("RoadmapIssue")) {
   const status = process.env.FAKE_ROADMAP_STATUS;
-  process.stdout.write(JSON.stringify({data:{repository:{issue:{id:"issue-id",number:23,title:"Test issue",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23",state:"OPEN",body:"## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:sol"},{name:"effort:high"}]},comments:{nodes:[]},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValues:{nodes:[{name:status,field:{name:"Status"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready-option",name:"Ready"},{id:"progress-option",name:"In progress"}]}}},rateLimit:{limit:5000,remaining:49,used:4951,resetAt:"2026-08-31T22:32:49Z",cost:1}}}));
+  process.stdout.write(JSON.stringify({data:{repository:{issue:{id:"issue-id",number:23,title:"Test issue",url:"https://github.com/mbelinkie/vera-script-to-timeline/issues/23",state:"OPEN",body:process.env.FAKE_ISSUE_BODY || "## Pre-work check\\n\\n1. Answer\\n\\n## Acceptance criteria\\n\\n- [ ] Works\\n\\n## Dependencies\\n\\nNone",labels:{nodes:[{name:"model:sol"},{name:"effort:high"}]},comments:{nodes:[]},projectItems:{nodes:[{id:"item-id",project:{id:"project-id",number:2,title:"Roadmap"},fieldValues:{nodes:[{name:status,field:{name:"Status"}}]}}]}}},user:{projectV2:{id:"project-id",number:2,title:"Roadmap",field:{id:"status-field",name:"Status",options:[{id:"ready-option",name:"Ready"},{id:"progress-option",name:"In progress"}]}}},rateLimit:{limit:5000,remaining:49,used:4951,resetAt:"2026-08-31T22:32:49Z",cost:1}}}));
 } else if (query.includes("RoadmapLifecycle")) {
   process.stdout.write('{"data":{"status":{"projectV2Item":{"id":"item-id"}}}}');
 } else if (args[0] === "api" && args[1] === "repos/mbelinkie/vera-script-to-timeline/issues/23") {
@@ -196,7 +203,7 @@ if (query.includes("RoadmapRateLimit")) {
   writeFileSync(fakeGh, fakeSource);
   chmodSync(fakeGh, 0o755);
 
-  const run = (command, status, expectedExit = 0, approved = false) => {
+  const run = (command, status, expectedExit = 0, approved = false, issueBody = "") => {
     writeFileSync(logPath, "");
     const lockPath = path.join(temporary, `${command[0]}.lock`);
     const result = spawnSync(process.execPath, [path.join(repositoryRoot, "scripts", "roadmap.mjs"), ...command], {
@@ -208,6 +215,7 @@ if (query.includes("RoadmapRateLimit")) {
         FAKE_GH_LOG: logPath,
         FAKE_ROADMAP_STATUS: status,
         FAKE_CHAT_APPROVED: String(approved),
+        FAKE_ISSUE_BODY: issueBody,
         VERA_ROADMAP_LOCK_PATH: lockPath,
       },
     });
@@ -224,6 +232,12 @@ if (query.includes("RoadmapRateLimit")) {
   assert.match(readyCalls[1].join(" "), /RoadmapIssue/);
   assert.match(readyCalls[2].join(" "), /RoadmapRateLimit/);
   assert.match(readyCalls.at(-1).join(" "), /RoadmapLifecycle/);
+
+  const rejectedCalls = run(
+    ["ready", "23"], "Ready", 1, false,
+    "## Acceptance criteria\n\n- [ ] Works\n\n## Dependencies\n\nNone",
+  );
+  assert.equal(rejectedCalls.some((args) => args.join(" ").includes("RoadmapLifecycle")), false);
 
   const claimCalls = run(["claim", "23", "--branch", "codex/test"], "Ready");
   assert.match(claimCalls[0].join(" "), /RoadmapRateLimit/);

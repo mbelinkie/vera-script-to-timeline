@@ -23,21 +23,26 @@ for the smallest action.
 
 ## Operating principles
 
-- Use GitHub's built-in features before building our own.
-- Build the simplest thing that works. If infrastructure or tooling work runs
-  past about a day, stop and check with Matthew.
-- Don't add gates, approval steps, receipts or required reading unless Matthew
-  asks. Every rule here names the real risk it prevents; prefer deleting
-  process to adding it.
-- Keep this file and the other session docs short; a test enforces a word
-  budget.
+- Use GitHub's features and the simplest workable approach. Avoid unrequested
+  checking machinery; keep session docs within their word budgets.
+- Before work, answer eight `## Pre-work check` questions: who gains a real
+  ability; Matthew/spec quote; simplest version; one-day fit; new checks with
+  actual failure and Matthew's yes; visible finish and time budget; a cheap,
+  repeatable throwaway Resolve check; at most one open blocker with its own
+  human benefit.
+- Older issue demands for Test Bench runs, #506 case IDs or the #473/#499
+  foundation are void. Real Resolve checks use #520's under-five-minute
+  save/close/reopen structural loop, never one-use runs, renders or audio
+  comparisons. Run one Resolve job at a time; stop on uncertain writes.
+- Stop and tell Matthew after a second non-Resolve/non-product failure, a day
+  of work, a second child issue, more checking than doing, or any need for
+  GUI automation, code signing or a background service.
 
 ## Doing an issue
 
-1. **Start.** Matthew's go-ahead in any form ("work on #123", "next prepped
-   ticket", an issue in `Ready`) is the approval. Read the issue and the
-   relevant slice of `docs/Script-to-Timeline Product Spec - Fable Rev2.md`.
-   Run `npm run cleanup` to remove merged worktrees.
+1. **Start.** Matthew's go-ahead is approval. Read the issue and relevant
+   `docs/Script-to-Timeline Product Spec - Fable Rev2.md` slice. Run
+   `npm run cleanup` to remove merged worktrees.
 2. **Branch.** One issue per worktree/branch (`codex/<issue>-<slug>` or
    `claude/<issue>-<slug>`) from freshly fetched `origin/main`; bootstrap with
    `npm ci` and `uv sync --frozen`. Never edit the main project folder; it
@@ -51,11 +56,9 @@ for the smallest action.
    bigger: file an Inbox issue.
 4. **Check locally.** Focused tests, then `npm run validate:fast`. Never run
    the full `npm run validate` on the Mac (1–3 hours); CI runs it.
-5. **Review.** For code changes over ~50 lines, or any change touching money,
-   Matthew's data, Resolve writes or concurrency, write 5–10 lines of notes and
-   run `npm run review -- notes.md` once. Fix real findings; list them as
-   fixed/rejected in the PR. No second full round. If the CLI is unavailable,
-   say so and continue.
+5. **Review.** For >50 lines of code, money, Matthew's data, Resolve writes or
+   concurrency, write brief notes and run `npm run review -- notes.md` once.
+   Fix findings; summarize in the PR. If unavailable, say so and continue.
 6. **Deliver.** Mark the PR ready, put `Closes #<issue>` in the body, and turn
    on auto-merge: `gh pr merge --auto --merge`. It merges when the required
    `TypeScript and Python` check passes, the issue closes itself, and your job

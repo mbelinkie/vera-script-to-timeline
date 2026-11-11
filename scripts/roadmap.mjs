@@ -511,6 +511,12 @@ export function acceptanceReady(body) {
   });
 }
 
+export function assertPreWorkCheck(body) {
+  if (typeof body !== "string" || !/^##[ \t]+Pre-work check[ \t]*\r?$/im.test(body)) {
+    throw new Error("Issue body needs a '## Pre-work check' section before Ready");
+  }
+}
+
 function validateReadyRequirements(settings, issue) {
   if (issue.state !== "OPEN") throw new Error("Only open issues can become or remain Ready");
   const labels = labelsOf(issue);
@@ -631,6 +637,7 @@ async function main() {
     if (!["Inbox", "Backlog", "Blocked", "Ready"].includes(item.status)) {
       throw new Error(`Issue cannot move to Ready from ${item.status ?? "unknown"}`);
     }
+    assertPreWorkCheck(issue.body);
     validateReadyRequirements(settings, issue);
     assertClaimAvailable(issue.comments);
     guardMutation(0, ["lifecycleMutation"]);
