@@ -18,7 +18,7 @@ from vera_timeline_agent import resolve_test_bench_output as output
 from vera_timeline_agent import resolve_test_bench_revision_stage as revision
 from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent import resolve_test_queue_m4 as m4
-from vera_timeline_agent import workflow_v2_cli
+from vera_timeline_agent import v2_package, workflow_v2_cli
 
 
 def target() -> dict[str, str]:
@@ -399,15 +399,59 @@ def _prepare_rebuild(
     root = fixture["root"]
     fresh = fixture["plan"]["freshTarget"]
     calls: list[dict[str, Any]] = []
+    revision_build_id = "2ae6c5ae-03f4-4f28-8012-04ea7ded20d5"
+    (root / "revision/revision-manifest.json").write_text(
+        json.dumps({"buildId": revision_build_id}), encoding="utf-8"
+    )
+
+    def materialize(
+        proof_path: Path,
+        proof_sha256: str,
+        output_root: Path,
+        *,
+        media_paths: dict[str, Path],
+        preparation_paths: dict[str, Path],
+    ) -> Path:
+        calls.append(
+            {
+                "kind": "materialize",
+                "proof_path": proof_path,
+                "proof_sha256": proof_sha256,
+                "output_root": output_root,
+                "media_paths": media_paths,
+                "preparation_paths": preparation_paths,
+            }
+        )
+        output_root.mkdir(mode=0o700)
+        return output_root
 
     def prepare(path: Path, **kwargs: Any) -> Path:
-        calls.append(kwargs)
+        # This regression fails against the old original-package path, even
+        # though the real package admission host itself is injected here.
+        assert calls and calls[0]["kind"] == "materialize"
+        assert kwargs["package_root"] == calls[0]["output_root"]
+        assert kwargs["package_root"] != Path(fixture["config"]["packageRoot"])
+        assert kwargs["package_root"].is_dir()
+        calls.append({"kind": "revised_admission", **kwargs})
         path.mkdir(mode=0o700)
         saved = path / "session.json"
         saved.write_bytes(b"mock-revised-signed-session")
         return saved
 
     monkeypatch.setattr(proof_module, "prepare_revised_output_session", prepare)
+    monkeypatch.setattr(proof_module, "build_output_revision_package", materialize)
+    monkeypatch.setattr(
+        revision,
+        "_revised_media_paths",
+        lambda *_a, **_k: {"source:verified": root / "verified-source.mov"},
+    )
+    monkeypatch.setattr(
+        v2_package,
+        "verify_v2_package",
+        lambda *_a, **_k: v2_package.V2PackageVerification(
+            revision_build_id, 11, 0, 11
+        ),
+    )
     monkeypatch.setattr(runner, "_matrix_preparation_paths", lambda *_a, **_k: {})
     monkeypatch.setattr(runner, "_matrix_narration_paths", lambda *_a, **_k: {})
     installed = root / "reviewed-release"
@@ -454,10 +498,12 @@ def test_distinct_rebuild_and_original_four_receipts_end_to_end_fake_host(
     calls = _prepare_rebuild(fixture, monkeypatch)
     result = revision.rebuild(fixture["store"], fixture["job"], fixture["config"])
     assert result["state"] == "original_M4_four_stages_verified"
-    assert calls[0]["target"] == fixture["plan"]["freshTarget"]
+    assert calls[0]["output_root"] == fixture["root"] / "rebuild-package"
+    assert calls[1]["package_root"] == fixture["root"] / "rebuild-package"
     assert calls[1]["target"] == fixture["plan"]["freshTarget"]
-    assert calls[1]["phase"] == "rebuild"
-    assert calls[1]["deadlineUnix"] > 0
+    assert calls[2]["target"] == fixture["plan"]["freshTarget"]
+    assert calls[2]["phase"] == "rebuild"
+    assert calls[2]["deadlineUnix"] > 0
     report = m4.publish(fixture["store"], fixture["job"])
     assert report["readyFor312Phase2"] is True
     assert [item["state"] for item in report["stages"]] == ["verified"] * 4
@@ -470,8 +516,38 @@ def test_distinct_rebuild_and_original_four_receipts_end_to_end_fake_host(
         revision.rebuild(fixture["store"], fixture["job"], fixture["config"])
 
 
+def test_rebuild_rejects_wrong_materialized_build_before_native_or_fourth_receipt(
+    campaign_fixture: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = campaign_fixture
+    calls = _prepare_rebuild(fixture, monkeypatch)
+    monkeypatch.setattr(
+        v2_package,
+        "verify_v2_package",
+        lambda *_a, **_k: v2_package.V2PackageVerification(
+            "wrong-unaccepted-build", 11, 0, 11
+        ),
+    )
+    with pytest.raises(queue.QueueError, match="materialized revised public package"):
+        revision.rebuild(fixture["store"], fixture["job"], fixture["config"])
+    assert [call["kind"] for call in calls] == ["materialize"]
+    assert not (fixture["root"] / "rebuild").exists()
+    assert (
+        m4.publish(fixture["store"], fixture["job"])["stages"][3]["state"]
+        == "awaiting_operator"
+    )
+
+
 @pytest.mark.parametrize(
-    "fault", ["unknown_host", "bad_verdict", "swapped_target", "expired", "spent_root"]
+    "fault",
+    [
+        "unknown_host",
+        "bad_verdict",
+        "swapped_target",
+        "expired",
+        "spent_root",
+        "spent_package_root",
+    ],
 )
 def test_rebuild_fail_stop_no_fourth_receipt(
     campaign_fixture: dict[str, Any],
@@ -494,6 +570,8 @@ def test_rebuild_fail_stop_no_fourth_receipt(
             )
     if fault == "spent_root":
         (fixture["root"] / "rebuild").mkdir()
+    if fault == "spent_package_root":
+        (fixture["root"] / "rebuild-package").mkdir()
     with pytest.raises(
         queue.QueueError, match=r"deadline|reserved|host|verifier|already|prior"
     ):

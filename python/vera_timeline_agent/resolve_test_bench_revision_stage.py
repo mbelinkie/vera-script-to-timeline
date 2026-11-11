@@ -12,6 +12,7 @@ They must never be pointed at an expired, previously source-sealed run.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import time
 from pathlib import Path
@@ -152,6 +153,112 @@ def _accept_synthetic_a(proof: Any) -> None:
     _require(accepted.get("outcome") == "accept", "revised package not accepted")
 
 
+def _revised_media_paths(
+    source_package: Path, revised_manifest_path: Path, *, case_id: str
+) -> dict[str, Path]:
+    """Bind an accepted A revision to the original *verified* 11-event media.
+
+    This closed source-matrix policy forbids synthesizing a missing asset,
+    selecting an arbitrary same-basename file or changing a media/source hash.
+    The accepted A revision moves one existing cut; it cannot replace media.
+    """
+    from . import v2_package
+
+    _require(case_id == "synthetic-312", "unapproved revised media matrix")
+    verified = v2_package.verify_v2_package(source_package)
+    original_build = source_package / "Builds" / verified.build_id
+    original = json.loads((original_build / v2_package.MANIFEST_FILENAME).read_bytes())
+    revised = json.loads(revised_manifest_path.read_bytes())
+    _require(
+        original.get("sources") == revised.get("sources")
+        and isinstance(revised.get("events"), list)
+        and len(original.get("events", [])) == len(revised["events"]) == 11,
+        "accepted A revision changed immutable source/media inventory",
+    )
+    original_events = {row["eventId"]: row for row in original["events"]}
+    revised_events = {row["eventId"]: row for row in revised["events"]}
+    _require(
+        len(original_events) == len(revised_events) == 11
+        and set(original_events) == set(revised_events),
+        "accepted A revision changed event identities",
+    )
+
+    def require_media(directory: Path, identifier: str, expected: str) -> Path:
+        _require(
+            isinstance(identifier, str)
+            and bool(identifier)
+            and "/" not in identifier
+            and ".." not in identifier
+            and isinstance(expected, str)
+            and expected.startswith("sha256:")
+            and len(expected) == 71,
+            "invalid revised media identifier or hash",
+        )
+        matches = list(directory.glob(identifier + ".*"))
+        _require(
+            len(matches) == 1 and matches[0].is_file() and not matches[0].is_symlink(),
+            "ambiguous or absent verified revised source media",
+        )
+        path = matches[0]
+        v2_package._require_path_components_no_symlink(path, "source media")
+        _require(
+            "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() == expected,
+            "original verified source/media hash differs from accepted revision",
+        )
+        return path
+
+    paths: dict[str, Path] = {}
+    for source in revised["sources"]:
+        identifier = source["id"]
+        narration = source.get("narrationAudio")
+        if isinstance(narration, dict):
+            paths["source:" + identifier] = require_media(
+                source_package / "Media/Narration", identifier, narration["audioHash"]
+            )
+        else:
+            paths["source:" + identifier] = require_media(
+                source_package / "Media/Resolved", identifier, source["deliveredHash"]
+            )
+            paths["original:" + identifier] = require_media(
+                original_build / "Preparation/original",
+                identifier,
+                source["originalHash"],
+            )
+    for identifier, event in revised_events.items():
+        prior = original_events[identifier]
+        _require(
+            event.get("kind") == prior.get("kind"),
+            "accepted A revision changed event kind",
+        )
+        if event["kind"] == "placeholder":
+            _require(
+                event.get("pictureTreatment") == prior.get("pictureTreatment"),
+                "accepted A revision changed placeholder media",
+            )
+            # The original public package has already independently verified
+            # the exact generated PNG. The new revision retains its treatment.
+            from .v2_package import _hash_bytes, _render_slate
+
+            treatment = event["pictureTreatment"]
+            if treatment["kind"] == "slate":
+                timeline = revised["timeline"]
+                expected = _hash_bytes(
+                    _render_slate(
+                        treatment["text"], timeline["width"], timeline["height"]
+                    )
+                )
+            else:
+                expected = treatment["reference"]["contentHash"]
+            paths["event:" + identifier] = require_media(
+                source_package / "Media/Resolved", identifier, expected
+            )
+        _require(
+            event["kind"] != "source_audio",
+            "no unqualified source-audio sidecar fallback in revised A matrix",
+        )
+    return paths
+
+
 def revision(store: queue.Store, job_id: str, config: dict[str, Any]) -> dict[str, Any]:
     """One accepted host proof, original revision M4 receipt; zero native effects."""
     from .qualification_output_proof_v2 import (
@@ -225,8 +332,10 @@ def rebuild(store: queue.Store, job_id: str, config: dict[str, Any]) -> dict[str
     """Reserve distinct fresh target, run official SDK host, verify MOV/PCM."""
     from .qualification_output_proof_v2 import (
         QualificationOutputProofV2,
+        build_output_revision_package,
         prepare_revised_output_session,
     )
+    from .v2_package import verify_v2_package
     from .workflow_v2_cli import _verify_output_release
 
     value = runner.validate_config(config)
@@ -247,24 +356,44 @@ def rebuild(store: queue.Store, job_id: str, config: dict[str, Any]) -> dict[str
         "accepted proof does not bind original same-target M4 chain",
     )
     rebuild_root = root / "rebuild"
+    revised_package_root = root / "rebuild-package"
     _require(
-        not rebuild_root.exists() and not rebuild_root.is_symlink(),
-        "prior fresh rebuild reserved; inspect, never replay",
+        not rebuild_root.exists()
+        and not rebuild_root.is_symlink()
+        and not revised_package_root.exists()
+        and not revised_package_root.is_symlink(),
+        "prior fresh rebuild or revised package reserved; inspect, never replay",
     )
     source = runner._absolute(value["packageRoot"], "packageRoot")
+    preparations = runner._matrix_preparation_paths(source, case_id=value["caseId"])
+    narrations = runner._matrix_narration_paths(
+        source,
+        runner._absolute(value["narrationEvidenceRoot"], "narrationEvidenceRoot"),
+        case_id=value["caseId"],
+    )
+    revised_media = _revised_media_paths(
+        source, proof.root / "revision-manifest.json", case_id=value["caseId"]
+    )
+    build_output_revision_package(
+        Path(proof_pin["path"]),
+        proof_pin["sha256"],
+        revised_package_root,
+        media_paths=revised_media,
+        preparation_paths=preparations,
+    )
+    verified_revised = verify_v2_package(revised_package_root)
+    _require(
+        verified_revised.build_id
+        == json.loads((proof.root / "revision-manifest.json").read_bytes())["buildId"],
+        "materialized revised public package build differs from accepted revision",
+    )
     path = prepare_revised_output_session(
         rebuild_root,
         proof_session=Path(proof_pin["path"]),
         proof_sha256=proof_pin["sha256"],
-        package_root=source,
-        preparation_paths=runner._matrix_preparation_paths(
-            source, case_id=value["caseId"]
-        ),
-        narration_evidence_paths=runner._matrix_narration_paths(
-            source,
-            runner._absolute(value["narrationEvidenceRoot"], "narrationEvidenceRoot"),
-            case_id=value["caseId"],
-        ),
+        package_root=revised_package_root,
+        preparation_paths=preparations,
+        narration_evidence_paths=narrations,
         target=plan["freshTarget"],
     )
     session = output._pin(path)
