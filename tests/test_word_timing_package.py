@@ -843,5 +843,17 @@ def test_timeout_waits_for_children_that_ignore_sigterm(tmp_path: Path) -> None:
     assert refused.value.code == "timeout"
     pid = int(marker.read_text())
     time.sleep(0.1)
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)  # the SIGTERM-ignoring child is gone before we return
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        pass  # The child was reaped by init.
+    else:
+        # Container PID 1 may fail to reap an orphan: kill(pid, 0) still
+        # succeeds for the kernel's zombie entry despite there being no
+        # runnable child. Require actual Z state, not merely a matching PID.
+        assert sys.platform == "linux", "SIGTERM-ignoring child still running"
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().split(") ", 1)[1][0]
+        except FileNotFoundError:
+            state = "Z"  # Reaped between the two read-only observations.
+        assert state == "Z", "SIGTERM-ignoring child survived timeout cleanup"

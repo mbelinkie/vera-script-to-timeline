@@ -67,11 +67,19 @@ def test_completed_receipt_lifetime_starts_at_finish_not_authority_issue(
     state = {"offset": 0.0}
     actual_now = datetime.now
     actual_monotonic = time.monotonic
+    # Receipt lifetime is under test, not the host's realtime clock rate.
+    # On virtualized Linux, realtime and monotonic can slew independently
+    # enough to trip production's intentionally strict rollback guard.
+    # Derive the synthetic wall clock from the very same monotonic origin.
+    wall_origin = actual_now(UTC)
+    monotonic_origin = actual_monotonic()
 
     class Clock(datetime):
         @classmethod
         def now(cls, tz: Any = None) -> Clock:
-            instant = actual_now(UTC) + timedelta(seconds=state["offset"])
+            instant = wall_origin + timedelta(
+                seconds=actual_monotonic() - monotonic_origin + state["offset"]
+            )
             return cls.fromtimestamp(instant.timestamp(), tz=UTC)
 
     monkeypatch.setattr(identity, "datetime", Clock)
