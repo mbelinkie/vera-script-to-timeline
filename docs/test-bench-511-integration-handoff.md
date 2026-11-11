@@ -15,14 +15,17 @@ invoked Resolve or a production thread sender. A local `resumed` simulation is
 | Terminal | `scripts/test-bench-terminal-outbox.mjs`: `signTerminalAttestation`, `createTerminalOutbox({filePath,receiptKeys,eventKey,encryptionKey,now?})` → `ingestSimulation`, `ingestSignedFixture({fixturePath,sha256})`, `inspect(eventId)`, `verifyTerminalEvent(event,eventKey)` | Independent trusted verifier with allowlisted issuer, provenance, signed six-state terminal attestation; historical fixture read-only and byte-digest pinned | One signed, immutable event **per case attempt**; separately durable outbox audit stays `persisted` |
 | Delivery | `scripts/test-bench-exact-thread-delivery.mjs`: `createSupportedPlatformSenderAdapters`, `signDeliveryObservation`, `createExactThreadDelivery({filePath,outbox,registry,eventKey,encryptionKey,observerKeys,now?,simulationPlans?})` → `capabilities`, `enqueue({eventId,resolveAssertion})`, `dispatch({eventId,resolveAssertion})`, `observe(signedObservation)`, `inspect(eventId)`, `sweep(eventId)`, `manualFallback(eventId)` | Signed event + fresh one-use exact registered destination; observer issuer/platform key separate from source signer and sender, exact provider message ID and origin correlation | Private AES-GCM lifecycle with history. Only **static test simulations** can dispatch; all codex/zodex/chatgpt production senders **hard-disabled**, including when environment flags are set. |
 
-Required secrets: all signing/encryption keys are distinct, private, 32+-byte
-Buffers; never check in actual keys or grant an untrusted model/chat/test result
-the authority to sign. The registry's current root signing key covers every
-issuer in one registry. #511 must use separate registry/authority instances or
-properly isolate and review independent platform issuer keys; it may **not**
-hand that root key to independently distrusting platform bridges. Every store
-must have its own private 0700 directory/0600 file and its own single-writer
-owner, distinct from #499's live case writer.
+Required secrets: origin, receipt, event and encryption signing keys are
+distinct private 32+-byte Buffers; never check in real keys or grant an
+untrusted model/chat/test result signing authority. The registry now enforces
+distinct **per-issuer** signing keys when multiple platform issuers are
+configured; legacy root-key configuration is restricted to one issuer.
+Delivery observer verification instead uses issuer-specific **Ed25519 public
+keys only** (`observerKeys[issuer] = {platform, publicKey}`), with private
+keys held exclusively by independent observer authorities and used via
+`signDeliveryObservation` on the signing side. Every store must have its own
+private 0700 directory/0600 file and its own single-writer owner, distinct
+from #499's live case writer.
 
 ## Exact acceptance / evidence boundary
 
@@ -56,8 +59,10 @@ owner, distinct from #499's live case writer.
    Commit `in_flight` before send; ambiguous enqueue, crash or lost ACK MUST
    fail closed (`unknown`, no automatic replay). Only definitive **not
    enqueued** offline/busy can retry, at most 3 attempts with 30/60/120 s
-   backoff; expiry and failures retain distinct states. Each subsequent
-   transition requires a fresh independent signed observer attesting exact
+   backoff; expiry and failures retain distinct states. An in-flight claim is
+   not swept to UNKNOWN before its two-minute lease expires; a different
+   process must not overwrite an active result claim. Each subsequent
+   transition requires a fresh independent **Ed25519** signed observer attesting exact
    event/delivery/binding/correlation, owner, thread, provider message ID,
    observed evidence digest, nonce and stage kind.
 6. **Unattended proof**: run a real source-frozen #499-approved native case,
@@ -83,6 +88,12 @@ insecure for production**. The test freezes its clock to 2026-11-11
 16:00:00 UTC, since assertions expire after five minutes. Never use these
 attestations in a real-time #511 integration: a real trusted verifier must
 independently authenticate and freshly attest real immutable native evidence.
+- Local lock files are intentionally **never stolen** when a process dies
+  inside a critical section; the service fails closed instead. #511 must
+  provide a separately verified single-writer owner/recovery protocol and
+  retain the no-replay guarantee before unattended live activation. An
+  independent `inspect` can temporarily encounter an active writer lock;
+  production readers need bounded retry or a read-only snapshot API.
 
 Reproduce locally, without changing any native case:
 

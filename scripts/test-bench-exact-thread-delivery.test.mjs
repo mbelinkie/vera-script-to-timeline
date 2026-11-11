@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
 import {
   chmodSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync,
 } from 'node:fs';
@@ -23,7 +23,7 @@ const RECEIPT_KEY = Buffer.alloc(32, 13);
 const EVENT_KEY = Buffer.alloc(32, 14);
 const OUTBOX_ENCRYPT = Buffer.alloc(32, 15);
 const DELIVERY_ENCRYPT = Buffer.alloc(32, 16);
-const OBSERVER_KEY = Buffer.alloc(32, 17);
+const { privateKey: OBSERVER_PRIVATE_KEY, publicKey: OBSERVER_PUBLIC_KEY } = generateKeyPairSync('ed25519');
 const OBSERVER_ISSUER = 'independent-codex-platform-observer';
 const HASH = 'd'.repeat(64);
 const CORRELATION = 'a17d6edb-c200-442d-8bdd-f0d4573ab789';
@@ -42,7 +42,7 @@ function goodDelivered(extra = {}) {
   return { kind: 'delivered', messageId: 'simulated-platform-message-123', recipient: route, ...extra };
 }
 
-function harness(t, { outcome = 'UNKNOWN', sourceSha256 = 'a'.repeat(64) } = {}) {
+function harness(t, { outcome = 'UNKNOWN', sourceSha256 = 'a'.repeat(64), authorizationDuration = 60 * 60 * 1000 } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'vera-510-delivery-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const clock = { now: NOW };
@@ -57,7 +57,7 @@ function harness(t, { outcome = 'UNKNOWN', sourceSha256 = 'a'.repeat(64) } = {})
     jobId: 'job-123', caseId: 'case-123', operationId: 'operation-123',
     sourceSha256, actorSha256: 'b'.repeat(64), correlationId: CORRELATION,
     authorizationScope: 'test-bench.terminal-result-delivery',
-    authorizationExpiresAt: NOW + 60 * 60 * 1000, callbackRoute: route,
+    authorizationExpiresAt: NOW + authorizationDuration, callbackRoute: route,
   };
   const registry = () => createOriginRegistry({
     filePath: paths.origin, signingKey: ORIGIN_KEY, encryptionKey: ORIGIN_ENCRYPT,
@@ -95,7 +95,7 @@ function harness(t, { outcome = 'UNKNOWN', sourceSha256 = 'a'.repeat(64) } = {})
   const delivery = (plans = null) => createExactThreadDelivery({
     filePath: paths.delivery, outbox: outbox(), registry: registry(),
     eventKey: EVENT_KEY, encryptionKey: DELIVERY_ENCRYPT,
-    observerKeys: { [OBSERVER_ISSUER]: { platform: 'codex', key: OBSERVER_KEY } },
+    observerKeys: { [OBSERVER_ISSUER]: { platform: 'codex', publicKey: OBSERVER_PUBLIC_KEY } },
     now: () => clock.now, simulationPlans: plans,
   });
   const observation = (record, kind, amendments = {}) => signDeliveryObservation({
@@ -111,7 +111,7 @@ function harness(t, { outcome = 'UNKNOWN', sourceSha256 = 'a'.repeat(64) } = {})
     }[kind],
     evidenceSha256: 'e'.repeat(64), nonce: randomUUID(),
     issuedAt: clock.now - 500, expiresAt: clock.now + 60_000, ...amendments,
-  }, OBSERVER_KEY);
+  }, OBSERVER_PRIVATE_KEY);
   return { root, paths, binding, bindingId, registry, assertion, receipt,
     outbox, eventId, clock, delivery, observation };
 }
@@ -137,6 +137,23 @@ test('codex, zodex and chatgpt production senders are individually hard-disabled
   assert.equal(h.delivery().inspect(h.eventId).status, 'queued');
   assert.equal(h.delivery().inspect(h.eventId).attempts, 0);
   assert.equal(h.outbox().inspect(h.eventId).audit.status, 'persisted');
+});
+
+test('rejects fabricated registry resolvers and private observer keys in the verifying process', t => {
+  const h = harness(t);
+  const base = {
+    filePath: h.paths.delivery, outbox: h.outbox(), registry: h.registry(),
+    eventKey: EVENT_KEY, encryptionKey: DELIVERY_ENCRYPT,
+    observerKeys: { [OBSERVER_ISSUER]: { platform: 'codex', publicKey: OBSERVER_PUBLIC_KEY } },
+    now: () => h.clock.now,
+  };
+  assert.throws(() => createExactThreadDelivery({
+    ...base, registry: { resolveRegisteredOrigin: () => ({ bindingId: h.bindingId, binding: h.binding }) },
+  }), /trusted event and origin stores/i);
+  assert.throws(() => createExactThreadDelivery({
+    ...base, observerKeys: { [OBSERVER_ISSUER]: { platform: 'codex', publicKey: OBSERVER_PRIVATE_KEY } },
+  }), /ed25519 public key/i);
+  assert.throws(() => signDeliveryObservation({}, OBSERVER_PUBLIC_KEY), /ed25519 private key/i);
 });
 
 test('signed read-only historical evidence cannot trigger simulated or production sends', t => {
@@ -279,6 +296,8 @@ test('crash after durable claim, missing ACK and expired authorization cannot in
   assert.throws(() => d.dispatch({ eventId: h.eventId, resolveAssertion: h.assertion('resolve') }),
     /crash after durable/i);
   assert.equal(h.delivery(plan).inspect(h.eventId).status, 'in_flight');
+  assert.equal(h.delivery(plan).sweep(h.eventId).status, 'in_flight');
+  h.clock.now += 120_000;
   assert.equal(h.delivery(plan).sweep(h.eventId).status, 'unknown');
   assert.throws(() => h.delivery(plan).dispatch({
     eventId: h.eventId, resolveAssertion: h.assertion('resolve'),
@@ -305,7 +324,7 @@ test('SIGKILL after a persisted claim survives process restart and cannot submit
     import { createOriginRegistry, signOriginAssertion } from ${JSON.stringify(dir + 'test-bench-origin-registry.mjs')};
     import { createTerminalOutbox } from ${JSON.stringify(dir + 'test-bench-terminal-outbox.mjs')};
     import { createExactThreadDelivery } from ${JSON.stringify(dir + 'test-bench-exact-thread-delivery.mjs')};
-    import { randomUUID } from 'node:crypto';
+    import { generateKeyPairSync, randomUUID } from 'node:crypto';
     const payload = JSON.parse(Buffer.from(process.argv[1], 'base64').toString());
     const registry = createOriginRegistry({ filePath:payload.paths.origin,
       signingKey:Buffer.alloc(32,11), encryptionKey:Buffer.alloc(32,12),
@@ -315,7 +334,8 @@ test('SIGKILL after a persisted claim survives process restart and cannot submit
       eventKey:Buffer.alloc(32,14), encryptionKey:Buffer.alloc(32,15), now:()=>payload.now });
     const d = createExactThreadDelivery({ filePath:payload.paths.delivery, registry,outbox,
       eventKey:Buffer.alloc(32,14), encryptionKey:Buffer.alloc(32,16),
-      observerKeys:{'independent-codex-platform-observer':{platform:'codex',key:Buffer.alloc(32,17)}},
+      observerKeys:{'independent-codex-platform-observer':{
+        platform:'codex',publicKey:generateKeyPairSync('ed25519').publicKey}},
       now:()=>payload.now, simulationPlans:{codex:[{kind:'crash'}]} });
     const resolution=signOriginAssertion({version:1,purpose:'resolve',issuer:'codex-authority',
       binding:payload.binding,nonce:randomUUID(),issuedAt:payload.now-500,expiresAt:payload.now+60000},
@@ -334,6 +354,8 @@ test('SIGKILL after a persisted claim survives process restart and cannot submit
     { encoding: 'utf8', timeout: 10_000 });
   assert.equal(killed.signal, 'SIGKILL', killed.stderr);
   assert.equal(h.delivery().inspect(h.eventId).status, 'in_flight');
+  assert.equal(h.delivery().sweep(h.eventId).status, 'in_flight');
+  h.clock.now += 120_000;
   assert.equal(h.delivery().sweep(h.eventId).status, 'unknown');
   assert.throws(() => h.delivery({ codex: [goodDelivered()] }).dispatch({
     eventId: h.eventId, resolveAssertion: h.assertion('resolve'),
@@ -353,6 +375,10 @@ test('independent observer requires exact ACK/message/nonce and no out-of-order 
     { deliveryId: randomUUID() }, { bindingId: randomUUID() }, { correlationId: randomUUID() },
   ]) assert.throws(() => d.observe(h.observation(q, 'ack_observed', changed)), /wrong recipient|correlation|message/i);
   assert.throws(() => d.observe({ ...good, signature: 'f'.repeat(64) }), /signature/i);
+  const forgedPrivateKey = generateKeyPairSync('ed25519').privateKey;
+  const unsigned = { ...good };
+  delete unsigned.signature;
+  assert.throws(() => d.observe(signDeliveryObservation(unsigned, forgedPrivateKey)), /signature/i);
   assert.throws(() => d.observe(h.observation(q, 'auto_woke')), /out-of-order|unproven/i);
   assert.equal(d.observe(good).status, 'ack_observed');
   assert.throws(() => h.delivery().observe(good), /out-of-order|replay|unproven/i);
@@ -360,6 +386,24 @@ test('independent observer requires exact ACK/message/nonce and no out-of-order 
     evidenceKind: 'platform-delivery-ack',
   })), /evidence/i);
   assert.equal(d.observe(h.observation(q, 'auto_woke')).status, 'auto_woke');
+});
+
+test('a delivered or ACKed expired result is UNKNOWN in sweep and dispatch, not unsent EXPIRED', t => {
+  const h = harness(t, { authorizationDuration: 48 * 60 * 60 * 1000 });
+  const d = h.delivery({ codex: [goodDelivered()] });
+  const q = d.enqueue({ eventId: h.eventId, resolveAssertion: h.assertion('resolve') });
+  d.dispatch({ eventId: h.eventId, resolveAssertion: h.assertion('resolve') });
+  d.observe(h.observation(q, 'ack_observed'));
+  h.clock.now += 24 * 60 * 60 * 1000;
+  assert.equal(d.dispatch({ eventId: h.eventId, resolveAssertion: h.assertion('resolve') }).status, 'unknown');
+
+  const h2 = harness(t, { authorizationDuration: 48 * 60 * 60 * 1000 });
+  const d2 = h2.delivery({ codex: [goodDelivered()] });
+  const q2 = d2.enqueue({ eventId: h2.eventId, resolveAssertion: h2.assertion('resolve') });
+  d2.dispatch({ eventId: h2.eventId, resolveAssertion: h2.assertion('resolve') });
+  d2.observe(h2.observation(q2, 'ack_observed'));
+  h2.clock.now += 24 * 60 * 60 * 1000;
+  assert.equal(d2.sweep(h2.eventId).status, 'unknown');
 });
 
 test('observation expiry, unsafe file, corruption and held lock fail closed without losing history', t => {

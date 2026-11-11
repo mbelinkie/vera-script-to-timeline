@@ -14,13 +14,13 @@ const dir = fileURLToPath(new URL('./fixtures/test-bench-510/', import.meta.url)
 const manifest = JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
 const cases = { verified: 'VERIFIED', failed: 'FAILED', unknown: 'UNKNOWN' };
 
-function store(t, time = manifest.frozenNow) {
+function store(t, time = manifest.frozenNow, receiptKey = Buffer.alloc(32, 73)) {
   const home = mkdtempSync(path.join(tmpdir(), 'vera-510-handoff-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   return createTerminalOutbox({
     filePath: path.join(home, 'outbox', 'signed-fixtures.enc.json'),
     receiptKeys: {
-      'fixture-only-verifier': { provenance: 'signed-read-only', key: Buffer.alloc(32, 73) },
+      'fixture-only-verifier': { provenance: 'signed-read-only', key: receiptKey },
     },
     eventKey: Buffer.alloc(32, 74), encryptionKey: Buffer.alloc(32, 75),
     now: () => time,
@@ -58,6 +58,8 @@ test('#511: pinned fixture mutation, expired attestation and changed trusted key
   const pin = manifest.fixtureSha256['verified.signed.json'];
   assert.throws(() => store(t).ingestSignedFixture({ fixturePath, sha256: '0'.repeat(64) }), /digest/i);
   assert.throws(() => store(t, manifest.frozenNow + 61_000).ingestSignedFixture({ fixturePath, sha256: pin }), /expired/i);
+  assert.throws(() => store(t, manifest.frozenNow, Buffer.alloc(32, 99))
+    .ingestSignedFixture({ fixturePath, sha256: pin }), /signature/i);
   const forged = store(t);
   assert.throws(() => forged.ingestSimulation(JSON.parse(readFileSync(fixturePath))), /route/i);
 });

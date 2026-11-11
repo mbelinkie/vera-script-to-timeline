@@ -3,14 +3,16 @@
 // injection, paid turn, native Test Bench callback, or live wake hook here.
 import { Buffer } from 'node:buffer';
 import {
-  createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes,
-  randomUUID, timingSafeEqual,
+  createCipheriv, createDecipheriv, createHmac, hkdfSync, KeyObject,
+  randomBytes, randomUUID, sign as cryptoSign, timingSafeEqual,
+  verify as cryptoVerify,
 } from 'node:crypto';
 import {
   closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync,
   openSync, readFileSync, renameSync, unlinkSync, writeSync,
 } from 'node:fs';
 import path from 'node:path';
+import { isTrustedOriginRegistry } from './test-bench-origin-registry.mjs';
 import { verifyTerminalEvent } from './test-bench-terminal-outbox.mjs';
 
 const DOMAIN = 'vera.test-bench.independent-thread-observation/v1';
@@ -31,6 +33,7 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,255}$/;
 const MAX_ATTEMPTS = 3;
 const MAX_DELIVERY_MS = 24 * 60 * 60 * 1000;
+const MAX_IN_FLIGHT_CLAIM_MS = 2 * 60 * 1000;
 const OBSERVATION_LIFETIME_MS = 5 * 60 * 1000;
 const CLOCK_SKEW_MS = 30_000;
 const RETRY_MS = [30_000, 60_000, 120_000];
@@ -88,13 +91,23 @@ function targetRoute(platform, ownerId, threadId) {
   return { kind: 'exact-thread', platform, ownerId, threadId };
 }
 
-// This helper is solely a fixture primitive for independently authenticated
-// platform observers. It is NOT a service that signs chat text or send results.
-export function signDeliveryObservation(unsigned, observerKey) {
-  secret(observerKey, 'Observer signing key');
+function observerKey(value, type) {
+  if (!(value instanceof KeyObject) || value.type !== type || value.asymmetricKeyType !== 'ed25519') {
+    throw new Error(`Independent observer requires an Ed25519 ${type} key`);
+  }
+  return value;
+}
+function observationBytes(payload) {
+  return Buffer.from(DOMAIN + '\0' + canonical(payload), 'utf8');
+}
+
+// Fixture/trusted observer-side primitive ONLY: the delivery/verification
+// process receives public keys and cannot forge its own wake observation.
+export function signDeliveryObservation(unsigned, observerPrivateKey) {
+  observerKey(observerPrivateKey, 'private');
   const copy = clone(unsigned);
   delete copy.signature;
-  return { ...copy, signature: mac(DOMAIN, copy, observerKey) };
+  return { ...copy, signature: cryptoSign(null, observationBytes(copy), observerPrivateKey).toString('hex') };
 }
 
 function verifyObservation(observation, observers, at) {
@@ -125,7 +138,8 @@ function verifyObservation(observation, observers, at) {
     throw new Error('Expired/future independent observation');
   }
   const { signature, ...payload } = observation;
-  if (!equalHex(signature, mac(DOMAIN, payload, observer.key))) {
+  if (typeof signature !== 'string' || !/^[a-f0-9]{128}$/.test(signature)
+      || !cryptoVerify(null, observationBytes(payload), observer.publicKey, Buffer.from(signature, 'hex'))) {
     throw new Error('Invalid independent observation signature');
   }
   return clone(observation);
@@ -285,7 +299,7 @@ export function createExactThreadDelivery({
 }) {
   if (typeof filePath !== 'string' || !path.isAbsolute(filePath)) throw new Error('Delivery path must be absolute');
   if (!outbox || typeof outbox.inspect !== 'function'
-      || !registry || typeof registry.resolveRegisteredOrigin !== 'function') {
+      || !isTrustedOriginRegistry(registry)) {
     throw new Error('Trusted event and origin stores required');
   }
   secret(eventKey, 'Event signing key'); secret(encryptionKey, 'Delivery encryption key');
@@ -293,9 +307,9 @@ export function createExactThreadDelivery({
       || !Object.keys(observerKeys).length) throw new Error('Independent observation authorities required');
   const observers = new Map(Object.entries(observerKeys).map(([issuer, cfg]) => {
     assertId(issuer, 'independent observer');
-    exact(cfg, ['platform', 'key'], 'independent observer configuration');
+    exact(cfg, ['platform', 'publicKey'], 'independent observer configuration');
     if (!PLATFORMS.includes(cfg.platform)) throw new Error('Unsupported observer platform');
-    return [issuer, { platform: cfg.platform, key: secret(cfg.key, 'Observer key') }];
+    return [issuer, { platform: cfg.platform, publicKey: observerKey(cfg.publicKey, 'public') }];
   }));
   // Static response plans only: no arbitrary sender callback or network
   // transport can be supplied. Production stays disabled in every build.
@@ -375,13 +389,17 @@ export function createExactThreadDelivery({
       if (!record) throw new Error('Event has not been queued');
       verifyMatch(event, binding, record, encryptionKey);
       if (record.status === 'in_flight') {
-        transition(record, 'unknown', now(), 'claim_without_definitive_receipt');
+        // Another writer may still be completing the claim: don't destroy
+        // its message ID before a bounded claim lease has elapsed.
+        if (now() - record.history.at(-1).at >= MAX_IN_FLIGHT_CLAIM_MS) {
+          transition(record, 'unknown', now(), 'claim_without_definitive_receipt');
+        }
         return { accepted: false, snapshot: publicRecord(record) };
       }
       if (now() >= record.expiresAt) {
         if (record.status !== 'resumed' && record.status !== 'unknown'
             && record.status !== 'failed' && record.status !== 'expired') {
-          transition(record, record.status === 'delivered' ? 'unknown' : 'expired', now(), 'delivery_expired');
+          transition(record, record.status === 'queued' ? 'expired' : 'unknown', now(), 'delivery_expired');
         }
         return { accepted: false, snapshot: publicRecord(record) };
       }
@@ -468,7 +486,9 @@ export function createExactThreadDelivery({
       const record = state.deliveries[eventId];
       if (!record) return null;
       if (record.status === 'in_flight') {
-        transition(record, 'unknown', now(), 'claim_without_definitive_receipt');
+        if (now() - record.history.at(-1).at >= MAX_IN_FLIGHT_CLAIM_MS) {
+          transition(record, 'unknown', now(), 'claim_without_definitive_receipt');
+        }
       } else if (now() >= record.expiresAt && !['resumed', 'failed', 'expired', 'unknown'].includes(record.status)) {
         transition(record, record.status === 'queued' ? 'expired' : 'unknown', now(), 'delivery_expired_without_proof');
       }

@@ -85,6 +85,49 @@ test('tampering, untrusted issuers, expired/future claims and wrong purpose fail
   assert.throws(() => store.registerOrigin(assertion(origin(), 'resolve')), /purpose/i);
 });
 
+test('distinct per-issuer keys prevent cross-platform impersonation; shared multi-issuer key is rejected', t => {
+  const { filePath } = fixture(t);
+  const chatKey = Buffer.alloc(32, 30);
+  assert.throws(() => createOriginRegistry({
+    filePath, signingKey: SIGNING_KEY, encryptionKey: ENCRYPTION_KEY,
+    trustedIssuers: { [ISSUER]: 'codex', chatgpt: 'chatgpt' }, now: () => NOW,
+  }), /separate per-issuer keys/i);
+  assert.throws(() => createOriginRegistry({
+    filePath, encryptionKey: ENCRYPTION_KEY,
+    trustedIssuers: {
+      [ISSUER]: { platform: 'codex', key: SIGNING_KEY },
+      chatgpt: { platform: 'chatgpt', key: SIGNING_KEY },
+    }, now: () => NOW,
+  }), /must not be shared/i);
+  const registry = createOriginRegistry({
+    filePath, encryptionKey: ENCRYPTION_KEY,
+    trustedIssuers: {
+      [ISSUER]: { platform: 'codex', key: SIGNING_KEY },
+      chatgpt: { platform: 'chatgpt', key: chatKey },
+    }, now: () => NOW,
+  });
+  const chatBinding = origin({ platform: 'chatgpt', callbackRoute: {
+    kind: 'exact-thread', platform: 'chatgpt', ownerId: 'private-owner-123', threadId: 'private-thread-456',
+  } });
+  assert.throws(() => registry.registerOrigin(assertion(chatBinding, 'register', { issuer: 'chatgpt' }, SIGNING_KEY)),
+    /signature/i);
+  const valid = assertion(chatBinding, 'register', { issuer: 'chatgpt' }, chatKey);
+  const registered = registry.registerOrigin(valid);
+  assert.equal(registered.correlationId, chatBinding.correlationId);
+  assert.throws(() => registry.resolveOrigin(assertion(chatBinding, 'resolve', { issuer: 'chatgpt' }, SIGNING_KEY)),
+    /signature/i);
+  assert.deepEqual(registry.resolveOrigin(assertion(chatBinding, 'resolve', { issuer: 'chatgpt' }, chatKey)), chatBinding);
+});
+
+test('noncanonical uppercase SHA and opaque identifiers cannot create an undeliverable binding', t => {
+  const { registry } = fixture(t);
+  for (const invalid of [
+    { sourceSha256: 'A'.repeat(64) },
+    { actorSha256: 'B'.repeat(64) },
+    { correlationId: 'A17D6EDB-C200-442D-8BDD-F0D4573AB789' },
+  ]) assert.throws(() => registry().registerOrigin(assertion(origin(invalid))), /invalid/i);
+});
+
 test('registration and resolution assertions are single-use, including after restart', t => {
   const { registry } = fixture(t);
   const signed = assertion();

@@ -27,11 +27,14 @@ endpoints, Mac/Resolve hooks, or production activation. It provides:
   callable **only by the trusted adapter** after it authenticates the real
   platform identity; not an untrusted message signing service.
 - `createOriginRegistry({ filePath, signingKey, encryptionKey,
-  trustedIssuers, now? })`: a private, single-writer local registry. Both keys
-  are distinct 32+-byte secret Buffers supplied out of band, never checked in.
-  `trustedIssuers` is an issuer-to-platform map such as
-  `{ 'verified-codex-bridge': 'codex' }`, so a signer cannot claim a different
-  platform through the registry.
+  trustedIssuers, now? })`: a private, single-writer local registry. Signing
+  and encryption keys are distinct 32+-byte secret Buffers supplied out of
+  band, never checked in. Multiple issuers require independent keys, e.g.
+  `{ 'verified-codex-bridge': { platform: 'codex', key: privateBufferA },
+  'verified-chatgpt-bridge': { platform: 'chatgpt', key: privateBufferB } }`.
+  Reusing keys for distinct issuers is rejected. The original string form
+  `{ 'verified-codex-bridge': 'codex' }` with the root `signingKey` is still
+  supported for a **single** issuer only; it cannot be combined with another.
 - `registry.registerOrigin(signedRegistration)`: validates proof, duration,
   expiry, route, scope, uniqueness, and one-use nonce, and durably saves the
   destination. Returns only `{bindingId, correlationId}` with no private IDs.
@@ -39,6 +42,7 @@ endpoints, Mac/Resolve hooks, or production activation. It provides:
   authorized `resolve` assertion that **exactly matches** the registered
   owner/thread and full operation/source/actor binding. Returns private binding
   details **only to the trusted future delivery adapter**. Do not log these.
+  The delivery factory additionally rejects duck-typed fake registry objects.
 
 Both assertion purposes use the following signed payload (the final `signature`
 is lowercase hex HMAC-SHA256 over domain-separated canonical JSON of all other
@@ -86,6 +90,8 @@ in canonical field semantics. A correlation ID alone does not confer authority.
 
 1. Only an allowlisted issuer with the correct HMAC key can register/resolve;
    signatures cover scope, target, callback, source/actor hashes and timestamps.
+   Issuer-specific keys prevent one platform authority from impersonating
+   another. UUIDs and source/actor digests must be canonical lowercase.
 2. Only a fixed `exact-thread` callback route is accepted. It must equal the
    verified platform, owner and thread. Arbitrary callback URLs are rejected.
 3. Scope is exactly `test-bench.terminal-result-delivery`, with an explicit

@@ -27,15 +27,18 @@ The module scripts/test-bench-exact-thread-delivery.mjs provides:
   dispatched even with simulation configured. The fixture defines per-attempt
   delivered (with exact recipient/message ID), offline, busy, rejected,
   ambiguous or crash outcomes; it cannot send network traffic.
-- observe: independently signed platform observer must attest the same
+- observe: independently **Ed25519**-signed platform observer must attest the same
   event, delivery, binding, correlation, owner, platform, exact thread and
   provider message ID. Observer keys are independent of sender/event/origin,
   tied to one platform. Short-lived nonce and evidence digest are mandatory.
 - inspect, sweep, manualFallback: read opaque status, convert dangling
   in-flight/expired work into non-success states and preserve #398 manual owner
   handoff plus #421 optional scheduled-owner-check as clearly marked fallback.
-- signDeliveryObservation: a low-level fixture/future trusted authority
-  primitive, NOT a way to attest untrusted AI/chat/queue text.
+- signDeliveryObservation: a low-level fixture/future trusted **observer-side**
+  private-key primitive, NOT a way to attest untrusted AI/chat/queue text.
+  The delivery verifier accepts **public keys only** and cannot forge its
+  own ACK or wake attestations. Real observer private keys must stay in a
+  separate trusted authority.
 
 Delivery storage uses an owner-only 0700 directory and 0600 AES-256-GCM
 authenticated file, exclusive no-steal writer lock, atomic replace, file and
@@ -49,8 +52,10 @@ There is no external anti-rollback anchor.
 1. The separate phase-2 outbox stays at persisted. Enqueue records
    persisted -> queued only in the delivery lifecycle.
 2. Dispatch durably claims in_flight BEFORE any simulated send response.
-   Crash/restart with a dangling claim, ambiguous enqueue and recipient
-   mismatch become unknown with NO automatic replay.
+   A 2-minute in-flight claim lease protects a concurrent result commit;
+   crash/restart with a dangling claim becomes unknown only *after* that
+   bounded lease. Ambiguous enqueue and recipient mismatch become unknown
+   with NO automatic replay.
 3. Exact-recipient definitive simulated receipt produces delivered,
    not ACK or wake. Only explicit offline/busy **not-enqueued** results allow
    retry: maximum three attempts, 30s/60s/120s backoff. Exhaustion and

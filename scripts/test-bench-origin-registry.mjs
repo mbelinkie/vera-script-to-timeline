@@ -19,14 +19,21 @@ import path from 'node:path';
 const AUDIENCE = 'vera.test-bench.exact-thread-origin.v1';
 const SCOPE = 'test-bench.terminal-result-delivery';
 const PLATFORMS = new Set(['codex', 'zodex', 'chatgpt']);
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SHA256 = /^[0-9a-f]{64}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const SHA256 = /^[0-9a-f]{64}$/;
 const IDENTIFIER = /^[a-zA-Z0-9][a-zA-Z0-9_.:@-]{0,255}$/;
 const REPOSITORY = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 const PRIVATE_FILE_MODE = 0o600;
 const PRIVATE_DIR_MODE = 0o700;
 const MAX_ASSERTION_LIFETIME_MS = 5 * 60 * 1000;
 const MAX_CLOCK_SKEW_MS = 30 * 1000;
+const REAL_REGISTRIES = new WeakSet();
+
+// An arbitrary object with a resolveRegisteredOrigin method is not a trusted
+// destination resolver. This brand is issued only by createOriginRegistry.
+export function isTrustedOriginRegistry(candidate) {
+  return candidate !== null && typeof candidate === 'object' && REAL_REGISTRIES.has(candidate);
+}
 
 function exactObject(value, fields, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
@@ -102,7 +109,7 @@ export function signOriginAssertion(unsigned, authorityKey) {
   return { ...payload, signature: mac(payload, authorityKey) };
 }
 
-function validateAssertion(assertion, purpose, trustedIssuers, signingKey, now) {
+function validateAssertion(assertion, purpose, trustedIssuers, now) {
   exactObject(assertion, [
     'version', 'purpose', 'issuer', 'binding', 'nonce', 'issuedAt', 'expiresAt', 'signature',
   ], 'signed assertion');
@@ -110,7 +117,8 @@ function validateAssertion(assertion, purpose, trustedIssuers, signingKey, now) 
   if (!trustedIssuers.has(assertion.issuer)) throw new Error('Untrusted assertion issuer');
   assertIdentifier(assertion.issuer, 'issuer');
   validateBinding(assertion.binding);
-  if (trustedIssuers.get(assertion.issuer) !== assertion.binding.platform) {
+  const authority = trustedIssuers.get(assertion.issuer);
+  if (authority.platform !== assertion.binding.platform) {
     throw new Error('Untrusted issuer for origin platform');
   }
   if (!UUID.test(assertion.nonce)) throw new Error('Invalid assertion nonce');
@@ -126,7 +134,7 @@ function validateAssertion(assertion, purpose, trustedIssuers, signingKey, now) 
     throw new Error('Invalid assertion signature');
   }
   const { signature, ...payload } = assertion;
-  const expected = Buffer.from(mac(payload, signingKey), 'hex');
+  const expected = Buffer.from(mac(payload, authority.key), 'hex');
   if (!timingSafeEqual(expected, Buffer.from(signature, 'hex'))) {
     throw new Error('Invalid assertion signature');
   }
@@ -216,14 +224,34 @@ function writeState(file, key, state) {
 // Failure to acquire a lock or to read authenticated state is fail-closed.
 export function createOriginRegistry({ filePath, signingKey, encryptionKey, trustedIssuers, now = Date.now }) {
   if (typeof filePath !== 'string' || !path.isAbsolute(filePath)) throw new Error('Registry filePath must be absolute');
-  keyBuffer(signingKey, 'Authority signing key');
   keyBuffer(encryptionKey, 'Registry encryption key');
   if (!trustedIssuers || typeof trustedIssuers !== 'object' || Array.isArray(trustedIssuers)
-      || Object.keys(trustedIssuers).length === 0
-      || Object.entries(trustedIssuers).some(([issuer, platform]) => !IDENTIFIER.test(issuer) || !PLATFORMS.has(platform))) {
-    throw new Error('Trusted issuers must map each issuer to one authorized platform');
+      || Object.keys(trustedIssuers).length === 0) {
+    throw new Error('Trusted issuers must be explicitly configured');
   }
-  const issuers = new Map(Object.entries(trustedIssuers));
+  const issuerEntries = Object.entries(trustedIssuers);
+  const issuers = new Map(issuerEntries.map(([issuer, config]) => {
+    assertIdentifier(issuer, 'issuer');
+    let platform;
+    let authorityKey;
+    if (typeof config === 'string') {
+      // Backward-compatible single-root authority only. Shared-key, multi-
+      // platform issuer lists are unsafe: any signer could impersonate all.
+      if (issuerEntries.length !== 1) throw new Error('Multiple issuers require separate per-issuer keys');
+      platform = config;
+      authorityKey = keyBuffer(signingKey, 'Authority signing key');
+    } else {
+      exactObject(config, ['platform', 'key'], 'issuer authority');
+      platform = config.platform;
+      authorityKey = keyBuffer(config.key, 'Issuer signing key');
+    }
+    if (!PLATFORMS.has(platform)) throw new Error('Invalid trusted issuer platform');
+    return [issuer, { platform, key: authorityKey }];
+  }));
+  const uniqueKeys = [...issuers.values()].map(x => x.key);
+  if (uniqueKeys.some((k, i) => uniqueKeys.slice(i + 1).some(other => k.equals(other)))) {
+    throw new Error('Independent issuer signing keys must not be shared');
+  }
   const atRestKey = deriveEncryptionKey(encryptionKey);
 
   function withState(operation) {
@@ -251,7 +279,7 @@ export function createOriginRegistry({ filePath, signingKey, encryptionKey, trus
   }
 
   function validated(assertion, purpose) {
-    validateAssertion(assertion, purpose, issuers, signingKey, now());
+    validateAssertion(assertion, purpose, issuers, now());
     // Copy canonical JSON to prevent caller mutations during persistence.
     return JSON.parse(stableJson(assertion));
   }
@@ -302,5 +330,7 @@ export function createOriginRegistry({ filePath, signingKey, encryptionKey, trus
     return resolveRegisteredOrigin(attestation).binding;
   }
 
-  return Object.freeze({ registerOrigin, resolveOrigin, resolveRegisteredOrigin });
+  const registry = Object.freeze({ registerOrigin, resolveOrigin, resolveRegisteredOrigin });
+  REAL_REGISTRIES.add(registry);
+  return registry;
 }
