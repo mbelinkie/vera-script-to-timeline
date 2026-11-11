@@ -16,6 +16,7 @@ import test_issue209_native as fake
 import test_issue215_native as edited_fixture
 from vera_timeline_agent import qualification_output_native_v2 as native
 from vera_timeline_agent import resolve_test_bench_edited_stage as edited
+from vera_timeline_agent import resolve_test_queue as queue
 from vera_timeline_agent.qualification_output_records_v2 import (
     OutputConsistencyError,
     _canonical,
@@ -115,9 +116,11 @@ def _origin_case(
         "executionDocumentSha256": "e" * 64,
     }
 
-    def write_pinned(path: Path, obj: dict[str, Any]) -> str:
+    def write_pinned(
+        path: Path, obj: dict[str, Any], *, m4_queue_record: bool = False
+    ) -> str:
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = _canonical(obj)
+        data = queue.canonical(obj) if m4_queue_record else _canonical(obj)
         path.write_bytes(data)
         return hashlib.sha256(data).hexdigest()
 
@@ -165,6 +168,7 @@ def _origin_case(
             "initialTarget": target,
             "baselineSession": baseline_ref,
         },
+        m4_queue_record=True,
     )
     receipt = {
         "schema": "vera.resolve-test-reverse-receipt/v1",
@@ -173,7 +177,9 @@ def _origin_case(
         "session": baseline_ref,
         "capture": capture_ref,
     }
-    receipt_sha = write_pinned(job_dir / "receipt-pristine.json", receipt)
+    receipt_sha = write_pinned(
+        job_dir / "receipt-pristine.json", receipt, m4_queue_record=True
+    )
     db = sqlite3.connect(case / "queue/queue.sqlite3")
     try:
         db.execute("CREATE TABLE reverse_jobs (id TEXT PRIMARY KEY, plan_sha TEXT)")
@@ -262,6 +268,41 @@ def test_original_m4_receipt_provenance_closed_source_root(
     }
     objects["receiptPath"].write_bytes(_canonical(forged_receipt))
     with pytest.raises(OutputConsistencyError, match="SHA256 differs"):
+        native._m4_edited_original_source_admission(request, admitted)
+
+
+@pytest.mark.parametrize("which", ["plan", "receipt"])
+def test_m4_original_queue_requires_exact_canonical_newline_even_if_rehashed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, which: str
+) -> None:
+    import sqlite3
+
+    request, admitted, objects = _origin_case(tmp_path, monkeypatch)
+    receipt_path = objects["receiptPath"]
+    plan_path = receipt_path.parent / "plan.json"
+    path = plan_path if which == "plan" else receipt_path
+    original = path.read_bytes()
+    assert original.endswith(b"\n") and not original.endswith(b"\n\n")
+    # Changing a signed SHA alone must never authorize a different JSON byte
+    # encoding. The M4 queue emits exactly ONE trailing LF; output-host JSON
+    # has no LF and is intentionally a different canonical format.
+    changed = original[:-1] if which == "plan" else original + b"\n"
+    path.write_bytes(changed)
+    digest = hashlib.sha256(changed).hexdigest()
+    db = sqlite3.connect(objects["caseRoot"] / "queue/queue.sqlite3")
+    try:
+        if which == "plan":
+            db.execute("UPDATE reverse_jobs SET plan_sha=?", (digest,))
+        else:
+            db.execute("UPDATE reverse_stages SET receipt_sha=?", (digest,))
+        db.commit()
+    finally:
+        db.close()
+    label = "plan" if which == "plan" else "pristine receipt"
+    with pytest.raises(
+        OutputConsistencyError,
+        match=f"M4 signed {label} must be canonical immutable JSON",
+    ):
         native._m4_edited_original_source_admission(request, admitted)
 
 

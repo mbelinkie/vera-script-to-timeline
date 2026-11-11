@@ -4040,12 +4040,27 @@ def _m4_edited_original_source_admission(
         _digest(row["sha256"])
         return row
 
-    def pinned_json(path: Path, expected: str, label: str) -> dict[str, Any]:
+    def pinned_json(
+        path: Path, expected: str, label: str, *, m4_queue_record: bool = False
+    ) -> dict[str, Any]:
         raw = _read(path, label, maximum=131072)
         _require(_hash(raw) == _digest(expected), f"{label} SHA256 differs")
         item = _parse(raw)
+        # The original M4 queue's canonical serializer has a single trailing
+        # newline (and JSON's default ASCII escaping). The installed output
+        # runtime's _canonical() has no newline. Both pins are exact and
+        # immutable, but they are deliberately different formats. Accept the
+        # queue's form ONLY for its signed plan and pristine receipt.
+        encoded = _canonical(item)
+        if m4_queue_record:
+            encoded = (
+                json.dumps(
+                    item, sort_keys=True, separators=(",", ":"), allow_nan=False
+                ).encode("utf-8")
+                + b"\n"
+            )
         _require(
-            type(item) is dict and _canonical(item) == raw,
+            type(item) is dict and encoded == raw,
             f"{label} must be canonical immutable JSON",
         )
         return item
@@ -4107,11 +4122,14 @@ def _m4_edited_original_source_admission(
             and type(prior["receipt_sha"]) is str,
             "signed original M4 pristine receipt was not verified",
         )
-        plan = pinned_json(job / "plan.json", plan_sha, "M4 signed plan")
+        plan = pinned_json(
+            job / "plan.json", plan_sha, "M4 signed plan", m4_queue_record=True
+        )
         receipt = pinned_json(
             job / "receipt-pristine.json",
             prior["receipt_sha"],
             "M4 signed pristine receipt",
+            m4_queue_record=True,
         )
     finally:
         connection.close()
