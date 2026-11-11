@@ -336,6 +336,26 @@ def test_clock_rollback_pid_change_and_malformed_clock(
         report.report_from_diagnostics([case_root], case_id="case123")
 
 
+def test_monotonic_rollback_with_same_pid_is_not_elapsed(
+    case_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Distinguish a clock regression from a PID transition: either condition
+    # independently makes the apparent duration untrustworthy.
+    writer = _writer(case_root)
+    clocks: list[dict[str, Any]] = [
+        {"utc": "2026-11-11T15:00:00.000000Z", "monotonicNs": 5000, "pid": 10},
+        {"utc": "2026-11-11T15:00:01.000000Z", "monotonicNs": 3000, "pid": 10},
+    ]
+    monkeypatch.setattr(contract, "timestamp", lambda: clocks.pop(0))
+    writer.emit("claim", "before_claim", status="pending")
+    writer.emit("claim", "after_claim")
+    incident = report.report_from_diagnostics([case_root], case_id="case123")
+    stage = incident["stages"][0]
+    assert stage["elapsed"]["monotonicNs"] is None
+    assert stage["timeline"][1]["deltaFromPriorNs"] is None
+    assert any("monotonic clock boundary" in x for x in incident["uncertainties"])
+
+
 def test_reading_never_calls_resolve_or_writes_and_cli_fail_closed(
     case_root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
