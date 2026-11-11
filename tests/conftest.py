@@ -22,13 +22,13 @@ if str(REPOSITORY_ROOT) not in sys.path:
 # installed-bootstrap subprocesses).
 ISSUE208_BOOTSTRAP_CLOCK = """
 import datetime,os,time
-_offset=os.environ.get("VERA_ISSUE208_TEST_WALL_OFFSET")
-if _offset is not None:
-    class _StableDateTime(datetime.datetime):
-        @classmethod
-        def now(cls,tz=None):
-            return cls.fromtimestamp(time.monotonic()+float(_offset),tz=tz)
-    datetime.datetime=_StableDateTime
+_offset=float(os.environ["VERA_ISSUE208_TEST_WALL_OFFSET"])
+class _StableDateTime(datetime.datetime):
+    @classmethod
+    def now(cls,tz=None):
+        return cls.fromtimestamp(time.monotonic()+_offset,tz=tz)
+datetime.datetime=_StableDateTime
+assert datetime.datetime.__name__=="_StableDateTime"
 """
 
 

@@ -85,6 +85,11 @@ def test_completed_receipt_lifetime_starts_at_finish_not_authority_issue(
             return cls.fromtimestamp(instant.timestamp(), tz=UTC)
 
     monkeypatch.setattr(identity, "datetime", Clock)
+    # The release-building helper is used by imported cross-module fixtures;
+    # keep its synthetic issuance timestamps on the same 480/1860s timeline.
+    from vera_timeline_agent import workflow_v2_cli as workflow_cli
+
+    monkeypatch.setattr(workflow_cli, "datetime", Clock)
     monkeypatch.setattr(time, "monotonic", lambda: actual_monotonic() + state["offset"])
     request, _, _, _ = inputs(tmp_path)
     state["offset"] = 480.0
@@ -177,6 +182,20 @@ runpy.run_path(sys.argv[1],init_globals={"resolve":r})
 print("RETURNED_CALLS="+json.dumps(calls))
 """
 )
+
+
+def test_synthetic_bootstrap_clock_refuses_missing_test_environment() -> None:
+    # Never silently use an unstable VM clock in a supposedly deterministic
+    # -S installed-runtime bootstrap test if its parent no longer passes pins.
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", ISSUE208_BOOTSTRAP_CLOCK],
+        env={},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "VERA_ISSUE208_TEST_WALL_OFFSET" in completed.stderr
 
 
 def bootstrap(installed: Path, attack: str = "clean") -> tuple[str, list[str]]:
