@@ -14,7 +14,7 @@ is done is in `AGENTS.md`; this covers only the board.
   don't imply order.
 - **Ready:** `npm run roadmap -- ready <issue>` once every dependency is
   closed. Ready issues need an `Acceptance criteria` list and exactly one
-  `model:*` and one `effort:*` label.
+  `model:*` and one `effort:*` label, plus a `## Pre-work check` section.
 - **Routing labels** pick the cheapest model that fits and tell Matthew
   roughly how long it will take. Luna low/medium: mechanical docs, fixtures,
   small tests, narrow fixes. Terra medium/high: bounded features, debugging,

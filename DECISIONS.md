@@ -78,6 +78,20 @@ into an implementation assumption.
   learning channel. `main` stays protected: no force-push or deletion, and the
   required `TypeScript and Python` check must pass.
 
+### D-0019 — Stop qualifying the Test Bench instead of the product
+
+- Status: Accepted
+- Date: 2026-11-11
+- Owner: Producer
+- Decision: Stop the Test Bench chain (#473, #499). It was qualifying a test
+  tool rather than VERA's timeline-building product. None of its eight failed
+  runs was caused by Resolve or the timeline builder. Prefer the short,
+  repeatable structural save/close/reopen Resolve loop in #520.
+- Evidence: Producer direction in #515, following the independent 2026-11-11
+  review of the Test Bench effort.
+- Compatibility / acceptance impact: Legacy Test Bench and #506 case-ID
+  prerequisites do not gate new real-Resolve checks.
+
 ## Pending producer decisions
 
 | ID | Status | Decision needed | Known constraint / evidence required |
