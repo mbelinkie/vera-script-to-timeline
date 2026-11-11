@@ -92,10 +92,10 @@ def test_faults_fail_closed_and_preserve_partial_evidence(
     writer = _writer(private_root)
     writer.emit("claim", "after_claim")
     original = (writer.records / "record-000000.json").read_bytes()
-    original_write = journal.os.write
-    original_sync = journal.os.fsync
+    original_write = os.write
+    original_sync = os.fsync
     original_dir_sync = journal._sync_directory
-    original_statvfs = journal.os.statvfs
+    original_statvfs = os.statvfs
 
     def failing_write(fd: int, data: bytes) -> int:
         raise OSError("ENOSPC after claim")
@@ -109,9 +109,9 @@ def test_faults_fail_closed_and_preserve_partial_evidence(
         original_dir_sync(path)
 
     if fault == "write":
-        monkeypatch.setattr(journal.os, "write", failing_write)
+        monkeypatch.setattr(os, "write", failing_write)
     elif fault == "fsync":
-        monkeypatch.setattr(journal.os, "fsync", failing_fsync)
+        monkeypatch.setattr(os, "fsync", failing_fsync)
     elif fault == "directory":
         monkeypatch.setattr(journal, "_sync_directory", failing_dir_sync)
     else:
@@ -121,15 +121,15 @@ def test_faults_fail_closed_and_preserve_partial_evidence(
             f_bavail = 0
             f_frsize = statfs.f_frsize
 
-        monkeypatch.setattr(journal.os, "statvfs", lambda _: NoSpace())
+        monkeypatch.setattr(os, "statvfs", lambda _: NoSpace())
     try:
         with pytest.raises((OSError, journal.DiagnosticWriteError)):
             writer.emit("native_dispatch", "before_dispatch")
     finally:
-        monkeypatch.setattr(journal.os, "write", original_write)
-        monkeypatch.setattr(journal.os, "fsync", original_sync)
+        monkeypatch.setattr(os, "write", original_write)
+        monkeypatch.setattr(os, "fsync", original_sync)
         monkeypatch.setattr(journal, "_sync_directory", original_dir_sync)
-        monkeypatch.setattr(journal.os, "statvfs", original_statvfs)
+        monkeypatch.setattr(os, "statvfs", original_statvfs)
     assert (writer.records / "record-000000.json").read_bytes() == original
     if fault == "space":
         assert len(_records(private_root)) == 1

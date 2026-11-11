@@ -62,9 +62,11 @@ def patched_sources(tmp_path: Path) -> dict[str, str]:
     subprocess.run(["git", "apply", "--check", str(PATCH)], cwd=tmp_path, check=True)
     subprocess.run(["git", "apply", str(PATCH)], cwd=tmp_path, check=True)
     for name in MODULES:
-        path = tmp_path / f"python/vera_timeline_agent/resolve_test_bench_{name}.py"
-        result[name] = path.read_text()
-        compile(result[name], str(path), "exec")
+        patched_path = (
+            tmp_path / f"python/vera_timeline_agent/resolve_test_bench_{name}.py"
+        )
+        result[name] = patched_path.read_text()
+        compile(result[name], str(patched_path), "exec")
     return result
 
 
@@ -115,12 +117,14 @@ def fake_launch(
         _lock=lambda _: contextlib.nullcontext(),
         _once=_one_use,
     )
+
+    def fail_original_full_loop(*args: Any, **kwargs: Any) -> None:
+        calls.append("full_loop")
+        raise RuntimeError("token=SECRET1234")
+
     full_loop = _stub(
         _frozen_source=lambda _: "a" * 64,
-        start=lambda *args, **kwargs: (
-            calls.append("full_loop")
-            or (_ for _ in ()).throw(RuntimeError("token=SECRET1234"))
-        ),
+        start=fail_original_full_loop,
     )
     stubs = {
         "resolve_gui_helper_protocol": _stub(),
@@ -139,11 +143,13 @@ def fake_launch(
         "mode": "complete-m4",
         "sourceGraphSha256": "a" * 64,
         "actorPin": {"sourceManifestSha256": "b" * 64},
-        "authority": {"sha256": "c" * 64},
+        "authority": {
+            "sha256": "c" * 64,
+            "path": str(root / "producer-approval.json"),
+        },
         "config": {"path": str(root / "config.json"), "sha256": "a" * 64},
         "frozenCommit": FROZEN,
     }
-    request["authority"]["path"] = str(root / "producer-approval.json")
     monkeypatch.setattr(
         launch,
         "_load_request",
@@ -289,7 +295,7 @@ def test_after_start_render_before_poll_render_is_unknown_without_carrier_replay
     def injected_preparation(_: Path) -> None:
         raise RuntimeError("forced failure immediately before poll_render")
 
-    controller.prepare_operator_plan = injected_preparation  # type: ignore[attr-defined]
+    controller.prepare_operator_plan = injected_preparation
     native = _stub(
         action_plan_for_context=lambda _: actions,
         native_request_paths=request_paths,
