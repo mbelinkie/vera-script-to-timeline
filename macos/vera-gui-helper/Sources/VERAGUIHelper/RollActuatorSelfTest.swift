@@ -143,6 +143,10 @@ enum RollActuatorSelfTest {
             altered["resolvePid"] = true
             check((try? RollRequest(canonical(altered))) == nil, "boolean PID refused")
             altered = original.value
+            altered["windowName"] = "Café non-ascii"
+            check((try? RollRequest(canonical(altered))) == nil,
+                  "non-ASCII window refused before any GUI claim")
+            altered = original.value
             altered["deadlineAt"] = "2020-01-01T00:00:00Z"
             check((try? RollRequest(canonical(altered))) == nil, "expired Roll refused")
             check((try? RollRequest(Data(canonical(original.value).dropLast()))) == nil,

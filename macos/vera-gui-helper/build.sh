@@ -41,6 +41,28 @@ if ! security find-identity -v -p codesigning | grep -iFq "$identity"; then
     echo 'BLOCK: the selected signing identity is not valid in the login keychain' >&2
     exit 78
 fi
+# The installed binary must be demonstrably built from THIS clean, committed
+# source graph, not from a dirty intermediate tree later restored to HEAD.
+repo=$(CDPATH='' cd -- "$root/../.." && pwd -P)
+python="$repo/.venv/bin/python"
+if [ ! -x "$python" ]; then
+    echo 'BLOCK: pinned source-freeze Python unavailable' >&2; exit 78
+fi
+freeze_pins() {
+    PYTHONPATH="$repo/python" "$python" - <<'PY'
+import subprocess
+from vera_timeline_agent.resolve_test_bench_full_loop import _frozen_source
+from vera_timeline_agent.resolve_gui_helper_protocol import source_manifest_sha256
+head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+print(head, _frozen_source(head), source_manifest_sha256())
+PY
+}
+frozen=$(CDPATH='' cd -- "$repo" && freeze_pins)
+set -- $frozen
+if [ "$#" -ne 3 ]; then echo 'BLOCK: source pin record invalid' >&2; exit 78; fi
+frozen_commit=$1
+frozen_graph=$2
+frozen_helper_manifest=$3
 stage=$(mktemp -d "$support/.build.XXXXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 app="$stage/VERA GUI Helper.app"
@@ -71,6 +93,10 @@ if ! printf '%s' "$team" | grep -Eq '^[A-Z0-9]{10}$'; then
     exit 78
 fi
 codesign -dr - "$app" 2>&1 | grep -F 'identifier "org.vera.resolve-test-bench.gui"' >/dev/null
+if [ "$(CDPATH='' cd -- "$repo" && freeze_pins)" != "$frozen" ]; then
+    echo 'BLOCK: helper source changed during build or signing' >&2
+    exit 78
+fi
 installed="$support/VERA GUI Helper.app"
 previous="$support/.previous-VERA-GUI-Helper.app"
 archive="$support/retained-signed-helpers"
@@ -118,5 +144,22 @@ if [ ! -f "$identity_record" ]; then
     chmod 600 "$identity_record"
 fi
 codesign --verify --strict --deep "$installed"
+binary_digest=$(shasum -a 256 "$installed/Contents/MacOS/VERAGUIHelper" | awk '{print $1}')
+# Immutable installed binary -> exact frozen graph/actor source provenance;
+# no wrapper can later claim a clean checkout for a dirty-code signed binary.
+PYTHONPATH="$repo/python" "$python" - "$support" "$binary_digest" "$frozen_commit" "$frozen_graph" "$frozen_helper_manifest" <<'PY'
+import sys
+from pathlib import Path
+from vera_timeline_agent import resolve_test_bench_carrier as carrier
+from vera_timeline_agent import resolve_test_queue as queue
+support, binary, commit, graph, manifest = sys.argv[1:]
+carrier._once(Path(support) / ('built-source-pins-' + binary + '.json'), queue.canonical({
+    'schema': 'vera.gui-helper-signed-build-source/v1',
+    'binarySha256': binary,
+    'frozenCommit': commit,
+    'sourceGraphSha256': graph,
+    'sourceManifestSha256': manifest,
+}))
+PY
 printf 'SIGNED_HELPER=%s\nTEAM_IDENTIFIER=%s\n' "$installed" "$team"
 codesign -dv --verbose=4 "$installed" 2>&1 | grep -E '^(Identifier|TeamIdentifier|CDHash)='

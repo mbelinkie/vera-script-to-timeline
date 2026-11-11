@@ -48,7 +48,7 @@ struct RollRequest {
 
     static func safeName(_ s: String) -> Bool {
         !s.isEmpty && s.utf8.count <= 160 &&
-            !s.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+            s.utf8.allSatisfy { $0 >= 32 && $0 < 127 }
     }
 
     init(_ raw: Data, now: Date = Date(), pinProbeOnly: Bool = false) throws {
@@ -83,11 +83,13 @@ struct RollRequest {
               Set(binary.keys) == Self.binaryFields,
               let exe = binary["executablePath"] as? String,
               exe.hasPrefix("/"), !exe.split(separator: "/").contains(".."),
+              exe.utf8.allSatisfy({ $0 >= 32 && $0 < 127 }),
               exe.hasSuffix("/VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"),
               let exeSHA = binary["sha256"] as? String, Self.hex(exeSHA, length: 64),
               let cdHash = binary["codeDirectoryHash"] as? String, Self.hex(cdHash, length: 40),
               let requirement = binary["designatedRequirement"] as? String,
               (20...2048).contains(requirement.utf8.count),
+              requirement.utf8.allSatisfy({ $0 >= 32 && $0 < 127 }),
               requirement.contains("identifier \"org.vera.resolve-test-bench.gui\""),
               let team = binary["teamIdentifier"] as? String,
               team.utf8.count == 10, team.utf8.allSatisfy({

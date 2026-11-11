@@ -108,7 +108,7 @@ def _name(value: Any) -> bool:
     return (
         type(value) is str
         and 0 < len(value) <= 160
-        and all(31 < ord(c) < 127 or ord(c) > 127 for c in value)
+        and all(31 < ord(c) < 127 for c in value)
     )
 
 
@@ -200,7 +200,8 @@ def validate_binary_pin(binary: Any) -> dict[str, str]:
         and ".." not in Path(binary["executablePath"]).parts
         and binary["executablePath"].endswith(
             "/VERA GUI Helper.app/Contents/MacOS/VERAGUIHelper"
-        ),
+        )
+        and binary["executablePath"].isascii(),
         "exact helper app executable path required",
     )
     _check(
@@ -212,6 +213,7 @@ def validate_binary_pin(binary: Any) -> dict[str, str]:
     _check(
         type(binary["designatedRequirement"]) is str
         and 20 <= len(binary["designatedRequirement"]) <= 2048
+        and binary["designatedRequirement"].isascii()
         and 'identifier "' + BUNDLE_ID + '"' in binary["designatedRequirement"],
         "helper designated requirement required",
     )

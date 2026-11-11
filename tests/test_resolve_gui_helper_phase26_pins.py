@@ -196,3 +196,76 @@ def test_python_swift_shared_actor_json_sha256_golden() -> None:
         digest
         in (HELPER / "Sources/VERAGUIHelper/RollActuatorSelfTest.swift").read_text()
     )
+
+
+def test_signed_binary_must_have_a_clean_frozen_build_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    value = module()
+    monkeypatch.setattr(value, "BASE", tmp_path)
+    sha256 = "a" * 64
+    expected = {
+        "schema": "vera.gui-helper-signed-build-source/v1",
+        "binarySha256": sha256,
+        "frozenCommit": "b" * 40,
+        "sourceGraphSha256": "c" * 64,
+        "sourceManifestSha256": "d" * 64,
+    }
+    target = tmp_path / ("built-source-pins-" + sha256 + ".json")
+    with pytest.raises((FileNotFoundError, ValueError, RuntimeError)):
+        value.verified_build_provenance(
+            expected["frozenCommit"],
+            expected["sourceGraphSha256"],
+            expected["sourceManifestSha256"],
+            sha256,
+        )
+    target.write_bytes(queue.canonical(expected))
+    target.chmod(0o600)
+    value.verified_build_provenance(
+        expected["frozenCommit"],
+        expected["sourceGraphSha256"],
+        expected["sourceManifestSha256"],
+        sha256,
+    )
+    with pytest.raises((ValueError, RuntimeError), match="not proved built"):
+        value.verified_build_provenance(
+            expected["frozenCommit"], "0" * 64, expected["sourceManifestSha256"], sha256
+        )
+    with pytest.raises((ValueError, RuntimeError), match="not proved built"):
+        value.verified_build_provenance(
+            "e" * 40,
+            expected["sourceGraphSha256"],
+            expected["sourceManifestSha256"],
+            sha256,
+        )
+
+
+def test_roll_boundary_refuses_unicode_before_any_one_use_gui_claim() -> None:
+    from vera_timeline_agent import resolve_gui_helper_protocol as protocol
+
+    assert protocol._name("VERA disposable M4 native")
+    assert not protocol._name("VERA Café disposable")
+    assert not protocol._name("A—B")
+    binary = dict(actor()["binary"])
+    binary["designatedRequirement"] = binary["designatedRequirement"] + " é"
+    with pytest.raises(protocol.HelperProtocolError):
+        protocol.validate_binary_pin(binary)
+    binary = dict(actor()["binary"])
+    binary["executablePath"] = binary["executablePath"].replace("/Users/", "/Usérs/")
+    with pytest.raises(protocol.HelperProtocolError):
+        protocol.validate_binary_pin(binary)
+    assert (
+        "s.utf8.allSatisfy { $0 >= 32 && $0 < 127 }"
+        in (HELPER / "Sources/VERAGUIHelper/RollActuator.swift").read_text()
+    )
+
+
+def test_signing_build_requires_clean_git_head_and_records_exact_source() -> None:
+    build = (HELPER / "build.sh").read_text()
+    installer = (HELPER / "pin-launch-agent.py").read_text()
+    assert "freeze_pins()" in build and "_frozen_source(head)" in build
+    assert "source_manifest_sha256()" in build
+    assert "helper source changed during build or signing" in build
+    assert "built-source-pins-" in build and "built-source-pins-" in installer
+    assert "verified_build_provenance" in installer
+    assert "signed_actor(commit, graph)" in installer

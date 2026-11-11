@@ -89,7 +89,30 @@ def owner_directory(path: Path) -> None:
     )
 
 
-def signed_actor() -> dict[str, object]:
+def verified_build_provenance(
+    commit: str, graph: str, manifest: str, binary: str
+) -> None:
+    """Bind exact signed bytes to the trusted clean source at build time."""
+    evidence = BASE / ("built-source-pins-" + binary + ".json")
+    raw = private_file(evidence, maximum=4096)
+    try:
+        record = json.loads(raw)
+    except (UnicodeError, ValueError) as exc:
+        raise PinInstallRefused("signed build provenance unreadable") from exc
+    expected = {
+        "schema": "vera.gui-helper-signed-build-source/v1",
+        "binarySha256": binary,
+        "frozenCommit": commit,
+        "sourceGraphSha256": graph,
+        "sourceManifestSha256": manifest,
+    }
+    require(
+        record == expected and queue.canonical(expected) == raw,
+        "signed binary not proved built from this exact frozen source",
+    )
+
+
+def signed_actor(commit: str, graph: str) -> dict[str, object]:
     # Never accept caller-supplied digest or signing fields.
     require(
         EXE.is_file() and not EXE.is_symlink(), "installed signed helper not regular"
@@ -120,6 +143,9 @@ def signed_actor() -> dict[str, object]:
         "binary": binary,
     }
     protocol.validate_actor_pin(actor, installed=True)
+    verified_build_provenance(
+        commit, graph, actor["sourceManifestSha256"], binary["sha256"]
+    )
     return actor
 
 
@@ -301,7 +327,7 @@ def install() -> dict[str, object]:
     )
     owner_directory(PLIST.parent)
     commit, graph = source_graph()
-    actor = signed_actor()
+    actor = signed_actor(commit, graph)
     destination = render(actor, graph)
     old = private_file(PLIST) if PLIST.exists() or PLIST.is_symlink() else b""
     require(
