@@ -39,11 +39,13 @@ test("new test workspace without an explicit fast script fails closed", () => {
   }
 });
 
-test("time-sensitive backup guard suite runs alone without dropping or duplicating fast workspaces", () => {
+test("CPU-sensitive fast suites run alone without dropping or duplicating fast workspaces", () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const selected = fastWorkspaces(root);
   const { exclusive, parallel } = scheduleFastWorkspaces(selected);
-  assert.deepEqual(exclusive.map(({ path }) => path), ["packages/project-service-host"]);
+  assert.deepEqual(exclusive.map(({ path }) => path), [
+    "packages/contracts", "packages/project-authorization", "packages/project-service-host",
+  ]);
   assert.deepEqual([...exclusive, ...parallel].map(({ path }) => path).sort(),
     selected.map(({ path }) => path).sort());
 });
