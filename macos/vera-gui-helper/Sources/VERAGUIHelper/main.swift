@@ -27,6 +27,7 @@ final class HelperApplication: NSObject, NSApplicationDelegate {
             // One in-flight GUI actor for BOTH protocols. A focus request
             // cannot race the exact one-use Roll request or vice versa.
             if self.rollSpool?.isBusy == true || self.spool?.isBusy == true { return }
+            if self.rollSpool?.pollPinProbe() == true { return }
             self.spool?.poll { request, finished in
                 TargetInspection.perform(request, completion: finished)
             }

@@ -51,12 +51,13 @@ struct RollRequest {
             !s.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
     }
 
-    init(_ raw: Data, now: Date = Date()) throws {
+    init(_ raw: Data, now: Date = Date(), pinProbeOnly: Bool = false) throws {
         guard !raw.isEmpty, raw.count <= 32768,
               let object = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
               Set(object.keys) == Self.fields,
               object["schema"] as? String == "vera.gui-helper-request/v1",
-              object["operation"] as? String == "M4.edited.roll-start-to-playhead",
+              let operation = object["operation"] as? String,
+              operation == (pinProbeOnly ? "M4.edited.verify-actor-no-edit" : "M4.edited.roll-start-to-playhead"),
               object["fixtureId"] as? String == "synthetic-312",
               let requestId = object["requestId"] as? String, Self.asciiToken(requestId),
               let jobId = object["jobId"] as? String, Self.asciiToken(jobId),

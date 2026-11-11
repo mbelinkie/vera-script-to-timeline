@@ -73,9 +73,30 @@ fi
 codesign -dr - "$app" 2>&1 | grep -F 'identifier "org.vera.resolve-test-bench.gui"' >/dev/null
 installed="$support/VERA GUI Helper.app"
 previous="$support/.previous-VERA-GUI-Helper.app"
+archive="$support/retained-signed-helpers"
+mkdir -p "$archive"
+chmod 700 "$archive"
+if [ -L "$archive" ]; then
+    echo 'BLOCK: signed helper archive alias' >&2; exit 78
+fi
 if [ -e "$previous" ] || [ -L "$previous" ] || [ -L "$installed" ]; then
     echo 'BLOCK: existing helper backup or unsafe installed alias requires inspection' >&2
     exit 78
+fi
+old_digest=''
+if [ -e "$installed" ]; then
+    codesign --verify --strict --deep "$installed"
+    before_req=$(codesign -dr - "$installed" 2>&1 | sed -n 's/^designated => //p')
+    after_req=$(codesign -dr - "$app" 2>&1 | sed -n 's/^designated => //p')
+    if [ -z "$before_req" ] || [ "$before_req" != "$after_req" ]; then
+        echo 'BLOCK: replacing helper would rotate the Accessibility designated requirement' >&2
+        exit 78
+    fi
+    old_digest=$(shasum -a 256 "$installed/Contents/MacOS/VERAGUIHelper" | awk '{print $1}')
+    if [ -e "$archive/$old_digest" ] || [ -L "$archive/$old_digest" ]; then
+        echo 'BLOCK: previous signed helper archive identity already exists' >&2
+        exit 78
+    fi
 fi
 if [ -e "$installed" ]; then
     mv "$installed" "$previous"
@@ -86,8 +107,11 @@ if ! mv "$app" "$installed"; then
     exit 78
 fi
 if [ -d "$previous" ]; then
-    # Remove only the previous helper bundle, never project/media evidence.
-    rm -rf "$previous"
+    # Preserve the exact prior signed bundle as immutable local test evidence.
+    # The earlier M4 cases are spent and must never be replayed after upgrade.
+    mkdir "$archive/$old_digest"
+    chmod 700 "$archive/$old_digest"
+    mv "$previous" "$archive/$old_digest/VERA GUI Helper.app"
 fi
 if [ ! -f "$identity_record" ]; then
     printf '%s\n' "$identity" > "$identity_record"

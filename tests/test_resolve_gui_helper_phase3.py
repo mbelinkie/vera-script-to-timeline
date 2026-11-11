@@ -100,7 +100,9 @@ def test_direct_aqua_launchagent_is_no_edit_and_no_python_worker() -> None:
     assert plist["KeepAlive"] is True
     assert plist["RunAtLoad"] is True
     assert plist["EnvironmentVariables"] == {
-        "VERA_GUI_HELPER_SPOOL": "@VERA_GUI_HELPER_SPOOL@"
+        "VERA_GUI_HELPER_SPOOL": "@VERA_GUI_HELPER_SPOOL@",
+        "VERA_GUI_HELPER_ACTOR_PIN_SHA256": "@VERA_GUI_HELPER_ACTOR_PIN_SHA256@",
+        "VERA_GUI_HELPER_SOURCE_GRAPH_SHA256": "@VERA_GUI_HELPER_SOURCE_GRAPH_SHA256@",
     }
     assert not any("python" in value.lower() for value in plist["ProgramArguments"])
     assert "StartInterval" not in plist

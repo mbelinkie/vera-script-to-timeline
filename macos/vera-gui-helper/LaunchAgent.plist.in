@@ -5,6 +5,8 @@
 <key>ProgramArguments</key><array><string>@VERA_GUI_HELPER_EXECUTABLE@</string></array>
 <key>EnvironmentVariables</key><dict>
 <key>VERA_GUI_HELPER_SPOOL</key><string>@VERA_GUI_HELPER_SPOOL@</string>
+<key>VERA_GUI_HELPER_ACTOR_PIN_SHA256</key><string>@VERA_GUI_HELPER_ACTOR_PIN_SHA256@</string>
+<key>VERA_GUI_HELPER_SOURCE_GRAPH_SHA256</key><string>@VERA_GUI_HELPER_SOURCE_GRAPH_SHA256@</string>
 </dict>
 <key>LimitLoadToSessionType</key><string>Aqua</string>
 <key>ProcessType</key><string>Interactive</string>

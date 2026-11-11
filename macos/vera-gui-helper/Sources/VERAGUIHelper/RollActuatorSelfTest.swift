@@ -148,6 +148,20 @@ enum RollActuatorSelfTest {
             check((try? RollRequest(Data(canonical(original.value).dropLast()))) == nil,
                   "noncanonical Roll refused")
 
+            // Separate verify-only protocol may authenticate the SAME Swift
+            // source/actor pins, but may NEVER enter FixedRoll.execute.
+            var probeValue = original.value
+            probeValue["operation"] = "M4.edited.verify-actor-no-edit"
+            let probeRaw = canonical(probeValue)
+            check(RollRequest.digest(canonical(original.actorPin)) ==
+                  "9cbc933da7d23e0cb76b0996eeac3913ace4906e25423e1cd9da82c842e27f3c",
+                  "actor canonical SHA256 equals Python queue.canonical golden")
+            check((try? RollRequest(probeRaw)) == nil, "no-edit request refused by Roll parser")
+            check((try? RollRequest(probeRaw, pinProbeOnly: true)) != nil,
+                  "closed no-edit probe parser accepted")
+            check((try? RollRequest(canonical(original.value), pinProbeOnly: true)) == nil,
+                  "Roll action cannot impersonate no-edit pin probe")
+
             let req = fresh()
             let ax = AX(); let shared = Shared(); let journal = Journal(shared)
             let outcome = FixedRoll.execute(req, accessibility: ax, journal: journal, pins: Pins())
