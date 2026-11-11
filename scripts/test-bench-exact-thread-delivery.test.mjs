@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync,
@@ -7,6 +8,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { URL } from 'node:url';
 
 import { createOriginRegistry, signOriginAssertion } from './test-bench-origin-registry.mjs';
 import { createTerminalOutbox, signTerminalAttestation } from './test-bench-terminal-outbox.mjs';
@@ -197,6 +199,23 @@ test('wrong owner, thread, platform, source, actor, binding ID and operation fai
     /binding ID mismatch/i);
 });
 
+test('a trusted but mismatched terminal event cannot bypass the registered origin', t => {
+  const h = harness(t);
+  const delivery = h.delivery({ codex: [goodDelivered()] });
+  for (const mismatch of [
+    { sourceSha256: '9'.repeat(64) }, { actorSha256: '8'.repeat(64) },
+    { operationId: 'operation-from-elsewhere' }, { jobId: 'other-job' },
+    { caseId: 'other-case' }, { pullNumber: 99 },
+  ]) {
+    const signed = h.receipt('simulation', { attemptId: randomUUID(), ...mismatch });
+    const changedEventId = h.outbox().ingestSimulation(signed).eventId;
+    assert.throws(() => delivery.enqueue({
+      eventId: changedEventId, resolveAssertion: h.assertion('resolve'),
+    }), /origin\/event mismatch/i);
+    assert.equal(delivery.inspect(changedEventId), null);
+  }
+});
+
 test('wrong recipient and malicious instruction strings cannot be sent or accepted as ACKs', t => {
   const h = harness(t);
   const wrong = { ...route, threadId: 'attacker-thread' };
@@ -275,6 +294,52 @@ test('crash after durable claim, missing ACK and expired authorization cannot in
   assert.equal(h2.delivery().sweep(h2.eventId).status, 'unknown');
   assert.throws(() => d2.observe(h2.observation(d2.inspect(h2.eventId), 'ack_observed')),
     /expired/i);
+});
+
+test('SIGKILL after a persisted claim survives process restart and cannot submit twice', t => {
+  const h = harness(t);
+  h.delivery({ codex: [{ kind: 'crash' }] })
+    .enqueue({ eventId: h.eventId, resolveAssertion: h.assertion('resolve') });
+  const dir = new URL('./', import.meta.url).href;
+  const child = `
+    import { createOriginRegistry, signOriginAssertion } from ${JSON.stringify(dir + 'test-bench-origin-registry.mjs')};
+    import { createTerminalOutbox } from ${JSON.stringify(dir + 'test-bench-terminal-outbox.mjs')};
+    import { createExactThreadDelivery } from ${JSON.stringify(dir + 'test-bench-exact-thread-delivery.mjs')};
+    import { randomUUID } from 'node:crypto';
+    const payload = JSON.parse(Buffer.from(process.argv[1], 'base64').toString());
+    const registry = createOriginRegistry({ filePath:payload.paths.origin,
+      signingKey:Buffer.alloc(32,11), encryptionKey:Buffer.alloc(32,12),
+      trustedIssuers:{'codex-authority':'codex'}, now:()=>payload.now });
+    const outbox = createTerminalOutbox({ filePath:payload.paths.outbox,
+      receiptKeys:{'trusted-verifier':{provenance:'simulation',key:Buffer.alloc(32,13)}},
+      eventKey:Buffer.alloc(32,14), encryptionKey:Buffer.alloc(32,15), now:()=>payload.now });
+    const d = createExactThreadDelivery({ filePath:payload.paths.delivery, registry,outbox,
+      eventKey:Buffer.alloc(32,14), encryptionKey:Buffer.alloc(32,16),
+      observerKeys:{'independent-codex-platform-observer':{platform:'codex',key:Buffer.alloc(32,17)}},
+      now:()=>payload.now, simulationPlans:{codex:[{kind:'crash'}]} });
+    const resolution=signOriginAssertion({version:1,purpose:'resolve',issuer:'codex-authority',
+      binding:payload.binding,nonce:randomUUID(),issuedAt:payload.now-500,expiresAt:payload.now+60000},
+      Buffer.alloc(32,11));
+    try { d.dispatch({eventId:payload.eventId,resolveAssertion:resolution}); }
+    catch(error) {
+      if(!/Simulated crash after durable send claim/.test(error.message)) process.exit(19);
+      process.kill(process.pid,'SIGKILL');
+    }
+    process.exit(20);
+  `;
+  const payload = Buffer.from(JSON.stringify({
+    paths: h.paths, now: h.clock.now, binding: h.binding, eventId: h.eventId,
+  })).toString('base64');
+  const killed = spawnSync(process.execPath, ['--input-type=module', '-e', child, payload],
+    { encoding: 'utf8', timeout: 10_000 });
+  assert.equal(killed.signal, 'SIGKILL', killed.stderr);
+  assert.equal(h.delivery().inspect(h.eventId).status, 'in_flight');
+  assert.equal(h.delivery().sweep(h.eventId).status, 'unknown');
+  assert.throws(() => h.delivery({ codex: [goodDelivered()] }).dispatch({
+    eventId: h.eventId, resolveAssertion: h.assertion('resolve'),
+  }), /already|terminal/i);
+  assert.equal(h.delivery().inspect(h.eventId).attempts, 1);
+  assert.equal(h.outbox().inspect(h.eventId).event.outcome, 'UNKNOWN');
 });
 
 test('independent observer requires exact ACK/message/nonce and no out-of-order wake', t => {
