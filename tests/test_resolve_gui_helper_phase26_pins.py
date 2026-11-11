@@ -8,6 +8,7 @@ import plistlib
 import stat
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 from vera_timeline_agent import resolve_test_queue as queue
@@ -25,7 +26,7 @@ def module() -> ModuleType:
     return obj
 
 
-def actor() -> dict[str, object]:
+def actor() -> dict[str, Any]:
     return {
         "schema": "vera.gui-helper-actor/v1",
         "sourceManifestSha256": "f" * 64,
