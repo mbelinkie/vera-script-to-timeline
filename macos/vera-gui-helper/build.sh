@@ -8,6 +8,24 @@ if [ "$(uname -s)" != Darwin ]; then
     exit 78
 fi
 root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+repo=$(CDPATH='' cd -- "$root/../.." && pwd -P)
+python="$repo/.venv/bin/python"
+if [ ! -x "$python" ]; then
+    echo 'BLOCK: pinned helper build interpreter unavailable' >&2; exit 78
+fi
+# A signed helper binary must never be swapped while any Conductor native
+# campaign owns its long-lived carrier lock, even during CPU-only stages.
+# The inherited file descriptor is validated against the real locked inode;
+# setting an environment flag cannot bypass this guard.
+if [ -z "${VERA_NATIVE_OWNER_FD:-}" ]; then
+    export PYTHONPATH="$repo/python"
+    exec "$python" -m vera_timeline_agent.resolve_gui_helper_build_guard
+fi
+PYTHONPATH="$repo/python" "$python" - "$VERA_NATIVE_OWNER_FD" <<'PYGUARD'
+import sys
+from vera_timeline_agent.resolve_native_owner import _validate_inherited_owner
+_validate_inherited_owner(int(sys.argv[1]))
+PYGUARD
 support="$HOME/Library/Application Support/VERA/GUI Helper"
 identity_record="$support/signing-identity.sha1"
 mkdir -p "$support"
@@ -97,6 +115,15 @@ if [ "$(CDPATH='' cd -- "$repo" && freeze_pins)" != "$frozen" ]; then
     echo 'BLOCK: helper source changed during build or signing' >&2
     exit 78
 fi
+# Refuse even if another Conductor acquired its whole-run carrier during this
+# expensive compile. A previously signed installed binary remains untouched.
+PYTHONPATH="$repo/python" "$python" - <<'PRESWAP'
+from pathlib import Path
+from vera_timeline_agent.resolve_gui_helper_build_guard import active_conductor_cases, ActiveNativeCampaign
+active = active_conductor_cases(Path.home() / '.local/state/vera')
+if active:
+    raise ActiveNativeCampaign('native carrier appeared during signed build: '+', '.join(active))
+PRESWAP
 installed="$support/VERA GUI Helper.app"
 previous="$support/.previous-VERA-GUI-Helper.app"
 archive="$support/retained-signed-helpers"

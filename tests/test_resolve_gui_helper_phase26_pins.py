@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
+import os
 import plistlib
 import stat
 from pathlib import Path
@@ -270,3 +272,53 @@ def test_signing_build_requires_clean_git_head_and_records_exact_source() -> Non
     assert "built-source-pins-" in build and "built-source-pins-" in installer
     assert "verified_build_provenance" in installer
     assert "signed_actor(commit, graph)" in installer
+
+
+def test_native_conductor_carrier_lock_blocks_helper_upgrade(
+    tmp_path: Path,
+) -> None:
+    # Real non-blocking flock test; no Resolve, Mac or native operation.
+    from vera_timeline_agent import resolve_gui_helper_build_guard as guard
+
+    state = tmp_path / "state"
+    state.mkdir(mode=0o700)
+    case = state / "native-campaign"
+    lock_dir = case / ".conductor-launch"
+    lock_dir.mkdir(parents=True, mode=0o700)
+    path = lock_dir / "carrier.lock"
+    path.write_bytes(b"")
+    path.chmod(0o600)
+    fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW)
+    try:
+        assert guard.active_conductor_cases(state) == ()
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert guard.active_conductor_cases(state) == ("native-campaign",)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+    assert guard.active_conductor_cases(state) == ()
+    path.unlink()
+    path.symlink_to(tmp_path / "unrelated")
+    with pytest.raises(OSError):
+        guard.active_conductor_cases(state)
+
+
+def test_signed_helper_build_and_install_require_same_long_lived_carrier_lock() -> None:
+    build = (HELPER / "build.sh").read_text()
+    installer = (HELPER / "pin-launch-agent.py").read_text()
+    guard = (
+        ROOT / "python/vera_timeline_agent/resolve_gui_helper_build_guard.py"
+    ).read_text()
+    assert (
+        'exec "$python" -m vera_timeline_agent.resolve_gui_helper_build_guard' in build
+    )
+    assert "_validate_inherited_owner(int(sys.argv[1]))" in build
+    assert "with native_owner(output_lane=True) as descriptor:" in guard
+    assert "pass_fds=(descriptor,)" in guard
+    assert "active_conductor_cases(state)" in guard
+    assert 'build = root / "macos/vera-gui-helper/build.sh"' in guard
+    assert 'active_conductor_cases(Path.home() / ".local/state/vera")' in installer
+    assert (
+        'require(not active, "native campaign owns Conductor carrier lock")'
+        in installer
+    )

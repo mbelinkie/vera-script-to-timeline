@@ -24,6 +24,7 @@ from vera_timeline_agent import resolve_gui_helper_protocol as protocol
 from vera_timeline_agent import resolve_test_bench_carrier as carrier
 from vera_timeline_agent import resolve_test_bench_full_loop as full
 from vera_timeline_agent import resolve_test_queue as queue
+from vera_timeline_agent.resolve_gui_helper_build_guard import active_conductor_cases
 from vera_timeline_agent.resolve_native_owner import native_owner
 
 LABEL = "org.vera.resolve-test-bench.gui"
@@ -347,6 +348,10 @@ def install() -> dict[str, object]:
     # Install while holding the same global owner flock as the native worker.
     # No case or immutable request is rewritten, replayed, cancelled, or moved.
     with native_owner(output_lane=True):
+        # Refuse helper restart while any long-lived Conductor M4 run owns its
+        # carrier, including periods when it releases the SDK native lock.
+        active = active_conductor_cases(Path.home() / ".local/state/vera")
+        require(not active, "native campaign owns Conductor carrier lock")
         old_running = current_service(label).returncode == 0
         if old and old != destination:
             # Preserve old exact LaunchAgent bytes for offline audit first.
