@@ -25,6 +25,8 @@ from vera_timeline_agent import native_qualification_v2 as capability
 from vera_timeline_agent import target_identity_v2 as identity
 from vera_timeline_agent.workflow_v2_cli import main
 
+from conftest import ISSUE208_BOOTSTRAP_CLOCK
+
 
 def test_shared_installed_root_preserves_other_plugins(tmp_path: Path) -> None:
     request, _, _, installed = inputs(tmp_path)
@@ -147,7 +149,9 @@ def capability_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
     return request, authority, installed
 
 
-BOOTSTRAP_FAKE = """
+BOOTSTRAP_FAKE = (
+    ISSUE208_BOOTSTRAP_CLOCK
+    + """
 import json,runpy,sys,types
 calls=[]
 class Fake:
@@ -172,6 +176,7 @@ if sys.argv[2]=="loaded":
 runpy.run_path(sys.argv[1],init_globals={"resolve":r})
 print("RETURNED_CALLS="+json.dumps(calls))
 """
+)
 
 
 def bootstrap(installed: Path, attack: str = "clean") -> tuple[str, list[str]]:

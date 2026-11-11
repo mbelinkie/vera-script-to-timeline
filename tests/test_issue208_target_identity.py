@@ -18,6 +18,8 @@ from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent import target_identity_v2 as identity
 from vera_timeline_agent.workflow_v2_cli import build_release_v2
 
+from conftest import ISSUE208_BOOTSTRAP_CLOCK
+
 
 @pytest.mark.parametrize(
     "payload",
@@ -738,7 +740,9 @@ def test_actual_bootstrap_code_with_fake_injected_object(
         value = identity.ti_object(identity.ti_read(request))
         value["action"] = "build"
         rewrite(request, value)
-    code = """
+    code = (
+        ISSUE208_BOOTSTRAP_CLOCK
+        + """
 import json, runpy, sys, types
 calls=[]
 class Fake:
@@ -765,6 +769,7 @@ if sys.argv[2]=="loaded":
 runpy.run_path(sys.argv[1], init_globals={"resolve":r})
 print("CALLS="+json.dumps(calls))
 """
+    )
     completed = subprocess.run(
         [
             sys.executable,

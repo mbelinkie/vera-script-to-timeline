@@ -3,13 +3,67 @@
 from __future__ import annotations
 
 import sys
+import time
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
+
+
+# A #208 test performs genuine strict wall/monotonic comparisons. Under the
+# Linux VM its realtime clock can jump backward while monotonic advances.
+# Keep the production rollback guard intact and use one monotonic-derived
+# UTC wall clock only inside these synthetic tests (including their isolated
+# installed-bootstrap subprocesses).
+ISSUE208_BOOTSTRAP_CLOCK = """
+import datetime,os,time
+_offset=os.environ.get("VERA_ISSUE208_TEST_WALL_OFFSET")
+if _offset is not None:
+    class _StableDateTime(datetime.datetime):
+        @classmethod
+        def now(cls,tz=None):
+            return cls.fromtimestamp(time.monotonic()+float(_offset),tz=tz)
+    datetime.datetime=_StableDateTime
+"""
+
+
+@pytest.fixture(autouse=True)
+def stable_issue208_synthetic_clock(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    names = (
+        "test_issue208_target_identity",
+        "test_issue208_review_fixes",
+        "test_issue208_gate_coverage",
+    )
+    if request.module.__name__.split(".")[-1] not in names:
+        return
+    real_monotonic = time.monotonic
+    utc_offset = datetime.now(UTC).timestamp() - real_monotonic()
+
+    class StableDateTime(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> StableDateTime:
+            return cls.fromtimestamp(real_monotonic() + utc_offset, tz=tz)
+
+    monkeypatch.setenv("VERA_ISSUE208_TEST_WALL_OFFSET", repr(utc_offset))
+    from vera_timeline_agent import native_qualification_v2 as capability
+    from vera_timeline_agent import target_identity_v2 as identity
+    from vera_timeline_agent import workflow_v2_cli
+
+    for module in (identity, capability, workflow_v2_cli):
+        monkeypatch.setattr(module, "datetime", StableDateTime)
+    # Helpers are imported across the three test modules. Their own
+    # construction timestamps must use the same origin as the tested runtime.
+    for name in names:
+        test_module = sys.modules.get(name)
+        if test_module is not None and hasattr(test_module, "datetime"):
+            monkeypatch.setattr(test_module, "datetime", StableDateTime)
 
 
 @pytest.fixture(autouse=True)
