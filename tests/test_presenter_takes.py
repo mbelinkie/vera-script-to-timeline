@@ -386,9 +386,9 @@ def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> Non
 def test_a_start_to_finish_read_with_a_garbled_name_beats_joined_pieces() -> None:
     # The recogniser loses a word mid-sentence (in life, a garbled name), so
     # the strict rule refuses it; the read still runs from first word to last.
-    garbled = "kaj is three singing in Swedish. They really like saunas."
+    garbled = "The band wanted embrace the weirdness."
     takes = _takes(_said(garbled, 2.0))
-    passage = takes["passages"][0]
+    passage = takes["passages"][1]
     take = passage["takes"][0]
     assert take["complete"] is False and take["startToFinish"] is True
     assert passage["suggestedTakes"] == [take["id"]]
