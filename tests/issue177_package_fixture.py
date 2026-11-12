@@ -22,6 +22,7 @@ _FIXTURES = {
 }
 _SCENARIOS = {
     "root-child-overlay-return": "root-child-overlay-return",
+    "shared-preparation": "issue531-shared-preparation",
     "intentional-slate": "visual-only-default-25fps",
     "verified-reuse": "reuse-nonzero-inpoint",
     "source-audio-quiet": "selected-clip-ntsc",
@@ -470,11 +471,11 @@ def make_package_case(
     dependency_bindings = {
         item["requirementKey"]: item for item in dependencies["preparedMedia"]
     }
-    occurrences = {
-        item["preparedMediaRequirementKey"]: item
-        for item in dependencies["occurrenceResolutions"]
-        if item.get("preparedMediaRequirementKey") is not None
-    }
+    occurrences: dict[str, list[Json]] = {}
+    for item in dependencies["occurrenceResolutions"]:
+        key = item.get("preparedMediaRequirementKey")
+        if key is not None:
+            occurrences.setdefault(key, []).append(item)
     sources_by_requirement = {
         item["preparationRequirementKey"]: item
         for item in manifest["sources"]
@@ -503,7 +504,20 @@ def make_package_case(
 
     for requirement_key, binding in bindings.items():
         source = sources_by_requirement[requirement_key]
-        occurrence = occurrences[requirement_key]
+        related_occurrences = occurrences[requirement_key]
+        occurrence = related_occurrences[0]
+        if any(
+            item["mediaReferenceId"] != occurrence["mediaReferenceId"]
+            or item["sourceSnapshot"] != occurrence["sourceSnapshot"]
+            or item["sourceFrameMap"] != occurrence["sourceFrameMap"]
+            or item["occurrenceSourceInFrame"] != occurrence["occurrenceSourceInFrame"]
+            or item["selectedSourceRange"] != occurrence["selectedSourceRange"]
+            for item in related_occurrences[1:]
+        ):
+            raise ValueError(
+                f"shared fixture requirement {requirement_key} "
+                "has conflicting occurrences"
+            )
         verified_reuse = binding["mode"] == "verified_reuse"
         delivered_bytes = (
             original_bytes
@@ -600,8 +614,6 @@ def make_package_case(
             "toolHash": tool_hash,
             "profileVersion": profile["profileVersion"],
         }
-        occurrence["sourceSnapshot"]["contentHash"] = original_hash
-        occurrence["sourceSnapshot"]["probeHash"] = original_probe_hash
         source_frame_map["probeHash"] = original_probe_hash
         if scenario in audio_scenarios:
             source_frame_map["sourceAudioStreamMappings"] = [
@@ -625,7 +637,10 @@ def make_package_case(
         mapping["mappingHash"] = identity_hash(
             {key: value for key, value in mapping.items() if key != "mappingHash"}
         )
-        occurrence["sourceFrameMap"] = copy.deepcopy(source_frame_map)
+        for related_occurrence in related_occurrences:
+            related_occurrence["sourceSnapshot"]["contentHash"] = original_hash
+            related_occurrence["sourceSnapshot"]["probeHash"] = original_probe_hash
+            related_occurrence["sourceFrameMap"] = copy.deepcopy(source_frame_map)
         if scenario in audio_scenarios:
             binding["verification"]["sourceAudio"] = {
                 "maxDrift": {"numerator": 0, "denominator": 1},
