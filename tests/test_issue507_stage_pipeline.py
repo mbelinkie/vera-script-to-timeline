@@ -1,8 +1,10 @@
-"""#507 phase 2: mode-preserving one-stage dispatch, with zero real effects."""
+"""#507: staged dispatch and isolated frozen revisions, no real effects."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -12,10 +14,13 @@ from test_issue382_build_agent import (
     JOB,
     PROJECT,
     SNAPSHOT,
+    TARGET,
     FakeInputAuthority,
     FakePort,
     FakeTransport,
     _job,
+    complete_dependencies,
+    digest,
     manifest,
 )
 from vera_timeline_agent.build_agent_service import (
@@ -36,6 +41,7 @@ from vera_timeline_agent.build_studio_stage import (
     NativeDriver,
     VerifyStudioStagePort,
 )
+from vera_timeline_agent.build_submission_inputs import AcceptedSourceFile
 from vera_timeline_agent.narration.service import NarrationService
 
 
@@ -255,3 +261,209 @@ def test_qualified_real_ports_pin_only_accepted_versions(tmp_path: Path) -> None
         LocalBuildAgentService(
             tmp_path / "other", PROJECT, FakeTransport(), ports={}, pipeline=pipeline
         )
+
+
+@dataclass
+class RevisionTransport(FakeTransport):
+    """Fixture backend with per-job identity and a revocable role."""
+
+    requested_job: str = JOB
+    role_revoked: bool = False
+
+    def claim(self, job_id: str) -> tuple[int, str]:
+        assert job_id == self.requested_job
+        if self.role_revoked:
+            raise AgentTransportRefusal("revoked producer role")
+        self.claims += 1
+        return 1, SNAPSHOT
+
+    def frozen(self, job_id: str, epoch: int) -> dict[str, Any]:
+        assert (job_id, epoch) == (self.requested_job, 1)
+        if self.role_revoked:
+            raise AgentTransportRefusal("revoked producer role")
+        self.reads += 1
+        return dict(self.data)
+
+    def progress(
+        self,
+        job_id: str,
+        epoch: int,
+        stage: str,
+        status: str,
+        receipt_digest: str | None,
+        reason: str | None,
+    ) -> None:
+        assert (job_id, epoch) == (self.requested_job, 1)
+        self.reports.append((stage, status, receipt_digest, reason))
+
+
+def _revision(
+    tmp_path: Path,
+    job_id: str,
+    target_id: str,
+    doc_revision: int,
+    source_revision: str,
+) -> tuple[RevisionTransport, FakeInputAuthority, Path]:
+    doc = json.dumps(
+        {"projectId": PROJECT, "id": job_id, "revision": doc_revision},
+        sort_keys=True,
+    )
+    data = manifest("studio")
+    data.update(
+        jobId=job_id,
+        targetId=target_id,
+        documentRevision=doc_revision,
+        documentJson=doc,
+        documentDigest=digest(doc),
+    )
+    raw = f"public synthetic source bytes {source_revision}".encode()
+    source_digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+    data["selectedSources"] = [
+        {"sourceId": TARGET, "revision": source_revision, "sha256": source_digest}
+    ]
+    accepted = tmp_path / source_revision
+    accepted.mkdir(mode=0o700)
+    path = accepted / "public-fixture.mov"
+    path.write_bytes(raw)
+    transport = RevisionTransport(data=data, requested_job=job_id)
+    authority = FakeInputAuthority(transport, complete_dependencies(data))
+    authority.accepted[TARGET] = AcceptedSourceFile(
+        PROJECT, TARGET, source_revision, source_digest, path
+    )
+    return transport, authority, accepted
+
+
+def _revision_agent(
+    root: Path,
+    transport: RevisionTransport,
+    authority: FakeInputAuthority,
+    accepted: Path,
+    port: FakePort,
+    native: NativeAuthorization,
+) -> LocalBuildAgentService:
+    return LocalBuildAgentService(
+        root / "private",
+        PROJECT,
+        transport,
+        {stage: port for stage in CORE_STAGES + STUDIO_STAGES[:2]},
+        {"synthetic": "v1"},
+        input_authority=authority,
+        accepted_source_roots=(accepted,),
+        native_authorization=native,
+    )
+
+
+def _start_revision(
+    root: Path,
+    transport: RevisionTransport,
+    authority: FakeInputAuthority,
+    accepted: Path,
+    port: FakePort,
+) -> tuple[LocalBuildAgentService, str]:
+    existing = {p.stem for p in (root / "private" / "snapshots").glob("*.json")}
+    prior_calls = port.calls
+    denied = NativeAuthorization(
+        PROJECT,
+        "0" * 64,
+        "f" * 64,
+        f"synthetic-{transport.requested_job}",
+        True,
+        job_id=transport.requested_job,
+        target_id=transport.data["targetId"],
+    )
+    assert (
+        _revision_agent(root, transport, authority, accepted, port, denied).run_one(
+            transport.requested_job
+        )
+        == "needs_action"
+    )
+    assert port.calls == prior_calls
+    snapshots = {p.stem for p in (root / "private" / "snapshots").glob("*.json")}
+    created = snapshots - existing
+    assert len(created) == 1
+    snapshot_id = created.pop()
+    approved = NativeAuthorization(
+        PROJECT,
+        snapshot_id,
+        "f" * 64,
+        f"synthetic-{transport.requested_job}",
+        True,
+        job_id=transport.requested_job,
+        target_id=transport.data["targetId"],
+    )
+    agent = _revision_agent(root, transport, authority, accepted, port, approved)
+    return agent, snapshot_id
+
+
+def test_two_studio_revisions_retain_old_target_and_frozen_source_bytes(
+    tmp_path: Path,
+) -> None:
+    """The local staged chain proves isolation, NOT a real Resolve readback."""
+    job_b = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    target_b = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+    port = FakePort()
+    first, authority_a, accepted_a = _revision(tmp_path, JOB, TARGET, 2, "v1")
+    agent_a, snapshot_a = _start_revision(
+        tmp_path, first, authority_a, accepted_a, port
+    )
+    for stage_index in range(7):
+        assert agent_a.run_one(JOB, resumed_epoch=1, resumed_digest=SNAPSHOT) == (
+            "complete" if stage_index == 6 else "queued"
+        )
+    assert port.calls == 7
+    root = tmp_path / "private"
+    bytes_a = {
+        str(path.relative_to(root)): path.read_bytes()
+        for parent in (root / "outputs" / JOB, root / "inputs" / JOB)
+        for path in parent.rglob("*")
+        if path.is_file()
+    }
+    assert bytes_a
+    assert (root / "inputs" / JOB / f"source-{TARGET}.bin").read_bytes() == (
+        b"public synthetic source bytes v1"
+    )
+
+    second, authority_b, accepted_b = _revision(tmp_path, job_b, target_b, 3, "v2")
+    agent_b, snapshot_b = _start_revision(
+        tmp_path, second, authority_b, accepted_b, port
+    )
+    assert snapshot_b != snapshot_a
+    for stage_index in range(7):
+        assert agent_b.run_one(job_b, resumed_epoch=1, resumed_digest=SNAPSHOT) == (
+            "complete" if stage_index == 6 else "queued"
+        )
+    assert port.calls == 14
+    assert (root / "inputs" / job_b / f"source-{TARGET}.bin").read_bytes() == (
+        b"public synthetic source bytes v2"
+    )
+    assert (
+        json.loads((root / "inputs" / job_b / "submission.json").read_text())[
+            "targetId"
+        ]
+        == target_b
+    )
+    assert {
+        str(path.relative_to(root)): path.read_bytes()
+        for parent in (root / "outputs" / JOB, root / "inputs" / JOB)
+        for path in parent.rglob("*")
+        if path.is_file()
+    } == bytes_a
+    for transport in (first, second):
+        assert transport.claims == 1
+        assert all(status != "verified_native" for _, status, _, _ in transport.reports)
+
+
+def test_next_studio_stage_refuses_revoked_role_or_source(tmp_path: Path) -> None:
+    transport, authority, accepted = _revision(tmp_path, JOB, TARGET, 2, "v1")
+    port = FakePort()
+    agent, _snapshot = _start_revision(tmp_path, transport, authority, accepted, port)
+    assert agent.run_one(JOB, resumed_epoch=1, resumed_digest=SNAPSHOT) == "queued"
+    assert port.calls == 1
+    transport.role_revoked = True
+    with pytest.raises(AgentTransportRefusal, match="revoked producer role"):
+        agent.run_one(JOB, resumed_epoch=1, resumed_digest=SNAPSHOT)
+    transport.role_revoked = False
+    authority.accepted.clear()
+    with pytest.raises(AgentTransportRefusal, match="accepted source"):
+        agent.run_one(JOB, resumed_epoch=1, resumed_digest=SNAPSHOT)
+    assert port.calls == 1

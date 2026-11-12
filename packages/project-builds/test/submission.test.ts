@@ -499,6 +499,127 @@ describe("transactionally frozen submission from #380 and #379", () => {
 });
 
 describe("epoch-CAS durable status and independently classified evidence", () => {
+  it("keeps two frozen Studio revisions on distinct targets and retains independently recorded A", async () => {
+    const h = await buildHarness();
+    const sourceId = randomUUID();
+    const pinA = source(sourceId, "v1", "public-synthetic-revision-A");
+    await h.accept(pinA);
+    const a = await h.submissions.submit(h.projectId, h.editor,
+      h.intent([pinA], { mode: "studio" }));
+    const aFrozen = await loadFrozen(h.db, h.projectId, a.jobId);
+    const agent = await h.pair(["studio_readback_v1"]);
+    const inspectedTargets = new Map<string, { receipt: string; output: string }>();
+    const inspect = vi.fn(async (_db, projectId: string, jobId: string,
+      stageKey: string, receiptDigest: string) => {
+      // Fixture stand-in ONLY: production has no installed native readback.
+      const fixture = inspectedTargets.get(jobId);
+      if (projectId !== h.projectId || stageKey !== "verifying_timeline" ||
+          !fixture || fixture.receipt !== receiptDigest) return null;
+      return { kind: "native_readback" as const, stageKey, receiptDigest,
+        outputDigest: fixture.output, verificationDigest: d(`reopened-${jobId}`) };
+    });
+    const inspected = h.status({ inspect });
+    await inspected.claim(agent, a.jobId);
+    const aReceipt = d("synthetic-stage-A");
+    await inspected.appendProgress(agent, a.jobId, { leaseEpoch: 1, status: "running",
+      stageKey: "verifying_timeline", receiptDigest: aReceipt, reasonCode: null });
+    const pending = await h.status().get(h.projectId, h.viewer, a.jobId);
+    expect(pending.status).toBe("running");
+    expect(pending.evidence).toHaveLength(0);
+    await expect(h.status().inspectEvidence(agent, a.jobId, 1,
+      "verifying_timeline", aReceipt)).rejects.toMatchObject({ status: 409 });
+    inspectedTargets.set(a.jobId, { receipt: aReceipt, output: d("saved-reopened-target-A") });
+    await inspected.inspectEvidence(agent, a.jobId, 1, "verifying_timeline", aReceipt);
+    const aResult = await inspected.get(h.projectId, h.viewer, a.jobId);
+    expect(aResult).toMatchObject({ status: "verified_native", targetId: a.targetId,
+      revision: aFrozen.row.expected_revision, snapshotDigest: a.snapshotDigest });
+    expect(aResult.evidence).toHaveLength(1);
+
+    const edited = await h.documents.putDocument(h.projectId, h.producer, {
+      expectedRevision: 0, clientMutationId: randomUUID(),
+      document: { ...h.document, title: "public synthetic revision B" },
+    });
+    const pinB = source(sourceId, "v2", "public-synthetic-revision-B");
+    await h.accept(pinB);
+    const b = await h.submissions.submit(h.projectId, h.editor,
+      h.intent([pinB], { mode: "studio", expectedRevision: edited.revision,
+        expectedDigest: edited.digest }));
+    const bFrozen = await loadFrozen(h.db, h.projectId, b.jobId);
+    expect(b.jobId).not.toBe(a.jobId);
+    expect(b.targetId).not.toBe(a.targetId);
+    expect(b.snapshotDigest).not.toBe(a.snapshotDigest);
+    expect(bFrozen.row.expected_revision).not.toBe(aFrozen.row.expected_revision);
+    expect(bFrozen.pins).toEqual([pinB]);
+    expect(aFrozen.pins).toEqual([pinA]);
+    await inspected.claim(agent, b.jobId);
+    const bReceipt = d("synthetic-stage-B");
+    await inspected.appendProgress(agent, b.jobId, { leaseEpoch: 1, status: "running",
+      stageKey: "verifying_timeline", receiptDigest: bReceipt, reasonCode: null });
+    inspectedTargets.set(b.jobId, { receipt: bReceipt, output: d("saved-reopened-target-B") });
+    await inspected.inspectEvidence(agent, b.jobId, 1, "verifying_timeline", bReceipt);
+    expect((await inspected.get(h.projectId, h.viewer, b.jobId)).status).toBe("verified_native");
+    expect(await inspected.get(h.projectId, h.viewer, a.jobId)).toEqual(aResult);
+    expect(await loadFrozen(h.db, h.projectId, a.jobId)).toEqual(aFrozen);
+    await expect(inspected.inspectEvidence(agent, a.jobId, 1,
+      "verifying_timeline", aReceipt)).rejects.toMatchObject({ status: 409 });
+    expect(inspect).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses source, head and revoked submitter drift before an inspector can promote status", async () => {
+    const h = await buildHarness();
+    const pin = source();
+    await h.accept(pin);
+    const job = await h.submissions.submit(h.projectId, h.editor,
+      h.intent([pin], { mode: "studio" }));
+    const agent = await h.pair(["studio_readback_v1"]);
+    const inspectorCall = vi.fn(async () => ({
+      kind: "native_readback" as const, stageKey: "verifying_timeline",
+      receiptDigest: d("fixture"), outputDigest: d("fixture-result"),
+      verificationDigest: d("fixture-verified"),
+    }));
+    const inspector: IndependentEvidenceInspector = { inspect: inspectorCall };
+    const status = h.status(inspector);
+    await status.claim(agent, job.jobId);
+    await h.accept(pin, false);
+    await expect(status.inspectEvidence(agent, job.jobId, 1,
+      "verifying_timeline", d("fixture")))
+      .rejects.toMatchObject({ code: "source_unverified", status: 409 });
+    await h.accept(pin);
+    await h.db.query("UPDATE vera_project_members SET active=false WHERE project_id=$1 AND actor_id=$2",
+      [h.projectId, h.editor.principalId]);
+    await expect(status.inspectEvidence(agent, job.jobId, 1,
+      "verifying_timeline", d("fixture"))).rejects.toMatchObject({ status: 403 });
+    await h.db.query("UPDATE vera_project_members SET active=true WHERE project_id=$1 AND actor_id=$2",
+      [h.projectId, h.editor.principalId]);
+    await h.documents.putDocument(h.projectId, h.producer, {
+      expectedRevision: 0, clientMutationId: randomUUID(),
+      document: { ...h.document, title: "advanced head" },
+    });
+    await expect(status.inspectEvidence(agent, job.jobId, 1,
+      "verifying_timeline", d("fixture")))
+      .rejects.toMatchObject({ code: "stale_snapshot", status: 409 });
+    expect(inspectorCall).not.toHaveBeenCalled();
+    const result = await status.get(h.projectId, h.viewer, job.jobId);
+    expect(result.status).toBe("leased");
+    expect(result.evidence).toHaveLength(0);
+  });
+
+  it("rejects an inspector that promotes the wrong stage or a free build to native", async () => {
+    const h = await buildHarness();
+    const job = await h.submissions.submit(h.projectId, h.producer, h.intent());
+    const agent = await h.pair();
+    const status = h.status({ inspect: async (_db, _project, _job, stageKey, receiptDigest) => ({
+      kind: "native_readback", stageKey, receiptDigest,
+      outputDigest: d("output"), verificationDigest: d("verified"),
+    }) });
+    await status.claim(agent, job.jobId);
+    await expect(status.inspectEvidence(agent, job.jobId, 1,
+      "compiling", d("agent-only"))).rejects.toMatchObject({ status: 409 });
+    await expect(status.inspectEvidence(agent, job.jobId, 1,
+      "verifying_timeline", d("agent-only"))).rejects.toMatchObject({ status: 409 });
+    expect((await status.get(h.projectId, h.viewer, job.jobId)).evidence).toHaveLength(0);
+  });
+
   it("polls only project-scoped queued builds and refuses revoked agent identity", async () => {
     const h = await buildHarness();
     const ready = await h.submissions.submit(h.projectId, h.producer, h.intent());

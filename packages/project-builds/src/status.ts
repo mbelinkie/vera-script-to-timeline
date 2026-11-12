@@ -40,6 +40,9 @@ export interface VerifiedInspection {
 /** Trust boundary: a real inspector must *independently* validate stored effects
  * and readback, not simply echo an agent's claims. No inspector = no proof. */
 export interface IndependentEvidenceInspector {
+  /** Installed by trusted backend infrastructure, never supplied by HTTP.
+   * Independently inspect the frozen job, exact target and stored effects;
+   * machine reports and native start responses alone are not verification. */
   inspect(db: SqlClient, projectId: string, jobId: string, stageKey: string,
     receiptDigest: string): Promise<VerifiedInspection | null>;
 }
@@ -293,12 +296,23 @@ export class ProjectBuildStatusService {
       await checkLease(db, projectId, jobId, agentId, epoch, now);
       const frozen = await loadFrozen(db, projectId, jobId);
       await checkSubmitter(db, this.auth, projectId, frozen.row.submitted_by, frozen.row.build_class);
+      // Revalidate the authority that the local agent was required to retain
+      // before every stage. Revoked sources or an advanced head cannot elevate
+      // an old untrusted receipt, even if an inspector is installed later.
+      if (!await stillCurrent(db, frozen.row)) {
+        throw new BuildServiceError("stale_snapshot", 409);
+      }
+      if (!await verifiedPins(db, projectId, frozen.pins, this.sources)) {
+        throw new BuildServiceError("source_unverified", 409);
+      }
       if (!this.evidenceInspector) throw new BuildServiceError("invalid_transition", 409);
       const proof = await this.evidenceInspector.inspect(db, projectId, jobId, stageKey, receiptDigest);
       if (!proof || proof.stageKey !== stageKey || proof.receiptDigest !== receiptDigest ||
           !validDigest(proof.outputDigest) || !validDigest(proof.verificationDigest) ||
           !["synthetic", "verified_package", "native_readback"].includes(proof.kind) ||
-          (proof.kind === "native_readback" && frozen.row.mode !== "studio")) {
+          (proof.kind === "native_readback" &&
+            (frozen.row.mode !== "studio" || stageKey !== "verifying_timeline")) ||
+          (proof.kind === "verified_package" && stageKey !== "verifying_import_package")) {
         throw new BuildServiceError("invalid_transition", 409);
       }
       const status: BuildStatus = proof.kind === "verified_package" ? "verified_package" :

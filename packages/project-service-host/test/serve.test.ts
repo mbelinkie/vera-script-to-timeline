@@ -101,6 +101,32 @@ describe("development QA service bootstrap and shutdown", () => {
     expect(server.server.listening).toBe(false);
   });
 
+  it("routes the inspection request to scoped agent authentication without trusting its evidence kind", async () => {
+    const config = await setup();
+    const h = infra();
+    const inspect = vi.fn(() => Promise.resolve(null));
+    // A genuine adapter may be supplied by a trusted host, not by a request.
+    // This QA host has none by default; neither route grants native authority.
+    const server = await startQaServer(config, { ...h, evidenceInspector: { inspect } });
+    running.push(server);
+    const url = `http://127.0.0.1:${config.port}/v1/agent/projects/${randomUUID()}` +
+      `/jobs/${randomUUID()}/leases/1/inspect`;
+    const body = JSON.stringify({ stageKey: "verifying_timeline",
+      receiptDigest: "sha256:" + "a".repeat(64), kind: "native_readback" });
+    const anonymous = await fetch(url, { method: "POST", headers: {
+      "Content-Type": "application/json",
+    }, body });
+    expect(anonymous.status).toBe(400);
+    expect(inspect).not.toHaveBeenCalled();
+    const forged = await fetch(url, { method: "POST", headers: {
+      "Content-Type": "application/json", Authorization: `Bearer ${privateToken}`,
+      "X-Agent-Credential-Version": "1",
+    }, body: JSON.stringify({ stageKey: "verifying_timeline",
+      receiptDigest: "sha256:" + "a".repeat(64) }) });
+    expect(forged.status).toBe(401); // User token is not a paired agent token.
+    expect(inspect).not.toHaveBeenCalled();
+  });
+
   it("refuses missing identity before DB access and all unsafe bind/mode combinations", async () => {
     const config = await setup();
     const h = infra();

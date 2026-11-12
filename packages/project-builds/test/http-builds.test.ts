@@ -28,11 +28,13 @@ function harness() {
   const claim = vi.fn(async () => ({ jobId, leaseEpoch: 1 }));
   const frozenForAgent = vi.fn(async () => ({ jobId, documentJson: "{}" }));
   const appendProgress = vi.fn(async () => "5");
+  const inspectEvidence = vi.fn(async () => "6");
   const handler = createProjectBuildHttpHandler({
     identity: { authenticate: async () => ({ issuer: "test", subject: "synthetic" }) },
     authorization: { authenticateRequest } as unknown as ProjectAuthorizationService,
     submissions: { submit } as unknown as ProjectBuildSubmissionService,
-    status: { get, cancel, pollQueued, claim, frozenForAgent, appendProgress } as unknown as ProjectBuildStatusService,
+    status: { get, cancel, pollQueued, claim, frozenForAgent, appendProgress,
+      inspectEvidence } as unknown as ProjectBuildStatusService,
   });
   function send(path: string, method = "GET", token = userToken, payload?: unknown,
     version = "1"): Promise<Response> {
@@ -43,7 +45,8 @@ function harness() {
       ...(body ? { body } : {}),
     }));
   }
-  return { send, authenticateRequest, submit, get, cancel, pollQueued, claim, frozenForAgent, appendProgress };
+  return { send, authenticateRequest, submit, get, cancel, pollQueued, claim, frozenForAgent,
+    appendProgress, inspectEvidence };
 }
 
 describe("#382 private build transport boundary", () => {
@@ -86,7 +89,25 @@ describe("#382 private build transport boundary", () => {
     expect(h.appendProgress).toHaveBeenCalledWith({ projectId, agentToken: machineToken, credentialVersion: 1 },
       jobId, { leaseEpoch: 1, ...progress });
     expect((await h.send(root + `/jobs/${jobId}/leases/0/frozen`, "GET", machineToken)).status).toBe(404);
-    expect((await h.send(root + `/jobs/${jobId}/leases/1/inspect`, "POST", machineToken)).status).toBe(404);
+    const inspectRoute = root + `/jobs/${jobId}/leases/1/inspect`;
+    const inspectBody = { stageKey: "verifying_timeline", receiptDigest: "sha256:" + "a".repeat(64) };
+    expect((await h.send(inspectRoute, "POST", machineToken, inspectBody)).status).toBe(202);
+    expect(h.inspectEvidence).toHaveBeenCalledWith(
+      { projectId, agentToken: machineToken, credentialVersion: 1 }, jobId, 1,
+      inspectBody.stageKey, inspectBody.receiptDigest,
+    );
+    expect((await h.send(inspectRoute, "POST", machineToken)).status).toBe(400);
+    expect((await h.send(inspectRoute, "POST", machineToken,
+      { ...inspectBody, kind: "native_readback" })).status).toBe(400);
+    expect((await h.send(inspectRoute, "POST", machineToken,
+      { ...inspectBody, verified: true })).status).toBe(400);
+    expect((await h.send(inspectRoute, "POST", machineToken,
+      { ...inspectBody, receiptDigest: null })).status).toBe(400);
+    expect((await h.send(inspectRoute, "POST", machineToken, inspectBody, "0")).status).toBe(202);
+    expect((await h.send(inspectRoute, "GET", machineToken)).status).toBe(404);
+    h.inspectEvidence.mockRejectedValueOnce(new BuildServiceError("invalid_transition", 409));
+    expect((await h.send(inspectRoute, "POST", userToken, inspectBody)).status).toBe(409);
+    expect(h.inspectEvidence).toHaveBeenCalledTimes(3);
     expect(h.authenticateRequest).not.toHaveBeenCalled();
   });
 
