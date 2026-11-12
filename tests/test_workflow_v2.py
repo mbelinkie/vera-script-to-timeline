@@ -2138,6 +2138,39 @@ def _fractional_narration_proof(
     return event, source, manifest_source, timeline, observations
 
 
+def _video_proof_at_24fps(
+    *, start: int = 396, decoded_frame_count: int = 1000, actual_end: int | None = None
+) -> tuple[dict[str, Any], ...]:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _fractional_video_proof()
+    )
+    rate = {"numerator": 24, "denominator": 1}
+    end = start + observations["record_duration"]
+    timeline["frameRate"] = rate
+    source_frame_map = manifest_source["sourceFrameMap"]
+    source_frame_map["decodedPackageFrameCount"] = decoded_frame_count
+    source_frame_map["decodedPackageFrameRate"] = rate
+    manifest_source["sourceTimeMapping"]["sourceRate"] = rate
+    manifest_source["sourceTimeMapping"]["deliveredRate"] = rate
+    event["v2Event"]["sourceTimeMapping"]["sourceRate"] = rate
+    event["v2Event"]["sourceTimeMapping"]["deliveredRate"] = rate
+    bindings["video-prep"]["timeMapping"]["sourceRate"] = rate
+    bindings["video-prep"]["timeMapping"]["deliveredRate"] = rate
+    bindings["video-prep"]["verification"]["decodedFrameCount"] = (
+        decoded_frame_count
+    )
+    bindings["video-prep"]["verification"]["decodedFrameRate"] = rate
+    event["sourceRange"] = {"startFrame": start, "durationFrames": end - start}
+    event["v2Event"]["sourceRange"] = {"startFrame": start, "endFrame": end}
+    observations["actual_start"] = start
+    observations["actual_end"] = end if actual_end is None else actual_end
+    observations["source_times"] = {
+        "GetSourceStartTime": start / 24,
+        "GetSourceEndTime": end / 24,
+    }
+    return event, source, manifest_source, timeline, observations, bindings
+
+
 def _fractional_source_range_matches(
     proof: tuple[dict[str, Any], ...],
 ) -> bool:
@@ -2347,6 +2380,119 @@ def test_fractional_narration_accepts_authored_record_end_within_audio_extent() 
             },
         )
     )
+
+
+def test_24fps_video_source_clock_is_a_proof_bound_fallback() -> None:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _video_proof_at_24fps()
+    )
+    arguments: dict[str, Any] = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": bindings,
+        "timeline": timeline,
+        **observations,
+    }
+    assert not workflow_v2._fractional_source_range_matches(**arguments)
+    assert workflow_v2._fractional_source_range_matches(
+        **arguments, allow_24fps=True
+    )
+
+    bad_end = {**arguments, "actual_end": observations["actual_end"] - 1}
+    assert not workflow_v2._fractional_source_range_matches(
+        **bad_end, allow_24fps=True
+    )
+    bad_time = {
+        **arguments,
+        "source_times": {
+            **observations["source_times"],
+            "GetSourceEndTime": observations["source_times"]["GetSourceEndTime"]
+            + 2 / 48_000,
+        },
+    }
+    assert not workflow_v2._fractional_source_range_matches(
+        **bad_time, allow_24fps=True
+    )
+    bad_binding = {**arguments, "source": {**source, "contentHash": "sha256:" + "d" * 64}}
+    assert not workflow_v2._fractional_source_range_matches(
+        **bad_binding, allow_24fps=True
+    )
+
+
+def test_24fps_video_source_clock_keeps_only_the_proven_eof_inclusive_shape() -> None:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _video_proof_at_24fps(start=930, decoded_frame_count=1000, actual_end=999)
+    )
+    arguments = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": bindings,
+        "timeline": timeline,
+        **observations,
+        "allow_24fps": True,
+    }
+    assert workflow_v2._fractional_source_range_matches(**arguments)
+    assert not workflow_v2._fractional_source_range_matches(
+        **{**arguments, "actual_end": 998}
+    )
+
+
+def test_24fps_still_and_narration_source_clocks_keep_exact_source_proofs() -> None:
+    event, source, manifest_source, timeline, observations = _fractional_still_proof()
+    timeline["frameRate"] = {"numerator": 24, "denominator": 1}
+    assert workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **observations,
+        allow_24fps=True,
+    )
+    observations["actual_start"] = observations["actual_end"] = 0
+    assert workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **observations,
+        allow_24fps=True,
+    )
+    bad_still = {**observations, "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 2 / 24}}
+    assert not workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **bad_still,
+        allow_24fps=True,
+    )
+
+    event, source, manifest_source, timeline, observations = _fractional_narration_proof()
+    timeline["frameRate"] = {"numerator": 24, "denominator": 1}
+    arguments = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": {},
+        "timeline": timeline,
+        **observations,
+        "allow_24fps": True,
+    }
+    assert workflow_v2._fractional_source_range_matches(**arguments)
+    bad_eof = {
+        **arguments,
+        "source_times": {
+            **observations["source_times"],
+            "GetSourceEndTime": observations["source_times"]["GetSourceEndTime"]
+            + 2 / 48_000,
+        },
+    }
+    assert not workflow_v2._fractional_source_range_matches(**bad_eof)
 
 
 def test_fractional_multiframe_video_still_refuses_before_adapter(
