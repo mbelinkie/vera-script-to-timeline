@@ -9,7 +9,7 @@ its `chat/473-unattended-test-bench` branch remains available.
 The archive contains Git objects, not private evidence, renders, or installed
 applications. The previously registered frozen temporary worktrees were absent
 when inspected. Other relevant local branch tips have no commits outside the
-remote refs. No cleanup or Git pruning was performed.
+remote refs. No Git branch or worktree cleanup or pruning was performed.
 
 ## Mac inventory, 2026-11-11
 
@@ -18,10 +18,10 @@ be shared or duplicated. A private per-path inventory stays on the Mac.
 
 | Item | Observed size | State and recommendation |
 | --- | ---: | --- |
-| Test Bench helper app and LaunchAgent | about 284 KiB | Running with KeepAlive; retain until explicitly approved and activity is checked. |
+| Test Bench helper app and LaunchAgent | about 284 KiB | Removed after approval; see below. |
 | Helper spool and retained signed copies | about 2.6 MiB | Private operational evidence; retain. |
 | Test Bench case and attempt roots | about 11.5 GiB | May contain unique renders and journals; retain pending a backup and a separate decision. |
-| Overnight watchdog plist and case directory | about 28 KiB | Watchdog is not loaded; retain until explicitly approved. |
+| Overnight watchdog plist and case directory | about 28 KiB | Plist removed after approval; case directory retained. |
 | Shared qualification output roots | about 25.2 GiB | Mixed or uncertain ownership; retain. |
 | Older campaign and queue services | small plists | Separate issue #447/#448 roots; loaded, with the campaign monitor running. Preserve. |
 
