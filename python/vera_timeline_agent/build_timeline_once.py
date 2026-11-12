@@ -92,6 +92,18 @@ class StageTimings:
         self.record(name, max(0.0, self.clock() - before), passed=True)
         return value
 
+    @contextmanager
+    def span(self, name: str) -> Iterator[None]:
+        """Report full wall time for a grouped step, including any failed exit."""
+        started = self.clock()
+        try:
+            yield
+        except BaseException:
+            self.record(name, max(0.0, self.clock() - started), passed=False)
+            raise
+        else:
+            self.record(name, max(0.0, self.clock() - started), passed=True)
+
     def record(self, name: str, elapsed: float, *, passed: bool) -> None:
         self.stages.append((name, elapsed))
         self.emit(f"{name}: {'PASS' if passed else 'FAIL'} ({elapsed:.2f}s)")
@@ -463,7 +475,7 @@ def deliver_compiled(
     ):
         raise BuildJobError("attested package does not match compiled manifest")
 
-    with exclusive_resolve_build():
+    with timings.span("Resolve step + check"), exclusive_resolve_build():
         resolve = timings.run("connect", _external_resolve)
         preflight = timings.run(
             "preflight",

@@ -100,13 +100,17 @@ mode because they cannot safely target a nonempty project using this SDK route.
 
 The command prints `preparation`, `media needs`, `compile`, `package`,
 `attest`, `connect`, `preflight`, `build`, `save/reopen`, and `verify` with
-elapsed seconds, followed by the timeline frame count, duration and overall
-PASS/FAIL. It exits nonzero if Resolve is closed, media is missing, the project
-is incompatible or any structural check fails. A possibly partial native write
-is retained, never retried or deleted automatically. No render or audio
-comparison is performed. Native source audio and unqualified fractional-rate
-timeline creation still refuse explicitly; this command does not bypass those
-product limitations.
+elapsed seconds, plus `Resolve step + check` for the entire locked native route
+(connect, preflight, build, save/close/reopen, structural read-back and in-route
+integrity checks), including on failure. This aggregate excludes compilation,
+package creation and attestation, which are shown separately; the final total
+still covers the whole command. It then prints the timeline frame count,
+duration and overall PASS/FAIL. It exits nonzero if Resolve is closed, media is
+missing, the project is incompatible or any structural check fails. A possibly
+partial native write is retained, never retried or deleted automatically. No
+render or audio comparison is performed. Native source audio and unqualified
+fractional-rate timeline creation still refuse explicitly; this command does
+not bypass those product limitations.
 
 ## Validation
 

@@ -26,6 +26,7 @@ from vera_timeline_agent.build_timeline_once import (
     select_prepared_inputs,
 )
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
+from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
 FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
 
@@ -216,7 +217,8 @@ def test_cli_reports_delivery_failure_as_non_success(
     options = _inputs(tmp_path / "inputs")
 
     def fail(_options: BuildOptions, *, timings: StageTimings) -> None:
-        timings.run("build", lambda: (_ for _ in ()).throw(NeedsAction("offline")))
+        with timings.span("Resolve step + check"):
+            timings.run("build", lambda: (_ for _ in ()).throw(NeedsAction("offline")))
 
     monkeypatch.setattr(build_timeline_cli, "build_once", fail)
     exit_code = build_timeline_cli.main(
@@ -226,6 +228,7 @@ def test_cli_reports_delivery_failure_as_non_success(
     output = capsys.readouterr()
     assert "Build refused: offline" in output.err
     assert "build: FAIL" in output.out
+    assert "Resolve step + check: FAIL" in output.out
     assert "FAIL: timeline was not delivered" in output.out
 
 
@@ -244,6 +247,30 @@ def test_timing_tracks_fractional_duration_and_failed_stage() -> None:
     with pytest.raises(RuntimeError, match="uncertain"):
         reporter.run("build", lambda: (_ for _ in ()).throw(RuntimeError("uncertain")))
     assert failures == ["build: FAIL (0.75s)"]
+
+
+def test_timing_span_records_elapsed_on_success_and_failure() -> None:
+    now = [0.0]
+    lines: list[str] = []
+    reporter = StageTimings(clock=lambda: now[0], emit=lines.append)
+    now[0] = 3.0
+    with reporter.span("Resolve step + check"):
+        now[0] = 15.5
+    assert lines == ["Resolve step + check: PASS (12.50s)"]
+    assert reporter.stages == [("Resolve step + check", 12.5)]
+
+    with (
+        pytest.raises(UncertainResult, match="unknown native write"),
+        reporter.span("Resolve step + check"),
+    ):
+        now[0] = 18.0
+        raise UncertainResult("unknown native write")
+    assert lines[-1] == "Resolve step + check: FAIL (2.50s)"
+
+    with pytest.raises(KeyboardInterrupt), reporter.span("Resolve step + check"):
+        now[0] = 20.0
+        raise KeyboardInterrupt
+    assert lines[-1] == "Resolve step + check: FAIL (2.00s)"
 
 
 def _package_inputs(tmp_path: Path) -> CompileResult:
@@ -325,6 +352,7 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
         "build",
         "save/reopen",
         "verify",
+        "Resolve step + check",
     ]
     first_snapshot = dict(created)
     compiled2 = CompileResult(
@@ -337,6 +365,98 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
     result2 = deliver_compiled(compiled2, timings=StageTimings(emit=lambda _: None))
     assert first.project_name != result2.project_name
     assert {key: created[key] for key in first_snapshot} == first_snapshot
+
+
+def test_resolve_step_plus_check_includes_preflight_and_readback_not_packaging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    now = [0.0]
+    lines: list[str] = []
+    original_attest = attest_package_v2
+
+    def slow_attest(*args: Any, **kwargs: Any) -> Any:
+        now[0] += 20.0  # Upstream package work is not part of the Resolve speed bar.
+        return original_attest(*args, **kwargs)
+
+    def connect() -> object:
+        now[0] += 2.0
+        return object()
+
+    def fake_workflow(
+        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        if kwargs.get("action") != "build":
+            now[0] += 3.0  # Separate read-only preflight also takes time.
+            return {"status": "preflight_passed"}
+        for label, elapsed in (("build", 4.0), ("save/reopen", 5.0), ("verify", 1.0)):
+            now[0] += elapsed
+            kwargs["stage_observer"](label, elapsed, True)
+        return {
+            "status": "verified",
+            "verified": True,
+            "discrepancies": [],
+            "partialTargetRetained": False,
+        }
+
+    monkeypatch.setattr(build_timeline_once, "attest_package_v2", slow_attest)
+    monkeypatch.setattr(build_timeline_once, "_external_resolve", connect)
+    monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
+    reporter = StageTimings(clock=lambda: now[0], emit=lines.append)
+    result = deliver_compiled(compiled, timings=reporter)
+    reporter.finish(
+        frames=result.frames,
+        numerator=result.numerator,
+        denominator=result.denominator,
+        passed=True,
+    )
+    assert "attest: PASS (20.00s)" in lines
+    assert "Resolve step + check: PASS (15.00s)" in lines
+    assert lines.index("Resolve step + check: PASS (15.00s)") > next(
+        i for i, line in enumerate(lines) if line.startswith("verify: PASS")
+    )
+    assert lines[-1].endswith("total 35.00s")
+
+
+@pytest.mark.parametrize(
+    ("failure_at", "exception", "expected_seconds"),
+    [("preflight", NeedsAction, 5.0), ("native", UncertainResult, 14.0)],
+)
+def test_resolve_step_plus_check_fails_on_refusal_or_uncertain_native_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_at: str,
+    exception: type[Exception],
+    expected_seconds: float,
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    now = [0.0]
+    lines: list[str] = []
+
+    def connect() -> object:
+        now[0] += 2.0
+        return object()
+
+    def fake_workflow(
+        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        if kwargs.get("action") != "build":
+            now[0] += 3.0
+            if failure_at == "preflight":
+                return {"status": "stopped_safely", "refusal": "wrong project"}
+            return {"status": "preflight_passed"}
+        now[0] += 9.0
+        kwargs["stage_observer"]("build", 9.0, False)
+        return {"status": "mutation_failed", "partialTargetRetained": True}
+
+    monkeypatch.setattr(build_timeline_once, "_external_resolve", connect)
+    monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
+    reporter = StageTimings(clock=lambda: now[0], emit=lines.append)
+    with pytest.raises(exception):
+        deliver_compiled(compiled, timings=reporter)
+    reporter.fail()
+    assert f"Resolve step + check: FAIL ({expected_seconds:.2f}s)" in lines
+    assert lines[-1].startswith("FAIL: timeline was not delivered")
 
 
 def test_named_existing_project_is_used_only_by_explicit_opt_in(
