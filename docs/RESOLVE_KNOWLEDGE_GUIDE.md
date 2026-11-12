@@ -721,8 +721,7 @@ Short preparation reused measured narration, converted six picture sources,
 and was estimated from file timestamps after the timing log was lost. Its
 disposable project reopened with the correct timeline length and event
 positions. Integer source range getters disagreed with the verifier for
-interior video, whole narration and one-frame stills. See RK-119's 24 fps
-source-range observations. The long fixture passed package and attestation
+interior video, whole narration and one-frame stills. See the [#119 Studio source-range observations](verification/issue-119/STUDIO_QUALIFICATION.md). The long fixture passed package and attestation
 checks, then refused two intentional slate treatments without a qualified
 native mapping. Its time is elapsed to refusal.
 
