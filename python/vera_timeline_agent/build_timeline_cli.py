@@ -1,0 +1,55 @@
+"""Build one VERA v2 script in Resolve Studio (foreground command)."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+
+from .build_jobs import BuildJobError, NeedsAction, UncertainResult
+from .build_timeline_once import BuildOptions, compile_prepared
+
+
+def parser() -> argparse.ArgumentParser:
+    command = argparse.ArgumentParser(description=__doc__)
+    command.add_argument("--script", type=Path, required=True, help="v2 script JSON")
+    command.add_argument(
+        "--inputs", type=Path, help="directory of previously prepared v2 inputs"
+    )
+    command.add_argument(
+        "--output", type=Path, required=True, help="new, unused local output directory"
+    )
+    command.add_argument(
+        "--existing-project", help="add a new timeline to this named project"
+    )
+    return command
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    if args.existing_project is not None and (
+        not args.existing_project.strip()
+        or args.existing_project != args.existing_project.strip()
+        or len(args.existing_project) > 128
+        or any(ord(char) < 32 for char in args.existing_project)
+    ):
+        print("Build refused: invalid existing project name", file=sys.stderr)
+        return 2
+    options = BuildOptions(
+        script=args.script,
+        inputs=args.inputs,
+        output=args.output,
+        existing_project=args.existing_project,
+    )
+    try:
+        compile_prepared(options)
+        # Phase 2 attaches package + actual external Studio delivery here.
+        raise NeedsAction("Resolve delivery is not yet connected; compilation only")
+    except (BuildJobError, NeedsAction, UncertainResult, OSError, ValueError) as error:
+        print(f"Build refused: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
