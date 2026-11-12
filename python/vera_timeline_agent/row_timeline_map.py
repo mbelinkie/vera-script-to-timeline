@@ -214,3 +214,37 @@ def make_row_timeline_map(
         "timelineId": timeline_id,
         "rows": rows,
     }
+
+
+def compare_reopened_row_map(
+    manifest: Mapping[str, Any],
+    view: Mapping[str, Any],
+    observed: Sequence[Mapping[str, Any]],
+    *,
+    project_name: str,
+    resolve_project_id: str,
+    timeline_name: str,
+    timeline_id: str,
+    saved_map: Mapping[str, Any] | None,
+) -> str:
+    """Compare fresh, independently stamped readback to the saved v1 map.
+
+    With no map, the *current* item UIDs only support unique item inventory;
+    there is no prior UID baseline and no claim of UID continuity.
+    """
+    current = make_row_timeline_map(
+        manifest,
+        view,
+        observed,
+        project_name=project_name,
+        resolve_project_id=resolve_project_id,
+        timeline_name=timeline_name,
+        timeline_id=timeline_id,
+    )
+    if saved_map is None:
+        return "structural-only"
+    if current != saved_map:
+        raise ValueError(
+            "saved row map differs from current target, row, item UID or geometry"
+        )
+    return "saved-uid-match"

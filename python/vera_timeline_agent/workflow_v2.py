@@ -1564,6 +1564,179 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
     return _canonical_json({"v2EventId": marker["id"], "v2EventSha256": digest})
 
 
+def observe_current_timeline_v2(
+    resolve: Any,
+    view: Mapping[str, Any],
+    *,
+    project_name: str,
+    timeline_name: str,
+    project_uid: str | None = None,
+    timeline_uid: str | None = None,
+) -> dict[str, Any]:
+    """Fresh read-only SDK inventory of the *already current* target.
+
+    Never loads or selects a project/timeline. Match items by their complete
+    VERA event stamp, not time order or media name (both can be ambiguous).
+    This is a structural check; it is not the full build-time media verifier.
+    """
+    manager = resolve.GetProjectManager()
+    project = manager.GetCurrentProject() if manager is not None else None
+    if project is None or project.GetName() != project_name:
+        raise WorkflowV2Error("current Resolve project is not the build target")
+    actual_project_uid = project.GetUniqueId()
+    if (
+        not isinstance(actual_project_uid, str)
+        or not actual_project_uid.strip()
+        or (project_uid is not None and actual_project_uid != project_uid)
+    ):
+        raise WorkflowV2Error("current Resolve project UID differs or is unavailable")
+    timeline = project.GetCurrentTimeline()
+    if timeline is None or timeline.GetName() != timeline_name:
+        raise WorkflowV2Error("current Resolve timeline is not the build target")
+    actual_timeline_uid = timeline.GetUniqueId()
+    if (
+        not isinstance(actual_timeline_uid, str)
+        or not actual_timeline_uid.strip()
+        or (timeline_uid is not None and actual_timeline_uid != timeline_uid)
+    ):
+        raise WorkflowV2Error("current Resolve timeline UID differs or is unavailable")
+
+    expected_timeline = cast(Mapping[str, Any], view["timeline"])
+    start = expected_timeline["startFrame"]
+    if (
+        timeline.GetStartFrame() != start
+        or timeline.GetEndFrame() != start + expected_timeline["durationFrames"]
+    ):
+        raise WorkflowV2Error("current timeline bounds differ from delivery view")
+    tracks = cast(list[Mapping[str, Any]], view["tracks"])
+    by_slot = {(track["kind"], track["index"]): track for track in tracks}
+    actual_counts: dict[str, int] = {}
+    for kind in ("video", "audio", "subtitle"):
+        expected_count = max(
+            (track["index"] for track in tracks if track["kind"] == kind),
+            default=0,
+        )
+        count = timeline.GetTrackCount(kind)
+        if type(count) is not int or count != expected_count:
+            raise WorkflowV2Error(f"{kind} track count differs from delivery view")
+        actual_counts[kind] = count
+    for track in tracks:
+        if timeline.GetTrackName(track["kind"], track["index"]) != track["name"]:
+            raise WorkflowV2Error(f"track name differs: {track['id']}")
+
+    events = cast(list[Mapping[str, Any]], view["events"])
+    expected_events = {event["id"]: event for event in events}
+    if len(expected_events) != len(events):
+        raise WorkflowV2Error("duplicate expected event ID")
+    observed: list[dict[str, Any]] = []
+    seen_events: set[str] = set()
+    seen_uids: set[str] = set()
+    for kind, count in actual_counts.items():
+        for index in range(1, count + 1):
+            items = timeline.GetItemListInTrack(kind, index)
+            if not isinstance(items, (list, tuple)):
+                raise WorkflowV2Error(f"item inventory unavailable: {kind} {index}")
+            for item in items:
+                stamp = item.GetMarkerCustomData(0)
+                try:
+                    data = json.loads(stamp) if isinstance(stamp, str) else None
+                except ValueError:
+                    data = None
+                if not isinstance(data, dict):
+                    raise WorkflowV2Error(
+                        f"extra or unstamped TimelineItem on {kind} {index}"
+                    )
+                event_id = data.get("v2EventId")
+                if not isinstance(event_id, str) or event_id not in expected_events:
+                    raise WorkflowV2Error(
+                        f"extra or unknown stamped TimelineItem on {kind} {index}"
+                    )
+                event = expected_events[event_id]
+                if stamp != _stamp(event):
+                    raise WorkflowV2Error(f"VERA event stamp differs: {event_id}")
+                if event_id in seen_events:
+                    raise WorkflowV2Error(f"duplicate TimelineItem event: {event_id}")
+                seen_events.add(event_id)
+                slot_track = by_slot.get((kind, index))
+                if slot_track is None or event["trackId"] != slot_track["id"]:
+                    raise WorkflowV2Error(f"event track differs: {event_id}")
+                record = event["recordRange"]
+                item_start = item.GetStart(False)
+                duration = item.GetDuration(False)
+                if (
+                    type(item_start) is not int
+                    or type(duration) is not int
+                    or item_start != record["startFrame"]
+                    or duration != record["durationFrames"]
+                ):
+                    raise WorkflowV2Error(f"event record range differs: {event_id}")
+                uid = item.GetUniqueId()
+                if not isinstance(uid, str) or not uid.strip() or uid in seen_uids:
+                    raise WorkflowV2Error(
+                        f"event UID missing or duplicated: {event_id}"
+                    )
+                seen_uids.add(uid)
+                observed.append(
+                    {
+                        "eventId": event_id,
+                        "resolveItemId": uid,
+                        "trackId": slot_track["id"],
+                        "trackKind": kind,
+                        "trackIndex": index,
+                        "startFrame": item_start,
+                        "durationFrames": duration,
+                    }
+                )
+    if seen_events != set(expected_events):
+        missing = sorted(set(expected_events) - seen_events)
+        raise WorkflowV2Error(f"missing TimelineItem events: {', '.join(missing)}")
+
+    markers = cast(list[Mapping[str, Any]], view["markers"])
+    expected_markers = {marker["frame"]: marker for marker in markers}
+    actual_markers = timeline.GetMarkers()
+    if (
+        len(expected_markers) != len(markers)
+        or not isinstance(actual_markers, Mapping)
+        or set(actual_markers) != set(expected_markers)
+    ):
+        raise WorkflowV2Error("timeline marker inventory differs")
+    for frame, marker in expected_markers.items():
+        actual = actual_markers[frame]
+        if (
+            not isinstance(actual, Mapping)
+            or any(
+                actual.get(key) != value
+                for key, value in {
+                    "color": _MARKER_COLORS[marker["color"]],
+                    "name": marker["name"],
+                    "note": marker["note"],
+                    "duration": 1,
+                }.items()
+            )
+            or timeline.GetMarkerCustomData(frame) != _marker_stamp(marker)
+        ):
+            raise WorkflowV2Error(f"timeline marker differs at frame {frame}")
+
+    # The user may switch tabs during the read. A stale object handle is not
+    # proof that this is still the active target at the end of observation.
+    current = manager.GetCurrentProject()
+    if (
+        current is None
+        or current.GetUniqueId() != actual_project_uid
+        or current.GetCurrentTimeline() is None
+        or current.GetCurrentTimeline().GetUniqueId() != actual_timeline_uid
+    ):
+        raise WorkflowV2Error("current Resolve target changed during readback")
+
+    return {
+        "projectName": project_name,
+        "resolveProjectId": actual_project_uid,
+        "timelineName": timeline_name,
+        "timelineId": actual_timeline_uid,
+        "observed": observed,
+    }
+
+
 def _native_otio_scaling(framing: object) -> int:
     """Independent Studio OTIO Type-22 scale readback, NOT SDK SCALE_*.
 
