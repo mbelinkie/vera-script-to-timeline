@@ -77,6 +77,27 @@ function visualOnlyDependencies(): CompilerDependenciesV2 {
   return value;
 }
 
+function sharedPreparationFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const doc = document();
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const overlayId = id(18);
+  const overlayPayloadId = id(19);
+  row.overlayEvents.push({
+    id: overlayId,
+    version: 1,
+    payload: { kind: "visual", payloadId: overlayPayloadId, pictureKind: "clip", source: { kind: "media_reference", mediaReferenceId: id(8) }, sourceUsage: { sourceInFrame: 0 }, audioPolicy: "mute", framingPolicy: "contain" },
+    timing: { kind: "timed", durationMs: 4000, start: { kind: "word", anchor: { blockId: row.id, tokenId: id(7), affinity: "before", quotedWord: "hello", anchorVersion: row.version } } },
+  });
+  const deps = dependencies();
+  deps.tracks.push({ id: "overlay", kind: "video", index: 5, name: "Overlay" });
+  deps.roles.overlayTrackIds = ["overlay"];
+  const secondOccurrence = structuredClone(deps.occurrenceResolutions[0]!);
+  secondOccurrence.owner = { kind: "overlay_event", blockId: row.id, overlayEventId: overlayId };
+  secondOccurrence.payloadId = overlayPayloadId;
+  deps.occurrenceResolutions.push(secondOccurrence);
+  return { doc, deps };
+}
+
 function intentionalSlateBlock(durationOverrideMs?: number): VisualOnlyBlockV2 {
   return {
     type: "visual_only", id: id(30), orderKey: "a0", version: 1,
@@ -210,6 +231,39 @@ function readFrozenInput(name: string, doc: ScriptDocumentV2, deps: CompilerDepe
 }
 
 describe("pure v2 compiler", () => {
+  it("reports one preparation per shared binding and keeps both occurrences", () => {
+    const { doc, deps } = sharedPreparationFixture();
+    readFrozenInput("issue531-shared-preparation", doc, deps);
+    const result = compileTimelineV2(doc, deps);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.manifest.preparationBindings).toHaveLength(1);
+    expect(result.manifest.events.filter((event) => event.kind === "primary_visual" || event.kind === "overlay_visual")).toHaveLength(2);
+    expect(result.manifest.sources.filter((source) => "mediaReferenceId" in source)).toHaveLength(1);
+    expect(result.report.mediaPreparation.requirements).toHaveLength(1);
+    expect(result.report.sourceSufficiency).toHaveLength(2);
+    expect(result.report.eventResults).toHaveLength(3);
+    readGolden("issue531-shared-preparation.manifest", result.manifestJson);
+    readGolden("issue531-shared-preparation.report", result.reportJson);
+  });
+
+  it("blocks shared preparation requirements when an occurrence conflicts with the source identity", () => {
+    const { doc, deps } = sharedPreparationFixture();
+    deps.occurrenceResolutions[1]!.sourceSnapshot.snapshotId = id(200);
+
+    const result = compileTimelineV2(doc, deps);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.readiness.preview).toBe("blocked");
+    expect(result.report.diagnostics.map((item) => item.code)).toContain("PREPARATION_HASH_MISMATCH");
+    expect(result.report.mediaPreparation.requirements).toHaveLength(1);
+    expect(result.report.mediaPreparation.requirements[0]?.status).toBe("blocked");
+    expect(result.report.sourceSufficiency).toHaveLength(2);
+  });
+
   it("excludes a real parked narration, footage and word citation from output and requirements until restored", () => {
     const authored = document();
     const row = authored.activeDraft.blocks[0] as NarrationBlockV2;

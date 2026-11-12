@@ -977,6 +977,19 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
   const extra = [...actual].filter((id) => !expectedPayloadIds.has(id)).sort(compareText);
   if (duplicateDescriptors.length) diagnostics.push(diagnostic("MISSING_OCCURRENCE_BINDING", "An occurrence payload has more than one source descriptor.", entity("document", document.id, "occurrenceResolutions"), { kind: "occurrence_set_mismatch", missingKeys: [], extraKeys: [...new Set(duplicateDescriptors)] }, ["rebind_media"]));
   if (missing.length || extra.length) diagnostics.push(diagnostic(missing.length ? "MISSING_OCCURRENCE_BINDING" : "EXTRA_OCCURRENCE_BINDING", "Occurrence resolutions do not exactly match required visual payloads.", entity("document", document.id, "occurrenceResolutions"), { kind: "occurrence_set_mismatch", missingKeys: missing, extraKeys: extra }, ["rebind_media"]));
+  const firstByRequirementKey = new Map<string, { item: MediaRequirementV2; descriptor: OccurrenceMediaResolutionV2 }>();
+  for (const item of requirements) {
+    if (!item.requirementKey) continue;
+    const descriptor = descriptorByPayload.get(item.payloadId);
+    if (!descriptor) continue;
+    const first = firstByRequirementKey.get(item.requirementKey);
+    if (first && (!sameJson(item.requestedRange, first.item.requestedRange)
+      || descriptor.mediaReferenceId !== first.descriptor.mediaReferenceId
+      || !sameJson(descriptor.sourceSnapshot, first.descriptor.sourceSnapshot)
+      || !sameJson(descriptor.sourceFrameMap, first.descriptor.sourceFrameMap))) {
+      diagnostics.push(diagnostic("PREPARATION_HASH_MISMATCH", "Occurrences sharing a preparation requirement must agree on source identity, mapping, and requested range.", entity("occurrence", item.payloadId, item.requirementKey), undefined, ["prepare_media"]));
+    } else if (!first) firstByRequirementKey.set(item.requirementKey, { item, descriptor });
+  }
   validateSourceAudioOverlap(events, diagnostics);
   return { timedRows: built.rows, events, requirements, sequenceResolutions, boundaryEvidence, diagnostics: diagnostics.sort(compareDiagnostic), durationFrames: built.rows.reduce((max, row) => Math.max(max, row.startFrame + row.durationFrames), 0) };
 }
@@ -1392,18 +1405,38 @@ function makeReport(diagnostics: BuildDiagnosticV2[], manifest: TimelineManifest
   const manualCompletionItems: BuildReportV2["manualCompletionItems"] = sorted
     .filter((item) => item.code === "TEMPORARY_PRESENTER_STILL")
     .map((item) => ({ id: stableId(`manual-completion:${manifest.document.documentId}:${item.entity.id ?? "presenter"}`), kind: "placeholder", message: "Replace the temporary presenter still when an accepted presenter source is available.", entity: item.entity }));
-  const mediaRequirements: BuildReportV2["mediaPreparation"]["requirements"] = requirements.map((item) => {
-    const descriptor = dependencies.occurrenceResolutions.find((candidate) => candidate.payloadId === item.payloadId);
-    if (!descriptor) throw new Error(`Media requirement ${item.requirementKey ?? item.payloadId} has no source descriptor for its original hash.`);
-    const binding = item.requirementKey ? dependencies.preparedMedia.find((candidate) => candidate.requirementKey === item.requirementKey) : undefined;
-    const validBinding = item.sourceSufficiency === "sufficient" && !!binding && validPreparedBinding(descriptor, binding, manifest.timeline.frameRate, item.requestedRange);
+  const groupedRequirements = new Map<string, MediaRequirementV2[]>();
+  for (const item of requirements) {
+    const key = item.requirementKey ?? `missing:${item.payloadId}`;
+    const group = groupedRequirements.get(key);
+    if (group) group.push(item);
+    else groupedRequirements.set(key, [item]);
+  }
+  const mediaRequirements: BuildReportV2["mediaPreparation"]["requirements"] = [...groupedRequirements].map(([key, items]) => {
+    const descriptors = items.map((item) => {
+      const descriptor = dependencies.occurrenceResolutions.find((candidate) => candidate.payloadId === item.payloadId);
+      if (!descriptor) throw new Error(`Media requirement ${item.requirementKey ?? item.payloadId} has no source descriptor for its original hash.`);
+      return descriptor;
+    });
+    const binding = items[0]?.requirementKey
+      ? dependencies.preparedMedia.find((candidate) => candidate.requirementKey === items[0]!.requirementKey)
+      : undefined;
+    const firstDescriptor = descriptors[0]!;
+    const sameSource = descriptors.every((descriptor) => descriptor.mediaReferenceId === firstDescriptor.mediaReferenceId
+      && sameJson(descriptor.sourceSnapshot, firstDescriptor.sourceSnapshot)
+      && sameJson(descriptor.sourceFrameMap, firstDescriptor.sourceFrameMap));
+    const validBinding = !!binding && sameSource && items.every((item, index) => item.sourceSufficiency === "sufficient"
+      && validPreparedBinding(descriptors[index]!, binding, manifest.timeline.frameRate, item.requestedRange));
+    const diagnosticIds = sorted
+      .filter((diagnostic) => items.some((item) => diagnostic.entity.id === item.payloadId || diagnostic.entity.id === item.mediaReferenceId))
+      .map((diagnostic) => diagnostic.id);
     return {
-      requirementKey: item.requirementKey ?? `missing:${item.payloadId}`,
+      requirementKey: key,
       status: !validBinding ? "blocked" : binding.mode === "verified_reuse" ? "reused" : "prepared",
-      originalHash: descriptor.sourceSnapshot.contentHash,
+      originalHash: firstDescriptor.sourceSnapshot.contentHash,
       deliveredHash: validBinding ? binding.verification.deliveredHash : null,
       bindingHash: validBinding ? sha256CanonicalJson(binding) : null,
-      diagnosticIds: sorted.filter((d) => d.entity.id === item.payloadId || d.entity.id === item.mediaReferenceId).map((d) => d.id),
+      diagnosticIds,
     };
   });
   const mediaStatus: BuildReportV2["mediaPreparation"]["status"] = requirements.length === 0 ? "not_required" : mediaRequirements.some((item) => item.status === "blocked") ? "blocked" : "complete";
