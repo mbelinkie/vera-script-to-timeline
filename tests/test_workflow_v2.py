@@ -415,6 +415,347 @@ class _FakeAdapter:
         return self.verification_discrepancies
 
 
+def _existing_project_fixture() -> tuple[Any, Any, Any]:
+    """A project with two old timelines; SDK objects change on reopen."""
+
+    class Timeline:
+        def __init__(self, uid: str, name: str) -> None:
+            self.uid, self.name = uid, name
+
+        def GetUniqueId(self) -> str:
+            return self.uid
+
+        def GetName(self) -> str:
+            return self.name
+
+        def SetStartTimecode(self, _value: str) -> bool:
+            return True
+
+        def GetStartFrame(self) -> int:
+            return 0
+
+    class Folder:
+        def __init__(self) -> None:
+            self.names: list[str] = []
+
+        def GetUniqueId(self) -> str:
+            return "root-bin"
+
+        def GetSubFolderList(self) -> list[Any]:
+            return [
+                SimpleNamespace(GetName=lambda name=name: name) for name in self.names
+            ]
+
+    class Pool:
+        def __init__(self) -> None:
+            self.creates = 0
+            self.root = Folder()
+            self.current_folder: Any = self.root
+
+        def GetRootFolder(self) -> Folder:
+            return self.root
+
+        def GetCurrentFolder(self) -> Any:
+            return self.current_folder
+
+        def SetCurrentFolder(self, folder: Any) -> bool:
+            self.current_folder = folder
+            return True
+
+        def AddSubFolder(self, parent: Any, name: str) -> Any:
+            if parent is self.root:
+                self.root.names.append(name)
+            return SimpleNamespace(GetName=lambda: name, GetUniqueId=lambda: name)
+
+        def CreateEmptyTimeline(self, name: str) -> Timeline:
+            self.creates += 1
+            created = Timeline(f"new-{self.creates}", name)
+            project.timelines.append(created)
+            project.current = created
+            return created
+
+    class Project:
+        def __init__(self) -> None:
+            self.timelines = [
+                Timeline("old-1", "Prior A"),
+                Timeline("old-2", "Prior B"),
+            ]
+            self.current = self.timelines[0]
+            self.pool = Pool()
+            self.settings = {
+                "timelineFrameRate": "25.000",
+                "timelineResolutionWidth": "1920",
+                "timelineResolutionHeight": "1080",
+                "timelineSampleRate": "48000",
+            }
+
+        def GetUniqueId(self) -> str:
+            return "existing-project-uid"
+
+        def GetName(self) -> str:
+            return "Review Project"
+
+        def GetSetting(self, key: str) -> str:
+            return self.settings[key]
+
+        def GetTimelineCount(self) -> int:
+            return len(self.timelines)
+
+        def GetTimelineByIndex(self, index: int) -> Timeline:
+            return self.timelines[index - 1]
+
+        def GetCurrentTimeline(self) -> Timeline:
+            return self.current
+
+        def SetCurrentTimeline(self, candidate: Timeline) -> bool:
+            if candidate not in self.timelines:
+                return False
+            self.current = candidate
+            return True
+
+        def GetMediaPool(self) -> Pool:
+            return self.pool
+
+    class Manager:
+        def __init__(self) -> None:
+            self.names = ["Review Project"]
+            self.saves = 0
+            self.closes = 0
+            self.loads = 0
+
+        def GetProjectListInCurrentFolder(self) -> list[str]:
+            return self.names
+
+        def GetCurrentProject(self) -> Project:
+            return project
+
+        def SaveProject(self) -> bool:
+            self.saves += 1
+            return True
+
+        def CloseProject(self, candidate: Project) -> bool:
+            assert candidate is project
+            self.closes += 1
+            return True
+
+        def LoadProject(self, name: str) -> Project:
+            assert name == "Review Project"
+            self.loads += 1
+            project.timelines = [Timeline(t.uid, t.name) for t in project.timelines]
+            project.current = project.timelines[0]
+            return project
+
+    project = Project()
+    manager = Manager()
+    adapter = workflow_v2.PublicResolveAdapter(object())
+    adapter.manager = manager
+    return adapter, project, manager
+
+
+def _existing_settings() -> dict[str, str]:
+    return {
+        "timelineFrameRate": "25",
+        "timelineResolutionWidth": "1920",
+        "timelineResolutionHeight": "1080",
+        "timelineSampleRate": "48000",
+    }
+
+
+def test_existing_project_preserves_two_old_uids_and_rebinds_new_uid() -> None:
+    adapter, project, manager = _existing_project_fixture()
+    old = adapter._timeline_inventory(project)
+    adapter.preflight_existing_project(
+        "Review Project", _existing_settings(), "VERA New"
+    )
+    assert adapter.expected_project_id == "existing-project-uid"
+    assert adapter.previous_timelines == old
+    assert project.pool.creates == 0 and manager.saves == 0
+    # Unlike a fresh project, existing mode starts from any selected media bin
+    # and uses a uniquely named new root/bin; no prior bin gets changed.
+    project.pool.current_folder = SimpleNamespace(GetUniqueId=lambda: "old-bin")
+    adapter.create_bin("VERA VERA New")
+    adapter.create_bin("Package Media")
+    assert project.pool.root.names == ["VERA VERA New"]
+    assert adapter.created_bins == ["VERA VERA New", "Package Media"]
+    adapter.create_timeline("VERA New")
+    created = adapter.timeline
+    adapter.save_close_reopen("Review Project")
+    assert adapter.timeline is not created  # SDK object rebound, not stale reference
+    assert adapter.timeline.GetUniqueId() == "new-1"
+    assert project.GetCurrentTimeline() is adapter.timeline
+    assert adapter._timeline_inventory(project) == (*old, ("new-1", "VERA New"))
+    assert manager.saves == manager.loads == manager.closes == 1
+
+    # A second invocation selects a distinct timeline and leaves the first intact.
+    again = workflow_v2.PublicResolveAdapter(object())
+    again.manager = manager
+    again.preflight_existing_project(
+        "Review Project", _existing_settings(), "VERA Second"
+    )
+    again.create_timeline("VERA Second")
+    again.save_close_reopen("Review Project")
+    assert again._timeline_inventory(project) == (
+        *old,
+        ("new-1", "VERA New"),
+        ("new-2", "VERA Second"),
+    )
+
+
+@pytest.mark.parametrize(
+    "failure", ["missing", "ambiguous", "wrong-rate", "name", "bin", "switched"]
+)
+def test_existing_preflight_refuses_without_native_writes(failure: str) -> None:
+    adapter, project, manager = _existing_project_fixture()
+    target_name = "VERA New"
+    if failure == "missing":
+        manager.names = []
+    if failure == "ambiguous":
+        manager.names = ["Review Project", "Review Project"]
+    if failure == "wrong-rate":
+        project.settings["timelineFrameRate"] = "24"
+    if failure == "name":
+        target_name = "Prior A"
+    if failure == "bin":
+        project.pool.root.names.append("VERA VERA New")
+    if failure == "switched":
+        project.GetName = lambda: "Another Project"
+    with pytest.raises(ValueError):
+        adapter.preflight_existing_project(
+            "Review Project", _existing_settings(), target_name
+        )
+    assert project.GetTimelineCount() == 2
+    assert project.pool.creates == manager.saves == manager.loads == 0
+
+
+def test_existing_project_switch_and_reopened_uid_drift_fail_closed() -> None:
+    adapter, project, manager = _existing_project_fixture()
+    adapter.preflight_existing_project(
+        "Review Project", _existing_settings(), "VERA New"
+    )
+    adapter.create_timeline("VERA New")
+    project.current = project.timelines[0]
+    with pytest.raises(ValueError, match="current timeline changed"):
+        adapter.assert_current_target()
+    assert manager.saves == 0
+    project.current = project.timelines[-1]
+    original_load = manager.LoadProject
+
+    def changed_uid(name: str) -> Any:
+        reopened = original_load(name)
+        reopened.timelines[-1].uid = "switched-uid"
+        return reopened
+
+    manager.LoadProject = changed_uid
+    with pytest.raises(
+        ValueError, match="reopened project changed timeline identities"
+    ):
+        adapter.save_close_reopen("Review Project")
+    assert manager.saves == manager.loads == manager.closes == 1
+
+
+def test_existing_reopen_refuses_old_timeline_uid_drift() -> None:
+    adapter, project, manager = _existing_project_fixture()
+    adapter.preflight_existing_project(
+        "Review Project", _existing_settings(), "VERA New"
+    )
+    adapter.create_timeline("VERA New")
+    original_load = manager.LoadProject
+
+    def changed_prior_uid(name: str) -> Any:
+        reopened = original_load(name)
+        reopened.timelines[0].uid = "altered-prior-uid"
+        return reopened
+
+    manager.LoadProject = changed_prior_uid
+    with pytest.raises(
+        ValueError, match="reopened project changed timeline identities"
+    ):
+        adapter.save_close_reopen("Review Project")
+    assert project.timelines[-1].GetUniqueId() == "new-1"
+    assert manager.saves == manager.loads == manager.closes == 1
+
+
+def test_existing_workflow_never_creates_project_or_changes_its_settings(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, details = _make_package(tmp_path)
+
+    class ExistingAdapter(_FakeAdapter):
+        def preflight_existing_project(
+            self, project: str, settings: Any, name: str
+        ) -> None:
+            assert project == "Review Project"
+            assert settings["timelineFrameRate"] == "25"
+            assert name == details["timelineName"]
+            self._call("existing_preflight")
+
+    adapter = ExistingAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="Local",
+        existing_project="Review Project",
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "verified"
+    assert result["projectName"] == "Review Project"
+    assert "create_project" not in adapter.calls
+    assert "configure_project" not in adapter.calls
+    assert "collision" not in adapter.calls
+    assert "existing_preflight" in adapter.calls
+    assert adapter.calls.index("existing_preflight") < adapter.calls.index("create_bin")
+    assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+def test_existing_native_whole_otio_refuses_before_adapter_or_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    monkeypatch.setattr(workflow_v2, "_requires_native_otio", lambda _view: True)
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="Local",
+        existing_project="Review Project",
+        adapter_factory=lambda _resolve: pytest.fail("unsafe OTIO cannot connect"),
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["partialTargetRetained"] is False
+    assert result["failureStage"] == "package validation"
+    assert "unsafe inside an existing project" in result["refusal"]
+
+
+def test_existing_settings_refusal_is_sanitized_and_before_writes(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+
+    class Incompatible(_FakeAdapter):
+        def preflight_existing_project(self, *_args: Any) -> None:
+            raise ValueError("existing project rate or settings differ from script")
+
+    adapter = Incompatible()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="Local",
+        existing_project="Review Project",
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["refusal"] == "existing project rate or settings differ from script"
+    assert adapter.calls == ["connected_facts", "probe"]
+
+
 @pytest.mark.parametrize(
     ("framing", "scaling", "accepted"),
     [
@@ -2058,3 +2399,35 @@ def test_reopened_readback_mismatch_retains_partial_target(tmp_path: Path) -> No
     assert result["partialTargetRetained"] is True
     assert result["discrepancies"] == ["event-properties"]
     assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_stages"),
+    [
+        (None, [("build", True), ("save/reopen", True), ("verify", True)]),
+        ("save_close_reopen", [("build", True), ("save/reopen", False)]),
+    ],
+)
+def test_native_stage_observer_is_ordered_and_marks_uncertain_writes(
+    tmp_path: Path,
+    failure: str | None,
+    expected_stages: list[tuple[str, bool]],
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    adapter = _FakeAdapter(fail_on=failure)
+    seen: list[tuple[str, bool]] = []
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="Local",
+        adapter_factory=lambda _resolve: adapter,
+        stage_observer=lambda label, elapsed, success: (
+            seen.append((label, success)) if elapsed >= 0 else pytest.fail("clock")
+        ),
+    )
+    assert seen == expected_stages
+    assert result["status"] == ("verified" if failure is None else "mutation_failed")
+    assert result["partialTargetRetained"] == (failure is not None)
