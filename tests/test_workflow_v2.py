@@ -653,6 +653,28 @@ def test_existing_project_switch_and_reopened_uid_drift_fail_closed() -> None:
     assert manager.saves == manager.loads == manager.closes == 1
 
 
+def test_existing_reopen_refuses_old_timeline_uid_drift() -> None:
+    adapter, project, manager = _existing_project_fixture()
+    adapter.preflight_existing_project(
+        "Review Project", _existing_settings(), "VERA New"
+    )
+    adapter.create_timeline("VERA New")
+    original_load = manager.LoadProject
+
+    def changed_prior_uid(name: str) -> Any:
+        reopened = original_load(name)
+        reopened.timelines[0].uid = "altered-prior-uid"
+        return reopened
+
+    manager.LoadProject = changed_prior_uid
+    with pytest.raises(
+        ValueError, match="reopened project changed timeline identities"
+    ):
+        adapter.save_close_reopen("Review Project")
+    assert project.timelines[-1].GetUniqueId() == "new-1"
+    assert manager.saves == manager.loads == manager.closes == 1
+
+
 def test_existing_workflow_never_creates_project_or_changes_its_settings(
     tmp_path: Path,
 ) -> None:
