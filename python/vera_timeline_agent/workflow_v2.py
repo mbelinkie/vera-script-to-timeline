@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from fractions import Fraction
 from itertools import pairwise
 from pathlib import Path, PurePosixPath
+from time import perf_counter
 from typing import Any, TypeGuard, cast
 
 from . import native_image_motion
@@ -2640,6 +2641,7 @@ def run_workflow_delivery_v2(
     external_scripting: str | None = None,
     adapter_factory: Callable[[Any], Any] | None = None,
     allow_fractional_native: bool = False,
+    stage_observer: Callable[[str, float, bool], None] | None = None,
 ) -> dict[str, Any]:
     """Preflight or create one authorized new nonproduction Resolve project."""
     result: dict[str, Any] = {
@@ -2657,6 +2659,17 @@ def run_workflow_delivery_v2(
     }
     mutation_started = False
     stage = "package validation"
+    observed_stage: str | None = None
+    observed_at = 0.0
+
+    def observe_next(label: str | None, *, succeeded: bool = True) -> None:
+        nonlocal observed_stage, observed_at
+        now = perf_counter()
+        if observed_stage is not None and stage_observer is not None:
+            stage_observer(observed_stage, max(0.0, now - observed_at), succeeded)
+        observed_stage = label
+        observed_at = now
+
     try:
         if action not in {"preflight", "build"}:
             raise WorkflowV2Error("action must be preflight or build")
@@ -2691,6 +2704,7 @@ def run_workflow_delivery_v2(
         has_source_audio = any(
             event.get("kind") == "source_audio" for event in view["events"]
         )
+        result["sourceAudioPresent"] = has_source_audio
         result["sourceAudioNativeQualified"] = False
         if has_source_audio and action == "build":
             raise WorkflowV2Error(
@@ -2831,6 +2845,7 @@ def run_workflow_delivery_v2(
             mutation_started = True
             return method(*arguments)
 
+        observe_next("build")
         mutate(
             adapter.create_project, attestation["projectName"], label="create project"
         )
@@ -2883,6 +2898,7 @@ def run_workflow_delivery_v2(
                 mutate(adapter.place_event, event, label="place timeline event")
         for marker in view["markers"]:
             mutate(adapter.add_v2_marker, marker, label="add timeline marker")
+        observe_next("save/reopen")
         mutate(
             adapter.save_close_reopen,
             attestation["projectName"],
@@ -2890,7 +2906,9 @@ def run_workflow_delivery_v2(
         )
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed after native save and reopen")
+        observe_next("verify")
         discrepancies = tuple(adapter.verify(view))
+        observe_next(None, succeeded=not discrepancies)
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"
@@ -2901,6 +2919,8 @@ def run_workflow_delivery_v2(
             else "Resolve readback differed; the partial target was retained."
         )
     except Exception as error:
+        if observed_stage is not None:
+            observe_next(None, succeeded=False)
         result["status"] = "mutation_failed" if mutation_started else "stopped_safely"
         result["partialTargetRetained"] = mutation_started
         result["failureType"] = type(error).__name__

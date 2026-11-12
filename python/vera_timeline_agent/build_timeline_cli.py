@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .build_jobs import BuildJobError, NeedsAction, UncertainResult
-from .build_timeline_once import BuildOptions, compile_prepared
+from .build_timeline_once import BuildOptions, StageTimings, build_once
 
 
 def parser() -> argparse.ArgumentParser:
@@ -42,12 +42,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         output=args.output,
         existing_project=args.existing_project,
     )
+    timings = StageTimings()
     try:
-        compile_prepared(options)
-        # Phase 2 attaches package + actual external Studio delivery here.
-        raise NeedsAction("Resolve delivery is not yet connected; compilation only")
-    except (BuildJobError, NeedsAction, UncertainResult, OSError, ValueError) as error:
+        completed = build_once(options, timings=timings)
+        timings.finish(
+            frames=completed.frames,
+            numerator=completed.numerator,
+            denominator=completed.denominator,
+            passed=True,
+        )
+        print("New Studio project saved and independently verified.")
+        return 0
+    except (BuildJobError, NeedsAction, UncertainResult) as error:
+        timings.fail()
         print(f"Build refused: {error}", file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as error:
+        timings.fail()
+        print(f"Build refused: {type(error).__name__} in local inputs", file=sys.stderr)
         return 2
 
 

@@ -6,18 +6,31 @@ subsequent phases consume these exact published manifest/report bytes.
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import stat
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar, cast
 
+from . import studio_spike
 from .build_compiler_bridge import BridgeOutput, invoke_bridge
-from .build_jobs import BuildJobError, NeedsAction, publish_immutable_output
+from .build_jobs import (
+    BuildJobError,
+    NeedsAction,
+    UncertainResult,
+    publish_immutable_output,
+)
 from .build_stage_receipt import hash_file
+from .v2_package import V2PackageError, build_v2_package, verify_v2_package
+from .workflow_package import sha256
+from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
+from .workflow_v2_cli import attest_package_v2
 
 T = TypeVar("T")
 Bridge = Callable[[Literal["needs", "compile"], Path, Path], BridgeOutput]
@@ -38,6 +51,7 @@ class PreparedInputs:
     needs_input: Path | None
     recorded_needs: Path | None
     preparation_paths: Path | None
+    media_paths: Path | None
 
 
 @dataclass(frozen=True)
@@ -47,6 +61,15 @@ class CompileResult:
     manifest: Path
     report: Path
     needs: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class DeliveryResult:
+    project_name: str
+    timeline_name: str
+    frames: int
+    numerator: int
+    denominator: int
 
 
 @dataclass
@@ -64,14 +87,18 @@ class StageTimings:
         try:
             value = work()
         except Exception:
-            elapsed = max(0.0, self.clock() - before)
-            self.stages.append((name, elapsed))
-            self.emit(f"{name}: FAIL ({elapsed:.2f}s)")
+            self.record(name, max(0.0, self.clock() - before), passed=False)
             raise
-        elapsed = max(0.0, self.clock() - before)
-        self.stages.append((name, elapsed))
-        self.emit(f"{name}: PASS ({elapsed:.2f}s)")
+        self.record(name, max(0.0, self.clock() - before), passed=True)
         return value
+
+    def record(self, name: str, elapsed: float, *, passed: bool) -> None:
+        self.stages.append((name, elapsed))
+        self.emit(f"{name}: {'PASS' if passed else 'FAIL'} ({elapsed:.2f}s)")
+
+    def fail(self) -> None:
+        total = max(0.0, self.clock() - self.started)
+        self.emit(f"FAIL: timeline was not delivered; total {total:.2f}s")
 
     def finish(
         self, *, frames: int, numerator: int, denominator: int, passed: bool
@@ -169,6 +196,7 @@ def select_prepared_inputs(options: BuildOptions) -> PreparedInputs:
         needs_input=_companion(root, "media-needs.dependencies.json"),
         recorded_needs=_companion(root, "media-needs.json"),
         preparation_paths=preparation_paths,
+        media_paths=_companion(root, "media-paths.json"),
     )
 
 
@@ -234,9 +262,9 @@ def compile_prepared(
     timings: StageTimings | None = None,
 ) -> CompileResult:
     """Compile pinned inputs; never acquire media, spend money, or call Resolve."""
-    inputs = select_prepared_inputs(options)
-    output = allocate_output(options, inputs)
     reporter = timings or StageTimings()
+    inputs = reporter.run("preparation", lambda: select_prepared_inputs(options))
+    output = allocate_output(options, inputs)
     source_hash = hash_file(inputs.script)
     deps_hash = hash_file(inputs.dependencies)
 
@@ -289,3 +317,173 @@ def compile_prepared(
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
     publish_immutable_output(report, result.result["reportJson"].encode("utf-8"))
     return CompileResult(inputs, output, manifest, report, needs)
+
+
+def _checked_path_mapping(path: Path | None, label: str) -> dict[str, Path]:
+    if path is None:
+        raise NeedsAction(f"prepared {label}.json is required for packaging")
+    rows = _read_json(path)
+    paths: dict[str, Path] = {}
+    for key, value in rows.items():
+        if not isinstance(key, str) or not key or not isinstance(value, str):
+            raise BuildJobError(f"invalid prepared {label} mapping")
+        if not Path(value).is_absolute():
+            raise BuildJobError(f"prepared {label} paths must be absolute")
+        paths[key] = _plain_path(Path(value))
+        hash_file(paths[key])
+    return paths
+
+
+@contextmanager
+def exclusive_resolve_build(
+    lock_path: Path | None = None,
+) -> Iterator[None]:
+    """One foreground writer per host; never remove the common lock file."""
+    lock_path = lock_path or Path("/tmp/vera-resolve-v2-build.lock")
+    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except OSError as error:
+        raise NeedsAction("Resolve build lock is unavailable") from error
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise NeedsAction("Resolve build lock is not a regular file")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise NeedsAction("Resolve is already building a timeline") from error
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def _external_resolve() -> Any:
+    """Use the installed external Local SDK, not an injected Resolve runtime."""
+    facts = studio_spike.detect_local_capabilities()
+    if not facts.app_installed or not facts.scripting_module_installed:
+        raise NeedsAction(
+            "DaVinci Resolve Studio is not running or external scripting is unavailable"
+        )
+    try:
+        adapter = studio_spike.load_resolve_adapter(facts)
+    except Exception as error:
+        # The closed vendor scriptapp may raise rather than return None.
+        raise NeedsAction(
+            "DaVinci Resolve Studio is not running or external scripting is unavailable"
+        ) from error
+    if getattr(adapter, "resolve", None) is None:
+        raise NeedsAction(
+            "DaVinci Resolve Studio is not running or external scripting is unavailable"
+        )
+    return cast(Any, adapter).resolve
+
+
+def _require_workflow_status(result: dict[str, Any], expected: str) -> None:
+    if result.get("status") == expected and (
+        expected != "verified"
+        or (
+            result.get("verified") is True
+            and result.get("discrepancies") == []
+            and result.get("partialTargetRetained") is False
+        )
+    ):
+        return
+    if result.get("partialTargetRetained"):
+        raise UncertainResult(
+            "Resolve native write is uncertain; partial disposable project retained"
+        )
+    if (
+        result.get("sourceAudioPresent") is True
+        and result.get("sourceAudioNativeQualified") is False
+        and result.get("failureStage") == "package validation"
+    ):
+        raise NeedsAction("native source-audio delivery awaits qualification")
+    if result.get("nativeRateQualified") is False:
+        raise NeedsAction("native fractional frame-rate delivery is unsupported")
+    if expected == "verified" and result.get("status") == "verified":
+        raise UncertainResult("Resolve verification is incomplete; target retained")
+    raise BuildJobError(
+        f"Resolve {result.get('failureStage', 'preflight')} refused before mutation"
+    )
+
+
+def deliver_compiled(
+    compiled: CompileResult, *, timings: StageTimings
+) -> DeliveryResult:
+    """Package immutable compiler bytes, then build exactly one new Studio project."""
+    if compiled.inputs.preparation_paths is None:
+        raise NeedsAction("prepared preparation-paths.json is required for packaging")
+    media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
+    preparations = _checked_path_mapping(
+        compiled.inputs.preparation_paths, "preparation-paths"
+    )
+    package_root = compiled.output / "package"
+
+    def package_once() -> None:
+        built = build_v2_package(
+            compiled.manifest,
+            compiled.report,
+            compiled.inputs.script,
+            compiled.inputs.dependencies,
+            package_root,
+            media_paths=media,
+            preparation_paths=preparations,
+        )
+        verified = verify_v2_package(package_root)
+        manifest = _read_json(compiled.manifest)
+        if verified.build_id != built.build_id or verified.build_id != manifest.get(
+            "buildId"
+        ):
+            raise BuildJobError("package build identity differs from compiler")
+
+    try:
+        timings.run("package", package_once)
+    except V2PackageError as error:
+        raise BuildJobError(
+            "package could not be built from prepared local inputs"
+        ) from error
+    attestation = compiled.output / "v2-attestation.json"
+    timings.run("attest", lambda: attest_package_v2(package_root, attestation))
+    digest = sha256(attestation)
+    checked = load_verified_package_v2(attestation, digest)
+    if checked.root != package_root or checked.manifest != _read_json(
+        compiled.manifest
+    ):
+        raise BuildJobError("attested package does not match compiled manifest")
+
+    with exclusive_resolve_build():
+        resolve = timings.run("connect", _external_resolve)
+        preflight = timings.run(
+            "preflight",
+            lambda: run_workflow_delivery_v2(
+                resolve, attestation, digest, external_scripting="Local"
+            ),
+        )
+        _require_workflow_status(preflight, "preflight_passed")
+        native = run_workflow_delivery_v2(
+            resolve,
+            attestation,
+            digest,
+            action="build",
+            authorize_new_nonproduction=True,
+            external_scripting="Local",
+            stage_observer=lambda label, elapsed, passed: timings.record(
+                label, elapsed, passed=passed
+            ),
+        )
+        _require_workflow_status(native, "verified")
+
+    timeline = checked.manifest["timeline"]
+    return DeliveryResult(
+        project_name=checked.attestation["projectName"],
+        timeline_name=checked.attestation["timelineName"],
+        frames=timeline["durationFrames"],
+        numerator=timeline["frameRate"]["numerator"],
+        denominator=timeline["frameRate"]["denominator"],
+    )
+
+
+def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+    if options.existing_project is not None:
+        raise NeedsAction("named existing project builds are implemented in phase 3")
+    return deliver_compiled(compile_prepared(options, timings=timings), timings=timings)

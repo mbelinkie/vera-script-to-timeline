@@ -2058,3 +2058,35 @@ def test_reopened_readback_mismatch_retains_partial_target(tmp_path: Path) -> No
     assert result["partialTargetRetained"] is True
     assert result["discrepancies"] == ["event-properties"]
     assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_stages"),
+    [
+        (None, [("build", True), ("save/reopen", True), ("verify", True)]),
+        ("save_close_reopen", [("build", True), ("save/reopen", False)]),
+    ],
+)
+def test_native_stage_observer_is_ordered_and_marks_uncertain_writes(
+    tmp_path: Path,
+    failure: str | None,
+    expected_stages: list[tuple[str, bool]],
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    adapter = _FakeAdapter(fail_on=failure)
+    seen: list[tuple[str, bool]] = []
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="Local",
+        adapter_factory=lambda _resolve: adapter,
+        stage_observer=lambda label, elapsed, success: (
+            seen.append((label, success)) if elapsed >= 0 else pytest.fail("clock")
+        ),
+    )
+    assert seen == expected_stages
+    assert result["status"] == ("verified" if failure is None else "mutation_failed")
+    assert result["partialTargetRetained"] == (failure is not None)
