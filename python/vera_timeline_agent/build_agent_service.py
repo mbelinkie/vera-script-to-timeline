@@ -27,6 +27,12 @@ from urllib.request import (
 
 from .build_composition import BuildComposition, SnapshotRepository, StagePort
 from .build_jobs import CORE_STAGES, BuildJobStore, BuildRequest
+from .build_submission_inputs import (
+    FrozenInputRefusal,
+    TrustedBuildInputAuthority,
+    checked_compiler_dependencies,
+    frozen_source_file,
+)
 
 _SHA = re.compile(r"sha256:[a-f0-9]{64}\Z")
 _AGENT = re.compile(r"sttag_[A-Za-z0-9_-]{43}\Z")
@@ -51,6 +57,62 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise AgentTransportRefusal("duplicate transport field")
         obj[key] = value
     return obj
+
+
+def _validated_selected_pins(raw: object) -> dict[str, tuple[str, str]]:
+    """Strict canonical claims; the trusted accepted-source lookup is separate."""
+    if not isinstance(raw, list) or len(raw) > 256:
+        raise AgentTransportRefusal("invalid selected source pins")
+    pins: dict[str, tuple[str, str]] = {}
+    for entry in raw:
+        if not isinstance(entry, dict) or set(entry) != {
+            "sourceId",
+            "revision",
+            "sha256",
+        }:
+            raise AgentTransportRefusal("invalid selected source pin shape")
+        source_id, revision, digest = (
+            entry["sourceId"],
+            entry["revision"],
+            entry["sha256"],
+        )
+        if (
+            not isinstance(source_id, str)
+            or _UUID.fullmatch(source_id) is None
+            or not isinstance(revision, str)
+            or not 1 <= len(revision) <= 256
+            or revision != revision.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 or ch in "/\\" for ch in revision)
+            or not isinstance(digest, str)
+            or _SHA.fullmatch(digest) is None
+            or source_id in pins
+        ):
+            raise AgentTransportRefusal("invalid selected source pin identity")
+        pins[source_id] = (revision, digest)
+    if list(pins) != sorted(pins):
+        raise AgentTransportRefusal("noncanonical selected source ordering")
+    return pins
+
+
+def _same_frozen_authority(
+    original: Mapping[str, Any], current: Mapping[str, Any]
+) -> bool:
+    return all(
+        original.get(key) == current.get(key)
+        for key in (
+            "projectId",
+            "jobId",
+            "targetId",
+            "snapshotDigest",
+            "buildClass",
+            "mode",
+            "documentRevision",
+            "documentDigest",
+            "settingsRevision",
+            "settingsDigest",
+            "selectedSources",
+        )
+    )
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -253,9 +315,9 @@ def _checked_frozen(
         or value["documentRevision"] < 0
         or type(value.get("settingsRevision")) is not int
         or value["settingsRevision"] < 1
-        or value.get("selectedSources") != []
     ):
         raise AgentTransportRefusal("untrusted or unsupported frozen manifest")
+    _validated_selected_pins(value.get("selectedSources"))
     for name, key in (
         ("documentJson", "documentDigest"),
         ("settingsJson", "settingsDigest"),
@@ -290,12 +352,16 @@ class LocalBuildAgentService:
         transport: BuildTransport,
         ports: Mapping[str, StagePort] | None = None,
         adapter_versions: Mapping[str, str] | None = None,
+        input_authority: TrustedBuildInputAuthority | None = None,
+        accepted_source_roots: tuple[Path, ...] = (),
     ) -> None:
         self.root = _private_root(root)
         self.project_id = _uuid(project_id)
         self.transport = transport
         self.ports = dict(ports or {})
         self.adapter_versions = dict(adapter_versions or {})
+        self.input_authority = input_authority
+        self.accepted_source_roots = accepted_source_roots
         if bool(self.ports) != bool(self.adapter_versions):
             raise AgentTransportRefusal("no independently pinned local adapters")
         self.store = BuildJobStore(self.root / "jobs")
@@ -332,30 +398,100 @@ class LocalBuildAgentService:
                 "native_or_adapter_authorization_required",
             )
             return "needs_action"
+        authority = self.input_authority
+        if authority is None:
+            raise AgentTransportRefusal("trusted compiler metadata required")
+        pins = _validated_selected_pins(manifest["selectedSources"])
+        try:
+            dependencies = checked_compiler_dependencies(
+                authority.frozen_dependencies(self.project_id, job_id),
+                manifest,
+                pins,
+            )
+        except FrozenInputRefusal:
+            raise AgentTransportRefusal(
+                "trusted frozen build inputs unavailable"
+            ) from None
         inputs = self.root / "inputs" / job_id
         if any(part.is_symlink() for part in (inputs, inputs.parent, self.root)):
             raise AgentTransportRefusal("unsafe local input ancestry")
         inputs.mkdir(mode=0o700, parents=True, exist_ok=True)
         if inputs.is_symlink() or (inputs.stat().st_mode & 0o777) != 0o700:
             raise AgentTransportRefusal("unsafe local input directory")
+        submission = json.dumps(
+            {
+                key: manifest[key]
+                for key in (
+                    "projectId",
+                    "jobId",
+                    "targetId",
+                    "snapshotDigest",
+                    "buildClass",
+                    "mode",
+                    "documentRevision",
+                    "documentDigest",
+                    "settingsRevision",
+                    "settingsDigest",
+                    "selectedSources",
+                )
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
         for name, raw in (
             ("document", manifest["documentJson"].encode("utf-8")),
             ("settings", manifest["settingsJson"].encode("utf-8")),
-            ("dependencies", b'{"selectedSources":[]}'),
+            ("dependencies", dependencies),
+            ("submission", submission),
         ):
             _immutable(inputs / f"{name}.json", raw)
+        source_inputs: dict[str, Path] = {}
+        try:
+            for source_id, (revision, digest) in pins.items():
+                path = inputs / f"source-{source_id}.bin"
+                frozen_source_file(
+                    authority,
+                    self.project_id,
+                    source_id,
+                    revision,
+                    digest,
+                    self.accepted_source_roots,
+                    path,
+                )
+                source_inputs[f"source:{source_id}"] = path
+        except FrozenInputRefusal:
+            raise AgentTransportRefusal(
+                "trusted accepted source bytes unavailable"
+            ) from None
 
         def current() -> dict[str, Any]:
             live = _checked_frozen(
                 self.transport.frozen(job_id, epoch), self.project_id, job_id, expected
             )
-            if (
-                live["documentDigest"] != manifest["documentDigest"]
-                or live["settingsDigest"] != manifest["settingsDigest"]
-                or live["documentRevision"] != manifest["documentRevision"]
-                or live["settingsRevision"] != manifest["settingsRevision"]
-            ):
+            if not _same_frozen_authority(manifest, live):
                 raise AgentTransportRefusal("frozen authority changed")
+            try:
+                if (
+                    checked_compiler_dependencies(
+                        authority.frozen_dependencies(self.project_id, job_id),
+                        live,
+                        pins,
+                    )
+                    != dependencies
+                ):
+                    raise FrozenInputRefusal("compiler metadata changed")
+                for source_id, (revision, digest) in pins.items():
+                    frozen_source_file(
+                        authority,
+                        self.project_id,
+                        source_id,
+                        revision,
+                        digest,
+                        self.accepted_source_roots,
+                        None,
+                    )
+            except FrozenInputRefusal:
+                raise AgentTransportRefusal("accepted source changed") from None
             return live
 
         repository = SnapshotRepository(
@@ -376,8 +512,11 @@ class LocalBuildAgentService:
             mode="free",
             settings_hash=manifest["settingsDigest"][7:],
             inputs={
-                name: inputs / f"{name}.json"
-                for name in ("document", "settings", "dependencies")
+                **{
+                    name: inputs / f"{name}.json"
+                    for name in ("document", "settings", "dependencies", "submission")
+                },
+                **source_inputs,
             },
             adapter_versions=self.adapter_versions,
         )
