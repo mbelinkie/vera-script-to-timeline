@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import subprocess
+import time
 import uuid
 from fractions import Fraction
 from pathlib import Path
@@ -236,7 +237,7 @@ def _document(
             overlayEvents=[],
             timingPolicy="narration_spine",
         )
-        slots = []
+        slots: list[Json] = []
         for item in (row for row in plan["pictures"] if row["row"] == index):
             slot_id = _id(item["id"] + ":slot")
             boundary: Json = {"kind": "row_start"}
@@ -317,8 +318,10 @@ def _document(
 
 
 def _dependencies(document: Json, rows: list[Json], maps: list[Json]) -> Json:
-    deps = json.loads(
-        (ROOT / "tests/data/authoring_v2/compiler-dependencies-v2.json").read_bytes()
+    dependencies_path = ROOT / "tests/data/authoring_v2/compiler-dependencies-v2.json"
+    deps = cast(
+        Json,
+        json.loads(dependencies_path.read_bytes()),
     )
     for key in ("buildId", "manifestId", "reportId"):
         deps["build"][key] = str(uuid.uuid4())
@@ -413,7 +416,13 @@ def _timing_inputs(speech_path: Path) -> tuple[list[Json], dict[str, Path]]:
     return maps, audio_paths
 
 
-def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Path:
+def _complete_fixture(
+    root: Path,
+    source_root: Path,
+    alignment_path: Path,
+    *,
+    preparation_started: float | None = None,
+) -> Path:
     """Finish only verified prepared inputs; never overwrite an existing attempt."""
     root = root.absolute()
     _plain(root)
@@ -597,6 +606,8 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
         ready / "media-paths.json",
         {key: str(path) for key, path in media_paths.items()},
     )
+    if preparation_started is not None:
+        print(f"Preparation: {time.monotonic() - preparation_started:.2f}s")
     package_root = ready / "preflight-package"
     package = build_v2_package(
         manifest_path,
@@ -637,6 +648,7 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
 def prepare_long_fixture(
     source_root: Path, alignment_path: Path, output: Path, *, source_seconds: int = 30
 ) -> Path:
+    preparation_started = time.monotonic()
     source_root, alignment_path = source_root.absolute(), alignment_path.absolute()
     _plain(source_root)
     _plain(alignment_path)
@@ -661,7 +673,12 @@ def prepare_long_fixture(
     deps["occurrenceResolutions"] = descriptors
     _write(root / "script.json", document)
     _write(root / "compiler-dependencies.json", deps)
-    return _complete_fixture(root, source_root, alignment_path)
+    return _complete_fixture(
+        root,
+        source_root,
+        alignment_path,
+        preparation_started=preparation_started,
+    )
 
 
 def main() -> int:

@@ -47,17 +47,15 @@ and end frames with the compiled timeline after reopen.
 The suggestion to add a results receipt and repeated runs was not adopted as a
 requirement: this issue asks for one simple check and excludes receipts.
 
-## Questions for a later review
+## Producer decision on 2026-11-12
 
-1. Is a 24 fps check useful as an interim speed signal given that the default
-   23.976 fps one-command path is currently refused? What must be qualified
-   before using the default rate?
-2. Is #531 best fixed by producing one consistent report row per prepared
-   binding, while keeping individual placement requirements internally?
-3. How can the sample-preparation code be reduced or replaced with a durable
-   reusable input bundle without weakening media or timing verification?
-4. Does the reported build boundary match the Producer's expectation, given
-   that creating the prepared media and narration is outside the timed run?
+Use 24 fps for both cases. The results table shows preparation and build plus
+check separately. Preparation creates the fixture inputs and prepared media.
+The short case uses the retained measured narration. The long case creates
+the narration rows from public audio and a retained offline alignment. Build
+plus check uses the shipped command total through save, close, reopen and
+structural verification. Compare only that total with the verified timeline
+duration. The default 23.976 fps command remains outside this check.
 
 ## Workflow issues encountered
 
@@ -87,8 +85,11 @@ requirement: this issue asks for one simple check and excludes receipts.
 
 ## Status
 
-The long input reached compilation, but its package was refused as described
-in #531. The short input also reached compilation but its package was refused
-for a document content-hash mismatch. Both native measurements, final review
-and CI, and Matthew's watch-and-listen acceptance remain pending. No native
-timing is claimed until the actual runs complete.
+The short preparer now stamps the document with the compiler content hash
+that package verification expects. The corrected retained inputs compiled,
+built a package and passed independent package verification with 11 events.
+The #531 regression tracks the long fixture’s shared preparation bindings.
+
+The Producer requested a pause on timing until the Mac has been restarted
+and is quiet. Both native timings and the Producer’s watch-and-listen
+acceptance are pending.
