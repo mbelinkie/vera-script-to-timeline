@@ -26,6 +26,7 @@ from vera_timeline_agent.build_timeline_once import (
     select_prepared_inputs,
 )
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
+from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
 FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
 
@@ -372,7 +373,7 @@ def test_resolve_step_plus_check_includes_preflight_and_readback_not_packaging(
     compiled = _package_inputs(tmp_path)
     now = [0.0]
     lines: list[str] = []
-    original_attest = build_timeline_once.attest_package_v2
+    original_attest = attest_package_v2
 
     def slow_attest(*args: Any, **kwargs: Any) -> Any:
         now[0] += 20.0  # Upstream package work is not part of the Resolve speed bar.
