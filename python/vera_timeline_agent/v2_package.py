@@ -1243,13 +1243,13 @@ def _validate_preparations(
         raise _error(
             f"preparation_paths key mismatch; missing={missing}, extra={extra}"
         )
-    occurrences: dict[str, JsonObject] = {}
+    occurrences: dict[str, list[JsonObject]] = {}
     for occurrence in cast(
         list[JsonObject], dependencies.get("occurrenceResolutions", [])
     ):
         key = occurrence.get("preparedMediaRequirementKey")
         if key is not None:
-            occurrences[cast(str, key)] = occurrence
+            occurrences.setdefault(cast(str, key), []).append(occurrence)
     prepared: dict[str, _Preparation] = {}
     for requirement_key, binding in bindings.items():
         source_path = preparation_paths[requirement_key]
@@ -1261,11 +1261,12 @@ def _validate_preparations(
             source_path, f"#174 preparation receipt {requirement_key}"
         )
         digest = _hash_bytes(raw)
-        descriptor = occurrences.get(requirement_key)
-        if descriptor is None:
+        descriptors = occurrences.get(requirement_key, [])
+        if not descriptors:
             raise _error(
                 f"preparation receipt {requirement_key} has no compiler occurrence"
             )
+        descriptor = descriptors[0]
         if record.get("recordVersion") != "authoring-media-preparation/v1":
             raise _error(f"prep {requirement_key} has an unsupported record version")
         if (
@@ -1274,11 +1275,21 @@ def _validate_preparations(
         ):
             raise _error(f"prep {requirement_key} differs from its manifest binding")
         inputs = cast(JsonObject, record.get("inputs"))
-        if (
-            inputs.get("mediaReferenceId") != descriptor.get("mediaReferenceId")
-            or inputs.get("sourceSnapshot") != descriptor.get("sourceSnapshot")
-            or inputs.get("sourceFrameMap") != descriptor.get("sourceFrameMap")
-            or inputs.get("requestedRange") != binding.get("requestedRange")
+        original = cast(JsonObject, binding["originalSource"])
+        mapping = cast(JsonObject, binding["timeMapping"])
+        if any(
+            inputs.get("mediaReferenceId") != occurrence.get("mediaReferenceId")
+            or inputs.get("sourceSnapshot") != occurrence.get("sourceSnapshot")
+            or inputs.get("sourceFrameMap") != occurrence.get("sourceFrameMap")
+            or original.get("mediaReferenceId") != occurrence.get("mediaReferenceId")
+            or original.get("contentHash")
+            != cast(JsonObject, occurrence["sourceSnapshot"]).get("contentHash")
+            or original.get("probeHash")
+            != cast(JsonObject, occurrence["sourceSnapshot"]).get("probeHash")
+            or mapping.get("sourceFrameMap") != occurrence.get("sourceFrameMap")
+            for occurrence in descriptors
+        ) or (
+            inputs.get("requestedRange") != binding.get("requestedRange")
             or inputs.get("targetRate") != binding.get("targetRate")
             or inputs.get("profile") != binding.get("profile")
         ):
@@ -1320,10 +1331,8 @@ def _validate_preparations(
             raise _error(
                 f"prep {requirement_key} lacks profile/command/geometry evidence"
             )
-        original = cast(JsonObject, binding["originalSource"])
         verification = cast(JsonObject, binding["verification"])
         binding_profile = cast(JsonObject, binding["profile"])
-        mapping = cast(JsonObject, binding["timeMapping"])
         if (
             identity_hash(source_probe) != original.get("probeHash")
             or identity_hash(delivered_probe) != verification.get("probeHash")

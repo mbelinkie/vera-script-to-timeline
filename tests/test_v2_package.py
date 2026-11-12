@@ -869,6 +869,47 @@ def test_public_package_build_preserves_no_source_audio_case(tmp_path: Path) -> 
     assert all(event["kind"] != "source_audio" for event in view["events"])
 
 
+def test_package_build_and_verification_accept_occurrences_sharing_a_preparation(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path, scenario="shared-preparation")
+
+    case.build()
+    verified = verify_v2_package(case.project_root)
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    media_sources = [
+        source for source in manifest["sources"] if "mediaReferenceId" in source
+    ]
+
+    assert verified.event_count == 3
+    assert len(media_sources) == 1
+    assert len(manifest["preparationBindings"]) == 1
+    assert len(report["mediaPreparation"]["requirements"]) == 1
+    assert len(report["sourceSufficiency"]) == 2
+    assert len(report["eventResults"]) == 3
+
+
+def test_package_refuses_shared_preparation_with_conflicting_occurrence_identity(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path, scenario="shared-preparation")
+    dependencies = json.loads(case.dependencies_path.read_text())
+    first_occurrence = dependencies["occurrenceResolutions"][0]
+    first_occurrence["sourceSnapshot"]["snapshotId"] = (
+        "00000000-0000-4000-8000-000000000200"
+    )
+    case.dependencies_path.write_bytes(canonical_json_bytes(dependencies))
+    report = json.loads(case.report_path.read_text())
+    report["dependenciesHash"] = _compiler_hash(dependencies)
+    case.report_path.write_bytes(canonical_json_bytes(report))
+
+    with pytest.raises(V2PackageError, match="input mapping is stale"):
+        case.build()
+
+    assert not case.project_root.exists()
+
+
 def test_public_package_build_refuses_cross_track_source_audio_overlap(
     tmp_path: Path,
 ) -> None:
