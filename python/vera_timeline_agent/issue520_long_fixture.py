@@ -415,6 +415,10 @@ def _timing_inputs(speech_path: Path) -> tuple[list[Json], dict[str, Path]]:
 
 def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Path:
     """Finish only verified prepared inputs; never overwrite an existing attempt."""
+    root = root.absolute()
+    _plain(root)
+    if not root.is_dir():
+        raise ValueError("saved fixture output directory is unavailable")
     source_root, alignment_path = source_root.absolute(), alignment_path.absolute()
     _plain(source_root)
     _plain(alignment_path)
@@ -432,7 +436,7 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
         if not path.is_file():
             raise ValueError(f"incomplete saved fixture input: {path.name}")
     later_outputs = (
-        "prepared-media",
+        "prepared-inputs",
         "media-needs.json",
         "preparation-paths.json",
         "media-paths.json",
@@ -445,6 +449,11 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
         raise ValueError(
             "saved fixture already has later-stage outputs; inspect before resuming"
         )
+    preparation_root = root / "prepared-media"
+    if preparation_root.exists():
+        _plain(preparation_root)
+        if not preparation_root.is_dir():
+            raise ValueError("saved media-preparation path is not a directory")
 
     source_set = json.loads(source_manifest_path.read_bytes())
     if (
@@ -546,21 +555,30 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
             )
         prepared[key], preparation_paths[key] = item, item.receipt_path
 
+    # Publish the CLI-ready inputs in a fresh directory so the original
+    # generated document and first-pass dependencies remain byte-identical.
+    ready = root / "prepared-inputs"
+    ready.mkdir(exist_ok=False)
+    ready_script, ready_deps = (
+        ready / "script.json",
+        ready / "compiler-dependencies.json",
+    )
+    ready_script.write_bytes(script_path.read_bytes())
     deps["preparedMedia"] = [item.binding for item in prepared.values()]
-    _write(deps_path, deps)
-    needs = invoke_bridge("needs", script_path, deps_path).needs
+    _write(ready_deps, deps)
+    needs = invoke_bridge("needs", ready_script, ready_deps).needs
     if {row["requirementKey"] for row in needs["requirements"]} != set(prepared):
         raise ValueError("prepared media keys differ from compiler requirements")
-    _write(root / "media-needs.json", needs)
+    _write(ready / "media-needs.json", needs)
     _write(
-        root / "preparation-paths.json",
+        ready / "preparation-paths.json",
         {key: str(path) for key, path in preparation_paths.items()},
     )
 
-    compiled = invoke_bridge("compile", script_path, deps_path).result
+    compiled = invoke_bridge("compile", ready_script, ready_deps).result
     manifest_path, report_path = (
-        root / "preflight-manifest.json",
-        root / "preflight-report.json",
+        ready / "preflight-manifest.json",
+        ready / "preflight-report.json",
     )
     manifest_path.write_text(compiled["manifestJson"], encoding="utf-8")
     report_path.write_text(compiled["reportJson"], encoding="utf-8")
@@ -576,14 +594,15 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
             original = source_by_ref[descriptor_by_key[key]["mediaReferenceId"]]
             media_paths[f"original:{source_id}"] = source_root_paths[original["id"]]
     _write(
-        root / "media-paths.json", {key: str(path) for key, path in media_paths.items()}
+        ready / "media-paths.json",
+        {key: str(path) for key, path in media_paths.items()},
     )
-    package_root = root / "preflight-package"
+    package_root = ready / "preflight-package"
     package = build_v2_package(
         manifest_path,
         report_path,
-        script_path,
-        deps_path,
+        ready_script,
+        ready_deps,
         package_root,
         media_paths=media_paths,
         preparation_paths=preparation_paths,
@@ -603,6 +622,7 @@ def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Pa
             "events": len(compiled["manifest"]["events"]),
             "sources": len(sources),
             "requirements": len(prepared),
+            "inputDirectory": str(ready),
             "package": str(package_root),
             "buildId": package.build_id,
             "alignment": str(alignment_path),

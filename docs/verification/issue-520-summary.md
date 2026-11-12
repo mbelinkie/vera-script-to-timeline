@@ -47,6 +47,18 @@ and end frames with the compiled timeline after reopen.
 The suggestion to add a results receipt and repeated runs was not adopted as a
 requirement: this issue asks for one simple check and excludes receipts.
 
+## Questions for a later review
+
+1. Is a 24 fps check useful as an interim speed signal given that the default
+   23.976 fps one-command path is currently refused? What must be qualified
+   before using the default rate?
+2. Is #531 best fixed by producing one consistent report row per prepared
+   binding, while keeping individual placement requirements internally?
+3. How can the sample-preparation code be reduced or replaced with a durable
+   reusable input bundle without weakening media or timing verification?
+4. Does the reported build boundary match the Producer's expectation, given
+   that creating the prepared media and narration is outside the timed run?
+
 ## Workflow issues encountered
 
 - Sample preparation expanded substantially beyond the expected small runner:
@@ -64,12 +76,19 @@ requirement: this issue asks for one simple check and excludes receipts.
   used the pinned version. The first short conversion also exposed a mismatch
   between two hash formats; independent verification confirmed the source had
   not changed before the comparison was corrected.
+- A later short-sample attempt converted all six picture sources and compiled,
+  but package verification rejected the saved document because its
+  `liveContentHash` did not match its content. The cause has not yet been
+  established. The converted files were retained. This was the second
+  preparation failure in the resumed attempt, triggering the repository stop
+  rule before any Resolve run.
 - Progress paused under the repository stop rules and resumed on Matthew's
   instruction. No failure was treated as a successful timeline build.
 
 ## Status
 
 The long input reached compilation, but its package was refused as described
-in #531. The short input is still being prepared. Both native measurements,
-final review and CI, and Matthew's watch-and-listen acceptance remain pending.
-No native timing is claimed until the actual runs complete.
+in #531. The short input also reached compilation but its package was refused
+for a document content-hash mismatch. Both native measurements, final review
+and CI, and Matthew's watch-and-listen acceptance remain pending. No native
+timing is claimed until the actual runs complete.

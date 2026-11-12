@@ -31,6 +31,7 @@ from vera_timeline_agent.media_preparation import (
     MediaTools,
     PreparationAuthorization,
     _qualified_tools,
+    file_hash as media_file_hash,
     inspect_media,
     prepare_media,
     wire,
@@ -111,8 +112,39 @@ def _rate(value: Json) -> Fraction:
     return Fraction(numerator, denominator)
 
 
+def _evidence_hash(value: list[Json]) -> str:
+    def frame_fields(item: Any) -> list[str]:
+        if isinstance(item, dict):
+            found = [key for key in item if "frame" in key.lower()]
+            return found + [name for child in item.values() for name in frame_fields(child)]
+        if isinstance(item, list):
+            return [name for child in item for name in frame_fields(child)]
+        return []
+
+    if len(value) != 2 or frame_fields(value):
+        raise ValueError("narration evidence is not sample/time-based or has changed shape")
+    for row in value:
+        if (
+            row.get("verification", {}).get("method") != "measured_audio_boundaries/v1"
+            or row.get("audio", {}).get("sampleRate") != 48000
+            or type(row.get("audio", {}).get("durationSamples")) is not int
+        ):
+            raise ValueError("measured 48 kHz narration evidence is required")
+        for token in row.get("tokens", []):
+            for field in ("onset", "audibleEnd"):
+                mark = token.get(field)
+                if mark is not None and (
+                    not isinstance(mark, dict)
+                    or type(mark.get("numerator")) is not int
+                    or type(mark.get("denominator")) is not int
+                    or mark["denominator"] <= 0
+                ):
+                    raise ValueError("narration evidence must retain rational audio times")
+    return identity_hash(value)
+
+
 def _hash(path: Path) -> str:
-    return hash_file(path)
+    return media_file_hash(path)
 
 
 def _transcode(
@@ -294,7 +326,7 @@ def _pinned_bridge(
     if run.returncode:
         raise ValueError(f"offline {kind} failed: {run.stderr.strip()[:500]}")
     data = json.loads(run.stdout)
-    return BridgeOutput(kind, _hash(document), _hash(dependencies), data)
+    return BridgeOutput(kind, hash_file(document), hash_file(dependencies), data)
 
 
 def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> None:
@@ -321,7 +353,9 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     if dependencies.get("schemaVersion") != "compiler-dependencies/v2":
         raise ValueError("retained dependencies are not compiler-dependencies/v2")
     descriptors: list[Json] = dependencies.get("occurrenceResolutions", [])
-    if len(descriptors) != 6 or len(dependencies.get("narrationBoundaryEvidence", [])) != 2:
+    evidence_hash = _evidence_hash(dependencies.get("narrationBoundaryEvidence", []))
+    original_text_hash = dependencies["document"]["textHash"]
+    if len(descriptors) != 6:
         raise ValueError("retained short sample no longer matches its six-source/two-narration shape")
 
     prepared_by_ref = {
@@ -418,6 +452,11 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     dependencies["timeline"]["frameRate"] = RATE_WIRE
     dependencies["occurrenceResolutions"] = new_descriptors
     dependencies["preparedMedia"] = []
+    if (
+        _evidence_hash(dependencies["narrationBoundaryEvidence"]) != evidence_hash
+        or dependencies["document"]["textHash"] != original_text_hash
+    ):
+        raise ValueError("narration evidence or text changed during picture conversion")
     _write_json(script_path, document)
     _write_json(dependencies_path, dependencies)
 
@@ -476,6 +515,8 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     media_paths: dict[str, Path] = {}
     manifest_bridge = _pinned_bridge("compile", script_path, dependencies_path, node)
     compiled_manifest = manifest_bridge.result["manifest"]
+    if len(compiled_manifest.get("events", [])) != 11:
+        raise ValueError("24 fps compilation changed the retained 11-event structure")
     for source in compiled_manifest["sources"]:
         source_id = source["id"]
         if isinstance(source.get("narrationAudio"), dict):
@@ -532,9 +573,13 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         {
             "schemaVersion": "issue-520-short-24fps-preparation/v1",
             "timelineRate": RATE_WIRE,
-            "narrationBoundaryEvidenceHash": identity_hash(
-                dependencies["narrationBoundaryEvidence"]
-            ),
+            "narrationBoundaryEvidenceHash": evidence_hash,
+            "narrationTimingBasis": "unchanged measured 48 kHz audio evidence; no frame coordinates",
+            "pictureConversion": {
+                "method": "ffmpeg fps=24 CFR resampling from retained prepared picture media",
+                "sourceInpoint": "nearest 24 fps frame to the retained source-frame time",
+                "visualOnlyEnd": "rounded up to cover the retained source interval",
+            },
             "sourceRateConversions": [
                 {
                     "mediaReferenceId": ref,
