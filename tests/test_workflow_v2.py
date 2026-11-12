@@ -427,7 +427,27 @@ class _FakeAdapter:
 
     def verify(self, _view: Any) -> tuple[str, ...]:
         self._call("verify")
+        self.verified_view = _view
         return self.verification_discrepancies
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        tracks = {track["id"]: track for track in self.verified_view["tracks"]}
+        return {
+            "resolveProjectId": "reopened-project-uid",
+            "timelineId": "reopened-timeline-uid",
+            "observed": [
+                {
+                    "eventId": event["id"],
+                    "resolveItemId": f"reopened-item-{index}",
+                    "trackId": event["trackId"],
+                    "trackKind": tracks[event["trackId"]]["kind"],
+                    "trackIndex": tracks[event["trackId"]]["index"],
+                    "startFrame": event["recordRange"]["startFrame"],
+                    "durationFrames": event["recordRange"]["durationFrames"],
+                }
+                for index, event in enumerate(self.verified_view["events"])
+            ],
+        }
 
 
 def _existing_project_fixture() -> tuple[Any, Any, Any]:
@@ -1724,6 +1744,62 @@ def test_native_audio_reopened_gain_discrepancy_is_reported() -> None:
     assert adapter.verify(view) == ("event-properties",)
 
 
+def test_native_readback_captures_uid_from_reopened_matched_item() -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: "reopened-item-uid"
+    adapter.project.GetUniqueId = lambda: "reopened-project-uid"
+    adapter.timeline.GetUniqueId = lambda: "reopened-timeline-uid"
+    adapter.expected_project_id = "reopened-project-uid"
+    adapter.expected_timeline_id = "reopened-timeline-uid"
+
+    assert adapter.verify(view) == ()
+    observation = adapter.reopened_row_observation()
+    assert observation == {
+        "resolveProjectId": "reopened-project-uid",
+        "timelineId": "reopened-timeline-uid",
+        "observed": [
+            {
+                "eventId": view["events"][0]["id"],
+                "resolveItemId": "reopened-item-uid",
+                "trackId": "audio-track",
+                "trackKind": "audio",
+                "trackIndex": 1,
+                "startFrame": 0,
+                "durationFrames": 10,
+            }
+        ],
+    }
+    adapter.timeline.GetUniqueId = lambda: "switched-timeline-uid"
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="identity differs"):
+        adapter.reopened_row_observation()
+
+
+@pytest.mark.parametrize("uid", [None, "", 42])
+def test_reopened_item_uid_unavailable_refuses_verified_map(uid: Any) -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: uid
+    assert adapter.verify(view) == ("event-item-identity",)
+    assert adapter._reopened_row_items == []
+
+
+def test_reopened_item_stamp_or_geometry_mismatch_discards_uid_observation() -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: "reopened-item-uid"
+    item.marker_custom_data = "wrong-event-stamp"
+    assert adapter.verify(view) == ("event-custom-data",)
+    assert adapter._reopened_row_items == []
+    item.marker_custom_data = adapter.expected_stamps[view["events"][0]["id"]]
+    item.start = 1
+    assert adapter.verify(view) == ("event-record-range",)
+    assert adapter._reopened_row_items == []
+
+
 @pytest.mark.parametrize("stray_slot", [2, 3])
 def test_readback_checks_undeclared_and_declared_empty_track_slots(
     stray_slot: int,
@@ -2542,6 +2618,59 @@ def test_reopened_readback_mismatch_retains_partial_target(tmp_path: Path) -> No
     assert result["partialTargetRetained"] is True
     assert result["discrepancies"] == ["event-properties"]
     assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+@pytest.mark.parametrize(
+    "bad_field",
+    ["missing-uid", "duplicate-uid", "missing-item", "wrong-track", "no-observation"],
+)
+def test_reopened_row_observation_errors_retain_target_without_verified_map(
+    tmp_path: Path, bad_field: str
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, visual_event_count=2)
+
+    class BadObservation(_FakeAdapter):
+        def reopened_row_observation(self) -> dict[str, Any]:
+            if bad_field == "no-observation":
+                raise RuntimeError("native UID unavailable")
+            value = super().reopened_row_observation()
+            items = value["observed"]
+            if bad_field == "missing-uid":
+                items[0]["resolveItemId"] = None
+            elif bad_field == "duplicate-uid":
+                items[1]["resolveItemId"] = items[0]["resolveItemId"]
+            elif bad_field == "missing-item":
+                items.pop()
+            else:
+                items[0]["trackIndex"] = 99
+            return value
+
+    adapter = BadObservation()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "mutation_failed"
+    assert result["partialTargetRetained"] is True
+    assert result["verified"] is False
+    assert "rowTimelineMap" not in result
+    assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+def test_preflight_never_includes_row_map(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _: adapter
+    )
+    assert result["status"] == "preflight_passed"
+    assert "rowTimelineMap" not in result
+    assert "verify" not in adapter.calls
 
 
 @pytest.mark.parametrize(

@@ -24,6 +24,7 @@ from time import perf_counter
 from typing import Any, TypeGuard, cast
 
 from . import native_image_motion
+from .row_timeline_map import make_row_timeline_map
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
@@ -1626,6 +1627,8 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
         self._native_otio_imported = False
+        self._capture_row_map = False
+        self._reopened_row_items: list[dict[str, Any]] = []
 
     def import_verified_otio(
         self, otio_path: Path, view: Mapping[str, Any], timeline_name: str
@@ -1987,6 +1990,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
 
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
+        # Keep the actual reopened TimelineItem handles in the *same* structural
+        # readback that checks geometry, source, stamps and native properties.
+        # An incomplete readback cannot become a row map.
+        self._reopened_row_items = []
+        seen_item_ids: set[str] = set()
         try:
             if self.project.GetName() != self.expected_project_name:
                 discrepancies.append("project-name")
@@ -2171,6 +2179,28 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             event_id
                         ):
                             discrepancies.append("event-custom-data")
+                        if getattr(self, "_capture_row_map", False):
+                            getter = getattr(item, "GetUniqueId", None)
+                            uid = getter() if callable(getter) else None
+                            if (
+                                not isinstance(uid, str)
+                                or not uid.strip()
+                                or uid in seen_item_ids
+                            ):
+                                discrepancies.append("event-item-identity")
+                            else:
+                                seen_item_ids.add(uid)
+                                self._reopened_row_items.append(
+                                    {
+                                        "eventId": event_id,
+                                        "resolveItemId": uid,
+                                        "trackId": event["trackId"],
+                                        "trackKind": kind,
+                                        "trackIndex": index,
+                                        "startFrame": item.GetStart(False),
+                                        "durationFrames": item.GetDuration(False),
+                                    }
+                                )
                         expected_properties = self.expected_properties.get(event_id, {})
                         if expected_properties:
                             actual_properties = item.GetProperties()
@@ -2205,7 +2235,33 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             self._verify_media_inventory(view, discrepancies)
         except (AttributeError, KeyError, TypeError, ValueError):
             discrepancies.append("readback-api")
+        if discrepancies:
+            self._reopened_row_items = []
         return tuple(dict.fromkeys(discrepancies))
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        """Identity-bound snapshot from the completed post-reopen verify pass."""
+        if not self._capture_row_map:
+            raise WorkflowV2Error("reopened row observation was not enabled")
+        self.assert_current_target()
+        project_uid = self.project.GetUniqueId()
+        timeline_uid = self.timeline.GetUniqueId()
+        if (
+            not isinstance(project_uid, str)
+            or not project_uid.strip()
+            or project_uid != self.expected_project_id
+            or not isinstance(timeline_uid, str)
+            or not timeline_uid.strip()
+            or timeline_uid != self.expected_timeline_id
+        ):
+            raise WorkflowV2Error(
+                "reopened Resolve project or timeline identity differs"
+            )
+        return {
+            "resolveProjectId": project_uid,
+            "timelineId": timeline_uid,
+            "observed": self._reopened_row_items,
+        }
 
     def _verify_media_inventory(
         self, view: Mapping[str, Any], discrepancies: list[str]
@@ -2938,9 +2994,22 @@ def run_workflow_delivery_v2(
         observe_next("verify")
         if existing_project is not None:
             adapter.assert_current_target()
+        adapter._capture_row_map = True
         discrepancies = tuple(adapter.verify(view))
         if existing_project is not None:
             adapter.assert_current_target()
+        if not discrepancies:
+            stage = "reopened row observation"
+            observation = adapter.reopened_row_observation()
+            map_value = make_row_timeline_map(
+                manifest,
+                view,
+                observation["observed"],
+                project_name=existing_project or attestation["projectName"],
+                resolve_project_id=observation["resolveProjectId"],
+                timeline_name=attestation["timelineName"],
+                timeline_id=observation["timelineId"],
+            )
         stage = "final package validation"
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed during native delivery or readback")
@@ -2948,6 +3017,8 @@ def run_workflow_delivery_v2(
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"
+        if not discrepancies:
+            result["rowTimelineMap"] = map_value
         result["partialTargetRetained"] = bool(discrepancies)
         if discrepancies:
             result["message"] = (
