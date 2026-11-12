@@ -109,8 +109,16 @@ class QualifiedStagePipeline:
             )
             versions.update(
                 **{
-                    "resolve-v2": "injected-none/v2",
-                    "resolve-v2-readback": "injected-none-readback/v2",
+                    "resolve-v2": (
+                        "parent-local/v1"
+                        if native.route == "Local"
+                        else "injected-none/v2"
+                    ),
+                    "resolve-v2-readback": (
+                        "parent-local-readback/v1"
+                        if native.route == "Local"
+                        else "injected-none-readback/v2"
+                    ),
                 }
             )
         return ports, versions, native
@@ -477,14 +485,33 @@ class LocalBuildAgentService:
         # installed native ports need explicit local authority, independently
         # pinned to this frozen snapshot below. No implicit render or upload.
         native = self.native_authorization
+        build_port = self.ports.get("building_resolve_timeline")
+        verify_port = self.ports.get("verifying_timeline")
+        # Explicit port maps are supported for older None injection/tests, but
+        # actual installed native ports must not smuggle a different approval
+        # or driver than the permission vetted for this backend submission.
+        native_ports_mismatch = (
+            isinstance(build_port, BuildStudioStagePort)
+            or isinstance(verify_port, VerifyStudioStagePort)
+            or (isinstance(native, NativeAuthorization) and native.route == "Local")
+        ) and (
+            not isinstance(build_port, BuildStudioStagePort)
+            or not isinstance(verify_port, VerifyStudioStagePort)
+            or build_port.authorization != native
+            or verify_port.authorization != native
+            or build_port.driver is not verify_port.driver
+        )
         if not self.ports or (
             manifest["mode"] == "studio"
             and (
-                not all(stage in self.ports for stage in STUDIO_STAGES[:2])
+                native_ports_mismatch
+                or not all(stage in self.ports for stage in STUDIO_STAGES[:2])
                 or not isinstance(native, NativeAuthorization)
                 or not native.approved_nonproduction
-                or native.route != "None"
+                or native.route not in ("None", "Local")
                 or native.project_id != self.project_id
+                or native.job_id != job_id
+                or native.target_id != manifest["targetId"]
                 or not native.request_id
             )
         ):

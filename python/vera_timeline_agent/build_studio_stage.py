@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import fcntl
 import json
+import math
 import os
+import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -31,6 +33,7 @@ from .build_jobs import (
 )
 from .build_package_stage import VerifyPackageStagePort, package_receipt, package_root
 from .build_stage_receipt import canonical_json, hash_file
+from .build_studio_parent_driver import ParentStudioDriver
 from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
 from .workflow_v2_parent import PARENT_STATE_ROOT
 from .workflow_v2_parent import status as parent_status
@@ -44,6 +47,12 @@ class NativeAuthorization:
     request_id: str
     approved_nonproduction: bool = False
     route: str = "None"
+    # Older injected-None hosts do not have a backend submission. The Local
+    # parent route requires each of these scoped, independently supplied pins.
+    job_id: str | None = None
+    target_id: str | None = None
+    expires_at: float | None = None
+    current_authority: Callable[[], bool] | None = field(default=None, repr=False)
 
 
 class NativeDriver(Protocol):
@@ -159,6 +168,80 @@ def _verified_result(
     )
 
 
+def _intent_body(
+    context: StageContext,
+    snapshot: FrozenBuildSnapshot,
+    auth: NativeAuthorization,
+    target: Mapping[str, Any],
+    digest: str,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": "vera-native-build-intent/v1",
+        "stageKey": context.stage_key,
+        "jobId": context.job_id,
+        "targetId": auth.target_id or target["timelineName"],
+        "requestId": auth.request_id,
+        "attestationSha256": digest,
+        "snapshotSha256": snapshot.sha256,
+        "projectName": target["projectName"],
+        "timelineName": target["timelineName"],
+        "route": auth.route,
+    }
+
+
+def _check_authority(
+    auth: NativeAuthorization,
+    context: StageContext,
+    snapshot: FrozenBuildSnapshot,
+    digest: str,
+) -> None:
+    if (
+        not auth.approved_nonproduction
+        or auth.route not in ("None", "Local")
+        or auth.project_id != snapshot.project_id
+        or auth.snapshot_id != snapshot.snapshot_id
+        or auth.attestation_sha256 != digest
+        or (auth.job_id is not None and auth.job_id != context.job_id)
+        or (auth.target_id is None) != (auth.job_id is None)
+    ):
+        raise NeedsAction(
+            "explicit exact native job/snapshot/attestation authority required"
+        )
+    if auth.target_id is not None:
+        try:
+            if hash_file(snapshot.file("submission")) != snapshot.input_hashes.get(
+                "submission"
+            ):
+                raise NeedsAction("frozen native submission bytes changed")
+            submission = json.loads(snapshot.file("submission").read_bytes())
+        except (OSError, ValueError) as error:
+            raise NeedsAction("native submission authority unavailable") from error
+        if (
+            not isinstance(submission, dict)
+            or submission.get("jobId") != context.job_id
+            or submission.get("targetId") != auth.target_id
+            or submission.get("mode") != "studio"
+        ):
+            raise NeedsAction("native target does not match frozen submission")
+    if auth.route == "Local" and (
+        not auth.job_id
+        or not auth.target_id
+        or auth.expires_at is None
+        or auth.current_authority is None
+    ):
+        raise NeedsAction(
+            "Local native authority requires current job/target and expiry"
+        )
+    if auth.expires_at is not None and (
+        type(auth.expires_at) not in (int, float)
+        or not math.isfinite(auth.expires_at)
+        or time.time() >= auth.expires_at
+    ):
+        raise NeedsAction("native authorization expired")
+    if auth.current_authority is not None and auth.current_authority() is not True:
+        raise NeedsAction("native current authority revoked or stale")
+
+
 class _HostReservation:
     """Host-wide shared parent lock; retain unresolved records indefinitely."""
 
@@ -194,6 +277,8 @@ class _HostReservation:
                     raise NeedsAction(
                         "another native parent request remains active or uncertain"
                     )
+                if state["state"] == "terminal" and state.get("verified") is not True:
+                    raise NeedsAction("prior native parent ended unverified")
             record = self.root / "composition-active.json"
             if record.exists():
                 prior = json.loads(record.read_bytes())
@@ -260,19 +345,18 @@ class BuildStudioStagePort:
         self.driver = driver
         self.reservation = _HostReservation(host_state)
 
-    def _authorized(self, snapshot: FrozenBuildSnapshot, digest: str) -> None:
-        auth = self.authorization
-        if (
-            not auth.approved_nonproduction
-            or auth.route != "None"
-            or auth.project_id != snapshot.project_id
-            or auth.snapshot_id != snapshot.snapshot_id
-            or auth.attestation_sha256 != digest
+    def _authorized(
+        self, context: StageContext, snapshot: FrozenBuildSnapshot, digest: str
+    ) -> None:
+        _check_authority(self.authorization, context, snapshot, digest)
+        if self.authorization.route == "Local" and not isinstance(
+            self.driver, ParentStudioDriver
         ):
-            raise NeedsAction(
-                "explicit frozen nonproduction native authorization "
-                "and installed None route required"
-            )
+            raise NeedsAction("Local route requires #302 guarded parent")
+        if self.authorization.route == "None" and isinstance(
+            self.driver, ParentStudioDriver
+        ):
+            raise NeedsAction("injected None route cannot dispatch Local parent")
 
     def inspect(
         self, context: StageContext, snapshot: FrozenBuildSnapshot
@@ -290,15 +374,11 @@ class BuildStudioStagePort:
                     EffectState.UNCERTAIN, reason="native result without one-use intent"
                 )
             return Inspection(EffectState.ABSENT)
+        # Reconciliation is read-only, but it cannot promote a result after
+        # local native authorization or the current frozen scope was revoked.
+        self._authorized(context, snapshot, digest)
         if intent.read_bytes() != canonical_json(
-            {
-                "schemaVersion": "vera-native-build-intent/v1",
-                "stageKey": context.stage_key,
-                "requestId": self.authorization.request_id,
-                "attestationSha256": digest,
-                "snapshotSha256": snapshot.sha256,
-                "projectName": target["projectName"],
-            }
+            _intent_body(context, snapshot, self.authorization, target, digest)
         ):
             raise BuildJobError("native one-use request identity changed")
         if not result_path.is_file():
@@ -334,7 +414,11 @@ class BuildStudioStagePort:
             EffectState.VERIFIED,
             StageEvidence(
                 adapter_id="resolve-v2",
-                adapter_version="injected-none/v2",
+                adapter_version=(
+                    "parent-local/v1"
+                    if self.authorization.route == "Local"
+                    else "injected-none/v2"
+                ),
                 inputs={
                     "attestation": attestation,
                     "packageVerification": package_receipt(context, snapshot),
@@ -346,7 +430,7 @@ class BuildStudioStagePort:
 
     def execute(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> None:
         attestation, digest, target = _target(context, snapshot)
-        self._authorized(snapshot, digest)
+        self._authorized(context, snapshot, digest)
         if (
             not self.authorization.request_id
             or any(
@@ -369,14 +453,7 @@ class BuildStudioStagePort:
         publish_immutable_output(
             intent,
             canonical_json(
-                {
-                    "schemaVersion": "vera-native-build-intent/v1",
-                    "stageKey": context.stage_key,
-                    "requestId": self.authorization.request_id,
-                    "attestationSha256": digest,
-                    "snapshotSha256": snapshot.sha256,
-                    "projectName": target["projectName"],
-                }
+                _intent_body(context, snapshot, self.authorization, target, digest)
             ),
         )
         preflight = self.driver.preflight(
@@ -390,16 +467,21 @@ class BuildStudioStagePort:
                 "read-only native preflight did not pass; reserved target retained"
             )
         context.renew_lease()
+        # The authority may be withdrawn while preparing the package or waiting
+        # for host dispatch. Recheck immediately before the one native write.
+        self._authorized(context, snapshot, digest)
         result = self.driver.start(attestation, digest, self.authorization.request_id)
         result_path = _stage_file(
             context, snapshot, context.stage, "native-result.json"
         )
-        publish_immutable_output(result_path, canonical_json(dict(result)))
         if not _verified_result(result, target, digest):
-            raise NeedsAction(
-                "native build returned unverified or partial target; "
-                "do not retry mutation"
+            # A Local parent can still be live after this foreground call.
+            # Retain intent only; its later status can be reattached read-only.
+            raise UncertainResult(
+                "native build live, unknown or unverified; "
+                "inspect existing parent, never restart"
             )
+        publish_immutable_output(result_path, canonical_json(dict(result)))
         # The synchronous build result alone cannot release host-wide native
         # exclusion. Retain the reservation until a separate connected
         # save/reopen readback has verified this same target.
@@ -419,15 +501,14 @@ class VerifyStudioStagePort:
         self.driver = driver
         self.reservation = _HostReservation(host_state)
 
-    def _authorized(self, snapshot: FrozenBuildSnapshot, digest: str) -> None:
-        if (
-            not self.authorization.approved_nonproduction
-            or self.authorization.project_id != snapshot.project_id
-            or self.authorization.snapshot_id != snapshot.snapshot_id
-            or self.authorization.attestation_sha256 != digest
-            or self.authorization.route != "None"
+    def _authorized(
+        self, context: StageContext, snapshot: FrozenBuildSnapshot, digest: str
+    ) -> None:
+        _check_authority(self.authorization, context, snapshot, digest)
+        if self.authorization.route == "Local" and not isinstance(
+            self.driver, ParentStudioDriver
         ):
-            raise NeedsAction("native readback authorization changed")
+            raise NeedsAction("Local readback requires #302 guarded parent")
 
     def inspect(
         self, context: StageContext, snapshot: FrozenBuildSnapshot
@@ -435,7 +516,7 @@ class VerifyStudioStagePort:
         if context.stage != "verifying_timeline":
             raise BuildJobError("wrong native verification stage")
         attestation, digest, target = _target(context, snapshot)
-        self._authorized(snapshot, digest)
+        self._authorized(context, snapshot, digest)
         record = _stage_file(context, snapshot, context.stage, "native-readback.json")
         if not record.exists():
             return Inspection(EffectState.ABSENT)
@@ -458,7 +539,11 @@ class VerifyStudioStagePort:
             EffectState.VERIFIED,
             StageEvidence(
                 adapter_id="resolve-v2-readback",
-                adapter_version="injected-none-readback/v2",
+                adapter_version=(
+                    "parent-local-readback/v1"
+                    if self.authorization.route == "Local"
+                    else "injected-none-readback/v2"
+                ),
                 inputs={
                     "attestation": attestation,
                     "nativeResult": _stage_file(
@@ -475,7 +560,7 @@ class VerifyStudioStagePort:
 
     def execute(self, context: StageContext, snapshot: FrozenBuildSnapshot) -> None:
         attestation, digest, target = _target(context, snapshot)
-        self._authorized(snapshot, digest)
+        self._authorized(context, snapshot, digest)
         context.renew_lease()
         result = self.driver.readback(
             attestation, digest, self.authorization.request_id

@@ -76,7 +76,15 @@ def test_studio_requires_exact_frozen_snapshot_before_first_effect(
 ) -> None:
     transport = FakeTransport(data=manifest("studio"))
     port = FakePort()
-    wrong = NativeAuthorization(PROJECT, "0" * 64, "f" * 64, "request-one", True)
+    wrong = NativeAuthorization(
+        PROJECT,
+        "0" * 64,
+        "f" * 64,
+        "request-one",
+        True,
+        job_id=JOB,
+        target_id=transport.data["targetId"],
+    )
     agent = fake_agent(tmp_path, transport, port, native=wrong)
     assert agent.run_one(JOB) == "needs_action"
     assert port.calls == 0
@@ -85,7 +93,15 @@ def test_studio_requires_exact_frozen_snapshot_before_first_effect(
     snapshot_id = snapshots[0].stem
     assert agent.store.database.exists()
 
-    approved = NativeAuthorization(PROJECT, snapshot_id, "f" * 64, "request-one", True)
+    approved = NativeAuthorization(
+        PROJECT,
+        snapshot_id,
+        "f" * 64,
+        "request-one",
+        True,
+        job_id=JOB,
+        target_id=transport.data["targetId"],
+    )
     restarted = fake_agent(tmp_path, transport, port, native=approved)
     assert restarted.run_one(JOB, resumed_epoch=1, resumed_digest=SNAPSHOT) == "queued"
     assert port.calls == 1
@@ -149,6 +165,55 @@ def test_missing_studio_readback_port_refuses_without_native_effect(
     )
     assert agent.run_one(JOB) == "needs_action"
     assert port.calls == 0
+
+
+def test_service_refuses_a_different_native_port_permission_or_driver(
+    tmp_path: Path,
+) -> None:
+    transport = FakeTransport(data=manifest("studio"))
+    fake = FakePort()
+    approved = NativeAuthorization(
+        PROJECT,
+        "a" * 64,
+        "b" * 64,
+        "request",
+        True,
+        job_id=JOB,
+        target_id=transport.data["targetId"],
+    )
+    changed = NativeAuthorization(
+        PROJECT,
+        "a" * 64,
+        "b" * 64,
+        "substituted",
+        True,
+        job_id=JOB,
+        target_id=transport.data["targetId"],
+    )
+    first_driver = cast(NativeDriver, object())
+    other_driver = cast(NativeDriver, object())
+    for authorization, verifier_driver in (
+        (changed, first_driver),
+        (approved, other_driver),
+    ):
+        ports: dict[str, Any] = {stage: fake for stage in CORE_STAGES}
+        ports["building_resolve_timeline"] = BuildStudioStagePort(
+            approved, first_driver, host_state=tmp_path / "host"
+        )
+        ports["verifying_timeline"] = VerifyStudioStagePort(
+            authorization, verifier_driver, host_state=tmp_path / "host"
+        )
+        service = LocalBuildAgentService(
+            tmp_path / f"service-{authorization.request_id}-{id(verifier_driver)}",
+            PROJECT,
+            transport,
+            ports,
+            {"synthetic": "v1"},
+            input_authority=FakeInputAuthority(transport),
+            native_authorization=approved,
+        )
+        assert service.run_one(JOB) == "needs_action"
+    assert fake.calls == 0
 
 
 def test_qualified_real_ports_pin_only_accepted_versions(tmp_path: Path) -> None:

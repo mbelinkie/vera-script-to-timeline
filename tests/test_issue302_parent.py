@@ -419,6 +419,24 @@ def test_start_requires_local_scripting_authority_before_dispatch(
         _close_fds(held_fds)
 
 
+def test_parent_request_changed_after_pinning_never_starts_or_resumes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request_path, expected, _manifest, evidence, request = _case(tmp_path)
+    commands, held_fds = _patch_popen(monkeypatch)
+    request["projectName"] = "substituted target"
+    request_path.write_text(json.dumps(request, sort_keys=True))
+    try:
+        with pytest.raises(ValueError, match="request changed"):
+            workflow_v2_parent.start(request_path, expected, Path("ResolvePython"))
+        assert workflow_v2_parent.status(request_path, expected)["state"] == "unknown"
+        assert workflow_v2_parent.wait(request_path, expected, 0)["verified"] is False
+        assert commands == []
+        assert not (evidence / "parent.json").exists()
+    finally:
+        _close_fds(held_fds)
+
+
 @pytest.mark.parametrize("rendering", [True, None])
 def test_worker_refuses_active_or_uncertain_render_before_launcher(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendering: bool | None
