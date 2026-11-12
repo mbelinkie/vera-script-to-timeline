@@ -378,7 +378,9 @@ def _external_resolve() -> Any:
     return cast(Any, adapter).resolve
 
 
-def _require_workflow_status(result: dict[str, Any], expected: str) -> None:
+def _require_workflow_status(
+    result: dict[str, Any], expected: str, *, existing_project: bool = False
+) -> None:
     if result.get("status") == expected and (
         expected != "verified"
         or (
@@ -390,8 +392,15 @@ def _require_workflow_status(result: dict[str, Any], expected: str) -> None:
         return
     if result.get("partialTargetRetained"):
         raise UncertainResult(
-            "Resolve native write is uncertain; partial disposable project retained"
+            "Resolve native write is uncertain; named existing project retained; "
+            "inspect it before another attempt"
+            if existing_project
+            else (
+                "Resolve native write is uncertain; partial disposable project retained"
+            )
         )
+    if isinstance(result.get("refusal"), str):
+        raise NeedsAction(result["refusal"])
     if (
         result.get("sourceAudioPresent") is True
         and result.get("sourceAudioNativeQualified") is False
@@ -408,9 +417,12 @@ def _require_workflow_status(result: dict[str, Any], expected: str) -> None:
 
 
 def deliver_compiled(
-    compiled: CompileResult, *, timings: StageTimings
+    compiled: CompileResult,
+    *,
+    timings: StageTimings,
+    existing_project: str | None = None,
 ) -> DeliveryResult:
-    """Package immutable compiler bytes, then build exactly one new Studio project."""
+    """Package immutable bytes and create one new Studio timeline target."""
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
@@ -456,10 +468,16 @@ def deliver_compiled(
         preflight = timings.run(
             "preflight",
             lambda: run_workflow_delivery_v2(
-                resolve, attestation, digest, external_scripting="Local"
+                resolve,
+                attestation,
+                digest,
+                external_scripting="Local",
+                existing_project=existing_project,
             ),
         )
-        _require_workflow_status(preflight, "preflight_passed")
+        _require_workflow_status(
+            preflight, "preflight_passed", existing_project=existing_project is not None
+        )
         native = run_workflow_delivery_v2(
             resolve,
             attestation,
@@ -467,15 +485,18 @@ def deliver_compiled(
             action="build",
             authorize_new_nonproduction=True,
             external_scripting="Local",
+            existing_project=existing_project,
             stage_observer=lambda label, elapsed, passed: timings.record(
                 label, elapsed, passed=passed
             ),
         )
-        _require_workflow_status(native, "verified")
+        _require_workflow_status(
+            native, "verified", existing_project=existing_project is not None
+        )
 
     timeline = checked.manifest["timeline"]
     return DeliveryResult(
-        project_name=checked.attestation["projectName"],
+        project_name=existing_project or checked.attestation["projectName"],
         timeline_name=checked.attestation["timelineName"],
         frames=timeline["durationFrames"],
         numerator=timeline["frameRate"]["numerator"],
@@ -484,6 +505,8 @@ def deliver_compiled(
 
 
 def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
-    if options.existing_project is not None:
-        raise NeedsAction("named existing project builds are implemented in phase 3")
-    return deliver_compiled(compile_prepared(options, timings=timings), timings=timings)
+    return deliver_compiled(
+        compile_prepared(options, timings=timings),
+        timings=timings,
+        existing_project=options.existing_project,
+    )

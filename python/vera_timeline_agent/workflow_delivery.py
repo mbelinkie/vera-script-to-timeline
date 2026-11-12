@@ -6,6 +6,7 @@ import platform
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
@@ -26,6 +27,91 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
         super().__init__(resolve)
         self.expected_project_id: str | None = None
         self.expected_timeline_id: str | None = None
+        self.existing_project_mode = False
+        self.previous_timelines: tuple[tuple[str, str], ...] = ()
+
+    @staticmethod
+    def _timeline_inventory(project: Any) -> tuple[tuple[str, str], ...]:
+        count = project.GetTimelineCount()
+        if type(count) is not int or count < 0:
+            raise ValueError("existing project timeline count is unavailable")
+        rows: list[tuple[str, str]] = []
+        for index in range(1, count + 1):
+            timeline = project.GetTimelineByIndex(index)
+            if timeline is None:
+                raise ValueError("existing project timeline inventory is unavailable")
+            uid, name = timeline.GetUniqueId(), timeline.GetName()
+            if (
+                not isinstance(uid, str)
+                or not uid
+                or not isinstance(name, str)
+                or not name
+            ):
+                raise ValueError("existing timeline identity is unavailable")
+            rows.append((uid, name))
+        if (
+            len({uid for uid, _ in rows}) != count
+            or len({name for _, name in rows}) != count
+        ):
+            raise ValueError("existing project has ambiguous timeline identities")
+        return tuple(rows)
+
+    def preflight_existing_project(
+        self, project_name: str, settings: Mapping[str, str], timeline_name: str
+    ) -> None:
+        """Require the *already open* named project; no LoadProject or SetSetting."""
+        names = self.manager.GetProjectListInCurrentFolder()
+        current = self.manager.GetCurrentProject()
+        if (
+            not isinstance(names, (list, tuple))
+            or names.count(project_name) != 1
+            or current is None
+            or current.GetName() != project_name
+        ):
+            raise ValueError("named existing project must be uniquely listed and open")
+        project_uid = current.GetUniqueId()
+        if not isinstance(project_uid, str) or not project_uid:
+            raise ValueError("named existing project has no unique identity")
+        for key, expected in settings.items():
+            actual = current.GetSetting(key)
+            if not isinstance(actual, str) or not actual:
+                raise ValueError("existing project setting is unavailable")
+            if key == "timelineFrameRate":
+                try:
+                    same = Decimal(actual) == Decimal(expected)
+                except InvalidOperation:
+                    same = False
+            else:
+                same = actual == expected
+            if not same:
+                raise ValueError("existing project rate or settings differ from script")
+        previous = self._timeline_inventory(current)
+        if timeline_name in {name for _, name in previous}:
+            raise ValueError("new timeline name collides with an existing timeline")
+        pool = current.GetMediaPool()
+        if pool is None or pool.GetRootFolder() is None:
+            raise ValueError("existing project has no available media pool")
+        root = pool.GetRootFolder()
+        if any(
+            folder.GetName() == f"VERA {timeline_name}"
+            for folder in root.GetSubFolderList()
+        ):
+            raise ValueError("new VERA media bin name already exists")
+        self.project = current
+        self.pool = pool
+        self.expected_project_id = project_uid
+        self.expected_project_name = project_name
+        self.expected_settings = dict(settings)
+        self.previous_timelines = previous
+        self.existing_project_mode = True
+        self.assert_current_target()
+
+    def create_bin(self, name: str) -> None:
+        if self.existing_project_mode and not self.created_bins:
+            self.assert_current_target()
+            if not self.pool.SetCurrentFolder(self.pool.GetRootFolder()):
+                raise ValueError("cannot select existing project root media bin")
+        super().create_bin(name)
 
     def create_project(self, name: str) -> None:
         super().create_project(name)
@@ -36,11 +122,23 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
         self.assert_current_target()
 
     def create_timeline(self, name: str) -> None:
+        if self.existing_project_mode:
+            self.assert_current_target()
+            if self._timeline_inventory(self.project) != self.previous_timelines:
+                raise ValueError("existing timeline inventory changed before creation")
         super().create_timeline(name)
         identity = self.timeline.GetUniqueId()
         if not isinstance(identity, str) or not identity:
             raise ValueError("created timeline has no unique identity")
         self.expected_timeline_id = identity
+        if self.existing_project_mode:
+            inventory = self._timeline_inventory(self.project)
+            if inventory != (*self.previous_timelines, (identity, name)):
+                raise ValueError(
+                    "new timeline creation changed earlier timeline identities"
+                )
+            if not self.project.SetCurrentTimeline(self.timeline):
+                raise ValueError("could not select the newly created timeline")
         self.assert_current_target()
 
     def assert_current_target(self) -> None:
@@ -56,9 +154,23 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
             timeline = current.GetCurrentTimeline()
             if timeline is None or timeline.GetUniqueId() != self.expected_timeline_id:
                 raise ValueError("current timeline changed; refusing native mutation")
+        if self.existing_project_mode:
+            expected = self.previous_timelines
+            if self.expected_timeline_id is not None:
+                expected = (
+                    *expected,
+                    (self.expected_timeline_id, cast(str, self.expected_timeline_name)),
+                )
+            if self._timeline_inventory(current) != expected:
+                raise ValueError("existing project timeline inventory changed")
 
     def save_close_reopen(self, project_name: str) -> None:
         self.assert_current_target()
+        if self.existing_project_mode and self._timeline_inventory(self.project) != (
+            *self.previous_timelines,
+            (self.expected_timeline_id, self.expected_timeline_name),
+        ):
+            raise ValueError("existing timeline inventory changed before save")
         if not self.manager.SaveProject():
             raise ValueError("SaveProject failed")
         self.assert_current_target()
@@ -69,7 +181,19 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
             raise ValueError("LoadProject failed after close")
         if self.project.GetUniqueId() != self.expected_project_id:
             raise ValueError("reopened project unique identity differs")
-        if self.project.GetTimelineCount() != 1:
+        if self.existing_project_mode:
+            inventory = self._timeline_inventory(self.project)
+            if inventory != (
+                *self.previous_timelines,
+                (self.expected_timeline_id, self.expected_timeline_name),
+            ):
+                raise ValueError("reopened project changed timeline identities")
+            target = self.project.GetTimelineByIndex(len(inventory))
+            if target is None or target.GetUniqueId() != self.expected_timeline_id:
+                raise ValueError("reopened new timeline identity differs")
+            if not self.project.SetCurrentTimeline(target):
+                raise ValueError("cannot select reopened new timeline")
+        elif self.project.GetTimelineCount() != 1:
             raise ValueError("reopened project must contain exactly one timeline")
         self.pool = self.project.GetMediaPool()
         self.timeline = self.project.GetCurrentTimeline()

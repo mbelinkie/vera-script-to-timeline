@@ -51,7 +51,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             denominator=completed.denominator,
             passed=True,
         )
-        print("New Studio project saved and independently verified.")
+        print(
+            "New timeline in named Studio project saved and independently verified."
+            if options.existing_project is not None
+            else "New Studio project saved and independently verified."
+        )
         return 0
     except (BuildJobError, NeedsAction, UncertainResult) as error:
         timings.fail()

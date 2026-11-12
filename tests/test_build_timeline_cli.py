@@ -17,6 +17,7 @@ from vera_timeline_agent.build_stage_receipt import hash_file
 from vera_timeline_agent.build_timeline_once import (
     BuildOptions,
     CompileResult,
+    DeliveryResult,
     PreparedInputs,
     StageTimings,
     compile_prepared,
@@ -338,6 +339,69 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
     assert {key: created[key] for key in first_snapshot} == first_snapshot
 
 
+def test_named_existing_project_is_used_only_by_explicit_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    monkeypatch.setattr(build_timeline_once, "_external_resolve", object)
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_workflow(
+        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        calls.append(
+            (kwargs.get("action", "preflight"), kwargs.get("existing_project"))
+        )
+        if kwargs.get("action") != "build":
+            return {"status": "preflight_passed"}
+        for stage in ("build", "save/reopen", "verify"):
+            kwargs["stage_observer"](stage, 0.01, True)
+        return {
+            "status": "verified",
+            "verified": True,
+            "discrepancies": [],
+            "partialTargetRetained": False,
+        }
+
+    monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
+    result = deliver_compiled(
+        compiled,
+        timings=StageTimings(emit=lambda _: None),
+        existing_project="Review Project",
+    )
+    assert result.project_name == "Review Project"
+    assert result.timeline_name != result.project_name
+    assert calls == [("preflight", "Review Project"), ("build", "Review Project")]
+
+
+def test_cli_existing_project_output_and_bad_name(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    observed: list[BuildOptions] = []
+
+    def fake_build(submitted: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        observed.append(submitted)
+        return DeliveryResult("Review Project", "VERA New", 250, 25, 1)
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", fake_build)
+    arguments = ["--script", str(options.script), "--output", str(options.output)]
+    assert (
+        build_timeline_cli.main([*arguments, "--existing-project", "Review Project"])
+        == 0
+    )
+    output = capsys.readouterr()
+    assert "New timeline in named Studio project" in output.out
+    assert "PASS: 250 frames" in output.out
+    assert observed[0].existing_project == "Review Project"
+    assert (
+        build_timeline_cli.main([*arguments, "--existing-project", " Review Project "])
+        == 2
+    )
+    assert len(observed) == 1
+    assert "invalid existing project name" in capsys.readouterr().err
+
+
 def test_absent_resolve_refuses_after_packaging_without_any_native_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -433,6 +497,20 @@ def test_only_real_audio_and_fractional_refusals_get_specific_messages() -> None
     refused["nativeRateQualified"] = False
     with pytest.raises(NeedsAction, match="fractional"):
         build_timeline_once._require_workflow_status(refused, "verified")
+    with pytest.raises(NeedsAction, match="project rate or settings"):
+        build_timeline_once._require_workflow_status(
+            {
+                "status": "stopped_safely",
+                "refusal": "existing project rate or settings differ from script",
+            },
+            "preflight_passed",
+        )
+    with pytest.raises(UncertainResult, match="named existing project retained"):
+        build_timeline_once._require_workflow_status(
+            {"status": "mutation_failed", "partialTargetRetained": True},
+            "verified",
+            existing_project=True,
+        )
 
 
 def test_native_verified_status_without_independent_verification_is_uncertain() -> None:

@@ -2251,6 +2251,10 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 or Path(actual_path).resolve() != expected_path
             ):
                 discrepancies.append("media-path")
+        if getattr(self, "existing_project_mode", False):
+            # Older timelines may legitimately use their own media bins.
+            # Verify our unique new bin above, never claim ownership of theirs.
+            return
         pending = [self.pool.GetRootFolder()]
         while pending:
             current = pending.pop()
@@ -2642,8 +2646,9 @@ def run_workflow_delivery_v2(
     adapter_factory: Callable[[Any], Any] | None = None,
     allow_fractional_native: bool = False,
     stage_observer: Callable[[str, float, bool], None] | None = None,
+    existing_project: str | None = None,
 ) -> dict[str, Any]:
-    """Preflight or create one authorized new nonproduction Resolve project."""
+    """Preflight/build one new target, optionally in the named open project."""
     result: dict[str, Any] = {
         "schemaVersion": "vera-injected-delivery-result/v2",
         "deliveryVersion": DELIVERY_VERSION,
@@ -2749,6 +2754,10 @@ def run_workflow_delivery_v2(
             )
         native_otio = _requires_native_otio(view)
         result["nativeOtioMotionRoute"] = native_otio
+        if existing_project is not None and native_otio:
+            raise WorkflowV2Error(
+                "whole-timeline native OTIO is unsafe inside an existing project"
+            )
         result["nativeOtioMixedStillsQualified"] = not (
             native_otio and _native_otio_has_unqualified_plain_stills(view)
         )
@@ -2794,7 +2803,13 @@ def run_workflow_delivery_v2(
             )
         result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
-        adapter.check_project_name_available(attestation["projectName"])
+        if existing_project is None:
+            adapter.check_project_name_available(attestation["projectName"])
+        else:
+            adapter.preflight_existing_project(
+                existing_project, settings, attestation["timelineName"]
+            )
+            result["projectName"] = existing_project
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed during preflight")
         if action == "preflight":
@@ -2846,10 +2861,13 @@ def run_workflow_delivery_v2(
             return method(*arguments)
 
         observe_next("build")
-        mutate(
-            adapter.create_project, attestation["projectName"], label="create project"
-        )
-        mutate(adapter.configure_project, settings, label="configure project")
+        if existing_project is None:
+            mutate(
+                adapter.create_project,
+                attestation["projectName"],
+                label="create project",
+            )
+            mutate(adapter.configure_project, settings, label="configure project")
         if native_otio:
             # Import the whole attested OTIO once. AppendToTimeline's still
             # duration is not exact on Studio, and mixing the two routes would
@@ -2875,7 +2893,11 @@ def run_workflow_delivery_v2(
                 raise WorkflowV2Error("native OTIO changed during one-shot import")
         else:
             mutate(
-                adapter.create_bin, "VERA Studio Assembly", label="create assembly bin"
+                adapter.create_bin,
+                "VERA Studio Assembly"
+                if existing_project is None
+                else f"VERA {attestation['timelineName']}",
+                label="create assembly bin",
             )
             mutate(
                 adapter.create_bin, "Package Media", label="create package media bin"
@@ -2901,26 +2923,57 @@ def run_workflow_delivery_v2(
         observe_next("save/reopen")
         mutate(
             adapter.save_close_reopen,
-            attestation["projectName"],
+            existing_project or attestation["projectName"],
             label="save close and reopen",
         )
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed after native save and reopen")
         observe_next("verify")
+        if existing_project is not None:
+            adapter.assert_current_target()
         discrepancies = tuple(adapter.verify(view))
+        if existing_project is not None:
+            adapter.assert_current_target()
         observe_next(None, succeeded=not discrepancies)
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"
         result["partialTargetRetained"] = bool(discrepancies)
-        result["message"] = (
-            "The new project was saved, reopened, and checked against the v2 package."
-            if not discrepancies
-            else "Resolve readback differed; the partial target was retained."
-        )
+        if discrepancies:
+            result["message"] = (
+                "Resolve readback differed; the partial target was retained."
+            )
+        elif existing_project is not None:
+            result["message"] = (
+                "The new timeline was saved and verified against the v2 package."
+            )
+        else:
+            result["message"] = (
+                "The new project was saved and verified against the v2 package."
+            )
     except Exception as error:
         if observed_stage is not None:
             observe_next(None, succeeded=False)
+        if existing_project is not None and not mutation_started:
+            safe_refusals = {
+                "existing project timeline count is unavailable",
+                "existing project timeline inventory is unavailable",
+                "existing timeline identity is unavailable",
+                "existing project has ambiguous timeline identities",
+                "named existing project must be uniquely listed and open",
+                "named existing project has no unique identity",
+                "existing project setting is unavailable",
+                "existing project rate or settings differ from script",
+                "new timeline name collides with an existing timeline",
+                "existing project has no available media pool",
+                "new VERA media bin name already exists",
+                "current project changed; refusing native mutation",
+                "existing project timeline inventory changed",
+                "whole-timeline native OTIO is unsafe inside an existing project",
+            }
+            # Only fixed, locally authored errors reach output, never SDK data.
+            if str(error) in safe_refusals:
+                result["refusal"] = str(error)
         result["status"] = "mutation_failed" if mutation_started else "stopped_safely"
         result["partialTargetRetained"] = mutation_started
         result["failureType"] = type(error).__name__

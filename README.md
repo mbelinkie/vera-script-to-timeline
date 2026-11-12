@@ -59,6 +59,55 @@ Use `npm install` only when intentionally changing JavaScript dependencies and
 `uv lock` only when intentionally changing Python dependencies. Commit the
 corresponding lockfile change with the dependency change.
 
+## One command: build a VERA v2 script in Resolve Studio
+
+Prepare a **v2 structured script JSON**, local media and narration in advance.
+The input directory must contain `compiler-dependencies.json` (prepared media
+and narration timing), `preparation-paths.json`, and `media-paths.json`, with
+absolute paths to local assets. Optional matching `media-needs.json` and
+`media-needs.dependencies.json` may be included. The command **does not**
+interpret prose, download footage or call a paid narration provider.
+
+With **DaVinci Resolve Studio 21.1.1 build 10** running, External Scripting set
+to **Local**, and an existing project open on a timeline page, run from the
+repository checkout after the bootstrap commands above:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
+  --script "/absolute/path/to/script-document.json" \
+  --inputs "/absolute/path/to/prepared-inputs" \
+  --output "/absolute/path/to/unused-result-directory"
+```
+
+By default, this builds a uniquely named **new project and timeline**. To add
+only a new timeline to a named **existing project**, first open that precise
+project in Resolve, then add:
+
+```sh
+  --existing-project "Name of already open Resolve project"
+```
+
+The named project must be uniquely listed in the current Project Manager folder
+and its frame rate, resolution and audio sample rate must match the script.
+Any existing timeline-name or new-media-bin collision is refused before writes.
+Old timelines are never selected for editing; their UID/name inventory must
+remain unchanged across the save/close/reopen check. Each run requires a fresh
+`--output` directory and creates a distinct new timeline, leaving older ones
+intact. **Save or back up any unrelated in-progress edits first**: existing mode
+saves and briefly closes/reopens the named project as part of verification.
+**Whole-timeline native OTIO imports** are refused in existing-project
+mode because they cannot safely target a nonempty project using this SDK route.
+
+The command prints `preparation`, `media needs`, `compile`, `package`,
+`attest`, `connect`, `preflight`, `build`, `save/reopen`, and `verify` with
+elapsed seconds, followed by the timeline frame count, duration and overall
+PASS/FAIL. It exits nonzero if Resolve is closed, media is missing, the project
+is incompatible or any structural check fails. A possibly partial native write
+is retained, never retried or deleted automatically. No render or audio
+comparison is performed. Native source audio and unqualified fractional-rate
+timeline creation still refuse explicitly; this command does not bypass those
+product limitations.
+
 ## Validation
 
 Testing, review and merge rules are in [AGENTS.md](AGENTS.md) and
