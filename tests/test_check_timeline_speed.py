@@ -112,6 +112,62 @@ def test_main_stops_after_a_failed_build(
     assert calls[0][calls[0].index("--script") + 1] == "short.json"
 
 
+def test_main_runs_long_case_after_short_misses_speed_bar_and_exits_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = load()
+    calls: list[list[str]] = []
+
+    def fake_run(
+        command: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        output = (
+            build_output(duration="10.000", total="10.50")
+            if command[command.index("--script") + 1] == "short.json"
+            else build_output()
+        )
+        return subprocess.CompletedProcess(command, 0, output)
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", cli_args(tmp_path / "run"))
+
+    assert module.main() == 1
+    assert [call[call.index("--script") + 1] for call in calls] == [
+        "short.json",
+        "long.json",
+    ]
+
+    printed = capsys.readouterr().out
+    assert "| short | 10.000 | 0.40 | 10.50 | FAIL |" in printed
+    assert "| long | 30.000 | 0.40 | 20.00 | PASS |" in printed
+
+
+def test_main_stops_after_an_unverifiable_build(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load()
+    calls: list[list[str]] = []
+
+    def unverifiable_run(
+        command: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            command, 0, "Resolve step + check: PASS (0.40s)\n"
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", unverifiable_run)
+    monkeypatch.setattr(sys, "argv", cli_args(tmp_path / "run"))
+
+    assert module.main() == 1
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("--script") + 1] == "short.json"
+
+
 def test_speed_gate_uses_full_build_total_not_resolve_step_duration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

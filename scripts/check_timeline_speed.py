@@ -10,7 +10,7 @@ STAGE = re.compile(r"^(.+): (PASS|FAIL) \(([0-9.]+)s\)$")
 DURATION = re.compile(r"^PASS: \d+ frames \(([0-9.]+)s timeline\); total ([0-9.]+)s$")
 
 
-def run_case(name: str, script: Path, inputs: Path, output: Path) -> bool:
+def run_case(name: str, script: Path, inputs: Path, output: Path) -> bool | None:
     command = [
         sys.executable,
         "-m",
@@ -51,7 +51,7 @@ def run_case(name: str, script: Path, inputs: Path, output: Path) -> bool:
         or duration <= 0
     ):
         print(f"{name}: FAIL — build or verification did not complete")
-        return False
+        return None
     # The command prints rounded values; do not pass a borderline result.
     passed = total + 0.005 < duration - 0.0005
     print("| Case | Timeline (s) | Resolve + check (s) | Total (s) | Result |")
@@ -75,15 +75,18 @@ def main() -> int:
     if args.output.exists():
         parser.error("output directory must not already exist")
     args.output.mkdir(parents=True)
+    passed = True
     for name in ("short", "long"):
-        if not run_case(
+        result = run_case(
             name,
             getattr(args, f"{name}_script"),
             getattr(args, f"{name}_inputs"),
             args.output / name,
-        ):
+        )
+        if result is None:
             return 1
-    return 0
+        passed = passed and result
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":
