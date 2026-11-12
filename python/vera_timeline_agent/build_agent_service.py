@@ -25,8 +25,17 @@ from urllib.request import (
     build_opener,
 )
 
+from .build_compile_stage import CompileStagePort
 from .build_composition import BuildComposition, SnapshotRepository, StagePort
-from .build_jobs import CORE_STAGES, BuildJobStore, BuildRequest
+from .build_jobs import CORE_STAGES, STUDIO_STAGES, BuildJobStore, BuildRequest
+from .build_media_stage import MediaStagePort
+from .build_narration_stage import NarrationStagePort
+from .build_package_stage import PackageStagePort, VerifyPackageStagePort
+from .build_studio_stage import (
+    BuildStudioStagePort,
+    NativeAuthorization,
+    VerifyStudioStagePort,
+)
 from .build_submission_inputs import (
     FrozenInputRefusal,
     TrustedBuildInputAuthority,
@@ -42,6 +51,69 @@ _MAX_RESPONSE = 2 * 1024 * 1024
 
 class AgentTransportRefusal(RuntimeError):
     """No remote error message, secret, local path, or SQL detail is exposed."""
+
+
+@dataclass(frozen=True)
+class QualifiedStagePipeline:
+    """Real #157 ports supplied by the trusted local host, never the manifest.
+
+    Media and provider authorization remain the ports' responsibility. Native
+    ports must share one explicit permission and connected driver; this class
+    does not mint permission or start Resolve.
+    """
+
+    narration: NarrationStagePort
+    media: MediaStagePort
+    package: PackageStagePort
+    studio_build: BuildStudioStagePort | None = None
+    studio_verify: VerifyStudioStagePort | None = None
+
+    def resolved(
+        self,
+    ) -> tuple[dict[str, StagePort], dict[str, str], NativeAuthorization | None]:
+        if (
+            type(self.narration) is not NarrationStagePort
+            or type(self.media) is not MediaStagePort
+            or type(self.package) is not PackageStagePort
+        ):
+            raise AgentTransportRefusal("qualified core build ports required")
+        ports: dict[str, StagePort] = {
+            "generating_speech": self.narration,
+            "resolving_media": self.media,
+            "compiling": CompileStagePort(),
+            "writing_interchange": self.package,
+            "verifying_import_package": VerifyPackageStagePort(),
+        }
+        versions = {
+            "narration-v2": self.narration.service.provider.adapter_version,
+            "prepare-media-v2": "authoring-media-preparation/v1",
+            "compiler-v2": "compiler/v2",
+            "v2-package": "v2-package/v1",
+            "v2-attestation": "vera-injected-delivery-attestation/v2",
+        }
+        if (self.studio_build is None) != (self.studio_verify is None):
+            raise AgentTransportRefusal("both native build and readback ports required")
+        native: NativeAuthorization | None = None
+        if self.studio_build is not None and self.studio_verify is not None:
+            if (
+                type(self.studio_build) is not BuildStudioStagePort
+                or type(self.studio_verify) is not VerifyStudioStagePort
+                or self.studio_build.driver is not self.studio_verify.driver
+                or self.studio_build.authorization != self.studio_verify.authorization
+            ):
+                raise AgentTransportRefusal("native ports do not share one authority")
+            native = self.studio_build.authorization
+            ports.update(
+                building_resolve_timeline=self.studio_build,
+                verifying_timeline=self.studio_verify,
+            )
+            versions.update(
+                **{
+                    "resolve-v2": "injected-none/v2",
+                    "resolve-v2-readback": "injected-none-readback/v2",
+                }
+            )
+        return ports, versions, native
 
 
 def _uuid(value: str) -> str:
@@ -354,16 +426,31 @@ class LocalBuildAgentService:
         adapter_versions: Mapping[str, str] | None = None,
         input_authority: TrustedBuildInputAuthority | None = None,
         accepted_source_roots: tuple[Path, ...] = (),
+        pipeline: QualifiedStagePipeline | None = None,
+        native_authorization: NativeAuthorization | None = None,
     ) -> None:
         self.root = _private_root(root)
         self.project_id = _uuid(project_id)
         self.transport = transport
+        if pipeline is not None:
+            if (
+                ports is not None
+                or adapter_versions is not None
+                or native_authorization is not None
+            ):
+                raise AgentTransportRefusal("ambiguous local stage configuration")
+            ports, adapter_versions, native_authorization = pipeline.resolved()
         self.ports = dict(ports or {})
         self.adapter_versions = dict(adapter_versions or {})
+        self.native_authorization = native_authorization
         self.input_authority = input_authority
         self.accepted_source_roots = accepted_source_roots
         if bool(self.ports) != bool(self.adapter_versions):
             raise AgentTransportRefusal("no independently pinned local adapters")
+        if self.ports and any(
+            name not in CORE_STAGES + STUDIO_STAGES[:2] for name in self.ports
+        ):
+            raise AgentTransportRefusal("unrequested render or delivery adapter")
         self.store = BuildJobStore(self.root / "jobs")
 
     def run_one(
@@ -386,9 +473,21 @@ class LocalBuildAgentService:
         manifest = _checked_frozen(
             self.transport.frozen(job_id, epoch), self.project_id, job_id, expected
         )
-        # #382 has no one-use Studio/native authorization API. Refuse even if a
-        # caller injected Studio ports; a transport lease is not native consent.
-        if manifest["mode"] != "free" or not self.ports:
+        # The backend lease is *never* permission to operate Resolve. #302's
+        # installed native ports need explicit local authority, independently
+        # pinned to this frozen snapshot below. No implicit render or upload.
+        native = self.native_authorization
+        if not self.ports or (
+            manifest["mode"] == "studio"
+            and (
+                not all(stage in self.ports for stage in STUDIO_STAGES[:2])
+                or not isinstance(native, NativeAuthorization)
+                or not native.approved_nonproduction
+                or native.route != "None"
+                or native.project_id != self.project_id
+                or not native.request_id
+            )
+        ):
             self.transport.progress(
                 job_id,
                 epoch,
@@ -509,7 +608,7 @@ class LocalBuildAgentService:
             project_id=self.project_id,
             build_id=job_id,
             build_class=manifest["buildClass"],
-            mode="free",
+            mode=manifest["mode"],
             settings_hash=manifest["settingsDigest"][7:],
             inputs={
                 **{
@@ -520,17 +619,37 @@ class LocalBuildAgentService:
             },
             adapter_versions=self.adapter_versions,
         )
+        if manifest["mode"] == "studio" and (
+            native is None or native.snapshot_id != snapshot.snapshot_id
+        ):
+            self.transport.progress(
+                job_id,
+                epoch,
+                "transport",
+                "needs_action",
+                None,
+                "native_or_adapter_authorization_required",
+            )
+            return "needs_action"
         local_job = BuildComposition(repository, self.ports).submit(
             self.store,
-            BuildRequest(self.project_id, snapshot.snapshot_id, job_id, "free"),
+            BuildRequest(
+                self.project_id, snapshot.snapshot_id, job_id, manifest["mode"]
+            ),
         )
         before = self.store.status(self.project_id, local_job)
         requested = [s["name"] for s in before["stages"] if s["status"] == "requested"]
         if not requested:
             return str(before["status"])
         stage = str(requested[0])
-        if stage not in CORE_STAGES:
+        if (
+            stage
+            not in CORE_STAGES
+            + (STUDIO_STAGES[:2] if manifest["mode"] == "studio" else ())
+            or stage not in self.ports
+        ):
             raise AgentTransportRefusal("unsupported local stage")
+        current()  # Recheck remote scope, accepted bytes and v2 metadata at dispatch.
         self.transport.progress(job_id, epoch, stage, "running", None, None)
         self.store.run_one(
             self.project_id,
