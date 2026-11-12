@@ -83,13 +83,19 @@ duration. The default 23.976 fps command remains outside this check.
 - Progress paused under the repository stop rules and resumed on Matthew's
   instruction. No failure was treated as a successful timeline build.
 
-## Status
+## 24 fps Resolve speed check, 2026-11-12
 
-The short preparer now stamps the document with the compiler content hash
-that package verification expects. The corrected retained inputs compiled,
-built a package and passed independent package verification with 11 events.
-The #531 regression tracks the long fixture’s shared preparation bindings.
+| Sample | Timeline duration (s) | Preparation (s) | Build plus check (s) | Result |
+| --- | ---: | ---: | ---: | --- |
+| Short retained sample | 47.792 | ~2,588 | 59.09 | **FAIL** — structural check failed after reopen and elapsed time exceeded timeline duration |
+| 30-row public fixture | 581.250 | 743.09 | 85.85 | **FAIL** — command refused before native creation or structural check |
 
-The Producer requested a pause on timing until the Mac has been restarted
-and is quiet. Both native timings and the Producer’s watch-and-listen
-acceptance are pending.
+Studio 21.1.1 build 10 on the Intel Mac, using Local scripting after the restart. This check does not cover VERA's default 23.976 fps. Preparation is outside the speed gate. The short run reused measured narration and converted six pictures. Its preparation time is estimated from the run start and the final media-map write because the timing log was lost. Long preparation includes the measured generation of the two slates. Build plus check is the command's elapsed total from input selection through completion or refusal.
+
+- Short: save/close/reopen succeeded. Read-only inspection confirmed 1,147 timeline frames and all 11 event placements and stamps. Source-end verification rejected the observed video, narration and one-frame still ranges. The disposable project remains available for diagnosis.
+- Long: package build and attestation passed, including shared bindings after #531. Read-only preflight confirmed that two intentional slate treatments lack a native mapping. Resolve created no long project. The elapsed time to refusal is not a passing speed measurement.
+
+The benchmark remains open. The short result is a retained diagnostic target,
+and Producer watch-and-listen acceptance is pending a verified result.
+
+[Results posted on #520](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6834652634)

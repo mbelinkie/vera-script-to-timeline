@@ -705,6 +705,34 @@ representative density and paired forward improvements; none is accepted yet
 at RK-30’s unmerged snapshot. #313 then measures reverse overhead against
 resulting main.
 
+### RK-32 — The shipped command's 24 fps speed check hit two delivery limits
+
+**Observed refusal / product.** Intel Mac, Resolve Studio **21.1.1 build 10**,
+Local scripting after a restart. The command total runs from input selection
+through completion or refusal. Preparation is measured separately and does not
+enter the speed gate.
+
+| Sample | Timeline duration (s) | Preparation (s) | Build plus check (s) | Result |
+| --- | ---: | ---: | ---: | --- |
+| Short retained sample | 47.792 | ~2,588 | 59.09 | Structural readback failed and elapsed time exceeded duration |
+| 30-row public fixture | 581.250 | 743.09 | 85.85 | Refused before creating a project |
+
+Short preparation reused measured narration, converted six picture sources,
+and was estimated from file timestamps after the timing log was lost. Its
+disposable project reopened with the correct timeline length and event
+positions. Integer source range getters disagreed with the verifier for
+interior video, whole narration and one-frame stills. See RK-119's 24 fps
+source-range observations. The long fixture passed package and attestation
+checks, then refused two intentional slate treatments without a qualified
+native mapping. Its time is elapsed to refusal.
+
+**Reuse/delta.** This check covers exact **24 fps**. The default **23.976 fps**
+route is outside the measured envelope. A verifier change needs source clocks
+bound to the actual media and a new save/reopen run. A speed pass requires a
+successful structural check within the verified timeline duration.
+
+[Issue #520 measurement](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6834652634)
+
 ## Current #312 / #313 handoff
 
 ### RK-30 — Shared performance fixture: provisional, not a speedup result
