@@ -64,6 +64,7 @@ def _takes(
     report = refine(discover(pt.take_packet(words, alignment, passages, DURATION, FPS)))
     body = pt.build_takes(
         report,
+        words,
         recognition,
         alignment,
         passages,
@@ -198,14 +199,49 @@ def test_quiet_intervals_need_sustained_low_level() -> None:
     sound = (rng.standard_normal(3 * pt.RATE) * 0.2).astype(np.float32)
     sound[pt.RATE : 2 * pt.RATE] = 0.0  # one silent second
     sound[int(2.5 * pt.RATE) : int(2.55 * pt.RATE)] = 0.0  # too short to count
-    assert pt.quiet_intervals(sound) == [[1.0, 2.0]]
+    assert pt.quiet_intervals(sound, 3.0) == [[1.0, 2.0]]
+
+
+def test_quiet_past_the_end_of_the_picture_does_not_lose_the_cuts() -> None:
+    # The sound runs a little longer than the picture and ends in silence.
+    sound = np.zeros(round(60.4 * pt.RATE), dtype=np.float32)
+    quiet = pt.quiet_intervals(sound, DURATION)
+    assert quiet == [[0.0, DURATION]]
+    take = _takes(_said(FIRST, 2.0), quiet=quiet)["passages"][0]["takes"][0]
+    assert take["cut"] is not None
 
 
 def test_separate_audio_is_moved_onto_the_video_clock() -> None:
-    separate = np.arange(10, dtype=np.float32)
-    assert pt.shift_to_video(separate, 2 / pt.RATE, 4).tolist() == [2, 3, 4, 5]
-    assert pt.shift_to_video(separate, -2 / pt.RATE, 4).tolist() == [0, 0, 0, 1]
-    assert pt.shift_to_video(separate, 8 / pt.RATE, 4).tolist() == [8, 9, 0, 0]
+    separate = np.arange(100, 1100, dtype=np.float32)
+    camera = np.zeros(400, dtype=np.float32)
+    sound, uncovered = pt.shift_to_video(separate, 200 / pt.RATE, camera)
+    assert sound[0] == 300 and sound[-1] == 699 and uncovered == []
+
+
+def test_camera_sound_is_kept_where_the_separate_audio_does_not_reach() -> None:
+    # The recorder started 0.1 s after the camera and stopped 0.2 s early.
+    camera = np.full(pt.RATE, 7.0, dtype=np.float32)
+    separate = np.ones(round(0.7 * pt.RATE), dtype=np.float32)
+    sound, uncovered = pt.shift_to_video(separate, -0.1, camera)
+    assert uncovered == [[0.0, 0.1], [0.8, 1.0]]
+    assert sound[0] == 7.0 and sound[pt.RATE // 2] == 1.0 and sound[-1] == 7.0
+    nothing, all_of_it = pt.shift_to_video(separate, 5.0, camera)
+    assert all_of_it == [[0.0, 1.0]] and (nothing == camera).all()
+
+
+def test_an_edit_note_withholds_the_plain_suggestion() -> None:
+    session = [
+        *_said(FIRST, 2.0),
+        *_said(FIRST, 10.0),
+        *_said("Actually the first take was better.", 16.0),
+    ]
+    takes = _takes(session)
+    passage = takes["passages"][0]
+    assert passage["choiceNeeded"] is True
+    report = pt.render_report(takes)
+    assert "<- LAST COMPLETE TAKE, but see the note below" in report
+    assert "<- SUGGESTED" not in report
+    assert "The choice is yours." in report
 
 
 def test_unreadable_script_stops_with_a_plain_reason(tmp_path: Path) -> None:

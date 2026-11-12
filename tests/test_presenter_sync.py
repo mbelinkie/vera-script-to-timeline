@@ -62,3 +62,19 @@ def test_silence_and_very_short_recordings_are_refused() -> None:
         find_offset(silent, _performance(20), RATE)
     with pytest.raises(SyncRefused, match="at least"):
         find_offset(_performance(2), _performance(20), RATE)
+
+
+def test_a_short_clip_late_in_a_long_recording_is_found() -> None:
+    performance = _performance(120)
+    start = 90 * RATE
+    camera = _heard(performance[start : start + 20 * RATE], 2)
+    result = find_offset(camera, _heard(performance, 3), RATE)
+    assert abs(result.offset_s - 90) < 2 / RATE
+
+
+def test_a_microphone_wired_the_other_way_round_still_matches() -> None:
+    performance = _performance(36)
+    start = 3 * RATE
+    camera = _heard(performance[start : start + 25 * RATE], 2)
+    result = find_offset(camera, -_heard(performance, 3), RATE)
+    assert abs(result.offset_s - 3) < 2 / RATE

@@ -243,6 +243,8 @@ def decode_audio(path: Path) -> Samples:
             str(path),
             "-map",
             "0:a:0",
+            "-af",
+            "aresample=async=1:first_pts=0",
             "-ac",
             "1",
             "-ar",
@@ -258,14 +260,27 @@ def decode_audio(path: Path) -> Samples:
     return samples
 
 
-def shift_to_video(separate: Samples, offset_s: float, length: int) -> Samples:
-    """The separate audio on the video's clock, silent where it has nothing."""
+def shift_to_video(
+    separate: Samples, offset_s: float, camera: Samples
+) -> tuple[Samples, list[list[float]]]:
+    """The separate audio on the video's clock.
+
+    Where the separate recording does not reach (it started late or stopped
+    early) the camera's own sound is kept, so nothing said is lost. Returns
+    the sound and the video-time ranges that are camera sound.
+    """
     start = round(offset_s * RATE)
-    out = np.zeros(length, dtype=np.float32)
-    lo, hi = max(0, start), min(len(separate), start + length)
-    if hi > lo:
-        out[lo - start : hi - start] = separate[lo:hi]
-    return out
+    out = camera.copy()
+    lo, hi = max(0, start), min(len(separate), start + len(camera))
+    if hi <= lo:
+        return out, [[0.0, len(camera) / RATE]]
+    out[lo - start : hi - start] = separate[lo:hi]
+    uncovered = [
+        [a / RATE, b / RATE]
+        for a, b in ((0, lo - start), (hi - start, len(camera)))
+        if b - a >= RATE // 100
+    ]
+    return out, uncovered
 
 
 def write_wav(path: Path, samples: Samples) -> None:
@@ -277,10 +292,13 @@ def write_wav(path: Path, samples: Samples) -> None:
         out.writeframes(pcm.tobytes())
 
 
-def quiet_intervals(samples: Samples, rate: int = RATE) -> list[list[float]]:
+def quiet_intervals(
+    samples: Samples, duration_s: float, rate: int = RATE
+) -> list[list[float]]:
     """Sustained low-level stretches, measured in 10 ms windows (the #53 rule).
 
     Low level is evidence for a clean cut, not proof that nobody is speaking.
+    Intervals never run past `duration_s`, the end of the picture.
     """
     window = max(1, rate // 100)
     count = len(samples) // window
@@ -291,12 +309,11 @@ def quiet_intervals(samples: Samples, rate: int = RATE) -> list[list[float]]:
         np.abs(blocks).max(axis=1) <= 10 ** (QUIET_PEAK_DB / 20)
     )
     edges = np.flatnonzero(np.diff(np.concatenate(([False], low, [False]))))
-    seconds = window / rate
-    return [
-        [float(a * seconds), float(b * seconds)]
+    spans = (
+        (float(a * window / rate), min(float(b * window / rate), duration_s))
         for a, b in zip(edges[::2], edges[1::2], strict=True)
-        if (b - a) * seconds >= QUIET_MIN_S - 1e-9
-    ]
+    )
+    return [[a, b] for a, b in spans if b - a >= QUIET_MIN_S - 1e-9]
 
 
 # --------------------------------------------------------------------------
@@ -419,7 +436,7 @@ def _cut(
             allow_reduced_padding=True,
         )
     except ValueError:
-        out["cutProblem"] = "the word times are not usable"
+        out["cutProblem"] = "the cut could not be worked out from these times"
         return out
     if plan["frame_range"] is None:
         reasons = set(plan["reasons"])
@@ -457,6 +474,7 @@ def _said(
 
 def build_takes(
     report: Json,
+    timed: list[Json],
     recognition: Json,
     alignment: Json,
     passages: list[Passage],
@@ -465,7 +483,14 @@ def build_takes(
     fps: list[int],
 ) -> Json:
     """The takes file body from the refined #53 report. Adds no take rules."""
-    words, units = report["words"], alignment["words"]
+    units = alignment["words"]
+    # The take rules relabel some words' precision for their own use; the
+    # report goes by how each word was actually timed.
+    words = [
+        {**w, "precision": timed[w["input_index"]]["precision"]}
+        for w in report["words"]
+    ]
+    number_of = {p.id: n for n, p in enumerate(passages, 1)}
     row_tokens = {p.id: tokens(p.text) for p in passages}
     by_passage: dict[str, list[Json]] = {p.id: [] for p in passages}
     take_of: dict[str, Json] = {}
@@ -494,6 +519,9 @@ def build_takes(
             "complete": bool(c["complete"]),
             "scriptWordsCovered": covered,
             "scriptWords": len(expected),
+            "couldAlsoBePassages": [
+                number_of[r] for r in c["row_options"] if r != c["row"]
+            ],
             **common,
             "differences": differences([c], expected, words, None),
         }
@@ -525,6 +553,7 @@ def build_takes(
                 "script": passage.script,
                 "takes": by_passage[passage.id],
                 "suggestedTakes": suggested,
+                "choiceNeeded": bool(notes),
                 "pieces": [
                     [take_of[m]["id"] for m in piece["members"]]
                     for piece in assembly["pieces"]
@@ -544,9 +573,9 @@ def build_takes(
         "offScript": off_script,
         "words": {
             "heard": len(units),
-            "placed": sum(w["precision"] == "acoustic" for w in words),
-            "recogniserTimed": sum(w["precision"] == "derived" for w in words),
-            "unplaced": sum(w["start"] is None for w in words),
+            "placed": sum(w["precision"] == "acoustic" for w in timed),
+            "recogniserTimed": sum(w["precision"] == "derived" for w in timed),
+            "unplaced": sum(w["start"] is None for w in timed),
         },
     }
 
@@ -614,6 +643,11 @@ def render_report(takes: Json) -> str:
             f"Checked at {sync['checkPoints']} points, which agree within "
             f"{sync['spreadMs']:.0f} ms."
         )
+        for a, b in sync["cameraSoundUsed"]:
+            lines.append(
+                f"           The separate file does not cover {clock(a)} to "
+                f"{clock(b)} of the video; the camera's sound is used there."
+            )
     else:
         lines.append("Sound:     the camera's own")
     counts = takes["words"]
@@ -645,10 +679,19 @@ def render_report(takes: Json) -> str:
                     f"partial ({take['scriptWordsCovered']} of "
                     f"{take['scriptWords']} script words)"
                 )
-            mark = "  <- SUGGESTED" if take["id"] in passage["suggestedTakes"] else ""
+            mark = ""
+            if take["id"] in passage["suggestedTakes"]:
+                mark = (
+                    "  <- LAST COMPLETE TAKE, but see the note below"
+                    if passage["choiceNeeded"]
+                    else "  <- SUGGESTED"
+                )
             lines.append(f"  Take {take['number']}, {kind}{mark}")
             lines.append(f"    {_times(take)}")
             lines.append(f"    Said: {take['said']}")
+            if take["couldAlsoBePassages"]:
+                others = ", ".join(str(n) for n in take["couldAlsoBePassages"])
+                lines.append(f"    Matches passage {others} equally well")
             if take["unplacedWords"]:
                 lines.append(f"    {take['unplacedWords']} words not placed in time")
             if take["complete"]:
@@ -663,7 +706,12 @@ def render_report(takes: Json) -> str:
                 f"  Takes {joined} are one continuous read; together complete."
             )
         if passage["takes"] and not passage["suggestedTakes"]:
-            lines.append("  No complete take, so nothing is suggested.")
+            lines.append(
+                "  No take is suggested: a complete take here is ambiguous or "
+                "badly timed."
+                if any(take["complete"] for take in passage["takes"])
+                else "  No complete take, so nothing is suggested."
+            )
             if passage["pieces"]:
                 parts = [
                     " + ".join(f"take {numbers[i]}" for i in piece)
@@ -731,10 +779,11 @@ def find_takes(
     duration_s, fps = probe_video(video)
     sound = decode_audio(video)
     sync: SyncResult | None = None
+    uncovered: list[list[float]] = []
     if separate_audio is not None:
         separate = decode_audio(separate_audio)
         sync = find_offset(sound, separate, RATE)
-        sound = shift_to_video(separate, sync.offset_s, len(sound))
+        sound, uncovered = shift_to_video(separate, sync.offset_s, sound)
         print(sync_line(sync, fps), flush=True)
     duration_s = min(duration_s, len(sound) / RATE)
     work = out / "work"
@@ -763,10 +812,11 @@ def find_takes(
     )
     body = build_takes(
         report,
+        words,
         stages.recognition,
         stages.alignment,
         passages,
-        quiet_intervals(sound),
+        quiet_intervals(sound, duration_s),
         duration_s,
         fps,
     )
@@ -780,6 +830,7 @@ def find_takes(
             "offsetFrames": round(sync.offset_s * fps[0] / fps[1], 2),
             "spreadMs": round(sync.spread_s * 1000, 1),
             "checkPoints": len(sync.windows),
+            "cameraSoundUsed": [[round(a, 2), round(b, 2)] for a, b in uncovered],
         }
         if sync and separate_audio
         else None,

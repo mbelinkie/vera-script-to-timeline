@@ -4,7 +4,7 @@ The two recordings hear the same performance, so their waveforms match at one
 offset. A coarse pass over the whole recording finds that offset; a fine pass
 then measures it again in several independent windows spread across the video.
 The answer is accepted only when the coarse match clearly stands out and the
-windows agree with each other to within half a frame. Otherwise `SyncRefused`
+windows' offsets all lie within half a frame of each other. Otherwise `SyncRefused`
 is raised: the caller must stop, never guess.
 
 Both inputs are mono float arrays at the same sample rate.
@@ -81,10 +81,14 @@ def find_offset(camera: Samples, separate: Samples, rate: int) -> SyncResult:
     cam, sep = _decimate(camera, factor), _decimate(separate, factor)
     if not cam.any() or not sep.any():
         raise SyncRefused("One of the recordings is silent.")
-    c = _correlate(sep, cam)
+    # A microphone wired the other way round gives a mirror-image waveform,
+    # so the match is judged on its size and its sign is carried along.
+    signed = _correlate(sep, cam)
+    c = np.abs(signed)
     lags = np.arange(len(c))
-    lags[lags > len(c) // 2] -= len(c)
+    lags[lags >= len(sep)] -= len(c)  # positive lags run to len(sep) - 1
     best = int(np.argmax(c))
+    sign = 1.0 if signed[best] >= 0 else -1.0
     coarse = int(lags[best]) * factor  # in samples at `rate`
     elsewhere = c[np.abs(lags - lags[best]) > SEARCH_S * rate / factor]
     runner_up = float(elsewhere.max()) if len(elsewhere) else 0.0
@@ -105,7 +109,7 @@ def find_offset(camera: Samples, separate: Samples, rate: int) -> SyncResult:
             "The two recordings overlap for less than "
             f"{MIN_OVERLAP_S:.0f} seconds at the best match."
         )
-    length = min(round(WINDOW_S * rate), last - first)
+    length = min(round(WINDOW_S * rate), (last - first) // WINDOWS)  # no overlap
     windows: list[SyncWindow] = []
     for start in np.linspace(first, last - length, WINDOWS).astype(int):
         x = camera[start : start + length].astype(np.float64)
@@ -114,7 +118,7 @@ def find_offset(camera: Samples, separate: Samples, rate: int) -> SyncResult:
         )
         x -= x.mean()
         y -= y.mean()
-        local = _correlate(y, x)[: 2 * reach + 1]
+        local = sign * _correlate(y, x)[: 2 * reach + 1]
         shift = int(np.argmax(local))
         matched = y[shift : shift + length]
         energy = float(np.sqrt((x * x).sum() * (matched * matched).sum()))
@@ -132,7 +136,7 @@ def find_offset(camera: Samples, separate: Samples, rate: int) -> SyncResult:
     offsets = [w.offset_s for w in windows]
     offset = float(np.median(offsets))
     spread = max(offsets) - min(offsets)
-    if max(abs(o - offset) for o in offsets) > MAX_SPREAD_S:
+    if spread > MAX_SPREAD_S:
         raise SyncRefused(
             "The two recordings do not stay lined up: the offset changes by "
             f"{spread * 1000:.0f} ms across the recording."
