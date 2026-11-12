@@ -7,6 +7,7 @@ subsequent phases consume these exact published manifest/report bytes.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import stat
@@ -27,9 +28,9 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
-from .v2_package import V2PackageError, build_v2_package, verify_v2_package
+from .v2_package import V2PackageError, build_v2_package
 from .workflow_package import sha256
-from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
+from .workflow_v2 import _load_attestation, run_workflow_delivery_v2
 from .workflow_v2_cli import attest_package_v2
 
 T = TypeVar("T")
@@ -453,25 +454,32 @@ def deliver_compiled(
             media_paths=media,
             preparation_paths=preparations,
         )
-        verified = verify_v2_package(package_root)
         manifest = _read_json(compiled.manifest)
-        if verified.build_id != built.build_id or verified.build_id != manifest.get(
-            "buildId"
-        ):
+        if built.build_id != manifest.get("buildId"):
             raise BuildJobError("package build identity differs from compiler")
 
+    attestation = compiled.output / "v2-attestation.json"
     try:
         timings.run("package", package_once)
+        timings.run("attest", lambda: attest_package_v2(package_root, attestation))
     except V2PackageError as error:
         raise BuildJobError(
             "package could not be built from prepared local inputs"
         ) from error
-    attestation = compiled.output / "v2-attestation.json"
-    timings.run("attest", lambda: attest_package_v2(package_root, attestation))
     digest = sha256(attestation)
-    checked = load_verified_package_v2(attestation, digest)
-    if checked.root != package_root or checked.manifest != _read_json(
-        compiled.manifest
+    handoff, root = _load_attestation(attestation, digest)
+    manifest_bytes = _plain_path(compiled.manifest).read_bytes()
+    manifest = json.loads(manifest_bytes)
+    # Attestation already checks the full package. Bind this command's exact
+    # compiler output here before Resolve preflight independently loads it.
+    files = handoff["files"]
+    if (
+        root != package_root
+        or not isinstance(manifest, dict)
+        or handoff["buildId"] != manifest.get("buildId")
+        or not isinstance(files, dict)
+        or files.get("timeline-manifest.json")
+        != hashlib.sha256(manifest_bytes).hexdigest()
     ):
         raise BuildJobError("attested package does not match compiled manifest")
 
@@ -506,10 +514,10 @@ def deliver_compiled(
             native, "verified", existing_project=existing_project is not None
         )
 
-    timeline = checked.manifest["timeline"]
+    timeline = manifest["timeline"]
     return DeliveryResult(
-        project_name=existing_project or checked.attestation["projectName"],
-        timeline_name=checked.attestation["timelineName"],
+        project_name=existing_project or handoff["projectName"],
+        timeline_name=handoff["timelineName"],
         frames=timeline["durationFrames"],
         numerator=timeline["frameRate"]["numerator"],
         denominator=timeline["frameRate"]["denominator"],

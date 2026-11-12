@@ -522,6 +522,30 @@ def test_cli_existing_project_output_and_bad_name(
     assert "invalid existing project name" in capsys.readouterr().err
 
 
+def test_attested_manifest_drift_refuses_before_resolve_connects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compiled = _package_inputs(tmp_path)
+
+    def attest_then_change_manifest(package: Path, output: Path) -> Path:
+        result = attest_package_v2(package, output)
+        manifest = json.loads(compiled.manifest.read_bytes())
+        manifest["timeline"]["durationFrames"] += 1
+        compiled.manifest.write_text(json.dumps(manifest))
+        return result
+
+    monkeypatch.setattr(
+        build_timeline_once, "attest_package_v2", attest_then_change_manifest
+    )
+    monkeypatch.setattr(
+        build_timeline_once,
+        "_external_resolve",
+        lambda: pytest.fail("changed manifest must refuse before connecting"),
+    )
+    with pytest.raises(BuildJobError, match="attested package does not match"):
+        deliver_compiled(compiled, timings=StageTimings(emit=lambda _: None))
+
+
 def test_absent_resolve_refuses_after_packaging_without_any_native_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

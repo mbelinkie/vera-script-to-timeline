@@ -35,7 +35,6 @@ from .media_preparation import (
 from .narration.cache import NarrationCache
 from .narration.compiler_dependencies_v2 import narration_v2_dependency_from_asset
 from .narration.models import NarrationAudioAsset, canonical_json_bytes, identity_hash
-from .placeholder_slate import render_placeholder_slate
 from .v2_package import (
     _compiler_hash,
     _file_hash,
@@ -179,20 +178,8 @@ def _block_payload(
     inspections: dict[str, Any],
     descriptors: list[Json],
 ) -> Json:
-    payload_id = _id(item["id"] + ":payload")
-    if item.get("pictureKind") == "intentional_placeholder":
-        return {
-            "kind": "visual",
-            "payloadId": payload_id,
-            "pictureKind": "intentional_placeholder",
-            "source": {
-                "kind": "intentional_placeholder",
-                "text": f"ISSUE 312 FIXTURE {item['id']}",
-            },
-            "sourceUsage": None,
-            "audioPolicy": "mute",
-            "framingPolicy": "contain",
-        }
+    # Use the planned video for all placements, including the two #312 slates
+    # that the native build currently refuses (RK-32).
     descriptor = _descriptor(
         item, owner, sources[item["source"]], inspections[item["source"]]
     )
@@ -417,27 +404,6 @@ def _timing_inputs(speech_path: Path) -> tuple[list[Json], dict[str, Path]]:
     return maps, audio_paths
 
 
-def _placeholder_media(manifest: Json, output: Path) -> dict[str, Path]:
-    output.mkdir()
-    timeline = manifest["timeline"]
-    paths = {}
-    for event in manifest["events"]:
-        if event["kind"] != "placeholder":
-            continue
-        treatment = event["pictureTreatment"]
-        if treatment["kind"] != "slate":
-            raise ValueError("public fixture placeholder must be an intentional slate")
-        event_id = event["eventId"]
-        path = output / f"{event_id}.png"
-        path.write_bytes(
-            render_placeholder_slate(
-                treatment["text"], timeline["width"], timeline["height"]
-            )
-        )
-        paths[f"event:{event_id}"] = path
-    return paths
-
-
 def _complete_fixture(
     root: Path,
     source_root: Path,
@@ -624,7 +590,6 @@ def _complete_fixture(
             media_paths[f"source:{source_id}"] = prepared[key].video_path
             original = source_by_ref[descriptor_by_key[key]["mediaReferenceId"]]
             media_paths[f"original:{source_id}"] = source_root_paths[original["id"]]
-    media_paths.update(_placeholder_media(compiled["manifest"], ready / "slates"))
     _write(
         ready / "media-paths.json",
         {key: str(path) for key, path in media_paths.items()},
