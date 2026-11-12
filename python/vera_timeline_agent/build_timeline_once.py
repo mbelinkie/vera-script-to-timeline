@@ -70,6 +70,7 @@ class DeliveryResult:
     frames: int
     numerator: int
     denominator: int
+    named_transition_cuts: tuple[str, ...] = ()
 
 
 @dataclass
@@ -513,6 +514,11 @@ def deliver_compiled(
         frames=timeline["durationFrames"],
         numerator=timeline["frameRate"]["numerator"],
         denominator=timeline["frameRate"]["denominator"],
+        named_transition_cuts=tuple(
+            str(plan["reason"])
+            for plan in checked.manifest.get("transitions", [])
+            if plan["disposition"] == "cut_insufficient_handles"
+        ),
     )
 
 

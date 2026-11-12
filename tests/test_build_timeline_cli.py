@@ -522,6 +522,36 @@ def test_cli_existing_project_output_and_bad_name(
     assert "invalid existing project name" in capsys.readouterr().err
 
 
+def test_issue88_cli_prints_exact_named_cut_without_claiming_a_dissolve(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+
+    def fake_build(
+        _submitted: BuildOptions, *, timings: StageTimings
+    ) -> DeliveryResult:
+        return DeliveryResult(
+            "New Studio",
+            "Rough Cut",
+            192,
+            24,
+            1,
+            ("Transition pair-88 (row-A -> row-B) at frame 96: short handles",),
+        )
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", fake_build)
+    assert (
+        build_timeline_cli.main(
+            ["--script", str(options.script), "--output", str(options.output)]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "cut_insufficient_handles" in output
+    assert "row-A -> row-B" in output and "frame 96" in output
+    assert "verified" in output
+
+
 def test_absent_resolve_refuses_after_packaging_without_any_native_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
