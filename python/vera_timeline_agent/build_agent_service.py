@@ -25,8 +25,23 @@ from urllib.request import (
     build_opener,
 )
 
+from .build_compile_stage import CompileStagePort
 from .build_composition import BuildComposition, SnapshotRepository, StagePort
-from .build_jobs import CORE_STAGES, BuildJobStore, BuildRequest
+from .build_jobs import CORE_STAGES, STUDIO_STAGES, BuildJobStore, BuildRequest
+from .build_media_stage import MediaStagePort
+from .build_narration_stage import NarrationStagePort
+from .build_package_stage import PackageStagePort, VerifyPackageStagePort
+from .build_studio_stage import (
+    BuildStudioStagePort,
+    NativeAuthorization,
+    VerifyStudioStagePort,
+)
+from .build_submission_inputs import (
+    FrozenInputRefusal,
+    TrustedBuildInputAuthority,
+    checked_compiler_dependencies,
+    frozen_source_file,
+)
 
 _SHA = re.compile(r"sha256:[a-f0-9]{64}\Z")
 _AGENT = re.compile(r"sttag_[A-Za-z0-9_-]{43}\Z")
@@ -36,6 +51,77 @@ _MAX_RESPONSE = 2 * 1024 * 1024
 
 class AgentTransportRefusal(RuntimeError):
     """No remote error message, secret, local path, or SQL detail is exposed."""
+
+
+@dataclass(frozen=True)
+class QualifiedStagePipeline:
+    """Real #157 ports supplied by the trusted local host, never the manifest.
+
+    Media and provider authorization remain the ports' responsibility. Native
+    ports must share one explicit permission and connected driver; this class
+    does not mint permission or start Resolve.
+    """
+
+    narration: NarrationStagePort
+    media: MediaStagePort
+    package: PackageStagePort
+    studio_build: BuildStudioStagePort | None = None
+    studio_verify: VerifyStudioStagePort | None = None
+
+    def resolved(
+        self,
+    ) -> tuple[dict[str, StagePort], dict[str, str], NativeAuthorization | None]:
+        if (
+            type(self.narration) is not NarrationStagePort
+            or type(self.media) is not MediaStagePort
+            or type(self.package) is not PackageStagePort
+        ):
+            raise AgentTransportRefusal("qualified core build ports required")
+        ports: dict[str, StagePort] = {
+            "generating_speech": self.narration,
+            "resolving_media": self.media,
+            "compiling": CompileStagePort(),
+            "writing_interchange": self.package,
+            "verifying_import_package": VerifyPackageStagePort(),
+        }
+        versions = {
+            "narration-v2": self.narration.service.provider.adapter_version,
+            "prepare-media-v2": "authoring-media-preparation/v1",
+            "compiler-v2": "compiler/v2",
+            "v2-package": "v2-package/v1",
+            "v2-attestation": "vera-injected-delivery-attestation/v2",
+        }
+        if (self.studio_build is None) != (self.studio_verify is None):
+            raise AgentTransportRefusal("both native build and readback ports required")
+        native: NativeAuthorization | None = None
+        if self.studio_build is not None and self.studio_verify is not None:
+            if (
+                type(self.studio_build) is not BuildStudioStagePort
+                or type(self.studio_verify) is not VerifyStudioStagePort
+                or self.studio_build.driver is not self.studio_verify.driver
+                or self.studio_build.authorization != self.studio_verify.authorization
+            ):
+                raise AgentTransportRefusal("native ports do not share one authority")
+            native = self.studio_build.authorization
+            ports.update(
+                building_resolve_timeline=self.studio_build,
+                verifying_timeline=self.studio_verify,
+            )
+            versions.update(
+                **{
+                    "resolve-v2": (
+                        "parent-local/v1"
+                        if native.route == "Local"
+                        else "injected-none/v2"
+                    ),
+                    "resolve-v2-readback": (
+                        "parent-local-readback/v1"
+                        if native.route == "Local"
+                        else "injected-none-readback/v2"
+                    ),
+                }
+            )
+        return ports, versions, native
 
 
 def _uuid(value: str) -> str:
@@ -51,6 +137,62 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise AgentTransportRefusal("duplicate transport field")
         obj[key] = value
     return obj
+
+
+def _validated_selected_pins(raw: object) -> dict[str, tuple[str, str]]:
+    """Strict canonical claims; the trusted accepted-source lookup is separate."""
+    if not isinstance(raw, list) or len(raw) > 256:
+        raise AgentTransportRefusal("invalid selected source pins")
+    pins: dict[str, tuple[str, str]] = {}
+    for entry in raw:
+        if not isinstance(entry, dict) or set(entry) != {
+            "sourceId",
+            "revision",
+            "sha256",
+        }:
+            raise AgentTransportRefusal("invalid selected source pin shape")
+        source_id, revision, digest = (
+            entry["sourceId"],
+            entry["revision"],
+            entry["sha256"],
+        )
+        if (
+            not isinstance(source_id, str)
+            or _UUID.fullmatch(source_id) is None
+            or not isinstance(revision, str)
+            or not 1 <= len(revision) <= 256
+            or revision != revision.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 or ch in "/\\" for ch in revision)
+            or not isinstance(digest, str)
+            or _SHA.fullmatch(digest) is None
+            or source_id in pins
+        ):
+            raise AgentTransportRefusal("invalid selected source pin identity")
+        pins[source_id] = (revision, digest)
+    if list(pins) != sorted(pins):
+        raise AgentTransportRefusal("noncanonical selected source ordering")
+    return pins
+
+
+def _same_frozen_authority(
+    original: Mapping[str, Any], current: Mapping[str, Any]
+) -> bool:
+    return all(
+        original.get(key) == current.get(key)
+        for key in (
+            "projectId",
+            "jobId",
+            "targetId",
+            "snapshotDigest",
+            "buildClass",
+            "mode",
+            "documentRevision",
+            "documentDigest",
+            "settingsRevision",
+            "settingsDigest",
+            "selectedSources",
+        )
+    )
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -87,6 +229,7 @@ class BuildTransport(Protocol):
         digest: str | None,
         reason: str | None,
     ) -> None: ...
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None: ...
 
 
 class LoopbackBuildTransport:
@@ -196,6 +339,18 @@ class LoopbackBuildTransport:
             },
         )
 
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None:
+        """Request trusted server-side inspection; this is not an agent proof."""
+        if type(epoch) is not int or epoch < 1 or _SHA.fullmatch(digest) is None:
+            raise AgentTransportRefusal("invalid independent inspection request")
+        result = self._call(
+            "POST",
+            self._root() + f"/jobs/{_uuid(job_id)}/leases/{epoch}/inspect",
+            {"stageKey": stage, "receiptDigest": digest},
+        )
+        if not isinstance(result.get("eventId"), str):
+            raise AgentTransportRefusal("independent inspection unavailable")
+
 
 def _private_root(root: Path) -> Path:
     path = root.absolute()
@@ -253,9 +408,9 @@ def _checked_frozen(
         or value["documentRevision"] < 0
         or type(value.get("settingsRevision")) is not int
         or value["settingsRevision"] < 1
-        or value.get("selectedSources") != []
     ):
         raise AgentTransportRefusal("untrusted or unsupported frozen manifest")
+    _validated_selected_pins(value.get("selectedSources"))
     for name, key in (
         ("documentJson", "documentDigest"),
         ("settingsJson", "settingsDigest"),
@@ -290,14 +445,33 @@ class LocalBuildAgentService:
         transport: BuildTransport,
         ports: Mapping[str, StagePort] | None = None,
         adapter_versions: Mapping[str, str] | None = None,
+        input_authority: TrustedBuildInputAuthority | None = None,
+        accepted_source_roots: tuple[Path, ...] = (),
+        pipeline: QualifiedStagePipeline | None = None,
+        native_authorization: NativeAuthorization | None = None,
     ) -> None:
         self.root = _private_root(root)
         self.project_id = _uuid(project_id)
         self.transport = transport
+        if pipeline is not None:
+            if (
+                ports is not None
+                or adapter_versions is not None
+                or native_authorization is not None
+            ):
+                raise AgentTransportRefusal("ambiguous local stage configuration")
+            ports, adapter_versions, native_authorization = pipeline.resolved()
         self.ports = dict(ports or {})
         self.adapter_versions = dict(adapter_versions or {})
+        self.native_authorization = native_authorization
+        self.input_authority = input_authority
+        self.accepted_source_roots = accepted_source_roots
         if bool(self.ports) != bool(self.adapter_versions):
             raise AgentTransportRefusal("no independently pinned local adapters")
+        if self.ports and any(
+            name not in CORE_STAGES + STUDIO_STAGES[:2] for name in self.ports
+        ):
+            raise AgentTransportRefusal("unrequested render or delivery adapter")
         self.store = BuildJobStore(self.root / "jobs")
 
     def run_one(
@@ -320,9 +494,27 @@ class LocalBuildAgentService:
         manifest = _checked_frozen(
             self.transport.frozen(job_id, epoch), self.project_id, job_id, expected
         )
-        # #382 has no one-use Studio/native authorization API. Refuse even if a
-        # caller injected Studio ports; a transport lease is not native consent.
-        if manifest["mode"] != "free" or not self.ports:
+        # The backend lease is *never* permission to operate Resolve. #302's
+        # installed native ports need explicit local authority, independently
+        # pinned to this frozen snapshot below. No implicit render or upload.
+        native = self.native_authorization
+        build_port = self.ports.get("building_resolve_timeline")
+        verify_port = self.ports.get("verifying_timeline")
+        # Explicit port maps are supported for older None injection/tests, but
+        # actual installed native ports must not smuggle a different approval
+        # or driver than the permission vetted for this backend submission.
+        native_ports_mismatch = (
+            isinstance(build_port, BuildStudioStagePort)
+            or isinstance(verify_port, VerifyStudioStagePort)
+            or (isinstance(native, NativeAuthorization) and native.route == "Local")
+        ) and (
+            not isinstance(build_port, BuildStudioStagePort)
+            or not isinstance(verify_port, VerifyStudioStagePort)
+            or build_port.authorization != native
+            or verify_port.authorization != native
+            or build_port.driver is not verify_port.driver
+        )
+        if not self.ports or native_ports_mismatch:
             self.transport.progress(
                 job_id,
                 epoch,
@@ -332,30 +524,110 @@ class LocalBuildAgentService:
                 "native_or_adapter_authorization_required",
             )
             return "needs_action"
+        native_permission_missing = manifest["mode"] == "studio" and (
+            not all(stage in self.ports for stage in STUDIO_STAGES[:2])
+            or not isinstance(native, NativeAuthorization)
+            or not native.approved_nonproduction
+            or native.route not in ("None", "Local")
+            or native.project_id != self.project_id
+            or native.job_id != job_id
+            or native.target_id != manifest["targetId"]
+            or not native.request_id
+        )
+        authority = self.input_authority
+        if authority is None:
+            raise AgentTransportRefusal("trusted compiler metadata required")
+        pins = _validated_selected_pins(manifest["selectedSources"])
+        try:
+            dependencies = checked_compiler_dependencies(
+                authority.frozen_dependencies(self.project_id, job_id),
+                manifest,
+                pins,
+            )
+        except FrozenInputRefusal:
+            raise AgentTransportRefusal(
+                "trusted frozen build inputs unavailable"
+            ) from None
         inputs = self.root / "inputs" / job_id
         if any(part.is_symlink() for part in (inputs, inputs.parent, self.root)):
             raise AgentTransportRefusal("unsafe local input ancestry")
         inputs.mkdir(mode=0o700, parents=True, exist_ok=True)
         if inputs.is_symlink() or (inputs.stat().st_mode & 0o777) != 0o700:
             raise AgentTransportRefusal("unsafe local input directory")
+        submission = json.dumps(
+            {
+                key: manifest[key]
+                for key in (
+                    "projectId",
+                    "jobId",
+                    "targetId",
+                    "snapshotDigest",
+                    "buildClass",
+                    "mode",
+                    "documentRevision",
+                    "documentDigest",
+                    "settingsRevision",
+                    "settingsDigest",
+                    "selectedSources",
+                )
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
         for name, raw in (
             ("document", manifest["documentJson"].encode("utf-8")),
             ("settings", manifest["settingsJson"].encode("utf-8")),
-            ("dependencies", b'{"selectedSources":[]}'),
+            ("dependencies", dependencies),
+            ("submission", submission),
         ):
             _immutable(inputs / f"{name}.json", raw)
+        source_inputs: dict[str, Path] = {}
+        try:
+            for source_id, (revision, digest) in pins.items():
+                path = inputs / f"source-{source_id}.bin"
+                frozen_source_file(
+                    authority,
+                    self.project_id,
+                    source_id,
+                    revision,
+                    digest,
+                    self.accepted_source_roots,
+                    path,
+                )
+                source_inputs[f"source:{source_id}"] = path
+        except FrozenInputRefusal:
+            raise AgentTransportRefusal(
+                "trusted accepted source bytes unavailable"
+            ) from None
 
         def current() -> dict[str, Any]:
             live = _checked_frozen(
                 self.transport.frozen(job_id, epoch), self.project_id, job_id, expected
             )
-            if (
-                live["documentDigest"] != manifest["documentDigest"]
-                or live["settingsDigest"] != manifest["settingsDigest"]
-                or live["documentRevision"] != manifest["documentRevision"]
-                or live["settingsRevision"] != manifest["settingsRevision"]
-            ):
+            if not _same_frozen_authority(manifest, live):
                 raise AgentTransportRefusal("frozen authority changed")
+            try:
+                if (
+                    checked_compiler_dependencies(
+                        authority.frozen_dependencies(self.project_id, job_id),
+                        live,
+                        pins,
+                    )
+                    != dependencies
+                ):
+                    raise FrozenInputRefusal("compiler metadata changed")
+                for source_id, (revision, digest) in pins.items():
+                    frozen_source_file(
+                        authority,
+                        self.project_id,
+                        source_id,
+                        revision,
+                        digest,
+                        self.accepted_source_roots,
+                        None,
+                    )
+            except FrozenInputRefusal:
+                raise AgentTransportRefusal("accepted source changed") from None
             return live
 
         repository = SnapshotRepository(
@@ -373,25 +645,53 @@ class LocalBuildAgentService:
             project_id=self.project_id,
             build_id=job_id,
             build_class=manifest["buildClass"],
-            mode="free",
+            mode=manifest["mode"],
             settings_hash=manifest["settingsDigest"][7:],
             inputs={
-                name: inputs / f"{name}.json"
-                for name in ("document", "settings", "dependencies")
+                **{
+                    name: inputs / f"{name}.json"
+                    for name in ("document", "settings", "dependencies", "submission")
+                },
+                **source_inputs,
             },
             adapter_versions=self.adapter_versions,
         )
+        if manifest["mode"] == "studio" and (
+            native_permission_missing
+            or native is None
+            or native.snapshot_id != snapshot.snapshot_id
+        ):
+            # Keep the original lease resumable while the owner supplies an
+            # exact native snapshot approval. A terminal needs_action report
+            # would invalidate the very epoch required for safe continuation.
+            self.transport.progress(
+                job_id,
+                epoch,
+                "transport",
+                "running",
+                None,
+                "native_authorization_pending",
+            )
+            return "needs_action"
         local_job = BuildComposition(repository, self.ports).submit(
             self.store,
-            BuildRequest(self.project_id, snapshot.snapshot_id, job_id, "free"),
+            BuildRequest(
+                self.project_id, snapshot.snapshot_id, job_id, manifest["mode"]
+            ),
         )
         before = self.store.status(self.project_id, local_job)
         requested = [s["name"] for s in before["stages"] if s["status"] == "requested"]
         if not requested:
             return str(before["status"])
         stage = str(requested[0])
-        if stage not in CORE_STAGES:
+        if (
+            stage
+            not in CORE_STAGES
+            + (STUDIO_STAGES[:2] if manifest["mode"] == "studio" else ())
+            or stage not in self.ports
+        ):
             raise AgentTransportRefusal("unsupported local stage")
+        current()  # Recheck remote scope, accepted bytes and v2 metadata at dispatch.
         self.transport.progress(job_id, epoch, stage, "running", None, None)
         self.store.run_one(
             self.project_id,
@@ -404,6 +704,15 @@ class LocalBuildAgentService:
         if completed["status"] == "complete":
             digest = "sha256:" + str(completed["sha256"])
             self.transport.progress(job_id, epoch, stage, "running", digest, None)
+            if stage in ("verifying_import_package", "verifying_timeline"):
+                # The remote status remains unverified unless a real trusted
+                # inspector correlates the exact reported stage receipt.
+                inspector = getattr(self.transport, "inspect", None)
+                if callable(inspector):
+                    try:
+                        inspector(job_id, epoch, stage, digest)
+                    except AgentTransportRefusal:
+                        return "needs_action"
         else:
             # Local uncertain/partial output and SQLite history survive; there
             # is no re-dispatch or unverified native success transition.

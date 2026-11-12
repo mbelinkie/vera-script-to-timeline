@@ -7,7 +7,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from vera_timeline_agent.build_agent_service import (
@@ -27,11 +27,13 @@ from vera_timeline_agent.build_jobs import (
     StageContext,
     publish_immutable_output,
 )
+from vera_timeline_agent.build_submission_inputs import AcceptedSourceFile
 
 PROJECT = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
 JOB = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 TARGET = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 SNAPSHOT = "sha256:" + "f" * 64
+FIXTURE = Path(__file__).parent / "data/authoring_v2/compiler-dependencies-v2.json"
 
 
 def digest(raw: str) -> str:
@@ -58,10 +60,52 @@ def manifest(mode: str = "free") -> dict[str, Any]:
     }
 
 
+def complete_dependencies(value: dict[str, Any]) -> dict[str, Any]:
+    """An explicit complete synthetic fixture, not a production default."""
+    result = cast(dict[str, Any], json.loads(FIXTURE.read_text()))
+    result["build"]["buildId"] = value["jobId"]
+    result["build"]["buildClass"] = value["buildClass"]
+    result["document"].update(
+        {
+            "documentId": json.loads(value["documentJson"])["id"],
+            "projectId": value["projectId"],
+            "revision": value["documentRevision"],
+            "contentHash": value["documentDigest"],
+            "settingsHash": value["settingsDigest"],
+        }
+    )
+    result["authoringDefaults"]["settingsHash"] = value["settingsDigest"]
+    result["occurrenceResolutions"] = []
+    result["preparedMedia"] = []
+    return result
+
+
+@dataclass
+class FakeInputAuthority:
+    transport: FakeTransport
+    dependencies: dict[str, Any] | None = None
+    accepted: dict[str, AcceptedSourceFile] = field(default_factory=dict)
+
+    def accepted_source(
+        self, project_id: str, source_id: str, revision: str
+    ) -> AcceptedSourceFile | None:
+        return self.accepted.get(source_id)
+
+    def frozen_dependencies(
+        self, project_id: str, job_id: str
+    ) -> dict[str, Any] | None:
+        return (
+            self.dependencies
+            if self.dependencies is not None
+            else complete_dependencies(self.transport.data)
+        )
+
+
 @dataclass
 class FakeTransport:
     data: dict[str, Any] = field(default_factory=manifest)
     reports: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
+    inspections: list[tuple[str, str]] = field(default_factory=list)
     claims: int = 0
     reads: int = 0
     fail_on_read: int = -1
@@ -92,6 +136,10 @@ class FakeTransport:
     ) -> None:
         assert (job_id, epoch) == (JOB, 1)
         self.reports.append((stage, status, receipt_digest, reason))
+
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None:
+        assert (job_id, epoch) == (self.data["jobId"], 1)
+        self.inspections.append((stage, digest))
 
 
 @dataclass
@@ -134,7 +182,12 @@ class FakePort:
 
 
 def service(
-    tmp_path: Path, transport: FakeTransport, port: FakePort | None = None
+    tmp_path: Path,
+    transport: FakeTransport,
+    port: FakePort | None = None,
+    *,
+    input_authority: FakeInputAuthority | None = None,
+    accepted_source_roots: tuple[Path, ...] = (),
 ) -> LocalBuildAgentService:
     ports = {stage: port for stage in CORE_STAGES} if port else {}
     return LocalBuildAgentService(
@@ -143,6 +196,8 @@ def service(
         transport,
         ports,
         {"synthetic": "v1"} if port else {},
+        input_authority=input_authority or FakeInputAuthority(transport),
+        accepted_source_roots=accepted_source_roots,
     )
 
 
@@ -275,3 +330,19 @@ def test_mismatched_restart_receipt_does_not_claim_or_mutate(tmp_path: Path) -> 
         )
     assert port.calls == 0
     assert transport.claims == 0
+
+
+def test_missing_compiler_metadata_cannot_fall_back_to_placeholder(
+    tmp_path: Path,
+) -> None:
+    transport, port = FakeTransport(), FakePort()
+    agent = LocalBuildAgentService(
+        tmp_path / "private",
+        PROJECT,
+        transport,
+        {stage: port for stage in CORE_STAGES},
+        {"synthetic": "v1"},
+    )
+    with pytest.raises(AgentTransportRefusal, match="trusted compiler metadata"):
+        agent.run_one(JOB)
+    assert port.calls == 0

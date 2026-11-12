@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
 import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
+  type AcceptedSourceAuthority, type IndependentEvidenceInspector,
   ProjectAgentAuthenticationService, ProjectAgentPairingService,
   ProjectBuildSubmissionService, ProjectBuildStatusService } from "@vera/project-builds";
 import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService } from "@vera/project-documents";
@@ -41,6 +42,10 @@ export interface QaRunningServer {
 export interface QaHostInfrastructure {
   createPool?: (config: QaConfig, onError: () => void) => QaPgPool;
   migrate?: typeof applyQaMigrations;
+  /** Only a trusted, independently implemented accepted-source store. */
+  acceptedSources?: AcceptedSourceAuthority;
+  /** No built-in native inspector: never infer Resolve success from agent HTTP. */
+  evidenceInspector?: IndependentEvidenceInspector;
 }
 
 /** Fail before binding if credentials, migrations or database checks fail. */
@@ -89,8 +94,9 @@ export async function startQaServer(
     const pairing = createProjectBuildPairingApiHandler({ identity, authorization: auth,
       pairing: new ProjectAgentPairingService(pool, auth), agents });
     const builds = createProjectBuildHttpHandler({ identity, authorization: auth,
-      submissions: new ProjectBuildSubmissionService(pool, auth),
-      status: new ProjectBuildStatusService(pool, auth, agents) });
+      submissions: new ProjectBuildSubmissionService(pool, auth, infrastructure.acceptedSources),
+      status: new ProjectBuildStatusService(pool, auth, agents, infrastructure.acceptedSources,
+        undefined, infrastructure.evidenceInspector) });
     const projects = createProjectApiHandler({ identity, authorization: auth, documents,
       comments: new ProjectCommentService(pool, auth) });
     server = await listenQaHttp(config.bindHost, config.port, (request) => {

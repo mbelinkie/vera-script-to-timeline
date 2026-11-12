@@ -1,6 +1,8 @@
 """No real Resolve mutation: fake connected results and retained target identity."""
 
 import hashlib
+import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +24,7 @@ from vera_timeline_agent.build_studio_stage import (
     BuildStudioStagePort,
     NativeAuthorization,
     VerifyStudioStagePort,
+    _check_authority,
     _HostReservation,
 )
 from vera_timeline_agent.workflow_package import sha256
@@ -98,6 +101,11 @@ def setup(tmp_path: Path) -> StudioCase:
     frozen_deps = loads(case.dependencies_path.read_bytes())
     project = frozen_deps["document"]["projectId"]
     build = frozen_deps["build"]["buildId"]
+    job = "studio-job"
+    submission = case.document_path.parent / "submission.json"
+    submission.write_text(
+        json.dumps({"jobId": build, "targetId": "fresh-target", "mode": "studio"})
+    )
     repo = SnapshotRepository(
         tmp_path / "snapshots",
         read_roots=(case.document_path.parent,),
@@ -111,13 +119,16 @@ def setup(tmp_path: Path) -> StudioCase:
         build_id=build,
         build_class="preview",
         settings_hash="c" * 64,
-        inputs={"document": case.document_path, "dependencies": case.dependencies_path},
+        inputs={
+            "document": case.document_path,
+            "dependencies": case.dependencies_path,
+            "submission": submission,
+        },
         adapter_versions={
             "resolve-v2": "injected-none/v2",
             "resolve-v2-readback": "injected-none-readback/v2",
         },
     )
-    job = "studio-job"
     case.project_root = snap.write_root / job / "package"
     case.build()
     att = attest_package_v2(
@@ -150,6 +161,34 @@ def setup(tmp_path: Path) -> StudioCase:
         )
 
     return snap, auth, driver, context, tmp_path / "host-lock"
+
+
+def test_frozen_backend_authority_survives_local_sqlite_job_allocation(
+    setup: StudioCase,
+) -> None:
+    from dataclasses import replace
+
+    snapshot, auth, _driver, ctx, _host = setup
+    backend_job = snapshot.build_id
+    assert json.loads(snapshot.file("submission").read_bytes())["jobId"] == backend_job
+    permission = replace(
+        auth,
+        job_id=backend_job,
+        target_id="fresh-target",
+        expires_at=time.time() + 60,
+        current_authority=lambda: True,
+    )
+    # BuildJobStore allocates a separate internal job ID; it may not replace
+    # the immutable backend submission identity in a native permission.
+    local = replace(ctx("building_resolve_timeline"), job_id="sqlite-local-job")
+    _check_authority(permission, local, snapshot, auth.attestation_sha256)
+    with pytest.raises(NeedsAction, match="job/snapshot/attestation"):
+        _check_authority(
+            replace(permission, job_id="different-backend-job"),
+            local,
+            snapshot,
+            auth.attestation_sha256,
+        )
 
 
 def test_native_studio_preflight_explicit_one_use_then_separate_readback(
@@ -225,10 +264,14 @@ def test_lost_native_response_recovers_only_on_independent_connected_readback(
             {
                 "schemaVersion": "vera-native-build-intent/v1",
                 "stageKey": context.stage_key,
+                "jobId": snapshot.build_id,
+                "targetId": driver.target["timelineName"],
                 "requestId": auth.request_id,
                 "attestationSha256": auth.attestation_sha256,
                 "snapshotSha256": snapshot.snapshot_id,
                 "projectName": driver.target["projectName"],
+                "timelineName": driver.target["timelineName"],
+                "route": "None",
             }
         ),
     )
@@ -297,3 +340,99 @@ def test_previous_verified_request_reinspection_does_not_release_new_host_slot(
         reservation.reserve("third", "c" * 64)
     with pytest.raises(UncertainResult, match="differs"):
         reservation.finish("first", "c" * 64)
+
+
+def test_failed_terminal_native_parent_retains_host_exclusion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vera_timeline_agent import build_studio_stage
+
+    root = tmp_path / "host-lock"
+    root.mkdir()
+    (root / "active.json").write_text(
+        json.dumps(
+            {"requestPath": str(root / "request.json"), "requestSha256": "a" * 64}
+        )
+    )
+    monkeypatch.setattr(
+        build_studio_stage,
+        "parent_status",
+        lambda *_args: {"state": "terminal", "verified": False},
+    )
+    with pytest.raises(NeedsAction, match="ended unverified"):
+        _HostReservation(root).reserve("another-request", "b" * 64)
+    assert not (root / "composition-active.json").exists()
+
+
+def test_frozen_submitted_target_is_checked_even_for_legacy_none_driver(
+    setup: StudioCase,
+) -> None:
+    from dataclasses import replace
+
+    snap, auth, driver, ctx, host = setup
+    for job, target in (("wrong-job", "fresh-target"), (snap.build_id, "swapped")):
+        denied = replace(auth, job_id=job, target_id=target)
+        with pytest.raises(NeedsAction, match=r"job/snapshot|target"):
+            BuildStudioStagePort(denied, driver, host_state=host).execute(
+                ctx("building_resolve_timeline"), snap
+            )
+    assert driver.starts == 0
+    assert not host.exists()
+    accepted = replace(auth, job_id=snap.build_id, target_id="fresh-target")
+    BuildStudioStagePort(accepted, driver, host_state=host).execute(
+        ctx("building_resolve_timeline"), snap
+    )
+    assert driver.starts == 1
+
+
+def test_revoked_authority_between_preflight_and_start_retains_intent(
+    setup: StudioCase, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    snap, auth, driver, ctx, host = setup
+    current = {"allowed": True}
+    permit = replace(
+        auth,
+        job_id=snap.build_id,
+        target_id="fresh-target",
+        expires_at=time.time() + 60,
+        current_authority=lambda: current["allowed"],
+    )
+    original_preflight = driver.preflight
+
+    def preflight(attestation: Path, digest: str, request_id: str) -> dict[str, Any]:
+        result = original_preflight(attestation, digest, request_id)
+        current["allowed"] = False
+        return result
+
+    monkeypatch.setattr(driver, "preflight", preflight)
+    build = BuildStudioStagePort(permit, driver, host_state=host)
+    with pytest.raises(NeedsAction, match="stale"):
+        build.execute(ctx("building_resolve_timeline"), snap)
+    assert driver.starts == 0
+    assert (
+        snap.write_root / "studio-job" / "building_resolve_timeline" / "intent.json"
+    ).exists()
+    with pytest.raises(NeedsAction, match="stale"):
+        build.inspect(ctx("building_resolve_timeline"), snap)
+    current["allowed"] = True
+    with pytest.raises(UncertainResult, match="one-use"):
+        build.execute(ctx("building_resolve_timeline"), snap)
+
+
+def test_expired_permission_cannot_promote_saved_native_response(
+    setup: StudioCase,
+) -> None:
+    from dataclasses import replace
+
+    snap, auth, driver, ctx, host = setup
+    now = {"value": time.time()}
+    permit = replace(auth, expires_at=now["value"] + 20)
+    build = BuildStudioStagePort(permit, driver, host_state=host)
+    build.execute(ctx("building_resolve_timeline"), snap)
+    revoked = BuildStudioStagePort(
+        replace(permit, expires_at=now["value"] - 20), driver, host_state=host
+    )
+    with pytest.raises(NeedsAction, match="expired"):
+        revoked.inspect(ctx("building_resolve_timeline"), snap)

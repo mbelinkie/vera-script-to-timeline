@@ -73,7 +73,7 @@ export function createProjectBuildHttpHandler(deps: BuildHttpDependencies):
       const userJob = /^\/v1\/projects\/([^/]+)\/builds\/([^/]+)(\/cancel)?$/u.exec(path);
       const agentClaim = /^\/v1\/agent\/projects\/([^/]+)\/jobs\/([^/]+)\/claim$/u.exec(path);
       const agentQueue = /^\/v1\/agent\/projects\/([^/]+)\/queue$/u.exec(path);
-      const agentLease = /^\/v1\/agent\/projects\/([^/]+)\/jobs\/([^/]+)\/leases\/([1-9]\d*)\/(frozen|progress)$/u.exec(path);
+      const agentLease = /^\/v1\/agent\/projects\/([^/]+)\/jobs\/([^/]+)\/leases\/([1-9]\d*)\/(frozen|progress|inspect)$/u.exec(path);
       if (userList || userJob) {
         const principal = await deps.authorization.authenticateRequest(request, deps.identity);
         if (userList && request.method === "POST") {
@@ -109,6 +109,17 @@ export function createProjectBuildHttpHandler(deps: BuildHttpDependencies):
             stageKey: fields.stageKey as string, receiptDigest: fields.receiptDigest as string | null,
             reasonCode: fields.reasonCode as string | null };
           return reply(202, { eventId: await deps.status.appendProgress(credential, agentLease[2]!, report) });
+        }
+        if (agentLease[4] === "inspect" && request.method === "POST") {
+          // Agent may request inspection, but cannot choose an evidence kind or
+          // assert success. Only a host-installed independent inspector can.
+          const fields = object(await body(request), ["stageKey", "receiptDigest"]);
+          if (typeof fields.stageKey !== "string" || typeof fields.receiptDigest !== "string") {
+            return invalid();
+          }
+          return reply(202, { eventId: await deps.status.inspectEvidence(
+            credential, agentLease[2]!, epoch, fields.stageKey, fields.receiptDigest,
+          ) });
         }
       }
       return reply(404, { error: "not_found" });
