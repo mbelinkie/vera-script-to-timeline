@@ -19,7 +19,6 @@ from fractions import Fraction
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Literal, cast
-from urllib.parse import unquote, urlparse
 
 from vera_timeline_agent.build_compiler_bridge import BridgeOutput
 from vera_timeline_agent.build_stage_receipt import hash_file
@@ -90,13 +89,6 @@ def _physical_under(path: Path, root: Path) -> Path:
     if not physical.is_relative_to(root.resolve()):
         raise ValueError("retained media path escapes the supplied read root")
     return physical
-
-
-def _source_path(locator: str, read_root: Path) -> Path:
-    parsed = urlparse(locator)
-    if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
-        raise ValueError("only retained local file assets are supported")
-    return _physical_under(Path(unquote(parsed.path)), read_root)
 
 
 def _nearest_frame(index: int, old_rate: Fraction, origin: int) -> int:
@@ -392,6 +384,12 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     if set(prepared_by_ref) != {row["mediaReferenceId"] for row in descriptors}:
         raise ValueError("retained prepared-media bindings do not match occurrences")
 
+    package_root = source_root / "package"
+    pictures_by_hash = {
+        item["contentHash"]: item["path"]
+        for item in source_view["sources"]
+        if item["kind"] == "video"
+    }
     tools = MediaTools()
     tool_hash = identity_hash(tools.fingerprint())
     _qualified_tools(tool_hash)
@@ -400,7 +398,11 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     old_inspections: dict[str, MediaInspection] = {}
     for descriptor in descriptors:
         ref = descriptor["mediaReferenceId"]
-        path = _source_path(prepared_by_ref[ref]["artifactLocator"], read_root)
+        snapshot_hash = descriptor["sourceSnapshot"]["contentHash"]
+        relative_path = pictures_by_hash.get(snapshot_hash)
+        if relative_path is None:
+            raise ValueError("retained package lacks the exact picture source")
+        path = _physical_under(package_root / relative_path, package_root)
         inspection = inspect_media(
             path, video_stream_index=0, audio_stream_index=None, tools=tools
         )
