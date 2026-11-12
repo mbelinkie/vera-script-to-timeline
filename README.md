@@ -112,6 +112,14 @@ render or audio comparison is performed. Native source audio and unqualified
 fractional-rate timeline creation still refuse explicitly; this command does
 not bypass those product limitations.
 
+To compare two prepared scripts with their verified timeline durations, run
+`uv run --frozen python scripts/check_timeline_speed.py` with `--short-script`,
+`--short-inputs`, `--long-script`, `--long-inputs`, and an unused `--output`
+directory. Each case uses the command above and creates a new Resolve project.
+The check stops after any failure. It prints the command's individual stage
+times and compares the entire command time with the verified timeline duration;
+the Resolve-only aggregate is also shown. Inputs must be prepared beforehand.
+
 ## Validation
 
 Testing, review and merge rules are in [AGENTS.md](AGENTS.md) and
