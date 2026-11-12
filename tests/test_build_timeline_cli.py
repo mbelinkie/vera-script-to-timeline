@@ -12,7 +12,12 @@ import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import build_timeline_cli, build_timeline_once, studio_spike
 from vera_timeline_agent.build_compiler_bridge import BridgeOutput
-from vera_timeline_agent.build_jobs import BuildJobError, NeedsAction, UncertainResult
+from vera_timeline_agent.build_jobs import (
+    BuildJobError,
+    NeedsAction,
+    UncertainResult,
+    publish_immutable_output,
+)
 from vera_timeline_agent.build_stage_receipt import hash_file
 from vera_timeline_agent.build_timeline_once import (
     BuildOptions,
@@ -663,7 +668,7 @@ def test_row_map_publishes_only_once_after_verified_native_readback(
 
     monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", workflow)
     if outcome == "publish-failed":
-        original_publish = build_timeline_once.publish_immutable_output
+        original_publish = publish_immutable_output
 
         def fail_map_publish(path: Path, content: bytes) -> None:
             if path.name == "row-timeline-map.json":
