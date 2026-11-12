@@ -705,32 +705,45 @@ representative density and paired forward improvements; none is accepted yet
 at RK-30’s unmerged snapshot. #313 then measures reverse overhead against
 resulting main.
 
-### RK-32 — The shipped command's 24 fps speed check hit two delivery limits
+### RK-32 — The shipped command's 24 fps timing and source clocks
 
-**Observed refusal / product.** Intel Mac, Resolve Studio **21.1.1 build 10**,
-Local scripting after a restart. The command total runs from input selection
-through completion or refusal. Preparation is measured separately and does not
-enter the speed gate.
+**Measured / product.** Intel Mac, Resolve Studio **21.1.1 build 10**, Local
+scripting, 2026-11-12. Both cases passed save/close/reopen structural verification.
 
-| Sample | Timeline duration (s) | Preparation (s) | Build plus check (s) | Result |
+| Sample | Timeline duration (s) | Preparation (s) | Build plus check (s) | Speed result |
 | --- | ---: | ---: | ---: | --- |
-| Short retained sample | 47.792 | ~2,588 | 59.09 | Structural readback failed and elapsed time exceeded duration |
-| 30-row public fixture | 581.250 | 743.09 | 85.85 | Refused before creating a project |
+| Short retained sample, 11 events | 47.792 | ~2,588 | 74.82 | FAIL |
+| Public 30-row fixture, 102 events | 581.250 | ~866 | 199.55 | PASS |
 
-Short preparation reused measured narration, converted six picture sources,
-and was estimated from file timestamps after the timing log was lost. Its
-disposable project reopened with the correct timeline length and event
-positions. Integer source range getters disagreed with the verifier for
-interior video, whole narration and one-frame stills. See the [#119 Studio source-range observations](verification/issue-119/STUDIO_QUALIFICATION.md). The long fixture passed package and attestation
-checks, then refused two intentional slate treatments without a qualified
-native mapping. Its time is elapsed to refusal.
+Preparation is outside the speed gate. Its elapsed active time was reconstructed
+from file timestamps after interrupted logging. The long estimate excludes its
+checkpoint interval. The complete command time was printed by the product.
+CPU speed limits observed were 50% after short, and 37% before / 22% after long.
+The Producer identified these as practical conditions for this Mac.
 
-**Reuse/delta.** This check covers exact **24 fps**. The default **23.976 fps**
-route is outside the measured envelope. A verifier change needs source clocks
-bound to the actual media and a new save/reopen run. A speed pass requires a
-successful structural check within the verified timeline duration.
+The earlier short attempt saved/reopened but refused source-range verification.
+The corrected verifier accepts alternative 24 fps integer source getters only
+with exact bound source-clock evidence. Interior video reads its exclusive
+end. The fallback's inclusive end shape requires full-source EOF and a bound
+decoded frame count. One-frame stills can report equal synthetic integer
+offsets while source times cover exactly one physical frame. Whole narration
+EOF is bound to its WAV hash, sample count, sample rate and source-time edge.
+The established exact integer readback path remains supported. See the
+[#119 source-range observations](verification/issue-119/STUDIO_QUALIFICATION.md).
 
-[Issue #520 measurement](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6834652634)
+The original long attempt refused two intentional slates before native writes.
+The final benchmark uses their already planned video sources at the same
+record positions. This fixture adaptation does not establish native slate
+support. Shared preparation bindings use the merged #531 correction.
+
+**Reuse/delta.** The results cover **24 fps**. Default **23.976 fps** remains
+outside this check and is tracked in #533. A passing speed result requires a
+successful structural check within the timeline duration. The short speed miss
+requires a separate Producer decision after Claude's practical optimization
+assessment. Further timed runs require the Producer's confirmation that other
+Mac work has stopped.
+
+[Updated #520 result table](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6835566969)
 
 ## Current #312 / #313 handoff
 
