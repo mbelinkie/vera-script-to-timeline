@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from fractions import Fraction
@@ -46,6 +47,7 @@ def _make_package(
     picture_treatment: dict[str, Any] | None = None,
     marker_track_kind: str = "video",
     marker_track_index: int = 2,
+    visual_event_count: int = 1,
 ) -> tuple[Path, str, dict[str, Any]]:
     root = tmp_path / "package"
     build_id, manifest_id, report_id, document_id = (
@@ -73,7 +75,7 @@ def _make_package(
         "height": 1080,
         "audioSampleRate": 48000,
         "startFrame": 0,
-        "durationFrames": 10,
+        "durationFrames": 10 * visual_event_count,
     }
     tracks = [
         {"id": "video-root", "kind": "video", "index": 1, "name": "Root"},
@@ -212,6 +214,19 @@ def _make_package(
                 "pictureTreatment": None,
             }
         )
+    for index in range(1, visual_event_count):
+        next_visual = deepcopy(visual)
+        next_visual["eventId"] = str(uuid.uuid4())
+        next_visual["recordRange"] = {
+            "startFrame": index * 10,
+            "endFrame": (index + 1) * 10,
+        }
+        events.insert(-1, next_visual)
+        next_view_event = deepcopy(view_events[0])
+        next_view_event["id"] = next_visual["eventId"]
+        next_view_event["recordRange"]["startFrame"] = index * 10
+        next_view_event["v2Event"] = next_visual
+        view_events.append(next_view_event)
     manifest = {
         "schemaVersion": "timeline-manifest/v2",
         "id": manifest_id,
@@ -1448,6 +1463,104 @@ def test_build_authorization_order_and_private_marker_text_redaction(
     assert adapter.calls.count("place_event") == 1
     assert adapter.calls.count("add_marker") == 1
     assert "PRIVATE marker text" not in json.dumps(result)
+
+
+def test_changed_packaged_media_after_preflight_refuses_before_native_call(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, value = _make_package(tmp_path)
+    preflight = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _: _FakeAdapter()
+    )
+    assert preflight["status"] == "preflight_passed"
+
+    media = next((Path(value["packageDir"]) / "Media" / "Resolved").glob("*.mov"))
+    media.write_bytes(media.read_bytes() + b"changed-after-packaging")
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["verified"] is False
+    assert result["partialTargetRetained"] is False
+    assert adapter.calls == []
+
+
+@pytest.mark.parametrize("change_during", ["place_event", "verify"])
+def test_mid_build_media_swap_after_native_readback_cannot_verify(
+    tmp_path: Path, change_during: str
+) -> None:
+    attestation, digest, value = _make_package(tmp_path)
+    media = next((Path(value["packageDir"]) / "Media" / "Resolved").glob("*.mov"))
+
+    class ChangingAdapter(_FakeAdapter):
+        def _call(self, name: str) -> None:
+            super()._call(name)
+            if name == change_during:
+                media.write_bytes(media.read_bytes() + b"swapped-during-native")
+
+    adapter = ChangingAdapter()
+    observed: list[tuple[str, bool]] = []
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+        stage_observer=lambda label, _seconds, succeeded: observed.append(
+            (label, succeeded)
+        ),
+    )
+    assert "place_event" in adapter.calls
+    assert "save_close_reopen" in adapter.calls
+    assert "verify" in adapter.calls
+    assert result["status"] == "mutation_failed"
+    assert result["verified"] is False
+    assert result["partialTargetRetained"] is True
+    assert result["failureStage"] == "final package validation"
+    assert observed[-1] == ("verify", False)
+
+
+@pytest.mark.parametrize("visual_event_count", [1, 7])
+def test_build_deep_package_loads_do_not_scale_with_placed_clips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, visual_event_count: int
+) -> None:
+    attestation, digest, _ = _make_package(
+        tmp_path, visual_event_count=visual_event_count
+    )
+    real_loader = workflow_v2.load_verified_package_v2
+    loads = 0
+
+    def counted_loader(
+        path: Path, expected_digest: str
+    ) -> workflow_v2.VerifiedPackageV2:
+        nonlocal loads
+        loads += 1
+        return real_loader(path, expected_digest)
+
+    monkeypatch.setattr(workflow_v2, "load_verified_package_v2", counted_loader)
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "verified"
+    assert adapter.calls.count("place_event") == visual_event_count
+    assert adapter.calls.count("target") >= visual_event_count + 9
+    assert loads == 2  # entry and post-readback, never per native operation
 
 
 def test_marker_metadata_is_preflightable_and_redacted(tmp_path: Path) -> None:

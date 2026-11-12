@@ -2810,9 +2810,14 @@ def run_workflow_delivery_v2(
                 existing_project, settings, attestation["timelineName"]
             )
             result["projectName"] = existing_project
-        if load_verified_package_v2(attestation_path, attestation_sha256) != package:
-            raise WorkflowV2Error("package changed during preflight")
         if action == "preflight":
+            # Preflight is a separate read-only invocation, not an exemption
+            # for the next build's independent entry validation.
+            if (
+                load_verified_package_v2(attestation_path, attestation_sha256)
+                != package
+            ):
+                raise WorkflowV2Error("package changed during preflight")
             result["status"] = "preflight_passed"
             result["message"] = "The immutable v2 package passed read-only preflight."
             if not result["nativeRateQualified"]:
@@ -2847,9 +2852,8 @@ def run_workflow_delivery_v2(
         def mutate(method: Callable[..., Any], *arguments: Any, label: str) -> Any:
             nonlocal mutation_started, stage
             stage = label
-            current = load_verified_package_v2(attestation_path, attestation_sha256)
-            if current != package:
-                raise WorkflowV2Error("package changed before a native operation")
+            # Full package bytes were checked on entry and are checked again
+            # after native read-back; never rehash them for every clip.
             if native_bound_path is not None and (
                 _digest(_read_regular(native_bound_path, "native import file"))
                 != native_bound_digest
@@ -2926,14 +2930,15 @@ def run_workflow_delivery_v2(
             existing_project or attestation["projectName"],
             label="save close and reopen",
         )
-        if load_verified_package_v2(attestation_path, attestation_sha256) != package:
-            raise WorkflowV2Error("package changed after native save and reopen")
         observe_next("verify")
         if existing_project is not None:
             adapter.assert_current_target()
         discrepancies = tuple(adapter.verify(view))
         if existing_project is not None:
             adapter.assert_current_target()
+        stage = "final package validation"
+        if load_verified_package_v2(attestation_path, attestation_sha256) != package:
+            raise WorkflowV2Error("package changed during native delivery or readback")
         observe_next(None, succeeded=not discrepancies)
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
