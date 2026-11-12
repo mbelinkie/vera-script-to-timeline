@@ -386,9 +386,7 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
 
     package_root = source_root / "package"
     pictures_by_hash = {
-        item["contentHash"]: item["path"]
-        for item in source_view["sources"]
-        if item["kind"] == "video"
+        item["contentHash"]: item["path"] for item in source_view["sources"]
     }
     tools = MediaTools()
     tool_hash = identity_hash(tools.fingerprint())
