@@ -258,16 +258,17 @@ def test_timing_span_records_elapsed_on_success_and_failure() -> None:
     assert lines == ["Resolve step + check: PASS (12.50s)"]
     assert reporter.stages == [("Resolve step + check", 12.5)]
 
-    with pytest.raises(UncertainResult, match="unknown native write"):
-        with reporter.span("Resolve step + check"):
-            now[0] = 18.0
-            raise UncertainResult("unknown native write")
+    with (
+        pytest.raises(UncertainResult, match="unknown native write"),
+        reporter.span("Resolve step + check"),
+    ):
+        now[0] = 18.0
+        raise UncertainResult("unknown native write")
     assert lines[-1] == "Resolve step + check: FAIL (2.50s)"
 
-    with pytest.raises(KeyboardInterrupt):
-        with reporter.span("Resolve step + check"):
-            now[0] = 20.0
-            raise KeyboardInterrupt
+    with pytest.raises(KeyboardInterrupt), reporter.span("Resolve step + check"):
+        now[0] = 20.0
+        raise KeyboardInterrupt
     assert lines[-1] == "Resolve step + check: FAIL (2.00s)"
 
 
