@@ -14,38 +14,44 @@ import math
 import shutil
 import subprocess
 import uuid
+from collections.abc import Mapping
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Literal
+from time import perf_counter
+from typing import Any, Literal, cast
 from urllib.parse import unquote, urlparse
 
 from vera_timeline_agent.build_compiler_bridge import BridgeOutput
 from vera_timeline_agent.build_stage_receipt import hash_file
 from vera_timeline_agent.build_timeline_once import BuildOptions, compile_prepared
 from vera_timeline_agent.generated.contracts.compiler_dependencies_v2_schema import (
+    FrameRangeV2,
+    NonNegativeRationalTime,
     OccurrenceMediaResolutionV2,
     RationalRate,
-    RequestedPreparationRangeV1,
+    SourceFrameMapV1,
 )
 from vera_timeline_agent.media_preparation import (
+    MediaInspection,
     MediaTools,
     PreparationAuthorization,
     _qualified_tools,
-    file_hash as media_file_hash,
     inspect_media,
     prepare_media,
     wire,
 )
+from vera_timeline_agent.media_preparation import (
+    file_hash as media_file_hash,
+)
 from vera_timeline_agent.narration.models import identity_hash, sha256_bytes
-from vera_timeline_agent.v2_package import build_v2_package
+from vera_timeline_agent.v2_package import _compiler_hash, build_v2_package
 
 Json = dict[str, Any]
 RATE = Fraction(24, 1)
 RATE_WIRE: RationalRate = {"numerator": 24, "denominator": 1}
 ROOT = Path(__file__).resolve().parents[1]
 NODE_DEFAULT = (
-    Path.home()
-    / ".local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin/node"
+    Path.home() / ".local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin/node"
 )
 MAX_OUTPUT_RESERVE = 512 * 1024**2
 REQUIRED_VIDEO_PROFILE = {
@@ -74,7 +80,9 @@ def _json(path: Path) -> Json:
 
 
 def _write_json(path: Path, value: object) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    )
 
 
 def _physical_under(path: Path, root: Path) -> Path:
@@ -96,7 +104,7 @@ def _nearest_frame(index: int, old_rate: Fraction, origin: int) -> int:
     return math.floor(position + Fraction(1, 2))
 
 
-def _mapped_range(value: Json, old_rate: Fraction, origin: int) -> Json:
+def _mapped_range(value: FrameRangeV2, old_rate: Fraction, origin: int) -> FrameRangeV2:
     start, end = value.get("startFrame"), value.get("endFrame")
     if type(start) is not int or type(end) is not int or end <= start:
         raise ValueError("retained source range is invalid")
@@ -105,7 +113,7 @@ def _mapped_range(value: Json, old_rate: Fraction, origin: int) -> Json:
     return {"startFrame": new_start, "endFrame": new_start + new_length}
 
 
-def _rate(value: Json) -> Fraction:
+def _rate(value: Mapping[str, object]) -> Fraction:
     numerator, denominator = value.get("numerator"), value.get("denominator")
     if type(numerator) is not int or type(denominator) is not int or denominator <= 0:
         raise ValueError("retained source frame rate is invalid")
@@ -116,13 +124,17 @@ def _evidence_hash(value: list[Json]) -> str:
     def frame_fields(item: Any) -> list[str]:
         if isinstance(item, dict):
             found = [key for key in item if "frame" in key.lower()]
-            return found + [name for child in item.values() for name in frame_fields(child)]
+            return found + [
+                name for child in item.values() for name in frame_fields(child)
+            ]
         if isinstance(item, list):
             return [name for child in item for name in frame_fields(child)]
         return []
 
     if len(value) != 2 or frame_fields(value):
-        raise ValueError("narration evidence is not sample/time-based or has changed shape")
+        raise ValueError(
+            "narration evidence is not sample/time-based or has changed shape"
+        )
     for row in value:
         if (
             row.get("verification", {}).get("method") != "measured_audio_boundaries/v1"
@@ -139,7 +151,9 @@ def _evidence_hash(value: list[Json]) -> str:
                     or type(mark.get("denominator")) is not int
                     or mark["denominator"] <= 0
                 ):
-                    raise ValueError("narration evidence must retain rational audio times")
+                    raise ValueError(
+                        "narration evidence must retain rational audio times"
+                    )
     return identity_hash(value)
 
 
@@ -201,7 +215,7 @@ def _transcode(
 
 def _new_descriptor(
     old: OccurrenceMediaResolutionV2,
-    inspection: Any,
+    inspection: MediaInspection,
     package_id: str,
 ) -> OccurrenceMediaResolutionV2:
     content_hash = inspection.content_hash
@@ -211,14 +225,16 @@ def _new_descriptor(
         uuid.uuid5(uuid.UUID(package_id), f"{media_reference_id}:{content_hash}")
     )
     frame_count = len(inspection.video_frames)
-    frame_map = {
+    frame_map: SourceFrameMapV1 = {
         "decodedPackageFrameCount": frame_count,
-        "decodedPackageFrameRate": wire(RATE),
+        "decodedPackageFrameRate": RATE_WIRE,
         "descriptorHash": probe_hash,
-        "loggedTimeAtPackageFrameZero": wire(Fraction(0)),
+        "loggedTimeAtPackageFrameZero": {"numerator": 0, "denominator": 1},
         "packageFrameZeroLogicalFrame": 0,
-        "packageVideoPtsOrigin": wire(inspection.pts_origin),
-        "packageVideoTimeBase": wire(inspection.time_base),
+        "packageVideoPtsOrigin": cast(
+            NonNegativeRationalTime, wire(inspection.pts_origin)
+        ),
+        "packageVideoTimeBase": cast(RationalRate, wire(inspection.time_base)),
         "probeHash": probe_hash,
         "sourceAudioStreamMappings": [],
     }
@@ -234,7 +250,7 @@ def _new_descriptor(
     result["logicalSourceBounds"] = {
         "startFrame": 0,
         "endFrame": frame_count,
-        "frameRate": wire(RATE),
+        "frameRate": RATE_WIRE,
     }
     result["sourceFrameMap"] = frame_map
     result["occurrenceSourceInFrame"] = 0
@@ -243,7 +259,9 @@ def _new_descriptor(
     return result
 
 
-def _update_document(document: Json, old_descriptors: list[Json]) -> None:
+def _update_document(
+    document: Json, old_descriptors: list[OccurrenceMediaResolutionV2]
+) -> None:
     by_payload = {row["payloadId"]: row for row in old_descriptors}
     by_ref = {row["mediaReferenceId"]: row for row in old_descriptors}
     for block in document["activeDraft"]["blocks"]:
@@ -252,17 +270,17 @@ def _update_document(document: Json, old_descriptors: list[Json]) -> None:
             source = payload.get("source", {})
             descriptor = by_payload.get(payload.get("payloadId"))
             if descriptor and source.get("kind") == "media_reference":
-                ref = source["mediaReferenceId"]
-                new = by_ref[ref]
-                frame_map = new["sourceFrameMap"]
                 old_rate = _rate(descriptor["logicalSourceBounds"]["frameRate"])
-                old_origin = descriptor["sourceFrameMap"]["packageFrameZeroLogicalFrame"]
+                old_origin = descriptor["sourceFrameMap"][
+                    "packageFrameZeroLogicalFrame"
+                ]
                 selected = block.get("visualOnlyTiming", {}).get("selectedSourceRange")
                 if selected:
                     mapped = _mapped_range(
                         {
                             "startFrame": selected["startFrame"],
-                            "endFrame": selected["startFrame"] + selected["durationFrames"],
+                            "endFrame": selected["startFrame"]
+                            + selected["durationFrames"],
                         },
                         old_rate,
                         old_origin,
@@ -330,19 +348,24 @@ def _pinned_bridge(
 
 
 def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> None:
+    started = perf_counter()
     source_root = source_root.resolve(strict=True)
     read_root = read_root.resolve(strict=True)
     if not source_root.is_relative_to(read_root):
         raise ValueError("source package must be under the supplied read root")
     if output.exists():
         raise ValueError("output directory must be new; choose a fresh path")
-    if any(part.is_symlink() for part in (output.absolute(), *output.absolute().parents)):
+    if any(
+        part.is_symlink() for part in (output.absolute(), *output.absolute().parents)
+    ):
         raise ValueError("output path contains a symlink")
     output.parent.mkdir(parents=True, exist_ok=True)
     node = _regular(node)
     source_document_path = _regular(source_root / "document.json")
     source_dependencies_path = _regular(source_root / "dependencies.json")
-    source_view_path = next((source_root / "package/Builds").glob("*/delivery-view.json"), None)
+    source_view_path = next(
+        (source_root / "package/Builds").glob("*/delivery-view.json"), None
+    )
     if source_view_path is None:
         raise ValueError("retained delivery view is missing")
     source_view = _json(source_view_path)
@@ -352,11 +375,15 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         raise ValueError("retained document is not script-document/v2")
     if dependencies.get("schemaVersion") != "compiler-dependencies/v2":
         raise ValueError("retained dependencies are not compiler-dependencies/v2")
-    descriptors: list[Json] = dependencies.get("occurrenceResolutions", [])
+    descriptors: list[OccurrenceMediaResolutionV2] = dependencies.get(
+        "occurrenceResolutions", []
+    )
     evidence_hash = _evidence_hash(dependencies.get("narrationBoundaryEvidence", []))
     original_text_hash = dependencies["document"]["textHash"]
     if len(descriptors) != 6:
-        raise ValueError("retained short sample no longer matches its six-source/two-narration shape")
+        raise ValueError(
+            "retained short sample no longer matches its six-source/two-narration shape"
+        )
 
     prepared_by_ref = {
         row["originalSource"]["mediaReferenceId"]: row
@@ -370,27 +397,35 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     _qualified_tools(tool_hash)
     source_bytes = 0
     source_paths: dict[str, Path] = {}
-    old_inspections: dict[str, Any] = {}
+    old_inspections: dict[str, MediaInspection] = {}
     for descriptor in descriptors:
         ref = descriptor["mediaReferenceId"]
         path = _source_path(prepared_by_ref[ref]["artifactLocator"], read_root)
-        inspection = inspect_media(path, video_stream_index=0, audio_stream_index=None, tools=tools)
+        inspection = inspect_media(
+            path, video_stream_index=0, audio_stream_index=None, tools=tools
+        )
         if (
             inspection.content_hash != descriptor["sourceSnapshot"]["contentHash"]
             or inspection.probe_hash != descriptor["sourceSnapshot"]["probeHash"]
             or inspection.rate != _rate(descriptor["logicalSourceBounds"]["frameRate"])
             or inspection.audio is not None
         ):
-            raise ValueError("retained source bytes/probe do not match their descriptor")
+            raise ValueError(
+                "retained source bytes/probe do not match their descriptor"
+            )
         if any(inspection.video.get(k) != v for k, v in REQUIRED_VIDEO_PROFILE.items()):
-            raise ValueError("retained source is outside the qualified SDR H.264 profile")
+            raise ValueError(
+                "retained source is outside the qualified SDR H.264 profile"
+            )
         source_paths[ref] = path
         old_inspections[ref] = inspection
         source_bytes += path.stat().st_size
 
     estimate = source_bytes * 4 + MAX_OUTPUT_RESERVE
     if shutil.disk_usage(output.parent).free < estimate:
-        raise ValueError(f"insufficient free space for estimated {estimate} byte output")
+        raise ValueError(
+            f"insufficient free space for estimated {estimate} byte output"
+        )
     print(f"Input video bytes: {source_bytes}; reserved output budget: {estimate}")
 
     output.mkdir(parents=True)
@@ -404,19 +439,32 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     dependencies_path = inputs / "compiler-dependencies.json"
 
     package_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"vera:520:{document['id']}:24fps"))
-    new_descriptors: list[Json] = []
+    new_descriptors: list[OccurrenceMediaResolutionV2] = []
     converted_paths: dict[str, Path] = {}
-    new_inspections: dict[str, Any] = {}
+    new_inspections: dict[str, MediaInspection] = {}
     for old in descriptors:
         ref = old["mediaReferenceId"]
         old_path = source_paths[ref]
         target = media_root / f"{ref}.mov"
-        _transcode(old_path, target, stream_index=int(old_inspections[ref].video["index"]), tools=tools)
+        _transcode(
+            old_path,
+            target,
+            stream_index=int(old_inspections[ref].video["index"]),
+            tools=tools,
+        )
         if _hash(old_path) != old_inspections[ref].content_hash:
             raise ValueError("retained source changed during preparation")
-        inspection = inspect_media(target, video_stream_index=0, audio_stream_index=None, tools=tools)
-        if inspection.rate != RATE or inspection.audio is not None or not inspection.video_frames:
-            raise ValueError("transcoded source did not decode as 24 fps video-only media")
+        inspection = inspect_media(
+            target, video_stream_index=0, audio_stream_index=None, tools=tools
+        )
+        if (
+            inspection.rate != RATE
+            or inspection.audio is not None
+            or not inspection.video_frames
+        ):
+            raise ValueError(
+                "transcoded source did not decode as 24 fps video-only media"
+            )
         if any(inspection.video.get(k) != v for k, v in REQUIRED_VIDEO_PROFILE.items()):
             raise ValueError("transcoded source failed its qualified SDR profile check")
         converted_paths[ref] = target.resolve()
@@ -427,18 +475,20 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         new["occurrenceSourceInFrame"] = _nearest_frame(
             old["occurrenceSourceInFrame"], old_rate, origin
         )
-        if old.get("selectedSourceRange"):
-            new["selectedSourceRange"] = _mapped_range(
-                old["selectedSourceRange"], old_rate, origin
-            )
+        old_range = old.get("selectedSourceRange")
+        if old_range is not None:
+            new["selectedSourceRange"] = _mapped_range(old_range, old_rate, origin)
         if new["occurrenceSourceInFrame"] >= len(inspection.video_frames):
             raise ValueError("mapped source inpoint exceeds transcoded source")
-        if new.get("selectedSourceRange") and new["selectedSourceRange"]["endFrame"] > len(inspection.video_frames):
+        new_range = new.get("selectedSourceRange")
+        if new_range is not None and new_range["endFrame"] > len(
+            inspection.video_frames
+        ):
             raise ValueError("mapped selected range exceeds transcoded source")
         new_descriptors.append(new)
 
     _update_document(document, descriptors)
-    document["liveContentHash"] = identity_hash(
+    document["liveContentHash"] = _compiler_hash(
         {key: value for key, value in document.items() if key != "liveContentHash"}
     )
     dependencies["document"]["contentHash"] = document["liveContentHash"]
@@ -485,7 +535,9 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         )
         descriptor["preparedMediaRequirementKey"] = result.binding["requirementKey"]
         prepared[result.binding["requirementKey"]] = result
-        preparation_paths[result.binding["requirementKey"]] = result.receipt_path.resolve()
+        preparation_paths[result.binding["requirementKey"]] = (
+            result.receipt_path.resolve()
+        )
 
     dependencies["preparedMedia"] = [prepared[key].binding for key in sorted(prepared)]
     needs_dependencies = copy.deepcopy(dependencies)
@@ -494,6 +546,7 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     _write_json(needs_dependencies_path, needs_dependencies)
     _write_json(dependencies_path, dependencies)
     final_needs = _pinned_bridge("needs", script_path, dependencies_path, node).needs
+
     def plan_without_keys(value: Json) -> Json:
         result = copy.deepcopy(value)
         for row in result.get("requirements", []):
@@ -505,7 +558,10 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
     dependencies["timeline"]["durationFrames"] = final_needs["durationFrames"]
     _write_json(dependencies_path, dependencies)
     _write_json(inputs / "media-needs.json", final_needs)
-    _write_json(inputs / "preparation-paths.json", {k: str(v) for k, v in preparation_paths.items()})
+    _write_json(
+        inputs / "preparation-paths.json",
+        {k: str(v) for k, v in preparation_paths.items()},
+    )
 
     narration_paths: dict[str, Path] = {}
     for item in source_view["sources"]:
@@ -521,14 +577,18 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         source_id = source["id"]
         if isinstance(source.get("narrationAudio"), dict):
             digest = source["narrationAudio"]["audioHash"]
-            path = narration_paths.get(digest)
-            if path is None:
-                raise ValueError("retained narration WAV does not match measured audio hash")
-            media_paths[f"source:{source_id}"] = path
+            narration_path = narration_paths.get(digest)
+            if narration_path is None:
+                raise ValueError(
+                    "retained narration WAV does not match measured audio hash"
+                )
+            media_paths[f"source:{source_id}"] = narration_path
             continue
         ref = source["mediaReferenceId"]
         requirement_key = source["preparationRequirementKey"]
-        media_paths[f"source:{source_id}"] = prepared[requirement_key].video_path.resolve()
+        media_paths[f"source:{source_id}"] = prepared[
+            requirement_key
+        ].video_path.resolve()
         media_paths[f"original:{source_id}"] = converted_paths[ref]
 
     placeholder_paths: dict[str, Path] = {}
@@ -540,15 +600,22 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
         if event["kind"] == "placeholder":
             reference = event.get("pictureTreatment", {}).get("reference", {})
             digest = reference.get("contentHash")
-            path = placeholder_paths.get(digest)
-            if path is None:
-                raise ValueError("retained placeholder still does not match compiled event")
-            media_paths[f"event:{event['eventId']}"] = path
+            placeholder_path = placeholder_paths.get(digest)
+            if placeholder_path is None:
+                raise ValueError(
+                    "retained placeholder still does not match compiled event"
+                )
+            media_paths[f"event:{event['eventId']}"] = placeholder_path
         elif event["kind"] == "source_audio":
-            raise ValueError("the retained short sample unexpectedly requires source audio")
+            raise ValueError(
+                "the retained short sample unexpectedly requires source audio"
+            )
 
-    _write_json(inputs / "media-paths.json", {k: str(v) for k, v in media_paths.items()})
+    _write_json(
+        inputs / "media-paths.json", {k: str(v) for k, v in media_paths.items()}
+    )
     prep_map = {key: _regular(value) for key, value in preparation_paths.items()}
+    print(f"Preparation: {perf_counter() - started:.2f}s", flush=True)
     # This is the same pure compile/package path used by the product command;
     # it performs no Resolve calls.
     cli_check = compile_prepared(
@@ -574,10 +641,16 @@ def prepare(source_root: Path, read_root: Path, output: Path, node: Path) -> Non
             "schemaVersion": "issue-520-short-24fps-preparation/v1",
             "timelineRate": RATE_WIRE,
             "narrationBoundaryEvidenceHash": evidence_hash,
-            "narrationTimingBasis": "unchanged measured 48 kHz audio evidence; no frame coordinates",
+            "narrationTimingBasis": (
+                "unchanged measured 48 kHz audio evidence; no frame coordinates"
+            ),
             "pictureConversion": {
-                "method": "ffmpeg fps=24 CFR resampling from retained prepared picture media",
-                "sourceInpoint": "nearest 24 fps frame to the retained source-frame time",
+                "method": (
+                    "ffmpeg fps=24 CFR resampling from retained prepared picture media"
+                ),
+                "sourceInpoint": (
+                    "nearest 24 fps frame to the retained source-frame time"
+                ),
                 "visualOnlyEnd": "rounded up to cover the retained source interval",
             },
             "sourceRateConversions": [
