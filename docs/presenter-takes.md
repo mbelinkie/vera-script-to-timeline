@@ -60,10 +60,13 @@ minutes on the 2019 Intel Mac; nearly all of it is the aligner.
 - Everything said is kept. Speech that matches no passage is off-script,
   never dropped.
 - No match or time is invented. A word that cannot be placed has no time.
+  Speech counts as an attempt at a passage only when more of its words match
+  the script than differ from it; otherwise it is off-script.
 - If a separate audio file does not clearly match the camera sound, or the
   two drift apart, the command stops and says so.
 - The take rules are the ones accepted in #53 (`experiments/issue53`, refined
-  in `experiments/issue45/take_rules.py`). This command adds none.
+  in `experiments/issue45/take_rules.py`). This command adds none, apart from
+  the two guards above (the timing cross-check and the match guard).
 
 ## Engine settings
 

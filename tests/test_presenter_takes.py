@@ -146,6 +146,19 @@ def test_off_script_speech_is_listed_never_dropped() -> None:
     assert "<- SUGGESTED" in report
 
 
+def test_unrelated_speech_is_off_script_not_a_take_full_of_substitutions() -> None:
+    # Real case: the wrong script for a recording. Nothing may be matched.
+    unrelated = (
+        "In March the New Yorker published an essay by a novelist. She talks "
+        "about how popular art seems to be abandoning anything ambiguous in "
+        "favor of clear definitive statements about the world we live in."
+    )
+    takes = _takes(_said(unrelated, 2.0))
+    assert all(p["takes"] == [] and not p["suggestedTakes"] for p in takes["passages"])
+    said = " ".join(item["said"] for item in takes["offScript"])
+    assert said.split() == unrelated.split()
+
+
 def test_a_misread_word_is_reported_as_a_difference() -> None:
     misread = FIRST.replace("really", "truly")
     takes = _takes(_said(misread, 2.0))

@@ -27,8 +27,10 @@ How it works, in order:
    frames clear of speech (`experiments.issue53.boundaries`).
 
 Everything that was said is kept: speech matching no passage is listed as
-off-script. A word the aligner could not place has no time, and a take whose
-edge word has no time has no cut. A suggestion is never an approval.
+off-script, and so is speech the rules paired with a passage mostly through
+substituted words (`_really_matches`). A word the aligner could not place
+has no time, and a take whose edge word has no time has no cut. A suggestion
+is never an approval.
 """
 
 from __future__ import annotations
@@ -472,6 +474,18 @@ def _said(
     return " ".join(display[i] for i in seen)
 
 
+def _really_matches(candidate: Json) -> bool:
+    """Guard against an invented match.
+
+    The take rules can attach a long stretch of unrelated speech to a passage
+    as a "modified read" made almost entirely of substituted words. Speech
+    counts as an attempt at a passage only when more of its paired words are
+    the script's words than are different words. Otherwise it is off-script.
+    """
+    ops = [op["op"] for op in candidate["diff"]]
+    return ops.count("equal") > ops.count("substitute")
+
+
 def build_takes(
     report: Json,
     timed: list[Json],
@@ -507,7 +521,7 @@ def build_takes(
             "said": _said(words, c["word_range"], units, recognition),
             "unplacedWords": unplaced,
         }
-        if not c["row"]:
+        if not c["row"] or not _really_matches(c):
             off_script.append(common)
             continue
         expected = row_tokens[c["row"]]
@@ -535,8 +549,13 @@ def build_takes(
         suggested: list[str] = []
         if chosen := group["suggested_last_complete"]:
             members = candidates[chosen].get("members", [chosen])
-            suggested = [take_of[m]["id"] for m in members]
+            if all(m in take_of for m in members):
+                suggested = [take_of[m]["id"] for m in members]
         assembly = group.get("assembly") if not suggested else None
+        if assembly and any(
+            m not in take_of for piece in assembly["pieces"] for m in piece["members"]
+        ):
+            assembly = None  # it leaned on speech that is not really this passage
         notes = [
             {
                 "said": _said(words, s["word_range"], units, recognition),
