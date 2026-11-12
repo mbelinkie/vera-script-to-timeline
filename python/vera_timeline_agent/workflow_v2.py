@@ -2852,8 +2852,13 @@ def run_workflow_delivery_v2(
         def mutate(method: Callable[..., Any], *arguments: Any, label: str) -> Any:
             nonlocal mutation_started, stage
             stage = label
-            # Full package bytes were checked on entry and are checked again
-            # after native read-back; never rehash them for every clip.
+            # Read-only Resolve preflight can take time after the entry check.
+            # Revalidate once just before the first native write, not per clip.
+            if not mutation_started and (
+                load_verified_package_v2(attestation_path, attestation_sha256)
+                != package
+            ):
+                raise WorkflowV2Error("package changed before first native write")
             if native_bound_path is not None and (
                 _digest(_read_regular(native_bound_path, "native import file"))
                 != native_bound_digest

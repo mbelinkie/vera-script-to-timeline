@@ -1492,6 +1492,36 @@ def test_changed_packaged_media_after_preflight_refuses_before_native_call(
     assert adapter.calls == []
 
 
+def test_media_tamper_during_read_only_preflight_refuses_before_first_native_write(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, value = _make_package(tmp_path)
+    media = next((Path(value["packageDir"]) / "Media" / "Resolved").glob("*.mov"))
+
+    class ChangingPreflight(_FakeAdapter):
+        def probe(self, settings: Any) -> tuple[str, ...]:
+            result = super().probe(settings)
+            media.write_bytes(media.read_bytes() + b"changed-during-preflight")
+            return result
+
+    adapter = ChangingPreflight()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert "probe" in adapter.calls
+    assert result["status"] == "stopped_safely"
+    assert result["verified"] is False
+    assert result["partialTargetRetained"] is False
+    assert "create_project" not in adapter.calls
+    assert "import_media" not in adapter.calls
+
+
 @pytest.mark.parametrize("change_during", ["place_event", "verify"])
 def test_mid_build_media_swap_after_native_readback_cannot_verify(
     tmp_path: Path, change_during: str
@@ -1560,7 +1590,7 @@ def test_build_deep_package_loads_do_not_scale_with_placed_clips(
     assert result["status"] == "verified"
     assert adapter.calls.count("place_event") == visual_event_count
     assert adapter.calls.count("target") >= visual_event_count + 9
-    assert loads == 2  # entry and post-readback, never per native operation
+    assert loads == 3  # entry, first write, and post-readback; never per clip
 
 
 def test_marker_metadata_is_preflightable_and_redacted(tmp_path: Path) -> None:
