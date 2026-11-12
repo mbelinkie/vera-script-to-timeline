@@ -24,9 +24,37 @@ uv run --frozen python -m vera_timeline_agent.presenter_takes \
   "/path/to/recording.mov" --audio "/path/to/sound.wav" --sync-only
 ```
 
-The script may be RTF or plain text. Passages are its `(on)` / `(off)`
-blocks, or its paragraphs when it has no such markers. `[guide]`
-pronunciations are understood.
+## The script
+
+Three kinds of script file work:
+
+- **A Word export of the script document** (`.docx`; in Google Docs, File,
+  Download, Microsoft Word). The script is the document's first table. Each
+  table row is a script row, and its first column is what the presenter says.
+  **Bold is on camera; plain text is covered by footage.** If nothing in the
+  table is bold, the report says the script does not give the camera state.
+- **A prompter file** (RTF or plain text). Each paragraph is a script row.
+  `(on)` and `(off)` mark what is on camera and what is covered by footage.
+- `[guide]` pronunciations are understood in all of them.
+
+A **passage** is the stretch of script a take is matched against:
+
+- An on-camera stretch is one passage, because a cut inside it would show.
+- An off-camera stretch can be cut anywhere, so each of its sentences is its
+  own passage. A sentence shorter than four words joins its neighbour.
+
+## What it suggests
+
+Every passage gets the best coverage the recording offers:
+
+1. The last complete take that can be cut cleanly. Earlier complete takes are
+   marked as alternates.
+2. If no take is complete, the last take that still runs from the passage's
+   first word to its last (for example, with a name the recogniser garbled).
+   Its differences are listed.
+3. If there is none, pieces from several takes that together cover the
+   passage, in script order, with a warning when the joins would be on camera.
+4. Only script words that nobody said are reported as NOT COVERED.
 
 The command prints the time taken. A four-minute recording takes about four
 minutes on the 2019 Intel Mac; nearly all of it is the aligner.
@@ -44,7 +72,8 @@ minutes on the 2019 Intel Mac; nearly all of it is the aligner.
 
 ## What the report's flags mean
 
-- **`<- SUGGESTED`**: the last complete take of the passage.
+- **`<- SUGGESTED`**: the suggested coverage for the passage (see above).
+- **`(alternate)`**: another take that also covers the whole passage.
 - **`tight`**: the quiet gap next to the take is short, so the cut is fewer
   than ten frames clear of speech. The frames clear on each side are shown.
 - **`CHECK BY EAR`**: the two timing engines disagreed about where that edge
@@ -53,7 +82,8 @@ minutes on the 2019 Intel Mac; nearly all of it is the aligner.
   it; the recogniser is not.
 - **`NO CLEAN CUT`**: no cut is offered, with the reason: there is no
   measured quiet next to the speech, or the edge word has no time.
-- **`NO TAKE FOUND`**: nothing in the recording matches the passage.
+- **`NOT COVERED`**: nothing in the recording matches the passage, or the
+  listed words of it.
 
 ## Rules it keeps
 

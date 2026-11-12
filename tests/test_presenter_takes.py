@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -171,7 +173,7 @@ def test_a_misread_word_is_reported_as_a_difference() -> None:
 def test_a_passage_nobody_read_says_so() -> None:
     takes = _takes(_said(FIRST, 2.0))
     assert takes["passages"][1]["takes"] == []
-    assert "NO TAKE FOUND" in pt.render_report(takes)
+    assert "NOT COVERED: nothing in the recording" in pt.render_report(takes)
 
 
 def test_no_quiet_next_to_the_speech_means_no_cut_not_a_guess() -> None:
@@ -252,8 +254,7 @@ def test_an_edit_note_withholds_the_plain_suggestion() -> None:
     passage = takes["passages"][0]
     assert passage["choiceNeeded"] is True
     report = pt.render_report(takes)
-    assert "<- LAST COMPLETE TAKE, but see the note below" in report
-    assert "<- SUGGESTED" not in report
+    assert "<- SUGGESTED, but see the note below" in report
     assert "The choice is yours." in report
 
 
@@ -264,3 +265,134 @@ def test_unreadable_script_stops_with_a_plain_reason(tmp_path: Path) -> None:
     bad.write_bytes(b"\xff\xfe\x00bad")
     with pytest.raises(pt.TakesError, match="RTF or UTF-8"):
         pt.read_script(bad)
+
+
+def _docx(rows: list[list[tuple[bool, str]]]) -> bytes:
+    """A two-column Word table: narration runs (bold or not), then a notes cell."""
+    w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    body = ""
+    for row in rows:
+        runs = "".join(
+            f"<w:r><w:rPr>{'<w:b/>' if bold else ''}</w:rPr>"
+            f'<w:t xml:space="preserve">{text}</w:t></w:r>'
+            for bold, text in row
+        )
+        notes = "<w:tc><w:p><w:r><w:t>footage note</w:t></w:r></w:p></w:tc>"
+        body += f"<w:tr><w:tc><w:p>{runs}</w:p></w:tc>{notes}</w:tr>"
+    xml = (
+        f'<w:document xmlns:w="{w}"><w:body><w:p><w:r><w:t>Title</w:t></w:r></w:p>'
+        f"<w:tbl>{body}</w:tbl></w:body></w:document>"
+    )
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+    return data.getvalue()
+
+
+def test_word_script_rows_are_table_rows_and_bold_is_on_camera(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "script.docx"
+    path.write_bytes(
+        _docx(
+            [
+                [(True, "They really like saunas.")],
+                [],  # a footage-only row has no narration
+                [
+                    (False, "The band wanted this. "),
+                    (True, "But this was "),
+                    (True, "Sweden."),
+                ],
+            ]
+        )
+    )
+    assert pt.read_script(path) == (
+        "(on) They really like saunas.\n"
+        "(off) The band wanted this. (on) But this was Sweden.\n"
+    )
+    passages = pt.script_passages(pt.read_script(path), DICTIONARY)
+    assert [(p.row, p.camera) for p in passages] == [(1, "on"), (2, "off"), (2, "on")]
+
+
+def test_word_script_without_bold_does_not_claim_a_camera_state() -> None:
+    text = pt.docx_to_script(_docx([[(False, "One line here.")], [(False, "Two.")]]))
+    assert text == "One line here.\nTwo.\n"
+    assert [p.camera for p in pt.script_passages(text, set())] == ["unknown"] * 2
+    with pytest.raises(pt.TakesError, match="Word document"):
+        pt.docx_to_script(b"PK not a zip")
+
+
+def test_off_camera_sentences_are_separate_passages_on_camera_is_whole() -> None:
+    script = (
+        "(off) The band wanted to embrace the weirdness. Yes. They really like "
+        "saunas a lot. (on) Finns are singing. In Swedish."
+    )
+    passages = pt.script_passages(script, DICTIONARY)
+    assert [(p.camera, p.script) for p in passages] == [
+        ("off", "The band wanted to embrace the weirdness. Yes."),
+        ("off", "They really like saunas a lot."),
+        ("on", "Finns are singing. In Swedish."),
+    ]
+
+
+ON_CAMERA = "(on) They really like saunas. The band wanted to embrace the weirdness."
+
+
+def test_no_complete_take_still_suggests_coverage_from_pieces() -> None:
+    # Each sentence was read on its own; nobody read the passage straight through.
+    spoken = [
+        *_said("They really like saunas.", 2.0),
+        *_said("The band wanted to embrace the weirdness.", 10.0),
+    ]
+    recognition, alignment = _artifacts(spoken)
+    passages = pt.script_passages(ON_CAMERA, DICTIONARY)
+    words = pt.timed_words(recognition, alignment)
+    report = refine(discover(pt.take_packet(words, alignment, passages, DURATION, FPS)))
+    quiet = [[0.0, DURATION]]
+    body = pt.build_takes(
+        report, words, recognition, alignment, passages, quiet, DURATION, FPS
+    )
+    passage = body["passages"][0]
+    assert passage["suggestedTakes"] == []
+    assert passage["suggestedCoverage"] == [["passage-1-take-1"], ["passage-1-take-2"]]
+    assert passage["missingScriptWords"] == []
+    takes = {
+        "video": {"file": "clip.mov", "durationS": DURATION, "fps": FPS},
+        "script": {"file": "script.txt"},
+        "sync": None,
+        **body,
+        "secondsTaken": 1.0,
+    }
+    report_text = pt.render_report(takes)
+    assert "SUGGESTED COVERAGE, in script order: take 1; then take 2." in report_text
+    assert "The joins will show: this passage is on camera." in report_text
+
+
+def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> None:
+    # Quiet surrounds the first read only; the second runs straight into noise.
+    takes = _takes(
+        [*_said(FIRST, 2.0), *_said(FIRST, 10.0)], quiet=[[0.0, 1.9], [5.0, 9.5]]
+    )
+    passage = takes["passages"][0]
+    assert passage["takes"][1]["cut"] is None
+    assert passage["suggestedTakes"] == ["passage-1-take-1"]
+    assert passage["passedOverTakes"] == ["passage-1-take-2"]
+    assert passage["takes"][1]["alternate"] is True
+    assert "has no clean cut, so an earlier take is suggested" in pt.render_report(
+        takes
+    )
+
+
+def test_a_start_to_finish_read_with_a_garbled_name_beats_joined_pieces() -> None:
+    # The recogniser loses a word mid-sentence (in life, a garbled name), so
+    # the strict rule refuses it; the read still runs from first word to last.
+    garbled = "kaj is three singing in Swedish. They really like saunas."
+    takes = _takes(_said(garbled, 2.0))
+    passage = takes["passages"][0]
+    take = passage["takes"][0]
+    assert take["complete"] is False and take["startToFinish"] is True
+    assert passage["suggestedTakes"] == [take["id"]]
+    assert passage["suggestedCoverage"] == []
+    report = pt.render_report(takes)
+    assert "start to finish with differences" in report
+    assert "Differs: left out:" in report

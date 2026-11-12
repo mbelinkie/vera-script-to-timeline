@@ -36,16 +36,19 @@ is never an approval.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import re
 import subprocess
 import sys
 import time
 import wave
+import zipfile
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import numpy as np
 from vera_word_timing.adapters.local_engines import EngineConfig, ParakeetRecognizer
@@ -66,7 +69,8 @@ from vera_timeline_agent.presenter_sync import (
 
 Json = dict[str, Any]
 RATE = 16000  # the engines' sample rate; all audio work happens at it
-MARKER = re.compile(r"\((?:on|off)\)", re.IGNORECASE)
+MARKER = re.compile(r"\((on|off)\)", re.IGNORECASE)
+MIN_PASSAGE_WORDS = 4  # a shorter off-camera sentence joins its neighbour
 PADDING_FRAMES = 10
 QUIET_DB = -40.0  # the #53 quiet rule: RMS at or below this ...
 QUIET_PEAK_DB = -28.0  # ... peaks at or below this ...
@@ -147,45 +151,142 @@ def rtf_to_text(data: str) -> str:
     return "".join(out)
 
 
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def docx_to_script(data: bytes) -> str:
+    """A Word export of the script document, as prompter text.
+
+    The script is the first table: each table row is a script row and its
+    first column is what the presenter says. Bold is on camera, plain is
+    covered by footage. When the document has no table, its paragraphs are
+    the rows. When nothing is bold, no camera marks are written: the document
+    does not say.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            body = ElementTree.fromstring(archive.read("word/document.xml"))
+    except (zipfile.BadZipFile, KeyError, ElementTree.ParseError) as error:
+        raise TakesError("The script is not a readable Word document.") from error
+    table = body.find(f".//{_W}tbl")
+    if table is not None:
+        cells = [row.find(f"{_W}tc") for row in table.findall(f"{_W}tr")]
+        blocks = [list(c.iter(f"{_W}r")) for c in cells if c is not None]
+    else:
+        blocks = [list(p.iter(f"{_W}r")) for p in body.iter(f"{_W}p")]
+    rows: list[list[tuple[bool, str]]] = []
+    for runs in blocks:
+        row: list[tuple[bool, str]] = []
+        for run in runs:
+            text = "".join(
+                node.text or "" if node.tag == f"{_W}t" else " "
+                for node in run
+                if node.tag in (f"{_W}t", f"{_W}tab", f"{_W}br", f"{_W}cr")
+            )
+            bold = run.find(f"{_W}rPr/{_W}b")
+            is_bold = bold is not None and bold.get(f"{_W}val") not in ("0", "false")
+            if not text.strip():
+                if row:
+                    row[-1] = (row[-1][0], row[-1][1] + text)
+            elif row and row[-1][0] == is_bold:
+                row[-1] = (is_bold, row[-1][1] + text)
+            else:
+                row.append((is_bold, text))
+        if row:
+            rows.append(row)
+    marked = any(bold for row in rows for bold, _ in row)
+    lines = []
+    for row in rows:
+        parts = [
+            (f"({'on' if bold else 'off'}) " if marked else "") + " ".join(text.split())
+            for bold, text in row
+        ]
+        lines.append(" ".join(parts))
+    return "\n".join(lines) + "\n"
+
+
 def read_script(path: Path) -> str:
+    """The script as prompter text: one row per line, `(on)` / `(off)` marks."""
     try:
         raw = path.read_bytes()
     except OSError as error:
         raise TakesError(f"The script could not be read: {path.name}") from error
+    if raw.startswith(b"PK"):
+        return docx_to_script(raw)
     if raw.lstrip().startswith(b"{\\rtf"):
         return rtf_to_text(raw.decode("ascii", "replace"))
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError as error:
-        raise TakesError("The script must be RTF or UTF-8 text.") from error
+        raise TakesError("The script must be Word, RTF or UTF-8 text.") from error
 
 
 @dataclass(frozen=True)
 class Passage:
     id: str
+    row: int  # the script row (table row or paragraph) it belongs to
+    camera: str  # "on", "off" (covered by footage) or "unknown"
     script: str  # as written, for people
     text: str  # spoken words with sentence stops, for the take rules
 
 
+_SENTENCE = re.compile(
+    r"\S.*?(?:[.!?]+[\"" + chr(8221) + chr(8217) + r")\]]*(?=\s)|$)", re.DOTALL
+)
+
+
+def _sentences(text: str) -> list[str]:
+    """Sentences of an off-camera stretch; very short ones join a neighbour."""
+
+    def words(sentence: str) -> int:
+        return len(tokens(re.sub(r"\[[^\]]*\]", "", sentence)))
+
+    out: list[str] = []
+    for sentence in (s for s in _SENTENCE.findall(text) if s.strip()):
+        short = min(words(sentence), words(out[-1]) if out else 99) < MIN_PASSAGE_WORDS
+        if out and short:
+            out[-1] += " " + sentence
+        else:
+            out.append(sentence)
+    return out
+
+
 def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
-    """`(on)` / `(off)` blocks, or paragraphs when the script has no markers."""
-    blocks = (
-        MARKER.split(script_text)
-        if MARKER.search(script_text)
-        else script_text.splitlines()
-    )
+    """The stretches of script a take is matched against.
+
+    Each line is a script row. Inside a row, `(on)` and `(off)` mark what is
+    on camera and what is covered by footage. An on-camera stretch is one
+    passage, because a cut inside it shows. An off-camera stretch can be cut
+    anywhere, so each of its sentences is its own passage.
+    """
     passages: list[Passage] = []
-    for block in blocks:
-        pieces: list[str] = []
-        for word in parse_prompter(block, dictionary).words:
-            if word["sentenceStart"] and pieces:
-                pieces[-1] += "."
-            pieces.append(" ".join(word["spoken"]))
-        if pieces:
-            shown = " ".join(re.sub(r"\[[^\]]*\]", "", block).split())
-            passages.append(
-                Passage(f"passage-{len(passages) + 1}", shown, " ".join(pieces) + ".")
-            )
+    camera, row = "unknown", 0
+    for line in script_text.splitlines():
+        stretches: list[tuple[str, str]] = []
+        for index, part in enumerate(MARKER.split(line)):
+            if index % 2:
+                camera = part.lower()
+            elif part.strip():
+                stretches.append((camera, part))
+        row += bool(stretches)
+        for state, stretch in stretches:
+            for block in _sentences(stretch) if state == "off" else [stretch]:
+                pieces: list[str] = []
+                for word in parse_prompter(block, dictionary).words:
+                    if word["sentenceStart"] and pieces:
+                        pieces[-1] += "."
+                    pieces.append(" ".join(word["spoken"]))
+                if pieces:
+                    shown = " ".join(re.sub(r"\[[^\]]*\]", "", block).split())
+                    passages.append(
+                        Passage(
+                            f"passage-{len(passages) + 1}",
+                            row,
+                            state,
+                            shown,
+                            " ".join(pieces) + ".",
+                        )
+                    )
     if not passages:
         raise TakesError("The script has no words.")
     return passages
@@ -531,6 +632,10 @@ def build_takes(
             "id": f"{c['row']}-take-{len(takes) + 1}",
             "number": len(takes) + 1,
             "complete": bool(c["complete"]),
+            # Read from the passage's first word to its last, whatever differs.
+            "startToFinish": bool(c["complete"])
+            or {0, len(expected) - 1}
+            <= {op["expected"] for op in c["diff"] if op["op"] == "equal"},
             "scriptWordsCovered": covered,
             "scriptWords": len(expected),
             "couldAlsoBePassages": [
@@ -538,6 +643,7 @@ def build_takes(
             ],
             **common,
             "differences": differences([c], expected, words, None),
+            "alternate": False,
         }
         takes.append(take)
         take_of[c["id"]] = take
@@ -546,11 +652,37 @@ def build_takes(
     for number, (passage, group) in enumerate(
         zip(passages, report["groups"], strict=True), 1
     ):
+        takes = by_passage[passage.id]
         suggested: list[str] = []
+        passed_over: list[str] = []
         if chosen := group["suggested_last_complete"]:
             members = candidates[chosen].get("members", [chosen])
             if all(m in take_of for m in members):
                 suggested = [take_of[m]["id"] for m in members]
+        usable = [
+            take_of[c]
+            for c in [group["suggested_last_complete"], *group["alternatives"]]
+            if c in take_of
+        ]
+        usable.sort(key=lambda take: take["number"])
+        if len(suggested) == 1 and usable and usable[-1]["cut"] is None:
+            # Prefer the last complete take that can actually be cut cleanly.
+            with_cut = [take for take in usable if take["cut"]]
+            if with_cut:
+                suggested = [with_cut[-1]["id"]]
+                passed_over = [
+                    t["id"] for t in usable if t["number"] > with_cut[-1]["number"]
+                ]
+        if not suggested:
+            # No take passes the complete-read rule. A take that still runs from
+            # the first word to the last is better coverage than joined pieces.
+            usable = [take for take in takes if take["startToFinish"]]
+            if usable:
+                pick = ([take for take in usable if take["cut"]] or usable)[-1]
+                suggested = [pick["id"]]
+                passed_over = [t["id"] for t in usable if t["number"] > pick["number"]]
+        for take in usable:
+            take["alternate"] = take["id"] not in suggested
         assembly = group.get("assembly") if not suggested else None
         if assembly and any(
             m not in take_of for piece in assembly["pieces"] for m in piece["members"]
@@ -569,11 +701,14 @@ def build_takes(
             {
                 "id": passage.id,
                 "number": number,
+                "row": passage.row,
+                "camera": passage.camera,
                 "script": passage.script,
-                "takes": by_passage[passage.id],
+                "takes": takes,
                 "suggestedTakes": suggested,
+                "passedOverTakes": passed_over,
                 "choiceNeeded": bool(notes),
-                "pieces": [
+                "suggestedCoverage": [
                     [take_of[m]["id"] for m in piece["members"]]
                     for piece in assembly["pieces"]
                 ]
@@ -645,6 +780,13 @@ def _difference_lines(d: Json) -> list[str]:
     return lines
 
 
+CAMERA = {
+    "on": "on camera",
+    "off": "off camera, can be cut anywhere",
+    "unknown": "the script does not say whether this is on camera",
+}
+
+
 def render_report(takes: Json) -> str:
     video, sync = takes["video"], takes["sync"]
     lines = [
@@ -652,7 +794,8 @@ def render_report(takes: Json) -> str:
         "",
         f"Recording: {video['file']}  ({clock(video['durationS'])}, "
         f"{float(Fraction(*video['fps'])):.2f} frames a second)",
-        f"Script:    {takes['script']['file']}  ({len(takes['passages'])} passages)",
+        f"Script:    {takes['script']['file']}  "
+        f"({takes['passages'][-1]['row']} rows, {len(takes['passages'])} passages)",
     ]
     if sync:
         first = "before" if sync["offsetS"] >= 0 else "after"
@@ -678,21 +821,35 @@ def render_report(takes: Json) -> str:
         "",
         "Times are minutes:seconds from the start of the video. Each take's times",
         "are cut points in quiet, about ten frames clear of the speech.",
-        "A suggested take is the last complete one. Nothing here is approved.",
+        "The suggested take is the last complete one that can be cut cleanly;",
+        "earlier complete takes are alternates. Where no take is complete, the",
+        "best coverage from pieces is suggested. Nothing here is approved.",
     ]
+    row = 0
     for passage in takes["passages"]:
+        if passage["row"] != row:
+            row = passage["row"]
+            lines += ["", "=" * 72, f"SCRIPT ROW {row}"]
         lines += [
             "",
             "-" * 72,
-            f"PASSAGE {passage['number']}",
+            f"PASSAGE {passage['number']}  ({CAMERA[passage['camera']]})",
             f"Script: {passage['script']}",
             "",
         ]
+        numbers = {t["id"]: t["number"] for t in passage["takes"]}
         if not passage["takes"]:
-            lines.append("  NO TAKE FOUND for this passage.")
+            lines.append(
+                "  NOT COVERED: nothing in the recording matches this passage."
+            )
         for take in passage["takes"]:
             if take["complete"]:
                 kind = "complete"
+            elif take["startToFinish"]:
+                kind = (
+                    f"start to finish with differences ({take['scriptWordsCovered']}"
+                    f" of {take['scriptWords']} script words)"
+                )
             else:
                 kind = (
                     f"partial ({take['scriptWordsCovered']} of "
@@ -700,11 +857,13 @@ def render_report(takes: Json) -> str:
                 )
             mark = ""
             if take["id"] in passage["suggestedTakes"]:
-                mark = (
-                    "  <- LAST COMPLETE TAKE, but see the note below"
-                    if passage["choiceNeeded"]
-                    else "  <- SUGGESTED"
-                )
+                mark = "  <- SUGGESTED"
+                if passage["choiceNeeded"]:
+                    mark += ", but see the note below"
+            elif any(take["id"] in piece for piece in passage["suggestedCoverage"]):
+                mark = "  <- SUGGESTED (one piece of the coverage below)"
+            elif take["alternate"]:
+                mark = "  (alternate)"
             lines.append(f"  Take {take['number']}, {kind}{mark}")
             lines.append(f"    {_times(take)}")
             lines.append(f"    Said: {take['said']}")
@@ -713,32 +872,42 @@ def render_report(takes: Json) -> str:
                 lines.append(f"    Matches passage {others} equally well")
             if take["unplacedWords"]:
                 lines.append(f"    {take['unplacedWords']} words not placed in time")
-            if take["complete"]:
+            if take["startToFinish"]:
                 lines += [
                     f"    Differs: {text}"
                     for text in _difference_lines(take["differences"])
                 ]
-        numbers = {t["id"]: t["number"] for t in passage["takes"]}
         if len(passage["suggestedTakes"]) > 1:
             joined = ", ".join(str(numbers[i]) for i in passage["suggestedTakes"])
             lines.append(
                 f"  Takes {joined} are one continuous read; together complete."
             )
-        if passage["takes"] and not passage["suggestedTakes"]:
+        if passage["passedOverTakes"]:
+            later = ", ".join(str(numbers[i]) for i in passage["passedOverTakes"])
             lines.append(
-                "  No take is suggested: a complete take here is ambiguous or "
-                "badly timed."
-                if any(take["complete"] for take in passage["takes"])
-                else "  No complete take, so nothing is suggested."
+                f"  Take {later} is later but has no clean cut, so an "
+                "earlier take is suggested."
             )
-            if passage["pieces"]:
-                parts = [
-                    " + ".join(f"take {numbers[i]}" for i in piece)
-                    for piece in passage["pieces"]
-                ]
-                lines.append(f"  Pieces that could be joined: {'; '.join(parts)}")
-            if passage["missingScriptWords"]:
-                lines.append("  Never said: " + " ".join(passage["missingScriptWords"]))
+        if passage["suggestedCoverage"]:
+            parts = [
+                " + ".join(f"take {numbers[i]}" for i in piece)
+                for piece in passage["suggestedCoverage"]
+            ]
+            joins = (
+                "The joins will show: this passage is on camera."
+                if passage["camera"] == "on"
+                else "Check the joins."
+            )
+            lines.append(
+                f"  No single complete take. SUGGESTED COVERAGE, in script order: "
+                f"{'; then '.join(parts)}. {joins}"
+            )
+        elif passage["takes"] and not passage["suggestedTakes"]:
+            lines.append(
+                "  Nothing is suggested: the takes here are ambiguous or badly timed."
+            )
+        if passage["missingScriptWords"]:
+            lines.append("  NOT COVERED: " + " ".join(passage["missingScriptWords"]))
         for note in passage["notes"]:
             lines.append(
                 f'  Note: the presenter said "{note["said"]}". {note["meaning"]}'
