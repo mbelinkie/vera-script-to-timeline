@@ -27,5 +27,15 @@ be shared or duplicated. A private per-path inventory stays on the Mac.
 
 The native ownership directory contains an active marker; its meaning was not
 resolved, so it and associated data remain untouched. The source archive is
-not a backup of those files. No local artifacts have been deleted or services
-stopped. The issue remains open while the Producer decides what to remove.
+not a backup of those files.
+
+## Approved cleanup
+
+Matthew approved removal of the helper app, its LaunchAgent, and the
+overnight-watchdog plist, with the remaining evidence retained. Before removal,
+all observed helper requests had replies and no other Test Bench process or
+per-case service was found. The helper was unloaded and its process exited;
+the three approved items (288 KiB allocated) were then removed. Neither service
+was loaded afterwards, the helper did not restart, and the spool remains.
+Free disk space fluctuated during the check, so its change cannot establish
+the bytes reclaimed. The remote archive and both branches were reverified.
