@@ -2156,9 +2156,7 @@ def _video_proof_at_24fps(
     event["v2Event"]["sourceTimeMapping"]["deliveredRate"] = rate
     bindings["video-prep"]["timeMapping"]["sourceRate"] = rate
     bindings["video-prep"]["timeMapping"]["deliveredRate"] = rate
-    bindings["video-prep"]["verification"]["decodedFrameCount"] = (
-        decoded_frame_count
-    )
+    bindings["video-prep"]["verification"]["decodedFrameCount"] = decoded_frame_count
     bindings["video-prep"]["verification"]["decodedFrameRate"] = rate
     event["sourceRange"] = {"startFrame": start, "durationFrames": end - start}
     event["v2Event"]["sourceRange"] = {"startFrame": start, "endFrame": end}
@@ -2395,14 +2393,10 @@ def test_24fps_video_source_clock_is_a_proof_bound_fallback() -> None:
         **observations,
     }
     assert not workflow_v2._fractional_source_range_matches(**arguments)
-    assert workflow_v2._fractional_source_range_matches(
-        **arguments, allow_24fps=True
-    )
+    assert workflow_v2._fractional_source_range_matches(**arguments, allow_24fps=True)
 
     bad_end = {**arguments, "actual_end": observations["actual_end"] - 1}
-    assert not workflow_v2._fractional_source_range_matches(
-        **bad_end, allow_24fps=True
-    )
+    assert not workflow_v2._fractional_source_range_matches(**bad_end, allow_24fps=True)
     bad_time = {
         **arguments,
         "source_times": {
@@ -2414,7 +2408,10 @@ def test_24fps_video_source_clock_is_a_proof_bound_fallback() -> None:
     assert not workflow_v2._fractional_source_range_matches(
         **bad_time, allow_24fps=True
     )
-    bad_binding = {**arguments, "source": {**source, "contentHash": "sha256:" + "d" * 64}}
+    bad_binding = {
+        **arguments,
+        "source": {**source, "contentHash": "sha256:" + "d" * 64},
+    }
     assert not workflow_v2._fractional_source_range_matches(
         **bad_binding, allow_24fps=True
     )
@@ -2461,7 +2458,10 @@ def test_24fps_still_and_narration_source_clocks_keep_exact_source_proofs() -> N
         **observations,
         allow_24fps=True,
     )
-    bad_still = {**observations, "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 2 / 24}}
+    bad_still = {
+        **observations,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 2 / 24},
+    }
     assert not workflow_v2._fractional_source_range_matches(
         event=event,
         source=source,
@@ -2472,7 +2472,9 @@ def test_24fps_still_and_narration_source_clocks_keep_exact_source_proofs() -> N
         allow_24fps=True,
     )
 
-    event, source, manifest_source, timeline, observations = _fractional_narration_proof()
+    event, source, manifest_source, timeline, observations = (
+        _fractional_narration_proof()
+    )
     timeline["frameRate"] = {"numerator": 24, "denominator": 1}
     arguments = {
         "event": event,
