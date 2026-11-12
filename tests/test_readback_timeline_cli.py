@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from vera_timeline_agent import readback_timeline_cli as cli
@@ -32,10 +32,10 @@ class FakeItem:
         return self.uid
 
     def GetStart(self, _relative: bool) -> int:
-        return self.start
+        return cast(int, self.start)
 
     def GetDuration(self, _relative: bool) -> int:
-        return self.duration
+        return cast(int, self.duration)
 
 
 class FakeTimeline:
@@ -74,12 +74,15 @@ class FakeTimeline:
         return self.uid
 
     def GetStartFrame(self) -> int:
-        return self.view["timeline"]["startFrame"]
+        return cast(int, self.view["timeline"]["startFrame"])
 
     def GetEndFrame(self) -> int:
-        return (
-            self.view["timeline"]["startFrame"]
-            + self.view["timeline"]["durationFrames"]
+        return cast(
+            int,
+            (
+                self.view["timeline"]["startFrame"]
+                + self.view["timeline"]["durationFrames"]
+            ),
         )
 
     def GetTrackCount(self, kind: str) -> int:
@@ -147,7 +150,7 @@ def _case(
         "recordRange": {"startFrame": 0, "endFrame": 12},
         "provenance": {"blockId": "row-a"},
     }
-    view = {
+    view: dict[str, Any] = {
         "timeline": {"startFrame": 0, "durationFrames": 12},
         "tracks": [
             {"id": "v", "kind": "video", "index": 1, "name": "Video"},
@@ -407,6 +410,7 @@ def test_switching_current_timeline_during_readback_is_not_a_pass(
     output, _, resolve = _case(tmp_path, monkeypatch)
     project = resolve.project
     assert project is not None
+    original_view = project.timeline.view
 
     class ChangingResolve(FakeResolve):
         calls = 0
@@ -414,7 +418,7 @@ def test_switching_current_timeline_during_readback_is_not_a_pass(
         def GetCurrentProject(self) -> FakeProject | None:
             self.calls += 1
             if self.calls == 2:
-                return FakeProject(FakeTimeline(project.timeline.view, uid="new"))
+                return FakeProject(FakeTimeline(original_view, uid="new"))
             return self.project
 
     changing = ChangingResolve(project)
