@@ -391,9 +391,30 @@ def _key(descriptor: Json, requested: Json, tool_hash: str) -> str:
     )
 
 
-def prepare_long_fixture(
-    source_root: Path, alignment_path: Path, output: Path, *, source_seconds: int = 30
-) -> Path:
+def _timing_inputs(speech_path: Path) -> tuple[list[Json], dict[str, Path]]:
+    speech = json.loads(speech_path.read_bytes())
+    rows = [row for row in speech["rows"] if row.get("alternate") is not True]
+    if len(rows) != 30:
+        raise ValueError("30 measured narration rows are required")
+    cache = NarrationCache(speech_path.parent / "cache")
+    maps, audio_paths = [], {}
+    for row in rows:
+        entry = cache.read("assets", row["assetKey"], "asset.json")
+        if entry is None:
+            raise ValueError("verified public narration cache asset is missing")
+        asset = NarrationAudioAsset(**entry.metadata["asset"])
+        mapping = narration_v2_dependency_from_asset(
+            asset, entry.files["timing.json"], cast(NarrationBlockV2, row["block"])
+        )
+        maps.append(cast(Json, mapping))
+        audio_paths[mapping["audio"]["narrationAssetId"]] = (
+            speech_path.parent / row["audioFile"]
+        ).absolute()
+    return maps, audio_paths
+
+
+def _complete_fixture(root: Path, source_root: Path, alignment_path: Path) -> Path:
+    """Finish only verified prepared inputs; never overwrite an existing attempt."""
     source_root, alignment_path = source_root.absolute(), alignment_path.absolute()
     _plain(source_root)
     _plain(alignment_path)
@@ -402,47 +423,87 @@ def prepare_long_fixture(
     checked_alignment(alignment)
     if alignment.get("provenance", {}).get("settings", {}).get("mfaExitCode") != 0:
         raise ValueError("successful retained MFA alignment is required")
-    root = output.absolute()
-    _plain(root)
-    root.mkdir(parents=True, exist_ok=False)
-    tools = MediaTools()
-    plan, sources, inspections = _sources(root / "video-sources", source_seconds, tools)
-    speech_path = prepare_rows(source_root, alignment_path, root / "speech", rows=30)
-    speech = json.loads(speech_path.read_bytes())
-    rows = [row for row in speech["rows"] if row.get("alternate") is not True]
-    if len(rows) != 30:
-        raise ValueError("30 measured narration rows are required")
-    cache = NarrationCache(speech_path.parent / "cache")
-    maps: list[Json] = []
-    audio_paths: dict[str, Path] = {}
-    for row in rows:
-        asset_entry = cache.read("assets", row["assetKey"], "asset.json")
-        if asset_entry is None:
-            raise ValueError("verified public narration cache asset is missing")
-        asset = NarrationAudioAsset(**asset_entry.metadata["asset"])
-        mapping = narration_v2_dependency_from_asset(
-            asset,
-            asset_entry.files["timing.json"],
-            cast(NarrationBlockV2, row["block"]),
-        )
-        maps.append(cast(Json, mapping))
-        audio_paths[mapping["audio"]["narrationAssetId"]] = (
-            speech_path.parent / row["audioFile"]
-        ).absolute()
-    document, descriptors = _document(plan, rows, sources, inspections)
-    deps = _dependencies(document, rows, maps)
-    deps["occurrenceResolutions"] = descriptors
-    script_path, deps_path = root / "script.json", root / "compiler-dependencies.json"
-    _write(script_path, document)
-    _write(deps_path, deps)
 
-    source_root_paths = {
-        source["id"]: root / "video-sources" / source["file"] for source in sources
-    }
+    source_manifest_path = root / "video-sources" / "source-set.json"
+    speech_path = root / "speech" / "speech-rows.json"
+    script_path, deps_path = root / "script.json", root / "compiler-dependencies.json"
+    for path in (source_manifest_path, speech_path, script_path, deps_path):
+        _plain(path)
+        if not path.is_file():
+            raise ValueError(f"incomplete saved fixture input: {path.name}")
+    later_outputs = (
+        "prepared-media",
+        "media-needs.json",
+        "preparation-paths.json",
+        "media-paths.json",
+        "preflight-manifest.json",
+        "preflight-report.json",
+        "preflight-package",
+        "fixture.json",
+    )
+    if any((root / name).exists() for name in later_outputs):
+        raise ValueError(
+            "saved fixture already has later-stage outputs; inspect before resuming"
+        )
+
+    source_set = json.loads(source_manifest_path.read_bytes())
+    if (
+        source_set.get("complete") is not True
+        or source_set.get("schemaVersion") != "issue-312-source-set/v1"
+        or source_set.get("plan", {}).get("timeline", {}).get("rate") != wire(RATE)
+        or len(source_set.get("sources", [])) != 24
+    ):
+        raise ValueError(
+            "saved source set is not the complete 24 fps representative fixture"
+        )
+    sources = source_set["sources"]
+    if len({source["id"] for source in sources}) != 24:
+        raise ValueError("saved source set contains duplicate source identities")
+    source_root_paths = {}
+    for source in sources:
+        if source.get("rate") != wire(RATE):
+            raise ValueError("saved source metadata is not exact 24 fps")
+        path = root / "video-sources" / source["file"]
+        _plain(path)
+        if not path.is_file() or _file_hash(path) != source.get("sha256"):
+            raise ValueError(f"saved source bytes changed: {source['id']}")
+        source_root_paths[source["id"]] = path
+
+    speech = json.loads(speech_path.read_bytes())
+    if speech.get("alignmentHash") != _file_hash(alignment_path):
+        raise ValueError("saved speech rows do not use the supplied measured alignment")
+    rows = [row for row in speech["rows"] if row.get("alternate") is not True]
+    document, deps = (
+        json.loads(script_path.read_bytes()),
+        json.loads(deps_path.read_bytes()),
+    )
+    if (
+        document.get("schemaVersion") != "script-document/v2"
+        or len(document.get("activeDraft", {}).get("blocks", [])) != 30
+        or deps.get("schemaVersion") != "compiler-dependencies/v2"
+        or len(rows) != 30
+    ):
+        raise ValueError("saved script and speech rows do not contain 30 rows")
+    expected_maps, audio_paths = _timing_inputs(speech_path)
+    if canonical_json_bytes(expected_maps) != canonical_json_bytes(
+        deps.get("narrationTimingMaps")
+    ):
+        raise ValueError(
+            "saved narration timing maps differ from measured cache assets"
+        )
+    if document.get("liveContentHash") != _compiler_hash(
+        {key: value for key, value in document.items() if key != "liveContentHash"}
+    ):
+        raise ValueError("saved script content hash is stale")
+
+    descriptors = deps.get("occurrenceResolutions")
+    if not isinstance(descriptors, list) or not descriptors:
+        raise ValueError("saved visual occurrence mappings are missing")
     source_by_ref = {_id(source["id"]): source for source in sources}
     descriptor_by_payload = {
         descriptor["payloadId"]: descriptor for descriptor in descriptors
     }
+    tools = MediaTools()
     tool_hash = identity_hash(tools.fingerprint())
     initial = invoke_bridge("needs", script_path, deps_path).needs["requirements"]
     unique: dict[str, tuple[Json, Json, Path]] = {}
@@ -450,7 +511,7 @@ def prepare_long_fixture(
         descriptor = descriptor_by_payload[need["payloadId"]]
         if need["sourceSufficiency"] != "sufficient":
             raise ValueError(
-                "generated source does not cover the compiler's requested range"
+                "saved source does not cover the compiler's requested range"
             )
         source = source_by_ref[descriptor["mediaReferenceId"]]
         key = _key(descriptor, need["requestedRange"], tool_hash)
@@ -464,8 +525,7 @@ def prepare_long_fixture(
         tool_hash=tool_hash,
         allow_conversion=False,
     )
-    prepared: dict[str, Any] = {}
-    preparation_paths: dict[str, Path] = {}
+    prepared, preparation_paths = {}, {}
     for key, (descriptor, need, path) in unique.items():
         item = prepare_media(
             path,
@@ -484,8 +544,8 @@ def prepare_long_fixture(
             raise ValueError(
                 "24 fps media did not produce an exact verified-reuse binding"
             )
-        prepared[key] = item
-        preparation_paths[key] = item.receipt_path
+        prepared[key], preparation_paths[key] = item, item.receipt_path
+
     deps["preparedMedia"] = [item.binding for item in prepared.values()]
     _write(deps_path, deps)
     needs = invoke_bridge("needs", script_path, deps_path).needs
@@ -532,24 +592,56 @@ def prepare_long_fixture(
     if checked.build_id != package.build_id:
         raise ValueError("preflight package identity differs after verification")
     timeline = compiled["manifest"]["timeline"]
-    result = {
-        "schemaVersion": "issue-520-long-fixture/v1",
-        "timelineRate": wire(RATE),
-        "durationFrames": timeline["durationFrames"],
-        "durationSeconds": float(Fraction(timeline["durationFrames"], 24)),
-        "rows": len(rows),
-        "events": len(compiled["manifest"]["events"]),
-        "sources": len(sources),
-        "requirements": len(prepared),
-        "package": str(package_root),
-        "buildId": package.build_id,
-        "alignment": str(alignment_path),
-        "alignmentHash": _file_hash(alignment_path),
-        "sourceSet": str(root / "video-sources" / "source-set.json"),
-        "speechRows": str(speech_path),
-    }
-    _write(root / "fixture.json", result)
+    _write(
+        root / "fixture.json",
+        {
+            "schemaVersion": "issue-520-long-fixture/v1",
+            "timelineRate": wire(RATE),
+            "durationFrames": timeline["durationFrames"],
+            "durationSeconds": float(Fraction(timeline["durationFrames"], 24)),
+            "rows": len(rows),
+            "events": len(compiled["manifest"]["events"]),
+            "sources": len(sources),
+            "requirements": len(prepared),
+            "package": str(package_root),
+            "buildId": package.build_id,
+            "alignment": str(alignment_path),
+            "alignmentHash": _file_hash(alignment_path),
+            "sourceSet": str(source_manifest_path),
+            "speechRows": str(speech_path),
+        },
+    )
     return root / "fixture.json"
+
+
+def prepare_long_fixture(
+    source_root: Path, alignment_path: Path, output: Path, *, source_seconds: int = 30
+) -> Path:
+    source_root, alignment_path = source_root.absolute(), alignment_path.absolute()
+    _plain(source_root)
+    _plain(alignment_path)
+    verify_source(source_root)
+    alignment = json.loads(alignment_path.read_bytes())
+    checked_alignment(alignment)
+    if alignment.get("provenance", {}).get("settings", {}).get("mfaExitCode") != 0:
+        raise ValueError("successful retained MFA alignment is required")
+    root = output.absolute()
+    _plain(root)
+    root.mkdir(parents=True, exist_ok=False)
+    tools = MediaTools()
+    plan, sources, inspections = _sources(root / "video-sources", source_seconds, tools)
+    speech_path = prepare_rows(source_root, alignment_path, root / "speech", rows=30)
+    speech = json.loads(speech_path.read_bytes())
+    rows = [row for row in speech["rows"] if row.get("alternate") is not True]
+    if len(rows) != 30:
+        raise ValueError("30 measured narration rows are required")
+    maps, _ = _timing_inputs(speech_path)
+    document, descriptors = _document(plan, rows, sources, inspections)
+    deps = _dependencies(document, rows, maps)
+    deps["occurrenceResolutions"] = descriptors
+    _write(root / "script.json", document)
+    _write(root / "compiler-dependencies.json", deps)
+    return _complete_fixture(root, source_root, alignment_path)
 
 
 def main() -> int:
@@ -558,7 +650,13 @@ def main() -> int:
     parser.add_argument("--alignment", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-seconds", type=int, default=30)
+    parser.add_argument(
+        "--resume", action="store_true", help="finish a saved incomplete fixture"
+    )
     args = parser.parse_args()
+    if args.resume:
+        print(_complete_fixture(args.output, args.source_root, args.alignment))
+        return 0
     print(
         prepare_long_fixture(
             args.source_root,
