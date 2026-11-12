@@ -613,11 +613,39 @@ describe("epoch-CAS durable status and independently classified evidence", () =>
       outputDigest: d("output"), verificationDigest: d("verified"),
     }) });
     await status.claim(agent, job.jobId);
+    await status.appendProgress(agent, job.jobId, { leaseEpoch: 1, status: "running",
+      stageKey: "compiling", receiptDigest: d("agent-only"), reasonCode: null });
+    await status.appendProgress(agent, job.jobId, { leaseEpoch: 1, status: "running",
+      stageKey: "verifying_timeline", receiptDigest: d("agent-only"), reasonCode: null });
     await expect(status.inspectEvidence(agent, job.jobId, 1,
       "compiling", d("agent-only"))).rejects.toMatchObject({ status: 409 });
     await expect(status.inspectEvidence(agent, job.jobId, 1,
       "verifying_timeline", d("agent-only"))).rejects.toMatchObject({ status: 409 });
     expect((await status.get(h.projectId, h.viewer, job.jobId)).evidence).toHaveLength(0);
+  });
+
+  it("requires an agent-reported receipt and keeps Studio package proof nonterminal", async () => {
+    const h = await buildHarness();
+    const job = await h.submissions.submit(h.projectId, h.producer, h.intent([], { mode: "studio" }));
+    const agent = await h.pair(["studio_readback_v1"]);
+    const stageKey = "verifying_import_package";
+    const receipt = d("verified-studio-intermediate-package");
+    const inspected = h.status({ inspect: async (_db, _project, _job, stage, digest) => ({
+      kind: "verified_package", stageKey: stage, receiptDigest: digest,
+      outputDigest: d("verified-package"), verificationDigest: d("independent-package-check"),
+    }) });
+    await inspected.claim(agent, job.jobId);
+    await expect(inspected.inspectEvidence(agent, job.jobId, 1, stageKey, receipt))
+      .rejects.toMatchObject({ code: "invalid_transition", status: 409 });
+    await inspected.appendProgress(agent, job.jobId, {
+      leaseEpoch: 1, status: "running", stageKey, receiptDigest: receipt, reasonCode: null,
+    });
+    await inspected.inspectEvidence(agent, job.jobId, 1, stageKey, receipt);
+    const view = await inspected.get(h.projectId, h.viewer, job.jobId);
+    expect(view.status).toBe("running");
+    expect(view.evidence).toHaveLength(1);
+    expect(view.evidence[0]).toMatchObject({ evidence_kind: "verified_package" });
+    expect((await inspected.frozenForAgent(agent, job.jobId, 1)).mode).toBe("studio");
   });
 
   it("polls only project-scoped queued builds and refuses revoked agent identity", async () => {
@@ -759,10 +787,12 @@ describe("epoch-CAS durable status and independently classified evidence", () =>
       },
     };
     const inspected = h.status(inspector);
+    await inspected.appendProgress(agent, job.jobId, { leaseEpoch: 1, status: "running",
+      stageKey: "compile", receiptDigest: d("receipt"), reasonCode: null });
     await inspected.inspectEvidence(agent, job.jobId, 1, "compile", d("receipt"));
     const restarted = new ProjectBuildStatusService(h.pool, h.auth, h.agents, h.sources, h.now);
     const result = await restarted.get(h.projectId, h.viewer, job.jobId);
-    expect(result.status).toBe("leased");
+    expect(result.status).toBe("running");
     expect(result.events.at(-1)?.evidenceKind).toBe("synthetic");
     expect(result.evidence).toHaveLength(1);
     expect(result.evidence[0]).toMatchObject({

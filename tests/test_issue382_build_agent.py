@@ -105,6 +105,7 @@ class FakeInputAuthority:
 class FakeTransport:
     data: dict[str, Any] = field(default_factory=manifest)
     reports: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
+    inspections: list[tuple[str, str]] = field(default_factory=list)
     claims: int = 0
     reads: int = 0
     fail_on_read: int = -1
@@ -135,6 +136,10 @@ class FakeTransport:
     ) -> None:
         assert (job_id, epoch) == (JOB, 1)
         self.reports.append((stage, status, receipt_digest, reason))
+
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None:
+        assert (job_id, epoch) == (self.data["jobId"], 1)
+        self.inspections.append((stage, digest))
 
 
 @dataclass

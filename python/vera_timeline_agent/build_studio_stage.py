@@ -178,7 +178,7 @@ def _intent_body(
     return {
         "schemaVersion": "vera-native-build-intent/v1",
         "stageKey": context.stage_key,
-        "jobId": context.job_id,
+        "jobId": snapshot.build_id,
         "targetId": auth.target_id or target["timelineName"],
         "requestId": auth.request_id,
         "attestationSha256": digest,
@@ -201,7 +201,7 @@ def _check_authority(
         or auth.project_id != snapshot.project_id
         or auth.snapshot_id != snapshot.snapshot_id
         or auth.attestation_sha256 != digest
-        or (auth.job_id is not None and auth.job_id != context.job_id)
+        or (auth.job_id is not None and auth.job_id != snapshot.build_id)
         or (auth.target_id is None) != (auth.job_id is None)
     ):
         raise NeedsAction(
@@ -218,7 +218,7 @@ def _check_authority(
             raise NeedsAction("native submission authority unavailable") from error
         if (
             not isinstance(submission, dict)
-            or submission.get("jobId") != context.job_id
+            or submission.get("jobId") != snapshot.build_id
             or submission.get("targetId") != auth.target_id
             or submission.get("mode") != "studio"
         ):

@@ -305,6 +305,15 @@ export class ProjectBuildStatusService {
       if (!await verifiedPins(db, projectId, frozen.pins, this.sources)) {
         throw new BuildServiceError("source_unverified", 409);
       }
+      // Inspection must be attached to a progress receipt from this exact
+      // agent, stage and lease epoch; arbitrary digests cannot be promoted.
+      const reported = await db.query<{ id: string }>(
+        "SELECT id::text FROM stt_build_events WHERE project_id=$1 AND job_id=$2 " +
+          "AND agent_id=$3 AND lease_epoch=$4 AND stage_key=$5 AND receipt_digest=$6 " +
+          "AND status='running' LIMIT 1",
+        [projectId, jobId, agentId, epoch, stageKey, receiptDigest],
+      );
+      if (reported.rows.length !== 1) throw new BuildServiceError("invalid_transition", 409);
       if (!this.evidenceInspector) throw new BuildServiceError("invalid_transition", 409);
       const proof = await this.evidenceInspector.inspect(db, projectId, jobId, stageKey, receiptDigest);
       if (!proof || proof.stageKey !== stageKey || proof.receiptDigest !== receiptDigest ||
@@ -315,7 +324,9 @@ export class ProjectBuildStatusService {
           (proof.kind === "verified_package" && stageKey !== "verifying_import_package")) {
         throw new BuildServiceError("invalid_transition", 409);
       }
-      const status: BuildStatus = proof.kind === "verified_package" ? "verified_package" :
+      // Studio must keep its live lease after the intermediate package proof
+      // so it can continue into native build/readback without re-claiming.
+      const status: BuildStatus = proof.kind === "verified_package" && frozen.row.mode === "free" ? "verified_package" :
         proof.kind === "native_readback" ? "verified_native" : "running";
       const eventId = await appendEvent(db, projectId, jobId, status, epoch, now,
         null, agentId, stageKey, receiptDigest, proof.kind);

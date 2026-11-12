@@ -311,6 +311,7 @@ def test_manifest_drift_after_claim_prevents_first_effect(
         "symlink",
         "root_permissions",
         "copy_changed",
+        "path_traversal",
     ],
 )
 def test_bad_accepted_source_boundaries_refuse_without_stage(
@@ -345,6 +346,17 @@ def test_bad_accepted_source_boundaries_refuse_without_stage(
         folder = tmp_path / "private" / "inputs" / JOB
         folder.mkdir(parents=True, mode=0o700)
         (folder / f"source-{TARGET}.bin").write_bytes(b"old wrong bytes")
+    elif fault == "path_traversal":
+        current = authority.accepted[TARGET]
+        outside = directory.parent / "outside.mov"
+        outside.write_bytes(current.path.read_bytes())
+        authority.accepted[TARGET] = AcceptedSourceFile(
+            PROJECT,
+            TARGET,
+            current.revision,
+            current.sha256,
+            directory / ".." / outside.name,
+        )
     with pytest.raises(AgentTransportRefusal):
         service(
             tmp_path,

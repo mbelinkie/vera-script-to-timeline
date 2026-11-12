@@ -24,6 +24,7 @@ from vera_timeline_agent.build_studio_stage import (
     BuildStudioStagePort,
     NativeAuthorization,
     VerifyStudioStagePort,
+    _check_authority,
     _HostReservation,
 )
 from vera_timeline_agent.workflow_package import sha256
@@ -103,7 +104,7 @@ def setup(tmp_path: Path) -> StudioCase:
     job = "studio-job"
     submission = case.document_path.parent / "submission.json"
     submission.write_text(
-        json.dumps({"jobId": job, "targetId": "fresh-target", "mode": "studio"})
+        json.dumps({"jobId": build, "targetId": "fresh-target", "mode": "studio"})
     )
     repo = SnapshotRepository(
         tmp_path / "snapshots",
@@ -160,6 +161,34 @@ def setup(tmp_path: Path) -> StudioCase:
         )
 
     return snap, auth, driver, context, tmp_path / "host-lock"
+
+
+def test_frozen_backend_authority_survives_local_sqlite_job_allocation(
+    setup: StudioCase,
+) -> None:
+    from dataclasses import replace
+
+    snapshot, auth, _driver, ctx, _host = setup
+    backend_job = snapshot.build_id
+    assert json.loads(snapshot.file("submission").read_bytes())["jobId"] == backend_job
+    permission = replace(
+        auth,
+        job_id=backend_job,
+        target_id="fresh-target",
+        expires_at=time.time() + 60,
+        current_authority=lambda: True,
+    )
+    # BuildJobStore allocates a separate internal job ID; it may not replace
+    # the immutable backend submission identity in a native permission.
+    local = replace(ctx("building_resolve_timeline"), job_id="sqlite-local-job")
+    _check_authority(permission, local, snapshot, auth.attestation_sha256)
+    with pytest.raises(NeedsAction, match="job/snapshot/attestation"):
+        _check_authority(
+            replace(permission, job_id="different-backend-job"),
+            local,
+            snapshot,
+            auth.attestation_sha256,
+        )
 
 
 def test_native_studio_preflight_explicit_one_use_then_separate_readback(
@@ -235,7 +264,7 @@ def test_lost_native_response_recovers_only_on_independent_connected_readback(
             {
                 "schemaVersion": "vera-native-build-intent/v1",
                 "stageKey": context.stage_key,
-                "jobId": context.job_id,
+                "jobId": snapshot.build_id,
                 "targetId": driver.target["timelineName"],
                 "requestId": auth.request_id,
                 "attestationSha256": auth.attestation_sha256,
@@ -341,7 +370,7 @@ def test_frozen_submitted_target_is_checked_even_for_legacy_none_driver(
     from dataclasses import replace
 
     snap, auth, driver, ctx, host = setup
-    for job, target in (("wrong-job", "fresh-target"), ("studio-job", "swapped")):
+    for job, target in (("wrong-job", "fresh-target"), (snap.build_id, "swapped")):
         denied = replace(auth, job_id=job, target_id=target)
         with pytest.raises(NeedsAction, match=r"job/snapshot|target"):
             BuildStudioStagePort(denied, driver, host_state=host).execute(
@@ -349,7 +378,7 @@ def test_frozen_submitted_target_is_checked_even_for_legacy_none_driver(
             )
     assert driver.starts == 0
     assert not host.exists()
-    accepted = replace(auth, job_id="studio-job", target_id="fresh-target")
+    accepted = replace(auth, job_id=snap.build_id, target_id="fresh-target")
     BuildStudioStagePort(accepted, driver, host_state=host).execute(
         ctx("building_resolve_timeline"), snap
     )
@@ -365,7 +394,7 @@ def test_revoked_authority_between_preflight_and_start_retains_intent(
     current = {"allowed": True}
     permit = replace(
         auth,
-        job_id="studio-job",
+        job_id=snap.build_id,
         target_id="fresh-target",
         expires_at=time.time() + 60,
         current_authority=lambda: current["allowed"],

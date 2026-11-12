@@ -71,9 +71,11 @@ def test_studio_without_native_permission_refuses_before_local_effect(
     agent = fake_agent(tmp_path, transport, port)
     assert agent.run_one(JOB) == "needs_action"
     assert port.calls == 0
-    assert not (tmp_path / "private" / "snapshots").exists()
+    # Immutable input freeze is safe without native permission. An owner can
+    # inspect its exact local snapshot ID before authorizing any native write.
+    assert len(list((tmp_path / "private" / "snapshots").glob("*.json"))) == 1
     assert transport.reports == [
-        ("transport", "needs_action", None, "native_or_adapter_authorization_required")
+        ("transport", "running", None, "native_authorization_pending")
     ]
 
 
@@ -96,6 +98,12 @@ def test_studio_requires_exact_frozen_snapshot_before_first_effect(
     assert port.calls == 0
     snapshots = list((tmp_path / "private" / "snapshots").glob("*.json"))
     assert len(snapshots) == 1
+    assert transport.reports[-1] == (
+        "transport",
+        "running",
+        None,
+        "native_authorization_pending",
+    )
     snapshot_id = snapshots[0].stem
     assert agent.store.database.exists()
 
@@ -133,6 +141,10 @@ def test_studio_requires_exact_frozen_snapshot_before_first_effect(
         row["status"]
         for row in restarted.store.status(PROJECT, _job(restarted))["stages"][:7]
     ] == ["complete"] * 7
+    assert [stage for stage, _ in transport.inspections] == [
+        "verifying_import_package",
+        "verifying_timeline",
+    ]
 
 
 def test_free_pipeline_skips_native_even_when_ports_are_present(tmp_path: Path) -> None:
@@ -152,6 +164,9 @@ def test_free_pipeline_skips_native_even_when_ports_are_present(tmp_path: Path) 
         )
         assert port.calls == index
     assert agent.store.status(PROJECT, _job(agent))["status"] == "ready_to_import"
+    assert len(transport.inspections) == 1
+    assert transport.inspections[0][0] == "verifying_import_package"
+    assert transport.inspections[0][1].startswith("sha256:")
 
 
 def test_missing_studio_readback_port_refuses_without_native_effect(

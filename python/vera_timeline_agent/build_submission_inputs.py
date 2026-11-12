@@ -11,7 +11,9 @@ import hashlib
 import json
 import os
 import stat
+import tempfile
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -127,6 +129,7 @@ def _source_descriptor(
         != (project_id, source_id, revision, digest)
         or not isinstance(record.path, Path)
         or not record.path.is_absolute()
+        or ".." in record.path.parts
         or not roots
     ):
         raise FrozenInputRefusal("source is not in the accepted versioned store")
@@ -186,21 +189,19 @@ def frozen_source_file(
         raise FrozenInputRefusal("accepted source lookup failed") from None
     fd = _source_descriptor(record, project_id, source_id, revision, digest, roots)
     output_fd: int | None = None
-    created = False
-    complete = False
+    staged: Path | None = None
     try:
         if destination is not None:
             if destination.is_symlink():
                 raise FrozenInputRefusal("unsafe frozen source destination")
-            try:
-                output_fd = os.open(
-                    destination,
-                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                    0o600,
+            if not destination.exists():
+                # Never expose a partial accepted file at the final locator.
+                # A killed process may leave a harmless orphan staging file,
+                # but a fresh run can still publish the complete copy.
+                output_fd, name = tempfile.mkstemp(
+                    prefix=f".{destination.name}-", dir=destination.parent
                 )
-                created = True
-            except FileExistsError:
-                pass
+                staged = Path(name)
         digest_state = hashlib.sha256()
         with os.fdopen(fd, "rb") as source:
             fd = -1
@@ -214,10 +215,14 @@ def frozen_source_file(
             raise FrozenInputRefusal("accepted source bytes changed")
         if output_fd is not None:
             os.fsync(output_fd)
+            os.close(output_fd)
+            output_fd = None
+            assert staged is not None and destination is not None
+            with suppress(FileExistsError):
+                os.link(staged, destination, follow_symlinks=False)
+            staged.unlink()
+            staged = None
         if destination is not None:
-            if output_fd is not None:
-                os.close(output_fd)
-                output_fd = None
             facts = destination.stat(follow_symlinks=False)
             with os.fdopen(
                 os.open(destination, os.O_RDONLY | os.O_NOFOLLOW), "rb"
@@ -230,12 +235,11 @@ def frozen_source_file(
                 or saved_hash != digest[7:]
             ):
                 raise FrozenInputRefusal("frozen accepted source copy changed")
-        complete = True
         return destination
     finally:
         if fd != -1:
             os.close(fd)
         if output_fd is not None:
             os.close(output_fd)
-        if created and not complete and destination is not None:
-            destination.unlink(missing_ok=True)
+        if staged is not None:
+            staged.unlink(missing_ok=True)

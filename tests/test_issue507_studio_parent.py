@@ -59,7 +59,7 @@ def local(
     local_auth = replace(
         auth,
         route="Local",
-        job_id=context("building_resolve_timeline").job_id,
+        job_id=snapshot.build_id,
         target_id="fresh-target",
         expires_at=time.time() + 3600,
         current_authority=lambda: True,

@@ -229,6 +229,7 @@ class BuildTransport(Protocol):
         digest: str | None,
         reason: str | None,
     ) -> None: ...
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None: ...
 
 
 class LoopbackBuildTransport:
@@ -337,6 +338,18 @@ class LoopbackBuildTransport:
                 "reasonCode": reason,
             },
         )
+
+    def inspect(self, job_id: str, epoch: int, stage: str, digest: str) -> None:
+        """Request trusted server-side inspection; this is not an agent proof."""
+        if type(epoch) is not int or epoch < 1 or _SHA.fullmatch(digest) is None:
+            raise AgentTransportRefusal("invalid independent inspection request")
+        result = self._call(
+            "POST",
+            self._root() + f"/jobs/{_uuid(job_id)}/leases/{epoch}/inspect",
+            {"stageKey": stage, "receiptDigest": digest},
+        )
+        if not isinstance(result.get("eventId"), str):
+            raise AgentTransportRefusal("independent inspection unavailable")
 
 
 def _private_root(root: Path) -> Path:
@@ -501,20 +514,7 @@ class LocalBuildAgentService:
             or verify_port.authorization != native
             or build_port.driver is not verify_port.driver
         )
-        if not self.ports or (
-            manifest["mode"] == "studio"
-            and (
-                native_ports_mismatch
-                or not all(stage in self.ports for stage in STUDIO_STAGES[:2])
-                or not isinstance(native, NativeAuthorization)
-                or not native.approved_nonproduction
-                or native.route not in ("None", "Local")
-                or native.project_id != self.project_id
-                or native.job_id != job_id
-                or native.target_id != manifest["targetId"]
-                or not native.request_id
-            )
-        ):
+        if not self.ports or native_ports_mismatch:
             self.transport.progress(
                 job_id,
                 epoch,
@@ -524,6 +524,16 @@ class LocalBuildAgentService:
                 "native_or_adapter_authorization_required",
             )
             return "needs_action"
+        native_permission_missing = manifest["mode"] == "studio" and (
+            not all(stage in self.ports for stage in STUDIO_STAGES[:2])
+            or not isinstance(native, NativeAuthorization)
+            or not native.approved_nonproduction
+            or native.route not in ("None", "Local")
+            or native.project_id != self.project_id
+            or native.job_id != job_id
+            or native.target_id != manifest["targetId"]
+            or not native.request_id
+        )
         authority = self.input_authority
         if authority is None:
             raise AgentTransportRefusal("trusted compiler metadata required")
@@ -647,15 +657,20 @@ class LocalBuildAgentService:
             adapter_versions=self.adapter_versions,
         )
         if manifest["mode"] == "studio" and (
-            native is None or native.snapshot_id != snapshot.snapshot_id
+            native_permission_missing
+            or native is None
+            or native.snapshot_id != snapshot.snapshot_id
         ):
+            # Keep the original lease resumable while the owner supplies an
+            # exact native snapshot approval. A terminal needs_action report
+            # would invalidate the very epoch required for safe continuation.
             self.transport.progress(
                 job_id,
                 epoch,
                 "transport",
-                "needs_action",
+                "running",
                 None,
-                "native_or_adapter_authorization_required",
+                "native_authorization_pending",
             )
             return "needs_action"
         local_job = BuildComposition(repository, self.ports).submit(
@@ -689,6 +704,15 @@ class LocalBuildAgentService:
         if completed["status"] == "complete":
             digest = "sha256:" + str(completed["sha256"])
             self.transport.progress(job_id, epoch, stage, "running", digest, None)
+            if stage in ("verifying_import_package", "verifying_timeline"):
+                # The remote status remains unverified unless a real trusted
+                # inspector correlates the exact reported stage receipt.
+                inspector = getattr(self.transport, "inspect", None)
+                if callable(inspector):
+                    try:
+                        inspector(job_id, epoch, stage, digest)
+                    except AgentTransportRefusal:
+                        return "needs_action"
         else:
             # Local uncertain/partial output and SQLite history survive; there
             # is no re-dispatch or unverified native success transition.
