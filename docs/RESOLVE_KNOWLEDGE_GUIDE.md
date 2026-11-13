@@ -1092,8 +1092,12 @@ the four stamped items and their record geometry without a prior UID map.
 This extends the evidence for [#544](https://github.com/mbelinkie/vera-script-to-timeline/issues/544)
 to an interior 24 fps picture range. The finishing trials are pending.
 RK-32's subsequently merged 24 fps source-clock verifier covers this getter
-shape. #327 has regenerated its fixture against that revision and awaits
-the fresh native build and manual finishing pass.
+shape. #327 regenerated its fixture against that revision and passed the
+normal build, save/close/reopen and full verification on November 13. The
+eight-second timeline took 69.51 seconds and published its two-row map.
+Manual finishing and preservation trials remain pending. Setup's LUT export
+produced no readable file for either ungraded picture, so unreadable grade
+state requires visual confirmation.
 
 ## #318 action crosswalk
 

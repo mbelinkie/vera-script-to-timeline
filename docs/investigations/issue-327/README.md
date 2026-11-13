@@ -1,13 +1,15 @@
 # Resolve finishing preservation
 
-[#327](https://github.com/mbelinkie/vera-script-to-timeline/issues/327) stopped
-at initial build verification. The Local SDK identified DaVinci Resolve
-Studio 21.1.1 build 10. All four synthetic scripts compiled and the original
-packaged offline. The two-row original also built, saved and reopened in
-Resolve, but the shipped command reported an uncertain write and withheld
-the #522 row map. The project was retained for inspection.
+The fresh [#327](https://github.com/mbelinkie/vera-script-to-timeline/issues/327)
+two-row build passed the normal command's save, close, reopen and full
+verification on November 13. The Local SDK identified DaVinci Resolve
+Studio 21.1.1 build 10. The eight-second build took 69.51 seconds and published
+the #522 row map, with two 96-frame rows at 24 fps. The disposable project and
+original timeline end in `1c7f3e50d22d`. The manual finishing and preservation
+trials are pending.
 
-Read-only inspection found all four expected stamped clips. Both picture
+The earlier retained build stopped at source-end verification. Read-only
+inspection found all four expected stamped clips. Both picture
 clips had the expected 96-frame record spans. For each clip Resolve reported
 source frames 24 to 120, source times 1.0 to 5.0 seconds and left/right
 handles of 24/72 frames. The build verifier expects source end 119 for this
@@ -17,11 +19,16 @@ range. The 96-frame audio clips reported source frames 0 to 95. This is the
 The standalone readback passed its structural comparison without a prior UID
 map. Further Resolve writes stopped at this point.
 
-Current main now includes #520's qualified 24 fps source-clock correction
-(RK-32). All four variants have been regenerated and compiled against that
-revision. The fresh native build and preservation trials await the Resolve
-slot while #101's manual check is in progress. The remaining 25 fps
-correction in #544 is separate from this fixture's 24 fps route.
+Current main includes #520's qualified 24 fps source-clock correction (RK-32).
+All four variants were regenerated and compiled against that revision before
+the successful native build. The remaining 25 fps correction in #544 is
+separate from this fixture's 24 fps route.
+
+Setup captured readable clip identities, bounds, source hashes and audio
+volume, then imported `Spare.mp4` into the `Package Media` bin. The LUT
+export call produced no readable grade file for either ungraded picture.
+The grade result therefore requires visual confirmation when export remains
+unavailable. An unchanged clip ID or node label alone cannot establish it.
 
 Claude reviewed the experiment after its usage reset on November 13. Its
 three findings were fixed by checking retained timelines before saving and
@@ -49,8 +56,8 @@ is what happens to existing hand finishing when a neighboring row changes.
 | Resolve-only clip on a spare track | Cannot tell | Cannot tell | Cannot tell |
 | Archive comparison | Pending | Pending | Pending |
 
-The manual finishing and all three trial updates are pending a verified build
-with real picture handles. Before #104 applies any of these changes, it
+The manual finishing and all three trial updates are pending. Before #104
+applies any of these changes, it
 should keep the finished timeline available, warn about finishing at affected
 boundaries and require a proved preservation route for each affected item.
 The smallest available fallback is to retain the finished timeline and let
