@@ -2544,6 +2544,13 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 if not _setting_matches(key, expected_value, actual):
                     discrepancies.append("project-settings")
                     break
+            expected_rate = self.expected_settings.get("timelineFrameRate")
+            if expected_rate == "23.976" and not _setting_matches(
+                "timelineFrameRate",
+                expected_rate,
+                str(self.timeline.GetSetting("timelineFrameRate")),
+            ):
+                discrepancies.append("timeline-frame-rate")
             timeline = cast(Mapping[str, Any], view["timeline"])
             if self.timeline.GetStartFrame() != timeline["startFrame"]:
                 discrepancies.append("timeline-start")

@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.setConfig({ testTimeout: 20_000 });
 
 const root = resolve(import.meta.dirname, "../../..");
+const testTimeout = 30_000;
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 const emptySha = createHash("sha256").digest("hex");
 const names = [
@@ -53,7 +54,7 @@ describe("private development-QA backup/restore command guards", () => {
   }
 
   beforeEach(() => {
-    scratch = mkdtempSync(join(tmpdir(), "vera-159-backup-test-"));
+    scratch = mkdtempSync(join(realpathSync(tmpdir()), "vera-159-backup-test-"));
     fakeTools = join(scratch, "bin");
     archive = join(scratch, "private-backup");
     mkdirSync(fakeTools);
@@ -119,7 +120,7 @@ touch '${join(scratch, "restored")}'`;
     expect(Object.keys(manifest.inventory.tables)).toEqual(names);
     expect(manifest.inventory.tables.stt_document_heads).toEqual({ rows: 0, sha256: emptySha });
     expect(run("restore").status).toBe(0);
-  });
+  }, testTimeout);
 
   it("refuses wrong DB names, loopback bypass, elevated role, source-as-destination and existing backups", () => {
     for (const url of [
@@ -141,7 +142,7 @@ touch '${join(scratch, "restored")}'`;
     expect(run("restore", { VERA_STT_QA_RESTORE_DATABASE_URL:
       "postgres://qaowner:secret@127.0.0.2/vera_stt_qa_restore_synthetica" }).status).not.toBe(0);
     expect(run("restore", { VERA_STT_QA_ARCHIVE_DIR: join(root, "private-qa-dump") }).status).not.toBe(0);
-  });
+  }, testTimeout);
 
   it("refuses checksum/manifest tampering, soft permissions, symlink archives and source mismatch", () => {
     expect(run("backup").status).toBe(0);
@@ -162,7 +163,7 @@ touch '${join(scratch, "restored")}'`;
     const link = join(scratch, "linked-archive");
     symlinkSync(archive, link);
     expect(run("restore", { VERA_STT_QA_ARCHIVE_DIR: link }).status).not.toBe(0);
-  });
+  }, testTimeout);
 
   it("fails closed when dump, list, or restore tool exits unsuccessfully", () => {
     writeFileSync(join(fakeTools, "pg_dump"), "#!/usr/bin/env bash\nexit 3\n", { mode: 0o700 });
@@ -177,5 +178,5 @@ touch '${join(scratch, "restored")}'`;
     const refusedRestore = run("restore");
     expect(refusedRestore.status).not.toBe(0);
     expect(refusedRestore.stderr).toBe("STT development-QA backup/restore refused\n");
-  });
+  }, testTimeout);
 });

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -14,6 +16,12 @@ from test_build_studio_stage import (
     setup,  # noqa: F401 - imported pytest fixture
 )
 from vera_timeline_agent import build_studio_parent_driver as parent_driver
+from vera_timeline_agent import (
+    build_studio_stage,
+    resolve_native_owner,
+    workflow_v2_cli,
+    workflow_v2_parent,
+)
 from vera_timeline_agent.build_composition import EffectState
 from vera_timeline_agent.build_jobs import BuildJobError, NeedsAction, UncertainResult
 from vera_timeline_agent.build_studio_parent_driver import ParentStudioDriver
@@ -73,6 +81,95 @@ def local(
     return (snapshot, local_auth, fake, context, host), driver
 
 
+def test_busy_native_owner_allows_fresh_authorization_but_killed_worker_does_not(
+    local: tuple[StudioCase, ParentStudioDriver],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    (snapshot, auth, _fake, ctx, host), driver = local
+    monkeypatch.setattr(workflow_v2_parent, "PARENT_STATE_ROOT", host)
+    monkeypatch.setattr(
+        resolve_native_owner, "OWNER_LOCK_PATH", host / "native-owner.lock"
+    )
+    manifest = tmp_path / "release.json"
+    manifest.write_bytes(b"synthetic release manifest")
+    request = json.loads(driver.request_path.read_bytes())
+    request["releaseSha256"] = sha256(manifest)
+    request_path = tmp_path / "fresh-release" / "vera-delivery-v2" / "request.json"
+    request_path.parent.mkdir(parents=True)
+    write_immutable_json(request_path, request)
+    fresh_auth = replace(auth, request_id="fresh-request")
+    fresh_driver = ParentStudioDriver(
+        request_path, sha256(request_path), fresh_auth.request_id, driver.resolve_python
+    )
+    monkeypatch.setattr(workflow_v2_cli, "_verify_release", lambda _release: manifest)
+    monkeypatch.setattr(
+        resolve_native_owner, "preflight_independent_disposable", lambda _target: None
+    )
+    context = ctx("building_resolve_timeline")
+    intent = snapshot.write_root / context.job_id / context.stage / "intent.json"
+    evidence = Path(request["evidenceDir"])
+    child_fds: list[int] = []
+
+    def spawn(_args: list[str], *, pass_fds: tuple[int, ...], **_kwargs: Any) -> object:
+        assert json.loads(intent.read_bytes())["requestId"] == fresh_auth.request_id
+        assert (evidence / "parent.json").is_file()
+        child_fds.extend(os.dup(fd) for fd in pass_fds)
+        return object()
+
+    monkeypatch.setattr(subprocess, "Popen", spawn)
+    build = BuildStudioStagePort(auth, driver, host_state=host)
+    holder = resolve_native_owner.acquire_native_owner()
+    try:
+        with pytest.raises(NeedsAction, match="Resolve is busy"):
+            build.execute(context, snapshot)
+        with pytest.raises(resolve_native_owner.NativeOwnerError) as blocked:
+            resolve_native_owner.acquire_native_owner()
+        assert blocked.value.reason == "owner_busy"
+    finally:
+        resolve_native_owner.release_native_owner(holder)
+    assert build.inspect(context, snapshot).state == EffectState.ABSENT
+    assert not (host / "composition-active.json").exists()
+    assert not (evidence / "parent.json").exists()
+    assert not child_fds
+
+    fresh = BuildStudioStagePort(fresh_auth, fresh_driver, host_state=host)
+    with monkeypatch.context() as failed_write:
+
+        def refuse_intent(path: Path, _content: bytes) -> None:
+            assert path == intent
+            raise OSError("intent write failed")
+
+        failed_write.setattr(
+            build_studio_stage, "publish_immutable_output", refuse_intent
+        )
+        with pytest.raises(OSError, match="intent write failed"):
+            fresh.execute(context, snapshot)
+        assert fresh.inspect(context, snapshot).state == EffectState.ABSENT
+        assert not (host / "composition-active.json").exists()
+        assert not (evidence / "parent.json").exists()
+
+    try:
+        with pytest.raises(UncertainResult, match="never restart"):
+            fresh.execute(context, snapshot)
+        assert len(child_fds) == 2
+        with pytest.raises(resolve_native_owner.NativeOwnerError) as blocked:
+            resolve_native_owner.acquire_native_owner()
+        assert blocked.value.reason == "owner_busy"
+    finally:
+        for fd in child_fds:
+            os.close(fd)
+    assert (
+        workflow_v2_parent.status(request_path, sha256(request_path))["state"]
+        == "unknown"
+    )
+    assert fresh.inspect(context, snapshot).state == EffectState.UNCERTAIN
+    with pytest.raises(UncertainResult, match="one-use"):
+        fresh.execute(context, snapshot)
+    with pytest.raises(BuildJobError, match="identity changed"):
+        build.inspect(context, snapshot)
+
+
 def test_parent_live_is_one_dispatch_and_read_only_resume(
     local: tuple[StudioCase, ParentStudioDriver], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -83,6 +180,8 @@ def test_parent_live_is_one_dispatch_and_read_only_resume(
     def start(*args: Any, **kwargs: Any) -> dict[str, Any]:
         calls.append("start")
         assert kwargs["independent_disposable"] is True
+        host.mkdir()
+        kwargs["before_dispatch"](host)
         return dict(status)
 
     def read(*args: Any, **kwargs: Any) -> dict[str, Any]:
@@ -193,21 +292,29 @@ def test_local_expired_or_unknown_lease_refuses_before_reservation(
     assert not host.exists()
 
 
+@pytest.mark.parametrize("malformed", [False, True])
 def test_unresolved_host_parent_blocks_a_second_native_target(
-    local: tuple[StudioCase, ParentStudioDriver], monkeypatch: pytest.MonkeyPatch
+    local: tuple[StudioCase, ParentStudioDriver],
+    monkeypatch: pytest.MonkeyPatch,
+    malformed: bool,
 ) -> None:
     (snapshot, auth, _fake, ctx, host), driver = local
     host.mkdir()
     (host / "active.json").write_text(
         json.dumps(
-            {
+            {}
+            if malformed
+            else {
                 "requestPath": str(host / "missing-request.json"),
                 "requestSha256": "a" * 64,
             }
         )
     )
+    monkeypatch.setattr(workflow_v2_parent, "PARENT_STATE_ROOT", host)
     monkeypatch.setattr(
-        parent_driver, "start", lambda *_a, **_k: pytest.fail("host already busy")
+        resolve_native_owner,
+        "acquire_native_owner",
+        lambda: pytest.fail("unresolved parent must block before native acquisition"),
     )
     with pytest.raises(NeedsAction, match="another native parent"):
         BuildStudioStagePort(auth, driver, host_state=host).execute(
@@ -268,6 +375,29 @@ def test_reused_completed_parent_request_cannot_be_credited_as_new_start(
         driver.start(attestation, fake.digest, auth.request_id)
 
 
+def test_parent_result_without_this_dispatch_intent_is_refused(
+    local: tuple[StudioCase, ParentStudioDriver], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (snapshot, auth, fake, ctx, host), driver = local
+    # A standalone parent can consume the request between the adapter's
+    # initial existence check and taking the shared dispatch lock.
+    monkeypatch.setattr(
+        parent_driver,
+        "start",
+        lambda *_a, **_k: {
+            "state": "terminal",
+            "verified": True,
+            "result": fake.verified(),
+        },
+    )
+    context = ctx("building_resolve_timeline")
+    build = BuildStudioStagePort(auth, driver, host_state=host)
+    with pytest.raises(UncertainResult, match="without this attempt's intent"):
+        build.execute(context, snapshot)
+    assert build.inspect(context, snapshot).state == EffectState.ABSENT
+    assert not (host / "composition-active.json").exists()
+
+
 @pytest.mark.parametrize(
     "state,verified",
     [
@@ -288,7 +418,13 @@ def test_parent_ambiguous_response_never_forges_verified_native_result(
     response: dict[str, Any] = {"state": state, "verified": verified}
     if state == "terminal":
         response["result"] = fake.verified()
-    monkeypatch.setattr(parent_driver, "start", lambda *_a, **_k: response)
+
+    def start(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        host.mkdir()
+        kwargs["before_dispatch"](host)
+        return response
+
+    monkeypatch.setattr(parent_driver, "start", start)
     monkeypatch.setattr(parent_driver, "status", lambda *_a, **_k: response)
     with pytest.raises(UncertainResult, match="never restart"):
         BuildStudioStagePort(auth, driver, host_state=host).execute(

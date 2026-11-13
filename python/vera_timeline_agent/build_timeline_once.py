@@ -597,6 +597,7 @@ def deliver_compiled(
                 digest,
                 external_scripting="Local",
                 existing_project=existing_project,
+                allow_fractional_native=existing_project is None,
             ),
         )
         _require_workflow_status(
@@ -610,6 +611,7 @@ def deliver_compiled(
             authorize_new_nonproduction=True,
             external_scripting="Local",
             existing_project=existing_project,
+            allow_fractional_native=existing_project is None,
             stage_observer=lambda label, elapsed, passed: timings.record(
                 label, elapsed, passed=passed
             ),
