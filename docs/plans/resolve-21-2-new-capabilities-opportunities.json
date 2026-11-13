@@ -164,8 +164,8 @@
       ],
       "codeRefs": [
         "docs/investigations/issue-318-capability-audit.md",
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
-        "python/vera_timeline_agent/studio_spike.py"
+        "python/vera_timeline_agent/studio_spike.py",
+        "python/vera_timeline_agent/workflow_v2.py"
       ],
       "workaround": "Fresh timeline rebuild cannot assert copy of arbitrary grades/Fusion/transforms (#327/#104)",
       "replacement": "Probe a restricted supported attribute subset on disposable clone; refuse unknown or loss rather than implying transparent finishing migration",
@@ -198,7 +198,10 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C03",
@@ -211,8 +214,8 @@
       ],
       "codeRefs": [
         "docs/plans/issue-477-native-roll-feasibility.md",
-        "python/vera_timeline_agent/resolve_test_queue_reverse.py",
-        "python/vera_timeline_agent/roundtrip_v2_native.py"
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md",
+        "python/vera_timeline_agent/workflow_v2.py"
       ],
       "workaround": "#477 cannot produce a supported 327→351 atomic two-neighbor roll with stable original native item UIDs; getters report available source extension only",
       "replacement": "Investigate exact pair of setter semantics without equating an offset argument to a roll; preserve the strict #473 failure boundary",
@@ -245,7 +248,11 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/resolve_test_queue_reverse.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C04",
@@ -258,9 +265,9 @@
         "Timeline.MoveItems([timelineItems], {position}, moveLinkedItems=True, subframePrecision=False)"
       ],
       "codeRefs": [
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
         "docs/investigations/issue-318-capability-audit.md",
-        "python/vera_timeline_agent/resolve_test_queue_reverse.py"
+        "python/vera_timeline_agent/workflow_v2.py",
+        "python/vera_timeline_agent/build_studio_stage.py"
       ],
       "workaround": "VERA authoring supports pure row/reorder intent but broad native group motion/preservation remains unproved (#104/#328)",
       "replacement": "Try absolute and grouped native moves only for qualified, disjoint supported items with ID-pinned preflight",
@@ -293,7 +300,11 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py",
+        "python/vera_timeline_agent/resolve_test_queue_reverse.py"
+      ]
     },
     {
       "id": "C05",
@@ -306,9 +317,9 @@
         "MediaPoolItem.ExportFrame(frameOffset, [{exportFrameOptions}])"
       ],
       "codeRefs": [
-        "python/vera_timeline_agent/native_qualification_v2.py",
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
-        "python/vera_timeline_agent/native_image_motion.py"
+        "python/vera_timeline_agent/native_image_motion.py",
+        "python/vera_timeline_agent/v2_package.py",
+        "python/vera_timeline_agent/workflow_v2.py"
       ],
       "workaround": "Visual qualification relies on rendered outputs, external decoding and targeted captures; preview sampling often costs render/inspection time",
       "replacement": "Read-only one-frame captures on disposable saved timelines for faster visual regression evidence, retaining output hash+geometry",
@@ -341,7 +352,11 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/native_qualification_v2.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C06",
@@ -355,9 +370,9 @@
         "ExportFrameOptions: quality, roiX, roiY, roiWidth, roiHeight; result width/height"
       ],
       "codeRefs": [
-        "python/vera_timeline_agent/native_qualification_v2.py",
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
-        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md",
+        "python/vera_timeline_agent/native_image_motion.py",
+        "python/vera_timeline_agent/v2_package.py"
       ],
       "workaround": "Separate rendered captures/decoded images for each proof frame; no supported scripted grid/ROI proof route on installed baseline",
       "replacement": "Batch named boundary frames into one bounded grid for autonomous QA; ROI check exact region without pretending it measures full output",
@@ -392,7 +407,11 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/native_qualification_v2.py",
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C07",
@@ -499,8 +518,8 @@
       ],
       "codeRefs": [
         "docs/investigations/issue-318-capability-audit.md",
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
-        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md",
+        "python/vera_timeline_agent/studio_spike.py"
       ],
       "workaround": "Opaque Color graph preservation/version readback is not general; no stable VERA node annotation",
       "replacement": "Annotate exact known node identities in a synthetic grade and verify tags survive save/reopen; potential failure diagnostics",
@@ -531,7 +550,10 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C10",
@@ -543,9 +565,9 @@
         "TimelineItem.GetCDL(nodeIndex)"
       ],
       "codeRefs": [
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
         "docs/investigations/issue-318-capability-audit.md",
-        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md",
+        "python/vera_timeline_agent/studio_spike.py"
       ],
       "workaround": "Current #327 finishing preservation has no complete portable native node-state/grade fingerprint",
       "replacement": "Read node-enabled and primaries CDL as additional checks for selected preserved grades",
@@ -577,7 +599,10 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C11",
@@ -592,7 +617,7 @@
       ],
       "codeRefs": [
         "docs/investigations/issue-318-capability-audit.md",
-        "python/vera_timeline_agent/roundtrip_v2_native.py"
+        "docs/RESOLVE_KNOWLEDGE_GUIDE.md"
       ],
       "workaround": "VERA does not qualify optional automatic grade or full editor finishing behavior",
       "replacement": "Investigate an optional, opt-in editable auto-grade for synthetic image; never replace artist's existing grade by default",
@@ -625,7 +650,10 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C12",
@@ -772,9 +800,9 @@
         "Timeline.DeleteGaps()"
       ],
       "codeRefs": [
-        "python/vera_timeline_agent/roundtrip_v2_native.py",
         "docs/investigations/issue-318-capability-audit.md",
-        "python/vera_timeline_agent/studio_spike.py"
+        "python/vera_timeline_agent/studio_spike.py",
+        "python/vera_timeline_agent/workflow_v2.py"
       ],
       "workaround": "VERA intentional gaps, narration timing and cross-track offsets must remain exact",
       "replacement": "No automatic use: normalized gap removal conflicts with explicit authored timing",
@@ -805,7 +833,10 @@
       "releaseGate": "NO-GO on existing Intel host without separate #479 compatibility GO, #480 recovery/fallback, #473 native acceptance and explicit native authorization",
       "newerVersionRequired": true,
       "productQualified": false,
-      "realNativeProven": false
+      "realNativeProven": false,
+      "retiredProofCodeRefs": [
+        "python/vera_timeline_agent/roundtrip_v2_native.py"
+      ]
     },
     {
       "id": "C16",
