@@ -38,6 +38,7 @@ type DiagnosticCodeV2 = Literal[
     "GRAPHIC_PROVENANCE_UNAVAILABLE",
     "GRAPHIC_PROVENANCE_UNAUTHORIZED",
     "GRAPHIC_PROVENANCE_UNEXPECTED",
+    "ROW_TRANSITION_CUT_SHORT_HANDLES",
 ]
 
 
@@ -188,6 +189,7 @@ class EntityReferenceV2(TypedDict):
         "occurrence",
         "preparation",
         "track",
+        "row_transition",
         "settings",
         "build",
     ]

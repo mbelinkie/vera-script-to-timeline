@@ -26,6 +26,12 @@ from typing import Any, TypeGuard, cast
 from . import native_image_motion
 from .row_timeline_map import make_row_timeline_map
 from .studio_spike import _project_settings, _still_source_frame_duration
+from .transition_delivery_v2 import (
+    TransitionRefusal,
+    apply_guarded_transition,
+    observe_native_transition,
+    validate_signed_transitions,
+)
 from .workflow_delivery import (
     SUPPORTED_IDENTITIES,
 )
@@ -522,6 +528,13 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
     if outer_counts != expected_outer:
         raise WorkflowV2Error("attestation counts do not match the native view")
     _validate_semantics(manifest, view)
+
+    # Hash closure alone is insufficient: compare the signed native plan to
+    # independently loaded *authored* row pairs and preparation evidence.
+    try:
+        validate_signed_transitions(document, dependencies, manifest, report)
+    except TransitionRefusal as error:
+        raise WorkflowV2Error(f"signed picture transition refused: {error}") from error
 
     if _inventory(root) != inventory:
         raise WorkflowV2Error("package changed while it was being loaded")
@@ -1572,6 +1585,7 @@ def observe_current_timeline_v2(
     timeline_name: str,
     project_uid: str | None = None,
     timeline_uid: str | None = None,
+    transition_plans: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Fresh read-only SDK inventory of the *already current* target.
 
@@ -1631,12 +1645,23 @@ def observe_current_timeline_v2(
     observed: list[dict[str, Any]] = []
     seen_events: set[str] = set()
     seen_uids: set[str] = set()
+    applicable_transitions = [
+        plan for plan in transition_plans if plan["disposition"] == "apply"
+    ]
+    live_transitions: list[tuple[int, Any]] = []
     for kind, count in actual_counts.items():
         for index in range(1, count + 1):
             items = timeline.GetItemListInTrack(kind, index)
             if not isinstance(items, (list, tuple)):
                 raise WorkflowV2Error(f"item inventory unavailable: {kind} {index}")
             for item in items:
+                if (
+                    applicable_transitions
+                    and kind == "video"
+                    and item.GetType() == "transition"
+                ):
+                    live_transitions.append((index, item))
+                    continue
                 stamp = item.GetMarkerCustomData(0)
                 try:
                     data = json.loads(stamp) if isinstance(stamp, str) else None
@@ -1690,6 +1715,44 @@ def observe_current_timeline_v2(
     if seen_events != set(expected_events):
         missing = sorted(set(expected_events) - seen_events)
         raise WorkflowV2Error(f"missing TimelineItem events: {', '.join(missing)}")
+
+    # A native transition is its own unstamped TimelineItem, not a VERA row
+    # clip. Verify each signed dissolve without permitting extra/missing effects
+    # or downgrading a changed transition to a mapless structural match.
+    if len(live_transitions) != len(applicable_transitions):
+        raise WorkflowV2Error("native transition inventory differs from signed plan")
+    used_transition_uids: set[str] = set()
+    for plan in applicable_transitions:
+        matched_tracks = [t for t in tracks if t["id"] == plan["trackId"]]
+        boundary_track = matched_tracks[0] if len(matched_tracks) == 1 else None
+        outgoing = expected_events.get(plan["outgoingEventId"])
+        incoming = expected_events.get(plan["incomingEventId"])
+        if (
+            boundary_track is None
+            or boundary_track["kind"] != "video"
+            or outgoing is None
+            or incoming is None
+            or outgoing["trackId"] != boundary_track["id"]
+            or incoming["trackId"] != boundary_track["id"]
+            or outgoing["recordRange"]["startFrame"]
+            + outgoing["recordRange"]["durationFrames"]
+            != plan["boundaryFrame"]
+            or incoming["recordRange"]["startFrame"] != plan["boundaryFrame"]
+        ):
+            raise WorkflowV2Error("signed transition row boundary differs")
+        matched = [
+            item
+            for index, item in live_transitions
+            if index == boundary_track["index"]
+            and item.GetStart() == plan["startFrame"]
+            and item.GetEnd() == plan["endFrame"]
+        ]
+        if len(matched) != 1 or not observe_native_transition(matched[0], plan):
+            raise WorkflowV2Error("native transition identity or geometry differs")
+        uid = matched[0].GetUniqueId()
+        if uid in seen_uids or uid in used_transition_uids:
+            raise WorkflowV2Error("native transition UID is duplicated")
+        used_transition_uids.add(uid)
 
     markers = cast(list[Mapping[str, Any]], view["markers"])
     expected_markers = {marker["frame"]: marker for marker in markers}
@@ -1802,6 +1865,108 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self._native_otio_imported = False
         self._capture_row_map = False
         self._reopened_row_items: list[dict[str, Any]] = []
+        self._v2_transition_plans: tuple[Mapping[str, Any], ...] = ()
+        self._v2_transition_uids: dict[str, str] = {}
+
+    def _locate_v2_boundary(self, plan: Mapping[str, Any]) -> dict[str, Any]:
+        """Locate by exact timeline stamp and record geometry, never clip name."""
+        self.assert_current_target()
+        track = next(
+            (record for record in self._v2_tracks if record["id"] == plan["trackId"]),
+            None,
+        )
+        if track is None or track["kind"] != "video":
+            raise WorkflowV2Error("transition track identity changed")
+        items = self.timeline.GetItemListInTrack("video", track["index"])
+        if not isinstance(items, (list, tuple)):
+            raise WorkflowV2Error("live native boundary inventory is unknown")
+        edges: dict[str, Any] = {}
+        transitions: list[Any] = []
+        for item in items:
+            if item.GetType() == "transition":
+                if item.GetStart() <= plan["boundaryFrame"] <= item.GetEnd():
+                    transitions.append(item)
+                continue
+            for side, event_id in (
+                ("outgoing", plan["outgoingEventId"]),
+                ("incoming", plan["incomingEventId"]),
+            ):
+                if item.GetMarkerCustomData(0) == self.expected_stamps.get(event_id):
+                    if side in edges:
+                        raise WorkflowV2Error("native boundary marker is duplicated")
+                    event = self.expected_events.get(event_id)
+                    if (
+                        event is None
+                        or event.get("id") != event_id
+                        or event.get("trackId") != plan["trackId"]
+                    ):
+                        raise WorkflowV2Error(
+                            "native boundary marker did not identify its signed event"
+                        )
+                    range_value = event["recordRange"]
+                    if (
+                        item.GetStart(False) != range_value["startFrame"]
+                        or item.GetDuration(False) != range_value["durationFrames"]
+                        or item.GetMediaPoolItem().GetMediaId()
+                        != self.media_id_by_source.get(event["sourceId"])
+                    ):
+                        raise WorkflowV2Error(
+                            "native boundary event range or media changed"
+                        )
+                    edges[side] = item
+        if set(edges) != {"outgoing", "incoming"} or len(transitions) > 1:
+            raise WorkflowV2Error(
+                "native boundary clip/transition inventory is ambiguous"
+            )
+        return {
+            **edges,
+            "outgoingId": plan["outgoingEventId"],
+            "incomingId": plan["incomingEventId"],
+            "transition": transitions[0] if transitions else None,
+        }
+
+    def apply_v2_transition(self, plan: Mapping[str, Any]) -> None:
+        self.assert_current_target()
+        ident = cast(str, plan["id"])
+        if ident in self._v2_transition_uids:
+            raise WorkflowV2Error("a native transition was already applied; no retry")
+        self._v2_transition_uids[ident] = apply_guarded_transition(
+            plan, self._locate_v2_boundary
+        )
+
+    def _verify_v2_transitions(self, discrepancies: list[str]) -> None:
+        """Post-reopen readback includes native effects without counting as clips."""
+        if not getattr(self, "_v2_transition_plans", ()):
+            return
+        expected = {
+            p["id"]: p for p in self._v2_transition_plans if p["disposition"] == "apply"
+        }
+        observed: dict[str, Any] = {}
+        all_transitions: list[Any] = []
+        for track in self._v2_tracks:
+            if track["kind"] != "video":
+                continue
+            for item in self.timeline.GetItemListInTrack("video", track["index"]):
+                if item.GetType() == "transition":
+                    all_transitions.append(item)
+        if len(all_transitions) != len(expected):
+            discrepancies.append("transition-inventory")
+        for ident, plan in expected.items():
+            try:
+                located = self._locate_v2_boundary(plan)
+                item = located["transition"]
+                if not observe_native_transition(item, plan):
+                    discrepancies.append("transition-geometry")
+                elif item.GetUniqueId() != self._v2_transition_uids.get(ident):
+                    discrepancies.append("transition-uid")
+                elif item.GetUniqueId() in observed:
+                    discrepancies.append("transition-duplicate")
+                else:
+                    observed[item.GetUniqueId()] = item
+            except (AttributeError, KeyError, TypeError, ValueError):
+                discrepancies.append("transition-readback")
+        if any(item.GetUniqueId() not in observed for item in all_transitions):
+            discrepancies.append("transition-extra")
 
     def import_verified_otio(
         self, otio_path: Path, view: Mapping[str, Any], timeline_name: str
@@ -2219,6 +2384,12 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 for index in range(1, track_count + 1):
                     expected = by_track.get((kind, index), [])
                     actual_items = list(self.timeline.GetItemListInTrack(kind, index))
+                    if getattr(self, "_v2_transition_plans", ()) and kind == "video":
+                        actual_items = [
+                            item
+                            for item in actual_items
+                            if item.GetType() != "transition"
+                        ]
                     expected_sorted = sorted(
                         expected, key=lambda item: item["recordRange"]["startFrame"]
                     )
@@ -2406,6 +2577,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                         discrepancies.append("marker-custom-data")
             self._verify_bins(discrepancies)
             self._verify_media_inventory(view, discrepancies)
+            self._verify_v2_transitions(discrepancies)
         except (AttributeError, KeyError, TypeError, ValueError):
             discrepancies.append("readback-api")
         if discrepancies:
@@ -2982,6 +3154,16 @@ def run_workflow_delivery_v2(
                 "a picture treatment lacks a qualified native mapping"
             )
         native_otio = _requires_native_otio(view)
+        transition_plans = tuple(
+            cast(list[Mapping[str, Any]], manifest.get("transitions", []))
+        )
+        has_native_transitions = any(
+            plan["disposition"] == "apply" for plan in transition_plans
+        )
+        if has_native_transitions and native_otio:
+            raise WorkflowV2Error(
+                "direct native transitions cannot mix with whole-timeline OTIO import"
+            )
         result["nativeOtioMotionRoute"] = native_otio
         if existing_project is not None and native_otio:
             raise WorkflowV2Error(
@@ -3030,6 +3212,13 @@ def run_workflow_delivery_v2(
             raise WorkflowV2Error(
                 "native image motion requires measured Studio 21.1.1 build 10"
             )
+        if has_native_transitions and (
+            getattr(connected, "version", None),
+            getattr(connected, "build", None),
+        ) != ("21.1.1", "10"):
+            raise WorkflowV2Error(
+                "native Cross Dissolve requires measured Studio 21.1.1 build 10"
+            )
         result["manualCompletion"] = list(adapter.probe(settings))
         stage = "new target collision check"
         if existing_project is None:
@@ -3077,6 +3266,7 @@ def run_workflow_delivery_v2(
             binding["requirementKey"]: binding
             for binding in manifest["preparationBindings"]
         }
+        cast(Any, adapter)._v2_transition_plans = transition_plans
 
         def mutate(method: Callable[..., Any], *arguments: Any, label: str) -> Any:
             nonlocal mutation_started, stage
@@ -3158,6 +3348,13 @@ def run_workflow_delivery_v2(
                 mutate(adapter.place_event, event, label="place timeline event")
         for marker in view["markers"]:
             mutate(adapter.add_v2_marker, marker, label="add timeline marker")
+        for plan in transition_plans:
+            if plan["disposition"] == "apply":
+                mutate(
+                    adapter.apply_v2_transition,
+                    plan,
+                    label="apply signed picture transition",
+                )
         observe_next("save/reopen")
         mutate(
             adapter.save_close_reopen,

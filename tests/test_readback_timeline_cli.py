@@ -14,7 +14,11 @@ import pytest
 from vera_timeline_agent import readback_timeline_cli as cli
 from vera_timeline_agent.build_jobs import NeedsAction
 from vera_timeline_agent.row_timeline_map import make_row_timeline_map
-from vera_timeline_agent.workflow_v2 import _marker_stamp, _stamp
+from vera_timeline_agent.workflow_v2 import (
+    _marker_stamp,
+    _stamp,
+    observe_current_timeline_v2,
+)
 
 
 class FakeItem:
@@ -31,11 +35,41 @@ class FakeItem:
     def GetUniqueId(self) -> str:
         return self.uid
 
+    def GetType(self) -> str:
+        return "clip"
+
     def GetStart(self, _relative: bool) -> int:
         return cast(int, self.start)
 
     def GetDuration(self, _relative: bool) -> int:
         return cast(int, self.duration)
+
+
+class FakeTransition:
+    def __init__(self) -> None:
+        self.name = "Cross Dissolve"
+        self.uid = "native-dissolve"
+
+    def GetType(self) -> str:
+        return "transition"
+
+    def GetName(self) -> str:
+        return self.name
+
+    def GetUniqueId(self) -> str:
+        return self.uid
+
+    def GetFusionCompCount(self) -> int:
+        return 0
+
+    def GetStart(self) -> int:
+        return 11
+
+    def GetEnd(self) -> int:
+        return 13
+
+    def GetDuration(self) -> int:
+        return 2
 
 
 class FakeTimeline:
@@ -45,7 +79,7 @@ class FakeTimeline:
         self.name = name
         self.uid = uid
         self.view = view
-        self.items: dict[tuple[str, int], list[FakeItem]] = {
+        self.items: dict[tuple[str, int], list[Any]] = {
             (track["kind"], track["index"]): [] for track in view["tracks"]
         }
         tracks = {track["id"]: track for track in view["tracks"]}
@@ -98,7 +132,7 @@ class FakeTimeline:
             None,
         )
 
-    def GetItemListInTrack(self, kind: str, index: int) -> list[FakeItem]:
+    def GetItemListInTrack(self, kind: str, index: int) -> list[Any]:
         return self.items.get((kind, index), [])
 
     def GetMarkers(self) -> dict[int, dict[str, Any]]:
@@ -231,6 +265,73 @@ def test_map_present_verifies_current_stamped_items_and_saved_uids(
     output, _, _ = _case(tmp_path, monkeypatch)
     assert cli.main(["--output", str(output)]) == 0
     assert "saved item UIDs match" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("mapless", [False, True])
+def test_readback_checks_signed_native_dissolve_without_counting_it_as_a_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mapless: bool
+) -> None:
+    output, _, resolve = _case(tmp_path, monkeypatch)
+    attestation = output / "v2-attestation.json"
+    package = cast(Any, cli).load_verified_package_v2(
+        attestation, hashlib.sha256(attestation.read_bytes()).hexdigest()
+    )
+    view, manifest = package.view, package.manifest
+    second = deepcopy(view["events"][0])
+    second["id"] = "e3"
+    second["recordRange"]["startFrame"] = 12
+    second["v2Event"]["eventId"] = "e3"
+    second["v2Event"]["recordRange"] = {"startFrame": 12, "endFrame": 24}
+    second["v2Event"]["provenance"]["blockId"] = "row-b"
+    view["events"].append(second)
+    view["timeline"]["durationFrames"] = 24
+    manifest["events"].append(deepcopy(second["v2Event"]))
+    manifest["transitions"] = [
+        {
+            "id": "dissolve-1",
+            "disposition": "apply",
+            "trackId": "v",
+            "outgoingEventId": "e1",
+            "incomingEventId": "e3",
+            "boundaryFrame": 12,
+            "startFrame": 11,
+            "endFrame": 13,
+            "requestedDurationFrames": 2,
+        }
+    ]
+    assert resolve.project is not None
+    timeline = resolve.project.timeline
+    transition = FakeTransition()
+    timeline.items[("video", 1)].extend([FakeItem(second, "native-e3"), transition])
+    snapshot = observe_current_timeline_v2(
+        resolve,
+        view,
+        project_name="P",
+        timeline_name="T",
+        transition_plans=manifest["transitions"],
+    )
+    assert len(snapshot["observed"]) == len(view["events"])
+    saved = make_row_timeline_map(
+        manifest,
+        view,
+        snapshot["observed"],
+        project_name="P",
+        resolve_project_id="p-uid",
+        timeline_name="T",
+        timeline_id="t-uid",
+    )
+    (output / "row-timeline-map.json").write_text(json.dumps(saved))
+    if mapless:
+        (output / "row-timeline-map.json").unlink()
+
+    assert cli.readback_output(output).startswith("PASS")
+    transition.name = "Dip to Color"
+    with pytest.raises(ValueError, match="native transition identity or geometry"):
+        cli.readback_output(output)
+    transition.name = "Cross Dissolve"
+    timeline.items[("video", 1)].remove(transition)
+    with pytest.raises(ValueError, match="native transition inventory"):
+        cli.readback_output(output)
 
 
 def test_mapless_only_checks_structure_and_accepts_new_item_uids(

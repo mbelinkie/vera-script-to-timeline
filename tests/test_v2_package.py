@@ -14,6 +14,10 @@ import pytest
 from issue177_package_fixture import _refresh_document_closure, make_package_case
 from vera_timeline_agent import native_image_motion, workflow_v2
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.transition_delivery_v2 import (
+    TransitionRefusal,
+    validate_signed_transitions,
+)
 from vera_timeline_agent.v2_package import (
     BUILD_DIRECTORY,
     OTIO_FILENAME,
@@ -36,6 +40,173 @@ from vera_timeline_agent.workflow_v2_cli import (
     attest_package_v2,
     build_release_v2,
 )
+
+
+def _issue88_signed_case() -> tuple[
+    dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
+]:
+    """Small native-plan fixture independent of Resolve, with real phase-2 IDs."""
+    golden = json.loads(
+        (
+            Path(__file__).parent
+            / "data/authoring_v2/issue_88/two-row-24-frame.golden.json"
+        ).read_text()
+    )
+    plan = golden["transitions"][0]
+    first, second = plan["fromRowId"], plan["toRowId"]
+    from_event, to_event = plan["outgoingEventId"], plan["incomingEventId"]
+    src_a, src_b = "source-a", "source-b"
+    payload_a, payload_b = "payload-a", "payload-b"
+
+    def event(
+        event_id: str,
+        block: str,
+        payload: str,
+        source: str,
+        start: int,
+        end: int,
+        source_start: int,
+    ) -> dict[str, Any]:
+        return {
+            "eventId": event_id,
+            "kind": "primary_visual",
+            "trackId": "video-root",
+            "trackRole": "primary_root",
+            "recordRange": {"startFrame": start, "endFrame": end},
+            "sourceRange": {
+                "startFrame": source_start,
+                "endFrame": source_start + end - start,
+            },
+            "provenance": {"blockId": block, "payloadId": payload, "sourceId": source},
+        }
+
+    document = {
+        "activeDraft": {
+            "blocks": [
+                {"id": first, "state": "active", "type": "narration"},
+                {"id": second, "state": "active", "type": "narration"},
+            ]
+        },
+        "rowTransitions": [
+            {
+                "id": plan["id"],
+                "fromRowId": first,
+                "toRowId": second,
+                "state": "active",
+                "effect": "Cross Dissolve",
+                "settings": {"durationFrames": 24},
+            }
+        ],
+    }
+    dependencies = {
+        "preparedMedia": [
+            {
+                "requirementKey": key,
+                "verification": {"decodedFrameCount": 108},
+                "requestedRange": {
+                    "preHandle": {
+                        "numerator": 1 if n else 0,
+                        "denominator": 2 if n else 1,
+                    },
+                    "postHandle": {
+                        "numerator": 0 if n else 1,
+                        "denominator": 1 if n else 2,
+                    },
+                },
+            }
+            for n, key in enumerate(["prep-a", "prep-b"])
+        ],
+        "occurrenceResolutions": [
+            {
+                "payloadId": payload,
+                "occurrenceSourceInFrame": 15,
+                "logicalSourceBounds": {
+                    "startFrame": 0,
+                    "endFrame": 240,
+                    "frameRate": {"numerator": 24, "denominator": 1},
+                },
+            }
+            for payload in (payload_a, payload_b)
+        ],
+    }
+    manifest = {
+        "transitions": [plan],
+        "timeline": {"frameRate": {"numerator": 24, "denominator": 1}},
+        "roles": {"primaryRootTrackId": "video-root"},
+        "tracks": [{"id": "video-root", "kind": "video"}],
+        "events": [
+            event(from_event, first, payload_a, src_a, 0, 96, 0),
+            event(to_event, second, payload_b, src_b, 96, 192, 12),
+        ],
+        "sources": [
+            {"id": src_a, "preparationRequirementKey": "prep-a"},
+            {"id": src_b, "preparationRequirementKey": "prep-b"},
+        ],
+    }
+    report: dict[str, Any] = {"diagnostics": []}
+    return document, dependencies, manifest, report
+
+
+def test_issue88_signed_package_binds_exact_authored_pair_and_delivered_handles() -> (
+    None
+):
+    document, deps, manifest, report = _issue88_signed_case()
+    assert validate_signed_transitions(document, deps, manifest, report) == tuple(
+        manifest["transitions"]
+    )
+    for mutation in (
+        "forged",
+        "fingerprint",
+        "boundary",
+        "handles",
+        "dropped",
+        "source",
+    ):
+        doc, dependencies, signed, ready_report = copy.deepcopy(
+            (document, deps, manifest, report)
+        )
+        if mutation == "forged":
+            doc["rowTransitions"] = []
+        elif mutation == "fingerprint":
+            signed["transitions"][0]["effectIdentity"]["category"] = "fusion"
+        elif mutation == "boundary":
+            signed["transitions"][0]["endFrame"] += 1
+        elif mutation == "handles":
+            dependencies["preparedMedia"][1]["verification"]["decodedFrameCount"] = 80
+        elif mutation == "dropped":
+            signed.pop("transitions")
+        elif mutation == "source":
+            signed["events"][1]["provenance"]["blockId"] = "changed-row"
+        with pytest.raises(TransitionRefusal):
+            validate_signed_transitions(doc, dependencies, signed, ready_report)
+
+
+def test_issue88_named_cut_has_real_known_short_extent_and_matching_warning() -> None:
+    doc, dependencies, signed, report = _issue88_signed_case()
+    plan = signed["transitions"][0]
+    plan["disposition"] = "cut_insufficient_handles"
+    plan["reason"] = (
+        f"Transition {plan['id']} ({plan['fromRowId']} -> "
+        f"{plan['toRowId']}) at frame 96: short handles"
+    )
+    report["diagnostics"] = [
+        {
+            "code": "ROW_TRANSITION_CUT_SHORT_HANDLES",
+            "entity": {"id": plan["id"]},
+            "severity": "warning",
+            "message": plan["reason"],
+        }
+    ]
+    with pytest.raises(TransitionRefusal, match="sufficient"):
+        validate_signed_transitions(doc, dependencies, signed, report)
+    dependencies["occurrenceResolutions"][1]["occurrenceSourceInFrame"] = 2
+    assert validate_signed_transitions(doc, dependencies, signed, report)
+    report["diagnostics"][0]["message"] = "unrelated warning"
+    with pytest.raises(TransitionRefusal, match="warning"):
+        validate_signed_transitions(doc, dependencies, signed, report)
+    report["diagnostics"] = []
+    with pytest.raises(TransitionRefusal, match="warning"):
+        validate_signed_transitions(doc, dependencies, signed, report)
 
 
 def _issue336_case(
@@ -126,6 +297,7 @@ class _Issue336NativeRouteAdapter:
         self.calls: list[str] = []
         self.collision = collision
         self.unknown_import = unknown_import
+        self._capture_row_map = False
 
     def connected_facts(self) -> Any:
         self.calls.append("connected")
@@ -184,7 +356,31 @@ class _Issue336NativeRouteAdapter:
 
     def verify(self, _view: Any) -> tuple[str, ...]:
         self.calls.append("verify")
+        self.verified_view = _view
         return ()
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        # The #522 build path requires actual post-reopen item observations;
+        # model those explicitly rather than bypassing map validation here.
+        assert self._capture_row_map is True
+        assert self.calls[-1] == "verify"
+        tracks = {track["id"]: track for track in self.verified_view["tracks"]}
+        return {
+            "resolveProjectId": "issue336-reopened-project",
+            "timelineId": "issue336-reopened-timeline",
+            "observed": [
+                {
+                    "eventId": event["id"],
+                    "resolveItemId": f"issue336-reopened-item-{index}",
+                    "trackId": event["trackId"],
+                    "trackKind": tracks[event["trackId"]]["kind"],
+                    "trackIndex": tracks[event["trackId"]]["index"],
+                    "startFrame": event["recordRange"]["startFrame"],
+                    "durationFrames": event["recordRange"]["durationFrames"],
+                }
+                for index, event in enumerate(self.verified_view["events"])
+            ],
+        }
 
 
 @pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
@@ -217,6 +413,12 @@ def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
         adapter_factory=lambda _: adapter,
     )
     assert result["status"] == "verified", result
+    assert result["rowTimelineMap"]["resolveProjectId"] == "issue336-reopened-project"
+    assert {
+        item["eventId"]
+        for row in result["rowTimelineMap"]["rows"]
+        for item in row["items"]
+    } == {event["id"] for event in view["events"]}
     assert result["nativeOtioMotionRoute"] is True
     assert adapter.calls.count("native_otio") == 1
     assert adapter.calls.count("marker") == len(view["markers"])

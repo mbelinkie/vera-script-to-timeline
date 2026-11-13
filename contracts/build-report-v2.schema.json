@@ -421,7 +421,8 @@
         "GRAPHIC_PROVENANCE_MISMATCH",
         "GRAPHIC_PROVENANCE_UNAVAILABLE",
         "GRAPHIC_PROVENANCE_UNAUTHORIZED",
-        "GRAPHIC_PROVENANCE_UNEXPECTED"
+        "GRAPHIC_PROVENANCE_UNEXPECTED",
+        "ROW_TRANSITION_CUT_SHORT_HANDLES"
       ]
     },
     "EntityReferenceV2": {
@@ -446,6 +447,7 @@
             "occurrence",
             "preparation",
             "track",
+            "row_transition",
             "settings",
             "build"
           ]

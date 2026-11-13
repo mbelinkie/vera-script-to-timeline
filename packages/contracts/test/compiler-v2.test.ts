@@ -230,6 +230,152 @@ function readFrozenInput(name: string, doc: ScriptDocumentV2, deps: CompilerDepe
   expect(JSON.stringify([doc, deps])).toBe(beforeCompile);
 }
 
+/** Two full-row picture clips with distinct preparations and untouched narration tracks. */
+function transitionRowsFixture(mode: "apply" | "short" | "cut"): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const doc = document();
+  const deps = dependencies();
+  const first = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const second = structuredClone(first);
+  second.id = id(60);
+  second.orderKey = "a1";
+  second.tokens[0]!.id = id(61);
+  second.primaryVisualSequence!.id = id(62);
+  const slot = second.primaryVisualSequence!.slots[0]!;
+  if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("fixture expects one video root");
+  slot.id = id(63);
+  slot.payload.payloadId = id(64);
+  const incomingInFrame = mode === "short" ? 2 : 15;
+  slot.payload.sourceUsage = { sourceInFrame: incomingInFrame };
+  doc.activeDraft.blocks.push(second);
+  deps.document.textHash = digest("hello\nhello");
+
+  const map = structuredClone(deps.narrationTimingMaps[0]!);
+  map.blockId = second.id;
+  map.tokens[0].tokenId = second.tokens[0]!.id;
+  map.narrationAssetId = id(65);
+  map.audio!.narrationAssetId = id(65);
+  deps.narrationTimingMaps.push(map);
+
+  const outgoing = deps.occurrenceResolutions[0]!;
+  outgoing.selectedSourceRange = null;
+  outgoing.logicalSourceBounds.endFrame = mode === "short" ? 122 : 240;
+  const incoming = structuredClone(outgoing);
+  incoming.payloadId = slot.payload.payloadId;
+  incoming.owner = { kind: "primary_slot", sequenceId: second.primaryVisualSequence!.id, slotId: slot.id };
+  incoming.preparedMediaRequirementKey = "prep:second-row";
+  incoming.occurrenceSourceInFrame = incomingInFrame;
+  incoming.logicalSourceBounds.endFrame = 240;
+  deps.occurrenceResolutions.push(incoming);
+
+  const outgoingBinding = deps.preparedMedia[0]!;
+  outgoingBinding.requestedRange.postHandle = { numerator: mode === "apply" ? 1 : 0, denominator: mode === "apply" ? 2 : 1 };
+  outgoingBinding.verification.decodedFrameCount = mode === "apply" ? 108 : 96;
+  const incomingBinding = structuredClone(outgoingBinding);
+  incomingBinding.requirementKey = "prep:second-row";
+  incomingBinding.artifactLocator = "prepared/second-row.mov";
+  incomingBinding.requestedRange.sourceInFrame = incomingInFrame;
+  incomingBinding.requestedRange.preHandle = { numerator: mode === "apply" ? 1 : 0, denominator: mode === "apply" ? 2 : 1 };
+  incomingBinding.requestedRange.postHandle = { numerator: 0, denominator: 1 };
+  incomingBinding.timeMapping.sourceOrigin = mode === "apply" ? { numerator: 0, denominator: 1 } : mode === "short" ? { numerator: 1, denominator: 15 } : { numerator: 1, denominator: 2 };
+  incomingBinding.derivation!.commandHash = digest("second-row derivation");
+  deps.preparedMedia.push(incomingBinding);
+  if (mode === "apply") outgoingBinding.requestedRange.postHandle = { numerator: 1, denominator: 2 };
+  if (mode !== "cut") doc.rowTransitions = [{ id: id(200), fromRowId: first.id, toRowId: second.id, effect: "Cross Dissolve", settings: { durationFrames: 24 }, state: "active" }];
+  return { doc, deps };
+}
+
+function readTransitionGolden(name: string, compiled: Extract<ReturnType<typeof compileTimelineV2>, { ok: true }>): void {
+  const path = fixture(`issue_88/${name}.golden.json`);
+  const actual = `${JSON.stringify({ transitions: compiled.manifest.transitions ?? [],
+    shortHandleWarnings: compiled.report.diagnostics.filter((item) => item.code === "ROW_TRANSITION_CUT_SHORT_HANDLES") }, null, 2)}\n`;
+  if (process.env.UPDATE_COMPILER_V2_GOLDENS === "1") {
+    mkdirSync(fixture("issue_88"), { recursive: true });
+    writeFileSync(path, actual, "utf8");
+  }
+  expect(actual).toBe(readFileSync(path, "utf8"));
+}
+
+describe("#88 frozen row-to-row transition compilation", () => {
+  it("requests real source handles, signs a 24-frame exact native plan and leaves narration unchanged", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    const before = JSON.stringify([doc, deps]);
+    const input = { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults, sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate };
+    const needs = resolveMediaRequirementsV2(doc, input);
+    expect(needs.ok, JSON.stringify(needs)).toBe(true);
+    if (!needs.ok) return;
+    expect(needs.requirements.map((item) => [item.requestedRange.preHandle, item.requestedRange.postHandle])).toEqual([
+      [{ numerator: 0, denominator: 1 }, { numerator: 1, denominator: 2 }],
+      [{ numerator: 1, denominator: 2 }, { numerator: 0, denominator: 1 }],
+    ]);
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.report.status).toBe("ready");
+    readTransitionGolden("two-row-24-frame", compiled);
+    expect(compiled.manifest.transitions).toMatchObject([{ id: id(200), fromRowId: id(6), toRowId: id(60), trackId: "video-root",
+      boundaryFrame: 96, requestedDurationFrames: 24, alignment: "center", startFrame: 84, endFrame: 108, disposition: "apply",
+      effectIdentity: { category: "simple", name: "Cross Dissolve", resolveBuild: "21.1.1.10" } }]);
+    const picture = compiled.manifest.events.filter((event) => event.kind === "primary_visual");
+    expect(picture.map((event) => event.recordRange)).toEqual([{ startFrame: 0, endFrame: 96 }, { startFrame: 96, endFrame: 192 }]);
+    expect(compiled.manifest.events.filter((event) => event.kind === "narration").map((event) => event.recordRange)).toEqual(picture.map((event) => event.recordRange));
+    const again = compileTimelineV2(doc, deps);
+    expect(again.ok && again.manifestJson).toBe(compiled.manifestJson);
+    expect(again.ok && again.reportJson).toBe(compiled.reportJson);
+    expect(JSON.stringify([doc, deps])).toBe(before);
+
+    const missingHandles = structuredClone(deps);
+    missingHandles.preparedMedia[0]!.requestedRange.postHandle = { numerator: 0, denominator: 1 };
+    missingHandles.preparedMedia[0]!.verification.decodedFrameCount = 96;
+    const refused = compileTimelineV2(doc, missingHandles);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.diagnostics[0]?.message).toMatch(/no single delivered video event|handles/i);
+  });
+
+  it("publishes a named cut warning only for proven short media and preserves no-pair cuts", () => {
+    const short = transitionRowsFixture("short");
+    const shortNeeds = resolveMediaRequirementsV2(short.doc, { timing: short.deps.narrationTimingMaps, defaults: short.deps.authoringDefaults,
+      sourceDescriptors: short.deps.occurrenceResolutions, frameRate: short.deps.timeline.frameRate });
+    expect(shortNeeds.ok, JSON.stringify(shortNeeds)).toBe(true);
+    if (shortNeeds.ok) expect(shortNeeds.requirements.every((item) => item.requestedRange.preHandle.numerator === 0 && item.requestedRange.postHandle.numerator === 0)).toBe(true);
+    const result = compileTimelineV2(short.doc, short.deps);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.status).toBe("ready");
+    readTransitionGolden("two-row-short-handles", result);
+    expect(result.manifest.transitions).toMatchObject([{ id: id(200), disposition: "cut_insufficient_handles", boundaryFrame: 96, requestedDurationFrames: 24 }]);
+    expect(result.report.diagnostics.filter((item) => item.code === "ROW_TRANSITION_CUT_SHORT_HANDLES")).toMatchObject([
+      { severity: "warning", entity: { kind: "row_transition", id: id(200) } },
+    ]);
+    expect(result.report.diagnostics.find((item) => item.code === "ROW_TRANSITION_CUT_SHORT_HANDLES")?.message).toContain(`${id(6)} -> ${id(60)}`);
+
+    const cut = transitionRowsFixture("cut");
+    cut.deps.preparedMedia[0]!.requestedRange.postHandle = { numerator: 0, denominator: 1 };
+    cut.deps.preparedMedia[0]!.verification.decodedFrameCount = 96;
+    cut.deps.preparedMedia[1]!.requestedRange.preHandle = { numerator: 0, denominator: 1 };
+    cut.deps.preparedMedia[1]!.verification.decodedFrameCount = 96;
+    const plain = compileTimelineV2(cut.doc, cut.deps);
+    expect(plain.ok, JSON.stringify(plain)).toBe(true);
+    if (!plain.ok) return;
+    readTransitionGolden("two-row-cut", plain);
+    expect(plain.manifest.transitions).toBeUndefined();
+    expect(plain.report.diagnostics.some((item) => item.code === "ROW_TRANSITION_CUT_SHORT_HANDLES")).toBe(false);
+  });
+
+  it("refuses ambiguous effect identity, unsupported audio and unknown boundary geometry", () => {
+    const { doc, deps } = transitionRowsFixture("apply");
+    doc.rowTransitions![0]!.effect = "Fusion Cross Dissolve";
+    expect(compileTimelineV2(doc, deps).ok).toBe(false);
+    doc.rowTransitions![0]!.effect = "Cross Dissolve";
+    doc.rowAudioSpans = [{ id: id(201), startRowId: id(6), endRowId: id(60), source: { mediaReferenceId: id(8), artifactId: id(204), artifactVersion: 1, contentHash: digest("audio") }, settings: {} }];
+    const audio = compileTimelineV2(doc, deps);
+    expect(audio.ok).toBe(false);
+    if (!audio.ok) expect(audio.diagnostics[0]?.code).toBe("ROW_AUDIO_RUNTIME_UNAVAILABLE");
+    delete doc.rowAudioSpans;
+    deps.occurrenceResolutions[1]!.sourceFrameMap.packageFrameZeroLogicalFrame = 5;
+    expect(resolveMediaRequirementsV2(doc, { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults, sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate }).ok).toBe(false);
+  });
+});
+
 describe("pure v2 compiler", () => {
   it("reports one preparation per shared binding and keeps both occurrences", () => {
     const { doc, deps } = sharedPreparationFixture();

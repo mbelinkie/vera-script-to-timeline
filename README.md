@@ -79,6 +79,22 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --output "/absolute/path/to/unused-result-directory"
 ```
 
+**Picture transitions (#88):** Author a `rowTransitions` item on the v2 script
+document with `state: "active"`, `fromRowId` and `toRowId` naming two adjacent
+active rows, `effect: "Cross Dissolve"`, and `settings: {"durationFrames": 24,
+"alignment": "center"}`. Alternatively use exact rational seconds as
+`durationSeconds: {"numerator": 1, "denominator": 1}` at 24 fps, not both
+duration units. A transition uses only the explicitly qualified **native/simple
+Cross Dissolve** on Resolve Studio **21.1.1 build 10**. It requires single
+muted full-row picture clips, independently verified delivered source handles,
+and the exact adjacent cut; narration/audio/markers remain unchanged. The
+build refuses unknown effects, unknown handles, ambiguous identity and native
+OTIO mixing *before* writes. For known-short source handles, it keeps a normal
+cut and prints the named row-pair/frame `cut_insufficient_handles` warning.
+An omitted `rowTransitions` field remains cut-only. Native writes are one-shot:
+a failed or mis-sized effect leaves the partial target for inspection, never a
+silent shorter dissolve or automatic retry. Portable OTIO remains cut-only.
+
 By default, this builds a uniquely named **new project and timeline**. To add
 only a new timeline to a named **existing project**, first open that precise
 project in Resolve, then add:

@@ -91,6 +91,7 @@ def readback_output(
             timeline_name=expected_timeline,
             project_uid=saved["resolveProjectId"] if saved is not None else None,
             timeline_uid=saved["timelineId"] if saved is not None else None,
+            transition_plans=package.manifest.get("transitions", ()),
         )
     result = compare_reopened_row_map(
         package.manifest,

@@ -18,8 +18,225 @@ from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     _still_source_frame_duration,
 )
+from vera_timeline_agent.transition_delivery_v2 import (
+    TransitionRefusal,
+    apply_guarded_transition,
+)
 from vera_timeline_agent.v2_package import verify_v2_package
 from vera_timeline_agent.workflow_package import SOURCE_PINS
+
+
+def _issue88_live_boundary(
+    *, changed: str = "", offset: int = 24
+) -> tuple[dict[str, Any], Any, list[dict[str, Any]], dict[str, Any]]:
+    """Small mutable live adapter; adding a transition never changes audio/markers."""
+    plan: dict[str, Any] = {
+        "id": "transition-88",
+        "outgoingEventId": "out-88",
+        "incomingEventId": "in-88",
+        "boundaryFrame": 96,
+        "startFrame": 84,
+        "endFrame": 108,
+        "requestedDurationFrames": 24,
+        "disposition": "apply",
+        "alignment": "center",
+    }
+    writes: list[dict[str, Any]] = []
+    state: dict[str, Any] = {
+        "transition": None,
+        "audio": [(0, 192)],
+        "markers": {5: "original"},
+    }
+
+    class Item:
+        def __init__(self, side: str) -> None:
+            self.side = side
+
+        def GetEnd(self, _record: bool = False) -> int:
+            return (
+                95
+                if changed == "gap" and self.side == "out"
+                else 96
+                if self.side == "out"
+                else 192
+            )
+
+        def GetStart(self, _record: bool = False) -> int:
+            return 0 if self.side == "out" else 97 if changed == "gap" else 96
+
+        def GetRightOffset(self) -> int:
+            return offset
+
+        def GetLeftOffset(self) -> int:
+            return offset
+
+        def GetDuration(self, _record: bool = False) -> int:
+            return 96
+
+        def AddTransition(self, request: dict[str, Any]) -> bool:
+            writes.append(request)
+            if changed == "missing":
+                return True
+            state["transition"] = SimpleNamespace(
+                GetType=lambda: "transition",
+                GetName=lambda: "Cross Dissolve",
+                GetFusionCompCount=lambda: 0,
+                GetStart=lambda: 84,
+                GetEnd=lambda: 108 if changed != "short-readback" else 85,
+                GetDuration=lambda: 24 if changed != "short-readback" else 1,
+                GetUniqueId=lambda: "native-transition-uid",
+            )
+            return True
+
+    out, incoming = Item("out"), Item("in")
+
+    def locate(_plan: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "outgoing": out,
+            "incoming": incoming,
+            "outgoingId": "changed-uid" if changed == "uid" else "out-88",
+            "incomingId": "in-88",
+            "transition": state["transition"],
+        }
+
+    return plan, locate, writes, state
+
+
+@pytest.mark.parametrize("changed,offset", [("gap", 24), ("uid", 24), ("", 2)])
+def test_issue88_native_prewrite_guards_never_mutate_unsafe_boundary(
+    changed: str, offset: int
+) -> None:
+    plan, locate, writes, state = _issue88_live_boundary(changed=changed, offset=offset)
+    with pytest.raises(TransitionRefusal):
+        apply_guarded_transition(plan, locate)
+    assert writes == []
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
+
+
+@pytest.mark.parametrize("changed", ["", "missing", "short-readback"])
+def test_issue88_single_native_add_and_immediate_exact_readback(changed: str) -> None:
+    plan, locate, writes, state = _issue88_live_boundary(changed=changed)
+    if changed:
+        with pytest.raises(TransitionRefusal, match=r"exact geometry|uncertain"):
+            apply_guarded_transition(plan, locate)
+    else:
+        assert apply_guarded_transition(plan, locate) == "native-transition-uid"
+    assert len(writes) == 1
+    assert writes[0] == {
+        "type": "Cross Dissolve",
+        "category": "simple",
+        "position": "end",
+        "alignment": "center",
+        "duration": 24,
+    }
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
+
+
+def test_issue88_reopened_readback_checks_uid_span_and_preserves_clip_inventory() -> (
+    None
+):
+    plan, _locate, _writes, state = _issue88_live_boundary()
+    plan["trackId"] = "video-root"
+    plan["outgoingEventId"] = "out-88"
+    plan["incomingEventId"] = "in-88"
+
+    class Clip:
+        def __init__(self, ident: str, start: int, media: str) -> None:
+            self.ident, self.start, self.media = ident, start, media
+
+        def GetType(self) -> str:
+            return "video"
+
+        def GetStart(self, _record: bool = False) -> int:
+            return self.start
+
+        def GetEnd(self, _record: bool = False) -> int:
+            return self.start + 96
+
+        def GetDuration(self, _record: bool = False) -> int:
+            return 96
+
+        def GetMarkerCustomData(self, _frame: int) -> str:
+            return self.ident
+
+        def GetMediaPoolItem(self) -> Any:
+            return SimpleNamespace(GetMediaId=lambda: self.media)
+
+    out, incoming = Clip("out-stamp", 0, "out-media"), Clip("in-stamp", 96, "in-media")
+    transition = SimpleNamespace(
+        GetType=lambda: "transition",
+        GetName=lambda: "Cross Dissolve",
+        GetFusionCompCount=lambda: 0,
+        GetStart=lambda: 84,
+        GetEnd=lambda: 108,
+        GetDuration=lambda: 24,
+        GetUniqueId=lambda: "stable-uid",
+    )
+    items = [out, incoming, transition]
+    adapter = workflow_v2.PublicResolveAdapter.__new__(workflow_v2.PublicResolveAdapter)
+    # This unit fake bypasses the SDK constructor; no live target exists.
+    setattr(adapter, "assert_current_target", lambda: None)  # noqa: B010
+    adapter._v2_tracks = ({"id": "video-root", "kind": "video", "index": 1},)
+    adapter._v2_transition_plans = (plan,)
+    adapter._v2_transition_uids = {plan["id"]: "stable-uid"}
+    adapter.expected_events = {
+        "out-88": {
+            "id": "out-88",
+            "trackId": "video-root",
+            "sourceId": "source-out",
+            "recordRange": {"startFrame": 0, "durationFrames": 96},
+        },
+        "in-88": {
+            "id": "in-88",
+            "trackId": "video-root",
+            "sourceId": "source-in",
+            "recordRange": {"startFrame": 96, "durationFrames": 96},
+        },
+    }
+    adapter.expected_stamps = {"out-88": "out-stamp", "in-88": "in-stamp"}
+    adapter.media_id_by_source = {"source-out": "out-media", "source-in": "in-media"}
+    adapter.timeline = SimpleNamespace(GetItemListInTrack=lambda *_args: items)
+    discrepancies: list[str] = []
+    adapter._verify_v2_transitions(discrepancies)
+    assert discrepancies == []
+    # A plausible span alone is not enough: the SDK must also report the
+    # requested actual duration, and the reopened transition UID must match.
+    items[-1] = SimpleNamespace(
+        GetType=lambda: "transition",
+        GetName=lambda: "Cross Dissolve",
+        GetFusionCompCount=lambda: 0,
+        GetStart=lambda: 84,
+        GetEnd=lambda: 108,
+        GetDuration=lambda: 2,
+        GetUniqueId=lambda: "stable-uid",
+    )
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-geometry" in discrepancies
+    discrepancies.clear()
+    items[-1] = transition
+    adapter._v2_transition_uids[plan["id"]] = "different-uid"
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-uid" in discrepancies
+    discrepancies.clear()
+    adapter._v2_transition_uids[plan["id"]] = "stable-uid"
+    items[-1] = SimpleNamespace(
+        **{
+            "GetType": lambda: "transition",
+            "GetName": lambda: "Cross Dissolve",
+            "GetFusionCompCount": lambda: 0,
+            "GetStart": lambda: 84,
+            "GetEnd": lambda: 86,
+            "GetDuration": lambda: 2,
+            "GetUniqueId": lambda: "stable-uid",
+        }
+    )
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-geometry" in discrepancies
+    assert [item.GetMarkerCustomData(0) for item in (out, incoming)] == [
+        "out-stamp",
+        "in-stamp",
+    ]
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
 
 
 def _write(path: Path, value: object) -> None:
