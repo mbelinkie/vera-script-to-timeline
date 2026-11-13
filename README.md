@@ -79,6 +79,29 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --output "/absolute/path/to/unused-result-directory"
 ```
 
+**Optional row-spanning music (#100):** Put a `rowAudioSpans` entry in the v2
+script, naming its `startRowId`, `endRowId`, `source` (with pinned SHA-256
+`contentHash`) and optional `settings: {"gainDb": -12}`. In prepared
+`media-paths.json`, map `"event:<music-event-uuid>"` to the absolute local
+`.wav` path for that span; the event UUID is the deterministic
+`music_event_id(documentId, spanId, artifactId)` (see
+`vera_timeline_agent.music_input`). The source must be a regular, local,
+hash-matching **48 kHz mono PCM16 WAV** without symlink components. The native
+music route is initially qualified at **24 fps** only. The compiler
+positions one nonlooping bed on **A5** across the selected consecutive program
+rows, stops early if the WAV runs out, and uses fixed six-frame fades clamped
+to the actual duration. The level defaults to −12 dB. The command reports
+`MUSIC_SOURCE_SHORTER` when truncated, or `MUSIC_FILE_MISSING` with the filename
+when an optional file is absent **before** binding. Missing music does not
+block picture/narration delivery; a changed hash, invalid WAV or swapped path
+is an error, never a silently skipped cue. Music requires a **new project** and
+Studio **21.1.1 build 10** through the signed whole-timeline OTIO import;
+existing-project mode and mixed unqualified plain stills refuse before writes.
+Empty intermediate audio slots are materialized as verified OTIO gap tracks,
+not silently compacted into A2.
+The native check validates A5, source identity, exact timing, gain and fades
+again after save/close/reopen. Native source audio remains unsupported.
+
 **Picture transitions (#88):** Author a `rowTransitions` item on the v2 script
 document with `state: "active"`, `fromRowId` and `toRowId` naming two adjacent
 active rows, `effect: "Cross Dissolve"`, and `settings: {"durationFrames": 24,

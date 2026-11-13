@@ -366,6 +366,39 @@ def test_cli_reports_delivery_failure_as_non_success(
     assert "FAIL: timeline was not delivered" in output.out
 
 
+@pytest.mark.parametrize(
+    "warning",
+    [
+        "MUSIC_FILE_MISSING: optional-bed.wav could not be found",
+        "MUSIC_SOURCE_SHORTER: optional-bed.wav ended before the selected rows",
+    ],
+)
+def test_cli_success_prints_named_nonblocking_music_warning(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch, warning: str
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+
+    def delivered(_options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        return DeliveryResult(
+            project_name="VERA fresh",
+            timeline_name="VERA timeline",
+            frames=75,
+            numerator=25,
+            denominator=1,
+            music_warnings=(warning,),
+        )
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", delivered)
+    code = build_timeline_cli.main(
+        ["--script", str(options.script), "--output", str(options.output)]
+    )
+    output = capsys.readouterr()
+    assert code == 0
+    assert f"Music warning: {warning}" in output.out
+    assert "PASS" in output.out
+    assert output.err == ""
+
+
 def test_timing_tracks_fractional_duration_and_failed_stage() -> None:
     times = iter([0.0, 2.0, 2.25, 3.0])
     lines: list[str] = []

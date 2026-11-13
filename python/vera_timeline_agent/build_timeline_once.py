@@ -73,6 +73,7 @@ class DeliveryResult:
     numerator: int
     denominator: int
     named_transition_cuts: tuple[str, ...] = ()
+    music_warnings: tuple[str, ...] = ()
 
 
 @dataclass
@@ -561,6 +562,11 @@ def deliver_compiled(
             str(plan["reason"])
             for plan in checked.manifest.get("transitions", [])
             if plan["disposition"] == "cut_insufficient_handles"
+        ),
+        music_warnings=tuple(
+            f"{diagnostic['code']}: {diagnostic['message']}"
+            for diagnostic in _read_json(compiled.report).get("diagnostics", [])
+            if diagnostic.get("code") in {"MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER"}
         ),
     )
 

@@ -50,14 +50,26 @@ from vera_timeline_agent.workflow_v2_cli import (
 
 
 def _music_package_case(
-    tmp_path: Path, *, missing: bool = False, short: bool = False
+    tmp_path: Path,
+    *,
+    missing: bool = False,
+    short: bool = False,
+    scenario: str = "default",
 ) -> tuple[Any, str, str]:
     """A real 48 kHz mono PCM bed under a synthetic visual-only program row."""
-    case = make_package_case(tmp_path)
+    case = make_package_case(tmp_path, scenario=scenario)
     document = json.loads(case.document_path.read_text())
     dependencies = json.loads(case.dependencies_path.read_text())
     manifest = json.loads(case.manifest_path.read_text())
     report = json.loads(case.report_path.read_text())
+    if scenario == "source-audio-no":
+        # The 24 fps visual-only fixture retains an unused historic A5
+        # source-audio track. Relocate that empty declaration to A2 so the
+        # dedicated signed music A5 reservation cannot silently overlap it.
+        for record in (dependencies, manifest):
+            for track in record["tracks"]:
+                if track["id"] == "source-audio":
+                    track["index"] = 2
     row_id = document["activeDraft"]["blocks"][0]["id"]
     original_event = manifest["events"][0]
     end_frame = original_event["recordRange"]["endFrame"]
@@ -104,7 +116,10 @@ def _music_package_case(
         manifest["tracks"].append(track)
         manifest["roles"]["musicTrackId"] = "music-a5"
         manifest["sources"].append({"id": source_id, "musicAudio": binding})
-        end = min(end_frame, frames * 25 // 48000)
+        rate = manifest["timeline"]["frameRate"]
+        end = min(
+            end_frame, frames * rate["numerator"] // (48000 * rate["denominator"])
+        )
         fade = min(6, end // 2)
         provenance = dict(original_event["provenance"])
         provenance.update(
@@ -178,6 +193,25 @@ def test_music_package_roundtrip_is_attested_and_preserves_pcm(tmp_path: Path) -
         t for t in timeline.tracks if t.metadata["vera"]["track_id"] == "music-a5"
     )
     assert a5.metadata["vera"]["track_index"] == 5
+    audio_tracks = [
+        track for track in timeline.tracks if track.kind == otio.schema.Track.Kind.Audio
+    ]
+    assert [track.metadata["vera"]["track_index"] for track in audio_tracks] == [
+        1,
+        2,
+        3,
+        4,
+        5,
+    ]
+    authored_audio = {
+        track["index"]: track["name"]
+        for track in view["tracks"]
+        if track["kind"] == "audio"
+    }
+    for index, track in enumerate(audio_tracks[:4], start=1):
+        assert track.name == authored_audio.get(index, f"VERA Empty A{index}")
+        if index not in authored_audio:
+            assert all(isinstance(child, otio.schema.Gap) for child in track)
     clip = next(c for c in a5 if isinstance(c, otio.schema.Clip))
     assert clip.metadata["vera"]["event_id"] == event_id
     assert clip.metadata["vera"]["music_treatment"]["gainDb"] == -12
@@ -290,7 +324,9 @@ def test_music_package_rejects_mutated_data(tmp_path: Path, mutation: str) -> No
             verify_v2_package(built.project_root)
 
 
-@pytest.mark.parametrize("mutation", ["track", "gain", "duration", "fades"])
+@pytest.mark.parametrize(
+    "mutation", ["track", "gain", "duration", "fades", "remove-a3-pad"]
+)
 def test_music_otio_verifier_rejects_rehashed_tampering(
     tmp_path: Path, mutation: str
 ) -> None:
@@ -307,6 +343,13 @@ def test_music_otio_verifier_rejects_rehashed_tampering(
     clip = next(item for item in a5 if isinstance(item, otio.schema.Clip))
     if mutation == "track":
         a5.metadata["vera"]["track_index"] = 4
+    elif mutation == "remove-a3-pad":
+        a3 = next(
+            track
+            for track in timeline.tracks
+            if track.metadata["vera"]["track_id"] == "vera-native-a3-pad"
+        )
+        timeline.tracks.remove(a3)
     elif mutation == "gain":
         clip.metadata["vera"]["gain_db"] = -3
     elif mutation == "duration":

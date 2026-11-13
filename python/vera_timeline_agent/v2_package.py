@@ -2590,6 +2590,36 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
     )
 
 
+def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
+    """Transport A5 through explicit empty audio lanes; never compact it to A2.
+
+    These are deterministic OTIO-only gaps, not new manifest tracks or events.
+    The independent OTIO verifier derives the identical inventory from the
+    signed view, so an omitted or occupied padding lane fails verification.
+    """
+    tracks = cast(list[JsonObject], view["tracks"])
+    if not any(event["kind"] == "music" for event in view["events"]):
+        return _otio_track_order(tracks)
+    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
+    ids = {track["id"] for track in tracks}
+    padding: list[JsonObject] = []
+    for index in range(1, 5):
+        if index in occupied:
+            continue
+        track_id = f"vera-native-a{index}-pad"
+        if track_id in ids:
+            raise _error("native A5 padding collides with a signed track ID")
+        padding.append(
+            {
+                "id": track_id,
+                "kind": "audio",
+                "index": index,
+                "name": f"VERA Empty A{index}",
+            }
+        )
+    return _otio_track_order([*tracks, *padding])
+
+
 def _native_motion_for_event(
     event: JsonObject,
     manifest: JsonObject,
@@ -2777,7 +2807,7 @@ def _build_otio(
     for event in cast(list[JsonObject], view["events"]):
         events_by_track[cast(str, event["trackId"])].append(event)
 
-    for track_data in _otio_track_order(cast(list[JsonObject], view["tracks"])):
+    for track_data in _otio_transport_tracks(view):
         track_id = cast(str, track_data["id"])
         track = otio.schema.Track(
             name=cast(str, track_data["name"]),
@@ -2954,7 +2984,7 @@ def _verify_otio(
         raise _error(
             "OTIO timeline identity, start, or composition differs from v2 view"
         )
-    expected_tracks = _otio_track_order(cast(list[JsonObject], view["tracks"]))
+    expected_tracks = _otio_transport_tracks(view)
     if len(timeline.tracks) != len(expected_tracks):
         raise _error("OTIO track count differs from delivery view")
     expected_events = _unique_by_id(view["events"], "delivery event")
