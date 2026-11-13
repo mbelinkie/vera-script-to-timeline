@@ -491,7 +491,12 @@ speed, bound source hashes, matching frame maps and the imported media frame
 count. A fresh five-clip build passed full verification after save/reopen and
 published a v2 row baseline. A fresh observation reported zero clip differences.
 The baseline refused the archive copy, and the original still matched after
-another save/close/reopen. The five manual edits remain pending.
+another save/close/reopen. Matthew's five manual edits were then saved, closed and reopened on the
+same project. Independent native item inventory matched the report. Row 1
+moved V1→V2, row 2 trimmed from 75 to 51 frames, row 3 was removed, and the
+25-frame editor addition at frame 225 was assigned to row 4. The report
+returned exactly four readable clip differences and explicitly listed grades
+as unreadable. The changed grade is outside this command's observation scope.
 
 ### RK-18 — Representation and a file-driven harness are weaker than a native round trip
 
