@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// These are multi-process correctness checks, not latency assertions.
+// Allow cold shared-runner I/O without changing any refusal expectations.
+vi.setConfig({ testTimeout: 20_000 });
 
 const root = resolve(import.meta.dirname, "../../..");
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -137,7 +141,7 @@ touch '${join(scratch, "restored")}'`;
     expect(run("restore", { VERA_STT_QA_RESTORE_DATABASE_URL:
       "postgres://qaowner:secret@127.0.0.2/vera_stt_qa_restore_synthetica" }).status).not.toBe(0);
     expect(run("restore", { VERA_STT_QA_ARCHIVE_DIR: join(root, "private-qa-dump") }).status).not.toBe(0);
-  }, 15_000); // Multiple subprocess refusal checks, not a performance assertion.
+  });
 
   it("refuses checksum/manifest tampering, soft permissions, symlink archives and source mismatch", () => {
     expect(run("backup").status).toBe(0);
