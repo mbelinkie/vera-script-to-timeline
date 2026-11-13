@@ -1091,6 +1091,9 @@ build expected source end `119` and withheld the row map. The two complete
 the four stamped items and their record geometry without a prior UID map.
 This extends the evidence for [#544](https://github.com/mbelinkie/vera-script-to-timeline/issues/544)
 to an interior 24 fps picture range. The finishing trials are pending.
+RK-32's subsequently merged 24 fps source-clock verifier covers this getter
+shape. #327 has regenerated its fixture against that revision and awaits
+the fresh native build and manual finishing pass.
 
 ## #318 action crosswalk
 

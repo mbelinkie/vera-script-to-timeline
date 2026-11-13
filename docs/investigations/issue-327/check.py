@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -237,6 +238,10 @@ def plans(
 
 
 def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
+    # Finish local input checks before connecting or changing any timeline.
+    initial_plan = plans(root, row_map, "original")
+    compiled_plans = {variant: plans(root, row_map, variant) for variant in CASES}
+    hash_file(root / "media" / "Spare.mp4")
     with idle_resolve(row_map["buildId"]), exclusive_resolve_build():
         resolve = _external_resolve()
         require(
@@ -251,12 +256,13 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
         if action == "setup":
             require(project.GetTimelineCount() == 1, "Expected one disposable timeline")
             require(not (root / "setup").exists(), "Setup was already attempted")
-            (root / "setup").mkdir()
+            setup = Path(tempfile.mkdtemp(prefix="setup-preflight-", dir=root))
             require(project.SetCurrentTimeline(original), "Could not select original")
             log(
-                root / "setup" / "ungraded.json",
-                snapshot(project, original, root / "setup" / "ungraded", lut_type),
+                setup / "ungraded.json",
+                snapshot(project, original, setup / "ungraded", lut_type),
             )
+            setup.rename(root / "setup")
             require(
                 len(pool.ImportMedia([str(root / "media" / "Spare.mp4")]) or []) == 1,
                 "Could not import spare clip",
@@ -272,9 +278,10 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             "Expected only the finished original timeline",
         )
         require((root / "setup").is_dir(), "Setup has not run")
-        result.mkdir()
-        before = snapshot(project, original, result / "original", lut_type)
-        log(result / "original.json", before)
+        require(not result.exists(), "A native trial was already attempted")
+        staging = Path(tempfile.mkdtemp(prefix="compare-preflight-", dir=root))
+        before = snapshot(project, original, staging / "original", lut_type)
+        log(staging / "original.json", before)
         original_items = {
             item["eventId"]: one(
                 [row for row in before["items"] if row["id"] == item["resolveItemId"]],
@@ -283,7 +290,6 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             for row in row_map["rows"]
             for item in row["items"]
         }
-        initial_plan = plans(root, row_map, "original")
         for event_id, row in original_items.items():
             require(
                 all(
@@ -364,6 +370,9 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             ],
             "hand-placed Spare clip on an upper track inside row 1",
         )
+        # A preflight failure leaves only a disposable observation folder. The
+        # retained native directory starts at the first project mutation.
+        staging.rename(result)
         require(manager.SaveProject(), "Could not save the finished original")
         archive = duplicate(project, original, ARCHIVE)
         archive_id = archive.GetUniqueId()
@@ -373,8 +382,10 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             "Archive duplicate lost readable finishing or clip contents",
         )
         log(result / "archive-before.json", archive_before)
-        # Check each authored plan before changing a trial timeline.
-        compiled_plans = {variant: plans(root, row_map, variant) for variant in CASES}
+        retained = {
+            "original": (row_map["timelineId"], before),
+            "archive": (archive_id, archive_before),
+        }
         for variant, name in CASES.items():
             trial = duplicate(project, original, name)
             trial_id = trial.GetUniqueId()
@@ -459,6 +470,12 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
                 for event_id, plan in changed.items():
                     append(project, trial, plan, media[event_id])
 
+            verify_retained(
+                project, retained, result, f"{variant}-before-save", lut_type
+            )
+            require(
+                project.SetCurrentTimeline(trial), "Could not select trial for save"
+            )
             require(manager.SaveProject(), "Could not save trial")
             require(manager.CloseProject(project), "Could not close trial project")
             require(
@@ -471,15 +488,7 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             trial = timeline_by_id(project, trial_id)
             after = snapshot(project, trial, result / f"{variant}-after", lut_type)
             log(result / f"{variant}-after.json", after)
-            archive = timeline_by_id(project, archive_id)
-            archive_after = snapshot(
-                project, archive, result / f"{variant}-archive", lut_type
-            )
-            log(result / f"{variant}-archive.json", archive_after)
-            require(
-                archive_after == archive_before,
-                "Archive observation differs after reopen",
-            )
+            verify_retained(project, retained, result, f"{variant}-reopened", lut_type)
             for event_id, plan in expected.items():
                 one(
                     [
@@ -501,6 +510,7 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
                     f"reopened {variant} clip {event_id}",
                 )
             print(f"{variant}: expected clip geometry and archive verified", flush=True)
+            retained[variant] = (trial_id, after)
         require(
             project.SetCurrentTimeline(original),
             "Could not return to the finished original",
@@ -510,6 +520,22 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
 def log(path: Path, observation: dict[str, Any]) -> None:
     with path.open("x") as output:
         json.dump(observation, output, indent=2)
+
+
+def verify_retained(
+    project: Any,
+    retained: dict[str, tuple[str, dict[str, Any]]],
+    result: Path,
+    stage: str,
+    lut_type: Any,
+) -> None:
+    for name, (timeline_id, expected) in retained.items():
+        label = f"{stage}-{name}"
+        actual = snapshot(
+            project, timeline_by_id(project, timeline_id), result / label, lut_type
+        )
+        log(result / f"{label}.json", actual)
+        require(actual == expected, f"{name} changed during {stage}")
 
 
 if __name__ == "__main__":

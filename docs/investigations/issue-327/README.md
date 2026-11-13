@@ -17,6 +17,19 @@ range. The 96-frame audio clips reported source frames 0 to 95. This is the
 The standalone readback passed its structural comparison without a prior UID
 map. Further Resolve writes stopped at this point.
 
+Current main now includes #520's qualified 24 fps source-clock correction
+(RK-32). All four variants have been regenerated and compiled against that
+revision. The fresh native build and preservation trials await the Resolve
+slot while #101's manual check is in progress. The remaining 25 fps
+correction in #544 is separate from this fixture's 24 fps route.
+
+Claude reviewed the experiment after its usage reset on November 13. Its
+three findings were fixed by checking retained timelines before saving and
+after reopening, validating variant files before connecting, and allowing
+manual-edit corrections to retry before a native write. Offline checks of
+those failure paths passed. The fresh package and 92 focused build/map tests
+also pass. Native preservation remains pending.
+
 Use the row map delivered by [#522](https://github.com/mbelinkie/vera-script-to-timeline/pull/534)
 to identify the original items and the save, close and reopen check from
 [#520](https://github.com/mbelinkie/vera-script-to-timeline/issues/520) to
@@ -121,5 +134,8 @@ each edit. The grade check samples the clip's LUT export and can miss
 controls outside that export. The Fusion check covers the one Blur control.
 The transition check covers the readable type, identity and span. Use
 “cannot tell” wherever the available evidence cannot establish retention.
+The original, archive and completed earlier trials are compared before each
+save and after each reopen. A manual-edit preflight failure leaves a
+temporary observation folder, so the editor can correct the edit and retry.
 If a write returns an uncertain result, inspect the retained trial before
 any further Resolve work.
