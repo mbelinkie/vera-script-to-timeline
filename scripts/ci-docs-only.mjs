@@ -11,6 +11,7 @@ export const RUNTIME_MARKDOWN_PATHS = Object.freeze([
   "docs/plans/issue-178-native-qualification-change-note.md",
   "docs/plans/issue-207-target-identity-handoff.md",
   "docs/plans/issue-37-prompter-export.md",
+  "docs/presenter-takes.md",
   "docs/resolve-workflow-integration-v1.md",
   "docs/slice-0.3-resolve-free-trial.md",
 ]);
