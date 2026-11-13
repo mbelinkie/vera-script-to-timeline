@@ -12,7 +12,7 @@ import os
 import stat
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from pathlib import Path
 from time import perf_counter
@@ -27,6 +27,7 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
+from .music_input import MusicResolution, resolve_music_bindings, verify_music_pins
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
 from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
@@ -61,6 +62,7 @@ class CompileResult:
     manifest: Path
     report: Path
     needs: dict[str, Any]
+    music_resolution: MusicResolution | None = None
 
 
 @dataclass(frozen=True)
@@ -279,6 +281,41 @@ def compile_prepared(
     inputs = reporter.run("preparation", lambda: select_prepared_inputs(options))
     output = allocate_output(options, inputs)
     source_hash = hash_file(inputs.script)
+    original_deps_hash = hash_file(inputs.dependencies)
+
+    def freeze_music() -> MusicResolution | None:
+        document = _read_json(inputs.script)
+        if not document.get("rowAudioSpans"):
+            return None
+        original = _read_json(inputs.dependencies)
+        media = _read_json(inputs.media_paths) if inputs.media_paths else {}
+        resolved = resolve_music_bindings(document, original, media)
+        if (
+            hash_file(inputs.script) != source_hash
+            or hash_file(inputs.dependencies) != original_deps_hash
+        ):
+            raise BuildJobError("compiler inputs changed during music resolution")
+        return resolved
+
+    music = reporter.run("music resolution", freeze_music)
+    if music is not None:
+        dependencies = output / "effective-compiler-dependencies.json"
+        publish_immutable_output(
+            dependencies,
+            json.dumps(
+                music.dependencies, sort_keys=True, separators=(",", ":")
+            ).encode(),
+        )
+        media_paths = inputs.media_paths
+        if media_paths is not None:
+            media_paths = output / "effective-media-paths.json"
+            publish_immutable_output(
+                media_paths,
+                json.dumps(
+                    music.media_paths, sort_keys=True, separators=(",", ":")
+                ).encode(),
+            )
+        inputs = replace(inputs, dependencies=dependencies, media_paths=media_paths)
     deps_hash = hash_file(inputs.dependencies)
 
     def check_needs() -> dict[str, Any]:
@@ -307,8 +344,12 @@ def compile_prepared(
             or result.dependencies_sha256 != deps_hash
             or hash_file(inputs.script) != source_hash
             or hash_file(inputs.dependencies) != deps_hash
+            or hash_file(select_prepared_inputs(options).dependencies)
+            != original_deps_hash
         ):
             raise BuildJobError("compiler inputs changed during this build")
+        if music is not None:
+            verify_music_pins(music)
         compiled = result.result
         try:
             if (
@@ -329,7 +370,7 @@ def compile_prepared(
     report = output / "build-report.json"
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
     publish_immutable_output(report, result.result["reportJson"].encode("utf-8"))
-    return CompileResult(inputs, output, manifest, report, needs)
+    return CompileResult(inputs, output, manifest, report, needs, music)
 
 
 def _checked_path_mapping(path: Path | None, label: str) -> dict[str, Path]:
@@ -436,6 +477,8 @@ def deliver_compiled(
     existing_project: str | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
+    if compiled.music_resolution is not None:
+        verify_music_pins(compiled.music_resolution)
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")

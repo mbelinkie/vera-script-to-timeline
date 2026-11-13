@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import wave
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,6 +27,7 @@ from vera_timeline_agent.build_timeline_once import (
     exclusive_resolve_build,
     select_prepared_inputs,
 )
+from vera_timeline_agent.music_input import music_event_id
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
@@ -80,6 +83,137 @@ def _fake_bridge(
         )
 
     return bridge
+
+
+def _add_music(options: BuildOptions, *, missing: bool = False) -> Path:
+    root = options.inputs
+    assert root is not None
+    doc = json.loads(options.script.read_bytes())
+    # This legacy source-audio fixture places its old track on A5. Construct a
+    # valid music-ready fixture with source audio moved to the unused A2 slot;
+    # production must reject an unrelated audio occupant of A5.
+    dependencies_path = root / "compiler-dependencies.json"
+    deps = json.loads(dependencies_path.read_bytes())
+    for track in deps["tracks"]:
+        if track["id"] == "source-audio":
+            track["index"] = 2
+    dependencies_path.write_text(json.dumps(deps))
+    path = root / "small-synthetic-bed.wav"
+    if not missing:
+        with wave.open(str(path), "wb") as writer:
+            writer.setnchannels(1)
+            writer.setsampwidth(2)
+            writer.setframerate(48000)
+            writer.writeframes(b"\0\0" * 48000)
+    digest = (
+        "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        if path.exists()
+        else "sha256:" + "a" * 64
+    )
+    span_id = "00000000-0000-4000-8000-00000000fffd"
+    artifact_id = "00000000-0000-4000-8000-00000000fffc"
+    doc["rowAudioSpans"] = [
+        {
+            "id": span_id,
+            "startRowId": doc["activeDraft"]["blocks"][0]["id"],
+            "endRowId": doc["activeDraft"]["blocks"][0]["id"],
+            "source": {
+                "mediaReferenceId": "00000000-0000-4000-8000-00000000fffb",
+                "artifactId": artifact_id,
+                "artifactVersion": 1,
+                "contentHash": digest,
+            },
+            "settings": {},
+        }
+    ]
+    options.script.write_text(json.dumps(doc))
+    key = "event:" + music_event_id(doc["id"], span_id, artifact_id)
+    (root / "media-paths.json").write_text(json.dumps({key: str(path)}))
+    return path
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_music_freezes_effective_dependencies_without_mutating_original_files(
+    tmp_path: Path, missing: bool
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    _add_music(options, missing=missing)
+    original_doc = options.script.read_bytes()
+    original_deps = (options.inputs / "compiler-dependencies.json").read_bytes()  # type: ignore[operator]
+    original_paths = (options.inputs / "media-paths.json").read_bytes()  # type: ignore[operator]
+    calls: list[tuple[str, Path, Path]] = []
+    result = compile_prepared(options, bridge=_fake_bridge(calls=calls))
+    assert [kind for kind, _, _ in calls] == ["needs", "compile"]
+    assert all(deps == result.inputs.dependencies for _, _, deps in calls)
+    assert result.inputs.dependencies.name == "effective-compiler-dependencies.json"
+    frozen = json.loads(result.inputs.dependencies.read_bytes())
+    assert frozen["musicBindings"][0]["status"] == ("missing" if missing else "ready")
+    assert ("musicTrackId" in frozen["roles"]) is (not missing)
+    effective_paths = json.loads(result.inputs.media_paths.read_bytes())  # type: ignore[union-attr]
+    assert bool(effective_paths) is (not missing)
+    assert options.script.read_bytes() == original_doc
+    assert (options.inputs / "compiler-dependencies.json").read_bytes() == original_deps  # type: ignore[operator]
+    assert (options.inputs / "media-paths.json").read_bytes() == original_paths  # type: ignore[operator]
+
+
+def test_music_change_during_needs_and_compile_refuses_before_publish(
+    tmp_path: Path,
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    wav = _add_music(options)
+    original_bridge = _fake_bridge()
+
+    def swapped(kind: str, doc: Path, deps: Path) -> BridgeOutput:
+        if kind == "compile":
+            with wave.open(str(wav), "wb") as writer:
+                writer.setnchannels(1)
+                writer.setsampwidth(2)
+                writer.setframerate(48000)
+                writer.writeframes(b"\x01\0" * 48000)
+        return original_bridge(kind, doc, deps)
+
+    with pytest.raises(BuildJobError, match="music content hash mismatch"):
+        compile_prepared(options, bridge=swapped)
+    assert not (options.output / "timeline-manifest.json").exists()
+
+
+def test_wrong_music_hash_refuses_before_any_compiler_bridge(tmp_path: Path) -> None:
+    options = _inputs(tmp_path / "inputs")
+    wav = _add_music(options)
+    wav.write_bytes(wav.read_bytes() + b"tamper")
+
+    def forbidden(*_: Any) -> BridgeOutput:
+        pytest.fail("hash mismatch must stop before Node")
+
+    with pytest.raises(BuildJobError, match="music content hash mismatch"):
+        compile_prepared(options, bridge=forbidden)
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_real_node_compiler_sees_same_frozen_music_as_media_needs(
+    tmp_path: Path, missing: bool
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    _add_music(options, missing=missing)
+    result = compile_prepared(options)
+    manifest = json.loads(result.manifest.read_bytes())
+    report = json.loads(result.report.read_bytes())
+    music_events = [event for event in manifest["events"] if event["kind"] == "music"]
+    assert len(music_events) == (0 if missing else 1)
+    assert report["status"] == "ready"
+    if missing:
+        assert any(
+            warning["code"] == "MUSIC_FILE_MISSING"
+            and "small-synthetic-bed.wav" in warning["message"]
+            for warning in report["diagnostics"]
+        )
+    else:
+        assert music_events[0]["trackId"] == "music-a5"
+        assert music_events[0]["sourceRange"]["startFrame"] == 0
+        assert any(
+            warning["code"] == "MUSIC_SOURCE_SHORTER"
+            for warning in report["diagnostics"]
+        )
 
 
 def test_compiles_prepared_input_offline_without_provider_or_resolve(
