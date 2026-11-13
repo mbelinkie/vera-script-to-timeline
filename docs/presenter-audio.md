@@ -18,9 +18,14 @@ using the same `--audio` and a new output filename for each. The existing
 presenter sync algorithm finds each video's offset. It stops if the match or
 alignment is uncertain; it never guesses. The command prints the measured
 offset, the cleaned audio's sync difference, and elapsed time.
+Sync verification needs at least about 10 seconds of overlapping sound. If
+the separate recording starts late or ends early, the missing portion is
+silent and the command reports that gap. Videos whose picture and container
+start at different times are refused because their sync cannot be verified.
 
 The first channel is made mono, then DeepFilterNet runs with the accepted
 continuous attenuation settings (`-a 30 -D`), with no hard gate. The output is
 48 kHz mono 24-bit PCM WAV, padded or trimmed to the video duration. The
-original files are never changed, and an existing output is never overwritten.
+filter requires a 16-bit intermediate. The original files are never changed,
+and an existing output is never overwritten.
 EQ, levels and the final mix remain in Resolve.

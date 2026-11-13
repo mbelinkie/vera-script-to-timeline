@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import errno
+import json
 import os
 import shlex
+import shutil
 import subprocess
 import tempfile
 import time
@@ -37,16 +40,45 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
     if output.exists():
         raise TakesError("Output already exists; choose a new output file.")
     duration, fps = probe_video(video)
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=start_time:format=start_time",
+                "-of",
+                "json",
+                str(video),
+            ],
+            capture_output=True,
+            check=True,
+        )
+        timestamps = json.loads(probe.stdout)
+        video_start = float(timestamps["streams"][0]["start_time"])
+        container_start = float(timestamps["format"]["start_time"])
+    except (subprocess.SubprocessError, KeyError, IndexError, ValueError) as error:
+        raise TakesError("Cannot verify the video's starting timestamp.") from error
+    if abs(video_start - container_start) > 1 / OUTPUT_RATE:
+        raise TakesError(
+            "Video and container start at different times; cannot verify sync."
+        )
     frame = fps[1] / fps[0]
     camera = decode_audio(video)
     offset = 0.0
     if separate is not None:
-        sync = find_offset(camera, decode_audio(separate), RATE)
+        separate_samples = decode_audio(separate)
+        sync = find_offset(camera, separate_samples, RATE)
         if sync.spread_s > frame:
             raise SyncRefused(
                 "Separate audio alignment varies by more than one video frame."
             )
         offset = sync.offset_s
+        if offset < 0 or offset + duration > len(separate_samples) / RATE:
+            print("Separate audio does not cover the whole video; gaps will be silent.")
         print(
             f"Separate audio offset: {offset * 1000:.1f} ms; "
             f"spread: {sync.spread_s * 1000:.1f} ms."
@@ -116,6 +148,21 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
             raise TakesError(
                 "Output already exists; choose a new output file."
             ) from error
+        except OSError as error:
+            if error.errno not in (errno.ENOTSUP, errno.EOPNOTSUPP, errno.EPERM):
+                raise
+            try:
+                with output.open("xb") as destination:
+                    try:
+                        with staged.open("rb") as source_file:
+                            shutil.copyfileobj(source_file, destination)
+                    except BaseException:
+                        output.unlink()
+                        raise
+            except FileExistsError as exists:
+                raise TakesError(
+                    "Output already exists; choose a new output file."
+                ) from exists
     print(
         f"Measured cleaned audio sync: {measured.offset_s * 1000:.1f} ms; "
         f"spread: {measured.spread_s * 1000:.1f} ms. "

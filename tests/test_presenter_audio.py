@@ -39,9 +39,7 @@ def _performance(seconds: int, seed: int) -> np.ndarray:
     rng = np.random.default_rng(seed)
     count = seconds * OUTPUT_RATE
     active = np.repeat(rng.random(seconds * 4) > 0.4, OUTPUT_RATE // 4)
-    return (
-        rng.standard_normal(count) * active[:count] * 0.2
-    ).astype(np.float32)
+    return (rng.standard_normal(count) * active[:count] * 0.2).astype(np.float32)
 
 
 def _write_wav(path: Path, samples: np.ndarray) -> None:
@@ -233,7 +231,7 @@ def test_late_separate_recording_is_padded_at_video_start(
     video = tmp_path / "camera-with-late-track.avi"
     output = tmp_path / "cleaned-late-separate.wav"
     filter_executable, log = _fake_filter(tmp_path)
-    _write_wav(camera_audio, performance[: OUTPUT_SAMPLES])
+    _write_wav(camera_audio, performance[:OUTPUT_SAMPLES])
     _write_wav(separate_audio, performance[late_by_s * OUTPUT_RATE :])
     _make_video(ffmpeg, video, camera_audio)
     source_hashes = (_sha256(video), _sha256(camera_audio), _sha256(separate_audio))
@@ -315,3 +313,69 @@ def test_unrelated_separate_audio_is_refused_without_writing_output_or_changing_
         _sha256(unrelated_audio),
     ) == source_hashes
     assert not log.exists()
+
+
+def test_refuses_video_starting_after_container(
+    tmp_path: Path, media_tools: tuple[str, str]
+) -> None:
+    ffmpeg, _ = media_tools
+    audio = tmp_path / "sound.wav"
+    video = tmp_path / "offset.mkv"
+    output = tmp_path / "output.wav"
+    executable, log = _fake_filter(tmp_path)
+    _write_wav(audio, _performance(VIDEO_SECONDS, seed=20))
+    subprocess.run(
+        [
+            ffmpeg,
+            "-v",
+            "error",
+            "-i",
+            str(audio),
+            "-itsoffset",
+            "0.5",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c=black:s=64x64:r=30:d={VIDEO_SECONDS}",
+            "-map",
+            "1:v:0",
+            "-map",
+            "0:a:0",
+            "-c:v",
+            "mpeg4",
+            "-c:a",
+            "pcm_s16le",
+            str(video),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    result = _run_cli(video, output, executable, log)
+    assert result.returncode != 0
+    assert "start at different times" in result.stderr
+    assert not output.exists()
+
+
+def test_output_on_filesystem_without_hardlinks(
+    tmp_path: Path, media_tools: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import errno
+
+    from vera_timeline_agent import presenter_audio
+
+    ffmpeg, _ = media_tools
+    audio = tmp_path / "sound.wav"
+    video = tmp_path / "camera.avi"
+    output = tmp_path / "output.wav"
+    executable, log = _fake_filter(tmp_path)
+    _write_wav(audio, _performance(VIDEO_SECONDS, seed=21))
+    _make_video(ffmpeg, video, audio)
+    monkeypatch.setenv("VERA_DEEPFILTER_COMMAND", str(executable))
+    monkeypatch.setenv("VERA_TEST_FILTER_LOG", str(log))
+
+    def unsupported(*_args: object) -> None:
+        raise OSError(errno.ENOTSUP, "unsupported")
+
+    monkeypatch.setattr(presenter_audio.os, "link", unsupported)
+    presenter_audio.clean(video, output)
+    _assert_clean_wav(output)
