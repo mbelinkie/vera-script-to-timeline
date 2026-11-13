@@ -18,6 +18,7 @@ import {
   ProjectDocumentInputError,
   requireCheckpointName,
   requireHistoryLimit,
+  requireObject,
   requireRevision,
   requireTitle,
   requireUuid,
@@ -238,6 +239,17 @@ export interface RestoreCheckpointInput {
 
 const MAX_COMPARISON_CHANGES = 200;
 
+/** What the live-collaboration service needs to know about the saved heads. */
+export interface LiveBasis {
+  projectId: string;
+  documentId: string;
+  documentRevision: number;
+  document: ScriptDocumentV2;
+  documentUpdatedBy: string;
+  ideasRevision: number;
+  ideas: IdeaOutlineV1;
+}
+
 export interface CreateProjectInput {
   clientRequestId: string;
   projectId: string;
@@ -432,6 +444,40 @@ function assertIdeaVersions(previous: IdeaOutlineV1, next: IdeaOutlineV1): void 
       throw new ProjectDocumentInputError("Invalid Idea item version transition.");
     }
   }
+}
+
+/**
+ * Put merged Ideas into the stored outline's canonical order: each parent
+ * followed by its children, siblings by order key. A merge can leave an Idea
+ * whose parent was deleted, or two siblings with the same key; neither Idea is
+ * dropped. The orphan moves to the top level and the tied key is nudged.
+ */
+function canonicalIdeaOrder(items: IdeaItemV1[]): IdeaItemV1[] {
+  const ids = new Set(items.map((item) => item.id));
+  const children = new Map<string | null, IdeaItemV1[]>();
+  for (const item of items) {
+    const parent = typeof item.parentId === "string" && ids.has(item.parentId) ? item.parentId : null;
+    children.set(parent, [...(children.get(parent) ?? []), item]);
+  }
+  const out: IdeaItemV1[] = [];
+  const seen = new Set<string>();
+  const visit = (parentId: string | null, list: IdeaItemV1[]): void => {
+    let previous: string | undefined;
+    for (const item of [...list].sort((a, b) =>
+      a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : a.id < b.id ? -1 : 1)) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      const orderKey = previous !== undefined && typeof item.orderKey === "string" && item.orderKey <= previous
+        ? previous + "!" : item.orderKey;
+      previous = orderKey;
+      out.push({ ...item, parentId, orderKey });
+      visit(item.id, children.get(item.id) ?? []);
+    }
+  };
+  visit(null, children.get(null) ?? []);
+  // Anything unreachable (two Ideas made each other's parent) becomes top-level.
+  visit(null, items.filter((item) => !seen.has(item.id)));
+  return out;
 }
 
 /** Reject corrupted historical bytes, typed documents or provenance; never return partial history. */
@@ -1342,6 +1388,136 @@ export class ProjectDocumentService {
       return await this.appendDocumentHead(db, projectId, current, previousDocument,
         expected, actor, mutationId, requestDigest, document);
     }, sessionId);
+  }
+
+  /**
+   * Live-collaboration seam (#384). These run inside a transaction the
+   * collaboration service has already authorized; they never authorize.
+   * Reads lock the document head, so a whole-document save and a live merge
+   * are always ordered and neither can overwrite the other unseen.
+   */
+  async readLiveBasis(db: SqlClient, projectIdInput: string): Promise<LiveBasis> {
+    const projectId = requireUuid(projectIdInput);
+    const head = await db.query<HeadRow & { updated_by: string }>(
+      "SELECT document_id,revision::text,document_json,content_digest,updated_by " +
+        "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE",
+      [projectId],
+    );
+    const current = head.rows[0];
+    if (!current) throw missing();
+    if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+    let document: ScriptDocumentV2;
+    try {
+      document = checkedDocument(JSON.parse(current.document_json) as unknown, projectId, current.document_id).document;
+    } catch { throw unavailable(); }
+    const ideas = await this.selectIdeas(db, projectId);
+    return { projectId, documentId: current.document_id, documentRevision: int(current.revision),
+      document, documentUpdatedBy: current.updated_by, ideasRevision: ideas.ideasRevision, ideas: ideas.ideas };
+  }
+
+  /** The exact saved script and Ideas at two earlier revisions, for a three-way merge. */
+  async readLiveRevisions(
+    db: SqlClient, projectIdInput: string, documentRevision: number, ideasRevision: number,
+  ): Promise<{ document: ScriptDocumentV2; ideas: IdeaOutlineV1 }> {
+    const projectId = requireUuid(projectIdInput);
+    const saved = await db.query<{ document_id: string; document_json: string }>(
+      "SELECT document_id,document_json FROM stt_document_revisions WHERE project_id=$1 AND revision=$2",
+      [projectId, requireRevision(documentRevision)],
+    );
+    const row = saved.rows[0];
+    if (!row) throw unavailable();
+    let ideas = emptyIdeasV1(row.document_id);
+    if (requireRevision(ideasRevision) > 0) {
+      const older = await db.query<{ ideas_json: string }>(
+        "SELECT ideas_json FROM stt_idea_revisions WHERE project_id=$1 AND revision=$2",
+        [projectId, ideasRevision],
+      );
+      if (!older.rows[0]) throw unavailable();
+      ideas = checkedIdeas(JSON.parse(older.rows[0].ideas_json) as unknown, row.document_id);
+    }
+    return { document: JSON.parse(row.document_json) as ScriptDocumentV2, ideas };
+  }
+
+  /** Save a merged script as the next ordinary revision. Throws invalid_request if it cannot be stored. */
+  async commitLiveDocument(
+    db: SqlClient, projectIdInput: string, actor: string, expectedRevision: number, input: unknown,
+  ): Promise<MutationReceipt> {
+    const projectId = requireUuid(projectIdInput);
+    const expected = requireRevision(expectedRevision);
+    const head = await db.query<HeadRow>(
+      "SELECT document_id,revision::text,document_json,content_digest " +
+        "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE",
+      [projectId],
+    );
+    const current = head.rows[0];
+    if (!current) throw missing();
+    if (int(current.revision) !== expected) throw conflict({ currentRevision: int(current.revision) });
+    const next = checkedDocument(input, projectId, current.document_id);
+    let previousDocument: ScriptDocumentV2;
+    try {
+      previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+        projectId, current.document_id).document;
+    } catch { throw unavailable(); }
+    return await this.appendDocumentHead(db, projectId, current, previousDocument, expected, actor,
+      randomUUID(), fingerprint({ expectedRevision: expected, document: next.document }), next);
+  }
+
+  /**
+   * Save merged Ideas as the next Ideas revision. Item versions and Draft
+   * backlinks are server-owned: versions are recomputed from what changed, and
+   * backlinks only ever come from an atomic promotion.
+   */
+  async commitLiveIdeas(
+    db: SqlClient, projectIdInput: string, actor: string, expectedIdeasRevision: number, input: unknown,
+  ): Promise<{ ideasRevision: number; changed: boolean }> {
+    const projectId = requireUuid(projectIdInput);
+    const expected = requireRevision(expectedIdeasRevision);
+    const current = await this.selectIdeas(db, projectId, true);
+    if (current.ideasRevision !== expected) throw conflict({ currentIdeasRevision: current.ideasRevision });
+    const older = new Map(current.ideas.items.map((item) => [item.id, item]));
+    const merged = requireObject(input);
+    const items = canonicalIdeaOrder((Array.isArray(merged.items) ? merged.items : [])
+      .map((value: unknown) => requireObject(value) as unknown as IdeaItemV1)).map((item) => {
+      const old = older.get(item.id);
+      const next = { ...item, linkedDraftBlockIds: old ? old.linkedDraftBlockIds : [],
+        ...(old ? {} : { state: "open" as const }) };
+      const changed = !old || (Object.keys(next) as (keyof IdeaItemV1)[])
+        .some((key) => key !== "version" && JSON.stringify(next[key]) !== JSON.stringify(old[key]));
+      return { ...next, version: old ? old.version + (changed ? 1 : 0) : 1 };
+    });
+    const ideas = checkedIdeas({ ...merged, items }, current.ideas.documentId);
+    const ideasJson = JSON.stringify(ideas);
+    if (ideasJson === JSON.stringify(current.ideas)) return { ideasRevision: expected, changed: false };
+    const digest = sha256(ideasJson);
+    const mutationId = randomUUID();
+    const requestDigest = fingerprint({ kind: "put_ideas", projectId, expectedIdeasRevision: expected, ideas });
+    const revision = expected + 1;
+    await db.query(
+      "INSERT INTO stt_idea_revisions(project_id,revision,expected_revision,document_id," +
+        "actor_id,client_mutation_id,operation,request_digest,content_digest,ideas_json)" +
+        " VALUES($1,$2,$3,$4,$5,$6,'put_ideas',$7,$8,$9)",
+      [projectId, revision, expected, ideas.documentId, actor, mutationId, requestDigest, digest, ideasJson],
+    );
+    if (!expected) {
+      await db.query(
+        "INSERT INTO stt_idea_heads(project_id,document_id,revision,ideas_json,content_digest,updated_by)" +
+          " VALUES($1,$2,$3,$4,$5,$6)",
+        [projectId, ideas.documentId, revision, ideasJson, digest, actor],
+      );
+    } else {
+      const updated = await db.query<{ revision: string }>(
+        "UPDATE stt_idea_heads SET revision=$3,ideas_json=$4,content_digest=$5," +
+          "updated_by=$6,updated_at=now() WHERE project_id=$1 AND revision=$2 RETURNING revision::text",
+        [projectId, expected, revision, ideasJson, digest, actor],
+      );
+      if (!updated.rows[0]) throw conflict({ currentIdeasRevision: expected });
+    }
+    await db.query(
+      "INSERT INTO stt_ideas_mutation_receipts(project_id,actor_id,client_mutation_id," +
+        "operation,request_digest,ideas_revision,ideas_digest) VALUES($1,$2,$3,'put_ideas',$4,$5,$6)",
+      [projectId, actor, mutationId, requestDigest, revision, digest],
+    );
+    return { ideasRevision: revision, changed: true };
   }
 
   /** Extras edits are a locked, authorized document write, never a read-then-PUT. */

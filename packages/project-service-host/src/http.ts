@@ -1,5 +1,6 @@
 import { once } from "node:events";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 
 import { MAX_PROJECT_API_BODY_BYTES } from "@vera/project-documents";
 
@@ -142,6 +143,8 @@ export async function listenQaHttp(
   bindHost: string,
   port: number,
   handler: (request: Request) => Promise<Response>,
+  /** Optional WebSocket upgrade handler. Without one, every upgrade is dropped. */
+  onUpgrade?: (request: IncomingMessage, socket: Duplex, head: Buffer) => void,
 ): Promise<Server> {
   if (bindHost !== "127.0.0.1" || !Number.isSafeInteger(port) || port < 1024 || port > 65535) {
     throw new QaHttpRefusal();
@@ -154,7 +157,10 @@ export async function listenQaHttp(
   server.on("clientError", (_error, socket) => {
     if (socket.writable) socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
   });
-  server.on("upgrade", (_request, socket) => { socket.destroy(); });
+  server.on("upgrade", (request, socket, head) => {
+    if (onUpgrade) onUpgrade(request, socket, head);
+    else socket.destroy();
+  });
   server.on("connect", (_request, socket) => { socket.destroy(); });
   try {
     await new Promise<void>((resolve, reject) => {
