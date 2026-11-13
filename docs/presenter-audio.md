@@ -26,8 +26,9 @@ start at different times are refused because their sync cannot be verified.
 The first channel is made mono, then DeepFilterNet runs with the accepted
 continuous attenuation settings (`-a 30 -D`), with no hard gate. After noise
 reduction, two-pass loudness normalization targets −19 LUFS and a −1.5 dBTP
-true-peak ceiling. FFmpeg uses dynamic normalization when a fixed gain would
-exceed that ceiling; the command reports the measured level and mode. Quiet
+true-peak ceiling. FFmpeg may use dynamic normalization when fixed gain would
+exceed that ceiling or the source's loudness range is too wide for the target;
+the command reports the measured level and mode. Quiet
 recordings may have more audible remaining noise after the level is raised.
 
 The output is 48 kHz mono 24-bit PCM WAV, padded or trimmed to the video

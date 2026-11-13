@@ -27,9 +27,8 @@ def run(command: list[str]) -> subprocess.CompletedProcess[bytes]:
     except OSError as error:
         raise TakesError(f"Could not run {command[0]}: {error.strerror}") from error
     if result.returncode:
-        raise TakesError(
-            f"{command[0]} failed: {result.stderr.decode(errors='replace').strip()}"
-        )
+        tail = result.stderr.decode(errors="replace").strip().splitlines()[-3:]
+        raise TakesError(f"{command[0]} failed: {' '.join(tail)}")
     return result
 
 
@@ -150,6 +149,7 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
                     "ffmpeg",
                     "-hide_banner",
                     "-nostats",
+                    "-nostdin",
                     "-i",
                     str(files[0]),
                     "-af",
