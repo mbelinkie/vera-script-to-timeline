@@ -2582,6 +2582,98 @@ def test_fractional_video_source_clock_requires_hash_bound_rate_and_source_times
         ), changed
 
 
+def _normal_25fps_video_verify_fixture(
+    *, shape: str = "exclusive", end_time: float = 3.0
+) -> tuple[Any, Any, dict[str, Any]]:
+    proof = _fractional_video_proof()
+    event, source, manifest_source, timeline, observations, bindings = proof
+    rate = {"numerator": 25, "denominator": 1}
+    source_frame_map = manifest_source["sourceFrameMap"]
+    source_frame_map["decodedPackageFrameCount"] = 125
+    source_frame_map["decodedPackageFrameRate"] = rate
+    mapping = manifest_source["sourceTimeMapping"]
+    mapping["sourceRate"] = rate
+    mapping["deliveredRate"] = rate
+    event["recordRange"]["durationFrames"] = 75
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 75}
+    event["v2Event"]["sourceRange"] = {"startFrame": 0, "endFrame": 75}
+    binding = bindings["video-prep"]
+    binding["verification"]["decodedFrameCount"] = 125
+    binding["verification"]["decodedFrameRate"] = rate
+    timeline["frameRate"] = rate
+    observations["source_times"] = {
+        "GetSourceStartTime": 0.0,
+        "GetSourceEndTime": end_time,
+    }
+    observations["speed"] = {"Percentage": 100}
+
+    adapter, item, _audio_view = _native_audio_fixture(-18)
+    event.update(
+        trackId="video-track",
+        trackKind="video",
+    )
+    view = {
+        "timeline": {"startFrame": 0, "durationFrames": 75, "frameRate": rate},
+        "tracks": [
+            {"id": "video-track", "kind": "video", "index": 1, "name": "Picture"}
+        ],
+        "events": [event],
+    }
+    adapter.media_by_source = {"video-source": item.media}
+    adapter.media_id_by_source = {"video-source": "media-id"}
+    adapter._v2_sources = {"video-source": source}
+    adapter._v2_manifest_sources = {"video-source": manifest_source}
+    adapter._v2_preparation_bindings = bindings
+    adapter._v2_tracks = tuple(view["tracks"])
+    adapter._v2_timeline = {"frameRate": rate}
+    adapter.timeline.track_counts = {"video": 1}
+    adapter.timeline.track_names = {("video", 1): "Picture"}
+    adapter.timeline.items_by_track = {("video", 1): [item]}
+    adapter.timeline.GetEndFrame = lambda: 75
+    item.media.GetClipProperty = lambda: {"Frames": "125"}
+    item.GetSourceStartTime = lambda: observations["source_times"]["GetSourceStartTime"]
+    item.GetSourceEndTime = lambda: observations["source_times"]["GetSourceEndTime"]
+    item.GetSpeed = lambda: observations["speed"]
+    adapter.place_event(event)
+    item.source_end = 74 if shape == "legacy-inclusive" else 75
+    return adapter, item, view
+
+
+@pytest.mark.parametrize(
+    ("shape", "end_time", "expected"),
+    [
+        ("legacy-inclusive", 3.0, ()),
+        ("exclusive", 3.0, ()),
+        ("exclusive", 3.04, ("event-source-range",)),
+    ],
+)
+def test_25fps_prepared_video_verify_accepts_exact_source_boundary_only(
+    shape: str, end_time: float, expected: tuple[str, ...]
+) -> None:
+    adapter, _item, view = _normal_25fps_video_verify_fixture(
+        shape=shape, end_time=end_time
+    )
+
+    assert adapter.verify(view) == expected
+
+
+@pytest.mark.parametrize("damage", ["hash", "mapping", "speed"])
+def test_25fps_exclusive_source_end_requires_bound_video_proof(damage: str) -> None:
+    adapter, item, view = _normal_25fps_video_verify_fixture()
+    source = adapter._v2_sources["video-source"]
+    if damage == "hash":
+        source["contentHash"] = "sha256:" + "d" * 64
+    elif damage == "mapping":
+        adapter._v2_preparation_bindings["video-prep"]["timeMapping"] = {
+            **adapter._v2_preparation_bindings["video-prep"]["timeMapping"],
+            "deliveredRate": {"numerator": 24, "denominator": 1},
+        }
+    else:
+        item.GetSpeed = lambda: {"Percentage": 99}
+
+    assert adapter.verify(view) == ("event-source-range",)
+
+
 def test_fractional_narration_source_clock_requires_sample_bound_eof() -> None:
     proof = _fractional_narration_proof()
     assert _fractional_source_range_matches(proof)

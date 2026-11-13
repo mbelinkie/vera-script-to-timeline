@@ -346,7 +346,8 @@ not permission for an arbitrary tolerance. Stills use their actual source rate;
 scaling precedes anchor properties because scaling can reset them. Neutral
 anchor offsets are zero. Fractional video-backed held frames with multiple
 decoded source frames remain refused before adapter creation. Integer-rate
-delivery retains exact getter checks.
+delivery retains exact getter checks, with the bounded 25 fps video
+source-clock alternative recorded in RK-17.
 
 **Reuse/delta:** preserve the exact derivation/frame map and precision rule.
 A new conversion or held-frame class needs a source-clock/decoded-frame delta,
@@ -484,8 +485,13 @@ In the separate five-clip #101 product build at 25 fps, the saved and reopened
 clips each had the planned 75-frame record span. Resolve returned source
 start/end 0/75, source times 0.0/3.0 seconds, 100% speed and a 125-frame source.
 The build verifier expected end frame 74 and withheld the baseline. Treat the
-observed source bounds as raw getter values. An end-frame convention requires
-evidence for the build route and source type.
+observed source bounds as raw getter values. The corrected verifier admits
+that 25 fps video boundary only with exact source start and end times, 100%
+speed, bound source hashes, matching frame maps and the imported media frame
+count. A fresh five-clip build passed full verification after save/reopen and
+published a v2 row baseline. A fresh observation reported zero clip differences.
+The baseline refused the archive copy, and the original still matched after
+another save/close/reopen. The five manual edits remain pending.
 
 ### RK-18 — Representation and a file-driven harness are weaker than a native round trip
 

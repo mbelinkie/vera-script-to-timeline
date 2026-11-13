@@ -2445,13 +2445,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             cast(str, event["sourceId"]), {}
                         )
                         try:
-                            is_qualified_fractional = (
-                                _frame_rate(timeline) == _QUALIFIED_FRACTIONAL_RATE
-                            )
+                            source_clock_rate = _frame_rate(timeline)
                         except WorkflowV2Error:
-                            is_qualified_fractional = False
+                            source_clock_rate = None
                         fractional_source_clock = (
-                            is_qualified_fractional
+                            source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
                             and isinstance(source_record, Mapping)
                             and (
                                 source_record.get("kind") in {"video", "still"}
@@ -2537,13 +2535,47 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         type(count) is int and count == 1
                                     ):
                                         discrepancies.append("event-source-frames")
+                                actual_start = item.GetSourceStartFrame()
+                                actual_end = item.GetSourceEndFrame()
                                 if (
-                                    item.GetSourceStartFrame()
-                                    != expected_source_range[0]
+                                    source_clock_rate == (25, 1)
+                                    and source_record.get("kind") == "video"
+                                    and (actual_start, actual_end)
+                                    != expected_source_range
                                 ):
-                                    discrepancies.append("event-source-start")
-                                if item.GetSourceEndFrame() != expected_source_range[1]:
-                                    discrepancies.append("event-source-end")
+                                    # Studio's Local route may report the exclusive
+                                    # end. Require its source clock and bound media.
+                                    media_item = item.GetMediaPoolItem()
+                                    source_times = {
+                                        name: getattr(item, name)()
+                                        for name in (
+                                            "GetSourceStartTime",
+                                            "GetSourceEndTime",
+                                        )
+                                        if callable(getattr(item, name, None))
+                                    }
+                                    if not _fractional_source_range_matches(
+                                        event=event,
+                                        source=source_record,
+                                        manifest_source=manifest_source,
+                                        preparation_bindings=self._v2_preparation_bindings,
+                                        timeline=timeline,
+                                        actual_start=actual_start,
+                                        actual_end=actual_end,
+                                        source_times=source_times,
+                                        speed=item.GetSpeed(),
+                                        media_properties=media_item.GetClipProperty()
+                                        if media_item is not None
+                                        else None,
+                                        record_duration=record["durationFrames"],
+                                        allow_25fps_video=True,
+                                    ):
+                                        discrepancies.append("event-source-range")
+                                else:
+                                    if actual_start != expected_source_range[0]:
+                                        discrepancies.append("event-source-start")
+                                    if actual_end != expected_source_range[1]:
+                                        discrepancies.append("event-source-end")
                             media_item = item.GetMediaPoolItem()
                         actual_media_id = (
                             media_item.GetMediaId() if media_item is not None else None
@@ -2823,11 +2855,15 @@ def _fractional_source_range_matches(
     speed: object,
     media_properties: object,
     record_duration: int,
+    allow_25fps_video: bool = False,
 ) -> bool:
-    """Accept only the already qualified 23.976 Resolve source-clock shapes."""
+    """Check the qualified fractional clock and the observed 25 fps video end."""
     try:
         rate = _frame_rate(timeline)
-        if rate != _QUALIFIED_FRACTIONAL_RATE:
+        integer_video = allow_25fps_video is True and rate == (25, 1)
+        if rate != _QUALIFIED_FRACTIONAL_RATE and not integer_video:
+            return False
+        if integer_video and source.get("kind") != "video":
             return False
         rate_seconds = Fraction(rate[1], rate[0])
         source_id = event.get("sourceId")
@@ -3048,9 +3084,17 @@ def _fractional_source_range_matches(
             != {"numerator": 0, "denominator": 1}
             or source_frame_map.get("loggedTimeAtPackageFrameZero")
             != {"numerator": 0, "denominator": 1}
-            or actual_start not in {expected_start, expected_start - 1}
+            or (
+                actual_start != expected_start
+                if integer_video
+                else actual_start not in {expected_start, expected_start - 1}
+            )
             or actual_start < 0
-            or actual_end not in {expected_end, expected_end - 1}
+            or (
+                actual_end != expected_end
+                if integer_video
+                else actual_end not in {expected_end, expected_end - 1}
+            )
             or not _native_speed_matches(speed, 100)
         ):
             return False
