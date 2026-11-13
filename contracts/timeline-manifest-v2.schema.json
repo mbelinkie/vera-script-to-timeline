@@ -75,6 +75,14 @@
         "$ref": "#/$defs/TimelineEventV2"
       }
     },
+    "transitions": {
+      "description": "Optional signed picture-boundary decisions. Omit entirely for cut-only builds to retain existing canonical manifest bytes.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/TransitionPlanV2"
+      }
+    },
     "visualSequenceResolutions": {
       "type": "array",
       "items": {
@@ -107,6 +115,124 @@
     }
   },
   "$defs": {
+    "TransitionEffectIdentityV2": {
+      "description": "Exact verified Resolve library binding, not a name-only Effects Library lookup.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "name",
+        "sourceIdentity",
+        "fingerprint",
+        "resolveBuild",
+        "route"
+      ],
+      "properties": {
+        "category": {
+          "enum": ["simple", "fusion"]
+        },
+        "name": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "sourceIdentity": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "fingerprint": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "resolveBuild": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        },
+        "route": {
+          "const": "direct_add_transition"
+        }
+      }
+    },
+    "TransitionPlanV2": {
+      "description": "One explicitly authored adjacent video-row pair, with exact requested span and an explicit apply-or-named-cut decision. No event is added to the portable OTIO.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fromRowId",
+        "toRowId",
+        "trackId",
+        "boundaryFrame",
+        "outgoingEventId",
+        "incomingEventId",
+        "effectIdentity",
+        "requestedDurationFrames",
+        "alignment",
+        "startFrame",
+        "endFrame",
+        "disposition"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "fromRowId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "toRowId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "trackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "boundaryFrame": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+        },
+        "outgoingEventId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "incomingEventId": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId"
+        },
+        "effectIdentity": {
+          "$ref": "#/$defs/TransitionEffectIdentityV2"
+        },
+        "requestedDurationFrames": {
+          "type": "integer",
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger",
+          "multipleOf": 2
+        },
+        "alignment": {
+          "enum": ["left", "center", "right"]
+        },
+        "startFrame": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonNegativeSafeInteger"
+        },
+        "endFrame": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger"
+        },
+        "disposition": {
+          "enum": ["apply", "cut_insufficient_handles"]
+        },
+        "reason": {
+          "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+        }
+      },
+      "if": {
+        "properties": {
+          "disposition": { "const": "cut_insufficient_handles" }
+        },
+        "required": ["disposition"]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "$ref": "compiler-dependencies-v2.schema.json#/$defs/NonEmptyString"
+          }
+        },
+        "required": ["reason"]
+      },
+      "else": {
+        "not": { "required": ["reason"] }
+      }
+    },
     "FrameRangeV2": {
       "$ref": "compiler-dependencies-v2.schema.json#/$defs/FrameRangeV2"
     },

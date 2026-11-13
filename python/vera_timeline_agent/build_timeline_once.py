@@ -7,7 +7,6 @@ subsequent phases consume these exact published manifest/report bytes.
 from __future__ import annotations
 
 import fcntl
-import hashlib
 import json
 import os
 import stat
@@ -28,9 +27,11 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
-from .v2_package import V2PackageError, build_v2_package
+from .package_cache import default_cache_root
+from .row_timeline_map import make_row_timeline_map
+from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
-from .workflow_v2 import _load_attestation, run_workflow_delivery_v2
+from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
 from .workflow_v2_cli import attest_package_v2
 
 T = TypeVar("T")
@@ -43,6 +44,7 @@ class BuildOptions:
     output: Path
     inputs: Path | None = None
     existing_project: str | None = None
+    package_cache: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -71,12 +73,14 @@ class DeliveryResult:
     frames: int
     numerator: int
     denominator: int
+    named_transition_cuts: tuple[str, ...] = ()
 
 
 @dataclass
 class StageTimings:
     clock: Callable[[], float] = perf_counter
     emit: Callable[[str], None] = print
+    package_detail: bool = False
     stages: list[tuple[str, float]] = field(default_factory=list)
     started: float = field(init=False)
 
@@ -434,8 +438,15 @@ def deliver_compiled(
     *,
     timings: StageTimings,
     existing_project: str | None = None,
+    package_cache: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
+    if package_cache is not None:
+        cache_root, output_root = package_cache.resolve(), compiled.output.resolve()
+        if cache_root.is_relative_to(output_root) or output_root.is_relative_to(
+            cache_root
+        ):
+            raise BuildJobError("package cache must be outside the build output")
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
@@ -445,6 +456,15 @@ def deliver_compiled(
     package_root = compiled.output / "package"
 
     def package_once() -> None:
+        detail = (
+            {
+                "stage_observer": lambda label, elapsed, passed: timings.record(
+                    f"package/{label}", elapsed, passed=passed
+                )
+            }
+            if timings.package_detail
+            else {}
+        )
         built = build_v2_package(
             compiled.manifest,
             compiled.report,
@@ -453,33 +473,43 @@ def deliver_compiled(
             package_root,
             media_paths=media,
             preparation_paths=preparations,
+            package_cache=package_cache,
+            cache_observer=(
+                lambda reused, processed: (
+                    timings.emit(
+                        f"package cache: reused={reused} processed={processed}"
+                    )
+                    if package_cache is not None
+                    else None
+                )
+            ),
+            **detail,
+        )
+        verified = (
+            timings.run(
+                "package/outer verification", lambda: verify_v2_package(package_root)
+            )
+            if timings.package_detail
+            else verify_v2_package(package_root)
         )
         manifest = _read_json(compiled.manifest)
-        if built.build_id != manifest.get("buildId"):
+        if verified.build_id != built.build_id or verified.build_id != manifest.get(
+            "buildId"
+        ):
             raise BuildJobError("package build identity differs from compiler")
 
-    attestation = compiled.output / "v2-attestation.json"
     try:
         timings.run("package", package_once)
-        timings.run("attest", lambda: attest_package_v2(package_root, attestation))
     except V2PackageError as error:
         raise BuildJobError(
             "package could not be built from prepared local inputs"
         ) from error
+    attestation = compiled.output / "v2-attestation.json"
+    timings.run("attest", lambda: attest_package_v2(package_root, attestation))
     digest = sha256(attestation)
-    handoff, root = _load_attestation(attestation, digest)
-    manifest_bytes = _plain_path(compiled.manifest).read_bytes()
-    manifest = json.loads(manifest_bytes)
-    # Attestation already checks the full package. Bind this command's exact
-    # compiler output here before Resolve preflight independently loads it.
-    files = handoff["files"]
-    if (
-        root != package_root
-        or not isinstance(manifest, dict)
-        or handoff["buildId"] != manifest.get("buildId")
-        or not isinstance(files, dict)
-        or files.get("timeline-manifest.json")
-        != hashlib.sha256(manifest_bytes).hexdigest()
+    checked = load_verified_package_v2(attestation, digest)
+    if checked.root != package_root or checked.manifest != _read_json(
+        compiled.manifest
     ):
         raise BuildJobError("attested package does not match compiled manifest")
 
@@ -513,14 +543,55 @@ def deliver_compiled(
         _require_workflow_status(
             native, "verified", existing_project=existing_project is not None
         )
+        # Resolve has already been saved and reopened. A missing/invalid map or
+        # publication error is therefore an uncertain, retained-target result;
+        # never reissue a native build in an attempt to repair local output.
+        try:
+            native_map = native["rowTimelineMap"]
+            if not isinstance(native_map, dict):
+                raise ValueError("verified native row map is missing")
+            rows = native_map["rows"]
+            if not isinstance(rows, list):
+                raise ValueError("verified native rows are missing")
+            items = [item for row in rows for item in row["items"]]
+            expected_map = make_row_timeline_map(
+                checked.manifest,
+                checked.view,
+                items,
+                project_name=existing_project or checked.attestation["projectName"],
+                resolve_project_id=native_map["resolveProjectId"],
+                timeline_name=checked.attestation["timelineName"],
+                timeline_id=native_map["timelineId"],
+            )
+            if expected_map != native_map:
+                raise ValueError("verified native row map differs from delivery view")
+            map_path = compiled.output / "row-timeline-map.json"
+            if map_path.is_symlink() or map_path.exists():
+                raise ValueError("row timeline map output already exists")
+            publish_immutable_output(
+                map_path,
+                (json.dumps(expected_map, sort_keys=True, indent=2) + "\n").encode(
+                    "utf-8"
+                ),
+            )
+        except Exception as error:
+            raise UncertainResult(
+                "Resolve timeline saved and verified, but row map publication failed; "
+                "target retained; inspect target/output before another build"
+            ) from error
 
-    timeline = manifest["timeline"]
+    timeline = checked.manifest["timeline"]
     return DeliveryResult(
-        project_name=existing_project or handoff["projectName"],
-        timeline_name=handoff["timelineName"],
+        project_name=existing_project or checked.attestation["projectName"],
+        timeline_name=checked.attestation["timelineName"],
         frames=timeline["durationFrames"],
         numerator=timeline["frameRate"]["numerator"],
         denominator=timeline["frameRate"]["denominator"],
+        named_transition_cuts=tuple(
+            str(plan["reason"])
+            for plan in checked.manifest.get("transitions", [])
+            if plan["disposition"] == "cut_insufficient_handles"
+        ),
     )
 
 
@@ -529,4 +600,5 @@ def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResul
         compile_prepared(options, timings=timings),
         timings=timings,
         existing_project=options.existing_project,
+        package_cache=options.package_cache or default_cache_root(),
     )

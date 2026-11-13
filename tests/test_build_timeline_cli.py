@@ -12,7 +12,12 @@ import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import build_timeline_cli, build_timeline_once, studio_spike
 from vera_timeline_agent.build_compiler_bridge import BridgeOutput
-from vera_timeline_agent.build_jobs import BuildJobError, NeedsAction, UncertainResult
+from vera_timeline_agent.build_jobs import (
+    BuildJobError,
+    NeedsAction,
+    UncertainResult,
+    publish_immutable_output,
+)
 from vera_timeline_agent.build_stage_receipt import hash_file
 from vera_timeline_agent.build_timeline_once import (
     BuildOptions,
@@ -25,6 +30,7 @@ from vera_timeline_agent.build_timeline_once import (
     exclusive_resolve_build,
     select_prepared_inputs,
 )
+from vera_timeline_agent.row_timeline_map import make_row_timeline_map
 from vera_timeline_agent.workflow_v2 import load_verified_package_v2
 from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
@@ -232,6 +238,112 @@ def test_cli_reports_delivery_failure_as_non_success(
     assert "FAIL: timeline was not delivered" in output.out
 
 
+def test_package_subtimings_are_explicitly_opt_in() -> None:
+    arguments = ["--script", "script.json", "--output", "fresh-output"]
+    assert build_timeline_cli.parser().parse_args(arguments).package_timings is False
+    assert (
+        build_timeline_cli.parser()
+        .parse_args([*arguments, "--package-timings"])
+        .package_timings
+        is True
+    )
+
+
+def test_cli_package_cache_override_reaches_build_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    submitted: list[BuildOptions] = []
+
+    def fake_build(value: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        submitted.append(value)
+        return DeliveryResult("Studio Project", "New Timeline", 25, 25, 1)
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", fake_build)
+    cache = tmp_path / "custom-cache"
+    assert (
+        build_timeline_cli.main(
+            [
+                "--script",
+                str(options.script),
+                "--output",
+                str(options.output),
+                "--package-cache",
+                str(cache),
+            ]
+        )
+        == 0
+    )
+    assert submitted[0].package_cache == cache
+
+
+def test_package_cache_summary_precedes_native_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    cache = tmp_path / "media-cache"
+    monkeypatch.setattr(
+        build_timeline_once,
+        "_external_resolve",
+        lambda: (_ for _ in ()).throw(NeedsAction("no Resolve")),
+    )
+    results: list[list[str]] = []
+    for index in range(2):
+        selected = CompileResult(
+            compiled.inputs,
+            tmp_path / f"compiled-cache-{index}",
+            compiled.manifest,
+            compiled.report,
+            compiled.needs,
+        )
+        lines: list[str] = []
+        with pytest.raises(NeedsAction, match="no Resolve"):
+            deliver_compiled(
+                selected,
+                timings=StageTimings(emit=lines.append),
+                package_cache=cache,
+            )
+        results.append(lines)
+    assert any("package cache: reused=0 processed=" in line for line in results[0])
+    assert any(
+        "package cache: reused=" in line and "processed=0" in line
+        for line in results[1]
+    )
+    assert all(
+        next(i for i, line in enumerate(lines) if line.startswith("package cache:"))
+        < next(i for i, line in enumerate(lines) if line.startswith("connect: FAIL"))
+        for lines in results
+    )
+
+
+def test_cache_override_inside_build_output_refuses_without_writing(
+    tmp_path: Path,
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    inside = compiled.output / "cache"
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=inside,
+        )
+    assert not inside.exists()
+    disguised_inside = tmp_path / "uncreated" / ".." / compiled.output.name / "cache"
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=disguised_inside,
+        )
+    assert not inside.exists()
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=tmp_path,
+        )
+
+
 def test_timing_tracks_fractional_duration_and_failed_stage() -> None:
     times = iter([0.0, 2.0, 2.25, 3.0])
     lines: list[str] = []
@@ -303,6 +415,34 @@ def _package_inputs(tmp_path: Path) -> CompileResult:
     )
 
 
+def _verified_native_map(
+    attestation: Path, digest: str, *, existing_project: str | None = None
+) -> dict[str, Any]:
+    checked = load_verified_package_v2(attestation, digest)
+    tracks = {track["id"]: track for track in checked.view["tracks"]}
+    observations = [
+        {
+            "eventId": event["id"],
+            "resolveItemId": f"reopened-uid-{index}",
+            "trackId": event["trackId"],
+            "trackKind": tracks[event["trackId"]]["kind"],
+            "trackIndex": tracks[event["trackId"]]["index"],
+            "startFrame": event["recordRange"]["startFrame"],
+            "durationFrames": event["recordRange"]["durationFrames"],
+        }
+        for index, event in enumerate(checked.view["events"])
+    ]
+    return make_row_timeline_map(
+        checked.manifest,
+        checked.view,
+        observations,
+        project_name=existing_project or checked.attestation["projectName"],
+        resolve_project_id="reopened-project-uid",
+        timeline_name=checked.attestation["timelineName"],
+        timeline_id="reopened-timeline-uid",
+    )
+
+
 def test_real_package_and_attestation_precede_external_preflight_and_native_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -336,11 +476,18 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
             "verified": True,
             "discrepancies": [],
             "partialTargetRetained": False,
+            "rowTimelineMap": _verified_native_map(attestation, digest),
         }
 
     monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
     reporter = StageTimings(emit=lambda line: calls.append(line.split(":")[0]))
     first = deliver_compiled(compiled, timings=reporter)
+    saved_map = json.loads((compiled.output / "row-timeline-map.json").read_text())
+    assert saved_map == _verified_native_map(
+        compiled.output / "v2-attestation.json",
+        hash_file(compiled.output / "v2-attestation.json").removeprefix("sha256:"),
+    )
+    assert sum(len(row["items"]) for row in saved_map["rows"]) > 0
     assert first.project_name == first.timeline_name
     assert calls == [
         "package",
@@ -362,7 +509,31 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
         compiled.report,
         compiled.needs,
     )
-    result2 = deliver_compiled(compiled2, timings=StageTimings(emit=lambda _: None))
+    detail_lines: list[str] = []
+    result2 = deliver_compiled(
+        compiled2,
+        timings=StageTimings(emit=detail_lines.append, package_detail=True),
+    )
+    for stage in (
+        "source hash",
+        "copy + streamed hash",
+        "slates",
+        "audio",
+        "receipt hash",
+        "verification",
+    ):
+        assert any(line.startswith(f"package/{stage}: PASS (") for line in detail_lines)
+    assert any(
+        line.startswith("package/outer verification: PASS (") for line in detail_lines
+    )
+    assert next(
+        i for i, line in enumerate(detail_lines) if line.startswith("package: PASS")
+    ) > next(
+        i
+        for i, line in enumerate(detail_lines)
+        if line.startswith("package/verification: PASS")
+    )
+    assert (compiled2.output / "row-timeline-map.json").is_file()
     assert first.project_name != result2.project_name
     assert {key: created[key] for key in first_snapshot} == first_snapshot
 
@@ -384,7 +555,7 @@ def test_resolve_step_plus_check_includes_preflight_and_readback_not_packaging(
         return object()
 
     def fake_workflow(
-        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+        _resolve: Any, attestation: Path, digest: str, **kwargs: Any
     ) -> dict[str, Any]:
         if kwargs.get("action") != "build":
             now[0] += 3.0  # Separate read-only preflight also takes time.
@@ -397,6 +568,7 @@ def test_resolve_step_plus_check_includes_preflight_and_readback_not_packaging(
             "verified": True,
             "discrepancies": [],
             "partialTargetRetained": False,
+            "rowTimelineMap": _verified_native_map(attestation, digest),
         }
 
     monkeypatch.setattr(build_timeline_once, "attest_package_v2", slow_attest)
@@ -438,7 +610,7 @@ def test_resolve_step_plus_check_fails_on_refusal_or_uncertain_native_write(
         return object()
 
     def fake_workflow(
-        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+        _resolve: Any, attestation: Path, digest: str, **kwargs: Any
     ) -> dict[str, Any]:
         if kwargs.get("action") != "build":
             now[0] += 3.0
@@ -467,7 +639,7 @@ def test_named_existing_project_is_used_only_by_explicit_opt_in(
     calls: list[tuple[str, str | None]] = []
 
     def fake_workflow(
-        _resolve: Any, _attestation: Path, _digest: str, **kwargs: Any
+        _resolve: Any, attestation: Path, digest: str, **kwargs: Any
     ) -> dict[str, Any]:
         calls.append(
             (kwargs.get("action", "preflight"), kwargs.get("existing_project"))
@@ -481,6 +653,9 @@ def test_named_existing_project_is_used_only_by_explicit_opt_in(
             "verified": True,
             "discrepancies": [],
             "partialTargetRetained": False,
+            "rowTimelineMap": _verified_native_map(
+                attestation, digest, existing_project="Review Project"
+            ),
         }
 
     monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
@@ -546,6 +721,36 @@ def test_attested_manifest_drift_refuses_before_resolve_connects(
         deliver_compiled(compiled, timings=StageTimings(emit=lambda _: None))
 
 
+def test_issue88_cli_prints_exact_named_cut_without_claiming_a_dissolve(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+
+    def fake_build(
+        _submitted: BuildOptions, *, timings: StageTimings
+    ) -> DeliveryResult:
+        return DeliveryResult(
+            "New Studio",
+            "Rough Cut",
+            192,
+            24,
+            1,
+            ("Transition pair-88 (row-A -> row-B) at frame 96: short handles",),
+        )
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", fake_build)
+    assert (
+        build_timeline_cli.main(
+            ["--script", str(options.script), "--output", str(options.output)]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "cut_insufficient_handles" in output
+    assert "row-A -> row-B" in output and "frame 96" in output
+    assert "verified" in output
+
+
 def test_absent_resolve_refuses_after_packaging_without_any_native_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -600,6 +805,72 @@ def test_native_partial_write_uncertainty_never_retries(
     with pytest.raises(UncertainResult, match="partial disposable project retained"):
         deliver_compiled(compiled, timings=StageTimings(emit=lambda _: None))
     assert calls == ["preflight", "build"]
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        "preflight-refusal",
+        "verify-failed",
+        "native-uncertain",
+        "missing-map",
+        "altered-map",
+        "publish-failed",
+    ],
+)
+def test_row_map_publishes_only_once_after_verified_native_readback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: str
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    monkeypatch.setattr(build_timeline_once, "_external_resolve", object)
+    actions: list[str] = []
+
+    def workflow(
+        _resolve: Any, attestation: Path, digest: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        action = kwargs.get("action", "preflight")
+        actions.append(action)
+        if action == "preflight":
+            if outcome == "preflight-refusal":
+                return {"status": "stopped_safely", "refusal": "wrong current project"}
+            return {"status": "preflight_passed"}
+        if outcome == "native-uncertain":
+            return {"status": "mutation_failed", "partialTargetRetained": True}
+        if outcome == "verify-failed":
+            return {"status": "verification_failed", "partialTargetRetained": True}
+        native_map = _verified_native_map(attestation, digest)
+        if outcome == "altered-map":
+            native_map["rows"][0]["items"][0]["startFrame"] += 1
+        return {
+            "status": "verified",
+            "verified": True,
+            "discrepancies": [],
+            "partialTargetRetained": False,
+            **({} if outcome == "missing-map" else {"rowTimelineMap": native_map}),
+        }
+
+    monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", workflow)
+    if outcome == "publish-failed":
+        original_publish = publish_immutable_output
+
+        def fail_map_publish(path: Path, content: bytes) -> None:
+            if path.name == "row-timeline-map.json":
+                raise OSError("simulated disk write failure")
+            original_publish(path, content)
+
+        monkeypatch.setattr(
+            build_timeline_once, "publish_immutable_output", fail_map_publish
+        )
+
+    error_type: type[Exception] = (
+        NeedsAction if outcome == "preflight-refusal" else UncertainResult
+    )
+    with pytest.raises(error_type):
+        deliver_compiled(compiled, timings=StageTimings(emit=lambda _: None))
+    assert actions == (
+        ["preflight"] if outcome == "preflight-refusal" else ["preflight", "build"]
+    )
+    assert not (compiled.output / "row-timeline-map.json").exists()
 
 
 def test_external_adapter_uses_raw_sdk_resolve_and_closed_app_refuses(

@@ -20,7 +20,7 @@ The short source-clock verifier now admits only the demonstrated alternative 24 
 
 Preparation times are approximate active elapsed times reconstructed from file timestamps. The long preparation resumed after a checkpoint, and its estimate excludes the stopped interval. Native command times above were printed by the command itself. CPU speed limits observed were 50% after short, and 37% before / 22% after long. The Producer has identified these as representative practical conditions for this Mac.
 
-The short speed miss is pending Claude's independent assessment after 6:03 pm. Producer watch-and-listen acceptance is also pending. Further timing work after 6:03 pm must wait until the Producer confirms he has quit other work on the Mac.
+On 2026-11-13 the Producer approved the result and waived the watch-and-listen step. Claude Opus and Codex agreed that the short speed miss is acceptable as a practical limit for this Mac. Further timing work requires the Producer to confirm that other Mac work has stopped.
 
 [Updated result table](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6835566969)
 
@@ -37,14 +37,15 @@ used the wrong Node version and passed after the pinned runtime was selected.
 Ruff and targeted mypy passed. The Mac fast gate hit an unrelated backup-test
 timeout. Full regression runs in GitHub Actions.
 
-Claude's CLI previously hit its usage limit. At 6:03 pm, review the practical
-optimization options and the short speed miss with Claude before requesting
-acceptance. The Producer may accept that miss only if both agents agree the
-remaining optimization is unjustified on this Mac. The speed gate remains
-failed until the Producer accepts a revised criterion. The Producer must also
-watch and listen to the verified short result once.
+Claude Opus reviewed the changes after its usage reset, found no correctness
+defects, and agreed with Codex on accepting the short miss. It identified a
+minor stage-label gap whose time is included in the total.
+
+The measured command predates the package cache in #521 and row timeline map
+in #522. During integration, their established package verification and native
+map-publication paths were retained. The recorded measurements remain evidence
+for the measured version.
 
 [#533](https://github.com/mbelinkie/vera-script-to-timeline/issues/533) covers
 the default 23.976 fps command. Its External acceptance requires Mac Studio.
-Start it with a Mac-capable agent after #520 completes. Code preparation may
-proceed while waiting for review, as authorized by the Producer.
+The Producer asked on 2026-11-13 to leave #533 in Inbox for now.

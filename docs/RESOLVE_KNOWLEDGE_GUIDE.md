@@ -738,9 +738,9 @@ support. Shared preparation bindings use the merged #531 correction.
 
 **Reuse/delta.** The results cover **24 fps**. Default **23.976 fps** remains
 outside this check and is tracked in #533. A passing speed result requires a
-successful structural check within the timeline duration. The short speed miss
-requires a separate Producer decision after Claude's practical optimization
-assessment. Further timed runs require the Producer's confirmation that other
+successful structural check within the timeline duration. The Producer approved the short speed miss on 2026-11-13 after Claude and
+Codex agreed that further practical optimization was unjustified for this Mac.
+These measurements predate the later #521 package cache and #522 row map. Further timed runs require the Producer's confirmation that other
 Mac work has stopped.
 
 [Updated #520 result table](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6835566969)

@@ -23,6 +23,17 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument(
         "--existing-project", help="add a new timeline to this named project"
     )
+    command.add_argument(
+        "--package-timings",
+        action="store_true",
+        help="print optional package hash/copy/slate/audio/verification sub-timings",
+    )
+    command.add_argument(
+        "--package-cache",
+        type=Path,
+        metavar="FOLDER",
+        help="override the disposable per-user source media package cache",
+    )
     return command
 
 
@@ -41,10 +52,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         inputs=args.inputs,
         output=args.output,
         existing_project=args.existing_project,
+        package_cache=args.package_cache,
     )
-    timings = StageTimings()
+    timings = StageTimings(package_detail=args.package_timings)
     try:
         completed = build_once(options, timings=timings)
+        for warning in completed.named_transition_cuts:
+            print(f"Named transition built as cut_insufficient_handles: {warning}")
         timings.finish(
             frames=completed.frames,
             numerator=completed.numerator,

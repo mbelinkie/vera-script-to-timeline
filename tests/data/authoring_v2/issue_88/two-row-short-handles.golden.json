@@ -1,0 +1,47 @@
+{
+  "transitions": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000c8",
+      "fromRowId": "00000000-0000-4000-8000-000000000006",
+      "toRowId": "00000000-0000-4000-8000-00000000003c",
+      "trackId": "video-root",
+      "boundaryFrame": 96,
+      "outgoingEventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "incomingEventId": "989293c8-4cfe-568c-846c-ca138dbec0a8",
+      "effectIdentity": {
+        "category": "simple",
+        "name": "Cross Dissolve",
+        "sourceIdentity": "resolve/native/simple/Cross Dissolve",
+        "fingerprint": "issue-292/studio-21.1.1.10/native-simple-cross-dissolve",
+        "resolveBuild": "21.1.1.10",
+        "route": "direct_add_transition"
+      },
+      "requestedDurationFrames": 24,
+      "alignment": "center",
+      "startFrame": 84,
+      "endFrame": 108,
+      "disposition": "cut_insufficient_handles",
+      "reason": "Transition 00000000-0000-4000-8000-0000000000c8 (00000000-0000-4000-8000-000000000006 -> 00000000-0000-4000-8000-00000000003c) at frame 96: delivered source handles or adjacent clip duration cannot cover exact effect"
+    }
+  ],
+  "shortHandleWarnings": [
+    {
+      "id": "d4b478d0-568d-5208-80cd-13edb45d4dbe",
+      "severity": "warning",
+      "code": "ROW_TRANSITION_CUT_SHORT_HANDLES",
+      "message": "Transition 00000000-0000-4000-8000-0000000000c8 (00000000-0000-4000-8000-000000000006 -> 00000000-0000-4000-8000-00000000003c) at frame 96: delivered source handles or adjacent clip duration cannot cover exact effect",
+      "entity": {
+        "kind": "row_transition",
+        "id": "00000000-0000-4000-8000-0000000000c8",
+        "path": "rowTransitions/00000000-0000-4000-8000-0000000000c8"
+      },
+      "evidence": {
+        "kind": "details",
+        "message": "Transition 00000000-0000-4000-8000-0000000000c8 (00000000-0000-4000-8000-000000000006 -> 00000000-0000-4000-8000-00000000003c) at frame 96: delivered source handles or adjacent clip duration cannot cover exact effect"
+      },
+      "recoveryActionKinds": [
+        "none"
+      ]
+    }
+  ]
+}

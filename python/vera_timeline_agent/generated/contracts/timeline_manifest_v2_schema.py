@@ -7,6 +7,16 @@ from typing import Literal, NotRequired, TypedDict
 
 from . import compiler_dependencies_v2_schema, script_document_v2_schema
 
+
+class TransitionEffectIdentityV2(TypedDict):
+    category: Literal["simple", "fusion"]
+    name: compiler_dependencies_v2_schema.NonEmptyString
+    sourceIdentity: compiler_dependencies_v2_schema.NonEmptyString
+    fingerprint: compiler_dependencies_v2_schema.NonEmptyString
+    resolveBuild: compiler_dependencies_v2_schema.NonEmptyString
+    route: Literal["direct_add_transition"]
+
+
 type FrameRangeV2 = compiler_dependencies_v2_schema.FrameRangeV2
 
 
@@ -32,6 +42,23 @@ class SlatePictureTreatmentV2(TypedDict):
     kind: Literal["slate"]
     purpose: Literal["intentional", "undefined", "unresolved"]
     text: str
+
+
+class TransitionPlanV2(TypedDict):
+    id: compiler_dependencies_v2_schema.EntityId
+    fromRowId: compiler_dependencies_v2_schema.EntityId
+    toRowId: compiler_dependencies_v2_schema.EntityId
+    trackId: str
+    boundaryFrame: compiler_dependencies_v2_schema.NonNegativeSafeInteger
+    outgoingEventId: compiler_dependencies_v2_schema.EntityId
+    incomingEventId: compiler_dependencies_v2_schema.EntityId
+    effectIdentity: TransitionEffectIdentityV2
+    requestedDurationFrames: int
+    alignment: Literal["left", "center", "right"]
+    startFrame: compiler_dependencies_v2_schema.NonNegativeSafeInteger
+    endFrame: compiler_dependencies_v2_schema.PositiveSafeInteger
+    disposition: Literal["apply", "cut_insufficient_handles"]
+    reason: NotRequired[compiler_dependencies_v2_schema.NonEmptyString]
 
 
 type ContentHash = compiler_dependencies_v2_schema.ContentHash
@@ -213,6 +240,7 @@ class TimelineManifestV2(TypedDict):
     roles: compiler_dependencies_v2_schema.TrackRolesV2
     sources: list[ManifestSourceV2]
     events: list[TimelineEventV2]
+    transitions: NotRequired[list[TransitionPlanV2]]
     visualSequenceResolutions: list[
         compiler_dependencies_v2_schema.VisualSequenceResolutionV2
     ]

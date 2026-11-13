@@ -79,6 +79,35 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --output "/absolute/path/to/unused-result-directory"
 ```
 
+The build command reuses unchanged prepared source media through a disposable
+per-user package cache. By default it lives at
+`~/Library/Caches/vera-script-to-timeline/` on macOS, or
+`$XDG_CACHE_HOME/vera-script-to-timeline/` (otherwise
+`~/.cache/vera-script-to-timeline/`) on Linux. Override it with
+`--package-cache "/absolute/path/to/cache"`. You can delete this folder at any
+time to reclaim space; the next build copies and checks source media again.
+Every package is independently verified regardless of cache use and has the
+same bytes as a cache-free package. The build prints
+`package cache: reused=N processed=M` for unique input files; use
+`--package-timings` for detailed copy, hash and verification timings. Cached
+media is copied (or cloned when supported), never linked into a package.
+
+**Picture transitions (#88):** Author a `rowTransitions` item on the v2 script
+document with `state: "active"`, `fromRowId` and `toRowId` naming two adjacent
+active rows, `effect: "Cross Dissolve"`, and `settings: {"durationFrames": 24,
+"alignment": "center"}`. Alternatively use exact rational seconds as
+`durationSeconds: {"numerator": 1, "denominator": 1}` at 24 fps, not both
+duration units. A transition uses only the explicitly qualified **native/simple
+Cross Dissolve** on Resolve Studio **21.1.1 build 10**. It requires single
+muted full-row picture clips, independently verified delivered source handles,
+and the exact adjacent cut; narration/audio/markers remain unchanged. The
+build refuses unknown effects, unknown handles, ambiguous identity and native
+OTIO mixing *before* writes. For known-short source handles, it keeps a normal
+cut and prints the named row-pair/frame `cut_insufficient_handles` warning.
+An omitted `rowTransitions` field remains cut-only. Native writes are one-shot:
+a failed or mis-sized effect leaves the partial target for inspection, never a
+silent shorter dissolve or automatic retry. Portable OTIO remains cut-only.
+
 By default, this builds a uniquely named **new project and timeline**. To add
 only a new timeline to a named **existing project**, first open that precise
 project in Resolve, then add:
@@ -139,6 +168,29 @@ uv run --frozen python scripts/check_timeline_speed.py \
 ```
 
 This check does not cover the default 23.976 fps route.
+
+
+After a checked build, its result directory contains
+`row-timeline-map.json` (version 1), mapping script block IDs and v2 event IDs
+to the actual reopened Resolve timeline and item UIDs, tracks and frame bounds.
+This file is published **only after** the native save/close/reopen structural
+check succeeds. To inspect the **already open** project and timeline again
+without saving, switching targets, or making any native edits:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.readback_timeline_cli \
+  --output "/absolute/path/to/previous-result-directory"
+```
+
+It prints `PASS` when the current timeline's stamped events, ranges, tracks,
+markers and saved item UIDs match, or `MISMATCH` with a nonzero exit code on a
+different current target or structural change. If the map is absent, it still
+checks the attested v2 package against fresh live SDK observations, but reports
+**structural-only** compatibility; it does not claim the old item UIDs survived.
+For a build made with `--existing-project`, an absent map also requires
+`--project "Exact already open project name"`. An existing but malformed map
+is an error, not a reason to fall back to mapless mode. The readback is not an
+edit-diff report, render check, or substitute for the original delivery check.
 
 ## Validation
 

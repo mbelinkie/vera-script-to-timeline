@@ -2782,6 +2782,7 @@
           "minLength": 1
         },
         "settings": {
+          "description": "For an active named picture transition, exactly one durationFrames (positive even whole frames) or durationSeconds ({numerator,denominator} positive rational mapping exactly to even frames at the frozen timeline rate), with optional alignment left/center/right (default center). Saved needs_review settings remain opaque. The compiler validates active settings; the editor preserves inactive values.",
           "type": "object",
           "additionalProperties": true
         },
