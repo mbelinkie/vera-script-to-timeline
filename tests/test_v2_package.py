@@ -3,7 +3,8 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, replace
 from fractions import Fraction
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,8 +13,9 @@ from typing import Any
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
 from issue177_package_fixture import _refresh_document_closure, make_package_case
-from vera_timeline_agent import native_image_motion, workflow_v2
+from vera_timeline_agent import native_image_motion, v2_package, workflow_v2
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.package_cache import PackageCache
 from vera_timeline_agent.transition_delivery_v2 import (
     TransitionRefusal,
     validate_signed_transitions,
@@ -31,6 +33,7 @@ from vera_timeline_agent.v2_package import (
     _render_slate,
     _source_audio_range,
     _validate_manifest_semantics,
+    build_v2_package,
     verify_v2_package,
 )
 from vera_timeline_agent.workflow_package import sha256
@@ -833,6 +836,310 @@ def test_build_verify_and_exact_retry(tmp_path: Path) -> None:
 
     assert retried.reused is True
     assert verify_v2_package(case.project_root) == verification
+
+
+def _cached_build(
+    case: Any,
+    root: Path,
+    cache_root: Path | None,
+) -> tuple[dict[str, bytes], tuple[int, int]]:
+    counts: list[tuple[int, int]] = []
+    built = build_v2_package(
+        case.manifest_path,
+        case.report_path,
+        case.document_path,
+        case.dependencies_path,
+        root,
+        media_paths=case.media_paths,
+        preparation_paths=case.preparation_paths,
+        package_cache=cache_root,
+        cache_observer=lambda reused, processed: counts.append((reused, processed)),
+    )
+    assert built.project_root == root
+    assert verify_v2_package(root).build_id == built.build_id
+    bytes_by_path = {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    return bytes_by_path, counts[-1] if counts else (0, 0)
+
+
+def test_package_cache_is_byte_identical_and_skips_all_warm_source_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    originals = set(case.media_paths.values())
+    unique_count = len(originals)
+    read_counts = {"hash": 0, "copy": 0}
+    real_hash = v2_package._file_hash
+    real_copy = v2_package._copy_input_file
+
+    def tracked_hash(path: Path) -> str:
+        if path in originals:
+            read_counts["hash"] += 1
+        return real_hash(path)
+
+    def tracked_copy(
+        source: Path, destination: Path, expected: str | None = None
+    ) -> str:
+        if source in originals:
+            read_counts["copy"] += 1
+        return real_copy(source, destination, expected)
+
+    monkeypatch.setattr(v2_package, "_file_hash", tracked_hash)
+    monkeypatch.setattr(v2_package, "_copy_input_file", tracked_copy)
+    no_cache, _ = _cached_build(case, tmp_path / "no-cache", None)
+    assert read_counts["hash"] >= unique_count
+    read_counts.update(hash=0, copy=0)
+
+    cold, cold_counts = _cached_build(case, tmp_path / "cold", cache_root)
+    assert cold == no_cache
+    assert cold_counts == (0, unique_count)
+    read_counts.update(hash=0, copy=0)
+
+    warm, warm_counts = _cached_build(case, tmp_path / "warm", cache_root)
+    assert warm == no_cache
+    assert warm_counts == (unique_count, 0)
+    assert read_counts == {"hash": 0, "copy": 0}
+
+    # Even an edit that preserves all bytes, length and path invalidates its
+    # input's mtime identity and reprocesses only that physical input.
+    edited = next(iter(originals))
+    info = edited.stat()
+    os.utime(edited, ns=(info.st_atime_ns, info.st_mtime_ns + 1_000_000))
+    read_counts.update(hash=0, copy=0)
+    changed, changed_counts = _cached_build(case, tmp_path / "one-edited", cache_root)
+    assert changed == no_cache
+    assert changed_counts == (unique_count - 1, 1)
+    assert read_counts == {"hash": 0, "copy": 1}
+
+
+def test_cache_corruption_retries_once_from_source_and_refuses_tampering(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    expected, _ = _cached_build(case, tmp_path / "cold", cache_root)
+    original = next(iter(case.media_paths.values()))
+    digest = "sha256:" + hashlib.sha256(original.read_bytes()).hexdigest()
+    store = PackageCache(cache_root)
+    entry = store.lookup(original, digest)
+    assert entry is not None
+    entry.blob.write_bytes(b"\xff" * entry.blob.stat().st_size)
+
+    actual_build = v2_package._build_v2_package
+    attempts: list[int] = []
+
+    def counted_build(*args: Any, **kwargs: Any) -> Any:
+        attempts.append(1)
+        return actual_build(*args, **kwargs)
+
+    monkeypatch.setattr(v2_package, "_build_v2_package", counted_build)
+
+    recovered, counts = _cached_build(case, tmp_path / "recovered", cache_root)
+    assert len(attempts) == 2  # bad cache plus exactly one source-only retry
+    assert recovered == expected
+    assert counts == (0, len(set(case.media_paths.values())))
+    assert store.lookup(original, digest) is not None
+
+    # A missing/unwritable or symlinked cache root is merely a miss.
+    missing, counts = _cached_build(
+        case, tmp_path / "missing-output", tmp_path / "missing-cache"
+    )
+    assert missing == expected
+    assert counts[0] == 0
+    target = tmp_path / "redirected-cache"
+    target.mkdir()
+    (tmp_path / "linked-cache").symlink_to(target, target_is_directory=True)
+    linked, counts = _cached_build(
+        case, tmp_path / "linked-output", tmp_path / "linked-cache"
+    )
+    assert linked == expected
+    assert counts[0] == 0
+    assert not list(target.iterdir())
+
+    cached_media = next((tmp_path / "recovered" / "Media").rglob("*.mov"))
+    cached_media.write_bytes(b"tampered published package")
+    with pytest.raises(V2PackageError, match="file hash mismatch"):
+        verify_v2_package(tmp_path / "recovered")
+
+    # A same-length source edit with an unchanged manifest hash remains fatal.
+    original.write_bytes(b"\x00" * original.stat().st_size)
+    with pytest.raises(V2PackageError, match="media hash mismatch"):
+        _cached_build(case, tmp_path / "stale-source", cache_root)
+
+    # Source symlinks must refuse even if the cache has a previously valid hit.
+    symlink_case = replace(case, media_paths=dict(case.media_paths))
+    key = next(iter(symlink_case.media_paths))
+    source = symlink_case.media_paths[key]
+    link = source.with_name("linked-asset" + source.suffix)
+    link.symlink_to(source)
+    symlink_case.media_paths[key] = link
+    with pytest.raises(V2PackageError, match="symbolic link"):
+        _cached_build(symlink_case, tmp_path / "linked-source", cache_root)
+
+
+def test_stale_media_cache_miss_removes_partial_staging(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    source = next(iter(case.media_paths.values()))
+    source.write_bytes(b"X" * source.stat().st_size)
+    output = tmp_path / "stale-output"
+    with pytest.raises(V2PackageError, match="media hash mismatch"):
+        _cached_build(case, output, cache_root)
+    assert not output.exists()
+    assert not list(tmp_path.glob(".stale-output.v2-staging-*"))
+
+
+def test_cached_audio_source_drift_refuses_without_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path / "fixture", scenario="source-audio-quiet")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    real_build = v2_package._build_v2_package
+    attempts: list[int] = []
+
+    def drift(self: Any, source: Path, expected: str) -> str:
+        # Simulate a source identity failure after cache-audio participation;
+        # this must not turn a real source error into a cache retry.
+        self.used_cached_audio = True
+        raise V2PackageError("supplied media changed during package")
+
+    def count(*args: Any, **kwargs: Any) -> Any:
+        attempts.append(1)
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(v2_package._MediaCacheSession, "checked_hash", drift)
+    monkeypatch.setattr(v2_package, "_build_v2_package", count)
+    with pytest.raises(V2PackageError, match="supplied media changed"):
+        _cached_build(case, tmp_path / "drift", cache_root)
+    assert len(attempts) == 1
+
+
+def test_recovered_cache_corruption_prints_successful_attempt_timings(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    source = next(iter(case.media_paths.values()))
+    digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    entry = PackageCache(cache_root).lookup(source, digest)
+    assert entry is not None
+    entry.blob.write_bytes(b"\xff" * entry.blob.stat().st_size)
+    stages: list[tuple[str, bool]] = []
+    built = build_v2_package(
+        case.manifest_path,
+        case.report_path,
+        case.document_path,
+        case.dependencies_path,
+        tmp_path / "recovered",
+        media_paths=case.media_paths,
+        preparation_paths=case.preparation_paths,
+        package_cache=cache_root,
+        stage_observer=lambda name, _elapsed, passed: stages.append((name, passed)),
+    )
+    assert verify_v2_package(built.project_root).build_id == built.build_id
+    assert len(stages) == 6
+    assert all(passed for _, passed in stages)
+
+
+def test_cached_source_drift_during_clone_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    real_materialize = PackageCache.materialize
+
+    def change_source(
+        self: PackageCache, entry: Any, destination: Path, **kwargs: Any
+    ) -> bool:
+        copied = real_materialize(self, entry, destination, **kwargs)
+        info = entry.source.stat()
+        os.utime(
+            entry.source,
+            ns=(info.st_atime_ns, info.st_mtime_ns + 1_000_000),
+        )
+        return copied
+
+    monkeypatch.setattr(PackageCache, "materialize", change_source)
+    with pytest.raises(V2PackageError, match="changed while staging"):
+        _cached_build(case, tmp_path / "racing-source", cache_root)
+
+
+def test_cache_cannot_be_inside_immutable_package_root(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    destination = tmp_path / "output"
+    with pytest.raises(V2PackageError, match="outside the package directory"):
+        _cached_build(case, destination, destination / "media-cache")
+    assert not destination.exists()
+    disguised_inside = tmp_path / "uncreated" / ".." / "output" / "cache"
+    with pytest.raises(V2PackageError, match="outside the package directory"):
+        _cached_build(case, destination, disguised_inside)
+    assert not destination.exists()
+    with pytest.raises(V2PackageError, match="outside the package directory"):
+        _cached_build(case, destination, tmp_path)
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("scenario", ["source-audio-quiet", "source-audio-full"])
+def test_cached_source_audio_reuses_input_without_bypassing_endpoint_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scenario: str
+) -> None:
+    case = make_package_case(tmp_path / "fixture", scenario=scenario)
+    cache_root = tmp_path / "cache"
+    originals = set(case.media_paths.values())
+    original_read = Path.read_bytes
+    original_hash = v2_package._file_hash
+    original_copy = v2_package._copy_input_file
+    source_reads: list[Path] = []
+
+    def read_bytes(path: Path) -> bytes:
+        if path in originals:
+            source_reads.append(path)
+        return original_read(path)
+
+    def hash_file(path: Path) -> str:
+        if path in originals:
+            source_reads.append(path)
+        return original_hash(path)
+
+    def copy_source(path: Path, destination: Path, expected: str | None = None) -> str:
+        if path in originals:
+            source_reads.append(path)
+        return original_copy(path, destination, expected)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    monkeypatch.setattr(v2_package, "_file_hash", hash_file)
+    monkeypatch.setattr(v2_package, "_copy_input_file", copy_source)
+    cold, counts = _cached_build(case, tmp_path / "cold", cache_root)
+    assert counts[1] >= 1
+    source_reads.clear()
+    warm, counts = _cached_build(case, tmp_path / "warm", cache_root)
+    assert warm == cold
+    assert counts == (len(originals), 0)
+    assert not source_reads
+
+
+def test_corrupted_cached_wav_is_rebuilt_before_audio_projection(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path / "fixture", scenario="source-audio-quiet")
+    cache_root = tmp_path / "cache"
+    cold, _ = _cached_build(case, tmp_path / "cold", cache_root)
+    wav = next(path for path in case.media_paths.values() if path.suffix == ".wav")
+    digest = "sha256:" + hashlib.sha256(wav.read_bytes()).hexdigest()
+    entry = PackageCache(cache_root).lookup(wav, digest)
+    assert entry is not None
+    entry.blob.write_bytes(b"\x00" * entry.blob.stat().st_size)
+    recovered, counts = _cached_build(case, tmp_path / "recovered", cache_root)
+    assert recovered == cold
+    assert counts == (0, len(set(case.media_paths.values())))
 
 
 @pytest.mark.parametrize(

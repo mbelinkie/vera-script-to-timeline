@@ -27,6 +27,7 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
+from .package_cache import default_cache_root
 from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
@@ -43,6 +44,7 @@ class BuildOptions:
     output: Path
     inputs: Path | None = None
     existing_project: str | None = None
+    package_cache: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,7 @@ class DeliveryResult:
 class StageTimings:
     clock: Callable[[], float] = perf_counter
     emit: Callable[[str], None] = print
+    package_detail: bool = False
     stages: list[tuple[str, float]] = field(default_factory=list)
     started: float = field(init=False)
 
@@ -435,8 +438,15 @@ def deliver_compiled(
     *,
     timings: StageTimings,
     existing_project: str | None = None,
+    package_cache: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
+    if package_cache is not None:
+        cache_root, output_root = package_cache.resolve(), compiled.output.resolve()
+        if cache_root.is_relative_to(output_root) or output_root.is_relative_to(
+            cache_root
+        ):
+            raise BuildJobError("package cache must be outside the build output")
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
@@ -446,6 +456,15 @@ def deliver_compiled(
     package_root = compiled.output / "package"
 
     def package_once() -> None:
+        detail = (
+            {
+                "stage_observer": lambda label, elapsed, passed: timings.record(
+                    f"package/{label}", elapsed, passed=passed
+                )
+            }
+            if timings.package_detail
+            else {}
+        )
         built = build_v2_package(
             compiled.manifest,
             compiled.report,
@@ -454,8 +473,25 @@ def deliver_compiled(
             package_root,
             media_paths=media,
             preparation_paths=preparations,
+            package_cache=package_cache,
+            cache_observer=(
+                lambda reused, processed: (
+                    timings.emit(
+                        f"package cache: reused={reused} processed={processed}"
+                    )
+                    if package_cache is not None
+                    else None
+                )
+            ),
+            **detail,
         )
-        verified = verify_v2_package(package_root)
+        verified = (
+            timings.run(
+                "package/outer verification", lambda: verify_v2_package(package_root)
+            )
+            if timings.package_detail
+            else verify_v2_package(package_root)
+        )
         manifest = _read_json(compiled.manifest)
         if verified.build_id != built.build_id or verified.build_id != manifest.get(
             "buildId"
@@ -564,4 +600,5 @@ def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResul
         compile_prepared(options, timings=timings),
         timings=timings,
         existing_project=options.existing_project,
+        package_cache=options.package_cache or default_cache_root(),
     )

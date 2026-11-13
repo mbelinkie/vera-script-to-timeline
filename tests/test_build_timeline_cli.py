@@ -238,6 +238,112 @@ def test_cli_reports_delivery_failure_as_non_success(
     assert "FAIL: timeline was not delivered" in output.out
 
 
+def test_package_subtimings_are_explicitly_opt_in() -> None:
+    arguments = ["--script", "script.json", "--output", "fresh-output"]
+    assert build_timeline_cli.parser().parse_args(arguments).package_timings is False
+    assert (
+        build_timeline_cli.parser()
+        .parse_args([*arguments, "--package-timings"])
+        .package_timings
+        is True
+    )
+
+
+def test_cli_package_cache_override_reaches_build_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    submitted: list[BuildOptions] = []
+
+    def fake_build(value: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        submitted.append(value)
+        return DeliveryResult("Studio Project", "New Timeline", 25, 25, 1)
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", fake_build)
+    cache = tmp_path / "custom-cache"
+    assert (
+        build_timeline_cli.main(
+            [
+                "--script",
+                str(options.script),
+                "--output",
+                str(options.output),
+                "--package-cache",
+                str(cache),
+            ]
+        )
+        == 0
+    )
+    assert submitted[0].package_cache == cache
+
+
+def test_package_cache_summary_precedes_native_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    cache = tmp_path / "media-cache"
+    monkeypatch.setattr(
+        build_timeline_once,
+        "_external_resolve",
+        lambda: (_ for _ in ()).throw(NeedsAction("no Resolve")),
+    )
+    results: list[list[str]] = []
+    for index in range(2):
+        selected = CompileResult(
+            compiled.inputs,
+            tmp_path / f"compiled-cache-{index}",
+            compiled.manifest,
+            compiled.report,
+            compiled.needs,
+        )
+        lines: list[str] = []
+        with pytest.raises(NeedsAction, match="no Resolve"):
+            deliver_compiled(
+                selected,
+                timings=StageTimings(emit=lines.append),
+                package_cache=cache,
+            )
+        results.append(lines)
+    assert any("package cache: reused=0 processed=" in line for line in results[0])
+    assert any(
+        "package cache: reused=" in line and "processed=0" in line
+        for line in results[1]
+    )
+    assert all(
+        next(i for i, line in enumerate(lines) if line.startswith("package cache:"))
+        < next(i for i, line in enumerate(lines) if line.startswith("connect: FAIL"))
+        for lines in results
+    )
+
+
+def test_cache_override_inside_build_output_refuses_without_writing(
+    tmp_path: Path,
+) -> None:
+    compiled = _package_inputs(tmp_path)
+    inside = compiled.output / "cache"
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=inside,
+        )
+    assert not inside.exists()
+    disguised_inside = tmp_path / "uncreated" / ".." / compiled.output.name / "cache"
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=disguised_inside,
+        )
+    assert not inside.exists()
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=tmp_path,
+        )
+
+
 def test_timing_tracks_fractional_duration_and_failed_stage() -> None:
     times = iter([0.0, 2.0, 2.25, 3.0])
     lines: list[str] = []
@@ -403,7 +509,30 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
         compiled.report,
         compiled.needs,
     )
-    result2 = deliver_compiled(compiled2, timings=StageTimings(emit=lambda _: None))
+    detail_lines: list[str] = []
+    result2 = deliver_compiled(
+        compiled2,
+        timings=StageTimings(emit=detail_lines.append, package_detail=True),
+    )
+    for stage in (
+        "source hash",
+        "copy + streamed hash",
+        "slates",
+        "audio",
+        "receipt hash",
+        "verification",
+    ):
+        assert any(line.startswith(f"package/{stage}: PASS (") for line in detail_lines)
+    assert any(
+        line.startswith("package/outer verification: PASS (") for line in detail_lines
+    )
+    assert next(
+        i for i, line in enumerate(detail_lines) if line.startswith("package: PASS")
+    ) > next(
+        i
+        for i, line in enumerate(detail_lines)
+        if line.startswith("package/verification: PASS")
+    )
     assert (compiled2.output / "row-timeline-map.json").is_file()
     assert first.project_name != result2.project_name
     assert {key: created[key] for key in first_snapshot} == first_snapshot
