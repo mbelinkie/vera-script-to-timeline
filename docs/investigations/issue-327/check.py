@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,7 @@ CASES = {
 
 
 @contextmanager
-def idle_resolve(build_id: str):
+def idle_resolve(build_id: str) -> Iterator[None]:
     """Hold the shared lock and check the live slot for an independent project."""
     descriptor = acquire_native_owner()
     try:
@@ -236,6 +237,10 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             require(not (root / "setup").exists(), "Setup was already attempted")
             (root / "setup").mkdir()
             require(project.SetCurrentTimeline(original), "Could not select original")
+            log(
+                root / "setup" / "ungraded.json",
+                snapshot(project, original, root / "setup" / "ungraded", lut_type),
+            )
             require(
                 len(pool.ImportMedia([str(root / "media" / "Spare.mp4")]) or []) == 1,
                 "Could not import spare clip",
@@ -262,6 +267,50 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             for row in row_map["rows"]
             for item in row["items"]
         }
+        initial_plan = plans(root, row_map, "original")
+        for event_id, row in original_items.items():
+            require(
+                all(
+                    row[key] == initial_plan[event_id][key]
+                    for key in ("kind", "track", "start", "end", "sourceIn")
+                ),
+                "Hand finishing changed a mapped clip's geometry",
+            )
+        picture = one(
+            [
+                row
+                for row in original_items.values()
+                if row["kind"] == "video" and row["start"] == 0
+            ],
+            "first picture",
+        )
+        tone = one(
+            [
+                row
+                for row in original_items.values()
+                if row["kind"] == "audio" and row["start"] == 0
+            ],
+            "first tone",
+        )
+        ungraded = one(
+            [
+                row
+                for row in load(root / "setup" / "ungraded.json")["items"]
+                if row["id"] == picture["id"]
+            ],
+            "ungraded first picture",
+        )
+        require(
+            picture.get("lutSamples")
+            and ungraded.get("lutSamples")
+            and picture["lutSamples"] != ungraded["lutSamples"],
+            "The first picture needs a readable saturation grade",
+        )
+        require(picture["blur"], "The first picture needs a Fusion Blur")
+        require(
+            tone["volume"]["AudioVolume"] == -12,
+            "The first tone needs a -12 dB Inspector level",
+        )
         require(
             len(before["items"]) == 6,
             "Expected four mapped clips, one transition and one spare",
