@@ -163,6 +163,16 @@ def _manifest(
                 "startFrame": record["startFrame"] - origin,
                 "endFrame": record["endFrame"] - origin,
             }
+            if item["kind"] == "music":
+                music = _object(item.get("music"), "compiled music span")
+                if "requestedEndFrame" in music:
+                    local_event["music"] = {
+                        **music,
+                        "requestedEndFrame": _frame(
+                            music["requestedEndFrame"], "music requested end frame"
+                        )
+                        - origin,
+                    }
             serialized.append(
                 json.dumps(local_event, sort_keys=True, separators=(",", ":"))
             )
@@ -620,6 +630,8 @@ def _dependency_impacts(
     current_manifest: Mapping[str, Any],
     current_document: Mapping[str, Any],
     directly_changed: set[str],
+    shifted: set[str],
+    resolve_changed: set[str],
 ) -> dict[str, list[dict[str, Any]]]:
     before = _dependency_facts(baseline_manifest, baseline_document)
     after = _dependency_facts(current_manifest, current_document)
@@ -632,7 +644,13 @@ def _dependency_impacts(
                 | set((new or {}).get("members", ()))
             )
         )
-        if old == new and not directly_changed.intersection(members):
+        if (
+            old == new
+            and not directly_changed.intersection(members)
+            and not (
+                shifted.intersection(members) and resolve_changed.intersection(members)
+            )
+        ):
             continue
         reason = (
             f"{kind.capitalize()} {identity} affects multiple script rows; "
@@ -718,8 +736,19 @@ def compare_three_way_rows(
     direct = {
         row["rowId"] for row in script["rows"] if row["scriptChange"] != "unchanged"
     }
+    resolved_edits = {
+        row_id: classify_row(False, items)[0] == "resolve_changed"
+        for row_id, items in observed.items()
+        if row_id is not None
+    }
     dependencies = _dependency_impacts(
-        baseline_manifest, baseline_document, current_manifest, current_document, direct
+        baseline_manifest,
+        baseline_document,
+        current_manifest,
+        current_document,
+        direct,
+        set(shifts),
+        {row_id for row_id, changed in resolved_edits.items() if changed},
     )
     all_additions = [
         {"rowId": row_id, **dict(item)}
@@ -730,22 +759,35 @@ def compare_three_way_rows(
     all_additions.sort(key=lambda item: (item["resolveItemId"], item["rowId"] or ""))
     unassigned = [item for item in all_additions if item["rowId"] is None]
     unknown_additions = [item for item in unassigned if _clip_interval(item) is None]
-    resolved_edits = {
-        row_id: classify_row(False, items)[0] == "resolve_changed"
-        for row_id, items in observed.items()
-        if row_id is not None
-    }
+    global_managed = [
+        item for item in observed.get(None, []) if _statuses(item) != ("added",)
+    ]
+    unowned_events = script["unownedCompiledEvents"]
+    global_script_changed = unowned_events["baseline"] != unowned_events["current"]
+    # An editor addition cannot safely be separated from a new unowned script
+    # event either: neither side supplies a row identity to prove independence.
+    global_observed = [
+        *global_managed,
+        *(unassigned if global_script_changed else []),
+    ]
+    global_state, global_reason = classify_row(global_script_changed, global_observed)
+    global_resolve_edited = global_state in {"resolve_changed", "both_conflict"}
+    global_conflict = global_state == "both_conflict"
     results: list[dict[str, Any]] = []
     for original in script["rows"]:
         row_id = original["rowId"]
         shift = shifts.get(row_id, 0)
         impacts = dependencies.get(row_id, [])
         script_affected = bool(
-            original["scriptChange"] != "unchanged" or shift or impacts
+            original["scriptChange"] != "unchanged"
+            or shift
+            or impacts
+            or global_conflict
         )
         clips = _row_clip_ranges(current_manifest, row_id)
-        if original["scriptChange"] == "removed":
-            clips = _row_clip_ranges(baseline_manifest, row_id)
+        # Both positions matter: a moved row can collide with an editor clip
+        # left behind at the original location, even if its new range is clear.
+        clips.extend(_row_clip_ranges(baseline_manifest, row_id))
         for impact in impacts:
             # An editor clip may intersect only a transition boundary or A5
             # span even when it lies between this row's actual clips.
@@ -786,11 +828,18 @@ def compare_three_way_rows(
             hazards.append(
                 "A Resolve edit affects another row in the same atomic dependency."
             )
-        if script_affected and (overlaps or unknown_additions or linked_resolve):
+        if global_resolve_edited and script_affected:
+            hazards.append(
+                "A managed Resolve edit without row attribution cannot be safely "
+                "separated from the proposed script update."
+            )
+        if script_affected and (
+            overlaps or unknown_additions or linked_resolve or global_resolve_edited
+        ):
             state = "both_conflict"
             reason = (
-                "The script update overlaps unassigned or coupled Resolve work; "
-                "review is required. " + reason
+                "The script update overlaps unassigned, globally owned or "
+                "coupled Resolve work; review is required. " + reason
             )
         results.append(
             {
@@ -801,11 +850,10 @@ def compare_three_way_rows(
                 "dependencyImpacts": impacts,
                 "editorOverlaps": overlaps,
                 "hazards": sorted(set(hazards)),
-                "blocked": state == "both_conflict"
-                or bool(hazards and (overlaps or unknown_additions or linked_resolve)),
+                "blocked": state == "both_conflict",
             }
         )
-    return {
+    result: dict[str, Any] = {
         **{key: value for key, value in script.items() if key != "rows"},
         "rows": results,
         "observationCoverage": {
@@ -822,3 +870,17 @@ def compare_three_way_rows(
             item for item in all_additions if item["rowId"] is not None
         ],
     }
+    if global_managed or unowned_events["baseline"] or unowned_events["current"]:
+        # No invented row identity: globally owned native clips must be visible
+        # as independent comparison evidence, not silently treated as safe.
+        result["unownedManagedComparison"] = {
+            "state": global_state,
+            "reason": global_reason,
+            "scriptChanged": global_script_changed,
+            "blocked": global_conflict,
+            "observedManagedClips": [dict(item) for item in global_managed],
+            "unassignedEditorClips": [dict(item) for item in unassigned],
+            "baselineEvents": unowned_events["baseline"],
+            "currentEvents": unowned_events["current"],
+        }
+    return result

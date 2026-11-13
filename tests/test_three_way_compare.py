@@ -475,6 +475,19 @@ def test_unassigned_clip_is_visible_and_blocks_only_overlapping_proposed_rows() 
     assert rows[c]["editorOverlaps"] == []
 
 
+def test_unassigned_editor_clip_at_old_shifted_position_blocks_row() -> None:
+    case, observation = _case(), _observation()
+    _, _, c = _rows(case)
+    case["currentManifest"]["events"][0]["recordRange"]["endFrame"] = 5
+    _shift_event(case, 1, 5)
+    _shift_event(case, 2, 15)
+    _editor_addition(observation, 26, 3)  # C's original 20-30, not new 15-25.
+    row = _by_row(_three_way(case, observation))[c]
+    assert row["shiftFrames"] == -5
+    assert row["editorOverlaps"] == ["editor-clip-1"]
+    assert row["state"] == "both_conflict" and row["blocked"]
+
+
 def test_gap_in_row_envelope_does_not_fabricate_editor_overlap() -> None:
     case, observation = _case(), _observation()
     a = _rows(case)[0]
@@ -558,6 +571,42 @@ def test_unassigned_baseline_managed_clip_is_not_dropped_from_observation() -> N
     result = _three_way(case, observation)
     assert result["unassignedManagedClips"][0]["status"] == ["moved"]
     assert result["unassignedEditorClips"] == []
+    assert result["unownedManagedComparison"]["state"] == "resolve_changed"
+    # Even when its own event is unchanged, a row update could destroy this
+    # unattributed native edit; there is no safe ownership inference.
+    first = _rows(case)[0]
+    case["currentManifest"]["events"][0]["sourceRange"]["endFrame"] = 9
+    row = _by_row(_three_way(case, observation))[first]
+    assert row["state"] == "both_conflict" and row["blocked"]
+    # A changed *unowned* compiled event must also be classified, not merely
+    # copied into an inventory that a future planner might ignore.
+    case["currentManifest"]["events"][0]["sourceRange"]["endFrame"] = 10
+    case["currentManifest"]["events"][-1]["sourceRange"]["endFrame"] = 9
+    conflicting = _three_way(case, observation)
+    assert conflicting["unownedManagedComparison"]["state"] == "both_conflict"
+    assert conflicting["unownedManagedComparison"]["blocked"]
+    assert all(row["blocked"] for row in conflicting["rows"])
+
+
+def test_new_unowned_compiled_event_conflicts_with_unassigned_editor_clip() -> None:
+    case, observation = _case(), _observation()
+    global_event = deepcopy(case["currentManifest"]["events"][0])
+    global_event["eventId"] = "new-unowned-compiled-event"
+    global_event["provenance"]["blockId"] = None
+    global_event["recordRange"] = {"startFrame": 31, "endFrame": 41}
+    case["currentManifest"]["events"].append(global_event)
+    _editor_addition(observation, 34, 4)
+    result = _three_way(case, observation)
+    global_comparison = result["unownedManagedComparison"]
+    assert global_comparison["state"] == "both_conflict"
+    assert global_comparison["blocked"]
+    assert (
+        global_comparison["unassignedEditorClips"][0]["resolveItemId"]
+        == "editor-clip-1"
+    )
+    assert all(
+        row["state"] == "both_conflict" and row["blocked"] for row in result["rows"]
+    )
 
 
 def _transition(case: dict[str, Any]) -> None:
@@ -610,6 +659,30 @@ def test_upstream_shift_alone_does_not_change_transition_signature() -> None:
     rows = _by_row(_three_way(case))
     assert rows[a]["dependencyImpacts"] == []
     assert rows[b]["dependencyImpacts"] == rows[c]["dependencyImpacts"] == []
+
+
+def test_shifted_transition_partner_is_blocked_by_resolve_edit() -> None:
+    case, observation = _case(), _observation()
+    _transition(case)
+    a, b, c = _rows(case)
+    for side in ("baselineManifest", "currentManifest"):
+        transition = case[side]["transitions"][0]
+        transition["fromRowId"], transition["toRowId"] = b, c
+        shift = 25 if side == "currentManifest" else 0
+        transition.update(
+            boundaryFrame=20 + shift, startFrame=19 + shift, endFrame=21 + shift
+        )
+    case["currentManifest"]["events"][0]["recordRange"]["endFrame"] = 35
+    _shift_event(case, 1, 35)
+    _shift_event(case, 2, 45)
+    _edit_item(observation, 2)
+    rows = _by_row(_three_way(case, observation))
+    assert rows[a]["dependencyImpacts"] == []
+    assert rows[b]["scriptChange"] == "unchanged"
+    assert rows[b]["shiftFrames"] == 25
+    assert rows[b]["state"] == "both_conflict" and rows[b]["blocked"]
+    assert rows[b]["dependencyImpacts"][0]["kind"] == "transition"
+    assert rows[c]["state"] == "both_conflict"
 
 
 def test_reordering_transition_endpoint_is_an_explicit_boundary_hazard() -> None:
@@ -696,6 +769,38 @@ def test_music_span_propagates_change_atomically_to_every_participating_row() ->
         for row in (a, b, c)
     )
     assert rows[c]["scriptChange"] == "unchanged"
+
+
+def test_shifted_music_requested_end_does_not_change_own_row_contents() -> None:
+    case, observation = _case(), _observation()
+    a, b, c = _rows(case)
+    _music_span(case, b, c)
+    for side in ("baselineManifest", "currentManifest"):
+        event = case[side]["events"][-1]
+        event["recordRange"] = {"startFrame": 10, "endFrame": 30}
+        event["music"]["requestedEndFrame"] = 30
+    b_map = next(row for row in case["baselineMap"]["rows"] if row["rowId"] == b)
+    b_map["startFrame"] = 10
+    b_map["lengthFrames"] = 20
+    b_map["items"][-1].update(startFrame=10, durationFrames=20)
+    observation["rows"][1]["items"].append(
+        {
+            "eventId": "music-event-id",
+            "resolveItemId": "native-music-item",
+            "status": ["unchanged"],
+        }
+    )
+    case["currentManifest"]["events"][0]["recordRange"]["endFrame"] = 15
+    _shift_event(case, 1, 15)
+    _shift_event(case, 2, 25)
+    music = case["currentManifest"]["events"][-1]
+    music["recordRange"] = {"startFrame": 15, "endFrame": 35}
+    music["music"]["requestedEndFrame"] = 35
+    rows = _by_row(_three_way(case, observation))
+    assert rows[a]["scriptChange"] == "changed"
+    assert rows[b]["scriptChange"] == rows[c]["scriptChange"] == "unchanged"
+    assert rows[b]["shiftFrames"] == rows[c]["shiftFrames"] == 5
+    assert rows[b]["dependencyImpacts"] == rows[c]["dependencyImpacts"] == []
 
 
 def test_editor_in_music_only_gap_blocks_all_rows_of_changed_span() -> None:
