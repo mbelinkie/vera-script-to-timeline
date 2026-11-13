@@ -729,6 +729,46 @@ representative density and paired forward improvements; none is accepted yet
 at RK-30’s unmerged snapshot. #313 then measures reverse overhead against
 resulting main.
 
+### RK-32 — The shipped command's 24 fps timing and source clocks
+
+**Measured / product.** Intel Mac, Resolve Studio **21.1.1 build 10**, Local
+scripting, 2026-11-12. Both cases passed save/close/reopen structural verification.
+
+| Sample | Timeline duration (s) | Preparation (s) | Build plus check (s) | Speed result |
+| --- | ---: | ---: | ---: | --- |
+| Short retained sample, 11 events | 47.792 | ~2,588 | 74.82 | FAIL |
+| Public 30-row fixture, 102 events | 581.250 | ~866 | 199.55 | PASS |
+
+Preparation is outside the speed gate. Its elapsed active time was reconstructed
+from file timestamps after interrupted logging. The long estimate excludes its
+checkpoint interval. The complete command time was printed by the product.
+CPU speed limits observed were 50% after short, and 37% before / 22% after long.
+The Producer identified these as practical conditions for this Mac.
+
+The earlier short attempt saved/reopened but refused source-range verification.
+The corrected verifier accepts alternative 24 fps integer source getters only
+with exact bound source-clock evidence. Interior video reads its exclusive
+end. The fallback's inclusive end shape requires full-source EOF and a bound
+decoded frame count. One-frame stills can report equal synthetic integer
+offsets while source times cover exactly one physical frame. Whole narration
+EOF is bound to its WAV hash, sample count, sample rate and source-time edge.
+The established exact integer readback path remains supported. See the
+[#119 source-range observations](verification/issue-119/STUDIO_QUALIFICATION.md).
+
+The original long attempt refused two intentional slates before native writes.
+The final benchmark uses their already planned video sources at the same
+record positions. This fixture adaptation does not establish native slate
+support. Shared preparation bindings use the merged #531 correction.
+
+**Reuse/delta.** The results cover **24 fps**. Default **23.976 fps** remains
+outside this check and is tracked in #533. A passing speed result requires a
+successful structural check within the timeline duration. The Producer approved the short speed miss on 2026-11-13 after Claude and
+Codex agreed that further practical optimization was unjustified for this Mac.
+These measurements predate the later #521 package cache and #522 row map. Further timed runs require the Producer's confirmation that other
+Mac work has stopped.
+
+[Updated #520 result table](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6835566969)
+
 ## Current #312 / #313 handoff
 
 ### RK-30 — Shared performance fixture: provisional, not a speedup result
@@ -834,9 +874,16 @@ be preserved through a proved route or the affected write refused; #327 owns
 that remaining preservation proof. This does not blanket-block independently
 bounded safe changes.
 
-### RK-42 — Saved row intent and native probes are not normal product delivery
+### RK-42 — Saved row intent, music delivery and bounded native probes
 
-**Proved domain mechanisms and six bounded native music probes; production runtime unsupported.**
+**Proved domain mechanisms and six bounded native music probes.** The #100
+backend now has a signed, package-verified A5 music path for a fresh project:
+one pinned 48 kHz mono PCM WAV at 24 fps, row endpoints, fixed six-frame fades, gain,
+named nonblocking missing-file warnings and reopened structural readback. This
+is a code-level integration, **not yet real Studio production acceptance**;
+the final disposable application check and Matthew's one listening judgment
+remain to be completed. Existing projects, arbitrary effects/stills, stereo,
+looping and advanced fade shapes remain unqualified.
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -844,8 +891,9 @@ provisional Sorting acceptance with unchanged-baseline guards. Their evidence
 is TypeScript/consumer tests, independent of Resolve edition. They preserve or
 flag saved audio/transition intent; they do not place audible spanning cues,
 clone finishing or run a selected outbound plan. The
-[compiler](../packages/contracts/src/compiler-core-v2.ts) refuses active
-`rowAudioSpans` and non-cut row-transition intent; the
+[compiler](../packages/contracts/src/compiler-core-v2.ts) now compiles eligible
+active `rowAudioSpans` when their local WAV is hash-bound; unsupported
+row-transition intent still refuses. The
 [portable verifier](../python/vera_timeline_agent/v2_package.py) rejects OTIO
 transitions. RK-40 does not supersede those product refusals.
 
@@ -867,8 +915,8 @@ in every case, including the 264-frame/11-second duration-change timeline.
 The stereo-framed export carried the
 measured fixture signal only in channel 1; stereo routing remains unqualified.
 The default fade envelope was close to linear in measured windows; arbitrary
-curves and sub-50 ms source changes are not qualified. This probe does not add
-a production runtime route or a general atomic native executor; the tested
+curves and sub-50 ms source changes are not qualified. This historical probe did
+not add a production runtime route or general atomic native executor; the tested
 audio-only atomic unit is one gain-property update.
 #326 owns that proof, #100 production
 audio; #327 owns finishing preservation, #328 frozen selective execution/retry,

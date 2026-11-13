@@ -750,7 +750,13 @@ def _validate_view(
                 "v2Event",
                 "gainDb",
                 "pictureTreatment",
-            },
+            }
+            | (
+                {"musicTreatment"}
+                if isinstance(event_value, Mapping)
+                and event_value.get("kind") == "music"
+                else set()
+            ),
             "delivery event",
         )
         event_id = event["id"]
@@ -797,7 +803,43 @@ def _validate_view(
             raise WorkflowV2Error(
                 "delivery picture treatment differs from the v2 event"
             )
-        if event_kind == "source_audio":
+        if event_kind == "music":
+            music = original.get("music")
+            manifest_source_record = next(
+                (
+                    source
+                    for source in manifest_sources
+                    if isinstance(source, Mapping) and source.get("id") == source_id
+                ),
+                None,
+            )
+            frozen = (
+                manifest_source_record.get("musicAudio")
+                if isinstance(manifest_source_record, Mapping)
+                else None
+            )
+            pinned = frozen.get("source") if isinstance(frozen, Mapping) else None
+            if (
+                track_kind != "audio"
+                or track.get("index") != 5
+                or delivery_source.get("kind") != "audio"
+                or picture is not None
+                or not isinstance(music, Mapping)
+                or event.get("musicTreatment") != music
+                or event["gainDb"] != music.get("gainDb")
+                or not isinstance(pinned, Mapping)
+                or pinned.get("contentHash") != delivery_source.get("contentHash")
+                or not isinstance(music.get("audioHash"), str)
+                or music["audioHash"] != pinned.get("contentHash")
+                or not isinstance(original.get("provenance"), Mapping)
+                or original["provenance"].get("sourceId") != source_id
+            ):
+                raise WorkflowV2Error(
+                    "music must be bound exclusively to signed audio A5"
+                )
+        elif event_kind == "source_audio":
+            if "musicTreatment" in event:
+                raise WorkflowV2Error("source audio cannot carry a music treatment")
             if track_kind != "audio" or delivery_source.get("kind") != "audio":
                 raise WorkflowV2Error(
                     "source audio is not isolated to an audio-only track"
@@ -814,6 +856,8 @@ def _validate_view(
             if source_id != event_id:
                 raise WorkflowV2Error("source audio identity is not event-scoped")
         else:
+            if "musicTreatment" in event:
+                raise WorkflowV2Error("non-music event carries a music treatment")
             if event["gainDb"] is not None:
                 raise WorkflowV2Error("non-source-audio event declares an audio gain")
             if track_kind != ("audio" if event_kind == "narration" else "video"):
@@ -905,7 +949,7 @@ def _validate_view(
                 != _manifest_range(original["sourceRange"], "manifest source range")
             ):
                 raise WorkflowV2Error("delivery source range differs from the v2 event")
-        elif event_kind in {"source_audio", "placeholder"}:
+        elif event_kind in {"source_audio", "placeholder", "music"}:
             raise WorkflowV2Error("delivery event has no native source range")
 
         occupied.setdefault(cast(str, track_id), []).append(
@@ -1037,10 +1081,37 @@ def _native_treatment_supported(
 
 def _requires_native_otio(view: Mapping[str, Any]) -> bool:
     return any(
-        isinstance(event.get("pictureTreatment"), Mapping)
-        and "imageMotion" in event["pictureTreatment"]
+        event.get("kind") == "music"
+        or (
+            isinstance(event.get("pictureTreatment"), Mapping)
+            and "imageMotion" in event["pictureTreatment"]
+        )
         for event in cast(list[Mapping[str, Any]], view["events"])
     )
+
+
+def _native_otio_transport_tracks(view: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Independently derive required empty A1-A4 OTIO lanes for signed A5 music."""
+    tracks = [dict(track) for track in view["tracks"]]
+    if not any(event.get("kind") == "music" for event in view["events"]):
+        return tracks
+    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
+    ids = {track["id"] for track in tracks}
+    for index in range(1, 5):
+        if index in occupied:
+            continue
+        track_id = f"vera-native-a{index}-pad"
+        if track_id in ids:
+            raise WorkflowV2Error("native A5 padding collides with a signed track ID")
+        tracks.append(
+            {
+                "id": track_id,
+                "kind": "audio",
+                "index": index,
+                "name": f"VERA Empty A{index}",
+            }
+        )
+    return tracks
 
 
 def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
@@ -1135,10 +1206,13 @@ def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
         }
     ):
         raise WorkflowV2Error("native OTIO build or timeline identity differs")
-    expected_tracks = {track["id"]: track for track in view["tracks"]}
+    expected_tracks = {
+        track["id"]: track for track in _native_otio_transport_tracks(view)
+    }
     expected_events = {event["id"]: event for event in view["events"]}
     sources = {source["id"]: source for source in view["sources"]}
     seen_tracks: set[str] = set()
+    observed_track_order: list[str] = []
     seen_events: set[str] = set()
     rate_data = view["timeline"]["frameRate"]
     rate = rate_data["numerator"] / rate_data["denominator"]
@@ -1169,6 +1243,7 @@ def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
         if not isinstance(track_id, str):
             raise WorkflowV2Error("native OTIO track ID must be a string")
         seen_tracks.add(track_id)
+        observed_track_order.append(track_id)
         cursor = start
         for child in track["children"]:
             if not isinstance(child, Mapping):
@@ -1201,6 +1276,8 @@ def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
                 or vera.get("source_range") != event["sourceRange"]
                 or vera.get("v2_event") != event["v2Event"]
                 or vera.get("picture_treatment") != event["pictureTreatment"]
+                or vera.get("music_treatment") != event.get("musicTreatment")
+                or vera.get("gain_db") != event["gainDb"]
                 or vera.get("source_id") != source["id"]
                 or vera.get("source_kind") != source["kind"]
                 or _otio_frames(child.get("source_range"), rate, "clip")
@@ -1270,6 +1347,17 @@ def _verify_native_otio_plan(package: VerifiedPackageV2) -> Path:
             raise WorkflowV2Error("native OTIO missing end gap or event")
     if seen_tracks != set(expected_tracks) or seen_events != set(expected_events):
         raise WorkflowV2Error("native OTIO has missing tracks or events")
+    if any(event["kind"] == "music" for event in view["events"]):
+        kind_order = {"video": 0, "audio": 1, "subtitle": 2}
+        expected_order = [
+            track["id"]
+            for track in sorted(
+                expected_tracks.values(),
+                key=lambda item: (kind_order[item["kind"]], item["index"]),
+            )
+        ]
+        if observed_track_order != expected_order:
+            raise WorkflowV2Error("native OTIO A5 track order differs")
     markers = tracks.get("markers")
     if not isinstance(markers, list) or len(markers) != len(view["markers"]):
         raise WorkflowV2Error("native OTIO marker inventory differs")
@@ -1892,6 +1980,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_events: dict[str, Mapping[str, Any]] = {}
         self.expected_stamps: dict[str, str] = {}
         self.expected_properties: dict[str, dict[str, Any]] = {}
+        self.expected_fades: dict[str, dict[str, int]] = {}
         self.expected_source_ranges: dict[str, tuple[int, int]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
@@ -2040,6 +2129,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self._native_otio_imported = True
         self._bind_imported_media(view)
         self._check_imported_items(view)
+        for event in view["events"]:
+            if event["kind"] == "music":
+                self._configure_native_music(event)
 
         # Native OTIO can import raw timeline markers, but not VERA's custom
         # readback stamp. Replace *only* the expected marker positions on this
@@ -2080,6 +2172,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                     "DynamicZoomEnabled": motion.get("mode") == "native_dynamic_zoom",
                     "Scaling": _native_otio_scaling(framing),
                 }
+            elif event["kind"] == "music":
+                # _configure_native_music wrote and read back these exact
+                # values on the independently checked A5 item above.
+                if event_id not in self.expected_properties:
+                    raise WorkflowV2Error("native music was not configured")
             else:
                 self.expected_properties[event_id] = {}
             source_range = cast(Mapping[str, int], event["sourceRange"])
@@ -2141,7 +2238,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             raise WorkflowV2Error("native OTIO media identities collide")
 
     def _check_imported_items(self, view: Mapping[str, Any]) -> None:
-        tracks = cast(list[Mapping[str, Any]], view["tracks"])
+        tracks = _native_otio_transport_tracks(view)
         if self.timeline.GetStartFrame() != view["timeline"]["startFrame"] or (
             self.timeline.GetEndFrame()
             != view["timeline"]["startFrame"] + view["timeline"]["durationFrames"]
@@ -2202,6 +2299,77 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                         raise WorkflowV2Error(
                             "native OTIO lost qualified scaling/zoom on import"
                         )
+
+    def _configure_native_music(self, event: Mapping[str, Any]) -> None:
+        """Set exactly the signed A5 occurrence; never infer it from a clip name."""
+        self.assert_current_target()
+        track = next(
+            (track for track in self._v2_tracks if track["id"] == event["trackId"]),
+            None,
+        )
+        source_id = cast(str, event["sourceId"])
+        source = self._v2_sources.get(source_id)
+        record, source_range = event["recordRange"], event["sourceRange"]
+        treatment = event.get("musicTreatment")
+        if (
+            event["kind"] != "music"
+            or track is None
+            or track["kind"] != "audio"
+            or track["index"] != 5
+            or source is None
+            or source["kind"] != "audio"
+            or not isinstance(treatment, Mapping)
+            or event["gainDb"] != treatment.get("gainDb")
+            or not isinstance(source_range, Mapping)
+        ):
+            raise WorkflowV2Error("native music A5 binding is invalid")
+        items = self.timeline.GetItemListInTrack("audio", 5)
+        if not isinstance(items, (list, tuple)):
+            raise WorkflowV2Error("native music track is unreadable")
+        matching = [
+            item
+            for item in items
+            if item.GetStart(False) == record["startFrame"]
+            and item.GetDuration(False) == record["durationFrames"]
+            and item.GetMediaPoolItem() is not None
+            and item.GetMediaPoolItem().GetMediaId()
+            == self.media_id_by_source.get(source_id)
+        ]
+        if len(matching) != 1:
+            raise WorkflowV2Error("native music has no unique source-bound A5 item")
+        item = matching[0]
+        start = source_range["startFrame"]
+        end = start + source_range["durationFrames"] - 1
+        if item.GetSourceStartFrame() != start or item.GetSourceEndFrame() != end:
+            raise WorkflowV2Error("native music source trim differs before writes")
+        properties = {"AudioVolumeEnabled": True, "AudioVolume": treatment["gainDb"]}
+        fades = {
+            "FadeIn": treatment["fadeInFrames"],
+            "FadeOut": treatment["fadeOutFrames"],
+        }
+        self.assert_current_target()
+        if item.SetProperties(properties) is not True:
+            raise WorkflowV2Error("Resolve rejected signed music gain on A5")
+        self.assert_current_target()
+        if item.SetFades(fades) is not True:
+            raise WorkflowV2Error("Resolve rejected signed music fades on A5")
+        actual_properties = item.GetProperties()
+        actual_fades = item.GetFades()
+        if (
+            not isinstance(actual_properties, Mapping)
+            or not isinstance(actual_fades, Mapping)
+            or any(
+                not _property_equal(actual_properties.get(k), v)
+                for k, v in properties.items()
+            )
+            or any(
+                not _property_equal(actual_fades.get(k), v) for k, v in fades.items()
+            )
+        ):
+            raise WorkflowV2Error("Resolve did not retain signed music gain/fades")
+        event_id = cast(str, event["id"])
+        self.expected_properties[event_id] = properties
+        self.expected_fades[event_id] = fades
 
     def place_event(self, event: Mapping[str, Any]) -> None:
         self.assert_current_target()
@@ -2384,7 +2552,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 != timeline["startFrame"] + timeline["durationFrames"]
             ):
                 discrepancies.append("timeline-end")
-            expected_tracks = cast(list[Mapping[str, Any]], view["tracks"])
+            expected_tracks = _native_otio_transport_tracks(view)
             actual_track_counts: dict[str, int] = {}
             for kind in ("video", "audio", "subtitle"):
                 expected_count = max(
@@ -2444,12 +2612,19 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                         source_record = self._v2_sources.get(
                             cast(str, event["sourceId"]), {}
                         )
+                        manifest_source = getattr(self, "_v2_manifest_sources", {}).get(
+                            cast(str, event["sourceId"]), {}
+                        )
                         try:
                             source_clock_rate = _frame_rate(timeline)
                         except WorkflowV2Error:
                             source_clock_rate = None
-                        fractional_source_clock = (
-                            source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
+                        is_24fps_source_clock = source_clock_rate == (24, 1)
+                        qualified_source_clock = (
+                            (
+                                source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
+                                or is_24fps_source_clock
+                            )
                             and isinstance(source_record, Mapping)
                             and (
                                 source_record.get("kind") in {"video", "still"}
@@ -2461,11 +2636,37 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 )
                             )
                         )
-                        if fractional_source_clock:
-                            media_item = item.GetMediaPoolItem()
-                            manifest_source = self._v2_manifest_sources.get(
-                                cast(str, event["sourceId"]), {}
+                        legacy_24_source_range_matches = False
+                        if (
+                            qualified_source_clock
+                            and is_24fps_source_clock
+                            and source_range is not None
+                        ):
+                            legacy_24_source_range = self.expected_source_ranges.get(
+                                event_id,
+                                (
+                                    source_range["startFrame"],
+                                    source_range["startFrame"]
+                                    + source_range["durationFrames"]
+                                    - 1,
+                                ),
                             )
+                            if getattr(
+                                self, "_native_otio_imported", False
+                            ) and _native_otio_single_frame_hold(
+                                event, source_record, manifest_source
+                            ):
+                                legacy_24_source_range = (0, 0)
+                            legacy_24_source_range_matches = (
+                                item.GetSourceStartFrame() == legacy_24_source_range[0]
+                                and item.GetSourceEndFrame()
+                                == legacy_24_source_range[1]
+                            )
+                        if qualified_source_clock and (
+                            not is_24fps_source_clock
+                            or not legacy_24_source_range_matches
+                        ):
+                            media_item = item.GetMediaPoolItem()
                             if media_item is None:
                                 discrepancies.append("event-source-range")
                             else:
@@ -2490,6 +2691,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         manifest_source=manifest_source,
                                         preparation_bindings=self._v2_preparation_bindings,
                                         timeline=timeline,
+                                        allow_24fps=is_24fps_source_clock,
                                         actual_start=item.GetSourceStartFrame(),
                                         actual_end=item.GetSourceEndFrame(),
                                         source_times=source_times,
@@ -2619,6 +2821,16 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 for key, value in expected_properties.items()
                             ):
                                 discrepancies.append("event-properties")
+                        expected_fades = getattr(self, "expected_fades", {}).get(
+                            event_id
+                        )
+                        if expected_fades is not None:
+                            actual_fades = item.GetFades()
+                            if not isinstance(actual_fades, Mapping) or any(
+                                not _property_equal(actual_fades.get(key), value)
+                                for key, value in expected_fades.items()
+                            ):
+                                discrepancies.append("event-music-fades")
             actual_markers = self.timeline.GetMarkers()
             expected_marker_frames = set(self.timeline_marker_stamps)
             if (
@@ -2855,13 +3067,16 @@ def _fractional_source_range_matches(
     speed: object,
     media_properties: object,
     record_duration: int,
+    allow_24fps: bool = False,
     allow_25fps_video: bool = False,
 ) -> bool:
-    """Check the qualified fractional clock and the observed 25 fps video end."""
+    """Check qualified fractional, 24 fps and observed 25 fps video clocks."""
     try:
         rate = _frame_rate(timeline)
         integer_video = allow_25fps_video is True and rate == (25, 1)
-        if rate != _QUALIFIED_FRACTIONAL_RATE and not integer_video:
+        if rate != _QUALIFIED_FRACTIONAL_RATE and not (
+            (allow_24fps is True and rate == (24, 1)) or integer_video
+        ):
             return False
         if integer_video and source.get("kind") != "video":
             return False
@@ -3039,6 +3254,29 @@ def _fractional_source_range_matches(
         verification = (
             binding.get("verification") if isinstance(binding, Mapping) else None
         )
+        decoded_frame_count = (
+            verification.get("decodedFrameCount")
+            if isinstance(verification, Mapping)
+            else None
+        )
+        if integer_video:
+            native_source_range_matches = (
+                actual_start == expected_start and actual_end == expected_end
+            )
+        elif allow_24fps:
+            native_source_range_matches = actual_start == expected_start and (
+                actual_end == expected_end
+                or (
+                    type(decoded_frame_count) is int
+                    and expected_end == decoded_frame_count
+                    and actual_end == expected_end - 1
+                )
+            )
+        else:
+            native_source_range_matches = actual_start in {
+                expected_start,
+                expected_start - 1,
+            } and actual_end in {expected_end, expected_end - 1}
         provenance = manifest_event.get("provenance")
         if (
             manifest_start != expected_start
@@ -3084,17 +3322,8 @@ def _fractional_source_range_matches(
             != {"numerator": 0, "denominator": 1}
             or source_frame_map.get("loggedTimeAtPackageFrameZero")
             != {"numerator": 0, "denominator": 1}
-            or (
-                actual_start != expected_start
-                if integer_video
-                else actual_start not in {expected_start, expected_start - 1}
-            )
             or actual_start < 0
-            or (
-                actual_end != expected_end
-                if integer_video
-                else actual_end not in {expected_end, expected_end - 1}
-            )
+            or not native_source_range_matches
             or not _native_speed_matches(speed, 100)
         ):
             return False
@@ -3194,6 +3423,11 @@ def run_workflow_delivery_v2(
             raise WorkflowV2Error(
                 "native source-audio delivery awaits #178 qualification"
             )
+        has_music = any(event.get("kind") == "music" for event in view["events"])
+        result["nativeMusicRateQualified"] = not has_music or _frame_rate(timeline) == (
+            24,
+            1,
+        )
         has_subtitle_tracks = any(
             track.get("kind") == "subtitle" for track in view["tracks"]
         )
@@ -3253,6 +3487,10 @@ def run_workflow_delivery_v2(
         if not result["nativeOtioMixedStillsQualified"] and action == "build":
             raise WorkflowV2Error(
                 "native OTIO mixed plain-still composition is unqualified"
+            )
+        if not result["nativeMusicRateQualified"] and action == "build":
+            raise WorkflowV2Error(
+                "native music requires measured 24 fps Studio qualification"
             )
         otio_path = _verify_native_otio_plan(package) if native_otio else None
         if resolve is None:

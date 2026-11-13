@@ -54,6 +54,13 @@
         "$ref": "#/$defs/NarrationTokenTimingMapV2"
       }
     },
+    "musicBindings": {
+      "description": "Optional frozen, explicitly resolved row music sources. Missing is an absent path before freeze, never a hash-validation fallback.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MusicBindingV2"
+      }
+    },
     "occurrenceResolutions": {
       "type": "array",
       "items": {
@@ -470,11 +477,49 @@
             "maxLength": 128
           }
         },
+        "musicTrackId": {
+          "description": "Dedicated A5 audio track, present only for a resolved music bed.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
         "markerTrackId": {
           "type": "string",
           "minLength": 1,
           "maxLength": 128
         }
+      }
+    },
+    "MusicBindingV2": {
+      "description": "Precompile music resolution: only verified ready files may become emitted music events.",
+      "oneOf": [
+        { "$ref": "#/$defs/ReadyMusicBindingV2" },
+        { "$ref": "#/$defs/MissingMusicBindingV2" }
+      ]
+    },
+    "ReadyMusicBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spanId", "source", "displayFilename", "status", "sampleRate", "channels", "durationSamples"],
+      "properties": {
+        "spanId": { "$ref": "#/$defs/EntityId" },
+        "source": { "$ref": "script-document-v2.schema.json#/$defs/RowAudioSourceV2" },
+        "displayFilename": { "$ref": "#/$defs/NonEmptyString" },
+        "status": { "const": "ready" },
+        "sampleRate": { "const": 48000 },
+        "channels": { "const": 1 },
+        "durationSamples": { "$ref": "#/$defs/PositiveSafeInteger" }
+      }
+    },
+    "MissingMusicBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spanId", "source", "displayFilename", "status"],
+      "properties": {
+        "spanId": { "$ref": "#/$defs/EntityId" },
+        "source": { "$ref": "script-document-v2.schema.json#/$defs/RowAudioSourceV2" },
+        "displayFilename": { "$ref": "#/$defs/NonEmptyString" },
+        "status": { "const": "missing" }
       }
     },
     "NarrationTokenTimingMapV2": {

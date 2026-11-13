@@ -77,6 +77,100 @@ function visualOnlyDependencies(): CompilerDependenciesV2 {
   return value;
 }
 
+function threeRowMusicFixture(samples = 48000 * 16): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const first = intentionalSlateBlock(4000);
+  const second = { ...intentionalSlateBlock(4000), id: id(180), orderKey: "a1", payload: { ...intentionalSlateBlock().payload, payloadId: id(181) } } as VisualOnlyBlockV2;
+  const third = { ...intentionalSlateBlock(4000), id: id(182), orderKey: "a2", payload: { ...intentionalSlateBlock().payload, payloadId: id(183) } } as VisualOnlyBlockV2;
+  const doc = visualOnlyDocument(first);
+  doc.activeDraft.blocks.push(second, third);
+  const deps = visualOnlyDependencies();
+  deps.timeline.frameRate = { numerator: 24, denominator: 1 };
+  const source = { mediaReferenceId: id(184), artifactId: id(185), artifactVersion: 1, contentHash: digest("synthetic music") };
+  doc.rowAudioSpans = [{ id: id(186), startRowId: first.id, endRowId: third.id, source, settings: { gainDb: -12 } }];
+  deps.musicBindings = [{ spanId: id(186), source: structuredClone(source), displayFilename: "synthetic.wav", status: "ready", sampleRate: 48000, channels: 1, durationSamples: samples }];
+  deps.roles.musicTrackId = "music-a5";
+  deps.tracks.push({ id: "music-a5", kind: "audio", index: 5, name: "A5 Music" });
+  return { doc, deps };
+}
+
+describe("#100 verified A5 music compilation", () => {
+  const compile = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => {
+    const result = compileTimelineV2(doc, deps);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    return result;
+  };
+
+  it("plans A-B-C at 24fps, signs one hash-bound music source/event, and keeps needs independent", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const frozen = JSON.stringify([doc, deps]);
+    const needs = resolveMediaRequirementsV2(doc, { timing: [], defaults: deps.authoringDefaults, sourceDescriptors: [], frameRate: deps.timeline.frameRate });
+    expect(needs).toMatchObject({ ok: true, requirements: [], durationFrames: 288 });
+    const compiled = compile(doc, deps);
+    const event = compiled.manifest.events.find((item) => item.kind === "music")!;
+    expect(event).toMatchObject({ trackRole: "music", trackId: "music-a5", recordRange: { startFrame: 0, endFrame: 288 },
+      sourceRange: { startFrame: 0, endFrame: 288 }, music: { gainDb: -12, fadeInFrames: 6, fadeOutFrames: 6, requestedEndFrame: 288 } });
+    expect(event.provenance.deliveredSourceHash).toBe(doc.rowAudioSpans![0]!.source.contentHash);
+    expect(compiled.manifest.sources.filter((source) => "musicAudio" in source)).toEqual([{ id: event.provenance.sourceId, musicAudio: deps.musicBindings![0] }]);
+    expect(compiled.report.eventResults.find((item) => item.eventId === event.eventId)).toMatchObject({ disposition: "placed", kind: "music" });
+    expect(compiled.report.status).toBe("ready");
+    expect(JSON.stringify([doc, deps])).toBe(frozen);
+  });
+
+  it("omits a named missing file without blocking other rows, or requiring an A5 track", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    deps.musicBindings = [{ spanId: doc.rowAudioSpans![0]!.id, source: doc.rowAudioSpans![0]!.source, displayFilename: "missing-bed.wav", status: "missing" }];
+    deps.tracks.pop(); delete deps.roles.musicTrackId;
+    const result = compile(doc, deps);
+    expect(result.manifest.events.some((item) => item.kind === "music")).toBe(false);
+    expect(result.manifest.sources.some((item) => "musicAudio" in item)).toBe(false);
+    expect(result.report.diagnostics.some((item) => item.code === "MUSIC_FILE_MISSING" && item.severity === "warning" && item.message.includes("missing-bed.wav"))).toBe(true);
+    expect(result.report.status).toBe("ready");
+  });
+
+  it("clips short files, warns with requested/delivered frames, never loops, and omits subframe audio", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 7);
+    const result = compile(doc, deps);
+    const event = result.manifest.events.find((item) => item.kind === "music")!;
+    expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 168 });
+    expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 168 });
+    expect(result.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    deps.musicBindings![0] = { ...deps.musicBindings![0]!, durationSamples: 1 } as never;
+    const tooShort = compile(doc, deps);
+    expect(tooShort.manifest.events.some((item) => item.kind === "music")).toBe(false);
+    expect(tooShort.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+  });
+
+  it("omits reversed, cross-section, and unsupported-settings spans rather than guessing", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    doc.rowAudioSpans![0]!.startRowId = id(182);
+    doc.rowAudioSpans![0]!.endRowId = id(30);
+    expect(compile(doc, deps).report.diagnostics.map((item) => item.code)).toContain("MUSIC_SPAN_INVALID");
+    doc.rowAudioSpans![0]!.startRowId = id(30);
+    doc.rowAudioSpans![0]!.endRowId = id(182);
+    doc.activeDraft.blocks.splice(2, 0, { type: "section", id: id(187), orderKey: "a1z", title: "Next", version: 1 });
+    expect(compile(doc, deps).report.diagnostics.map((item) => item.code)).toContain("MUSIC_SPAN_INVALID");
+    doc.activeDraft.blocks.splice(2, 1);
+    doc.rowAudioSpans![0]!.settings = { gainDb: -12, trimStartFrames: 18 };
+    expect(compile(doc, deps).report.diagnostics.map((item) => item.code)).toContain("MUSIC_SETTINGS_UNSUPPORTED");
+  });
+
+  it("refuses binding substitution/duplicates and unrelated occupation of A5", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    deps.musicBindings![0]!.source.contentHash = digest("substitution");
+    const tampered = compileTimelineV2(doc, deps);
+    expect(tampered.ok).toBe(false);
+    if (!tampered.ok) expect(tampered.diagnostics.map((item) => item.code)).toContain("MUSIC_BINDING_MISMATCH");
+    deps.musicBindings![0]!.source.contentHash = doc.rowAudioSpans![0]!.source.contentHash;
+    deps.musicBindings!.push(structuredClone(deps.musicBindings![0]!));
+    const duplicate = compileTimelineV2(doc, deps);
+    expect(duplicate.ok).toBe(false);
+    deps.musicBindings!.pop();
+    deps.tracks.find((item) => item.id === "music-a5")!.id = "unrelated";
+    expect(compileTimelineV2(doc, deps).ok).toBe(false);
+  });
+});
+
 function sharedPreparationFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
   const doc = document();
   const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
@@ -361,15 +455,15 @@ describe("#88 frozen row-to-row transition compilation", () => {
     expect(plain.report.diagnostics.some((item) => item.code === "ROW_TRANSITION_CUT_SHORT_HANDLES")).toBe(false);
   });
 
-  it("refuses ambiguous effect identity, unsupported audio and unknown boundary geometry", () => {
+  it("refuses ambiguous effect identity and unknown boundary geometry, warns for missing music", () => {
     const { doc, deps } = transitionRowsFixture("apply");
     doc.rowTransitions![0]!.effect = "Fusion Cross Dissolve";
     expect(compileTimelineV2(doc, deps).ok).toBe(false);
     doc.rowTransitions![0]!.effect = "Cross Dissolve";
     doc.rowAudioSpans = [{ id: id(201), startRowId: id(6), endRowId: id(60), source: { mediaReferenceId: id(8), artifactId: id(204), artifactVersion: 1, contentHash: digest("audio") }, settings: {} }];
     const audio = compileTimelineV2(doc, deps);
-    expect(audio.ok).toBe(false);
-    if (!audio.ok) expect(audio.diagnostics[0]?.code).toBe("ROW_AUDIO_RUNTIME_UNAVAILABLE");
+    expect(audio.ok, JSON.stringify(audio)).toBe(true);
+    if (audio.ok) expect(audio.report.diagnostics.map((item) => item.code)).toContain("MUSIC_FILE_MISSING");
     delete doc.rowAudioSpans;
     deps.occurrenceResolutions[1]!.sourceFrameMap.packageFrameZeroLogicalFrame = 5;
     expect(resolveMediaRequirementsV2(doc, { timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults, sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate }).ok).toBe(false);

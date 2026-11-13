@@ -79,6 +79,29 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --output "/absolute/path/to/unused-result-directory"
 ```
 
+**Optional row-spanning music (#100):** Put a `rowAudioSpans` entry in the v2
+script, naming its `startRowId`, `endRowId`, `source` (with pinned SHA-256
+`contentHash`) and optional `settings: {"gainDb": -12}`. In prepared
+`media-paths.json`, map `"event:<music-event-uuid>"` to the absolute local
+`.wav` path for that span; the event UUID is the deterministic
+`music_event_id(documentId, spanId, artifactId)` (see
+`vera_timeline_agent.music_input`). The source must be a regular, local,
+hash-matching **48 kHz mono PCM16 WAV** without symlink components. The native
+music route is initially qualified at **24 fps** only. The compiler
+positions one nonlooping bed on **A5** across the selected consecutive program
+rows, stops early if the WAV runs out, and uses fixed six-frame fades clamped
+to the actual duration. The level defaults to −12 dB. The command reports
+`MUSIC_SOURCE_SHORTER` when truncated, or `MUSIC_FILE_MISSING` with the filename
+when an optional file is absent **before** binding. Missing music does not
+block picture/narration delivery; a changed hash, invalid WAV or swapped path
+is an error, never a silently skipped cue. Music requires a **new project** and
+Studio **21.1.1 build 10** through the signed whole-timeline OTIO import;
+existing-project mode and mixed unqualified plain stills refuse before writes.
+Empty intermediate audio slots are materialized as verified OTIO gap tracks,
+not silently compacted into A2.
+The native check validates A5, source identity, exact timing, gain and fades
+again after save/close/reopen. Native source audio remains unsupported.
+
 The build command reuses unchanged prepared source media through a disposable
 per-user package cache. By default it lives at
 `~/Library/Caches/vera-script-to-timeline/` on macOS, or
@@ -140,6 +163,35 @@ partial native write is retained, never retried or deleted automatically. No
 render or audio comparison is performed. Native source audio and unqualified
 fractional-rate timeline creation still refuse explicitly; this command does
 not bypass those product limitations.
+
+To compare two prepared scripts with their verified timeline durations, run
+`uv run --frozen python scripts/check_timeline_speed.py` with the short and long
+script/input paths, each case's `--*-preparation-seconds`, and a fresh `--output`
+root. The preparation seconds are measured offline before this command and shown
+in the results table; they are not included in the speed gate. Each case uses
+the command above and creates a new Resolve project. The runner prints the
+command's stage output and one summary table with preparation time, timeline
+duration, full build-plus-check command time, and PASS/FAIL. The gate compares
+only that full command time with the verified timeline duration, including CLI
+compilation, packaging, save/close/reopen, and structural verification. It runs
+both cases when a build verifies but misses the speed bar, then exits nonzero;
+it stops after any build or verification failure. Inputs must be prepared at
+24 fps beforehand.
+
+```sh
+# Set the script/input paths, measured preparation seconds, and new output root first.
+uv run --frozen python scripts/check_timeline_speed.py \
+  --short-script "$SHORT_SCRIPT" \
+  --short-inputs "$SHORT_INPUTS" \
+  --short-preparation-seconds "$SHORT_PREPARATION_SECONDS" \
+  --long-script "$LONG_SCRIPT" \
+  --long-inputs "$LONG_INPUTS" \
+  --long-preparation-seconds "$LONG_PREPARATION_SECONDS" \
+  --output "$ISSUE520_OUTPUT_ROOT"
+```
+
+This check does not cover the default 23.976 fps route.
+
 
 After a checked build, its result directory contains
 `row-timeline-map.json` (version 2), mapping script block IDs and v2 event IDs
