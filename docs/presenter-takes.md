@@ -37,24 +37,31 @@ Three kinds of script file work:
   `(on)` and `(off)` mark what is on camera and what is covered by footage.
 - `[guide]` pronunciations are understood in all of them.
 
-A **passage** is the stretch of script a take is matched against:
-
-- An on-camera stretch is one passage, because a cut inside it would show.
-- An off-camera stretch can be cut anywhere, so each of its sentences is its
-  own passage. A sentence shorter than four words joins its neighbour.
+A **passage** is one stretch of script with one camera state: an on-camera
+stretch, or an off-camera stretch, inside a row. A take is matched against a
+whole passage. A passage is never cut up just because it has several
+sentences.
 
 ## What it suggests
 
 Every passage gets the best coverage the recording offers:
 
-1. The last complete take that can be cut cleanly. Earlier complete takes are
-   marked as alternates.
-2. If no take is complete, the last take that still runs from the passage's
-   first word to its last (for example, with a name the recogniser garbled).
-   Its differences are listed.
-3. If there is none, pieces from several takes that together cover the
-   passage, in script order, with a warning when the joins would be on camera.
-4. Only script words that nobody said are reported as NOT COVERED.
+1. The last take that reads the whole passage and can be cut cleanly. Other
+   takes that read the whole passage are marked as alternates.
+2. If no take reads the whole passage (the presenter stopped and restarted
+   partway), coverage is suggested sentence by sentence: for each sentence,
+   the last take that reads it and can be cut cleanly, with alternates.
+   Neighbouring sentences from the same take stay together as one piece. On
+   camera, the report warns that the joins will show; off camera they are
+   covered by footage.
+3. Only a sentence that no take reads through is reported as a gap, and only
+   the words nobody said are reported as NOT COVERED.
+
+**Small wording changes are allowed.** A take reads a passage (or a
+sentence) when it says at least three quarters of the words as written and
+does not drop the first or last word. Whatever differs is listed under
+"Differs" (said X for Y, added, left out) and saved in `takes.json`, so the
+timeline can carry a marker for it. It is not treated as a missing passage.
 
 The command prints the time taken. A four-minute recording takes about four
 minutes on the 2019 Intel Mac; nearly all of it is the aligner.

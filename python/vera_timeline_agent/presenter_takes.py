@@ -59,6 +59,7 @@ from vera_word_timing.script_reconcile import load_dictionary_words, parse_promp
 
 from experiments.issue45.take_rules import differences, refine
 from experiments.issue53.boundaries import propose_quiet_cuts
+from experiments.issue53.review_rules import sentence_spans
 from experiments.issue53.takes import discover, tokens
 from vera_timeline_agent.presenter_sync import (
     Samples,
@@ -70,7 +71,8 @@ from vera_timeline_agent.presenter_sync import (
 Json = dict[str, Any]
 RATE = 16000  # the engines' sample rate; all audio work happens at it
 MARKER = re.compile(r"\((on|off)\)", re.IGNORECASE)
-MIN_PASSAGE_WORDS = 4  # a shorter off-camera sentence joins its neighbour
+TOLERANCE = 0.75  # share of a stretch's script words a read must say as written
+EDGE_WORDS = 1  # ... and it must reach the stretch's first and last word
 PADDING_FRAMES = 10
 QUIET_DB = -40.0  # the #53 quiet rule: RMS at or below this ...
 QUIET_PEAK_DB = -28.0  # ... peaks at or below this ...
@@ -230,34 +232,13 @@ class Passage:
     text: str  # spoken words with sentence stops, for the take rules
 
 
-_SENTENCE = re.compile(
-    r"\S.*?(?:[.!?]+[\"" + chr(8221) + chr(8217) + r")\]]*(?=\s)|$)", re.DOTALL
-)
-
-
-def _sentences(text: str) -> list[str]:
-    """Sentences of an off-camera stretch; very short ones join a neighbour."""
-
-    def words(sentence: str) -> int:
-        return len(tokens(re.sub(r"\[[^\]]*\]", "", sentence)))
-
-    out: list[str] = []
-    for sentence in (s for s in _SENTENCE.findall(text) if s.strip()):
-        short = min(words(sentence), words(out[-1]) if out else 99) < MIN_PASSAGE_WORDS
-        if out and short:
-            out[-1] += " " + sentence
-        else:
-            out.append(sentence)
-    return out
-
-
 def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
     """The stretches of script a take is matched against.
 
     Each line is a script row. Inside a row, `(on)` and `(off)` mark what is
-    on camera and what is covered by footage. An on-camera stretch is one
-    passage, because a cut inside it shows. An off-camera stretch can be cut
-    anywhere, so each of its sentences is its own passage.
+    on camera and what is covered by footage. Each stretch is one passage. A
+    passage is only broken into sentences later, and only when no single take
+    covers it (`_sentence_coverage`).
     """
     passages: list[Passage] = []
     camera, row = "unknown", 0
@@ -270,23 +251,22 @@ def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
                 stretches.append((camera, part))
         row += bool(stretches)
         for state, stretch in stretches:
-            for block in _sentences(stretch) if state == "off" else [stretch]:
-                pieces: list[str] = []
-                for word in parse_prompter(block, dictionary).words:
-                    if word["sentenceStart"] and pieces:
-                        pieces[-1] += "."
-                    pieces.append(" ".join(word["spoken"]))
-                if pieces:
-                    shown = " ".join(re.sub(r"\[[^\]]*\]", "", block).split())
-                    passages.append(
-                        Passage(
-                            f"passage-{len(passages) + 1}",
-                            row,
-                            state,
-                            shown,
-                            " ".join(pieces) + ".",
-                        )
+            pieces: list[str] = []
+            for word in parse_prompter(stretch, dictionary).words:
+                if word["sentenceStart"] and pieces:
+                    pieces[-1] += "."
+                pieces.append(" ".join(word["spoken"]))
+            if pieces:
+                shown = " ".join(re.sub(r"\[[^\]]*\]", "", stretch).split())
+                passages.append(
+                    Passage(
+                        f"passage-{len(passages) + 1}",
+                        row,
+                        state,
+                        shown,
+                        " ".join(pieces) + ".",
                     )
+                )
     if not passages:
         raise TakesError("The script has no words.")
     return passages
@@ -587,6 +567,121 @@ def _really_matches(candidate: Json) -> bool:
     return ops.count("equal") > ops.count("substitute")
 
 
+def _reads(take: Json, a: int, b: int) -> list[int] | None:
+    """The take's words for script words [a, b), if it reads that stretch.
+
+    A read may differ from the script by a few words: at least TOLERANCE of
+    the stretch must be said as written, and its first and last words must be
+    said or replaced (not dropped). Returns the range of spoken words, or None.
+    """
+    inside = [(e, s, op) for e, s, op in take["_pairs"] if a <= e < b]
+    said_as_written = sum(op == "equal" for _, _, op in inside)
+    edge = min(EDGE_WORDS, b - a)
+    if (
+        said_as_written < TOLERANCE * (b - a)
+        or not any(e < a + edge for e, _, _ in inside)
+        or not any(e >= b - edge for e, _, _ in inside)
+    ):
+        return None
+    start = min(s for _, s, _ in inside)
+    end = max(s for _, s, _ in inside) + 1
+    # At the take's own edge keep its outer words: an altered first or last
+    # word is still part of the read.
+    if not any(e < a for e, _, _ in take["_pairs"]):
+        start = take["_range"][0]
+    if not any(e >= b for e, _, _ in take["_pairs"]):
+        end = take["_range"][1]
+    return [start, end]
+
+
+def _sentence_coverage(
+    passage: Passage,
+    takes: list[Json],
+    expected: list[str],
+    words: list[Json],
+    units: list[Json],
+    recognition: Json,
+    quiet: list[list[float]],
+    duration_s: float,
+    fps: list[int],
+) -> Json:
+    """Best coverage of a passage no single take reads: sentence by sentence.
+
+    For each sentence, the last take that reads it and can be cut cleanly.
+    Neighbouring sentences from the same take stay one piece, so a good read
+    is never cut up. A sentence nobody read through is a gap, with the words
+    nobody said at all listed as not covered.
+    """
+    chosen: list[Json] = []
+    gaps: list[Json] = []
+    for a, b in sentence_spans(passage.text, tokens):
+        readers = [
+            (take, spoken)
+            for take in takes
+            if (spoken := _reads(take, a, b)) is not None
+        ]
+        if not readers:
+            said = {e for take in takes for e, _, op in take["_pairs"] if op == "equal"}
+            closest = max(
+                takes,
+                key=lambda take: sum(
+                    a <= e < b and op == "equal" for e, _, op in take["_pairs"]
+                ),
+            )
+            gaps.append(
+                {
+                    "scriptWords": [a, b],
+                    "script": " ".join(expected[a:b]),
+                    "notCovered": [expected[e] for e in range(a, b) if e not in said],
+                    "closestTake": closest["id"],
+                }
+            )
+            continue
+        timed = [
+            (take, spoken, _cut(words, spoken, quiet, duration_s, fps))
+            for take, spoken in readers
+        ]
+        take, spoken, _ = ([x for x in timed if x[2]["cut"]] or timed)[-1]
+        last = chosen[-1] if chosen else None
+        if last and last["take"] == take["id"] and last["scriptWords"][1] == a:
+            last["scriptWords"][1] = b
+            last["_spoken"][1] = spoken[1]
+            last["alternates"] = [i for i in last["alternates"] if i != take["id"]]
+        else:
+            chosen.append(
+                {
+                    "take": take["id"],
+                    "scriptWords": [a, b],
+                    "_spoken": spoken,
+                    "alternates": [t["id"] for t, _, _ in timed if t is not take],
+                }
+            )
+    by_id = {take["id"]: take for take in takes}
+    for piece in chosen:
+        a, b = piece["scriptWords"]
+        spoken = piece.pop("_spoken")
+        inside = [
+            (e, s, op) for e, s, op in by_id[piece["take"]]["_pairs"] if a <= e < b
+        ]
+        paired, heard = {e for e, _, _ in inside}, {s for _, s, _ in inside}
+        piece.update(
+            script=" ".join(expected[a:b]),
+            **_cut(words, spoken, quiet, duration_s, fps),
+            said=_said(words, spoken, units, recognition),
+            differences={
+                "moved": [],
+                "substituted": [
+                    {"script": expected[e], "said": words[s]["token"]}
+                    for e, s, op in inside
+                    if op == "substitute"
+                ],
+                "added": [words[k]["token"] for k in range(*spoken) if k not in heard],
+                "omitted": [expected[e] for e in range(a, b) if e not in paired],
+            },
+        )
+    return {"pieces": chosen, "gaps": gaps}
+
+
 def build_takes(
     report: Json,
     timed: list[Json],
@@ -632,10 +727,12 @@ def build_takes(
             "id": f"{c['row']}-take-{len(takes) + 1}",
             "number": len(takes) + 1,
             "complete": bool(c["complete"]),
-            # Read from the passage's first word to its last, whatever differs.
-            "startToFinish": bool(c["complete"])
-            or {0, len(expected) - 1}
-            <= {op["expected"] for op in c["diff"] if op["op"] == "equal"},
+            "_range": list(c["word_range"]),
+            "_pairs": [
+                (op["expected"], c["word_range"][0] + op["actual"], op["op"])
+                for op in c["diff"]
+                if op["op"] in ("equal", "substitute")
+            ],
             "scriptWordsCovered": covered,
             "scriptWords": len(expected),
             "couldAlsoBePassages": [
@@ -645,6 +742,10 @@ def build_takes(
             "differences": differences([c], expected, words, None),
             "alternate": False,
         }
+        # The whole passage, give or take a few words: not "incomplete".
+        take["wholePassage"] = bool(c["complete"]) or (
+            _reads(take, 0, len(expected)) is not None
+        )
         takes.append(take)
         take_of[c["id"]] = take
     candidates = {c["id"]: c for c in report["candidates"]}
@@ -655,39 +756,30 @@ def build_takes(
         takes = by_passage[passage.id]
         suggested: list[str] = []
         passed_over: list[str] = []
-        if chosen := group["suggested_last_complete"]:
-            members = candidates[chosen].get("members", [chosen])
-            if all(m in take_of for m in members):
-                suggested = [take_of[m]["id"] for m in members]
-        usable = [
-            take_of[c]
-            for c in [group["suggested_last_complete"], *group["alternatives"]]
-            if c in take_of
-        ]
-        usable.sort(key=lambda take: take["number"])
-        if len(suggested) == 1 and usable and usable[-1]["cut"] is None:
-            # Prefer the last complete take that can actually be cut cleanly.
-            with_cut = [take for take in usable if take["cut"]]
-            if with_cut:
-                suggested = [with_cut[-1]["id"]]
-                passed_over = [
-                    t["id"] for t in usable if t["number"] > with_cut[-1]["number"]
-                ]
-        if not suggested:
-            # No take passes the complete-read rule. A take that still runs from
-            # the first word to the last is better coverage than joined pieces.
-            usable = [take for take in takes if take["startToFinish"]]
-            if usable:
-                pick = ([take for take in usable if take["cut"]] or usable)[-1]
-                suggested = [pick["id"]]
-                passed_over = [t["id"] for t in usable if t["number"] > pick["number"]]
-        for take in usable:
-            take["alternate"] = take["id"] not in suggested
-        assembly = group.get("assembly") if not suggested else None
-        if assembly and any(
-            m not in take_of for piece in assembly["pieces"] for m in piece["members"]
-        ):
-            assembly = None  # it leaned on speech that is not really this passage
+        coverage: Json = {"pieces": [], "gaps": []}
+        members = candidates.get(group["suggested_last_complete"], {}).get("members")
+        whole = [take for take in takes if take["wholePassage"]]
+        if members and len(members) > 1 and all(m in take_of for m in members):
+            suggested = [take_of[m]["id"] for m in members]  # one continuous read
+        elif whole:
+            # The last whole take that can actually be cut cleanly.
+            pick = ([take for take in whole if take["cut"]] or whole)[-1]
+            suggested = [pick["id"]]
+            passed_over = [t["id"] for t in whole if t["number"] > pick["number"]]
+            for take in whole:
+                take["alternate"] = take is not pick
+        elif takes:
+            coverage = _sentence_coverage(
+                passage,
+                takes,
+                row_tokens[passage.id],
+                words,
+                units,
+                recognition,
+                quiet,
+                duration_s,
+                fps,
+            )
         notes = [
             {
                 "said": _said(words, s["word_range"], units, recognition),
@@ -708,20 +800,13 @@ def build_takes(
                 "suggestedTakes": suggested,
                 "passedOverTakes": passed_over,
                 "choiceNeeded": bool(notes),
-                "suggestedCoverage": [
-                    [take_of[m]["id"] for m in piece["members"]]
-                    for piece in assembly["pieces"]
-                ]
-                if assembly
-                else [],
-                "missingScriptWords": [
-                    row_tokens[passage.id][i] for i in assembly["missing_row_tokens"]
-                ]
-                if assembly
-                else [],
+                "suggestedCoverage": coverage["pieces"],
+                "gaps": coverage["gaps"],
                 "notes": notes,
             }
         )
+    for take in take_of.values():
+        del take["_range"], take["_pairs"]
     return {
         "passages": out_passages,
         "offScript": off_script,
@@ -821,9 +906,11 @@ def render_report(takes: Json) -> str:
         "",
         "Times are minutes:seconds from the start of the video. Each take's times",
         "are cut points in quiet, about ten frames clear of the speech.",
-        "The suggested take is the last complete one that can be cut cleanly;",
-        "earlier complete takes are alternates. Where no take is complete, the",
-        "best coverage from pieces is suggested. Nothing here is approved.",
+        "The suggested take is the last one that reads the whole passage and can",
+        "be cut cleanly; the others that do are alternates. A few changed words",
+        "are listed as differences, not treated as a missing passage. Where no",
+        "take reads the whole passage, coverage is suggested sentence by",
+        "sentence. Nothing here is approved.",
     ]
     row = 0
     for passage in takes["passages"]:
@@ -845,11 +932,8 @@ def render_report(takes: Json) -> str:
         for take in passage["takes"]:
             if take["complete"]:
                 kind = "complete"
-            elif take["startToFinish"]:
-                kind = (
-                    f"start to finish with differences ({take['scriptWordsCovered']}"
-                    f" of {take['scriptWords']} script words)"
-                )
+            elif take["wholePassage"]:
+                kind = "complete, with wording changes"
             else:
                 kind = (
                     f"partial ({take['scriptWordsCovered']} of "
@@ -860,8 +944,8 @@ def render_report(takes: Json) -> str:
                 mark = "  <- SUGGESTED"
                 if passage["choiceNeeded"]:
                     mark += ", but see the note below"
-            elif any(take["id"] in piece for piece in passage["suggestedCoverage"]):
-                mark = "  <- SUGGESTED (one piece of the coverage below)"
+            elif any(take["id"] == p["take"] for p in passage["suggestedCoverage"]):
+                mark = "  <- used in the suggested coverage below"
             elif take["alternate"]:
                 mark = "  (alternate)"
             lines.append(f"  Take {take['number']}, {kind}{mark}")
@@ -872,7 +956,7 @@ def render_report(takes: Json) -> str:
                 lines.append(f"    Matches passage {others} equally well")
             if take["unplacedWords"]:
                 lines.append(f"    {take['unplacedWords']} words not placed in time")
-            if take["startToFinish"]:
+            if take["wholePassage"]:
                 lines += [
                     f"    Differs: {text}"
                     for text in _difference_lines(take["differences"])
@@ -888,26 +972,43 @@ def render_report(takes: Json) -> str:
                 f"  Take {later} is later but has no clean cut, so an "
                 "earlier take is suggested."
             )
-        if passage["suggestedCoverage"]:
-            parts = [
-                " + ".join(f"take {numbers[i]}" for i in piece)
-                for piece in passage["suggestedCoverage"]
-            ]
-            joins = (
-                "The joins will show: this passage is on camera."
-                if passage["camera"] == "on"
-                else "Check the joins."
-            )
-            lines.append(
-                f"  No single complete take. SUGGESTED COVERAGE, in script order: "
-                f"{'; then '.join(parts)}. {joins}"
-            )
+        if passage["suggestedCoverage"] or passage["gaps"]:
+            lines += ["", "  No single take covers this passage. SUGGESTED COVERAGE:"]
+            for piece in passage["suggestedCoverage"]:
+                a, b = piece["scriptWords"]
+                lines.append(
+                    f"    Script words {a + 1} to {b}, from take "
+                    f"{numbers[piece['take']]}: {_times(piece)}"
+                )
+                lines.append(f"      Said: {piece['said']}")
+                lines += [
+                    f"      Differs: {text}"
+                    for text in _difference_lines(piece["differences"])
+                ]
+                if piece["alternates"]:
+                    others = ", ".join(str(numbers[i]) for i in piece["alternates"])
+                    lines.append(f"      Alternates: take {others}")
+            for gap in passage["gaps"]:
+                a, b = gap["scriptWords"]
+                lines.append(
+                    f"    Script words {a + 1} to {b} ({gap['script']}): no take "
+                    f"reads this through. Closest is take "
+                    f"{numbers[gap['closestTake']]}."
+                )
+                if gap["notCovered"]:
+                    lines.append("      NOT COVERED: " + " ".join(gap["notCovered"]))
+            if len(passage["suggestedCoverage"]) + len(passage["gaps"]) > 1:
+                lines.append(
+                    "    The joins will show: this passage is on camera."
+                    if passage["camera"] == "on"
+                    else "    Check the joins."
+                    if passage["camera"] == "unknown"
+                    else "    Off camera, so the joins are covered by footage."
+                )
         elif passage["takes"] and not passage["suggestedTakes"]:
             lines.append(
                 "  Nothing is suggested: the takes here are ambiguous or badly timed."
             )
-        if passage["missingScriptWords"]:
-            lines.append("  NOT COVERED: " + " ".join(passage["missingScriptWords"]))
         for note in passage["notes"]:
             lines.append(
                 f'  Note: the presenter said "{note["said"]}". {note["meaning"]}'

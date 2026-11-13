@@ -322,50 +322,88 @@ def test_word_script_without_bold_does_not_claim_a_camera_state() -> None:
         pt.docx_to_script(b"PK not a zip")
 
 
-def test_off_camera_sentences_are_separate_passages_on_camera_is_whole() -> None:
-    script = (
-        "(off) The band wanted to embrace the weirdness. Yes. They really like "
-        "saunas a lot. (on) Finns are singing. In Swedish."
-    )
-    passages = pt.script_passages(script, DICTIONARY)
-    assert [(p.camera, p.script) for p in passages] == [
-        ("off", "The band wanted to embrace the weirdness. Yes."),
-        ("off", "They really like saunas a lot."),
-        ("on", "Finns are singing. In Swedish."),
-    ]
-
-
 ON_CAMERA = "(on) They really like saunas. The band wanted to embrace the weirdness."
 
 
-def test_no_complete_take_still_suggests_coverage_from_pieces() -> None:
-    # Each sentence was read on its own; nobody read the passage straight through.
-    spoken = [
-        *_said("They really like saunas.", 2.0),
-        *_said("The band wanted to embrace the weirdness.", 10.0),
-    ]
+def _coverage_case(script: str, spoken: list[tuple[str, float]]) -> Json:
     recognition, alignment = _artifacts(spoken)
-    passages = pt.script_passages(ON_CAMERA, DICTIONARY)
+    passages = pt.script_passages(script, DICTIONARY)
     words = pt.timed_words(recognition, alignment)
     report = refine(discover(pt.take_packet(words, alignment, passages, DURATION, FPS)))
     quiet = [[0.0, DURATION]]
     body = pt.build_takes(
         report, words, recognition, alignment, passages, quiet, DURATION, FPS
     )
-    passage = body["passages"][0]
-    assert passage["suggestedTakes"] == []
-    assert passage["suggestedCoverage"] == [["passage-1-take-1"], ["passage-1-take-2"]]
-    assert passage["missingScriptWords"] == []
-    takes = {
+    return {
         "video": {"file": "clip.mov", "durationS": DURATION, "fps": FPS},
         "script": {"file": "script.txt"},
         "sync": None,
         **body,
         "secondsTaken": 1.0,
     }
+
+
+def test_no_whole_take_suggests_coverage_sentence_by_sentence() -> None:
+    # Each sentence was read on its own; nobody read the passage straight through.
+    takes = _coverage_case(
+        ON_CAMERA,
+        [
+            *_said("They really like saunas.", 2.0),
+            *_said("The band wanted to embrace the weirdness.", 10.0),
+            *_said("The band wanted to embrace the weirdness.", 20.0),
+        ],
+    )
+    passage = takes["passages"][0]
+    assert passage["suggestedTakes"] == [] and passage["gaps"] == []
+    first, second = passage["suggestedCoverage"]
+    assert (first["take"], first["scriptWords"]) == ("passage-1-take-1", [0, 4])
+    assert (second["take"], second["scriptWords"]) == ("passage-1-take-3", [4, 11])
+    assert second["alternates"] == ["passage-1-take-2"]
+    assert second["cut"]["startFrame"] == 20 * 30 - 10
     report_text = pt.render_report(takes)
-    assert "SUGGESTED COVERAGE, in script order: take 1; then take 2." in report_text
+    assert "No single take covers this passage. SUGGESTED COVERAGE:" in report_text
     assert "The joins will show: this passage is on camera." in report_text
+
+
+def test_a_whole_off_camera_take_is_never_cut_up_by_sentence() -> None:
+    script = "(off) They really like saunas. The band wanted to embrace the weirdness."
+    read = "They really like saunas. The band wanted to embrace the weirdness."
+    takes = _coverage_case(script, _said(read, 2.0))
+    passage = takes["passages"][0]
+    assert len(passage["takes"]) == 1 and passage["takes"][0]["complete"]
+    assert passage["suggestedTakes"] == ["passage-1-take-1"]
+    assert passage["suggestedCoverage"] == []
+
+
+def test_a_sentence_nobody_finished_is_a_gap_with_the_unsaid_words() -> None:
+    takes = _coverage_case(
+        ON_CAMERA,
+        [
+            *_said("They really like saunas.", 2.0),
+            *_said("The band wanted to", 10.0),
+        ],
+    )
+    passage = takes["passages"][0]
+    assert [p["scriptWords"] for p in passage["suggestedCoverage"]] == [[0, 4]]
+    (gap,) = passage["gaps"]
+    assert gap["scriptWords"] == [4, 11]
+    assert gap["notCovered"] == ["embrace", "the", "weirdness"]
+    assert "NOT COVERED: embrace the weirdness" in pt.render_report(takes)
+
+
+def test_a_few_changed_words_are_differences_not_an_incomplete_passage() -> None:
+    # The presenter changes one word and adds another; strict matching refuses.
+    altered = "The group wanted to really embrace the weirdness."
+    takes = _takes(_said(altered, 2.0))
+    passage = takes["passages"][1]
+    take = passage["takes"][0]
+    assert take["complete"] is False and take["wholePassage"] is True
+    assert passage["suggestedTakes"] == [take["id"]]
+    assert passage["suggestedCoverage"] == [] and passage["gaps"] == []
+    assert take["differences"]["substituted"] == [{"script": "band", "said": "group"}]
+    assert take["differences"]["added"] == ["really"]
+    assert take["differences"]["omitted"] == []
+    assert "complete, with wording changes" in pt.render_report(takes)
 
 
 def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> None:
@@ -381,18 +419,3 @@ def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> Non
     assert "has no clean cut, so an earlier take is suggested" in pt.render_report(
         takes
     )
-
-
-def test_a_start_to_finish_read_with_a_garbled_name_beats_joined_pieces() -> None:
-    # The recogniser loses a word mid-sentence (in life, a garbled name), so
-    # the strict rule refuses it; the read still runs from first word to last.
-    garbled = "The band wanted embrace the weirdness."
-    takes = _takes(_said(garbled, 2.0))
-    passage = takes["passages"][1]
-    take = passage["takes"][0]
-    assert take["complete"] is False and take["startToFinish"] is True
-    assert passage["suggestedTakes"] == [take["id"]]
-    assert passage["suggestedCoverage"] == []
-    report = pt.render_report(takes)
-    assert "start to finish with differences" in report
-    assert "Differs: left out:" in report
