@@ -1769,12 +1769,34 @@ describe("pure v2 compiler", () => {
   });
 });
 
-import { researchOccurrence } from "./issue-367-fixture.js";
+import { researchCandidate, researchOccurrence, researchId } from "./issue-367-fixture.js";
+import { insertLoggedResearchClipV2 } from "../src/research-clip-commands.js";
 
 describe("Research snapshot readiness (issue 367 phase 3)", () => {
   const needs = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => resolveMediaRequirementsV2(doc, {
     timing: deps.narrationTimingMaps, defaults: deps.authoringDefaults,
     sourceDescriptors: deps.occurrenceResolutions, frameRate: deps.timeline.frameRate,
+  });
+
+  it("refuses an insertion-fed unresolved clip with its exact new row identity", () => {
+    const intro = intentionalSlateBlock();
+    const doc = visualOnlyDocument(intro);
+    const candidate = researchCandidate();
+    const before = structuredClone(candidate);
+    const fresh = [researchId(860001), researchId(860002), researchId(860003)];
+    const inserted = insertLoggedResearchClipV2(doc, candidate, intro.id, () => fresh.shift()!);
+    expect(validateScriptDocumentV2(inserted).valid).toBe(true);
+    const deps = visualOnlyDependencies();
+    deps.build.forcePreviewVisuals = true;
+    const compiled = compileTimelineV2(inserted, deps);
+    expect(compiled.ok).toBe(false);
+    if (!compiled.ok) {
+      expect(compiled.diagnostics).toContainEqual(expect.objectContaining({
+        code: "RESEARCH_MEDIA_UNRESOLVED", entityId: researchId(860001),
+      }));
+    }
+    expect(candidate).toEqual(before);
+    expect(doc.activeDraft.blocks).toHaveLength(1);
   });
 
   it("refuses unresolved Research footage instead of timing it as a still, even with preview overrides", () => {

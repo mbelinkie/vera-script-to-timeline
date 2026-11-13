@@ -1,4 +1,6 @@
 import type { ScriptDocumentV1 } from "../src/generated/contracts.js";
+import { insertLoggedResearchClipV2 } from "../src/research-clip-commands.js";
+import { researchCandidate, researchId, researchNote, researchStashFixture } from "./issue-367-fixture.js";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -49,6 +51,38 @@ afterEach(() => {
 });
 
 describe("script validator CLI subprocess", () => {
+  it("validates an inserted unresolved v2 Research row in a real Node subprocess", () => {
+    const doc = researchStashFixture(false).doc;
+    const note = researchNote(820100);
+    doc.activeDraft.blocks = [note];
+    const freshIds = [researchId(850001), researchId(850002), researchId(850003)];
+    const inserted = insertLoggedResearchClipV2(doc, researchCandidate(), note.id, () => freshIds.shift()!);
+    const path = temporaryFile("research-v2.json", JSON.stringify(inserted, null, 2));
+    const before = readFileSync(path, "utf8");
+    const result = run(path);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe([
+      `PASS ScriptDocument valid: ${path}`,
+      `Row 1 [narration] order=${note.orderKey} id=${note.id}`,
+      `Row 2 [visual_only] order=research-${researchId(850003)} id=${researchId(850001)}`,
+      "2 row(s) validated.",
+      "",
+    ].join("\n"));
+    expect(readFileSync(path, "utf8")).toBe(before);
+
+    const broken = structuredClone(inserted);
+    const clip = broken.activeDraft.blocks[1];
+    if (clip?.type !== "visual_only" || !clip.researchClip) throw new Error("Missing snapshot");
+    clip.researchClip.loggedSelection.exportEndMs = 100;
+    const badPath = temporaryFile("invalid-research-v2.json", JSON.stringify(broken));
+    const refused = run(badPath);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toBe("");
+    expect(refused.stdout).toContain("RESEARCH_CLIP_INVALID");
+    expect(readFileSync(badPath, "utf8")).toBe(JSON.stringify(broken));
+  }, 20_000);
+
   it.each(["minimal", "torture"] as const)(
     "prints deterministic pass output and every row for %s",
     (name) => {
