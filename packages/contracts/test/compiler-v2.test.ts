@@ -124,7 +124,7 @@ describe("#100 verified A5 music compilation", () => {
     const result = compile(doc, deps);
     expect(result.manifest.events.some((item) => item.kind === "music")).toBe(false);
     expect(result.manifest.sources.some((item) => "musicAudio" in item)).toBe(false);
-    expect(result.report.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: "MUSIC_FILE_MISSING", severity: "warning", message: expect.stringContaining("missing-bed.wav") })]));
+    expect(result.report.diagnostics.some((item) => item.code === "MUSIC_FILE_MISSING" && item.severity === "warning" && item.message.includes("missing-bed.wav"))).toBe(true);
     expect(result.report.status).toBe("ready");
   });
 
