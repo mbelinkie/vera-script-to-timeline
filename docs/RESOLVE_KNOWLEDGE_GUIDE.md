@@ -1031,6 +1031,19 @@ the public accepted report is the source here. Free is untested/manual-or-blocke
 this probe. Changed graph/control/data mapping needs the affected target-boundary
 and output delta; lower-third baking does not prove highlights on this template.
 
+### RK-46 — A 24 fps interior picture cut can report the exclusive source end
+
+**Native readback / shipped build verification refused.**
+On Studio **21.1.1 build 10** with Local scripting, [#327](investigations/issue-327/README.md)
+built and reopened a two-row synthetic timeline with 24 fps H.264 picture
+and 48 kHz tone. Each 96-frame picture used source time `[1.0,5.0)` seconds.
+Resolve returned source frame getters `24,120` and handles `24,72`. The
+build expected source end `119` and withheld the row map. The two complete
+96-frame WAV clips reported `0,95`. Standalone structural readback confirmed
+the four stamped items and their record geometry without a prior UID map.
+This extends the evidence for [#544](https://github.com/mbelinkie/vera-script-to-timeline/issues/544)
+to an interior 24 fps picture range. The finishing trials are pending.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)
