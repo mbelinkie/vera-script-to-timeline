@@ -1870,6 +1870,18 @@ def test_23976_build_runs_guarded_save_reopen_and_readback(tmp_path: Path) -> No
     assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
 
 
+@pytest.mark.parametrize("reopened_rate", ["23.976", "24"])
+def test_23976_verify_checks_reopened_timeline_rate(reopened_rate: str) -> None:
+    adapter, _item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter.expected_settings = {"timelineFrameRate": "23.976"}
+    adapter.project.GetSetting = lambda _key: "23.976"
+    adapter.timeline.GetSetting = lambda _key: reopened_rate
+
+    expected = () if reopened_rate == "23.976" else ("timeline-frame-rate",)
+    assert adapter.verify(view) == expected
+
+
 def test_23976_native_rate_is_opt_in_and_defaults_to_refusal(
     tmp_path: Path,
 ) -> None:
