@@ -151,18 +151,22 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
         except OSError as error:
             if error.errno not in (errno.ENOTSUP, errno.EOPNOTSUPP, errno.EPERM):
                 raise
+            created = False
             try:
                 with output.open("xb") as destination:
-                    try:
-                        with staged.open("rb") as source_file:
-                            shutil.copyfileobj(source_file, destination)
-                    except BaseException:
-                        output.unlink()
-                        raise
+                    created = True
+                    with staged.open("rb") as source_file:
+                        shutil.copyfileobj(source_file, destination)
+                    destination.flush()
+                    os.fsync(destination.fileno())
             except FileExistsError as exists:
                 raise TakesError(
                     "Output already exists; choose a new output file."
                 ) from exists
+            except BaseException:
+                if created:
+                    output.unlink(missing_ok=True)
+                raise
     print(
         f"Measured cleaned audio sync: {measured.offset_s * 1000:.1f} ms; "
         f"spread: {measured.spread_s * 1000:.1f} ms. "
