@@ -101,7 +101,7 @@ def _make(
     observed: list[dict[str, Any]],
     **overrides: Any,
 ) -> dict[str, Any]:
-    options = dict(
+    options: dict[str, Any] = dict(
         project_name="Producer's Project",
         resolve_project_id="resolve-project-UID",
         timeline_name="New VERA timeline",

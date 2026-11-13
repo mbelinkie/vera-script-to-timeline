@@ -115,7 +115,7 @@ def _item_change(
         if key not in unknown and before[key] != after[key]
     }
     statuses = []
-    if "durationFrames" in changes:
+    if "durationFrames" in changes and "mediaId" not in changes:
         statuses.append("trimmed")
     if (
         "trackKind" in changes
@@ -147,6 +147,29 @@ def _item_change(
     if unknown:
         result["cannotRead"] = unknown
     return result
+
+
+def _row_for_addition(
+    item: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]
+) -> str | None:
+    start, duration = item["startFrame"], item["durationFrames"]
+    if start is None or duration is None:
+        return None
+    end = start + duration
+    overlaps = [
+        row
+        for row in rows
+        if row["rowId"] is not None
+        and row["startFrame"] < end
+        and start < row["startFrame"] + row["lengthFrames"]
+    ]
+    if len(overlaps) != 1:
+        return None
+    row = overlaps[0]
+    if row["startFrame"] <= start and end <= row["startFrame"] + row["lengthFrames"]:
+        row_id: str = row["rowId"]
+        return row_id
+    return None
 
 
 def observe_output(
@@ -200,24 +223,7 @@ def observe_output(
         unknown = [key for key in _FIELDS if item[key] is None]
         if unknown:
             added["cannotRead"] = unknown
-        start, duration = item["startFrame"], item["durationFrames"]
-        row_id = None
-        if start is not None and duration is not None:
-            end = start + duration
-            overlapping = [
-                row
-                for row in saved["rows"]
-                if row["rowId"] is not None
-                and row["startFrame"] < end
-                and start < row["startFrame"] + row["lengthFrames"]
-            ]
-            if len(overlapping) == 1:
-                row = overlapping[0]
-                if (
-                    row["startFrame"] <= start
-                    and end <= row["startFrame"] + row["lengthFrames"]
-                ):
-                    row_id = row["rowId"]
+        row_id = _row_for_addition(item, saved["rows"])
         if row_id is None:
             added["rowAttribution"] = "cannot tell from the saved row boundaries"
             if None not in rows_by_id:
@@ -237,7 +243,12 @@ def observe_output(
             for row in rows
             for item in row["items"]
         ),
-        "cannotRead": ["grades", "effects", "timeline markers and track settings"],
+        "cannotRead": ["grades", "effects"],
+        "notCompared": [
+            "timeline markers",
+            "track settings",
+            "clip inspector settings",
+        ],
         "rows": rows,
     }
 

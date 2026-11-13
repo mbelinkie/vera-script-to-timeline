@@ -183,8 +183,9 @@ and effects are outside the readback. The command reads the current timeline
 without saving or changing it.
 
 If you duplicate the timeline as an archive, keep editing the original.
-Resolve gives the duplicate fresh timeline and clip IDs, so its copy of a
-VERA marker is insufficient to match it to the baseline. The command also
+In the recorded Studio test, Resolve gave the duplicate fresh timeline and
+clip IDs. The baseline requires the original timeline ID even when the
+duplicate inherits VERA's clip markers. The command also
 refuses a missing baseline, a version 1 row map, or conflicting clip IDs.
 
 ## Validation

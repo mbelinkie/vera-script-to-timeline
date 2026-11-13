@@ -661,6 +661,10 @@ class _FakeAdapter:
                     "trackIndex": tracks[event["trackId"]]["index"],
                     "startFrame": event["recordRange"]["startFrame"],
                     "durationFrames": event["recordRange"]["durationFrames"],
+                    "name": None,
+                    "mediaId": None,
+                    "sourceStartFrame": None,
+                    "sourceEndFrame": None,
                 }
                 for index, event in enumerate(self.verified_view["events"])
             ],
@@ -1985,6 +1989,10 @@ def test_native_readback_captures_uid_from_reopened_matched_item() -> None:
                 "trackIndex": 1,
                 "startFrame": 0,
                 "durationFrames": 10,
+                "name": None,
+                "mediaId": "media-id",
+                "sourceStartFrame": item.source_start,
+                "sourceEndFrame": item.source_end,
             }
         ],
     }
