@@ -254,59 +254,71 @@ class _HostReservation:
         self.root.mkdir(parents=True, exist_ok=True)
         with (self.root / "dispatch.lock").open("a+") as guard:
             fcntl.flock(guard, fcntl.LOCK_EX)
-            # A request ID identifies one native mutation for the lifetime of
-            # this host state, even after a previous request finished. Otherwise
-            # a new job could silently reuse a completed one-use authorization.
-            finished = self.root / f"composition-finished-{request_id}.json"
-            if finished.exists() or finished.is_symlink():
-                raise NeedsAction("native request ID was already consumed")
-            parent = self.root / "active.json"
-            if parent.exists():
-                active = json.loads(parent.read_bytes())
-                if set(active) != {"requestPath", "requestSha256"}:
-                    raise NeedsAction("untrusted host-wide Resolve parent reservation")
-                try:
-                    state = parent_status(
-                        Path(active["requestPath"]), active["requestSha256"]
-                    )
-                except Exception as error:
-                    raise UncertainResult(
-                        "cannot verify prior native parent state"
-                    ) from error
-                if state.get("state") not in ("terminal", "not_started"):
-                    raise NeedsAction(
-                        "another native parent request remains active or uncertain"
-                    )
-                if state["state"] == "terminal" and state.get("verified") is not True:
-                    raise NeedsAction("prior native parent ended unverified")
-            record = self.root / "composition-active.json"
-            if record.exists():
-                prior = json.loads(record.read_bytes())
-                if not isinstance(prior, dict) or set(prior) != {
-                    "requestId",
-                    "attestationSha256",
-                }:
-                    raise NeedsAction("untrusted existing composition reservation")
-                if not (
-                    self.root / f"composition-finished-{prior['requestId']}.json"
-                ).is_file():
-                    raise NeedsAction("prior native composition has unresolved effects")
-            temporary = self.root / f".composition-active-{request_id}.json"
-            publish_immutable_output(
-                temporary,
-                canonical_json(
-                    {
-                        "requestId": request_id,
-                        "attestationSha256": attestation_digest,
-                    }
-                ),
-            )
-            os.replace(temporary, record)
-            directory = os.open(self.root, os.O_RDONLY)
+            self.reserve_locked(request_id, attestation_digest)
+
+    def reserve_locked(
+        self,
+        request_id: str,
+        attestation_digest: str,
+        *,
+        record_intent: Callable[[], None] | None = None,
+    ) -> None:
+        """Reserve under the dispatch lock already held by the Local parent."""
+        # A request ID identifies one native mutation for the lifetime of
+        # this host state, even after a previous request finished. Otherwise
+        # a new job could silently reuse a completed one-use authorization.
+        finished = self.root / f"composition-finished-{request_id}.json"
+        if finished.exists() or finished.is_symlink():
+            raise NeedsAction("native request ID was already consumed")
+        parent = self.root / "active.json"
+        if parent.exists():
+            active = json.loads(parent.read_bytes())
+            if set(active) != {"requestPath", "requestSha256"}:
+                raise NeedsAction("untrusted host-wide Resolve parent reservation")
             try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+                state = parent_status(
+                    Path(active["requestPath"]), active["requestSha256"]
+                )
+            except Exception as error:
+                raise UncertainResult(
+                    "cannot verify prior native parent state"
+                ) from error
+            if state.get("state") not in ("terminal", "not_started"):
+                raise NeedsAction(
+                    "another native parent request remains active or uncertain"
+                )
+            if state["state"] == "terminal" and state.get("verified") is not True:
+                raise NeedsAction("prior native parent ended unverified")
+        record = self.root / "composition-active.json"
+        if record.exists():
+            prior = json.loads(record.read_bytes())
+            if not isinstance(prior, dict) or set(prior) != {
+                "requestId",
+                "attestationSha256",
+            }:
+                raise NeedsAction("untrusted existing composition reservation")
+            if not (
+                self.root / f"composition-finished-{prior['requestId']}.json"
+            ).is_file():
+                raise NeedsAction("prior native composition has unresolved effects")
+        if record_intent is not None:
+            record_intent()
+        temporary = self.root / f".composition-active-{request_id}.json"
+        publish_immutable_output(
+            temporary,
+            canonical_json(
+                {
+                    "requestId": request_id,
+                    "attestationSha256": attestation_digest,
+                }
+            ),
+        )
+        os.replace(temporary, record)
+        directory = os.open(self.root, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     def finish(self, request_id: str, digest: str) -> None:
         finished = self.root / f"composition-finished-{request_id}.json"
@@ -443,34 +455,53 @@ class BuildStudioStagePort:
             or len(self.authorization.request_id) > 128
         ):
             raise BuildJobError("invalid native request identity")
-        if _stage_file(context, snapshot, context.stage, "intent.json").exists():
+        intent = _stage_file(context, snapshot, context.stage, "intent.json")
+        if intent.exists():
             raise UncertainResult(
                 "native one-use intent exists; refuse a second mutation"
             )
         context.renew_lease()
-        self.reservation.reserve(self.authorization.request_id, digest)
-        intent = _stage_file(context, snapshot, context.stage, "intent.json")
-        publish_immutable_output(
-            intent,
-            canonical_json(
-                _intent_body(context, snapshot, self.authorization, target, digest)
-            ),
+        request_id = self.authorization.request_id
+        intent_bytes = canonical_json(
+            _intent_body(context, snapshot, self.authorization, target, digest)
         )
-        preflight = self.driver.preflight(
-            attestation, digest, self.authorization.request_id
-        )
-        if (
-            preflight.get("status") != "preflight_passed"
-            or preflight.get("attestationSha256") != digest
-        ):
-            raise NeedsAction(
-                "read-only native preflight did not pass; reserved target retained"
+
+        if isinstance(self.driver, ParentStudioDriver):
+
+            def prepare_dispatch(root: Path) -> None:
+                if root.absolute() != self.reservation.root:
+                    raise BuildJobError(
+                        "Local parent and composition state roots differ"
+                    )
+                if intent.exists() or intent.is_symlink():
+                    raise UncertainResult("native one-use intent already exists")
+                context.renew_lease()
+                self._authorized(context, snapshot, digest)
+                self.reservation.reserve_locked(
+                    request_id,
+                    digest,
+                    record_intent=lambda: publish_immutable_output(
+                        intent, intent_bytes
+                    ),
+                )
+
+            result = self.driver.start(
+                attestation, digest, request_id, before_dispatch=prepare_dispatch
             )
-        context.renew_lease()
-        # The authority may be withdrawn while preparing the package or waiting
-        # for host dispatch. Recheck immediately before the one native write.
-        self._authorized(context, snapshot, digest)
-        result = self.driver.start(attestation, digest, self.authorization.request_id)
+        else:
+            self.reservation.reserve(request_id, digest)
+            publish_immutable_output(intent, intent_bytes)
+            preflight = self.driver.preflight(attestation, digest, request_id)
+            if (
+                preflight.get("status") != "preflight_passed"
+                or preflight.get("attestationSha256") != digest
+            ):
+                raise NeedsAction(
+                    "read-only native preflight did not pass; reserved target retained"
+                )
+            context.renew_lease()
+            self._authorized(context, snapshot, digest)
+            result = self.driver.start(attestation, digest, request_id)
         result_path = _stage_file(
             context, snapshot, context.stage, "native-result.json"
         )
