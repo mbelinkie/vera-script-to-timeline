@@ -14,6 +14,7 @@ from test_build_studio_stage import (
     setup,  # noqa: F401 - imported pytest fixture
 )
 from vera_timeline_agent import build_studio_parent_driver as parent_driver
+from vera_timeline_agent import resolve_native_owner, workflow_v2_parent
 from vera_timeline_agent.build_composition import EffectState
 from vera_timeline_agent.build_jobs import BuildJobError, NeedsAction, UncertainResult
 from vera_timeline_agent.build_studio_parent_driver import ParentStudioDriver
@@ -71,6 +72,30 @@ def local(
         Path("/synthetic/ResolvePython"),
     )
     return (snapshot, local_auth, fake, context, host), driver
+
+
+def test_busy_native_owner_leaves_no_composition_intent(
+    local: tuple[StudioCase, ParentStudioDriver], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (snapshot, auth, _fake, ctx, host), driver = local
+    monkeypatch.setattr(workflow_v2_parent, "PARENT_STATE_ROOT", host)
+    monkeypatch.setattr(resolve_native_owner, "OWNER_LOCK_PATH", host / "native-owner.lock")
+    monkeypatch.setattr(
+        workflow_v2_parent, "_dispatch", lambda *_a, **_k: pytest.fail("dispatched")
+    )
+    context = ctx("building_resolve_timeline")
+    build = BuildStudioStagePort(auth, driver, host_state=host)
+    holder = resolve_native_owner.acquire_native_owner()
+    try:
+        with pytest.raises(NeedsAction, match="Resolve is busy"):
+            build.execute(context, snapshot)
+        with pytest.raises(resolve_native_owner.NativeOwnerError) as blocked:
+            resolve_native_owner.acquire_native_owner()
+        assert blocked.value.reason == "owner_busy"
+    finally:
+        resolve_native_owner.release_native_owner(holder)
+    assert build.inspect(context, snapshot).state == EffectState.ABSENT
+    assert not (host / "composition-active.json").exists()
 
 
 def test_parent_live_is_one_dispatch_and_read_only_resume(
