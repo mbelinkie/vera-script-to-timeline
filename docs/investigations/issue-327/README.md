@@ -1,89 +1,67 @@
 # Resolve finishing preservation
 
-The fresh [#327](https://github.com/mbelinkie/vera-script-to-timeline/issues/327)
-two-row build passed the normal command's save, close, reopen and full
-verification on November 13. The Local SDK identified DaVinci Resolve
-Studio 21.1.1 build 10. The eight-second build took 69.51 seconds and published
-the #522 row map, with two 96-frame rows at 24 fps. The disposable project and
-original timeline end in `1c7f3e50d22d`. The manual finishing and preservation
-trials are pending.
+Resolve Studio **21.1.1 build 10**, Local scripting, November 13, 2026.
+The normal build command created two synthetic 96-frame rows at 24 fps,
+then saved, closed, reopened and published the verified #522 row map.
+Matthew added the finishing by hand. Each trial and the archive started
+from a separate duplicate of the finished original.
 
-The earlier retained build stopped at source-end verification. Read-only
-inspection found all four expected stamped clips. Both picture
-clips had the expected 96-frame record spans. For each clip Resolve reported
-source frames 24 to 120, source times 1.0 to 5.0 seconds and left/right
-handles of 24/72 frames. The build verifier expects source end 119 for this
-range. The 96-frame audio clips reported source frames 0 to 95. This is the
-24 fps interior-cut counterpart to the 25 fps picture mismatch reported in
-[#544](https://github.com/mbelinkie/vera-script-to-timeline/issues/544).
-The standalone readback passed its structural comparison without a prior UID
-map. Further Resolve writes stopped at this point.
-
-Current main includes #520's qualified 24 fps source-clock correction (RK-32).
-All four variants were regenerated and compiled against that revision before
-the successful native build. The remaining 25 fps correction in #544 is
-separate from this fixture's 24 fps route.
-
-Setup captured readable clip identities, bounds, source hashes and audio
-volume, then imported `Spare.mp4` into the `Package Media` bin. The LUT
-export call produced no readable grade file for either ungraded picture.
-The grade result therefore requires visual confirmation when export remains
-unavailable. An unchanged clip ID or node label alone cannot establish it.
-
-Claude reviewed the experiment after its usage reset on November 13. Its
-three findings were fixed by checking retained timelines before saving and
-after reopening, validating variant files before connecting, and allowing
-manual-edit corrections to retry before a native write. Offline checks of
-those failure paths passed. The fresh package and 92 focused build/map tests
-also pass. Native preservation remains pending.
-
-Use the row map delivered by [#522](https://github.com/mbelinkie/vera-script-to-timeline/pull/534)
-to identify the original items and the save, close and reopen check from
-[#520](https://github.com/mbelinkie/vera-script-to-timeline/issues/520) to
-verify persistence. Make the archive from the finished original and start
-each variant from a separate duplicate of the same original. RK-17 and #101
-show why a copied marker alone cannot identify the original Resolve item.
-RK-16–19, RK-40–42, RK-45 and [#328](../issue-328-selective-outbound.md)
-provide observation, transition, effect and retry evidence. The open question
-is what happens to existing hand finishing when a neighboring row changes.
-
-| Hand finishing | Same length, different clip | Longer second row | Rows swapped |
+| Finishing | Same length, different picture | Longer final row | Rows swapped |
 | --- | --- | --- | --- |
-| Row 1 grade | Cannot tell | Cannot tell | Cannot tell |
-| Row 1 clip volume | Cannot tell | Cannot tell | Cannot tell |
-| Row 1 effect | Cannot tell | Cannot tell | Cannot tell |
-| Transition at the row boundary | Cannot tell | Cannot tell | Cannot tell |
-| Resolve-only clip on a spare track | Cannot tell | Cannot tell | Cannot tell |
-| Archive comparison | Pending | Pending | Pending |
+| Row 1 black-and-white grade | Kept | Kept | Lost. Recreated picture returned to color. |
+| Row 1 clip volume | Kept at −12 dB | Kept at −12 dB | Lost. Recreated tone returned to 0 dB. |
+| Row 1 Fusion Blur | Kept at 12 | Kept at 12 | Lost. Recreated picture had no Blur. |
+| Cross Dissolve at the boundary | Kept, same item and span | Lost | Lost |
+| Resolve-only clip on V2 | Kept at frames 24–48 | Kept at frames 24–48 | Kept at frames 24–48. It now sits over row 2. |
+| Archive | Matched before save and after reopen | Matched before save and after reopen | Matched before save and after reopen |
 
-The manual finishing and all three trial updates are pending. Before #104
-applies any of these changes, it
-should keep the finished timeline available, warn about finishing at affected
-boundaries and require a proved preservation route for each affected item.
-The smallest available fallback is to retain the finished timeline and let
-the editor make the affected change manually. This is an interim recommendation
-based on the vendor limit and the missing preservation evidence.
+- **Same length.** Adding, selecting and finalizing a take on row 2's picture
+  switched the source and retained that picture's item ID and bounds. Row 1
+  and the 24-frame dissolve retained their item IDs and spans.
+- **Longer final row.** Deleting and reappending only row 2's picture and tone
+  without ripple extended it from 96 to 144 frames. Row 1 kept both original
+  items on the trial copy. The dissolve disappeared even though the cut
+  stayed at frame 96.
+- **Swap.** Deleting and reappending both rows without ripple reversed their
+  positions. Both finished row 1 items received new IDs. Its picture grade,
+  Blur and tone level were lost, along with the boundary dissolve.
 
-## Routes to test on Studio 21.1.1 build 10
+After each save, close and reopen, readback matched all four expected clips
+against the authored sources and record geometry. The archive matched its
+initial snapshot for item IDs, source identity, bounds, markers, volume,
+Blur and transition geometry. The original and completed earlier trials
+also matched before each save and after reopening.
 
-- **Same length, different clip.** Use the take selector on row 2's picture
-  to select and finalize a different source with the same bounds. Check the
-  source ID, geometry and whether the transition stayed attached.
-- **Longer final row.** Delete and reappend row 2's picture and tone without
-  ripple, extending from four to six seconds. Row 1 starts and ends at the
-  same frames. Check whether recreating row 2 removes the shared transition.
-- **Rows swapped.** Delete and reappend both picture and tone pairs in the
-  opposite order. The spare-track clip stays at its record position. Report
-  separately whether it survives and whether it still accompanies row 1.
-  Check what deleting and recreating row 1's clips costs.
+LUT export produced no readable grade file. The installed SDK's Color-page
+thumbnail showed grayscale on row 1 in the original, archive, replacement
+and longer trial at frame 72, beyond the spare clip and before the dissolve.
+The moved row 1 returned to color at frame 168 in the swap. The mean
+per-pixel RGB channel spread was zero for each grayscale sample and about
+243 out of 255 for the recreated row 1 picture. Color controls on the other
+row stayed visibly colored. This measures one saturation edit.
+
+## Recommendation for #104
+
+On 21.1.1, archive the finished timeline first. Use the tested take-selector
+route for a same-length picture replacement when the new source fits the
+cut and transition handles and the affected items are understood. Verify the
+source, clip bounds and existing boundary after reopening.
+
+Refuse an automatic extension across an existing transition if the update
+would drop it. Extending the final row can preserve row 1's own clips,
+but the tested route removed their shared dissolve. Refuse an automatic
+reorder that would recreate finished clips or guess where to put an
+editor-only item. Warn before any write which boundary finishing can
+disappear and which editor-only clips overlap an affected span. The smallest
+fallback is to keep the finished timeline and let the editor make the
+affected change on a copy.
 
 [Blackmagic Developer Support](https://github.com/mbelinkie/vera-script-to-timeline/issues/490#issuecomment-6826230215)
-confirmed that Studio 21.1.1 build 10 has no supported in-place scripted move
-or trim for the edit they were asked about. The offset and position setters
-and `Timeline.MoveItems` first appeared in 21.1.2. Support described a roll
-that should retain item IDs but changes the second clip’s source start, and
-advised checking handles and persistence. This experiment will establish
-which finishing carries through the tested 21.1.1 routes.
+confirmed that 21.1.1 has no supported scripted in-place move or trim for
+the edit they were asked about. The offset and position setters and
+`Timeline.MoveItems` first appeared in 21.1.2. Support described a roll that
+should retain both IDs, changes the second clip's source start, and requires
+handle and persistence checks. Preservation on that version remains untested.
 
 ## Reproduce
 
@@ -124,7 +102,7 @@ uv run --frozen python docs/investigations/issue-327/check.py setup "$scratch"
 ```
 
 In the printed disposable project and timeline, work on the first V1 picture
-and the first A1 tone. Make a conspicuous primaries saturation change on the
+and the first A1 tone. Set primaries Saturation to 0 on the
 Color page, set the tone clip's Inspector volume to −12 dB, and insert one
 Blur node between MediaIn and MediaOut in Fusion with Blur Size set to 12.
 Add a standard Cross Dissolve across the V1 cut at four seconds. Place the
@@ -137,8 +115,8 @@ uv run --frozen python docs/investigations/issue-327/check.py compare "$scratch"
 ```
 
 Use the saved structural observations and the reopened timelines to score
-each edit. The grade check samples the clip's LUT export and can miss
-controls outside that export. The Fusion check covers the one Blur control.
+each edit. Compare the graded clip in the Color page at 3 seconds in the
+original, archive and first two trials, and at 7 seconds after swapping. The Fusion check covers the one Blur control.
 The transition check covers the readable type, identity and span. Use
 “cannot tell” wherever the available evidence cannot establish retention.
 The original, archive and completed earlier trials are compared before each
