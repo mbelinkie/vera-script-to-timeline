@@ -199,6 +199,26 @@ def test_issue88_reopened_readback_checks_uid_span_and_preserves_clip_inventory(
     discrepancies: list[str] = []
     adapter._verify_v2_transitions(discrepancies)
     assert discrepancies == []
+    # A plausible span alone is not enough: the SDK must also report the
+    # requested actual duration, and the reopened transition UID must match.
+    items[-1] = SimpleNamespace(
+        GetType=lambda: "transition",
+        GetName=lambda: "Cross Dissolve",
+        GetFusionCompCount=lambda: 0,
+        GetStart=lambda: 84,
+        GetEnd=lambda: 108,
+        GetDuration=lambda: 2,
+        GetUniqueId=lambda: "stable-uid",
+    )
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-geometry" in discrepancies
+    discrepancies.clear()
+    items[-1] = transition
+    adapter._v2_transition_uids[plan["id"]] = "different-uid"
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-uid" in discrepancies
+    discrepancies.clear()
+    adapter._v2_transition_uids[plan["id"]] = "stable-uid"
     items[-1] = SimpleNamespace(
         **{
             "GetType": lambda: "transition",
