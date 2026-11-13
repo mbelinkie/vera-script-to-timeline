@@ -297,6 +297,7 @@ class _Issue336NativeRouteAdapter:
         self.calls: list[str] = []
         self.collision = collision
         self.unknown_import = unknown_import
+        self._capture_row_map = False
 
     def connected_facts(self) -> Any:
         self.calls.append("connected")
@@ -355,7 +356,31 @@ class _Issue336NativeRouteAdapter:
 
     def verify(self, _view: Any) -> tuple[str, ...]:
         self.calls.append("verify")
+        self.verified_view = _view
         return ()
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        # The #522 build path requires actual post-reopen item observations;
+        # model those explicitly rather than bypassing map validation here.
+        assert self._capture_row_map is True
+        assert self.calls[-1] == "verify"
+        tracks = {track["id"]: track for track in self.verified_view["tracks"]}
+        return {
+            "resolveProjectId": "issue336-reopened-project",
+            "timelineId": "issue336-reopened-timeline",
+            "observed": [
+                {
+                    "eventId": event["id"],
+                    "resolveItemId": f"issue336-reopened-item-{index}",
+                    "trackId": event["trackId"],
+                    "trackKind": tracks[event["trackId"]]["kind"],
+                    "trackIndex": tracks[event["trackId"]]["index"],
+                    "startFrame": event["recordRange"]["startFrame"],
+                    "durationFrames": event["recordRange"]["durationFrames"],
+                }
+                for index, event in enumerate(self.verified_view["events"])
+            ],
+        }
 
 
 @pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
@@ -388,6 +413,12 @@ def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
         adapter_factory=lambda _: adapter,
     )
     assert result["status"] == "verified", result
+    assert result["rowTimelineMap"]["resolveProjectId"] == "issue336-reopened-project"
+    assert {
+        item["eventId"]
+        for row in result["rowTimelineMap"]["rows"]
+        for item in row["items"]
+    } == {event["id"] for event in view["events"]}
     assert result["nativeOtioMotionRoute"] is True
     assert adapter.calls.count("native_otio") == 1
     assert adapter.calls.count("marker") == len(view["markers"])

@@ -27,6 +27,7 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
+from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
 from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
@@ -506,6 +507,42 @@ def deliver_compiled(
         _require_workflow_status(
             native, "verified", existing_project=existing_project is not None
         )
+        # Resolve has already been saved and reopened. A missing/invalid map or
+        # publication error is therefore an uncertain, retained-target result;
+        # never reissue a native build in an attempt to repair local output.
+        try:
+            native_map = native["rowTimelineMap"]
+            if not isinstance(native_map, dict):
+                raise ValueError("verified native row map is missing")
+            rows = native_map["rows"]
+            if not isinstance(rows, list):
+                raise ValueError("verified native rows are missing")
+            items = [item for row in rows for item in row["items"]]
+            expected_map = make_row_timeline_map(
+                checked.manifest,
+                checked.view,
+                items,
+                project_name=existing_project or checked.attestation["projectName"],
+                resolve_project_id=native_map["resolveProjectId"],
+                timeline_name=checked.attestation["timelineName"],
+                timeline_id=native_map["timelineId"],
+            )
+            if expected_map != native_map:
+                raise ValueError("verified native row map differs from delivery view")
+            map_path = compiled.output / "row-timeline-map.json"
+            if map_path.is_symlink() or map_path.exists():
+                raise ValueError("row timeline map output already exists")
+            publish_immutable_output(
+                map_path,
+                (json.dumps(expected_map, sort_keys=True, indent=2) + "\n").encode(
+                    "utf-8"
+                ),
+            )
+        except Exception as error:
+            raise UncertainResult(
+                "Resolve timeline saved and verified, but row map publication failed; "
+                "target retained; inspect target/output before another build"
+            ) from error
 
     timeline = checked.manifest["timeline"]
     return DeliveryResult(

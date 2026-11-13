@@ -128,6 +128,28 @@ render or audio comparison is performed. Native source audio and unqualified
 fractional-rate timeline creation still refuse explicitly; this command does
 not bypass those product limitations.
 
+After a checked build, its result directory contains
+`row-timeline-map.json` (version 1), mapping script block IDs and v2 event IDs
+to the actual reopened Resolve timeline and item UIDs, tracks and frame bounds.
+This file is published **only after** the native save/close/reopen structural
+check succeeds. To inspect the **already open** project and timeline again
+without saving, switching targets, or making any native edits:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.readback_timeline_cli \
+  --output "/absolute/path/to/previous-result-directory"
+```
+
+It prints `PASS` when the current timeline's stamped events, ranges, tracks,
+markers and saved item UIDs match, or `MISMATCH` with a nonzero exit code on a
+different current target or structural change. If the map is absent, it still
+checks the attested v2 package against fresh live SDK observations, but reports
+**structural-only** compatibility; it does not claim the old item UIDs survived.
+For a build made with `--existing-project`, an absent map also requires
+`--project "Exact already open project name"`. An existing but malformed map
+is an error, not a reason to fall back to mapless mode. The readback is not an
+edit-diff report, render check, or substitute for the original delivery check.
+
 ## Validation
 
 Testing, review and merge rules are in [AGENTS.md](AGENTS.md) and

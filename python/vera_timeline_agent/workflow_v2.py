@@ -24,6 +24,7 @@ from time import perf_counter
 from typing import Any, TypeGuard, cast
 
 from . import native_image_motion
+from .row_timeline_map import make_row_timeline_map
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .transition_delivery_v2 import (
     TransitionRefusal,
@@ -1576,6 +1577,229 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
     return _canonical_json({"v2EventId": marker["id"], "v2EventSha256": digest})
 
 
+def observe_current_timeline_v2(
+    resolve: Any,
+    view: Mapping[str, Any],
+    *,
+    project_name: str,
+    timeline_name: str,
+    project_uid: str | None = None,
+    timeline_uid: str | None = None,
+    transition_plans: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    """Fresh read-only SDK inventory of the *already current* target.
+
+    Never loads or selects a project/timeline. Match items by their complete
+    VERA event stamp, not time order or media name (both can be ambiguous).
+    This is a structural check; it is not the full build-time media verifier.
+    """
+    manager = resolve.GetProjectManager()
+    project = manager.GetCurrentProject() if manager is not None else None
+    if project is None or project.GetName() != project_name:
+        raise WorkflowV2Error("current Resolve project is not the build target")
+    actual_project_uid = project.GetUniqueId()
+    if (
+        not isinstance(actual_project_uid, str)
+        or not actual_project_uid.strip()
+        or (project_uid is not None and actual_project_uid != project_uid)
+    ):
+        raise WorkflowV2Error("current Resolve project UID differs or is unavailable")
+    timeline = project.GetCurrentTimeline()
+    if timeline is None or timeline.GetName() != timeline_name:
+        raise WorkflowV2Error("current Resolve timeline is not the build target")
+    actual_timeline_uid = timeline.GetUniqueId()
+    if (
+        not isinstance(actual_timeline_uid, str)
+        or not actual_timeline_uid.strip()
+        or (timeline_uid is not None and actual_timeline_uid != timeline_uid)
+    ):
+        raise WorkflowV2Error("current Resolve timeline UID differs or is unavailable")
+
+    expected_timeline = cast(Mapping[str, Any], view["timeline"])
+    start = expected_timeline["startFrame"]
+    if (
+        timeline.GetStartFrame() != start
+        or timeline.GetEndFrame() != start + expected_timeline["durationFrames"]
+    ):
+        raise WorkflowV2Error("current timeline bounds differ from delivery view")
+    tracks = cast(list[Mapping[str, Any]], view["tracks"])
+    by_slot = {(track["kind"], track["index"]): track for track in tracks}
+    actual_counts: dict[str, int] = {}
+    for kind in ("video", "audio", "subtitle"):
+        expected_count = max(
+            (track["index"] for track in tracks if track["kind"] == kind),
+            default=0,
+        )
+        count = timeline.GetTrackCount(kind)
+        if type(count) is not int or count != expected_count:
+            raise WorkflowV2Error(f"{kind} track count differs from delivery view")
+        actual_counts[kind] = count
+    for track in tracks:
+        if timeline.GetTrackName(track["kind"], track["index"]) != track["name"]:
+            raise WorkflowV2Error(f"track name differs: {track['id']}")
+
+    events = cast(list[Mapping[str, Any]], view["events"])
+    expected_events = {event["id"]: event for event in events}
+    if len(expected_events) != len(events):
+        raise WorkflowV2Error("duplicate expected event ID")
+    observed: list[dict[str, Any]] = []
+    seen_events: set[str] = set()
+    seen_uids: set[str] = set()
+    applicable_transitions = [
+        plan for plan in transition_plans if plan["disposition"] == "apply"
+    ]
+    live_transitions: list[tuple[int, Any]] = []
+    for kind, count in actual_counts.items():
+        for index in range(1, count + 1):
+            items = timeline.GetItemListInTrack(kind, index)
+            if not isinstance(items, (list, tuple)):
+                raise WorkflowV2Error(f"item inventory unavailable: {kind} {index}")
+            for item in items:
+                if (
+                    applicable_transitions
+                    and kind == "video"
+                    and item.GetType() == "transition"
+                ):
+                    live_transitions.append((index, item))
+                    continue
+                stamp = item.GetMarkerCustomData(0)
+                try:
+                    data = json.loads(stamp) if isinstance(stamp, str) else None
+                except ValueError:
+                    data = None
+                if not isinstance(data, dict):
+                    raise WorkflowV2Error(
+                        f"extra or unstamped TimelineItem on {kind} {index}"
+                    )
+                event_id = data.get("v2EventId")
+                if not isinstance(event_id, str) or event_id not in expected_events:
+                    raise WorkflowV2Error(
+                        f"extra or unknown stamped TimelineItem on {kind} {index}"
+                    )
+                event = expected_events[event_id]
+                if stamp != _stamp(event):
+                    raise WorkflowV2Error(f"VERA event stamp differs: {event_id}")
+                if event_id in seen_events:
+                    raise WorkflowV2Error(f"duplicate TimelineItem event: {event_id}")
+                seen_events.add(event_id)
+                slot_track = by_slot.get((kind, index))
+                if slot_track is None or event["trackId"] != slot_track["id"]:
+                    raise WorkflowV2Error(f"event track differs: {event_id}")
+                record = event["recordRange"]
+                item_start = item.GetStart(False)
+                duration = item.GetDuration(False)
+                if (
+                    type(item_start) is not int
+                    or type(duration) is not int
+                    or item_start != record["startFrame"]
+                    or duration != record["durationFrames"]
+                ):
+                    raise WorkflowV2Error(f"event record range differs: {event_id}")
+                uid = item.GetUniqueId()
+                if not isinstance(uid, str) or not uid.strip() or uid in seen_uids:
+                    raise WorkflowV2Error(
+                        f"event UID missing or duplicated: {event_id}"
+                    )
+                seen_uids.add(uid)
+                observed.append(
+                    {
+                        "eventId": event_id,
+                        "resolveItemId": uid,
+                        "trackId": slot_track["id"],
+                        "trackKind": kind,
+                        "trackIndex": index,
+                        "startFrame": item_start,
+                        "durationFrames": duration,
+                    }
+                )
+    if seen_events != set(expected_events):
+        missing = sorted(set(expected_events) - seen_events)
+        raise WorkflowV2Error(f"missing TimelineItem events: {', '.join(missing)}")
+
+    # A native transition is its own unstamped TimelineItem, not a VERA row
+    # clip. Verify each signed dissolve without permitting extra/missing effects
+    # or downgrading a changed transition to a mapless structural match.
+    if len(live_transitions) != len(applicable_transitions):
+        raise WorkflowV2Error("native transition inventory differs from signed plan")
+    used_transition_uids: set[str] = set()
+    for plan in applicable_transitions:
+        matched_tracks = [t for t in tracks if t["id"] == plan["trackId"]]
+        boundary_track = matched_tracks[0] if len(matched_tracks) == 1 else None
+        outgoing = expected_events.get(plan["outgoingEventId"])
+        incoming = expected_events.get(plan["incomingEventId"])
+        if (
+            boundary_track is None
+            or boundary_track["kind"] != "video"
+            or outgoing is None
+            or incoming is None
+            or outgoing["trackId"] != boundary_track["id"]
+            or incoming["trackId"] != boundary_track["id"]
+            or outgoing["recordRange"]["startFrame"]
+            + outgoing["recordRange"]["durationFrames"]
+            != plan["boundaryFrame"]
+            or incoming["recordRange"]["startFrame"] != plan["boundaryFrame"]
+        ):
+            raise WorkflowV2Error("signed transition row boundary differs")
+        matched = [
+            item
+            for index, item in live_transitions
+            if index == boundary_track["index"]
+            and item.GetStart() == plan["startFrame"]
+            and item.GetEnd() == plan["endFrame"]
+        ]
+        if len(matched) != 1 or not observe_native_transition(matched[0], plan):
+            raise WorkflowV2Error("native transition identity or geometry differs")
+        uid = matched[0].GetUniqueId()
+        if uid in seen_uids or uid in used_transition_uids:
+            raise WorkflowV2Error("native transition UID is duplicated")
+        used_transition_uids.add(uid)
+
+    markers = cast(list[Mapping[str, Any]], view["markers"])
+    expected_markers = {marker["frame"]: marker for marker in markers}
+    actual_markers = timeline.GetMarkers()
+    if (
+        len(expected_markers) != len(markers)
+        or not isinstance(actual_markers, Mapping)
+        or set(actual_markers) != set(expected_markers)
+    ):
+        raise WorkflowV2Error("timeline marker inventory differs")
+    for frame, marker in expected_markers.items():
+        actual = actual_markers[frame]
+        if (
+            not isinstance(actual, Mapping)
+            or any(
+                actual.get(key) != value
+                for key, value in {
+                    "color": _MARKER_COLORS[marker["color"]],
+                    "name": marker["name"],
+                    "note": marker["note"],
+                    "duration": 1,
+                }.items()
+            )
+            or timeline.GetMarkerCustomData(frame) != _marker_stamp(marker)
+        ):
+            raise WorkflowV2Error(f"timeline marker differs at frame {frame}")
+
+    # The user may switch tabs during the read. A stale object handle is not
+    # proof that this is still the active target at the end of observation.
+    current = manager.GetCurrentProject()
+    if (
+        current is None
+        or current.GetUniqueId() != actual_project_uid
+        or current.GetCurrentTimeline() is None
+        or current.GetCurrentTimeline().GetUniqueId() != actual_timeline_uid
+    ):
+        raise WorkflowV2Error("current Resolve target changed during readback")
+
+    return {
+        "projectName": project_name,
+        "resolveProjectId": actual_project_uid,
+        "timelineName": timeline_name,
+        "timelineId": actual_timeline_uid,
+        "observed": observed,
+    }
+
+
 def _native_otio_scaling(framing: object) -> int:
     """Independent Studio OTIO Type-22 scale readback, NOT SDK SCALE_*.
 
@@ -1639,6 +1863,8 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.timeline_marker_stamps: dict[int, str] = {}
         self.expected_markers: dict[int, dict[str, Any]] = {}
         self._native_otio_imported = False
+        self._capture_row_map = False
+        self._reopened_row_items: list[dict[str, Any]] = []
         self._v2_transition_plans: tuple[Mapping[str, Any], ...] = ()
         self._v2_transition_uids: dict[str, str] = {}
 
@@ -2102,6 +2328,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
 
     def verify(self, view: Mapping[str, Any]) -> tuple[str, ...]:
         discrepancies: list[str] = []
+        # Keep the actual reopened TimelineItem handles in the *same* structural
+        # readback that checks geometry, source, stamps and native properties.
+        # An incomplete readback cannot become a row map.
+        self._reopened_row_items = []
+        seen_item_ids: set[str] = set()
         try:
             if self.project.GetName() != self.expected_project_name:
                 discrepancies.append("project-name")
@@ -2292,6 +2523,28 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                             event_id
                         ):
                             discrepancies.append("event-custom-data")
+                        if getattr(self, "_capture_row_map", False):
+                            getter = getattr(item, "GetUniqueId", None)
+                            uid = getter() if callable(getter) else None
+                            if (
+                                not isinstance(uid, str)
+                                or not uid.strip()
+                                or uid in seen_item_ids
+                            ):
+                                discrepancies.append("event-item-identity")
+                            else:
+                                seen_item_ids.add(uid)
+                                self._reopened_row_items.append(
+                                    {
+                                        "eventId": event_id,
+                                        "resolveItemId": uid,
+                                        "trackId": event["trackId"],
+                                        "trackKind": kind,
+                                        "trackIndex": index,
+                                        "startFrame": item.GetStart(False),
+                                        "durationFrames": item.GetDuration(False),
+                                    }
+                                )
                         expected_properties = self.expected_properties.get(event_id, {})
                         if expected_properties:
                             actual_properties = item.GetProperties()
@@ -2327,7 +2580,33 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             self._verify_v2_transitions(discrepancies)
         except (AttributeError, KeyError, TypeError, ValueError):
             discrepancies.append("readback-api")
+        if discrepancies:
+            self._reopened_row_items = []
         return tuple(dict.fromkeys(discrepancies))
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        """Identity-bound snapshot from the completed post-reopen verify pass."""
+        if not self._capture_row_map:
+            raise WorkflowV2Error("reopened row observation was not enabled")
+        self.assert_current_target()
+        project_uid = self.project.GetUniqueId()
+        timeline_uid = self.timeline.GetUniqueId()
+        if (
+            not isinstance(project_uid, str)
+            or not project_uid.strip()
+            or project_uid != self.expected_project_id
+            or not isinstance(timeline_uid, str)
+            or not timeline_uid.strip()
+            or timeline_uid != self.expected_timeline_id
+        ):
+            raise WorkflowV2Error(
+                "reopened Resolve project or timeline identity differs"
+            )
+        return {
+            "resolveProjectId": project_uid,
+            "timelineId": timeline_uid,
+            "observed": self._reopened_row_items,
+        }
 
     def _verify_media_inventory(
         self, view: Mapping[str, Any], discrepancies: list[str]
@@ -3085,9 +3364,22 @@ def run_workflow_delivery_v2(
         observe_next("verify")
         if existing_project is not None:
             adapter.assert_current_target()
+        adapter._capture_row_map = True
         discrepancies = tuple(adapter.verify(view))
         if existing_project is not None:
             adapter.assert_current_target()
+        if not discrepancies:
+            stage = "reopened row observation"
+            observation = adapter.reopened_row_observation()
+            map_value = make_row_timeline_map(
+                manifest,
+                view,
+                observation["observed"],
+                project_name=existing_project or attestation["projectName"],
+                resolve_project_id=observation["resolveProjectId"],
+                timeline_name=attestation["timelineName"],
+                timeline_id=observation["timelineId"],
+            )
         stage = "final package validation"
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
             raise WorkflowV2Error("package changed during native delivery or readback")
@@ -3095,6 +3387,8 @@ def run_workflow_delivery_v2(
         result["discrepancies"] = list(discrepancies)
         result["verified"] = not discrepancies
         result["status"] = "verified" if not discrepancies else "verification_failed"
+        if not discrepancies:
+            result["rowTimelineMap"] = map_value
         result["partialTargetRetained"] = bool(discrepancies)
         if discrepancies:
             result["message"] = (
