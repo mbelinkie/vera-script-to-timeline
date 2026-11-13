@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from vera_timeline_agent.presenter_warning_validation import (
@@ -30,7 +30,10 @@ def _golden_case(
     base = FIXTURES / suite / "compiler" if suite == "issue_173" else FIXTURES / suite
 
     def load(role: str) -> dict[str, Any]:
-        return json.loads((base / f"{scenario}.{role}.golden.json").read_text())
+        return cast(
+            dict[str, Any],
+            json.loads((base / f"{scenario}.{role}.golden.json").read_text()),
+        )
 
     document = load("input")["document"]
     return document, load("manifest"), load("report")
