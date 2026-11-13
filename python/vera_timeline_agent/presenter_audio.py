@@ -186,10 +186,19 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
             ]
         )
         loudness = loudness_report(normalized)
+        try:
+            level = float(loudness["output_i"])
+            peak = float(loudness["output_tp"])
+            mode = loudness["normalization_type"]
+            if not math.isfinite(level) or not math.isfinite(peak):
+                raise ValueError("non-finite output measurement")
+        except (KeyError, ValueError) as error:
+            raise TakesError("Cannot verify the normalized audio level.") from error
+        if abs(level + 19) > 1 or peak > -1:
+            raise TakesError("Could not reach the target loudness and peak safely.")
         print(
-            f"Loudness: {loudness['output_i']} LUFS; "
-            f"true peak: {loudness['output_tp']} dBTP "
-            f"({loudness['normalization_type']} normalization)."
+            f"Loudness: {level:.1f} LUFS; true peak: {peak:.1f} dBTP "
+            f"({mode} normalization)."
         )
         measured = find_offset(camera, decode_audio(staged), RATE)
         if abs(measured.offset_s) > frame or measured.spread_s > frame:
