@@ -399,6 +399,37 @@ class PackageCache:
                 raise
         return True
 
+    def read_bytes(self, entry: CacheEntry) -> bytes | None:
+        """Read bounded audio-processing inputs from a checked cache blob.
+
+        The package verifier, not these bytes, decides whether the cache is
+        trustworthy. Refuse replaced/linked cache objects and source drift.
+        """
+        _same_source(entry.source, entry.stamp)
+        current = self.lookup(entry.source, entry.expected_hash, stamp=entry.stamp)
+        if current is None or current.blob_stamp != entry.blob_stamp:
+            return None
+        try:
+            before = _regular_cache_file(entry.blob)
+            if FileStamp.from_stat(before) != entry.blob_stamp:
+                return None
+            fd = os.open(entry.blob, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                opened = os.fstat(fd)
+                if FileStamp.from_stat(opened) != entry.blob_stamp:
+                    return None
+                with os.fdopen(fd, "rb", closefd=False) as stream:
+                    raw = stream.read()
+                if FileStamp.from_stat(os.fstat(fd)) != entry.blob_stamp:
+                    return None
+            finally:
+                os.close(fd)
+            return raw
+        except (OSError, _CacheMiss):
+            return None
+        finally:
+            _same_source(entry.source, entry.stamp)
+
     def discard(self, entry: CacheEntry) -> None:
         """Discard a suspect entry before a fresh-source retry (best effort)."""
         if not _private_root(self.root, create=False):

@@ -79,6 +79,19 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --output "/absolute/path/to/unused-result-directory"
 ```
 
+The build command reuses unchanged prepared source media through a disposable
+per-user package cache. By default it lives at
+`~/Library/Caches/vera-script-to-timeline/` on macOS, or
+`$XDG_CACHE_HOME/vera-script-to-timeline/` (otherwise
+`~/.cache/vera-script-to-timeline/`) on Linux. Override it with
+`--package-cache "/absolute/path/to/cache"`. You can delete this folder at any
+time to reclaim space; the next build copies and checks source media again.
+Every package is independently verified regardless of cache use and has the
+same bytes as a cache-free package. The build prints
+`package cache: reused=N processed=M` for unique input files; use
+`--package-timings` for detailed copy, hash and verification timings. Cached
+media is copied (or cloned when supported), never linked into a package.
+
 By default, this builds a uniquely named **new project and timeline**. To add
 only a new timeline to a named **existing project**, first open that precise
 project in Resolve, then add:

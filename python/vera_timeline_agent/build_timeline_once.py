@@ -27,6 +27,7 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
+from .package_cache import default_cache_root
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
 from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
@@ -42,6 +43,7 @@ class BuildOptions:
     output: Path
     inputs: Path | None = None
     existing_project: str | None = None
+    package_cache: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -434,8 +436,14 @@ def deliver_compiled(
     *,
     timings: StageTimings,
     existing_project: str | None = None,
+    package_cache: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
+    if package_cache is not None and compiled.output.absolute() in (
+        package_cache.absolute(),
+        *package_cache.absolute().parents,
+    ):
+        raise BuildJobError("package cache must be outside the build output")
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
@@ -462,6 +470,16 @@ def deliver_compiled(
             package_root,
             media_paths=media,
             preparation_paths=preparations,
+            package_cache=package_cache,
+            cache_observer=(
+                lambda reused, processed: (
+                    timings.emit(
+                        f"package cache: reused={reused} processed={processed}"
+                    )
+                    if package_cache is not None
+                    else None
+                )
+            ),
             **detail,
         )
         verified = (
@@ -538,4 +556,5 @@ def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResul
         compile_prepared(options, timings=timings),
         timings=timings,
         existing_project=options.existing_project,
+        package_cache=options.package_cache or default_cache_root(),
     )

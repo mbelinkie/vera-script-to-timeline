@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from issue177_package_fixture import PackageCase, make_package_case
-from vera_timeline_agent import workflow_v2
+from vera_timeline_agent import v2_package, workflow_v2
 from vera_timeline_agent.build_composition import (
     EffectState,
     FrozenBuildSnapshot,
@@ -133,6 +133,24 @@ def test_package_writer_reuses_exact_verified_bytes_and_attests(
     assert import_port.inspect(imported, snapshot).state == EffectState.VERIFIED
     with pytest.raises(Exception, match="existing attestation"):
         import_port.execute(imported, snapshot)
+
+
+def test_stage_port_is_still_explicitly_uncached(
+    prepared_case: PreparedCase, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fixture, snapshot, ctx, sources = prepared_case
+
+    def prohibited_cache(_root: Path) -> None:
+        pytest.fail("alternate package stage must not implicitly enable the cache")
+
+    monkeypatch.setattr(v2_package, "PackageCache", prohibited_cache)
+    port = PackageStagePort(
+        extra_media={key.removeprefix("media:"): key for key in sources}
+    )
+    port.execute(ctx("writing_interchange"), snapshot)
+    assert (
+        port.inspect(ctx("writing_interchange"), snapshot).state == EffectState.VERIFIED
+    )
 
 
 def test_package_attestation_detects_retained_media_tamper(
