@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from vera_timeline_agent.build_stage_receipt import hash_file
 from vera_timeline_agent.build_timeline_once import (
     _external_resolve,
     exclusive_resolve_build,
@@ -93,6 +94,7 @@ def snapshot(
                 sourceIn=item.GetSourceStartFrame(),
                 sourceOut=item.GetSourceEndFrame(),
                 markers=item.GetMarkers(),
+                sourceHash=hash_file(Path(media.GetClipProperty("File Path"))),
             )
             if kind == "audio":
                 properties = item.GetProperties() or {}
@@ -139,6 +141,17 @@ def snapshot(
             observed,
             key=lambda row: (row["kind"], row["track"], row["start"], row["id"]),
         ),
+    }
+
+
+def content(observation: dict[str, Any]) -> dict[str, Any]:
+    """Compare duplicate contents while allowing Resolve to assign new item IDs."""
+    return {
+        "bounds": observation["bounds"],
+        "items": [
+            {key: value for key, value in item.items() if key != "id"}
+            for item in observation["items"]
+        ],
     }
 
 
@@ -212,6 +225,9 @@ def plans(
             "end": event["recordRange"]["endFrame"],
             "sourceIn": (event["sourceRange"] or {"startFrame": 0})["startFrame"],
             "path": paths[f"source:{event['provenance']['sourceId']}"],
+            "sourceHash": hash_file(
+                Path(paths[f"source:{event['provenance']['sourceId']}"])
+            ),
         }
     require(
         len(result) == 4 and result.keys() == rows.keys(),
@@ -272,7 +288,14 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             require(
                 all(
                     row[key] == initial_plan[event_id][key]
-                    for key in ("kind", "track", "start", "end", "sourceIn")
+                    for key in (
+                        "kind",
+                        "track",
+                        "start",
+                        "end",
+                        "sourceIn",
+                        "sourceHash",
+                    )
                 ),
                 "Hand finishing changed a mapped clip's geometry",
             )
@@ -306,7 +329,7 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             and picture["lutSamples"] != ungraded["lutSamples"],
             "The first picture needs a readable saturation grade",
         )
-        require(picture["blur"], "The first picture needs a Fusion Blur")
+        require(picture["blur"] == [12], "The first picture needs Blur Size 12")
         require(
             tone["volume"]["AudioVolume"] == -12,
             "The first tone needs a -12 dB Inspector level",
@@ -318,6 +341,17 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
         require(
             sum(row["type"] == "transition" for row in before["items"]) == 1,
             "Expected one hand transition",
+        )
+        transition = one(
+            [row for row in before["items"] if row["type"] == "transition"],
+            "hand transition",
+        )
+        require(
+            transition["name"] == "Cross Dissolve"
+            and transition["kind"] == "video"
+            and transition["track"] == 1
+            and transition["start"] < 96 < transition["end"],
+            "Expected Cross Dissolve across the V1 row boundary",
         )
         one(
             [
@@ -334,6 +368,10 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
         archive = duplicate(project, original, ARCHIVE)
         archive_id = archive.GetUniqueId()
         archive_before = snapshot(project, archive, result / "archive-before", lut_type)
+        require(
+            content(archive_before) == content(before),
+            "Archive duplicate lost readable finishing or clip contents",
+        )
         log(result / "archive-before.json", archive_before)
         # Check each authored plan before changing a trial timeline.
         compiled_plans = {variant: plans(root, row_map, variant) for variant in CASES}
@@ -379,9 +417,13 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
             media_ids = {
                 event_id: item.GetUniqueId() for event_id, item in media.items()
             }
-            log(
-                result / f"{variant}-before.json",
-                snapshot(project, trial, result / f"{variant}-before", lut_type),
+            trial_before = snapshot(
+                project, trial, result / f"{variant}-before", lut_type
+            )
+            log(result / f"{variant}-before.json", trial_before)
+            require(
+                content(trial_before) == content(before),
+                "Trial duplicate differs from the finished original",
             )
             current(project, trial)
             if variant == "same":
@@ -446,7 +488,14 @@ def run(root: Path, action: str, row_map: dict[str, Any]) -> None:
                         if row.get("media") == media_ids[event_id]
                         and all(
                             row[field] == plan[field]
-                            for field in ("kind", "track", "start", "end", "sourceIn")
+                            for field in (
+                                "kind",
+                                "track",
+                                "start",
+                                "end",
+                                "sourceIn",
+                                "sourceHash",
+                            )
                         )
                     ],
                     f"reopened {variant} clip {event_id}",
