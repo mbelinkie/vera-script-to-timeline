@@ -472,13 +472,20 @@ unobservable/ambiguous fact remains blocked; it is not a deletion or safe defaul
 **#101 Local SDK repeat.** A disposable project on Studio **21.1.1 build 10**
 contained one 25 fps synthetic picture clip. The first save/close/reopen
 retained the project, original timeline and clip IDs and the clip's track,
-record frames, name, media ID, inclusive source bounds and marker custom data.
+record frames, name, media ID, source bounds and marker custom data.
 `DuplicateTimeline` assigned new timeline and clip IDs while sharing the same
 media ID and copying the marker. A second save/close/reopen retained both sets
 of IDs and the readable clip fields. The #101 baseline belongs to the original,
 which remains the working timeline when its duplicate serves as an archive.
 The observation compares clip references and bounds. It cannot verify source
 bytes, media availability or complete grade/effect state.
+
+In the separate five-clip #101 product build at 25 fps, the saved and reopened
+clips each had the planned 75-frame record span. Resolve returned source
+start/end 0/75, source times 0.0/3.0 seconds, 100% speed and a 125-frame source.
+The build verifier expected end frame 74 and withheld the baseline. Treat the
+observed source bounds as raw getter values. An end-frame convention requires
+evidence for the build route and source type.
 
 ### RK-18 — Representation and a file-driven harness are weaker than a native round trip
 

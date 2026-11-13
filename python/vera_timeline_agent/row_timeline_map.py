@@ -106,8 +106,8 @@ def make_row_timeline_map(
     durationFrames. The caller must have checked each item's marker stamp and
     resolved its identity *after* save/close/reopen. Row extents are envelopes,
     not uninterrupted clip coverage; null blockId means explicitly unassigned.
-    Version 2 also requires nullable item name, media ID, and inclusive source
-    frame bounds.
+    Version 2 also requires nullable item name, media ID, and source frame bounds
+    as reported by Resolve.
     """
     if type(version) is not int or version not in {1, 2}:
         raise ValueError("invalid row map version")
