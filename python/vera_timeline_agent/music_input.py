@@ -37,7 +37,7 @@ def _plain_music_path(raw: str) -> Path:
 
 
 def inspect_music(path: Path, expected_hash: str) -> int:
-    """Verify bytes and exact 48-kHz, mono, uncompressed PCM frame count."""
+    """Verify bytes and exact 48-kHz, mono, 16-bit PCM frame count."""
     path = _plain_music_path(str(path))
     try:
         descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
@@ -59,11 +59,11 @@ def inspect_music(path: Path, expected_hash: str) -> int:
                         wav.getnchannels() != 1
                         or wav.getframerate() != 48000
                         or wav.getcomptype() != "NONE"
-                        or wav.getsampwidth() not in (2, 3, 4)
+                        or wav.getsampwidth() != 2
                         or wav.getnframes() < 1
                     ):
                         raise BuildJobError(
-                            f"music file requires 48kHz mono PCM WAV: {path.name}"
+                            f"music file requires 48kHz mono PCM16 WAV: {path.name}"
                         )
                     sample_count = wav.getnframes()
                     total = 0

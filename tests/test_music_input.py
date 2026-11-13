@@ -18,13 +18,18 @@ from vera_timeline_agent.music_input import (
 
 
 def _wav(
-    path: Path, *, rate: int = 48000, channels: int = 1, samples: int = 48000
+    path: Path,
+    *,
+    rate: int = 48000,
+    channels: int = 1,
+    samples: int = 48000,
+    width: int = 2,
 ) -> str:
     with wave.open(str(path), "wb") as writer:
         writer.setnchannels(channels)
-        writer.setsampwidth(2)
+        writer.setsampwidth(width)
         writer.setframerate(rate)
-        writer.writeframes(b"\0\0" * samples * channels)
+        writer.writeframes(b"\0" * width * samples * channels)
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -133,6 +138,14 @@ def test_unsupported_music_profile_refuses(
         wav, rate=rate, channels=channels
     )
     with pytest.raises(BuildJobError, match="48kHz mono PCM"):
+        resolve_music_bindings(document, dependencies, paths)
+
+
+@pytest.mark.parametrize("width", [1, 3, 4])
+def test_unqualified_music_bit_depth_refuses(tmp_path: Path, width: int) -> None:
+    document, dependencies, paths, wav = _fixture(tmp_path)
+    document["rowAudioSpans"][0]["source"]["contentHash"] = _wav(wav, width=width)
+    with pytest.raises(BuildJobError, match="48kHz mono PCM16"):
         resolve_music_bindings(document, dependencies, paths)
 
 
