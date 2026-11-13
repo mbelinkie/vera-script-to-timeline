@@ -9,12 +9,28 @@ against the delivery view before calling this function.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .row_timeline_map import SCHEMA_VERSION_V2
 
 MAX_FRAME = 2**53 - 1  # The v2 compiler uses JavaScript safe integers.
+
+# No native-update preservation route is qualified for #102. In particular,
+# a readable edit is not evidence that #104 can preserve it.
+COMPATIBLE_RESOLVE_FIELDS: frozenset[str] = frozenset()
+KNOWN_OBSERVATION_STATUSES = frozenset(
+    {"unchanged", "moved", "trimmed", "removed", "added", "cannot tell"}
+)
+ROW_STATES = frozenset(
+    {
+        "unchanged",
+        "script_changed",
+        "resolve_changed",
+        "both_compatible",
+        "both_conflict",
+    }
+)
 
 
 def _object(value: Any, label: str) -> Mapping[str, Any]:
@@ -327,4 +343,482 @@ def compare_script_rows(
         },
         "rows": rows,
         "unownedCompiledEvents": {"baseline": old_unowned, "current": new_unowned},
+    }
+
+
+def _statuses(item: Mapping[str, Any]) -> tuple[str, ...]:
+    statuses = _array(item.get("status"), "observed status")
+    if (
+        not statuses
+        or any(
+            not isinstance(status, str) or status not in KNOWN_OBSERVATION_STATUSES
+            for status in statuses
+        )
+        or len(set(statuses)) != len(statuses)
+        or ("unchanged" in statuses and len(statuses) != 1)
+        or ("added" in statuses and len(statuses) != 1)
+        or ("removed" in statuses and len(statuses) != 1)
+    ):
+        raise ValueError("invalid #101 item status")
+    changes = item.get("changes", {})
+    if not isinstance(changes, Mapping) or any(
+        not isinstance(key, str)
+        or not key
+        or not isinstance(value, Mapping)
+        or set(value) != {"before", "after"}
+        for key, value in changes.items()
+    ):
+        raise ValueError("invalid #101 item changes")
+    if "cannotRead" in item:
+        unknown = _array(item["cannotRead"], "observed cannotRead")
+        if any(not isinstance(field, str) or not field for field in unknown):
+            raise ValueError("invalid #101 cannotRead field")
+    return tuple(statuses)
+
+
+def classify_row(
+    script_changed: bool,
+    observed_items: Sequence[Mapping[str, Any]],
+    *,
+    compatible_fields: frozenset[str] = COMPATIBLE_RESOLVE_FIELDS,
+    script_fields: frozenset[str] | None = None,
+) -> tuple[str, str]:
+    """Classify the five product states, never assuming native preservation.
+
+    A synthetic caller can inject qualified fields to exercise the positive
+    branch. Production always uses the empty envelope. Future callers must
+    additionally prove the script's changed fields are disjoint; missing
+    script-field evidence can never authorize compatibility.
+    """
+    if type(script_changed) is not bool:
+        raise ValueError("script_changed must be a boolean")
+    changed, uncertain = False, False
+    touched: set[str] = set()
+    for raw in observed_items:
+        item = _object(raw, "observed item")
+        statuses = _statuses(item)
+        unknown = bool(item.get("cannotRead")) or "cannot tell" in statuses
+        uncertain |= unknown
+        changed |= statuses != ("unchanged",) or bool(item.get("changes")) or unknown
+        touched.update(item.get("changes", {}))
+        if set(statuses) & {"added", "removed", "moved", "trimmed"}:
+            touched.add("clip_identity_or_geometry")
+    if not script_changed and not changed:
+        return "unchanged", "The compiled row and readable Resolve clips are unchanged."
+    if script_changed and not changed:
+        return (
+            "script_changed",
+            "The script changed; no Resolve clip edit was reported.",
+        )
+    if changed and not script_changed:
+        return "resolve_changed", (
+            "Resolve clips changed or could not be fully read; the script is unchanged."
+        )
+    if uncertain:
+        return (
+            "both_conflict",
+            "Both sides changed and some Resolve clip facts are unreadable.",
+        )
+    if (
+        touched
+        and touched <= compatible_fields
+        and script_fields is not None
+        and touched.isdisjoint(script_fields)
+    ):
+        return "both_compatible", "Both sides changed in qualified, separate fields."
+    return "both_conflict", (
+        "Both sides changed; Resolve preservation or field separation is not qualified."
+    )
+
+
+def shifted_rows(
+    old_starts: Mapping[str, int], proposed_starts: Mapping[str, int]
+) -> dict[str, int]:
+    """Signed frame deltas for surviving rows; never accept unsafe geometry."""
+    for name, starts in (("baseline", old_starts), ("current", proposed_starts)):
+        for row_id, start in starts.items():
+            _id(row_id, f"{name} row ID")
+            _frame(start, f"{name} row start frame")
+    return {
+        row_id: proposed_starts[row_id] - old_starts[row_id]
+        for row_id in sorted(old_starts.keys() & proposed_starts.keys())
+        if proposed_starts[row_id] != old_starts[row_id]
+    }
+
+
+def _observed_rows(
+    report: Mapping[str, Any], saved_map: Mapping[str, Any]
+) -> dict[str | None, list[Mapping[str, Any]]]:
+    """Validate one complete #101 observation against each saved native UID."""
+    for field in (
+        "buildId",
+        "documentId",
+        "documentRevision",
+        "timelineId",
+        "timelineName",
+    ):
+        if (
+            type(report.get(field)) is not type(saved_map.get(field))
+            or report.get(field) != saved_map[field]
+        ):
+            raise ValueError(f"observation {field} differs from verified baseline")
+    for field in ("cannotRead", "notCompared"):
+        if field in report and any(
+            not isinstance(value, str) for value in _array(report[field], field)
+        ):
+            raise ValueError(f"invalid observation {field}")
+    expected: dict[str | None, dict[str, str]] = {}
+    for row in saved_map["rows"]:
+        expected[row["rowId"]] = {
+            item["resolveItemId"]: item["eventId"] for item in row["items"]
+        }
+    observed: dict[str | None, list[Mapping[str, Any]]] = {}
+    seen_uids: set[str] = set()
+    seen_baseline: set[str] = set()
+    for raw in _array(report.get("rows"), "observed rows"):
+        row = _object(raw, "observed row")
+        row_id = row.get("rowId")
+        if row_id is not None:
+            _id(row_id, "observed row ID")
+        if row_id in observed or (row_id is not None and row_id not in expected):
+            raise ValueError("duplicate or unknown observed row ID")
+        items = _array(row.get("items"), "observed row items")
+        observed[row_id] = []
+        for raw_item in items:
+            item = _object(raw_item, "observed item")
+            uid = _id(item.get("resolveItemId"), "observed Resolve item UID")
+            if uid in seen_uids:
+                raise ValueError("duplicate observed Resolve item UID")
+            seen_uids.add(uid)
+            statuses = _statuses(item)
+            expected_event = expected.get(row_id, {}).get(uid)
+            if statuses == ("added",):
+                if expected_event is not None or "eventId" in item:
+                    raise ValueError("editor addition claims a managed event")
+                if "trackKind" in item and item["trackKind"] not in {
+                    "video",
+                    "audio",
+                    "subtitle",
+                }:
+                    raise ValueError("invalid editor clip track kind")
+                if "trackIndex" in item and item["trackIndex"] is not None:
+                    _frame(item["trackIndex"], "editor clip track index", positive=True)
+                if "startFrame" in item and item["startFrame"] is not None:
+                    _frame(item["startFrame"], "editor clip start frame")
+                if "durationFrames" in item and item["durationFrames"] is not None:
+                    _frame(
+                        item["durationFrames"], "editor clip duration", positive=True
+                    )
+            else:
+                if expected_event is None or item.get("eventId") != expected_event:
+                    raise ValueError("observed managed event/row differs from baseline")
+                seen_baseline.add(uid)
+            observed[row_id].append(item)
+    missing = set().union(*(set(items) for items in expected.values())) - seen_baseline
+    if missing:
+        raise ValueError("observation omitted a baseline managed clip")
+    return observed
+
+
+def _clip_interval(item: Mapping[str, Any]) -> tuple[int, int] | None:
+    """A current editor clip may be unreadable; do not fabricate its extent."""
+    start, duration = item.get("startFrame"), item.get("durationFrames")
+    if start is None or duration is None:
+        return None
+    start = _frame(start, "editor clip start frame")
+    duration = _frame(duration, "editor clip duration", positive=True)
+    if start + duration > MAX_FRAME:
+        raise ValueError("editor clip interval exceeds safe frame range")
+    return start, start + duration
+
+
+def _dependency_facts(
+    manifest: Mapping[str, Any], document: Mapping[str, Any]
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Normalize paired transitions and complete A5 spans as atomic facts.
+
+    A dependency is anchored to its first row, not to the absolute timeline.
+    Pure upstream displacement cannot rewrite its semantic identity.
+    """
+    order = _document_rows(document)
+    positions = {row: index for index, row in enumerate(order)}
+    _, envelopes, _ = _manifest(manifest, document)
+    facts: dict[tuple[str, str], dict[str, Any]] = {}
+    for raw in _array(manifest.get("transitions", []), "compiled transitions"):
+        transition = _object(raw, "compiled transition")
+        transition_id = _id(transition.get("id"), "transition ID")
+        left = _id(transition.get("fromRowId"), "transition from-row ID")
+        right = _id(transition.get("toRowId"), "transition to-row ID")
+        if left not in positions or right not in positions or left == right:
+            raise ValueError("transition references missing or identical script rows")
+        if left not in envelopes:
+            raise ValueError("transition has no outgoing row geometry")
+        origin = envelopes[left][0]
+        normalized = dict(transition)
+        for field in ("boundaryFrame", "startFrame", "endFrame"):
+            normalized[field] = (
+                _frame(transition.get(field), f"transition {field}") - origin
+            )
+        if normalized["endFrame"] <= normalized["startFrame"]:
+            raise ValueError("invalid transition interval")
+        adjacent = positions[right] == positions[left] + 1
+        normalized["adjacentInScript"] = adjacent
+        key = ("transition", transition_id)
+        if key in facts:
+            raise ValueError("duplicate transition ID")
+        facts[key] = {
+            "members": (left, right),
+            "signature": json.dumps(normalized, sort_keys=True, separators=(",", ":")),
+            "adjacent": adjacent,
+        }
+
+    for raw in _array(manifest.get("events"), "compiled events"):
+        event = _object(raw, "compiled event")
+        if event.get("kind") != "music":
+            continue
+        music = _object(event.get("music"), "compiled music span")
+        span_id = _id(music.get("spanId"), "music span ID")
+        first = _id(music.get("startRowId"), "music start row ID")
+        last = _id(music.get("endRowId"), "music end row ID")
+        if (
+            first not in positions
+            or last not in positions
+            or positions[first] > positions[last]
+            or _object(event.get("provenance"), "music provenance").get("blockId")
+            != first
+            or first not in envelopes
+        ):
+            raise ValueError("music span has contradictory row identity or ordering")
+        members = order[positions[first] : positions[last] + 1]
+        origin = envelopes[first][0]
+        normalized = dict(event)
+        record = _object(event["recordRange"], "music record range")
+        normalized["recordRange"] = {
+            **record,
+            "startFrame": _frame(record["startFrame"], "music start frame") - origin,
+            "endFrame": _frame(record["endFrame"], "music end frame") - origin,
+        }
+        normalized["music"] = dict(music)
+        if "requestedEndFrame" in music:
+            normalized["music"]["requestedEndFrame"] = (
+                _frame(music["requestedEndFrame"], "music requested end frame") - origin
+            )
+        key = ("music", span_id)
+        if key in facts:
+            raise ValueError("duplicate music span ID")
+        facts[key] = {
+            "members": members,
+            "signature": json.dumps(normalized, sort_keys=True, separators=(",", ":")),
+            "adjacent": True,
+        }
+    return facts
+
+
+def _dependency_impacts(
+    baseline_manifest: Mapping[str, Any],
+    baseline_document: Mapping[str, Any],
+    current_manifest: Mapping[str, Any],
+    current_document: Mapping[str, Any],
+    directly_changed: set[str],
+) -> dict[str, list[dict[str, Any]]]:
+    before = _dependency_facts(baseline_manifest, baseline_document)
+    after = _dependency_facts(current_manifest, current_document)
+    impacts: dict[str, list[dict[str, Any]]] = {}
+    for kind, identity in sorted(before.keys() | after.keys()):
+        old, new = before.get((kind, identity)), after.get((kind, identity))
+        members = tuple(
+            sorted(
+                set((old or {}).get("members", ()))
+                | set((new or {}).get("members", ()))
+            )
+        )
+        if old == new and not directly_changed.intersection(members):
+            continue
+        reason = (
+            f"{kind.capitalize()} {identity} affects multiple script rows; "
+            "the coupled edit must be reviewed together."
+        )
+        if new is not None and not new["adjacent"]:
+            reason = f"Transition {identity} is no longer between adjacent script rows."
+        impact = {
+            "kind": kind,
+            "id": identity,
+            "members": list(members),
+            "reason": reason,
+        }
+        for row_id in members:
+            impacts.setdefault(row_id, []).append(impact)
+    return impacts
+
+
+def _row_clip_ranges(manifest: Mapping[str, Any], row_id: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    for raw in manifest["events"]:
+        event = _object(raw, "compiled event")
+        if event["kind"] in {"script_marker", "music"}:
+            continue  # Music is coupled explicitly, not a fake row-wide clip.
+        if event["provenance"]["blockId"] != row_id:
+            continue
+        interval = _object(event["recordRange"], "compiled record range")
+        ranges.append((interval["startFrame"], interval["endFrame"]))
+    return ranges
+
+
+def _dependency_clip_ranges(
+    manifest: Mapping[str, Any], impact: Mapping[str, Any]
+) -> list[tuple[int, int]]:
+    """Actual span/boundary intervals, not a fictional filled row envelope."""
+    kind, identity = impact["kind"], impact["id"]
+    if kind == "transition":
+        return [
+            (item["startFrame"], item["endFrame"])
+            for item in manifest.get("transitions", [])
+            if item["id"] == identity
+        ]
+    return [
+        (item["recordRange"]["startFrame"], item["recordRange"]["endFrame"])
+        for item in manifest["events"]
+        if item["kind"] == "music" and item["music"]["spanId"] == identity
+    ]
+
+
+def compare_three_way_rows(
+    baseline_manifest: Mapping[str, Any],
+    baseline_map: Mapping[str, Any],
+    baseline_document: Mapping[str, Any],
+    current_manifest: Mapping[str, Any],
+    current_document: Mapping[str, Any],
+    observation: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Read-only classification with ripple, unknowns and cross-row hazards.
+
+    Reports are review evidence, never an authorized outbound selection. The
+    #101 observation identifies exactly the original target; a future executor
+    must independently re-observe under ownership before writing.
+    """
+    script = compare_script_rows(
+        baseline_manifest,
+        baseline_map,
+        baseline_document,
+        current_manifest,
+        current_document,
+    )
+    observed = _observed_rows(_object(observation, "#101 observation"), baseline_map)
+    old_starts = {
+        row["rowId"]: row["baselineStartFrame"]
+        for row in script["rows"]
+        if row["baselineStartFrame"] is not None
+    }
+    new_starts = {
+        row["rowId"]: row["currentStartFrame"]
+        for row in script["rows"]
+        if row["currentStartFrame"] is not None
+    }
+    shifts = shifted_rows(old_starts, new_starts)
+    direct = {
+        row["rowId"] for row in script["rows"] if row["scriptChange"] != "unchanged"
+    }
+    dependencies = _dependency_impacts(
+        baseline_manifest, baseline_document, current_manifest, current_document, direct
+    )
+    all_additions = [
+        {"rowId": row_id, **dict(item)}
+        for row_id, items in observed.items()
+        for item in items
+        if _statuses(item) == ("added",)
+    ]
+    all_additions.sort(key=lambda item: (item["resolveItemId"], item["rowId"] or ""))
+    unassigned = [item for item in all_additions if item["rowId"] is None]
+    unknown_additions = [item for item in unassigned if _clip_interval(item) is None]
+    resolved_edits = {
+        row_id: classify_row(False, items)[0] == "resolve_changed"
+        for row_id, items in observed.items()
+        if row_id is not None
+    }
+    results: list[dict[str, Any]] = []
+    for original in script["rows"]:
+        row_id = original["rowId"]
+        shift = shifts.get(row_id, 0)
+        impacts = dependencies.get(row_id, [])
+        script_affected = bool(
+            original["scriptChange"] != "unchanged" or shift or impacts
+        )
+        clips = _row_clip_ranges(current_manifest, row_id)
+        if original["scriptChange"] == "removed":
+            clips = _row_clip_ranges(baseline_manifest, row_id)
+        for impact in impacts:
+            # An editor clip may intersect only a transition boundary or A5
+            # span even when it lies between this row's actual clips.
+            clips.extend(_dependency_clip_ranges(baseline_manifest, impact))
+            clips.extend(_dependency_clip_ranges(current_manifest, impact))
+        overlaps = sorted(
+            item["resolveItemId"]
+            for item in unassigned
+            if (interval := _clip_interval(item)) is not None
+            and any(start < interval[1] and interval[0] < end for start, end in clips)
+        )
+        local = observed.get(row_id, [])
+        state, reason = classify_row(script_affected, local)
+        linked_resolve = any(
+            resolved_edits.get(member, False)
+            for impact in impacts
+            for member in impact["members"]
+        )
+        hazards: list[str] = []
+        if shift:
+            direction = "later" if shift > 0 else "earlier"
+            reason += (
+                f" This row moves {abs(shift)} frames {direction} on the timeline."
+            )
+        if impacts:
+            hazards.extend(impact["reason"] for impact in impacts)
+        if overlaps and script_affected:
+            hazards.append(
+                "An unassigned editor clip overlaps row clips or a linked "
+                "transition/music span."
+            )
+        if unknown_additions and script_affected:
+            hazards.append(
+                "An unassigned editor clip has unreadable timing; "
+                "overlap cannot be excluded."
+            )
+        if linked_resolve and script_affected:
+            hazards.append(
+                "A Resolve edit affects another row in the same atomic dependency."
+            )
+        if script_affected and (overlaps or unknown_additions or linked_resolve):
+            state = "both_conflict"
+            reason = (
+                "The script update overlaps unassigned or coupled Resolve work; "
+                "review is required. " + reason
+            )
+        results.append(
+            {
+                **original,
+                "state": state,
+                "reason": reason,
+                "shiftFrames": shift,
+                "dependencyImpacts": impacts,
+                "editorOverlaps": overlaps,
+                "hazards": sorted(set(hazards)),
+                "blocked": state == "both_conflict"
+                or bool(hazards and (overlaps or unknown_additions or linked_resolve)),
+            }
+        )
+    return {
+        **{key: value for key, value in script.items() if key != "rows"},
+        "rows": results,
+        "observationCoverage": {
+            "cannotRead": list(observation.get("cannotRead", [])),
+            "notCompared": list(observation.get("notCompared", [])),
+        },
+        "unassignedEditorClips": unassigned,
+        "unassignedManagedClips": [
+            dict(item)
+            for item in observed.get(None, [])
+            if _statuses(item) != ("added",)
+        ],
+        "otherEditorClips": [
+            item for item in all_additions if item["rowId"] is not None
+        ],
     }
