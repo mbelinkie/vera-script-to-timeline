@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import errno
 import json
+import math
 import os
 import shlex
 import shutil
@@ -17,9 +18,10 @@ from .presenter_sync import SyncRefused, find_offset
 from .presenter_takes import RATE, TakesError, decode_audio, probe_video
 
 OUTPUT_RATE = 48_000
+LOUDNESS = "I=-19:TP=-1.5:LRA=11"
 
 
-def run(command: list[str]) -> None:
+def run(command: list[str]) -> subprocess.CompletedProcess[bytes]:
     try:
         result = subprocess.run(command, capture_output=True, check=False)
     except OSError as error:
@@ -28,6 +30,27 @@ def run(command: list[str]) -> None:
         raise TakesError(
             f"{command[0]} failed: {result.stderr.decode(errors='replace').strip()}"
         )
+    return result
+
+
+def loudness_report(result: subprocess.CompletedProcess[bytes]) -> dict[str, str]:
+    try:
+        stderr = result.stderr.decode("utf-8", "replace")
+        report: dict[str, str] = json.JSONDecoder().raw_decode(
+            stderr[stderr.rindex("{") :]
+        )[0]
+        for key in (
+            "input_i",
+            "input_tp",
+            "input_lra",
+            "input_thresh",
+            "target_offset",
+        ):
+            if not math.isfinite(float(report[key])):
+                raise ValueError(key)
+        return report
+    except (ValueError, KeyError, TypeError) as error:
+        raise TakesError("Cannot measure loudness of the cleaned audio.") from error
 
 
 def clean(video: Path, output: Path, separate: Path | None = None) -> None:
@@ -121,23 +144,52 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
         files = list(filtered.glob("*.wav"))
         if len(files) != 1:
             raise TakesError("DeepFilterNet did not produce exactly one WAV file.")
+        measurement = loudness_report(
+            run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-nostats",
+                    "-i",
+                    str(files[0]),
+                    "-af",
+                    f"loudnorm={LOUDNESS}:print_format=json",
+                    "-f",
+                    "null",
+                    "-",
+                ]
+            )
+        )
+        normalization = (
+            f"loudnorm={LOUDNESS}:measured_I={measurement['input_i']}:"
+            f"measured_TP={measurement['input_tp']}:"
+            f"measured_LRA={measurement['input_lra']}:"
+            f"measured_thresh={measurement['input_thresh']}:"
+            f"offset={measurement['target_offset']}:linear=true:print_format=json"
+        )
         staged = root / "result.wav"
-        run(
+        normalized = run(
             [
                 "ffmpeg",
-                "-v",
-                "error",
+                "-hide_banner",
+                "-nostats",
                 "-nostdin",
                 "-i",
                 str(files[0]),
                 "-af",
-                f"pan=mono|c0=c0,aresample={OUTPUT_RATE},apad,atrim=end_sample={count}",
+                f"{normalization},aresample={OUTPUT_RATE},apad,atrim=end_sample={count}",
                 "-ar",
                 str(OUTPUT_RATE),
                 "-c:a",
                 "pcm_s24le",
                 str(staged),
             ]
+        )
+        loudness = loudness_report(normalized)
+        print(
+            f"Loudness: {loudness['output_i']} LUFS; "
+            f"true peak: {loudness['output_tp']} dBTP "
+            f"({loudness['normalization_type']} normalization)."
         )
         measured = find_offset(camera, decode_audio(staged), RATE)
         if abs(measured.offset_s) > frame or measured.spread_s > frame:

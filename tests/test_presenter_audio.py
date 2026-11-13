@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -185,6 +186,12 @@ def test_camera_only_extracts_and_filters_video_audio_without_changing_source(
     assert result.returncode == 0, result.stderr
     assert output.is_file()
     _assert_clean_wav(output)
+    measured = re.search(
+        r"Loudness: (-?\d+\.\d+) LUFS; true peak: (-?\d+\.\d+)", result.stdout
+    )
+    assert measured is not None
+    assert abs(float(measured.group(1)) + 19) < 1
+    assert float(measured.group(2)) <= -1.0
     assert (_sha256(video), _sha256(camera_audio)) == source_hashes
     assert log.is_file()
     assert '"-a", "30", "-D"' in log.read_text(encoding="utf-8")
