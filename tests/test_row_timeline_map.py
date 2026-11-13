@@ -13,6 +13,21 @@ from vera_timeline_agent.row_timeline_map import SCHEMA_VERSION, make_row_timeli
 COMPILER_FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
 
 
+def test_row_map_is_in_the_complete_verified_resolve_runtime(tmp_path: Path) -> None:
+    from vera_timeline_agent.target_identity_v2 import TI_RUNTIME_FILES
+    from vera_timeline_agent.workflow_v2_cli import RUNTIME_FILES, build_release_v2
+
+    assert "row_timeline_map.py" in RUNTIME_FILES
+    assert set(RUNTIME_FILES) == set(TI_RUNTIME_FILES)
+    release = tmp_path / "release"
+    build_release_v2(release)
+    bundled = (
+        release / "vera-delivery-v2/python/vera_timeline_agent/row_timeline_map.py"
+    )
+    source = Path(__file__).parents[1] / "python" / "vera_timeline_agent"
+    assert bundled.read_bytes() == (source / "row_timeline_map.py").read_bytes()
+
+
 def _event(
     event_id: str,
     track_id: str,
