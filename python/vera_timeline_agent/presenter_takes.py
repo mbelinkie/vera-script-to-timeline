@@ -739,8 +739,14 @@ def build_takes(
     quiet: list[list[float]],
     duration_s: float,
     fps: list[int],
+    last_take: bool = False,
 ) -> Json:
     """The takes file body: every take, and the suggested coverage per passage.
+
+    `last_take` is the choice a project makes once it allows jump cuts: where
+    a row has to be joined on camera, switch to the latest read of each
+    stretch instead of staying in the take in hand. Either way the reads not
+    chosen are kept as alternates.
 
     The takes themselves come from the accepted #53 rules. The suggestion for
     a passage is the best read of the whole of it; failing that, the best read
@@ -857,7 +863,9 @@ def build_takes(
                 if last and last["scriptWords"][1] == a:
                     # Never cut where it would show if the read in hand carries on.
                     same = [r for r in found if r["takes"] == last["takes"]]
-                    if same and _join(passage, a) != "hidden":
+                    join = _join(passage, a)
+                    stay = join == "check" or (join == "visible" and not last_take)
+                    if same and stay:
                         pick = same[0]
                 others = [t for r in found if r is not pick for t in r["takes"]]
                 if (
@@ -907,6 +915,17 @@ def build_takes(
                         ),
                     ],
                 }
+        # Every other read of part of a clip stays on record, so whoever
+        # reviews the suggestion can overrule it stretch by stretch.
+        for clip in [suggested, *pieces] if suggested else pieces:
+            start, end = clip["scriptWords"]
+            clip["otherReads"] = [
+                {"scriptWords": [a, b], "takes": r["takes"]}
+                for a, b in _segments(passage, len(expected))
+                if start <= a and b <= end and (a, b) != (start, end)
+                for r in reads(a, b)
+                if r["takes"] != clip["takes"]
+            ]
         notes = [
             {
                 "said": _said(words, s["word_range"], units, recognition),
@@ -1019,6 +1038,7 @@ def _difference_lines(d: Json) -> list[str]:
     return lines
 
 
+LONG_TAKES, LAST_TAKE = "long-takes", "last-take"
 JOIN = {
     None: "",
     "hidden": "(join hidden by footage) ",
@@ -1058,7 +1078,12 @@ def render_report(takes: Json) -> str:
     else:
         lines.append("Sound:     the camera's own")
     if takes.get("allowJumpCuts"):
-        lines.append("Jump cuts: allowed for this project, so they are not flagged")
+        choice = (
+            "the latest read is used"
+            if takes.get("jumpCutChoice") == LAST_TAKE
+            else "long takes are preferred"
+        )
+        lines.append(f"Jump cuts: allowed, so they are not flagged; {choice}")
     counts = takes["words"]
     lines += [
         f"Words:     {counts['heard']} heard: {counts['placed']} placed exactly, "
@@ -1158,6 +1183,12 @@ def render_report(takes: Json) -> str:
                 if piece["alternates"]:
                     others = ", ".join(str(numbers[i]) for i in piece["alternates"])
                     lines.append(f"      Alternates: take {others}")
+                for other in piece.get("otherReads", []):
+                    a, b = other["scriptWords"]
+                    lines.append(
+                        f"      Also read: script words {a + 1} to {b} in take "
+                        f"{' + '.join(str(numbers[i]) for i in other['takes'])}"
+                    )
             for gap in passage["gaps"]:
                 a, b = gap["scriptWords"]
                 lines.append(
@@ -1219,8 +1250,14 @@ def find_takes(
     separate_audio: Path | None,
     out: Path,
     allow_jump_cuts: bool = False,
+    jump_cut_choice: str = LONG_TAKES,
 ) -> Json:
-    """`allow_jump_cuts` changes no cut: it only stops jump cuts being flagged."""
+    """`allow_jump_cuts` alone changes no cut: jump cuts just stop being flagged.
+
+    With it, `jump_cut_choice` says which read to use across an on-camera
+    join: stay in the take in hand (`long-takes`) or the latest (`last-take`).
+    """
+    last_take = allow_jump_cuts and jump_cut_choice == LAST_TAKE
     started = time.monotonic()
     config = EngineConfig.from_env()
     dictionary_path = _dictionary_path(config)
@@ -1275,6 +1312,7 @@ def find_takes(
         quiet_intervals(sound, duration_s),
         duration_s,
         fps,
+        last_take,
     )
     takes = {
         "schemaVersion": "presenter-takes/1",
@@ -1292,6 +1330,7 @@ def find_takes(
         else None,
         "approved": False,
         "allowJumpCuts": allow_jump_cuts,
+        "jumpCutChoice": jump_cut_choice if allow_jump_cuts else None,
         **body,
         "secondsTaken": round(time.monotonic() - started, 1),
     }
@@ -1319,7 +1358,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="do not flag joins that show on camera (the edit itself is the same)",
     )
+    parser.add_argument(
+        "--jump-cut-choice",
+        choices=(LONG_TAKES, LAST_TAKE),
+        help="with --allow-jump-cuts: stay in the take in hand across an "
+        "on-camera join (long-takes, the default) or use the latest read",
+    )
     args = parser.parse_args(argv)
+    if args.jump_cut_choice and not args.allow_jump_cuts:
+        parser.error("--jump-cut-choice needs --allow-jump-cuts")
     if args.sync_only and args.audio is None:
         parser.error("--sync-only needs --audio")
     if not args.sync_only and (args.script is None or args.out is None):
@@ -1331,7 +1378,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Time taken: {time.monotonic() - started:.0f} seconds")
             return 0
         takes = find_takes(
-            args.video, args.script, args.audio, args.out, args.allow_jump_cuts
+            args.video,
+            args.script,
+            args.audio,
+            args.out,
+            args.allow_jump_cuts,
+            args.jump_cut_choice or LONG_TAKES,
         )
     except (TakesError, SyncRefused) as error:
         print(f"Stopped: {error}", file=sys.stderr)

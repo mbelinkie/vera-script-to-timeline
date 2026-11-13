@@ -327,14 +327,16 @@ def test_word_script_without_bold_does_not_claim_a_camera_state() -> None:
 ON_CAMERA = "(on) They really like saunas. The band wanted to embrace the weirdness."
 
 
-def _coverage_case(script: str, spoken: list[tuple[str, float]]) -> Json:
+def _coverage_case(
+    script: str, spoken: list[tuple[str, float]], last_take: bool = False
+) -> Json:
     recognition, alignment = _artifacts(spoken)
     passages = pt.script_passages(script, DICTIONARY)
     words = pt.timed_words(recognition, alignment)
     report = refine(discover(pt.take_packet(words, alignment, passages, DURATION, FPS)))
     quiet = [[0.0, DURATION]]
     body = pt.build_takes(
-        report, words, recognition, alignment, passages, quiet, DURATION, FPS
+        report, words, recognition, alignment, passages, quiet, DURATION, FPS, last_take
     )
     return {
         "video": {"file": "clip.mov", "durationS": DURATION, "fps": FPS},
@@ -373,6 +375,41 @@ def test_no_whole_take_suggests_coverage_sentence_by_sentence() -> None:
         line.replace("(JUMP CUT ON CAMERA) ", "")
         for line in report_text.splitlines()
         if "Script words" in line
+    ]
+
+
+def test_jump_cut_choice_long_takes_or_last_take_keeps_the_other_as_an_option() -> None:
+    script = ON_CAMERA + " Three Finns singing in Swedish."
+    spoken = [
+        *_said(
+            "They really like saunas. The band wanted to embrace the weirdness.", 2.0
+        ),
+        *_said(
+            "The band wanted to embrace the weirdness. Three Finns singing in Swedish.",
+            20.0,
+        ),
+    ]
+    long_takes = _coverage_case(script, spoken)["rows"][0]["suggestedCoverage"]
+    last_take = _coverage_case(script, spoken, last_take=True)["rows"][0][
+        "suggestedCoverage"
+    ]
+    # Long takes: stay in the first take until it runs out.
+    assert [(p["takes"], p["scriptWords"]) for p in long_takes] == [
+        (["row-1-take-1", "row-1-take-2"], [0, 11]),
+        (["row-1-take-3", "row-1-take-4"], [11, 16]),
+    ]
+    # Last take: the later read of the middle sentence wins.
+    assert [(p["takes"], p["scriptWords"]) for p in last_take] == [
+        (["row-1-take-1", "row-1-take-2"], [0, 4]),
+        (["row-1-take-3", "row-1-take-4"], [4, 16]),
+    ]
+    # Either way the read not chosen is still offered.
+    middle = [4, 11]
+    assert long_takes[0]["otherReads"] == [
+        {"scriptWords": middle, "takes": ["row-1-take-3", "row-1-take-4"]}
+    ]
+    assert last_take[1]["otherReads"] == [
+        {"scriptWords": middle, "takes": ["row-1-take-1", "row-1-take-2"]}
     ]
 
 
