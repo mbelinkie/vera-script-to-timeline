@@ -44,8 +44,9 @@ export interface LiveEvent {
   status: LiveStatus;
   /** Yjs updates accepted in this step, in order. Absent when only the status changed. */
   updates: Uint8Array[];
-  /** Opaque tag of whoever sent the change, so they can recognise their own. */
+  /** Opaque tag of whoever sent a change in this step, and which update was theirs. */
   source?: unknown;
+  sourceUpdate?: Uint8Array;
 }
 
 export interface LiveSession {
@@ -145,6 +146,8 @@ export class ProjectCollaborationService {
   private readonly chains = new Map<string, Promise<unknown>>();
   private readonly listeners = new Map<string, Set<(event: LiveEvent) => void>>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Projects this process knows have live text not yet in the saved script. */
+  private readonly waiting = new Set<string>();
   private readonly delay: number;
   private readonly maxUpdateBytes: number;
 
@@ -230,8 +233,9 @@ export class ProjectCollaborationService {
     if (this.timers.has(projectId)) return;
     const timer = setTimeout(() => {
       this.timers.delete(projectId);
-      void this.flush(projectId).catch(() => undefined);
-    }, this.delay);
+      // A failed write-back is tried again; the project stays marked as waiting.
+      void this.flush(projectId).catch(() => { this.schedule(projectId); });
+    }, Math.max(this.delay, 50));
     if (typeof timer === "object") timer.unref();
     this.timers.set(projectId, timer);
   }
@@ -267,7 +271,10 @@ export class ProjectCollaborationService {
     const row = stored.rows[0];
     if (row) {
       const cached = this.rooms.get(projectId);
-      if (cached && cached.liveSequence === Number(row.live_sequence)) return { room: cached, created: false };
+      if (cached && cached.liveSequence === Number(row.live_sequence) &&
+          cached.documentRevision === Number(row.document_revision) &&
+          cached.ideasRevision === Number(row.ideas_revision) &&
+          cached.materialization === row.materialization) return { room: cached, created: false };
       const doc = new Y.Doc();
       Y.applyUpdate(doc, fromBase64(row.state_base64));
       return { created: false, room: {
@@ -448,12 +455,29 @@ export class ProjectCollaborationService {
   }
 
   /** Shared tail of every operation: remember the room, tell listeners, schedule the write-back. */
-  private finish(projectId: string, room: Room, updates: Uint8Array[], changed: boolean, source?: unknown): LiveStatus {
+  private finish(
+    projectId: string, room: Room, updates: Uint8Array[], changed: boolean,
+    source?: unknown, sourceUpdate?: Uint8Array,
+  ): LiveStatus {
     this.rooms.set(projectId, room);
     const status = this.statusOf(projectId, room);
-    if (changed) this.emit(projectId, { status, updates, ...(source === undefined ? {} : { source }) });
-    if (room.materialization === "pending") this.schedule(projectId);
+    if (changed) {
+      this.emit(projectId, { status, updates,
+        ...(source === undefined ? {} : { source }), ...(sourceUpdate ? { sourceUpdate } : {}) });
+    }
+    if (room.materialization === "pending") {
+      this.waiting.add(projectId);
+      this.schedule(projectId);
+    } else {
+      this.waiting.delete(projectId);
+    }
     return status;
+  }
+
+  /** Everything about a room that is stored in its head row. */
+  private stamp(room: Room): string {
+    return [room.liveSequence, room.documentRevision, room.ideasRevision, room.materializedSequence,
+      room.materialization, JSON.stringify(room.diagnostics)].join("|");
   }
 
   // ---- public API -----------------------------------------------------------
@@ -467,10 +491,11 @@ export class ProjectCollaborationService {
       const result = await this.auth.withAuthorizedMutation(projectId, principal, "view_document", async (db) => {
         const loaded = await this.load(db, projectId, true);
         const room = loaded!.room;
-        const before = room.liveSequence;
+        const before = this.stamp(room);
         await this.reconcile(db, projectId, room, updates);
-        if (room.liveSequence !== before) await this.save(db, projectId, room);
-        return { room, changed: room.liveSequence !== before };
+        const changed = this.stamp(room) !== before;
+        if (changed) await this.save(db, projectId, room);
+        return { room, changed };
       });
       return this.finish(projectId, result.room, updates, result.changed);
     }));
@@ -509,14 +534,15 @@ export class ProjectCollaborationService {
       const result = await this.auth.withAuthorizedMutation(projectId, principal, "edit_document", async (db, actor) => {
         const loaded = await this.load(db, projectId, true);
         const room = loaded!.room;
-        const before = room.liveSequence;
+        const before = this.stamp(room);
         await this.reconcile(db, projectId, room, updates);
         if (await this.accept(db, projectId, room, actor, update)) updates.push(update);
         if (room.materialization === "pending" && this.delay <= 0) await this.materialize(db, projectId, room);
-        if (room.liveSequence !== before) await this.save(db, projectId, room);
-        return { room, changed: room.liveSequence !== before };
+        const changed = this.stamp(room) !== before;
+        if (changed) await this.save(db, projectId, room);
+        return { room, changed };
       }, writeSessionId);
-      return this.finish(projectId, result.room, updates, result.changed, source);
+      return this.finish(projectId, result.room, updates, result.changed, source, update);
     }));
   }
 
@@ -535,12 +561,10 @@ export class ProjectCollaborationService {
         const loaded = await this.load(db, projectId, false);
         if (!loaded) return null;
         const room = loaded.room;
-        const before = { sequence: room.liveSequence, state: room.materialization, revision: room.documentRevision,
-          ideas: room.ideasRevision };
+        const before = this.stamp(room);
         await this.reconcile(db, projectId, room, updates);
         if (room.materialization !== "current") await this.materialize(db, projectId, room);
-        const changed = room.liveSequence !== before.sequence || room.materialization !== before.state ||
-          room.documentRevision !== before.revision || room.ideasRevision !== before.ideas;
+        const changed = this.stamp(room) !== before;
         if (changed) await this.save(db, projectId, room);
         return { room, changed };
       });
@@ -550,7 +574,7 @@ export class ProjectCollaborationService {
 
   /** True while this process holds live text that is not yet in the saved script. No database access. */
   hasPending(projectId: string): boolean {
-    return this.timers.has(projectId.toLowerCase());
+    return this.waiting.has(projectId.toLowerCase());
   }
 
   /** True while this process has the project open live. No database access. */

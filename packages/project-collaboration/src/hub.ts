@@ -169,7 +169,10 @@ export class CollaborationHub {
 
   private fanOut(project: ProjectPresence, event: LiveEvent): void {
     for (const connection of project.connections) {
-      if (connection !== event.source) for (const update of event.updates) connection.send({ type: "update", update });
+      for (const update of event.updates) {
+        // The sender already has their own change, but not a save folded in beside it.
+        if (connection !== event.source || update !== event.sourceUpdate) connection.send({ type: "update", update });
+      }
       connection.sendStatus(event.status);
     }
   }

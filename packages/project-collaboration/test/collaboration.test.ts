@@ -132,6 +132,7 @@ describe("live collaboration", () => {
     await settle(la, lv);
     expect(v.state).toBe("sync failed");
     expect(v.failure).toBe("action_not_allowed");
+    expect(v.hasUnsyncedChanges).toBe(true);
     expect(rowText(a, row)).toBe("hello world!");
     expect(await h.documents.getDocument(h.projectId, h.owner)).toEqual(before);
   });
@@ -182,6 +183,16 @@ describe("live collaboration", () => {
     expect(b.state).toBe("sync failed");
     const saved = await h.documents.getDocument(h.projectId, h.owner);
     expect((saved.document.activeDraft.blocks[1] as NarrationBlockV2).text).toBe("hello world still here");
+
+    // A refused edit is never counted as stored: once they may edit again, it goes up with the next change.
+    await h.auth.changeMembership(h.projectId, h.owner, h.editor.principalId, "editor");
+    await h.hub.revalidate(h.projectId);
+    editRow(b, row, (text) => text + "!");
+    await settle(lb);
+    expect(b.state).toBe("synced");
+    const later = await h.documents.getDocument(h.projectId, h.owner);
+    expect((later.document.activeDraft.blocks[1] as NarrationBlockV2).text)
+      .toBe("hello world still here not any more!");
   });
 
   it("reopens after a restart with the merged text and every change's author", async () => {

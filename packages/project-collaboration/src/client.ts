@@ -20,6 +20,10 @@ export interface ClientOptions {
 
 const REMOTE = "remote";
 
+function base64ToBytes(text: string): Uint8Array {
+  return Uint8Array.from(atob(text), (character) => character.charCodeAt(0));
+}
+
 /**
  * One person's copy of a project's shared document. It keeps working while
  * offline; whatever was changed is sent and merged on the next connection.
@@ -45,6 +49,8 @@ export class CollaborationClient {
   private localSeq = 0;
   private ackedSeq = 0;
   private batch: Uint8Array[] = [];
+  /** Set when the server refused something: the next send carries everything it lacks. */
+  private resend = false;
   private batching = false;
 
   constructor(options: ClientOptions = {}) {
@@ -96,8 +102,11 @@ export class CollaborationClient {
 
   private sendBatch(): void {
     if (!this.transport || !this.handshaken || !this.batch.length) return;
-    const update = this.batch.length === 1 ? this.batch[0]! : Y.mergeUpdates(this.batch);
+    const known = this.resend && this.status ? base64ToBytes(this.status.stateVector) : undefined;
+    const update = known ? Y.encodeStateAsUpdate(this.doc, known)
+      : this.batch.length === 1 ? this.batch[0]! : Y.mergeUpdates(this.batch);
     this.batch = [];
+    this.resend = false;
     this.send({ type: "clientUpdate", seq: this.localSeq, update });
     this.notify();
   }
@@ -138,6 +147,7 @@ export class CollaborationClient {
       // everything of ours it lacks (including deletions made offline).
       this.send({ type: "stateVector", stateVector: Y.encodeStateVector(this.doc) });
       this.batch = [];
+      this.resend = false;
       if (this.ackedSeq < this.localSeq) {
         this.send({ type: "clientUpdate", seq: this.localSeq,
           update: Y.encodeStateAsUpdate(this.doc, message.stateVector) });
@@ -155,7 +165,9 @@ export class CollaborationClient {
       this.canEdit = message.body.canEdit;
       this.ackedSeq = Math.max(this.ackedSeq, message.body.ackedSeq);
     } else if (message.type === "refused") {
+      // Nothing refused counts as stored: it is sent again with the next change, or on `retry`.
       this.failure = message.body.code;
+      this.resend = true;
     } else if (message.type === "roster") {
       this.roster = message.body;
     }
@@ -178,6 +190,16 @@ export class CollaborationClient {
     const after = structuredClone(before);
     mutate(after);
     this.doc.transact(() => { applyRootChange(this.doc, before, after); }, this.origin);
+  }
+
+  /** Send again whatever the server refused (for example after a brief outage). */
+  retry(): void {
+    if (!this.transport || !this.handshaken || !this.resend || !this.status) return;
+    this.failure = undefined;
+    this.resend = false;
+    this.send({ type: "clientUpdate", seq: this.localSeq,
+      update: Y.encodeStateAsUpdate(this.doc, base64ToBytes(this.status.stateVector)) });
+    this.notify();
   }
 
   undo(): void { this.undoManager.undo(); }

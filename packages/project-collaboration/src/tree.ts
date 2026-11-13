@@ -409,9 +409,9 @@ function spliceText(text: Y.Text, before: string, after: string): void {
     let remove = edit.remove;
     const removed = before.slice(edit.at, edit.at + edit.remove);
     if (live !== before && live.slice(at, at + remove) !== removed) {
-      const found = removed ? live.indexOf(removed) : -1;
-      if (found >= 0) at = found;
-      else { at = Math.min(at, live.length); remove = 0; }
+      // Not where it was: add the new text, remove nothing.
+      at = Math.min(at, live.length);
+      remove = 0;
     }
     if (remove) text.delete(at, remove);
     if (edit.insert) text.insert(at, edit.insert);
