@@ -552,8 +552,8 @@ def test_timing_span_records_elapsed_on_success_and_failure() -> None:
     assert lines[-1] == "Resolve step + check: FAIL (2.00s)"
 
 
-def _package_inputs(tmp_path: Path) -> CompileResult:
-    case = make_package_case(tmp_path / "fixture", rate="25fps")
+def _package_inputs(tmp_path: Path, *, rate: str = "25fps") -> CompileResult:
+    case = make_package_case(tmp_path / "fixture", rate=rate)
     companions = tmp_path / "companions"
     companions.mkdir()
     preparation_file = companions / "preparation-paths.json"
@@ -596,6 +596,10 @@ def _verified_native_map(
             "trackIndex": tracks[event["trackId"]]["index"],
             "startFrame": event["recordRange"]["startFrame"],
             "durationFrames": event["recordRange"]["durationFrames"],
+            "name": event["id"],
+            "mediaId": None,
+            "sourceStartFrame": None,
+            "sourceEndFrame": None,
         }
         for index, event in enumerate(checked.view["events"])
     ]
@@ -607,13 +611,14 @@ def _verified_native_map(
         resolve_project_id="reopened-project-uid",
         timeline_name=checked.attestation["timelineName"],
         timeline_id="reopened-timeline-uid",
+        version=2,
     )
 
 
 def test_real_package_and_attestation_precede_external_preflight_and_native_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    compiled = _package_inputs(tmp_path)
+    compiled = _package_inputs(tmp_path, rate="ntsc")
     resolve = object()
     calls: list[str] = []
     created: dict[str, tuple[str, ...]] = {}
@@ -625,7 +630,12 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
         assert connected is resolve
         checked = load_verified_package_v2(attestation, digest)
         name = checked.attestation["projectName"]
+        assert checked.manifest["timeline"]["frameRate"] == {
+            "numerator": 24000,
+            "denominator": 1001,
+        }
         assert kwargs["external_scripting"] == "Local"
+        assert kwargs["allow_fractional_native"] is True
         if kwargs.get("action") != "build":
             calls.append("preflight")
             assert name not in created
@@ -649,6 +659,7 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
     monkeypatch.setattr(build_timeline_once, "run_workflow_delivery_v2", fake_workflow)
     reporter = StageTimings(emit=lambda line: calls.append(line.split(":")[0]))
     first = deliver_compiled(compiled, timings=reporter)
+    assert (first.numerator, first.denominator) == (24000, 1001)
     saved_map = json.loads((compiled.output / "row-timeline-map.json").read_text())
     assert saved_map == _verified_native_map(
         compiled.output / "v2-attestation.json",
@@ -808,6 +819,7 @@ def test_named_existing_project_is_used_only_by_explicit_opt_in(
     def fake_workflow(
         _resolve: Any, attestation: Path, digest: str, **kwargs: Any
     ) -> dict[str, Any]:
+        assert kwargs["allow_fractional_native"] is False
         calls.append(
             (kwargs.get("action", "preflight"), kwargs.get("existing_project"))
         )

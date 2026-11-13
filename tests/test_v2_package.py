@@ -708,6 +708,10 @@ class _Issue336NativeRouteAdapter:
                     "trackIndex": tracks[event["trackId"]]["index"],
                     "startFrame": event["recordRange"]["startFrame"],
                     "durationFrames": event["recordRange"]["durationFrames"],
+                    "name": None,
+                    "mediaId": None,
+                    "sourceStartFrame": None,
+                    "sourceEndFrame": None,
                 }
                 for index, event in enumerate(self.verified_view["events"])
             ],

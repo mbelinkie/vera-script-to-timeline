@@ -346,7 +346,8 @@ not permission for an arbitrary tolerance. Stills use their actual source rate;
 scaling precedes anchor properties because scaling can reset them. Neutral
 anchor offsets are zero. Fractional video-backed held frames with multiple
 decoded source frames remain refused before adapter creation. Integer-rate
-delivery retains exact getter checks.
+delivery retains exact getter checks, with the bounded 25 fps video
+source-clock alternative recorded in RK-17.
 
 **Reuse/delta:** preserve the exact derivation/frame map and precision rule.
 A new conversion or held-frame class needs a source-clock/decoded-frame delta,
@@ -468,6 +469,34 @@ custom stamps are not ancestry, and adjacent equal captures are content
 fingerprints, not an atomic application revision token. Source topology,
 visibility/mixer route or runtime changes need only that discriminator. An
 unobservable/ambiguous fact remains blocked; it is not a deletion or safe default.
+
+**#101 Local SDK repeat.** A disposable project on Studio **21.1.1 build 10**
+contained one 25 fps synthetic picture clip. The first save/close/reopen
+retained the project, original timeline and clip IDs and the clip's track,
+record frames, name, media ID, source bounds and marker custom data.
+`DuplicateTimeline` assigned new timeline and clip IDs while sharing the same
+media ID and copying the marker. A second save/close/reopen retained both sets
+of IDs and the readable clip fields. The #101 baseline belongs to the original,
+which remains the working timeline when its duplicate serves as an archive.
+The observation compares clip references and bounds. It cannot verify source
+bytes, media availability or complete grade/effect state.
+
+In the separate five-clip #101 product build at 25 fps, the saved and reopened
+clips each had the planned 75-frame record span. Resolve returned source
+start/end 0/75, source times 0.0/3.0 seconds, 100% speed and a 125-frame source.
+The build verifier expected end frame 74 and withheld the baseline. Treat the
+observed source bounds as raw getter values. The corrected verifier admits
+that 25 fps video boundary only with exact source start and end times, 100%
+speed, bound source hashes, matching frame maps and the imported media frame
+count. A fresh five-clip build passed full verification after save/reopen and
+published a v2 row baseline. A fresh observation reported zero clip differences.
+The baseline refused the archive copy, and the original still matched after
+another save/close/reopen. Matthew's five manual edits were then saved, closed and reopened on the
+same project. Independent native item inventory matched the report. Row 1
+moved V1→V2, row 2 trimmed from 75 to 51 frames, row 3 was removed, and the
+25-frame editor addition at frame 225 was assigned to row 4. The report
+returned exactly four readable clip differences and explicitly listed grades
+as unreadable. The changed grade is outside this command's observation scope.
 
 ### RK-18 — Representation and a file-driven harness are weaker than a native round trip
 
@@ -744,6 +773,18 @@ These measurements predate the later #521 package cache and #522 row map. Furthe
 Mac work has stopped.
 
 [Updated #520 result table](https://github.com/mbelinkie/vera-script-to-timeline/issues/520#issuecomment-6835566969)
+
+**#533 delta — exact 24000/1001 on the shipped command.** Studio **21.1.1
+build 10**, Local scripting, Intel Mac. A disposable 1920×1080 project saved,
+closed and reopened with a verified ten-frame timeline and a published row
+map. The manifest kept 24000/1001 and the reopened timeline reported Resolve's
+23.976 setting. The picture used an interior source interval [10,20) in a
+30-frame, same-rate, zero-origin clip. The reopened WAV read source frames
+0–8 and its source end time matched the pinned 18,944 samples at 48 kHz.
+Both items retained ten record frames. The earlier 320×180 fixture reopened
+as 256×256 and correctly failed the project-settings check. These observations
+cover new-project delivery with this picture and narration topology. See
+[#533](https://github.com/mbelinkie/vera-script-to-timeline/issues/533).
 
 ## Current #312 / #313 handoff
 

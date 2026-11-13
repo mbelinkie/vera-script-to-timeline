@@ -160,9 +160,11 @@ still covers the whole command. It then prints the timeline frame count,
 duration and overall PASS/FAIL. It exits nonzero if Resolve is closed, media is
 missing, the project is incompatible or any structural check fails. A possibly
 partial native write is retained, never retried or deleted automatically. No
-render or audio comparison is performed. Native source audio and unqualified
-fractional-rate timeline creation still refuse explicitly; this command does
-not bypass those product limitations.
+render or audio comparison is performed. A new project can use VERA's exact
+default rate of **24000/1001** (Resolve displays **23.976**). The Studio
+check covered prepared same-rate picture and 48 kHz narration. The command
+refuses fractional rates in existing-project mode and refuses native source
+audio.
 
 To compare two prepared scripts with their verified timeline durations, run
 `uv run --frozen python scripts/check_timeline_speed.py` with the short and long
@@ -194,8 +196,10 @@ This check does not cover the default 23.976 fps route.
 
 
 After a checked build, its result directory contains
-`row-timeline-map.json` (version 1), mapping script block IDs and v2 event IDs
-to the actual reopened Resolve timeline and item UIDs, tracks and frame bounds.
+`row-timeline-map.json` (version 2), mapping script block IDs and v2 event IDs
+to the reopened Resolve timeline and clip IDs, tracks, frame bounds, clip
+names, media IDs, and readable source bounds. It includes the script revision,
+script content hash, and build ID.
 This file is published **only after** the native save/close/reopen structural
 check succeeds. To inspect the **already open** project and timeline again
 without saving, switching targets, or making any native edits:
@@ -214,6 +218,32 @@ For a build made with `--existing-project`, an absent map also requires
 `--project "Exact already open project name"`. An existing but malformed map
 is an error, not a reason to fall back to mapless mode. The readback is not an
 edit-diff report, render check, or substitute for the original delivery check.
+
+### See what changed after editing
+
+Save and reopen the project in Resolve and select the original VERA timeline.
+Point `observe` at the result directory from that build:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.observe_timeline_cli \
+  --output "/absolute/path/to/previous-result-directory"
+```
+
+The JSON report lists moved, trimmed, removed, added and unchanged clips by
+script row. It uses the saved Resolve clip IDs and reports unreadable fields
+as `cannot tell`. An added clip is assigned to a row only if its full range
+fits within one current row's managed clips and overlaps no other row's clips.
+This follows surviving clip IDs after moves or ripple edits. Spanning music
+beds are excluded from row attribution. Gaps and ambiguous coverage stay unassigned. Grades
+and effects are outside the readback. The command reads the current timeline
+without saving or changing it. A matching media ID describes the clip's
+reference. It does not verify that the media is online or that its bytes match.
+
+If you duplicate the timeline as an archive, keep editing the original.
+In the recorded Studio test, Resolve gave the duplicate fresh timeline and
+clip IDs. The baseline requires the original timeline ID even when the
+duplicate inherits VERA's clip markers. The command also
+refuses a missing baseline, a version 1 row map, or conflicting clip IDs.
 
 ## Validation
 
