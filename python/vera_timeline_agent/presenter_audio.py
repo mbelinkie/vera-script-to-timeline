@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import shlex
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
 from .presenter_sync import SyncRefused, find_offset
 from .presenter_takes import RATE, TakesError, decode_audio, probe_video
@@ -48,7 +48,8 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
             )
         offset = sync.offset_s
         print(
-            f"Separate audio offset: {offset * 1000:.1f} ms; spread: {sync.spread_s * 1000:.1f} ms."
+            f"Separate audio offset: {offset * 1000:.1f} ms; "
+            f"spread: {sync.spread_s * 1000:.1f} ms."
         )
     count = round(duration * OUTPUT_RATE)
     shift = round(offset * OUTPUT_RATE)
@@ -80,7 +81,7 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
                 "-ar",
                 str(OUTPUT_RATE),
                 "-c:a",
-                "pcm_s24le",
+                "pcm_s16le",
                 str(source),
             ]
         )
@@ -117,7 +118,8 @@ def clean(video: Path, output: Path, separate: Path | None = None) -> None:
             ) from error
     print(
         f"Measured cleaned audio sync: {measured.offset_s * 1000:.1f} ms; "
-        f"spread: {measured.spread_s * 1000:.1f} ms. Time: {time.monotonic() - started:.1f} s."
+        f"spread: {measured.spread_s * 1000:.1f} ms. "
+        f"Time: {time.monotonic() - started:.1f} s."
     )
 
 
