@@ -180,7 +180,8 @@ script row. It uses the saved Resolve clip IDs and reports unreadable fields
 as `cannot tell`. An added clip is assigned to a row only if its full range
 fits inside exactly one saved row and overlaps no other saved row. Grades
 and effects are outside the readback. The command reads the current timeline
-without saving or changing it.
+without saving or changing it. A matching media ID describes the clip's
+reference. It does not verify that the media is online or that its bytes match.
 
 If you duplicate the timeline as an archive, keep editing the original.
 In the recorded Studio test, Resolve gave the duplicate fresh timeline and

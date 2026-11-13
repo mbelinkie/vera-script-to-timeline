@@ -243,7 +243,7 @@ def observe_output(
             for row in rows
             for item in row["items"]
         ),
-        "cannotRead": ["grades", "effects"],
+        "cannotRead": ["grades", "effects", "media availability and source bytes"],
         "notCompared": [
             "timeline markers",
             "track settings",

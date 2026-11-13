@@ -469,6 +469,17 @@ fingerprints, not an atomic application revision token. Source topology,
 visibility/mixer route or runtime changes need only that discriminator. An
 unobservable/ambiguous fact remains blocked; it is not a deletion or safe default.
 
+**#101 Local SDK repeat.** A disposable project on Studio **21.1.1 build 10**
+contained one 25 fps synthetic picture clip. The first save/close/reopen
+retained the project, original timeline and clip IDs and the clip's track,
+record frames, name, media ID, inclusive source bounds and marker custom data.
+`DuplicateTimeline` assigned new timeline and clip IDs while sharing the same
+media ID and copying the marker. A second save/close/reopen retained both sets
+of IDs and the readable clip fields. The #101 baseline belongs to the original,
+which remains the working timeline when its duplicate serves as an archive.
+The observation compares clip references and bounds. It cannot verify source
+bytes, media availability or complete grade/effect state.
+
 ### RK-18 — Representation and a file-driven harness are weaker than a native round trip
 
 **Proved host boundaries / synthetic with separately retained native inputs.**
