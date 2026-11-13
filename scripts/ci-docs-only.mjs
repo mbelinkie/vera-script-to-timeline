@@ -8,10 +8,7 @@ const COMMIT_SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const ALLOWED_ROOT_MARKDOWN = new Set(["README.md", "AGENTS.md", "CLAUDE.md", "DECISIONS.md", "CONTEXT.md"]);
 export const RUNTIME_MARKDOWN_PATHS = Object.freeze([
   "docs/investigations/issue-300-normalization.md",
-  "docs/plans/issue-178-native-qualification-change-note.md",
-  "docs/plans/issue-207-target-identity-handoff.md",
   "docs/plans/issue-37-prompter-export.md",
-  "docs/resolve-workflow-integration-v1.md",
   "docs/slice-0.3-resolve-free-trial.md",
 ]);
 const runtimeMarkdownPaths = new Set(RUNTIME_MARKDOWN_PATHS);
