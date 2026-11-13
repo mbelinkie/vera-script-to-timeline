@@ -1,0 +1,390 @@
+{
+  "baselineDocument": {
+    "schemaVersion": "script-document/v2",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "activeDraft": {
+      "blocks": [
+        {
+          "type": "narration",
+          "id": "00000000-0000-4000-8000-000000000011",
+          "state": "active"
+        },
+        {
+          "type": "visual_only",
+          "id": "00000000-0000-4000-8000-000000000012"
+        },
+        {
+          "type": "narration",
+          "id": "00000000-0000-4000-8000-000000000013",
+          "state": "active"
+        },
+        {
+          "type": "visual_only",
+          "id": "00000000-0000-4000-8000-000000000014"
+        }
+      ]
+    }
+  },
+  "baselineManifest": {
+    "schemaVersion": "timeline-manifest/v2",
+    "id": "00000000-0000-4000-8000-000000000021",
+    "buildId": "00000000-0000-4000-8000-000000000022",
+    "document": {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "tracks": [
+      {
+        "id": "video-root"
+      }
+    ],
+    "events": [
+      {
+        "eventId": "00000000-0000-4000-8000-000000000031",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000011",
+          "deliveredSourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "recordRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000032",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000012",
+          "deliveredSourceHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "recordRange": {
+          "startFrame": 10,
+          "endFrame": 20
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000033",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000013",
+          "deliveredSourceHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "recordRange": {
+          "startFrame": 20,
+          "endFrame": 30
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000034",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000014",
+          "deliveredSourceHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "recordRange": {
+          "startFrame": 30,
+          "endFrame": 40
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      }
+    ]
+  },
+  "baselineMap": {
+    "schemaVersion": "vera-row-timeline-map/v2",
+    "version": 2,
+    "buildId": "00000000-0000-4000-8000-000000000022",
+    "manifestId": "00000000-0000-4000-8000-000000000021",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "documentRevision": 1,
+    "documentContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "timelineName": "Test timeline",
+    "timelineId": "native-timeline-1",
+    "resolveProjectId": "native-project-1",
+    "rows": [
+      {
+        "rowId": "00000000-0000-4000-8000-000000000011",
+        "timelineId": "native-timeline-1",
+        "startFrame": 0,
+        "lengthFrames": 10,
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000031",
+            "resolveItemId": "native-item-1",
+            "trackId": "video-root",
+            "startFrame": 0,
+            "durationFrames": 10
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000012",
+        "timelineId": "native-timeline-1",
+        "startFrame": 10,
+        "lengthFrames": 10,
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000032",
+            "resolveItemId": "native-item-2",
+            "trackId": "video-root",
+            "startFrame": 10,
+            "durationFrames": 10
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000013",
+        "timelineId": "native-timeline-1",
+        "startFrame": 20,
+        "lengthFrames": 10,
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000033",
+            "resolveItemId": "native-item-3",
+            "trackId": "video-root",
+            "startFrame": 20,
+            "durationFrames": 10
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000014",
+        "timelineId": "native-timeline-1",
+        "startFrame": 30,
+        "lengthFrames": 10,
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000034",
+            "resolveItemId": "native-item-4",
+            "trackId": "video-root",
+            "startFrame": 30,
+            "durationFrames": 10
+          }
+        ]
+      }
+    ]
+  },
+  "currentDocument": {
+    "schemaVersion": "script-document/v2",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "projectId": "00000000-0000-4000-8000-000000000002",
+    "activeDraft": {
+      "blocks": [
+        {
+          "type": "narration",
+          "id": "00000000-0000-4000-8000-000000000011",
+          "state": "active"
+        },
+        {
+          "type": "visual_only",
+          "id": "00000000-0000-4000-8000-000000000012"
+        },
+        {
+          "type": "narration",
+          "id": "00000000-0000-4000-8000-000000000013",
+          "state": "active"
+        },
+        {
+          "type": "visual_only",
+          "id": "00000000-0000-4000-8000-000000000014"
+        }
+      ]
+    }
+  },
+  "currentManifest": {
+    "schemaVersion": "timeline-manifest/v2",
+    "id": "00000000-0000-4000-8000-000000000021",
+    "buildId": "00000000-0000-4000-8000-000000000022",
+    "document": {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "projectId": "00000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "tracks": [
+      {
+        "id": "video-root"
+      }
+    ],
+    "events": [
+      {
+        "eventId": "00000000-0000-4000-8000-000000000031",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000011",
+          "deliveredSourceHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "recordRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000032",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000012",
+          "deliveredSourceHash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        "recordRange": {
+          "startFrame": 10,
+          "endFrame": 20
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000033",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000013",
+          "deliveredSourceHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "recordRange": {
+          "startFrame": 20,
+          "endFrame": 30
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      },
+      {
+        "eventId": "00000000-0000-4000-8000-000000000034",
+        "kind": "primary_visual",
+        "trackId": "video-root",
+        "provenance": {
+          "documentId": "00000000-0000-4000-8000-000000000001",
+          "blockId": "00000000-0000-4000-8000-000000000014",
+          "deliveredSourceHash": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        },
+        "recordRange": {
+          "startFrame": 30,
+          "endFrame": 40
+        },
+        "sourceRange": {
+          "startFrame": 0,
+          "endFrame": 10
+        }
+      }
+    ]
+  },
+  "observation": {
+    "buildId": "00000000-0000-4000-8000-000000000022",
+    "documentId": "00000000-0000-4000-8000-000000000001",
+    "documentRevision": 1,
+    "timelineId": "native-timeline-1",
+    "timelineName": "Test timeline",
+    "differenceCount": 0,
+    "cannotRead": [
+      "grades",
+      "effects",
+      "media availability and source bytes"
+    ],
+    "notCompared": [
+      "timeline markers",
+      "track settings",
+      "clip inspector settings"
+    ],
+    "rows": [
+      {
+        "rowId": "00000000-0000-4000-8000-000000000011",
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000031",
+            "resolveItemId": "native-item-1",
+            "status": [
+              "unchanged"
+            ]
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000012",
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000032",
+            "resolveItemId": "native-item-2",
+            "status": [
+              "unchanged"
+            ]
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000013",
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000033",
+            "resolveItemId": "native-item-3",
+            "status": [
+              "moved"
+            ],
+            "changes": {
+              "startFrame": {
+                "before": 20,
+                "after": 22
+              }
+            }
+          }
+        ]
+      },
+      {
+        "rowId": "00000000-0000-4000-8000-000000000014",
+        "items": [
+          {
+            "eventId": "00000000-0000-4000-8000-000000000034",
+            "resolveItemId": "native-item-4",
+            "status": [
+              "moved"
+            ],
+            "changes": {
+              "startFrame": {
+                "before": 30,
+                "after": 33
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
