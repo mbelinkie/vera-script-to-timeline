@@ -102,7 +102,7 @@ def start(
             if set(previous) != {"requestPath", "requestSha256"} or any(
                 not isinstance(value, str) or not value for value in previous.values()
             ):
-                raise ValueError("invalid active parent identity")
+                raise ParentUnresolvedError("invalid active parent identity")
             prior = status(Path(previous["requestPath"]), previous["requestSha256"])
             if prior["state"] not in {"terminal", "not_started"}:
                 raise ParentUnresolvedError(

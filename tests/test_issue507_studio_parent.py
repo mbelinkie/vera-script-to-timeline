@@ -16,6 +16,7 @@ from test_build_studio_stage import (
 )
 from vera_timeline_agent import build_studio_parent_driver as parent_driver
 from vera_timeline_agent import (
+    build_studio_stage,
     resolve_native_owner,
     workflow_v2_cli,
     workflow_v2_parent,
@@ -132,6 +133,21 @@ def test_busy_native_owner_allows_fresh_authorization_but_killed_worker_does_not
     assert not child_fds
 
     fresh = BuildStudioStagePort(fresh_auth, fresh_driver, host_state=host)
+    with monkeypatch.context() as failed_write:
+
+        def refuse_intent(path: Path, _content: bytes) -> None:
+            assert path == intent
+            raise OSError("intent write failed")
+
+        failed_write.setattr(
+            build_studio_stage, "publish_immutable_output", refuse_intent
+        )
+        with pytest.raises(OSError, match="intent write failed"):
+            fresh.execute(context, snapshot)
+        assert fresh.inspect(context, snapshot).state == EffectState.ABSENT
+        assert not (host / "composition-active.json").exists()
+        assert not (evidence / "parent.json").exists()
+
     try:
         with pytest.raises(UncertainResult, match="never restart"):
             fresh.execute(context, snapshot)
@@ -275,14 +291,19 @@ def test_local_expired_or_unknown_lease_refuses_before_reservation(
     assert not host.exists()
 
 
+@pytest.mark.parametrize("malformed", [False, True])
 def test_unresolved_host_parent_blocks_a_second_native_target(
-    local: tuple[StudioCase, ParentStudioDriver], monkeypatch: pytest.MonkeyPatch
+    local: tuple[StudioCase, ParentStudioDriver],
+    monkeypatch: pytest.MonkeyPatch,
+    malformed: bool,
 ) -> None:
     (snapshot, auth, _fake, ctx, host), driver = local
     host.mkdir()
     (host / "active.json").write_text(
         json.dumps(
-            {
+            {}
+            if malformed
+            else {
                 "requestPath": str(host / "missing-request.json"),
                 "requestSha256": "a" * 64,
             }

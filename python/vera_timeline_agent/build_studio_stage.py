@@ -256,7 +256,13 @@ class _HostReservation:
             fcntl.flock(guard, fcntl.LOCK_EX)
             self.reserve_locked(request_id, attestation_digest)
 
-    def reserve_locked(self, request_id: str, attestation_digest: str) -> None:
+    def reserve_locked(
+        self,
+        request_id: str,
+        attestation_digest: str,
+        *,
+        record_intent: Callable[[], None] | None = None,
+    ) -> None:
         """Reserve under the dispatch lock already held by the Local parent."""
         # A request ID identifies one native mutation for the lifetime of
         # this host state, even after a previous request finished. Otherwise
@@ -295,6 +301,8 @@ class _HostReservation:
                 self.root / f"composition-finished-{prior['requestId']}.json"
             ).is_file():
                 raise NeedsAction("prior native composition has unresolved effects")
+        if record_intent is not None:
+            record_intent()
         temporary = self.root / f".composition-active-{request_id}.json"
         publish_immutable_output(
             temporary,
@@ -469,8 +477,13 @@ class BuildStudioStagePort:
                     raise UncertainResult("native one-use intent already exists")
                 context.renew_lease()
                 self._authorized(context, snapshot, digest)
-                self.reservation.reserve_locked(request_id, digest)
-                publish_immutable_output(intent, intent_bytes)
+                self.reservation.reserve_locked(
+                    request_id,
+                    digest,
+                    record_intent=lambda: publish_immutable_output(
+                        intent, intent_bytes
+                    ),
+                )
 
             result = self.driver.start(
                 attestation, digest, request_id, before_dispatch=prepare_dispatch

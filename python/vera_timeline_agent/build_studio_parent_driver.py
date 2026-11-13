@@ -114,11 +114,13 @@ class ParentStudioDriver:
                 "another native parent remains active or uncertain"
             ) from error
         except NativeOwnerError as error:
-            if error.reason == "owner_busy" and not preparing:
+            if preparing:
+                raise
+            if error.reason == "owner_busy":
                 raise NeedsAction(
                     "Resolve is busy; try again when it is idle"
                 ) from error
-            raise
+            raise NeedsAction(str(error)) from error
         if before_dispatch is not None and not preparing:
             if result.get("state") == "busy":
                 raise NeedsAction("another Local parent is dispatching")
