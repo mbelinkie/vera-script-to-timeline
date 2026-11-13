@@ -1,6 +1,6 @@
-"""Opt-in, offline pre-cache baseline for #521 (no Resolve or private media).
+"""Opt-in, offline package cache comparison for #521 (no Resolve or private media).
 
-Run: uv run --frozen python tools/bench_package_cache.py --size-mib 256
+Run: uv run --frozen python tools/bench_package_cache.py --size-mib 256 --compare-cache
 Each run creates a fresh, valid v2 package in an isolated temporary directory.
 """
 
