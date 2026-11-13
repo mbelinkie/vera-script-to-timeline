@@ -1057,6 +1057,8 @@ def render_report(takes: Json) -> str:
             )
     else:
         lines.append("Sound:     the camera's own")
+    if takes.get("allowJumpCuts"):
+        lines.append("Jump cuts: allowed for this project, so they are not flagged")
     counts = takes["words"]
     lines += [
         f"Words:     {counts['heard']} heard: {counts['placed']} placed exactly, "
@@ -1140,8 +1142,11 @@ def render_report(takes: Json) -> str:
             lines += ["", "  No single take covers this row. SUGGESTED CLIPS:"]
             for piece in passage["suggestedCoverage"]:
                 a, b = piece["scriptWords"]
+                join = piece["join"]
+                if join == "visible" and takes.get("allowJumpCuts"):
+                    join = None  # the project allows jump cuts: nothing to warn of
                 lines.append(
-                    f"    {JOIN[piece['join']]}Script words {a + 1} to {b}, from take "
+                    f"    {JOIN[join]}Script words {a + 1} to {b}, from take "
                     f"{' + '.join(str(numbers[i]) for i in piece['takes'])}: "
                     f"{_times(piece)}"
                 )
@@ -1209,8 +1214,13 @@ def sync_only(video: Path, separate_audio: Path) -> SyncResult:
 
 
 def find_takes(
-    video: Path, script: Path, separate_audio: Path | None, out: Path
+    video: Path,
+    script: Path,
+    separate_audio: Path | None,
+    out: Path,
+    allow_jump_cuts: bool = False,
 ) -> Json:
+    """`allow_jump_cuts` changes no cut: it only stops jump cuts being flagged."""
     started = time.monotonic()
     config = EngineConfig.from_env()
     dictionary_path = _dictionary_path(config)
@@ -1281,6 +1291,7 @@ def find_takes(
         if sync and separate_audio
         else None,
         "approved": False,
+        "allowJumpCuts": allow_jump_cuts,
         **body,
         "secondsTaken": round(time.monotonic() - started, 1),
     }
@@ -1303,6 +1314,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="only line up --audio with the video and print the offset",
     )
+    parser.add_argument(
+        "--allow-jump-cuts",
+        action="store_true",
+        help="do not flag joins that show on camera (the edit itself is the same)",
+    )
     args = parser.parse_args(argv)
     if args.sync_only and args.audio is None:
         parser.error("--sync-only needs --audio")
@@ -1314,7 +1330,9 @@ def main(argv: list[str] | None = None) -> int:
             sync_only(args.video, args.audio)
             print(f"Time taken: {time.monotonic() - started:.0f} seconds")
             return 0
-        takes = find_takes(args.video, args.script, args.audio, args.out)
+        takes = find_takes(
+            args.video, args.script, args.audio, args.out, args.allow_jump_cuts
+        )
     except (TakesError, SyncRefused) as error:
         print(f"Stopped: {error}", file=sys.stderr)
         return 1
@@ -1323,7 +1341,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     found = sum(len(p["takes"]) for p in takes["rows"])
     print(
-        f"{found} takes across {len(takes['passages'])} passages, "
+        f"{found} takes across {len(takes['rows'])} rows, "
         f"{len(takes['offScript'])} off-script. Report: {args.out / 'report.txt'}"
     )
     print(f"Time taken: {takes['secondsTaken']:.0f} seconds")

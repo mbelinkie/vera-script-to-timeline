@@ -365,6 +365,15 @@ def test_no_whole_take_suggests_coverage_sentence_by_sentence() -> None:
     report_text = pt.render_report(takes)
     assert "No single take covers this row. SUGGESTED CLIPS:" in report_text
     assert second["join"] == "visible" and "(JUMP CUT ON CAMERA)" in report_text
+    # A project that allows jump cuts gets the same clips with no warning.
+    allowed = pt.render_report({**takes, "allowJumpCuts": True})
+    assert "JUMP CUT" not in allowed
+    assert "Jump cuts: allowed" in allowed and "Jump cuts" not in report_text
+    assert [line for line in allowed.splitlines() if "Script words" in line] == [
+        line.replace("(JUMP CUT ON CAMERA) ", "")
+        for line in report_text.splitlines()
+        if "Script words" in line
+    ]
 
 
 def test_a_whole_off_camera_take_is_never_cut_up_by_sentence() -> None:

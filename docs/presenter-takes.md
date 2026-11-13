@@ -56,6 +56,12 @@ Every row gets the best coverage the recording offers:
    of it, *JUMP CUT ON CAMERA* when both sides are on camera, and *CHECK*
    when the script does not say. A read in hand is never left where the join
    would show if it carries on.
+
+   Some editors are happy with jump cuts. Add `--allow-jump-cuts` (the
+   project's **Allow Jump Cuts** box, off by default) and the same clips are
+   suggested at the same cut points, but an on-camera join is no longer
+   flagged in the report or on the timeline. `takes.json` records the
+   setting as `allowJumpCuts`, and each join still records what it is.
 3. Only a stretch that nobody read through is reported as a gap, and only
    the words nobody said are reported as NOT COVERED.
 
