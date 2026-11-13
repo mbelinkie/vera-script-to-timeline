@@ -160,9 +160,11 @@ still covers the whole command. It then prints the timeline frame count,
 duration and overall PASS/FAIL. It exits nonzero if Resolve is closed, media is
 missing, the project is incompatible or any structural check fails. A possibly
 partial native write is retained, never retried or deleted automatically. No
-render or audio comparison is performed. Native source audio and unqualified
-fractional-rate timeline creation still refuse explicitly; this command does
-not bypass those product limitations.
+render or audio comparison is performed. A new project can use VERA's exact
+default rate of **24000/1001** (Resolve displays **23.976**). The Studio
+check covered prepared same-rate picture and 48 kHz narration. The command
+refuses fractional rates in existing-project mode and refuses native source
+audio.
 
 To compare two prepared scripts with their verified timeline durations, run
 `uv run --frozen python scripts/check_timeline_speed.py` with the short and long
