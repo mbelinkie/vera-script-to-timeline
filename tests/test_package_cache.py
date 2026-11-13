@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import pytest
+from vera_timeline_agent import package_cache
 from vera_timeline_agent.package_cache import (
     FileStamp,
     PackageCache,
@@ -181,6 +182,35 @@ def test_clone_success_fallback_and_partial_clone_fallback(tmp_path: Path) -> No
     assert fallback.read_bytes() == b"some media"
     assert fallback.stat().st_nlink == 1
     assert fallback.stat().st_ino != entry.blob.stat().st_ino
+
+
+def test_macos_fd_clone_and_unsupported_volume_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"mac clone sample")
+    monkeypatch.setattr(package_cache.sys, "platform", "darwin")
+    calls: list[Path] = []
+
+    def fake_native_clone(fd: int, destination: Path) -> None:
+        calls.append(destination)
+        destination.write_bytes(os.read(fd, 1024))
+
+    monkeypatch.setattr(package_cache, "_clone_macos", fake_native_clone)
+    clone = tmp_path / "cloned.png"
+    clone_or_copy(source, clone)
+    assert calls == [clone]
+    assert clone.read_bytes() == source.read_bytes()
+    assert clone.stat().st_ino != source.stat().st_ino
+
+    def unsupported(_fd: int, _destination: Path) -> None:
+        raise OSError("unsupported volume")
+
+    monkeypatch.setattr(package_cache, "_clone_macos", unsupported)
+    copied = tmp_path / "copied.png"
+    clone_or_copy(source, copied)
+    assert copied.read_bytes() == source.read_bytes()
+    assert copied.stat().st_nlink == 1
 
 
 def test_source_is_never_symlink_or_changed_mid_copy(tmp_path: Path) -> None:

@@ -779,6 +779,73 @@ def test_cache_corruption_retries_once_from_source_and_refuses_tampering(
         _cached_build(symlink_case, tmp_path / "linked-source", cache_root)
 
 
+def test_stale_media_cache_miss_removes_partial_staging(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    source = next(iter(case.media_paths.values()))
+    source.write_bytes(b"X" * source.stat().st_size)
+    output = tmp_path / "stale-output"
+    with pytest.raises(V2PackageError, match="media hash mismatch"):
+        _cached_build(case, output, cache_root)
+    assert not output.exists()
+    assert not list(tmp_path.glob(".stale-output.v2-staging-*"))
+
+
+def test_cached_audio_source_drift_refuses_without_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = make_package_case(tmp_path / "fixture", scenario="source-audio-quiet")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    real_build = v2_package._build_v2_package
+    attempts: list[int] = []
+
+    def drift(self: Any, source: Path, expected: str) -> str:
+        # Simulate a source identity failure after cache-audio participation;
+        # this must not turn a real source error into a cache retry.
+        self.used_cached_audio = True
+        raise V2PackageError("supplied media changed during package")
+
+    def count(*args: Any, **kwargs: Any) -> Any:
+        attempts.append(1)
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(v2_package._MediaCacheSession, "checked_hash", drift)
+    monkeypatch.setattr(v2_package, "_build_v2_package", count)
+    with pytest.raises(V2PackageError, match="supplied media changed"):
+        _cached_build(case, tmp_path / "drift", cache_root)
+    assert len(attempts) == 1
+
+
+def test_recovered_cache_corruption_prints_successful_attempt_timings(
+    tmp_path: Path,
+) -> None:
+    case = make_package_case(tmp_path / "fixture")
+    cache_root = tmp_path / "cache"
+    _cached_build(case, tmp_path / "cold", cache_root)
+    source = next(iter(case.media_paths.values()))
+    digest = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    entry = PackageCache(cache_root).lookup(source, digest)
+    assert entry is not None
+    entry.blob.write_bytes(b"\xff" * entry.blob.stat().st_size)
+    stages: list[tuple[str, bool]] = []
+    built = build_v2_package(
+        case.manifest_path,
+        case.report_path,
+        case.document_path,
+        case.dependencies_path,
+        tmp_path / "recovered",
+        media_paths=case.media_paths,
+        preparation_paths=case.preparation_paths,
+        package_cache=cache_root,
+        stage_observer=lambda name, _elapsed, passed: stages.append((name, passed)),
+    )
+    assert verify_v2_package(built.project_root).build_id == built.build_id
+    assert len(stages) == 6
+    assert all(passed for _, passed in stages)
+
+
 def test_cached_source_drift_during_clone_refuses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -808,6 +875,13 @@ def test_cache_cannot_be_inside_immutable_package_root(tmp_path: Path) -> None:
     destination = tmp_path / "output"
     with pytest.raises(V2PackageError, match="outside the package directory"):
         _cached_build(case, destination, destination / "media-cache")
+    assert not destination.exists()
+    disguised_inside = tmp_path / "uncreated" / ".." / "output" / "cache"
+    with pytest.raises(V2PackageError, match="outside the package directory"):
+        _cached_build(case, destination, disguised_inside)
+    assert not destination.exists()
+    with pytest.raises(V2PackageError, match="outside the package directory"):
+        _cached_build(case, destination, tmp_path)
     assert not destination.exists()
 
 

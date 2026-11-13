@@ -439,11 +439,12 @@ def deliver_compiled(
     package_cache: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
-    if package_cache is not None and compiled.output.absolute() in (
-        package_cache.absolute(),
-        *package_cache.absolute().parents,
-    ):
-        raise BuildJobError("package cache must be outside the build output")
+    if package_cache is not None:
+        cache_root, output_root = package_cache.resolve(), compiled.output.resolve()
+        if cache_root.is_relative_to(output_root) or output_root.is_relative_to(
+            cache_root
+        ):
+            raise BuildJobError("package cache must be outside the build output")
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")

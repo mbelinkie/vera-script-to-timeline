@@ -82,6 +82,10 @@ class V2PackageError(RuntimeError):
     """An actionable failure that prevents v2 package publication or import."""
 
 
+class _SuppliedHashMismatch(V2PackageError):
+    """Stale supplied media must not leave a possibly huge partial staging copy."""
+
+
 @dataclass(frozen=True)
 class V2PackageResult:
     """Published v2 package identity and whether this was an exact retry."""
@@ -388,7 +392,9 @@ def _copy_input_file(
     actual = _HASH_PREFIX + digest.hexdigest()
     if expected_hash is not None and actual != expected_hash:
         destination.unlink(missing_ok=True)
-        raise _error(f"media hash mismatch for {source}: {expected_hash} != {actual}")
+        raise _SuppliedHashMismatch(
+            f"media hash mismatch for {source}: {expected_hash} != {actual}"
+        )
     return actual
 
 
@@ -2481,6 +2487,10 @@ def _validate_delivery_view(
                 raise _error(f"source audio {event_id}: {error}") from error
             package_source = sources[event_id]
             if package_source.get("contentHash") != content_hash:
+                if cache is not None and cache.used_cached_audio:
+                    raise _CachedIntegrityFailure(
+                        f"cached source audio {event_id} does not match its frozen WAV"
+                    )
                 raise _error(f"source audio {event_id} does not retain its #174 WAV")
             artifact_map[f"event:{event_id}"] = _InputArtifact(
                 f"event:{event_id}",
@@ -3649,19 +3659,8 @@ def _build_v2_package(
     prepared = _validate_preparations(
         document, dependencies, manifest, report, preparation_paths
     )
-    try:
-        artifacts = _media_artifacts(manifest, prepared, media_paths, timing, cache)
-        view = _delivery_view(manifest, dependencies, prepared, artifacts, cache=cache)
-    except V2PackageError as error:
-        if cache is None or not cache.used_cached_audio:
-            raise
-        if isinstance(error, _CachedIntegrityFailure):
-            raise
-        # Corrupted cached WAV data may fail endpoint/provenance validation
-        # before any staging exists. Refuse a second cache-based attempt.
-        raise _CachedIntegrityFailure(
-            "cached audio bytes disagree with the frozen v2 package inputs"
-        ) from error
+    artifacts = _media_artifacts(manifest, prepared, media_paths, timing, cache)
+    view = _delivery_view(manifest, dependencies, prepared, artifacts, cache=cache)
 
     root = project_root.absolute()
     if root == root.parent or root.name in {"", ".", ".."}:
@@ -3753,6 +3752,11 @@ def _build_v2_package(
         if published != proposed_verification:
             raise _error("published package differs from its staged verification")
         return V2PackageResult(root, published.build_id, False)
+    except _SuppliedHashMismatch:
+        if staging is not None:
+            shutil.rmtree(staging)
+            staging = None
+        raise
     except V2PackageError as error:
         if staging is None:
             raise
@@ -3814,15 +3818,22 @@ def build_v2_package(
     A timing observer is diagnostic only and is never serialized into the package.
     Verification is independent and remains mandatory with or without an observer.
     """
-    if package_cache is not None and project_root.absolute() in (
-        package_cache.absolute(),
-        *package_cache.absolute().parents,
-    ):
-        raise V2PackageError("package cache must be outside the package directory")
-    timing = _PackageSubtimings(stage_observer) if stage_observer is not None else None
+    if package_cache is not None:
+        cache_root, project_path = package_cache.resolve(), project_root.resolve()
+        if cache_root.is_relative_to(project_path) or project_path.is_relative_to(
+            cache_root
+        ):
+            raise V2PackageError("package cache must be outside the package directory")
+    timing: _PackageSubtimings | None = None
     cache = _MediaCacheSession(package_cache) if package_cache is not None else None
     try:
         for attempt in range(2):
+            # A failed cache attempt must not mark successful retry timings FAIL.
+            timing = (
+                _PackageSubtimings(stage_observer)
+                if stage_observer is not None
+                else None
+            )
             try:
                 return _build_v2_package(
                     manifest_path,

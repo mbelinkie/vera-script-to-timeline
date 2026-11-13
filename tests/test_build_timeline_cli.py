@@ -322,6 +322,20 @@ def test_cache_override_inside_build_output_refuses_without_writing(
             package_cache=inside,
         )
     assert not inside.exists()
+    disguised_inside = tmp_path / "uncreated" / ".." / compiled.output.name / "cache"
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=disguised_inside,
+        )
+    assert not inside.exists()
+    with pytest.raises(BuildJobError, match="outside the build output"):
+        deliver_compiled(
+            compiled,
+            timings=StageTimings(emit=lambda _: None),
+            package_cache=tmp_path,
+        )
 
 
 def test_timing_tracks_fractional_duration_and_failed_stage() -> None:

@@ -186,6 +186,26 @@ def _clone_linux(source_fd: int, target_fd: int) -> None:
     fcntl.ioctl(target_fd, 0x40049409, source_fd)  # FICLONE; otherwise plain copy
 
 
+def _clone_macos(source_fd: int, destination: Path) -> None:
+    """Call the native fd-based APFS clone API; CPython has no os.clonefile."""
+    import ctypes
+    import errno
+
+    try:
+        system = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
+        operation = system.fclonefileat
+    except (OSError, AttributeError) as error:
+        raise OSError(errno.ENOSYS, "macOS clone API unavailable") from error
+    operation.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+    operation.restype = ctypes.c_int
+    if (
+        operation(source_fd, getattr(os, "AT_FDCWD", -2), os.fsencode(destination), 0)
+        != 0
+    ):
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(destination))
+
+
 def clone_or_copy(
     source: Path,
     destination: Path,
@@ -196,7 +216,7 @@ def clone_or_copy(
     """Create an independent file using CoW if supported, never a link.
 
     clone is fd-based so tests can simulate success, unsupported volumes and
-    partial-copy errors. The macOS path clonefile variant is used when present.
+    partial-copy errors. On macOS use fclonefileat on the validated source fd.
     """
     before = _regular_cache_file(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -208,12 +228,11 @@ def clone_or_copy(
     try:
         if FileStamp.from_stat(os.fstat(src_fd)) != FileStamp.from_stat(before):
             raise _CacheMiss("cache blob changed before opening")
-        # clonefile creates its destination itself, unlike Linux FICLONE.
-        mac_clone = getattr(os, "clonefile", None)
+        # fclonefileat creates the destination itself, unlike Linux FICLONE.
         cloned = False
-        if clone is None and sys.platform == "darwin" and callable(mac_clone):
+        if clone is None and sys.platform == "darwin":
             try:
-                mac_clone(source, destination)
+                _clone_macos(src_fd, destination)
                 created = True
                 cloned = True
             except OSError:
