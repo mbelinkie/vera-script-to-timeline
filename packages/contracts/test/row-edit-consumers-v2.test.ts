@@ -507,8 +507,12 @@ describe("row-edit consumers", () => {
     if (!needs.ok) expect(needs.diagnostics.some((item) => item.code === "STALE_TIMING_MAP"), JSON.stringify(needs.diagnostics)).toBe(true);
   });
 
-  it("refuses unsupported row audio spans in both timeline and media-needs consumers", () => {
+  it("keeps a missing music file visible without inventing audio or changing media needs", () => {
     const { document, dependencies } = input();
+    const baseline = compileTimelineV2(document, dependencies);
+    const baselineNeeds = mediaNeeds(document, dependencies);
+    expect(baseline.ok).toBe(true);
+    expect(baselineNeeds.ok).toBe(true);
     const row = activeNarration(document);
     const span: RowAudioSpanIntentV2 = {
       id: id(9020),
@@ -525,14 +529,17 @@ describe("row-edit consumers", () => {
     document.rowAudioSpans = [span];
 
     const compiled = compileTimelineV2(document, dependencies);
-    expect(compiled.ok).toBe(false);
-    if (compiled.ok) return;
-    expect(compiled.diagnostics.map((diagnostic) => diagnostic.code)).toContain("ROW_AUDIO_RUNTIME_UNAVAILABLE");
+    expect(compiled.ok).toBe(true);
+    if (!compiled.ok || !baseline.ok) return;
+    expect(compiled.report.status).toBe("ready");
+    expect(compiled.report.diagnostics.some((diagnostic) => diagnostic.code === "MUSIC_FILE_MISSING" && diagnostic.severity === "warning")).toBe(true);
+    expect(compiled.manifest.events.filter((event) => event.kind === "music")).toEqual([]);
+    expect(compiled.manifest.events).toEqual(baseline.manifest.events);
+    expect(compiled.manifest.sources).toEqual(baseline.manifest.sources);
+    expect(document.rowAudioSpans).toEqual([span]);
 
     const needs = mediaNeeds(document, dependencies);
-    expect(needs.ok).toBe(false);
-    if (needs.ok) return;
-    expect(needs.diagnostics.map((diagnostic) => diagnostic.code)).toContain("ROW_AUDIO_RUNTIME_UNAVAILABLE");
+    expect(needs).toEqual(baselineNeeds);
   });
 });
 
