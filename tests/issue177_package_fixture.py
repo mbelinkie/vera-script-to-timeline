@@ -388,9 +388,15 @@ class PackageCase:
 
 
 def make_package_case(
-    tmp_path: Path, *, rate: str = "25fps", scenario: str = "default"
+    tmp_path: Path,
+    *,
+    rate: str = "25fps",
+    scenario: str = "default",
+    large_media_mib: int | None = None,
 ) -> PackageCase:
-    """Make a fully synthetic package input without running media tools."""
+    """Make hash-consistent synthetic inputs; large media is explicit and streamed."""
+    if large_media_mib is not None and not 256 <= large_media_mib <= 384:
+        raise ValueError("large fixture must be between 256 and 384 MiB")
     audio_scenarios = {
         "source-audio-quiet",
         "source-audio-full",
@@ -502,6 +508,7 @@ def make_package_case(
                 "denominator": 24,
             }
 
+    large_media_written = False
     for requirement_key, binding in bindings.items():
         source = sources_by_requirement[requirement_key]
         related_occurrences = occurrences[requirement_key]
@@ -524,7 +531,29 @@ def make_package_case(
             if verified_reuse
             else f"synthetic prepared media for {source['id']}\n".encode()
         )
-        delivered_hash = _raw_hash(delivered_bytes)
+        large_this_source = (
+            large_media_mib is not None
+            and not large_media_written
+            and not verified_reuse
+        )
+        if large_this_source:
+            assert large_media_mib is not None
+            # Emit one large, deterministic input without retaining a 320 MiB
+            # Python bytes object. Its checksum feeds the normal fixture closure.
+            prepared_path = media_dir / f"prepared-{source['id']}.mov"
+            digest = hashlib.sha256()
+            pattern = b"VERA synthetic package benchmark\n" * 32768
+            remaining = large_media_mib * 1024 * 1024
+            with prepared_path.open("wb") as stream:
+                while remaining:
+                    chunk = pattern[: min(len(pattern), remaining)]
+                    stream.write(chunk)
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+            delivered_hash = "sha256:" + digest.hexdigest()
+            large_media_written = True
+        else:
+            delivered_hash = _raw_hash(delivered_bytes)
         source_probe = copy.deepcopy(original_probe)
         source_frame_map = copy.deepcopy(binding["timeMapping"]["sourceFrameMap"])
         source_rate = source_frame_map["decodedPackageFrameRate"]
@@ -800,7 +829,8 @@ def make_package_case(
         if not original_path.exists():
             original_path.write_bytes(original_bytes)
         delivered_path = media_dir / f"prepared-{source['id']}.mov"
-        delivered_path.write_bytes(delivered_bytes)
+        if not large_this_source:
+            delivered_path.write_bytes(delivered_bytes)
         media_paths[f"source:{source['id']}"] = delivered_path
         media_paths[f"original:{source['id']}"] = original_path
 

@@ -102,6 +102,19 @@ not silently compacted into A2.
 The native check validates A5, source identity, exact timing, gain and fades
 again after save/close/reopen. Native source audio remains unsupported.
 
+The build command reuses unchanged prepared source media through a disposable
+per-user package cache. By default it lives at
+`~/Library/Caches/vera-script-to-timeline/` on macOS, or
+`$XDG_CACHE_HOME/vera-script-to-timeline/` (otherwise
+`~/.cache/vera-script-to-timeline/`) on Linux. Override it with
+`--package-cache "/absolute/path/to/cache"`. You can delete this folder at any
+time to reclaim space; the next build copies and checks source media again.
+Every package is independently verified regardless of cache use and has the
+same bytes as a cache-free package. The build prints
+`package cache: reused=N processed=M` for unique input files; use
+`--package-timings` for detailed copy, hash and verification timings. Cached
+media is copied (or cloned when supported), never linked into a package.
+
 **Picture transitions (#88):** Author a `rowTransitions` item on the v2 script
 document with `state: "active"`, `fromRowId` and `toRowId` naming two adjacent
 active rows, `effect: "Cross Dissolve"`, and `settings: {"durationFrames": 24,
@@ -150,6 +163,57 @@ partial native write is retained, never retried or deleted automatically. No
 render or audio comparison is performed. Native source audio and unqualified
 fractional-rate timeline creation still refuse explicitly; this command does
 not bypass those product limitations.
+
+To compare two prepared scripts with their verified timeline durations, run
+`uv run --frozen python scripts/check_timeline_speed.py` with the short and long
+script/input paths, each case's `--*-preparation-seconds`, and a fresh `--output`
+root. The preparation seconds are measured offline before this command and shown
+in the results table; they are not included in the speed gate. Each case uses
+the command above and creates a new Resolve project. The runner prints the
+command's stage output and one summary table with preparation time, timeline
+duration, full build-plus-check command time, and PASS/FAIL. The gate compares
+only that full command time with the verified timeline duration, including CLI
+compilation, packaging, save/close/reopen, and structural verification. It runs
+both cases when a build verifies but misses the speed bar, then exits nonzero;
+it stops after any build or verification failure. Inputs must be prepared at
+24 fps beforehand.
+
+```sh
+# Set the script/input paths, measured preparation seconds, and new output root first.
+uv run --frozen python scripts/check_timeline_speed.py \
+  --short-script "$SHORT_SCRIPT" \
+  --short-inputs "$SHORT_INPUTS" \
+  --short-preparation-seconds "$SHORT_PREPARATION_SECONDS" \
+  --long-script "$LONG_SCRIPT" \
+  --long-inputs "$LONG_INPUTS" \
+  --long-preparation-seconds "$LONG_PREPARATION_SECONDS" \
+  --output "$ISSUE520_OUTPUT_ROOT"
+```
+
+This check does not cover the default 23.976 fps route.
+
+
+After a checked build, its result directory contains
+`row-timeline-map.json` (version 1), mapping script block IDs and v2 event IDs
+to the actual reopened Resolve timeline and item UIDs, tracks and frame bounds.
+This file is published **only after** the native save/close/reopen structural
+check succeeds. To inspect the **already open** project and timeline again
+without saving, switching targets, or making any native edits:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.readback_timeline_cli \
+  --output "/absolute/path/to/previous-result-directory"
+```
+
+It prints `PASS` when the current timeline's stamped events, ranges, tracks,
+markers and saved item UIDs match, or `MISMATCH` with a nonzero exit code on a
+different current target or structural change. If the map is absent, it still
+checks the attested v2 package against fresh live SDK observations, but reports
+**structural-only** compatibility; it does not claim the old item UIDs survived.
+For a build made with `--existing-project`, an absent map also requires
+`--project "Exact already open project name"`. An existing but malformed map
+is an error, not a reason to fall back to mapless mode. The readback is not an
+edit-diff report, render check, or substitute for the original delivery check.
 
 ## Validation
 

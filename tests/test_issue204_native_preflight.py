@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 from native_owner_test_support import isolated_native_owner_env
 from vera_timeline_agent import native_qualification_v2 as preflight
+from vera_timeline_agent import workflow_v2_cli
 from vera_timeline_agent.workflow_package import read_object, sha256
 from vera_timeline_agent.workflow_v2_cli import (
     LAUNCHER_NAME,
@@ -28,6 +29,10 @@ TARGET = {
     "projectName": "VERA disposable preflight 204",
     "timelineName": "Saved synthetic timeline",
 }
+
+
+def test_preflight_declares_exact_shipped_runtime() -> None:
+    assert preflight.RUNTIME_FILES == workflow_v2_cli.RUNTIME_FILES
 
 
 class GettersOnly:
