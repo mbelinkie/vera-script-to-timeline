@@ -170,6 +170,10 @@ def validate_temporary_presenter_report(
             report.get("recoveryActions") == [],
             "build report has recovery actions without diagnostics",
         )
+        _require(
+            report.get("manualCompletionItems") in (None, []),
+            "build report has manual completion items without diagnostics",
+        )
         return set()
 
     expected_slots = set(events_by_temporary_slot)

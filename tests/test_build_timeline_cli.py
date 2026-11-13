@@ -973,6 +973,37 @@ def test_foreground_and_installed_delivery_share_one_native_lock() -> None:
         pytest.fail("foreground entered while installed route holds Resolve")
 
 
+@pytest.mark.parametrize("marker", ["parent", "issue328"])
+def test_foreground_refuses_unresolved_previous_native_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, marker: str
+) -> None:
+    from vera_timeline_agent import resolve_native_owner
+
+    monkeypatch.setattr(
+        resolve_native_owner, "OWNER_LOCK_PATH", tmp_path / "native-owner.lock"
+    )
+    monkeypatch.setattr(
+        resolve_native_owner, "PARENT_ACTIVE_PATH", tmp_path / "active.json"
+    )
+    monkeypatch.setattr(
+        resolve_native_owner, "ISSUE328_ACTIVE_PATH", tmp_path / "issue328.json"
+    )
+    marker_path = (
+        resolve_native_owner.PARENT_ACTIVE_PATH
+        if marker == "parent"
+        else resolve_native_owner.ISSUE328_ACTIVE_PATH
+    )
+    marker_path.write_text("unresolved operation")
+    with (
+        pytest.raises(UncertainResult, match="unresolved prior native operation"),
+        exclusive_resolve_build(),
+    ):
+        pytest.fail("a retained uncertain native marker must prevent foreground writes")
+    marker_path.unlink()
+    with exclusive_resolve_build():
+        pass
+
+
 def test_native_partial_write_uncertainty_never_retries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

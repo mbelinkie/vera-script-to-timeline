@@ -402,6 +402,7 @@ def exclusive_resolve_build(
         from .resolve_native_owner import (
             NativeOwnerError,
             acquire_native_owner,
+            preflight_native_owner,
             release_native_owner,
         )
 
@@ -412,6 +413,17 @@ def exclusive_resolve_build(
                 raise NeedsAction("Resolve is already building a timeline") from error
             raise NeedsAction("Resolve build lock is unavailable") from error
         try:
+            # An unlocked flock does not prove a prior native write finished.
+            # Check retained unknown-effect markers while we hold the lock.
+            try:
+                preflight_native_owner()
+            except NativeOwnerError as error:
+                if error.reason in {"parent_unresolved", "issue328_unresolved"}:
+                    raise UncertainResult(
+                        "Resolve has an unresolved prior native operation; "
+                        "inspect it before attempting another build"
+                    ) from error
+                raise NeedsAction("Resolve build lock is unavailable") from error
             yield
         finally:
             release_native_owner(descriptor)

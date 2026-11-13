@@ -66,6 +66,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
     repository = Path(__file__).resolve().parents[2]
     verifier_sources = [
         Path("python/vera_timeline_agent/v2_package.py"),
+        Path("python/vera_timeline_agent/presenter_warning_validation.py"),
         Path("python/vera_timeline_agent/native_image_motion.py"),
         Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
@@ -188,6 +189,7 @@ def _verify_release_files(root: Path, runtime_files: tuple[str, ...]) -> Path:
         for item in file_inventory(root)
         if item["path"]
         not in {f"{RELEASE_NAME}/release.json", f"{RELEASE_NAME}/request.json"}
+        and item["path"].rsplit("/", 1)[-1] != ".DS_Store"
     ]
     source = Path(__file__).parent
     expected = {

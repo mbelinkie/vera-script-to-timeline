@@ -69,6 +69,15 @@ def test_rejects_recovery_without_diagnostics() -> None:
         validate_temporary_presenter_report(document, manifest, report)
 
 
+def test_rejects_manual_completion_without_diagnostics() -> None:
+    document, manifest, report = _empty_case()
+    report["manualCompletionItems"] = [{"kind": "unexpected"}]
+    with pytest.raises(
+        OutputConsistencyError, match="manual completion items without diagnostics"
+    ):
+        validate_temporary_presenter_report(document, manifest, report)
+
+
 def test_rejects_malformed_active_blocks() -> None:
     document, manifest, report = _empty_case()
     document["activeDraft"]["blocks"] = "not a list"

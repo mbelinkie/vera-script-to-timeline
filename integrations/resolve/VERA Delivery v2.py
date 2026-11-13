@@ -154,7 +154,9 @@ def _verified_runtime(root: Path, request: dict[str, Any]) -> Path:
     installed = {
         path.relative_to(root).as_posix()
         for path in children
-        if path.is_file() and path not in {manifest_path, release_root / "request.json"}
+        if path.is_file()
+        and path.name != ".DS_Store"
+        and path not in {manifest_path, release_root / "request.json"}
     }
     installed.add(LAUNCHER_NAME)
     if installed != declared:
