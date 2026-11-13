@@ -32,11 +32,7 @@ def run_installed_request_v2(
 ) -> Path:
     from .resolve_native_owner import native_owner
 
-    request = _read_pinned_request(request_path, expected_request_sha256)
-    output_lane = isinstance(request, dict) and request.get("schemaVersion") == (
-        "qualification-output-native-request/v1"
-    )
-    with native_owner(output_lane=output_lane):
+    with native_owner():
         return _run_installed_request_v2(
             resolve, request_path, expected_request_sha256=expected_request_sha256
         )
@@ -60,47 +56,6 @@ def _run_installed_request_v2(
     """Consume exactly the operator-authorized package and new target."""
     request = _read_pinned_request(request_path, expected_request_sha256)
     request_sha256 = expected_request_sha256
-    if isinstance(request, dict) and request.get("schemaVersion") == (
-        "vera-sample-import-probe-request/v1"
-    ):
-        from .sample_import_probe_v2 import run_sample_import_probe
-
-        return run_sample_import_probe(
-            resolve, request_path, expected_request_sha256=expected_request_sha256
-        )
-    if isinstance(request, dict) and request.get("schemaVersion") == (
-        "vera-sample-precision-probe-request/v1"
-    ):
-        from .sample_precision_probe_v2 import run_sample_precision_probe
-
-        return run_sample_precision_probe(
-            resolve, request_path, expected_request_sha256=expected_request_sha256
-        )
-    if isinstance(request, dict) and request.get("schemaVersion") == (
-        "qualification-output-native-request/v1"
-    ):
-        from .qualification_output_native_v2 import run_qualification_output_request
-
-        return run_qualification_output_request(
-            resolve, request_path, expected_request_sha256=expected_request_sha256
-        )
-    if isinstance(request, dict) and request.get("schemaVersion") == (
-        "vera-native-target-identity-request/v1"
-    ):
-        from .target_identity_v2 import run_target_identity
-
-        return run_target_identity(
-            resolve, request_path, expected_request_sha256=expected_request_sha256
-        )
-    if isinstance(request, dict) and request.get("schemaVersion") in {
-        "vera-native-qualification-request/v1",
-        "vera-native-qualification-request/v2",
-    }:
-        from .native_qualification_v2 import run_capability_preflight
-
-        return run_capability_preflight(
-            resolve, request_path, expected_request_sha256=expected_request_sha256
-        )
     if not isinstance(request, dict) or set(request) != REQUEST_KEYS:
         raise ValueError("unsupported operator request fields")
     if request["schemaVersion"] != "vera-injected-delivery-request/v2":

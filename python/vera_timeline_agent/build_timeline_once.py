@@ -398,7 +398,24 @@ def exclusive_resolve_build(
     lock_path: Path | None = None,
 ) -> Iterator[None]:
     """One foreground writer per host; never remove the common lock file."""
-    lock_path = lock_path or Path("/tmp/vera-resolve-v2-build.lock")
+    if lock_path is None:
+        from .resolve_native_owner import (
+            NativeOwnerError,
+            acquire_native_owner,
+            release_native_owner,
+        )
+
+        try:
+            descriptor = acquire_native_owner()
+        except NativeOwnerError as error:
+            if error.reason == "owner_busy":
+                raise NeedsAction("Resolve is already building a timeline") from error
+            raise NeedsAction("Resolve build lock is unavailable") from error
+        try:
+            yield
+        finally:
+            release_native_owner(descriptor)
+        return
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(lock_path, flags, 0o600)

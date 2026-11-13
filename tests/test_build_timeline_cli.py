@@ -958,6 +958,21 @@ def test_exclusive_native_lock_rejects_contention_and_releases(tmp_path: Path) -
         pass
 
 
+def test_foreground_and_installed_delivery_share_one_native_lock() -> None:
+    from vera_timeline_agent import resolve_native_owner
+
+    with exclusive_resolve_build():
+        with pytest.raises(resolve_native_owner.NativeOwnerError) as error:
+            resolve_native_owner.acquire_native_owner()
+        assert error.value.reason == "owner_busy"
+    with (
+        resolve_native_owner.native_owner(),
+        pytest.raises(NeedsAction, match="already building"),
+        exclusive_resolve_build(),
+    ):
+        pytest.fail("foreground entered while installed route holds Resolve")
+
+
 def test_native_partial_write_uncertainty_never_retries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
