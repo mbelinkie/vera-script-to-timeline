@@ -743,10 +743,11 @@ def build_takes(
 ) -> Json:
     """The takes file body: every take, and the suggested coverage per passage.
 
-    `last_take` is the choice a project makes once it allows jump cuts: where
-    a row has to be joined on camera, switch to the latest read of each
-    stretch instead of staying in the take in hand. Either way the reads not
-    chosen are kept as alternates.
+    `last_take` is the choice a project makes once it allows jump cuts: use
+    the latest read of every stretch of a row, even a one-sentence pickup
+    after a whole read, however many joins that makes. Without it a whole
+    read is kept whole and joins on camera are avoided where a read carries
+    on. Either way the reads not chosen are kept as alternates.
 
     The takes themselves come from the accepted #53 rules. The suggestion for
     a passage is the best read of the whole of it; failing that, the best read
@@ -828,15 +829,10 @@ def build_takes(
         pieces: list[Json] = []
         gaps: list[Json] = []
         whole = reads(0, len(expected))
-        if whole:
-            suggested = _best(whole)
-            alternates = [r for r in whole if r is not suggested]
-            for read in whole:
-                for take in takes:
-                    if take["id"] in read["takes"]:
-                        take["wholePassage"] = True
-                        take["alternate"] = read is not suggested
-        elif takes:
+        # A whole read is kept whole, unless the project always wants the
+        # latest read: then a later pickup of part of the row replaces that
+        # part, however much it chops the row up.
+        if takes and (last_take or not whole):
             said_somewhere = {e for take in takes for e, _ in take["_pairs"]}
             for a, b in _segments(passage, len(expected)):
                 found = reads(a, b)
@@ -864,8 +860,7 @@ def build_takes(
                     # Never cut where it would show if the read in hand carries on.
                     same = [r for r in found if r["takes"] == last["takes"]]
                     join = _join(passage, a)
-                    stay = join == "check" or (join == "visible" and not last_take)
-                    if same and stay:
+                    if same and join != "hidden" and not last_take:
                         pick = same[0]
                 others = [t for r in found if r is not pick for t in r["takes"]]
                 if (
@@ -892,6 +887,16 @@ def build_takes(
                         "alternates": others,
                     }
                 )
+        if whole and (gaps or len(pieces) < 2):
+            pieces, gaps = [], []  # the latest read of every part is one whole read
+        if whole:
+            suggested = None if pieces else _best(whole)
+            alternates = [r for r in whole if r is not suggested]
+            for read in whole:
+                for take in takes:
+                    if take["id"] in read["takes"]:
+                        take["wholePassage"] = True
+                        take["alternate"] = read is not suggested
         for index, piece in enumerate(pieces):
             if piece["cut"]:
                 continue
@@ -1164,7 +1169,18 @@ def render_report(takes: Json) -> str:
                     "an end word or has no clean cut."
                 )
         if passage["suggestedCoverage"] or passage["gaps"]:
-            lines += ["", "  No single take covers this row. SUGGESTED CLIPS:"]
+            if passage["alternateReads"]:
+                whole = ", ".join(
+                    "+".join(str(numbers[i]) for i in read["takes"])
+                    for read in passage["alternateReads"]
+                )
+                why = (
+                    "The latest read of each part is used (the project always "
+                    f"uses the last take; take {whole} reads the whole row)."
+                )
+            else:
+                why = "No single take covers this row."
+            lines += ["", f"  {why} SUGGESTED CLIPS:"]
             for piece in passage["suggestedCoverage"]:
                 a, b = piece["scriptWords"]
                 join = piece["join"]

@@ -64,10 +64,12 @@ Every row gets the best coverage the recording offers:
    setting as `allowJumpCuts`, and each join still records what it is.
 
    Allowing jump cuts opens one more choice, `--jump-cut-choice`:
-   `long-takes` (the default) stays in the take in hand across an on-camera
-   join, exactly as above; `last-take` switches to the latest read of each
-   stretch. It only matters in a row nobody read whole: a whole read is
-   never cut up. Whichever is chosen, nothing is thrown away: each clip
+   `long-takes` (the default) works exactly as above: a whole read stays
+   whole and jump cuts are still avoided where a read carries on.
+   `last-take` always uses the latest read of every stretch, so a
+   one-sentence pickup recorded after a whole read replaces that sentence,
+   however much that chops the row up. Whichever is chosen, nothing is
+   thrown away: each clip
    lists its alternates (other reads of the whole clip) and `otherReads`
    (other reads of part of it, "Also read" in the report), so the producer
    can overrule the suggestion when takes are chosen (#46).

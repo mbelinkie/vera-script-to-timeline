@@ -413,6 +413,33 @@ def test_jump_cut_choice_long_takes_or_last_take_keeps_the_other_as_an_option() 
     ]
 
 
+def test_last_take_uses_a_one_sentence_pickup_after_a_whole_read() -> None:
+    whole = "They really like saunas. The band wanted to embrace the weirdness."
+    spoken = [*_said(whole, 2.0), *_said("They really like saunas.", 20.0)]
+    kept = _coverage_case(ON_CAMERA, spoken)
+    row = kept["rows"][0]
+    # By default the whole read stays whole and the pickup is only on record.
+    assert row["suggested"] and row["suggestedCoverage"] == []
+    assert [o["scriptWords"] for o in row["suggested"]["otherReads"]] == [[0, 4]]
+    chopped = _coverage_case(ON_CAMERA, spoken, last_take=True)
+    row = chopped["rows"][0]
+    assert row["suggested"] is None and row["gaps"] == []
+    pickup, rest = row["suggestedCoverage"]
+    assert (
+        pickup["scriptWords"] == [0, 4] and pickup["cut"]["startFrame"] > 20 * 30 - 15
+    )
+    assert rest["scriptWords"] == [4, 11] and rest["join"] == "visible"
+    assert rest["takes"] == row["alternateReads"][0]["takes"]  # the whole read
+    assert [(c["row"], c["join"]) for c in chopped["suggestedEdit"]] == [
+        (1, None),
+        (1, "visible"),
+    ]
+    assert "reads the whole row" in pt.render_report(chopped)
+    # With no pickup, last take leaves the whole read alone.
+    alone = _coverage_case(ON_CAMERA, _said(whole, 2.0), last_take=True)["rows"][0]
+    assert alone["suggested"] and alone["suggestedCoverage"] == []
+
+
 def test_a_whole_off_camera_take_is_never_cut_up_by_sentence() -> None:
     script = "(off) They really like saunas. The band wanted to embrace the weirdness."
     read = "They really like saunas. The band wanted to embrace the weirdness."
