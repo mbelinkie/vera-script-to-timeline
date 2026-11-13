@@ -115,16 +115,26 @@ def _item_change(
         if key not in unknown and before[key] != after[key]
     }
     statuses = []
-    if "durationFrames" in changes and "mediaId" not in changes:
+    if (
+        "durationFrames" in changes
+        and "mediaId" not in changes
+        and any(key in changes for key in _SOURCE_RANGE)
+    ):
         statuses.append("trimmed")
     if (
         "trackKind" in changes
         or "trackIndex" in changes
         or (
             "startFrame" in changes
-            and "durationFrames" not in changes
             and "durationFrames" not in unknown
-            and not any(key in changes for key in _SOURCE_RANGE)
+            and (
+                "durationFrames" not in changes
+                or (
+                    "sourceStartFrame" not in unknown
+                    and after["startFrame"] - before["startFrame"]
+                    != after["sourceStartFrame"] - before["sourceStartFrame"]
+                )
+            )
         )
     ):
         statuses.append("moved")
@@ -132,6 +142,7 @@ def _item_change(
         changes
         and (
             not statuses
+            or ("durationFrames" in changes and "trimmed" not in statuses)
             or "mediaId" in changes
             or "name" in changes
             or (
@@ -150,25 +161,37 @@ def _item_change(
 
 
 def _row_for_addition(
-    item: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]
+    item: Mapping[str, Any],
+    rows: Sequence[Mapping[str, Any]],
+    current: Mapping[str, Mapping[str, Any]],
 ) -> str | None:
     start, duration = item["startFrame"], item["durationFrames"]
     if start is None or duration is None:
         return None
     end = start + duration
-    overlaps = [
-        row
-        for row in rows
-        if row["rowId"] is not None
-        and row["startFrame"] < end
-        and start < row["startFrame"] + row["lengthFrames"]
-    ]
+    overlaps = []
+    for row in rows:
+        members = [
+            current[clip["resolveItemId"]]
+            for clip in row["items"]
+            if clip["resolveItemId"] in current
+        ]
+        if not members:
+            continue
+        if any(
+            clip["startFrame"] is None or clip["durationFrames"] is None
+            for clip in members
+        ):
+            return None
+        row_start = min(clip["startFrame"] for clip in members)
+        row_end = max(clip["startFrame"] + clip["durationFrames"] for clip in members)
+        if row_start < end and start < row_end:
+            overlaps.append((row["rowId"], row_start, row_end))
     if len(overlaps) != 1:
         return None
-    row = overlaps[0]
-    if row["startFrame"] <= start and end <= row["startFrame"] + row["lengthFrames"]:
-        row_id: str = row["rowId"]
-        return row_id
+    row_id, row_start, row_end = overlaps[0]
+    if row_start <= start and end <= row_end:
+        return row_id if isinstance(row_id, str) else None
     return None
 
 
@@ -223,9 +246,9 @@ def observe_output(
         unknown = [key for key in _FIELDS if item[key] is None]
         if unknown:
             added["cannotRead"] = unknown
-        row_id = _row_for_addition(item, saved["rows"])
+        row_id = _row_for_addition(item, saved["rows"], current)
         if row_id is None:
-            added["rowAttribution"] = "cannot tell from the saved row boundaries"
+            added["rowAttribution"] = "cannot tell from the current row boundaries"
             if None not in rows_by_id:
                 unassigned: list[dict[str, Any]] = []
                 rows.append({"rowId": None, "items": unassigned})

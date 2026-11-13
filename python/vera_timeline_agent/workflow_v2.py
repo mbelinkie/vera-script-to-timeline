@@ -2756,22 +2756,29 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         )
                                         if callable(getattr(item, name, None))
                                     }
-                                    if not _fractional_source_range_matches(
-                                        event=event,
-                                        source=source_record,
-                                        manifest_source=manifest_source,
-                                        preparation_bindings=self._v2_preparation_bindings,
-                                        timeline=timeline,
-                                        actual_start=actual_start,
-                                        actual_end=actual_end,
-                                        source_times=source_times,
-                                        speed=item.GetSpeed(),
-                                        media_properties=media_item.GetClipProperty()
-                                        if media_item is not None
-                                        else None,
-                                        record_duration=record["durationFrames"],
-                                        allow_25fps_video=True,
-                                    ):
+                                    speed_method = getattr(item, "GetSpeed", None)
+                                    properties_method = getattr(
+                                        media_item, "GetClipProperty", None
+                                    )
+                                    source_range_matches = (
+                                        callable(speed_method)
+                                        and callable(properties_method)
+                                        and _fractional_source_range_matches(
+                                            event=event,
+                                            source=source_record,
+                                            manifest_source=manifest_source,
+                                            preparation_bindings=self._v2_preparation_bindings,
+                                            timeline=timeline,
+                                            actual_start=actual_start,
+                                            actual_end=actual_end,
+                                            source_times=source_times,
+                                            speed=speed_method(),
+                                            media_properties=properties_method(),
+                                            record_duration=record["durationFrames"],
+                                            allow_25fps_video=True,
+                                        )
+                                    )
+                                    if not source_range_matches:
                                         discrepancies.append("event-source-range")
                                 else:
                                     if actual_start != expected_source_range[0]:

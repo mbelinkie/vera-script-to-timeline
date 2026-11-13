@@ -186,3 +186,58 @@ def test_missing_or_old_baseline_refused_before_connecting(
     (output / "row-timeline-map.json").unlink()
     assert cli.main(["--output", str(output)]) == 2
     assert "no row-timeline-map.json baseline" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("start", "duration", "source_start", "source_end", "expected"),
+    [
+        (0, 24, 100, 111, ["cannot tell"]),
+        (7, 10, 100, 109, ["trimmed", "moved"]),
+        (2, 10, 102, 111, ["trimmed"]),
+        (7, 10, 102, 111, ["trimmed", "moved"]),
+        (7, 24, 100, 111, ["moved", "cannot tell"]),
+    ],
+)
+def test_distinguishes_retime_head_trim_and_combined_move(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    start: int,
+    duration: int,
+    source_start: int,
+    source_end: int,
+    expected: list[str],
+) -> None:
+    output, resolve, _, video, _ = _baseline(tmp_path, monkeypatch)
+    video.start, video.duration = start, duration
+    video.source_start, video.source_end = source_start, source_end
+    report = cli.observe_output(output, resolve_factory=lambda: resolve)
+    assert report["rows"][0]["items"][1]["status"] == expected
+
+
+def test_addition_follows_the_current_row_when_managed_clips_shift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output, resolve, timeline, video, audio = _baseline(tmp_path, monkeypatch)
+    video.start = audio.start = 24
+    added = Clip(timeline.view["events"][0], "editor")
+    added.stamp = ""
+    added.start, added.duration = 25, 2
+    timeline.items["video", 1].append(added)
+    report = cli.observe_output(output, resolve_factory=lambda: resolve)
+    assert len(report["rows"]) == 1
+    assert report["rows"][0]["rowId"] == "row-a"
+    assert report["rows"][0]["items"][-1]["status"] == ["added"]
+
+
+def test_addition_after_gap_closure_uses_surviving_row_identity() -> None:
+    rows = [
+        {"rowId": "removed", "items": [{"resolveItemId": "gone"}]},
+        {"rowId": "later", "items": [{"resolveItemId": "kept"}]},
+    ]
+    current = {"kept": {"startFrame": 0, "durationFrames": 12}}
+    addition = {"startFrame": 2, "durationFrames": 2}
+    assert cli._row_for_addition(addition, rows, current) == "later"
+    rows.append({"rowId": None, "items": [{"resolveItemId": "unassigned"}]})
+    current["unassigned"] = {"startFrame": 0, "durationFrames": 12}
+    assert cli._row_for_addition(addition, rows, current) is None

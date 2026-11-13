@@ -230,7 +230,8 @@ uv run --frozen python -m vera_timeline_agent.observe_timeline_cli \
 The JSON report lists moved, trimmed, removed, added and unchanged clips by
 script row. It uses the saved Resolve clip IDs and reports unreadable fields
 as `cannot tell`. An added clip is assigned to a row only if its full range
-fits inside exactly one saved row and overlaps no other saved row. Grades
+fits inside exactly one current row and overlaps no other row. Current row
+bounds follow the surviving managed clip IDs after moves or ripple edits. Grades
 and effects are outside the readback. The command reads the current timeline
 without saving or changing it. A matching media ID describes the clip's
 reference. It does not verify that the media is online or that its bytes match.

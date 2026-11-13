@@ -2953,7 +2953,9 @@ def test_25fps_prepared_video_verify_accepts_exact_source_boundary_only(
     assert adapter.verify(view) == expected
 
 
-@pytest.mark.parametrize("damage", ["hash", "mapping", "speed"])
+@pytest.mark.parametrize(
+    "damage", ["hash", "mapping", "speed", "missing speed", "missing properties"]
+)
 def test_25fps_exclusive_source_end_requires_bound_video_proof(damage: str) -> None:
     adapter, item, view = _normal_25fps_video_verify_fixture()
     source = adapter._v2_sources["video-source"]
@@ -2964,6 +2966,10 @@ def test_25fps_exclusive_source_end_requires_bound_video_proof(damage: str) -> N
             **adapter._v2_preparation_bindings["video-prep"]["timeMapping"],
             "deliveredRate": {"numerator": 24, "denominator": 1},
         }
+    elif damage == "missing speed":
+        item.GetSpeed = None
+    elif damage == "missing properties":
+        item.media.GetClipProperty = None
     else:
         item.GetSpeed = lambda: {"Percentage": 99}
 
