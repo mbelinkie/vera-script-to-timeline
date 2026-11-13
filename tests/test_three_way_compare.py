@@ -56,7 +56,8 @@ def _three_way(
 
 
 def _observation() -> dict[str, Any]:
-    return json.loads(OBSERVATION.read_text())
+    observation: dict[str, Any] = json.loads(OBSERVATION.read_text())
+    return observation
 
 
 def _edit_item(observation: dict[str, Any], index: int, status: str = "moved") -> None:
