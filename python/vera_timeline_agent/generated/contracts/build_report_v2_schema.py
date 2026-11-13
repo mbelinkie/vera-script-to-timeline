@@ -39,6 +39,10 @@ type DiagnosticCodeV2 = Literal[
     "GRAPHIC_PROVENANCE_UNAUTHORIZED",
     "GRAPHIC_PROVENANCE_UNEXPECTED",
     "ROW_TRANSITION_CUT_SHORT_HANDLES",
+    "MUSIC_FILE_MISSING",
+    "MUSIC_SOURCE_SHORTER",
+    "MUSIC_SPAN_INVALID",
+    "MUSIC_SETTINGS_UNSUPPORTED",
 ]
 
 
@@ -166,6 +170,7 @@ class EventResultV2(TypedDict):
         "primary_visual",
         "overlay_visual",
         "source_audio",
+        "music",
         "placeholder",
         "script_marker",
     ]
