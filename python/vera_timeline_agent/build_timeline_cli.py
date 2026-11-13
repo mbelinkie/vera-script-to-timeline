@@ -23,6 +23,11 @@ def parser() -> argparse.ArgumentParser:
     command.add_argument(
         "--existing-project", help="add a new timeline to this named project"
     )
+    command.add_argument(
+        "--package-timings",
+        action="store_true",
+        help="print optional package hash/copy/slate/audio/verification sub-timings",
+    )
     return command
 
 
@@ -42,7 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output=args.output,
         existing_project=args.existing_project,
     )
-    timings = StageTimings()
+    timings = StageTimings(package_detail=args.package_timings)
     try:
         completed = build_once(options, timings=timings)
         timings.finish(

@@ -16,13 +16,15 @@ import shutil
 import stat
 import tempfile
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from json import encoder as json_encoder
 from json.encoder import encode_basestring, encode_basestring_ascii
 from pathlib import Path, PurePosixPath
+from time import perf_counter
 from typing import Any, cast
 
 import jsonschema  # type: ignore[import-untyped]
@@ -89,6 +91,49 @@ class V2PackageVerification:
     event_count: int
     marker_count: int
     media_count: int
+
+
+_PACKAGE_STAGES = (
+    "source hash",
+    "copy + streamed hash",
+    "slates",
+    "audio",
+    "receipt hash",
+    "verification",
+)
+
+
+class _PackageSubtimings:
+    """Opt-in, additive wall-clock measurements; never change package bytes."""
+
+    def __init__(self, observer: Callable[[str, float, bool], None]) -> None:
+        self.observer = observer
+        self.seconds = dict.fromkeys(_PACKAGE_STAGES, 0.0)
+        self.failed: set[str] = set()
+
+    @contextmanager
+    def measure(self, stage: str) -> Iterator[None]:
+        started = perf_counter()
+        try:
+            yield
+        except BaseException:
+            self.failed.add(stage)
+            raise
+        finally:
+            self.seconds[stage] += max(0.0, perf_counter() - started)
+
+    def report(self) -> None:
+        for stage in _PACKAGE_STAGES:
+            self.observer(stage, self.seconds[stage], stage not in self.failed)
+
+
+@contextmanager
+def _measure(timing: _PackageSubtimings | None, stage: str) -> Iterator[None]:
+    if timing is None:
+        yield
+    else:
+        with timing.measure(stage):
+            yield
 
 
 def _error(message: str) -> V2PackageError:
@@ -1575,6 +1620,7 @@ def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
     media_paths: Mapping[str, Path],
+    timing: _PackageSubtimings | None = None,
 ) -> dict[str, _InputArtifact]:
     sources = _unique_by_id(manifest.get("sources"), "source")
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
@@ -1643,13 +1689,16 @@ def _media_artifacts(
             treatment = cast(JsonObject, event["pictureTreatment"])
             if treatment["kind"] == "slate":
                 timeline = cast(JsonObject, manifest["timeline"])
-                generated = _render_slate(
-                    cast(str, treatment["text"]),
-                    _safe_frame(timeline.get("width"), "timeline width", positive=True),
-                    _safe_frame(
-                        timeline.get("height"), "timeline height", positive=True
-                    ),
-                )
+                with _measure(timing, "slates"):
+                    generated = _render_slate(
+                        cast(str, treatment["text"]),
+                        _safe_frame(
+                            timeline.get("width"), "timeline width", positive=True
+                        ),
+                        _safe_frame(
+                            timeline.get("height"), "timeline height", positive=True
+                        ),
+                    )
                 expected = _hash_bytes(generated)
             else:
                 reference = cast(JsonObject, treatment["reference"])
@@ -1724,7 +1773,8 @@ def _media_artifacts(
             raise _error(f"media path for {key} must be a pathlib.Path")
         _require_path_components_no_symlink(source_path, f"media path {key}")
         _require_regular(source_path, f"media path {key}")
-        actual = _file_hash(source_path)
+        with _measure(timing, "source hash"):
+            actual = _file_hash(source_path)
         if actual != expected_hash:
             raise _error(f"media hash mismatch for {key}: {expected_hash} != {actual}")
         suffix = _suffix(source_path)
@@ -1776,7 +1826,8 @@ def _media_artifacts(
             if plan is None:
                 continue
             artifact = artifacts[f"event:{event_id}"]
-            raw = endpoint_wav(artifact.origin.read_bytes(), plan, audio)
+            with _measure(timing, "audio"):
+                raw = endpoint_wav(artifact.origin.read_bytes(), plan, audio)
         except (OSError, ValueError) as error:
             raise _error(f"source audio {event_id}: {error}") from error
         original_key = f"original-audio:{event_id}"
@@ -2940,6 +2991,7 @@ def _build_staging(
     prepared: Mapping[str, _Preparation],
     artifacts: Mapping[str, _InputArtifact],
     view: JsonObject,
+    timing: _PackageSubtimings | None = None,
 ) -> JsonObject:
     build_id = _id_component(cast(str, manifest["buildId"]), "build id")
     build_root = staging / BUILD_DIRECTORY / build_id
@@ -2954,7 +3006,15 @@ def _build_staging(
     for item in prepared.values():
         _write_exclusive(staging / item.relative_path, item.raw)
     for artifact in artifacts.values():
-        _copy_artifact(artifact, staging)
+        stage = (
+            "audio"
+            if artifact.generated is not None and artifact.kind == "audio"
+            else "slates"
+            if artifact.generated is not None
+            else "copy + streamed hash"
+        )
+        with _measure(timing, stage):
+            _copy_artifact(artifact, staging)
     timeline = _build_otio(
         view, cast(str, manifest["id"]), build_id, manifest, prepared, artifacts
     )
@@ -2967,7 +3027,10 @@ def _build_staging(
 
     package_files, _ = _walk_package(staging)
     receipt_path = f"{BUILD_DIRECTORY}/{build_id}/{VERIFICATION_FILENAME}"
-    file_hashes = {path: _file_hash(staging / path) for path in sorted(package_files)}
+    with _measure(timing, "receipt hash"):
+        file_hashes = {
+            path: _file_hash(staging / path) for path in sorted(package_files)
+        }
     sources = cast(list[JsonObject], view["sources"])
     dep_build = cast(JsonObject, dependencies["build"])
     receipt = {
@@ -3387,7 +3450,7 @@ def _read_inputs(
     )
 
 
-def build_v2_package(
+def _build_v2_package(
     manifest_path: Path,
     report_path: Path,
     document_path: Path,
@@ -3396,6 +3459,7 @@ def build_v2_package(
     *,
     media_paths: Mapping[str, Path],
     preparation_paths: Mapping[str, Path],
+    timing: _PackageSubtimings | None = None,
 ) -> V2PackageResult:
     """Create one immutable verified v2 package under a fresh project root."""
     paths = (manifest_path, report_path, document_path, dependencies_path, project_root)
@@ -3423,7 +3487,7 @@ def build_v2_package(
     prepared = _validate_preparations(
         document, dependencies, manifest, report, preparation_paths
     )
-    artifacts = _media_artifacts(manifest, prepared, media_paths)
+    artifacts = _media_artifacts(manifest, prepared, media_paths, timing)
     view = _delivery_view(manifest, dependencies, prepared, artifacts)
 
     root = project_root.absolute()
@@ -3462,12 +3526,15 @@ def build_v2_package(
             prepared=prepared,
             artifacts=artifacts,
             view=view,
+            timing=timing,
         )
-        proposed_verification, proposed_receipt = _verify_package(staging)
+        with _measure(timing, "verification"):
+            proposed_verification, proposed_receipt = _verify_package(staging)
         if root.exists():
             if any(root.iterdir()):
                 try:
-                    existing_verification, existing_receipt = _verify_package(root)
+                    with _measure(timing, "verification"):
+                        existing_verification, existing_receipt = _verify_package(root)
                 except V2PackageError as error:
                     raise _error(
                         f"project root is not the same verified package: {root}"
@@ -3496,7 +3563,8 @@ def build_v2_package(
             raise _error(f"project root appeared during package publication: {root}")
         os.rename(staging, root)
         staging = None
-        published = verify_v2_package(root)
+        with _measure(timing, "verification"):
+            published = verify_v2_package(root)
         if published != proposed_verification:
             raise _error("published package differs from its staged verification")
         return V2PackageResult(root, published.build_id, False)
@@ -3541,3 +3609,36 @@ def build_v2_package(
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
         finally:
             os.close(lock_fd)
+
+
+def build_v2_package(
+    manifest_path: Path,
+    report_path: Path,
+    document_path: Path,
+    dependencies_path: Path,
+    project_root: Path,
+    *,
+    media_paths: Mapping[str, Path],
+    preparation_paths: Mapping[str, Path],
+    stage_observer: Callable[[str, float, bool], None] | None = None,
+) -> V2PackageResult:
+    """Build a v2 package, optionally reporting non-overlapping substep timings.
+
+    A timing observer is diagnostic only and is never serialized into the package.
+    Verification is independent and remains mandatory with or without an observer.
+    """
+    timing = _PackageSubtimings(stage_observer) if stage_observer is not None else None
+    try:
+        return _build_v2_package(
+            manifest_path,
+            report_path,
+            document_path,
+            dependencies_path,
+            project_root,
+            media_paths=media_paths,
+            preparation_paths=preparation_paths,
+            timing=timing,
+        )
+    finally:
+        if timing is not None:
+            timing.report()

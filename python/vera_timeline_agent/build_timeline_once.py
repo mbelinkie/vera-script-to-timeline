@@ -76,6 +76,7 @@ class DeliveryResult:
 class StageTimings:
     clock: Callable[[], float] = perf_counter
     emit: Callable[[str], None] = print
+    package_detail: bool = False
     stages: list[tuple[str, float]] = field(default_factory=list)
     started: float = field(init=False)
 
@@ -444,6 +445,15 @@ def deliver_compiled(
     package_root = compiled.output / "package"
 
     def package_once() -> None:
+        detail = (
+            {
+                "stage_observer": lambda label, elapsed, passed: timings.record(
+                    f"package/{label}", elapsed, passed=passed
+                )
+            }
+            if timings.package_detail
+            else {}
+        )
         built = build_v2_package(
             compiled.manifest,
             compiled.report,
@@ -452,8 +462,15 @@ def deliver_compiled(
             package_root,
             media_paths=media,
             preparation_paths=preparations,
+            **detail,
         )
-        verified = verify_v2_package(package_root)
+        verified = (
+            timings.run(
+                "package/outer verification", lambda: verify_v2_package(package_root)
+            )
+            if timings.package_detail
+            else verify_v2_package(package_root)
+        )
         manifest = _read_json(compiled.manifest)
         if verified.build_id != built.build_id or verified.build_id != manifest.get(
             "buildId"

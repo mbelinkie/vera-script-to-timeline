@@ -232,6 +232,17 @@ def test_cli_reports_delivery_failure_as_non_success(
     assert "FAIL: timeline was not delivered" in output.out
 
 
+def test_package_subtimings_are_explicitly_opt_in() -> None:
+    arguments = ["--script", "script.json", "--output", "fresh-output"]
+    assert build_timeline_cli.parser().parse_args(arguments).package_timings is False
+    assert (
+        build_timeline_cli.parser()
+        .parse_args([*arguments, "--package-timings"])
+        .package_timings
+        is True
+    )
+
+
 def test_timing_tracks_fractional_duration_and_failed_stage() -> None:
     times = iter([0.0, 2.0, 2.25, 3.0])
     lines: list[str] = []
@@ -362,7 +373,30 @@ def test_real_package_and_attestation_precede_external_preflight_and_native_buil
         compiled.report,
         compiled.needs,
     )
-    result2 = deliver_compiled(compiled2, timings=StageTimings(emit=lambda _: None))
+    detail_lines: list[str] = []
+    result2 = deliver_compiled(
+        compiled2,
+        timings=StageTimings(emit=detail_lines.append, package_detail=True),
+    )
+    for stage in (
+        "source hash",
+        "copy + streamed hash",
+        "slates",
+        "audio",
+        "receipt hash",
+        "verification",
+    ):
+        assert any(line.startswith(f"package/{stage}: PASS (") for line in detail_lines)
+    assert any(
+        line.startswith("package/outer verification: PASS (") for line in detail_lines
+    )
+    assert next(
+        i for i, line in enumerate(detail_lines) if line.startswith("package: PASS")
+    ) > next(
+        i
+        for i, line in enumerate(detail_lines)
+        if line.startswith("package/verification: PASS")
+    )
     assert first.project_name != result2.project_name
     assert {key: created[key] for key in first_snapshot} == first_snapshot
 
