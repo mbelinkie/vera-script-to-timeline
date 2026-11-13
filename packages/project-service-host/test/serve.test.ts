@@ -39,6 +39,8 @@ function infra() {
       id: randomUUID(), disabled_at: null,
     }] });
     if (sql.includes("SELECT m.role")) return Promise.resolve({ rows: [] });
+    // Startup recovery (#384): nothing was left waiting to be written back.
+    if (sql.includes("FROM stt_live_heads WHERE materialization='pending'")) return Promise.resolve({ rows: [] });
     return Promise.reject(new Error(`unexpected SQL: ${sql}`));
   });
   const release = vi.fn();
@@ -64,6 +66,9 @@ describe("development QA service bootstrap and shutdown", () => {
     const h = infra();
     const server = await startQaServer(config, h);
     running.push(server);
+    // Startup itself reads the database once for live-collaboration recovery;
+    // what matters below is that a forged request never reaches it.
+    h.connect.mockClear();
     expect(server.server.address()).toMatchObject({ address: "127.0.0.1", port: config.port });
     const url = `http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}/document`;
     const forged = await fetch(url, { headers: { "X-Test-Suite-Identity": subject,

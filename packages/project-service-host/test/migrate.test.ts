@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const migrations = vi.hoisted(() => ({
-  auth: vi.fn(), docs: vi.fn(), comments: vi.fn(), history: vi.fn(), ideas: vi.fn(), builds: vi.fn(),
+  auth: vi.fn(), docs: vi.fn(), comments: vi.fn(), history: vi.fn(), ideas: vi.fn(), builds: vi.fn(), collaboration: vi.fn(),
 }));
 vi.mock("@vera/project-authorization", async (importOriginal) => ({
   ...await importOriginal<object>(),
@@ -19,7 +19,13 @@ vi.mock("@vera/project-builds", async (importOriginal) => ({
   applyProjectBuildsMigration: migrations.builds,
 }));
 
+vi.mock("@vera/project-collaboration", async (importOriginal) => ({
+  ...await importOriginal<object>(),
+  applyProjectCollaborationMigration: migrations.collaboration,
+}));
+
 import { MIGRATION_DIGEST, MIGRATION_NAME, type SqlClient, type SqlPool } from "@vera/project-authorization";
+import { PROJECT_COLLABORATION_MIGRATION, PROJECT_COLLABORATION_MIGRATION_DIGEST } from "@vera/project-collaboration";
 import { PROJECT_DOCUMENTS_MIGRATION, PROJECT_DOCUMENTS_MIGRATION_DIGEST,
   PROJECT_COMMENTS_MIGRATION, PROJECT_COMMENTS_MIGRATION_DIGEST } from "@vera/project-documents";
 import { PROJECT_HISTORY_MIGRATION, PROJECT_HISTORY_MIGRATION_DIGEST,
@@ -46,6 +52,7 @@ const receipts = [
   { name: PROJECT_IDEAS_MIGRATION, version: 4, checksum: PROJECT_IDEAS_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
+  { name: PROJECT_COLLABORATION_MIGRATION, version: 1, checksum: PROJECT_COLLABORATION_MIGRATION_DIGEST },
 ];
 
 function harness(args: { user?: typeof user; tables?: { schema_name: string; table_name: string }[];
@@ -71,6 +78,7 @@ describe("QA target preflight and ordered migrations", () => {
     migrations.history.mockResolvedValue(undefined);
     migrations.ideas.mockResolvedValue(undefined);
     migrations.builds.mockResolvedValue(undefined);
+    migrations.collaboration.mockResolvedValue(undefined);
   });
 
   it("checks identity and all preexisting tables before any DDL", async () => {
