@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import io
+import itertools
 import json
 import re
 import subprocess
@@ -232,48 +233,59 @@ def read_script(path: Path) -> str:
 
 @dataclass(frozen=True)
 class Passage:
+    """One script row: what a presenter take is matched against."""
+
     id: str
-    row: int  # the script row (table row or paragraph) it belongs to
-    camera: str  # "on", "off" (covered by footage) or "unknown"
-    script: str  # as written, for people
+    row: int
+    camera: str  # "on", "off", "mixed" or "unknown" over the whole row
+    cameras: tuple[str, ...]  # per script word: "on", "off" or "unknown"
+    script: str  # as written, with its (on) / (off) marks, for people
     text: str  # spoken words with sentence stops, for the take rules
 
 
-def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
-    """The stretches of script a take is matched against.
+def _spoken(text: str, dictionary: set[str]) -> str:
+    pieces: list[str] = []
+    for word in parse_prompter(text, dictionary).words:
+        if word["sentenceStart"] and pieces:
+            pieces[-1] += "."
+        pieces.append(" ".join(word["spoken"]))
+    return " ".join(pieces) + "." if pieces else ""
 
-    Each line is a script row. Inside a row, `(on)` and `(off)` mark what is
-    on camera and what is covered by footage. Each stretch is one passage. A
-    passage is only broken into sentences later, and only when no single take
-    reads it whole (`build_takes`).
+
+def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
+    """The script rows. Each line is a row and each row is one passage.
+
+    `(on)` and `(off)` inside a row mark what is on camera and what is
+    voiceover covered by footage. That is recorded per word. It never splits a
+    row: a change of picture is not a cut in the presenter's take.
     """
     passages: list[Passage] = []
-    camera, row = "unknown", 0
+    camera = "unknown"
     for line in script_text.splitlines():
-        stretches: list[tuple[str, str]] = []
+        cameras: list[str] = []
         for index, part in enumerate(MARKER.split(line)):
             if index % 2:
                 camera = part.lower()
-            elif part.strip():
-                stretches.append((camera, part))
-        row += bool(stretches)
-        for state, stretch in stretches:
-            pieces: list[str] = []
-            for word in parse_prompter(stretch, dictionary).words:
-                if word["sentenceStart"] and pieces:
-                    pieces[-1] += "."
-                pieces.append(" ".join(word["spoken"]))
-            if pieces:
-                shown = " ".join(re.sub(r"\[[^\]]*\]", "", stretch).split())
-                passages.append(
-                    Passage(
-                        f"passage-{len(passages) + 1}",
-                        row,
-                        state,
-                        shown,
-                        " ".join(pieces) + ".",
-                    )
-                )
+            else:
+                cameras += [camera] * len(tokens(_spoken(part, dictionary)))
+        text = _spoken(MARKER.sub(" ", line), dictionary)
+        count = len(tokens(text))
+        if not count:
+            continue
+        if len(cameras) != count:  # a mark fell inside a word group; do not guess
+            cameras = ["unknown"] * count
+        states = set(cameras)
+        number = len(passages) + 1
+        passages.append(
+            Passage(
+                f"row-{number}",
+                number,
+                states.pop() if len(states) == 1 else "mixed",
+                tuple(cameras),
+                " ".join(re.sub(r"\[[^\]]*\]", "", line).split()),
+                text,
+            )
+        )
     if not passages:
         raise TakesError("The script has no words.")
     return passages
@@ -662,6 +674,56 @@ def _read(
     }
 
 
+def _segments(passage: Passage, count: int) -> list[tuple[int, int]]:
+    """Where a row may be joined from different reads: at sentence ends and
+    where the picture changes between presenter and footage."""
+    starts = {a for a, _ in sentence_spans(passage.text, tokens)} | {
+        i for i in range(1, count) if passage.cameras[i] != passage.cameras[i - 1]
+    }
+    points = [*sorted(starts | {0}), count]
+    return list(itertools.pairwise(points))
+
+
+def _voiceover(
+    read: Json, delivery: Json, passage: Passage, words: list[Json]
+) -> list[list[float]]:
+    """The video-time ranges of a read where the script says voiceover."""
+    script_of = {s: e for e, s in delivery["pairs"]}
+    start, end = read["spoken"]
+    a, b = read["scriptWords"]
+    state = passage.cameras[a]
+    marks: list[tuple[float, str]] = []
+    for k in range(start, end):
+        if k in script_of and a <= script_of[k] < b:
+            state = passage.cameras[script_of[k]]
+        if words[k]["start"] is not None:
+            marks.append((words[k]["start"], state))
+    if not marks or read["speechEndS"] is None:
+        return []
+    cut = read["cut"]
+    first = cut["startS"] if cut else marks[0][0]
+    last = cut["endS"] if cut else read["speechEndS"]
+    marks[0] = (first, marks[0][1])
+    ranges: list[list[float]] = []
+    ends = [*(m[0] for m in marks[1:]), last]
+    for (begin, state), finish in zip(marks, ends, strict=True):
+        if state != "off" or finish <= begin:
+            continue
+        if ranges and abs(ranges[-1][1] - begin) < 1e-6:
+            ranges[-1][1] = finish
+        else:
+            ranges.append([begin, finish])
+    return [[round(x, 3), round(y, 3)] for x, y in ranges]
+
+
+def _join(passage: Passage, at: int) -> str:
+    """Whether a join before script word `at` would show in the picture."""
+    sides = {passage.cameras[at - 1], passage.cameras[at]}
+    if "off" in sides:
+        return "hidden"  # footage is on screen on at least one side
+    return "check" if "unknown" in sides else "visible"
+
+
 def _best(reads: list[Json]) -> Json:
     """The last read that reaches both ends and can be cut cleanly."""
     pool = [r for r in reads if r["exact"]] or reads
@@ -739,14 +801,21 @@ def build_takes(
             }
         )
     out_passages = []
+    edit: list[Json] = []
     for number, passage in enumerate(passages, 1):
         takes = by_passage[passage.id]
         expected = row_tokens[passage.id]
         deliveries = _deliveries(takes, words)
 
         def reads(a: int, b: int) -> list[Json]:
-            found = [_read(d, a, b, expected, words) for d in deliveries]  # noqa: B023
-            return [{**r, **located(r["spoken"])} for r in found if r]
+            out = []
+            for delivery in deliveries:  # noqa: B023
+                read = _read(delivery, a, b, expected, words)  # noqa: B023
+                if read:
+                    read.update(located(read["spoken"]))
+                    read["voiceover"] = _voiceover(read, delivery, passage, words)  # noqa: B023
+                    out.append(read)
+            return out
 
         suggested: Json | None = None
         alternates: list[Json] = []
@@ -763,7 +832,7 @@ def build_takes(
                         take["alternate"] = read is not suggested
         elif takes:
             said_somewhere = {e for take in takes for e, _ in take["_pairs"]}
-            for a, b in sentence_spans(passage.text, tokens):
+            for a, b in _segments(passage, len(expected)):
                 found = reads(a, b)
                 if not found:
                     closest = max(
@@ -782,32 +851,62 @@ def build_takes(
                         }
                     )
                     continue
-                pick = _best(found)
-                others = [t for r in found if r is not pick for t in r["takes"]]
+                # Inside a row the clean cut is judged once the clip is whole.
+                pick = ([r for r in found if r["exact"]] or found)[-1]
                 last = pieces[-1] if pieces else None
+                if last and last["scriptWords"][1] == a:
+                    # Never cut where it would show if the read in hand carries on.
+                    same = [r for r in found if r["takes"] == last["takes"]]
+                    if same and _join(passage, a) != "hidden":
+                        pick = same[0]
+                others = [t for r in found if r is not pick for t in r["takes"]]
                 if (
                     last
                     and last["takes"] == pick["takes"]
                     and last["scriptWords"][1] == a
                 ):
-                    # The same delivery carries on: keep it one piece.
-                    joined = _read(
-                        next(d for d in deliveries if d["takes"] == pick["takes"]),
-                        last["scriptWords"][0],
-                        b,
-                        expected,
-                        words,
-                    )
+                    # The same read carries on: keep it one clip.
+                    joined = reads(last["scriptWords"][0], b)
+                    joined = [r for r in joined if r["takes"] == pick["takes"]]
                     if joined:
                         pieces[-1] = {
-                            **joined,
-                            **located(joined["spoken"]),
+                            **joined[0],
+                            "join": last["join"],
                             "alternates": [
                                 t for t in last["alternates"] if t in others
                             ],
                         }
                         continue
-                pieces.append({**pick, "alternates": others})
+                pieces.append(
+                    {
+                        **pick,
+                        "join": _join(passage, a) if a and pieces else None,
+                        "alternates": others,
+                    }
+                )
+        for index, piece in enumerate(pieces):
+            if piece["cut"]:
+                continue
+            # A clip that cannot be cut cleanly gives way to another read of
+            # the same words that can.
+            cleaner = [
+                r
+                for r in reads(*piece["scriptWords"])
+                if r["cut"] and r["takes"] != piece["takes"]
+            ]
+            if cleaner:
+                pieces[index] = {
+                    **cleaner[-1],
+                    "join": piece["join"],
+                    "alternates": [
+                        *piece["takes"],
+                        *(
+                            t
+                            for t in piece["alternates"]
+                            if t not in cleaner[-1]["takes"]
+                        ),
+                    ],
+                }
         notes = [
             {
                 "said": _said(words, s["word_range"], units, recognition),
@@ -834,11 +933,28 @@ def build_takes(
                 "notes": notes,
             }
         )
+        for read in [suggested] if suggested else pieces:
+            cut = read["cut"]
+            edit.append(
+                {
+                    "row": passage.row,
+                    "takes": read["takes"],
+                    "startS": cut["startS"] if cut else read["speechStartS"],
+                    "endS": cut["endS"] if cut else read["speechEndS"],
+                    "cleanCut": cut is not None,
+                    "join": read.get("join"),
+                    "voiceover": read["voiceover"],
+                    "differences": read["differences"],
+                    "checkByEar": read["approximateStart"] or read["approximateEnd"],
+                }
+            )
+        edit += [{"row": passage.row, "gap": gap["script"]} for gap in gaps]
     for takes in by_passage.values():
         for take in takes:
             del take["_range"], take["_pairs"]
     return {
-        "passages": out_passages,
+        "rows": out_passages,
+        "suggestedEdit": edit,
         "offScript": off_script,
         "words": {
             "heard": len(units),
@@ -903,9 +1019,16 @@ def _difference_lines(d: Json) -> list[str]:
     return lines
 
 
+JOIN = {
+    None: "",
+    "hidden": "(join hidden by footage) ",
+    "check": "(CHECK THE JOIN: the script does not say if this is on camera) ",
+    "visible": "(JUMP CUT ON CAMERA) ",
+}
 CAMERA = {
     "on": "on camera",
-    "off": "off camera, can be cut anywhere",
+    "off": "voiceover, covered by footage",
+    "mixed": "on camera, with voiceover cutaways",
     "unknown": "the script does not say whether this is on camera",
 }
 
@@ -917,8 +1040,7 @@ def render_report(takes: Json) -> str:
         "",
         f"Recording: {video['file']}  ({clock(video['durationS'])}, "
         f"{float(Fraction(*video['fps'])):.2f} frames a second)",
-        f"Script:    {takes['script']['file']}  "
-        f"({takes['passages'][-1]['row']} rows, {len(takes['passages'])} passages)",
+        f"Script:    {takes['script']['file']}  ({len(takes['rows'])} rows)",
     ]
     if sync:
         first = "before" if sync["offsetS"] >= 0 else "after"
@@ -944,29 +1066,24 @@ def render_report(takes: Json) -> str:
         "",
         "Times are minutes:seconds from the start of the video. Each take's times",
         "are cut points in quiet, about ten frames clear of the speech.",
-        "The suggested take is the last one that reads the whole passage and can",
-        "be cut cleanly; the others that do are alternates. A few changed words",
-        "are listed as differences, not treated as a missing passage. Where no",
-        "take reads the whole passage, coverage is suggested sentence by",
-        "sentence. Nothing here is approved.",
+        "A row is one presenter clip whenever a take reads the whole row; a",
+        "change between presenter and footage inside it is not a cut. The",
+        "suggested take is the last such read that can be cut cleanly, and the",
+        "others are alternates. A few changed words are listed as differences.",
+        "Only when no take reads the whole row is it built from several clips,",
+        "joined where footage hides the join if possible. Nothing is approved.",
     ]
-    row = 0
-    for passage in takes["passages"]:
-        if passage["row"] != row:
-            row = passage["row"]
-            lines += ["", "=" * 72, f"SCRIPT ROW {row}"]
+    for passage in takes["rows"]:
         lines += [
             "",
             "-" * 72,
-            f"PASSAGE {passage['number']}  ({CAMERA[passage['camera']]})",
+            f"ROW {passage['number']}  ({CAMERA[passage['camera']]})",
             f"Script: {passage['script']}",
             "",
         ]
         numbers = {t["id"]: t["number"] for t in passage["takes"]}
         if not passage["takes"]:
-            lines.append(
-                "  NOT COVERED: nothing in the recording matches this passage."
-            )
+            lines.append("  NOT COVERED: nothing in the recording matches this row.")
         for take in passage["takes"]:
             if take["complete"]:
                 kind = "complete"
@@ -991,7 +1108,7 @@ def render_report(takes: Json) -> str:
             lines.append(f"    Said: {take['said']}")
             if take["couldAlsoBePassages"]:
                 others = ", ".join(str(n) for n in take["couldAlsoBePassages"])
-                lines.append(f"    Matches passage {others} equally well")
+                lines.append(f"    Matches row {others} equally well")
             if take["unplacedWords"]:
                 lines.append(f"    {take['unplacedWords']} words not placed in time")
             if take["complete"]:
@@ -1020,11 +1137,11 @@ def render_report(takes: Json) -> str:
                     "an end word or has no clean cut."
                 )
         if passage["suggestedCoverage"] or passage["gaps"]:
-            lines += ["", "  No single take covers this passage. SUGGESTED COVERAGE:"]
+            lines += ["", "  No single take covers this row. SUGGESTED CLIPS:"]
             for piece in passage["suggestedCoverage"]:
                 a, b = piece["scriptWords"]
                 lines.append(
-                    f"    Script words {a + 1} to {b}, from take "
+                    f"    {JOIN[piece['join']]}Script words {a + 1} to {b}, from take "
                     f"{' + '.join(str(numbers[i]) for i in piece['takes'])}: "
                     f"{_times(piece)}"
                 )
@@ -1045,14 +1162,6 @@ def render_report(takes: Json) -> str:
                 )
                 if gap["notCovered"]:
                     lines.append("      NOT COVERED: " + " ".join(gap["notCovered"]))
-            if len(passage["suggestedCoverage"]) + len(passage["gaps"]) > 1:
-                lines.append(
-                    "    The joins will show: this passage is on camera."
-                    if passage["camera"] == "on"
-                    else "    Check the joins."
-                    if passage["camera"] == "unknown"
-                    else "    Off camera, so the joins are covered by footage."
-                )
         elif passage["takes"] and not passage["suggestedTakes"]:
             lines.append(
                 "  Nothing is suggested: the takes here are ambiguous or badly timed."
@@ -1212,7 +1321,7 @@ def main(argv: list[str] | None = None) -> int:
     except PortRefusal as error:
         print(f"Stopped ({error.port}, {error.code}): {error}", file=sys.stderr)
         return 3
-    found = sum(len(p["takes"]) for p in takes["passages"])
+    found = sum(len(p["takes"]) for p in takes["rows"])
     print(
         f"{found} takes across {len(takes['passages'])} passages, "
         f"{len(takes['offScript'])} off-script. Report: {args.out / 'report.txt'}"

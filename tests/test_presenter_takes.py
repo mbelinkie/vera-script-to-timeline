@@ -18,7 +18,7 @@ Json = dict[str, Any]
 FPS = [30, 1]
 DURATION = 60.0
 SCRIPT = (
-    "(on) KAJ [kai] is three Finns singing in Swedish. They really like saunas. "
+    "(on) KAJ [kai] is three Finns singing in Swedish. They really like saunas.\n"
     "(off) The band wanted to embrace the weirdness."
 )
 DICTIONARY = {
@@ -104,29 +104,31 @@ def test_rtf_script_becomes_plain_text() -> None:
     assert pt.rtf_to_text(rtf) == expected + "\n(off) Next."
 
 
-def test_passages_are_marker_blocks_or_paragraphs() -> None:
+def test_each_script_line_is_a_row_and_camera_marks_never_split_it() -> None:
     marked = pt.script_passages(SCRIPT, DICTIONARY)
-    assert [p.script for p in marked] == [
-        "KAJ is three Finns singing in Swedish. They really like saunas.",
-        "The band wanted to embrace the weirdness.",
-    ]
-    assert (
-        marked[0].text
-        == "kaj is three finns singing in swedish. they really like saunas."
+    assert [(p.id, p.camera) for p in marked] == [("row-1", "on"), ("row-2", "off")]
+    assert marked[0].text == (
+        "kaj is three finns singing in swedish. they really like saunas."
     )
+    mixed = pt.script_passages(
+        "(on) They really like saunas. (off) The band wanted, (on) to embrace it.",
+        DICTIONARY,
+    )
+    assert len(mixed) == 1 and mixed[0].camera == "mixed"
+    assert mixed[0].cameras == ("on",) * 4 + ("off",) * 3 + ("on",) * 3
     plain = pt.script_passages("One line here.\n\nAnother line here.", set())
-    assert [p.script for p in plain] == ["One line here.", "Another line here."]
+    assert [p.camera for p in plain] == ["unknown", "unknown"]
     with pytest.raises(pt.TakesError):
         pt.script_passages("  \n", set())
 
 
 def test_every_take_is_listed_and_the_last_complete_one_is_suggested() -> None:
     takes = _takes(SESSION)
-    first, second = takes["passages"]
+    first, second = takes["rows"]
     assert [t["complete"] for t in first["takes"]] == [True, False, True]
-    assert first["suggestedTakes"] == ["passage-1-take-3"]
+    assert first["suggestedTakes"] == ["row-1-take-3"]
     assert first["takes"][1]["said"] == "kaj is three Finns"
-    assert second["suggestedTakes"] == ["passage-2-take-1"]
+    assert second["suggestedTakes"] == ["row-2-take-1"]
     # Ten frames clear of speech on both sides, on whole frames.
     cut = first["takes"][2]["cut"]
     assert cut["startFrame"] == 15 * 30 - 10
@@ -138,7 +140,7 @@ def test_off_script_speech_is_listed_never_dropped() -> None:
     takes = _takes(SESSION)
     assert [item["said"] for item in takes["offScript"]] == ["Sorry."]
     said = " ".join(
-        [t["said"] for p in takes["passages"] for t in p["takes"]]
+        [t["said"] for p in takes["rows"] for t in p["takes"]]
         + [o["said"] for o in takes["offScript"]]
     )
     assert sorted(said.split()) == sorted(word for word, _ in SESSION)
@@ -156,7 +158,7 @@ def test_unrelated_speech_is_off_script_not_a_take_full_of_substitutions() -> No
         "favor of clear definitive statements about the world we live in."
     )
     takes = _takes(_said(unrelated, 2.0))
-    assert all(p["takes"] == [] and not p["suggestedTakes"] for p in takes["passages"])
+    assert all(p["takes"] == [] and not p["suggestedTakes"] for p in takes["rows"])
     said = " ".join(item["said"] for item in takes["offScript"])
     assert said.split() == unrelated.split()
 
@@ -164,7 +166,7 @@ def test_unrelated_speech_is_off_script_not_a_take_full_of_substitutions() -> No
 def test_a_misread_word_is_reported_as_a_difference() -> None:
     misread = FIRST.replace("really", "truly")
     takes = _takes(_said(misread, 2.0))
-    take = takes["passages"][0]["takes"][0]
+    take = takes["rows"][0]["takes"][0]
     assert take["complete"]
     assert take["differences"]["substituted"] == [{"script": "really", "said": "truly"}]
     assert 'Differs: said "truly" for "really"' in pt.render_report(takes)
@@ -172,13 +174,13 @@ def test_a_misread_word_is_reported_as_a_difference() -> None:
 
 def test_a_passage_nobody_read_says_so() -> None:
     takes = _takes(_said(FIRST, 2.0))
-    assert takes["passages"][1]["takes"] == []
+    assert takes["rows"][1]["takes"] == []
     assert "NOT COVERED: nothing in the recording" in pt.render_report(takes)
 
 
 def test_no_quiet_next_to_the_speech_means_no_cut_not_a_guess() -> None:
     takes = _takes(_said(FIRST, 2.0), quiet=[])
-    take = takes["passages"][0]["takes"][0]
+    take = takes["rows"][0]["takes"][0]
     assert take["cut"] is None
     assert take["cutProblem"] == "no quiet gap next to the speech"
     assert "NO CLEAN CUT" in pt.render_report(takes)
@@ -202,7 +204,7 @@ def test_aligner_dragged_onto_a_noise_falls_back_to_the_recogniser_time() -> Non
         alignment["words"][0].update(startMs=0, endMs=100)
 
     takes = _takes(_said(FIRST, 2.0), alignment_edit=drag)
-    take = takes["passages"][0]["takes"][0]
+    take = takes["rows"][0]["takes"][0]
     assert take["speechStartS"] == 2.0
     assert take["approximateStart"] is True and take["approximateEnd"] is False
     assert takes["words"]["recogniserTimed"] == 1
@@ -222,7 +224,7 @@ def test_quiet_past_the_end_of_the_picture_does_not_lose_the_cuts() -> None:
     sound = np.zeros(round(60.4 * pt.RATE), dtype=np.float32)
     quiet = pt.quiet_intervals(sound, DURATION)
     assert quiet == [[0.0, DURATION]]
-    take = _takes(_said(FIRST, 2.0), quiet=quiet)["passages"][0]["takes"][0]
+    take = _takes(_said(FIRST, 2.0), quiet=quiet)["rows"][0]["takes"][0]
     assert take["cut"] is not None
 
 
@@ -251,7 +253,7 @@ def test_an_edit_note_withholds_the_plain_suggestion() -> None:
         *_said("Actually the first take was better.", 16.0),
     ]
     takes = _takes(session)
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert passage["choiceNeeded"] is True
     report = pt.render_report(takes)
     assert "<- SUGGESTED, but see the note below" in report
@@ -311,7 +313,7 @@ def test_word_script_rows_are_table_rows_and_bold_is_on_camera(
         "(off) The band wanted this. (on) But this was Sweden.\n"
     )
     passages = pt.script_passages(pt.read_script(path), DICTIONARY)
-    assert [(p.row, p.camera) for p in passages] == [(1, "on"), (2, "off"), (2, "on")]
+    assert [(p.row, p.camera) for p in passages] == [(1, "on"), (2, "mixed")]
 
 
 def test_word_script_without_bold_does_not_claim_a_camera_state() -> None:
@@ -353,25 +355,25 @@ def test_no_whole_take_suggests_coverage_sentence_by_sentence() -> None:
             *_said("The band wanted to embrace the weirdness.", 20.0),
         ],
     )
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert passage["suggestedTakes"] == [] and passage["gaps"] == []
     first, second = passage["suggestedCoverage"]
-    assert (first["takes"], first["scriptWords"]) == (["passage-1-take-1"], [0, 4])
-    assert (second["takes"], second["scriptWords"]) == (["passage-1-take-3"], [4, 11])
-    assert second["alternates"] == ["passage-1-take-2"]
+    assert (first["takes"], first["scriptWords"]) == (["row-1-take-1"], [0, 4])
+    assert (second["takes"], second["scriptWords"]) == (["row-1-take-3"], [4, 11])
+    assert second["alternates"] == ["row-1-take-2"]
     assert second["cut"]["startFrame"] == 20 * 30 - 10
     report_text = pt.render_report(takes)
-    assert "No single take covers this passage. SUGGESTED COVERAGE:" in report_text
-    assert "The joins will show: this passage is on camera." in report_text
+    assert "No single take covers this row. SUGGESTED CLIPS:" in report_text
+    assert second["join"] == "visible" and "(JUMP CUT ON CAMERA)" in report_text
 
 
 def test_a_whole_off_camera_take_is_never_cut_up_by_sentence() -> None:
     script = "(off) They really like saunas. The band wanted to embrace the weirdness."
     read = "They really like saunas. The band wanted to embrace the weirdness."
     takes = _coverage_case(script, _said(read, 2.0))
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert len(passage["takes"]) == 1 and passage["takes"][0]["complete"]
-    assert passage["suggestedTakes"] == ["passage-1-take-1"]
+    assert passage["suggestedTakes"] == ["row-1-take-1"]
     assert passage["suggestedCoverage"] == []
 
 
@@ -383,7 +385,7 @@ def test_a_sentence_nobody_finished_is_a_gap_with_the_unsaid_words() -> None:
             *_said("The band wanted to", 10.0),
         ],
     )
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert [p["scriptWords"] for p in passage["suggestedCoverage"]] == [[0, 4]]
     (gap,) = passage["gaps"]
     assert gap["scriptWords"] == [4, 11]
@@ -395,7 +397,7 @@ def test_a_few_changed_words_are_differences_not_an_incomplete_passage() -> None
     # The presenter changes one word and adds another; strict matching refuses.
     altered = "The group wanted to really embrace the weirdness."
     takes = _takes(_said(altered, 2.0))
-    passage = takes["passages"][1]
+    passage = takes["rows"][1]
     take = passage["takes"][0]
     assert take["complete"] is False and take["wholePassage"] is True
     assert passage["suggestedTakes"] == [take["id"]]
@@ -412,10 +414,10 @@ def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> Non
     takes = _takes(
         [*_said(FIRST, 2.0), *_said(FIRST, 10.0)], quiet=[[0.0, 1.9], [5.0, 9.5]]
     )
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert passage["takes"][1]["cut"] is None
-    assert passage["suggestedTakes"] == ["passage-1-take-1"]
-    assert [r["takes"] for r in passage["alternateReads"]] == [["passage-1-take-2"]]
+    assert passage["suggestedTakes"] == ["row-1-take-1"]
+    assert [r["takes"] for r in passage["alternateReads"]] == [["row-1-take-2"]]
     assert passage["takes"][1]["alternate"] is True
     assert "Take 2 is later, but it changes or drops an end word or has no clean" in (
         pt.render_report(takes)
@@ -429,7 +431,7 @@ def test_a_read_split_at_an_unmatched_word_is_put_back_together() -> None:
         script,
         _said("In fact the band was kinda wanted to embrace the weirdness.", 2.0),
     )
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     read = passage["suggested"]
     assert read is not None and passage["gaps"] == []
     assert read["speechStartS"] == 2.0 and read["said"].endswith("weirdness.")
@@ -440,14 +442,58 @@ def test_a_read_split_at_an_unmatched_word_is_put_back_together() -> None:
 def test_a_countdown_before_the_read_is_left_out_of_the_suggested_cut() -> None:
     spoken = [*_said("Three two", 2.0), *_said(SECOND, 2.6)]
     takes = _takes(spoken)
-    read = takes["passages"][1]["suggested"]
+    read = takes["rows"][1]["suggested"]
     assert read["said"] == SECOND and read["speechStartS"] == 2.6
 
 
 def test_a_dropped_last_word_is_a_difference_not_a_gap() -> None:
     script = "(off) They really like saunas a lot okay."
     takes = _coverage_case(script, _said("They really like saunas a lot.", 2.0))
-    passage = takes["passages"][0]
+    passage = takes["rows"][0]
     assert passage["gaps"] == [] and passage["suggested"] is not None
     assert passage["suggested"]["differences"]["omitted"] == ["okay"]
     assert passage["suggested"]["exact"] is False
+
+
+CUTAWAY = (
+    "(on) They really like saunas. (off) The band wanted to embrace, "
+    "(on) the weirdness in Swedish."
+)
+CUTAWAY_READ = (
+    "They really like saunas. The band wanted to embrace the weirdness in Swedish."
+)
+
+
+def test_a_cutaway_inside_a_continuous_take_is_one_clip_with_a_voiceover_range() -> (
+    None
+):
+    takes = _coverage_case(CUTAWAY, _said(CUTAWAY_READ, 2.0))
+    (row,) = takes["rows"]
+    assert row["suggestedCoverage"] == [] and row["suggested"]["takes"] == [
+        "row-1-take-1"
+    ]
+    (clip,) = takes["suggestedEdit"]
+    assert clip["join"] is None and clip["cleanCut"] is True
+    # Footage covers "The band wanted to embrace": words five to nine.
+    assert clip["voiceover"] == [[pytest.approx(3.2), pytest.approx(4.7)]]
+
+
+def test_a_restart_inside_voiceover_is_joined_where_footage_hides_it() -> None:
+    spoken = [
+        *_said("They really like saunas. The band wanted", 2.0),
+        *_said("The band wanted to embrace the weirdness in Swedish.", 10.0),
+    ]
+    takes = _coverage_case(CUTAWAY, spoken)
+    first, second = takes["suggestedEdit"]
+    assert first["takes"] == ["row-1-take-1", "row-1-take-2"]
+    assert first["endS"] < 3.3  # stops before the abandoned restart
+    assert second["takes"] == ["row-1-take-3"]
+    assert second["join"] == "hidden"
+    report = pt.render_report(takes)
+    assert "(join hidden by footage)" in report and "JUMP CUT" not in report
+
+
+def test_a_whole_row_with_no_marks_has_no_voiceover_and_no_join_claim() -> None:
+    takes = _coverage_case(CUTAWAY_READ, _said(CUTAWAY_READ, 2.0))
+    (clip,) = takes["suggestedEdit"]
+    assert clip["voiceover"] == [] and takes["rows"][0]["camera"] == "unknown"

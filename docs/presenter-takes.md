@@ -37,31 +37,37 @@ Three kinds of script file work:
   `(on)` and `(off)` mark what is on camera and what is covered by footage.
 - `[guide]` pronunciations are understood in all of them.
 
-A **passage** is one stretch of script with one camera state: an on-camera
-stretch, or an off-camera stretch, inside a row. A take is matched against a
-whole passage. A passage is never cut up just because it has several
-sentences.
+**The row is the unit.** A take is matched against a whole script row. The
+on-camera and voiceover marks inside a row are recorded word by word, but
+they never split it: a change between presenter and footage is a change of
+picture, not a cut in the presenter's take.
 
 ## What it suggests
 
-Every passage gets the best coverage the recording offers:
+Every row gets the best coverage the recording offers:
 
-1. The last read of the whole passage that reaches both ends and can be cut
-   cleanly. Other whole reads are alternates. The suggested cut covers just
-   the passage, so a countdown or stumble before it is left out.
-2. If nobody read the whole passage (the presenter stopped and restarted
-   partway), coverage is suggested sentence by sentence, with alternates.
-   Neighbouring sentences from the same read stay together as one piece. On
-   camera, the report warns that the joins will show; off camera they are
-   covered by footage.
-3. Only a sentence that nobody read through is reported as a gap, and only
+1. **One clip.** The last read of the whole row that reaches both ends and
+   can be cut cleanly. Other whole reads are alternates. The clip covers just
+   the row, so a countdown or stumble before it is left out.
+2. **Several clips, only when nobody read the whole row.** The row may be
+   joined at sentence ends and where the picture changes. For each stretch
+   the last read is used, and stretches from the same read stay one clip.
+   A join is marked *hidden* when footage is on screen on at least one side
+   of it, *JUMP CUT ON CAMERA* when both sides are on camera, and *CHECK*
+   when the script does not say. A read in hand is never left where the join
+   would show if it carries on.
+3. Only a stretch that nobody read through is reported as a gap, and only
    the words nobody said are reported as NOT COVERED.
 
-**Small wording changes are allowed.** A read covers a passage (or a
-sentence) when it says at least three quarters of the words as written and
-is missing at most one word at either end. Whatever differs is listed under
-"Differs" (said X for Y, added, left out) and saved in `takes.json`, so the
-timeline can carry a marker for it. It is not treated as a missing passage.
+`takes.json` also holds `suggestedEdit`: the clips in script order, each with
+its row, cut times, the voiceover ranges inside it (where a slate or footage
+covers the presenter), its join, and its wording differences.
+
+**Small wording changes are allowed.** A read covers a row (or a stretch)
+when it says at least three quarters of the words as written and is missing
+at most one word at either end. Whatever differs is listed under "Differs"
+(said X for Y, added, left out) and saved in `takes.json`, so the timeline
+can carry a marker for it. It is not treated as missing script.
 
 A read that the take rules split at one or two unmatched words ("kinda" for
 "kind of") is put back together when the pause is short and the second part
