@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -116,7 +117,7 @@ def test_busy_native_owner_allows_fresh_authorization_but_killed_worker_does_not
         child_fds.extend(os.dup(fd) for fd in pass_fds)
         return object()
 
-    monkeypatch.setattr(workflow_v2_parent.subprocess, "Popen", spawn)
+    monkeypatch.setattr(subprocess, "Popen", spawn)
     build = BuildStudioStagePort(auth, driver, host_state=host)
     holder = resolve_native_owner.acquire_native_owner()
     try:
