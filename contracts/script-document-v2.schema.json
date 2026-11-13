@@ -104,7 +104,7 @@
       "items": {
         "$ref": "#/$defs/RowAudioSpanIntentV2"
       },
-      "description": "Saved row-span audio intent only. Runtime delivery is unavailable; never infer audible timing from row order."
+      "description": "Saved row-span audio intent. The music build uses compiled active-row geometry and an explicit verified local file binding; a missing file is reported and omitted."
     },
     "rowReferences": {
       "type": "array",
@@ -2867,6 +2867,14 @@
         },
         "settings": {
           "type": "object",
+          "description": "Music build recognizes gainDb (-60 through 0 dB, default -12). Legacy probe settings remain saved for review; unsupported audible effects are rejected by the compiler, not silently applied.",
+          "properties": {
+            "gainDb": {
+              "type": "number",
+              "minimum": -60,
+              "maximum": 0
+            }
+          },
           "additionalProperties": true
         },
         "review": {

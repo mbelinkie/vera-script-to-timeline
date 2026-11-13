@@ -341,6 +341,7 @@
             "primary_visual",
             "overlay_visual",
             "source_audio",
+            "music",
             "placeholder",
             "script_marker"
           ]
@@ -422,7 +423,11 @@
         "GRAPHIC_PROVENANCE_UNAVAILABLE",
         "GRAPHIC_PROVENANCE_UNAUTHORIZED",
         "GRAPHIC_PROVENANCE_UNEXPECTED",
-        "ROW_TRANSITION_CUT_SHORT_HANDLES"
+        "ROW_TRANSITION_CUT_SHORT_HANDLES",
+        "MUSIC_FILE_MISSING",
+        "MUSIC_SOURCE_SHORTER",
+        "MUSIC_SPAN_INVALID",
+        "MUSIC_SETTINGS_UNSUPPORTED"
       ]
     },
     "EntityReferenceV2": {

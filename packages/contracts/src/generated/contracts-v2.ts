@@ -398,6 +398,7 @@ export type TimelineEventV2 = {
     | "primary_visual"
     | "overlay_visual"
     | "source_audio"
+    | "music"
     | "placeholder"
     | "script_marker";
   trackId: string;
@@ -408,6 +409,7 @@ export type TimelineEventV2 = {
     | "presenter"
     | "narration"
     | "source_audio"
+    | "music"
     | "placeholder"
     | "marker"
     | "subtitle";
@@ -417,6 +419,7 @@ export type TimelineEventV2 = {
   sourceTimeMapping: PreparationTimeMappingV1 | null;
   preparationBindingHash: string | null;
   audio: SourceAudioEventV2 | null;
+  music?: MusicEventV2;
   pictureTreatment?:
     StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2;
   marker?: ScriptMarkerTreatmentV2;
@@ -671,7 +674,7 @@ export interface ScriptDocumentV2 {
    */
   rowTransitions?: RowTransitionIntentV2[];
   /**
-   * Saved row-span audio intent only. Runtime delivery is unavailable; never infer audible timing from row order.
+   * Saved row-span audio intent. The music build uses compiled active-row geometry and an explicit verified local file binding; a missing file is reported and omitted.
    */
   rowAudioSpans?: RowAudioSpanIntentV2[];
   rowReferences?: OpaqueRowReferenceV2[];
@@ -1107,7 +1110,11 @@ export interface RowAudioSpanIntentV2 {
   startRowId: string;
   endRowId: string;
   source: RowAudioSourceV2;
+  /**
+   * Music build recognizes gainDb (-60 through 0 dB, default -12). Legacy probe settings remain saved for review; unsupported audible effects are rejected by the compiler, not silently applied.
+   */
   settings: {
+    gainDb?: number;
     [k: string]: unknown;
   };
   review?: RowAudioReviewV2;
@@ -1204,6 +1211,10 @@ export interface CompilerDependenciesV2 {
   tracks: [TrackV2, ...TrackV2[]];
   roles: TrackRolesV2;
   narrationTimingMaps: NarrationTokenTimingMapV2[];
+  /**
+   * Optional frozen, explicitly resolved row music sources. Missing is an absent path before freeze, never a hash-validation fallback.
+   */
+  musicBindings?: (ReadyMusicBindingV2 | MissingMusicBindingV2)[];
   occurrenceResolutions: OccurrenceMediaResolutionV2[];
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
@@ -1274,6 +1285,10 @@ export interface TrackRolesV2 {
   placeholderTrackId: string;
   narrationTrackId: string;
   sourceAudioTrackIds: string[];
+  /**
+   * Dedicated A5 audio track, present only for a resolved music bed.
+   */
+  musicTrackId?: string;
   markerTrackId: string;
 }
 export interface NarrationTokenTimingMapV2 {
@@ -1311,6 +1326,21 @@ export interface NarrationAudioBindingV2 {
 export interface RationalTime {
   numerator: number;
   denominator: number;
+}
+export interface ReadyMusicBindingV2 {
+  spanId: string;
+  source: RowAudioSourceV2;
+  displayFilename: string;
+  status: "ready";
+  sampleRate: 48000;
+  channels: 1;
+  durationSamples: number;
+}
+export interface MissingMusicBindingV2 {
+  spanId: string;
+  source: RowAudioSourceV2;
+  displayFilename: string;
+  status: "missing";
 }
 export interface LogicalSourceBoundsV2 {
   startFrame: number;
@@ -1616,7 +1646,9 @@ export interface TimelineManifestV2 {
    */
   tracks: [TrackV2, ...TrackV2[]];
   roles: TrackRolesV2;
-  sources: (VisualManifestSourceV2 | NarrationManifestSourceV2)[];
+  sources: (
+    VisualManifestSourceV2 | NarrationManifestSourceV2 | MusicManifestSourceV2
+  )[];
   events: TimelineEventV2[];
   /**
    * Optional signed picture-boundary decisions. Omit entirely for cut-only builds to retain existing canonical manifest bytes.
@@ -1644,6 +1676,13 @@ export interface NarrationManifestSourceV2 {
   id: string;
   narrationAudio: NarrationAudioBindingV2;
 }
+/**
+ * One content-hash-bound, verified local WAV source for a music span.
+ */
+export interface MusicManifestSourceV2 {
+  id: string;
+  musicAudio: ReadyMusicBindingV2;
+}
 export interface EventProvenanceV2 {
   documentId: string;
   blockId: string | null;
@@ -1663,6 +1702,19 @@ export interface EventProvenanceV2 {
    */
   boundaryEvidenceMethod?:
     "reviewed_audio_boundaries/v1" | "measured_audio_boundaries/v1";
+}
+/**
+ * Fixed six-frame-or-shorter fade treatment for the explicitly pinned music bed; sourceRange in TimelineEventV2 is in full timeline-rate frames.
+ */
+export interface MusicEventV2 {
+  spanId: string;
+  startRowId: string;
+  endRowId: string;
+  audioHash: string;
+  gainDb: number;
+  fadeInFrames: number;
+  fadeOutFrames: number;
+  requestedEndFrame: number;
 }
 export interface StillPictureTreatmentV2 {
   kind: "still";
@@ -1861,6 +1913,7 @@ export interface EventResultV2 {
     | "primary_visual"
     | "overlay_visual"
     | "source_audio"
+    | "music"
     | "placeholder"
     | "script_marker";
   disposition: "placed" | "placeholder" | "manual_completion" | "blocked";
@@ -1903,7 +1956,11 @@ export interface BuildDiagnosticV2 {
     | "GRAPHIC_PROVENANCE_UNAVAILABLE"
     | "GRAPHIC_PROVENANCE_UNAUTHORIZED"
     | "GRAPHIC_PROVENANCE_UNEXPECTED"
-    | "ROW_TRANSITION_CUT_SHORT_HANDLES";
+    | "ROW_TRANSITION_CUT_SHORT_HANDLES"
+    | "MUSIC_FILE_MISSING"
+    | "MUSIC_SOURCE_SHORTER"
+    | "MUSIC_SPAN_INVALID"
+    | "MUSIC_SETTINGS_UNSUPPORTED";
   message: string;
   entity: EntityReferenceV2;
   evidence:

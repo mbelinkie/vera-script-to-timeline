@@ -12,7 +12,7 @@ import os
 import stat
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from pathlib import Path
 from time import perf_counter
@@ -27,6 +27,7 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
+from .music_input import MusicResolution, resolve_music_bindings, verify_music_pins
 from .package_cache import default_cache_root
 from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
@@ -64,6 +65,7 @@ class CompileResult:
     manifest: Path
     report: Path
     needs: dict[str, Any]
+    music_resolution: MusicResolution | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,7 @@ class DeliveryResult:
     numerator: int
     denominator: int
     named_transition_cuts: tuple[str, ...] = ()
+    music_warnings: tuple[str, ...] = ()
 
 
 @dataclass
@@ -283,6 +286,41 @@ def compile_prepared(
     inputs = reporter.run("preparation", lambda: select_prepared_inputs(options))
     output = allocate_output(options, inputs)
     source_hash = hash_file(inputs.script)
+    original_deps_hash = hash_file(inputs.dependencies)
+
+    def freeze_music() -> MusicResolution | None:
+        document = _read_json(inputs.script)
+        if not document.get("rowAudioSpans"):
+            return None
+        original = _read_json(inputs.dependencies)
+        media = _read_json(inputs.media_paths) if inputs.media_paths else {}
+        resolved = resolve_music_bindings(document, original, media)
+        if (
+            hash_file(inputs.script) != source_hash
+            or hash_file(inputs.dependencies) != original_deps_hash
+        ):
+            raise BuildJobError("compiler inputs changed during music resolution")
+        return resolved
+
+    music = reporter.run("music resolution", freeze_music)
+    if music is not None:
+        dependencies = output / "effective-compiler-dependencies.json"
+        publish_immutable_output(
+            dependencies,
+            json.dumps(
+                music.dependencies, sort_keys=True, separators=(",", ":")
+            ).encode(),
+        )
+        media_paths = inputs.media_paths
+        if media_paths is not None:
+            media_paths = output / "effective-media-paths.json"
+            publish_immutable_output(
+                media_paths,
+                json.dumps(
+                    music.media_paths, sort_keys=True, separators=(",", ":")
+                ).encode(),
+            )
+        inputs = replace(inputs, dependencies=dependencies, media_paths=media_paths)
     deps_hash = hash_file(inputs.dependencies)
 
     def check_needs() -> dict[str, Any]:
@@ -311,8 +349,12 @@ def compile_prepared(
             or result.dependencies_sha256 != deps_hash
             or hash_file(inputs.script) != source_hash
             or hash_file(inputs.dependencies) != deps_hash
+            or hash_file(select_prepared_inputs(options).dependencies)
+            != original_deps_hash
         ):
             raise BuildJobError("compiler inputs changed during this build")
+        if music is not None:
+            verify_music_pins(music)
         compiled = result.result
         try:
             if (
@@ -333,7 +375,7 @@ def compile_prepared(
     report = output / "build-report.json"
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
     publish_immutable_output(report, result.result["reportJson"].encode("utf-8"))
-    return CompileResult(inputs, output, manifest, report, needs)
+    return CompileResult(inputs, output, manifest, report, needs, music)
 
 
 def _checked_path_mapping(path: Path | None, label: str) -> dict[str, Path]:
@@ -441,6 +483,9 @@ def deliver_compiled(
     package_cache: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
+    if compiled.music_resolution is not None:
+        verify_music_pins(compiled.music_resolution)
+
     if package_cache is not None:
         cache_root, output_root = package_cache.resolve(), compiled.output.resolve()
         if cache_root.is_relative_to(output_root) or output_root.is_relative_to(
@@ -591,6 +636,11 @@ def deliver_compiled(
             str(plan["reason"])
             for plan in checked.manifest.get("transitions", [])
             if plan["disposition"] == "cut_insufficient_handles"
+        ),
+        music_warnings=tuple(
+            f"{diagnostic['code']}: {diagnostic['message']}"
+            for diagnostic in _read_json(compiled.report).get("diagnostics", [])
+            if diagnostic.get("code") in {"MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER"}
         ),
     )
 

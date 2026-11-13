@@ -71,6 +71,7 @@ class TrackRolesV2(TypedDict):
     placeholderTrackId: str
     narrationTrackId: str
     sourceAudioTrackIds: list[str]
+    musicTrackId: NotRequired[str]
     markerTrackId: str
 
 
@@ -203,6 +204,23 @@ class CompilerIdentityV2(TypedDict):
     version: NonEmptyString
     sourceHash: ContentHash
     profileHash: ContentHash
+
+
+class ReadyMusicBindingV2(TypedDict):
+    spanId: EntityId
+    source: script_document_v2_schema.RowAudioSourceV2
+    displayFilename: NonEmptyString
+    status: Literal["ready"]
+    sampleRate: Literal[48000]
+    channels: Literal[1]
+    durationSamples: PositiveSafeInteger
+
+
+class MissingMusicBindingV2(TypedDict):
+    spanId: EntityId
+    source: script_document_v2_schema.RowAudioSourceV2
+    displayFilename: NonEmptyString
+    status: Literal["missing"]
 
 
 class NarrationAudioBindingV2(TypedDict):
@@ -517,6 +535,9 @@ class AuthoringDefaultsV2(TypedDict):
     sourceAudioLevelPolicy: SourceAudioLevelPolicy
 
 
+type MusicBindingV2 = ReadyMusicBindingV2 | MissingMusicBindingV2
+
+
 class NarrationTokenTimingMapV2(TypedDict):
     blockId: EntityId
     blockRevision: PositiveSafeInteger
@@ -613,6 +634,7 @@ class CompilerDependenciesV2(TypedDict):
     tracks: list[TrackV2]
     roles: TrackRolesV2
     narrationTimingMaps: list[NarrationTokenTimingMapV2]
+    musicBindings: NotRequired[list[MusicBindingV2]]
     occurrenceResolutions: list[OccurrenceMediaResolutionV2]
     preparedMedia: list[PreparedMediaBindingV1]
     presenterAlignmentResolutions: list[PresenterAlignmentResolutionV1]

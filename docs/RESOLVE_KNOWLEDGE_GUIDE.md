@@ -850,9 +850,16 @@ be preserved through a proved route or the affected write refused; #327 owns
 that remaining preservation proof. This does not blanket-block independently
 bounded safe changes.
 
-### RK-42 — Saved row intent and native probes are not normal product delivery
+### RK-42 — Saved row intent, music delivery and bounded native probes
 
-**Proved domain mechanisms and six bounded native music probes; production runtime unsupported.**
+**Proved domain mechanisms and six bounded native music probes.** The #100
+backend now has a signed, package-verified A5 music path for a fresh project:
+one pinned 48 kHz mono PCM WAV at 24 fps, row endpoints, fixed six-frame fades, gain,
+named nonblocking missing-file warnings and reopened structural readback. This
+is a code-level integration, **not yet real Studio production acceptance**;
+the final disposable application check and Matthew's one listening judgment
+remain to be completed. Existing projects, arbitrary effects/stills, stereo,
+looping and advanced fade shapes remain unqualified.
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -860,8 +867,9 @@ provisional Sorting acceptance with unchanged-baseline guards. Their evidence
 is TypeScript/consumer tests, independent of Resolve edition. They preserve or
 flag saved audio/transition intent; they do not place audible spanning cues,
 clone finishing or run a selected outbound plan. The
-[compiler](../packages/contracts/src/compiler-core-v2.ts) refuses active
-`rowAudioSpans` and non-cut row-transition intent; the
+[compiler](../packages/contracts/src/compiler-core-v2.ts) now compiles eligible
+active `rowAudioSpans` when their local WAV is hash-bound; unsupported
+row-transition intent still refuses. The
 [portable verifier](../python/vera_timeline_agent/v2_package.py) rejects OTIO
 transitions. RK-40 does not supersede those product refusals.
 
@@ -883,8 +891,8 @@ in every case, including the 264-frame/11-second duration-change timeline.
 The stereo-framed export carried the
 measured fixture signal only in channel 1; stereo routing remains unqualified.
 The default fade envelope was close to linear in measured windows; arbitrary
-curves and sub-50 ms source changes are not qualified. This probe does not add
-a production runtime route or a general atomic native executor; the tested
+curves and sub-50 ms source changes are not qualified. This historical probe did
+not add a production runtime route or general atomic native executor; the tested
 audio-only atomic unit is one gain-property update.
 #326 owns that proof, #100 production
 audio; #327 owns finishing preservation, #328 frozen selective execution/retry,
