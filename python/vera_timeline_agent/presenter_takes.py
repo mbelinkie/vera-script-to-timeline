@@ -56,7 +56,11 @@ from vera_word_timing.adapters.local_engines import EngineConfig, ParakeetRecogn
 from vera_word_timing.artifacts import AudioRef, file_hash
 from vera_word_timing.ports import PortRefusal, ProjectPolicy
 from vera_word_timing.profiles import script_to_timeline
-from vera_word_timing.script_reconcile import load_dictionary_words, parse_prompter
+from vera_word_timing.script_reconcile import (
+    load_dictionary_words,
+    parse_prompter,
+    similar,
+)
 
 from experiments.issue45.take_rules import differences, refine
 from experiments.issue53.boundaries import propose_quiet_cuts
@@ -881,7 +885,15 @@ def _times(item: Json) -> str:
 
 
 def _difference_lines(d: Json) -> list[str]:
-    lines = [f'said "{s["said"]}" for "{s["script"]}"' for s in d["substituted"]]
+    lines = [
+        f'said "{s["said"]}" for "{s["script"]}"'
+        + (
+            " (sounds alike; may only be spelling)"
+            if similar(s["said"], s["script"])
+            else ""
+        )
+        for s in d["substituted"]
+    ]
     if d["added"]:
         lines.append("added: " + " ".join(d["added"]))
     if d["omitted"]:
