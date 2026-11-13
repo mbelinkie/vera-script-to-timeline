@@ -1823,6 +1823,7 @@ def test_unsupported_fractional_build_refuses_before_adapter(tmp_path: Path) -> 
         action="build",
         authorize_new_nonproduction=True,
         external_scripting="None",
+        allow_fractional_native=True,
         adapter_factory=forbidden,
     )
     assert result["status"] == "stopped_safely"
