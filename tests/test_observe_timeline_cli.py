@@ -10,6 +10,7 @@ import pytest
 from test_readback_timeline_cli import FakeItem, FakeResolve, FakeTimeline, _case
 from vera_timeline_agent import observe_timeline_cli as cli
 from vera_timeline_agent import readback_timeline_cli as readback
+from vera_timeline_agent.build_timeline_once import exclusive_resolve_build
 from vera_timeline_agent.row_timeline_map import (
     make_row_timeline_map,
     observe_item_details,
@@ -46,6 +47,11 @@ def _baseline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Path, FakeResolve, FakeTimeline, Clip, Clip]:
     output, saved, resolve = _case(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        cli,
+        "exclusive_resolve_build",
+        lambda: exclusive_resolve_build(tmp_path / "resolve.lock"),
+    )
     package = readback._load_readback_package(output)
     timeline = FakeTimeline(package.view)
     assert resolve.project is not None
@@ -192,6 +198,7 @@ def test_missing_or_old_baseline_refused_before_connecting(
     ("start", "duration", "source_start", "source_end", "expected"),
     [
         (0, 24, 100, 111, ["cannot tell"]),
+        (0, 24, 100, 109, ["cannot tell"]),
         (7, 10, 100, 109, ["trimmed", "moved"]),
         (2, 10, 102, 111, ["trimmed"]),
         (7, 10, 102, 111, ["trimmed", "moved"]),
@@ -237,7 +244,48 @@ def test_addition_after_gap_closure_uses_surviving_row_identity() -> None:
     ]
     current = {"kept": {"startFrame": 0, "durationFrames": 12}}
     addition = {"startFrame": 2, "durationFrames": 2}
-    assert cli._row_for_addition(addition, rows, current) == "later"
+    assert cli._row_for_addition(addition, rows, current, {}) == "later"
     rows.append({"rowId": None, "items": [{"resolveItemId": "unassigned"}]})
     current["unassigned"] = {"startFrame": 0, "durationFrames": 12}
-    assert cli._row_for_addition(addition, rows, current) is None
+    assert cli._row_for_addition(addition, rows, current, {}) is None
+
+
+def test_addition_in_a_gap_between_one_rows_clips_stays_unassigned() -> None:
+    rows = [
+        {
+            "rowId": "a",
+            "items": [{"resolveItemId": "video"}, {"resolveItemId": "audio"}],
+        }
+    ]
+    current = {
+        "video": {"startFrame": 100, "durationFrames": 24},
+        "audio": {"startFrame": 0, "durationFrames": 24},
+    }
+    assert (
+        cli._row_for_addition(
+            {"startFrame": 60, "durationFrames": 2}, rows, current, {}
+        )
+        is None
+    )
+
+
+def test_spanning_music_does_not_assign_a_deleted_rows_replacement() -> None:
+    rows = [
+        {
+            "rowId": "a",
+            "items": [
+                {"resolveItemId": "a-video"},
+                {"resolveItemId": "bed", "eventId": "music-event"},
+            ],
+        },
+        {"rowId": "b", "items": [{"resolveItemId": "b-video"}]},
+    ]
+    current = {
+        "a-video": {"startFrame": 0, "durationFrames": 24},
+        "bed": {"startFrame": 0, "durationFrames": 48},
+    }
+    addition = {"startFrame": 24, "durationFrames": 24}
+    kinds = {"music-event": "music"}
+    assert cli._row_for_addition(addition, rows, current, kinds) is None
+    current["b-video"] = {"startFrame": 24, "durationFrames": 24}
+    assert cli._row_for_addition(addition, rows, current, kinds) == "b"

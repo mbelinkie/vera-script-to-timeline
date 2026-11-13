@@ -118,7 +118,10 @@ def _item_change(
     if (
         "durationFrames" in changes
         and "mediaId" not in changes
-        and any(key in changes for key in _SOURCE_RANGE)
+        and not any(key in unknown for key in _SOURCE_RANGE)
+        and after["durationFrames"] - before["durationFrames"]
+        == (after["sourceEndFrame"] - after["sourceStartFrame"])
+        - (before["sourceEndFrame"] - before["sourceStartFrame"])
     ):
         statuses.append("trimmed")
     if (
@@ -164,35 +167,34 @@ def _row_for_addition(
     item: Mapping[str, Any],
     rows: Sequence[Mapping[str, Any]],
     current: Mapping[str, Mapping[str, Any]],
+    event_kinds: Mapping[str, str],
 ) -> str | None:
     start, duration = item["startFrame"], item["durationFrames"]
     if start is None or duration is None:
         return None
     end = start + duration
-    overlaps = []
+    overlaps: set[str | None] = set()
+    contains: set[str | None] = set()
     for row in rows:
-        members = [
-            current[clip["resolveItemId"]]
-            for clip in row["items"]
-            if clip["resolveItemId"] in current
-        ]
-        if not members:
-            continue
-        if any(
-            clip["startFrame"] is None or clip["durationFrames"] is None
-            for clip in members
-        ):
-            return None
-        row_start = min(clip["startFrame"] for clip in members)
-        row_end = max(clip["startFrame"] + clip["durationFrames"] for clip in members)
-        if row_start < end and start < row_end:
-            overlaps.append((row["rowId"], row_start, row_end))
+        for saved in row["items"]:
+            # A spanning music bed belongs to its first row for build provenance.
+            if event_kinds.get(saved.get("eventId", "")) == "music":
+                continue
+            clip = current.get(saved["resolveItemId"])
+            if clip is None:
+                continue
+            clip_start, clip_duration = clip["startFrame"], clip["durationFrames"]
+            if clip_start is None or clip_duration is None:
+                return None
+            clip_end = clip_start + clip_duration
+            if clip_start < end and start < clip_end:
+                overlaps.add(row["rowId"])
+            if clip_start <= start and end <= clip_end:
+                contains.add(row["rowId"])
     if len(overlaps) != 1:
         return None
-    row_id, row_start, row_end = overlaps[0]
-    if row_start <= start and end <= row_end:
-        return row_id if isinstance(row_id, str) else None
-    return None
+    row_id = next(iter(overlaps))
+    return row_id if isinstance(row_id, str) and row_id in contains else None
 
 
 def observe_output(
@@ -239,6 +241,9 @@ def observe_output(
         for row in saved["rows"]
     ]
     rows_by_id = {row["rowId"]: row["items"] for row in rows}
+    event_kinds = {
+        event["id"]: event["v2Event"]["kind"] for event in package.view["events"]
+    }
     for uid, item in current.items():
         if uid in saved_items:
             continue
@@ -246,7 +251,7 @@ def observe_output(
         unknown = [key for key in _FIELDS if item[key] is None]
         if unknown:
             added["cannotRead"] = unknown
-        row_id = _row_for_addition(item, saved["rows"], current)
+        row_id = _row_for_addition(item, saved["rows"], current, event_kinds)
         if row_id is None:
             added["rowAttribution"] = "cannot tell from the current row boundaries"
             if None not in rows_by_id:
