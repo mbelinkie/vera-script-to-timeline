@@ -81,6 +81,11 @@ class NarrationManifestSourceV2(TypedDict):
     narrationAudio: compiler_dependencies_v2_schema.NarrationAudioBindingV2
 
 
+class MusicManifestSourceV2(TypedDict):
+    id: compiler_dependencies_v2_schema.EntityId
+    musicAudio: compiler_dependencies_v2_schema.ReadyMusicBindingV2
+
+
 class EventProvenanceV2(TypedDict):
     documentId: compiler_dependencies_v2_schema.EntityId
     blockId: compiler_dependencies_v2_schema.EntityId | None
@@ -107,6 +112,17 @@ class SourceAudioEventV2(TypedDict):
     streamIndex: compiler_dependencies_v2_schema.NonNegativeSafeInteger
     audioHash: ContentHash
     sampleRange: FrameRangeV2
+
+
+class MusicEventV2(TypedDict):
+    spanId: compiler_dependencies_v2_schema.EntityId
+    startRowId: compiler_dependencies_v2_schema.EntityId
+    endRowId: compiler_dependencies_v2_schema.EntityId
+    audioHash: ContentHash
+    gainDb: float
+    fadeInFrames: int
+    fadeOutFrames: int
+    requestedEndFrame: compiler_dependencies_v2_schema.PositiveSafeInteger
 
 
 class ScriptMarkerTreatmentV2(TypedDict):
@@ -187,7 +203,9 @@ class StillPictureTreatmentV2(TypedDict):
     composition: Composition
 
 
-type ManifestSourceV2 = VisualManifestSourceV2 | NarrationManifestSourceV2
+type ManifestSourceV2 = (
+    VisualManifestSourceV2 | NarrationManifestSourceV2 | MusicManifestSourceV2
+)
 
 
 type PictureTreatmentV2 = (
@@ -202,6 +220,7 @@ class TimelineEventV2(TypedDict):
         "primary_visual",
         "overlay_visual",
         "source_audio",
+        "music",
         "placeholder",
         "script_marker",
     ]
@@ -213,6 +232,7 @@ class TimelineEventV2(TypedDict):
         "presenter",
         "narration",
         "source_audio",
+        "music",
         "placeholder",
         "marker",
         "subtitle",
@@ -223,6 +243,7 @@ class TimelineEventV2(TypedDict):
     sourceTimeMapping: compiler_dependencies_v2_schema.PreparationTimeMappingV1 | None
     preparationBindingHash: ContentHash | None
     audio: SourceAudioEventV2 | None
+    music: NotRequired[MusicEventV2]
     pictureTreatment: NotRequired[PictureTreatmentV2]
     marker: NotRequired[ScriptMarkerTreatmentV2]
 

@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from issue177_package_fixture import make_package_case
+from test_v2_package import _music_package_case
 from vera_timeline_agent import workflow_v2
 from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
@@ -23,7 +24,8 @@ from vera_timeline_agent.transition_delivery_v2 import (
     apply_guarded_transition,
 )
 from vera_timeline_agent.v2_package import verify_v2_package
-from vera_timeline_agent.workflow_package import SOURCE_PINS
+from vera_timeline_agent.workflow_package import SOURCE_PINS, sha256
+from vera_timeline_agent.workflow_v2_cli import attest_package_v2
 
 
 def _issue88_live_boundary(
@@ -1225,6 +1227,7 @@ def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any
         def __init__(self, media: Media) -> None:
             self.media = media
             self.properties: dict[str, Any] = {}
+            self.fades: dict[str, int] = {}
             self.marker_custom_data: str | None = None
             self.start = 0
             self.duration = 10
@@ -1241,6 +1244,13 @@ def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any
 
         def GetProperties(self) -> dict[str, Any]:
             return dict(self.properties)
+
+        def SetFades(self, fades: dict[str, int]) -> bool:
+            self.fades = dict(fades)
+            return True
+
+        def GetFades(self) -> dict[str, int]:
+            return dict(self.fades)
 
         def GetStart(self, _track: bool) -> int:
             return self.start
@@ -1385,6 +1395,261 @@ def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any
     adapter._verify_bins = lambda _discrepancies: None
     adapter._verify_media_inventory = lambda _view, _discrepancies: None
     return adapter, item, view
+
+
+def _native_music_fixture() -> tuple[Any, Any, dict[str, Any]]:
+    """One source-bound A5 item with four truly empty preceding audio slots."""
+    adapter, item, view = _native_audio_fixture(-12)
+    event = view["events"][0]
+    event["kind"] = "music"
+    event["musicTreatment"] = {
+        "gainDb": -12,
+        "fadeInFrames": 5,
+        "fadeOutFrames": 5,
+    }
+    view["tracks"][0].update({"index": 5, "name": "A5 Music"})
+    adapter._v2_tracks = tuple(view["tracks"])
+    adapter.timeline.track_counts["audio"] = 5
+    adapter.timeline.track_names = {
+        **{("audio", index): f"VERA Empty A{index}" for index in range(1, 5)},
+        ("audio", 5): "A5 Music",
+    }
+    adapter.timeline.items_by_track = {("audio", 5): [item]}
+    adapter.expected_fades = {}
+    return adapter, item, view
+
+
+def test_signed_music_package_routes_to_one_fresh_otio_not_source_audio(
+    tmp_path: Path,
+) -> None:
+    case, music_id, source_id = _music_package_case(
+        tmp_path, scenario="source-audio-no"
+    )
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "music-att.json")
+    digest = sha256(attestation)
+    package = workflow_v2.load_verified_package_v2(attestation, digest)
+    event = next(event for event in package.view["events"] if event["kind"] == "music")
+    assert event["id"] == music_id
+    assert event["sourceId"] == source_id
+    assert event["musicTreatment"]["gainDb"] == -12
+    assert event["trackId"] == "music-a5"
+    assert workflow_v2._requires_native_otio(package.view)
+    assert workflow_v2._verify_native_otio_plan(package).is_file()
+
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "verified"
+    assert result["sourceAudioPresent"] is False
+    assert adapter.calls.count("import_verified_otio") == 1
+    assert "place_event" not in adapter.calls
+    assert adapter.calls.index("import_verified_otio") < adapter.calls.index(
+        "save_close_reopen"
+    )
+
+
+def test_music_existing_project_refuses_before_any_adapter(
+    tmp_path: Path,
+) -> None:
+    case, _, _ = _music_package_case(tmp_path, scenario="source-audio-no")
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "music-att.json")
+
+    def forbidden(_resolve: Any) -> Any:
+        pytest.fail("music cannot enter existing project native route")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=forbidden,
+        existing_project="Existing",
+    )
+    assert result["status"] == "stopped_safely"
+    assert "existing project" in result["refusal"]
+
+
+def test_music_unmeasured_frame_rate_refuses_before_any_native_write(
+    tmp_path: Path,
+) -> None:
+    case, _, _ = _music_package_case(tmp_path, scenario="verified-reuse")
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "music-att.json")
+
+    def forbidden(_resolve: Any) -> Any:
+        pytest.fail("only measured 24 fps music may reach Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=forbidden,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["nativeMusicRateQualified"] is False
+    assert result["failureStage"] == "package validation"
+
+
+def test_music_mixed_unqualified_plain_still_refuses_before_native_write(
+    tmp_path: Path,
+) -> None:
+    case, _, _ = _music_package_case(tmp_path)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "music-att.json")
+
+    def forbidden(_resolve: Any) -> Any:
+        pytest.fail("plain stills are not qualified for native music OTIO")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=forbidden,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["nativeOtioMixedStillsQualified"] is False
+
+
+def test_missing_music_package_still_completes_without_native_music(
+    tmp_path: Path,
+) -> None:
+    case, _, _ = _music_package_case(tmp_path, missing=True)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "missing-att.json")
+    package = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    assert all(event["kind"] != "music" for event in package.view["events"])
+    assert not workflow_v2._requires_native_otio(package.view)
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "verified"
+    assert "import_verified_otio" not in adapter.calls
+    assert "place_event" in adapter.calls
+
+
+@pytest.mark.parametrize("tamper", ["source", "track", "gain", "fade"])
+def test_music_native_plan_refuses_changed_signed_source_track_or_mix(
+    tmp_path: Path, tamper: str
+) -> None:
+    case, _, _ = _music_package_case(tmp_path)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "music-att.json")
+    original = workflow_v2.load_verified_package_v2(attestation, sha256(attestation))
+    view = deepcopy(original.view)
+    event = next(event for event in view["events"] if event["kind"] == "music")
+    if tamper == "source":
+        event["sourceId"] = view["sources"][0]["id"]
+    elif tamper == "track":
+        event["trackId"] = view["tracks"][0]["id"]
+    elif tamper == "gain":
+        event["musicTreatment"]["gainDb"] = -6
+    else:
+        event["musicTreatment"]["fadeInFrames"] = 0
+    changed = workflow_v2.VerifiedPackageV2(
+        original.root, original.manifest, view, original.attestation
+    )
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="native OTIO"):
+        workflow_v2._verify_native_otio_plan(changed)
+
+
+def test_music_native_configuration_is_exact_and_reopened_readback_agrees() -> None:
+    adapter, item, view = _native_music_fixture()
+    event = view["events"][0]
+    adapter._configure_native_music(event)
+    assert item.properties == {"AudioVolumeEnabled": True, "AudioVolume": -12}
+    assert item.fades == {"FadeIn": 5, "FadeOut": 5}
+    assert adapter.expected_properties[event["id"]] == item.properties
+    assert adapter.expected_fades[event["id"]] == item.fades
+    adapter.expected_source_ranges[event["id"]] = (0, 9)
+    adapter.expected_stamps[event["id"]] = "bound-event-stamp"
+    item.AddMarker(0, "Cyan", "VERA v2 event", event["id"], 1, "bound-event-stamp")
+    assert adapter.verify(view) == ()
+
+
+@pytest.mark.parametrize(
+    ("attribute", "mutated", "expected"),
+    [
+        ("gain", 0, "event-properties"),
+        ("fade", 0, "event-music-fades"),
+        ("start", 2, "event-record-range"),
+        ("duration", 9, "event-record-range"),
+        ("source-start", 1, "event-source-start"),
+        ("source-end", 8, "event-source-end"),
+        ("media", "substituted-source", "event-media-identity"),
+        ("track", "Renamed A5", "track-name"),
+    ],
+)
+def test_music_postreopen_fakes_detect_changed_a5_gain_fades_source_extent(
+    attribute: str, mutated: Any, expected: str
+) -> None:
+    adapter, item, view = _native_music_fixture()
+    event = view["events"][0]
+    adapter._configure_native_music(event)
+    adapter.expected_source_ranges[event["id"]] = (0, 9)
+    adapter.expected_stamps[event["id"]] = "bound-event-stamp"
+    item.AddMarker(0, "Cyan", "VERA v2 event", event["id"], 1, "bound-event-stamp")
+    assert adapter.verify(view) == ()
+    if attribute == "gain":
+        item.properties["AudioVolume"] = mutated
+    elif attribute == "fade":
+        item.fades["FadeOut"] = mutated
+    elif attribute == "start":
+        item.start = mutated
+    elif attribute == "duration":
+        item.duration = mutated
+    elif attribute == "source-start":
+        item.source_start = mutated
+    elif attribute == "source-end":
+        item.source_end = mutated
+    elif attribute == "media":
+        item.media.GetMediaId = lambda: mutated
+    elif attribute == "track":
+        adapter.timeline.track_names[("audio", 5)] = mutated
+    assert expected in adapter.verify(view)
+
+
+@pytest.mark.parametrize("violation", ["slot", "source", "duration", "trim"])
+def test_music_native_prewrite_guard_never_sets_properties_on_wrong_item(
+    violation: str,
+) -> None:
+    adapter, item, view = _native_music_fixture()
+    event = view["events"][0]
+    if violation == "slot":
+        adapter._v2_tracks = ({**view["tracks"][0], "index": 2},)
+    elif violation == "source":
+        item.media.GetMediaId = lambda: "other"
+    elif violation == "duration":
+        item.duration = 9
+    else:
+        item.source_end = 8
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="native music"):
+        adapter._configure_native_music(event)
+    assert item.properties == {}
+    assert item.fades == {}
 
 
 def test_loader_checks_closed_v2_handoff_without_parsing_otio(tmp_path: Path) -> None:
@@ -2431,6 +2696,37 @@ def _fractional_narration_proof(
     return event, source, manifest_source, timeline, observations
 
 
+def _video_proof_at_24fps(
+    *, start: int = 396, decoded_frame_count: int = 1000, actual_end: int | None = None
+) -> tuple[dict[str, Any], ...]:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _fractional_video_proof()
+    )
+    rate = {"numerator": 24, "denominator": 1}
+    end = start + observations["record_duration"]
+    timeline["frameRate"] = rate
+    source_frame_map = manifest_source["sourceFrameMap"]
+    source_frame_map["decodedPackageFrameCount"] = decoded_frame_count
+    source_frame_map["decodedPackageFrameRate"] = rate
+    manifest_source["sourceTimeMapping"]["sourceRate"] = rate
+    manifest_source["sourceTimeMapping"]["deliveredRate"] = rate
+    event["v2Event"]["sourceTimeMapping"]["sourceRate"] = rate
+    event["v2Event"]["sourceTimeMapping"]["deliveredRate"] = rate
+    bindings["video-prep"]["timeMapping"]["sourceRate"] = rate
+    bindings["video-prep"]["timeMapping"]["deliveredRate"] = rate
+    bindings["video-prep"]["verification"]["decodedFrameCount"] = decoded_frame_count
+    bindings["video-prep"]["verification"]["decodedFrameRate"] = rate
+    event["sourceRange"] = {"startFrame": start, "durationFrames": end - start}
+    event["v2Event"]["sourceRange"] = {"startFrame": start, "endFrame": end}
+    observations["actual_start"] = start
+    observations["actual_end"] = end if actual_end is None else actual_end
+    observations["source_times"] = {
+        "GetSourceStartTime": start / 24,
+        "GetSourceEndTime": end / 24,
+    }
+    return event, source, manifest_source, timeline, observations, bindings
+
+
 def _fractional_source_range_matches(
     proof: tuple[dict[str, Any], ...],
 ) -> bool:
@@ -2640,6 +2936,123 @@ def test_fractional_narration_accepts_authored_record_end_within_audio_extent() 
             },
         )
     )
+
+
+def test_24fps_video_source_clock_is_a_proof_bound_fallback() -> None:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _video_proof_at_24fps()
+    )
+    arguments: dict[str, Any] = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": bindings,
+        "timeline": timeline,
+        **observations,
+    }
+    assert not workflow_v2._fractional_source_range_matches(**arguments)
+    assert workflow_v2._fractional_source_range_matches(**arguments, allow_24fps=True)
+
+    bad_end = {**arguments, "actual_end": observations["actual_end"] - 1}
+    assert not workflow_v2._fractional_source_range_matches(**bad_end, allow_24fps=True)
+    bad_time = {
+        **arguments,
+        "source_times": {
+            **observations["source_times"],
+            "GetSourceEndTime": observations["source_times"]["GetSourceEndTime"]
+            + 2 / 48_000,
+        },
+    }
+    assert not workflow_v2._fractional_source_range_matches(
+        **bad_time, allow_24fps=True
+    )
+    bad_binding = {
+        **arguments,
+        "source": {**source, "contentHash": "sha256:" + "d" * 64},
+    }
+    assert not workflow_v2._fractional_source_range_matches(
+        **bad_binding, allow_24fps=True
+    )
+
+
+def test_24fps_video_source_clock_keeps_only_the_proven_eof_inclusive_shape() -> None:
+    event, source, manifest_source, timeline, observations, bindings = (
+        _video_proof_at_24fps(start=930, decoded_frame_count=1000, actual_end=999)
+    )
+    arguments = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": bindings,
+        "timeline": timeline,
+        **observations,
+        "allow_24fps": True,
+    }
+    assert workflow_v2._fractional_source_range_matches(**arguments)
+    assert not workflow_v2._fractional_source_range_matches(
+        **{**arguments, "actual_end": 998}
+    )
+
+
+def test_24fps_still_and_narration_source_clocks_keep_exact_source_proofs() -> None:
+    event, source, manifest_source, timeline, observations = _fractional_still_proof()
+    timeline["frameRate"] = {"numerator": 24, "denominator": 1}
+    assert workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **observations,
+        allow_24fps=True,
+    )
+    observations["actual_start"] = observations["actual_end"] = 0
+    assert workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **observations,
+        allow_24fps=True,
+    )
+    bad_still = {
+        **observations,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 2 / 24},
+    }
+    assert not workflow_v2._fractional_source_range_matches(
+        event=event,
+        source=source,
+        manifest_source=manifest_source,
+        preparation_bindings={},
+        timeline=timeline,
+        **bad_still,
+        allow_24fps=True,
+    )
+
+    event, source, manifest_source, timeline, observations = (
+        _fractional_narration_proof()
+    )
+    timeline["frameRate"] = {"numerator": 24, "denominator": 1}
+    arguments = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": {},
+        "timeline": timeline,
+        **observations,
+        "allow_24fps": True,
+    }
+    assert workflow_v2._fractional_source_range_matches(**arguments)
+    bad_eof = {
+        **arguments,
+        "source_times": {
+            **observations["source_times"],
+            "GetSourceEndTime": observations["source_times"]["GetSourceEndTime"]
+            + 2 / 48_000,
+        },
+    }
+    assert not workflow_v2._fractional_source_range_matches(**bad_eof)
 
 
 def test_fractional_multiframe_video_still_refuses_before_adapter(

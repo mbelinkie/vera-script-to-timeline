@@ -249,6 +249,9 @@
         },
         {
           "$ref": "#/$defs/NarrationManifestSourceV2"
+        },
+        {
+          "$ref": "#/$defs/MusicManifestSourceV2"
         }
       ]
     },
@@ -317,6 +320,16 @@
         "narrationAudio": {
           "$ref": "compiler-dependencies-v2.schema.json#/$defs/NarrationAudioBindingV2"
         }
+      }
+    },
+    "MusicManifestSourceV2": {
+      "description": "One content-hash-bound, verified local WAV source for a music span.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "musicAudio"],
+      "properties": {
+        "id": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+        "musicAudio": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/ReadyMusicBindingV2" }
       }
     },
     "EventProvenanceV2": {
@@ -529,6 +542,22 @@
         }
       ]
     },
+    "MusicEventV2": {
+      "description": "Fixed six-frame-or-shorter fade treatment for the explicitly pinned music bed; sourceRange in TimelineEventV2 is in full timeline-rate frames.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spanId", "startRowId", "endRowId", "audioHash", "gainDb", "fadeInFrames", "fadeOutFrames", "requestedEndFrame"],
+      "properties": {
+        "spanId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+        "startRowId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+        "endRowId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+        "audioHash": { "$ref": "#/$defs/ContentHash" },
+        "gainDb": { "type": "number", "minimum": -60, "maximum": 0 },
+        "fadeInFrames": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "fadeOutFrames": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "requestedEndFrame": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/PositiveSafeInteger" }
+      }
+    },
     "TimelineEventV2": {
       "type": "object",
       "additionalProperties": false,
@@ -554,6 +583,7 @@
             "primary_visual",
             "overlay_visual",
             "source_audio",
+            "music",
             "placeholder",
             "script_marker"
           ]
@@ -571,6 +601,7 @@
             "presenter",
             "narration",
             "source_audio",
+            "music",
             "placeholder",
             "marker",
             "subtitle"
@@ -622,6 +653,9 @@
             }
           ]
         },
+        "music": {
+          "$ref": "#/$defs/MusicEventV2"
+        },
         "pictureTreatment": {
           "$ref": "#/$defs/PictureTreatmentV2"
         },
@@ -630,6 +664,31 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "music" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["music"],
+            "properties": {
+              "trackRole": { "const": "music" },
+              "music": { "$ref": "#/$defs/MusicEventV2" },
+              "sourceRange": { "$ref": "#/$defs/FrameRangeV2" },
+              "sourceTimeMapping": { "type": "null" },
+              "preparationBindingHash": { "type": "null" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "sourceId": { "$ref": "compiler-dependencies-v2.schema.json#/$defs/EntityId" },
+                  "originalSourceHash": { "$ref": "#/$defs/ContentHash" },
+                  "deliveredSourceHash": { "$ref": "#/$defs/ContentHash" }
+                }
+              }
+            }
+          },
+          "else": { "not": { "required": ["music"] } }
+        },
         {
           "if": {
             "properties": {

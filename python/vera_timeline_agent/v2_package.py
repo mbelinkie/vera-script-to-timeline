@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
+from itertools import pairwise
 from json import encoder as json_encoder
 from json.encoder import encode_basestring, encode_basestring_ascii
 from pathlib import Path, PurePosixPath
@@ -32,6 +33,8 @@ import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
 from vera_timeline_agent import native_image_motion
+from vera_timeline_agent.build_jobs import BuildJobError
+from vera_timeline_agent.music_input import inspect_music, music_event_id
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.package_cache import (
     CacheEntry,
@@ -825,6 +828,7 @@ def _validate_manifest_semantics(
     for role_key, expected_kind in (
         ("narrationTrackId", "audio"),
         ("sourceAudioTrackIds", "audio"),
+        ("musicTrackId", "audio"),
         ("presenterTrackId", "video"),
         ("placeholderTrackId", "video"),
         ("markerTrackId", "video"),
@@ -890,7 +894,9 @@ def _validate_manifest_semantics(
         if event_track is None:
             raise _error(f"event {event_id} references missing track {track_id}")
         track_kind = cast(str, event_track["kind"])
-        if (event_kind in {"narration", "source_audio"}) != (track_kind == "audio"):
+        if (event_kind in {"narration", "source_audio", "music"}) != (
+            track_kind == "audio"
+        ):
             raise _error(f"event {event_id} kind and track media type disagree")
         record_start, record_end = _range(
             event.get("recordRange"), f"event {event_id} recordRange"
@@ -964,6 +970,19 @@ def _validate_manifest_semantics(
                 or role != "source_audio"
             ):
                 raise _error(f"source audio {event_id} is outside a configured track")
+        elif event_kind == "music":
+            if (
+                track_id != roles.get("musicTrackId")
+                or role != "music"
+                or event_track.get("index") != 5
+            ):
+                raise _error(f"music event {event_id} must use dedicated audio A5")
+            if track_id == roles.get("narrationTrackId") or track_id in roles.get(
+                "sourceAudioTrackIds", []
+            ):
+                raise _error(
+                    "music A5 must be distinct from narration and source audio"
+                )
         elif event_kind == "script_marker":
             if track_id != roles.get("markerTrackId") or role != "marker":
                 raise _error(f"script marker {event_id} is outside the marker track")
@@ -976,6 +995,7 @@ def _validate_manifest_semantics(
             "overlay_visual",
             "narration",
             "source_audio",
+            "music",
         }:
             if not isinstance(source_id, str) or source_id not in sources:
                 raise _error(
@@ -1079,6 +1099,10 @@ def _validate_manifest_semantics(
                 raise _error(
                     f"source audio event {event_id} preparation mapping is stale"
                 )
+        elif event_kind == "music":
+            _validate_music_event(
+                document, dependencies, manifest, event, sources[source_id], rate
+            )
 
         events_by_track[track_id].append(event)
 
@@ -1158,6 +1182,14 @@ def _validate_manifest_semantics(
     for source_id, source in sources.items():
         if "narrationAudio" in source:
             continue
+        if "musicAudio" in source:
+            if {
+                event["kind"]
+                for event in events.values()
+                if cast(JsonObject, event["provenance"]).get("sourceId") == source_id
+            } != {"music"}:
+                raise _error(f"music source {source_id} has no exclusive music event")
+            continue
         _require_hash(source.get("originalHash"), f"source {source_id} originalHash")
         _require_hash(source.get("deliveredHash"), f"source {source_id} deliveredHash")
         _require_hash(
@@ -1194,6 +1226,154 @@ def _validate_manifest_semantics(
             "preparation requirements do not exactly cover occurrence resolutions"
         )
     del visual_source_ids  # kept explicit above for media-input classification.
+
+
+def _validate_music_event(
+    document: JsonObject,
+    dependencies: JsonObject,
+    manifest: JsonObject,
+    event: JsonObject,
+    source: JsonObject,
+    rate: Fraction,
+) -> None:
+    """Derive signed music placement and treatment from the saved span and PCM pin."""
+    event_id = cast(str, event["eventId"])
+    music = cast(JsonObject, event["music"])
+    binding = source.get("musicAudio")
+    spans = _unique_by_id(document.get("rowAudioSpans", []), "music span")
+    bindings = _unique_by_id(
+        dependencies.get("musicBindings", []), "music binding", "spanId"
+    )
+    span = spans.get(music["spanId"])
+    frozen = bindings.get(music["spanId"])
+    if (
+        span is None
+        or frozen is None
+        or not isinstance(binding, dict)
+        or binding != frozen
+        or binding.get("status") != "ready"
+        or span.get("source") != frozen.get("source")
+        or music["startRowId"] != span["startRowId"]
+        or music["endRowId"] != span["endRowId"]
+        or event_id
+        != music_event_id(document["id"], span["id"], span["source"]["artifactId"])
+    ):
+        raise _error(f"music event {event_id} is not bound to its frozen saved span")
+    source_hash = hashlib.sha256(
+        f"music-source:{span['id']}:{span['source']['artifactId']}".encode()
+    ).hexdigest()[:32]
+    expected_source_id = (
+        f"{source_hash[:8]}-{source_hash[8:12]}-5{source_hash[13:16]}"
+        f"-8{source_hash[17:20]}-{source_hash[20:]}"
+    )
+    content_hash = _require_hash(span["source"]["contentHash"], "music source hash")
+    provenance = cast(JsonObject, event["provenance"])
+    if (
+        music["audioHash"] != content_hash
+        or provenance.get("originalSourceHash") != content_hash
+        or provenance.get("deliveredSourceHash") != content_hash
+        or provenance.get("blockId") != span["startRowId"]
+        or provenance.get("sourceId") != expected_source_id
+        or event.get("audio") is not None
+        or event.get("sourceTimeMapping") is not None
+        or event.get("preparationBindingHash") is not None
+    ):
+        raise _error(f"music event {event_id} differs from its verified PCM identity")
+
+    # Recover row boundaries from ordinary authored row events, not from the
+    # music record being checked. Only an active, ordered, same-section run
+    # can claim the saved span's requested endpoint.
+    rows: list[tuple[str, str | None, int, int]] = []
+    section: str | None = None
+    for block in document["activeDraft"]["blocks"]:
+        if block["type"] == "section":
+            section = block["id"]
+            continue
+        if (
+            block["type"] not in {"narration", "visual_only"}
+            or block.get("state", "active") != "active"
+        ):
+            continue
+        possible = [
+            other
+            for other in manifest["events"]
+            if other["kind"]
+            == ("narration" if block["type"] == "narration" else "primary_visual")
+            and other["provenance"].get("blockId") == block["id"]
+        ]
+        if block["type"] == "visual_only" and not possible:
+            possible = [
+                other
+                for other in manifest["events"]
+                if other["kind"] == "placeholder"
+                and other.get("trackRole") == "primary_root"
+                and other["provenance"].get("blockId") == block["id"]
+            ]
+        if not possible:
+            raise _error(f"music row {block['id']} lacks compiled timing")
+        ranges = [
+            _range(other["recordRange"], "music row timing") for other in possible
+        ]
+        rows.append(
+            (
+                block["id"],
+                section,
+                min(pair[0] for pair in ranges),
+                max(pair[1] for pair in ranges),
+            )
+        )
+    row_ids = [row[0] for row in rows]
+    if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
+        raise _error(f"music event {event_id} references uncompiled row endpoints")
+    first_index = row_ids.index(span["startRowId"])
+    last_index = row_ids.index(span["endRowId"])
+    run = rows[first_index : last_index + 1]
+    if (
+        last_index < first_index
+        or not run
+        or any(row[1] != run[0][1] for row in run)
+        or any(previous[3] != following[2] for previous, following in pairwise(run))
+    ):
+        raise _error(f"music event {event_id} spans disconnected program rows")
+    record_start, record_end = _range(event["recordRange"], "music recordRange")
+    source_start, source_end = _range(event["sourceRange"], "music sourceRange")
+    samples = _safe_frame(binding["durationSamples"], "music samples", positive=True)
+    available = (samples * rate.numerator) // (48000 * rate.denominator)
+    requested = _safe_frame(
+        music["requestedEndFrame"], "music requestedEndFrame", positive=True
+    )
+    settings = span.get("settings", {})
+    supported = all(
+        (
+            key == "gainDb"
+            and type(value) in {int, float}
+            and math.isfinite(value)
+            and -60 <= value <= 0
+        )
+        or (key == "trimStartFrames" and value == 0)
+        or (key == "endpointMode" and value == "row_end")
+        or (key == "loop" and value is False)
+        or (key in {"fadeInFrames", "fadeOutFrames"} and value == 6)
+        for key, value in settings.items()
+    )
+    if (
+        not supported
+        or record_start != run[0][2]
+        or requested != run[-1][3]
+        or source_start != 0
+        or source_end != record_end - record_start
+        or record_end != min(requested, record_start + available)
+        or requested <= record_start
+        or not isinstance(music["gainDb"], (int, float))
+        or isinstance(music["gainDb"], bool)
+        or not math.isfinite(music["gainDb"])
+        or music["gainDb"] != settings.get("gainDb", -12)
+        or music["fadeInFrames"] != min(6, (record_end - record_start) // 2)
+        or music["fadeOutFrames"] != min(6, (record_end - record_start) // 2)
+    ):
+        raise _error(
+            f"music event {event_id} duration, gain or fades differ from signed span"
+        )
 
 
 def _validate_report_semantics(
@@ -1772,7 +1952,13 @@ def _media_artifacts(
     for event in events.values():
         kind = cast(str, event["kind"])
         source_id = cast(JsonObject, event["provenance"]).get("sourceId")
-        if kind in {"primary_visual", "overlay_visual", "narration", "source_audio"}:
+        if kind in {
+            "primary_visual",
+            "overlay_visual",
+            "narration",
+            "source_audio",
+            "music",
+        }:
             if not isinstance(source_id, str):
                 raise _error(f"event {event['eventId']} has no source identity")
             source_usage[source_id].add(kind)
@@ -1788,6 +1974,23 @@ def _media_artifacts(
                     f"narration source {source_id} is assigned to a non-narration event"
                 )
             expected_hashes[f"source:{source_id}"] = (expected, "Narration", "audio")
+            continue
+        music = source.get("musicAudio")
+        if isinstance(music, dict):
+            expected = _require_hash(
+                cast(JsonObject, music["source"])["contentHash"],
+                f"music source {source_id} hash",
+            )
+            if source_usage.get(source_id) != {"music"}:
+                raise _error(
+                    f"music source {source_id} is not used exclusively for music"
+                )
+            expected_hashes[f"source:{source_id}"] = (expected, "Narration", "audio")
+            expected_hashes[f"original:{source_id}"] = (
+                expected,
+                "Preparation",
+                "original",
+            )
             continue
         expected = _require_hash(
             source.get("deliveredHash"), f"source {source_id} delivered hash"
@@ -1912,6 +2115,12 @@ def _media_artifacts(
         if actual != expected_hash:
             raise _error(f"media hash mismatch for {key}: {expected_hash} != {actual}")
         suffix = _suffix(source_path)
+        if key.startswith(("source:", "original:")):
+            identity = key.split(":", 1)[1]
+            if identity in sources and "musicAudio" in sources[identity]:
+                if suffix.lower() != ".wav":
+                    raise _error(f"music source {identity} must be a PCM WAV")
+                suffix = ".wav"
         if key.startswith("source:"):
             identity = _id_component(key.removeprefix("source:"), "source id")
             # Studio 21.1.1.10 parses numeric runs anywhere in PNG filenames
@@ -1944,6 +2153,21 @@ def _media_artifacts(
                 ):
                     raise _error(f"placeholder slate {identity} must use PNG bytes")
             relative = f"{MEDIA_DIRECTORY}/{area}/{identity}{suffix}"
+        if (
+            key.startswith(("source:", "original:"))
+            and identity in sources
+            and "musicAudio" in sources[identity]
+        ):
+            if suffix.lower() != ".wav":
+                raise _error(f"music source {identity} must be a PCM WAV")
+            try:
+                samples = inspect_music(source_path, expected_hash)
+            except BuildJobError as error:
+                raise _error(f"music source {identity}: {error}") from error
+            if samples != sources[identity]["musicAudio"]["durationSamples"]:
+                raise _error(
+                    f"music source {identity} duration differs from frozen samples"
+                )
         _safe_relative(relative, f"package path for {key}")
         artifacts[key] = _InputArtifact(key, source_path, relative, actual, kind)
     by_binding = {
@@ -2150,7 +2374,9 @@ def _delivery_view(
             source_id = cast(str, provenance["sourceId"])
             key = f"source:{source_id}"
             source = source_records[source_id]
-            if isinstance(source.get("narrationAudio"), dict):
+            if isinstance(source.get("narrationAudio"), dict) or isinstance(
+                source.get("musicAudio"), dict
+            ):
                 native_kind = "audio"
             else:
                 treatment = event.get("pictureTreatment")
@@ -2246,6 +2472,14 @@ def _delivery_view(
                     f"source audio event {event_id} has no validated #174 sidecar"
                 )
             source_range = _source_audio_range(event, prep, timeline_rate)
+        elif kind == "music":
+            music_start, music_end = _range(
+                event["sourceRange"], f"music {event_id} sourceRange"
+            )
+            source_range = {
+                "startFrame": music_start,
+                "durationFrames": music_end - music_start,
+            }
         else:
             raise _error(f"unsupported delivery event kind {kind!r}")
         if source_range is not None:
@@ -2258,22 +2492,25 @@ def _delivery_view(
                 positive=True,
             )
         track = tracks[cast(str, event["trackId"])]
-        events_view.append(
-            {
-                "id": event_id,
-                "kind": kind,
-                "sourceId": event_sources[event_id],
-                "trackId": event["trackId"],
-                "trackKind": track["kind"],
-                "recordRange": record_range,
-                "sourceRange": source_range,
-                "v2Event": event,
-                "gainDb": event["audio"]["gainDb"]
-                if isinstance(event.get("audio"), dict)
-                else None,
-                "pictureTreatment": event.get("pictureTreatment"),
-            }
-        )
+        projected: JsonObject = {
+            "id": event_id,
+            "kind": kind,
+            "sourceId": event_sources[event_id],
+            "trackId": event["trackId"],
+            "trackKind": track["kind"],
+            "recordRange": record_range,
+            "sourceRange": source_range,
+            "v2Event": event,
+            "gainDb": event["audio"]["gainDb"]
+            if isinstance(event.get("audio"), dict)
+            else event["music"]["gainDb"]
+            if kind == "music"
+            else None,
+            "pictureTreatment": event.get("pictureTreatment"),
+        }
+        if kind == "music":
+            projected["musicTreatment"] = event["music"]
+        events_view.append(projected)
     view = {
         "schemaVersion": VIEW_SCHEMA_VERSION,
         "timeline": manifest["timeline"],
@@ -2377,6 +2614,12 @@ def _validate_delivery_view(
                 item.get("audioHash"), f"narration {source_id} audioHash"
             )
             view_source_id = source_id
+        elif "musicAudio" in source:
+            content_hash = _require_hash(
+                cast(JsonObject, source["musicAudio"])["source"]["contentHash"],
+                f"music source {source_id} contentHash",
+            )
+            view_source_id = source_id
         else:
             content_hash = _require_hash(
                 source.get("deliveredHash"), f"source {source_id} deliveredHash"
@@ -2399,7 +2642,7 @@ def _validate_delivery_view(
                 f"original:{source_id}",
                 Path("."),
                 "",
-                source["originalHash"],
+                content_hash if "musicAudio" in source else source["originalHash"],
                 "original",
             )
 
@@ -2559,6 +2802,36 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
             ),
         ),
     )
+
+
+def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
+    """Transport A5 through explicit empty audio lanes; never compact it to A2.
+
+    These are deterministic OTIO-only gaps, not new manifest tracks or events.
+    The independent OTIO verifier derives the identical inventory from the
+    signed view, so an omitted or occupied padding lane fails verification.
+    """
+    tracks = cast(list[JsonObject], view["tracks"])
+    if not any(event["kind"] == "music" for event in view["events"]):
+        return _otio_track_order(tracks)
+    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
+    ids = {track["id"] for track in tracks}
+    padding: list[JsonObject] = []
+    for index in range(1, 5):
+        if index in occupied:
+            continue
+        track_id = f"vera-native-a{index}-pad"
+        if track_id in ids:
+            raise _error("native A5 padding collides with a signed track ID")
+        padding.append(
+            {
+                "id": track_id,
+                "kind": "audio",
+                "index": index,
+                "name": f"VERA Empty A{index}",
+            }
+        )
+    return _otio_track_order([*tracks, *padding])
 
 
 def _native_motion_for_event(
@@ -2748,7 +3021,7 @@ def _build_otio(
     for event in cast(list[JsonObject], view["events"]):
         events_by_track[cast(str, event["trackId"])].append(event)
 
-    for track_data in _otio_track_order(cast(list[JsonObject], view["tracks"])):
+    for track_data in _otio_transport_tracks(view):
         track_id = cast(str, track_data["id"])
         track = otio.schema.Track(
             name=cast(str, track_data["name"]),
@@ -2839,6 +3112,11 @@ def _build_otio(
                         "gain_db": event["gainDb"],
                         "picture_treatment": event["pictureTreatment"],
                         "v2_event": event["v2Event"],
+                        **(
+                            {"music_treatment": event["musicTreatment"]}
+                            if event["kind"] == "music"
+                            else {}
+                        ),
                     }
                 },
             )
@@ -2920,7 +3198,7 @@ def _verify_otio(
         raise _error(
             "OTIO timeline identity, start, or composition differs from v2 view"
         )
-    expected_tracks = _otio_track_order(cast(list[JsonObject], view["tracks"]))
+    expected_tracks = _otio_transport_tracks(view)
     if len(timeline.tracks) != len(expected_tracks):
         raise _error("OTIO track count differs from delivery view")
     expected_events = _unique_by_id(view["events"], "delivery event")
@@ -3022,6 +3300,7 @@ def _verify_otio(
                 or vera.get("gain_db") != expected["gainDb"]
                 or vera.get("picture_treatment") != expected["pictureTreatment"]
                 or vera.get("v2_event") != expected["v2Event"]
+                or vera.get("music_treatment") != expected.get("musicTreatment")
             ):
                 raise _error(f"OTIO event {event_id} differs from delivery view")
             expected_effects, expected_proof = _native_motion_for_event(
@@ -3445,6 +3724,11 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
         if "narrationAudio" in source:
             artifact_key = f"source:{source_id}"
             content_hash = cast(JsonObject, source["narrationAudio"])["audioHash"]
+        elif "musicAudio" in source:
+            artifact_key = f"source:{source_id}"
+            content_hash = cast(JsonObject, source["musicAudio"])["source"][
+                "contentHash"
+            ]
         else:
             artifact_key = f"source:{source_id}"
             content_hash = source["deliveredHash"]
@@ -3463,7 +3747,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
                 f"original:{source_id}",
                 Path("."),
                 "",
-                source["originalHash"],
+                content_hash if "musicAudio" in source else source["originalHash"],
                 "original",
             )
     for event in cast(list[JsonObject], manifest.get("events", [])):
@@ -3549,6 +3833,30 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
     )
     for source_id, source in manifest_sources.items():
         if "narrationAudio" in source:
+            continue
+        if "musicAudio" in source:
+            original_rel = (
+                f"{BUILD_DIRECTORY}/{build_id}/Preparation/original/{source_id}.wav"
+            )
+            original_music_file = _safe_package_file(
+                project_root, original_rel, f"original music source {source_id}"
+            )
+            delivery = artifacts[f"source:{source_id}"].origin
+            if delivery.suffix.lower() != ".wav":
+                raise _error(f"music source {source_id} is not a WAV sidecar")
+            for music_file in (original_music_file, delivery):
+                try:
+                    samples = inspect_music(
+                        music_file, source["musicAudio"]["source"]["contentHash"]
+                    )
+                except BuildJobError as error:
+                    raise _error(f"music package {source_id}: {error}") from error
+                if samples != source["musicAudio"]["durationSamples"]:
+                    raise _error(
+                        f"music package {source_id} PCM duration differs from "
+                        "frozen binding"
+                    )
+            expected_inventory.add(original_rel)
             continue
         original_matches = [
             path

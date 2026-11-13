@@ -45,6 +45,7 @@ import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { decideTransitionBoundary, requestedTransitionFrames } from "./transition-boundary-v2.js";
+import { planMusicSpanFrames } from "./row-audio-music.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -203,12 +204,85 @@ function diagnostic(code: BuildDiagnosticV2["code"], message: string, target: En
 
 function textHashForRow(block: NarrationBlockV2): string { return shaText(block.text); }
 
-function unsupportedRowIntent(document: ScriptDocumentV2): CompileDiagnosticV2 | null {
-  const active = new Set(document.activeDraft.blocks.map((row) => row.id));
-  if (document.rowAudioSpans?.some((span) => active.has(span.startRowId))) return {
-    code: "ROW_AUDIO_RUNTIME_UNAVAILABLE", message: "Saved row audio intent has no qualified timing or delivery adapter. Review it before building.", jsonPath: "/rowAudioSpans",
-  };
+/** A binding cannot be substituted for another span, artifact version, or digest. */
+function musicBindingProblem(document: ScriptDocumentV2, deps: CompilerDependenciesV2): CompileDiagnosticV2 | null {
+  const spans = new Map((document.rowAudioSpans ?? []).map((span) => [span.id, span]));
+  const seen = new Set<string>();
+  for (const binding of deps.musicBindings ?? []) {
+    const span = spans.get(binding.spanId);
+    if (seen.has(binding.spanId) || !span || !sameJson(span.source, binding.source)) return {
+      code: "MUSIC_BINDING_MISMATCH", message: `Music binding ${binding.spanId} is duplicated, unreferenced or differs from the frozen span source.`, jsonPath: "/musicBindings", entityId: binding.spanId,
+    };
+    seen.add(binding.spanId);
+  }
   return null;
+}
+
+function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependenciesV2, rows: ProgramRow[]): {
+  sources: TimelineManifestV2["sources"]; events: TimelineEventV2[]; diagnostics: BuildDiagnosticV2[];
+} {
+  const sources: TimelineManifestV2["sources"] = [];
+  const events: TimelineEventV2[] = [];
+  const diagnostics: BuildDiagnosticV2[] = [];
+  const bindings = new Map((deps.musicBindings ?? []).map((binding) => [binding.spanId, binding]));
+  let section: string | undefined;
+  const sections = new Map<string, string | undefined>();
+  for (const block of document.activeDraft.blocks) {
+    if (block.type === "section") section = block.id;
+    else sections.set(block.id, section);
+  }
+  const bounds = rows.map((row) => ({
+    id: row.block.id, startFrame: row.startFrame, endFrame: row.startFrame + row.durationFrames,
+    ...(sections.get(row.block.id) ? { sectionId: sections.get(row.block.id)! } : {}),
+  }));
+  for (const span of document.rowAudioSpans ?? []) {
+    const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
+    const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string): void => {
+      diagnostics.push(diagnostic(code, message, target, { kind: "details", message }, ["none"], "warning"));
+    };
+    const settings = span.settings as Record<string, unknown>;
+    const supported = Object.entries(settings).every(([key, value]) => key === "gainDb" && typeof value === "number" && Number.isFinite(value) && value >= -60 && value <= 0 ||
+      key === "trimStartFrames" && value === 0 || key === "endpointMode" && value === "row_end" || key === "loop" && value === false ||
+      (key === "fadeInFrames" || key === "fadeOutFrames") && value === 6);
+    if (!supported) {
+      warn("MUSIC_SETTINGS_UNSUPPORTED", `Music span ${span.id} requests an unsupported gain, trim, endpoint, loop or fade; the cue was omitted for review.`);
+      continue;
+    }
+    const binding = bindings.get(span.id);
+    if (!binding || binding.status === "missing") {
+      warn("MUSIC_FILE_MISSING", `Music file ${binding?.displayFilename ?? span.source.artifactId} for span ${span.id} is missing; the cue was omitted.`);
+      continue;
+    }
+    let geometry;
+    try {
+      geometry = planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
+    } catch {
+      warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
+      continue;
+    }
+    if (!geometry) {
+      warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} cannot supply one complete timeline frame; the cue was omitted.`);
+      continue;
+    }
+    const trackId = deps.roles.musicTrackId;
+    const track = deps.tracks.find((item) => item.id === trackId);
+    if (!trackId || track?.kind !== "audio" || track.index !== 5 ||
+      deps.tracks.some((item) => item.kind === "audio" && item.index === 5 && item.id !== trackId) ||
+      trackId === deps.roles.narrationTrackId || deps.roles.sourceAudioTrackIds.includes(trackId)) {
+      throw new RangeError("ready music requires a dedicated, otherwise unused A5 audio track");
+    }
+    const sourceId = stableId(`music-source:${span.id}:${span.source.artifactId}`);
+    const eventId = stableId(`music:${document.id}:${span.id}:${span.source.artifactId}`);
+    sources.push({ id: sourceId, musicAudio: binding });
+    events.push({ eventId, kind: "music", trackId, trackRole: "music", recordRange: geometry.recordRange,
+      provenance: { documentId: document.id, blockId: span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId,
+        originalSourceHash: span.source.contentHash, deliveredSourceHash: span.source.contentHash, timingMapHash: null, compilerVersion: deps.compiler.version },
+      sourceRange: geometry.sourceRange, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
+      music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: (settings.gainDb as number | undefined) ?? -12,
+        fadeInFrames: geometry.fadeInFrames, fadeOutFrames: geometry.fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
+    if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends after ${geometry.sourceRange.endFrame} frames, before requested ${geometry.requestedEndFrame - geometry.recordRange.startFrame} frames; no loop was used.`);
+  }
+  return { sources, events, diagnostics };
 }
 
 /** Never time an unresolved logged clip as a default still or a preview slate. */
@@ -1585,8 +1659,8 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   if (!validateDependencies(dependenciesInput)) return fail(...schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES"));
   const document = documentInput as ScriptDocumentV2;
   const dependencies = dependenciesInput;
-  const rowIntentProblem = unsupportedRowIntent(document);
-  if (rowIntentProblem) return fail(rowIntentProblem);
+  const musicProblem = musicBindingProblem(document, dependencies);
+  if (musicProblem) return fail(musicProblem);
   const unresolved = unresolvedResearchMedia(document);
   if (unresolved) return fail(unresolved);
   const audioBindingProblem = conflictingNarrationAudioBinding([...dependencies.narrationTimingMaps, ...dependencies.narrationBoundaryEvidence ?? []]);
@@ -1639,6 +1713,10 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       const eventId = stableId(`narration:${document.id}:${row.block.id}:${row.map.audio!.narrationAssetId}`);
       resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });
     }
+    const music = compileMusicSpans(document, dependencies, resolved.timedRows);
+    for (const source of music.sources) sourcesById.set(source.id, source);
+    resolved.events.push(...music.events);
+    resolved.diagnostics.push(...music.diagnostics);
     const supporting = compileSupportingItems(document, dependencies, resolved.timedRows, resolved.events);
     resolved.events.push(...supporting.events);
     for (const event of resolved.events) {
@@ -1715,8 +1793,6 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
   if (!validation.valid) return { ok: false, diagnostics: validation.diagnostics.map((item) => ({ code: item.code, message: item.message, jsonPath: item.jsonPath, ...(item.entityId ? { entityId: item.entityId } : {}) })) };
   try {
     const document = documentInput as ScriptDocumentV2;
-    const rowIntentProblem = unsupportedRowIntent(document);
-    if (rowIntentProblem) return { ok: false, diagnostics: [rowIntentProblem] };
     const unresolved = unresolvedResearchMedia(document);
     if (unresolved) return { ok: false, diagnostics: [unresolved] };
     const malformedText = malformedFrozenText(document);
