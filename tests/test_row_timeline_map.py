@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from vera_timeline_agent.row_timeline_map import SCHEMA_VERSION, make_row_timeline_map
+from vera_timeline_agent.row_timeline_map import (
+    SCHEMA_VERSION,
+    SCHEMA_VERSION_V2,
+    compare_reopened_row_map,
+    make_row_timeline_map,
+    observe_item_details,
+    validate_saved_row_map,
+)
 
 COMPILER_FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compiler"
 
@@ -104,6 +111,19 @@ def _make(
     return make_row_timeline_map(manifest, view, observed, **options)
 
 
+def _v2_observed(observed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            **item,
+            "name": f"Clip {item['eventId']}",
+            "mediaId": None,
+            "sourceStartFrame": 0,
+            "sourceEndFrame": item["durationFrames"] - 1,
+        }
+        for item in observed
+    ]
+
+
 def test_groups_multitrack_events_and_explicit_null_block_with_exact_native_ids() -> (
     None
 ):
@@ -155,6 +175,120 @@ def test_observation_and_delivery_order_cannot_change_map_bytes() -> None:
     observed.reverse()
     manifest["events"].reverse()
     assert json.dumps(_make(manifest, view, observed), sort_keys=True) == expected
+
+
+def test_v2_map_preserves_nullable_details_and_document_hash_binding() -> None:
+    manifest, view, observed = _sample()
+    manifest["document"].update(
+        contentHash="sha256:" + "a" * 64,
+    )
+    result = _make(manifest, view, _v2_observed(observed), version=2)
+
+    assert result["schemaVersion"] == SCHEMA_VERSION_V2
+    assert result["version"] == 2
+    assert result["buildId"] == "b1"
+    assert result["manifestId"] == "m1"
+    assert result["documentId"] == "d1"
+    assert result["documentRevision"] == 3
+    assert result["documentContentHash"] == "sha256:" + "a" * 64
+    first = result["rows"][0]["items"][0]
+    assert first["name"] == "Clip e3"
+    assert first["mediaId"] is None
+    assert first["sourceStartFrame"] == 0
+    assert first["sourceEndFrame"] == 4
+
+
+def test_v2_item_detail_observation_preserves_unavailable_getters_as_null() -> None:
+    class NativeItem:
+        def GetName(self) -> str:
+            return "Interview"
+
+        def GetMediaPoolItem(self) -> object:
+            return object()
+
+        def GetSourceStartFrame(self) -> int:
+            return 10
+
+    assert observe_item_details(NativeItem()) == {
+        "name": "Interview",
+        "mediaId": None,
+        "sourceStartFrame": 10,
+        "sourceEndFrame": None,
+    }
+
+    class MalformedOptionalDetails:
+        def GetName(self) -> str:
+            return "  "
+
+        def GetMediaPoolItem(self) -> MalformedOptionalDetails:
+            return self
+
+        def GetMediaId(self) -> int:
+            return 5
+
+        def GetSourceStartFrame(self) -> int:
+            return 10
+
+        def GetSourceEndFrame(self) -> int:
+            return 9
+
+    assert observe_item_details(MalformedOptionalDetails()) == {
+        "name": None,
+        "mediaId": None,
+        "sourceStartFrame": None,
+        "sourceEndFrame": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "error"),
+    [
+        ("name", 7, "invalid reopened item name"),
+        ("mediaId", [], "invalid reopened item mediaId"),
+        ("sourceStartFrame", True, "invalid reopened item sourceStartFrame"),
+        ("sourceEndFrame", -1, "invalid reopened item source range"),
+    ],
+)
+def test_v2_requires_and_validates_nullable_item_details(
+    field: str, replacement: Any, error: str
+) -> None:
+    manifest, view, observed = _sample()
+    detailed = _v2_observed(observed)
+    if field == "sourceEndFrame":
+        detailed[0]["sourceStartFrame"] = 2
+    detailed[0][field] = replacement
+    with pytest.raises(ValueError, match=error):
+        _make(manifest, view, detailed, version=2)
+
+
+def test_v2_saved_map_revalidates_and_compares_v1_structural_readback() -> None:
+    manifest, view, observed = _sample()
+    saved = _make(manifest, view, _v2_observed(observed), version=2)
+    validate_saved_row_map(manifest, view, saved)
+    assert (
+        compare_reopened_row_map(
+            manifest,
+            view,
+            observed,
+            project_name=saved["projectName"],
+            resolve_project_id=saved["resolveProjectId"],
+            timeline_name=saved["timelineName"],
+            timeline_id=saved["timelineId"],
+            saved_map=saved,
+        )
+        == "saved-uid-match"
+    )
+    with pytest.raises(ValueError, match="saved row map differs"):
+        compare_reopened_row_map(
+            manifest,
+            view,
+            [{**observed[0], "resolveItemId": "changed-uid"}, *observed[1:]],
+            project_name=saved["projectName"],
+            resolve_project_id=saved["resolveProjectId"],
+            timeline_name=saved["timelineName"],
+            timeline_id=saved["timelineId"],
+            saved_map=saved,
+        )
 
 
 @pytest.mark.parametrize(

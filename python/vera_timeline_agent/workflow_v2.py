@@ -24,7 +24,7 @@ from time import perf_counter
 from typing import Any, TypeGuard, cast
 
 from . import native_image_motion
-from .row_timeline_map import make_row_timeline_map
+from .row_timeline_map import make_row_timeline_map, observe_item_details
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .transition_delivery_v2 import (
     TransitionRefusal,
@@ -1577,6 +1577,64 @@ def _marker_stamp(marker: Mapping[str, Any]) -> str:
     return _canonical_json({"v2EventId": marker["id"], "v2EventSha256": digest})
 
 
+def _current_readback_target(
+    resolve: Any,
+    *,
+    project_name: str,
+    timeline_name: str,
+    project_uid: str | None,
+    timeline_uid: str | None,
+) -> tuple[Any, Any, str, str]:
+    manager = resolve.GetProjectManager()
+    project = manager.GetCurrentProject() if manager is not None else None
+    if project is None or project.GetName() != project_name:
+        raise WorkflowV2Error("current Resolve project is not the build target")
+    actual_project_uid = project.GetUniqueId()
+    if (
+        not isinstance(actual_project_uid, str)
+        or not actual_project_uid.strip()
+        or (project_uid is not None and actual_project_uid != project_uid)
+    ):
+        raise WorkflowV2Error("current Resolve project UID differs or is unavailable")
+    timeline = project.GetCurrentTimeline()
+    if timeline is None or timeline.GetName() != timeline_name:
+        raise WorkflowV2Error(
+            f"current Resolve timeline is not the build target {timeline_name!r}"
+        )
+    actual_timeline_uid = timeline.GetUniqueId()
+    if (
+        not isinstance(actual_timeline_uid, str)
+        or not actual_timeline_uid.strip()
+        or (timeline_uid is not None and actual_timeline_uid != timeline_uid)
+    ):
+        raise WorkflowV2Error(
+            f"current Resolve timeline UID differs or is unavailable. "
+            f"The baseline belongs to the original timeline {timeline_name!r}"
+        )
+
+    return manager, timeline, actual_project_uid, actual_timeline_uid
+
+
+def _assert_readback_target(manager: Any, project_uid: str, timeline_uid: str) -> None:
+    # The active timeline can change while its handles are being read.
+    project = manager.GetCurrentProject()
+    timeline = project.GetCurrentTimeline() if project is not None else None
+    if (
+        project is None
+        or project.GetUniqueId() != project_uid
+        or timeline is None
+        or timeline.GetUniqueId() != timeline_uid
+    ):
+        raise WorkflowV2Error("current Resolve target changed during readback")
+
+
+def _read_track_items(timeline: Any, kind: str, index: int) -> Sequence[Any]:
+    items = timeline.GetItemListInTrack(kind, index)
+    if not isinstance(items, (list, tuple)):
+        raise WorkflowV2Error(f"item inventory unavailable: {kind} {index}")
+    return items
+
+
 def observe_current_timeline_v2(
     resolve: Any,
     view: Mapping[str, Any],
@@ -1593,27 +1651,15 @@ def observe_current_timeline_v2(
     VERA event stamp, not time order or media name (both can be ambiguous).
     This is a structural check; it is not the full build-time media verifier.
     """
-    manager = resolve.GetProjectManager()
-    project = manager.GetCurrentProject() if manager is not None else None
-    if project is None or project.GetName() != project_name:
-        raise WorkflowV2Error("current Resolve project is not the build target")
-    actual_project_uid = project.GetUniqueId()
-    if (
-        not isinstance(actual_project_uid, str)
-        or not actual_project_uid.strip()
-        or (project_uid is not None and actual_project_uid != project_uid)
-    ):
-        raise WorkflowV2Error("current Resolve project UID differs or is unavailable")
-    timeline = project.GetCurrentTimeline()
-    if timeline is None or timeline.GetName() != timeline_name:
-        raise WorkflowV2Error("current Resolve timeline is not the build target")
-    actual_timeline_uid = timeline.GetUniqueId()
-    if (
-        not isinstance(actual_timeline_uid, str)
-        or not actual_timeline_uid.strip()
-        or (timeline_uid is not None and actual_timeline_uid != timeline_uid)
-    ):
-        raise WorkflowV2Error("current Resolve timeline UID differs or is unavailable")
+    manager, timeline, actual_project_uid, actual_timeline_uid = (
+        _current_readback_target(
+            resolve,
+            project_name=project_name,
+            timeline_name=timeline_name,
+            project_uid=project_uid,
+            timeline_uid=timeline_uid,
+        )
+    )
 
     expected_timeline = cast(Mapping[str, Any], view["timeline"])
     start = expected_timeline["startFrame"]
@@ -1651,10 +1697,7 @@ def observe_current_timeline_v2(
     live_transitions: list[tuple[int, Any]] = []
     for kind, count in actual_counts.items():
         for index in range(1, count + 1):
-            items = timeline.GetItemListInTrack(kind, index)
-            if not isinstance(items, (list, tuple)):
-                raise WorkflowV2Error(f"item inventory unavailable: {kind} {index}")
-            for item in items:
+            for item in _read_track_items(timeline, kind, index):
                 if (
                     applicable_transitions
                     and kind == "video"
@@ -1780,17 +1823,7 @@ def observe_current_timeline_v2(
         ):
             raise WorkflowV2Error(f"timeline marker differs at frame {frame}")
 
-    # The user may switch tabs during the read. A stale object handle is not
-    # proof that this is still the active target at the end of observation.
-    current = manager.GetCurrentProject()
-    if (
-        current is None
-        or current.GetUniqueId() != actual_project_uid
-        or current.GetCurrentTimeline() is None
-        or current.GetCurrentTimeline().GetUniqueId() != actual_timeline_uid
-    ):
-        raise WorkflowV2Error("current Resolve target changed during readback")
-
+    _assert_readback_target(manager, actual_project_uid, actual_timeline_uid)
     return {
         "projectName": project_name,
         "resolveProjectId": actual_project_uid,
@@ -2543,6 +2576,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         "trackIndex": index,
                                         "startFrame": item.GetStart(False),
                                         "durationFrames": item.GetDuration(False),
+                                        **observe_item_details(item),
                                     }
                                 )
                         expected_properties = self.expected_properties.get(event_id, {})
@@ -3379,6 +3413,7 @@ def run_workflow_delivery_v2(
                 resolve_project_id=observation["resolveProjectId"],
                 timeline_name=attestation["timelineName"],
                 timeline_id=observation["timelineId"],
+                version=2,
             )
         stage = "final package validation"
         if load_verified_package_v2(attestation_path, attestation_sha256) != package:
