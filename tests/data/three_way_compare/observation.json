@@ -1,0 +1,24 @@
+{
+  "buildId": "00000000-0000-4000-8000-000000000022",
+  "documentId": "00000000-0000-4000-8000-000000000001",
+  "documentRevision": 1,
+  "timelineId": "native-timeline-1",
+  "timelineName": "Test timeline",
+  "differenceCount": 0,
+  "cannotRead": ["grades", "effects", "media availability and source bytes"],
+  "notCompared": ["timeline markers", "track settings", "clip inspector settings"],
+  "rows": [
+    {
+      "rowId": "00000000-0000-4000-8000-000000000011",
+      "items": [{"eventId": "00000000-0000-4000-8000-000000000031", "resolveItemId": "native-item-1", "status": ["unchanged"]}]
+    },
+    {
+      "rowId": "00000000-0000-4000-8000-000000000012",
+      "items": [{"eventId": "00000000-0000-4000-8000-000000000032", "resolveItemId": "native-item-2", "status": ["unchanged"]}]
+    },
+    {
+      "rowId": "00000000-0000-4000-8000-000000000013",
+      "items": [{"eventId": "00000000-0000-4000-8000-000000000033", "resolveItemId": "native-item-3", "status": ["unchanged"]}]
+    }
+  ]
+}

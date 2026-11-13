@@ -245,6 +245,47 @@ clip IDs. The baseline requires the original timeline ID even when the
 duplicate inherits VERA's clip markers. The command also
 refuses a missing baseline, a version 1 row map, or conflicting clip IDs.
 
+### Compare the saved build with today's script (offline)
+
+After saving an `observe` JSON report from the **original** Resolve timeline,
+compare it to the attested previous build and a prepared current script. The
+second command **does not open or connect to Resolve** and cannot edit a timeline:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.observe_timeline_cli \
+  --output "/absolute/path/to/previous-result-directory" \
+  > /tmp/vera-observation.json
+
+uv run --frozen python -m vera_timeline_agent.three_way_compare_cli \
+  --baseline-output "/absolute/path/to/previous-result-directory" \
+  --observation /tmp/vera-observation.json \
+  --script "/absolute/path/to/current-script-document.json" \
+  --dependencies "/absolute/path/to/current-compiler-dependencies.json" \
+  > /tmp/vera-three-way.json
+```
+
+`--baseline-output` needs its checked v2 attestation and v2 row-timeline-map;
+`--dependencies` is the current script's prepared v2 compiler input. The
+offline command re-verifies the immutable package and original script, pins a
+fresh local Node 24.19 compiler result, checks build/document/Resolve identities,
+and prints deterministic one-line JSON. Invalid, stale, or unreadable inputs
+exit **2** without producing a comparison; no outbound update is authorized.
+The reported `unchanged`, `script_changed`, `resolve_changed`, and
+`both_conflict` states include reasons, downstream shifts, and editor additions.
+`both_compatible` exists only for a synthetic qualified-field unit test: real
+preservation is **not yet qualified** and both-changed rows remain conflicts.
+
+To inspect a fabricated example without any files from Resolve or prepared
+media, run this from the repository root (the sample is not a verified build):
+
+```sh
+uv run --frozen python -m vera_timeline_agent.three_way_compare_cli --example
+```
+
+It reads `tests/data/three_way_compare/example.json`, demonstrates the four
+currently permitted states, and explicitly identifies the empty compatibility
+allow-list. Running it twice emits byte-identical JSON.
+
 ## Validation
 
 Testing, review and merge rules are in [AGENTS.md](AGENTS.md) and
