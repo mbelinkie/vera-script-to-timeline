@@ -13,8 +13,9 @@ from typing import Any
 
 from .build_jobs import NeedsAction, UncertainResult
 from .build_stage_receipt import hash_file
+from .resolve_native_owner import NativeOwnerError
 from .workflow_v2 import load_verified_package_v2
-from .workflow_v2_parent import _request, start, status, wait
+from .workflow_v2_parent import ParentUnresolvedError, _request, start, status, wait
 
 
 class ParentStudioDriver:
@@ -75,7 +76,12 @@ class ParentStudioDriver:
         return {"status": "preflight_passed", "attestationSha256": digest}
 
     def start(
-        self, attestation: Path, digest: str, request_id: str
+        self,
+        attestation: Path,
+        digest: str,
+        request_id: str,
+        *,
+        before_dispatch: Callable[[Path], None] | None = None,
     ) -> Mapping[str, Any]:
         self._validate(attestation, digest, request_id)
         # #302 start is intentionally idempotent: if someone invokes it again
@@ -87,12 +93,36 @@ class ParentStudioDriver:
             raise UncertainResult("Local parent request already consumed; inspect only")
         # #302 locks the host and runs the qualified Local worker. Repeated
         # starts are read-only in #302; this adapter refuses to credit them.
-        result = start(
-            self.request_path,
-            self.request_sha256,
-            self.resolve_python,
-            independent_disposable=True,
-        )
+        preparing = False
+
+        def prepare(root: Path) -> None:
+            nonlocal preparing
+            assert before_dispatch is not None
+            preparing = True
+            before_dispatch(root)
+
+        try:
+            result = start(
+                self.request_path,
+                self.request_sha256,
+                self.resolve_python,
+                independent_disposable=True,
+                before_dispatch=prepare if before_dispatch is not None else None,
+            )
+        except ParentUnresolvedError as error:
+            raise NeedsAction(
+                "another native parent remains active or uncertain"
+            ) from error
+        except NativeOwnerError as error:
+            if error.reason == "owner_busy" and not preparing:
+                raise NeedsAction(
+                    "Resolve is busy; try again when it is idle"
+                ) from error
+            raise
+        if before_dispatch is not None and not preparing:
+            if result.get("state") == "busy":
+                raise NeedsAction("another Local parent is dispatching")
+            raise UncertainResult("Local parent returned without this attempt's intent")
         return self._terminal_result(result)
 
     @staticmethod

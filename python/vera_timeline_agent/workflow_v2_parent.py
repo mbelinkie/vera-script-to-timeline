@@ -13,11 +13,16 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 PARENT_STATE_ROOT = Path.home() / ".local/state/vera/resolve-delivery"
+
+
+class ParentUnresolvedError(ValueError):
+    """An earlier Local dispatch must be inspected before another can start."""
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -68,6 +73,7 @@ def start(
     python: Path,
     *,
     independent_disposable: bool = False,
+    before_dispatch: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     """Dispatch once. Repeated calls only read the original operation."""
     request_path = request_path.absolute()
@@ -99,7 +105,7 @@ def start(
                 raise ValueError("invalid active parent identity")
             prior = status(Path(previous["requestPath"]), previous["requestSha256"])
             if prior["state"] not in {"terminal", "not_started"}:
-                raise ValueError(
+                raise ParentUnresolvedError(
                     "prior Resolve delivery is live or unresolved; inspect it"
                 )
         from .resolve_native_owner import (
@@ -123,14 +129,21 @@ def start(
                 preflight_independent_disposable(request["projectName"])
             else:
                 preflight_native_owner()
-            return _dispatch(request_path, expected, python, active, owner_fd)
+            return _dispatch(
+                request_path, expected, python, active, owner_fd, before_dispatch
+            )
         finally:
             # Close this duplicate only; the child retains the shared lock.
             release_native_owner(owner_fd)
 
 
 def _dispatch(
-    request_path: Path, expected: str, python: Path, active: Path, owner_fd: int
+    request_path: Path,
+    expected: str,
+    python: Path,
+    active: Path,
+    owner_fd: int,
+    before_dispatch: Callable[[Path], None] | None,
 ) -> dict[str, Any]:
     """Reserve one worker while the host-wide dispatch lock is held."""
     from .workflow_v2_cli import LAUNCHER_NAME, _no_symlinks, _verify_release
@@ -171,6 +184,10 @@ def _dispatch(
             raise ValueError(
                 "prior operation evidence retained; inspect it, never replay"
             )
+        # An authorized composition records its intent under both host locks
+        # and the request lock, before the parent can create or launch a worker.
+        if before_dispatch is not None:
+            before_dispatch(active.parent)
         # Reserve the host before dispatch, including uncertain spawn failures.
         temporary = active.with_name(f".active-{uuid.uuid4().hex}.json")
         _write(temporary, {"requestPath": str(request_path), "requestSha256": expected})
