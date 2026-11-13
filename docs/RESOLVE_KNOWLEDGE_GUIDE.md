@@ -1120,6 +1120,43 @@ the public accepted report is the source here. Free is untested/manual-or-blocke
 this probe. Changed graph/control/data mapping needs the affected target-boundary
 and output delta; lower-third baking does not prove highlights on this template.
 
+### RK-46 — A 24 fps interior picture cut can report the exclusive source end
+
+**Native readback / shipped build verification refused.**
+On Studio **21.1.1 build 10** with Local scripting, [#327](investigations/issue-327/README.md)
+built and reopened a two-row synthetic timeline with 24 fps H.264 picture
+and 48 kHz tone. Each 96-frame picture used source time `[1.0,5.0)` seconds.
+Resolve returned source frame getters `24,120` and handles `24,72`. The
+build expected source end `119` and withheld the row map. The two complete
+96-frame WAV clips reported `0,95`. Standalone structural readback confirmed
+the four stamped items and their record geometry without a prior UID map.
+This extends the evidence for [#544](https://github.com/mbelinkie/vera-script-to-timeline/issues/544)
+to an interior 24 fps picture range.
+RK-32's subsequently merged 24 fps source-clock verifier covers this getter
+shape. #327 regenerated its fixture against that revision and passed the
+normal build, save/close/reopen and full verification on November 13. The
+eight-second timeline took 69.51 seconds and published its two-row map.
+
+### RK-47 — Take replacement kept the dissolve that delete and reappend removed
+
+**Measured on Studio 21.1.1 build 10, Local scripting.**
+[#327's two-row experiment](investigations/issue-327/README.md) used fresh
+duplicates of a hand-finished timeline. A same-length picture replacement
+through AddTake, SelectTakeByIndex and FinalizeTake retained the replaced
+item's ID and the existing Cross Dissolve's ID and span. Extending the final
+row by deleting and reappending its picture and tone removed the dissolve
+at the unchanged cut. Both trials retained the first row's saturation
+grade, −12 dB clip volume, and Fusion Blur at 12.
+
+Swapping both rows by deleting and reappending their clips lost those three
+edits and the dissolve. The spare-track clip survived at its original
+record position over the other row. The original and archive matched their
+structural snapshots before each save and after reopening. The Color-page
+thumbnail distinguished grayscale from color on the finished source.
+LUT export returned no readable file. The finding covers the tested
+controls and source handles. #104 should refuse edits that remove known
+finishing or require guessing the placement of editor-only clips.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)
