@@ -2411,14 +2411,19 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                         source_record = self._v2_sources.get(
                             cast(str, event["sourceId"]), {}
                         )
+                        manifest_source = getattr(self, "_v2_manifest_sources", {}).get(
+                            cast(str, event["sourceId"]), {}
+                        )
                         try:
-                            is_qualified_fractional = (
-                                _frame_rate(timeline) == _QUALIFIED_FRACTIONAL_RATE
-                            )
+                            source_clock_rate = _frame_rate(timeline)
                         except WorkflowV2Error:
-                            is_qualified_fractional = False
-                        fractional_source_clock = (
-                            is_qualified_fractional
+                            source_clock_rate = None
+                        is_24fps_source_clock = source_clock_rate == (24, 1)
+                        qualified_source_clock = (
+                            (
+                                source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
+                                or is_24fps_source_clock
+                            )
                             and isinstance(source_record, Mapping)
                             and (
                                 source_record.get("kind") in {"video", "still"}
@@ -2430,11 +2435,37 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 )
                             )
                         )
-                        if fractional_source_clock:
-                            media_item = item.GetMediaPoolItem()
-                            manifest_source = self._v2_manifest_sources.get(
-                                cast(str, event["sourceId"]), {}
+                        legacy_24_source_range_matches = False
+                        if (
+                            qualified_source_clock
+                            and is_24fps_source_clock
+                            and source_range is not None
+                        ):
+                            legacy_24_source_range = self.expected_source_ranges.get(
+                                event_id,
+                                (
+                                    source_range["startFrame"],
+                                    source_range["startFrame"]
+                                    + source_range["durationFrames"]
+                                    - 1,
+                                ),
                             )
+                            if getattr(
+                                self, "_native_otio_imported", False
+                            ) and _native_otio_single_frame_hold(
+                                event, source_record, manifest_source
+                            ):
+                                legacy_24_source_range = (0, 0)
+                            legacy_24_source_range_matches = (
+                                item.GetSourceStartFrame() == legacy_24_source_range[0]
+                                and item.GetSourceEndFrame()
+                                == legacy_24_source_range[1]
+                            )
+                        if qualified_source_clock and (
+                            not is_24fps_source_clock
+                            or not legacy_24_source_range_matches
+                        ):
+                            media_item = item.GetMediaPoolItem()
                             if media_item is None:
                                 discrepancies.append("event-source-range")
                             else:
@@ -2459,6 +2490,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                         manifest_source=manifest_source,
                                         preparation_bindings=self._v2_preparation_bindings,
                                         timeline=timeline,
+                                        allow_24fps=is_24fps_source_clock,
                                         actual_start=item.GetSourceStartFrame(),
                                         actual_end=item.GetSourceEndFrame(),
                                         source_times=source_times,
@@ -2789,11 +2821,14 @@ def _fractional_source_range_matches(
     speed: object,
     media_properties: object,
     record_duration: int,
+    allow_24fps: bool = False,
 ) -> bool:
-    """Accept only the already qualified 23.976 Resolve source-clock shapes."""
+    """Accept only qualified 23.976 or explicitly admitted 24 fps readbacks."""
     try:
         rate = _frame_rate(timeline)
-        if rate != _QUALIFIED_FRACTIONAL_RATE:
+        if rate != _QUALIFIED_FRACTIONAL_RATE and not (
+            allow_24fps is True and rate == (24, 1)
+        ):
             return False
         rate_seconds = Fraction(rate[1], rate[0])
         source_id = event.get("sourceId")
@@ -2969,6 +3004,25 @@ def _fractional_source_range_matches(
         verification = (
             binding.get("verification") if isinstance(binding, Mapping) else None
         )
+        decoded_frame_count = (
+            verification.get("decodedFrameCount")
+            if isinstance(verification, Mapping)
+            else None
+        )
+        if allow_24fps:
+            native_source_range_matches = actual_start == expected_start and (
+                actual_end == expected_end
+                or (
+                    type(decoded_frame_count) is int
+                    and expected_end == decoded_frame_count
+                    and actual_end == expected_end - 1
+                )
+            )
+        else:
+            native_source_range_matches = actual_start in {
+                expected_start,
+                expected_start - 1,
+            } and actual_end in {expected_end, expected_end - 1}
         provenance = manifest_event.get("provenance")
         if (
             manifest_start != expected_start
@@ -3014,9 +3068,8 @@ def _fractional_source_range_matches(
             != {"numerator": 0, "denominator": 1}
             or source_frame_map.get("loggedTimeAtPackageFrameZero")
             != {"numerator": 0, "denominator": 1}
-            or actual_start not in {expected_start, expected_start - 1}
             or actual_start < 0
-            or actual_end not in {expected_end, expected_end - 1}
+            or not native_source_range_matches
             or not _native_speed_matches(speed, 100)
         ):
             return False

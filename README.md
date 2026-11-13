@@ -141,6 +141,35 @@ render or audio comparison is performed. Native source audio and unqualified
 fractional-rate timeline creation still refuse explicitly; this command does
 not bypass those product limitations.
 
+To compare two prepared scripts with their verified timeline durations, run
+`uv run --frozen python scripts/check_timeline_speed.py` with the short and long
+script/input paths, each case's `--*-preparation-seconds`, and a fresh `--output`
+root. The preparation seconds are measured offline before this command and shown
+in the results table; they are not included in the speed gate. Each case uses
+the command above and creates a new Resolve project. The runner prints the
+command's stage output and one summary table with preparation time, timeline
+duration, full build-plus-check command time, and PASS/FAIL. The gate compares
+only that full command time with the verified timeline duration, including CLI
+compilation, packaging, save/close/reopen, and structural verification. It runs
+both cases when a build verifies but misses the speed bar, then exits nonzero;
+it stops after any build or verification failure. Inputs must be prepared at
+24 fps beforehand.
+
+```sh
+# Set the script/input paths, measured preparation seconds, and new output root first.
+uv run --frozen python scripts/check_timeline_speed.py \
+  --short-script "$SHORT_SCRIPT" \
+  --short-inputs "$SHORT_INPUTS" \
+  --short-preparation-seconds "$SHORT_PREPARATION_SECONDS" \
+  --long-script "$LONG_SCRIPT" \
+  --long-inputs "$LONG_INPUTS" \
+  --long-preparation-seconds "$LONG_PREPARATION_SECONDS" \
+  --output "$ISSUE520_OUTPUT_ROOT"
+```
+
+This check does not cover the default 23.976 fps route.
+
+
 After a checked build, its result directory contains
 `row-timeline-map.json` (version 1), mapping script block IDs and v2 event IDs
 to the actual reopened Resolve timeline and item UIDs, tracks and frame bounds.
