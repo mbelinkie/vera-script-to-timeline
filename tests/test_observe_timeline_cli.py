@@ -231,7 +231,7 @@ def test_addition_follows_the_current_row_when_managed_clips_shift(
 
 
 def test_addition_after_gap_closure_uses_surviving_row_identity() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"rowId": "removed", "items": [{"resolveItemId": "gone"}]},
         {"rowId": "later", "items": [{"resolveItemId": "kept"}]},
     ]
