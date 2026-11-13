@@ -77,7 +77,8 @@ export function formatClipTime(ms: number): string {
 export function formatLoggedResearchClipV2(clip: ResearchLoggedCandidateInputV2): string {
   const oneLine = (value: string): string => [...value].map((char) => {
     const code = char.codePointAt(0)!;
-    return code < 32 || (code >= 127 && code <= 159) ? " " : char;
+    return code < 32 || (code >= 127 && code <= 159) ||
+      /[\p{Cf}\p{Zl}\p{Zp}]/u.test(char) ? " " : char;
   }).join("").replace(/\s+/gu, " ").trim();
   const words = oneLine(clip.englishText).split(/\s+/u).filter(Boolean).slice(0, 12).join(" ");
   return `${clip.id} | ${oneLine(clip.video.title)} | ${words} | ` +

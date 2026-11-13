@@ -2,7 +2,7 @@
 
 /** Read-only Research listing and guarded, atomic script-v2 insertion. */
 import {
-  closeSync, constants, fchmodSync, fstatSync, fsyncSync, lstatSync,
+  closeSync, constants, fchmodSync, fchownSync, fstatSync, fsyncSync, lstatSync,
   openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
   type Stats,
 } from "node:fs";
@@ -31,11 +31,13 @@ function matchingFile(left: Stats, right: Stats): boolean {
 
 /** Open without following a symlink, including one swapped in during open. */
 export function readResearchScript(path: string): ResearchScriptSnapshot {
-  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  // O_NONBLOCK makes a swapped-in FIFO fail fast rather than wait for a writer.
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = fstatSync(fd);
-    if (!stat.isFile() || !matchingFile(stat, lstatSync(path))) {
-      throw new Error("The script must be an unchanged regular file, not a symlink.");
+    if (!stat.isFile() || !matchingFile(stat, lstatSync(path)) || stat.nlink !== 1 ||
+        (typeof process.getuid === "function" && stat.uid !== process.getuid())) {
+      throw new Error("The script must be an owned, singly linked, unchanged regular file.");
     }
     const bytes = readFileSync(fd);
     if (!matchingFile(stat, fstatSync(fd)) || !matchingFile(stat, lstatSync(path))) {
@@ -71,6 +73,9 @@ export function replaceResearchScript(
     fd = openSync(temporaryPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
     created = true;
     writeFileSync(fd, content, "utf8");
+    // A parent directory's setgid bit may otherwise change the script group.
+    // Refuse safely if we cannot retain the original owner and group.
+    fchownSync(fd, source.stat.uid, source.stat.gid);
     fchmodSync(fd, source.stat.mode & 0o7777);
     fsyncSync(fd);
     closeSync(fd);
@@ -157,13 +162,16 @@ export async function runResearchClipCli(
   }
 
   try {
-    const { createResearchClient, resolveProjectName, formatLoggedResearchClipV2, insertLoggedResearchClipV2 } = await loadCommands();
+    const { createResearchClient, isResearchId, resolveProjectName, formatLoggedResearchClipV2, insertLoggedResearchClipV2 } = await loadCommands();
     const api = createResearchClient({
       bearer: io.env.bearer,
       ...(io.env.url === undefined ? {} : { url: io.env.url }),
       ...(io.request === undefined ? {} : { request: io.request }),
     });
-    const projectId = resolveProjectName(args[1]!, await api.projects());
+    const projectArg = args[1]!;
+    // An explicit UUID is checked by the clips endpoint itself. A broken or
+    // unrelated project list must not prevent that authorized direct lookup.
+    const projectId = resolveProjectName(projectArg, isResearchId(projectArg) ? [] : await api.projects());
     if (mode === "clips") {
       const clips = await api.clips(projectId);
       if (clips.length === 0) out("No logged clips in this Research project.\n");

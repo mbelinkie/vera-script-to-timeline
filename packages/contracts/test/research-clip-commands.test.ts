@@ -124,7 +124,7 @@ describe("Research clip Draft commands", () => {
 
   it("prints one safe line with source ID, English opening and exact millisecond boundaries", () => {
     const candidate = researchCandidate();
-    candidate.video.title = "Title\n\u001b[31m   live";
+    candidate.video.title = "Title\n\u001b[31m   live\u202e\u2028";
     candidate.englishText = "These are the first twelve words that should appear in the short English preview and no more";
     expect(formatClipTime(61005)).toBe("01:01.005");
     expect(formatClipTime(0)).toBe("00:00.000");
@@ -137,5 +137,6 @@ describe("Research clip Draft commands", () => {
     expect(line).not.toContain("\n");
     expect(line).not.toContain("\r");
     expect(line).not.toContain("\u001b");
+    expect(line).not.toMatch(/[\p{Cf}\p{Zl}\p{Zp}]/u);
   });
 });

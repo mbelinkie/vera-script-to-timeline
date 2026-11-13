@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, linkSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -114,6 +114,7 @@ describe("Research clip CLI", () => {
   it("saves frozen clip source fields after the active row; a second use creates a different row", async () => {
     const file = makeScript();
     chmodSync(file.path, 0o640);
+    const originalOwner = statSync(file.path);
     const h = harness();
     for (let count = 1; count <= 2; count += 1) {
       expect(await h.run("add-clip", PROJECT, CLIP, file.path, ANCHOR)).toBe(0);
@@ -134,12 +135,21 @@ describe("Research clip CLI", () => {
       expect(inserted.frameBinding).toBeUndefined();
       expect(new Set(doc.activeDraft.blocks.map((row) => row.id)).size).toBe(doc.activeDraft.blocks.length);
       expect(lstatSync(file.path).mode & 0o777).toBe(0o640);
+      expect(statSync(file.path).uid).toBe(originalOwner.uid);
+      expect(statSync(file.path).gid).toBe(originalOwner.gid);
       expect(readdirSync(file.directory)).toEqual(["script.json"]);
     }
     expect(h.errors).toEqual([]);
     expect(h.output).toEqual(["Research clip added to the script.\n", "Research clip added to the script.\n"]);
     expect(h.calls.every((call) => call.init?.method === "GET" && call.init.redirect === "manual")).toBe(true);
     expect(readFileSync(file.path, "utf8")).not.toContain(SECRET);
+  });
+
+  it("uses the selected project UUID without relying on an unrelated project list", async () => {
+    const h = harness({ projects: { invalid: "response" } });
+    expect(await h.run("clips", PROJECT)).toBe(0);
+    expect(h.calls.map((call) => call.pathname)).toEqual([`/api/projects/${PROJECT}/clips`]);
+    expect(h.errors).toEqual([]);
   });
 
   it("refuses invalid usage, missing credential, unsafe origin, missing and duplicate project names", async () => {
@@ -167,7 +177,8 @@ describe("Research clip CLI", () => {
       { clip: { ...researchCandidate(), selection: null } },
     ]) {
       const h = harness(options);
-      expectSafeFailure(await h.run("add-clip", PROJECT, CLIP, file.path, ANCHOR), h, file);
+      const project = "projects" in options ? "Field Research" : PROJECT;
+      expectSafeFailure(await h.run("add-clip", project, CLIP, file.path, ANCHOR), h, file);
     }
     const mismatchedList = harness({ clips: [{ ...researchCandidate(), projectId: researchId(9876) }] });
     expectSafeFailure(await mismatchedList.run("clips", PROJECT), mismatchedList);
@@ -207,6 +218,30 @@ describe("Research clip CLI", () => {
     expectSafeFailure(await h.run("add-clip", PROJECT, CLIP, link, ANCHOR), h, file);
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readdirSync(file.directory).sort()).toEqual(["linked.json", "script.json"]);
+  });
+
+  it("refuses hard-linked script paths without splitting their contents", async () => {
+    const file = makeScript();
+    const anotherLink = join(file.directory, "another-link.json");
+    linkSync(file.path, anotherLink);
+    const h = harness();
+    expectSafeFailure(await h.run("add-clip", PROJECT, CLIP, file.path, ANCHOR), h, file);
+    expect(readFileSync(anotherLink, "utf8")).toBe(file.before);
+    expect(readdirSync(file.directory).sort()).toEqual(["another-link.json", "script.json"]);
+  });
+
+  it("rejects a FIFO promptly rather than hanging on its opening read", () => {
+    const directory = tempDirectory();
+    const fifoPath = join(directory, "script.pipe");
+    expect(spawnSync("mkfifo", [fifoPath], { timeout: 3_000 }).status).toBe(0);
+    const probe = `import { readResearchScript } from ${JSON.stringify(pathToFileURL(cliPath).href)};
+try { readResearchScript(${JSON.stringify(fifoPath)}); process.exitCode = 1; }
+catch { process.exitCode = 0; }`;
+    const attempt = spawnSync(process.execPath, ["--input-type=module", "--eval", probe], {
+      cwd: root, encoding: "utf8", timeout: 3_000,
+    });
+    expect(attempt.error).toBeUndefined();
+    expect(attempt.status, attempt.stderr).toBe(0);
   });
 
   it("detects stale source replacements and in-place edits and preserves externally changed contents", () => {

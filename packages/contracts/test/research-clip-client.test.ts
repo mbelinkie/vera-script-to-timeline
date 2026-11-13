@@ -80,6 +80,8 @@ describe("Research GET-only transport", () => {
     expect(() => resolveProjectName("field", visible)).toThrow(/No visible Research project/);
     const tainted = [{ id: PROJECT, name: "Other\n\u001b[31m" }];
     expect(() => resolveProjectName("missing", tainted)).toThrow(/Other {2}\[31m/);
+    const misleading = [{ id: PROJECT, name: "Other\u202e\u2028Name" }];
+    expect(() => resolveProjectName("missing", misleading)).toThrow("Other  Name");
   });
 
   it("rejects invalid project-list DTOs rather than trusting the response", async () => {

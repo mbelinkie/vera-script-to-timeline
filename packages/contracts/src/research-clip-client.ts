@@ -17,6 +17,10 @@ const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
 
+export function isResearchId(value: string): boolean {
+  return UUID.test(value);
+}
+
 /** Refuse remote, credential-bearing, or path-extended service URLs. */
 export function researchOrigin(raw = DEFAULT_ORIGIN): string {
   let url: URL;
@@ -40,7 +44,8 @@ function safeProjectLabel(project: ResearchProject): string {
   // API data can become CLI output, so never emit control characters/ANSI escapes.
   const name = [...project.name].map((char) => {
     const code = char.codePointAt(0)!;
-    return code < 32 || (code >= 127 && code <= 159) ? " " : char;
+    return code < 32 || (code >= 127 && code <= 159) ||
+      /[\p{Cf}\p{Zl}\p{Zp}]/u.test(char) ? " " : char;
   }).join("");
   return `${name} (${project.id})`;
 }
