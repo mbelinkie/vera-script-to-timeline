@@ -46,22 +46,26 @@ sentences.
 
 Every passage gets the best coverage the recording offers:
 
-1. The last take that reads the whole passage and can be cut cleanly. Other
-   takes that read the whole passage are marked as alternates.
-2. If no take reads the whole passage (the presenter stopped and restarted
-   partway), coverage is suggested sentence by sentence: for each sentence,
-   the last take that reads it and can be cut cleanly, with alternates.
-   Neighbouring sentences from the same take stay together as one piece. On
+1. The last read of the whole passage that reaches both ends and can be cut
+   cleanly. Other whole reads are alternates. The suggested cut covers just
+   the passage, so a countdown or stumble before it is left out.
+2. If nobody read the whole passage (the presenter stopped and restarted
+   partway), coverage is suggested sentence by sentence, with alternates.
+   Neighbouring sentences from the same read stay together as one piece. On
    camera, the report warns that the joins will show; off camera they are
    covered by footage.
-3. Only a sentence that no take reads through is reported as a gap, and only
+3. Only a sentence that nobody read through is reported as a gap, and only
    the words nobody said are reported as NOT COVERED.
 
-**Small wording changes are allowed.** A take reads a passage (or a
+**Small wording changes are allowed.** A read covers a passage (or a
 sentence) when it says at least three quarters of the words as written and
-does not drop the first or last word. Whatever differs is listed under
+is missing at most one word at either end. Whatever differs is listed under
 "Differs" (said X for Y, added, left out) and saved in `takes.json`, so the
 timeline can carry a marker for it. It is not treated as a missing passage.
+
+A read that the take rules split at one or two unmatched words ("kinda" for
+"kind of") is put back together when the pause is short and the second part
+carries on where the first stopped.
 
 The command prints the time taken. A four-minute recording takes about four
 minutes on the 2019 Intel Mac; nearly all of it is the aligner.
@@ -87,8 +91,10 @@ minutes on the 2019 Intel Mac; nearly all of it is the aligner.
   word is by more than 0.4 seconds, so the rougher recogniser time was used.
   The aligner is known to drag a word onto a sniff, laugh or stammer next to
   it; the recogniser is not.
-- **`NO CLEAN CUT`**: no cut is offered, with the reason: there is no
-  measured quiet next to the speech, or the edge word has no time.
+- **`NO CLEAN CUT`**: no cut is offered, with the reason: the presenter runs
+  straight on (usually the camera state changes mid-read), there is no
+  measured quiet next to the speech, or the edge word has no time. The speech
+  times are still given.
 - **`NOT COVERED`**: nothing in the recording matches the passage, or the
   listed words of it.
 

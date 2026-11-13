@@ -356,8 +356,8 @@ def test_no_whole_take_suggests_coverage_sentence_by_sentence() -> None:
     passage = takes["passages"][0]
     assert passage["suggestedTakes"] == [] and passage["gaps"] == []
     first, second = passage["suggestedCoverage"]
-    assert (first["take"], first["scriptWords"]) == ("passage-1-take-1", [0, 4])
-    assert (second["take"], second["scriptWords"]) == ("passage-1-take-3", [4, 11])
+    assert (first["takes"], first["scriptWords"]) == (["passage-1-take-1"], [0, 4])
+    assert (second["takes"], second["scriptWords"]) == (["passage-1-take-3"], [4, 11])
     assert second["alternates"] == ["passage-1-take-2"]
     assert second["cut"]["startFrame"] == 20 * 30 - 10
     report_text = pt.render_report(takes)
@@ -400,9 +400,10 @@ def test_a_few_changed_words_are_differences_not_an_incomplete_passage() -> None
     assert take["complete"] is False and take["wholePassage"] is True
     assert passage["suggestedTakes"] == [take["id"]]
     assert passage["suggestedCoverage"] == [] and passage["gaps"] == []
-    assert take["differences"]["substituted"] == [{"script": "band", "said": "group"}]
-    assert take["differences"]["added"] == ["really"]
-    assert take["differences"]["omitted"] == []
+    changes = passage["suggested"]["differences"]
+    assert changes["substituted"] == [{"script": "band", "said": "group"}]
+    assert changes["added"] == ["really"] and changes["omitted"] == []
+    assert 'Differs: said "group" for "band"' in pt.render_report(takes)
     assert "complete, with wording changes" in pt.render_report(takes)
 
 
@@ -414,8 +415,39 @@ def test_a_later_take_with_no_clean_cut_is_passed_over_for_one_that_has() -> Non
     passage = takes["passages"][0]
     assert passage["takes"][1]["cut"] is None
     assert passage["suggestedTakes"] == ["passage-1-take-1"]
-    assert passage["passedOverTakes"] == ["passage-1-take-2"]
+    assert [r["takes"] for r in passage["alternateReads"]] == [["passage-1-take-2"]]
     assert passage["takes"][1]["alternate"] is True
-    assert "has no clean cut, so an earlier take is suggested" in pt.render_report(
-        takes
+    assert "Take 2 is later, but it changes or drops an end word or has no clean" in (
+        pt.render_report(takes)
     )
+
+
+def test_a_read_split_at_an_unmatched_word_is_put_back_together() -> None:
+    # "kinda" for "kind of": the take rules split the read there.
+    script = "(on) In fact the band was kind of wanted to embrace the weirdness."
+    takes = _coverage_case(
+        script,
+        _said("In fact the band was kinda wanted to embrace the weirdness.", 2.0),
+    )
+    passage = takes["passages"][0]
+    read = passage["suggested"]
+    assert read is not None and passage["gaps"] == []
+    assert read["speechStartS"] == 2.0 and read["said"].endswith("weirdness.")
+    assert read["differences"]["added"] == ["kinda"]
+    assert read["differences"]["omitted"] == ["kind", "of"]
+
+
+def test_a_countdown_before_the_read_is_left_out_of_the_suggested_cut() -> None:
+    spoken = [*_said("Three two", 2.0), *_said(SECOND, 2.6)]
+    takes = _takes(spoken)
+    read = takes["passages"][1]["suggested"]
+    assert read["said"] == SECOND and read["speechStartS"] == 2.6
+
+
+def test_a_dropped_last_word_is_a_difference_not_a_gap() -> None:
+    script = "(off) They really like saunas a lot okay."
+    takes = _coverage_case(script, _said("They really like saunas a lot.", 2.0))
+    passage = takes["passages"][0]
+    assert passage["gaps"] == [] and passage["suggested"] is not None
+    assert passage["suggested"]["differences"]["omitted"] == ["okay"]
+    assert passage["suggested"]["exact"] is False
