@@ -18,8 +18,225 @@ from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     _still_source_frame_duration,
 )
+from vera_timeline_agent.transition_delivery_v2 import (
+    TransitionRefusal,
+    apply_guarded_transition,
+)
 from vera_timeline_agent.v2_package import verify_v2_package
 from vera_timeline_agent.workflow_package import SOURCE_PINS
+
+
+def _issue88_live_boundary(
+    *, changed: str = "", offset: int = 24
+) -> tuple[dict[str, Any], Any, list[dict[str, Any]], dict[str, Any]]:
+    """Small mutable live adapter; adding a transition never changes audio/markers."""
+    plan: dict[str, Any] = {
+        "id": "transition-88",
+        "outgoingEventId": "out-88",
+        "incomingEventId": "in-88",
+        "boundaryFrame": 96,
+        "startFrame": 84,
+        "endFrame": 108,
+        "requestedDurationFrames": 24,
+        "disposition": "apply",
+        "alignment": "center",
+    }
+    writes: list[dict[str, Any]] = []
+    state: dict[str, Any] = {
+        "transition": None,
+        "audio": [(0, 192)],
+        "markers": {5: "original"},
+    }
+
+    class Item:
+        def __init__(self, side: str) -> None:
+            self.side = side
+
+        def GetEnd(self, _record: bool = False) -> int:
+            return (
+                95
+                if changed == "gap" and self.side == "out"
+                else 96
+                if self.side == "out"
+                else 192
+            )
+
+        def GetStart(self, _record: bool = False) -> int:
+            return 0 if self.side == "out" else 97 if changed == "gap" else 96
+
+        def GetRightOffset(self) -> int:
+            return offset
+
+        def GetLeftOffset(self) -> int:
+            return offset
+
+        def GetDuration(self, _record: bool = False) -> int:
+            return 96
+
+        def AddTransition(self, request: dict[str, Any]) -> bool:
+            writes.append(request)
+            if changed == "missing":
+                return True
+            state["transition"] = SimpleNamespace(
+                GetType=lambda: "transition",
+                GetName=lambda: "Cross Dissolve",
+                GetFusionCompCount=lambda: 0,
+                GetStart=lambda: 84,
+                GetEnd=lambda: 108 if changed != "short-readback" else 85,
+                GetDuration=lambda: 24 if changed != "short-readback" else 1,
+                GetUniqueId=lambda: "native-transition-uid",
+            )
+            return True
+
+    out, incoming = Item("out"), Item("in")
+
+    def locate(_plan: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "outgoing": out,
+            "incoming": incoming,
+            "outgoingId": "changed-uid" if changed == "uid" else "out-88",
+            "incomingId": "in-88",
+            "transition": state["transition"],
+        }
+
+    return plan, locate, writes, state
+
+
+@pytest.mark.parametrize("changed,offset", [("gap", 24), ("uid", 24), ("", 2)])
+def test_issue88_native_prewrite_guards_never_mutate_unsafe_boundary(
+    changed: str, offset: int
+) -> None:
+    plan, locate, writes, state = _issue88_live_boundary(changed=changed, offset=offset)
+    with pytest.raises(TransitionRefusal):
+        apply_guarded_transition(plan, locate)
+    assert writes == []
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
+
+
+@pytest.mark.parametrize("changed", ["", "missing", "short-readback"])
+def test_issue88_single_native_add_and_immediate_exact_readback(changed: str) -> None:
+    plan, locate, writes, state = _issue88_live_boundary(changed=changed)
+    if changed:
+        with pytest.raises(TransitionRefusal, match=r"exact geometry|uncertain"):
+            apply_guarded_transition(plan, locate)
+    else:
+        assert apply_guarded_transition(plan, locate) == "native-transition-uid"
+    assert len(writes) == 1
+    assert writes[0] == {
+        "type": "Cross Dissolve",
+        "category": "simple",
+        "position": "end",
+        "alignment": "center",
+        "duration": 24,
+    }
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
+
+
+def test_issue88_reopened_readback_checks_uid_span_and_preserves_clip_inventory() -> (
+    None
+):
+    plan, _locate, _writes, state = _issue88_live_boundary()
+    plan["trackId"] = "video-root"
+    plan["outgoingEventId"] = "out-88"
+    plan["incomingEventId"] = "in-88"
+
+    class Clip:
+        def __init__(self, ident: str, start: int, media: str) -> None:
+            self.ident, self.start, self.media = ident, start, media
+
+        def GetType(self) -> str:
+            return "video"
+
+        def GetStart(self, _record: bool = False) -> int:
+            return self.start
+
+        def GetEnd(self, _record: bool = False) -> int:
+            return self.start + 96
+
+        def GetDuration(self, _record: bool = False) -> int:
+            return 96
+
+        def GetMarkerCustomData(self, _frame: int) -> str:
+            return self.ident
+
+        def GetMediaPoolItem(self) -> Any:
+            return SimpleNamespace(GetMediaId=lambda: self.media)
+
+    out, incoming = Clip("out-stamp", 0, "out-media"), Clip("in-stamp", 96, "in-media")
+    transition = SimpleNamespace(
+        GetType=lambda: "transition",
+        GetName=lambda: "Cross Dissolve",
+        GetFusionCompCount=lambda: 0,
+        GetStart=lambda: 84,
+        GetEnd=lambda: 108,
+        GetDuration=lambda: 24,
+        GetUniqueId=lambda: "stable-uid",
+    )
+    items = [out, incoming, transition]
+    adapter = workflow_v2.PublicResolveAdapter.__new__(workflow_v2.PublicResolveAdapter)
+    # This unit fake bypasses the SDK constructor; no live target exists.
+    setattr(adapter, "assert_current_target", lambda: None)  # noqa: B010
+    adapter._v2_tracks = ({"id": "video-root", "kind": "video", "index": 1},)
+    adapter._v2_transition_plans = (plan,)
+    adapter._v2_transition_uids = {plan["id"]: "stable-uid"}
+    adapter.expected_events = {
+        "out-88": {
+            "id": "out-88",
+            "trackId": "video-root",
+            "sourceId": "source-out",
+            "recordRange": {"startFrame": 0, "durationFrames": 96},
+        },
+        "in-88": {
+            "id": "in-88",
+            "trackId": "video-root",
+            "sourceId": "source-in",
+            "recordRange": {"startFrame": 96, "durationFrames": 96},
+        },
+    }
+    adapter.expected_stamps = {"out-88": "out-stamp", "in-88": "in-stamp"}
+    adapter.media_id_by_source = {"source-out": "out-media", "source-in": "in-media"}
+    adapter.timeline = SimpleNamespace(GetItemListInTrack=lambda *_args: items)
+    discrepancies: list[str] = []
+    adapter._verify_v2_transitions(discrepancies)
+    assert discrepancies == []
+    # A plausible span alone is not enough: the SDK must also report the
+    # requested actual duration, and the reopened transition UID must match.
+    items[-1] = SimpleNamespace(
+        GetType=lambda: "transition",
+        GetName=lambda: "Cross Dissolve",
+        GetFusionCompCount=lambda: 0,
+        GetStart=lambda: 84,
+        GetEnd=lambda: 108,
+        GetDuration=lambda: 2,
+        GetUniqueId=lambda: "stable-uid",
+    )
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-geometry" in discrepancies
+    discrepancies.clear()
+    items[-1] = transition
+    adapter._v2_transition_uids[plan["id"]] = "different-uid"
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-uid" in discrepancies
+    discrepancies.clear()
+    adapter._v2_transition_uids[plan["id"]] = "stable-uid"
+    items[-1] = SimpleNamespace(
+        **{
+            "GetType": lambda: "transition",
+            "GetName": lambda: "Cross Dissolve",
+            "GetFusionCompCount": lambda: 0,
+            "GetStart": lambda: 84,
+            "GetEnd": lambda: 86,
+            "GetDuration": lambda: 2,
+            "GetUniqueId": lambda: "stable-uid",
+        }
+    )
+    adapter._verify_v2_transitions(discrepancies)
+    assert "transition-geometry" in discrepancies
+    assert [item.GetMarkerCustomData(0) for item in (out, incoming)] == [
+        "out-stamp",
+        "in-stamp",
+    ]
+    assert state["audio"] == [(0, 192)] and state["markers"] == {5: "original"}
 
 
 def _write(path: Path, value: object) -> None:
@@ -427,7 +644,27 @@ class _FakeAdapter:
 
     def verify(self, _view: Any) -> tuple[str, ...]:
         self._call("verify")
+        self.verified_view = _view
         return self.verification_discrepancies
+
+    def reopened_row_observation(self) -> dict[str, Any]:
+        tracks = {track["id"]: track for track in self.verified_view["tracks"]}
+        return {
+            "resolveProjectId": "reopened-project-uid",
+            "timelineId": "reopened-timeline-uid",
+            "observed": [
+                {
+                    "eventId": event["id"],
+                    "resolveItemId": f"reopened-item-{index}",
+                    "trackId": event["trackId"],
+                    "trackKind": tracks[event["trackId"]]["kind"],
+                    "trackIndex": tracks[event["trackId"]]["index"],
+                    "startFrame": event["recordRange"]["startFrame"],
+                    "durationFrames": event["recordRange"]["durationFrames"],
+                }
+                for index, event in enumerate(self.verified_view["events"])
+            ],
+        }
 
 
 def _existing_project_fixture() -> tuple[Any, Any, Any]:
@@ -1724,6 +1961,62 @@ def test_native_audio_reopened_gain_discrepancy_is_reported() -> None:
     assert adapter.verify(view) == ("event-properties",)
 
 
+def test_native_readback_captures_uid_from_reopened_matched_item() -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: "reopened-item-uid"
+    adapter.project.GetUniqueId = lambda: "reopened-project-uid"
+    adapter.timeline.GetUniqueId = lambda: "reopened-timeline-uid"
+    adapter.expected_project_id = "reopened-project-uid"
+    adapter.expected_timeline_id = "reopened-timeline-uid"
+
+    assert adapter.verify(view) == ()
+    observation = adapter.reopened_row_observation()
+    assert observation == {
+        "resolveProjectId": "reopened-project-uid",
+        "timelineId": "reopened-timeline-uid",
+        "observed": [
+            {
+                "eventId": view["events"][0]["id"],
+                "resolveItemId": "reopened-item-uid",
+                "trackId": "audio-track",
+                "trackKind": "audio",
+                "trackIndex": 1,
+                "startFrame": 0,
+                "durationFrames": 10,
+            }
+        ],
+    }
+    adapter.timeline.GetUniqueId = lambda: "switched-timeline-uid"
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="identity differs"):
+        adapter.reopened_row_observation()
+
+
+@pytest.mark.parametrize("uid", [None, "", 42])
+def test_reopened_item_uid_unavailable_refuses_verified_map(uid: Any) -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: uid
+    assert adapter.verify(view) == ("event-item-identity",)
+    assert adapter._reopened_row_items == []
+
+
+def test_reopened_item_stamp_or_geometry_mismatch_discards_uid_observation() -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    adapter.place_event(view["events"][0])
+    adapter._capture_row_map = True
+    item.GetUniqueId = lambda: "reopened-item-uid"
+    item.marker_custom_data = "wrong-event-stamp"
+    assert adapter.verify(view) == ("event-custom-data",)
+    assert adapter._reopened_row_items == []
+    item.marker_custom_data = adapter.expected_stamps[view["events"][0]["id"]]
+    item.start = 1
+    assert adapter.verify(view) == ("event-record-range",)
+    assert adapter._reopened_row_items == []
+
+
 @pytest.mark.parametrize("stray_slot", [2, 3])
 def test_readback_checks_undeclared_and_declared_empty_track_slots(
     stray_slot: int,
@@ -2542,6 +2835,59 @@ def test_reopened_readback_mismatch_retains_partial_target(tmp_path: Path) -> No
     assert result["partialTargetRetained"] is True
     assert result["discrepancies"] == ["event-properties"]
     assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+@pytest.mark.parametrize(
+    "bad_field",
+    ["missing-uid", "duplicate-uid", "missing-item", "wrong-track", "no-observation"],
+)
+def test_reopened_row_observation_errors_retain_target_without_verified_map(
+    tmp_path: Path, bad_field: str
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, visual_event_count=2)
+
+    class BadObservation(_FakeAdapter):
+        def reopened_row_observation(self) -> dict[str, Any]:
+            if bad_field == "no-observation":
+                raise RuntimeError("native UID unavailable")
+            value = super().reopened_row_observation()
+            items = value["observed"]
+            if bad_field == "missing-uid":
+                items[0]["resolveItemId"] = None
+            elif bad_field == "duplicate-uid":
+                items[1]["resolveItemId"] = items[0]["resolveItemId"]
+            elif bad_field == "missing-item":
+                items.pop()
+            else:
+                items[0]["trackIndex"] = 99
+            return value
+
+    adapter = BadObservation()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _: adapter,
+    )
+    assert result["status"] == "mutation_failed"
+    assert result["partialTargetRetained"] is True
+    assert result["verified"] is False
+    assert "rowTimelineMap" not in result
+    assert adapter.calls.index("save_close_reopen") < adapter.calls.index("verify")
+
+
+def test_preflight_never_includes_row_map(tmp_path: Path) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _: adapter
+    )
+    assert result["status"] == "preflight_passed"
+    assert "rowTimelineMap" not in result
+    assert "verify" not in adapter.calls
 
 
 @pytest.mark.parametrize(

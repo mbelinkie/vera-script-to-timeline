@@ -15,6 +15,7 @@ import type {
   CompilerResultV2 as PackageCompilerResultV2,
   PresenterAlignmentResolutionV1 as PackagePresenterAlignmentResolutionV1,
   TimelineManifestV2 as PackageTimelineManifestV2,
+  TransitionPlanV2 as PackageTransitionPlanV2,
   VeraContractsV2,
 } from "@vera/contracts/v2";
 
@@ -99,6 +100,7 @@ const validateBuildDiagnostic = validator(`${schemaIds.report}#/$defs/BuildDiagn
 const validateRecoveryAction = validator(`${schemaIds.report}#/$defs/RecoveryActionV2`);
 const validateCompilerResult = validator(`${schemaIds.report}#/$defs/CompilerResultV2`);
 const validateTimelineEvent = validator(`${schemaIds.manifest}#/$defs/TimelineEventV2`);
+const validateTransitionPlan = validator(`${schemaIds.manifest}#/$defs/TransitionPlanV2`);
 const validateDurationBasis = validator(`${schemaIds.manifest}#/$defs/DurationBasisV2`);
 const validateSupportResult = validator(
   `${schemaIds.manifest}#/$defs/SupportingItemResultV2`,
@@ -136,6 +138,94 @@ describe("v2 compiler, timeline, and build report contracts", () => {
     expectValid(validateDependencies, dependencies);
     expectValid(validateManifest, manifest);
     expectValid(validateReport, report);
+  });
+
+  it("accepts a signed, qualified video transition while leaving cut-only manifests byte-identical", () => {
+    const manifest = readFixture<PackageTimelineManifestV2>("timeline-manifest-v2.json");
+    const original = JSON.stringify(manifest);
+    expect(Object.hasOwn(manifest, "transitions")).toBe(false);
+    expectValid(validateManifest, manifest);
+
+    const transition: PackageTransitionPlanV2 = {
+      id: "00000000-0000-4000-8000-000000000031",
+      fromRowId: ids.block,
+      toRowId: "00000000-0000-4000-8000-000000000032",
+      trackId: "video-root",
+      boundaryFrame: 72,
+      outgoingEventId: ids.event,
+      incomingEventId: "00000000-0000-4000-8000-000000000033",
+      effectIdentity: {
+        category: "simple",
+        name: "Cross Dissolve",
+        sourceIdentity: "studio-native-dissolve",
+        fingerprint: `sha256:${"f".repeat(64)}`,
+        resolveBuild: "21.1.1.10",
+        route: "direct_add_transition",
+      },
+      requestedDurationFrames: 24,
+      alignment: "center",
+      startFrame: 60,
+      endFrame: 84,
+      disposition: "apply",
+    };
+    expectValid(validateTransitionPlan, transition);
+    expectValid(validateManifest, { ...manifest, transitions: [transition] });
+    expect(JSON.stringify(manifest)).toBe(original);
+
+    const namedCut: PackageTransitionPlanV2 = {
+      ...transition,
+      disposition: "cut_insufficient_handles",
+      reason: "only two delivered frames available on each side",
+    };
+    expectValid(validateTransitionPlan, namedCut);
+    expectValid(validateManifest, { ...manifest, transitions: [namedCut] });
+
+    const invalidPlans: unknown[] = [
+      { ...transition, outgoingEventId: undefined },
+      { ...transition, requestedDurationFrames: 23 },
+      { ...transition, requestedDurationFrames: Number.MAX_SAFE_INTEGER + 1 },
+      { ...transition, boundaryFrame: -1 },
+      { ...transition, alignment: "middle" },
+      { ...transition, disposition: "maybe" },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, category: "native" } },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, sourceIdentity: "" } },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, fingerprint: "" } },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, resolveBuild: undefined } },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, route: "unknown" } },
+      { ...transition, effectIdentity: { ...transition.effectIdentity, extra: "unsigned" } },
+      { ...transition, unapprovedField: true },
+      { ...transition, reason: "present on apply" },
+      { ...namedCut, reason: undefined },
+    ];
+    for (const invalid of invalidPlans) {
+      expect(validateTransitionPlan(invalid), JSON.stringify(invalid)).toBe(false);
+    }
+    expect(validateManifest({ ...manifest, transitions: [transition, transition] })).toBe(false);
+    expect(validateManifest({ ...manifest, transitions: null })).toBe(false);
+  });
+
+  it("recognizes the typed short-handle cut diagnostic without blocking a ready build", () => {
+    const report = readFixture<PackageBuildReportV2>("build-report-v2.json");
+    report.status = "ready";
+    report.readiness = { preview: "ready", release: "ready", blockingIssueIds: [] };
+    report.diagnostics = [
+      {
+        id: "00000000-0000-4000-8000-000000000034",
+        severity: "warning",
+        code: "ROW_TRANSITION_CUT_SHORT_HANDLES",
+        message: "Transition 31 between rows 6 and 32 at frame 72 needs 24 frames: named cut",
+        entity: { kind: "row_transition", id: "00000000-0000-4000-8000-000000000031", path: "rowTransitions[0]" },
+        evidence: { kind: "details", message: "insufficient verified delivered source handles" },
+        recoveryActionKinds: [],
+      },
+    ];
+    expectValid(validateBuildDiagnostic, report.diagnostics[0]);
+    expectValid(validateReport, report);
+    expect(report.status).toBe("ready");
+
+    const unknown = structuredClone(report);
+    unknown.diagnostics[0]!.code = "ROW_TRANSITION_SHORTENED" as never;
+    expect(validateReport(unknown)).toBe(false);
   });
 
   it("types presenter alignment while leaving word matching to semantic validation", () => {

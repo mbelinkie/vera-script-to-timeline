@@ -47,6 +47,10 @@ from vera_timeline_agent.qualification_output_records_v2 import (
     validate_temporary_presenter_report,
 )
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
+from vera_timeline_agent.transition_delivery_v2 import (
+    TransitionRefusal,
+    validate_signed_transitions,
+)
 
 BUILD_DIRECTORY = "Builds"
 MEDIA_DIRECTORY = "Media"
@@ -710,6 +714,10 @@ def _validate_inputs(
         raise _error("only a fully ready v2 report can be packaged")
 
     _validate_manifest_semantics(document, dependencies, manifest)
+    try:
+        validate_signed_transitions(document, dependencies, manifest, report)
+    except TransitionRefusal as error:
+        raise _error(f"signed picture transition refused: {error}") from error
     _validate_report_semantics(
         manifest, report, dependencies, temporary_presenter_events
     )

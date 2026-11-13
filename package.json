@@ -33,6 +33,8 @@
     "test:otio-package": "uv run --frozen pytest tests/test_otio_package.py",
     "test:free-trial": "uv run --frozen pytest tests/test_free_trial.py",
     "validate:script": "node packages/contracts/src/script-validator-cli.ts",
+    "research:clips": "node packages/contracts/src/research-clip-cli.ts clips",
+    "research:add-clip": "node packages/contracts/src/research-clip-cli.ts add-clip",
     "export:prompter": "node packages/contracts/src/prompter-export-cli.ts",
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",

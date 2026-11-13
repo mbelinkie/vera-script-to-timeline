@@ -1,15 +1,39 @@
 #!/usr/bin/env node
 
 import type { ScriptDocumentV1 } from "./generated/contracts.js";
+import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 import type {
   ValidationDiagnostic,
   ValidationResult,
 } from "./script-validator.js";
 
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { pathToFileURL } from "node:url";
 
 import { validateScriptDocument } from "./script-validator.ts";
+
+// Do not load the v2 validation graph for legacy v1 calls. The direct Node
+// entrypoint needs the repository's source .js -> .ts hook only on the v2 path.
+async function validateV2(input: unknown) {
+  const sourceDirectory = new URL("./", import.meta.url).href;
+  const sourceHooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      return nextResolve(
+        context.parentURL?.startsWith(sourceDirectory) &&
+          specifier.startsWith("./") && specifier.endsWith(".js")
+          ? `${specifier.slice(0, -3)}.ts` : specifier,
+        context,
+      );
+    },
+  });
+  try {
+    const { validateScriptDocumentV2 } = await import("./authoring-v2-validation.ts");
+    return validateScriptDocumentV2(input);
+  } finally {
+    sourceHooks.deregister();
+  }
+}
 
 export const SCRIPT_VALIDATOR_EXIT = {
   valid: 0,
@@ -34,10 +58,10 @@ const defaultIo: CliIo = {
   validate: validateScriptDocument,
 };
 
-export function runScriptValidatorCli(
+export async function runScriptValidatorCli(
   args: readonly string[],
   io: CliIo = defaultIo,
-): number {
+): Promise<number> {
   try {
     if (args.length !== 1) {
       io.stderr(
@@ -62,12 +86,14 @@ export function runScriptValidatorCli(
       return SCRIPT_VALIDATOR_EXIT.parse;
     }
 
-    const result = io.validate(input);
+    const isV2 = input !== null && typeof input === "object" &&
+      "schemaVersion" in input && input.schemaVersion === "script-document/v2";
+    const result = isV2 ? await validateV2(input) : io.validate(input);
     if (!result.valid) {
       io.stdout(formatFailure(path, result));
       return SCRIPT_VALIDATOR_EXIT.validation;
     }
-    io.stdout(formatPass(path, input as ScriptDocumentV1));
+    io.stdout(formatPass(path, input as ScriptDocumentV1 | ScriptDocumentV2));
     return SCRIPT_VALIDATOR_EXIT.valid;
   } catch (error: unknown) {
     try {
@@ -79,7 +105,7 @@ export function runScriptValidatorCli(
   }
 }
 
-function formatPass(path: string, document: ScriptDocumentV1): string {
+function formatPass(path: string, document: ScriptDocumentV1 | ScriptDocumentV2): string {
   const lines = [`PASS ScriptDocument valid: ${path}`];
   for (const [index, block] of document.activeDraft.blocks.entries()) {
     lines.push(
@@ -154,5 +180,5 @@ if (
   invokedPath !== undefined &&
   import.meta.url === pathToFileURL(invokedPath).href
 ) {
-  process.exitCode = runScriptValidatorCli(process.argv.slice(2));
+  process.exitCode = await runScriptValidatorCli(process.argv.slice(2));
 }

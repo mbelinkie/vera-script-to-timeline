@@ -13,6 +13,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "python"))
 from vera_timeline_agent import sample_precision_probe_v2 as probe
+from vera_timeline_agent import workflow_v2_cli
+
+
+def test_precision_probe_declares_exact_shipped_runtime() -> None:
+    assert probe.RELEASE_RUNTIME_FILES == workflow_v2_cli.SAMPLE_PRECISION_RUNTIME_FILES
 
 
 def _sha(path: Path) -> str:

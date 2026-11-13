@@ -1094,6 +1094,9 @@ export interface RowTransitionIntentV2 {
   fromRowId: string;
   toRowId: string;
   effect: string;
+  /**
+   * For an active named picture transition, exactly one durationFrames (positive even whole frames) or durationSeconds ({numerator,denominator} positive rational mapping exactly to even frames at the frozen timeline rate), with optional alignment left/center/right (default center). Saved needs_review settings remain opaque. The compiler validates active settings; the editor preserves inactive values.
+   */
   settings: {
     [k: string]: unknown;
   };
@@ -1615,6 +1618,10 @@ export interface TimelineManifestV2 {
   roles: TrackRolesV2;
   sources: (VisualManifestSourceV2 | NarrationManifestSourceV2)[];
   events: TimelineEventV2[];
+  /**
+   * Optional signed picture-boundary decisions. Omit entirely for cut-only builds to retain existing canonical manifest bytes.
+   */
+  transitions?: TransitionPlanV2[];
   visualSequenceResolutions: VisualSequenceResolutionV2[];
   supportingItemResults: SupportingItemResultV2[];
   preparationBindings: PreparedMediaBindingV1[];
@@ -1694,6 +1701,36 @@ export interface StillFramePictureTreatmentV2 {
 export interface ScriptMarkerTreatmentV2 {
   supportingItemId: string;
   text: string;
+}
+/**
+ * One explicitly authored adjacent video-row pair, with exact requested span and an explicit apply-or-named-cut decision. No event is added to the portable OTIO.
+ */
+export interface TransitionPlanV2 {
+  id: string;
+  fromRowId: string;
+  toRowId: string;
+  trackId: string;
+  boundaryFrame: number;
+  outgoingEventId: string;
+  incomingEventId: string;
+  effectIdentity: TransitionEffectIdentityV2;
+  requestedDurationFrames: number;
+  alignment: "left" | "center" | "right";
+  startFrame: number;
+  endFrame: number;
+  disposition: "apply" | "cut_insufficient_handles";
+  reason?: string;
+}
+/**
+ * Exact verified Resolve library binding, not a name-only Effects Library lookup.
+ */
+export interface TransitionEffectIdentityV2 {
+  category: "simple" | "fusion";
+  name: string;
+  sourceIdentity: string;
+  fingerprint: string;
+  resolveBuild: string;
+  route: "direct_add_transition";
 }
 export interface VisualSequenceResolutionV2 {
   documentId: string;
@@ -1865,7 +1902,8 @@ export interface BuildDiagnosticV2 {
     | "GRAPHIC_PROVENANCE_MISMATCH"
     | "GRAPHIC_PROVENANCE_UNAVAILABLE"
     | "GRAPHIC_PROVENANCE_UNAUTHORIZED"
-    | "GRAPHIC_PROVENANCE_UNEXPECTED";
+    | "GRAPHIC_PROVENANCE_UNEXPECTED"
+    | "ROW_TRANSITION_CUT_SHORT_HANDLES";
   message: string;
   entity: EntityReferenceV2;
   evidence:
@@ -1938,6 +1976,7 @@ export interface EntityReferenceV2 {
     | "occurrence"
     | "preparation"
     | "track"
+    | "row_transition"
     | "settings"
     | "build";
   id: string | null;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -189,7 +190,7 @@ def test_macos_fd_clone_and_unsupported_volume_fallback(
 ) -> None:
     source = tmp_path / "source.png"
     source.write_bytes(b"mac clone sample")
-    monkeypatch.setattr(package_cache.sys, "platform", "darwin")
+    monkeypatch.setattr(sys, "platform", "darwin")
     calls: list[Path] = []
 
     def fake_native_clone(fd: int, destination: Path) -> None:

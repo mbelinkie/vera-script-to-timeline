@@ -1,0 +1,27 @@
+{
+  "transitions": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000c8",
+      "fromRowId": "00000000-0000-4000-8000-000000000006",
+      "toRowId": "00000000-0000-4000-8000-00000000003c",
+      "trackId": "video-root",
+      "boundaryFrame": 96,
+      "outgoingEventId": "c54080bb-0d64-5bc7-8693-ce2c32f28afe",
+      "incomingEventId": "989293c8-4cfe-568c-846c-ca138dbec0a8",
+      "effectIdentity": {
+        "category": "simple",
+        "name": "Cross Dissolve",
+        "sourceIdentity": "resolve/native/simple/Cross Dissolve",
+        "fingerprint": "issue-292/studio-21.1.1.10/native-simple-cross-dissolve",
+        "resolveBuild": "21.1.1.10",
+        "route": "direct_add_transition"
+      },
+      "requestedDurationFrames": 24,
+      "alignment": "center",
+      "startFrame": 84,
+      "endFrame": 108,
+      "disposition": "apply"
+    }
+  ],
+  "shortHandleWarnings": []
+}
