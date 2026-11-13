@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import wave
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -11,8 +12,14 @@ from typing import Any
 
 import opentimelineio as otio  # type: ignore[import-untyped]
 import pytest
-from issue177_package_fixture import _refresh_document_closure, make_package_case
+from issue177_package_fixture import (
+    _append_report_event,
+    _refresh_document_closure,
+    _stable_id,
+    make_package_case,
+)
 from vera_timeline_agent import native_image_motion, workflow_v2
+from vera_timeline_agent.music_input import music_event_id
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.transition_delivery_v2 import (
     TransitionRefusal,
@@ -40,6 +47,284 @@ from vera_timeline_agent.workflow_v2_cli import (
     attest_package_v2,
     build_release_v2,
 )
+
+
+def _music_package_case(
+    tmp_path: Path, *, missing: bool = False, short: bool = False
+) -> tuple[Any, str, str]:
+    """A real 48 kHz mono PCM bed under a synthetic visual-only program row."""
+    case = make_package_case(tmp_path)
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    row_id = document["activeDraft"]["blocks"][0]["id"]
+    original_event = manifest["events"][0]
+    end_frame = original_event["recordRange"]["endFrame"]
+    source = {
+        "mediaReferenceId": "00000000-0000-4000-8000-000000000201",
+        "artifactId": "00000000-0000-4000-8000-000000000202",
+        "artifactVersion": 1,
+        "contentHash": "sha256:" + "0" * 64,
+    }
+    wav_path = tmp_path / "media" / "bed.wav"
+    frames = 48000 if short else 48000 * 3
+    if not missing:
+        with wave.open(str(wav_path), "wb") as writer:
+            writer.setnchannels(1)
+            writer.setsampwidth(2)
+            writer.setframerate(48000)
+            writer.writeframes(b"\0\0" * frames)
+        source["contentHash"] = (
+            "sha256:" + hashlib.sha256(wav_path.read_bytes()).hexdigest()
+        )
+    span_id = "00000000-0000-4000-8000-000000000203"
+    document["rowAudioSpans"] = [
+        {
+            "id": span_id,
+            "startRowId": row_id,
+            "endRowId": row_id,
+            "source": source,
+            "settings": {"gainDb": -12},
+        }
+    ]
+    binding: dict[str, Any] = {
+        "spanId": span_id,
+        "source": source,
+        "displayFilename": wav_path.name,
+        "status": "missing" if missing else "ready",
+    }
+    event_id = music_event_id(document["id"], span_id, str(source["artifactId"]))
+    source_id = _stable_id(f"music-source:{span_id}:{source['artifactId']}")
+    if not missing:
+        binding.update({"sampleRate": 48000, "channels": 1, "durationSamples": frames})
+        dependencies["roles"]["musicTrackId"] = "music-a5"
+        track = {"id": "music-a5", "kind": "audio", "index": 5, "name": "A5 Music"}
+        dependencies["tracks"].append(track)
+        manifest["tracks"].append(track)
+        manifest["roles"]["musicTrackId"] = "music-a5"
+        manifest["sources"].append({"id": source_id, "musicAudio": binding})
+        end = min(end_frame, frames * 25 // 48000)
+        fade = min(6, end // 2)
+        provenance = dict(original_event["provenance"])
+        provenance.update(
+            {
+                "blockId": row_id,
+                "sourceId": source_id,
+                "originalSourceHash": source["contentHash"],
+                "deliveredSourceHash": source["contentHash"],
+                "timingMapHash": None,
+            }
+        )
+        music_event = {
+            "eventId": event_id,
+            "kind": "music",
+            "trackId": "music-a5",
+            "trackRole": "music",
+            "recordRange": {"startFrame": 0, "endFrame": end},
+            "provenance": provenance,
+            "sourceRange": {"startFrame": 0, "endFrame": end},
+            "sourceTimeMapping": None,
+            "preparationBindingHash": None,
+            "audio": None,
+            "music": {
+                "spanId": span_id,
+                "startRowId": row_id,
+                "endRowId": row_id,
+                "audioHash": source["contentHash"],
+                "gainDb": -12,
+                "fadeInFrames": fade,
+                "fadeOutFrames": fade,
+                "requestedEndFrame": end_frame,
+            },
+        }
+        _append_report_event(manifest, report, music_event)
+        report["summary"]["sourceCount"] += 1
+        case.media_paths[f"source:{source_id}"] = wav_path
+        case.media_paths[f"original:{source_id}"] = wav_path
+    dependencies["musicBindings"] = [binding]
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    return case, event_id, source_id
+
+
+def test_music_package_roundtrip_is_attested_and_preserves_pcm(tmp_path: Path) -> None:
+    case, event_id, source_id = _music_package_case(tmp_path)
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    assert verified.event_count == 2
+    assert verified.media_count == 2
+    root = built.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((root / "delivery-view.json").read_text())
+    music = next(item for item in view["events"] if item["kind"] == "music")
+    assert music["sourceId"] == source_id
+    assert music["recordRange"] == {"startFrame": 0, "durationFrames": 75}
+    assert music["sourceRange"] == {"startFrame": 0, "durationFrames": 75}
+    assert music["gainDb"] == -12
+    assert music["musicTreatment"]["fadeInFrames"] == 6
+    assert (
+        root / f"Preparation/original/{source_id}.wav"
+    ).read_bytes() == case.media_paths[f"source:{source_id}"].read_bytes()
+    receipt = json.loads((root / VERIFICATION_FILENAME).read_text())
+    assert receipt["sourceHashes"][source_id] == view["sources"][-1]["contentHash"]
+    timeline = otio.adapters.read_from_file(str(root / OTIO_FILENAME))
+    a5 = next(
+        t for t in timeline.tracks if t.metadata["vera"]["track_id"] == "music-a5"
+    )
+    assert a5.metadata["vera"]["track_index"] == 5
+    clip = next(c for c in a5 if isinstance(c, otio.schema.Clip))
+    assert clip.metadata["vera"]["event_id"] == event_id
+    assert clip.metadata["vera"]["music_treatment"]["gainDb"] == -12
+    # Native workflow attestation explicitly admits music in phase 4.
+    assert receipt["status"] == "ready_to_import"
+
+
+@pytest.mark.parametrize("missing,short", [(True, False), (False, True)])
+def test_music_package_missing_or_short_is_not_looped(
+    tmp_path: Path, missing: bool, short: bool
+) -> None:
+    case, _, source_id = _music_package_case(tmp_path, missing=missing, short=short)
+    result = case.build()
+    assert verify_v2_package(case.project_root)
+    root = result.project_root / BUILD_DIRECTORY / result.build_id
+    view = json.loads((root / "delivery-view.json").read_text())
+    music = [event for event in view["events"] if event["kind"] == "music"]
+    if missing:
+        assert music == []
+        assert (
+            source_id
+            not in json.loads((root / VERIFICATION_FILENAME).read_text())[
+                "sourceHashes"
+            ]
+        )
+        baseline = make_package_case(tmp_path / "baseline")
+        baseline_root = baseline.build().project_root
+        baseline_receipt = json.loads(
+            (
+                baseline_root
+                / BUILD_DIRECTORY
+                / result.build_id
+                / VERIFICATION_FILENAME
+            ).read_text()
+        )
+        receipt = json.loads((root / VERIFICATION_FILENAME).read_text())
+        assert set(receipt["fileHashes"]) == set(baseline_receipt["fileHashes"])
+    else:
+        assert music[0]["recordRange"]["durationFrames"] == 25
+        assert music[0]["sourceRange"]["durationFrames"] == 25
+        assert (root / f"Preparation/original/{source_id}.wav").is_file()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "input-tamper",
+        "missing-wav",
+        "changed-wav",
+        "original-tamper",
+        "extra-wav",
+        "a5",
+        "duration",
+        "gain",
+        "fade",
+    ],
+)
+def test_music_package_rejects_mutated_data(tmp_path: Path, mutation: str) -> None:
+    case, _, source_id = _music_package_case(tmp_path)
+    if mutation in {"a5", "duration", "gain", "fade"}:
+        document = json.loads(case.document_path.read_text())
+        dependencies = json.loads(case.dependencies_path.read_text())
+        manifest = json.loads(case.manifest_path.read_text())
+        report = json.loads(case.report_path.read_text())
+        music = next(event for event in manifest["events"] if event["kind"] == "music")
+        if mutation == "a5":
+            dependencies["tracks"][-1]["index"] = 4
+            manifest["tracks"][-1]["index"] = 4
+        elif mutation == "duration":
+            music["recordRange"]["endFrame"] -= 1
+            next(item for item in report["eventResults"] if item["kind"] == "music")[
+                "recordRange"
+            ] = music["recordRange"]
+        elif mutation == "gain":
+            music["music"]["gainDb"] = -3
+        else:
+            music["music"]["fadeOutFrames"] = 0
+        _refresh_document_closure(document, dependencies, manifest, report)
+        for path, value in (
+            (case.document_path, document),
+            (case.dependencies_path, dependencies),
+            (case.manifest_path, manifest),
+            (case.report_path, report),
+        ):
+            path.write_bytes(canonical_json_bytes(value))
+        with pytest.raises(V2PackageError, match=r"music|A5"):
+            case.build()
+    elif mutation == "input-tamper":
+        case.media_paths[f"source:{source_id}"].write_bytes(b"changed before copy")
+        with pytest.raises(V2PackageError, match="hash mismatch"):
+            case.build()
+    else:
+        built = case.build()
+        wav = case.project_root / "Media/Narration" / f"{source_id}.wav"
+        if mutation == "missing-wav":
+            wav.unlink()
+        elif mutation == "changed-wav":
+            wav.write_bytes(b"tamper")
+        elif mutation == "original-tamper":
+            (
+                built.project_root
+                / BUILD_DIRECTORY
+                / built.build_id
+                / f"Preparation/original/{source_id}.wav"
+            ).write_bytes(b"tamper")
+        else:
+            extra = case.project_root / "Media/Narration/extra.wav"
+            extra.write_bytes(b"extra")
+        with pytest.raises(V2PackageError):
+            verify_v2_package(built.project_root)
+
+
+@pytest.mark.parametrize("mutation", ["track", "gain", "duration", "fades"])
+def test_music_otio_verifier_rejects_rehashed_tampering(
+    tmp_path: Path, mutation: str
+) -> None:
+    case, _, _ = _music_package_case(tmp_path)
+    built = case.build()
+    root = built.project_root / BUILD_DIRECTORY / built.build_id
+    otio_path = root / OTIO_FILENAME
+    timeline = otio.adapters.read_from_file(str(otio_path))
+    a5 = next(
+        track
+        for track in timeline.tracks
+        if track.metadata["vera"]["track_id"] == "music-a5"
+    )
+    clip = next(item for item in a5 if isinstance(item, otio.schema.Clip))
+    if mutation == "track":
+        a5.metadata["vera"]["track_index"] = 4
+    elif mutation == "gain":
+        clip.metadata["vera"]["gain_db"] = -3
+    elif mutation == "duration":
+        clip.source_range = otio.opentime.TimeRange(
+            otio.opentime.RationalTime(0, 25),
+            otio.opentime.RationalTime(74, 25),
+        )
+    else:
+        clip.metadata["vera"]["music_treatment"]["fadeInFrames"] = 0
+    otio.adapters.write_to_file(timeline, str(otio_path))
+    receipt_path = root / VERIFICATION_FILENAME
+    receipt = json.loads(receipt_path.read_text())
+    receipt["fileHashes"][f"Builds/{built.build_id}/{OTIO_FILENAME}"] = (
+        "sha256:" + hashlib.sha256(otio_path.read_bytes()).hexdigest()
+    )
+    receipt_path.write_bytes(canonical_json_bytes(receipt))
+    with pytest.raises(V2PackageError, match="OTIO"):
+        verify_v2_package(built.project_root)
 
 
 def _issue88_signed_case() -> tuple[
