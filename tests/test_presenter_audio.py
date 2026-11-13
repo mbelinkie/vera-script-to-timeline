@@ -376,7 +376,7 @@ def test_output_on_filesystem_without_hardlinks(
     def unsupported(*_args: object) -> None:
         raise OSError(errno.ENOTSUP, "unsupported")
 
-    monkeypatch.setattr(presenter_audio.os, "link", unsupported)
+    monkeypatch.setattr(os, "link", unsupported)
     presenter_audio.clean(video, output)
     _assert_clean_wav(output)
 
@@ -385,7 +385,7 @@ def test_output_on_filesystem_without_hardlinks(
     def fail_sync(_fd: int) -> None:
         raise OSError("disk failure")
 
-    monkeypatch.setattr(presenter_audio.os, "fsync", fail_sync)
+    monkeypatch.setattr(os, "fsync", fail_sync)
     with pytest.raises(OSError, match="disk failure"):
         presenter_audio.clean(video, failed_output)
     assert not failed_output.exists()
