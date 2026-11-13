@@ -16,13 +16,15 @@ import shutil
 import stat
 import tempfile
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from json import encoder as json_encoder
 from json.encoder import encode_basestring, encode_basestring_ascii
 from pathlib import Path, PurePosixPath
+from time import perf_counter
 from typing import Any, cast
 
 import jsonschema  # type: ignore[import-untyped]
@@ -31,6 +33,14 @@ from referencing import Registry, Resource
 
 from vera_timeline_agent import native_image_motion
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.package_cache import (
+    CacheEntry,
+    FileStamp,
+    PackageCache,
+    SourceChangedError,
+    clone_or_copy,
+    source_stamp,
+)
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
 from vera_timeline_agent.qualification_output_records_v2 import (
     OutputConsistencyError,
@@ -76,6 +86,10 @@ class V2PackageError(RuntimeError):
     """An actionable failure that prevents v2 package publication or import."""
 
 
+class _SuppliedHashMismatch(V2PackageError):
+    """Stale supplied media must not leave a possibly huge partial staging copy."""
+
+
 @dataclass(frozen=True)
 class V2PackageResult:
     """Published v2 package identity and whether this was an exact retry."""
@@ -93,6 +107,49 @@ class V2PackageVerification:
     event_count: int
     marker_count: int
     media_count: int
+
+
+_PACKAGE_STAGES = (
+    "source hash",
+    "copy + streamed hash",
+    "slates",
+    "audio",
+    "receipt hash",
+    "verification",
+)
+
+
+class _PackageSubtimings:
+    """Opt-in, additive wall-clock measurements; never change package bytes."""
+
+    def __init__(self, observer: Callable[[str, float, bool], None]) -> None:
+        self.observer = observer
+        self.seconds = dict.fromkeys(_PACKAGE_STAGES, 0.0)
+        self.failed: set[str] = set()
+
+    @contextmanager
+    def measure(self, stage: str) -> Iterator[None]:
+        started = perf_counter()
+        try:
+            yield
+        except BaseException:
+            self.failed.add(stage)
+            raise
+        finally:
+            self.seconds[stage] += max(0.0, perf_counter() - started)
+
+    def report(self) -> None:
+        for stage in _PACKAGE_STAGES:
+            self.observer(stage, self.seconds[stage], stage not in self.failed)
+
+
+@contextmanager
+def _measure(timing: _PackageSubtimings | None, stage: str) -> Iterator[None]:
+    if timing is None:
+        yield
+    else:
+        with timing.measure(stage):
+            yield
 
 
 def _error(message: str) -> V2PackageError:
@@ -339,7 +396,9 @@ def _copy_input_file(
     actual = _HASH_PREFIX + digest.hexdigest()
     if expected_hash is not None and actual != expected_hash:
         destination.unlink(missing_ok=True)
-        raise _error(f"media hash mismatch for {source}: {expected_hash} != {actual}")
+        raise _SuppliedHashMismatch(
+            f"media hash mismatch for {source}: {expected_hash} != {actual}"
+        )
     return actual
 
 
@@ -1226,6 +1285,113 @@ class _InputArtifact:
     generated: bytes | None = None
 
 
+class _CachedIntegrityFailure(V2PackageError):
+    """Cached bytes failed independent checks; a fresh-source retry is safe."""
+
+
+class _MediaCacheSession:
+    """One package's unique source identities, not one entry per event."""
+
+    def __init__(self, root: Path, *, force_source: bool = False) -> None:
+        self.store = PackageCache(root)
+        self.force_source = force_source
+        self.entries: dict[tuple[Path, str], tuple[FileStamp, CacheEntry | None]] = {}
+        self.staged: dict[tuple[Path, str], Path] = {}
+        self.cached_used: dict[str, CacheEntry] = {}
+        self.reused = 0
+        self.processed = 0
+        self.used_cached_audio = False
+
+    @staticmethod
+    def _identity(source: Path, expected: str) -> tuple[Path, str]:
+        return source.absolute(), expected
+
+    def _stamp(self, source: Path) -> FileStamp:
+        try:
+            return source_stamp(source)
+        except SourceChangedError as error:
+            raise _error(str(error)) from error
+
+    def _checked(
+        self, source: Path, expected: str
+    ) -> tuple[FileStamp, CacheEntry | None]:
+        identity = self._identity(source, expected)
+        if identity not in self.entries:
+            stamp = self._stamp(source)
+            try:
+                entry = (
+                    None
+                    if self.force_source
+                    else self.store.lookup(source, expected, stamp=stamp)
+                )
+            except SourceChangedError as error:
+                raise _error(str(error)) from error
+            self.entries[identity] = stamp, entry
+        stamp, entry = self.entries[identity]
+        if self._stamp(source) != stamp:
+            raise _error(f"supplied media changed during package: {source}")
+        return stamp, entry
+
+    def checked_hash(self, source: Path, expected: str) -> str:
+        # The cold source is streamed and hash-checked at the first stage copy.
+        self._checked(source, expected)
+        return expected
+
+    def audio_bytes(self, source: Path, expected: str) -> bytes:
+        stamp, entry = self._checked(source, expected)
+        if entry is not None:
+            try:
+                raw = self.store.read_bytes(entry)
+            except SourceChangedError as error:
+                raise _error(str(error)) from error
+            if raw is not None:
+                self.used_cached_audio = True
+                self.cached_used[entry.key] = entry
+                return raw
+        raw = source.read_bytes()
+        if self._stamp(source) != stamp:
+            raise _error(f"supplied media changed while reading audio: {source}")
+        return raw
+
+    def stage(self, artifact: _InputArtifact, destination: Path) -> None:
+        source, expected = artifact.origin, artifact.content_hash
+        stamp, entry = self._checked(source, expected)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        identity = self._identity(source, expected)
+        previous = self.staged.get(identity)
+        if previous is not None:
+            # Repeated original:/source: entries share verified input identity,
+            # but every published destination must be an independent inode.
+            clone_or_copy(previous, destination)
+        elif entry is not None:
+            try:
+                reused = self.store.materialize(entry, destination)
+            except SourceChangedError as error:
+                raise _error(str(error)) from error
+            if reused:
+                self.reused += 1
+                self.cached_used[entry.key] = entry
+            else:
+                _copy_input_file(source, destination, expected)
+                self.processed += 1
+                self.store.publish(source, expected, destination, stamp=stamp)
+        else:
+            _copy_input_file(source, destination, expected)
+            self.processed += 1
+            try:
+                self.store.publish(source, expected, destination, stamp=stamp)
+            except SourceChangedError as error:
+                raise _error(str(error)) from error
+        if self._stamp(source) != stamp:
+            destination.unlink(missing_ok=True)
+            raise _error(f"supplied media changed while staging: {source}")
+        self.staged[identity] = destination
+
+    def discard_used(self) -> None:
+        for entry in self.cached_used.values():
+            self.store.discard(entry)
+
+
 @dataclass(frozen=True)
 class _Preparation:
     requirement_key: str
@@ -1583,6 +1749,8 @@ def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
     media_paths: Mapping[str, Path],
+    timing: _PackageSubtimings | None = None,
+    cache: _MediaCacheSession | None = None,
 ) -> dict[str, _InputArtifact]:
     sources = _unique_by_id(manifest.get("sources"), "source")
     events = _unique_by_id(manifest.get("events"), "event", "eventId")
@@ -1651,13 +1819,16 @@ def _media_artifacts(
             treatment = cast(JsonObject, event["pictureTreatment"])
             if treatment["kind"] == "slate":
                 timeline = cast(JsonObject, manifest["timeline"])
-                generated = _render_slate(
-                    cast(str, treatment["text"]),
-                    _safe_frame(timeline.get("width"), "timeline width", positive=True),
-                    _safe_frame(
-                        timeline.get("height"), "timeline height", positive=True
-                    ),
-                )
+                with _measure(timing, "slates"):
+                    generated = _render_slate(
+                        cast(str, treatment["text"]),
+                        _safe_frame(
+                            timeline.get("width"), "timeline width", positive=True
+                        ),
+                        _safe_frame(
+                            timeline.get("height"), "timeline height", positive=True
+                        ),
+                    )
                 expected = _hash_bytes(generated)
             else:
                 reference = cast(JsonObject, treatment["reference"])
@@ -1732,7 +1903,12 @@ def _media_artifacts(
             raise _error(f"media path for {key} must be a pathlib.Path")
         _require_path_components_no_symlink(source_path, f"media path {key}")
         _require_regular(source_path, f"media path {key}")
-        actual = _file_hash(source_path)
+        with _measure(timing, "source hash"):
+            actual = (
+                _file_hash(source_path)
+                if cache is None
+                else cache.checked_hash(source_path, expected_hash)
+            )
         if actual != expected_hash:
             raise _error(f"media hash mismatch for {key}: {expected_hash} != {actual}")
         suffix = _suffix(source_path)
@@ -1784,8 +1960,18 @@ def _media_artifacts(
             if plan is None:
                 continue
             artifact = artifacts[f"event:{event_id}"]
-            raw = endpoint_wav(artifact.origin.read_bytes(), plan, audio)
+            with _measure(timing, "audio"):
+                input_bytes = (
+                    artifact.origin.read_bytes()
+                    if cache is None
+                    else cache.audio_bytes(artifact.origin, artifact.content_hash)
+                )
+                raw = endpoint_wav(input_bytes, plan, audio)
         except (OSError, ValueError) as error:
+            if cache is not None and cache.used_cached_audio:
+                raise _CachedIntegrityFailure(
+                    f"cached source audio {event_id} could not be processed"
+                ) from error
             raise _error(f"source audio {event_id}: {error}") from error
         original_key = f"original-audio:{event_id}"
         artifacts[original_key] = _InputArtifact(
@@ -1931,6 +2117,7 @@ def _delivery_view(
     *,
     source_paths: Mapping[str, str] | None = None,
     validate: bool = True,
+    cache: _MediaCacheSession | None = None,
 ) -> JsonObject:
     events = cast(list[JsonObject], manifest["events"])
     source_records = _unique_by_id(manifest.get("sources"), "source")
@@ -2097,7 +2284,9 @@ def _delivery_view(
         "composition": manifest["composition"],
     }
     if validate:
-        _validate_delivery_view(manifest, dependencies, view, prepared, artifacts)
+        _validate_delivery_view(
+            manifest, dependencies, view, prepared, artifacts, cache=cache
+        )
         source_map = _unique_by_id(sources_view, "delivery source")
         for event in events_view:
             _native_motion_for_event(
@@ -2116,6 +2305,8 @@ def _validate_delivery_view(
     view: JsonObject,
     prepared: Mapping[str, _Preparation],
     artifacts: Mapping[str, _InputArtifact],
+    *,
+    cache: _MediaCacheSession | None = None,
 ) -> None:
     if set(view) != {
         "schemaVersion",
@@ -2272,19 +2463,42 @@ def _validate_delivery_view(
                 )
                 if plan is not None:
                     original = artifacts.get(f"original-audio:{event_id}")
-                    if original is None or _file_hash(original.origin) != content_hash:
+                    if original is None:
+                        raise _error(
+                            f"source audio {event_id} lacks its original #174 WAV"
+                        )
+                    actual_original = (
+                        _file_hash(original.origin)
+                        if cache is None
+                        else cache.checked_hash(original.origin, content_hash)
+                    )
+                    if actual_original != content_hash:
                         raise _error(
                             f"source audio {event_id} lacks its original #174 WAV"
                         )
                     content_hash = _hash_bytes(
                         endpoint_wav(
-                            original.origin.read_bytes(), plan, prep.record["audio"]
+                            (
+                                original.origin.read_bytes()
+                                if cache is None
+                                else cache.audio_bytes(original.origin, content_hash)
+                            ),
+                            plan,
+                            prep.record["audio"],
                         )
                     )
             except (OSError, ValueError) as error:
+                if cache is not None and cache.used_cached_audio:
+                    raise _CachedIntegrityFailure(
+                        f"cached source audio {event_id} could not be projected"
+                    ) from error
                 raise _error(f"source audio {event_id}: {error}") from error
             package_source = sources[event_id]
             if package_source.get("contentHash") != content_hash:
+                if cache is not None and cache.used_cached_audio:
+                    raise _CachedIntegrityFailure(
+                        f"cached source audio {event_id} does not match its frozen WAV"
+                    )
                 raise _error(f"source audio {event_id} does not retain its #174 WAV")
             artifact_map[f"event:{event_id}"] = _InputArtifact(
                 f"event:{event_id}",
@@ -2923,15 +3137,22 @@ def _write_exclusive(path: Path, data: bytes) -> None:
         raise _error(f"could not write staged package file {path}: {error}") from error
 
 
-def _copy_artifact(artifact: _InputArtifact, root: Path) -> None:
+def _copy_artifact(
+    artifact: _InputArtifact,
+    root: Path,
+    cache: _MediaCacheSession | None = None,
+) -> None:
     if artifact.generated is not None:
         if _hash_bytes(artifact.generated) != artifact.content_hash:
             raise _error(f"generated artifact {artifact.key} hash differs")
         _write_exclusive(root / artifact.relative_path, artifact.generated)
         return
-    _copy_input_file(
-        artifact.origin, root / artifact.relative_path, artifact.content_hash
-    )
+    if cache is not None:
+        cache.stage(artifact, root / artifact.relative_path)
+    else:
+        _copy_input_file(
+            artifact.origin, root / artifact.relative_path, artifact.content_hash
+        )
 
 
 def _build_staging(
@@ -2948,6 +3169,8 @@ def _build_staging(
     prepared: Mapping[str, _Preparation],
     artifacts: Mapping[str, _InputArtifact],
     view: JsonObject,
+    timing: _PackageSubtimings | None = None,
+    cache: _MediaCacheSession | None = None,
 ) -> JsonObject:
     build_id = _id_component(cast(str, manifest["buildId"]), "build id")
     build_root = staging / BUILD_DIRECTORY / build_id
@@ -2962,7 +3185,15 @@ def _build_staging(
     for item in prepared.values():
         _write_exclusive(staging / item.relative_path, item.raw)
     for artifact in artifacts.values():
-        _copy_artifact(artifact, staging)
+        stage = (
+            "audio"
+            if artifact.generated is not None and artifact.kind == "audio"
+            else "slates"
+            if artifact.generated is not None
+            else "copy + streamed hash"
+        )
+        with _measure(timing, stage):
+            _copy_artifact(artifact, staging, cache)
     timeline = _build_otio(
         view, cast(str, manifest["id"]), build_id, manifest, prepared, artifacts
     )
@@ -2975,7 +3206,10 @@ def _build_staging(
 
     package_files, _ = _walk_package(staging)
     receipt_path = f"{BUILD_DIRECTORY}/{build_id}/{VERIFICATION_FILENAME}"
-    file_hashes = {path: _file_hash(staging / path) for path in sorted(package_files)}
+    with _measure(timing, "receipt hash"):
+        file_hashes = {
+            path: _file_hash(staging / path) for path in sorted(package_files)
+        }
     sources = cast(list[JsonObject], view["sources"])
     dep_build = cast(JsonObject, dependencies["build"])
     receipt = {
@@ -3395,7 +3629,7 @@ def _read_inputs(
     )
 
 
-def build_v2_package(
+def _build_v2_package(
     manifest_path: Path,
     report_path: Path,
     document_path: Path,
@@ -3404,6 +3638,8 @@ def build_v2_package(
     *,
     media_paths: Mapping[str, Path],
     preparation_paths: Mapping[str, Path],
+    timing: _PackageSubtimings | None = None,
+    cache: _MediaCacheSession | None = None,
 ) -> V2PackageResult:
     """Create one immutable verified v2 package under a fresh project root."""
     paths = (manifest_path, report_path, document_path, dependencies_path, project_root)
@@ -3431,8 +3667,8 @@ def build_v2_package(
     prepared = _validate_preparations(
         document, dependencies, manifest, report, preparation_paths
     )
-    artifacts = _media_artifacts(manifest, prepared, media_paths)
-    view = _delivery_view(manifest, dependencies, prepared, artifacts)
+    artifacts = _media_artifacts(manifest, prepared, media_paths, timing, cache)
+    view = _delivery_view(manifest, dependencies, prepared, artifacts, cache=cache)
 
     root = project_root.absolute()
     if root == root.parent or root.name in {"", ".", ".."}:
@@ -3470,12 +3706,27 @@ def build_v2_package(
             prepared=prepared,
             artifacts=artifacts,
             view=view,
+            timing=timing,
+            cache=cache,
         )
-        proposed_verification, proposed_receipt = _verify_package(staging)
+        with _measure(timing, "verification"):
+            try:
+                proposed_verification, proposed_receipt = _verify_package(staging)
+            except V2PackageError as error:
+                if cache is None or not cache.cached_used:
+                    raise
+                # Only an independent *staging* mismatch can trigger the one
+                # fresh-source retry; never retry after native or publication.
+                shutil.rmtree(staging)
+                staging = None
+                raise _CachedIntegrityFailure(
+                    "cached package bytes failed independent staging verification"
+                ) from error
         if root.exists():
             if any(root.iterdir()):
                 try:
-                    existing_verification, existing_receipt = _verify_package(root)
+                    with _measure(timing, "verification"):
+                        existing_verification, existing_receipt = _verify_package(root)
                 except V2PackageError as error:
                     raise _error(
                         f"project root is not the same verified package: {root}"
@@ -3504,10 +3755,16 @@ def build_v2_package(
             raise _error(f"project root appeared during package publication: {root}")
         os.rename(staging, root)
         staging = None
-        published = verify_v2_package(root)
+        with _measure(timing, "verification"):
+            published = verify_v2_package(root)
         if published != proposed_verification:
             raise _error("published package differs from its staged verification")
         return V2PackageResult(root, published.build_id, False)
+    except _SuppliedHashMismatch:
+        if staging is not None:
+            shutil.rmtree(staging)
+            staging = None
+        raise
     except V2PackageError as error:
         if staging is None:
             raise
@@ -3549,3 +3806,62 @@ def build_v2_package(
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
         finally:
             os.close(lock_fd)
+
+
+def build_v2_package(
+    manifest_path: Path,
+    report_path: Path,
+    document_path: Path,
+    dependencies_path: Path,
+    project_root: Path,
+    *,
+    media_paths: Mapping[str, Path],
+    preparation_paths: Mapping[str, Path],
+    stage_observer: Callable[[str, float, bool], None] | None = None,
+    package_cache: Path | None = None,
+    cache_observer: Callable[[int, int], None] | None = None,
+) -> V2PackageResult:
+    """Build a v2 package, optionally reporting non-overlapping substep timings.
+
+    A timing observer is diagnostic only and is never serialized into the package.
+    Verification is independent and remains mandatory with or without an observer.
+    """
+    if package_cache is not None:
+        cache_root, project_path = package_cache.resolve(), project_root.resolve()
+        if cache_root.is_relative_to(project_path) or project_path.is_relative_to(
+            cache_root
+        ):
+            raise V2PackageError("package cache must be outside the package directory")
+    timing: _PackageSubtimings | None = None
+    cache = _MediaCacheSession(package_cache) if package_cache is not None else None
+    try:
+        for attempt in range(2):
+            # A failed cache attempt must not mark successful retry timings FAIL.
+            timing = (
+                _PackageSubtimings(stage_observer)
+                if stage_observer is not None
+                else None
+            )
+            try:
+                return _build_v2_package(
+                    manifest_path,
+                    report_path,
+                    document_path,
+                    dependencies_path,
+                    project_root,
+                    media_paths=media_paths,
+                    preparation_paths=preparation_paths,
+                    timing=timing,
+                    cache=cache,
+                )
+            except _CachedIntegrityFailure:
+                if attempt or cache is None:
+                    raise
+                cache.discard_used()
+                cache = _MediaCacheSession(cache.store.root, force_source=True)
+        raise AssertionError("unreachable cache retry state")
+    finally:
+        if cache is not None and cache_observer is not None:
+            cache_observer(cache.reused, cache.processed)
+        if timing is not None:
+            timing.report()
