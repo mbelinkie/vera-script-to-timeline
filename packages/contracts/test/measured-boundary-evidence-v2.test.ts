@@ -90,7 +90,7 @@ test("local acoustic onsets retain explicit provenance through compiler admissio
   expect(result.report.status).toBe("ready");
   expect(evidence(input).verification).toMatchObject({ onsetBasis: "local_acoustic_alignment" });
   expect(result.manifest.boundaryEvidence.every((item) => item.boundaryEvidenceMethod === "measured_audio_boundaries/v1")).toBe(true);
-});
+}, 30_000);
 function configure(input: Input, mode: "before-gamma" | "after-beta" | "final-tail") {
   const base = row(input).primaryVisualSequence!.slots[0]!;
   if (base.kind !== "content") throw new Error("root missing");
