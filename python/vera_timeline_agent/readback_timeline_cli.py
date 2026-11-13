@@ -13,6 +13,7 @@ from .build_jobs import NeedsAction
 from .build_timeline_once import _external_resolve, exclusive_resolve_build
 from .row_timeline_map import compare_reopened_row_map
 from .workflow_v2 import (
+    VerifiedPackageV2,
     _read_regular,
     _regular_absolute,
     _strict_object,
@@ -33,6 +34,26 @@ def parser() -> argparse.ArgumentParser:
     return command
 
 
+def _load_readback_package(root: Path) -> VerifiedPackageV2:
+    attestation_path = root / "v2-attestation.json"
+    raw_attestation = _read_regular(
+        attestation_path, "build attestation", max_bytes=16 * 1024 * 1024
+    )
+    return load_verified_package_v2(
+        attestation_path, hashlib.sha256(raw_attestation).hexdigest()
+    )
+
+
+def _read_saved_row_map(root: Path) -> dict[str, Any] | None:
+    path = root / "row-timeline-map.json"
+    if not path.exists() and not path.is_symlink():
+        return None
+    return _strict_object(
+        _read_regular(path, "saved row map", max_bytes=16 * 1024 * 1024),
+        "saved row map",
+    )
+
+
 def readback_output(
     output: Path,
     *,
@@ -48,22 +69,8 @@ def readback_output(
     ):
         raise ValueError("invalid --project name")
     root = _regular_absolute(output.absolute(), "build output", directory=True)
-    attestation_path = root / "v2-attestation.json"
-    raw_attestation = _read_regular(
-        attestation_path, "build attestation", max_bytes=16 * 1024 * 1024
-    )
-    package = load_verified_package_v2(
-        attestation_path, hashlib.sha256(raw_attestation).hexdigest()
-    )
-    saved_path = root / "row-timeline-map.json"
-    saved = (
-        _strict_object(
-            _read_regular(saved_path, "saved row map", max_bytes=16 * 1024 * 1024),
-            "saved row map",
-        )
-        if saved_path.exists() or saved_path.is_symlink()
-        else None
-    )
+    package = _load_readback_package(root)
+    saved = _read_saved_row_map(root)
     if saved is not None:
         expected_project = saved.get("projectName")
         if (

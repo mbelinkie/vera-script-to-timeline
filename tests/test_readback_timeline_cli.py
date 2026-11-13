@@ -13,6 +13,7 @@ from typing import Any, cast
 import pytest
 from vera_timeline_agent import readback_timeline_cli as cli
 from vera_timeline_agent.build_jobs import NeedsAction
+from vera_timeline_agent.build_timeline_once import exclusive_resolve_build
 from vera_timeline_agent.row_timeline_map import make_row_timeline_map
 from vera_timeline_agent.workflow_v2 import (
     _marker_stamp,
@@ -172,6 +173,11 @@ class FakeResolve:
 def _case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Path, dict[str, Any], FakeResolve]:
+    monkeypatch.setattr(
+        cli,
+        "exclusive_resolve_build",
+        lambda: exclusive_resolve_build(tmp_path / "resolve.lock"),
+    )
     original_video = {
         "eventId": "e1",
         "kind": "primary_visual",

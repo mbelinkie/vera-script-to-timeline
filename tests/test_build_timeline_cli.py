@@ -596,6 +596,10 @@ def _verified_native_map(
             "trackIndex": tracks[event["trackId"]]["index"],
             "startFrame": event["recordRange"]["startFrame"],
             "durationFrames": event["recordRange"]["durationFrames"],
+            "name": event["id"],
+            "mediaId": None,
+            "sourceStartFrame": None,
+            "sourceEndFrame": None,
         }
         for index, event in enumerate(checked.view["events"])
     ]
@@ -607,6 +611,7 @@ def _verified_native_map(
         resolve_project_id="reopened-project-uid",
         timeline_name=checked.attestation["timelineName"],
         timeline_id="reopened-timeline-uid",
+        version=2,
     )
 
 

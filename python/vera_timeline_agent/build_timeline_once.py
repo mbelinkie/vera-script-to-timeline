@@ -607,6 +607,7 @@ def deliver_compiled(
                 resolve_project_id=native_map["resolveProjectId"],
                 timeline_name=checked.attestation["timelineName"],
                 timeline_id=native_map["timelineId"],
+                version=2,
             )
             if expected_map != native_map:
                 raise ValueError("verified native row map differs from delivery view")
