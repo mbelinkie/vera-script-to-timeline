@@ -20,8 +20,9 @@ import {
 /* eslint-disable @typescript-eslint/require-await -- Test doubles implement async ports. */
 
 // Each test boots an isolated PGlite WASM database. Cold Linux CI filesystems
-// may exceed Vitest's 5s default without any assertion or query failing.
-vi.setConfig({ testTimeout: 20_000 });
+// may exceed shorter limits when other fast workspaces run in parallel.
+// This is a database behavior suite, not a latency budget.
+vi.setConfig({ testTimeout: 120_000 });
 
 const PROJECT = "11111111-1111-4111-8111-111111111111";
 const OTHER_PROJECT = "22222222-2222-4222-8222-222222222222";

@@ -97,7 +97,7 @@ describe("durable Extras operations", () => {
     expect((await db.query<{ n: number }>(
       "SELECT count(*)::integer AS n FROM stt_document_revisions WHERE project_id=$1", [projectId],
     )).rows[0]?.n).toBe(4);
-  });
+  }, 180_000);
 
   it("refuses invalid, stale, cross-operation and revoked replays without changing head or comments", async () => {
     const { auth, service, owner, editor, viewer, db } = await setup();

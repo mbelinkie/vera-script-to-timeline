@@ -68,6 +68,10 @@ def test_independent_attestation_roundtrip_and_media_drift(tmp_path: Path) -> No
     assert loaded.attestation["verification"]["mediaCount"] == len(
         loaded.view["sources"]
     )
+    validator_source = "python/vera_timeline_agent/presenter_warning_validation.py"
+    assert loaded.attestation["verifier"]["sourceHashes"][validator_source] == sha256(
+        Path(__file__).resolve().parents[1] / validator_source
+    )
     with pytest.raises(ValueError, match="new"):
         attest_package_v2(case.project_root, attestation)
     assert sha256(attestation) == digest
@@ -194,6 +198,26 @@ def test_stdlib_bootstrap_retains_unique_refusals(tmp_path: Path) -> None:
         sha256(path) for path in reports
     }
     assert list(package.iterdir()) == []
+
+
+def test_bootstrap_ignores_finder_metadata_but_still_checks_release(
+    tmp_path: Path,
+) -> None:
+    release = tmp_path / "release"
+    build_release_v2(release)
+    (release / RELEASE_NAME / "python/vera_timeline_agent/.DS_Store").write_bytes(
+        b"Finder metadata"
+    )
+    evidence = tmp_path / "evidence"
+    package = tmp_path / "package"
+    package.mkdir()
+    write_immutable_json(
+        release / RELEASE_NAME / "request.json",
+        request_value(release, evidence, package),
+    )
+    output = launch(release).stdout
+    assert "installed source inventory differs from release" not in output
+    assert len(list(evidence.glob("started-*.json"))) == 1
 
 
 @pytest.mark.parametrize(

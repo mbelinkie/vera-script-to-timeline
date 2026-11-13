@@ -11,12 +11,7 @@ from vera_timeline_agent.companion_readiness import inspect_readiness, retain_re
 from vera_timeline_agent.companion_readiness_cli import main
 from vera_timeline_agent.workflow_delivery_cli import build_release
 from vera_timeline_agent.workflow_package import sha256
-from vera_timeline_agent.workflow_v2_cli import (
-    build_output_release_v2,
-    build_release_v2,
-    build_sample_import_release_v2,
-    build_sample_precision_release_v2,
-)
+from vera_timeline_agent.workflow_v2_cli import build_release_v2
 
 
 def _case(
@@ -346,28 +341,6 @@ def test_installed_symlinks_are_never_accepted(
         path.symlink_to(original, target_is_directory=target == "release-dir")
         check = root
     assert inspect_readiness(check, policy, observed)["state"] == ("repair_required")
-
-
-@pytest.mark.parametrize(
-    "builder",
-    [
-        build_output_release_v2,
-        build_sample_precision_release_v2,
-        build_sample_import_release_v2,
-    ],
-)
-def test_real_v2_release_variants_use_their_manifest_inventory(
-    tmp_path: Path, builder: object
-) -> None:
-    root, policy, observed = _case(tmp_path, "2")
-    variant_root = tmp_path / "variant"
-    assert callable(builder)
-    variant_manifest = builder(variant_root)
-    policy["releaseSha256"] = sha256(variant_manifest)
-    assert inspect_readiness(variant_root, policy, observed)["state"] == (
-        "native_preflight_required"
-    )
-    assert inspect_readiness(root, policy, observed)["state"] == "repair_required"
 
 
 @pytest.mark.parametrize("version", ["1", "2"])

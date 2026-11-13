@@ -18,11 +18,6 @@ only. Frame rate, dimensions, and sample rate remain adjustable project/build
 settings in the product; the validator does not define a product-wide
 invariant.
 
-`resolve-test-queue-m1.json` is unrelated to the media kit: it is a
-synthetic-only example plan for the #376 M1 offline test queue. It declares no
-media asset, is not part of the kit inventory, and cannot launch Resolve or any
-command.
-
 ## Verify
 
 Run the fixture acceptance check from the repository root:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -21,11 +22,21 @@ COMPILER_FIXTURES = Path(__file__).parent / "data/authoring_v2/issue_173/compile
 
 
 def test_row_map_is_in_the_complete_verified_resolve_runtime(tmp_path: Path) -> None:
-    from vera_timeline_agent.target_identity_v2 import TI_RUNTIME_FILES
     from vera_timeline_agent.workflow_v2_cli import RUNTIME_FILES, build_release_v2
 
     assert "row_timeline_map.py" in RUNTIME_FILES
-    assert set(RUNTIME_FILES) == set(TI_RUNTIME_FILES)
+    source = Path(__file__).parents[1] / "integrations/resolve/VERA Delivery v2.py"
+    tree = ast.parse(source.read_text())
+    inventory = next(
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "TI_RUNTIME_FILES"
+            for target in node.targets
+        )
+    )
+    assert tuple(RUNTIME_FILES) == tuple(inventory)
     release = tmp_path / "release"
     build_release_v2(release)
     bundled = (

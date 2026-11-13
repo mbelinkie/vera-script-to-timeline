@@ -18,8 +18,10 @@ import { PNG } from "pngjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The independent PGlite WASM fixture is cold-started for every case; CI
-// filesystem/CPU contention can exceed Vitest's 5s default without a defect.
-vi.setConfig({ testTimeout: 20_000 });
+// filesystem/CPU contention can exceed Vitest's default and prior 60s bound
+// while other fast workspaces compile and run their own cold database tests.
+// These cross-service PGlite tests check authorization, not execution latency.
+vi.setConfig({ testTimeout: 120_000 });
 
 import type {
   AuthoringReferencePort,

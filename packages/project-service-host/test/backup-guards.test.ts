@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// These are multi-process correctness checks, not latency assertions.
+// Allow cold shared-runner I/O without changing any refusal expectations.
+vi.setConfig({ testTimeout: 20_000 });
 
 const root = resolve(import.meta.dirname, "../../..");
 const testTimeout = 30_000;

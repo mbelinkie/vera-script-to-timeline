@@ -45,7 +45,7 @@ from vera_timeline_agent.package_cache import (
     source_stamp,
 )
 from vera_timeline_agent.placeholder_slate import render_placeholder_slate
-from vera_timeline_agent.qualification_output_records_v2 import (
+from vera_timeline_agent.presenter_warning_validation import (
     OutputConsistencyError,
     validate_temporary_presenter_report,
 )
