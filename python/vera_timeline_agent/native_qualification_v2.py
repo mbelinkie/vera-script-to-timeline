@@ -33,6 +33,7 @@ RUNTIME_FILES = (
     "workflow_delivery.py",
     "workflow_launcher.py",
     "workflow_v2.py",
+    "transition_delivery_v2.py",
     "workflow_v2_launcher.py",
     "native_image_motion.py",
     "native_qualification_v2.py",

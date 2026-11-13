@@ -45,6 +45,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     timings = StageTimings()
     try:
         completed = build_once(options, timings=timings)
+        for warning in completed.named_transition_cuts:
+            print(f"Named transition built as cut_insufficient_handles: {warning}")
         timings.finish(
             frames=completed.frames,
             numerator=completed.numerator,

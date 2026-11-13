@@ -30,6 +30,7 @@ import type {
   ScriptDocumentV2,
   TimelineEventV2,
   TimelineManifestV2,
+  TransitionPlanV2,
   VisualOnlyBlockV2,
   VisualSequenceResolutionV2,
 } from "./generated/contracts-v2.js";
@@ -43,6 +44,7 @@ import { graphicProvenanceJsonProblem, graphicProvenanceSchemaCode, validateGrap
 import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { decideTransitionBoundary, requestedTransitionFrames } from "./transition-boundary-v2.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -175,10 +177,11 @@ const sourceDurationInSeconds = (sourceFrames: number, rate: RationalRate): Frac
   if (!Number.isSafeInteger(sourceFrames) || sourceFrames <= 0) throw new RangeError("source interval must contain positive safe-integer frames");
   return frac(BigInt(sourceFrames) * BigInt(rate.denominator), BigInt(rate.numerator));
 };
-const preparationRange = (sourceInFrame: number, duration: Fraction): RequestedPreparationRangeV1 => {
+interface TransitionHandles { pre: Fraction; post: Fraction }
+const preparationRange = (sourceInFrame: number, duration: Fraction, handles?: TransitionHandles): RequestedPreparationRangeV1 => {
   const durationWire = wire(duration);
   if (!durationWire || durationWire.numerator <= 0) throw new RangeError("preparation duration exceeds exact positive rational wire bounds");
-  return { sourceInFrame, duration: durationWire as RequestedPreparationRangeV1["duration"], preHandle: { numerator: 0, denominator: 1 }, postHandle: { numerator: 0, denominator: 1 } };
+  return { sourceInFrame, duration: durationWire as RequestedPreparationRangeV1["duration"], preHandle: handles ? wireOrThrow(handles.pre, "pre-handle") as RequestedPreparationRangeV1["preHandle"] : { numerator: 0, denominator: 1 }, postHandle: handles ? wireOrThrow(handles.post, "post-handle") as RequestedPreparationRangeV1["postHandle"] : { numerator: 0, denominator: 1 } };
 };
 const entity = (kind: EntityReferenceV2["kind"], id: string | null, path: string | null): EntityReferenceV2 => ({ kind, id, path });
 const schemaDiagnostics = (errors: ErrorObject[] | null | undefined, prefix: string): CompileDiagnosticV2[] => (errors ?? []).map((error) => ({
@@ -204,9 +207,6 @@ function unsupportedRowIntent(document: ScriptDocumentV2): CompileDiagnosticV2 |
   const active = new Set(document.activeDraft.blocks.map((row) => row.id));
   if (document.rowAudioSpans?.some((span) => active.has(span.startRowId))) return {
     code: "ROW_AUDIO_RUNTIME_UNAVAILABLE", message: "Saved row audio intent has no qualified timing or delivery adapter. Review it before building.", jsonPath: "/rowAudioSpans",
-  };
-  if (document.rowTransitions?.some((pair) => pair.state === "active" && pair.effect !== "cut" && active.has(pair.fromRowId))) return {
-    code: "ROW_TRANSITION_RUNTIME_UNAVAILABLE", message: "Saved row transition intent has no qualified delivery adapter. Review it before building.", jsonPath: "/rowTransitions",
   };
   return null;
 }
@@ -437,7 +437,130 @@ interface ResolvedPlan {
   durationFrames: number;
 }
 
-function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, requirePrepared = true): ResolvedPlan {
+interface FrozenTransitionPair {
+  pair: NonNullable<ScriptDocumentV2["rowTransitions"]>[number];
+  fromPayloadId: string;
+  toPayloadId: string;
+  boundaryFrame: number;
+  durationFrames: number;
+  alignment: "left" | "center" | "right";
+  disposition: "apply" | "cut_insufficient_handles";
+  reason?: string;
+}
+
+/** Only the #292-proved native/simple route is admitted; Fusion has the same display name. */
+const qualifiedCrossDissolve: TransitionPlanV2["effectIdentity"] = {
+  category: "simple", name: "Cross Dissolve", sourceIdentity: "resolve/native/simple/Cross Dissolve",
+  fingerprint: "issue-292/studio-21.1.1.10/native-simple-cross-dissolve",
+  resolveBuild: "21.1.1.10", route: "direct_add_transition",
+};
+
+function freezeRowTransitions(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2): {
+  pairs: FrozenTransitionPair[]; handles: Map<string, TransitionHandles>;
+} {
+  const activePairs = (document.rowTransitions ?? []).filter((pair) => pair.state === "active" && pair.effect !== "cut");
+  if (!activePairs.length) return { pairs: [], handles: new Map() };
+  const rows = buildTimedRows(document, dependencies).rows;
+  const pairs: FrozenTransitionPair[] = [];
+  const handles = new Map<string, TransitionHandles>();
+  const claimedBoundaries = new Set<number>();
+  const usedIds = new Set<string>();
+  const rate = dependencies.timeline.frameRate;
+  const targetRate = rateFraction(rate);
+
+  const rootClip = (row: ProgramRow): { payloadId: string; sourceIn: number; requiredEnd: number; startFrame: number; endFrame: number; descriptor: OccurrenceMediaResolutionV2 } => {
+    const block = row.block;
+    if (block.type === "narration" && block.overlayEvents.length) throw new RangeError(`Row ${block.id} has overlays; its visible transition boundary is not a single primary-root pair`);
+    const slot = block.type === "narration" && block.primaryVisualSequence?.slots.length === 1 ? block.primaryVisualSequence.slots[0] : null;
+    const payload = block.type === "visual_only" ? block.payload : slot?.kind === "content" && slot.relation.kind === "base" && slot.boundaryBefore.kind === "row_start" && slot.playoutPolicy === "match_structural_interval" ? slot.payload : null;
+    if (!payload || payload.kind !== "visual" || payload.pictureKind !== "clip" || payload.audioPolicy !== "mute") {
+      throw new RangeError(`Row ${block.id} needs one full-row, muted primary-root video clip for a native picture transition`);
+    }
+    const sourceUsage = "sourceUsage" in payload ? payload.sourceUsage as { sourceInFrame?: number } | undefined : undefined;
+    const matches = dependencies.occurrenceResolutions.filter((item) => item.payloadId === payload.payloadId);
+    const descriptor = matches.length === 1 ? matches[0]! : null;
+    if (!descriptor || (block.type === "visual_only" ? descriptor.owner.kind !== "visual_only_block" || descriptor.owner.blockId !== block.id : descriptor.owner.kind !== "primary_slot" || descriptor.owner.sequenceId !== block.primaryVisualSequence!.id || descriptor.owner.slotId !== slot!.id) ||
+      (payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId) ||
+      (sourceUsage?.sourceInFrame !== undefined && sourceUsage.sourceInFrame !== descriptor.occurrenceSourceInFrame) ||
+      sourceMappingProblem(descriptor)) throw new RangeError(`Row ${block.id} has no unique, verified source mapping for a transition`);
+    const sourceIn = descriptor.occurrenceSourceInFrame;
+    const requiredEnd = requiredSourceEnd(descriptor, row.durationFrames, rate);
+    if (requiredEnd === null || !Number.isSafeInteger(sourceIn) || sourceIn < descriptor.logicalSourceBounds.startFrame || requiredEnd > descriptor.logicalSourceBounds.endFrame || requiredEnd <= sourceIn) {
+      throw new RangeError(`Row ${block.id} has no verifiable complete base clip range for a transition`);
+    }
+    return { payloadId: payload.payloadId, sourceIn, requiredEnd, startFrame: row.startFrame, endFrame: safe(BigInt(row.startFrame) + BigInt(row.durationFrames), "row end"), descriptor };
+  };
+
+  for (const pair of activePairs) {
+    if (pair.effect !== "Cross Dissolve") throw new RangeError(`Unsupported or ambiguous transition effect ${pair.effect} on ${pair.id}; only verified native/simple Cross Dissolve is qualified`);
+    if (usedIds.has(pair.id)) throw new RangeError(`Duplicate transition identity ${pair.id}`);
+    usedIds.add(pair.id);
+    const fromIndex = rows.findIndex((row) => row.block.id === pair.fromRowId);
+    if (fromIndex < 0 || rows[fromIndex + 1]?.block.id !== pair.toRowId) throw new RangeError(`Transition ${pair.id} does not name two currently adjacent active picture rows`);
+    const outgoing = rootClip(rows[fromIndex]!);
+    const incoming = rootClip(rows[fromIndex + 1]!);
+    const boundaryFrame = outgoing.endFrame;
+    if (boundaryFrame !== incoming.startFrame || claimedBoundaries.has(boundaryFrame)) throw new RangeError(`Transition ${pair.id} has an ambiguous or non-adjacent video cut`);
+    claimedBoundaries.add(boundaryFrame);
+    const durationFrames = requestedTransitionFrames(pair.settings, rate);
+    const alignment = pair.settings.alignment === undefined ? "center" : pair.settings.alignment as FrozenTransitionPair["alignment"];
+    const left = alignment === "left" ? durationFrames : alignment === "center" ? durationFrames / 2 : 0;
+    const right = durationFrames - left;
+    const sourceFrames = (frames: number, descriptor: OccurrenceMediaResolutionV2): number => {
+      const sourceRate = rateFraction(descriptor.logicalSourceBounds.frameRate);
+      return safe(ceil(BigInt(frames) * targetRate.d * sourceRate.n, targetRate.n * sourceRate.d), "transition source handle");
+    };
+    const enoughOutgoing = BigInt(outgoing.requiredEnd) + BigInt(sourceFrames(right, outgoing.descriptor)) <= BigInt(outgoing.descriptor.logicalSourceBounds.endFrame);
+    const enoughIncoming = BigInt(incoming.sourceIn) - BigInt(sourceFrames(left, incoming.descriptor)) >= BigInt(incoming.descriptor.logicalSourceBounds.startFrame);
+    const decision = decideTransitionBoundary({ boundaryId: pair.id, boundaryFrame, outgoingEndFrame: outgoing.endFrame, incomingStartFrame: incoming.startFrame,
+      outgoingDurationFrames: outgoing.endFrame - outgoing.startFrame, incomingDurationFrames: incoming.endFrame - incoming.startFrame,
+      outgoingRightHandleFrames: enoughOutgoing ? right : 0, incomingLeftHandleFrames: enoughIncoming ? left : 0 }, durationFrames, alignment);
+    const frozen: FrozenTransitionPair = { pair, fromPayloadId: outgoing.payloadId, toPayloadId: incoming.payloadId, boundaryFrame, durationFrames, alignment, disposition: decision.kind,
+      ...(decision.kind === "cut_insufficient_handles" ? { reason: `Transition ${pair.id} (${pair.fromRowId} -> ${pair.toRowId}) at frame ${boundaryFrame}: ${decision.reason}` } : {}) };
+    pairs.push(frozen);
+    if (decision.kind === "apply") {
+      if (handles.has(outgoing.payloadId) || handles.has(incoming.payloadId) || outgoing.payloadId === incoming.payloadId) throw new RangeError(`Transition ${pair.id} overlaps another occurrence handle reservation`);
+      handles.set(outgoing.payloadId, { pre: frac(0n, 1n), post: right ? recordDurationInSeconds(right, rate) : frac(0n, 1n) });
+      handles.set(incoming.payloadId, { pre: left ? recordDurationInSeconds(left, rate) : frac(0n, 1n), post: frac(0n, 1n) });
+    }
+  }
+  return { pairs, handles };
+}
+
+function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: ResolvedPlan, dependencies: CompilerDependenciesV2): TransitionPlanV2[] {
+  return pairs.map((frozen) => {
+    const { pair, boundaryFrame, durationFrames, alignment } = frozen;
+    const edge = (payloadId: string, direction: "out" | "in"): TimelineEventV2 => {
+      const candidates = resolved.events.filter((event) => event.kind === "primary_visual" && event.trackId === dependencies.roles.primaryRootTrackId && event.trackRole === "primary_root" &&
+        event.provenance.payloadId === payloadId && (direction === "out" ? event.recordRange.endFrame === boundaryFrame : event.recordRange.startFrame === boundaryFrame));
+      if (candidates.length !== 1 || !candidates[0]!.sourceRange) throw new RangeError(`Transition ${pair.id} has no single delivered video event at its exact cut`);
+      return candidates[0]!;
+    };
+    const outgoing = edge(frozen.fromPayloadId, "out");
+    const incoming = edge(frozen.toPayloadId, "in");
+    const left = alignment === "left" ? durationFrames : alignment === "center" ? durationFrames / 2 : 0;
+    const right = durationFrames - left;
+    if (frozen.disposition === "apply") {
+      const bindingFor = (payloadId: string) => {
+        const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === payloadId);
+        return dependencies.preparedMedia.find((item) => item.requirementKey === descriptor?.preparedMediaRequirementKey);
+      };
+      const outBinding = bindingFor(frozen.fromPayloadId);
+      const inBinding = bindingFor(frozen.toPayloadId);
+      if (!outBinding || !inBinding || !outgoing.sourceRange || !incoming.sourceRange ||
+        outBinding.verification.decodedFrameCount - outgoing.sourceRange.endFrame < right || incoming.sourceRange.startFrame < left ||
+        outgoing.recordRange.endFrame !== incoming.recordRange.startFrame) {
+        throw new RangeError(`Transition ${pair.id} lacks independently verified delivered source handles; refusing rather than shortening`);
+      }
+    }
+    return { id: pair.id, fromRowId: pair.fromRowId, toRowId: pair.toRowId, trackId: dependencies.roles.primaryRootTrackId, boundaryFrame,
+      outgoingEventId: outgoing.eventId, incomingEventId: incoming.eventId, effectIdentity: qualifiedCrossDissolve, requestedDurationFrames: durationFrames, alignment,
+      startFrame: Math.max(0, boundaryFrame - left), endFrame: safe(BigInt(boundaryFrame) + BigInt(right), "transition endpoint"), disposition: frozen.disposition,
+      ...(frozen.reason ? { reason: frozen.reason } : {}) };
+  });
+}
+
+function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, requirePrepared = true, transitionHandles: ReadonlyMap<string, TransitionHandles> = new Map()): ResolvedPlan {
   const built = buildTimedRows(document, dependencies);
   const diagnostics = [...built.diagnostics];
   const events: TimelineEventV2[] = [];
@@ -497,7 +620,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
             ? sourceDurationInSeconds(requiredEnd - sourceIn, descriptor.logicalSourceBounds.frameRate)
             : sourceDurationInSeconds(1, descriptor.logicalSourceBounds.frameRate);
           const deliveredSourceFrames = isClip ? range.endFrame - range.startFrame : 1;
-          const p5Range = preparationRange(sourceIn, exactDuration);
+          const p5Range = preparationRange(sourceIn, exactDuration, transitionHandles.get(payload.payloadId));
           if (!requiredEnd || !Number.isSafeInteger(sourceIn) || sourceIn < descriptor.logicalSourceBounds.startFrame || sourceIn >= descriptor.logicalSourceBounds.endFrame || requiredEnd > available.endFrame || requiredEnd > descriptor.logicalSourceBounds.endFrame) {
             const required = { startFrame: sourceIn, endFrame: requiredEnd ?? available.endFrame };
             requirements.push({ occurrenceKey: occurrenceKey(descriptor), payloadId: payload.payloadId, mediaReferenceId: descriptor.mediaReferenceId, requirementKey, requestedRange: p5Range, sourceRange: available, recordRange: range, requiredSourceRange: required, sourceSufficiency: "insufficient" });
@@ -771,7 +894,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           ? sourceDurationInSeconds(requiredEnd - sourceIn, descriptor.logicalSourceBounds.frameRate)
           : isClip ? recordDurationInSeconds(range.endFrame - range.startFrame, dependencies.timeline.frameRate) : sourceDurationInSeconds(1, descriptor.logicalSourceBounds.frameRate);
         const deliveredSourceFrames = isClip ? range.endFrame - range.startFrame : 1;
-        const p5Range = preparationRange(sourceIn, exactDuration);
+        const p5Range = preparationRange(sourceIn, exactDuration, transitionHandles.get(payloadId!));
         const sufficient = !!requiredEnd && sourceIn >= available.startFrame && sourceIn < available.endFrame && sourceIn >= descriptor.logicalSourceBounds.startFrame && sourceIn < descriptor.logicalSourceBounds.endFrame && requiredEnd <= available.endFrame && requiredEnd <= descriptor.logicalSourceBounds.endFrame;
         requirements.push({ occurrenceKey: occurrenceKey(descriptor), payloadId: payloadId!, mediaReferenceId: descriptor.mediaReferenceId, requirementKey, requestedRange: p5Range, sourceRange: available, recordRange: range, requiredSourceRange: required, sourceSufficiency: sufficient ? "sufficient" : "insufficient" });
         if (!requiredEnd) diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "The logical source rate or requested source range is invalid.", entity("occurrence", descriptor.payloadId, "sourceFrameMap"), undefined, ["rebind_media"]));
@@ -1496,7 +1619,8 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   const graphicProblems = validateGraphicContentsV2(document, dependencies);
   if (graphicProblems.length) return fail(...graphicProblems);
   try {
-    const resolved = resolvePlan(document, dependencies);
+    const frozenTransitions = freezeRowTransitions(document, dependencies);
+    const resolved = resolvePlan(document, dependencies, true, frozenTransitions.handles);
     const invalidTopology = resolved.diagnostics.find((item) => item.code === "TRACK_ROLE_COLLISION");
     if (invalidTopology) return fail({ code: invalidTopology.code, message: invalidTopology.message, ...(invalidTopology.entity.id ? { entityId: invalidTopology.entity.id } : {}) });
     const sourcesById = new Map<string, TimelineManifestV2["sources"][number]>();
@@ -1524,6 +1648,11 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       }
     }
     resolved.diagnostics.push(...supporting.diagnostics);
+    const transitionPlans = emittedTransitionPlans(frozenTransitions.pairs, resolved, dependencies);
+    for (const plan of transitionPlans) if (plan.disposition === "cut_insufficient_handles") {
+      resolved.diagnostics.push(diagnostic("ROW_TRANSITION_CUT_SHORT_HANDLES", plan.reason!, entity("row_transition", plan.id, `rowTransitions/${plan.id}`),
+        { kind: "details", message: plan.reason! }, ["none"], "warning"));
+    }
     const supportingItemResults = supporting.items;
     const firstNarration = resolved.timedRows.find((item): item is TimedRow => item.kind === "narration");
     const onlyVisualOnly = resolved.timedRows.length === 1 && resolved.timedRows[0]?.kind === "visual_only" ? resolved.timedRows[0] : null;
@@ -1549,6 +1678,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       schemaVersion: "timeline-manifest/v2", id: dependencies.build.manifestId, buildId: dependencies.build.buildId, buildClass: dependencies.build.buildClass,
       document: dependencies.document, compiler: dependencies.compiler, authoringDefaults: effectiveDefaults, timeline: { ...dependencies.timeline, durationFrames: resolved.durationFrames }, tracks: dependencies.tracks, roles: dependencies.roles,
       sources: [...sourcesById.values()].sort((a, b) => compareText(a.id, b.id)), events: [...resolved.events].sort((a, b) => a.recordRange.startFrame - b.recordRange.startFrame || compareText(a.eventId, b.eventId)),
+      ...(transitionPlans.length ? { transitions: transitionPlans } : {}),
       visualSequenceResolutions: resolved.sequenceResolutions.sort((a, b) => a.resolvedRecordFrame - b.resolvedRecordFrame || compareText(a.sequenceId, b.sequenceId)), supportingItemResults, preparationBindings: dependencies.preparedMedia,
       durationBasis: { kind: durationKind, entityId: resolved.timedRows[0]?.block.id ?? document.id, recordFrames: resolved.durationFrames, sourceRange: durationKind === "standalone_clip" && standaloneDescriptor ? onlyVisualOnly?.block.visualOnlyTiming.selectedSourceRange
         ? { startFrame: onlyVisualOnly.block.visualOnlyTiming.selectedSourceRange.startFrame, endFrame: safe(BigInt(onlyVisualOnly.block.visualOnlyTiming.selectedSourceRange.startFrame) + BigInt(onlyVisualOnly.block.visualOnlyTiming.selectedSourceRange.durationFrames), "standalone selected range end") }
@@ -1608,7 +1738,8 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     if (!validateDependencies(synthetic)) return { ok: false, diagnostics: schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES") };
       const validRows = buildTimedRows(document, synthetic);
       if (validRows.diagnostics.length) return { ok: false, diagnostics: validRows.diagnostics.map((item) => ({ code: item.code, message: item.message, ...(item.entity.id ? { entityId: item.entity.id } : {}) })) };
-    const plan = resolvePlan(document, synthetic, false);
+    const frozenTransitions = freezeRowTransitions(document, synthetic);
+    const plan = resolvePlan(document, synthetic, false, frozenTransitions.handles);
     const hardRefusal = plan.diagnostics.find((item) => ["BOUNDARY_EVIDENCE_REQUIRED", "STALE_ANCHOR", "COLLAPSED_BOUNDARY", "SOURCE_MAPPING_MISMATCH", "SOURCE_INSUFFICIENT", "TRACK_ROLE_COLLISION", "MISSING_OCCURRENCE_BINDING"].includes(item.code));
     if (hardRefusal) return { ok: false, diagnostics: [{ code: hardRefusal.code, message: hardRefusal.message, ...(hardRefusal.entity.id ? { entityId: hardRefusal.entity.id } : {}), ...(hardRefusal.code === "BOUNDARY_EVIDENCE_REQUIRED" && hardRefusal.entity.path ? { jsonPath: hardRefusal.entity.path } : {}) }] };
     return { ok: true, requirements: plan.requirements, durationFrames: plan.durationFrames };

@@ -26,6 +26,7 @@ LAUNCHER_NAME = "VERA Delivery v2.py"
 RUNTIME_FILES = (
     *V1_RUNTIME_FILES,
     "workflow_v2.py",
+    "transition_delivery_v2.py",
     "workflow_v2_launcher.py",
     "native_image_motion.py",
     "native_qualification_v2.py",
@@ -81,6 +82,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         Path("python/vera_timeline_agent/native_image_motion.py"),
         Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
+        Path("python/vera_timeline_agent/transition_delivery_v2.py"),
         Path("python/vera_timeline_agent/workflow_v2_cli.py"),
         Path("python/vera_timeline_agent/workflow_package.py"),
         Path("python/vera_timeline_agent/narration/models.py"),

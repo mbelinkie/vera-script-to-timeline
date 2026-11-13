@@ -15,7 +15,6 @@ import type {
   NarrationBlockV2,
   NarrationTokenTimingMapV2,
   RowAudioSpanIntentV2,
-  RowTransitionIntentV2,
   ScriptDocumentV2,
   SupportingItemV2,
 } from "@vera/contracts/v2";
@@ -508,49 +507,32 @@ describe("row-edit consumers", () => {
     if (!needs.ok) expect(needs.diagnostics.some((item) => item.code === "STALE_TIMING_MAP"), JSON.stringify(needs.diagnostics)).toBe(true);
   });
 
-  it.each([
-    ["row audio spans", "ROW_AUDIO_RUNTIME_UNAVAILABLE"],
-    ["active cross-row transitions", "ROW_TRANSITION_RUNTIME_UNAVAILABLE"],
-  ] as const)("refuses unsupported %s in both timeline and media-needs consumers", (_label, expectedCode) => {
+  it("refuses unsupported row audio spans in both timeline and media-needs consumers", () => {
     const { document, dependencies } = input();
     const row = activeNarration(document);
-    if (expectedCode === "ROW_AUDIO_RUNTIME_UNAVAILABLE") {
-      const span: RowAudioSpanIntentV2 = {
-        id: id(9020),
-        startRowId: row.id,
-        endRowId: row.id,
-        source: {
-          mediaReferenceId: id(9021),
-          artifactId: id(9022),
-          artifactVersion: 1,
-          contentHash: `sha256:${"b".repeat(64)}`,
-        },
-        settings: {},
-      };
-      document.rowAudioSpans = [span];
-    } else {
-      const next = stashedRow();
-      document.activeDraft.blocks.push(next);
-      const transition: RowTransitionIntentV2 = {
-        id: id(9023),
-        fromRowId: row.id,
-        toRowId: next.id,
-        effect: "crossfade",
-        settings: { frames: 6 },
-        state: "active",
-      };
-      document.rowTransitions = [transition];
-    }
+    const span: RowAudioSpanIntentV2 = {
+      id: id(9020),
+      startRowId: row.id,
+      endRowId: row.id,
+      source: {
+        mediaReferenceId: id(9021),
+        artifactId: id(9022),
+        artifactVersion: 1,
+        contentHash: `sha256:${"b".repeat(64)}`,
+      },
+      settings: {},
+    };
+    document.rowAudioSpans = [span];
 
     const compiled = compileTimelineV2(document, dependencies);
     expect(compiled.ok).toBe(false);
     if (compiled.ok) return;
-    expect(compiled.diagnostics.map((diagnostic) => diagnostic.code)).toContain(expectedCode);
+    expect(compiled.diagnostics.map((diagnostic) => diagnostic.code)).toContain("ROW_AUDIO_RUNTIME_UNAVAILABLE");
 
     const needs = mediaNeeds(document, dependencies);
     expect(needs.ok).toBe(false);
     if (needs.ok) return;
-    expect(needs.diagnostics.map((diagnostic) => diagnostic.code)).toContain(expectedCode);
+    expect(needs.diagnostics.map((diagnostic) => diagnostic.code)).toContain("ROW_AUDIO_RUNTIME_UNAVAILABLE");
   });
 });
 
