@@ -1606,7 +1606,7 @@ def test_music_postreopen_fakes_detect_changed_a5_gain_fades_source_extent(
     elif attribute == "source-end":
         item.source_end = mutated
     elif attribute == "media":
-        item.media.GetMediaId = lambda: mutated  # type: ignore[method-assign]
+        item.media.GetMediaId = lambda: mutated
     elif attribute == "track":
         adapter.timeline.track_names[("audio", 5)] = mutated
     assert expected in adapter.verify(view)
@@ -1621,7 +1621,7 @@ def test_music_native_prewrite_guard_never_sets_properties_on_wrong_item(
     if violation == "slot":
         adapter._v2_tracks = ({**view["tracks"][0], "index": 2},)
     elif violation == "source":
-        item.media.GetMediaId = lambda: "other"  # type: ignore[method-assign]
+        item.media.GetMediaId = lambda: "other"
     elif violation == "duration":
         item.duration = 9
     else:
