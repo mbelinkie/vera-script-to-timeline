@@ -1,0 +1,87 @@
+{
+  "approvalRevision": 5,
+  "orphanedDecisions": [],
+  "possibleAbruptJoins": [
+    {
+      "fromRowId": "row-1",
+      "kind": "possible_abrupt_join",
+      "reason": "less than 10 frames clear of speech at a cut edge",
+      "toRowId": "row-2"
+    }
+  ],
+  "rows": [
+    {
+      "active": {
+        "endFrame": 110,
+        "endS": "11/3",
+        "file": "made-up.mov",
+        "said": "Three spoken words",
+        "startFrame": 70,
+        "startS": "7/3"
+      },
+      "alternates": [],
+      "rowId": "row-1",
+      "rowNumber": 1,
+      "script": "Three spoken words",
+      "state": "take"
+    },
+    {
+      "active": {
+        "endFrame": 170,
+        "endS": "17/3",
+        "file": "made-up.mov",
+        "said": "Second spoken passage",
+        "startFrame": 130,
+        "startS": "13/3"
+      },
+      "alternates": [
+        {
+          "endFrame": 220,
+          "endS": "22/3",
+          "file": "made-up.mov",
+          "said": "Second spoken passage",
+          "startFrame": 180,
+          "startS": "6"
+        }
+      ],
+      "rowId": "row-2",
+      "rowNumber": 2,
+      "script": "Second spoken passage",
+      "state": "take"
+    },
+    {
+      "rowId": "row-3",
+      "rowNumber": 3,
+      "script": "Third sentence for temporary voice",
+      "state": "temp_voice"
+    },
+    {
+      "rowId": "row-4",
+      "rowNumber": 4,
+      "script": "Fourth sentence needing pickup",
+      "state": "needs_pickup"
+    },
+    {
+      "rowId": "row-5",
+      "rowNumber": 5,
+      "script": "Fifth sentence is silent",
+      "state": "no_spoken_line"
+    },
+    {
+      "rowId": "row-6",
+      "rowNumber": 6,
+      "script": "Sixth sentence remains undecided",
+      "state": "undecided"
+    }
+  ],
+  "schemaVersion": "approved-performance/1",
+  "source": {
+    "durationS": "12",
+    "file": "made-up.mov",
+    "fps": [
+      30,
+      1
+    ],
+    "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

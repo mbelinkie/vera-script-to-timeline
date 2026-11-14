@@ -1,0 +1,26 @@
+APPROVED PRESENTER PERFORMANCE
+Approval revision: 5
+Recording: made-up.mov
+
+1. row-1: Three spoken words
+   APPROVED TAKE: made-up.mov frames 70-110 (7/3s-11/3s)
+   Said: Three spoken words
+
+2. row-2: Second spoken passage
+   APPROVED TAKE: made-up.mov frames 130-170 (13/3s-17/3s)
+   Said: Second spoken passage
+   Alternate: made-up.mov frames 180-220 — Second spoken passage
+
+3. row-3: Third sentence for temporary voice
+   TEMP VOICE
+
+4. row-4: Fourth sentence needing pickup
+   NEEDS PICKUP
+
+5. row-5: Fifth sentence is silent
+   NO SPOKEN LINE
+
+6. row-6: Sixth sentence remains undecided
+   UNDECIDED
+
+POSSIBLE ABRUPT JOIN: row-1 → row-2 — less than 10 frames clear of speech at a cut edge (check by ear)
