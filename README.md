@@ -61,6 +61,12 @@ corresponding lockfile change with the dependency change.
 
 ## One command: build a VERA v2 script in Resolve Studio
 
+Before building from approved presenter footage, use the **offline recorded
+conform timing preview** described in [Presenter takes and recorded conform](docs/presenter-takes.md#recorded-timing-from-approved-takes-47).
+It freezes exact source and word timing and reports picture movement and
+short source clips; its silent timing WAVs are **not deliverable presenter
+audio** and must be replaced before building in Resolve (#48).
+
 Prepare a **v2 structured script JSON**, local media and narration in advance.
 The input directory must contain `compiler-dependencies.json` (prepared media
 and narration timing), `preparation-paths.json`, and `media-paths.json`, with

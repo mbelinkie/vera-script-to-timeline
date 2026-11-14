@@ -1,0 +1,6 @@
+Recorded conform preview (NOT DELIVERABLE to Resolve)
+Frame counts are at the frozen target timeline rate.
+row-1 [take, wide]: old 96f -> new 48f (delta -48f; after moves -48f)
+row-2 [temp_voice, wide]: old 96f -> new 96f (delta +0f; after moves -48f)
+row-3 [take, wide]: old 96f -> new 72f (delta -24f; after moves -72f)
+Geometry preview only; compile with verified prepared media before delivery
