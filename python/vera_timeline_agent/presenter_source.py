@@ -203,6 +203,10 @@ def _open_project(resolve: Any, recording: Recording, name: str, existing: bool)
             and project.SetSetting("timelineResolutionHeight", str(EDIT_SIZE[1])),
             "the edit size",
         )
+        _must(
+            project.SetSetting("timelineInputResMismatchBehavior", "scaleToFit"),
+            "fitting mismatched sizes to the frame",
+        )
         return project
     project = manager.GetCurrentProject()
     if project is None or project.GetName() != name:
@@ -229,19 +233,13 @@ def _edit_size(project: Any) -> tuple[int, int]:
 
 def _make_source(project: Any, recording: Recording, names: Names) -> None:
     pool = project.GetMediaPool()
-    taken = _timelines(project)
-    root = pool.GetRootFolder()
-    if (
-        names.grade_timeline in taken
-        or names.sample in taken
-        or any(folder.GetName() == names.folder for folder in root.GetSubFolderList())
-    ):
-        raise SourceError(f'This project already has a source for "{recording.stem}".')
-    folder = pool.AddSubFolder(root, names.folder)
+    folder = pool.AddSubFolder(pool.GetRootFolder(), names.folder)
     _must(folder and pool.SetCurrentFolder(folder), "making the media folder")
     clips = pool.ImportMedia([str(recording.video), str(recording.audio)])
     _must(clips and len(clips) == 2, "importing the recording")
-    video, audio = clips
+    by_path = {clip.GetClipProperty("File Path"): clip for clip in clips}
+    video, audio = by_path.get(str(recording.video)), by_path.get(str(recording.audio))
+    _must(video and audio, "importing the recording")
     size = f"{recording.width}x{recording.height}"
     if video.GetClipProperty("Resolution") != size or video.GetClipProperty(
         "Frames"
@@ -249,7 +247,10 @@ def _make_source(project: Any, recording: Recording, names: Names) -> None:
         raise SourceError("Resolve reads the video's size or length differently.")
 
     timeline = pool.CreateEmptyTimeline(names.grade_timeline)
-    _must(timeline, "creating the source timeline")
+    _must(
+        timeline and project.SetCurrentTimeline(timeline),
+        "creating the source timeline",
+    )
     _must(
         timeline.SetSetting("useCustomSettings", "1")
         and timeline.SetSetting("timelineResolutionWidth", str(recording.width))
@@ -351,9 +352,9 @@ def check_pieces(
             )
             if ok and kind == "video":
                 want = zoom if piece.framing == "tight" else 1.0
-                ok = (
-                    item.GetProperty("ZoomX") == want
-                    and item.GetProperty("ZoomY") == want
+                ok = all(
+                    isinstance(got, (int, float)) and abs(got - want) <= 1e-6
+                    for got in (item.GetProperty("ZoomX"), item.GetProperty("ZoomY"))
                 )
             if not ok:
                 raise SourceError(
@@ -390,6 +391,35 @@ def build_source(
 ) -> Built:
     names = Names.of(recording.stem)
     project = _open_project(resolve, recording, project_name, existing_project)
+    taken = _timelines(project)
+    folders = project.GetMediaPool().GetRootFolder().GetSubFolderList()
+    if (
+        names.grade_timeline in taken
+        or names.sample in taken
+        or any(folder.GetName() == names.folder for folder in folders)
+    ):
+        raise SourceError(f'This project already has a source for "{recording.stem}".')
+    try:
+        return _build(resolve, project, recording, names, project_name, sample)
+    except SourceError as error:
+        left = (
+            f'Media folder "{names.folder}" and its timelines may be left unsaved '
+            f'in "{project_name}"; remove them before trying again.'
+            if existing_project
+            else f'The unfinished project "{project_name}" is left in Resolve; '
+            "delete it or choose another --project name."
+        )
+        raise SourceError(f"{error} {left}") from error
+
+
+def _build(
+    resolve: Any,
+    project: Any,
+    recording: Recording,
+    names: Names,
+    project_name: str,
+    sample: bool,
+) -> Built:
     edit = _edit_size(project)
     zoom = tight_zoom((recording.width, recording.height), edit)
     _make_source(project, recording, names)
@@ -421,7 +451,8 @@ def report(built: Built) -> str:
         "Checked after save, close and reopen: the picture and the cleaned audio "
         "start together and are the same length.",
     ]
-    if recording.width < UHD[0] or recording.height < UHD[1]:
+    short_side, long_side = sorted((recording.width, recording.height))
+    if long_side < UHD[0] or short_side < UHD[1]:
         lines.append(
             f"This recording is {size}, not 4K, so the source is built at {size}."
         )

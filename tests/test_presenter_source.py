@@ -19,9 +19,16 @@ START = 108000
 
 
 class Clip:
-    def __init__(self, name: str, kind: str, size: str, frames: int) -> None:
+    def __init__(
+        self, name: str, kind: str, size: str, frames: int, path: str = ""
+    ) -> None:
         self.name = name
-        self.props = {"Type": kind, "Resolution": size, "Frames": str(frames)}
+        self.props = {
+            "Type": kind,
+            "Resolution": size,
+            "Frames": str(frames),
+            "File Path": path,
+        }
 
     def GetName(self) -> str:
         return self.name
@@ -133,9 +140,10 @@ class Pool:
 
     def ImportMedia(self, paths: list[str]) -> list[Clip]:
         size, frames = self.project.media
+        # Not in the order asked for: Resolve does not promise one.
         return [
-            Clip(Path(paths[0]).name, "Video + Audio", size, frames),
-            Clip(Path(paths[1]).name, "Audio", "", frames),
+            Clip(Path(paths[1]).name, "Audio", "", frames, paths[1]),
+            Clip(Path(paths[0]).name, "Video + Audio", size, frames, paths[0]),
         ]
 
     def CreateEmptyTimeline(self, name: str) -> Timeline:
@@ -173,7 +181,7 @@ class Project:
             "timelineFrameRate": "24",
             "timelineResolutionWidth": "1920",
             "timelineResolutionHeight": "1080",
-            "timelineInputResMismatchBehavior": "scaleToFit",
+            "timelineInputResMismatchBehavior": "centerCrop",
         }
         self.timelines: list[Timeline] = []
         self.current: Timeline | None = None
@@ -272,6 +280,7 @@ def test_builds_a_full_size_source_and_framed_pieces_that_survive_reopen() -> No
 
     project = resolve.projects["P"]
     assert project.settings["timelineFrameRate"] == "29.97"
+    assert project.settings["timelineInputResMismatchBehavior"] == "scaleToFit"
     assert (resolve.saved, resolve.closed) == (1, 1)
     source, sample = project.timelines
     assert project.current is source
@@ -320,6 +329,13 @@ def test_refuses_when_resolve_does_not_read_back_as_built(
     resolve.fail = fail
     with pytest.raises(ps.SourceError, match=message):
         ps.build_source(resolve, recording(), project_name="P", sample=True)
+
+
+def test_a_failed_build_says_what_it_left_behind() -> None:
+    resolve = Resolve()
+    resolve.fail = "compound"
+    with pytest.raises(ps.SourceError, match='unfinished project "P" is left'):
+        ps.build_source(resolve, recording(), project_name="P")
 
 
 def test_refuses_an_existing_project_name_and_a_second_source() -> None:
