@@ -14,6 +14,7 @@ import {
 } from "./model.js";
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
+import type { ResearchChoiceReadService } from "./research-choices.js";
 
 /** Max request bytes, including a full typed ScriptDocumentV2. */
 export const MAX_PROJECT_API_BODY_BYTES = 512 * 1024;
@@ -115,6 +116,8 @@ export interface ProjectApiDependencies {
   authorization: ProjectAuthorizationService;
   documents: ProjectDocumentService;
   comments?: ProjectCommentService;
+  /** Independent, per-principal Research authorization; absent on unmounted hosts. */
+  researchChoices?: ResearchChoiceReadService;
 }
 
 /** Unmounted Request -> Response handler. Hosting and identity implementation are outside #380. */
@@ -126,6 +129,18 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const researchChoices = /^\/v1\/projects\/([^/]+)\/research-choices(?:\/(compare))?$/u.exec(path);
+      if (researchChoices) {
+        if (request.method !== "GET") return response(404, { error: "not_found" });
+        if (!deps.researchChoices) throw new ProjectDocumentError("service_unavailable", 503);
+        const projectId = researchChoices[1]!;
+        if (researchChoices[2] === "compare") {
+          const query = queryFields(url, ["occurrenceId"], ["occurrenceId"]);
+          return response(200, await deps.researchChoices.compare(projectId, principal, query.occurrenceId!));
+        }
+        queryFields(url, []);
+        return response(200, await deps.researchChoices.list(projectId, principal));
+      }
       const history = /^\/v1\/projects\/([^/]+)\/history(?:\/(compare|[^/]+))?$/u.exec(path);
       if (history && request.method === "GET") {
         const id = history[1]!;
