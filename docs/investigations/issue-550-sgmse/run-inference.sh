@@ -16,7 +16,7 @@ docker run --rm \
     --platform linux/amd64 \
     --network none \
     --cpus 6 \
-    --memory 7g \
+    --memory 5g \
     --read-only \
     --tmpfs /tmp:rw,noexec,nosuid,size=1g \
     --mount "type=bind,src=$CHECKPOINT_DIR/ears_reverb.ckpt,dst=/models/ears_reverb.ckpt,readonly" \

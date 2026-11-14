@@ -31,4 +31,5 @@ RUN git init \
 COPY requirements.lock /tmp/requirements.lock
 RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock
 
-ENTRYPOINT ["python", "/opt/sgmse/enhancement.py"]
+COPY no-grad.py /opt/sgmse/no-grad.py
+ENTRYPOINT ["python", "/opt/sgmse/no-grad.py"]

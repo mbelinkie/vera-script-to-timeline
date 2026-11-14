@@ -19,6 +19,8 @@ for source in sorted(Path('/input').glob('*-original.wav')):
         result = next(iter(result.values()))
     result = np.asarray(result, dtype=np.float32).squeeze()
     sf.write(target, result, rate, subtype='PCM_24')
-    peak = Path('/sys/fs/cgroup/memory.peak').read_text().strip()
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
-    print(f'{source.name} input={audio.size} output={result.size} rate={rate} elapsed={time.monotonic()-start:.2f} peak={peak} sha256={digest}', flush=True)
+    print(f'{source.name} input={audio.size} output={result.size} rate={rate} elapsed={time.monotonic()-start:.2f} sha256={digest}', flush=True)
+peak_file = Path('/sys/fs/cgroup/memory.peak')
+if peak_file.exists():
+    print(f'container peak memory: {peak_file.read_text().strip()} bytes', flush=True)

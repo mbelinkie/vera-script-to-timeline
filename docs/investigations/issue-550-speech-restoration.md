@@ -83,9 +83,11 @@ five-second chunks, the 40-second excerpt finished in 3,585.61 seconds under
 shared CPU load. Its 44.1 kHz output resampled to exactly 1,920,000 samples at
 48 kHz, but four ten-second waveform-correlation windows measured +323, +12,
 -75 and -680 samples. Nine shorter windows likewise varied, with modest
-correlation (0.185–0.453). This fails the issue's 1 ms timing-evidence gate;
-the result does not determine whether the voice sounds good or prove that a
-different processing strategy could not retain sync. It is excluded from the
+correlation (0.185–0.453). The upstream chunk merger can shift overlap regions,
+and the five-second retry increases the number of such joins. This particular
+chunked configuration fails the issue's 1 ms timing-evidence gate; the result
+does not determine whether the voice sounds good or prove that another
+processing strategy could not retain sync. It is excluded from the
 blind set, and its rejected container image was removed; the output and recipe
 remain local.
 

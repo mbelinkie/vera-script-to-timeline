@@ -1,7 +1,8 @@
 # SGMSE+ EARS-Reverb CPU candidate
 
 This is a staged, isolated Linux x86_64 CPU evaluation recipe for issue #550.
-It has not been built or run yet. Do not use it for commercial work until the
+It has been built and screened offline; see the parent investigation for the
+memory and timing results. Do not use it for commercial work until the
 checkpoint's training-data rights are clarified.
 
 ## Pins
@@ -54,7 +55,7 @@ without clarification from the rights holders.
 The checkpoint is downloaded on the host and verified before Docker runs:
 
 ```sh
-cd out/issue550-sgmse
+cd docs/investigations/issue-550-sgmse
 sh download-checkpoint.sh models
 docker build --platform linux/amd64 -t vera-sgmse-cpu:issue550 .
 ```
@@ -62,7 +63,8 @@ docker build --platform linux/amd64 -t vera-sgmse-cpu:issue550 .
 Pass a folder containing a short, already-selected WAV excerpt as input. Keep
 that folder read-only and choose an output folder under the task's local
 workspace. Inference has no network, a read-only container root, 6 CPU cores,
-and a 7 GiB memory cap:
+and a 5 GiB memory cap. The runner disables gradient tracking, as in the
+five-second and one-second retry measurements:
 
 ```sh
 sh run-inference.sh vera-sgmse-cpu:issue550 "$PWD/models" \

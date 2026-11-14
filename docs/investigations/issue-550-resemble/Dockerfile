@@ -31,5 +31,5 @@ ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 
 RUN python /tmp/smoke.py
 
-ENTRYPOINT ["resemble-enhance"]
+ENTRYPOINT ["resemble-enhance", "--run_dir", "/opt/models/enhancer_stage2", "--device", "cpu"]
 CMD ["--help"]
