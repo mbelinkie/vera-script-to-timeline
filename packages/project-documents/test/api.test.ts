@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { withResearchClipUseRangeV2 } from "@vera/contracts/authoring-v2";
 import type { SuiteIdentityPort } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createProjectApiHandler, MAX_PROJECT_API_BODY_BYTES } from "../src/api.js";
 import { ProjectCommentService } from "../src/comments.js";
 import { documentFor, extrasDocumentFor, harness, initialProject, settingsFor } from "./helpers.js";
+import { researchCandidate, researchId, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 
 /* eslint-disable @typescript-eslint/require-await -- Injected fake suite identity for HTTP tests only. */
 vi.setConfig({ testTimeout: 90_000 });
@@ -51,6 +53,69 @@ async function setup() {
 afterEach(async () => { for (const cleanup of cleaners.splice(0)) await cleanup(); });
 
 describe("authenticated and bounded project-document API", () => {
+  it("rejects ordinary PUT source retargets but allows insert, trim, reorder and deletion", async () => {
+    const { api, owner, service } = await setup();
+    const projectId = randomUUID();
+    const document = documentFor(projectId);
+    const bound = researchOccurrence(770100, true);
+    const pending = researchOccurrence(770200, false);
+    document.activeDraft.blocks = [bound, pending];
+    expect((await api(request("", "POST", "owner", {
+      projectId, document, title: "Frozen Research PUT", clientRequestId: randomUUID(),
+    }))).status).toBe(201);
+    const route = `/${projectId}/document`;
+    const put = (replacement: ScriptDocumentV2, expectedRevision = 0) =>
+      api(request(route, "PUT", "owner", { expectedRevision,
+        clientMutationId: randomUUID(), document: replacement }));
+    const original = await service.getDocument(projectId, owner);
+    const checkpointId = randomUUID();
+    await service.createCheckpoint(projectId, owner, {
+      checkpointId, clientMutationId: randomUUID(), sourceRevision: 0, name: "Original pins",
+    });
+    const checkpoint = await service.getCheckpoint(projectId, owner, checkpointId);
+    for (const [caseIndex, change] of [
+      (row: typeof pending) => { row.researchClip!.clipVersion = 4; },
+      (row: typeof pending) => { row.researchClip!.englishText = "Silent rewritten transcript"; },
+      (row: typeof pending) => { row.researchClip!.clipId = researchId(900010); },
+      (row: typeof pending) => { delete row.researchClip; },
+      (row: typeof pending) => { row.payload.payloadId = randomUUID(); delete row.researchClip; },
+    ].entries()) {
+      const replacement = structuredClone(original.document);
+      change(replacement.activeDraft.blocks[1] as typeof pending);
+      const result = await put(replacement);
+      expect(result.status, `Frozen Research guard case ${caseIndex}`).toBe(409);
+      expect(await body(result)).toEqual({ error: "version_conflict" });
+    }
+    const malformed = structuredClone(original.document) as unknown as Record<string, unknown>;
+    (malformed.activeDraft as { blocks: Array<Record<string, unknown>> }).blocks[0]!.unknownPinField =
+      { researchClip: researchCandidate() };
+    expect((await api(request(route, "PUT", "owner", {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: malformed,
+    }))).status).toBe(400);
+    expect(await service.getDocument(projectId, owner)).toEqual(original);
+
+    const trimmed = withResearchClipUseRangeV2(bound, { startFrame: 30, endFrame: 52 });
+    const inserted = researchOccurrence(770300, false);
+    const legitimate = structuredClone(original.document);
+    legitimate.activeDraft.blocks = [pending, inserted, trimmed];
+    expect((await put(legitimate)).status).toBe(200);
+    const after = await service.getDocument(projectId, owner);
+    expect(after.document.activeDraft.blocks).toEqual(legitimate.activeDraft.blocks);
+    expect((after.document.activeDraft.blocks[2] as typeof bound).researchClip)
+      .toEqual(bound.researchClip);
+    expect((after.document.activeDraft.blocks[2] as typeof bound).visualOnlyTiming.selectedSourceRange)
+      .toEqual({ startFrame: 30, durationFrames: 22 });
+    expect(await service.getDocumentRevision(projectId, owner, 0))
+      .toMatchObject({ document: original.document, digest: original.digest });
+    expect(await service.getCheckpoint(projectId, owner, checkpointId)).toEqual(checkpoint);
+    const deleted = structuredClone(after.document);
+    deleted.activeDraft.blocks = [deleted.activeDraft.blocks[1]!];
+    expect((await put(deleted, 1)).status).toBe(200);
+    expect((await service.getDocument(projectId, owner)).document.activeDraft.blocks)
+      .toEqual([inserted]);
+    expect(await service.getDocumentRevision(projectId, owner, 0))
+      .toMatchObject({ document: original.document, digest: original.digest });
+  });
   it("enforces strict Extras HTTP shapes, Editor lease, opaque failures, CAS and idempotent replay", async () => {
     const { api, auth, owner, editor, viewer, service } = await setup();
     const projectId = randomUUID();
