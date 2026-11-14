@@ -164,6 +164,12 @@ new range. If either speech edge is approximate or unmeasured, manual trim is
 refused. Invalid requests leave the previous approval intact. An identical
 repeat of `choose` is a byte-for-byte no-op, including revision and history;
 `undo` adds a new timestamped before/after entry rather than erasing history.
+Repeated `undo` commands walk backward through still-active explicit choices;
+they never redo an earlier undo. Once all choices for that passage have been
+undone, another `undo` refuses without writing. The first approval verifies
+the recording's source hash and frame rate; up to one source frame of difference
+between the probed picture duration and the shorter decoded-audio duration
+recorded by #45 is allowed.
 
 The files beside `takes.json` are:
 

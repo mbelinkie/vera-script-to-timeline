@@ -181,6 +181,10 @@ def test_partial_uncuttable_approximate_and_raw_fragment_are_not_promoted() -> N
     assert full_reads(row, data["video"]) == []
     row["suggested"] = _read()
     row["suggested"]["cut"] = None
+    row["suggested"]["speechStartS"] = None
+    assert validate_takes(data) == data  # normal #45 unplaced first word
+    assert available_choices(data)[0]["reads"] == []
+    row["suggested"]["speechStartS"] = 2.4
     assert full_reads(row, data["video"]) == []
     row["suggested"] = _read()
     row["takes"][0]["wholePassage"] = True
@@ -300,10 +304,18 @@ def test_frozen_read_matches_reanalysis_without_rebinding_ids_or_basename() -> N
 def test_frozen_cut_shift_words_context_and_ambiguous_read_fail_closed() -> None:
     data = _report()
     frozen = _frozen(data)
+    widened = copy.deepcopy(data)
+    widened["rows"][0]["suggested"]["cut"]["startFrame"] -= 2
+    widened["rows"][0]["suggested"]["cut"]["endFrame"] += 2
+    assert match_frozen_read(widened, frozen, SHA)[1] is None
+    too_wide = copy.deepcopy(data)
+    too_wide["rows"][0]["suggested"]["cut"]["startFrame"] -= 3
+    too_wide["rows"][0]["suggested"]["cut"]["endFrame"] += 3
+    assert "shifted" in (match_frozen_read(too_wide, frozen, SHA)[1] or "")
     shift = copy.deepcopy(data)
     shift["rows"][0]["suggested"]["cut"]["startFrame"] += 2
     shift["rows"][0]["suggested"]["cut"]["endFrame"] += 2
-    assert match_frozen_read(shift, frozen, SHA)[1] is None
+    assert "fresh clean-cut" in (match_frozen_read(shift, frozen, SHA)[1] or "")
     shift["rows"][0]["suggested"]["cut"]["startFrame"] += 1
     shift["rows"][0]["suggested"]["cut"]["endFrame"] += 1
     assert "shifted" in (match_frozen_read(shift, frozen, SHA)[1] or "")
@@ -470,6 +482,28 @@ def test_undo_appends_instead_of_erasing_and_can_restore_absent_decision(
         undo_approval(takes_path, video_path, "row-3")
 
 
+def test_repeated_undo_walks_back_choices_without_redo(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, video_path = fake_media
+    path = takes_path.with_name("approvals.json")
+    first = choose_approval(takes_path, video_path, "row-1", "temp_voice")
+    choose_approval(takes_path, video_path, "row-1", "needs_pickup")
+    back_to_first = undo_approval(takes_path, video_path, "row-1")
+    assert back_to_first["decisions"]["row-1"] == first["decisions"]["row-1"]
+    back_to_undecided = undo_approval(takes_path, video_path, "row-1")
+    assert "row-1" not in back_to_undecided["decisions"]
+    assert back_to_undecided["revision"] == 4
+    original = path.read_bytes()
+    with pytest.raises(ApprovalError, match="no prior"):
+        undo_approval(takes_path, video_path, "row-1")
+    assert path.read_bytes() == original
+    assert validate_approvals(back_to_undecided) == back_to_undecided
+    # A new choice after undo starts a new, independently undoable branch.
+    choose_approval(takes_path, video_path, "row-1", "no_spoken_line")
+    assert "row-1" not in undo_approval(takes_path, video_path, "row-1")["decisions"]
+
+
 def test_active_and_alternate_are_frozen_by_frames_not_ephemeral_take_ids(
     fake_media: tuple[Path, Path],
 ) -> None:
@@ -542,6 +576,26 @@ def test_corrupt_audit_chain_blocks_undo_and_choose(
         undo_approval(takes_path, video_path, "row-1")
     with pytest.raises(ApprovalError, match="disagree with history"):
         choose_approval(takes_path, video_path, "row-1", "temp_voice")
+    assert path.read_bytes() == corrupted
+
+
+def test_history_previous_snapshot_must_match_prior_event(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, video_path = fake_media
+    path = takes_path.with_name("approvals.json")
+    choose_approval(takes_path, video_path, "row-1", "temp_voice")
+    choose_approval(takes_path, video_path, "row-1", "needs_pickup")
+    document = load_approvals(path)
+    # An attacker can forge the second before-image without changing the
+    # final decision. Final-state checking alone must not accept this history.
+    document["history"][1]["before"] = None
+    path.write_text(json.dumps(document), encoding="utf-8")
+    corrupted = path.read_bytes()
+    with pytest.raises(ApprovalError, match="history before/after chain"):
+        choose_approval(takes_path, video_path, "row-1", "temp_voice")
+    with pytest.raises(ApprovalError, match="history before/after chain"):
+        undo_approval(takes_path, video_path, "row-1")
     assert path.read_bytes() == corrupted
 
 
@@ -643,6 +697,9 @@ def test_initial_video_fps_duration_must_match_report_even_with_same_name(
         with pytest.raises(ApprovalError, match="fps/duration"):
             choose_approval(takes_path, video_path, "row-1", "temp_voice")
         assert not path.exists()
+    monkeypatch.setattr(store, "_inspect_original_metadata", lambda _: (12.02, [30, 1]))
+    accepted = choose_approval(takes_path, video_path, "row-1", "temp_voice")
+    assert accepted["revision"] == 1  # decoded audio can end before the picture
 
 
 def test_cli_parses_all_four_verbs_and_never_writes_takes(

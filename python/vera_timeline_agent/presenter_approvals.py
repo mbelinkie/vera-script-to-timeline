@@ -229,9 +229,11 @@ def _candidate(
         or len(ids) != len(set(ids))
     ):
         raise ApprovalError("read refers to missing or repeated constituent takes")
-    _read_metadata(video, read)
     if _cut_frames(video, read) is None:
-        return None  # no clean cut, no approval
+        # #45 deliberately permits one unplaced speech edge when it cannot
+        # offer a cut. That passage is unselectable, not a corrupt report.
+        return None
+    _read_metadata(video, read)
     return read
 
 
@@ -482,8 +484,10 @@ def match_frozen_read(
             checked_trim(takes["video"], read, *trim)
         except ApprovalError:
             return None, "saved trim no longer speech-safe"
-    elif _cut_frames(takes["video"], read) is None:
-        return None, "missing clean cut"
+    else:
+        fresh_cut = _cut_frames(takes["video"], read)
+        if fresh_cut is None or trim[0] < fresh_cut[0] or trim[1] > fresh_cut[1]:
+            return None, "saved cut is outside fresh clean-cut bounds"
     return read, None
 
 
@@ -678,6 +682,7 @@ def validate_approvals(data: Any) -> Json:
     if source is not None:
         _check_source(source)
     replay: Json = {}
+    undoable: dict[str, list[Json]] = {}
     for index, event in enumerate(history, 1):
         if not isinstance(event, dict) or set(event) != {
             "revision",
@@ -707,6 +712,17 @@ def validate_approvals(data: Any) -> Json:
         before, after = event["before"], event["after"]
         if before != replay.get(row_id) or before == after:
             raise ApprovalError("broken approvals history before/after chain")
+        pending = undoable.setdefault(row_id, [])
+        if event["operation"] == "choose":
+            pending.append(event)
+        elif (
+            not pending
+            or before != pending[-1]["after"]
+            or after != pending[-1]["before"]
+        ):
+            raise ApprovalError("undo does not reverse the latest active choice")
+        else:
+            pending.pop()
         if before is not None:
             _check_decision(before, source, row_id)
         if after is not None:
@@ -849,9 +865,15 @@ def _source_for_change(takes: Json, doc: Json, video_path: Path, sha: str) -> Js
             raise ApprovalError("initial video filename does not match takes.json")
         duration, fps = _inspect_original_metadata(video_path)
         observed = {"file": video_path.name, "durationS": duration, "fps": fps}
-        if frame_rate(observed) != frame_rate(takes["video"]) or video_duration(
-            observed
-        ) != video_duration(takes["video"]):
+        # #45 caps reported duration at decoded camera-audio length, which can
+        # be slightly shorter than ffprobe's picture duration.
+        probe_duration = video_duration(observed)
+        report_duration = video_duration(takes["video"])
+        if (
+            frame_rate(observed) != frame_rate(takes["video"])
+            or report_duration > probe_duration
+            or probe_duration - report_duration > 1 / frame_rate(observed)
+        ):
             raise ApprovalError("original video fps/duration differs from takes.json")
     elif any(
         doc["source"][key] != current[key] for key in ("sha256", "fps", "durationS")
@@ -959,19 +981,24 @@ def undo_approval(
     *,
     hash_video: Callable[[Path], str] | None = None,
 ) -> Json:
-    """Reverse the latest event for this row by appending another event."""
+    """Reverse the latest not-yet-undone human choice, never redo an undo."""
     path = takes_path.with_name("approvals.json")
     with _locked(path):
         takes = load_takes(takes_path)
         doc = load_approvals(path)
         sha = observed_video(video_path, hash_video)
         _source_for_change(takes, doc, video_path, sha)
-        event = next(
-            (e for e in reversed(doc["history"]) if e["rowId"] == row_id),
-            None,
-        )
-        if event is None:
+        pending: list[Json] = []
+        for event in doc["history"]:
+            if event["rowId"] != row_id:
+                continue
+            if event["operation"] == "choose":
+                pending.append(event)
+            else:
+                pending.pop()  # validate_approvals has checked every undo
+        if not pending:
             raise ApprovalError("no prior human change to undo for this row")
+        event = pending[-1]
         # load_approvals has already replay-checked the complete audit chain.
         if doc["decisions"].get(row_id) != event["after"]:
             raise ApprovalError("cannot recover previous approval decision")
