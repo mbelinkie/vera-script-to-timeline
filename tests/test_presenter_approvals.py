@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -370,7 +371,7 @@ def fake_media(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, P
     # #45 uses ffprobe; inject only media metadata for invented file bytes.
     monkeypatch.setattr(store, "_inspect_original_metadata", lambda _: (12.0, [30, 1]))
     takes_path = tmp_path / "takes.json"
-    video_path = tmp_path / VIDEO["file"]
+    video_path = tmp_path / str(VIDEO["file"])
     takes_path.write_text(json.dumps(_report()), encoding="utf-8")
     # Deliberately NOT a real recording: approval code reads its hash only.
     video_path.write_bytes(b"fictional local camera content")
@@ -716,8 +717,6 @@ def test_two_writers_cannot_lose_each_others_history(
 def test_atomic_write_failure_does_not_replace_valid_decision(
     fake_media: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from vera_timeline_agent import presenter_approvals as store
-
     takes_path, video_path = fake_media
     path = takes_path.with_name("approvals.json")
     choose_approval(takes_path, video_path, "row-1", "temp_voice")
@@ -726,7 +725,7 @@ def test_atomic_write_failure_does_not_replace_valid_decision(
     def broken_replace(_src: str, _dst: Path) -> None:
         raise OSError("deliberate replace failure")
 
-    monkeypatch.setattr(store.os, "replace", broken_replace)
+    monkeypatch.setattr(os, "replace", broken_replace)
     with pytest.raises(ApprovalError, match="cannot commit"):
         choose_approval(takes_path, video_path, "row-1", "needs_pickup")
     assert path.read_bytes() == baseline
