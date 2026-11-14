@@ -20,9 +20,11 @@ from .row_timeline_map import (
 from .workflow_v2 import (
     _assert_readback_target,
     _current_readback_target,
+    _read_regular,
     _read_track_items,
     _regular_absolute,
     _stamp,
+    _strict_object,
 )
 
 _SOURCE_RANGE = ("sourceStartFrame", "sourceEndFrame")
@@ -213,22 +215,55 @@ def observe_output(
         raise ValueError("unrecognized Resolve baseline format")
     package = _load_readback_package(root)
     validate_saved_row_map(package.manifest, package.view, saved)
-    if saved["timelineName"] != package.attestation["timelineName"]:
+    if saved["timelineName"] != baseline_timeline_name(root, package.attestation):
         raise ValueError("baseline timeline name differs from the verified build")
+    with exclusive_resolve_build():
+        return observe_current(
+            (resolve_factory or _external_resolve)(), saved, package.view
+        )
+
+
+def baseline_timeline_name(root: Path, attestation: Mapping[str, Any]) -> str:
+    """The timeline a baseline describes.
+
+    A build names its own new timeline. An in-place update (#104) keeps the
+    timeline it updated, and records that name beside its new baseline.
+    """
+    record = root / "timeline-update.json"
+    if not record.exists() and not record.is_symlink():
+        return str(attestation["timelineName"])
+    value = _strict_object(
+        _read_regular(record, "timeline update record", max_bytes=1024 * 1024),
+        "timeline update record",
+    )
+    name = value.get("timelineName")
+    if (
+        value.get("schemaVersion") != "vera-timeline-update/v1"
+        or value.get("buildId") != attestation.get("buildId")
+        or not isinstance(name, str)
+        or not name.strip()
+    ):
+        raise ValueError("timeline update record is invalid for this build")
+    return name
+
+
+def observe_current(
+    resolve: Any, saved: Mapping[str, Any], view: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Compare the open timeline with a validated baseline. Caller holds the lock."""
     saved_items = {
         item["resolveItemId"]: item for row in saved["rows"] for item in row["items"]
     }
-    stamps = {event["id"]: _stamp(event) for event in package.view["events"]}
-    with exclusive_resolve_build():
-        manager, timeline, project_uid, timeline_uid = _current_readback_target(
-            (resolve_factory or _external_resolve)(),
-            project_name=saved["projectName"],
-            timeline_name=saved["timelineName"],
-            project_uid=saved["resolveProjectId"],
-            timeline_uid=saved["timelineId"],
-        )
-        current = _read_items(timeline, saved_items, stamps)
-        _assert_readback_target(manager, project_uid, timeline_uid)
+    stamps = {event["id"]: _stamp(event) for event in view["events"]}
+    manager, timeline, project_uid, timeline_uid = _current_readback_target(
+        resolve,
+        project_name=saved["projectName"],
+        timeline_name=saved["timelineName"],
+        project_uid=saved["resolveProjectId"],
+        timeline_uid=saved["timelineId"],
+    )
+    current = _read_items(timeline, saved_items, stamps)
+    _assert_readback_target(manager, project_uid, timeline_uid)
 
     rows = [
         {
@@ -241,9 +276,7 @@ def observe_output(
         for row in saved["rows"]
     ]
     rows_by_id = {row["rowId"]: row["items"] for row in rows}
-    event_kinds = {
-        event["id"]: event["v2Event"]["kind"] for event in package.view["events"]
-    }
+    event_kinds = {event["id"]: event["v2Event"]["kind"] for event in view["events"]}
     for uid, item in current.items():
         if uid in saved_items:
             continue

@@ -16,6 +16,7 @@ from typing import Any, Literal, cast
 from .build_compiler_bridge import BridgeOutput, invoke_bridge
 from .build_jobs import BuildJobError, NeedsAction
 from .build_stage_receipt import canonical_json
+from .observe_timeline_cli import baseline_timeline_name
 from .readback_timeline_cli import _load_readback_package, _read_saved_row_map
 from .row_timeline_map import SCHEMA_VERSION_V2, validate_saved_row_map
 from .three_way_compare import compare_three_way_rows
@@ -129,9 +130,13 @@ def compare_offline(
         raise ValueError("a verified v2 row-timeline-map.json baseline is required")
     package = _load_readback_package(root)
     validate_saved_row_map(package.manifest, package.view, saved)
-    if saved.get("timelineName") != package.attestation.get(
-        "timelineName"
-    ) or saved.get("projectName") != package.attestation.get("projectName"):
+    updated = (root / "timeline-update.json").exists()
+    if saved.get("timelineName") != baseline_timeline_name(
+        root, package.attestation
+    ) or (
+        not updated
+        and saved.get("projectName") != package.attestation.get("projectName")
+    ):
         raise ValueError("baseline target differs from attested delivery")
     baseline_document = _json_file(
         package.root / "Builds" / package.manifest["buildId"] / "script-document.json",
