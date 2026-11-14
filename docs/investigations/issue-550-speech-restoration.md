@@ -52,12 +52,19 @@ Build, checkpoint hash and runtime results remain to be measured.
 | Candidate | Pinned source / code license | Pinned model / weight license | Role and caveat |
 | --- | --- | --- | --- |
 | Resemble Enhance | [`8e978149`](https://github.com/resemble-ai/resemble-enhance/tree/8e978149bfe8abab3eb77d965d579a111afdb0ff), MIT | [Official model](https://huggingface.co/ResembleAI/resemble-enhance), MIT | Denoise and restoration; source last changed December 2024. |
-| SGMSE+ EARS-Reverb | [`1961cf44`](https://github.com/sp-uhh/sgmse/tree/1961cf4483e37df1bb92ccf0eb8b28bf6f44cb0e), MIT | [First-party checkpoint](https://huggingface.co/sp-uhh/speech-enhancement-sgmse/blob/89193ea626c85f3ba36c5ca6d604068ebb2e5e58/pretrained_checkpoints/48_khz_models/ears_reverb.ckpt), repository tagged MIT | 48 kHz speech dereverberation. The OUVESDE path supports CPU; a different SBVESDE path hardcodes CUDA. Source updated May 2026. |
+| SGMSE+ EARS-Reverb | [`1961cf44`](https://github.com/sp-uhh/sgmse/tree/1961cf4483e37df1bb92ccf0eb8b28bf6f44cb0e), MIT | [First-party checkpoint](https://huggingface.co/sp-uhh/speech-enhancement-sgmse/blob/89193ea626c85f3ba36c5ca6d604068ebb2e5e58/pretrained_checkpoints/48_khz_models/ears_reverb.ckpt), repository tagged MIT; see caveat below | 48 kHz speech dereverberation. The OUVESDE path supports CPU; a different SBVESDE path hardcodes CUDA. Source updated May 2026. |
 | ClearerVoice MossFormer2 SE 48K | [`6b3774dc`](https://github.com/modelscope/ClearerVoice-Studio/tree/6b3774dc79c46ae8bed2a4fa5f706f0ac8c75c61), Apache-2.0 | [Official model](https://huggingface.co/alibabasglab/MossFormer2_SE_48K/tree/eff8c97925c8bec812af707814b3e5d777fd4503), Apache-2.0 | Speech enhancement; whether it meaningfully removes this room reverb is unverified. Source last changed August 2025. |
 
-The Resemble CPU dependency lock did not resolve: uv's index selection found
-PyPI's `torch` without the requested `2.2.2+cpu` build before checking the
-PyTorch CPU index. No image or inference result was produced. Correct the
-index configuration and resolve the lock before building; keep the inference
-run offline. Candidate quality, checkpoint hashes, peak memory, runtimes,
-finalists and the listening packages remain outstanding.
+The SGMSE model repository's MIT tag does not by itself establish commercial
+rights for weights trained on EARS-Reverb: the [EARS benchmark](https://github.com/sp-uhh/ears_benchmark)
+declares CC BY-NC 4.0. Treat commercial eligibility as unresolved until the
+rights holder clarifies it. Check the checkpoint's configured SDE before
+assuming the CPU-capable path applies.
+
+The Resemble CPU lock now resolves using both the PyTorch CPU and PyPI
+indexes with `--index-strategy unsafe-best-match` and hashes. The pinned source
+imports `ptflops` only in profiling helpers; it is omitted from the inference
+environment after the 0.7.2 source package failed to build. The container
+build and inference still need verification. Candidate quality, checkpoint
+hashes, peak memory, runtimes, finalists and listening packages remain
+outstanding.
