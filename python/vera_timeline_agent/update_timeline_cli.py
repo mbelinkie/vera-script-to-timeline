@@ -286,16 +286,17 @@ def update_once(
             archive = native.duplicate_archive(project, timeline, archive_name)
             archive_uid = archive.GetUniqueId()
             archive_before = native.snapshot(archive)
-            if native.content(archive_before) != native.content(before):
+            if not native.same_content(archive_before, before):
                 raise native.NativeUpdateError("the archive copy differs")
-            if native.snapshot(timeline) != before:
+            if native.unexpected_changes(before, native.snapshot(timeline), set()):
                 raise native.NativeUpdateError(
                     "making the archive changed the timeline"
                 )
         except Exception as error:
             raise BuildJobError(
                 "the archive copy could not be made and checked, so the "
-                f"timeline was not changed ({error})"
+                f"timeline was not changed ({error}). A copy named "
+                f"{archive_name!r} may have been left in the project"
             ) from error
 
         replaced: set[str] = set()
@@ -304,6 +305,8 @@ def update_once(
             media = native.import_sources(
                 project, f"VERA update {current.manifest['buildId'][:8]}", paths
             )
+            # Handles do not survive closing the project; keep the IDs.
+            media_ids = {key: item.GetMediaId() for key, item in media.items()}
             native.select(project, timeline)
             for position, row_id in enumerate(selected):
                 attempt = planning.record_outcome(attempt, row_id, "uncertain")
@@ -338,7 +341,10 @@ def update_once(
             )
             timeline = native.timeline_by_uid(project, saved["timelineId"])
             archive = native.timeline_by_uid(project, archive_uid)
-            if native.snapshot(archive) != archive_before:
+            archive_after = native.snapshot(archive)
+            if archive_after["timelineId"] != archive_uid or native.unexpected_changes(
+                archive_before, archive_after, set()
+            ):
                 raise native.NativeUpdateError("the archive copy changed")
             native.select(project, timeline)
             reopened = native.snapshot(timeline)
@@ -356,8 +362,7 @@ def update_once(
                         edit["swapPicture"]
                         and (
                             pool_item is None
-                            or pool_item.GetMediaId()
-                            != media[edit["sourceId"]].GetMediaId()
+                            or pool_item.GetMediaId() != media_ids[edit["sourceId"]]
                         )
                     )
                 ):

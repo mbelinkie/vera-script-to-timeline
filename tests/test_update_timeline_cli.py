@@ -33,12 +33,14 @@ FIXTURE = (
 class Media:
     def __init__(self, name: str) -> None:
         self.name = name
+        self.stale = False
 
     def GetUniqueId(self) -> str:
         return f"pool-{self.name}"
 
-    def GetMediaId(self) -> str:
-        return f"media-{self.name}"
+    def GetMediaId(self) -> str | None:
+        # A handle taken from the Media Pool dies when the project closes.
+        return None if self.stale else f"media-{self.name}"
 
 
 class Item:
@@ -52,7 +54,11 @@ class Item:
         self.markers: dict[int, dict[str, Any]] = (
             {0: {"customData": stamp, "name": "VERA v2 event"}} if stamp else {}
         )
-        self.properties: dict[str, Any] = {"ZoomX": 1.0, "Pan": 0.0}
+        self.properties: dict[str, Any] = {
+            "ZoomX": 1.0,
+            "Pan": 0.0,
+            "AudioVoiceIsolationEnabled": False,
+        }
         self.nodes = 1
         self.takes: list[dict[str, Any]] = []
         self.finalize_ok = True
@@ -124,7 +130,8 @@ class Item:
 
     def SelectTakeByIndex(self, index: int) -> bool:
         take = self.takes[index - 1]
-        self.media, self.source_start = take["mediaPoolItem"], take["start"]
+        # The clip holds its own reference, not the caller's pool handle.
+        self.media, self.source_start = Media(take["mediaPoolItem"].name), take["start"]
         return True
 
     def FinalizeTake(self) -> bool:
@@ -167,7 +174,8 @@ class Timeline:
                 twin = copy.copy(item)
                 twin.uid = f"{item.uid}-copy"
                 twin.markers = copy.deepcopy(item.markers)
-                twin.properties = dict(item.properties)
+                # Resolve omits default-valued audio settings on a fresh copy.
+                twin.properties = {k: v for k, v in item.properties.items() if v}
                 twin.takes = list(item.takes)
                 clone.tracks[slot].append(twin)
         self.project.timelines.append(clone)
@@ -214,7 +222,8 @@ class Project:
 
     def ImportMedia(self, paths: list[str]) -> list[Media]:
         self.imported.extend(paths)
-        return [Media(Path(path).stem) for path in paths]
+        self.handles = [Media(Path(path).stem) for path in paths]
+        return self.handles
 
 
 class Resolve:
@@ -239,7 +248,9 @@ class Resolve:
         self.saves += 1
         return True
 
-    def CloseProject(self, _project: Project) -> bool:
+    def CloseProject(self, project: Project) -> bool:
+        for handle in getattr(project, "handles", []):
+            handle.stale = True
         return True
 
     def LoadProject(self, _name: str) -> Project:

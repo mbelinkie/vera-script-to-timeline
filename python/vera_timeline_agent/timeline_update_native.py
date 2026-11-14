@@ -131,6 +131,40 @@ def content(value: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _same_properties(first: Any, second: Any) -> bool:
+    """Compare Inspector settings as Resolve reports them.
+
+    Measured on Studio 21.1.1 build 10: a freshly duplicated timeline omits
+    audio settings that are at their off or zero default (dialogue leveler,
+    voice isolation) until the project is reopened. A missing setting is
+    therefore equal only to an off or zero one, never to a set value.
+    """
+    if not isinstance(first, Mapping) or not isinstance(second, Mapping):
+        return bool(first == second)
+    return all(
+        first[key] == second[key]
+        if key in first and key in second
+        else not first.get(key) and not second.get(key)
+        for key in first.keys() | second.keys()
+    )
+
+
+def same_content(first: Mapping[str, Any], second: Mapping[str, Any]) -> bool:
+    """Whether two timelines hold the same clips, ignoring Resolve IDs."""
+    one, two = content(first), content(second)
+    return (
+        one["bounds"] == two["bounds"]
+        and one["markers"] == two["markers"]
+        and len(one["items"]) == len(two["items"])
+        and all(
+            _same_properties(left["properties"], right["properties"])
+            and {k: v for k, v in left.items() if k != "properties"}
+            == {k: v for k, v in right.items() if k != "properties"}
+            for left, right in zip(one["items"], two["items"], strict=True)
+        )
+    )
+
+
 def fingerprint(value: Mapping[str, Any]) -> str:
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -154,7 +188,12 @@ def unexpected_changes(
         changed = sorted(
             key
             for key in old[uid]
-            if key not in skip and old[uid][key] != new[uid].get(key)
+            if key not in skip
+            and (
+                not _same_properties(old[uid][key], new[uid].get(key))
+                if key == "properties"
+                else old[uid][key] != new[uid].get(key)
+            )
         )
         if changed:
             where = f"{old[uid]['kind']} {old[uid]['track']} at {old[uid]['start']}"
