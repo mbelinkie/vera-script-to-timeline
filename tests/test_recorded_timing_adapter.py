@@ -34,6 +34,10 @@ def test_approved_source_duration_binds_real_v2_audio_and_moves_spine() -> None:
     assert new[2]["audio"]["durationSamples"] == 144000
     assert new[0]["audioHash"] == new[0]["audio"]["audioHash"]
     assert new[0]["audio"]["timingHash"] == new[0]["timingHash"]
+    for index in (0, 2):
+        audio = new[index]["audio"]
+        assert new[index]["audioHash"] == "sha256:" + audio["cacheAssetId"]
+        assert any(c["sha256"] == audio["cacheAssetId"] for c in carriers)
     assert new[0]["tokens"][0]["startTime"] == {"numerator": 3, "denominator": 10}
     assert new[0]["tokens"][0]["endBasis"] == "evidenced_audible_end"
     impact = impact_report(snap, data["document"], data["dependencies"], deps)
@@ -136,3 +140,10 @@ def test_invalid_or_non_reduced_word_time_fails_closed() -> None:
     assert wire({"numerator": 1001, "denominator": 30000}) == Fraction(1001, 30000)
     with pytest.raises(ConformRefused, match="safe PCM16"):
         silent_carrier(48000, 2**32)
+
+
+def test_silent_wav_rejects_mismatched_pinned_hash(tmp_path: Path) -> None:
+    carrier = silent_carrier(16000, 100)
+    carrier["sha256"] = "0" * 64
+    with pytest.raises(ConformRefused, match="pinned audio hash"):
+        write_silent_carrier(carrier, tmp_path)

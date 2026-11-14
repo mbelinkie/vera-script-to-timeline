@@ -179,7 +179,12 @@ def sample() -> dict[str, Any]:
         )
     evidence = {
         "schemaVersion": "take-word-marks/1",
-        "video": {"file": video["file"], "durationS": "12", "fps": [30, 1]},
+        "video": {
+            "file": video["file"],
+            "durationS": "12",
+            "fps": [30, 1],
+            "sha256": SHA,
+        },
         "sourceScript": {
             "file": "prompter.txt",
             "sha256": hashlib.sha256(script_text.encode()).hexdigest(),
@@ -372,4 +377,51 @@ def test_identity_mutations_are_not_silently_accepted(
     data = sample()
     corrupt(data)
     with pytest.raises(ConformRefused, match=reason):
+        _snapshot(data)
+
+
+def test_recorded_word_end_must_fit_inside_approved_source_trim() -> None:
+    data = sample()
+    # This word starts within the human cut, but its acoustic END is outside.
+    data["evidence"]["rows"][0]["fullReads"][0]["marks"][2]["endS"] = "5"
+    with pytest.raises(
+        ConformRefused, match="measured word end outside approved source cut"
+    ):
+        _snapshot(data)
+
+
+def test_word_evidence_video_frame_rate_must_match_approved_source() -> None:
+    data = sample()
+    data["evidence"]["video"]["fps"] = [24, 1]
+    with pytest.raises(ConformRefused, match="source frame rate or duration differs"):
+        _snapshot(data)
+
+
+def test_word_marks_must_pin_original_camera_sha256() -> None:
+    data = sample()
+    data["evidence"]["video"]["sha256"] = "sha256:" + "f" * 64
+    with pytest.raises(ConformRefused, match="camera SHA-256 differs"):
+        _snapshot(data)
+
+
+def test_word_marks_must_match_analyzed_script_tokens() -> None:
+    data = sample()
+    data["evidence"]["rows"][0]["scriptWords"] = ["other", "script", "words"]
+    with pytest.raises(ConformRefused, match="words differ from analyzed script"):
+        _snapshot(data)
+
+
+def test_word_marks_must_identify_exact_approved_read_group() -> None:
+    data = sample()
+    data["evidence"]["rows"][0]["fullReads"][0]["takes"] = ["wrong-take"]
+    with pytest.raises(
+        ConformRefused, match="missing or ambiguous approved word evidence"
+    ):
+        _snapshot(data)
+
+
+def test_frozen_token_offsets_must_quote_the_actual_word() -> None:
+    data = sample()
+    data["document"]["activeDraft"]["blocks"][0]["tokens"][0]["startOffset"] = 1
+    with pytest.raises(ConformRefused, match="frozen token"):
         _snapshot(data)

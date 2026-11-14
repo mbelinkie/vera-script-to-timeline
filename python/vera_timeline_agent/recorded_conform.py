@@ -298,6 +298,12 @@ def conform_snapshot(
         takes["rows"]
     ):
         raise ConformRefused("incomplete take-word-marks passage roster")
+    if [row.get("scriptWords") for row in evidence["rows"]] != [
+        normalize_words(passage.text) for passage in passages
+    ]:
+        raise ConformRefused("take-word-marks words differ from analyzed script tokens")
+    if video.get("sha256") != video_sha256:
+        raise ConformRefused("take-word-marks original camera SHA-256 differs")
     if (
         document.get("schemaVersion") != "script-document/v2"
         or dependencies.get("schemaVersion") != "compiler-dependencies/v2"
@@ -392,6 +398,7 @@ def conform_snapshot(
                 raise ConformRefused(f"{row_id}: saved read is stale: {reason}")
             candidate = {
                 "rowId": row_id,
+                "takes": fresh["takes"],
                 "sourceCut": {
                     "startFrame": fresh["cut"]["startFrame"],
                     "endFrame": fresh["cut"]["endFrame"],

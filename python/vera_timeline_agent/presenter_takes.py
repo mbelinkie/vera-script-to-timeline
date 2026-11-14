@@ -1292,6 +1292,12 @@ def sync_only(video: Path, separate_audio: Path) -> SyncResult:
     return sync
 
 
+def verify_original_video_unchanged(video: Path, pinned_sha256: str) -> None:
+    """Do not bind an earlier acoustic analysis to later camera file bytes."""
+    if file_hash(video) != pinned_sha256:
+        raise TakesError("original camera video changed during take analysis")
+
+
 def find_takes(
     video: Path,
     script: Path,
@@ -1318,6 +1324,7 @@ def find_takes(
     script_text = read_script(script)
     passages = script_passages(script_text, load_dictionary_words(dictionary_text))
     duration_s, fps = probe_video(video)
+    original_video_sha = file_hash(video)
     sound = decode_audio(video)
     sync: SyncResult | None = None
     uncovered: list[list[float]] = []
@@ -1356,6 +1363,7 @@ def find_takes(
             "file": video.name,
             "durationS": str(Fraction(str(duration_s))),
             "fps": fps,
+            "sha256": original_video_sha,
         },
         "sourceScript": {
             "file": script.name,
@@ -1395,6 +1403,7 @@ def find_takes(
         **body,
         "secondsTaken": round(time.monotonic() - started, 1),
     }
+    verify_original_video_unchanged(video, original_video_sha)
     (out / "takes.json").write_text(json.dumps(takes, indent=1, ensure_ascii=False))
     (out / "take-word-marks.json").write_bytes(canonical_json(evidence))
     (out / "report.txt").write_text(render_report(takes), encoding="utf-8")

@@ -133,6 +133,16 @@ def test_v2_prompter_export_cues_and_separate_state_lines_do_not_create_rows() -
         "Another row.",
     ]
     assert [p.camera for p in passages] == ["on", "off", "on"]
+
+
+def test_original_camera_must_not_change_during_take_analysis(tmp_path) -> None:
+    camera = tmp_path / "synthetic-camera.mov"
+    camera.write_bytes(b"synthetic original camera")
+    source_hash = pt.file_hash(camera)
+    pt.verify_original_video_unchanged(camera, source_hash)
+    camera.write_bytes(b"different camera, same name")
+    with pytest.raises(pt.TakesError, match="original camera video changed"):
+        pt.verify_original_video_unchanged(camera, source_hash)
     with pytest.raises(pt.TakesError):
         pt.script_passages("  \n", set())
 

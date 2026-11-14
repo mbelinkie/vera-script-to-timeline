@@ -30,6 +30,7 @@ def _case(tmp_path: Path) -> tuple[dict[str, Path], dict[str, Any]]:
     sha = "sha256:" + hashlib.sha256(video.read_bytes()).hexdigest()
     data["videoSha"] = sha
     data["approvals"]["source"]["sha256"] = sha
+    data["evidence"]["video"]["sha256"] = sha
     for row in ("row-1", "row-3"):
         data["approvals"]["decisions"][row]["active"]["source"]["sha256"] = sha
     # History must remain an exact before/after audit, not just a decisions
@@ -147,6 +148,44 @@ def test_symlink_output_is_refused_without_touching_destination(tmp_path) -> Non
     with pytest.raises(ConformRefused, match="symlink"):
         _invoke(paths, fake, _needs_source_short)
     assert not list(real.iterdir())
+
+
+def test_symlink_in_output_parent_is_refused(tmp_path) -> None:
+    paths, _ = _case(tmp_path)
+    real = paths["output_root"] / "real"
+    real.mkdir()
+    link = paths["output_root"] / "link"
+    link.symlink_to(real, target_is_directory=True)
+    with pytest.raises(ConformRefused, match="symlink"):
+        _invoke(paths, link / "fresh", _needs_source_short)
+    assert not list(real.iterdir())
+
+
+def test_source_changed_during_compiler_preview_refuses_publication(tmp_path) -> None:
+    paths, _ = _case(tmp_path)
+    out = paths["output_root"] / "changed-source"
+
+    def compiler(_script: Path, _deps: Path) -> dict:
+        paths["video"].write_bytes(b"source-was-replaced-during-the-preview")
+        return _needs_source_short(_script, _deps)
+
+    with pytest.raises(ConformRefused, match="original source video changed"):
+        _invoke(paths, out, compiler)
+    assert not out.exists()
+
+
+def test_approval_changed_during_compiler_preview_refuses_publication(tmp_path) -> None:
+    paths, _ = _case(tmp_path)
+    out = paths["output_root"] / "changed-approval"
+
+    def compiler(_script: Path, _deps: Path) -> dict:
+        approvals = paths["takes"].with_name("approvals.json")
+        approvals.write_bytes(approvals.read_bytes() + b" ")
+        return _needs_source_short(_script, _deps)
+
+    with pytest.raises(ConformRefused, match="changed while preparing"):
+        _invoke(paths, out, compiler)
+    assert not out.exists()
 
 
 def test_framing_default_and_invalid_maps_stop_before_writing(tmp_path) -> None:

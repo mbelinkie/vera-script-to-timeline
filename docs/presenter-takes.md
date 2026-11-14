@@ -305,7 +305,8 @@ uv run --frozen python -m vera_timeline_agent.recorded_conform_cli \
 
 The #45 analysis now also writes `take-word-marks.json` beside `takes.json`.
 Its versioned full-read word evidence records each script word, actual
-recorded-word index, measured source-video time and timing precision.
+recorded-word index, measured source-video time and timing precision, pinned
+to the original camera file's SHA-256.
 **Old analyses without this sidecar must be re-run through #45.** The saved
 human `approvals.json` is a separate file, never silently changed by #47;
 if the new analysis differs, the existing approval is marked stale and must be

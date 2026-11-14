@@ -130,6 +130,7 @@ def validated_marks(row: Json, read: Json, expected: list[str]) -> list[Json]:
         for item in row.get("fullReads", [])
         if item.get("sourceCut") == read.get("sourceCut")
         and item.get("said") == read.get("said")
+        and ("takes" not in read or item.get("takes") == read["takes"])
     ]
     if len(matches) != 1:
         raise WordEvidenceError(
