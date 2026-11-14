@@ -285,6 +285,78 @@ suggested take or builds a Resolve timeline.
   in `experiments/issue45/take_rules.py`). This command adds none, apart from
   the two guards above (the timing cross-check and the match guard).
 
+## Recorded timing from approved takes (#47)
+
+After running #45 and explicitly choosing the complete reads with #46, use
+the following **offline preview** command. It never opens Resolve or builds a
+timeline. `--take-script` is the **exact prompter script given to #45**, not a
+freshly edited copy; `--script` is the frozen v2 structured script JSON. `--prepared`
+holds the original `compiler-dependencies.json` from the one-command workflow.
+
+```sh
+uv run --frozen python -m vera_timeline_agent.recorded_conform_cli \
+  --takes "/absolute/path/to/takes/takes.json" \
+  --video "/absolute/path/to/original-camera.mov" \
+  --take-script "/absolute/path/to/prompter.txt" \
+  --script "/absolute/path/to/script-document.json" \
+  --prepared "/absolute/path/to/prepared-inputs" \
+  --out "/absolute/path/to/new-recorded-preview"
+```
+
+The #45 analysis now also writes `take-word-marks.json` beside `takes.json`.
+Its versioned full-read word evidence records each script word, actual
+recorded-word index, measured source-video time and timing precision.
+**Old analyses without this sidecar must be re-run through #45.** The saved
+human `approvals.json` is a separate file, never silently changed by #47;
+if the new analysis differs, the existing approval is marked stale and must be
+reviewed using #46. No approximate or substituted word is assigned invented
+timing.
+
+The command requires an exact, unambiguous correspondence between each
+analyzed `row-N` passage and one active **spoken** V2 narration block and its
+frozen token UUIDs/UTF-16 offsets. Camera markers `(on)/(off)` and
+`(OC)/(VO)` are recognized; standalone `[SECTION:]`, `[BEAT]` and prompter
+annotation cues are not extra passages. If a section, extra cue, beat split,
+duplicate wording, token discrepancy or reordering prevents proving the
+mapping, the command **refuses instead of guessing**. Multiple unresolved
+approval rows (`undecided`, `needs_pickup`, `needs_another_look`) and orphaned
+saved decisions are named together before any output is written.
+
+The immutable output folder is required to **not exist** yet. It contains:
+
+- `snapshot.json`: `recorded-conform-snapshot/1`, the source camera SHA-256,
+  approved effective integer-frame cuts, measured word times, frozen V2
+  block/token identities, source/audio/dependency pins, and explicit `wide`
+  (default) or `tight` framing, plus `previewOnly`/`notDeliverable`.
+- `compiler-dependencies.json`: normal frozen V2 narration timing maps with
+  exact recorded word marks and **new verified audio durations**; locked
+  temporary-voice maps are unchanged. `script-document.json` is the frozen
+  compiler input.
+- `impact.json` and `impact.txt`: old/new row starts and durations, accumulated
+  following-row shifts, word-anchored picture movements and named sources
+  too short for the requested intervals. Short clips require reconciliation,
+  never looping, slowing, freezing or stretching. Complex visuals must pass
+  the real compiler's media requirements before use.
+- `preview-only/preview-only-*.wav` and `NOT_DELIVERABLE.txt`: deterministic
+  hash-verified **silent duration carriers**, not the presenter's recorded
+  sound and not audio masters. **Never pass these to #48 as actual presenter
+  audio**; #48 must bind real recorded audio with verified bytes.
+
+The optional `--framing-map /absolute/path/to/map.json` accepts an object
+like `{"row-1":"tight","row-2":"wide"}`. Unspecified rows are frozen as
+`wide`; unsupported framing or unknown row IDs are rejected. This records
+the choice only—it does not apply a Resolve zoom.
+
+Two runs with unchanged sources into **different fresh folders** produce
+byte-identical output. Original analyses, saved approvals and old snapshots
+are not overwritten. If the existing compiler reports insufficient visual
+source or prepared-media mismatch, the preview is marked
+`requires_reconciliation` (command exit status **2**), not compiler-ready.
+Unresolved approvals, bad identities or missing acoustic word evidence refuse
+without a snapshot (status **1**). A verified ready preview returns **0**;
+even then, its silent carrier is deliberately **not deliverable** as audio.
+
+
 ## Engine settings
 
 The engines are the ones chosen in #51 and packaged in #183. They run in
