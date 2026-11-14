@@ -1,0 +1,39 @@
+FROM python:3.11-slim-bookworm
+
+ARG CLEARVOICE_COMMIT=6b3774dc79c46ae8bed2a4fa5f706f0ac8c75c61
+ARG MODEL_REVISION=eff8c97925c8bec812af707814b3e5d777fd4503
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git libgl1 libglib2.0-0 libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git init /opt/ClearerVoice-Studio \
+    && git -C /opt/ClearerVoice-Studio remote add origin https://github.com/modelscope/ClearerVoice-Studio.git \
+    && git -C /opt/ClearerVoice-Studio fetch --depth=1 origin "${CLEARVOICE_COMMIT}" \
+    && git -C /opt/ClearerVoice-Studio checkout --detach FETCH_HEAD
+
+WORKDIR /opt/ClearerVoice-Studio/clearvoice
+
+COPY requirements.cpu.txt /tmp/requirements.cpu.txt
+COPY smoke_cpu.py /opt/smoke_cpu.py
+
+RUN python -m pip install --no-cache-dir pip==24.3.1 \
+    && python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch==2.5.1+cpu torchaudio==2.5.1+cpu torchvision==0.20.1+cpu \
+    && python -m pip install --no-cache-dir -r /tmp/requirements.cpu.txt
+
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='alibabasglab/MossFormer2_SE_48K', revision='${MODEL_REVISION}', local_dir='checkpoints/MossFormer2_SE_48K')"
+
+ENV CUDA_VISIBLE_DEVICES="" \
+    PYTHONPATH=/opt/ClearerVoice-Studio/clearvoice \
+    HF_HUB_OFFLINE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    TRANSFORMERS_OFFLINE=1
+
+CMD ["python", "/opt/smoke_cpu.py"]

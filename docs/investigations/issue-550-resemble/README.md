@@ -1,11 +1,11 @@
 # Resemble CPU container (unverified)
 
-The lock resolves for Linux x86_64 and Python 3.10. The legacy Docker build
-reported success but the model directory was absent during the first offline
-run; its heredoc steps apparently did not execute their Python bodies. This
-recipe is not ready for use: fix those steps and verify checkpoint and imports.
-See the parent investigation for the source, model, licensing and status.
-Build the corrected directory with
+The lock resolves for Linux x86_64 and Python 3.10. The corrected recipe
+downloads and verifies the checkpoint and loads it on CPU during the build.
+The upstream default 30-second processing chunk exhausted a 6 GiB container
+on the first 40-second trial. `chunked_inference.py` tests smaller chunks;
+its output and timing have not yet been evaluated. See the parent investigation
+for source, licensing and status. Build this directory with
 `docker build --platform linux/amd64 -t vera-resemble-enhance:issue550 .`.
 Only public dependencies, source and model weights belong in the build
 context. For inference, use `--network none`, mount inputs read-only and use

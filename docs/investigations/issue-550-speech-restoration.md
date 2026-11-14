@@ -61,18 +61,40 @@ declares CC BY-NC 4.0. Treat commercial eligibility as unresolved until the
 rights holder clarifies it. Check the checkpoint's configured SDE before
 assuming the CPU-capable path applies.
 
-The Resemble CPU lock now resolves using both the PyTorch CPU and PyPI
-indexes with `--index-strategy unsafe-best-match` and hashes. The pinned source
-imports `ptflops` only in profiling helpers; it is omitted from the inference
+The Resemble CPU lock resolves using both the PyTorch CPU and PyPI indexes with
+`--index-strategy unsafe-best-match` and hashes. The pinned source imports
+`ptflops` only in profiling helpers; it is omitted from the inference
 environment after the 0.7.2 source package failed to build. The legacy Docker
-builder reported success, and the offline CLI help ran, but a 40-second
-offline inference attempt failed before model initialization: the expected
-`/opt/models/enhancer_stage2` directory was absent. No output was produced.
-The Dockerfile's heredoc `RUN` steps apparently did not execute their Python
-bodies with this legacy builder; the checkpoint hash and import smoke check
-therefore have **not** been verified. Replace those steps with copied Python
-scripts or a builder supporting heredocs, rebuild, and verify the model load
-before drawing a runtime or quality conclusion. The image reported 592,287,506
-bytes before the missing checkpoint was discovered. Candidate quality,
-checkpoint hashes, peak memory, runtimes, finalists and listening packages
-remain outstanding.
+builder silently skipped heredoc Python bodies in the first recipe. Replacing
+them with copied scripts produced an image of 1,250,444,217 bytes, verified
+checkpoint SHA-256 `f9d035f318de3e6d919bc70cf7ad7d32b4fe92ec5cbe0b30029a27f5db07d9d6`,
+and loaded the model on CPU. The initial offline 40-second trial used the
+upstream 30-second chunk, midpoint solver, 64 evaluations, lambda 1 and tau
+0.5. Docker reported an out-of-memory kill after 964 seconds with a 6 GiB
+container limit; no output was produced. A five-second chunk / one-second
+overlap retry reached four of ten chunks after 24m51s and was stopped after
+30 minutes without output, to preserve the investigation budget. Its observed
+peak was 3,984,650,240 bytes, with other builds sharing the six CPUs. A linear
+estimate from the first four chunks is about 62 minutes for the 40-second
+excerpt and 6.3 hours for Presenter 1; this is not a completed benchmark and
+contention makes it indicative only. No sound-quality, seam or timing judgment
+is possible from this attempt. The model remains a possible stronger-hardware
+candidate, not a tested finalist.
+
+ClearerVoice MossFormer2 SE 48K passed a one-second synthetic offline CPU
+smoke check. Its image is 1,276,629,232 bytes by `docker image inspect`; the
+221,552,019-byte checkpoint SHA-256 is
+`03692b9f773bbd6bb43b9c5a41f96b1e28affd66e13796b7bec66ad3d8b227c6`.
+An offline 40-second Presenter 1 passage finished in 450 seconds under shared
+CPU load, at 48 kHz mono with exactly 1,920,000 samples. Four ten-second
+waveform correlations measured zero lag; FFmpeg reported -0.6 dBTP. This
+first exploratory output is PCM16, not the required final PCM24 listening
+format. No subjective quality judgment has been made.
+
+The first-party SGMSE EARS-Reverb checkpoint was downloaded locally and its
+1,295,848,436 bytes verified as SHA-256
+`9be62a3df0401398e5626a1c4dc65039220499d506941ecf110b52cccb7309b2`.
+Candidate quality, completed runtimes, finalists and listening packages
+remain outstanding. The first SGMSE image build installed its dependencies
+but was interrupted when the 40 GiB Docker VM filled. Its recipe and lock
+are retained; the image has not yet been tested.

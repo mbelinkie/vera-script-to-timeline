@@ -1,0 +1,17 @@
+# Runtime dependencies for the official SGMSE enhancement.py path.
+# Keep the +cpu local versions explicit so resolution cannot select CUDA wheels.
+torch==2.2.0+cpu
+torchaudio==2.2.0+cpu
+
+# Versions match the upstream requirements_version.txt at SOURCE_COMMIT where
+# available. torch-pesq is also imported unconditionally by sgmse.model.
+librosa==0.10.1
+numpy==1.24.4
+pesq==0.0.4
+pystoi==0.4.1
+pytorch-lightning==2.1.4
+scipy==1.10.1
+torch-ema==0.3
+torch-pesq==0.1.2
+torchsde==0.2.6
+tqdm==4.66.1
