@@ -15,13 +15,18 @@ def main() -> None:
     sample_count = sample_rate
     time = np.arange(sample_count, dtype=np.float32) / sample_rate
     rng = np.random.default_rng(550)
-    audio = (0.08 * np.sin(2 * np.pi * 220 * time) + 0.005 * rng.standard_normal(sample_count)).astype(np.float32)
+    audio = (
+        0.08 * np.sin(2 * np.pi * 220 * time)
+        + 0.005 * rng.standard_normal(sample_count)
+    ).astype(np.float32)
 
     with tempfile.TemporaryDirectory(prefix="clearvoice-cpu-") as directory:
         source = Path(directory) / "synthetic.wav"
         sf.write(source, audio, sample_rate)
 
-        clearvoice = ClearVoice(task="speech_enhancement", model_names=["MossFormer2_SE_48K"])
+        clearvoice = ClearVoice(
+            task="speech_enhancement", model_names=["MossFormer2_SE_48K"]
+        )
         output = clearvoice(input_path=str(source), online_write=False)
 
     while isinstance(output, (list, tuple)) and len(output) == 1:
@@ -33,7 +38,10 @@ def main() -> None:
     if enhanced.size == 0 or not np.isfinite(enhanced).all():
         raise RuntimeError(f"Invalid enhancement output: shape={enhanced.shape}")
 
-    print(f"CPU inference passed: input={audio.shape}, output={enhanced.shape}, rate={sample_rate}")
+    print(
+        f"CPU inference passed: input={audio.shape}, output={enhanced.shape}, "
+        f"rate={sample_rate}"
+    )
 
 
 if __name__ == "__main__":
