@@ -114,8 +114,16 @@ but was interrupted when the 40 GiB Docker VM filled. A second build succeeded
 and its image reports 575,663,960 bytes. The offline 60-second screen was killed
 after 196 seconds at the 5 GiB container limit. A five-second retry also hit
 that limit; disabling gradient tracking did not make five seconds fit. A
-one-second test with gradients disabled remains in progress. The checkpoint
-loaded with a warning that it was produced by a newer Lightning version.
+one-second test with gradients disabled completed in 761.6 seconds including
+model load (709 seconds in the processing loop), producing 48,000 samples.
+Its waveform correlation estimated -55 samples (-1.15 ms), with correlation
+0.689; this very short window is weak evidence of timing and not a meaningful
+audition. Its SHA-256 is
+`be6529f9377f05b9fa48140732bb8b05432edb9dca1c71e224bb62a6ff2e35f4`.
+At this rate, 160 seconds across both presenters would take about 32 hours,
+before accounting for chunk joins. No longer output was produced. The
+checkpoint loaded with a warning that it was produced by a newer Lightning
+version.
 
 Four-way provisional listening packages are held locally at
 `out/issue550-private/listening-v2/presenter-1` and `presenter-2`. Each has
