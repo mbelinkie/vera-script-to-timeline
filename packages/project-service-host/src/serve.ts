@@ -9,6 +9,8 @@ import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
   type AcceptedSourceAuthority, type IndependentEvidenceInspector,
   ProjectAgentAuthenticationService, ProjectAgentPairingService,
   ProjectBuildSubmissionService, ProjectBuildStatusService } from "@vera/project-builds";
+import { CollaborationHub, createCollaborationUpgradeHandler,
+  ProjectCollaborationService } from "@vera/project-collaboration";
 import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService } from "@vera/project-documents";
 
 import { listenQaHttp } from "./http.js";
@@ -60,6 +62,7 @@ export async function startQaServer(
   let pool: QaPgPool | undefined;
   let server: Server | undefined;
   let closing: Promise<void> | undefined;
+  let hub: CollaborationHub | undefined;
   let idleFailed = false;
   const stop = (): Promise<void> => {
     closing ??= (async () => {
@@ -76,6 +79,8 @@ export async function startQaServer(
           }
         });
       }
+      // Disconnect live editors and write any pending merged text before the pool closes.
+      await hub?.close().catch(() => undefined);
       await pool?.close();
     })();
     return closing;
@@ -99,7 +104,13 @@ export async function startQaServer(
         undefined, infrastructure.evidenceInspector) });
     const projects = createProjectApiHandler({ identity, authorization: auth, documents,
       comments: new ProjectCommentService(pool, auth) });
-    server = await listenQaHttp(config.bindHost, config.port, (request) => {
+    // Live collaboration (#384). Saved revisions are written at most every two
+    // seconds while people type, and immediately whenever a request below
+    // needs the saved script to be current.
+    const collaboration = new ProjectCollaborationService(pool, auth, documents, { materializeDelayMs: 2_000 });
+    const live = hub = new CollaborationHub(collaboration);
+    await collaboration.recover();
+    const route = (request: Request): Promise<Response> => {
       const path = new URL(request.url).pathname;
       if (path === "/v1/agent-pairing/consume" ||
           /^\/v1\/agent\/projects\/[^/]+\/(jobs|heartbeat)$/u.test(path) ||
@@ -109,7 +120,22 @@ export async function startQaServer(
       if (/^\/v1\/projects\/[^/]+\/builds(?:\/|$)/u.test(path) ||
           /^\/v1\/agent\/projects\/[^/]+\/(jobs\/|queue$)/u.test(path)) return builds(request);
       return projects(request);
-    });
+    };
+    server = await listenQaHttp(config.bindHost, config.port, async (request) => {
+      const projectId = /^\/v1\/projects\/([a-fA-F0-9-]{36})(?:\/|$)/u.exec(new URL(request.url).pathname)?.[1];
+      if (!projectId) return await route(request);
+      // Readers and builds see the live text. This only runs while live text is
+      // waiting to be written, so an unauthenticated request never reaches the database.
+      if (collaboration.hasPending(projectId)) await collaboration.flush(projectId).catch(() => undefined);
+      const response = await route(request);
+      // A save or membership change made here reaches the people editing live.
+      if (request.method !== "GET" && response.ok && collaboration.isActive(projectId)) {
+        await collaboration.flush(projectId).catch(() => undefined);
+        await live.revalidate(projectId).catch(() => undefined);
+      }
+      return response;
+    }, createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live,
+      expectedHost: `127.0.0.1:${config.port}` }));
     if (idleFailed) throw new QaStartupRefusal();
     return { server, stop };
   } catch {

@@ -17,6 +17,7 @@
   "dependencies": {
     "@vera/project-authorization": "0.0.0",
     "@vera/project-builds": "0.0.0",
+    "@vera/project-collaboration": "0.0.0",
     "@vera/project-documents": "0.0.0",
     "pg": "8.23.0",
     "tsx": "4.20.6"
