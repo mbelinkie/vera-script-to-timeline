@@ -64,7 +64,15 @@ assuming the CPU-capable path applies.
 The Resemble CPU lock now resolves using both the PyTorch CPU and PyPI
 indexes with `--index-strategy unsafe-best-match` and hashes. The pinned source
 imports `ptflops` only in profiling helpers; it is omitted from the inference
-environment after the 0.7.2 source package failed to build. The container
-build and inference still need verification. Candidate quality, checkpoint
-hashes, peak memory, runtimes, finalists and listening packages remain
-outstanding.
+environment after the 0.7.2 source package failed to build. The legacy Docker
+builder reported success, and the offline CLI help ran, but a 40-second
+offline inference attempt failed before model initialization: the expected
+`/opt/models/enhancer_stage2` directory was absent. No output was produced.
+The Dockerfile's heredoc `RUN` steps apparently did not execute their Python
+bodies with this legacy builder; the checkpoint hash and import smoke check
+therefore have **not** been verified. Replace those steps with copied Python
+scripts or a builder supporting heredocs, rebuild, and verify the model load
+before drawing a runtime or quality conclusion. The image reported 592,287,506
+bytes before the missing checkpoint was discovered. Candidate quality,
+checkpoint hashes, peak memory, runtimes, finalists and listening packages
+remain outstanding.

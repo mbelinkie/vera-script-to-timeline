@@ -1,8 +1,11 @@
 # Resemble CPU container (unverified)
 
-The lock resolves for Linux x86_64 and Python 3.10; the image build was
-interrupted and has not been verified. See the parent investigation for the
-source, model, licensing and current status. Build this directory with
+The lock resolves for Linux x86_64 and Python 3.10. The legacy Docker build
+reported success but the model directory was absent during the first offline
+run; its heredoc steps apparently did not execute their Python bodies. This
+recipe is not ready for use: fix those steps and verify checkpoint and imports.
+See the parent investigation for the source, model, licensing and status.
+Build the corrected directory with
 `docker build --platform linux/amd64 -t vera-resemble-enhance:issue550 .`.
 Only public dependencies, source and model weights belong in the build
 context. For inference, use `--network none`, mount inputs read-only and use
