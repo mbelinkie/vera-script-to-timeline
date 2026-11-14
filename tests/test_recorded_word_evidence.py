@@ -1,6 +1,7 @@
 """Synthetic measured-word identity and timing safety for #47."""
 
 from fractions import Fraction
+from typing import Any
 
 import pytest
 from vera_timeline_agent.recorded_word_evidence import (
@@ -11,7 +12,7 @@ from vera_timeline_agent.recorded_word_evidence import (
 )
 
 
-def _read() -> dict:
+def _read() -> dict[str, Any]:
     return {
         "rowId": "row-1",
         "takes": ["take-1", "take-2"],
@@ -21,7 +22,7 @@ def _read() -> dict:
     }
 
 
-def _delivery() -> dict:
+def _delivery() -> dict[str, Any]:
     return {
         "takes": ["take-1", "take-2"],
         "range": [10, 13],
@@ -29,7 +30,7 @@ def _delivery() -> dict:
     }
 
 
-def _words() -> list[dict]:
+def _words() -> list[dict[str, Any]]:
     return [{"token": "else", "start": 0, "end": 0, "precision": "missing"}] * 10 + [
         {"token": word, "start": i + 10.1, "end": i + 10.3, "precision": "acoustic"}
         for i, word in enumerate(("one", "two", "three"))

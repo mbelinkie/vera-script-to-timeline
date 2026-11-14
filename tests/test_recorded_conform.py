@@ -38,7 +38,7 @@ def _digest(text: str) -> str:
 
 def _raw(
     row_number: int, start: int, end: int, speech_a: float, speech_b: float
-) -> dict:
+) -> dict[str, Any]:
     row_id = f"row-{row_number}"
     return {
         "takes": [f"{row_id}-take-1"],
@@ -272,7 +272,7 @@ def sample() -> dict[str, Any]:
     )
 
 
-def _snapshot(data: dict) -> dict:
+def _snapshot(data: dict[str, Any]) -> dict[str, Any]:
     return conform_snapshot(
         data["takes"],
         data["approvals"],

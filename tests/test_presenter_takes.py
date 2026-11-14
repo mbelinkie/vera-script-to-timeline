@@ -9,7 +9,8 @@ from typing import Any
 
 import numpy as np
 import pytest
-from vera_timeline_agent import presenter_takes as pt
+import vera_timeline_agent.presenter_takes as pt
+from vera_word_timing.artifacts import file_hash
 
 from experiments.issue45.take_rules import refine
 from experiments.issue53.takes import discover
@@ -133,18 +134,18 @@ def test_v2_prompter_export_cues_and_separate_state_lines_do_not_create_rows() -
         "Another row.",
     ]
     assert [p.camera for p in passages] == ["on", "off", "on"]
+    with pytest.raises(pt.TakesError):
+        pt.script_passages("  \n", set())
 
 
-def test_original_camera_must_not_change_during_take_analysis(tmp_path) -> None:
+def test_original_camera_must_not_change_during_take_analysis(tmp_path: Path) -> None:
     camera = tmp_path / "synthetic-camera.mov"
     camera.write_bytes(b"synthetic original camera")
-    source_hash = pt.file_hash(camera)
+    source_hash = file_hash(camera)
     pt.verify_original_video_unchanged(camera, source_hash)
     camera.write_bytes(b"different camera, same name")
     with pytest.raises(pt.TakesError, match="original camera video changed"):
         pt.verify_original_video_unchanged(camera, source_hash)
-    with pytest.raises(pt.TakesError):
-        pt.script_passages("  \n", set())
 
 
 def test_every_take_is_listed_and_the_last_complete_one_is_suggested() -> None:

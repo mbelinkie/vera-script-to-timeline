@@ -57,7 +57,7 @@ def _case(tmp_path: Path) -> tuple[dict[str, Path], dict[str, Any]]:
     return paths, data
 
 
-def _invoke(paths: dict[str, Path], output: Path, compiler: Any) -> dict:
+def _invoke(paths: dict[str, Path], output: Path, compiler: Any) -> dict[str, Any]:
     return build_preview(
         paths["takes"],
         paths["video"],
@@ -69,7 +69,7 @@ def _invoke(paths: dict[str, Path], output: Path, compiler: Any) -> dict:
     )
 
 
-def _needs_source_short(_script: Path, _dependencies: Path) -> dict:
+def _needs_source_short(_script: Path, _dependencies: Path) -> dict[str, Any]:
     return {
         "ready": False,
         "diagnostics": [
@@ -79,7 +79,7 @@ def _needs_source_short(_script: Path, _dependencies: Path) -> dict:
 
 
 def test_immutable_output_same_inputs_are_byte_identical_in_two_destinations(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     paths, _ = _case(tmp_path)
     a, b = paths["output_root"] / "first", paths["output_root"] / "second"
@@ -108,7 +108,7 @@ def test_immutable_output_same_inputs_are_byte_identical_in_two_destinations(
     assert (a / "snapshot.json").read_bytes() == before
 
 
-def test_blocked_rows_report_both_and_never_publish_snapshot(tmp_path) -> None:
+def test_blocked_rows_report_both_and_never_publish_snapshot(tmp_path: Path) -> None:
     paths, data = _case(tmp_path)
     docs = data["approvals"]
     docs["history"] = docs["history"][:1]
@@ -122,7 +122,7 @@ def test_blocked_rows_report_both_and_never_publish_snapshot(tmp_path) -> None:
 
 
 def test_wrong_source_hash_and_wrong_word_mapping_refuse_without_output(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     paths, data = _case(tmp_path)
     paths["video"].write_bytes(b"replacement-source-not-approved")
@@ -139,7 +139,7 @@ def test_wrong_source_hash_and_wrong_word_mapping_refuse_without_output(
     assert not out.exists()
 
 
-def test_symlink_output_is_refused_without_touching_destination(tmp_path) -> None:
+def test_symlink_output_is_refused_without_touching_destination(tmp_path: Path) -> None:
     paths, _ = _case(tmp_path)
     real = paths["output_root"] / "existing"
     real.mkdir()
@@ -150,7 +150,7 @@ def test_symlink_output_is_refused_without_touching_destination(tmp_path) -> Non
     assert not list(real.iterdir())
 
 
-def test_symlink_in_output_parent_is_refused(tmp_path) -> None:
+def test_symlink_in_output_parent_is_refused(tmp_path: Path) -> None:
     paths, _ = _case(tmp_path)
     real = paths["output_root"] / "real"
     real.mkdir()
@@ -161,11 +161,13 @@ def test_symlink_in_output_parent_is_refused(tmp_path) -> None:
     assert not list(real.iterdir())
 
 
-def test_source_changed_during_compiler_preview_refuses_publication(tmp_path) -> None:
+def test_source_changed_during_compiler_preview_refuses_publication(
+    tmp_path: Path,
+) -> None:
     paths, _ = _case(tmp_path)
     out = paths["output_root"] / "changed-source"
 
-    def compiler(_script: Path, _deps: Path) -> dict:
+    def compiler(_script: Path, _deps: Path) -> dict[str, Any]:
         paths["video"].write_bytes(b"source-was-replaced-during-the-preview")
         return _needs_source_short(_script, _deps)
 
@@ -174,11 +176,13 @@ def test_source_changed_during_compiler_preview_refuses_publication(tmp_path) ->
     assert not out.exists()
 
 
-def test_approval_changed_during_compiler_preview_refuses_publication(tmp_path) -> None:
+def test_approval_changed_during_compiler_preview_refuses_publication(
+    tmp_path: Path,
+) -> None:
     paths, _ = _case(tmp_path)
     out = paths["output_root"] / "changed-approval"
 
-    def compiler(_script: Path, _deps: Path) -> dict:
+    def compiler(_script: Path, _deps: Path) -> dict[str, Any]:
         approvals = paths["takes"].with_name("approvals.json")
         approvals.write_bytes(approvals.read_bytes() + b" ")
         return _needs_source_short(_script, _deps)
@@ -188,7 +192,7 @@ def test_approval_changed_during_compiler_preview_refuses_publication(tmp_path) 
     assert not out.exists()
 
 
-def test_framing_default_and_invalid_maps_stop_before_writing(tmp_path) -> None:
+def test_framing_default_and_invalid_maps_stop_before_writing(tmp_path: Path) -> None:
     paths, _ = _case(tmp_path)
     framing = tmp_path / "framing.json"
     framing.write_text(json.dumps({"row-1": "tight"}), encoding="utf-8")
@@ -223,7 +227,7 @@ def test_framing_default_and_invalid_maps_stop_before_writing(tmp_path) -> None:
 
 
 def test_real_v2_compiler_accepts_valid_preview_narration_without_resolve(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     """Use the unchanged TS contract; only the picture is a temporary still."""
     root = Path(__file__).resolve().parents[1]

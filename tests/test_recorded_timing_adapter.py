@@ -95,7 +95,7 @@ def test_too_short_source_is_named_and_never_extended() -> None:
 
 
 def test_ntsc_source_rate_remains_sample_exact_without_floating_retime(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     data = sample()
     snap = _snapshot(data)
