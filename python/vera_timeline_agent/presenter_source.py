@@ -236,7 +236,8 @@ def _make_source(project: Any, recording: Recording, names: Names) -> None:
     clips = pool.ImportMedia([str(recording.video), str(recording.audio)])
     _must(clips and len(clips) == 2, "importing the recording")
     by_path = {clip.GetClipProperty("File Path"): clip for clip in clips}
-    video, audio = by_path.get(str(recording.video)), by_path.get(str(recording.audio))
+    video: Any = by_path.get(str(recording.video))
+    audio: Any = by_path.get(str(recording.audio))
     _must(video and audio, "importing the recording")
     size = f"{recording.width}x{recording.height}"
     if video.GetClipProperty("Resolution") != size or video.GetClipProperty(
