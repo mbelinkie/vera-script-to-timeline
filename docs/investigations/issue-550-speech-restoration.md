@@ -78,8 +78,16 @@ peak was 3,984,650,240 bytes, with other builds sharing the six CPUs. A linear
 estimate from the first four chunks is about 62 minutes for the 40-second
 excerpt and 6.3 hours for Presenter 1; this is not a completed benchmark and
 contention makes it indicative only. No sound-quality, seam or timing judgment
-is possible from this attempt. The model remains a possible stronger-hardware
-candidate, not a tested finalist.
+was made from that interrupted attempt. On a later offline run with the same
+five-second chunks, the 40-second excerpt finished in 3,585.61 seconds under
+shared CPU load. Its 44.1 kHz output resampled to exactly 1,920,000 samples at
+48 kHz, but four ten-second waveform-correlation windows measured +323, +12,
+-75 and -680 samples. Nine shorter windows likewise varied, with modest
+correlation (0.185–0.453). This fails the issue's 1 ms timing-evidence gate;
+the result does not determine whether the voice sounds good or prove that a
+different processing strategy could not retain sync. It is excluded from the
+blind set, and its rejected container image was removed; the output and recipe
+remain local.
 
 ClearerVoice MossFormer2 SE 48K passed a one-second synthetic offline CPU
 smoke check. Its image is 1,276,629,232 bytes by `docker image inspect`; the
@@ -88,13 +96,33 @@ smoke check. Its image is 1,276,629,232 bytes by `docker image inspect`; the
 An offline 40-second Presenter 1 passage finished in 450 seconds under shared
 CPU load, at 48 kHz mono with exactly 1,920,000 samples. Four ten-second
 waveform correlations measured zero lag; FFmpeg reported -0.6 dBTP. This
-first exploratory output is PCM16, not the required final PCM24 listening
-format. No subjective quality judgment has been made.
+first exploratory output is PCM16. The subsequent PCM24 four-passage batch
+finished with exactly 1,920,000 samples in each output, no full-scale samples,
+and zero-sample lag in four ten-second windows per passage. True peaks were
+-0.6 and -0.9 dBTP for Presenter 1, -6.2 and -10.0 dBTP for Presenter 2.
+The full Presenter 1 output kept all 11,723,712 samples and measured zero lag
+at 10, 60, 120, 180 and 225 seconds. The full run took 2,183 seconds under
+shared CPU load, implying roughly 3.7 hours for Presenter 2; no full Presenter
+2 run was made. No subjective quality judgment has been made.
 
 The first-party SGMSE EARS-Reverb checkpoint was downloaded locally and its
 1,295,848,436 bytes verified as SHA-256
 `9be62a3df0401398e5626a1c4dc65039220499d506941ecf110b52cccb7309b2`.
 Candidate quality, completed runtimes, finalists and listening packages
 remain outstanding. The first SGMSE image build installed its dependencies
-but was interrupted when the 40 GiB Docker VM filled. Its recipe and lock
-are retained; the image has not yet been tested.
+but was interrupted when the 40 GiB Docker VM filled. A second build succeeded
+and its image reports 575,663,960 bytes. The offline 60-second screen was killed
+after 196 seconds at the 5 GiB container limit. A five-second retry also hit
+that limit; disabling gradient tracking did not make five seconds fit. A
+one-second test with gradients disabled remains in progress. The checkpoint
+loaded with a warning that it was produced by a newer Lightning version.
+
+Four-way provisional listening packages are held locally at
+`out/issue550-private/listening-v2/presenter-1` and `presenter-2`. Each has
+four randomized 80-second files assembled from the matched passages; the
+answer key and SHA-256/loudness manifest are separate local files. The
+listening copies each measure -32.0 LUFS integrated, without limiting, and
+remain below -8 dBTP. This lower target avoids clipping when matching the
+quiet Presenter 2 originals. Loudness is integrated over the excerpt rather
+than a separately hand-labelled speech-only region. Passage coverage and any
+missing or altered syllables remain listening questions, not automated claims.
