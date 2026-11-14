@@ -118,6 +118,21 @@ def test_each_script_line_is_a_row_and_camera_marks_never_split_it() -> None:
     assert mixed[0].cameras == ("on",) * 4 + ("off",) * 3 + ("on",) * 3
     plain = pt.script_passages("One line here.\n\nAnother line here.", set())
     assert [p.camera for p in plain] == ["unknown", "unknown"]
+
+
+def test_v2_prompter_export_cues_and_separate_state_lines_do_not_create_rows() -> None:
+    source = (
+        "(OC)\n[SECTION: Chapter 1]\n[BEAT 1]\nHello there.\n\n"
+        "(VO)\n[PERFORMANCE: softer]\nThis is covered.\n"
+        "[PRONUNCIATION: Hello = heh-low]\n(OC)\nAnother row."
+    )
+    passages = pt.script_passages(source, set())
+    assert [p.script for p in passages] == [
+        "Hello there.",
+        "This is covered.",
+        "Another row.",
+    ]
+    assert [p.camera for p in passages] == ["on", "off", "on"]
     with pytest.raises(pt.TakesError):
         pt.script_passages("  \n", set())
 

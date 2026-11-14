@@ -81,7 +81,13 @@ from vera_timeline_agent.recorded_word_evidence import (
 
 Json = dict[str, Any]
 RATE = 16000  # the engines' sample rate; all audio work happens at it
-MARKER = re.compile(r"\((on|off)\)", re.IGNORECASE)
+MARKER = re.compile(r"\((on|off|oc|vo)\)", re.IGNORECASE)
+# #37's canonical export puts state and navigation cues on separate lines.
+# Those lines must never become synthetic spoken passages / shift row-N IDs.
+PROMPTER_CUE = re.compile(
+    r"^\[(?:SECTION:|BEAT\s+\d+\]|PERFORMANCE:|PRONUNCIATION:|PHONEME:)",
+    re.IGNORECASE,
+)
 TOLERANCE = 0.75  # share of a stretch's script words a read must say as written
 EDGE_WORDS = 2  # ... and fewer than this many words may be missing at either end
 MAX_STRAY_WORDS = 2  # unmatched words allowed inside one continuous read
@@ -260,17 +266,21 @@ def _spoken(text: str, dictionary: set[str]) -> str:
 def script_passages(script_text: str, dictionary: set[str]) -> list[Passage]:
     """The script rows. Each line is a row and each row is one passage.
 
-    `(on)` and `(off)` inside a row mark what is on camera and what is
+    `(on)`/`(OC)` and `(off)`/`(VO)` inside a row mark the camera state;
+    standalone export navigation/annotation cues are not spoken rows. State
+    markers may be on separate lines in the #37 prompter export. They
     voiceover covered by footage. That is recorded per word. It never splits a
     row: a change of picture is not a cut in the presenter's take.
     """
     passages: list[Passage] = []
     camera = "unknown"
     for line in script_text.splitlines():
+        if PROMPTER_CUE.match(line.strip()):
+            continue
         cameras: list[str] = []
         for index, part in enumerate(MARKER.split(line)):
             if index % 2:
-                camera = part.lower()
+                camera = "on" if part.lower() in ("on", "oc") else "off"
             else:
                 cameras += [camera] * len(tokens(_spoken(part, dictionary)))
         text = _spoken(MARKER.sub(" ", line), dictionary)
@@ -838,13 +848,17 @@ def build_takes(
         gaps: list[Json] = []
         whole = reads(0, len(expected))
         if word_evidence is not None:
-            evidence_rows.append({
-                "rowId": passage.id,
-                "script": passage.script,
-                "scriptWords": expected,
-                "fullReads": [full_read_evidence(r, deliveries, words, expected)
-                              for r in whole],
-            })
+            evidence_rows.append(
+                {
+                    "rowId": passage.id,
+                    "script": passage.script,
+                    "scriptWords": expected,
+                    "fullReads": [
+                        full_read_evidence(r, deliveries, words, expected)
+                        for r in whole
+                    ],
+                }
+            )
         # A whole read is kept whole, unless the project always wants the
         # latest read: then a later pickup of part of the row replaces that
         # part, however much it chops the row up.
@@ -1338,10 +1352,16 @@ def find_takes(
         discover(take_packet(words, stages.alignment, passages, duration_s, fps))
     )
     evidence: Json = {
-        "video": {"file": video.name, "durationS": str(Fraction(str(duration_s))),
-                  "fps": fps},
-        "sourceScript": {"file": script.name, "sha256": sha256(script.read_bytes()),
-                         "textSha256": sha256(script_text.encode("utf-8"))},
+        "video": {
+            "file": video.name,
+            "durationS": str(Fraction(str(duration_s))),
+            "fps": fps,
+        },
+        "sourceScript": {
+            "file": script.name,
+            "sha256": sha256(script.read_bytes()),
+            "textSha256": sha256(script_text.encode("utf-8")),
+        },
     }
     body = build_takes(
         report,
