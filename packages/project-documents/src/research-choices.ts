@@ -1,5 +1,6 @@
-/** Read-only Research revision choices. No Research bearer or Timeline grant is interchangeable. */
+/** Independently authorized Research revision choices; no shared Research/Timeline grants. */
 import type { PrincipalRef } from "@vera/contracts";
+import { snapshotResearchCandidateV2 } from "@vera/contracts/authoring-v2";
 import type {
   NarrationBlockV2, ResearchClipSnapshotV2, ScriptDocumentV2, VisualOnlyBlockV2,
 } from "@vera/contracts/v2";
@@ -10,8 +11,8 @@ import {
 } from "@vera/contracts/research-revision-choice";
 import { ProjectAuthError } from "@vera/project-authorization";
 
-import { ProjectDocumentError, ProjectDocumentInputError, requireUuid } from "./model.js";
-import type { DocumentView, ProjectDocumentService } from "./service.js";
+import { ProjectDocumentError, ProjectDocumentInputError, requireRevision, requireUuid } from "./model.js";
+import type { DocumentView, ProjectDocumentService, ResearchChoiceInput } from "./service.js";
 
 /** Implementations MUST reauthorize this exact principal with Research for EVERY read.
  * A process-wide development bearer, cached grant, or Timeline membership is not proof.
@@ -67,6 +68,89 @@ export interface ResearchCompareView {
 
 /** Bound entire scans and network requests; never return a truncated, misleading list. */
 export const MAX_RESEARCH_OCCURRENCES = 256;
+
+/** Only replace one saved occurrence. All other pins, placements and rows are copied untouched.
+ * Unresolved visual sources cannot inherit verified bytes or source frames from another version.
+ */
+export function updateResearchOccurrence(
+  document: ScriptDocumentV2, occurrenceId: string, latest: ResearchClipSnapshotV2,
+): ScriptDocumentV2 {
+  const copy = structuredClone(document);
+  let changed = 0;
+  const unresolved = { kind: "unresolved_visual" as const,
+    description: "Research clip lacks verified Timeline media/frame binding" };
+  const updateClip = (clip: VisualOnlyBlockV2): void => {
+    if (clip.id !== occurrenceId) return;
+    if (!clip.researchClip) throw new ProjectDocumentError("version_conflict", 409);
+    clip.researchClip = structuredClone(latest);
+    delete clip.frameBinding;
+    clip.payload.pictureKind = "unresolved_visual";
+    clip.payload.source = structuredClone(unresolved);
+    delete clip.visualOnlyTiming.selectedSourceRange;
+    clip.version += 1;
+    changed++;
+  };
+  const updateNarration = (row: NarrationBlockV2, stashed: boolean): void => {
+    const clip = row.attachedFootage?.clip;
+    if (clip?.id === occurrenceId) {
+      updateClip(clip);
+      // The sole active projected slot is not independently selectable.
+      if (!stashed && row.stashOrigin?.kind === "note" && row.stashOrigin.returnEligible) {
+        const slot = row.primaryVisualSequence?.slots[0];
+        if (!slot || row.primaryVisualSequence?.slots.length !== 1 ||
+            slot.kind !== "content" || slot.payload.kind !== "visual") {
+          throw new ProjectDocumentError("service_unavailable", 503);
+        }
+        slot.payload.researchClip = structuredClone(latest);
+        delete slot.payload.frameBinding;
+        delete slot.payload.selectedSourceRange;
+        slot.payload.pictureKind = "unresolved_visual";
+        slot.payload.source = structuredClone(unresolved);
+        slot.payload.sourceUsage = null;
+        slot.version++;
+        row.primaryVisualSequence.version++;
+      }
+      row.version++;
+      return;
+    }
+    for (const slot of row.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual" ||
+          slot.payload.payloadId !== occurrenceId) continue;
+      if (!slot.payload.researchClip) throw new ProjectDocumentError("version_conflict", 409);
+      slot.payload.researchClip = structuredClone(latest);
+      delete slot.payload.frameBinding;
+      delete slot.payload.selectedSourceRange;
+      slot.payload.pictureKind = "unresolved_visual";
+      slot.payload.source = structuredClone(unresolved);
+      slot.payload.sourceUsage = null;
+      slot.version++;
+      if (row.primaryVisualSequence) row.primaryVisualSequence.version++;
+      row.version++;
+      changed++;
+    }
+    for (const event of row.overlayEvents) {
+      if (event.payload.payloadId !== occurrenceId) continue;
+      if (!event.payload.researchClip) throw new ProjectDocumentError("version_conflict", 409);
+      event.payload.researchClip = structuredClone(latest);
+      delete event.payload.frameBinding;
+      delete event.payload.selectedSourceRange;
+      event.payload.pictureKind = "unresolved_visual";
+      event.payload.source = structuredClone(unresolved);
+      event.payload.sourceUsage = null;
+      event.version++;
+      row.version++;
+      changed++;
+    }
+  };
+  const visit = (row: ScriptDocumentV2["activeDraft"]["blocks"][number], stashed: boolean): void => {
+    if (row.type === "visual_only") updateClip(row);
+    else if (row.type === "narration") updateNarration(row, stashed);
+  };
+  for (const row of copy.activeDraft.blocks) visit(row, false);
+  for (const bundle of copy.stash ?? []) for (const row of bundle.rows) visit(row, true);
+  if (changed !== 1) throw new ProjectDocumentError("version_conflict", 409);
+  return copy;
+}
 
 /** Ordered by saved active rows, then Stash bundles, and by local slot/event order.
  * The active mirror of an attached clip is only a projection, not a second occurrence.
@@ -149,7 +233,8 @@ export class ResearchChoiceReadService {
     private readonly research: ResearchAuthorizedReadPort,
   ) {}
 
-  private async readCandidate(principal: PrincipalRef, pinned: ResearchClipSnapshotV2): Promise<unknown> {
+  private async readCandidate(principal: PrincipalRef,
+    pinned: Pick<ResearchClipSnapshotV2, "researchProjectId" | "clipId">): Promise<unknown> {
     try {
       return await this.research.readCurrentClip(principal, pinned.researchProjectId, pinned.clipId);
     } catch (error) {
@@ -218,5 +303,56 @@ export class ResearchChoiceReadService {
     await this.recheck(document, principal);
     return { projectId, revision: document.revision, digest: document.digest,
       occurrenceId, location: occurrence.location, assessment };
+  }
+
+  async choose(projectIdInput: string, principal: PrincipalRef, input: ResearchChoiceInput) {
+    const projectId = requireUuid(projectIdInput);
+    if (input.choice !== "keep" && input.choice !== "update") {
+      throw new ProjectDocumentInputError("Unknown Research choice.");
+    }
+    const occurrenceId = requireUuid(input.occurrenceId);
+    const researchProjectId = requireUuid(input.researchProjectId);
+    const clipId = requireUuid(input.clipId);
+    requireRevision(input.expectedRevision);
+    if (requireRevision(input.expectedClipVersion) < 1 ||
+        requireRevision(input.expectedLatestVersion) < 1) {
+      throw new ProjectDocumentInputError("Expected positive Research versions.");
+    }
+    if (input.choice === "update") requireUuid(input.clientMutationId);
+    else if (input.clientMutationId !== undefined) {
+      throw new ProjectDocumentInputError("Keep cannot create a mutation receipt.");
+    }
+    // Check Timeline *edit* rights before even probing the independent Research service.
+    const document = await this.documents.getEditableResearchChoiceDocument(projectId, principal,
+      input.writeSessionId);
+    const occurrence = enumerateResearchOccurrences(document.document)
+      .find((item) => item.occurrenceId === occurrenceId);
+    if (!occurrence && input.choice === "keep") throw new ProjectDocumentError("not_found", 404);
+    const sameSource = !!occurrence &&
+      occurrence.pinned.researchProjectId.toLowerCase() === researchProjectId &&
+      occurrence.pinned.clipId.toLowerCase() === clipId;
+    if (!sameSource && input.choice === "keep") throw new ProjectDocumentError("version_conflict", 409);
+    // Read the *original* Research identity on a retry even if the occurrence was
+    // subsequently removed or retargeted: a valid receipt must remain replayable.
+    const candidate = await this.readCandidate(principal, { researchProjectId, clipId });
+    let latest: ResearchClipSnapshotV2;
+    if (sameSource) {
+      const assessment = this.assess(occurrence.pinned, candidate);
+      if (assessment.kind === "inconsistent") throw new ProjectDocumentError("version_conflict", 409);
+      latest = assessment.kind === "update_available" ? assessment.latest : assessment.pinned;
+    } else {
+      // This path cannot create a new mutation: the authorized SQL operation must
+      // find an exact matching old receipt or reject the missing/stale occurrence.
+      try {
+        latest = snapshotResearchCandidateV2(candidate as Parameters<typeof snapshotResearchCandidateV2>[0]);
+      } catch { throw unavailable(); }
+      if (latest.researchProjectId.toLowerCase() !== researchProjectId ||
+          latest.clipId.toLowerCase() !== clipId) throw unavailable();
+    }
+    // Explicitly reviewed version is essential even for stateless keep and replay.
+    if (latest.clipVersion !== input.expectedLatestVersion) {
+      throw new ProjectDocumentError("version_conflict", 409);
+    }
+    return await this.documents.applyResearchChoice(projectId, principal, input, latest);
   }
 }

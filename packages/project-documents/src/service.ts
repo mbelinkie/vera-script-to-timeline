@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { PrincipalRef } from "@vera/contracts";
-import type { AuthoringProjectSettingsV1, RowGapV2, ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { AuthoringProjectSettingsV1, ResearchClipSnapshotV2, RowGapV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
   ProjectAuthError,
   ProjectAuthorizationService,
@@ -26,6 +26,7 @@ import {
 import { reconcileCommentsForDocumentRevision } from "./comments.js";
 import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
 import { applyExtrasStorageOperation, parseExtrasOperationCommand } from "./extras-operations.js";
+import { enumerateResearchOccurrences, updateResearchOccurrence } from "./research-choices.js";
 import {
   checkedIdeas, checkedPromotionPositionV1, emptyIdeasV1, promoteIdeaToNoteV1,
   type IdeaOutlineV1, type IdeaItemV1,
@@ -251,6 +252,18 @@ export interface PutDocumentInput {
   document: ScriptDocumentV2;
   writeSessionId?: string;
 }
+
+export interface ResearchChoiceInput {
+  choice: "keep" | "update";
+  occurrenceId: string;
+  researchProjectId: string;
+  clipId: string;
+  expectedRevision: number;
+  expectedClipVersion: number;
+  expectedLatestVersion: number;
+  clientMutationId?: string;
+  writeSessionId?: string;
+}
 export interface ExtrasOperationInput {
   expectedRevision: number;
   clientMutationId: string;
@@ -325,6 +338,14 @@ export interface MutationReceipt {
   revision: number;
   digest: string;
   duplicateDelivery: boolean;
+}
+
+export interface ResearchKeepReceipt {
+  projectId: string;
+  choice: "keep";
+  revision: number;
+  digest: string;
+  unchanged: true;
 }
 
 const unavailable = (): ProjectDocumentError =>
@@ -1009,6 +1030,95 @@ export class ProjectDocumentService {
       if (!head.rows[0]) throw missing();
       return viewDocument(projectId, head.rows[0]);
     });
+  }
+
+  /** An editor preflight. Never use a view_document grant to start a Research choice. */
+  async getEditableResearchChoiceDocument(
+    projectIdInput: string, principal: PrincipalRef, writeSessionId?: string,
+  ): Promise<DocumentView> {
+    const projectId = requireUuid(projectIdInput);
+    const sessionId = writeSessionId === undefined ? undefined : requireUuid(writeSessionId);
+    return await this.authorized(projectId, principal, "edit_document", async (db) => {
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1", [projectId],
+      );
+      if (!head.rows[0]) throw missing();
+      return viewDocument(projectId, head.rows[0]);
+    }, sessionId);
+  }
+
+  /** No Research network request is made within this authorized SQL transaction/retry. */
+  async applyResearchChoice(
+    projectIdInput: string, principal: PrincipalRef, input: ResearchChoiceInput,
+    latest: ResearchClipSnapshotV2,
+  ): Promise<MutationReceipt | ResearchKeepReceipt> {
+    const projectId = requireUuid(projectIdInput);
+    const occurrenceId = requireUuid(input.occurrenceId);
+    const researchProjectId = requireUuid(input.researchProjectId);
+    const clipId = requireUuid(input.clipId);
+    const expected = requireRevision(input.expectedRevision);
+    const pinnedVersion = requireRevision(input.expectedClipVersion);
+    const latestVersion = requireRevision(input.expectedLatestVersion);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    if ((input.choice !== "keep" && input.choice !== "update") || pinnedVersion < 1 ||
+        latestVersion < pinnedVersion || latestVersion !== latest.clipVersion ||
+        latest.researchProjectId.toLowerCase() !== researchProjectId ||
+        latest.clipId.toLowerCase() !== clipId ||
+        (input.choice === "update" && latestVersion === pinnedVersion)) {
+      throw conflict();
+    }
+    if (input.choice === "keep" && input.clientMutationId !== undefined) {
+      throw new ProjectDocumentInputError("Keep requires no mutation identifier.");
+    }
+    const mutationId = input.choice === "update" ? requireUuid(input.clientMutationId) : undefined;
+    const requestDigest = fingerprint({ kind: "research_choice", projectId, choice: input.choice,
+      occurrenceId, researchProjectId, clipId, expectedRevision: expected,
+      expectedClipVersion: pinnedVersion, expectedLatestVersion: latestVersion });
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) => {
+      if (mutationId) {
+        await this.assertNoForeignMutation(db, projectId, actor, mutationId, "edit_document");
+        const prior = await db.query<MutationRow>(
+          "SELECT request_digest,revision::text,content_digest FROM stt_document_revisions" +
+            " WHERE project_id=$1 AND actor_id=$2 AND client_mutation_id=$3",
+          [projectId, actor, mutationId],
+        );
+        if (prior.rows[0]) {
+          if (prior.rows[0].request_digest !== requestDigest) throw reused();
+          const saved = await this.selectRevision(db, projectId, int(prior.rows[0].revision));
+          if (saved.digest !== prior.rows[0].content_digest) throw unavailable();
+          return { projectId, clientMutationId: mutationId, revision: saved.revision,
+            digest: saved.digest, duplicateDelivery: true };
+        }
+      }
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1 FOR UPDATE", [projectId],
+      );
+      const current = head.rows[0];
+      if (!current) throw missing();
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      let previous: ScriptDocumentV2;
+      try {
+        previous = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch { throw unavailable(); }
+      if (int(current.revision) !== expected) throw conflict();
+      const occurrence = enumerateResearchOccurrences(previous)
+        .find((entry) => entry.occurrenceId === occurrenceId);
+      if (!occurrence || occurrence.pinned.clipVersion !== pinnedVersion ||
+          occurrence.pinned.researchProjectId.toLowerCase() !== researchProjectId ||
+          occurrence.pinned.clipId.toLowerCase() !== clipId) throw conflict();
+      if (input.choice === "keep") {
+        // No writes, head bump, receipt or suppression flag. Its old bytes remain valid.
+        return { projectId, choice: "keep", revision: expected,
+          digest: current.content_digest, unchanged: true };
+      }
+      const next = checkedDocument(updateResearchOccurrence(previous, occurrenceId, latest),
+        projectId, current.document_id);
+      return await this.appendDocumentHead(db, projectId, current, previous, expected,
+        actor, mutationId!, requestDigest, next);
+    }, sessionId);
   }
 
   async getIdeas(projectIdInput: string, principal: PrincipalRef): Promise<IdeasView> {

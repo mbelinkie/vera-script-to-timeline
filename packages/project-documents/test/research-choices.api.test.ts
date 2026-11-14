@@ -40,7 +40,7 @@ async function setup() {
   cleaners.push(async () => { await h.db.close(); });
   const projectId = randomUUID();
   const document = documentFor(projectId);
-  const first = researchOccurrence(730100, false);
+  const first = researchOccurrence(730100, true);
   const second = researchOccurrence(730200, false);
   const different = createResearchClipOccurrenceV2({
     rowId: researchId(730300), payloadId: researchId(730301), orderKey: "different",
@@ -225,5 +225,168 @@ describe("Research choices: independent authorized GET/compare", () => {
     delete note.stashOrigin;
     expect(enumerateResearchOccurrences(doc).map((x) => x.occurrenceId))
       .toEqual([clip.id, researchId(740400), researchId(740501)]);
+  });
+});
+
+const choiceRequest = (projectId: string, data: Record<string, unknown>, subject = "owner") =>
+  new Request(`${base}/${projectId}/research-choices/choice`, {
+    method: "POST", headers: { "X-Test-Suite-Identity": subject, "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+const choice = (occurrenceId: string, choiceKind: "keep" | "update", expectedRevision = 0,
+  clientMutationId?: string) => ({
+    choice: choiceKind, occurrenceId, researchProjectId: researchId(710002), clipId: researchId(710001),
+    expectedRevision, expectedClipVersion: 3, expectedLatestVersion: 4,
+    ...(clientMutationId ? { clientMutationId } : {}),
+  });
+
+describe("Research choices: explicit keep/update CAS", () => {
+  it("keeps byte-stable, including old verified frames, history and a later available update", async () => {
+    const h = await setup();
+    const before = await h.service.getDocument(h.projectId, h.owner);
+    const checkpointId = randomUUID();
+    await h.service.createCheckpoint(h.projectId, h.owner, {
+      checkpointId, sourceRevision: 0, clientMutationId: randomUUID(), name: "Before choice",
+    });
+    const oldCheckpoint = await h.service.getCheckpoint(h.projectId, h.owner, checkpointId);
+    const keep = await h.api(choiceRequest(h.projectId, choice(h.first.id, "keep")));
+    expect(keep.status).toBe(200);
+    expect(await json(keep)).toMatchObject({ revision: 0, digest: before.digest });
+    expect(await h.service.getDocument(h.projectId, h.owner)).toEqual(before);
+    expect(await h.service.getCheckpoint(h.projectId, h.owner, checkpointId)).toEqual(oldCheckpoint);
+    expect((await h.service.listDocumentRevisions(h.projectId, h.owner)).revisions).toHaveLength(1);
+    const again = await h.api(choiceRequest(h.projectId, choice(h.first.id, "keep")));
+    expect(again.status).toBe(200);
+    expect((await json(await h.api(request(`/${h.projectId}/research-choices`)))).occurrences)
+      .toMatchObject([
+        { state: "update_available", pinnedVersion: 3 },
+        { state: "update_available", pinnedVersion: 3 },
+        { state: "update_available", pinnedVersion: 3 },
+      ]);
+  });
+
+  it("updates only one chosen use; invalidates version-bound media and preserves immutable revisions", async () => {
+    const h = await setup();
+    const before = await h.service.getDocument(h.projectId, h.owner);
+    const checkpointId = randomUUID();
+    await h.service.createCheckpoint(h.projectId, h.owner, {
+      checkpointId, sourceRevision: 0, clientMutationId: randomUUID(), name: "Frozen before update",
+    });
+    const savedCheckpoint = await h.service.getCheckpoint(h.projectId, h.owner, checkpointId);
+    const mutationId = randomUUID();
+    const update = await h.api(choiceRequest(h.projectId, choice(h.first.id, "update", 0, mutationId)));
+    expect(update.status).toBe(200);
+    expect(await json(update)).toMatchObject({ revision: 1, clientMutationId: mutationId,
+      duplicateDelivery: false });
+    const after = await h.service.getDocument(h.projectId, h.owner);
+    expect(after.revision).toBe(1);
+    const [first, second] = after.document.activeDraft.blocks;
+    if (first?.type !== "visual_only" || second?.type !== "visual_only") throw new Error("Invalid fixture");
+    expect(first.researchClip).toMatchObject({ clipVersion: 4,
+      englishText: "Changed text in Research" });
+    expect(first.frameBinding).toBeUndefined();
+    expect(first.payload.pictureKind).toBe("unresolved_visual");
+    expect(first.payload.source.kind).toBe("unresolved_visual");
+    expect(first.visualOnlyTiming.selectedSourceRange).toBeUndefined();
+    expect(first.version).toBe(h.first.version + 1);
+    expect(second).toEqual(h.second);
+    expect(after.document.stash).toEqual(before.document.stash);
+    expect(await h.service.getDocumentRevision(h.projectId, h.owner, 0))
+      .toMatchObject({ document: before.document, digest: before.digest });
+    expect(await h.service.getCheckpoint(h.projectId, h.owner, checkpointId)).toEqual(savedCheckpoint);
+    expect((await h.service.listDocumentRevisions(h.projectId, h.owner)).revisions).toHaveLength(2);
+    // A same request (including a later delivery after the head advanced) returns the saved receipt.
+    const duplicate = await h.api(choiceRequest(h.projectId,
+      choice(h.first.id, "update", 0, mutationId)));
+    expect(duplicate.status).toBe(200);
+    expect(await json(duplicate)).toMatchObject({ revision: 1, digest: after.digest,
+      duplicateDelivery: true });
+    expect(await h.service.getDocument(h.projectId, h.owner)).toEqual(after);
+    // Even another occurrence of the same Research clip cannot reuse the mutation ID.
+    const differing = await h.api(choiceRequest(h.projectId,
+      choice(h.second.id, "update", 0, mutationId)));
+    expect(differing.status).toBe(409);
+    expect(await json(differing)).toEqual({ error: "idempotency_conflict" });
+    await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: 1, clientMutationId: randomUUID(),
+      document: { ...after.document, activeDraft: {
+        ...after.document.activeDraft, blocks: [after.document.activeDraft.blocks[1]!],
+      } },
+    });
+    // A late duplicate delivery still uses the immutable receipt after its
+    // target occurrence has legitimately been removed by another edit.
+    const replayAfterDeletion = await h.api(choiceRequest(h.projectId,
+      choice(h.first.id, "update", 0, mutationId)));
+    expect(replayAfterDeletion.status).toBe(200);
+    expect(await json(replayAfterDeletion)).toMatchObject({ revision: 1, digest: after.digest,
+      duplicateDelivery: true });
+  });
+
+  it("refuses stale head, Research version races, old pin, revoked Research and Timeline edit grants", async () => {
+    const h = await setup();
+    const input = choice(h.first.id, "update", 0, randomUUID());
+    const initial = await h.service.getDocument(h.projectId, h.owner);
+    expect((await h.api(choiceRequest(h.projectId, { ...input, expectedClipVersion: 2 }))).status).toBe(409);
+    h.setCandidate({ ...researchCandidate(), version: 5 });
+    expect((await h.api(choiceRequest(h.projectId, input))).status).toBe(409);
+    h.setCandidate({ ...researchCandidate(), version: 4 });
+    h.allowed.delete(h.owner.principalId);
+    const refused = await h.api(choiceRequest(h.projectId, input));
+    expect(refused.status).toBe(403);
+    expect(await json(refused)).toEqual({ error: "action_not_allowed" });
+    h.allowed.add(h.owner.principalId);
+    const callsBefore = h.calls.length;
+    expect((await h.api(choiceRequest(h.projectId, input, "viewer"))).status).toBe(403);
+    expect(h.calls).toHaveLength(callsBefore);
+    h.override(async () => {
+      await h.service.putDocument(h.projectId, h.owner, {
+        expectedRevision: 0, clientMutationId: randomUUID(),
+        document: { ...initial.document, title: "Concurrent edit" },
+      });
+      return { ...researchCandidate(), version: 4 };
+    });
+    expect((await h.api(choiceRequest(h.projectId, input))).status).toBe(409);
+    const afterRace = await h.service.getDocument(h.projectId, h.owner);
+    expect(afterRace.revision).toBe(1);
+    expect(afterRace.document.activeDraft.blocks).toEqual(initial.document.activeDraft.blocks);
+    h.override(undefined);
+    expect((await h.api(choiceRequest(h.projectId, input))).status).toBe(409);
+    expect((await h.service.listDocumentRevisions(h.projectId, h.owner)).revisions).toHaveLength(2);
+  });
+
+  it("rejects revoked replay even when its receipt was committed", async () => {
+    const h = await setup();
+    const input = choice(h.first.id, "update", 0, randomUUID());
+    expect((await h.api(choiceRequest(h.projectId, input))).status).toBe(200);
+    const after = await h.service.getDocument(h.projectId, h.owner);
+    h.allowed.delete(h.owner.principalId);
+    expect((await h.api(choiceRequest(h.projectId, input))).status).toBe(403);
+    h.allowed.add(h.owner.principalId);
+    await h.auth.changeMembership(h.projectId, h.owner, h.editor.principalId, "editor");
+    const byEditor = choice(h.second.id, "update", 1, randomUUID());
+    expect((await h.api(choiceRequest(h.projectId, byEditor, "editor"))).status).toBe(403);
+    await h.auth.changeMembership(h.projectId, h.owner, h.editor.principalId, null);
+    expect((await h.api(choiceRequest(h.projectId, byEditor, "editor"))).status).toBe(403);
+    expect(await h.service.getDocument(h.projectId, h.owner)).toEqual(after);
+  });
+
+  it("validates POST envelope types without Research access or writes", async () => {
+    const h = await setup();
+    const valid = choice(h.first.id, "update", 0, randomUUID());
+    for (const malformed of [
+      { ...valid, choice: "retarget" },
+      { ...valid, researchProjectId: 123 },
+      { ...valid, expectedRevision: "0" },
+      { ...valid, expectedClipVersion: 0 },
+      { ...valid, clientMutationId: "bad" },
+      { ...valid, unexpected: true },
+    ]) {
+      const response = await h.api(choiceRequest(h.projectId, malformed));
+      expect(response.status).toBe(400);
+      expect(await json(response)).toEqual({ error: "invalid_request" });
+    }
+    expect(h.calls).toHaveLength(0);
+    expect((await h.service.getDocument(h.projectId, h.owner)).revision).toBe(0);
   });
 });

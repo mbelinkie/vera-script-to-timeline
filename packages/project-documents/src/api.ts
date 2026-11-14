@@ -129,11 +129,35 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
-      const researchChoices = /^\/v1\/projects\/([^/]+)\/research-choices(?:\/(compare))?$/u.exec(path);
+      const researchChoices = /^\/v1\/projects\/([^/]+)\/research-choices(?:\/(compare|choice))?$/u.exec(path);
       if (researchChoices) {
-        if (request.method !== "GET") return response(404, { error: "not_found" });
+        if (researchChoices[2] === "choice" && request.method !== "POST" ||
+            researchChoices[2] !== "choice" && request.method !== "GET") {
+          return response(404, { error: "not_found" });
+        }
         if (!deps.researchChoices) throw new ProjectDocumentError("service_unavailable", 503);
         const projectId = researchChoices[1]!;
+        if (researchChoices[2] === "choice") {
+          queryFields(url, []);
+          const data = fields(await jsonBody(request),
+            ["choice", "occurrenceId", "researchProjectId", "clipId", "expectedRevision",
+              "expectedClipVersion", "expectedLatestVersion", "clientMutationId", "writeSessionId"],
+            ["choice", "occurrenceId", "researchProjectId", "clipId", "expectedRevision",
+              "expectedClipVersion", "expectedLatestVersion"]);
+          return response(200, await deps.researchChoices.choose(projectId, principal, {
+            choice: data.choice as "keep" | "update",
+            occurrenceId: data.occurrenceId as string,
+            researchProjectId: data.researchProjectId as string,
+            clipId: data.clipId as string,
+            expectedRevision: data.expectedRevision as number,
+            expectedClipVersion: data.expectedClipVersion as number,
+            expectedLatestVersion: data.expectedLatestVersion as number,
+            ...(Object.hasOwn(data, "clientMutationId") ?
+              { clientMutationId: data.clientMutationId as string } : {}),
+            ...(Object.hasOwn(data, "writeSessionId") ?
+              { writeSessionId: data.writeSessionId as string } : {}),
+          }));
+        }
         if (researchChoices[2] === "compare") {
           const query = queryFields(url, ["occurrenceId"], ["occurrenceId"]);
           return response(200, await deps.researchChoices.compare(projectId, principal, query.occurrenceId!));
