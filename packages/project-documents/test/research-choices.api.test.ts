@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto";
 
-import { createResearchClipOccurrenceV2 } from "@vera/contracts/authoring-v2";
+import { createResearchClipOccurrenceV2, snapshotResearchCandidateV2 } from "@vera/contracts/authoring-v2";
 import type { PrincipalRef } from "@vera/contracts";
+import type { NarrationBlockV2 } from "@vera/contracts/v2";
 import type { SuiteIdentityPort } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createProjectApiHandler } from "../src/api.js";
 import {
-  enumerateResearchOccurrences, ResearchChoiceReadService, ResearchReadDeniedError,
+  enumerateResearchOccurrences, updateResearchOccurrence, ResearchChoiceReadService, ResearchReadDeniedError,
   type ResearchAuthorizedReadPort,
 } from "../src/research-choices.js";
 import { documentFor, harness } from "./helpers.js";
-import { researchCandidate, researchId, researchNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId, researchNote, researchOccurrence,
+  researchNestedNote, researchMirroredNote } from "../../contracts/test/issue-367-fixture.js";
 
 /* eslint-disable @typescript-eslint/require-await -- trusted test-only authorization adapters */
 vi.setConfig({ testTimeout: 90_000 });
@@ -242,6 +244,105 @@ const choice = (occurrenceId: string, choiceKind: "keep" | "update", expectedRev
   });
 
 describe("Research choices: explicit keep/update CAS", () => {
+  it("lists and independently updates nested visuals, the active mirror and grouped/attached Stash owners", async () => {
+    const h = await setup();
+    const original = await h.service.getDocument(h.projectId, h.owner);
+    const next = structuredClone(original.document);
+    const nested = researchNestedNote(760100);
+    const mirrored = researchMirroredNote(760200);
+    const grouped = [researchOccurrence(760300, false), researchOccurrence(760400, false)];
+    const parked = researchNote(760700);
+    parked.attachedFootage = { clip: researchOccurrence(760720, false) };
+    const groupId = researchId(760600);
+    next.activeDraft.blocks.push(nested, mirrored);
+    next.stash!.push({ id: researchId(760500), rows: [grouped[0]!, grouped[1]!, parked], supportingItems: [] });
+    next.stashOutline!.push(...grouped.map((row) => ({ rowId: row.id,
+      kind: "row" as const, parentRowId: null, sectionId: null })),
+    { rowId: parked.id, kind: "note", parentRowId: null, sectionId: null });
+    next.stashGroups = [{ id: groupId, rowIds: [grouped[0]!.id, grouped[1]!.id] }];
+    await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: next,
+    });
+    const frozen = await h.service.getDocument(h.projectId, h.owner);
+    const checkpointId = randomUUID();
+    await h.service.createCheckpoint(h.projectId, h.owner, {
+      checkpointId, sourceRevision: 1, clientMutationId: randomUUID(), name: "All Research surfaces",
+    });
+    const checkpoint = await h.service.getCheckpoint(h.projectId, h.owner, checkpointId);
+    const route = `/${h.projectId}/research-choices`;
+    const listing = await json(await h.api(request(route)));
+    const occurrences = listing.occurrences as Array<{ occurrenceId: string; location: {kind: string} }>;
+    expect(occurrences).toHaveLength(9);
+    expect(occurrences.filter((item) => item.location.kind === "active_attachment"))
+      .toMatchObject([{ occurrenceId: mirrored.attachedFootage!.clip.id,
+        location: { kind: "active_attachment", rowId: mirrored.id } }]);
+    expect(occurrences.map((item) => item.location.kind)).toEqual([
+      "active_visual", "active_visual", "active_primary", "active_overlay", "active_attachment",
+      "stash_visual", "stash_visual", "stash_visual", "stash_attachment",
+    ]);
+    const targets = [
+      (nested.primaryVisualSequence!.slots[0] as {payload: {payloadId: string}}).payload.payloadId,
+      nested.overlayEvents[0]!.payload.payloadId,
+      mirrored.attachedFootage!.clip.id, grouped[0]!.id, grouped[1]!.id,
+      parked.attachedFootage.clip.id,
+    ];
+    const authorizedLatest = snapshotResearchCandidateV2({ ...researchCandidate(), version: 4 });
+    for (const target of targets) {
+      // The very same structure is legal when the authorized choice owns it,
+      // but never when submitted as an ordinary whole-document PUT.
+      const illegal = updateResearchOccurrence(frozen.document, target, authorizedLatest);
+      const refused = await h.api(new Request(`${base}/${h.projectId}/document`, {
+        method: "PUT", headers: { "X-Test-Suite-Identity": "owner", "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: 1, clientMutationId: randomUUID(), document: illegal }),
+      }));
+      expect(refused.status).toBe(409);
+      expect(await json(refused)).toEqual({ error: "version_conflict" });
+    }
+    for (const kind of ["primary", "overlay"] as const) {
+      // A caller cannot disguise a retarget as a new occurrence ID while
+      // retaining the same saved slot or overlay event ownership.
+      const swapped = structuredClone(frozen.document);
+      const row = swapped.activeDraft.blocks.find((block) => block.id === nested.id) as NarrationBlockV2;
+      const slot = row.primaryVisualSequence!.slots[0]!;
+      if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected visual slot");
+      const payload = kind === "primary" ? slot.payload : row.overlayEvents[0]!.payload;
+      payload.payloadId = randomUUID();
+      payload.researchClip = structuredClone(authorizedLatest);
+      const refused = await h.api(new Request(`${base}/${h.projectId}/document`, {
+        method: "PUT", headers: { "X-Test-Suite-Identity": "owner", "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: 1, clientMutationId: randomUUID(), document: swapped }),
+      }));
+      expect(refused.status).toBe(409);
+    }
+    expect(await h.service.getDocument(h.projectId, h.owner)).toEqual(frozen);
+    let revision = 1;
+    for (const target of targets) {
+      const response = await h.api(choiceRequest(h.projectId,
+        choice(target, "update", revision, randomUUID())));
+      expect(response.status, `Failed Research owner ${target}: ${await response.text()}`).toBe(200);
+      revision++;
+      const current = await h.service.getDocument(h.projectId, h.owner);
+      expect(current.revision).toBe(revision);
+      expect(enumerateResearchOccurrences(current.document).find((owner) => owner.occurrenceId === target)
+        ?.pinned.clipVersion).toBe(4);
+    }
+    const after = await h.service.getDocument(h.projectId, h.owner);
+    const activeMirror = after.document.activeDraft.blocks.find((block) => block.id === mirrored.id) as NarrationBlockV2;
+    const slot = activeMirror.primaryVisualSequence!.slots[0]!;
+    expect(activeMirror.attachedFootage!.clip.frameBinding).toBeUndefined();
+    expect(activeMirror.attachedFootage!.clip.visualOnlyTiming.selectedSourceRange).toBeUndefined();
+    if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected mirror");
+    expect(slot.payload.researchClip).toEqual(activeMirror.attachedFootage!.clip.researchClip);
+    expect(slot.payload.frameBinding).toBeUndefined();
+    expect(slot.payload.sourceUsage).toBeNull();
+    expect(slot.payload.selectedSourceRange).toBeUndefined();
+    expect(after.document.stashGroups).toEqual(next.stashGroups);
+    expect((await h.service.getDocumentRevision(h.projectId, h.owner, 1)).document).toEqual(frozen.document);
+    expect(await h.service.getCheckpoint(h.projectId, h.owner, checkpointId)).toEqual(checkpoint);
+    // Different saved uses of the same Research clip remain pinned independently.
+    expect(enumerateResearchOccurrences(after.document).filter((owner) => owner.pinned.clipVersion === 3))
+      .toHaveLength(3);
+  });
   it("keeps byte-stable, including old verified frames, history and a later available update", async () => {
     const h = await setup();
     const before = await h.service.getDocument(h.projectId, h.owner);

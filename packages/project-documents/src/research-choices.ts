@@ -11,7 +11,7 @@ import {
 } from "@vera/contracts/research-revision-choice";
 import { ProjectAuthError } from "@vera/project-authorization";
 
-import { ProjectDocumentError, ProjectDocumentInputError, requireRevision, requireUuid } from "./model.js";
+import { fingerprint, ProjectDocumentError, ProjectDocumentInputError, requireRevision, requireUuid } from "./model.js";
 import type { DocumentView, ProjectDocumentService, ResearchChoiceInput } from "./service.js";
 
 /** Implementations MUST reauthorize this exact principal with Research for EVERY read.
@@ -38,6 +38,12 @@ export interface ResearchOccurrence {
   occurrenceId: string;
   location: ResearchOccurrenceLocation;
   pinned: ResearchClipSnapshotV2;
+}
+
+interface SavedVisualOwner {
+  occurrenceId: string;
+  location: ResearchOccurrenceLocation;
+  pinned?: ResearchClipSnapshotV2;
 }
 
 export interface ResearchChoiceSummary {
@@ -155,20 +161,16 @@ export function updateResearchOccurrence(
 /** Ordered by saved active rows, then Stash bundles, and by local slot/event order.
  * The active mirror of an attached clip is only a projection, not a second occurrence.
  */
-export function enumerateResearchOccurrences(document: ScriptDocumentV2): ResearchOccurrence[] {
-  const occurrences: ResearchOccurrence[] = [];
+function savedVisualOwners(document: ScriptDocumentV2): SavedVisualOwner[] {
+  const owners: SavedVisualOwner[] = [];
   const identities = new Set<string>();
   const add = (occurrenceId: string, pinned: ResearchClipSnapshotV2 | undefined,
     location: ResearchOccurrenceLocation): void => {
-    if (!pinned) return;
     const id = requireUuid(occurrenceId);
     // Never accidentally merge unrelated uses of the same Research source.
     if (identities.has(id)) throw new ProjectDocumentError("service_unavailable", 503);
-    if (occurrences.length >= MAX_RESEARCH_OCCURRENCES) {
-      throw new ProjectDocumentInputError("Too many Research occurrences to compare at once.");
-    }
     identities.add(id);
-    occurrences.push({ occurrenceId: id, pinned: structuredClone(pinned), location });
+    owners.push({ occurrenceId: id, ...(pinned ? { pinned: structuredClone(pinned) } : {}), location });
   };
 
   const visual = (row: VisualOnlyBlockV2, stashed: boolean, bundleId?: string): void =>
@@ -211,7 +213,47 @@ export function enumerateResearchOccurrences(document: ScriptDocumentV2): Resear
   for (const bundle of document.stash ?? []) {
     for (const row of bundle.rows) visit(row, true, bundle.id);
   }
+  return owners;
+}
+
+export function enumerateResearchOccurrences(document: ScriptDocumentV2): ResearchOccurrence[] {
+  const occurrences = savedVisualOwners(document).filter(
+    (owner): owner is ResearchOccurrence => owner.pinned !== undefined);
+  if (occurrences.length > MAX_RESEARCH_OCCURRENCES) {
+    throw new ProjectDocumentInputError("Too many Research occurrences to compare at once.");
+  }
   return occurrences;
+}
+
+/** Generic whole-document saves may move, trim, insert and delete visual uses,
+ * but must never change or unpin an existing saved Research occurrence.
+ * A replaced payload in the same persistent slot/event/attachment is a retarget,
+ * not a deletion. Only the separately authorized choice operation may update it.
+ */
+export function assertFrozenResearchPinsOnPut(previous: ScriptDocumentV2, next: ScriptDocumentV2): void {
+  const prior = savedVisualOwners(previous).filter(
+    (owner): owner is ResearchOccurrence => owner.pinned !== undefined);
+  const after = savedVisualOwners(next);
+  const byId = new Map(after.map((owner) => [owner.occurrenceId, owner] as const));
+  const locationKey = (owner: SavedVisualOwner): string => {
+    const location = owner.location;
+    return JSON.stringify([location.kind, location.rowId,
+      "slotId" in location ? location.slotId : null,
+      "eventId" in location ? location.eventId : null,
+      location.stashBundleId ?? null]);
+  };
+  const byLocation = new Map(after.map((owner) => [locationKey(owner), owner] as const));
+  for (const owner of prior) {
+    const retained = byId.get(owner.occurrenceId);
+    if (retained) {
+      if (!retained.pinned || fingerprint(owner.pinned) !== fingerprint(retained.pinned)) {
+        throw new ProjectDocumentError("version_conflict", 409);
+      }
+    } else if (byLocation.has(locationKey(owner))) {
+      // Same saved owner, different payload identity: refuse a disguised replacement.
+      throw new ProjectDocumentError("version_conflict", 409);
+    }
+  }
 }
 
 const unavailable = (): ProjectDocumentError => new ProjectDocumentError("service_unavailable", 503);

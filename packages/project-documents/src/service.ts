@@ -26,7 +26,7 @@ import {
 import { reconcileCommentsForDocumentRevision } from "./comments.js";
 import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
 import { applyExtrasStorageOperation, parseExtrasOperationCommand } from "./extras-operations.js";
-import { enumerateResearchOccurrences, updateResearchOccurrence } from "./research-choices.js";
+import { assertFrozenResearchPinsOnPut, enumerateResearchOccurrences, updateResearchOccurrence } from "./research-choices.js";
 import {
   checkedIdeas, checkedPromotionPositionV1, emptyIdeasV1, promoteIdeaToNoteV1,
   type IdeaOutlineV1, type IdeaItemV1,
@@ -1449,6 +1449,11 @@ export class ProjectDocumentService {
       if (int(current.revision) !== expected) {
         throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
       }
+      // A whole-document replacement cannot silently upgrade/downgrade, edit,
+      // or remove the frozen Research pin of an existing visual occurrence.
+      // Historical checkpoint restoration and the explicit authorized Research
+      // choice have separate paths and are intentionally not subject to PUT.
+      assertFrozenResearchPinsOnPut(previousDocument, document.document);
       return await this.appendDocumentHead(db, projectId, current, previousDocument,
         expected, actor, mutationId, requestDigest, document);
     }, sessionId);
