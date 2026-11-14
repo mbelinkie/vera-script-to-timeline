@@ -86,16 +86,24 @@ def full_read_evidence(
         heard_index = mappings.get(index)
         observed = words[heard_index] if heard_index is not None else None
         # Aligned token equality is necessary, not a fuzzy replacement match.
-        matching = observed is not None and observed["token"] == expected_word
-        precision = observed["precision"] if matching else "missing"
+        matching = (
+            observed
+            if observed is not None and observed["token"] == expected_word
+            else None
+        )
+        precision = matching["precision"] if matching is not None else "missing"
         marks.append(
             {
                 "scriptWordIndex": index,
                 "scriptWord": expected_word,
-                "recordedWordIndex": heard_index if matching else None,
-                "recordedWord": observed["token"] if matching else None,
-                "startS": exact_seconds(observed["start"]) if matching else None,
-                "endS": exact_seconds(observed["end"]) if matching else None,
+                "recordedWordIndex": heard_index if matching is not None else None,
+                "recordedWord": matching["token"] if matching is not None else None,
+                "startS": exact_seconds(matching["start"])
+                if matching is not None
+                else None,
+                "endS": exact_seconds(matching["end"])
+                if matching is not None
+                else None,
                 "precision": precision,
             }
         )

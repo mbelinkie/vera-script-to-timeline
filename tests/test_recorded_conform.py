@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from vera_timeline_agent.recorded_conform import (
     local_onset,
     row_impact,
 )
+from vera_timeline_agent.recorded_word_evidence import canonical_json
 
 SHA = "sha256:" + "a" * 64
 WORDS = ("Three spoken words", "Other short passage", "Third recorded words")
@@ -221,7 +223,10 @@ def sample() -> dict[str, Any]:
                     "startOffset": start,
                     "endOffset": end,
                     "quotedText": word,
-                    "startTime": {"numerator": j - 1, "denominator": 2},
+                    "startTime": {
+                        "numerator": Fraction(j - 1, 2).numerator,
+                        "denominator": Fraction(j - 1, 2).denominator,
+                    },
                     "endBasis": "next_word_derived",
                 }
             )
@@ -288,12 +293,10 @@ def test_exact_rational_math_and_cumulative_shifts() -> None:
         },
         [30, 1],
     )
-    assert local_onset("5/2", *interval) == __import__("fractions").Fraction(1, 6)
+    assert local_onset("5/2", *interval) == Fraction(1, 6)
     with pytest.raises(ConformRefused, match="outside"):
         local_onset("11/3", *interval)
-    assert (
-        ceil_frames(__import__("fractions").Fraction(1001, 30000), [30000, 1001]) == 1
-    )
+    assert ceil_frames(Fraction(1001, 30000), [30000, 1001]) == 1
     assert [
         r["shiftAfterFrames"]
         for r in row_impact(
@@ -313,6 +316,8 @@ def test_three_row_approved_snapshot_freezes_exact_source_tokens() -> None:
         "denominator": 10,
     }
     assert [r["state"] for r in result["rows"]] == ["take", "temp_voice", "take"]
+    golden = _ROOT / "tests/data/recorded_conform/approved.snapshot.golden.json"
+    assert canonical_json(result) == golden.read_bytes()
 
 
 def test_collects_unresolved_and_orphan_row_ids() -> None:
