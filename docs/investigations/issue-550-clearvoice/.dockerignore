@@ -1,0 +1,4 @@
+*
+!Dockerfile.cpu
+!requirements.cpu.txt
+!smoke_cpu.py
