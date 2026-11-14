@@ -73,6 +73,11 @@ from vera_timeline_agent.presenter_sync import (
     SyncResult,
     find_offset,
 )
+from vera_timeline_agent.recorded_word_evidence import (
+    canonical_json,
+    full_read_evidence,
+    sha256,
+)
 
 Json = dict[str, Any]
 RATE = 16000  # the engines' sample rate; all audio work happens at it
@@ -740,6 +745,8 @@ def build_takes(
     duration_s: float,
     fps: list[int],
     last_take: bool = False,
+    *,
+    word_evidence: Json | None = None,
 ) -> Json:
     """The takes file body: every take, and the suggested coverage per passage.
 
@@ -808,6 +815,7 @@ def build_takes(
             }
         )
     out_passages = []
+    evidence_rows: list[Json] = []
     edit: list[Json] = []
     for number, passage in enumerate(passages, 1):
         takes = by_passage[passage.id]
@@ -829,6 +837,14 @@ def build_takes(
         pieces: list[Json] = []
         gaps: list[Json] = []
         whole = reads(0, len(expected))
+        if word_evidence is not None:
+            evidence_rows.append({
+                "rowId": passage.id,
+                "script": passage.script,
+                "scriptWords": expected,
+                "fullReads": [full_read_evidence(r, deliveries, words, expected)
+                              for r in whole],
+            })
         # A whole read is kept whole, unless the project always wants the
         # latest read: then a later pickup of part of the row replaces that
         # part, however much it chops the row up.
@@ -976,6 +992,8 @@ def build_takes(
     for takes in by_passage.values():
         for take in takes:
             del take["_range"], take["_pairs"]
+    if word_evidence is not None:
+        word_evidence.update(schemaVersion="take-word-marks/1", rows=evidence_rows)
     return {
         "rows": out_passages,
         "suggestedEdit": edit,
@@ -1319,6 +1337,12 @@ def find_takes(
     report = refine(
         discover(take_packet(words, stages.alignment, passages, duration_s, fps))
     )
+    evidence: Json = {
+        "video": {"file": video.name, "durationS": str(Fraction(str(duration_s))),
+                  "fps": fps},
+        "sourceScript": {"file": script.name, "sha256": sha256(script.read_bytes()),
+                         "textSha256": sha256(script_text.encode("utf-8"))},
+    }
     body = build_takes(
         report,
         words,
@@ -1329,6 +1353,7 @@ def find_takes(
         duration_s,
         fps,
         last_take,
+        word_evidence=evidence,
     )
     takes = {
         "schemaVersion": "presenter-takes/1",
@@ -1351,6 +1376,7 @@ def find_takes(
         "secondsTaken": round(time.monotonic() - started, 1),
     }
     (out / "takes.json").write_text(json.dumps(takes, indent=1, ensure_ascii=False))
+    (out / "take-word-marks.json").write_bytes(canonical_json(evidence))
     (out / "report.txt").write_text(render_report(takes), encoding="utf-8")
     return takes
 
