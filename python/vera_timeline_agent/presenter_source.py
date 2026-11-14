@@ -2,7 +2,7 @@
 
 The recording and its cleaned audio go into a compound clip at the
 recording's own size. The edit is cut from that compound, so a grade made
-inside it reaches every piece. See docs/presenter-source.md.
+inside it reaches every piece. See the presenter source guide in docs.
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ def check_lengths(frames: int, rate: Fraction, audio_samples: int) -> None:
     if abs(Fraction(audio_samples, AUDIO_RATE) - frames / rate) > 1 / rate:
         raise SourceError(
             "The cleaned audio is not the same length as the video. "
-            "Make it again from this video (docs/presenter-audio.md)."
+            "Make it again from this video."
         )
 
 
@@ -140,9 +140,7 @@ def probe(video: Path, audio: Path) -> Recording:
     if rate not in RESOLVE_RATES or recording.frames <= 0:
         raise SourceError(f"Resolve has no project setting for {float(rate):.3f} fps.")
     if sample_rate != AUDIO_RATE or channels != 1:
-        raise SourceError(
-            "The audio must be the cleaned 48 kHz mono file (docs/presenter-audio.md)."
-        )
+        raise SourceError("The audio must be the cleaned 48 kHz mono file.")
     check_lengths(recording.frames, rate, samples)
     return recording
 
