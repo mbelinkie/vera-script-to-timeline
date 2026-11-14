@@ -18,6 +18,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from fractions import Fraction
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -489,6 +490,7 @@ def match_frozen_read(
 # The decision file is an audit log, not an output of the take analyzer. In
 # particular, none of its keys is a ranked suggestion or a #45 take ordinal.
 APPROVAL_SCHEMA = "presenter-approvals/1"
+PERFORMANCE_SCHEMA = "approved-performance/1"
 STATES = ("take", "temp_voice", "needs_pickup", "no_spoken_line")
 
 
@@ -561,23 +563,7 @@ def _check_snapshot(snapshot: Any, source: Json, row_id: str) -> None:
         "speechEndS",
     }:
         raise ApprovalError("invalid saved take snapshot")
-    if snapshot["rowId"] != row_id:
-        raise ApprovalError("take snapshot has mismatched row identity")
-    row_number = _integer(snapshot["rowNumber"], "saved row number", 1)
-    context = snapshot["rowContext"]
-    if (
-        not isinstance(context, list)
-        or row_number > len(context)
-        or any(
-            not isinstance(entry, list)
-            or len(entry) != 2
-            or not all(isinstance(item, str) and item for item in entry)
-            or entry[0] != f"row-{index}"
-            for index, entry in enumerate(context, 1)
-        )
-        or context[row_number - 1] != [row_id, snapshot["script"]]
-    ):
-        raise ApprovalError("invalid saved script passage context")
+    _check_passage(snapshot, row_id)
     snapshot_source = _check_source(snapshot["source"])
     if any(
         snapshot_source[field] != source[field]
@@ -615,12 +601,47 @@ def _check_snapshot(snapshot: Any, source: Json, row_id: str) -> None:
         raise ApprovalError("saved trim touches measured speech")
 
 
+def _check_passage(snapshot: Json, row_id: str) -> None:
+    """Validate wording and full row context for takes and non-take decisions."""
+    if snapshot.get("rowId") != row_id:
+        raise ApprovalError("saved passage has mismatched row identity")
+    row_number = _integer(snapshot.get("rowNumber"), "saved row number", 1)
+    script = snapshot.get("script")
+    if not isinstance(script, str) or not script.strip():
+        raise ApprovalError("saved passage is missing script wording")
+    context = snapshot.get("rowContext")
+    if (
+        not isinstance(context, list)
+        or row_number > len(context)
+        or any(
+            not isinstance(entry, list)
+            or len(entry) != 2
+            or not all(isinstance(item, str) and item for item in entry)
+            or entry[0] != f"row-{index}"
+            for index, entry in enumerate(context, 1)
+        )
+        or context[row_number - 1] != [row_id, script]
+    ):
+        raise ApprovalError("invalid saved script passage context")
+
+
 def _check_decision(decision: Any, source: Json, row_id: str) -> None:
     if not isinstance(decision, dict) or decision.get("state") not in STATES:
         raise ApprovalError("invalid approval decision state")
     if decision["state"] != "take":
-        if set(decision) != {"state"}:
+        if set(decision) == {"state"}:
+            return  # legacy phase-2 decision; report must flag unknown identity
+        if set(decision) != {"state", "passage"}:
             raise ApprovalError("non-take decision includes a take or trim")
+        passage = decision["passage"]
+        if not isinstance(passage, dict) or set(passage) != {
+            "rowId",
+            "rowNumber",
+            "script",
+            "rowContext",
+        }:
+            raise ApprovalError("invalid saved non-take passage")
+        _check_passage(passage, row_id)
         return
     if set(decision) != {"state", "active", "alternates"}:
         raise ApprovalError("invalid saved active-take decision")
@@ -883,7 +904,15 @@ def choose_approval(
                 or end_frame is not None
             ):
                 raise ApprovalError("non-take state cannot have take/alternates/trims")
-            decision: Json = {"state": state}
+            decision: Json = {
+                "state": state,
+                "passage": {
+                    "rowId": row_id,
+                    "rowNumber": row["number"],
+                    "script": row["script"],
+                    "rowContext": row_context(takes),
+                },
+            }
         else:
             if take is None:
                 raise ApprovalError("take state requires --take")
@@ -949,3 +978,257 @@ def undo_approval(
         _record(doc, row_id, event["before"], "undo")
         _atomic_save(path, doc)
         return doc
+
+
+def _approved_range(frozen: Json, filename: str, rate: Fraction) -> Json:
+    """Display *saved* effective frames, never reanalysis' nearby candidate cut."""
+    start = frozen["effectiveCut"]["startFrame"]
+    end = frozen["effectiveCut"]["endFrame"]
+    return {
+        "file": filename,
+        "startFrame": start,
+        "endFrame": end,
+        "startS": str(Fraction(start, 1) / rate),
+        "endS": str(Fraction(end, 1) / rate),
+        "said": frozen["said"],
+    }
+
+
+def _saved_reference(frozen: Json) -> Json:
+    """A review-only reference, deliberately not a build-ready range."""
+    return {
+        "originalFile": frozen["source"]["file"],
+        "originalCut": frozen["originalCut"].copy(),
+        "effectiveCut": frozen["effectiveCut"].copy(),
+        "said": frozen["said"],
+    }
+
+
+def approved_performance(takes: Json, approvals: Json, sha: str) -> Json:
+    """Render a script-ordered, fail-closed #47 handoff without mutating inputs.
+
+    Only rows with state=take and validated active *and* alternate reads expose
+    usable source ranges. Orphaned decisions are kept visible but never usable.
+    """
+    validate_takes(takes)
+    validate_approvals(approvals)
+    current_source = source_identity(takes["video"], sha)
+    pinned = approvals["source"]
+    source_mismatch = pinned is not None and any(
+        current_source[key] != pinned[key] for key in ("sha256", "fps", "durationS")
+    )
+    rate = frame_rate(takes["video"])
+    entries: list[Json] = []
+    visible = {row["id"] for row in takes["rows"]}
+    # Retain the fresh matched speech edges for the conservative join signal.
+    timing: dict[str, tuple[Json, Json]] = {}
+    for row in takes["rows"]:
+        row_id = row["id"]
+        decision = approvals["decisions"].get(row_id)
+        item: Json = {
+            "rowId": row_id,
+            "rowNumber": row["number"],
+            "script": row["script"],
+            "state": "undecided" if decision is None else decision["state"],
+        }
+        if decision is None:
+            entries.append(item)
+            continue
+        if decision["state"] != "take":
+            passage = decision.get("passage")
+            reason: str | None = None
+            if source_mismatch:
+                reason = "source recording or video timing changed"
+            elif passage is None:
+                reason = "legacy decision lacks script passage identity; reapprove"
+            elif passage["rowContext"] != row_context(takes) or (
+                passage["rowId"] != row_id
+                or passage["rowNumber"] != row["number"]
+                or passage["script"] != row["script"]
+            ):
+                reason = "script passage order or wording changed"
+            if reason is not None:
+                item.update(
+                    state="needs_another_look",
+                    previousState=decision["state"],
+                    reason=reason,
+                )
+            entries.append(item)
+            continue
+
+        snapshots = [decision["active"], *decision["alternates"]]
+        matched = [match_frozen_read(takes, snapshot, sha) for snapshot in snapshots]
+        problems = [
+            ("active" if i == 0 else f"alternate {i}") + f": {reason}"
+            for i, (_, reason) in enumerate(matched)
+            if reason is not None
+        ]
+        if problems:
+            item.update(
+                state="needs_another_look",
+                previousState="take",
+                reason="; ".join(problems),
+                savedApproval=_saved_reference(decision["active"]),
+            )
+        else:
+            item["active"] = _approved_range(
+                decision["active"], takes["video"]["file"], rate
+            )
+            item["alternates"] = [
+                _approved_range(snapshot, takes["video"]["file"], rate)
+                for snapshot in decision["alternates"]
+            ]
+            # All matched reads exist when there are no problems.
+            active_read = matched[0][0]
+            assert active_read is not None
+            timing[row_id] = (decision["active"], active_read)
+        entries.append(item)
+
+    joins: list[Json] = []
+    for left, right in pairwise(entries):
+        if left["state"] != "take" or right["state"] != "take":
+            continue
+        left_saved, left_read = timing[left["rowId"]]
+        right_saved, right_read = timing[right["rowId"]]
+        left_edge = (
+            Fraction(left_saved["effectiveCut"]["endFrame"], 1)
+            - _seconds(left_read["speechEndS"], "speechEndS") * rate
+        )
+        right_edge = _seconds(
+            right_read["speechStartS"], "speechStartS"
+        ) * rate - Fraction(right_saved["effectiveCut"]["startFrame"], 1)
+        # Less than ten source frames of measured quiet on either edge is
+        # suspicious, not evidence of a definitely audible jump cut.
+        if left_edge < 10 or right_edge < 10:
+            joins.append(
+                {
+                    "fromRowId": left["rowId"],
+                    "toRowId": right["rowId"],
+                    "kind": "possible_abrupt_join",
+                    "reason": "less than 10 frames clear of speech at a cut edge",
+                }
+            )
+
+    orphaned: list[Json] = []
+    for row_id, decision in sorted(
+        approvals["decisions"].items(),
+        key=lambda entry: int(entry[0].split("-")[1]),
+    ):
+        if row_id in visible:
+            continue
+        orphan: Json = {
+            "rowId": row_id,
+            "state": "needs_another_look",
+            "previousState": decision["state"],
+            "reason": "approved script passage is missing from the current analysis",
+        }
+        if decision["state"] == "take":
+            orphan["savedApproval"] = _saved_reference(decision["active"])
+            orphan["savedScript"] = decision["active"]["script"]
+        elif "passage" in decision:
+            orphan["savedScript"] = decision["passage"]["script"]
+        orphaned.append(orphan)
+    return {
+        "schemaVersion": PERFORMANCE_SCHEMA,
+        "approvalRevision": approvals["revision"],
+        "source": current_source,
+        "rows": entries,
+        "possibleAbruptJoins": joins,
+        "orphanedDecisions": orphaned,
+    }
+
+
+def approved_performance_text(report: Json) -> str:
+    """Human review text; never state a stale snapshot as an approved cut."""
+
+    def line(value: str) -> str:
+        return " ".join(value.split())
+
+    lines = [
+        "APPROVED PRESENTER PERFORMANCE",
+        f"Approval revision: {report['approvalRevision']}",
+        f"Recording: {line(report['source']['file'])}",
+        "",
+    ]
+    for row in report["rows"]:
+        lines.append(f"{row['rowNumber']}. {row['rowId']}: {line(row['script'])}")
+        state = row["state"]
+        if state == "take":
+            active = row["active"]
+            lines.append(
+                f"   APPROVED TAKE: {line(active['file'])} "
+                f"frames {active['startFrame']}-{active['endFrame']} "
+                f"({active['startS']}s-{active['endS']}s)"
+            )
+            lines.append(f"   Said: {line(active['said'])}")
+            for alt in row["alternates"]:
+                lines.append(
+                    f"   Alternate: {line(alt['file'])} "
+                    f"frames {alt['startFrame']}-{alt['endFrame']} — "
+                    f"{line(alt['said'])}"
+                )
+        elif state == "needs_another_look":
+            lines.append(
+                f"   NEEDS ANOTHER LOOK ({row['previousState']}): {line(row['reason'])}"
+            )
+        else:
+            lines.append(f"   {state.replace('_', ' ').upper()}")
+        lines.append("")
+    for join in report["possibleAbruptJoins"]:
+        lines.append(
+            f"POSSIBLE ABRUPT JOIN: {join['fromRowId']} → {join['toRowId']} "
+            f"— {join['reason']} (check by ear)"
+        )
+    for orphan in report["orphanedDecisions"]:
+        lines.append(
+            f"ORPHANED DECISION {orphan['rowId']} "
+            f"({orphan['previousState']}): {orphan['reason']}"
+        )
+    if not report["possibleAbruptJoins"] and not report["orphanedDecisions"]:
+        lines.append("No possible abrupt joins or orphaned decisions detected.")
+    return "\n".join(lines) + "\n"
+
+
+def write_performance_reports(takes_path: Path, report: Json) -> None:
+    """Write outputs beside takes.json, never changing approvals.json or takes.json.
+
+    Both payloads are fully rendered before either replace; JSON is published
+    last so the structured consumer sees the newest completed text preview.
+    """
+    outputs = (
+        (
+            takes_path.with_name("approved-performance.txt"),
+            approved_performance_text(report).encode("utf-8"),
+        ),
+        (
+            takes_path.with_name("approved-performance.json"),
+            (
+                json.dumps(
+                    report,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+                + "\n"
+            ).encode("utf-8"),
+        ),
+    )
+    for path, payload in outputs:
+        name: str | None = None
+        try:
+            descriptor, name = tempfile.mkstemp(
+                prefix=".approved-performance-", dir=path.parent
+            )
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, path)
+        except OSError as error:
+            raise ApprovalError(
+                f"cannot write approved performance: {error}"
+            ) from error
+        finally:
+            if name is not None and os.path.exists(name):
+                os.unlink(name)

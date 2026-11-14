@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 from vera_timeline_agent.presenter_approvals import (
     ApprovalError,
+    approved_performance,
+    approved_performance_text,
     available_choices,
     checked_trim,
     choose_approval,
@@ -25,6 +27,7 @@ from vera_timeline_agent.presenter_approvals import (
     undo_approval,
     validate_approvals,
     validate_takes,
+    write_performance_reports,
 )
 from vera_timeline_agent.presenter_approvals_cli import main as approval_main
 from vera_word_timing.artifacts import file_hash
@@ -422,7 +425,14 @@ def test_choose_is_byte_idempotent_and_records_previous_and_next(
     assert revised["history"][0]["before"] is None
     assert revised["history"][0]["after"] == before["decisions"]["row-1"]
     assert revised["history"][1]["before"] == before["decisions"]["row-1"]
-    assert revised["history"][1]["after"] == {"state": "needs_pickup"}
+    assert revised["history"][1]["after"] == revised["decisions"]["row-1"]
+    assert revised["history"][1]["after"]["state"] == "needs_pickup"
+    assert revised["history"][1]["after"]["passage"] == {
+        "rowId": "row-1",
+        "rowNumber": 1,
+        "script": "Three spoken words",
+        "rowContext": row_context(_report()),
+    }
     assert all(e["at"].endswith("Z") for e in revised["history"])
     assert validate_approvals(revised) == revised
     assert first_bytes != approvals_path.read_bytes()
@@ -442,9 +452,13 @@ def test_undo_appends_instead_of_erasing_and_can_restore_absent_decision(
     undone = undo_approval(takes_path, video_path, "row-1")
     assert undone["revision"] == 3
     assert undone["history"][2]["operation"] == "undo"
-    assert undone["history"][2]["before"] == {"state": "no_spoken_line"}
+    assert undone["history"][2]["before"]["state"] == "no_spoken_line"
+    assert (
+        undone["history"][2]["before"]["passage"]
+        == (original["decisions"]["row-1"]["passage"])
+    )
     assert undone["history"][2]["after"] == original["decisions"]["row-1"]
-    assert undone["decisions"]["row-1"] == {"state": "temp_voice"}
+    assert undone["decisions"]["row-1"] == original["decisions"]["row-1"]
     # A different row has its own independent event chain.
     choose_approval(takes_path, video_path, "row-2", "needs_pickup")
     undone_other = undo_approval(takes_path, video_path, "row-2")
@@ -664,6 +678,8 @@ def test_cli_parses_all_four_verbs_and_never_writes_takes(
     before_list = sidecar.read_bytes()
     assert approval_main(["list", *video_arg]) == 0
     assert json.loads(capsys.readouterr().out)["rows"][0]["state"] == "take"
+    assert takes_path.with_name("approved-performance.json").is_file()
+    assert takes_path.with_name("approved-performance.txt").is_file()
     assert sidecar.read_bytes() == before_list
     assert approval_main(["undo", *video_arg, "--row", "row-1"]) == 0
     assert json.loads(capsys.readouterr().out)["decision"] is None
@@ -684,6 +700,352 @@ def test_cli_parses_all_four_verbs_and_never_writes_takes(
         == 1
     )
     assert "non-take" in capsys.readouterr().err
+
+
+def _performance_fixture() -> Json:
+    """Entirely invented six-passage recording for ordered output goldens."""
+    data = _report()
+    data["rows"][0]["script"] = "Three spoken words"
+    second = {
+        "id": "row-2",
+        "number": 2,
+        "row": 2,
+        "script": "Second spoken passage",
+        "takes": [
+            _raw(
+                "row-2-take-1",
+                start=130,
+                end=170,
+                speech=(4.6, 5.3),
+                said="Second spoken passage",
+            ),
+            _raw(
+                "row-2-take-2",
+                start=180,
+                end=220,
+                speech=(6.3, 7.0),
+                said="Second spoken passage",
+            ),
+        ],
+        "suggested": _read(
+            130,
+            170,
+            ids=["row-2-take-1"],
+            speech=(4.6, 5.3),
+            said="Second spoken passage",
+        ),
+        "alternateReads": [
+            _read(
+                180,
+                220,
+                ids=["row-2-take-2"],
+                speech=(6.3, 7.0),
+                said="Second spoken passage",
+            )
+        ],
+        "suggestedCoverage": [],
+        "gaps": [],
+    }
+    data["rows"][1] = second
+    for ordinal, script in enumerate(
+        (
+            "Third sentence for temporary voice",
+            "Fourth sentence needing pickup",
+            "Fifth sentence is silent",
+            "Sixth sentence remains undecided",
+        ),
+        3,
+    ):
+        data["rows"].append(
+            {
+                "id": f"row-{ordinal}",
+                "number": ordinal,
+                "row": ordinal,
+                "script": script,
+                "takes": [],
+                "suggested": None,
+                "alternateReads": [],
+                "suggestedCoverage": [],
+                "gaps": [],
+            }
+        )
+    return data
+
+
+def _approved_fixture(
+    fake_media: tuple[Path, Path],
+) -> tuple[Path, Path, Json, Json]:
+    takes_path, video_path = fake_media
+    takes = _performance_fixture()
+    takes_path.write_text(json.dumps(takes), encoding="utf-8")
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-1",
+        "take",
+        take="60:120",
+        start_frame=70,
+        end_frame=110,
+        hash_video=lambda _: SHA,
+    )
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-2",
+        "take",
+        take="130:170",
+        alternates=["180:220"],
+        hash_video=lambda _: SHA,
+    )
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-3",
+        "temp_voice",
+        hash_video=lambda _: SHA,
+    )
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-4",
+        "needs_pickup",
+        hash_video=lambda _: SHA,
+    )
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-5",
+        "no_spoken_line",
+        hash_video=lambda _: SHA,
+    )
+    return (
+        takes_path,
+        video_path,
+        takes,
+        load_approvals(takes_path.with_name("approvals.json")),
+    )
+
+
+def test_ordered_performance_all_states_and_golden_outputs(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, _, takes, approvals = _approved_fixture(fake_media)
+    before_takes = takes_path.read_bytes()
+    before_approvals = takes_path.with_name("approvals.json").read_bytes()
+    report = approved_performance(takes, approvals, SHA)
+    assert [r["state"] for r in report["rows"]] == [
+        "take",
+        "take",
+        "temp_voice",
+        "needs_pickup",
+        "no_spoken_line",
+        "undecided",
+    ]
+    assert report["rows"][0]["active"]["startFrame"] == 70  # human trim
+    assert report["rows"][0]["active"]["endFrame"] == 110
+    assert report["rows"][1]["alternates"][0]["startFrame"] == 180
+    assert report["possibleAbruptJoins"] == [
+        {
+            "fromRowId": "row-1",
+            "toRowId": "row-2",
+            "kind": "possible_abrupt_join",
+            "reason": "less than 10 frames clear of speech at a cut edge",
+        }
+    ]
+    assert report["orphanedDecisions"] == []
+    assert "NEEDS PICKUP" in approved_performance_text(report)
+    assert "POSSIBLE ABRUPT JOIN" in approved_performance_text(report)
+    write_performance_reports(takes_path, report)
+    goldens = Path(__file__).parent / "data" / "presenter_approvals"
+    assert (
+        takes_path.with_name("approved-performance.json").read_text()
+        == (goldens / "approved-performance.json").read_text()
+    )
+    assert (
+        takes_path.with_name("approved-performance.txt").read_text()
+        == (goldens / "approved-performance.txt").read_text()
+    )
+    assert takes_path.read_bytes() == before_takes
+    assert takes_path.with_name("approvals.json").read_bytes() == before_approvals
+
+
+def test_reanalysis_preserves_bytes_and_freezes_saved_cut(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, _, takes, approvals = _approved_fixture(fake_media)
+    approvals_path = takes_path.with_name("approvals.json")
+    baseline = approvals_path.read_bytes()
+    rerun = copy.deepcopy(takes)
+    rerun["rows"][0]["suggested"]["cut"]["startFrame"] += 1
+    rerun["rows"][0]["suggested"]["cut"]["endFrame"] += 1
+    rerun["rows"][0]["takes"][0]["id"] = "row-1-take-99"
+    rerun["rows"][0]["suggested"]["takes"] = ["row-1-take-99"]
+    rerun["video"]["file"] = "renamed-original.mov"
+    takes_path.write_text(json.dumps(rerun), encoding="utf-8")
+    report = approved_performance(load_takes(takes_path), approvals, SHA)
+    assert report["rows"][0]["state"] == "take"
+    assert report["rows"][0]["active"]["file"] == "renamed-original.mov"
+    assert report["rows"][0]["active"]["startFrame"] == 70
+    assert approvals_path.read_bytes() == baseline
+    write_performance_reports(takes_path, report)
+    assert approvals_path.read_bytes() == baseline
+
+
+def test_stale_alternate_source_and_orphans_never_expose_build_ready_range(
+    fake_media: tuple[Path, Path],
+) -> None:
+    _, _, takes, approvals = _approved_fixture(fake_media)
+    altered = copy.deepcopy(takes)
+    altered["rows"][1]["alternateReads"][0]["cut"]["startFrame"] += 3
+    altered["rows"][1]["alternateReads"][0]["cut"]["endFrame"] += 3
+    stale = approved_performance(altered, approvals, SHA)
+    assert stale["rows"][1]["state"] == "needs_another_look"
+    assert stale["rows"][1]["previousState"] == "take"
+    assert "alternate 1:" in stale["rows"][1]["reason"]
+    assert "active" not in stale["rows"][1]
+    assert "savedApproval" in stale["rows"][1]
+
+    source_changed = approved_performance(takes, approvals, OTHER_SHA)
+    assert source_changed["rows"][0]["state"] == "needs_another_look"
+    assert source_changed["rows"][2]["state"] == "needs_another_look"
+    assert source_changed["rows"][2]["previousState"] == "temp_voice"
+    assert source_changed["possibleAbruptJoins"] == []
+
+    shortened = copy.deepcopy(takes)
+    shortened["rows"] = shortened["rows"][:4]
+    missing = approved_performance(shortened, approvals, SHA)
+    assert len(missing["rows"]) == 4
+    assert missing["orphanedDecisions"] == [
+        {
+            "rowId": "row-5",
+            "state": "needs_another_look",
+            "previousState": "no_spoken_line",
+            "reason": "approved script passage is missing from the current analysis",
+            "savedScript": "Fifth sentence is silent",
+        }
+    ]
+    assert "ORPHANED DECISION" in approved_performance_text(missing)
+    only_first = copy.deepcopy(takes)
+    only_first["rows"] = only_first["rows"][:1]
+    vanished_take = approved_performance(only_first, approvals, SHA)[
+        "orphanedDecisions"
+    ][0]
+    assert vanished_take["rowId"] == "row-2"
+    assert vanished_take["state"] == "needs_another_look"
+    assert vanished_take["savedApproval"]["effectiveCut"] == {
+        "startFrame": 130,
+        "endFrame": 170,
+    }
+    assert "active" not in vanished_take
+
+
+def test_join_warning_uses_actual_approved_trim_and_not_jump_cut_preference(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, video_path, takes, approvals = _approved_fixture(fake_media)
+    takes["allowJumpCuts"] = True
+    # The existing tight selected trim remains suspect, even if on-camera
+    # jump cuts have been allowed by the upstream analyzer.
+    assert len(approved_performance(takes, approvals, SHA)["possibleAbruptJoins"]) == 1
+
+    # Reapprove wider, still speech-safe handles after a reanalysis with a
+    # different speech onset. Only >=10 frames on BOTH sides avoids a warning.
+    takes["rows"][1]["suggested"]["speechStartS"] = 4.8
+    takes_path.write_text(json.dumps(takes), encoding="utf-8")
+    choose_approval(
+        takes_path,
+        video_path,
+        "row-1",
+        "take",
+        take="60:120",
+        start_frame=70,
+        end_frame=120,
+        hash_video=lambda _: SHA,
+    )
+    latest = choose_approval(
+        takes_path,
+        video_path,
+        "row-2",
+        "take",
+        take="130:170",
+        alternates=["180:220"],
+        hash_video=lambda _: SHA,
+    )
+    refreshed = approved_performance(takes, latest, SHA)
+    assert refreshed["rows"][0]["state"] == "take"
+    assert refreshed["rows"][1]["state"] == "take"
+    assert refreshed["possibleAbruptJoins"] == []
+
+
+def test_script_edit_stale_take_and_invalid_sidecar_cannot_rewrite_reports(
+    fake_media: tuple[Path, Path],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    takes_path, video_path, takes, approvals = _approved_fixture(fake_media)
+    edited = copy.deepcopy(takes)
+    edited["rows"][0]["script"] = "Now very different words"
+    result = approved_performance(edited, approvals, SHA)
+    assert result["rows"][0]["state"] == "needs_another_look"
+    assert "wording changed" in result["rows"][0]["reason"]
+    assert "active" not in result["rows"][0]
+
+    list_args = ["list", "--takes", str(takes_path), "--video", str(video_path)]
+    assert approval_main(list_args) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["schemaVersion"] == "approved-performance/1"
+    json_path = takes_path.with_name("approved-performance.json")
+    txt_path = takes_path.with_name("approved-performance.txt")
+    before_json, before_txt = json_path.read_bytes(), txt_path.read_bytes()
+    approvals_path = takes_path.with_name("approvals.json")
+    valid = approvals_path.read_bytes()
+    approvals_path.write_text("{", encoding="utf-8")
+    assert approval_main(list_args) == 1
+    assert "cannot read approvals.json" in capsys.readouterr().err
+    assert json_path.read_bytes() == before_json
+    assert txt_path.read_bytes() == before_txt
+    assert approvals_path.read_bytes() == b"{"
+    approvals_path.write_bytes(valid)
+
+
+def test_non_take_decision_is_not_retargeted_after_script_edit_and_legacy_is_stale(
+    fake_media: tuple[Path, Path],
+) -> None:
+    takes_path, video_path, takes, approvals = _approved_fixture(fake_media)
+    sidecar = takes_path.with_name("approvals.json")
+    before = sidecar.read_bytes()
+    edited = copy.deepcopy(takes)
+    edited["rows"][2]["script"] = "Different paragraph inserted here"
+    report = approved_performance(edited, approvals, SHA)
+    assert report["rows"][2]["state"] == "needs_another_look"
+    assert report["rows"][2]["previousState"] == "temp_voice"
+    assert report["rows"][2]["reason"] == "script passage order or wording changed"
+    assert "active" not in report["rows"][2]
+    assert sidecar.read_bytes() == before
+
+    # Legacy state-only decisions remain readable but must not silently
+    # attach to an arbitrary passage without frozen wording/context.
+    legacy = copy.deepcopy(approvals)
+    legacy["decisions"]["row-3"] = {"state": "temp_voice"}
+    next(e for e in legacy["history"] if e["rowId"] == "row-3")["after"] = {
+        "state": "temp_voice"
+    }
+    assert validate_approvals(legacy) == legacy
+    old = approved_performance(takes, legacy, SHA)
+    assert old["rows"][2]["state"] == "needs_another_look"
+    assert "legacy decision" in old["rows"][2]["reason"]
+
+    # Only a *new explicit choose* may anchor the edited passage; analysis
+    # and listing leave the original audit sidecar byte-identical.
+    takes_path.write_text(json.dumps(edited), encoding="utf-8")
+    updated = choose_approval(
+        takes_path, video_path, "row-3", "temp_voice", hash_video=lambda _: SHA
+    )
+    assert updated["revision"] == approvals["revision"] + 1
+    assert updated["history"][-1]["operation"] == "choose"
+    assert updated["history"][-1]["before"] == approvals["decisions"]["row-3"]
+    assert (
+        approved_performance(edited, updated, SHA)["rows"][2]["state"] == "temp_voice"
+    )
 
 
 def test_two_writers_cannot_lose_each_others_history(
@@ -708,10 +1070,11 @@ def test_two_writers_cannot_lose_each_others_history(
     result = load_approvals(takes_path.with_name("approvals.json"))
     assert result["revision"] == 2
     assert [event["revision"] for event in result["history"]] == [1, 2]
-    assert result["decisions"] == {
-        "row-1": {"state": "needs_pickup"},
-        "row-2": {"state": "temp_voice"},
-    }
+    assert {
+        row_id: decision["state"] for row_id, decision in result["decisions"].items()
+    } == {"row-1": "needs_pickup", "row-2": "temp_voice"}
+    assert result["decisions"]["row-1"]["passage"]["script"] == "Three spoken words"
+    assert result["decisions"]["row-2"]["passage"]["script"] == "Other short passage"
 
 
 def test_atomic_write_failure_does_not_replace_valid_decision(

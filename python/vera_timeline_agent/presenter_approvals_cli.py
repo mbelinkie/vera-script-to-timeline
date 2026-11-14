@@ -6,17 +6,17 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from vera_timeline_agent.presenter_approvals import (
     ApprovalError,
+    approved_performance,
     available_choices,
     choose_approval,
     load_approvals,
     load_takes,
-    match_frozen_read,
     observed_video,
     undo_approval,
+    write_performance_reports,
 )
 
 
@@ -51,48 +51,11 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _status_rows(
-    takes: dict[str, Any], doc: dict[str, Any], sha: str
-) -> dict[str, Any]:
-    """Read-only status listing; phase 3 adds the ordered conform preview files."""
-    rows: list[dict[str, Any]] = []
-    present = {row["id"] for row in takes["rows"]}
-    for row in takes["rows"]:
-        decision = doc["decisions"].get(row["id"])
-        if decision is None:
-            rows.append({"rowId": row["id"], "state": "undecided"})
-            continue
-        outcome: dict[str, Any] = {"rowId": row["id"], "state": decision["state"]}
-        if decision["state"] == "take":
-            reasons = [
-                reason
-                for snapshot in [decision["active"], *decision["alternates"]]
-                if (reason := match_frozen_read(takes, snapshot, sha)[1]) is not None
-            ]
-            if reasons:
-                outcome["state"] = "needs_another_look"
-                outcome["reason"] = "; ".join(dict.fromkeys(reasons))
-            else:
-                outcome["startFrame"] = decision["active"]["effectiveCut"]["startFrame"]
-                outcome["endFrame"] = decision["active"]["effectiveCut"]["endFrame"]
-                outcome["said"] = decision["active"]["said"]
-        rows.append(outcome)
-    return {
-        "revision": doc["revision"],
-        "rows": rows,
-        "orphanedDecisions": [
-            {"rowId": row_id, "state": decision["state"]}
-            for row_id, decision in doc["decisions"].items()
-            if row_id not in present
-        ],
-    }
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command == "choices":
-            result: dict[str, Any] = {
+            result = {
                 "note": "Unapproved candidates only; suggested reads are not decisions",
                 "rows": available_choices(load_takes(args.takes)),
             }
@@ -124,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
             takes = load_takes(args.takes)
             document = load_approvals(args.takes.with_name("approvals.json"))
             sha = observed_video(args.video)
-            result = _status_rows(takes, document, sha)
+            result = approved_performance(takes, document, sha)
+            write_performance_reports(args.takes, result)
         print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
     except ApprovalError as error:
