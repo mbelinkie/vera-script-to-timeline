@@ -597,6 +597,37 @@ visual quality and production/creative acceptance remain unqualified. The
 [bounded run report](verification/issue-119/STUDIO_QUALIFICATION.md) records
 the full limits and conditions.
 
+**#94 full-size presenter source delta — native observations.** Studio
+**21.1.1 build 10**, Local scripting, 1920×1080 project at 29.97 fps, Producer
+sample 1 (3840×2160, 7,320 frames) with its #92 cleaned 48 kHz mono WAV, plus a
+synthetic 3840×2160 one-pixel checkerboard. Stills came from
+`ExportCurrentFrameAsStill`; nothing was rendered.
+
+- A timeline with custom 3840×2160 settings, placed in the 1080p timeline
+  through `Timeline.GetMediaPoolItem()` and `AppendToTimeline`, is scaled to
+  1080p before the item transform. At `ZoomX/Y=2.0` and at `Scaling=SCALE_CROP`
+  the checkerboard came out uniform grey. A 4K working timeline with 1080p
+  output also lost it.
+- A **compound clip** made in that 4K timeline (`CreateCompoundClip`) reports
+  `Resolution=3840x2160`; at `ZoomX/Y=2.0` in the 1080p timeline the
+  checkerboard is exact, matching the raw clip. At zoom 1 it shows the whole
+  frame. `Scaling=SCALE_CROP` on a compound item still gives grey; use zoom.
+- `CreateCompoundClip` given a video and an audio item returns `None` although
+  the compound is created; read the track back. Given video only it returns
+  the item.
+- A new timeline's A1 is stereo. `AddTrack("audio", "mono")` then
+  `DeleteTrack("audio", 1)` leaves a mono A1.
+- `GetSourceStartFrame()` on pieces of a nested timeline can read one frame
+  early (3000 requested, 2999 returned) while the picture shows the requested
+  frame; `GetLeftOffset(False)` is exact. Compound pieces read back exactly.
+- A CDL set on the video before the compound was made showed on a tight and a
+  wide piece and survived save, close and reopen with zooms, offsets and
+  durations unchanged.
+
+Not checked by script: changing the grade inside an existing compound clip and
+seeing placed pieces follow. The API cannot open a compound clip; this is a
+by-hand step ([presenter-source.md](presenter-source.md)).
+
 ## Waiting, recovery and current operations
 
 ### RK-20 — Resume waiting; never replay an uncertain mutation
