@@ -401,6 +401,7 @@ def test_vendor_bridge_uses_selected_library_only_during_connection(
     script = tmp_path / f"{module_name}.py"
     script.write_text(
         "import os\n"
+        "__file__ = os.environ['RESOLVE_SCRIPT_LIB']\n"
         "def scriptapp(name):\n"
         "    return (name, os.environ.get('RESOLVE_SCRIPT_LIB'))\n",
         encoding="utf-8",
@@ -414,6 +415,25 @@ def test_vendor_bridge_uses_selected_library_only_during_connection(
     assert isinstance(adapter, PublicResolveAdapter)
     assert adapter.resolve == ("Resolve", str(library))
     assert os.environ["RESOLVE_SCRIPT_LIB"] == "/original/script.so"
+
+
+def test_vendor_bridge_refuses_library_ignored_by_vendor_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, standard_local: LocalFacts
+) -> None:
+    script = tmp_path / "DaVinciResolveScript.py"
+    script.write_text(
+        "__file__ = '/other/fusionscript.so'\n"
+        "def scriptapp(name):\n"
+        "    raise AssertionError('must not connect')\n",
+        encoding="utf-8",
+    )
+    local = LocalFacts(
+        **(standard_local.__dict__ | {"scripting_module_path": str(script)})
+    )
+    monkeypatch.delenv("RESOLVE_SCRIPT_LIB", raising=False)
+    with pytest.raises(StudioSpikeError, match="different scripting library"):
+        load_resolve_adapter(local, scripting_library=tmp_path / "selected.so")
+    assert "RESOLVE_SCRIPT_LIB" not in os.environ
 
 
 def test_vendor_bridge_restores_library_on_failed_connection(

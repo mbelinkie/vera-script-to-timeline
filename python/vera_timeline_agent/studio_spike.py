@@ -423,6 +423,15 @@ def load_resolve_adapter(
             os.environ["RESOLVE_SCRIPT_LIB"] = str(scripting_library)
         spec.loader.exec_module(module)
         loaded_module = sys.modules.get(spec.name, module)
+        if scripting_library is not None:
+            loaded_path = getattr(loaded_module, "__file__", None)
+            if (
+                not loaded_path
+                or Path(loaded_path).resolve() != scripting_library.resolve()
+            ):
+                raise StudioSpikeError(
+                    "Resolve loaded a different scripting library than the selected app"
+                )
         resolve = loaded_module.scriptapp("Resolve")
     except BaseException:
         if previous_module is None:
