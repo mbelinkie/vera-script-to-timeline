@@ -1201,8 +1201,10 @@ from 72 to 68 extended A. The resulting boundary was 52, programme end
 stayed 96, A source out became 52, and B source in became 64 with out 108
 unchanged. All four original video/audio UIDs and reciprocal links survived
 save/close/reopen. Marker custom data, zoom 1.25, volume −12 dB, and track
-enabled/locked state also survived. These are structural readbacks, not
-rendered picture or audible-output comparisons.
+enabled/locked state also survived. A separate negative four-frame roll moved
+the same kind of linked boundary from 48 to 44 and kept all four linked UIDs
+after reopen. A forward four-frame roll on two generated PNG stills likewise
+preserved both IDs and a 96-frame timeline. All tests used structural readback.
 
 The sequence is **not atomic**: the first setter left a four-frame gap until
 the second succeeded. [Blackmagic's DEV-12324 reply](https://github.com/mbelinkie/vera-script-to-timeline/issues/490#issuecomment-6826230215)
@@ -1211,12 +1213,12 @@ handle arguments, and says 21.1.1 has no supported same-item roll sequence.
 Both versions' stated Mac hardware requirements exclude this Intel host;
 that is shared baseline context, not a new 21.2 regression.
 
-**Reuse/delta:** reuse this ordinary positive roll result for this finite
-handled AV topology. It does not prove atomic updates, still/placeholder
-behavior, arbitrary finishing preservation, other rates or a shipped VERA
-update feature. The shipped command's app discovery and build admission are
-separate compatibility boundaries recorded in the comparison. #104's
-hand-finished-row requirements remain independent.
+**Reuse/delta:** reuse these ordinary roll results for the bounded handled AV
+and PNG fixtures. Atomic updates, arbitrary placeholder and finishing
+behavior, other rates and the shipped VERA update feature remain unverified.
+The shipped command's app discovery and build admission are separate
+compatibility boundaries recorded in the comparison. #104's hand-finished-row
+requirements remain independent.
 
 ## #318 action crosswalk
 
