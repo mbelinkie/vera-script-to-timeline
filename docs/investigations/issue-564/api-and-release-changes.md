@@ -4,7 +4,7 @@ Evidence captured 2026-11-14. This appendix records vendor documentation and ins
 
 ## Versions, support and comparison limits
 
-Installed bundles report Resolve Studio **21.1.1 (build 21.1.10010)** and **21.2.0 (build 21.2.00006)**. This Mac is a MacBookPro16,1 with an Intel Core i9. The official 21.2 Studio ReadMe requires an Apple Silicon based computer for macOS, so the 21.2 app’s universal executable slice does not make this Intel host supported. This appendix itself contains read-only documentation/declaration evidence only; any live result on this Intel Mac would describe observed compatibility on unsupported hardware, not vendor-supported operation.
+Installed bundles report Resolve Studio **21.1.1 (build 21.1.10010)** and **21.2.0 (build 21.2.00006)**. Both official macOS ReadMes list an Apple Silicon requirement. The [compatibility report](resolve-212-compatibility.md) records measured behavior of both installations on the Intel Mac.
 
 The shared SDK folder at `/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting` now contains 21.2's SDK. The installed 21.1.1 bundle supplies no separate complete README, stub and changelog. Thus a literal full `.pyi` diff is unavailable. The prior 21.1.1 declarations are preserved in [#477’s feasibility report](https://github.com/mbelinkie/vera-script-to-timeline/blob/main/docs/plans/issue-477-native-roll-feasibility.md) and [#489’s static audit](https://github.com/mbelinkie/vera-script-to-timeline/blob/main/docs/plans/issue-489-resolve-nongui-static-audit.md). They show no `GetPosition`, `SetPosition`, `SetLeftOffset`, `SetRightOffset` or `Timeline.MoveItems` in 21.1.1. The installed 21.2 SDK `CHANGELOG.md` documents additions and fixes, but no removals. This supports “no documented removals,” not a claim that every undocumented symbol is unchanged.
 
@@ -123,7 +123,7 @@ The current product build path in [#517](https://github.com/mbelinkie/vera-scrip
 
 Most promising declared additions for future work are per-edge offsets/position, effect discovery and selective attribute copying, and CDL/node-enabled readback. Album, auto-color and optional-model APIs cover workflows VERA may not use. Frame/contact-sheet export is preview/evidence support only. No API declaration alone establishes source retention, linked-item behavior, persistent UIDs or saved geometry.
 
-## Release-note summary (21.2 product features, under 200 words)
+## 21.2 release notes
 
 Blackmagic’s 21.2 Studio ReadMe adds MacBook Pro PROLED XDR touch-screen support; Gen 6 LUTs and ResolveFX False Color updates; source timecode retention for extracted audio; multicam/source-viewer editing improvements; timeline edit-selection and compound-clip actions; persistent edit-menu choices; and PNG EXIF metadata. AI assistant changes add improved color/Fusion capability, optional Extras downloads, frame exports and thumbnail grids, but do not by themselves expose unattended VERA operations. Fixes cover network-drive MXF audio, MP3-only render speed, AAF clip/timecode issues, OGraf loading/timeouts/memory, XDCAM and H.265 issues, collaboration source-track changes, OpenFX and MultiText behavior, render-in-place handles, audio preferences, WAV metadata/channel ordering, DNG decoding, Text+ controls, Fusion scripting references, and general performance/stability. Relevance depends on VERA’s actual media and workflow; none changes the documented roll API or proves timeline-edit behavior.
 
