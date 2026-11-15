@@ -8,11 +8,14 @@ import {
   applyProjectCommentsMigration,
   applyProjectDocumentsMigration,
   applyProjectHistoryMigration,
+  applyProjectSubtitleCopiesMigration,
   PROJECT_COMMENTS_MIGRATION,
   PROJECT_COMMENTS_MIGRATION_DIGEST,
   PROJECT_DOCUMENTS_MIGRATION,
   PROJECT_HISTORY_MIGRATION,
   PROJECT_HISTORY_MIGRATION_DIGEST,
+  PROJECT_SUBTITLE_COPIES_MIGRATION,
+  PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST,
 } from "../src/migration.js";
 
 // Cold PGlite startup on mounted Linux filesystems can be unusually slow.
@@ -27,6 +30,147 @@ async function database() {
 }
 afterEach(async () => {
   for (const db of databases.splice(0)) await db.close();
+});
+
+describe("forward-only STT subtitle copies schema 005", () => {
+  it("requires project documents, pins its receipt, is repeatable and preserves old schema/data", async () => {
+    const db = await database();
+    await expect(applyProjectSubtitleCopiesMigration(db)).rejects.toThrow();
+    const uncommitted = await db.query<{ n: number }>(
+      "SELECT count(*)::integer AS n FROM vera_schema_migrations WHERE migration_name=$1",
+      [PROJECT_SUBTITLE_COPIES_MIGRATION],
+    );
+    expect(uncommitted.rows[0]?.n).toBe(0);
+    await applyProjectDocumentsMigration(db);
+    const actor = randomUUID(), project = randomUUID(), document = randomUUID();
+    const digest = `sha256:${"a".repeat(64)}`;
+    await db.query("INSERT INTO vera_identity_actors(id,issuer,subject) VALUES($1,'test','subtitle-owner')", [actor]);
+    await db.query("INSERT INTO stt_projects(id,title,created_by,client_create_request_id,create_request_digest) " +
+      "VALUES($1,'Existing project',$2,$3,$4)", [project, actor, randomUUID(), digest]);
+    await db.query("INSERT INTO stt_document_revisions(project_id,revision,document_id,expected_revision," +
+      "actor_id,client_mutation_id,request_digest,content_digest,document_json) " +
+      "VALUES($1,0,$2,NULL,$3,$4,$5,$5,$6)",
+    [project, document, actor, randomUUID(), digest, '{"frozen":"prior document"}']);
+    const before = await db.query<{ document_json: string }>(
+      "SELECT document_json FROM stt_document_revisions WHERE project_id=$1 AND revision=0", [project],
+    );
+    await applyProjectSubtitleCopiesMigration(db);
+    await applyProjectSubtitleCopiesMigration(db);
+    const receipt = await db.query<{ schema_version: number; checksum: string }>(
+      "SELECT schema_version,encode(checksum,'hex') AS checksum FROM vera_schema_migrations " +
+      "WHERE migration_name=$1", [PROJECT_SUBTITLE_COPIES_MIGRATION],
+    );
+    expect(receipt.rows).toEqual([{
+      schema_version: 5, checksum: PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST,
+    }]);
+    const tables = await db.query<{ tablename: string }>(
+      "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'stt_subtitle_copy_%'",
+    );
+    expect(tables.rows.map(({ tablename }) => tablename).sort()).toEqual([
+      "stt_subtitle_copy_heads", "stt_subtitle_copy_revisions",
+    ]);
+    const after = await db.query<{ document_json: string }>(
+      "SELECT document_json FROM stt_document_revisions WHERE project_id=$1 AND revision=0", [project],
+    );
+    expect(after.rows).toEqual(before.rows);
+    const receipt001 = await db.query<{ n: number }>(
+      "SELECT count(*)::integer AS n FROM vera_schema_migrations WHERE migration_name=$1",
+      [PROJECT_DOCUMENTS_MIGRATION],
+    );
+    expect(receipt001.rows[0]?.n).toBe(1);
+  });
+
+  it("refuses checksum or version tampering without rewriting history", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectSubtitleCopiesMigration(db);
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex') WHERE migration_name=$2",
+      ["0".repeat(64), PROJECT_SUBTITLE_COPIES_MIGRATION]);
+    await expect(applyProjectSubtitleCopiesMigration(db)).rejects.toThrow("checksum mismatch");
+    await db.query("UPDATE vera_schema_migrations SET checksum=decode($1,'hex'),schema_version=99 " +
+      "WHERE migration_name=$2", [PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST, PROJECT_SUBTITLE_COPIES_MIGRATION]);
+    await expect(applyProjectSubtitleCopiesMigration(db)).rejects.toThrow("checksum mismatch");
+    const rows = await db.query<{ count: number }>(
+      "SELECT count(*)::integer AS count FROM stt_subtitle_copy_revisions",
+    );
+    expect(rows.rows[0]?.count).toBe(0);
+  });
+
+  it("keeps immutable provenance, contiguous CAS revisions and preserved old copies after rederive", async () => {
+    const db = await database();
+    await applyProjectDocumentsMigration(db);
+    await applyProjectSubtitleCopiesMigration(db);
+    const actor = randomUUID(), project = randomUUID(), occurrence = randomUUID(), track = randomUUID();
+    const digestA = `sha256:${"a".repeat(64)}`, digestB = `sha256:${"b".repeat(64)}`;
+    const digestC = `sha256:${"c".repeat(64)}`;
+    const frozenSource = '{"source":"exact original transcript","englishText":"Hello"}';
+    const sourceChanged = '{"source":"changed transcript","englishText":"Greetings"}';
+    await db.query("INSERT INTO vera_identity_actors(id,issuer,subject) VALUES($1,'test','subtitle-writer')", [actor]);
+    await db.query("INSERT INTO stt_projects(id,title,created_by,client_create_request_id,create_request_digest) " +
+      "VALUES($1,'Subtitle copy',$2,$3,$4)", [project, actor, randomUUID(), digestA]);
+    const insert = "INSERT INTO stt_subtitle_copy_revisions(project_id,occurrence_id,track_id," +
+      "revision,expected_revision,operation,actor_id,client_mutation_id,request_digest," +
+      "source_json,source_digest,baseline_english,track_json,content_digest) " +
+      "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)";
+    const revision = (version: number, expected: number, operation: string, mutation: string = randomUUID(),
+      source = frozenSource, sourceDigest = digestA, baseline = "Hello", textDigest = digestB,
+    ) => [project, occurrence, track, version, expected, operation, actor, mutation, digestA,
+      source, sourceDigest, baseline, JSON.stringify({ version, operation, source, baseline }), textDigest];
+    const first = revision(1, 0, "derive");
+    await expect(db.query(insert, [randomUUID(), ...first.slice(1)])).rejects.toThrow();
+    await db.query(insert, first);
+    const head = "INSERT INTO stt_subtitle_copy_heads(project_id,occurrence_id,track_id,revision," +
+      "source_digest,content_digest,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7)";
+    await expect(db.query(head, [project, randomUUID(), randomUUID(), 2, digestA, digestB, actor]))
+      .rejects.toThrow();
+    await db.query(head, [project, occurrence, track, 1, digestA, digestB, actor]);
+    await expect(db.query(head, [project, randomUUID(), track, 1, digestA, digestB, actor]))
+      .rejects.toThrow();
+    await expect(db.query(insert, revision(1, 0, "derive"))).rejects.toThrow();
+    await expect(db.query(insert, revision(2, 0, "edit"))).rejects.toThrow();
+    await expect(db.query(insert, revision(3, 2, "edit"))).rejects.toThrow(/not contiguous/u);
+    await expect(db.query(insert, revision(2, 1, "edit", randomUUID(), sourceChanged)))
+      .rejects.toThrow(/provenance is immutable/u);
+    await expect(db.query(insert, revision(2, 1, "approve", randomUUID(), frozenSource, digestA,
+      "Rewritten baseline"))).rejects.toThrow(/provenance is immutable/u);
+    await expect(db.query(insert, revision(2, 1, "rederive"))).rejects.toThrow(/changed source/u);
+    const second = revision(2, 1, "edit", randomUUID(), frozenSource, digestA, "Hello", digestC);
+    await db.query(insert, second);
+    await expect(db.query("UPDATE stt_subtitle_copy_heads SET revision=3 WHERE project_id=$1 AND occurrence_id=$2",
+      [project, occurrence])).rejects.toThrow(/next-revision CAS/u);
+    await expect(db.query("UPDATE stt_subtitle_copy_heads SET revision=2,content_digest=$3," +
+      "source_digest=$4 WHERE project_id=$1 AND occurrence_id=$2",
+    [project, occurrence, digestB, digestA])).rejects.toThrow();
+    await db.query("UPDATE stt_subtitle_copy_heads SET revision=2,content_digest=$3," +
+      "updated_by=$4 WHERE project_id=$1 AND occurrence_id=$2 AND revision=1 AND source_digest=$5",
+    [project, occurrence, digestC, actor, digestA]);
+    await expect(db.query("DELETE FROM stt_subtitle_copy_heads WHERE project_id=$1", [project]))
+      .rejects.toThrow(/cannot be deleted/u);
+    await expect(db.query("UPDATE stt_subtitle_copy_revisions SET source_json=$2 WHERE project_id=$1",
+      [project, sourceChanged])).rejects.toThrow(/append-only/u);
+    await expect(db.query("DELETE FROM stt_subtitle_copy_revisions WHERE project_id=$1", [project]))
+      .rejects.toThrow(/append-only/u);
+    const third = revision(3, 2, "rederive", randomUUID(), sourceChanged, digestB, "Greetings", digestA);
+    await db.query(insert, third);
+    await db.query("UPDATE stt_subtitle_copy_heads SET revision=3,source_digest=$3,content_digest=$4," +
+      "updated_by=$5 WHERE project_id=$1 AND occurrence_id=$2 AND revision=2 AND source_digest=$6",
+    [project, occurrence, digestB, digestA, actor, digestA]);
+    const history = await db.query<{ revision: string; source_json: string; baseline_english: string }>(
+      "SELECT revision::text,source_json,baseline_english FROM stt_subtitle_copy_revisions " +
+      "WHERE project_id=$1 AND occurrence_id=$2 ORDER BY revision", [project, occurrence],
+    );
+    expect(history.rows).toEqual([
+      { revision: "1", source_json: frozenSource, baseline_english: "Hello" },
+      { revision: "2", source_json: frozenSource, baseline_english: "Hello" },
+      { revision: "3", source_json: sourceChanged, baseline_english: "Greetings" },
+    ]);
+    const current = await db.query<{ revision: string; source_digest: string }>(
+      "SELECT revision::text,source_digest FROM stt_subtitle_copy_heads WHERE project_id=$1", [project],
+    );
+    expect(current.rows).toEqual([{ revision: "3", source_digest: digestB }]);
+    await expect(db.query(insert, revision(4, 3, "edit", first[7] as string,
+      sourceChanged, digestB, "Greetings"))).rejects.toThrow();
+  });
 });
 
 describe("forward-only STT history schema 003", () => {
