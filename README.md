@@ -227,6 +227,8 @@ markers and saved item UIDs match, or `MISMATCH` with a nonzero exit code on a
 different current target or structural change. If the map is absent, it still
 checks the attested v2 package against fresh live SDK observations, but reports
 **structural-only** compatibility; it does not claim the old item UIDs survived.
+For a versioned Resolve install, pass the same `--resolve-app` when you run
+readback or observe. Presenter source preparation also accepts `--resolve-app`.
 For a build made with `--existing-project`, an absent map also requires
 `--project "Exact already open project name"`. An existing but malformed map
 is an error, not a reason to fall back to mapless mode. The readback is not an
