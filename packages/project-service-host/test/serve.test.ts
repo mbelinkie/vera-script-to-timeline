@@ -94,6 +94,22 @@ describe("development QA service bootstrap and shutdown", () => {
     expect((await fetch(extrasUrl, { method: "POST", headers: {
       Authorization: `Bearer ${privateToken}`, "Content-Type": "application/json",
     }, body: "{}" })).status).toBe(400); // Strict operation envelope; no backend bypass.
+    const subtitleUrl = `http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}` +
+      `/subtitle-copies/${randomUUID()}`;
+    expect((await fetch(subtitleUrl, { headers: { "X-Test-Suite-Identity": subject } })).status).toBe(401);
+    expect((await fetch(subtitleUrl, { headers: { Authorization: `Bearer ${privateToken}` } })).status)
+      .toBe(403); // Mounted route checks real project membership, no ambient Research bearer.
+    expect((await fetch(subtitleUrl + "/revisions", {
+      headers: { Authorization: `Bearer ${privateToken}` },
+    })).status).toBe(403);
+    expect((await fetch(subtitleUrl + "/derive", { method: "POST", headers: {
+      Authorization: `Bearer ${privateToken}`, "Content-Type": "application/json",
+    }, body: JSON.stringify({ expectedSourceDigest: "forged", clientMutationId: randomUUID(),
+      expectedDocumentRevision: 0, expectedDocumentDigest: "forged", source: { secret: true } }) })).status)
+      .toBe(400); // No caller-supplied source or Research credentials.
+    expect((await fetch(subtitleUrl, { method: "DELETE", headers: {
+      Authorization: `Bearer ${privateToken}` },
+    })).status).toBe(404);
     const anonymousBuild = await fetch(`http://127.0.0.1:${config.port}/v1/projects/${randomUUID()}/builds`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
     });

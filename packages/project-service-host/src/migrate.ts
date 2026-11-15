@@ -10,6 +10,7 @@ import {
   applyProjectDocumentsMigration,
   applyProjectHistoryMigration,
   applyProjectIdeasMigration,
+  applyProjectSubtitleCopiesMigration,
   PROJECT_COMMENTS_MIGRATION,
   PROJECT_COMMENTS_MIGRATION_DIGEST,
   PROJECT_DOCUMENTS_MIGRATION,
@@ -18,6 +19,8 @@ import {
   PROJECT_HISTORY_MIGRATION_DIGEST,
   PROJECT_IDEAS_MIGRATION,
   PROJECT_IDEAS_MIGRATION_DIGEST,
+  PROJECT_SUBTITLE_COPIES_MIGRATION,
+  PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST,
 } from "@vera/project-documents";
 import {
   applyProjectBuildsMigration,
@@ -60,6 +63,8 @@ const ALLOWED_TABLES = new Set([
   "stt_idea_heads",
   "stt_idea_revisions",
   "stt_ideas_mutation_receipts",
+  "stt_subtitle_copy_heads",
+  "stt_subtitle_copy_revisions",
   "stt_build_pairing_offers",
   "stt_project_build_agents",
   "stt_build_submissions",
@@ -80,6 +85,7 @@ const EXPECTED_MIGRATIONS = [
   { name: PROJECT_COMMENTS_MIGRATION, version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST },
   { name: PROJECT_HISTORY_MIGRATION, version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST },
   { name: PROJECT_IDEAS_MIGRATION, version: 4, checksum: PROJECT_IDEAS_MIGRATION_DIGEST },
+  { name: PROJECT_SUBTITLE_COPIES_MIGRATION, version: 5, checksum: PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
   { name: PROJECT_COLLABORATION_MIGRATION, version: 1, checksum: PROJECT_COLLABORATION_MIGRATION_DIGEST },
@@ -143,6 +149,7 @@ export async function applyQaMigrations(
     await applyProjectCommentsMigration(db);
     await applyProjectHistoryMigration(db);
     await applyProjectIdeasMigration(db);
+    await applyProjectSubtitleCopiesMigration(db);
     await applyProjectBuildsMigration(db);
     await applyProjectCollaborationMigration(db);
     const receipts = await db.query<{

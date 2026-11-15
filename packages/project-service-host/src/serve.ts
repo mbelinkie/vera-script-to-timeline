@@ -11,7 +11,8 @@ import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
   ProjectBuildSubmissionService, ProjectBuildStatusService } from "@vera/project-builds";
 import { CollaborationHub, createCollaborationUpgradeHandler,
   ProjectCollaborationService } from "@vera/project-collaboration";
-import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService } from "@vera/project-documents";
+import { createProjectApiHandler, ProjectCommentService, ProjectDocumentService,
+  SubtitleCopyService } from "@vera/project-documents";
 
 import { listenQaHttp } from "./http.js";
 import { loadQaIdentity } from "./qa-identity.js";
@@ -103,7 +104,8 @@ export async function startQaServer(
       status: new ProjectBuildStatusService(pool, auth, agents, infrastructure.acceptedSources,
         undefined, infrastructure.evidenceInspector) });
     const projects = createProjectApiHandler({ identity, authorization: auth, documents,
-      comments: new ProjectCommentService(pool, auth) });
+      comments: new ProjectCommentService(pool, auth),
+      subtitleCopies: new SubtitleCopyService(pool, auth, documents) });
     // Live collaboration (#384). Saved revisions are written at most every two
     // seconds while people type, and immediately whenever a request below
     // needs the saved script to be current.
