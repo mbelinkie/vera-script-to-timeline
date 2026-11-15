@@ -1188,6 +1188,31 @@ LUT export returned no readable file. The finding covers the tested
 controls and source handles. #104 should refuse edits that remove known
 finishing or require guessing the placement of editor-only clips.
 
+### RK-48 — In-place row update on the original timeline, and two readback traps
+
+**Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**
+#104's update command ran on a throwaway two-row 24 fps build (#327's
+synthetic inputs). Row 1 carried a scripted 1.2 zoom, an Orange clip color,
+a −12 dB clip volume and an extra clip on V2. The command duplicated the
+timeline as the archive, replaced row 2's picture on the *original* timeline
+through the take selector, replaced that clip's VERA marker, then saved,
+closed and reopened. Row 2 kept its item ID, position and length and showed
+the new source; row 1's settings, the V2 clip and the archive read back
+unchanged. The update folder then served as the baseline: the observe
+command reported only the V2 clip as an addition. A script that made row 2
+longer was refused without touching Resolve. A hand-applied grade, Fusion
+effect or transition was not part of this run; RK-47 covers those on a
+duplicate.
+
+Two traps found on the way:
+
+- A timeline made by `DuplicateTimeline` omits audio clip settings that are
+  at their off or zero default (the Dialogue Leveler and Voice Isolation
+  keys of `GetProperties`) until the project is reopened. Compare a missing
+  setting as equal to an off or zero value, never to a set one.
+- A Media Pool item handle returned by `ImportMedia` stops answering after
+  `CloseProject` and `LoadProject`. Read its media ID before closing.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)

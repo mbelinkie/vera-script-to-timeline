@@ -298,7 +298,8 @@ def plan_rows(
         plans.append(
             {
                 "rowId": row_id,
-                "label": new_labels.get(row_id) or old_labels.get(row_id) or row_id,
+                "label": new_labels.get(row_id)
+                or f"Removed row (was {old_labels.get(row_id, row_id)})",
                 "state": row["state"],
                 "conflict": conflict,
                 "conflictReason": row["reason"] if conflict else None,
@@ -361,7 +362,9 @@ def choose_rows(
         if found["rowId"] in chosen:
             raise UpdatePlanError(f"{found['label']} was named twice")
         chosen.append(found["rowId"])
-    return chosen
+    # The #328 record applies rows in plan order, whatever order they were named.
+    order = [plan["rowId"] for plan in plans]
+    return sorted(chosen, key=order.index)
 
 
 def freeze_plan(
@@ -544,7 +547,9 @@ def build_report(
             uncertain.append(entry)
         else:
             reason = (
-                "In conflict and not named."
+                "Chosen, but the update stopped before reaching it."
+                if outcome == "unattempted"
+                else "In conflict and not named."
                 if plan["conflict"]
                 else "Not chosen for this update."
             )
@@ -599,9 +604,9 @@ def render_report(report: Mapping[str, Any]) -> str:
         lines.extend(f"  {item}" for item in report["handWorkNotChecked"])
     if report["status"] == "updated":
         lines.append(
-            "This update's folder is the new baseline for the whole timeline."
+            "Use this update's folder as the baseline next time."
             if report["baselineComplete"]
-            else "Some rows are still out of sync, so the earlier baseline "
-            "stays in force for them. Only the updated rows have a new baseline."
+            else "Some rows are still out of sync with the script. Use this "
+            "update's folder as the baseline next time; it remembers them."
         )
     return "\n".join(lines)

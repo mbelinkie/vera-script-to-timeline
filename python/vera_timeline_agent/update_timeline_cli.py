@@ -7,6 +7,7 @@ change it duplicates the timeline and keeps the copy as the archive.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -28,21 +29,24 @@ from .build_timeline_once import (
     exclusive_resolve_build,
     package_compiled,
 )
-from .observe_timeline_cli import baseline_timeline_name, observe_current
+from .observe_timeline_cli import observe_current
 from .package_cache import default_cache_root
-from .readback_timeline_cli import _load_readback_package, _read_saved_row_map
 from .row_timeline_map import (
-    SCHEMA_VERSION_V2,
     make_row_timeline_map,
     observe_item_details,
-    validate_saved_row_map,
 )
 from .three_way_compare import compare_three_way_rows
+from .timeline_baseline import (
+    RECORD_NAME,
+    RECORD_SCHEMA,
+    Baseline,
+    compose,
+    load_baseline,
+)
 from .workflow_v2 import (
     VerifiedPackageV2,
     _current_readback_target,
     _package_path,
-    _regular_absolute,
     _stamp,
 )
 
@@ -82,15 +86,23 @@ def _publish(path: Path, value: Any) -> None:
     os.replace(temporary, path)
 
 
-def _new_baseline_map(
-    saved: Mapping[str, Any],
-    old_view: Mapping[str, Any],
+def _write_new_baseline(
+    output: Path,
+    baseline: Baseline,
     current: VerifiedPackageV2,
+    updated_rows: Sequence[str],
     edits: Sequence[Mapping[str, Any]],
     items: Mapping[str, tuple[str, int, Any]],
-) -> dict[str, Any]:
-    """The row map of the whole timeline against the current script's build."""
-    old_events = {event["id"]: event for event in old_view["events"]}
+    archive_name: str,
+) -> None:
+    """Record the timeline as the earlier baseline with the updated rows swapped in.
+
+    The folder is then loaded back exactly as the next command will load it.
+    """
+    saved = baseline.saved
+    manifest, view = compose(
+        baseline.manifest, baseline.view, current.manifest, current.view, updated_rows
+    )
     uid_by_event = {
         item["eventId"]: item["resolveItemId"]
         for row in saved["rows"]
@@ -99,17 +111,11 @@ def _new_baseline_map(
     for edit in edits:
         uid_by_event.pop(edit["previousEventId"], None)
         uid_by_event[edit["eventId"]] = edit["resolveItemId"]
-    replaced = {edit["eventId"] for edit in edits}
-    tracks = {track["id"]: track for track in current.view["tracks"]}
     observed = []
-    for event in current.view["events"]:
+    for event in view["events"]:
         uid = uid_by_event.get(event["id"])
         if uid is None or uid not in items:
-            raise ValueError("a clip of the current script has no Resolve item")
-        if event["id"] not in replaced and _stamp(event) != _stamp(
-            old_events[event["id"]]
-        ):
-            raise ValueError("an untouched clip differs between the two builds")
+            raise ValueError("a clip of the updated timeline has no Resolve item")
         kind, index, item = items[uid]
         observed.append(
             {
@@ -123,11 +129,9 @@ def _new_baseline_map(
                 **observe_item_details(item),
             }
         )
-        if tracks[event["trackId"]]["index"] != index:
-            raise ValueError("a clip is not on the track the script expects")
-    result = make_row_timeline_map(
-        current.manifest,
-        current.view,
+    row_map = make_row_timeline_map(
+        manifest,
+        view,
         observed,
         project_name=saved["projectName"],
         resolve_project_id=saved["resolveProjectId"],
@@ -135,8 +139,20 @@ def _new_baseline_map(
         timeline_id=saved["timelineId"],
         version=2,
     )
-    validate_saved_row_map(current.manifest, current.view, result)
-    return result
+    _publish(output / "row-timeline-map.json", row_map)
+    _publish(
+        output / RECORD_NAME,
+        {
+            "schemaVersion": RECORD_SCHEMA,
+            "buildId": current.manifest["buildId"],
+            "previousBaseline": str(baseline.root),
+            "updatedRows": list(updated_rows),
+            "timelineName": saved["timelineName"],
+            "timelineId": saved["timelineId"],
+            "archiveTimeline": archive_name,
+        },
+    )
+    load_baseline(output)
 
 
 def update_once(
@@ -151,23 +167,13 @@ def update_once(
     now: Callable[[], datetime] = datetime.now,
 ) -> dict[str, Any]:
     """Plan, ask, then update the agreed rows. Returns the report."""
-    root = _regular_absolute(
-        options.baseline_output.absolute(), "baseline build output", directory=True
-    )
-    saved = _read_saved_row_map(root)
-    if (
-        saved is None
-        or saved.get("schemaVersion") != SCHEMA_VERSION_V2
-        or saved.get("version") != 2
-    ):
-        raise NeedsAction("the earlier build has no row-timeline-map.json baseline")
-    baseline = _load_readback_package(root)
-    validate_saved_row_map(baseline.manifest, baseline.view, saved)
-    if saved["timelineName"] != baseline_timeline_name(root, baseline.attestation):
-        raise BuildJobError("baseline timeline name differs from the verified build")
-    baseline_document = _read_json(
-        baseline.root / "Builds" / baseline.manifest["buildId"] / "script-document.json"
-    )
+    try:
+        baseline = load_baseline(options.baseline_output)
+    except ValueError as error:
+        raise NeedsAction(
+            f"the earlier build cannot be used as a baseline: {error}"
+        ) from error
+    saved, baseline_document = baseline.saved, baseline.document
     current_document = _read_json(options.script)
     current = prepare(options, StageTimings(emit=lambda _: None))
     output = options.output.absolute()
@@ -232,7 +238,17 @@ def update_once(
                 attempt,
                 archive_name=archive,
                 kept=native.READABLE if status == "updated" else (),
-                not_checked=native.UNREADABLE if status == "updated" else (),
+                not_checked=(
+                    (
+                        *native.UNREADABLE,
+                        *(
+                            f"{fact} (Resolve did not return this for every clip)"
+                            for fact in native.unread_facts(before)
+                        ),
+                    )
+                    if status == "updated"
+                    else ()
+                ),
                 status=status,
             )
             _publish(output / "update-report.json", report)
@@ -280,34 +296,38 @@ def update_once(
         stamps = {event["id"]: _stamp(event) for event in current.view["events"]}
         archive_name = f"{saved['timelineName']} archive {now():%Y-%m-%d %H%M%S}"
 
+        stamp = archive_name.rsplit(" archive ", 1)[1]
+        if archive_name in native.timeline_names(project) or not manager.SaveProject():
+            raise BuildJobError(
+                "Resolve could not save the project or the archive name is "
+                "already in use; wait a second and run the update again"
+            )
         try:
-            if not manager.SaveProject():
-                raise native.NativeUpdateError("Resolve could not save the project")
             archive = native.duplicate_archive(project, timeline, archive_name)
             archive_uid = archive.GetUniqueId()
             archive_before = native.snapshot(archive)
             if not native.same_content(archive_before, before):
                 raise native.NativeUpdateError("the archive copy differs")
-            if native.unexpected_changes(before, native.snapshot(timeline), set()):
+            if native.unexpected_changes(before, native.snapshot(timeline), {}):
                 raise native.NativeUpdateError(
                     "making the archive changed the timeline"
                 )
-        except Exception as error:
-            raise BuildJobError(
-                "the archive copy could not be made and checked, so the "
-                f"timeline was not changed ({error}). A copy named "
-                f"{archive_name!r} may have been left in the project"
-            ) from error
-
-        replaced: set[str] = set()
-        final: tuple[str, str] | None = None
-        try:
-            media = native.import_sources(
-                project, f"VERA update {current.manifest['buildId'][:8]}", paths
-            )
+            media = native.import_sources(project, f"VERA update {stamp}", paths)
             # Handles do not survive closing the project; keep the IDs.
             media_ids = {key: item.GetMediaId() for key, item in media.items()}
             native.select(project, timeline)
+        except Exception as error:
+            # VERA has not edited a clip, but Resolve is not as it was found.
+            raise UncertainResult(
+                "the archive copy or the new pictures could not be set up "
+                f"({error}). VERA did not edit any clip. Check in Resolve that "
+                f"the open timeline is the original, not {archive_name!r}, "
+                "before working on or running the update again"
+            ) from error
+
+        replaced: dict[str, bool] = {}
+        final: tuple[str, str] | None = None
+        try:
             for position, row_id in enumerate(selected):
                 attempt = planning.record_outcome(attempt, row_id, "uncertain")
                 _publish(output / "update-attempt.json", attempt)
@@ -322,7 +342,7 @@ def update_once(
                             edit["durationFrames"],
                         )
                     native.restamp(item, edit["eventId"], stamps[edit["eventId"]])
-                    replaced.add(edit["resolveItemId"])
+                    replaced[edit["resolveItemId"]] = edit["swapPicture"]
                 after = native.snapshot(timeline)
                 problems = native.unexpected_changes(before, after, replaced)
                 if problems:
@@ -343,7 +363,7 @@ def update_once(
             archive = native.timeline_by_uid(project, archive_uid)
             archive_after = native.snapshot(archive)
             if archive_after["timelineId"] != archive_uid or native.unexpected_changes(
-                archive_before, archive_after, set()
+                archive_before, archive_after, {}
             ):
                 raise native.NativeUpdateError("the archive copy changed")
             native.select(project, timeline)
@@ -374,44 +394,31 @@ def update_once(
             )
             _publish(output / "update-attempt.json", attempt)
         except Exception as error:
-            report = finish(attempt, archive_name, "uncertain")
-            del report
+            # The stop itself must still be reported if the report cannot be saved.
+            with contextlib.suppress(Exception):
+                finish(attempt, archive_name, "uncertain")
             raise UncertainResult(
                 "a change to Resolve could not be confirmed; do not run the "
                 f"update again; the archive copy is {archive_name!r} ({error})"
             ) from error
 
-        report = planning.build_report(
-            plans,
-            gaps,
-            attempt,
-            archive_name=archive_name,
-            kept=native.READABLE,
-            not_checked=native.UNREADABLE,
-            status="updated",
-        )
-        if report["baselineComplete"]:
-            try:
-                row_map = _new_baseline_map(
-                    saved, baseline.view, current, edits, native.live_items(timeline)
-                )
-                _publish(output / "row-timeline-map.json", row_map)
-                _publish(
-                    output / "timeline-update.json",
-                    {
-                        "schemaVersion": "vera-timeline-update/v1",
-                        "buildId": current.manifest["buildId"],
-                        "timelineName": saved["timelineName"],
-                        "timelineId": saved["timelineId"],
-                        "previousBuildId": saved["buildId"],
-                        "archiveTimeline": archive_name,
-                    },
-                )
-            except Exception as error:
-                gaps.append(
-                    "The rows were updated, but a whole-timeline baseline could "
-                    f"not be written ({error}); the earlier baseline stays in force."
-                )
+        try:
+            _write_new_baseline(
+                output,
+                baseline,
+                current,
+                selected,
+                edits,
+                native.live_items(timeline),
+                archive_name,
+            )
+        except Exception as error:
+            for name in ("row-timeline-map.json", RECORD_NAME):
+                (output / name).unlink(missing_ok=True)
+            gaps.append(
+                "The rows were updated, but the new baseline could not be "
+                f"written ({error}). Build the timeline afresh before the next update."
+            )
         return finish(attempt, archive_name, "updated")
 
 

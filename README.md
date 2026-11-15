@@ -286,6 +286,41 @@ It reads `tests/data/three_way_compare/example.json`, demonstrates the four
 currently permitted states, and explicitly identifies the empty compatibility
 allow-list. Running it twice emits byte-identical JSON.
 
+### Update only the changed rows of a finished timeline
+
+With the built timeline open in Resolve Studio 21.1.1 build 10 on the Edit
+page, and the script changed since that build:
+
+```sh
+uv run --frozen python -m vera_timeline_agent.update_timeline_cli \
+  --baseline-output "/absolute/path/to/previous-result-directory" \
+  --script "/absolute/path/to/current-script-document.json" \
+  --inputs "/absolute/path/to/current-prepared-inputs" \
+  --output "/absolute/path/to/new-unused-update-directory"
+```
+
+It prints which rows are safe to update, which are in conflict, and which it
+refuses and why, then asks. Press Return and nothing in Resolve changes. Type
+`all safe rows`, or row numbers, to go ahead; `--all-safe-rows` and
+`--rows 2 5` do the same without the prompt. A row in conflict is updated only
+when it is named.
+
+Before any change it duplicates the timeline and keeps the copy, named
+`<timeline> archive <date time>`, as the archive. It then swaps each agreed
+row's picture in place, saves, closes and reopens the project, and checks that
+every clip it did not touch, every transition, every clip you added and the
+archive read back unchanged. On this Resolve version it only swaps a
+same-length video picture. A row that is added, removed, moved, made longer or
+shorter, or that changes narration, music, a still or a transition is refused
+with the reason, because Resolve 21.1.1 cannot move or trim a clip from a
+script without recreating it and losing its finishing.
+
+Exit **0** means updated or nothing to do, **2** refused before any change, and
+**3** that a change could not be confirmed: do not run it again; the archive
+is the way back. When every affected row was updated, the update directory is
+the baseline for the next `observe`, compare or update. If rows were left out,
+the previous directory stays the baseline for them.
+
 ## Validation
 
 Testing, review and merge rules are in [AGENTS.md](AGENTS.md) and

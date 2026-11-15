@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from vera_timeline_agent import timeline_baseline
 from vera_timeline_agent import timeline_update as planning
 from vera_timeline_agent import update_timeline_cli as cli
 from vera_timeline_agent.build_jobs import NeedsAction, UncertainResult
@@ -62,6 +63,7 @@ class Item:
         self.nodes = 1
         self.takes: list[dict[str, Any]] = []
         self.finalize_ok = True
+        self.finalize_drops_markers = False
 
     def GetUniqueId(self) -> str:
         return self.uid
@@ -137,6 +139,8 @@ class Item:
     def FinalizeTake(self) -> bool:
         if self.finalize_ok:
             self.takes = []
+        if self.finalize_drops_markers:
+            self.markers = {0: self.markers[0]}
         return self.finalize_ok
 
 
@@ -167,12 +171,13 @@ class Timeline:
         return list(self.tracks.get((kind, index), []))
 
     def DuplicateTimeline(self, name: str) -> Timeline:
-        clone = Timeline(self.project, name, f"{self.uid}-copy", self.length)
+        number = len(self.project.timelines)
+        clone = Timeline(self.project, name, f"{self.uid}-copy{number}", self.length)
         for slot, items in self.tracks.items():
             clone.tracks[slot] = []
             for item in items:
                 twin = copy.copy(item)
-                twin.uid = f"{item.uid}-copy"
+                twin.uid = f"{item.uid}-copy{number}"
                 twin.markers = copy.deepcopy(item.markers)
                 # Resolve omits default-valued audio settings on a fresh copy.
                 twin.properties = {k: v for k, v in item.properties.items() if v}
@@ -407,7 +412,12 @@ class Case:
             view=view,
             attestation={"timelineName": "T", "buildId": "build-1"},
         )
-        monkeypatch.setattr(cli, "_load_readback_package", lambda _root: package)
+        self.packages = {self.baseline: package}
+        monkeypatch.setattr(
+            timeline_baseline,
+            "_load_readback_package",
+            lambda root: self.packages[root],
+        )
         monkeypatch.setattr(
             cli,
             "exclusive_resolve_build",
@@ -420,9 +430,14 @@ class Case:
         media.mkdir(parents=True)
         for source in self.view["sources"]:
             (options.output / "package" / source["path"]).write_bytes(b"picture")
-        return SimpleNamespace(
-            root=options.output / "package", manifest=self.manifest, view=self.view
+        current = SimpleNamespace(
+            root=options.output / "package",
+            manifest=self.manifest,
+            view=self.view,
+            attestation={"timelineName": "new name", "buildId": "build-2"},
         )
+        self.packages[options.output] = current
+        return current
 
     def run(self, choice: Any, **extra: Any) -> dict[str, Any]:
         self.said: list[str] = []
@@ -432,7 +447,7 @@ class Case:
             emit=self.said.append,
             resolve_factory=lambda: self.resolve,
             prepare=self.prepare,
-            now=lambda: datetime(2026, 11, 14, 9, 30, 0),
+            now=lambda: datetime(2026, 11, 14, 9, 30, len(self.project.timelines) - 1),
             **extra,
         )
 
@@ -492,9 +507,9 @@ def test_same_length_swap_updates_one_row_and_keeps_the_rest(
     assert attempt["completed"] and attempt["outcomes"][0]["status"] == "verified"
     # The update folder is now a baseline the read-back accepts unchanged.
     assert report["baselineComplete"]
-    new_map = case.read("row-timeline-map.json")
-    assert case.read("timeline-update.json")["timelineName"] == "T"
-    observed = observe_current(case.resolve, new_map, case.view)
+    after = timeline_baseline.load_baseline(case.output)
+    assert after.updated_in_place and after.saved["timelineName"] == "T"
+    observed = observe_current(case.resolve, after.saved, after.view)
     assert observed["differenceCount"] == 0
 
 
@@ -606,6 +621,30 @@ def test_unconfirmed_write_stops_and_is_not_retried(
     assert len(case.project.timelines) == 2  # The archive is the way back.
     assert case.resolve.reopens == 0
     assert not (case.output / "row-timeline-map.json").exists()
+    assert not (case.output / "timeline-update.json").exists()
+
+
+def test_losing_his_marker_on_the_swapped_clip_stops_the_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, SWAP)
+    clip = case.clip("row-2")
+    clip.markers[5] = {"name": "fix colour here", "customData": ""}
+    clip.finalize_drops_markers = True
+    with pytest.raises(UncertainResult, match="your markers"):
+        case.run("safe")
+
+
+def test_rows_named_out_of_order_are_applied_and_recorded_in_plan_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, {**SWAP, "row-3": ("another-picture", 10)})
+    report = case.run(["3", "2"])
+    assert [row["rowId"] for row in report["rowsUpdated"]] == ["row-2", "row-3"]
+    attempt = case.read("update-attempt.json")
+    first, second = (outcome["receipt"] for outcome in attempt["outcomes"])
+    assert attempt["completed"] and first["after"] == second["before"]
+    assert attempt["baseline"] == second["after"]
 
 
 def test_timeline_edited_while_plan_is_shown_is_refused(
@@ -638,8 +677,25 @@ def test_row_left_out_stays_out_of_sync_and_keeps_the_earlier_baseline(
     assert [row["rowId"] for row in report["rowsOutOfSync"]] == ["row-3"]
     assert case.clip("row-3").media.name == "clip-row-3"  # type: ignore[union-attr]
     assert not report["baselineComplete"]
-    assert not (case.output / "row-timeline-map.json").exists()
-    assert "earlier baseline" in case.said[-1]
+    assert "remembers them" in case.said[-1]
+
+    # The partial update's folder is the baseline for finishing the job later.
+    later = timeline_baseline.load_baseline(case.output)
+    assert (
+        observe_current(case.resolve, later.saved, later.view)["differenceCount"] == 0
+    )
+    case.baseline, case.output = case.output, tmp_path / "second"
+    case.manifest = {**case.manifest, "buildId": "build-3"}
+    report = case.run("safe")
+    assert [row["rowId"] for row in report["rowsUpdated"]] == ["row-3"]
+    assert report["baselineComplete"]
+    assert case.clip("row-3").media.name == "another-picture"  # type: ignore[union-attr]
+    assert case.clip("row-2").media.name == "new-picture"  # type: ignore[union-attr]
+    assert len(case.project.timelines) == 3  # One archive per update.
+    final = timeline_baseline.load_baseline(case.output)
+    assert (
+        observe_current(case.resolve, final.saved, final.view)["differenceCount"] == 0
+    )
 
 
 def test_other_resolve_version_is_refused_before_any_read(

@@ -170,10 +170,48 @@ def fingerprint(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _hand_markers(markers: Any) -> Any:
+    """A clip's markers without VERA's own stamp, which an update replaces."""
+    if not isinstance(markers, Mapping):
+        return markers
+    kept = {}
+    for frame, marker in markers.items():
+        data = marker.get("customData") if isinstance(marker, Mapping) else None
+        try:
+            parsed = json.loads(data) if isinstance(data, str) and data else None
+        except ValueError:
+            parsed = None
+        if not (isinstance(parsed, dict) and "v2EventId" in parsed):
+            kept[frame] = marker
+    return kept
+
+
+def unread_facts(value: Mapping[str, Any]) -> list[str]:
+    """Readable-in-principle facts Resolve did not return for some clip."""
+    names = {
+        "markers": "clip markers",
+        "properties": "Inspector settings",
+        "fusionComps": "the number of Fusion compositions",
+        "colorNodes": "the number of colour nodes",
+    }
+    missing = {
+        names[key]
+        for row in value["items"]
+        if row["type"] != "transition"
+        for key in names
+        if row[key] is None and not (key == "colorNodes" and row["kind"] != "video")
+    }
+    return sorted(missing)
+
+
 def unexpected_changes(
-    before: Mapping[str, Any], after: Mapping[str, Any], replaced: set[str]
+    before: Mapping[str, Any], after: Mapping[str, Any], replaced: Mapping[str, bool]
 ) -> list[str]:
-    """Differences the update did not intend. Empty means hand work was kept."""
+    """Differences the update did not intend. Empty means hand work was kept.
+
+    ``replaced`` maps each clip the update touched to whether its picture was
+    swapped (``True``) or only its VERA marker replaced (``False``).
+    """
     problems: list[str] = []
     if before["bounds"] != after["bounds"]:
         problems.append("timeline length changed")
@@ -184,7 +222,9 @@ def unexpected_changes(
     if old.keys() != new.keys():
         problems.append("clips or transitions were added or removed")
     for uid in sorted(old.keys() & new.keys()):
-        skip = _REPLACED_FIELDS if uid in replaced else frozenset()
+        skip: frozenset[str] = frozenset()
+        if uid in replaced:
+            skip = _REPLACED_FIELDS if replaced[uid] else frozenset({"markers"})
         changed = sorted(
             key
             for key in old[uid]
@@ -195,6 +235,10 @@ def unexpected_changes(
                 else old[uid][key] != new[uid].get(key)
             )
         )
+        if uid in replaced and _hand_markers(old[uid]["markers"]) != _hand_markers(
+            new[uid].get("markers")
+        ):
+            changed.append("your markers")
         if changed:
             where = f"{old[uid]['kind']} {old[uid]['track']} at {old[uid]['start']}"
             problems.append(f"clip on {where} changed: {', '.join(changed)}")

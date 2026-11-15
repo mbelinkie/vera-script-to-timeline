@@ -17,14 +17,13 @@ from .row_timeline_map import (
     observe_item_details,
     validate_saved_row_map,
 )
+from .timeline_baseline import load_baseline, read_record
 from .workflow_v2 import (
     _assert_readback_target,
     _current_readback_target,
-    _read_regular,
     _read_track_items,
     _regular_absolute,
     _stamp,
-    _strict_object,
 )
 
 _SOURCE_RANGE = ("sourceStartFrame", "sourceEndFrame")
@@ -204,6 +203,13 @@ def observe_output(
 ) -> dict[str, Any]:
     """Read the active timeline and compare its clips with the verified baseline."""
     root = _regular_absolute(output.absolute(), "build output", directory=True)
+    if read_record(root) is not None:
+        # An in-place update folder (#104) composes its baseline.
+        baseline = load_baseline(root)
+        with exclusive_resolve_build():
+            return observe_current(
+                (resolve_factory or _external_resolve)(), baseline.saved, baseline.view
+            )
     saved = _read_saved_row_map(root)
     if saved is None:
         raise ValueError("this build output has no row-timeline-map.json baseline")
@@ -215,36 +221,12 @@ def observe_output(
         raise ValueError("unrecognized Resolve baseline format")
     package = _load_readback_package(root)
     validate_saved_row_map(package.manifest, package.view, saved)
-    if saved["timelineName"] != baseline_timeline_name(root, package.attestation):
+    if saved["timelineName"] != package.attestation["timelineName"]:
         raise ValueError("baseline timeline name differs from the verified build")
     with exclusive_resolve_build():
         return observe_current(
             (resolve_factory or _external_resolve)(), saved, package.view
         )
-
-
-def baseline_timeline_name(root: Path, attestation: Mapping[str, Any]) -> str:
-    """The timeline a baseline describes.
-
-    A build names its own new timeline. An in-place update (#104) keeps the
-    timeline it updated, and records that name beside its new baseline.
-    """
-    record = root / "timeline-update.json"
-    if not record.exists() and not record.is_symlink():
-        return str(attestation["timelineName"])
-    value = _strict_object(
-        _read_regular(record, "timeline update record", max_bytes=1024 * 1024),
-        "timeline update record",
-    )
-    name = value.get("timelineName")
-    if (
-        value.get("schemaVersion") != "vera-timeline-update/v1"
-        or value.get("buildId") != attestation.get("buildId")
-        or not isinstance(name, str)
-        or not name.strip()
-    ):
-        raise ValueError("timeline update record is invalid for this build")
-    return name
 
 
 def observe_current(
