@@ -1213,6 +1213,25 @@ Two traps found on the way:
 - A Media Pool item handle returned by `ImportMedia` stops answering after
   `CloseProject` and `LoadProject`. Read its media ID before closing.
 
+### RK-49 — On 21.2 a row can change length without recreating later clips
+
+**Measured on Studio 21.2.0 build 6, Local scripting, November 14, 2026.**
+[#104's probes](investigations/issue-104/README.md) used throwaway 24 fps
+projects with scripted finishing. `Timeline.MoveItems` moved later rows 48
+frames with the same clip IDs and kept a grade (read with `GetCDL`), zoom,
+clip colour, clip marker, OFX effect and volume; a dissolve between two rows
+that moved together kept its ID. `SetRightOffset` extended and shortened a
+picture in place, also after a take swap, and the swapped clip kept its own
+grade, zoom and marker. All of it survived save, close and reopen.
+
+Two limits. A dissolve on the cut that opens when the later row moves away is
+dropped and does not return when the gap closes. Audio clips have no take
+selector (`AddTake` returns false), so a narration clip that becomes a
+different file must be placed anew, with `CopyAttributes` and `SetFades`
+carrying its level and fades onto a clip with a new ID. Hand-made grades,
+Fusion compositions, linked clips, stills and other frame rates were not
+tested.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)
