@@ -18,6 +18,8 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 ROUTE_REPLACE = "replace_in_place"
+ROUTE_RETIME = "retime"
+ROUTE_TRANSITION = "transition"
 PICTURE_KINDS = frozenset({"primary_visual", "overlay_visual"})
 
 _NO_MOVE = (
@@ -134,6 +136,297 @@ def _row_labels(document: Mapping[str, Any]) -> dict[str, str]:
     return labels
 
 
+def _layout(view: Mapping[str, Any], row_id: str) -> list[tuple[Any, ...]]:
+    """Where a row's clips sit, relative to the row's first frame."""
+    events = _row_events(view, row_id)
+    if not events:
+        return []
+    origin = min(key[1] for key in events)
+    return sorted((key[0], key[1] - origin, key[2], key[3]) for key in events)
+
+
+def _sequence(view: Mapping[str, Any], row_id: str) -> dict[tuple[Any, ...], list[Any]]:
+    """A row's clips in time order on each track, for pairing across a retime."""
+    result: dict[tuple[Any, ...], list[Any]] = {}
+    for key, event in sorted(_row_events(view, row_id).items(), key=lambda i: i[0][1]):
+        result.setdefault((key[0], key[3]), []).append(event)
+    return result
+
+
+_RETIME_IDENTITY = _EVENT_IDENTITY_FIELDS | {"recordRange", "music"}
+_RETIME_VIEW_IDENTITY = _VIEW_IDENTITY_FIELDS | {"recordRange"}
+
+
+def _retime_row(
+    row: Mapping[str, Any],
+    *,
+    baseline_manifest: Mapping[str, Any],
+    baseline_view: Mapping[str, Any],
+    current_manifest: Mapping[str, Any],
+    current_view: Mapping[str, Any],
+    saved_items: Mapping[str, Mapping[str, Any]],
+    observed: Mapping[str, Mapping[str, Any]],
+    takes: Mapping[str, int | None],
+) -> tuple[str | None, list[dict[str, Any]], list[str]]:
+    """Per-clip moves, resizes and replacements for one row on 21.2."""
+    row_id = row["rowId"]
+    if row["scriptChange"] in {"added", "removed"} or row["reordered"]:
+        return (
+            "Adding, removing or reordering rows is not done in place yet. "
+            "Make this change by hand, or build the timeline afresh.",
+            [],
+            [],
+        )
+    before, after = _sequence(baseline_view, row_id), _sequence(current_view, row_id)
+    if {k: len(v) for k, v in before.items()} != {k: len(v) for k, v in after.items()}:
+        return (
+            "The change adds or removes clips inside this row. That is not "
+            "done in place yet.",
+            [],
+            [],
+        )
+    sources = {source["id"]: source for source in current_view["sources"]}
+    old_sources = {source["id"]: source for source in baseline_view["sources"]}
+    edits: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for key in sorted(before, key=str):
+        for old, new in zip(before[key], after[key], strict=True):
+            if old["v2Event"] == new["v2Event"]:
+                continue
+            saved = saved_items[old["id"]]
+            uid = saved["resolveItemId"]
+            seen = observed.get(uid)
+            source, old_source = sources[new["sourceId"]], old_sources[old["sourceId"]]
+            kind = new["v2Event"]["kind"]
+            same_media = source["contentHash"] == old_source["contentHash"] and (
+                new.get("sourceRange") or {}
+            ).get("startFrame") == (old.get("sourceRange") or {}).get("startFrame")
+            if (
+                source["kind"] not in {"video", "audio"}
+                or old_source["kind"] != (source["kind"])
+            ):
+                return (
+                    "This row holds a still or a placeholder. Moving or "
+                    "resizing those in place has not been measured.",
+                    [],
+                    [],
+                )
+            if (
+                _strip(old["v2Event"], _RETIME_IDENTITY)
+                != _strip(new["v2Event"], _RETIME_IDENTITY)
+                or _strip(old, _RETIME_VIEW_IDENTITY)
+                != _strip(new, _RETIME_VIEW_IDENTITY)
+                or not _plain_speed(old)
+                or not _plain_speed(new)
+            ):
+                return (
+                    "This row changes how a clip is framed, sped up or "
+                    "treated. That needs the clip recreated, which would lose "
+                    "its finishing.",
+                    [],
+                    [],
+                )
+            if (
+                seen is None
+                or seen["status"] != ["unchanged"]
+                or seen.get("cannotRead")
+            ):
+                return (
+                    "A clip of this row was moved, trimmed, replaced or removed "
+                    "by hand in Resolve, so VERA cannot move or resize it "
+                    "without losing track of it.",
+                    [],
+                    [],
+                )
+            swap = replace = False
+            if not same_media:
+                if kind in PICTURE_KINDS and source["kind"] == "video":
+                    swap = True
+                    if takes.get(uid) != 0:
+                        return (
+                            "A clip of this row already has takes in Resolve's "
+                            "take selector, so VERA will not add its own.",
+                            [],
+                            [],
+                        )
+                elif kind == "narration" and source["kind"] == "audio":
+                    replace = True
+                    warnings.append(
+                        "The narration is a new recording, so its clip is "
+                        "replaced. Level, fades, EQ, audio effects, colour, "
+                        "flags and markers are carried over."
+                    )
+                else:
+                    return (
+                        "This row changes music or source sound to a different "
+                        "file. Only picture and narration are replaced in place.",
+                        [],
+                        [],
+                    )
+            edits.append(
+                {
+                    "route": ROUTE_RETIME,
+                    "eventId": new["id"],
+                    "previousEventId": old["id"],
+                    "resolveItemId": uid,
+                    "trackKind": new["trackKind"],
+                    "trackId": new["trackId"],
+                    "startFrame": new["recordRange"]["startFrame"],
+                    "durationFrames": new["recordRange"]["durationFrames"],
+                    "previousStartFrame": old["recordRange"]["startFrame"],
+                    "previousDurationFrames": old["recordRange"]["durationFrames"],
+                    "sourceId": new["sourceId"],
+                    "sourceStartFrame": new["sourceRange"]["startFrame"],
+                    "swapPicture": swap,
+                    "replaceAudio": replace,
+                }
+            )
+    # A transition survives only when both sides of its cut move together.
+    by_event = {edit["previousEventId"]: edit for edit in edits}
+    new_plans = {plan["id"]: plan for plan in current_manifest.get("transitions", [])}
+    for old_plan in baseline_manifest.get("transitions", []):
+        if old_plan["fromRowId"] != row_id or old_plan["disposition"] != "apply":
+            continue
+        new_plan = new_plans.get(old_plan["id"])
+        if new_plan is None or _relative(old_plan) != _relative(new_plan):
+            return (
+                "The transition after this row changes in the script. Changing "
+                "a transition in place is not done yet.",
+                [],
+                [],
+            )
+        delta = new_plan["boundaryFrame"] - old_plan["boundaryFrame"]
+        outgoing = by_event.get(old_plan["outgoingEventId"])
+        pure_move = outgoing is None or (
+            outgoing["durationFrames"] == outgoing["previousDurationFrames"]
+            and not outgoing["swapPicture"]
+        )
+        start_delta = (
+            outgoing["startFrame"] - outgoing["previousStartFrame"] if outgoing else 0
+        )
+        if pure_move and start_delta == delta:
+            continue  # Both clips travel in one move; the dissolve goes along.
+        edits.append(
+            {
+                "route": ROUTE_TRANSITION,
+                "transitionId": new_plan["id"],
+                "outgoingEventId": new_plan["outgoingEventId"],
+                "previousStartFrame": old_plan["startFrame"],
+                "previousEndFrame": old_plan["endFrame"],
+                "startFrame": new_plan["startFrame"],
+                "endFrame": new_plan["endFrame"],
+                "durationFrames": new_plan["requestedDurationFrames"],
+                "alignment": new_plan["alignment"],
+                "effectName": new_plan["effectIdentity"]["name"],
+                "effectCategory": new_plan["effectIdentity"]["category"],
+            }
+        )
+        warnings.append(
+            "Resolve drops the transition after this row when the cut moves. "
+            "VERA puts the script's transition back; any hand adjustment to "
+            "it is lost."
+        )
+    if not edits:
+        return (
+            "The script change to this row does not alter any clip VERA "
+            "placed, so there is nothing to update in Resolve.",
+            [],
+            [],
+        )
+    return None, edits, warnings
+
+
+def _relative(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """A transition plan without clip IDs or its absolute position."""
+    value = _strip(plan, _TRANSITION_IDENTITY_FIELDS)
+    boundary = value.pop("boundaryFrame")
+    value["startFrame"] -= boundary
+    value["endFrame"] -= boundary
+    return value
+
+
+def global_gaps_for_group(comparison: Mapping[str, Any]) -> list[str]:
+    unowned = comparison["unownedCompiledEvents"]
+    if unowned["baseline"] != unowned["current"]:
+        return ["clips that belong to no script row changed"]
+    return []
+
+
+def editor_moves(
+    observation: Mapping[str, Any], comparison: Mapping[str, Any]
+) -> tuple[dict[str, int], list[str]]:
+    """How far each clip he added must travel with the rows it sits over.
+
+    A clip over rows that all move by the same amount moves with them. One
+    over rows that move differently has no single right place, so it is
+    reported as a problem and nothing is guessed.
+    """
+    rows = [
+        (row["baselineStartFrame"], row["baselineEndFrame"], row["shiftFrames"])
+        for row in comparison["rows"]
+        if row["baselineStartFrame"] is not None
+    ]
+    moves: dict[str, int] = {}
+    problems: list[str] = []
+    for observed_row in observation["rows"]:
+        for item in observed_row["items"]:
+            if item["status"] != ["added"]:
+                continue
+            start, duration = item.get("startFrame"), item.get("durationFrames")
+            where = f"{item.get('trackKind')} {item.get('trackIndex')}"
+            if start is None or duration is None:
+                problems.append(f"a clip you added on {where} has unreadable timing")
+                continue
+            shifts = {
+                shift
+                for first, last, shift in rows
+                if first < start + duration and start < last
+            }
+            if not shifts:
+                earlier = [shift for first, last, shift in rows if last <= start]
+                shifts = {earlier[-1] if earlier else 0}
+            if len(shifts) != 1:
+                problems.append(
+                    f"a clip you added on {where} at frame {start} sits over "
+                    "rows that move by different amounts"
+                )
+                continue
+            delta = shifts.pop()
+            if delta:
+                moves[item["resolveItemId"]] = delta
+    return moves, problems
+
+
+def _bind_retime_group(
+    plans: list[dict[str, Any]],
+    observation: Mapping[str, Any],
+    comparison: Mapping[str, Any],
+    gaps: Any,
+) -> None:
+    """A change of length is applied to every changed row together, or not at all."""
+    members = [plan for plan in plans if plan["group"] == ROUTE_RETIME]
+    if not members:
+        return
+    blockers = [
+        f"{plan['label']} cannot be updated ({plan['refusal']})"
+        for plan in plans
+        if plan["refusal"] is not None
+    ]
+    blockers += editor_moves(observation, comparison)[1]
+    blockers += gaps(comparison)
+    if not blockers:
+        for plan in plans:
+            plan["group"] = ROUTE_RETIME  # Same-length swaps join the one update.
+        return
+    for plan in members:
+        if plan["refusal"] is None:
+            plan["refusal"] = (
+                "The timeline's length changes, so every changed row has to be "
+                f"updated together, and that is not possible: {blockers[0]}."
+            )
+            plan["edits"] = []
+
+
 def plan_rows(
     *,
     baseline_manifest: Mapping[str, Any],
@@ -146,12 +439,16 @@ def plan_rows(
     comparison: Mapping[str, Any],
     observation: Mapping[str, Any],
     takes: Mapping[str, int | None],
+    can_retime: bool = False,
 ) -> list[dict[str, Any]]:
     """One entry per row the script change affects, in script order.
 
     ``comparison`` is the #102 three-way result and ``observation`` the #101
     read-back it was made from. ``takes`` is the take-selector count of each
     managed clip, read from Resolve; ``None`` means it could not be read.
+    ``can_retime`` is true on a Resolve that moves and trims clips in place
+    (measured on Studio 21.2.0 build 6): rows may then change length and
+    later rows move, as one group that is applied together.
     """
     saved_items = {
         item["eventId"]: item for row in saved_map["rows"] for item in row["items"]
@@ -161,6 +458,7 @@ def plan_rows(
         for row in observation["rows"]
         for item in row["items"]
     }
+    observed_rows = {row.get("rowId"): row["items"] for row in observation["rows"]}
     sources = {source["id"]: source for source in current_view["sources"]}
     old_sources = {source["id"]: source for source in baseline_view["sources"]}
     old_labels = _row_labels(baseline_document)
@@ -182,7 +480,27 @@ def plan_rows(
         warnings: list[str] = []
         old_length = (row["baselineEndFrame"] or 0) - (row["baselineStartFrame"] or 0)
         new_length = (row["currentEndFrame"] or 0) - (row["currentStartFrame"] or 0)
-        if row["scriptChange"] == "added":
+        group: str | None = None
+        structural = bool(
+            row["scriptChange"] in {"added", "removed"}
+            or row["reordered"]
+            or row["shiftFrames"]
+            or old_length != new_length
+            or _layout(baseline_view, row_id) != _layout(current_view, row_id)
+        )
+        if can_retime and structural:
+            group = ROUTE_RETIME
+            refusal, edits, warnings = _retime_row(
+                row,
+                baseline_manifest=baseline_manifest,
+                baseline_view=baseline_view,
+                current_manifest=current_manifest,
+                current_view=current_view,
+                saved_items=saved_items,
+                observed=observed,
+                takes=takes,
+            )
+        elif row["scriptChange"] == "added":
             refusal = f"This row is new in the script. {_NO_MOVE}"
         elif row["scriptChange"] == "removed":
             refusal = f"This row was removed from the script. {_NO_MOVE}"
@@ -295,6 +613,20 @@ def plan_rows(
         if refusal is not None:
             edits = []
         conflict = row["state"] == "both_conflict"
+        if (
+            conflict
+            and group == ROUTE_RETIME
+            and row["scriptChange"] == "unchanged"
+            and not row["hazards"]
+            and all(
+                item["status"] in (["unchanged"], ["added"])
+                and not item.get("cannotRead")
+                for item in observed_rows.get(row_id, [])
+            )
+        ):
+            # The row only moves, and the only Resolve-side difference is clips
+            # he added over it. They ride along with the row; nothing is lost.
+            conflict = False
         plans.append(
             {
                 "rowId": row_id,
@@ -307,8 +639,19 @@ def plan_rows(
                 "refusal": refusal,
                 "edits": edits,
                 "warnings": warnings,
+                "group": group,
+                "summary": (
+                    f"{old_length} to {new_length} frames"
+                    if old_length != new_length
+                    else f"moves {abs(row['shiftFrames'])} frames "
+                    f"{'later' if row['shiftFrames'] > 0 else 'earlier'}"
+                    if row["shiftFrames"]
+                    else "picture swapped"
+                ),
             }
         )
+    if can_retime:
+        _bind_retime_group(plans, observation, comparison, global_gaps_for_group)
     return plans
 
 
@@ -341,11 +684,12 @@ def choose_rows(
     if isinstance(choice, str):
         if choice != "safe":
             raise UpdatePlanError("choose named rows or all safe rows")
-        return [
+        safe = [
             plan["rowId"]
             for plan in plans
             if plan["refusal"] is None and not plan["conflict"]
         ]
+        return _whole_group(plans, safe, named=False)
     by_name: dict[str, Mapping[str, Any]] = {}
     for plan in plans:
         by_name[plan["rowId"]] = plan
@@ -364,7 +708,30 @@ def choose_rows(
         chosen.append(found["rowId"])
     # The #328 record applies rows in plan order, whatever order they were named.
     order = [plan["rowId"] for plan in plans]
-    return sorted(chosen, key=order.index)
+    return _whole_group(plans, sorted(chosen, key=order.index), named=True)
+
+
+def _whole_group(
+    plans: Sequence[Mapping[str, Any]], chosen: list[str], *, named: bool
+) -> list[str]:
+    """Rows that change the timeline's length go together or not at all."""
+    group = [
+        plan["rowId"]
+        for plan in plans
+        if plan.get("group") == ROUTE_RETIME and plan["refusal"] is None
+    ]
+    if not group or not set(chosen) & set(group):
+        return chosen
+    missing = [plan for plan in plans if plan["rowId"] in set(group) - set(chosen)]
+    if not missing:
+        return chosen
+    if not named:
+        # "All safe rows" never includes a row in conflict, so the group waits.
+        return [row for row in chosen if row not in group]
+    raise UpdatePlanError(
+        "this change alters the timeline's length, so every changed row is "
+        "updated together. Also name: " + ", ".join(plan["label"] for plan in missing)
+    )
 
 
 def freeze_plan(
@@ -501,11 +868,22 @@ def render_plan(plans: Sequence[Mapping[str, Any]], gaps: Sequence[str]) -> str:
     safe = [p for p in plans if p["refusal"] is None and not p["conflict"]]
     conflict = [p for p in plans if p["refusal"] is None and p["conflict"]]
     refused = [p for p in plans if p["refusal"] is not None]
+    together = any(p.get("group") == ROUTE_RETIME for p in safe + conflict)
     lines: list[str] = []
+    if together:
+        lines.append(
+            "The timeline's length changes, so these rows are updated together "
+            "or not at all. Later rows move in place and keep their finishing."
+        )
     if safe:
-        lines.append("Safe to update (the picture is swapped in place):")
+        lines.append(
+            "Safe to update:"
+            if together
+            else "Safe to update (the picture is swapped in place):"
+        )
         for plan in safe:
-            lines.append(f"  {plan['label']}")
+            detail = f": {plan['summary']}" if together else ""
+            lines.append(f"  {plan['label']}{detail}")
             lines.extend(f"    Note: {warning}" for warning in plan["warnings"])
     if conflict:
         lines.append("In conflict (updated only if you name the row):")

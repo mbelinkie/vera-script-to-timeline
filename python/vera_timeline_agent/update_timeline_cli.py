@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from . import timeline_retime_native as retime
 from . import timeline_update as planning
 from . import timeline_update_native as native
 from .build_jobs import BuildJobError, NeedsAction, UncertainResult
@@ -61,6 +62,7 @@ class UpdateOptions:
     output: Path
     inputs: Path | None = None
     package_cache: Path | None = None
+    resolve_app: Path | None = None
 
 
 def prepare_current(options: UpdateOptions, timings: StageTimings) -> VerifiedPackageV2:
@@ -155,6 +157,60 @@ def _write_new_baseline(
     load_baseline(output)
 
 
+def _write_full_baseline(
+    output: Path,
+    baseline: Baseline,
+    current: VerifiedPackageV2,
+    uid_by_event: Mapping[str, str],
+    items: Mapping[str, tuple[str, int, Any]],
+    archive_name: str,
+) -> None:
+    """After a length change the whole timeline matches the current build."""
+    saved = baseline.saved
+    observed = []
+    for event in current.view["events"]:
+        uid = uid_by_event.get(event["id"])
+        if uid is None or uid not in items:
+            raise ValueError("a clip of the updated timeline has no Resolve item")
+        kind, index, item = items[uid]
+        observed.append(
+            {
+                "eventId": event["id"],
+                "resolveItemId": uid,
+                "trackId": event["trackId"],
+                "trackKind": kind,
+                "trackIndex": index,
+                "startFrame": item.GetStart(False),
+                "durationFrames": item.GetDuration(False),
+                **observe_item_details(item),
+            }
+        )
+    row_map = make_row_timeline_map(
+        current.manifest,
+        current.view,
+        observed,
+        project_name=saved["projectName"],
+        resolve_project_id=saved["resolveProjectId"],
+        timeline_name=saved["timelineName"],
+        timeline_id=saved["timelineId"],
+        version=2,
+    )
+    _publish(output / "row-timeline-map.json", row_map)
+    _publish(
+        output / RECORD_NAME,
+        {
+            "schemaVersion": RECORD_SCHEMA,
+            "buildId": current.manifest["buildId"],
+            "mode": "full",
+            "previousBaseline": str(baseline.root),
+            "timelineName": saved["timelineName"],
+            "timelineId": saved["timelineId"],
+            "archiveTimeline": archive_name,
+        },
+    )
+    load_baseline(output)
+
+
 def update_once(
     options: UpdateOptions,
     choose: Chooser,
@@ -179,15 +235,22 @@ def update_once(
     output = options.output.absolute()
 
     with exclusive_resolve_build():
-        resolve = (resolve_factory or _external_resolve)()
-        if (
-            not resolve.IsStudio()
-            or resolve.GetVersion()[:4] != native.MEASURED_VERSION
+        resolve = (
+            resolve_factory()
+            if resolve_factory
+            else _external_resolve(options.resolve_app)
+        )
+        version = resolve.GetVersion()[:4]
+        if not resolve.IsStudio() or version not in (
+            native.MEASURED_VERSION,
+            retime.RETIME_VERSION,
         ):
             raise NeedsAction(
                 "updating in place has only been measured on Resolve Studio "
-                "21.1.1 build 10; this Resolve is a different version"
+                "21.1.1 build 10 and 21.2.0 build 6; this Resolve is a "
+                "different version"
             )
+        can_retime = version == retime.RETIME_VERSION
 
         def read() -> tuple[Any, Any, dict[str, Any], dict[str, Any]]:
             manager, timeline, _, _ = _current_readback_target(
@@ -225,8 +288,18 @@ def update_once(
             comparison=comparison,
             observation=observation,
             takes=takes,
+            can_retime=can_retime,
         )
-        gaps = planning.global_gaps(baseline.view, current.view, comparison)
+        grouped = any(
+            plan["group"] == planning.ROUTE_RETIME and plan["refusal"] is None
+            for plan in plans
+        )
+        # A length change brings the whole timeline to the script, markers too.
+        gaps = (
+            []
+            if grouped
+            else planning.global_gaps(baseline.view, current.view, comparison)
+        )
         emit(planning.render_plan(plans, gaps))
 
         def finish(
@@ -291,10 +364,41 @@ def update_once(
                 current.root, sources[edit["sourceId"]]["path"], "replacement source"
             )
             for edit in edits
-            if edit["swapPicture"]
+            if edit.get("swapPicture") or edit.get("replaceAudio")
         }
         stamps = {event["id"]: _stamp(event) for event in current.view["events"]}
         archive_name = f"{saved['timelineName']} archive {now():%Y-%m-%d %H%M%S}"
+        retiming = grouped and any(
+            plan["group"] == planning.ROUTE_RETIME
+            for plan in plans
+            if plan["rowId"] in selected
+        )
+        ops: list[dict[str, Any]] = []
+        transition_edits: list[dict[str, Any]] = []
+        editor: dict[str, int] = {}
+        expect: dict[str, dict[str, Any]] = {}
+        if retiming:
+            for edit in edits:
+                if edit["route"] == planning.ROUTE_TRANSITION:
+                    transition_edits.append(edit)
+                elif edit["route"] == planning.ROUTE_RETIME:
+                    ops.append(edit)
+                else:  # A same-length swap is a retime that goes nowhere.
+                    item = native.live_items(timeline)[edit["resolveItemId"]][2]
+                    ops.append(
+                        {
+                            **edit,
+                            "startFrame": item.GetStart(False),
+                            "previousStartFrame": item.GetStart(False),
+                            "previousDurationFrames": edit["durationFrames"],
+                            "replaceAudio": False,
+                        }
+                    )
+            editor = planning.editor_moves(observation, comparison)[0]
+            try:
+                expect = retime.precheck(timeline, ops, editor, transition_edits)
+            except retime.RetimePrecheckError as error:
+                raise NeedsAction(f"{error}; nothing was changed") from error
 
         stamp = archive_name.rsplit(" archive ", 1)[1]
         if archive_name in native.timeline_names(project) or not manager.SaveProject():
@@ -324,6 +428,123 @@ def update_once(
                 f"the open timeline is the original, not {archive_name!r}, "
                 "before working on or running the update again"
             ) from error
+
+        if retiming:
+            window = current.view["timeline"]
+            bounds = [
+                window["startFrame"],
+                window["startFrame"] + window["durationFrames"],
+            ]
+            uid_by_event = {
+                item["eventId"]: item["resolveItemId"]
+                for row in saved["rows"]
+                for item in row["items"]
+            }
+            for op in ops:
+                uid_by_event.pop(op["previousEventId"], None)
+                uid_by_event[op["eventId"]] = op["resolveItemId"]
+            try:
+                attempt = planning.record_outcome(attempt, selected[0], "uncertain")
+                _publish(output / "update-attempt.json", attempt)
+                made = retime.apply(
+                    project,
+                    timeline,
+                    ops,
+                    editor,
+                    transition_edits,
+                    media=media,
+                    stamps=stamps,
+                    uid_by_event=uid_by_event,
+                    old_markers=baseline.view.get("markers", []),
+                    new_markers=current.view.get("markers", []),
+                )
+                for old_uid, new_uid in made["created"].items():
+                    for event_id, uid in uid_by_event.items():
+                        if uid == old_uid:
+                            uid_by_event[event_id] = new_uid
+
+                def verify(target: Any) -> dict[str, Any]:
+                    seen = native.snapshot(target)
+                    problems = retime.check(
+                        before,
+                        seen,
+                        expect,
+                        created=made["created"],
+                        transitions=made["transitions"],
+                        bounds=bounds,
+                    )
+                    live = native.live_items(target)
+                    for op in ops:
+                        item = live[uid_by_event[op["eventId"]]][2]
+                        pool_item = item.GetMediaPoolItem()
+                        if item.GetSourceStartFrame() != op["sourceStartFrame"] or (
+                            (op["swapPicture"] or op["replaceAudio"])
+                            and (
+                                pool_item is None
+                                or pool_item.GetMediaId() != media_ids[op["sourceId"]]
+                            )
+                        ):
+                            problems.append(
+                                f"updated clip did not read back: {op['sourceId']}"
+                            )
+                    if problems:
+                        raise native.NativeUpdateError("; ".join(problems))
+                    return seen
+
+                verify(timeline)
+                project = native.save_close_reopen(
+                    manager, project, saved["projectName"], saved["resolveProjectId"]
+                )
+                timeline = native.timeline_by_uid(project, saved["timelineId"])
+                archive = native.timeline_by_uid(project, archive_uid)
+                archive_after = native.snapshot(archive)
+                if archive_after[
+                    "timelineId"
+                ] != archive_uid or native.unexpected_changes(
+                    archive_before, archive_after, {}
+                ):
+                    raise native.NativeUpdateError("the archive copy changed")
+                native.select(project, timeline)
+                final_print = native.fingerprint(verify(timeline))
+                # One native batch covers every row; the record still chains
+                # row by row, ending on the fingerprint that was read back.
+                for position, row_id in enumerate(selected):
+                    last = position == len(selected) - 1
+                    attempt = planning.record_outcome(
+                        attempt,
+                        row_id,
+                        "verified",
+                        after=final_print
+                        if last
+                        else planning.outbound_hash([final_print, row_id]),
+                    )
+                _publish(output / "update-attempt.json", attempt)
+            except Exception as error:
+                # The stop itself must still be reported if the report cannot be saved.
+                with contextlib.suppress(Exception):
+                    finish(attempt, archive_name, "uncertain")
+                raise UncertainResult(
+                    "a change to Resolve could not be confirmed; do not run the "
+                    f"update again; the archive copy is {archive_name!r} ({error})"
+                ) from error
+            try:
+                _write_full_baseline(
+                    output,
+                    baseline,
+                    current,
+                    uid_by_event,
+                    native.live_items(timeline),
+                    archive_name,
+                )
+            except Exception as error:
+                for name in ("row-timeline-map.json", RECORD_NAME):
+                    (output / name).unlink(missing_ok=True)
+                gaps.append(
+                    "The rows were updated, but the new baseline could not be "
+                    f"written ({error}). Build the timeline afresh before the "
+                    "next update."
+                )
+            return finish(attempt, archive_name, "updated")
 
         replaced: dict[str, bool] = {}
         final: tuple[str, str] | None = None
@@ -436,6 +657,12 @@ def parser() -> argparse.ArgumentParser:
         "--output", type=Path, required=True, help="new, unused results folder"
     )
     command.add_argument("--package-cache", type=Path, metavar="FOLDER")
+    command.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="APP",
+        help="the Resolve Studio .app to connect to, when it is not at the usual path",
+    )
     go = command.add_mutually_exclusive_group()
     go.add_argument(
         "--rows", nargs="+", metavar="ROW", help="update these row numbers or row IDs"
@@ -475,6 +702,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output=args.output,
         inputs=args.inputs,
         package_cache=args.package_cache,
+        resolve_app=args.resolve_app,
     )
     try:
         report = update_once(options, choose)

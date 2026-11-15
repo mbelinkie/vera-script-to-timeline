@@ -97,12 +97,19 @@ def read_record(root: Path) -> dict[str, Any] | None:
     )
     rows = record.get("updatedRows")
     previous = record.get("previousBaseline")
+    full = record.get("mode") == "full"
     if (
         record.get("schemaVersion") != RECORD_SCHEMA
-        or not isinstance(rows, list)
-        or not rows
-        or any(not isinstance(row, str) or not row for row in rows)
-        or len(set(rows)) != len(rows)
+        or record.get("mode") not in (None, "full")
+        or (
+            not full
+            and (
+                not isinstance(rows, list)
+                or not rows
+                or any(not isinstance(row, str) or not row for row in rows)
+                or len(set(rows)) != len(rows)
+            )
+        )
         or not isinstance(previous, str)
         or not Path(previous).is_absolute()
     ):
@@ -124,10 +131,17 @@ def load_baseline(output: Path, *, _depth: int = 0) -> Baseline:
         raise ValueError("unrecognized Resolve baseline format")
     package = _load_readback_package(root)
     record = read_record(root)
-    if record is None:
+    if record is not None and record.get("buildId") != package.manifest["buildId"]:
+        raise ValueError("timeline update record is for a different build")
+    if record is None or record.get("mode") == "full":
+        # A build, or an update that brought the whole timeline to its script.
         validate_saved_row_map(package.manifest, package.view, saved)
-        if saved["timelineName"] != package.attestation["timelineName"]:
+        if record is None and (
+            saved["timelineName"] != package.attestation["timelineName"]
+        ):
             raise ValueError("baseline timeline name differs from the verified build")
+        if record is not None and saved.get("timelineId") != record.get("timelineId"):
+            raise ValueError("update baseline is for a different Resolve timeline")
         document = _strict_object(
             _read_regular(
                 package.root
@@ -139,9 +153,9 @@ def load_baseline(output: Path, *, _depth: int = 0) -> Baseline:
             ),
             "attested original script",
         )
-        return Baseline(root, package.manifest, package.view, saved, document, False)
-    if record.get("buildId") != package.manifest["buildId"]:
-        raise ValueError("timeline update record is for a different build")
+        return Baseline(
+            root, package.manifest, package.view, saved, document, record is not None
+        )
     try:
         earlier = load_baseline(Path(record["previousBaseline"]), _depth=_depth + 1)
     except (OSError, ValueError) as error:

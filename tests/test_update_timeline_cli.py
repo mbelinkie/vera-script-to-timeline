@@ -64,6 +64,10 @@ class Item:
         self.takes: list[dict[str, Any]] = []
         self.finalize_ok = True
         self.finalize_drops_markers = False
+        self.handle = 100
+        self.fades = {"FadeIn": 0.0, "FadeOut": 0.0}
+        self.color = ""
+        self.timeline: Timeline | None = None
 
     def GetUniqueId(self) -> str:
         return self.uid
@@ -121,6 +125,66 @@ class Item:
     def GetTakesCount(self) -> int:
         return len(self.takes)
 
+    # Calls that exist from Resolve 21.1.2 on.
+    def GetEnd(self, _subframe: bool = False) -> int:
+        return self.start + self.duration
+
+    def GetRightOffset(self) -> int:
+        return self.handle
+
+    def SetRightOffset(self, value: float) -> bool:
+        if value < 0:
+            return False
+        self.duration += self.handle - int(value)
+        self.handle = int(value)
+        return True
+
+    def SetPosition(self, position: dict[str, Any]) -> bool:
+        assert self.timeline is not None
+        for members in self.timeline.tracks.values():
+            if self in members:
+                members.remove(self)
+        self.timeline.tracks.setdefault(("audio", position["trackIndex"]), []).append(
+            self
+        )
+        self.start = int(position["startFrame"])
+        return True
+
+    def CopyAttributes(self, targets: list[Item], options: dict[str, bool]) -> bool:
+        assert options == {"allAudioAttributes": True, "allClipAttributes": True}
+        for target in targets:
+            target.properties = dict(self.properties)
+            target.markers = copy.deepcopy(self.markers)
+        return True
+
+    def GetFades(self) -> dict[str, float]:
+        return dict(self.fades)
+
+    def SetFades(self, fades: dict[str, float]) -> bool:
+        self.fades = dict(fades)
+        return True
+
+    def GetClipColor(self) -> str:
+        return self.color
+
+    def SetClipColor(self, color: str) -> bool:
+        self.color = color
+        return True
+
+    def ClearClipColor(self) -> bool:
+        self.color = ""
+        return True
+
+    def AddTransition(self, options: dict[str, Any]) -> Item:
+        assert self.timeline is not None and options["position"] == "end"
+        half = options["duration"] // 2
+        dissolve = Item(
+            f"dissolve-{self.GetEnd()}", self.GetEnd() - half, half * 2, None
+        )
+        dissolve.timeline = self.timeline
+        self.timeline.tracks["video", 1].append(dissolve)
+        return dissolve
+
     def AddTake(self, media: Media, start: int, end: int) -> bool:
         if not self.takes:
             self.takes.append({"mediaPoolItem": self.media, "start": self.source_start})
@@ -148,6 +212,7 @@ class Timeline:
     def __init__(self, project: Project, name: str, uid: str, length: int) -> None:
         self.project, self.name, self.uid, self.length = project, name, uid, length
         self.tracks: dict[tuple[str, int], list[Item]] = {("video", 1): []}
+        self.markers: dict[int, Any] = {}
 
     def GetName(self) -> str:
         return self.name
@@ -159,10 +224,84 @@ class Timeline:
         return 0
 
     def GetEndFrame(self) -> int:
-        return self.length
+        return max(
+            [self.length]
+            + [m.GetEnd() for members in self.tracks.values() for m in members]
+        )
 
     def GetMarkers(self) -> dict[int, Any]:
-        return {}
+        return copy.deepcopy(self.markers)
+
+    def DeleteMarkerAtFrame(self, frame: int) -> bool:
+        return self.markers.pop(frame, None) is not None
+
+    def AddMarker(
+        self, frame: int, color: str, name: str, note: str, duration: int, data: str
+    ) -> bool:
+        if frame in self.markers:
+            return False
+        self.markers[frame] = {"color": color, "name": name, "customData": data}
+        return True
+
+    def _cuts(self) -> dict[Item, tuple[Item | None, Item | None]]:
+        """Each transition with the clips on either side of its cut."""
+        found = {}
+        for members in self.tracks.values():
+            for dissolve in (m for m in members if m.media is None):
+                cut = dissolve.start + dissolve.duration // 2
+                clips = [m for m in members if m.media is not None]
+                found[dissolve] = (
+                    next((c for c in clips if c.GetEnd() == cut), None),
+                    next((c for c in clips if c.start == cut), None),
+                )
+        return found
+
+    def MoveItems(
+        self, items: list[Item], position: dict[str, float], linked: bool = True
+    ) -> bool:
+        assert linked is False
+        delta = int(position["startFrame"]) - min(item.start for item in items)
+        cuts = self._cuts()
+        for members in self.tracks.values():
+            for item in (m for m in members if m in items):
+                for other in members:
+                    if other in items or other.media is None:
+                        continue
+                    if (
+                        item.start + delta < other.GetEnd()
+                        and other.start < item.GetEnd() + delta
+                    ):
+                        return False  # Resolve refuses an overlapping move.
+        for item in items:
+            item.start += delta
+        # A dissolve travels with a cut that stays closed and is lost otherwise.
+        for dissolve, (left, right) in cuts.items():
+            if left is not None and right is not None and left.GetEnd() == right.start:
+                dissolve.start = right.start - dissolve.duration // 2
+            else:
+                for members in self.tracks.values():
+                    if dissolve in members:
+                        members.remove(dissolve)
+        self.length = max(
+            (m.GetEnd() for members in self.tracks.values() for m in members),
+            default=0,
+        )
+        return True
+
+    def AddTrack(self, kind: str) -> bool:
+        self.tracks[kind, self.GetTrackCount(kind) + 1] = []
+        return True
+
+    def DeleteTrack(self, kind: str, index: int) -> bool:
+        return self.tracks.pop((kind, index), None) == []
+
+    def DeleteClips(self, items: list[Item], ripple: bool) -> bool:
+        assert ripple is False
+        for members in self.tracks.values():
+            for item in items:
+                if item in members:
+                    members.remove(item)
+        return True
 
     def GetTrackCount(self, kind: str) -> int:
         return max((index for k, index in self.tracks if k == kind), default=0)
@@ -182,6 +321,7 @@ class Timeline:
                 # Resolve omits default-valued audio settings on a fresh copy.
                 twin.properties = {k: v for k, v in item.properties.items() if v}
                 twin.takes = list(item.takes)
+                twin.timeline = clone
                 clone.tracks[slot].append(twin)
         self.project.timelines.append(clone)
         self.project.current = clone
@@ -224,6 +364,18 @@ class Project:
 
     def SetCurrentFolder(self, _folder: str) -> bool:
         return True
+
+    def AppendToTimeline(self, infos: list[dict[str, Any]]) -> list[Item]:
+        assert self.current is not None
+        info = infos[0]
+        length = info["endFrame"] - info["startFrame"]
+        item = Item(f"placed-{info['recordFrame']}", info["recordFrame"], length, None)
+        item.media = Media(info["mediaPoolItem"].name)
+        item.source_start = info["startFrame"]
+        item.color = "Green"  # Seen on Studio 21.2: a placed tone arrives coloured.
+        item.timeline = self.current
+        self.current.tracks["audio", info["trackIndex"]].append(item)
+        return [item]
 
     def ImportMedia(self, paths: list[str]) -> list[Media]:
         self.imported.extend(paths)
@@ -269,8 +421,12 @@ def _build(
     *,
     order: tuple[str, ...] = ROWS,
     transitions: list[dict[str, Any]] | None = None,
+    voices: dict[str, str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """A document, manifest and delivery view with one picture per row."""
+    """A document, manifest and delivery view with one picture per row.
+
+    ``voices`` adds a narration clip of the row's length under each picture.
+    """
     events, view_events, sources, start = [], [], {}, 0
     for row in order:
         name, length = pictures[row]
@@ -306,6 +462,40 @@ def _build(
             "path": f"Media/Resolved/{name}.mp4",
             "contentHash": f"sha256:{name}",
         }
+        if voices:
+            voice = voices[row]
+            spoken = {
+                "eventId": f"voice-{row}",
+                "kind": "narration",
+                "trackId": "a",
+                "provenance": {
+                    "documentId": DOCUMENT,
+                    "blockId": row,
+                    "sourceId": f"src-{voice}",
+                    "deliveredSourceHash": f"sha256:{voice}",
+                },
+                "recordRange": {"startFrame": start, "endFrame": start + length},
+                "sourceRange": {"startFrame": 0, "endFrame": length},
+            }
+            events.append(spoken)
+            view_events.append(
+                {
+                    "id": spoken["eventId"],
+                    "sourceId": f"src-{voice}",
+                    "kind": "narration",
+                    "trackId": "a",
+                    "trackKind": "audio",
+                    "recordRange": {"startFrame": start, "durationFrames": length},
+                    "sourceRange": {"startFrame": 0, "durationFrames": length},
+                    "v2Event": spoken,
+                }
+            )
+            sources[f"src-{voice}"] = {
+                "id": f"src-{voice}",
+                "kind": "audio",
+                "path": f"Media/Narration/{voice}.wav",
+                "contentHash": f"sha256:{voice}",
+            }
         start += length
     document = {
         "schemaVersion": "script-document/v2",
@@ -328,13 +518,20 @@ def _build(
             "revision": 1,
             "contentHash": f"sha256:{build}",
         },
-        "tracks": [{"id": "v"}],
+        "tracks": [{"id": "v"}, {"id": "a"}] if voices else [{"id": "v"}],
         "events": events,
         "transitions": transitions or [],
     }
     view = {
         "timeline": {"startFrame": 0, "durationFrames": start},
-        "tracks": [{"id": "v", "kind": "video", "index": 1, "name": "Video"}],
+        "tracks": [
+            {"id": "v", "kind": "video", "index": 1, "name": "Video"},
+            *(
+                [{"id": "a", "kind": "audio", "index": 1, "name": "Audio"}]
+                if voices
+                else []
+            ),
+        ],
         "events": view_events,
         "sources": list(sources.values()),
         "markers": [],
@@ -350,10 +547,19 @@ class Case:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         changed: dict[str, tuple[str, int]],
+        *,
+        version: tuple[int, ...] = (21, 1, 1, 10),
+        voices: dict[str, str] | None = None,
+        new_voices: dict[str, str] | None = None,
+        old_transitions: list[dict[str, Any]] | None = None,
         **current: Any,
     ) -> None:
         original = {row: (f"clip-{row}", 10) for row in ROWS}
-        document, manifest, view = _build("build-1", original)
+        document, manifest, view = _build(
+            "build-1", original, voices=voices, transitions=old_transitions
+        )
+        if voices:
+            current["voices"] = new_voices or voices
         self.old_view = view
         self.document, self.manifest, self.view = _build(
             "build-2", {**original, **changed}, **current
@@ -362,17 +568,22 @@ class Case:
         self.timeline = Timeline(self.project, "T", "t-uid", 30)
         self.project.timelines.append(self.timeline)
         self.project.current = self.timeline
+        if voices:
+            self.timeline.tracks["audio", 1] = []
+        placed = []
         for event in view["events"]:
-            self.timeline.tracks["video", 1].append(
-                Item(
-                    f"native-{event['id']}",
-                    event["recordRange"]["startFrame"],
-                    10,
-                    Media(event["sourceId"].removeprefix("src-")),
-                    _stamp(event),
-                )
+            item = Item(
+                f"native-{event['id']}",
+                event["recordRange"]["startFrame"],
+                10,
+                Media(event["sourceId"].removeprefix("src-")),
+                _stamp(event),
             )
+            item.timeline = self.timeline
+            self.timeline.tracks[event["trackKind"], 1].append(item)
+            placed.append(item)
         self.resolve = Resolve(self.project)
+        self.resolve.version = [*version, ""]
         self.baseline = tmp_path / "baseline"
         (self.baseline / "Builds" / "build-1").mkdir(parents=True)
         (self.baseline / "Builds" / "build-1" / "script-document.json").write_text(
@@ -385,16 +596,14 @@ class Case:
                 {
                     "eventId": event["id"],
                     "resolveItemId": item.uid,
-                    "trackId": "v",
-                    "trackKind": "video",
+                    "trackId": event["trackId"],
+                    "trackKind": event["trackKind"],
                     "trackIndex": 1,
                     "startFrame": item.start,
                     "durationFrames": 10,
                     **observe_item_details(item),
                 }
-                for event, item in zip(
-                    view["events"], self.timeline.tracks["video", 1], strict=True
-                )
+                for event, item in zip(view["events"], placed, strict=True)
             ],
             project_name="P",
             resolve_project_id="p-uid",
@@ -426,15 +635,19 @@ class Case:
 
     def prepare(self, options: cli.UpdateOptions, _timings: Any) -> Any:
         options.output.mkdir()
-        media = options.output / "package" / "Media" / "Resolved"
-        media.mkdir(parents=True)
+        build = self.manifest["buildId"]
+        for folder in ("Media/Resolved", "Media/Narration", f"Builds/{build}"):
+            (options.output / "package" / folder).mkdir(parents=True)
+        (
+            options.output / "package" / f"Builds/{build}/script-document.json"
+        ).write_text(json.dumps(self.document))
         for source in self.view["sources"]:
             (options.output / "package" / source["path"]).write_bytes(b"picture")
         current = SimpleNamespace(
             root=options.output / "package",
             manifest=self.manifest,
             view=self.view,
-            attestation={"timelineName": "new name", "buildId": "build-2"},
+            attestation={"timelineName": "new name", "buildId": build},
         )
         self.packages[options.output] = current
         return current
@@ -451,11 +664,12 @@ class Case:
             **extra,
         )
 
-    def clip(self, row: str) -> Item:
+    def clip(self, row: str, kind: str = "event") -> Item:
         return next(
             item
-            for item in self.timeline.tracks["video", 1]
-            if item.uid == f"native-event-{row}"
+            for members in self.timeline.tracks.values()
+            for item in members
+            if item.uid == f"native-{kind}-{row}"
         )
 
     def read(self, name: str) -> Any:
@@ -763,3 +977,196 @@ def test_plan_and_attempt_match_the_contract_fixture(
     if os.environ.get("VERA_WRITE_UPDATE_FIXTURE") == "1":
         FIXTURE.write_text(json.dumps(attempt, sort_keys=True, indent=2) + "\n")
     assert json.loads(FIXTURE.read_text()) == attempt
+
+
+# --- Resolve Studio 21.2: rows may change length and later rows move in place.
+
+V212 = (21, 2, 0, 6)
+LONGER = {"row-2": ("clip-row-2", 14)}
+
+
+def test_longer_row_moves_later_rows_in_place_and_keeps_their_finishing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    graded = case.clip("row-3")
+    graded.nodes, graded.properties["ZoomX"] = 3, 1.4
+    graded.markers[4] = {"name": "hand note", "customData": ""}
+    editor = Item("editor-clip", 22, 4, Media("b-roll"))
+    editor.timeline = case.timeline
+    case.timeline.tracks["video", 2] = [editor]
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert [row["rowId"] for row in report["rowsUpdated"]] == ["row-2", "row-3"]
+    assert "updated together" in case.said[0] and "10 to 14 frames" in case.said[0]
+    grown = case.clip("row-2")
+    assert (grown.start, grown.duration) == (10, 14)
+    assert (graded.start, graded.duration) == (24, 10)
+    assert (graded.nodes, graded.properties["ZoomX"]) == (3, 1.4)
+    assert graded.markers[4]["name"] == "hand note"
+    assert (editor.start, editor.duration) == (26, 4)  # It rode along with row 3.
+    assert case.clip("row-1").start == 0
+    assert len(case.project.timelines) == 2 and case.resolve.reopens == 1
+    assert case.read("update-attempt.json")["completed"]
+    after = timeline_baseline.load_baseline(case.output)
+    assert after.manifest["buildId"] == "build-2"
+    observed = observe_current(case.resolve, after.saved, after.view)
+    assert observed["differenceCount"] == 1  # Only the clip he added himself.
+
+    # A further edit starts from this update: row 2 goes back to its old length.
+    case.baseline, case.output = case.output, tmp_path / "second"
+    case.document, manifest, case.view = _build(
+        "build-3", {row: (f"clip-{row}", 10) for row in ROWS}
+    )
+    case.manifest = manifest
+    case.script.write_text(json.dumps(case.document))
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert (grown.duration, graded.start, editor.start) == (10, 20, 22)
+
+
+def test_all_safe_rows_waits_when_a_row_of_a_length_change_is_in_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    editor = Item("editor-clip", 8, 4, Media("b-roll"))  # Across the 1|2 cut.
+    editor.timeline = case.timeline
+    case.timeline.tracks["video", 2] = [editor]
+    report = case.run("safe")
+    assert report["status"] == "unchanged" and len(case.project.timelines) == 1
+    with pytest.raises(NeedsAction, match="Also name: Row 3"):
+        Case(tmp_path / "one", monkeypatch, LONGER, version=V212).run(["2"])
+
+
+def test_shorter_row_trims_first_and_pulls_later_rows_earlier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, {"row-1": ("clip-row-1", 6)}, version=V212)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert [
+        (item.start, item.duration) for item in case.timeline.tracks["video", 1]
+    ] == [(0, 6), (6, 10), (16, 10)]
+    assert case.timeline.GetEndFrame() == 26
+
+
+def test_new_longer_narration_replaces_the_clip_and_carries_its_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    voices = {row: f"voice-{row}" for row in ROWS}
+    case = Case(
+        tmp_path,
+        monkeypatch,
+        LONGER,
+        version=V212,
+        voices=voices,
+        new_voices={**voices, "row-2": "retake"},
+    )
+    old = case.clip("row-2", "voice")
+    old.properties["AudioVolume"] = -6.0
+    old.fades = {"FadeIn": 4.0, "FadeOut": 4.0}
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert any("new recording" in line for line in case.said[0].splitlines())
+    tones = sorted(case.timeline.tracks["audio", 1], key=lambda item: item.start)
+    assert [(t.start, t.duration) for t in tones] == [(0, 10), (10, 14), (24, 10)]
+    new = tones[1]
+    assert new is not old and new.media.name == "retake"  # type: ignore[union-attr]
+    assert new.properties["AudioVolume"] == -6.0 and new.fades["FadeIn"] == 4.0
+    assert new.color == "" and case.timeline.GetTrackCount("audio") == 1
+    after = timeline_baseline.load_baseline(case.output)
+    assert (
+        observe_current(case.resolve, after.saved, after.view)["differenceCount"] == 0
+    )
+
+
+def test_script_transition_on_the_opened_cut_is_put_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = {
+        **_transition(),
+        "fromRowId": "row-2",
+        "toRowId": "row-3",
+        "boundaryFrame": 20,
+        "outgoingEventId": "event-row-2",
+        "incomingEventId": "event-row-3",
+        "startFrame": 18,
+        "endFrame": 22,
+        "effectIdentity": {"name": "Cross Dissolve", "category": "simple"},
+    }
+    moved = {**plan, "boundaryFrame": 24, "startFrame": 22, "endFrame": 26}
+    case = Case(
+        tmp_path,
+        monkeypatch,
+        LONGER,
+        version=V212,
+        old_transitions=[plan],
+        transitions=[moved],
+    )
+    dissolve = Item("dissolve", 18, 4, None)
+    dissolve.timeline = case.timeline
+    case.timeline.tracks["video", 1].append(dissolve)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert any("puts the script's transition back" in line for line in case.said)
+    spans = [
+        (item.start, item.duration)
+        for item in case.timeline.tracks["video", 1]
+        if item.media is None
+    ]
+    assert spans == [(22, 4)] and dissolve not in case.timeline.tracks["video", 1]
+
+
+def test_hand_made_transition_on_the_opened_cut_stops_before_any_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    dissolve = Item("dissolve", 18, 4, None)
+    dissolve.timeline = case.timeline
+    case.timeline.tracks["video", 1].append(dissolve)
+    with pytest.raises(NeedsAction, match="made by hand at frame 18"):
+        case.run("safe")
+    assert len(case.project.timelines) == 1 and case.clip("row-2").duration == 10
+
+
+def test_hand_made_transition_between_rows_that_move_together_goes_along(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, {"row-1": ("clip-row-1", 14)}, version=V212)
+    dissolve = Item("dissolve", 18, 4, None)  # On the 2|3 cut at frame 20.
+    dissolve.timeline = case.timeline
+    case.timeline.tracks["video", 1].append(dissolve)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert dissolve in case.timeline.tracks["video", 1]
+    assert (dissolve.start, dissolve.duration) == (22, 4)
+
+
+def test_reorder_and_hand_moved_later_clip_block_the_whole_length_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(
+        tmp_path, monkeypatch, {}, version=V212, order=("row-2", "row-1", "row-3")
+    )
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert any("reordering rows" in row["reason"] for row in report["rowsRefused"])
+
+    moved = Case(tmp_path / "moved", monkeypatch, LONGER, version=V212)
+    moved.clip("row-3").source_start = 3
+    report = moved.run("safe")
+    assert report["status"] == "unchanged"
+    reasons = {row["rowId"]: row["reason"] for row in report["rowsRefused"]}
+    assert "by hand in Resolve" in reasons["row-3"]
+    assert "every changed row has to be updated together" in reasons["row-2"]
+    assert len(moved.project.timelines) == 1
+
+
+def test_same_length_swap_still_works_alone_on_the_newer_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, SWAP, version=V212)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert case.clip("row-2").media.name == "new-picture"  # type: ignore[union-attr]
+    assert timeline_baseline.load_baseline(case.output).updated_in_place
