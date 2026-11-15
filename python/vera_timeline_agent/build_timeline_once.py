@@ -50,6 +50,7 @@ class BuildOptions:
     inputs: Path | None = None
     existing_project: str | None = None
     package_cache: Path | None = None
+    resolve_app: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -449,15 +450,42 @@ def exclusive_resolve_build(
         os.close(descriptor)
 
 
-def _external_resolve() -> Any:
-    """Use the installed external Local SDK, not an injected Resolve runtime."""
-    facts = studio_spike.detect_local_capabilities()
+def _external_resolve(resolve_app: Path | None = None) -> Any:
+    """Connect to the selected app, refusing a different running Resolve build."""
+    selected = resolve_app or studio_spike.DEFAULT_APP_PATH
+    if resolve_app is not None and (
+        selected.suffix != ".app"
+        or not selected.is_absolute()
+        or any(part.is_symlink() for part in (selected, *selected.parents))
+    ):
+        raise NeedsAction(
+            "selected Resolve app must be an absolute, non-symlink .app bundle"
+        )
+    facts = studio_spike.detect_local_capabilities(app_path=selected)
     if not facts.app_installed or not facts.scripting_module_installed:
         raise NeedsAction(
             "DaVinci Resolve Studio is not running or external scripting is unavailable"
         )
+    expected = studio_spike._bundle_identity(facts.bundle_version, facts.bundle_build)
+    if (
+        facts.mas_receipt
+        or facts.bundle_identifier != studio_spike.BLACKMAGIC_BUNDLE_ID
+        or expected is None
+    ):
+        raise NeedsAction("selected Resolve app has an invalid Studio bundle identity")
+    library: Path | None = None
+    if resolve_app is not None:
+        library = selected / "Contents/Libraries/Fusion/fusionscript.so"
+        if not library.is_file() or library.is_symlink():
+            raise NeedsAction(
+                "selected Resolve app has no matching Fusion scripting library"
+            )
     try:
-        adapter = studio_spike.load_resolve_adapter(facts)
+        adapter = (
+            studio_spike.load_resolve_adapter(facts, scripting_library=library)
+            if library is not None
+            else studio_spike.load_resolve_adapter(facts)
+        )
     except Exception as error:
         # The closed vendor scriptapp may raise rather than return None.
         raise NeedsAction(
@@ -466,6 +494,20 @@ def _external_resolve() -> Any:
     if getattr(adapter, "resolve", None) is None:
         raise NeedsAction(
             "DaVinci Resolve Studio is not running or external scripting is unavailable"
+        )
+    try:
+        connected = adapter.connected_facts()
+    except Exception as error:
+        raise NeedsAction("connected Resolve identity could not be verified") from error
+    if (
+        connected.product_name != "DaVinci Resolve Studio"
+        or connected.edition != "studio"
+        or not connected.scripting_available
+        or studio_spike._connected_identity(connected) != expected
+    ):
+        raise NeedsAction(
+            "connected Resolve Studio version/build does not match selected app; "
+            "no project was modified"
         )
     return cast(Any, adapter).resolve
 
@@ -598,6 +640,7 @@ def deliver_compiled(
     timings: StageTimings,
     existing_project: str | None = None,
     package_cache: Path | None = None,
+    resolve_app: Path | None = None,
 ) -> DeliveryResult:
     """Package immutable bytes and create one new Studio timeline target."""
     checked, attestation, digest = package_compiled(
@@ -605,7 +648,12 @@ def deliver_compiled(
     )
 
     with timings.span("Resolve step + check"), exclusive_resolve_build():
-        resolve = timings.run("connect", _external_resolve)
+        resolve = timings.run(
+            "connect",
+            _external_resolve
+            if resolve_app is None
+            else lambda: _external_resolve(resolve_app),
+        )
         preflight = timings.run(
             "preflight",
             lambda: run_workflow_delivery_v2(
@@ -700,4 +748,5 @@ def build_once(options: BuildOptions, *, timings: StageTimings) -> DeliveryResul
         timings=timings,
         existing_project=options.existing_project,
         package_cache=options.package_cache or default_cache_root(),
+        resolve_app=options.resolve_app,
     )

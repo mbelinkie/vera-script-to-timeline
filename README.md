@@ -74,7 +74,7 @@ absolute paths to local assets. Optional matching `media-needs.json` and
 `media-needs.dependencies.json` may be included. The command **does not**
 interpret prose, download footage or call a paid narration provider.
 
-With **DaVinci Resolve Studio 21.1.1 build 10** running, External Scripting set
+With **DaVinci Resolve Studio 21.2.0 build 6** or **21.1.1 build 10** running, External Scripting set
 to **Local**, and an existing project open on a timeline page, run from the
 repository checkout after the bootstrap commands above:
 
@@ -84,6 +84,13 @@ uv run --frozen python -m vera_timeline_agent.build_timeline_cli \
   --inputs "/absolute/path/to/prepared-inputs" \
   --output "/absolute/path/to/unused-result-directory"
 ```
+
+For a versioned installation, open that copy of Resolve and add
+`--resolve-app "/absolute/path/to/DaVinci Resolve.app"` to the command, using
+the actual installed bundle path. The selected bundle identity must match the
+running Studio edition and exact build. With the option omitted, VERA uses the
+standard app bundle path. Studio 21.2 still refuses the separately unqualified
+native image-motion/OTIO and native Cross Dissolve routes.
 
 **Optional row-spanning music (#100):** Put a `rowAudioSpans` entry in the v2
 script, naming its `startRowId`, `endRowId`, `source` (with pinned SHA-256
@@ -220,6 +227,8 @@ markers and saved item UIDs match, or `MISMATCH` with a nonzero exit code on a
 different current target or structural change. If the map is absent, it still
 checks the attested v2 package against fresh live SDK observations, but reports
 **structural-only** compatibility; it does not claim the old item UIDs survived.
+For a versioned Resolve install, pass the same `--resolve-app` when you run
+readback or observe. Presenter source preparation also accepts `--resolve-app`.
 For a build made with `--existing-project`, an absent map also requires
 `--project "Exact already open project name"`. An existing but malformed map
 is an error, not a reason to fall back to mapless mode. The readback is not an

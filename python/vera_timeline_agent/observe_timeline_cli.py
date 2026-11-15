@@ -199,7 +199,10 @@ def _row_for_addition(
 
 
 def observe_output(
-    output: Path, *, resolve_factory: Callable[[], Any] | None = None
+    output: Path,
+    *,
+    resolve_app: Path | None = None,
+    resolve_factory: Callable[[], Any] | None = None,
 ) -> dict[str, Any]:
     """Read the active timeline and compare its clips with the verified baseline."""
     root = _regular_absolute(output.absolute(), "build output", directory=True)
@@ -208,7 +211,11 @@ def observe_output(
         baseline = load_baseline(root)
         with exclusive_resolve_build():
             return observe_current(
-                (resolve_factory or _external_resolve)(), baseline.saved, baseline.view
+                resolve_factory()
+                if resolve_factory
+                else _external_resolve(resolve_app),
+                baseline.saved,
+                baseline.view,
             )
     saved = _read_saved_row_map(root)
     if saved is None:
@@ -225,7 +232,9 @@ def observe_output(
         raise ValueError("baseline timeline name differs from the verified build")
     with exclusive_resolve_build():
         return observe_current(
-            (resolve_factory or _external_resolve)(), saved, package.view
+            resolve_factory() if resolve_factory else _external_resolve(resolve_app),
+            saved,
+            package.view,
         )
 
 
@@ -301,9 +310,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--output", type=Path, required=True, help="checked build results"
     )
+    parser.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="BUNDLE.app",
+        help="Resolve Studio app bundle",
+    )
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(observe_output(args.output), indent=2))
+        print(
+            json.dumps(
+                observe_output(args.output, resolve_app=args.resolve_app), indent=2
+            )
+        )
     except (ValueError, OSError, NeedsAction) as error:
         print(f"Cannot observe: {error}", file=sys.stderr)
         return 2

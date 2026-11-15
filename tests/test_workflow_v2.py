@@ -3423,6 +3423,66 @@ def test_preflight_never_includes_row_map(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("version", "build", "allowed"),
+    [
+        ("21.1.1", "10", True),
+        ("21.2.0", "6", True),
+        ("21.2.0", "7", False),
+        ("21.2.1", "6", False),
+    ],
+)
+def test_resolve_212_general_build_admission_is_exact_and_prewrite(
+    tmp_path: Path, version: str, build: str, allowed: bool
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+
+    class SelectedBuild(_FakeAdapter):
+        def connected_facts(self) -> Any:
+            self._call("connected_facts")
+            return _Connected(version=version, build=build)
+
+    adapter = SelectedBuild()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _: adapter
+    )
+    assert result["status"] == ("preflight_passed" if allowed else "stopped_safely")
+    if not allowed:
+        assert result["partialTargetRetained"] is False
+        assert adapter.calls == ["connected_facts"]
+    else:
+        assert adapter.calls[:2] == ["connected_facts", "probe"]
+
+
+def test_resolve_212_still_motion_guard_is_not_relaxed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path)
+    monkeypatch.setattr(workflow_v2, "_requires_native_otio", lambda _: True)
+    monkeypatch.setattr(
+        workflow_v2,
+        "_verify_native_otio_plan",
+        lambda package: package.root / "synthetic-only.otio",
+    )
+
+    class SelectedBuild(_FakeAdapter):
+        def connected_facts(self) -> Any:
+            self._call("connected_facts")
+            return _Connected(version="21.2.0", build="6")
+
+    adapter = SelectedBuild()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(), attestation, digest, adapter_factory=lambda _: adapter
+    )
+    assert result["status"] == "stopped_safely"
+    # Production redacts this internal guard reason; a safe prewrite refusal
+    # must still report the expected stage and never invoke native mutation.
+    assert result["failureType"] == "WorkflowV2Error"
+    assert result["failureStage"] == "Resolve connection preflight"
+    assert result["partialTargetRetained"] is False
+    assert adapter.calls == ["connected_facts"]
+
+
+@pytest.mark.parametrize(
     ("failure", "expected_stages"),
     [
         (None, [("build", True), ("save/reopen", True), ("verify", True)]),

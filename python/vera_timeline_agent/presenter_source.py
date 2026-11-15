@@ -485,6 +485,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--existing-project", help="add to this project, already open in Resolve"
     )
     parser.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="BUNDLE.app",
+        help="Resolve Studio app bundle",
+    )
+    parser.add_argument(
         "--sample",
         action="store_true",
         help="also cut one tight and one wide piece into a sample timeline",
@@ -505,7 +511,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         with exclusive_resolve_build():
             built = build_source(
-                _external_resolve(),
+                _external_resolve(args.resolve_app),
                 recording,
                 project_name=name,
                 existing_project=args.existing_project is not None,

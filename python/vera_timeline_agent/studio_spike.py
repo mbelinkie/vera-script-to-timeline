@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+import os
 import platform
 import plistlib
 import re
@@ -33,6 +34,7 @@ BLACKMAGIC_RECEIPT_ID = "com.blackmagic-design.ManifestLite"
 BLACKMAGIC_BUNDLE_ID = "com.blackmagic-design.DaVinciResolve"
 TIMELINE_PAGES = frozenset({"cut", "edit", "color", "fairlight", "deliver"})
 VERSION_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
+BUNDLE_BUILD_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?")
 
 JsonObject = dict[str, Any]
 
@@ -401,8 +403,14 @@ def run_delivery(
     )
 
 
-def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
-    """Import the vendor bridge and connect only after local safety checks pass."""
+def load_resolve_adapter(
+    local: LocalFacts, *, scripting_library: Path | None = None
+) -> ResolveAdapter:
+    """Import the vendor bridge with the library inside the selected app bundle.
+
+    RESOLVE_SCRIPT_LIB is the Blackmagic stub's supported override. Limit its
+    lifetime to the connection so the next command keeps its original setup.
+    """
     module_path = Path(local.scripting_module_path)
     spec = importlib.util.spec_from_file_location("DaVinciResolveScript", module_path)
     if spec is None or spec.loader is None:
@@ -410,16 +418,34 @@ def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
     module = importlib.util.module_from_spec(spec)
     previous_module = sys.modules.get(spec.name)
     sys.modules[spec.name] = module
+    previous_library = os.environ.get("RESOLVE_SCRIPT_LIB")
     try:
+        if scripting_library is not None:
+            os.environ["RESOLVE_SCRIPT_LIB"] = str(scripting_library)
         spec.loader.exec_module(module)
+        loaded_module = sys.modules.get(spec.name, module)
+        if scripting_library is not None:
+            loaded_path = getattr(loaded_module, "__file__", None)
+            if (
+                not loaded_path
+                or Path(loaded_path).resolve() != scripting_library.resolve()
+            ):
+                raise StudioSpikeError(
+                    "Resolve loaded a different scripting library than the selected app"
+                )
+        resolve = loaded_module.scriptapp("Resolve")
     except BaseException:
         if previous_module is None:
             sys.modules.pop(spec.name, None)
         else:
             sys.modules[spec.name] = previous_module
         raise
-    loaded_module = sys.modules.get(spec.name, module)
-    resolve = loaded_module.scriptapp("Resolve")
+    finally:
+        if scripting_library is not None:
+            if previous_library is None:
+                os.environ.pop("RESOLVE_SCRIPT_LIB", None)
+            else:
+                os.environ["RESOLVE_SCRIPT_LIB"] = previous_library
     if resolve is None:
         raise StudioSpikeError("Resolve returned no scripting connection")
     return PublicResolveAdapter(resolve)
@@ -1085,20 +1111,31 @@ def _setting_matches(key: str, expected: str, actual: str) -> bool:
 def _bundle_identity(
     bundle_version: str | None, bundle_build: str | None
 ) -> tuple[int, int, int, int, str] | None:
-    """Parse the observed numeric Resolve macOS bundle identity, or fail closed."""
+    """Parse compact or four-part Resolve macOS bundle identity, or fail closed."""
     if bundle_version is None or bundle_build is None:
         return None
     version_match = VERSION_PATTERN.fullmatch(bundle_version)
-    build_match = VERSION_PATTERN.fullmatch(bundle_build)
+    build_match = BUNDLE_BUILD_PATTERN.fullmatch(bundle_build)
     if version_match is None or build_match is None:
         return None
     major, minor, patch = (int(value) for value in version_match.groups())
-    build_major, build_minor, encoded_patch_build = (
-        int(value) for value in build_match.groups()
-    )
-    encoded_patch, build = divmod(encoded_patch_build, 10_000)
-    if (build_major, build_minor, encoded_patch) != (major, minor, patch):
-        return None
+    build_major, build_minor, encoded_patch_build, separate_build = build_match.groups()
+    if separate_build is None:
+        encoded_patch, build = divmod(int(encoded_patch_build), 10_000)
+        if (int(build_major), int(build_minor), encoded_patch) != (
+            major,
+            minor,
+            patch,
+        ):
+            return None
+    else:
+        if (int(build_major), int(build_minor), int(encoded_patch_build)) != (
+            major,
+            minor,
+            patch,
+        ):
+            return None
+        build = int(separate_build)
     return major, minor, patch, build, ""
 
 

@@ -1102,13 +1102,29 @@ def test_external_adapter_uses_raw_sdk_resolve_and_closed_app_refuses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sdk_resolve = object()
-    facts = SimpleNamespace(app_installed=True, scripting_module_installed=True)
-    monkeypatch.setattr(studio_spike, "detect_local_capabilities", lambda: facts)
+    facts = SimpleNamespace(
+        app_installed=True,
+        scripting_module_installed=True,
+        bundle_identifier=studio_spike.BLACKMAGIC_BUNDLE_ID,
+        bundle_version="21.1.1",
+        bundle_build="21.1.10010",
+        mas_receipt=False,
+    )
+    monkeypatch.setattr(
+        studio_spike, "detect_local_capabilities", lambda **_kwargs: facts
+    )
     monkeypatch.setattr(
         studio_spike,
         "load_resolve_adapter",
         lambda observed: (
-            SimpleNamespace(resolve=sdk_resolve) if observed is facts else None
+            SimpleNamespace(
+                resolve=sdk_resolve,
+                connected_facts=lambda: studio_spike.ConnectedFacts(
+                    "DaVinci Resolve Studio", "studio", "21.1.1", "10", True
+                ),
+            )
+            if observed is facts
+            else None
         ),
     )
     assert build_timeline_once._external_resolve() is sdk_resolve
@@ -1119,6 +1135,126 @@ def test_external_adapter_uses_raw_sdk_resolve_and_closed_app_refuses(
     )
     with pytest.raises(NeedsAction, match="DaVinci Resolve Studio is not running"):
         build_timeline_once._external_resolve()
+
+
+@pytest.mark.parametrize(
+    ("version", "bundle_build", "runtime_version", "runtime_build", "allowed"),
+    [
+        ("21.2.0", "21.2.00006", "21.2.0", "6", True),
+        ("21.1.1", "21.1.10010", "21.1.1", "10", True),
+        ("21.2.0", "21.2.00006", "21.1.1", "10", False),
+        ("21.1.1", "21.1.10010", "21.2.0", "6", False),
+        ("21.2.0", "21.2.00006", "21.2.0", "7", False),
+    ],
+)
+def test_explicit_resolve_app_routes_matching_library_and_refuses_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    version: str,
+    bundle_build: str,
+    runtime_version: str,
+    runtime_build: str,
+    allowed: bool,
+) -> None:
+    app = tmp_path / "DaVinci Resolve.app"
+    library = app / "Contents/Libraries/Fusion/fusionscript.so"
+    library.parent.mkdir(parents=True)
+    library.write_bytes(b"fake test library")
+    facts = SimpleNamespace(
+        app_installed=True,
+        scripting_module_installed=True,
+        bundle_identifier=studio_spike.BLACKMAGIC_BUNDLE_ID,
+        bundle_version=version,
+        bundle_build=bundle_build,
+        mas_receipt=False,
+    )
+    seen: list[Path] = []
+    resolve = object()
+
+    def detect(*, app_path: Path) -> SimpleNamespace:
+        seen.append(app_path)
+        return facts
+
+    monkeypatch.setattr(
+        studio_spike,
+        "detect_local_capabilities",
+        detect,
+    )
+
+    def load(observed: object, *, scripting_library: Path) -> Any:
+        assert observed is facts
+        assert scripting_library == library
+        return SimpleNamespace(
+            resolve=resolve,
+            connected_facts=lambda: studio_spike.ConnectedFacts(
+                "DaVinci Resolve Studio", "studio", runtime_version, runtime_build, True
+            ),
+        )
+
+    monkeypatch.setattr(studio_spike, "load_resolve_adapter", load)
+    if allowed:
+        assert build_timeline_once._external_resolve(app) is resolve
+    else:
+        with pytest.raises(NeedsAction, match="does not match selected app"):
+            build_timeline_once._external_resolve(app)
+    assert seen == [app]
+
+
+def test_explicit_resolve_app_refuses_untrusted_bundle_before_connect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = tmp_path / "Resolve.app"
+    app.mkdir()
+    monkeypatch.setattr(
+        studio_spike,
+        "detect_local_capabilities",
+        lambda *, app_path: SimpleNamespace(
+            app_installed=True,
+            scripting_module_installed=True,
+            bundle_identifier="untrusted.app",
+            bundle_version="21.2.0",
+            bundle_build="21.2.00006",
+            mas_receipt=False,
+        ),
+    )
+    monkeypatch.setattr(
+        studio_spike,
+        "load_resolve_adapter",
+        lambda *_args, **_kwargs: pytest.fail("must never import untrusted API"),
+    )
+    with pytest.raises(NeedsAction, match="invalid Studio bundle identity"):
+        build_timeline_once._external_resolve(app)
+    with pytest.raises(NeedsAction, match="non-symlink"):
+        link = tmp_path / "other.app"
+        link.symlink_to(app)
+        build_timeline_once._external_resolve(link)
+
+
+def test_build_cli_passes_selected_resolve_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[BuildOptions] = []
+
+    def capture(options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        seen.append(options)
+        return DeliveryResult("test", "timeline", 96, 24000, 1001)
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", capture)
+    app = tmp_path / "DaVinci Resolve.app"
+    assert (
+        build_timeline_cli.main(
+            [
+                "--script",
+                str(tmp_path / "script.json"),
+                "--output",
+                str(tmp_path / "out"),
+                "--resolve-app",
+                str(app),
+            ]
+        )
+        == 0
+    )
+    assert seen[0].resolve_app == app
 
 
 def test_only_real_audio_and_fractional_refusals_get_specific_messages() -> None:
