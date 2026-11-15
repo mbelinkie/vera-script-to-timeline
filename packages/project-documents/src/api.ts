@@ -15,6 +15,7 @@ import {
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
 import type { ResearchChoiceReadService } from "./research-choices.js";
+import { parseSecondaryTimingPreview, type SecondaryTimingReadService } from "./secondary-timing.js";
 
 /** Max request bytes, including a full typed ScriptDocumentV2. */
 export const MAX_PROJECT_API_BODY_BYTES = 512 * 1024;
@@ -118,6 +119,8 @@ export interface ProjectApiDependencies {
   comments?: ProjectCommentService;
   /** Independent, per-principal Research authorization; absent on unmounted hosts. */
   researchChoices?: ResearchChoiceReadService;
+  /** Unmounted unless host injects a verified artifact/time-evidence reader. */
+  secondaryTiming?: SecondaryTimingReadService;
 }
 
 /** Unmounted Request -> Response handler. Hosting and identity implementation are outside #380. */
@@ -129,6 +132,22 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const secondaryTiming = /^\/v1\/projects\/([^/]+)\/document\/secondary-timing(?:\/(preview|operations))?$/u.exec(path);
+      if (secondaryTiming) {
+        if (secondaryTiming[2] === "operations" ||
+            (secondaryTiming[2] === "preview" ? request.method !== "POST" : request.method !== "GET")) {
+          return response(404, { error: "not_found" });
+        }
+        queryFields(url, []);
+        if (!deps.secondaryTiming) throw new ProjectDocumentError("service_unavailable", 503,
+          { reason: "timing_evidence_unavailable" });
+        const projectId = secondaryTiming[1]!;
+        if (secondaryTiming[2] === "preview") {
+          const input = parseSecondaryTimingPreview(await jsonBody(request));
+          return response(200, await deps.secondaryTiming.preview(projectId, principal, input));
+        }
+        return response(200, await deps.secondaryTiming.read(projectId, principal));
+      }
       const researchChoices = /^\/v1\/projects\/([^/]+)\/research-choices(?:\/(compare|choice))?$/u.exec(path);
       if (researchChoices) {
         if (researchChoices[2] === "choice" && request.method !== "POST" ||

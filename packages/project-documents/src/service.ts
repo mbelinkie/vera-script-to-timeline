@@ -1078,6 +1078,29 @@ export class ProjectDocumentService {
     });
   }
 
+  /** Recheck both authorization and the exact stored head bytes for trusted timing reads.
+   * The timing adapter calls this again after external artifact IO to refuse a
+   * revoked principal or a document that changed while evidence was fetched.
+   */
+  async getVerifiedSecondaryTimingBasis(projectIdInput: string, principal: PrincipalRef): Promise<DocumentView> {
+    const projectId = requireUuid(projectIdInput);
+    return await this.authorized(projectId, principal, "view_document", async (db) => {
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1", [projectId],
+      );
+      const row = head.rows[0];
+      if (!row) throw missing();
+      if (sha256(row.document_json) !== row.content_digest) throw unavailable();
+      let document: ScriptDocumentV2;
+      try {
+        document = checkedDocument(JSON.parse(row.document_json) as unknown,
+          projectId, row.document_id).document;
+      } catch { throw unavailable(); }
+      return { projectId, revision: int(row.revision), digest: row.content_digest, document };
+    });
+  }
+
   /** An editor preflight. Never use a view_document grant to start a Research choice. */
   async getEditableResearchChoiceDocument(
     projectIdInput: string, principal: PrincipalRef, writeSessionId?: string,
