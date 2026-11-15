@@ -1266,6 +1266,13 @@ reopened picture kept both source and record intervals at `[0,96)`. The cut
 used synthetic catalog and acquisition inputs with real FFmpeg; this does
 not qualify other source formats or authenticate a live catalog.
 
+The combined #82 timeline also saved, closed, reopened and verified on the
+same Studio build at 24 fps. It retained three cut pictures, one narration
+item, and two static authored slates. The failed fetch slate occupied
+`[264,300)` with the recorded label and a duration of 1.5 seconds. This
+qualifies intentional, package-verified PNG slates on that route; undefined
+and unresolved preview slates still refuse native build.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)
