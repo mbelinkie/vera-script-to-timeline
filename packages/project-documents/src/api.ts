@@ -15,6 +15,7 @@ import {
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
 import type { ResearchChoiceReadService } from "./research-choices.js";
+import type { SubtitleCopyService } from "./subtitle-copy.js";
 
 /** Max request bytes, including a full typed ScriptDocumentV2. */
 export const MAX_PROJECT_API_BODY_BYTES = 512 * 1024;
@@ -118,6 +119,8 @@ export interface ProjectApiDependencies {
   comments?: ProjectCommentService;
   /** Independent, per-principal Research authorization; absent on unmounted hosts. */
   researchChoices?: ResearchChoiceReadService;
+  /** Source-pinned, occurrence-owned copy service; absent hosts cannot derive. */
+  subtitleCopies?: SubtitleCopyService;
 }
 
 /** Unmounted Request -> Response handler. Hosting and identity implementation are outside #380. */
@@ -129,6 +132,72 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const subtitle = /^\/v1\/projects\/([^/]+)\/subtitle-copies\/([^/]+)(?:\/(derive|rederive|revisions))?$/u.exec(path);
+      if (subtitle) {
+        if (!deps.subtitleCopies) throw new ProjectDocumentError("service_unavailable", 503);
+        const projectId = subtitle[1]!, occurrenceId = subtitle[2]!, resource = subtitle[3];
+        if (request.method === "GET" && !resource) {
+          queryFields(url, []);
+          return response(200, await deps.subtitleCopies.get(projectId, principal, occurrenceId));
+        }
+        if (request.method === "GET" && resource === "revisions") {
+          const query = queryFields(url, ["limit", "beforeVersion"]);
+          return response(200, await deps.subtitleCopies.history(projectId, principal, occurrenceId,
+            query.limit === undefined ? undefined : requireHistoryLimit(numericParam(query.limit)),
+            query.beforeVersion === undefined ? undefined : numericParam(query.beforeVersion)));
+        }
+        if (request.method === "POST" && resource === "derive") {
+          queryFields(url, []);
+          const body = fields(await jsonBody(request),
+            ["expectedSourceDigest", "expectedDocumentRevision", "expectedDocumentDigest",
+              "clientMutationId", "writeSessionId"],
+            ["expectedSourceDigest", "expectedDocumentRevision", "expectedDocumentDigest", "clientMutationId"]);
+          const created = await deps.subtitleCopies.derive(projectId, principal, {
+            occurrenceId, expectedSourceDigest: body.expectedSourceDigest as string,
+            expectedDocumentRevision: body.expectedDocumentRevision as number,
+            expectedDocumentDigest: body.expectedDocumentDigest as string,
+            clientMutationId: body.clientMutationId as string,
+            ...(Object.hasOwn(body, "writeSessionId") ? { writeSessionId: body.writeSessionId as string } : {}),
+          });
+          return response(created.duplicateDelivery ? 200 : 201, created);
+        }
+        if (request.method === "POST" && resource === "rederive") {
+          queryFields(url, []);
+          const body = fields(await jsonBody(request),
+            ["expectedSourceDigest", "expectedVersion", "clientMutationId", "writeSessionId"],
+            ["expectedSourceDigest", "expectedVersion", "clientMutationId"]);
+          return response(200, await deps.subtitleCopies.rederive(projectId, principal, {
+            occurrenceId, expectedSourceDigest: body.expectedSourceDigest as string,
+            expectedVersion: body.expectedVersion as number,
+            clientMutationId: body.clientMutationId as string,
+            ...(Object.hasOwn(body, "writeSessionId") ? { writeSessionId: body.writeSessionId as string } : {}),
+          }));
+        }
+        if (request.method === "PATCH" && !resource) {
+          queryFields(url, []);
+          const body = fields(await jsonBody(request),
+            ["operation", "expectedSourceDigest", "expectedVersion", "clientMutationId",
+              "writeSessionId", "englishText"],
+            ["operation", "expectedSourceDigest", "expectedVersion", "clientMutationId"]);
+          if (body.operation !== "edit" && body.operation !== "approve") {
+            throw new ProjectDocumentInputError("Invalid subtitle operation.");
+          }
+          if ((body.operation === "edit") !== Object.hasOwn(body, "englishText")) {
+            throw new ProjectDocumentInputError("Invalid subtitle operation fields.");
+          }
+          const base = {
+            occurrenceId, expectedSourceDigest: body.expectedSourceDigest as string,
+            expectedVersion: body.expectedVersion as number,
+            clientMutationId: body.clientMutationId as string,
+            ...(Object.hasOwn(body, "writeSessionId") ? { writeSessionId: body.writeSessionId as string } : {}),
+          };
+          return response(200, body.operation === "edit" ?
+            await deps.subtitleCopies.edit(projectId, principal,
+              { ...base, englishText: body.englishText as string }) :
+            await deps.subtitleCopies.approve(projectId, principal, base));
+        }
+        return response(404, { error: "not_found" });
+      }
       const researchChoices = /^\/v1\/projects\/([^/]+)\/research-choices(?:\/(compare|choice))?$/u.exec(path);
       if (researchChoices) {
         if (researchChoices[2] === "choice" && request.method !== "POST" ||

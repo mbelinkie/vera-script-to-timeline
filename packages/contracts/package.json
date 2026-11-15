@@ -10,6 +10,7 @@
     "./script-validator": "./src/script-validator.ts",
     "./authoring-v2": "./src/authoring-v2.ts",
     "./research-revision-choice": "./src/research-revision-choice.ts",
+    "./subtitle-copy": "./src/subtitle-copy.ts",
     "./selective-outbound": "./src/selective-outbound.ts",
     "./selective-outbound-file-store": "./src/selective-outbound-file-store.ts",
     "./compiler-core": "./src/compiler-core.ts",
