@@ -1059,9 +1059,13 @@ def _native_treatment_supported(
         return True
     kind = picture.get("kind")
     if kind == "slate":
-        # The package binds a deterministic slate PNG. Its native placement and
-        # reopened picture treatment still require the external Studio gate.
-        return False
+        # Only an intentional, package-verified static slate can take the
+        # native still path. Preview slates never become deliverable pictures.
+        return (
+            event.get("kind") == "placeholder"
+            and picture.get("purpose") == "intentional"
+            and source.get("kind") == "still"
+        )
     if kind == "still_frame":
         if "imageMotion" in picture:
             # A motion-bearing package takes the *whole-timeline* native OTIO

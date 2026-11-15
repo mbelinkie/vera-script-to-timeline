@@ -1259,6 +1259,13 @@ music and Cross Dissolve retain their separate 21.1.1 gates; they were not
 qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
 this Intel host, as recorded in the #564 comparison.
 
+**#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable
+24 fps timeline built by the normal command from a Research cutter package.
+The synthetic H.264/AAC cut was verified and copied before compilation; the
+reopened picture kept both source and record intervals at `[0,96)`. The cut
+used synthetic catalog and acquisition inputs with real FFmpeg; this does
+not qualify other source formats or authenticate a live catalog.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)

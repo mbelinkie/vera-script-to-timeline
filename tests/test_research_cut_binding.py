@@ -5,11 +5,16 @@ import json
 from pathlib import Path
 
 import pytest
-
-from vera_timeline_agent.research_cut_binding import copy_cut, cut_identity, verify_cut
+from vera_timeline_agent.prep_media import failed_fetch_slate
+from vera_timeline_agent.research_cut_binding import (
+    Json,
+    copy_cut,
+    cut_identity,
+    verify_cut,
+)
 
 CLIP_ID = "d3e55d4a-72a9-4900-92a0-033d184a7cc8"
-SNAPSHOT = {
+SNAPSHOT: Json = {
     "clipId": CLIP_ID,
     "researchProjectId": "project",
     "catalogVideoId": "catalog",
@@ -59,3 +64,23 @@ def test_copy_verifies_selection_and_existing_bytes(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="byte verification"):
         copy_cut(cut, SNAPSHOT, dest)
     assert (cut / f"{CLIP_ID}.mp4").read_bytes() == f"{CLIP_ID}.mp4".encode()
+
+
+def test_failed_clip_uses_label_and_logged_duration_without_claiming_frames() -> None:
+    row: Json = {
+        "researchClip": {
+            **SNAPSHOT,
+            "video": {**SNAPSHOT["video"], "title": "Missing\npublic source"},
+        },
+        "payload": {"kind": "visual", "pictureKind": "unresolved_visual"},
+    }
+    failed_fetch_slate(row)
+    assert row["payload"]["source"] == {
+        "kind": "intentional_placeholder",
+        "text": "Unavailable: Missing public source",
+    }
+    assert row["visualOnlyTiming"] == {
+        "kind": "visual_only",
+        "durationOverrideMs": 1012,
+    }
+    assert "frameBinding" not in row
