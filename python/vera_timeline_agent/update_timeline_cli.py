@@ -331,6 +331,8 @@ def update_once(
                     all_ops,
                     planning.editor_moves(observation, comparison)[0],
                     all_transitions,
+                    current.view.get("markers", []),
+                    baseline.view.get("markers", []),
                 )
             except retime.RetimePrecheckError as error:
                 grouped = False
@@ -424,12 +426,19 @@ def update_once(
         ops: list[dict[str, Any]] = []
         transition_edits: list[dict[str, Any]] = []
         editor: dict[str, int] = {}
-        expect: dict[str, dict[str, Any]] = {}
+        checked: dict[str, Any] = {"expect": {}, "bonds": [], "end": 0}
         if retiming:
             ops, transition_edits = _batch(edits, timeline)
             editor = planning.editor_moves(observation, comparison)[0]
             try:
-                expect = retime.precheck(timeline, ops, editor, transition_edits)
+                checked = retime.precheck(
+                    timeline,
+                    ops,
+                    editor,
+                    transition_edits,
+                    current.view.get("markers", []),
+                    baseline.view.get("markers", []),
+                )
             except retime.RetimePrecheckError as error:
                 raise NeedsAction(f"{error}; nothing was changed") from error
 
@@ -464,9 +473,10 @@ def update_once(
 
         if retiming:
             window = current.view["timeline"]
+            # A clip he added may run past the script's last frame.
             bounds = [
                 window["startFrame"],
-                window["startFrame"] + window["durationFrames"],
+                max(window["startFrame"] + window["durationFrames"], checked["end"]),
             ]
             uid_by_event = {
                 item["eventId"]: item["resolveItemId"]
@@ -477,7 +487,9 @@ def update_once(
                 uid_by_event.pop(op["previousEventId"], None)
                 uid_by_event[op["eventId"]] = op["resolveItemId"]
             try:
-                attempt = planning.record_outcome(attempt, selected[0], "uncertain")
+                attempt = planning.record_outcome(
+                    attempt, planning.LENGTH_CHANGE, "uncertain"
+                )
                 _publish(output / "update-attempt.json", attempt)
                 made = retime.apply(
                     project,
@@ -490,6 +502,7 @@ def update_once(
                     uid_by_event=uid_by_event,
                     old_markers=baseline.view.get("markers", []),
                     new_markers=current.view.get("markers", []),
+                    bonds=checked["bonds"],
                 )
                 for old_uid, new_uid in made["created"].items():
                     for event_id, uid in uid_by_event.items():
@@ -501,10 +514,14 @@ def update_once(
                     problems = retime.check(
                         before,
                         seen,
-                        expect,
+                        checked["expect"],
                         created=made["created"],
                         transitions=made["transitions"],
                         bounds=bounds,
+                        required_transitions=[
+                            (edit["startFrame"], edit["endFrame"])
+                            for edit in transition_edits
+                        ],
                     )
                     live = native.live_items(target)
                     for op in ops:
@@ -539,18 +556,9 @@ def update_once(
                     raise native.NativeUpdateError("the archive copy changed")
                 native.select(project, timeline)
                 final_print = native.fingerprint(verify(timeline))
-                # One native batch covers every row; the record still chains
-                # row by row, ending on the fingerprint that was read back.
-                for position, row_id in enumerate(selected):
-                    last = position == len(selected) - 1
-                    attempt = planning.record_outcome(
-                        attempt,
-                        row_id,
-                        "verified",
-                        after=final_print
-                        if last
-                        else planning.outbound_hash([final_print, row_id]),
-                    )
+                attempt = planning.record_outcome(
+                    attempt, planning.LENGTH_CHANGE, "verified", after=final_print
+                )
                 _publish(output / "update-attempt.json", attempt)
             except Exception as error:
                 # The stop itself must still be reported if the report cannot be saved.

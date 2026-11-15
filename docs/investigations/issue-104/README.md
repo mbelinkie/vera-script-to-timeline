@@ -25,6 +25,16 @@ move, and the changed row be resized, without recreating clips?
 | Swap a tone for a different, longer file through the take selector | `AddTake` on an audio clip | **Not possible.** `GetTakesCount` returns nothing and `AddTake` returns false. |
 | Replace a tone with a longer file | Place the new file on a spare audio track, `CopyAttributes` (all audio and clip attributes) from the old clip, `SetFades` from the old clip, delete the old clip, `SetPosition` the new one into place, delete the spare track | Works. The new clip has a **new ID**. Volume and fades carried over. The new clip also read back with a Green clip colour the old one did not have. |
 
+## A music bed that spans rows
+
+`music_probe.py`, same build, November 15, 2026. A bed on A2 ran from the
+middle of row 1 to the middle of row 2 (frames 48 to 144) at −18 dB with a
+6-frame fade in and a 12-frame fade out. After row 1 was lengthened by 48
+frames, `SetRightOffset` extended the bed's tail to frame 192,
+`Timeline.MoveItems` then moved it 24 frames later, and `SetRightOffset`
+shortened it again. The bed kept its clip ID, level and both fades through
+each step and after reopen.
+
 ## What this means for #104
 
 On 21.2 a row can change length while every later row keeps its clips and
@@ -74,6 +84,7 @@ With Resolve Studio 21.2 running on an empty project:
 cd docs/investigations/issue-104
 uv run --frozen python move_probe.py "$media" "$scratch/probe-1.json"
 uv run --frozen python move_probe_2.py "$media" "$scratch/probe-2.json"
+uv run --frozen python music_probe.py "$media" "$scratch/probe-3.json"
 ```
 
 `$media` holds `A.mp4`, `B.mp4`, `C.mp4`, `Spare.mp4`, `A-96.wav`,

@@ -65,6 +65,7 @@ class Item:
         self.finalize_ok = True
         self.finalize_drops_markers = False
         self.handle = 100
+        self.resize_ok = True
         self.fades = {"FadeIn": 0.0, "FadeOut": 0.0}
         self.color = ""
         self.timeline: Timeline | None = None
@@ -133,7 +134,7 @@ class Item:
         return self.handle
 
     def SetRightOffset(self, value: float) -> bool:
-        if value < 0:
+        if value < 0 or not self.resize_ok:
             return False
         self.duration += self.handle - int(value)
         self.handle = int(value)
@@ -422,6 +423,7 @@ def _build(
     order: tuple[str, ...] = ROWS,
     transitions: list[dict[str, Any]] | None = None,
     voices: dict[str, str] | None = None,
+    bed: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """A document, manifest and delivery view with one picture per row.
 
@@ -497,6 +499,47 @@ def _build(
                 "contentHash": f"sha256:{voice}",
             }
         start += length
+    if bed:
+        # A music cue from the first row to the end of the last, as #100 builds it.
+        cue = {
+            "eventId": "music-cue",
+            "kind": "music",
+            "trackId": "m",
+            "provenance": {
+                "documentId": DOCUMENT,
+                "blockId": order[0],
+                "sourceId": f"src-{bed}",
+                "deliveredSourceHash": f"sha256:{bed}",
+            },
+            "recordRange": {"startFrame": 0, "endFrame": start},
+            "sourceRange": {"startFrame": 0, "endFrame": start},
+            "music": {
+                "spanId": "span-1",
+                "startRowId": order[0],
+                "endRowId": order[-1],
+                "gainDb": -12,
+                "requestedEndFrame": start,
+            },
+        }
+        events.append(cue)
+        view_events.append(
+            {
+                "id": "music-cue",
+                "sourceId": f"src-{bed}",
+                "kind": "music",
+                "trackId": "m",
+                "trackKind": "audio",
+                "recordRange": {"startFrame": 0, "durationFrames": start},
+                "sourceRange": {"startFrame": 0, "durationFrames": start},
+                "v2Event": cue,
+            }
+        )
+        sources[f"src-{bed}"] = {
+            "id": f"src-{bed}",
+            "kind": "audio",
+            "path": f"Media/Narration/{bed}.wav",
+            "contentHash": f"sha256:{bed}",
+        }
     document = {
         "schemaVersion": "script-document/v2",
         "id": DOCUMENT,
@@ -518,7 +561,11 @@ def _build(
             "revision": 1,
             "contentHash": f"sha256:{build}",
         },
-        "tracks": [{"id": "v"}, {"id": "a"}] if voices else [{"id": "v"}],
+        "tracks": [
+            {"id": "v"},
+            *([{"id": "a"}] if voices else []),
+            *([{"id": "m"}] if bed else []),
+        ],
         "events": events,
         "transitions": transitions or [],
     }
@@ -529,6 +576,11 @@ def _build(
             *(
                 [{"id": "a", "kind": "audio", "index": 1, "name": "Audio"}]
                 if voices
+                else []
+            ),
+            *(
+                [{"id": "m", "kind": "audio", "index": 5, "name": "Music"}]
+                if bed
                 else []
             ),
         ],
@@ -550,14 +602,18 @@ class Case:
         *,
         version: tuple[int, ...] = (21, 1, 1, 10),
         voices: dict[str, str] | None = None,
+        bed: str | None = None,
+        new_bed: str | None = None,
         new_voices: dict[str, str] | None = None,
         old_transitions: list[dict[str, Any]] | None = None,
         **current: Any,
     ) -> None:
         original = {row: (f"clip-{row}", 10) for row in ROWS}
         document, manifest, view = _build(
-            "build-1", original, voices=voices, transitions=old_transitions
+            "build-1", original, voices=voices, transitions=old_transitions, bed=bed
         )
+        if bed:
+            current["bed"] = new_bed or bed
         if voices:
             current["voices"] = new_voices or voices
         self.old_view = view
@@ -580,7 +636,11 @@ class Case:
                 _stamp(event),
             )
             item.timeline = self.timeline
-            self.timeline.tracks[event["trackKind"], 1].append(item)
+            index = 5 if event["trackId"] == "m" else 1
+            item.duration = event["recordRange"]["durationFrames"]
+            self.timeline.tracks.setdefault((event["trackKind"], index), []).append(
+                item
+            )
             placed.append(item)
         self.resolve = Resolve(self.project)
         self.resolve.version = [*version, ""]
@@ -598,9 +658,9 @@ class Case:
                     "resolveItemId": item.uid,
                     "trackId": event["trackId"],
                     "trackKind": event["trackKind"],
-                    "trackIndex": 1,
+                    "trackIndex": 5 if event["trackId"] == "m" else 1,
                     "startFrame": item.start,
-                    "durationFrames": 10,
+                    "durationFrames": item.duration,
                     **observe_item_details(item),
                 }
                 for event, item in zip(view["events"], placed, strict=True)
@@ -1172,3 +1232,180 @@ def test_same_length_swap_still_works_alone_on_the_newer_resolve(
     assert report["status"] == "updated"
     assert case.clip("row-2").media.name == "new-picture"  # type: ignore[union-attr]
     assert timeline_baseline.load_baseline(case.output).updated_in_place
+
+
+def _hand_clip(case: Case, uid: str, start: int, length: int, track: int = 2) -> Item:
+    clip = Item(uid, start, length, Media("b-roll"))
+    clip.timeline = case.timeline
+    case.timeline.tracks.setdefault(("video", track), []).append(clip)
+    return clip
+
+
+def test_hand_transition_starting_on_the_cut_is_also_refused_in_the_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    dissolve = Item("dissolve", 20, 4, None)  # Starts on the 2|3 cut.
+    dissolve.timeline = case.timeline
+    case.timeline.tracks["video", 1].append(dissolve)
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert "made by hand at frame 20" in report["rowsRefused"][0]["reason"]
+    assert case.clip("row-2").duration == 10
+
+
+def test_script_adding_a_transition_to_a_changed_row_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    added = {
+        **_transition(),
+        "fromRowId": "row-2",
+        "toRowId": "row-3",
+        "boundaryFrame": 24,
+        "startFrame": 22,
+        "endFrame": 26,
+        "effectIdentity": {"name": "Cross Dissolve", "category": "simple"},
+    }
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212, transitions=[added])
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert any("adds a transition" in row["reason"] for row in report["rowsRefused"])
+    assert len(case.project.timelines) == 1
+
+
+def test_swap_on_a_moving_row_keeps_its_script_transition_without_doubling_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = {
+        **_transition(),
+        "fromRowId": "row-2",
+        "toRowId": "row-3",
+        "boundaryFrame": 20,
+        "outgoingEventId": "event-row-2",
+        "incomingEventId": "event-row-3",
+        "startFrame": 18,
+        "endFrame": 22,
+        "effectIdentity": {"name": "Cross Dissolve", "category": "simple"},
+    }
+    case = Case(
+        tmp_path,
+        monkeypatch,
+        {"row-1": ("clip-row-1", 14), "row-2": ("new-picture", 10)},
+        version=V212,
+        old_transitions=[plan],
+        transitions=[{**plan, "boundaryFrame": 24, "startFrame": 22, "endFrame": 26}],
+    )
+    dissolve = Item("dissolve", 18, 4, None)
+    dissolve.timeline = case.timeline
+    case.timeline.tracks["video", 1].append(dissolve)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert case.clip("row-2").media.name == "new-picture"  # type: ignore[union-attr]
+    dissolves = [i for i in case.timeline.tracks["video", 1] if i.media is None]
+    assert dissolves == [dissolve] and dissolve.start == 22
+
+
+def test_clips_he_added_that_would_collide_are_refused_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, {"row-1": ("clip-row-1", 6)}, version=V212)
+    _hand_clip(case, "stays", 2, 4)  # Over row 1 only: it does not move.
+    _hand_clip(case, "moves", 10, 4)  # Over row 2: it moves 4 earlier, into "stays".
+    case.clip("row-1").start  # noqa: B018
+    stays = case.timeline.tracks["video", 2][0]
+    stays.start, stays.duration = 6, 4
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert any("on top of each other" in r["reason"] for r in report["rowsRefused"])
+    assert case.clip("row-1").duration == 10 and len(case.project.timelines) == 1
+
+
+def test_end_card_past_the_last_row_moves_and_the_result_is_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    card = _hand_clip(case, "end-card", 30, 5)
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert (card.start, card.duration) == (34, 5)
+    assert case.timeline.GetEndFrame() == 39
+
+
+def test_one_row_longer_and_a_later_one_shorter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(
+        tmp_path,
+        monkeypatch,
+        {"row-1": ("clip-row-1", 14), "row-2": ("clip-row-2", 6)},
+        version=V212,
+    )
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert [(i.start, i.duration) for i in case.timeline.tracks["video", 1]] == [
+        (0, 14),
+        (14, 6),
+        (20, 10),
+    ]
+
+
+def test_failed_length_change_reports_every_row_as_unconfirmed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    case.clip("row-2").resize_ok = False  # Fails after row 3 has already moved.
+    with pytest.raises(UncertainResult, match="do not run the update again"):
+        case.run("safe")
+    attempt = case.read("update-attempt.json")
+    assert [o["status"] for o in attempt["outcomes"]] == ["uncertain"]
+    report = case.read("update-report.json")
+    assert [row["rowId"] for row in report["rowsUncertain"]] == ["row-2", "row-3"]
+    assert not report["rowsOutOfSync"]
+    assert not (case.output / "row-timeline-map.json").exists()
+
+
+def _bed(case: Case) -> Item:
+    return case.timeline.tracks["audio", 5][0]
+
+
+def test_music_bed_under_a_lengthened_row_is_extended_in_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212, bed="theme")
+    bed = _bed(case)
+    bed.properties["AudioVolume"] = -18.0
+    bed.fades = {"FadeIn": 6.0, "FadeOut": 12.0}
+    report = case.run("safe")
+    assert report["status"] == "updated"
+    assert _bed(case) is bed and (bed.start, bed.duration) == (0, 34)
+    assert bed.properties["AudioVolume"] == -18.0 and bed.fades["FadeOut"] == 12.0
+    after = timeline_baseline.load_baseline(case.output)
+    assert (
+        observe_current(case.resolve, after.saved, after.view)["differenceCount"] == 0
+    )
+
+
+def test_music_bed_is_left_alone_by_a_same_length_swap_on_either_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for number, version in enumerate(((21, 1, 1, 10), V212)):
+        case = Case(
+            tmp_path / str(number), monkeypatch, SWAP, version=version, bed="theme"
+        )
+        bed = _bed(case)
+        report = case.run("safe")
+        assert report["status"] == "updated"
+        assert case.clip("row-2").media.name == "new-picture"  # type: ignore[union-attr]
+        assert _bed(case) is bed and (bed.start, bed.duration) == (0, 30)
+
+
+def test_music_bed_changed_to_another_file_is_refused_not_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(
+        tmp_path, monkeypatch, LONGER, version=V212, bed="theme", new_bed="other"
+    )
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert any("music or source sound" in r["reason"] for r in report["rowsRefused"])
+    assert (_bed(case).media.name, _bed(case).duration) == ("theme", 30)  # type: ignore[union-attr]

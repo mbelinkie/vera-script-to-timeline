@@ -20,8 +20,13 @@ from typing import Any
 ROUTE_REPLACE = "replace_in_place"
 ROUTE_RETIME = "retime"
 ROUTE_TRANSITION = "transition"
+LENGTH_CHANGE = "timeline-length-change"
 PICTURE_KINDS = frozenset({"primary_visual", "overlay_visual"})
 
+# #102 reports this against where clips are now; on a retime they move too.
+_RIDES_ALONG = frozenset(
+    {"An unassigned editor clip overlaps row clips or a linked transition/music span."}
+)
 _NO_MOVE = (
     "Resolve 21.1.1 cannot move or trim existing clips from a script. "
     "Doing this would mean deleting and recreating clips and losing the "
@@ -212,7 +217,8 @@ def _retime_row(
                     [],
                 )
             if (
-                _strip(old["v2Event"], _RETIME_IDENTITY)
+                _music_settings(old["v2Event"]) != _music_settings(new["v2Event"])
+                or _strip(old["v2Event"], _RETIME_IDENTITY)
                 != _strip(new["v2Event"], _RETIME_IDENTITY)
                 or _strip(old, _RETIME_VIEW_IDENTITY)
                 != _strip(new, _RETIME_VIEW_IDENTITY)
@@ -281,6 +287,23 @@ def _retime_row(
                     "replaceAudio": replace,
                 }
             )
+    old_ids = {
+        plan["id"]
+        for plan in baseline_manifest.get("transitions", [])
+        if plan["disposition"] == "apply"
+    }
+    for plan in current_manifest.get("transitions", []):
+        if (
+            row_id in (plan["fromRowId"], plan["toRowId"])
+            and plan["disposition"] == "apply"
+            and plan["id"] not in old_ids
+        ):
+            return (
+                "The script adds a transition on this row's cut. Adding a "
+                "transition in place is not done yet.",
+                [],
+                [],
+            )
     # A transition survives only when both sides of its cut move together.
     by_event = {edit["previousEventId"]: edit for edit in edits}
     new_plans = {plan["id"]: plan for plan in current_manifest.get("transitions", [])}
@@ -334,6 +357,14 @@ def _retime_row(
             [],
         )
     return None, edits, warnings
+
+
+def _music_settings(event: Mapping[str, Any]) -> Any:
+    """A music span's own settings, without the frame it was asked to end on."""
+    music = event.get("music")
+    if not isinstance(music, Mapping):
+        return music
+    return {key: value for key, value in music.items() if key != "requestedEndFrame"}
 
 
 def _relative(plan: Mapping[str, Any]) -> dict[str, Any]:
@@ -617,7 +648,7 @@ def plan_rows(
             conflict
             and group == ROUTE_RETIME
             and row["scriptChange"] == "unchanged"
-            and not row["hazards"]
+            and set(row["hazards"]) <= _RIDES_ALONG
             and all(
                 item["status"] in (["unchanged"], ["added"])
                 and not item.get("cannotRead")
@@ -625,7 +656,8 @@ def plan_rows(
             )
         ):
             # The row only moves, and the only Resolve-side difference is clips
-            # he added over it. They ride along with the row; nothing is lost.
+            # he added over or beside it. They travel with the rows they sit
+            # over, and the precheck refuses if any two would then collide.
             conflict = False
         plans.append(
             {
@@ -753,6 +785,32 @@ def freeze_plan(
     ):
         raise UpdatePlanError("unknown, duplicate or refused selection")
     changes = []
+    if any(known[row].get("group") == ROUTE_RETIME for row in selected):
+        # A length change is one native batch over every row, so it is one
+        # change with one receipt; a row of it is never "not yet reached".
+        body = {
+            "version": 1,
+            "source": source,
+            "target": target,
+            "baseline": baseline,
+            "changes": [
+                {
+                    "change": {
+                        "id": LENGTH_CHANGE,
+                        "order": 0,
+                        "kind": "structural",
+                        "edits": [
+                            {"rowId": row, **edit}
+                            for row in selected
+                            for edit in known[row]["edits"]
+                        ],
+                        "blocked": None,
+                    },
+                    "disposition": "selected",
+                }
+            ],
+        }
+        return {**body, "hash": outbound_hash(body)}
     for order, plan in enumerate(plans):
         change = {
             "id": plan["rowId"],
@@ -917,6 +975,8 @@ def build_report(
     for plan in plans:
         entry = {"rowId": plan["rowId"], "label": plan["label"]}
         outcome = outcomes.get(plan["rowId"])
+        if outcome is None and plan["refusal"] is None:
+            outcome = outcomes.get(LENGTH_CHANGE)
         if plan["refusal"] is not None:
             refused.append({**entry, "reason": plan["refusal"]})
         elif outcome == "verified" and status == "updated":

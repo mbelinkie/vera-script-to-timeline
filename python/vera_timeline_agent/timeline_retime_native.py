@@ -10,6 +10,7 @@ with its settings copied across. Nothing is retried.
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -44,12 +45,16 @@ def precheck(
     ops: Sequence[Mapping[str, Any]],
     editor: Mapping[str, int],
     transition_edits: Sequence[Mapping[str, Any]],
+    new_markers: Sequence[Mapping[str, Any]] = (),
+    old_markers: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Read-only checks before the first write. Returns what to expect after.
 
-    The result maps each existing item to how it should change: ``delta``
+    ``expect`` maps each existing item to how it should change: ``delta``
     frames later, a new ``duration``, a picture ``swap``, a new VERA marker
-    (``restamp``) or removal (``gone``).
+    (``restamp``) or removal (``gone``). ``bonds`` are pairs of clips that
+    share a transition and must travel in one move. ``end`` is the last frame
+    any clip will reach.
     """
     items = live_items(timeline)
     by_uid = {op["resolveItemId"]: op for op in ops}
@@ -83,77 +88,146 @@ def precheck(
             raise RetimePrecheckError("a clip you added is no longer there")
         expect[uid] = {"delta": delta}
 
-    def edge_delta(uid: str, edge: str) -> tuple[int, bool]:
-        """How far a clip's start or end travels, and whether it only moves."""
+    # Where every clip ends up. Nothing may land on top of anything else.
+    final: dict[tuple[str, int], list[tuple[int, int]]] = {}
+    end = 0
+    for uid, (kind, index, item) in items.items():
+        if kind == "video" and item.GetType() == "transition":
+            continue
         change = expect.get(uid, {})
-        delta = change.get("delta", 0)
+        start = item.GetStart(False) + change.get("delta", 0)
+        stop = start + change.get("duration", item.GetDuration(False))
+        final.setdefault((kind, index), []).append((start, stop))
+        end = max(end, stop)
+    for spans in final.values():
+        spans.sort()
+        for (_, first_stop), (second_start, _) in itertools.pairwise(spans):
+            if second_start < first_stop:
+                raise RetimePrecheckError(
+                    "after the change two clips would sit on top of each "
+                    f"other at frame {second_start}"
+                )
+
+    def edge(uid: str, which: str) -> tuple[int, bool]:
+        """How far a clip's start or end travels, and whether that edge is safe.
+
+        The end is safe only on a clip that just moves. The start is also
+        safe on a clip that is resized at its tail.
+        """
+        delta = expect.get(uid, {}).get("delta", 0)
         op = by_uid.get(uid)
         if op is None:
             return delta, True
-        pure = (
-            op["durationFrames"] == op["previousDurationFrames"]
-            and not op["swapPicture"]
-            and not op["replaceAudio"]
-        )
         grow = op["durationFrames"] - op["previousDurationFrames"]
-        return (delta + grow if edge == "end" else delta), pure
+        unreplaced = not op["swapPicture"] and not op["replaceAudio"]
+        if which == "end":
+            return delta + grow, grow == 0 and unreplaced
+        return delta, unreplaced
 
     planned = {
-        (e["previousStartFrame"], e["previousEndFrame"]) for e in transition_edits
+        (e["previousStartFrame"], e["previousEndFrame"]): e for e in transition_edits
     }
     seen_planned: set[tuple[int, int]] = set()
+    bonds: list[tuple[str, str]] = []
     for track, transition in _transitions(timeline):
-        start, end = transition.GetStart(False), transition.GetEnd(False)
-        if (start, end) in planned:
-            seen_planned.add((start, end))
-            expect[transition.GetUniqueId()] = {"gone": True}
+        start, stop = transition.GetStart(False), transition.GetEnd(False)
+        if (start, stop) in planned:
+            # Resolve may drop this one; the script's plan puts it back if so.
+            edit = planned[(start, stop)]
+            seen_planned.add((start, stop))
+            expect[transition.GetUniqueId()] = {
+                "maybe_gone": True,
+                "delta": edit["startFrame"] - start,
+            }
             continue
         left = right = None
         for uid, (kind, index, item) in items.items():
             if kind != "video" or index != track or item.GetType() == "transition":
                 continue
             clip_start = item.GetStart(False)
-            clip_end = clip_start + item.GetDuration(False)
-            if start < clip_end <= end and clip_start < start:
+            clip_stop = clip_start + item.GetDuration(False)
+            if start <= clip_stop <= stop and clip_start < start:
                 left = uid
-            if start <= clip_start < end and clip_end > end:
+            if start <= clip_start <= stop and clip_stop > stop:
                 right = uid
+        if left is None and right is None:
+            raise RetimePrecheckError(
+                f"a transition at frame {start} is not on a cut VERA can find"
+            )
         deltas = set()
-        pure = True
-        if left is not None:
-            delta, only_moves = edge_delta(left, "end")
-            deltas.add(delta)
-            pure &= only_moves
-        if right is not None:
-            deltas.add(edge_delta(right, "start")[0])
-        if len(deltas) > 1 or (not pure and deltas != {0}):
+        safe = True
+        for uid, which in ((left, "end"), (right, "start")):
+            if uid is not None:
+                delta, edge_safe = edge(uid, which)
+                deltas.add(delta)
+                safe &= edge_safe
+        if len(deltas) > 1 or (not safe and deltas != {0}):
             raise RetimePrecheckError(
                 f"a transition you made by hand at frame {start} sits on a cut "
                 "that has to open, and Resolve would drop it"
             )
-        if deltas and deltas != {0}:
+        if deltas != {0}:
             expect[transition.GetUniqueId()] = {"delta": deltas.pop()}
-    if seen_planned != planned:
+            if left is not None and right is not None:
+                bonds.append((left, right))
+    if seen_planned != set(planned):
         raise RetimePrecheckError(
             "a transition the script wrote is no longer as VERA built it"
         )
-    return expect
+
+    # A script marker must not land on a ruler marker he placed himself.
+    live_markers = timeline.GetMarkers()
+    if not isinstance(live_markers, Mapping):
+        raise RetimePrecheckError("timeline markers are unreadable")
+    ours = {marker["frame"]: _marker_stamp(marker) for marker in old_markers}
+    for marker in new_markers:
+        frame = marker["frame"]
+        present = live_markers.get(frame) or live_markers.get(float(frame))
+        if isinstance(present, Mapping) and present.get("customData") != ours.get(
+            frame
+        ):
+            raise RetimePrecheckError(
+                f"a script marker would land on your own marker at frame {frame}"
+            )
+    return {"expect": expect, "bonds": bonds, "end": end}
 
 
 def _runs(
-    moving: Sequence[tuple[int, int, Any]],
+    moving: Sequence[tuple[str, int, int, Any]],
+    slots: Mapping[str, tuple[str, int]],
+    bonds: Sequence[tuple[str, str]],
 ) -> list[tuple[int, list[Any], int]]:
-    """Group clips that sit next to each other in time and travel equally.
+    """Group clips that must travel in one call.
 
-    Clips moved in one call keep a transition on the cut between them.
+    Neighbours on one track that travel equally go together, as do two clips
+    that share a transition; a clip on another track never splits them.
     """
-    runs: list[tuple[int, list[Any], int]] = []
-    for start, delta, item in sorted(moving, key=lambda entry: entry[0]):
-        if runs and runs[-1][0] == delta:
-            runs[-1][1].append(item)
-        else:
-            runs.append((delta, [item], start))
-    return runs
+    parent = {uid: uid for uid, _, _, _ in moving}
+
+    def root(uid: str) -> str:
+        while parent[uid] != uid:
+            parent[uid] = parent[parent[uid]]
+            uid = parent[uid]
+        return uid
+
+    by_track: dict[tuple[str, int], list[tuple[int, int, str]]] = {}
+    for uid, start, delta, _ in moving:
+        by_track.setdefault(slots[uid], []).append((start, delta, uid))
+    for members in by_track.values():
+        members.sort()
+        for (_, first, one), (_, second, two) in itertools.pairwise(members):
+            if first == second:
+                parent[root(one)] = root(two)
+    for one, two in bonds:
+        if one in parent and two in parent:
+            parent[root(one)] = root(two)
+    groups: dict[str, tuple[int, list[Any], int]] = {}
+    for uid, start, delta, item in sorted(moving, key=lambda entry: entry[1]):
+        key = root(uid)
+        if key not in groups:
+            groups[key] = (delta, [], start)
+        groups[key][1].append(item)
+    return sorted(groups.values(), key=lambda run: run[2])
 
 
 def apply(
@@ -168,10 +242,14 @@ def apply(
     uid_by_event: Mapping[str, str],
     old_markers: Sequence[Mapping[str, Any]],
     new_markers: Sequence[Mapping[str, Any]],
+    bonds: Sequence[tuple[str, str]] = (),
 ) -> dict[str, Any]:
     """Carry out a prechecked retime. Returns the new clips it had to create."""
     items = {uid: item for uid, (_, _, item) in live_items(timeline).items()}
-    tracks = {uid: index for uid, (_, index, _) in live_items(timeline).items()}
+    slots = {
+        uid: (kind, index) for uid, (kind, index, _) in live_items(timeline).items()
+    }
+    tracks = {uid: index for uid, (_, index) in slots.items()}
 
     def resize(item: Any, change: int, target: int) -> None:
         handle = item.GetRightOffset()
@@ -194,6 +272,7 @@ def apply(
     # backwards, clips going earlier from the start forwards.
     moving = [
         (
+            op["resolveItemId"],
             op["previousStartFrame"],
             op["startFrame"] - op["previousStartFrame"],
             items[op["resolveItemId"]],
@@ -202,9 +281,10 @@ def apply(
         if op["startFrame"] != op["previousStartFrame"]
     ]
     moving += [
-        (items[uid].GetStart(False), delta, items[uid]) for uid, delta in editor.items()
+        (uid, items[uid].GetStart(False), delta, items[uid])
+        for uid, delta in editor.items()
     ]
-    runs = _runs(moving)
+    runs = _runs(moving, slots, bonds)
     ordered = [run for run in reversed(runs) if run[0] > 0]
     ordered += [run for run in runs if run[0] < 0]
     for delta, members, start in ordered:
@@ -289,6 +369,12 @@ def apply(
     # 5. Put back the script's own transitions that Resolve dropped.
     restored: list[str] = []
     for edit in transition_edits:
+        if any(
+            item.GetStart(False) == edit["startFrame"]
+            and item.GetEnd(False) == edit["endFrame"]
+            for _, item in _transitions(timeline)
+        ):
+            continue  # It travelled with its cut after all.
         outgoing = items[uid_by_event[edit["outgoingEventId"]]]
         added = outgoing.AddTransition(
             {
@@ -351,9 +437,17 @@ def check(
     created: Mapping[str, str],
     transitions: Sequence[str],
     bounds: Sequence[int],
+    required_transitions: Sequence[tuple[int, int]] = (),
 ) -> list[str]:
     """Differences from the expected result. Empty means hand work was kept."""
     problems: list[str] = []
+    spans = {
+        (row["start"], row["start"] + row["duration"])
+        for row in after["items"]
+        if row["type"] == "transition"
+    }
+    if any(span not in spans for span in required_transitions):
+        problems.append("a transition the script writes is missing")
     if list(after["bounds"]) != list(bounds):
         problems.append("the timeline is not the length the script gives it")
     if _vera_free(before["markers"]) != _vera_free(after["markers"]):
@@ -367,6 +461,8 @@ def check(
         change = expect.get(uid, {})
         where = f"{row['kind']} {row['track']} at {row['start']}"
         now = new.get(created.get(uid, uid))
+        if change.get("maybe_gone") and now is None:
+            continue  # Resolve dropped it; the script's plan put one back.
         if change.get("gone") and uid not in created:
             if uid in new:
                 problems.append(f"transition on {where} should have been replaced")
