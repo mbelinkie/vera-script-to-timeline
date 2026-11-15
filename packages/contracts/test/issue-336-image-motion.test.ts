@@ -20,6 +20,12 @@ const goldens = `${root}tests/data/authoring_v2/issue_336/compiler/`;
 type FrozenInput = { document: ScriptDocumentV2; dependencies: CompilerDependenciesV2 };
 type ImageMotion = NonNullable<AuthoringDefaultsV2["imageMotionDefault"]>;
 type NativeMotion = Extract<ImageMotion, { mode: "native_dynamic_zoom" }>;
+const omittedFramingMotion: NativeMotion = {
+  mode: "native_dynamic_zoom",
+  start: { focusX: 0.5, focusY: 0.5, scale: 1.05 },
+  end: { focusX: 0.5, focusY: 0.5, scale: 1.2 },
+  easing: "linear",
+};
 
 function fixture(name: string): FrozenInput {
   return JSON.parse(readFileSync(`${fixtureRoot}${name}.input.golden.json`, "utf8")) as FrozenInput;
@@ -118,6 +124,70 @@ describe("#336 frozen v2 still-image motion", () => {
     expect(validateDocument(visual.document)).toBe(true);
     block.payload.pictureKind = "clip";
     expect(validateDocument(visual.document)).toBe(false);
+  });
+
+  it("defaults only omitted ordinary-image framing and preserves explicit frozen treatments", () => {
+    const legacy = fixture("visual-only-image-still-ntsc-default");
+    const legacyBlock = legacy.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    delete legacyBlock.payload.framingPolicy;
+    delete legacy.dependencies.authoringDefaults.imageMotionDefault;
+    expect(validateDocument(legacy.document), JSON.stringify(validateDocument.errors)).toBe(true);
+    const legacyBefore = JSON.stringify(legacy);
+    const legacyResult = compileTimelineV2(legacy.document, legacy.dependencies);
+    expect(legacyResult.ok, JSON.stringify(legacyResult)).toBe(true);
+    if (!legacyResult.ok) return;
+    expect(JSON.stringify(legacy)).toBe(legacyBefore);
+    const legacyStill = legacyResult.manifest.events.find((event) => event.kind === "primary_visual")!;
+    expect(legacyStill.pictureTreatment).toEqual({
+      kind: "still_frame", pictureKind: "image", framingPolicy: "cover", imageMotion: omittedFramingMotion,
+    });
+    expect(legacyStill.provenance.payloadId).toBe(legacyBlock.payload.payloadId);
+    expect(validateManifest(legacyResult.manifest), JSON.stringify(validateManifest.errors)).toBe(true);
+
+    const configured = fixture("narrated-image-still-holds");
+    const row = configured.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const rootSlot = row.primaryVisualSequence!.slots[0]!;
+    if (rootSlot.kind !== "content" || rootSlot.payload.kind !== "visual") throw new Error("Expected still root");
+    delete rootSlot.payload.framingPolicy;
+    delete row.overlayEvents[0]!.payload.framingPolicy;
+    row.overlayEvents[0]!.payload.imageMotion = { mode: "none" };
+    configured.dependencies.authoringDefaults.imageMotionDefault = nativeMotion();
+    expect(validateDocument(configured.document), JSON.stringify(validateDocument.errors)).toBe(true);
+    const configuredBefore = JSON.stringify(configured);
+    const configuredResult = compileTimelineV2(configured.document, configured.dependencies);
+    expect(configuredResult.ok, JSON.stringify(configuredResult)).toBe(true);
+    if (!configuredResult.ok) return;
+    expect(JSON.stringify(configured)).toBe(configuredBefore);
+    const primary = configuredResult.manifest.events.find((event) => event.kind === "primary_visual")!;
+    const overlay = configuredResult.manifest.events.find((event) => event.kind === "overlay_visual")!;
+    expect(primary.pictureTreatment).toEqual({
+      kind: "still_frame", pictureKind: "image", framingPolicy: "cover", imageMotion: nativeMotion(),
+    });
+    expect(overlay.pictureTreatment).toEqual({
+      kind: "still_frame", pictureKind: "image", framingPolicy: "cover", imageMotion: { mode: "none" },
+    });
+    expect(validateManifest(configuredResult.manifest), JSON.stringify(validateManifest.errors)).toBe(true);
+
+    const explicitContain = structuredClone(configured);
+    const explicitRow = explicitContain.document.activeDraft.blocks[0] as NarrationBlockV2;
+    explicitRow.overlayEvents[0]!.payload.framingPolicy = "contain";
+    const explicitResult = compileTimelineV2(explicitContain.document, explicitContain.dependencies);
+    expect(explicitResult.ok, JSON.stringify(explicitResult)).toBe(true);
+    if (explicitResult.ok) {
+      const explicitOverlay = explicitResult.manifest.events.find((event) => event.kind === "overlay_visual")!;
+      expect(explicitOverlay.pictureTreatment).toEqual({
+        kind: "still_frame", pictureKind: "image", framingPolicy: "contain", imageMotion: { mode: "none" },
+      });
+    }
+  });
+
+  it("requires framing on non-image payloads", () => {
+    const input = fixture("visual-only-image-still-ntsc-default");
+    const block = input.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    delete block.payload.framingPolicy;
+    expect(validateDocument(input.document), JSON.stringify(validateDocument.errors)).toBe(true);
+    block.payload.pictureKind = "clip";
+    expect(validateDocument(input.document)).toBe(false);
   });
 
   it("freezes inherited native zoom and an explicit None overlay independently of live defaults", () => {
