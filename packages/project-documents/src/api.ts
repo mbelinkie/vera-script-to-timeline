@@ -15,6 +15,8 @@ import {
 import type { ProjectCommentService } from "./comments.js";
 import type { ProjectDocumentService } from "./service.js";
 import type { ResearchChoiceReadService } from "./research-choices.js";
+import { parseSecondaryTimingOperation, parseSecondaryTimingPreview,
+  type SecondaryTimingReadService } from "./secondary-timing.js";
 import type { SubtitleCopyService } from "./subtitle-copy.js";
 
 /** Max request bytes, including a full typed ScriptDocumentV2. */
@@ -119,6 +121,8 @@ export interface ProjectApiDependencies {
   comments?: ProjectCommentService;
   /** Independent, per-principal Research authorization; absent on unmounted hosts. */
   researchChoices?: ResearchChoiceReadService;
+  /** Unmounted unless host injects a verified artifact/time-evidence reader. */
+  secondaryTiming?: SecondaryTimingReadService;
   /** Source-pinned, occurrence-owned copy service; absent hosts cannot derive. */
   subtitleCopies?: SubtitleCopyService;
 }
@@ -132,6 +136,26 @@ export function createProjectApiHandler(deps: ProjectApiDependencies): (request:
       const principal = await deps.authorization.authenticateRequest(request, deps.identity);
       const url = new URL(request.url);
       const path = url.pathname;
+      const secondaryTiming = /^\/v1\/projects\/([^/]+)\/document\/secondary-timing(?:\/(preview|operations))?$/u.exec(path);
+      if (secondaryTiming) {
+        if ((secondaryTiming[2] === "preview" || secondaryTiming[2] === "operations") ?
+          request.method !== "POST" : request.method !== "GET") {
+          return response(404, { error: "not_found" });
+        }
+        queryFields(url, []);
+        if (!deps.secondaryTiming) throw new ProjectDocumentError("service_unavailable", 503,
+          { reason: "timing_evidence_unavailable" });
+        const projectId = secondaryTiming[1]!;
+        if (secondaryTiming[2] === "operations") {
+          const input = parseSecondaryTimingOperation(await jsonBody(request));
+          return response(200, await deps.secondaryTiming.apply(projectId, principal, input));
+        }
+        if (secondaryTiming[2] === "preview") {
+          const input = parseSecondaryTimingPreview(await jsonBody(request));
+          return response(200, await deps.secondaryTiming.preview(projectId, principal, input));
+        }
+        return response(200, await deps.secondaryTiming.read(projectId, principal));
+      }
       const subtitle = /^\/v1\/projects\/([^/]+)\/subtitle-copies\/([^/]+)(?:\/(derive|rederive|revisions))?$/u.exec(path);
       if (subtitle) {
         if (!deps.subtitleCopies) throw new ProjectDocumentError("service_unavailable", 503);

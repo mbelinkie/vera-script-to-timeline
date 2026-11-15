@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { previewSecondaryTimingReconcileV2 } from "@vera/contracts/authoring-v2";
 import type { PrincipalRef } from "@vera/contracts";
 import type { AuthoringProjectSettingsV1, ResearchClipSnapshotV2, RowGapV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import {
@@ -28,6 +29,7 @@ import { reconcileCommentsForDocumentRevision } from "./comments.js";
 import { compareDocuments, type SemanticChange } from "./semantic-diff.js";
 import { applyExtrasStorageOperation, parseExtrasOperationCommand } from "./extras-operations.js";
 import { assertFrozenResearchPinsOnPut, enumerateResearchOccurrences, updateResearchOccurrence } from "./research-choices.js";
+import type { SecondaryTimingOperationInput, VerifiedSecondaryTimingEvidence } from "./secondary-timing.js";
 import {
   checkedIdeas, checkedPromotionPositionV1, emptyIdeasV1, promoteIdeaToNoteV1,
   type IdeaOutlineV1, type IdeaItemV1,
@@ -760,6 +762,95 @@ export class ProjectDocumentService {
       digest: next.digest, duplicateDelivery: false };
   }
 
+  /** Same actor/project mutation namespace as PUT, checkpoints and Extras.
+   * The semantic request digest deliberately excludes mutable evidence: a
+   * retry can retrieve its original immutable receipt after the head moves. */
+  private secondaryTimingRequestDigest(projectId: string, input: SecondaryTimingOperationInput): string {
+    return fingerprint({ kind: "secondary_timing_operation", projectId,
+      expectedRevision: input.expectedRevision, expectedDigest: input.expectedDigest, command: input.command });
+  }
+
+  private async secondaryTimingReplay(db: SqlClient, projectId: string, actor: string,
+    input: SecondaryTimingOperationInput): Promise<MutationReceipt | null> {
+    await this.assertNoForeignMutation(db, projectId, actor, input.clientMutationId, "edit_document");
+    const prior = await db.query<MutationRow>(
+      "SELECT request_digest,revision::text,content_digest FROM stt_document_revisions" +
+        " WHERE project_id=$1 AND actor_id=$2 AND client_mutation_id=$3",
+      [projectId, actor, input.clientMutationId],
+    );
+    if (!prior.rows[0]) return null;
+    if (prior.rows[0].request_digest !== this.secondaryTimingRequestDigest(projectId, input)) throw reused();
+    const revision = await this.selectRevision(db, projectId, int(prior.rows[0].revision));
+    if (revision.digest !== prior.rows[0].content_digest) throw unavailable();
+    return { projectId, clientMutationId: input.clientMutationId, revision: revision.revision,
+      digest: revision.digest, duplicateDelivery: true };
+  }
+
+  /** Check idempotency under edit authorization *before* external artifact IO.
+   * Permission and write-session lease are rechecked on every replay. */
+  async getSecondaryTimingReplay(projectIdInput: string, principal: PrincipalRef,
+    input: SecondaryTimingOperationInput): Promise<MutationReceipt | null> {
+    const projectId = requireUuid(projectIdInput);
+    requireUuid(input.clientMutationId);
+    requireRevision(input.expectedRevision);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) =>
+      await this.secondaryTimingReplay(db, projectId, actor, input), sessionId);
+  }
+
+  /** Persist only compiler-proved typed still/overlay edits. External verified
+   * evidence was acquired outside SQL, and the original bytes/head/version
+   * are checked again under the same lock as PUT, comments and live edits. */
+  async applySecondaryTimingOperation(projectIdInput: string, principal: PrincipalRef,
+    input: SecondaryTimingOperationInput, evidence: VerifiedSecondaryTimingEvidence): Promise<MutationReceipt> {
+    const projectId = requireUuid(projectIdInput);
+    const mutationId = requireUuid(input.clientMutationId);
+    const expected = requireRevision(input.expectedRevision);
+    const sessionId = input.writeSessionId === undefined ? undefined : requireUuid(input.writeSessionId);
+    const requestDigest = this.secondaryTimingRequestDigest(projectId, input);
+    return await this.authorized(projectId, principal, "edit_document", async (db, actor) => {
+      const prior = await this.secondaryTimingReplay(db, projectId, actor, input);
+      if (prior) return prior;
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest" +
+          " FROM stt_document_heads WHERE project_id=$1 FOR UPDATE", [projectId],
+      );
+      const current = head.rows[0];
+      if (!current) throw missing();
+      if (sha256(current.document_json) !== current.content_digest) throw unavailable();
+      if (int(current.revision) !== expected || current.content_digest !== input.expectedDigest) {
+        throw conflict({ currentRevision: int(current.revision), currentDigest: current.content_digest });
+      }
+      let previousDocument: ScriptDocumentV2;
+      try {
+        previousDocument = checkedDocument(JSON.parse(current.document_json) as unknown,
+          projectId, current.document_id).document;
+      } catch { throw unavailable(); }
+      // The port is never supplied from HTTP. Still independently check the
+      // frozen evidence identity and hashes in case of a miswired internal host.
+      if (evidence.projectId !== projectId || evidence.documentId !== current.document_id ||
+          evidence.revision !== expected || evidence.digest !== current.content_digest ||
+          fingerprint(evidence.manifest) !== evidence.manifestHash ||
+          fingerprint(evidence.dependencies) !== evidence.dependenciesHash) throw unavailable();
+      const result = previewSecondaryTimingReconcileV2(previousDocument,
+        evidence.dependencies, evidence.manifest, input.command);
+      if (!result.ok) {
+        const stale = result.code === "STALE_TARGET" || result.code === "STALE_TIMING_MAP";
+        const unavailableEvidence = result.code === "BASELINE_UNVERIFIED";
+        throw new ProjectDocumentError(unavailableEvidence ? "service_unavailable" :
+          stale ? "version_conflict" : "invalid_request", unavailableEvidence ? 503 : stale ? 409 : 400,
+        { operationCode: result.code });
+      }
+      const next = checkedDocument(result.candidateDocument, projectId, current.document_id);
+      if (next.documentJson === current.document_json) {
+        throw new ProjectDocumentError("invalid_request", 400, { operationCode: "NO_FRAME_CHANGE" });
+      }
+      assertFrozenResearchPinsOnPut(previousDocument, next.document);
+      return await this.appendDocumentHead(db, projectId, current, previousDocument,
+        expected, actor, mutationId, requestDigest, next);
+    }, sessionId);
+  }
+
   async createCheckpoint(
     projectIdInput: string, principal: PrincipalRef, input: CreateCheckpointInput,
   ): Promise<CheckpointCreateReceipt> {
@@ -1082,6 +1173,29 @@ export class ProjectDocumentService {
       );
       if (!head.rows[0]) throw missing();
       return viewDocument(projectId, head.rows[0]);
+    });
+  }
+
+  /** Recheck both authorization and the exact stored head bytes for trusted timing reads.
+   * The timing adapter calls this again after external artifact IO to refuse a
+   * revoked principal or a document that changed while evidence was fetched.
+   */
+  async getVerifiedSecondaryTimingBasis(projectIdInput: string, principal: PrincipalRef): Promise<DocumentView> {
+    const projectId = requireUuid(projectIdInput);
+    return await this.authorized(projectId, principal, "view_document", async (db) => {
+      const head = await db.query<HeadRow>(
+        "SELECT document_id,revision::text,document_json,content_digest " +
+          "FROM stt_document_heads WHERE project_id=$1", [projectId],
+      );
+      const row = head.rows[0];
+      if (!row) throw missing();
+      if (sha256(row.document_json) !== row.content_digest) throw unavailable();
+      let document: ScriptDocumentV2;
+      try {
+        document = checkedDocument(JSON.parse(row.document_json) as unknown,
+          projectId, row.document_id).document;
+      } catch { throw unavailable(); }
+      return { projectId, revision: int(row.revision), digest: row.content_digest, document };
     });
   }
 
