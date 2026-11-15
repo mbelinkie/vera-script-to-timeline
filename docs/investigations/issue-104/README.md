@@ -47,6 +47,25 @@ Limits to respect:
 - Linked picture-and-sound clips, stills, speed changes and frame rates other
   than 24 were not tested here.
 
+## The update command on a real timeline
+
+November 15, 2026, same Resolve build, through the normal build and update
+commands with `--resolve-app`. `prepare_rows.py` wrote a two-row script (row
+B, then row A, 96 frames each) and a variant where row B is 144 frames with
+a new tone. Row A's picture carried a scripted saturation-0 grade, a 1.25
+zoom, an Orange clip colour, a marker and an OFX effect; its tone was at −12
+dB; an extra clip sat on V2 over row A; row B's tone was at −6 dB with
+four-frame fades and its picture had a marker.
+
+`update_timeline_cli --all-safe-rows` made the archive, extended row B's
+picture to 144 frames in place, replaced its tone with the new recording
+(new clip ID; −6 dB and both fades carried over), and moved row A's picture,
+tone and the V2 clip 48 frames later. After save, close and reopen every
+clip of row A had the same ID and every listed setting, and row B's picture
+kept its ID and marker. A second update from that update's folder, back to
+the 96-frame script, reversed all of it, and the observe command then
+reported only the V2 clip as an addition.
+
 ## Reproduce
 
 With Resolve Studio 21.2 running on an empty project:

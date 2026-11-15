@@ -303,16 +303,19 @@ allow-list. Running it twice emits byte-identical JSON.
 
 ### Update only the changed rows of a finished timeline
 
-With the built timeline open in Resolve Studio 21.1.1 build 10 on the Edit
-page, and the script changed since that build:
+With the built timeline open in Resolve Studio on the Edit page, and the
+script changed since that build:
 
 ```sh
 uv run --frozen python -m vera_timeline_agent.update_timeline_cli \
   --baseline-output "/absolute/path/to/previous-result-directory" \
   --script "/absolute/path/to/current-script-document.json" \
   --inputs "/absolute/path/to/current-prepared-inputs" \
-  --output "/absolute/path/to/new-unused-update-directory"
+  --output "/absolute/path/to/new-unused-update-directory" \
+  --resolve-app "/Applications/DaVinci Resolve 21.2/DaVinci Resolve.app"
 ```
+
+`--resolve-app` is only needed when Resolve is not at the standard path.
 
 It prints which rows are safe to update, which are in conflict, and which it
 refuses and why, then asks. Press Return and nothing in Resolve changes. Type
@@ -321,20 +324,32 @@ refuses and why, then asks. Press Return and nothing in Resolve changes. Type
 when it is named.
 
 Before any change it duplicates the timeline and keeps the copy, named
-`<timeline> archive <date time>`, as the archive. It then swaps each agreed
-row's picture in place, saves, closes and reopens the project, and checks that
-every clip it did not touch, every transition, every clip you added and the
-archive read back unchanged. On this Resolve version it only swaps a
-same-length video picture. A row that is added, removed, moved, made longer or
-shorter, or that changes narration, music, a still or a transition is refused
-with the reason, because Resolve 21.1.1 cannot move or trim a clip from a
-script without recreating it and losing its finishing.
+`<timeline> archive <date time>`, as the archive. After the change it saves,
+closes and reopens the project and checks that every clip it did not mean to
+change, every transition, every clip you added and the archive read back as
+expected.
+
+What it can do depends on the Resolve version:
+
+- **Studio 21.2.0 build 6.** Rows can get longer or shorter. Later rows move
+  in place and keep their clips and finishing; clips you added over a row
+  move with it. A picture is resized or swapped in place. A new narration
+  recording replaces the old clip, with its level, fades, EQ, audio effects,
+  colour, flags and markers carried over. When the timeline's length changes,
+  every changed row is updated together or not at all. It refuses added,
+  removed and reordered rows, stills and placeholders that would have to
+  move, a clip you moved or trimmed by hand, and a transition you made by
+  hand on a cut that has to open (Resolve would drop it). A transition the
+  script wrote on such a cut is put back from the script.
+- **Studio 21.1.1 build 10.** Only a same-length video picture swap. Anything
+  that would move or resize a clip is refused with the reason, because that
+  version can only do it by recreating clips and losing their finishing.
 
 Exit **0** means updated or nothing to do, **2** refused before any change, and
 **3** that a change could not be confirmed: do not run it again; the archive
-is the way back. When every affected row was updated, the update directory is
-the baseline for the next `observe`, compare or update. If rows were left out,
-the previous directory stays the baseline for them.
+is the way back. Use the update directory as `--baseline-output` for the next
+`observe`, compare or update, and keep the earlier directories: an update
+that left rows out builds on them.
 
 ## Validation
 
