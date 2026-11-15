@@ -34,6 +34,9 @@ BLACKMAGIC_RECEIPT_ID = "com.blackmagic-design.ManifestLite"
 BLACKMAGIC_BUNDLE_ID = "com.blackmagic-design.DaVinciResolve"
 TIMELINE_PAGES = frozenset({"cut", "edit", "color", "fairlight", "deliver"})
 VERSION_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
+BUNDLE_BUILD_PATTERN = re.compile(
+    r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?"
+)
 
 JsonObject = dict[str, Any]
 
@@ -1110,20 +1113,33 @@ def _setting_matches(key: str, expected: str, actual: str) -> bool:
 def _bundle_identity(
     bundle_version: str | None, bundle_build: str | None
 ) -> tuple[int, int, int, int, str] | None:
-    """Parse the observed numeric Resolve macOS bundle identity, or fail closed."""
+    """Parse compact or four-part Resolve macOS bundle identity, or fail closed."""
     if bundle_version is None or bundle_build is None:
         return None
     version_match = VERSION_PATTERN.fullmatch(bundle_version)
-    build_match = VERSION_PATTERN.fullmatch(bundle_build)
+    build_match = BUNDLE_BUILD_PATTERN.fullmatch(bundle_build)
     if version_match is None or build_match is None:
         return None
     major, minor, patch = (int(value) for value in version_match.groups())
-    build_major, build_minor, encoded_patch_build = (
-        int(value) for value in build_match.groups()
+    build_major, build_minor, encoded_patch_build, separate_build = (
+        build_match.groups()
     )
-    encoded_patch, build = divmod(encoded_patch_build, 10_000)
-    if (build_major, build_minor, encoded_patch) != (major, minor, patch):
-        return None
+    if separate_build is None:
+        encoded_patch, build = divmod(int(encoded_patch_build), 10_000)
+        if (int(build_major), int(build_minor), encoded_patch) != (
+            major,
+            minor,
+            patch,
+        ):
+            return None
+    else:
+        if (int(build_major), int(build_minor), int(encoded_patch_build)) != (
+            major,
+            minor,
+            patch,
+        ):
+            return None
+        build = int(separate_build)
     return major, minor, patch, build, ""
 
 

@@ -18,6 +18,7 @@ from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     TextPlusPlacement,
     TitlePlacementEvidence,
+    _bundle_identity,
     detect_local_capabilities,
     load_resolve_adapter,
     run_delivery,
@@ -62,6 +63,23 @@ def standard_local() -> LocalFacts:
         scripting_docs_path="/sdk/README.txt",
         scripting_docs_installed=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("version", "bundle_build", "expected"),
+    [
+        ("21.1.0", "21.1.0.0014", (21, 1, 0, 14, "")),
+        ("21.1.0", "21.1.00014", (21, 1, 0, 14, "")),
+        ("21.1.1", "21.1.10010", (21, 1, 1, 10, "")),
+        ("21.1.0", "21.1.1.0014", None),
+    ],
+)
+def test_bundle_identity_parses_compact_and_four_part_builds(
+    version: str,
+    bundle_build: str,
+    expected: tuple[int, int, int, int, str] | None,
+) -> None:
+    assert _bundle_identity(version, bundle_build) == expected
 
 
 class RecordingAdapter:
