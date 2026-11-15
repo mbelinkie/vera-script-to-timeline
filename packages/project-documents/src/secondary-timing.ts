@@ -1,5 +1,5 @@
 /**
- * Read-only, authorization-checked secondary timing API.
+ * Authorization-checked secondary timing read, preview and supported writes.
  *
  * A host may inject ONLY a trusted immutable artifact reader: it must verify
  * stored artifact hashes, build/project ownership and frozen compiler/source
@@ -46,6 +46,11 @@ export interface SecondaryTimingPreviewInput {
   expectedRevision: number;
   expectedDigest: string;
   command: SecondaryTimingReconcileCommandV2;
+}
+
+export interface SecondaryTimingOperationInput extends SecondaryTimingPreviewInput {
+  clientMutationId: string;
+  writeSessionId?: string;
 }
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -119,6 +124,22 @@ export function parseSecondaryTimingPreview(value: unknown): SecondaryTimingPrev
         expectedRange: range(c.expectedRange), durationMs: safePositive(c.durationMs) } };
   }
   throw new ProjectDocumentInputError("Unsupported secondary timing command.");
+}
+
+/** The write request contains an actor-scoped replay key, never a proposed
+ * document or a claimed artifact. A session lease is optional for hosts that
+ * do not use live collaboration, but is always checked when supplied. */
+export function parseSecondaryTimingOperation(value: unknown): SecondaryTimingOperationInput {
+  const input = requireObject(value);
+  const keys = Object.hasOwn(input, "writeSessionId") ?
+    ["expectedRevision", "expectedDigest", "command", "clientMutationId", "writeSessionId"] :
+    ["expectedRevision", "expectedDigest", "command", "clientMutationId"];
+  const operation = exact(input, keys);
+  const preview = parseSecondaryTimingPreview({ expectedRevision: operation.expectedRevision,
+    expectedDigest: operation.expectedDigest, command: operation.command });
+  return { ...preview, clientMutationId: requireUuid(operation.clientMutationId),
+    ...(Object.hasOwn(operation, "writeSessionId") ?
+      { writeSessionId: requireUuid(operation.writeSessionId) } : {}) };
 }
 
 function evidenceMatches(value: unknown, basis: DocumentView): value is VerifiedSecondaryTimingEvidence {
@@ -198,5 +219,19 @@ export class SecondaryTimingReadService {
         result: previewSecondaryTimingReconcileV2(basis.document, evidence.dependencies,
           evidence.manifest, input.command) };
     } catch { throw unavailable(); }
+  }
+
+  /** A replay is authorized and checked against the immutable SQL receipt
+   * BEFORE asking for evidence from an older head. Fresh commands are then
+   * fully checked again under the same head lock as PUT/live collaboration.
+   * Nothing here asserts that a subsequent Resolve build took place. */
+  async apply(projectId: string, principal: PrincipalRef, input: SecondaryTimingOperationInput) {
+    const prior = await this.documents.getSecondaryTimingReplay(projectId, principal, input);
+    if (prior) return { schemaVersion: "secondary-timing/v1" as const,
+      projectId: prior.projectId, disposition: "authoring_revision_saved" as const, receipt: prior };
+    const { evidence } = await this.verified(projectId, principal, input);
+    const receipt = await this.documents.applySecondaryTimingOperation(projectId, principal, input, evidence);
+    return { schemaVersion: "secondary-timing/v1" as const,
+      projectId: receipt.projectId, disposition: "authoring_revision_saved" as const, receipt };
   }
 }

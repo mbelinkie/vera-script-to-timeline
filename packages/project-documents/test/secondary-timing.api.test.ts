@@ -189,7 +189,7 @@ describe("#391 secondary timing verified API (read and proposal only)", () => {
     const noPort = createProjectApiHandler({ identity, authorization: auth, documents: service });
     expect(await json(await noPort(request(route, "GET", "viewer"))))
       .toEqual({ error: "service_unavailable", reason: "timing_evidence_unavailable" });
-    expect((await api(request(route + "/operations", "POST", "editor", input))).status).toBe(404);
+    expect((await api(request(route + "/operations", "POST", "editor", input))).status).toBe(400);
     expect((await api(request(route + "/preview", "GET", "viewer"))).status).toBe(404);
     expect((await api(request(route + "?roles=admin", "GET", "viewer"))).status).toBe(400);
     expect((await api(request(route + "/preview?x=1", "POST", "viewer", input))).status).toBe(400);
