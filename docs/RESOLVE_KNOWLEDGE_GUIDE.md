@@ -49,6 +49,8 @@ than implicitly inherited from a neighboring entry or today's installation.
 | Can I wait, retry, trust Complete or reuse verification work? | [Operations](#waiting-recovery-and-current-operations), RK-20–RK-24 |
 | What performance was actually measured? What should #313 consume? | [Handoff](#current-312--313-handoff), RK-30; RK-23/RK-31 for earlier measurements |
 | Do transitions, motion, spanning music or Fusion targets ship? | [Effects/integration](#effects-motion-and-editorial-integration-limits), RK-40–RK-45 and RK-04 |
+| Can 21.2 script an ordinary roll without recreating clips? | [RK-48](#rk-48--212-offset-setters-compose-a-persisted-linked-av-roll) and the [version comparison](investigations/issue-564/resolve-212-compatibility.md) |
+| Can the selected versioned Resolve app build a mixed timeline? | [RK-49](#rk-49--selected-resolve-apps-build-and-reopen-a-mixed-timeline) |
 | Does a design promise have a proof or an open gap? | [#318 crosswalk](#318-action-crosswalk) |
 | Is an apparent repeated test needed? | [Reuse audit](#reuse-audit-apparent-repeats-and-the-actual-delta) |
 
@@ -1187,6 +1189,55 @@ thumbnail distinguished grayscale from color on the finished source.
 LUT export returned no readable file. The finding covers the tested
 controls and source handles. #104 should refuse edits that remove known
 finishing or require guessing the placement of editor-only clips.
+
+### RK-48 — 21.2 offset setters compose a persisted linked AV roll
+
+**Proved bounded / native public API.** [#564 comparison](investigations/issue-564/resolve-212-compatibility.md)
+tested Studio **21.2.0 build 6**, external Local scripting, Intel Mac,
+synthetic 1920×1080/24 fps video with 48 kHz stereo PCM, zero timeline origin.
+Two adjacent linked AV pairs started at record `[0,48)` and `[48,96)`, with
+source `[0,48)` and `[60,108)`. Raising B's left available offset from 60 to
+64 shrank its head and moved its linked audio; reducing A's right offset
+from 72 to 68 extended A. The resulting boundary was 52, programme end
+stayed 96, A source out became 52, and B source in became 64 with out 108
+unchanged. All four original video/audio UIDs and reciprocal links survived
+save/close/reopen. Marker custom data, zoom 1.25, volume −12 dB, and track
+enabled/locked state also survived. A separate negative four-frame roll moved
+the same kind of linked boundary from 48 to 44 and kept all four linked UIDs
+after reopen. A forward four-frame roll on two generated PNG stills likewise
+preserved both IDs and a 96-frame timeline. All tests used structural readback.
+
+The sequence is **not atomic**: the first setter left a four-frame gap until
+the second succeeded. [Blackmagic's DEV-12324 reply](https://github.com/mbelinkie/vera-script-to-timeline/issues/490#issuecomment-6826230215)
+places the setters' introduction in **21.1.2**, confirms absolute available
+handle arguments, and says 21.1.1 has no supported same-item roll sequence.
+Both versions' stated Mac hardware requirements exclude this Intel host;
+that is shared baseline context, not a new 21.2 regression.
+
+**Reuse/delta:** reuse these ordinary roll results for the bounded handled AV
+and PNG fixtures. Atomic updates, arbitrary placeholder and finishing
+behavior, other rates and the shipped VERA update feature remain unverified.
+The shipped command's app discovery and build admission are separate
+compatibility boundaries addressed by RK-49. #104's hand-finished-row
+requirements remain independent.
+
+### RK-49 — Selected Resolve apps build and reopen a mixed timeline
+
+**Proved bounded / shipped CLI.** On November 15, 2026, issue #566 ran the
+same generated picture-and-narration fixture through the normal VERA build
+CLI with an explicit app path on Studio **21.2.0 build 6** and **21.1.1 build
+10**, one app at a time on the Intel Mac. Both built, saved, closed, reopened
+and independently verified a 1920×1080 timeline at 24000/1001. The reopened
+maps matched: narration on audio track 1 and pictures on video tracks 1 and 5,
+all at `[0,96)`; narration source frames were 0–94 and picture source frames
+0–96. Inputs and the disk project library were synthetic. With 21.2 running,
+selecting the 21.1.1 bundle was refused before project mutation.
+
+**Reuse/delta:** this qualifies only the selected-app mixed build and
+structural readback on those builds. Native OTIO image motion, row-spanning
+music and Cross Dissolve retain their separate 21.1.1 gates; they were not
+qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
+this Intel host, as recorded in the #564 comparison.
 
 ## #318 action crosswalk
 

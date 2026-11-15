@@ -198,7 +198,10 @@ def _row_for_addition(
 
 
 def observe_output(
-    output: Path, *, resolve_factory: Callable[[], Any] | None = None
+    output: Path,
+    *,
+    resolve_app: Path | None = None,
+    resolve_factory: Callable[[], Any] | None = None,
 ) -> dict[str, Any]:
     """Read the active timeline and compare its clips with the verified baseline."""
     root = _regular_absolute(output.absolute(), "build output", directory=True)
@@ -221,7 +224,7 @@ def observe_output(
     stamps = {event["id"]: _stamp(event) for event in package.view["events"]}
     with exclusive_resolve_build():
         manager, timeline, project_uid, timeline_uid = _current_readback_target(
-            (resolve_factory or _external_resolve)(),
+            resolve_factory() if resolve_factory else _external_resolve(resolve_app),
             project_name=saved["projectName"],
             timeline_name=saved["timelineName"],
             project_uid=saved["resolveProjectId"],
@@ -286,9 +289,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--output", type=Path, required=True, help="checked build results"
     )
+    parser.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="BUNDLE.app",
+        help="Resolve Studio app bundle",
+    )
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(observe_output(args.output), indent=2))
+        print(
+            json.dumps(
+                observe_output(args.output, resolve_app=args.resolve_app), indent=2
+            )
+        )
     except (ValueError, OSError, NeedsAction) as error:
         print(f"Cannot observe: {error}", file=sys.stderr)
         return 2

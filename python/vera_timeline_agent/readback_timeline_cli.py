@@ -31,6 +31,12 @@ def parser() -> argparse.ArgumentParser:
         "--project",
         help="exact currently open project name for a mapless existing-project build",
     )
+    command.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="BUNDLE.app",
+        help="Resolve Studio app bundle",
+    )
     return command
 
 
@@ -58,6 +64,7 @@ def readback_output(
     output: Path,
     *,
     project: str | None = None,
+    resolve_app: Path | None = None,
     resolve_factory: Callable[[], Any] | None = None,
 ) -> str:
     """Inspect package + SDK without selecting, saving or modifying Resolve."""
@@ -92,7 +99,7 @@ def readback_output(
     # current project or timeline. Another active native job is a refusal.
     with exclusive_resolve_build():
         snapshot = observe_current_timeline_v2(
-            (resolve_factory or _external_resolve)(),
+            resolve_factory() if resolve_factory else _external_resolve(resolve_app),
             package.view,
             project_name=expected_project,
             timeline_name=expected_timeline,
@@ -121,7 +128,11 @@ def readback_output(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        print(readback_output(args.output, project=args.project))
+        print(
+            readback_output(
+                args.output, project=args.project, resolve_app=args.resolve_app
+            )
+        )
         return 0
     except (ValueError, OSError, NeedsAction) as error:
         print(f"MISMATCH: {error}", file=sys.stderr)

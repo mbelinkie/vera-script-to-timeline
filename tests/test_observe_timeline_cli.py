@@ -97,6 +97,21 @@ def test_untouched_baseline_has_zero_differences_and_explicit_coverage(
     )
 
 
+@pytest.mark.parametrize("command", [cli, readback])
+def test_follow_up_cli_uses_selected_resolve_app(
+    command: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output, resolve, _, _, _ = _baseline(tmp_path, monkeypatch)
+    selected = tmp_path / "Resolve Studio 21.2.app"
+
+    def connect(app: Path) -> FakeResolve:
+        assert app == selected
+        return resolve
+
+    monkeypatch.setattr(command, "_external_resolve", connect)
+    assert command.main(["--output", str(output), "--resolve-app", str(selected)]) == 0
+
+
 def test_reports_move_trim_removal_and_added_clip_under_original_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -186,7 +201,9 @@ def test_missing_or_old_baseline_refused_before_connecting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     output, _, _ = _case(tmp_path, monkeypatch)
-    monkeypatch.setattr(cli, "_external_resolve", lambda: pytest.fail("called Resolve"))
+    monkeypatch.setattr(
+        cli, "_external_resolve", lambda _app: pytest.fail("called Resolve")
+    )
     assert cli.main(["--output", str(output)]) == 2
     assert "version 1" in capsys.readouterr().err
     (output / "row-timeline-map.json").unlink()
