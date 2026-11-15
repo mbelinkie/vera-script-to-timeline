@@ -3535,7 +3535,17 @@ def run_workflow_delivery_v2(
             or connected_identity not in SUPPORTED_V2_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
-        if native_otio and connected_identity != ("21.1.1", "10"):
+        if native_otio and connected_identity == ("21.1.1", "10"):
+            if any(
+                event["recordRange"]["durationFrames"] == 72
+                and isinstance(picture := event.get("pictureTreatment"), Mapping)
+                and "imageMotion" in picture
+                for event in view["events"]
+            ):
+                raise WorkflowV2Error(
+                    "72-frame image motion requires the measured Studio 21.2 build"
+                )
+        elif native_otio:
             # #508 checks centered image zoom and explicit None only. The
             # music route and custom Dynamic Zoom keep their previous gate.
             stills = [

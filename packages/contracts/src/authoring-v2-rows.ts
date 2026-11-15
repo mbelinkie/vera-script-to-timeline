@@ -546,7 +546,7 @@ function mirroredAttachmentPayload(noteId: string, clip: VisualOnlyBlockV2, slot
     kind: "visual", payloadId: attachedVisualPayloadId(noteId, clip.id, slotId), pictureKind: clip.payload.pictureKind,
     source: structuredClone(clip.payload.source), sourceUsage: selected ? { sourceInFrame: selected.startFrame } : null,
     audioPolicy: clip.payload.audioPolicy === "quiet" ? "quiet" : "mute",
-    framingPolicy: clip.payload.framingPolicy,
+    ...(clip.payload.framingPolicy !== undefined ? { framingPolicy: clip.payload.framingPolicy } : {}),
     ...(clip.researchClip ? { researchClip: structuredClone(clip.researchClip) } : {}),
     ...(clip.frameBinding ? { frameBinding: structuredClone(clip.frameBinding) } : {}),
     ...(selected ? { selectedSourceRange: structuredClone(selected) } : {}),
