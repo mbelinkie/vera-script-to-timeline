@@ -34,9 +34,7 @@ BLACKMAGIC_RECEIPT_ID = "com.blackmagic-design.ManifestLite"
 BLACKMAGIC_BUNDLE_ID = "com.blackmagic-design.DaVinciResolve"
 TIMELINE_PAGES = frozenset({"cut", "edit", "color", "fairlight", "deliver"})
 VERSION_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
-BUNDLE_BUILD_PATTERN = re.compile(
-    r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?"
-)
+BUNDLE_BUILD_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?")
 
 JsonObject = dict[str, Any]
 
@@ -1121,9 +1119,7 @@ def _bundle_identity(
     if version_match is None or build_match is None:
         return None
     major, minor, patch = (int(value) for value in version_match.groups())
-    build_major, build_minor, encoded_patch_build, separate_build = (
-        build_match.groups()
-    )
+    build_major, build_minor, encoded_patch_build, separate_build = build_match.groups()
     if separate_build is None:
         encoded_patch, build = divmod(int(encoded_patch_build), 10_000)
         if (int(build_major), int(build_minor), encoded_patch) != (
