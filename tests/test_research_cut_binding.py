@@ -50,8 +50,10 @@ def _cut(path: Path) -> Path:
 def test_copy_verifies_selection_and_existing_bytes(tmp_path: Path) -> None:
     root = tmp_path.resolve()
     cut = _cut(root / "research")
+    (cut / ".DS_Store").write_bytes(b"Finder metadata")
     dest = root / "timeline"
     copied = copy_cut(cut, SNAPSHOT, dest)
+    assert not (copied / ".DS_Store").exists()
     assert copy_cut(cut, SNAPSHOT, dest) == copied
     assert verify_cut(cut, SNAPSHOT)[1] == verify_cut(copied, SNAPSHOT)[1]
     wrong = {

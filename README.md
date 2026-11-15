@@ -61,7 +61,7 @@ corresponding lockfile change with the dependency change.
 
 ## One command: build a VERA v2 script in Resolve Studio
 
-To prepare narration and logged Research clips ahead of the build, use
+To prepare narration and standalone logged Research clip rows ahead of the build, use
 `prep_media`. It takes the v2 script and its frozen compiler settings and
 prints the prepared script and input directory to pass to the build command.
 Resolve can stay closed during preparation.

@@ -16,7 +16,7 @@ from vera_timeline_agent.narration.models import (
     SynthesisRequest,
 )
 from vera_timeline_agent.narration.normalize import NormalizationResult, Normalizer
-from vera_timeline_agent.narration.service import NarrationService
+from vera_timeline_agent.narration.service import BlockPlan, NarrationService
 from vera_timeline_agent.prep_media_narration import (
     narration_service_config,
     prepare_v2_narration_inputs,
@@ -218,6 +218,23 @@ def test_prepares_timing_and_prefixed_media_path_then_reuses_cache_offline(
     assert provider.calls == 1
     assert reused == prepared
     assert reports[1].startswith(f"Narration {BLOCK_ID}: reused,")
+
+
+def test_cache_missing_after_planning_cannot_call_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = _script(tmp_path / "script.json")
+    provider = LocalProvider()
+    service = _service(tmp_path, provider)
+    plan = service.plan_block
+
+    def planned_cached(block: dict[str, Any]) -> BlockPlan:
+        return replace(plan(block), cached=True)
+
+    monkeypatch.setattr(service, "plan_block", planned_cached)
+    with pytest.raises(NeedsAction, match="failed or changed"):
+        prepare_v2_narration_inputs(script, service)
+    assert provider.calls == 0
 
 
 def test_recorded_boundary_block_is_skipped_without_changing_inputs(

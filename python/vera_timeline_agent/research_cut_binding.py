@@ -42,7 +42,10 @@ def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
     hash_file(manifest)
     record = json.loads(manifest.read_bytes())
     if any(record.get(key) != value for key, value in expected.items()):
-        raise ValueError("Research cut does not match the frozen clip selection")
+        raise ValueError(
+            f"Research cut does not match the frozen clip selection: {folder}. "
+            "Choose an export root containing the matching cut."
+        )
     video_name = f"{clip_id}.mp4"
     video_hash = ""
     names: set[str] = set()
@@ -71,7 +74,9 @@ def verify_cut(folder: Path, snapshot: Json) -> tuple[Path, str]:
             video_hash = digest
     if not video_hash or f"{clip_id}.en.srt" not in names:
         raise ValueError("Research cut is missing its video or English subtitle")
-    if {item.name for item in folder.iterdir()} != names | {manifest.name}:
+    if {item.name for item in folder.iterdir()} - {".DS_Store"} != names | {
+        manifest.name
+    }:
         raise ValueError("Unexpected files in Research cut package")
     return folder / video_name, video_hash
 
@@ -91,7 +96,9 @@ def copy_cut(folder: Path, snapshot: Json, clip_directory: Path) -> Path:
     clip_directory.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".copy-", dir=clip_directory) as attempt:
         stage = Path(attempt) / "cut"
-        shutil.copytree(folder, stage, symlinks=True)
+        shutil.copytree(
+            folder, stage, symlinks=True, ignore=shutil.ignore_patterns(".DS_Store")
+        )
         if verify_cut(stage, snapshot)[1] != digest:
             raise ValueError("Research cut changed during copy")
         stage.rename(destination)

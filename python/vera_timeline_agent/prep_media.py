@@ -15,11 +15,12 @@ from typing import Any
 from .build_compiler_bridge import invoke_bridge
 from .build_jobs import BuildJobError, publish_immutable_output
 from .build_stage_receipt import canonical_json, hash_file
+from .build_timeline_once import _companion
 from .media_preparation import MediaPreparationError, MediaTools
 from .narration.cache import NarrationCache
 from .narration.cli import _validate_script
 from .narration.configuration import DEFAULT_PROFILE_ID, provider_for
-from .narration.models import identity_hash
+from .narration.models import identity_hash, sha256_bytes
 from .narration.normalize import Normalizer
 from .narration.service import VOICE_PROFILES, NarrationService
 from .narration.stage_directions import is_direction_only
@@ -119,6 +120,8 @@ def _reuse_handoff(
             continue
         if path.name != f"{key}-{_handoff_hash(path)}":
             raise ValueError("Prepared build inputs changed on disk")
+        if any(not _plain(Path(locator)).exists() for locator in info["assets"]):
+            continue
         for locator, digest in info["assets"].items():
             if hash_file(_plain(Path(locator))) != digest:
                 raise ValueError("A prepared media file changed on disk")
@@ -135,6 +138,25 @@ def _reuse_handoff(
             report(f"Narration {timing['blockId']}: reused")
         return path
     return None
+
+
+def _check_narrated_research(document: Json) -> None:
+    for row in document["activeDraft"]["blocks"]:
+        if row["type"] != "narration" or row["state"] != "active":
+            continue
+        attached = (row.get("attachedFootage") or {}).get("clip", {})
+        sequence = row.get("primaryVisualSequence") or {}
+        visuals = [
+            attached,
+            *(slot.get("payload", {}) for slot in sequence.get("slots", [])),
+        ]
+        for visual in visuals:
+            snapshot = visual.get("researchClip")
+            if snapshot and not visual.get("frameBinding"):
+                raise ValueError(
+                    f"RESEARCH_MEDIA_UNRESOLVED: {_label(snapshot)} on narration "
+                    f"row {row['id']} needs a verified source binding"
+                )
 
 
 def prepare_project(
@@ -158,7 +180,10 @@ def prepare_project(
     if not project_root.is_dir():
         raise ValueError("Choose an existing project directory")
     raw_document = read_json_object(script)
-    dependencies = read_json_object(input_root / "compiler-dependencies.json")
+    dependency_path = _companion(input_root, "compiler-dependencies.json")
+    if dependency_path is None:
+        raise ValueError("Prep Media requires compiler-dependencies.json")
+    dependencies = read_json_object(dependency_path)
     if dependencies.get("schemaVersion") != "compiler-dependencies/v2":
         raise ValueError("Prep Media requires v2 compiler settings")
     frozen = dependencies["document"]
@@ -174,8 +199,8 @@ def prepare_project(
     media_root.mkdir(exist_ok=True)
 
     def companion(name: str) -> Json:
-        path = _plain(input_root / name)
-        return read_json_object(path) if path.exists() else {}
+        path = _companion(input_root, name)
+        return read_json_object(path) if path is not None else {}
 
     preparations = companion("preparation-paths.json")
     media_paths = companion("media-paths.json")
@@ -202,6 +227,7 @@ def prepare_project(
         or document.get("schemaVersion") != "script-document/v2"
     ):
         raise ValueError(f"Prep Media requires a valid v2 script: {diagnostics[:500]}")
+    _check_narrated_research(document)
     cut_sources: dict[str, Path] = {}
     clip_times: dict[str, tuple[str, str, float]] = {}
     mappings = dependencies["occurrenceResolutions"]
@@ -319,7 +345,8 @@ def prepare_project(
                 text = treatment["text"]
                 size = manifest["timeline"]
                 data = render_placeholder_slate(text, size["width"], size["height"])
-                path = _plain(media_root / "Slates" / f"{event['eventId']}.png")
+                digest = sha256_bytes(data).removeprefix("sha256:")
+                path = _plain(media_root / "Slates" / f"{digest}.png")
                 publish_immutable_output(path, data)
                 media_paths[locator] = str(path)
             elif event["kind"] == "source_audio":

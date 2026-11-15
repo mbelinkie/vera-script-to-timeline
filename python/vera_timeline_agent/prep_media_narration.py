@@ -220,7 +220,13 @@ def prepare_v2_narration_inputs(
     for block, plan, planning_seconds in zip(work, plans, plan_seconds, strict=True):
         started = monotonic()
         try:
-            asset = service.process_block(block)
+            # A request that was cached was outside the approved spend.
+            no_provider = (
+                SpeechProviderError("planned narration cache entry is missing")
+                if plan.cached
+                else None
+            )
+            asset = service.process_block(block, _provider_error=no_provider)
             if asset.status != "ready" or asset.request_hash != plan.request_hash:
                 raise NeedsAction(
                     f"narration {block['id']} failed or changed; placeholder audio "
