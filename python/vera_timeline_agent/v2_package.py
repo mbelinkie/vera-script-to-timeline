@@ -1017,10 +1017,26 @@ def _validate_manifest_semantics(
             if isinstance(treatment, dict) and treatment.get("kind") == "still_frame":
                 provenance = cast(JsonObject, event["provenance"])
                 payload = authored_visuals.get(cast(str, provenance["payloadId"]))
-                expected_motion = (
-                    payload.get("imageMotion", frozen_default)
-                    if payload is not None
+                default_image_framing = (
+                    payload is not None
+                    and payload.get("pictureKind") == "image"
+                    and "framingPolicy" not in payload
+                )
+                if payload is not None and treatment.get("framingPolicy") != (
+                    "cover" if default_image_framing else payload.get("framingPolicy")
+                ):
+                    raise _error(
+                        f"still event {event_id} framing differs from authored policy"
+                    )
+                project_motion = (
+                    native_image_motion.DEFAULT_IMAGE_MOTION
+                    if default_image_framing and frozen_default is None
                     else frozen_default
+                )
+                expected_motion = (
+                    payload.get("imageMotion", project_motion)
+                    if payload is not None
+                    else project_motion
                 )
                 if (expected_motion is not None or "imageMotion" in treatment) and (
                     payload is None or treatment.get("imageMotion") != expected_motion

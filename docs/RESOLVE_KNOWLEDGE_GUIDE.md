@@ -1104,6 +1104,26 @@ evidence has not been converted into generalized product admission. #164
 owns preset/focus policy; #319 owns the web authoring consumer, not the
 underlying source/profile acceptance decision.
 
+**#508 delta — Studio 21.2.0 build 6, centered fill.** The normal VERA build
+created a fresh 1920×1080/24 fps project with verified, unchanged 8-bit RGB PNG
+stills: 1000×1000 square (48 frames), 1600×900 wide (96), 900×1600 tall (72),
+and a 1000×1000 explicit Fit/None control (48). Save, close and reopen verified
+the exact source and record extents. Resolve retained Type-22 fill and the
+centered Type-59 scale keys (1/1.05 to 1/1.20) for all three moving clips.
+The reopened Edit viewer showed filled frames at the sampled positions and
+visible zoom on the square; the control retained fit with zoom disabled and
+showed all four source corners with black padding. This was an 11-second
+synthetic timeline inspected without rendering. Color page clip thumbnails
+showed the fitted source even on moving clips, so they cannot verify the
+timeline's framing or motion.
+
+The new authoring default applies to ordinary images with omitted framing;
+explicit authored policies and earlier frozen builds keep their behavior.
+Fill intentionally crops tall images. Explicit Fit/None is static with black
+padding. Moving Fit, other image profiles, fractional-rate motion, and custom
+motion on Studio 21.2 remain unqualified. This check does not qualify music
+or transitions on 21.2. See [#508](https://github.com/mbelinkie/vera-script-to-timeline/issues/508).
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)

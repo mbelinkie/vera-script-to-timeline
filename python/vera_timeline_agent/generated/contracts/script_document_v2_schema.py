@@ -394,7 +394,7 @@ class NarratedVisualPayloadV2(TypedDict):
     source: SourceReference
     sourceUsage: SourceUsage | None
     audioPolicy: Literal["mute", "quiet"]
-    framingPolicy: Literal["contain", "cover", "native"]
+    framingPolicy: NotRequired[Literal["contain", "cover", "native"]]
     imageMotion: NotRequired[ImageMotionV1]
     researchClip: NotRequired[ResearchClipSnapshotV2]
     frameBinding: NotRequired[ResearchFrameBindingV2]
@@ -523,7 +523,7 @@ class StandaloneVisualPayloadV2(TypedDict):
     ]
     source: SourceReference
     audioPolicy: Literal["mute", "quiet", "full"]
-    framingPolicy: Literal["contain", "cover", "native"]
+    framingPolicy: NotRequired[Literal["contain", "cover", "native"]]
     imageMotion: NotRequired[ImageMotionV1]
 
 

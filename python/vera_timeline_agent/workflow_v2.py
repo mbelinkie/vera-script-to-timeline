@@ -3524,27 +3524,50 @@ def run_workflow_delivery_v2(
             if hasattr(connected, "__dataclass_fields__")
             else connected
         )
+        connected_identity = (
+            getattr(connected, "version", None),
+            getattr(connected, "build", None),
+        )
         if (
             getattr(connected, "edition", None) != "studio"
             or not getattr(connected, "scripting_available", False)
             or getattr(connected, "suffix", "")
-            or (getattr(connected, "version", None), getattr(connected, "build", None))
-            not in SUPPORTED_V2_IDENTITIES
+            or connected_identity not in SUPPORTED_V2_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
-        if native_otio and (
-            getattr(connected, "version", None),
-            getattr(connected, "build", None),
-        ) != ("21.1.1", "10"):
-            # Imported Type-22/59 still motion and raster geometry have only
-            # been positively qualified in installed Studio 21.1.1 build 10.
-            raise WorkflowV2Error(
-                "native image motion requires measured Studio 21.1.1 build 10"
-            )
-        if has_native_transitions and (
-            getattr(connected, "version", None),
-            getattr(connected, "build", None),
-        ) != ("21.1.1", "10"):
+        if native_otio and connected_identity == ("21.1.1", "10"):
+            if any(
+                event["recordRange"]["durationFrames"] == 72
+                and isinstance(picture := event.get("pictureTreatment"), Mapping)
+                and "imageMotion" in picture
+                for event in view["events"]
+            ):
+                raise WorkflowV2Error(
+                    "72-frame image motion requires the measured Studio 21.2 build"
+                )
+        elif native_otio:
+            # #508 checks centered image zoom and explicit None only. The
+            # music route and custom Dynamic Zoom keep their previous gate.
+            stills = [
+                picture
+                for event in view["events"]
+                if isinstance(picture := event.get("pictureTreatment"), Mapping)
+                and "imageMotion" in picture
+            ]
+            if (
+                connected_identity != ("21.2.0", "6")
+                or has_music
+                or not stills
+                or any(
+                    picture["imageMotion"]
+                    not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
+                    for picture in stills
+                )
+            ):
+                raise WorkflowV2Error(
+                    "native OTIO treatment lacks qualification on this Studio build"
+                )
+        if has_native_transitions and connected_identity != ("21.1.1", "10"):
             raise WorkflowV2Error(
                 "native Cross Dissolve requires measured Studio 21.1.1 build 10"
             )
