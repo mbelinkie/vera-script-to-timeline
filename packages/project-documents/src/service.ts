@@ -650,27 +650,33 @@ export class ProjectDocumentService {
     return verifiedCheckpoint(projectId, result.rows[0]);
   }
 
-  /** Mutation IDs are per actor/project across document writes, checkpoints, and approvals. */
-  private async assertNoForeignMutation(
+  /** Internal transaction-only cross-operation receipt guard shared with subtitle-copy writes.
+   * Call after authorization, before looking up an operation's own replay receipt.
+   */
+  async assertNoForeignMutation(
     db: SqlClient, projectId: string, actor: string, mutationId: string,
-    operation: "create_checkpoint" | "approve_checkpoint" | "edit_document" | "put_ideas" | "promote_idea",
+    operation: "create_checkpoint" | "approve_checkpoint" | "edit_document" | "put_ideas" | "promote_idea" | "subtitle_copy",
   ): Promise<void> {
     // Independent legacy hosts may not have migrated history/Ideas yet.
     // Reject partial installs, but allow complete absent extensions for old consumers.
     const installed = await db.query<{
       checkpoints: boolean; approvals: boolean; ideas_heads: boolean;
-      ideas_revisions: boolean; ideas_receipts: boolean;
+      ideas_revisions: boolean; ideas_receipts: boolean; subtitle_heads: boolean; subtitle_revisions: boolean;
     }>(
       "SELECT to_regclass('stt_document_checkpoints') IS NOT NULL AS checkpoints," +
         " to_regclass('stt_checkpoint_approvals') IS NOT NULL AS approvals," +
         " to_regclass('stt_idea_heads') IS NOT NULL AS ideas_heads," +
         " to_regclass('stt_idea_revisions') IS NOT NULL AS ideas_revisions," +
-        " to_regclass('stt_ideas_mutation_receipts') IS NOT NULL AS ideas_receipts",
+        " to_regclass('stt_ideas_mutation_receipts') IS NOT NULL AS ideas_receipts," +
+        " to_regclass('stt_subtitle_copy_heads') IS NOT NULL AS subtitle_heads," +
+        " to_regclass('stt_subtitle_copy_revisions') IS NOT NULL AS subtitle_revisions",
     );
     const state = installed.rows[0];
     if (!state || state.checkpoints !== state.approvals ||
         state.ideas_heads !== state.ideas_revisions ||
         state.ideas_revisions !== state.ideas_receipts ||
+        state.subtitle_heads !== state.subtitle_revisions ||
+        (operation === "subtitle_copy" && !state.subtitle_revisions) ||
         ((operation === "put_ideas" || operation === "promote_idea") && !state.ideas_receipts)) {
       throw unavailable();
     }
@@ -680,6 +686,7 @@ export class ProjectDocumentService {
       ...(state.approvals && operation !== "approve_checkpoint" ? ["stt_checkpoint_approvals"] : []),
       ...(state.ideas_receipts && operation !== "put_ideas" && operation !== "promote_idea" ?
         ["stt_ideas_mutation_receipts"] : []),
+      ...(state.subtitle_revisions && operation !== "subtitle_copy" ? ["stt_subtitle_copy_revisions"] : []),
     ];
     for (const table of tables) {
       const actorColumn = table === "stt_document_revisions" ? "actor_id" :
