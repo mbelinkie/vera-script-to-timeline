@@ -239,7 +239,7 @@ def _case(
     monkeypatch.setattr(cli, "load_verified_package_v2", verified)
     timeline = FakeTimeline(view)
     resolve = FakeResolve(FakeProject(timeline))
-    monkeypatch.setattr(cli, "_external_resolve", lambda: resolve)
+    monkeypatch.setattr(cli, "_external_resolve", lambda _app: resolve)
     observed = [
         {
             "eventId": event["id"],
@@ -490,7 +490,9 @@ def test_cli_nonzero_and_no_sdk_write_on_error(
     assert cli.main(["--output", str(output)]) == 2
     assert "MISMATCH" in capsys.readouterr().err
     monkeypatch.setattr(
-        cli, "_external_resolve", lambda: (_ for _ in ()).throw(RuntimeError("closed"))
+        cli,
+        "_external_resolve",
+        lambda _app: (_ for _ in ()).throw(RuntimeError("closed")),
     )
     assert cli.main(["--output", str(output)]) == 2
     assert "readback unavailable" in capsys.readouterr().err

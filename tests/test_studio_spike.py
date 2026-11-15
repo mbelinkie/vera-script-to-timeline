@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -17,6 +18,7 @@ from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
     TextPlusPlacement,
     TitlePlacementEvidence,
+    _bundle_identity,
     detect_local_capabilities,
     load_resolve_adapter,
     run_delivery,
@@ -61,6 +63,23 @@ def standard_local() -> LocalFacts:
         scripting_docs_path="/sdk/README.txt",
         scripting_docs_installed=True,
     )
+
+
+@pytest.mark.parametrize(
+    ("version", "bundle_build", "expected"),
+    [
+        ("21.1.0", "21.1.0.0014", (21, 1, 0, 14, "")),
+        ("21.1.0", "21.1.00014", (21, 1, 0, 14, "")),
+        ("21.1.1", "21.1.10010", (21, 1, 1, 10, "")),
+        ("21.1.0", "21.1.1.0014", None),
+    ],
+)
+def test_bundle_identity_parses_compact_and_four_part_builds(
+    version: str,
+    bundle_build: str,
+    expected: tuple[int, int, int, int, str] | None,
+) -> None:
+    assert _bundle_identity(version, bundle_build) == expected
 
 
 class RecordingAdapter:
@@ -388,6 +407,67 @@ def test_vendor_bridge_uses_module_replacement_from_sys_modules(
 
     assert isinstance(adapter, PublicResolveAdapter)
     assert adapter.resolve == ("replacement", "Resolve")
+
+
+def test_vendor_bridge_uses_selected_library_only_during_connection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    standard_local: LocalFacts,
+) -> None:
+    module_name = "DaVinciResolveScript"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    script = tmp_path / f"{module_name}.py"
+    script.write_text(
+        "import os\n"
+        "__file__ = os.environ['RESOLVE_SCRIPT_LIB']\n"
+        "def scriptapp(name):\n"
+        "    return (name, os.environ.get('RESOLVE_SCRIPT_LIB'))\n",
+        encoding="utf-8",
+    )
+    local = LocalFacts(
+        **(standard_local.__dict__ | {"scripting_module_path": str(script)})
+    )
+    monkeypatch.setenv("RESOLVE_SCRIPT_LIB", "/original/script.so")
+    library = tmp_path / "selected" / "fusionscript.so"
+    adapter = load_resolve_adapter(local, scripting_library=library)
+    assert isinstance(adapter, PublicResolveAdapter)
+    assert adapter.resolve == ("Resolve", str(library))
+    assert os.environ["RESOLVE_SCRIPT_LIB"] == "/original/script.so"
+
+
+def test_vendor_bridge_refuses_library_ignored_by_vendor_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, standard_local: LocalFacts
+) -> None:
+    script = tmp_path / "DaVinciResolveScript.py"
+    script.write_text(
+        "__file__ = '/other/fusionscript.so'\n"
+        "def scriptapp(name):\n"
+        "    raise AssertionError('must not connect')\n",
+        encoding="utf-8",
+    )
+    local = LocalFacts(
+        **(standard_local.__dict__ | {"scripting_module_path": str(script)})
+    )
+    monkeypatch.delenv("RESOLVE_SCRIPT_LIB", raising=False)
+    with pytest.raises(StudioSpikeError, match="different scripting library"):
+        load_resolve_adapter(local, scripting_library=tmp_path / "selected.so")
+    assert "RESOLVE_SCRIPT_LIB" not in os.environ
+
+
+def test_vendor_bridge_restores_library_on_failed_connection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    standard_local: LocalFacts,
+) -> None:
+    monkeypatch.delenv("RESOLVE_SCRIPT_LIB", raising=False)
+    script = tmp_path / "DaVinciResolveScript.py"
+    script.write_text("raise RuntimeError('bridge rejected selected library')\n")
+    local = LocalFacts(
+        **(standard_local.__dict__ | {"scripting_module_path": str(script)})
+    )
+    with pytest.raises(RuntimeError, match="bridge rejected selected library"):
+        load_resolve_adapter(local, scripting_library=tmp_path / "bad.so")
+    assert "RESOLVE_SCRIPT_LIB" not in os.environ
 
 
 def test_vendor_bridge_failed_import_restores_prior_sys_modules_entry(

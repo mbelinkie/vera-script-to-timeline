@@ -50,6 +50,7 @@ than implicitly inherited from a neighboring entry or today's installation.
 | What performance was actually measured? What should #313 consume? | [Handoff](#current-312--313-handoff), RK-30; RK-23/RK-31 for earlier measurements |
 | Do transitions, motion, spanning music or Fusion targets ship? | [Effects/integration](#effects-motion-and-editorial-integration-limits), RK-40–RK-45 and RK-04 |
 | Can 21.2 script an ordinary roll without recreating clips? | [RK-48](#rk-48--212-offset-setters-compose-a-persisted-linked-av-roll) and the [version comparison](investigations/issue-564/resolve-212-compatibility.md) |
+| Can the selected versioned Resolve app build a mixed timeline? | [RK-49](#rk-49--selected-resolve-apps-build-and-reopen-a-mixed-timeline) |
 | Does a design promise have a proof or an open gap? | [#318 crosswalk](#318-action-crosswalk) |
 | Is an apparent repeated test needed? | [Reuse audit](#reuse-audit-apparent-repeats-and-the-actual-delta) |
 
@@ -1217,8 +1218,26 @@ that is shared baseline context, not a new 21.2 regression.
 and PNG fixtures. Atomic updates, arbitrary placeholder and finishing
 behavior, other rates and the shipped VERA update feature remain unverified.
 The shipped command's app discovery and build admission are separate
-compatibility boundaries recorded in the comparison. #104's hand-finished-row
+compatibility boundaries addressed by RK-49. #104's hand-finished-row
 requirements remain independent.
+
+### RK-49 — Selected Resolve apps build and reopen a mixed timeline
+
+**Proved bounded / shipped CLI.** On November 15, 2026, issue #566 ran the
+same generated picture-and-narration fixture through the normal VERA build
+CLI with an explicit app path on Studio **21.2.0 build 6** and **21.1.1 build
+10**, one app at a time on the Intel Mac. Both built, saved, closed, reopened
+and independently verified a 1920×1080 timeline at 24000/1001. The reopened
+maps matched: narration on audio track 1 and pictures on video tracks 1 and 5,
+all at `[0,96)`; narration source frames were 0–94 and picture source frames
+0–96. Inputs and the disk project library were synthetic. With 21.2 running,
+selecting the 21.1.1 bundle was refused before project mutation.
+
+**Reuse/delta:** this qualifies only the selected-app mixed build and
+structural readback on those builds. Native OTIO image motion, row-spanning
+music and Cross Dissolve retain their separate 21.1.1 gates; they were not
+qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
+this Intel host, as recorded in the #564 comparison.
 
 ## #318 action crosswalk
 
