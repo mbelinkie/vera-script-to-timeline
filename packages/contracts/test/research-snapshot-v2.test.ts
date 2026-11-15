@@ -11,6 +11,7 @@ import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows
 import type {
   NarrationBlockV2, ResearchFrameBindingV2, ScriptDocumentV2, VisualOnlyBlockV2,
 } from "../src/generated/contracts-v2.js";
+import { researchMirroredNote, researchNestedNote, researchOccurrence, researchId } from "./issue-367-fixture.js";
 
 const id = (i: number) => `00000000-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
 const candidate = (): ResearchLoggedCandidateInputV2 => ({
@@ -65,6 +66,27 @@ function document(clip: VisualOnlyBlockV2 = ready()): ScriptDocumentV2 {
 const diagnostics = (doc: ScriptDocumentV2) => validateScriptDocumentV2(doc).diagnostics.filter((d) => d.severity !== "warning");
 
 describe("Research logged-clip snapshot and exclusive owner", () => {
+  it("validates saved nested visuals, an active attachment mirror and grouped Stash pins", () => {
+    const doc = document();
+    const nested = researchNestedNote(760100);
+    const mirrored = researchMirroredNote(760200);
+    const grouped = [researchOccurrence(760300, false), researchOccurrence(760400, false)];
+    doc.activeDraft.blocks = [nested, mirrored];
+    doc.stash!.push({ id: researchId(760500), rows: [grouped[0]!, grouped[1]!], supportingItems: [] });
+    doc.stashOutline!.push(...grouped.map((row) => ({ rowId: row.id,
+      kind: "row" as const, parentRowId: null, sectionId: null })));
+    doc.stashGroups = [{ id: researchId(760600), rowIds: [grouped[0]!.id, grouped[1]!.id] }];
+    expect(diagnostics(doc)).toEqual([]);
+    const changedMirror = structuredClone(doc);
+    const note = changedMirror.activeDraft.blocks[1] as NarrationBlockV2;
+    const mirror = note.primaryVisualSequence!.slots[0]!;
+    if (mirror.kind !== "content" || mirror.payload.kind !== "visual") throw new Error("Bad mirror");
+    mirror.payload.researchClip!.clipVersion++;
+    expect(diagnostics(changedMirror).some((item) => item.code === "RESEARCH_CLIP_INVALID")).toBe(true);
+    const malformedGroup = structuredClone(doc);
+    malformedGroup.stashGroups![0]!.rowIds.reverse();
+    expect(diagnostics(malformedGroup).some((item) => item.code === "STASH_GROUP_INVALID")).toBe(true);
+  });
   it("preserves real source/author/selection evidence with no caller mutation or invented frame mapping", () => {
     const source = candidate();
     const before = structuredClone(source);

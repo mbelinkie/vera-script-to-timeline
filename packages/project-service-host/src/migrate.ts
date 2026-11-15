@@ -27,6 +27,12 @@ import {
   PROJECT_BUILDS_MIGRATION_DIGEST,
 } from "@vera/project-builds";
 
+import {
+  applyProjectCollaborationMigration,
+  PROJECT_COLLABORATION_MIGRATION,
+  PROJECT_COLLABORATION_MIGRATION_DIGEST,
+} from "@vera/project-collaboration";
+
 import type { QaConfig } from "./qa-config.js";
 
 export class QaDatabaseRefusal extends Error {
@@ -62,6 +68,10 @@ const ALLOWED_TABLES = new Set([
   "stt_build_events",
   "stt_build_evidence",
   "stt_build_preflight_refusals",
+  "stt_live_heads",
+  "stt_live_updates",
+  "stt_live_clients",
+  "stt_live_materializations",
 ]);
 
 const EXPECTED_MIGRATIONS = [
@@ -72,6 +82,7 @@ const EXPECTED_MIGRATIONS = [
   { name: PROJECT_IDEAS_MIGRATION, version: 4, checksum: PROJECT_IDEAS_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
+  { name: PROJECT_COLLABORATION_MIGRATION, version: 1, checksum: PROJECT_COLLABORATION_MIGRATION_DIGEST },
 ] as const;
 
 export interface QaMigrationReceipt {
@@ -133,6 +144,7 @@ export async function applyQaMigrations(
     await applyProjectHistoryMigration(db);
     await applyProjectIdeasMigration(db);
     await applyProjectBuildsMigration(db);
+    await applyProjectCollaborationMigration(db);
     const receipts = await db.query<{
       name: string;
       version: number;

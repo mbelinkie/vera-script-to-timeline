@@ -47,6 +47,56 @@ export function researchNote(n: number): NarrationBlockV2 {
   };
 }
 
+/** Two independently pinned visuals in a narration row (not an attachment mirror). */
+export function researchNestedNote(n: number): NarrationBlockV2 {
+  const note = researchNote(n);
+  delete note.plainDirection;
+  note.tokens.forEach((token) => { token.spoken = true; });
+  const source = researchOccurrence(n + 20, false);
+  const slot = note.primaryVisualSequence!.slots[0]!;
+  if (slot.kind !== "content") throw new Error("Expected base content slot");
+  slot.payload = {
+    kind: "visual", payloadId: researchId(n + 10), pictureKind: "unresolved_visual",
+    source: structuredClone(source.payload.source), sourceUsage: null, audioPolicy: "mute",
+    framingPolicy: "contain", researchClip: structuredClone(source.researchClip!),
+  };
+  note.overlayEvents = [{
+    id: researchId(n + 11), version: 1,
+    payload: {
+      kind: "visual", payloadId: researchId(n + 12), pictureKind: "unresolved_visual",
+      source: structuredClone(source.payload.source), sourceUsage: null, audioPolicy: "mute",
+      framingPolicy: "contain", researchClip: structuredClone(source.researchClip!),
+    },
+    timing: { kind: "timed", durationMs: 1000, start: { kind: "word", anchor: {
+      blockId: note.id, tokenId: note.tokens[0]!.id, affinity: "before",
+      quotedWord: "Look", anchorVersion: 1,
+    } } },
+  }];
+  return note;
+}
+
+/** A converted attached note has one *projected* slot, not two owned clips. */
+export function researchMirroredNote(n: number, resolved = true): NarrationBlockV2 {
+  const note = researchNote(n);
+  const clip = researchOccurrence(n + 20, resolved);
+  note.attachedFootage = { clip };
+  note.stashOrigin = { kind: "note", returnEligible: true, parentRowId: null,
+    sectionId: null, afterSiblingRowId: null, beforeSiblingRowId: null };
+  const slot = note.primaryVisualSequence!.slots[0]!;
+  if (slot.kind !== "content") throw new Error("Expected base slot");
+  const selected = clip.visualOnlyTiming.selectedSourceRange;
+  slot.payload = {
+    kind: "visual", payloadId: researchId(n + 30), pictureKind: clip.payload.pictureKind,
+    source: structuredClone(clip.payload.source),
+    sourceUsage: selected ? { sourceInFrame: selected.startFrame } : null,
+    audioPolicy: "mute", framingPolicy: clip.payload.framingPolicy,
+    researchClip: structuredClone(clip.researchClip!),
+    ...(clip.frameBinding ? { frameBinding: structuredClone(clip.frameBinding) } : {}),
+    ...(selected ? { selectedSourceRange: structuredClone(selected) } : {}),
+  };
+  return note;
+}
+
 /** The first note is an anchor; the second owns exactly one embedded clip. */
 export function researchStashFixture(resolved = true) {
   const anchor = researchNote(720100);
