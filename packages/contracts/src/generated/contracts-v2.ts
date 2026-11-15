@@ -57,7 +57,7 @@ export type NarratedVisualPayloadV2 = {
     | UrlSource;
   sourceUsage: SourceUsage | null;
   audioPolicy: "mute" | "quiet";
-  framingPolicy: "contain" | "cover" | "native";
+  framingPolicy?: "contain" | "cover" | "native";
   /**
    * Per-occurrence still-image override; absent inherits the frozen authoring default.
    */
@@ -169,7 +169,7 @@ export type StandaloneVisualPayloadV2 = {
     | IntentionalPlaceholderSource
     | UrlSource;
   audioPolicy: "mute" | "quiet" | "full";
-  framingPolicy: "contain" | "cover" | "native";
+  framingPolicy?: "contain" | "cover" | "native";
   /**
    * Per-occurrence still-image override; absent inherits the frozen authoring default.
    */

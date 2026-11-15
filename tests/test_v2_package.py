@@ -585,12 +585,22 @@ def test_issue336_compiler_small_float_hash_matches_js_number_to_string(
 
 
 def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only tests inject this fake; production_qualification refuses all requests."""
+    """Only tests inject this fake; no fixture here is native output evidence."""
 
     def fake(
         motion: dict[str, Any], binding: Any, framing: str, **_verified: Any
     ) -> Any:
         enabled = motion["mode"] == "native_dynamic_zoom"
+        start, start_scale = (
+            native_image_motion.native_endpoint_from_focus(motion["start"])
+            if enabled
+            else (None, None)
+        )
+        end, end_scale = (
+            native_image_motion.native_endpoint_from_focus(motion["end"])
+            if enabled
+            else (None, None)
+        )
         return native_image_motion.Qualification(
             edition="studio",
             version="21.1.1.10",
@@ -602,10 +612,10 @@ def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
             source_width=1920,
             source_height=1080,
             focus_proven=enabled,
-            native_start_center=(0.0, 0.0) if enabled else None,
-            native_end_center=(0.03, -0.02) if enabled else None,
-            native_start_scale=0.8 if enabled else None,
-            native_end_scale=(1 / 1.2) if enabled else None,
+            native_start_center=start,
+            native_end_center=end,
+            native_start_scale=start_scale,
+            native_end_scale=end_scale,
         )
 
     monkeypatch.setattr(native_image_motion, "production_qualification", fake)
@@ -828,6 +838,47 @@ def test_issue336_older_studio_must_refuse_native_motion_before_any_write(
     assert result["partialTargetRetained"] is False
     assert result["verified"] is False
     assert adapter.calls == ["connected"]
+
+
+@pytest.mark.parametrize(
+    ("motion", "allowed"),
+    [
+        ({"mode": "none"}, True),
+        (native_image_motion.DEFAULT_IMAGE_MOTION, True),
+        (_ISSUE336_NATIVE, False),
+    ],
+)
+def test_studio_212_admits_only_checked_image_motion_recipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    motion: dict[str, Any],
+    allowed: bool,
+) -> None:
+    case = make_package_case(tmp_path, rate="25fps")
+    _issue336_case(case, motion)
+    _issue336_synthetic_qualification(monkeypatch)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "delivery.json")
+
+    class CurrentStudio(_Issue336NativeRouteAdapter):
+        def connected_facts(self) -> Any:
+            self.calls.append("connected")
+            return SimpleNamespace(
+                edition="studio",
+                version="21.2.0",
+                build="6",
+                suffix="",
+                scripting_available=True,
+            )
+
+    adapter = CurrentStudio()
+    result = run_workflow_delivery_v2(
+        object(), attestation, sha256(attestation), adapter_factory=lambda _: adapter
+    )
+    assert result["status"] == ("preflight_passed" if allowed else "stopped_safely")
+    assert adapter.calls == (
+        ["connected", "probe", "collision"] if allowed else ["connected"]
+    )
 
 
 def test_issue336_rechecks_otio_after_one_shot_import_before_saving(

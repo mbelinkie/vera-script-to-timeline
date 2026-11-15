@@ -3,8 +3,8 @@
 The qualification is trusted runtime evidence, NEVER authored JSON. Phase 3
 decoded 11 synthetic Studio timelines and measured a bounded source-to-pixel
 mapping, but not a production source/profile attestation or contain matte.
-Production geometry remains deliberately unqualified. Native key labels below
-are opaque exported Resolve metadata, never timeline-frame coordinates.
+Production admission is limited to verified profiles and bounded geometry.
+Native key labels are opaque Resolve metadata, never timeline-frame coordinates.
 """
 
 from __future__ import annotations
@@ -26,6 +26,15 @@ class MotionRefusal(ValueError):
 
 _HEX_TO_LETTERS = str.maketrans("0123456789abcdef", "abcdefghijklmnop")
 _SOURCE_ID = re.compile(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\Z")
+
+# Start slightly inside the fill crop so the centered move has margin at
+# both ends. The native effect interpolates over the authored clip length.
+DEFAULT_IMAGE_MOTION: dict[str, Any] = {
+    "mode": "native_dynamic_zoom",
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.05},
+    "end": {"focusX": 0.5, "focusY": 0.5, "scale": 1.2},
+    "easing": "linear",
+}
 
 
 def native_still_stem(source_id: str) -> str:
@@ -121,13 +130,19 @@ def production_qualification(
     excludes unmeasured codecs, color transforms, aspect ratios, durations,
     backgrounds, and moving contain (which needs a proven derived matte).
     """
+    duration = binding.record_end - binding.record_start
     if (
         verified_asset is None
         or delivered_probe is None
         or frame_rate != (24, 1)
         or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
         or binding.original_hash != binding.source_hash
-        or binding.record_end - binding.record_start not in {24, 48, 96, 144}
+        or (
+            duration not in {24, 48, 96, 144}
+            and (
+                duration != 72 or motion not in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
+            )
+        )
         or framing not in {"contain", "cover"}
     ):
         return None

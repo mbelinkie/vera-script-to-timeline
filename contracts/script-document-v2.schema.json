@@ -795,8 +795,7 @@
         "pictureKind",
         "source",
         "sourceUsage",
-        "audioPolicy",
-        "framingPolicy"
+        "audioPolicy"
       ],
       "properties": {
         "kind": {
@@ -1085,6 +1084,14 @@
             "required": ["pictureKind"]
           },
           "then": { "properties": { "imageMotion": false } }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "pictureKind": { "not": { "const": "image" } } },
+            "required": ["pictureKind"]
+          },
+          "then": { "properties": { "framingPolicy": true }, "required": ["framingPolicy"] }
         }
       ]
     },
@@ -2028,8 +2035,7 @@
         "payloadId",
         "pictureKind",
         "source",
-        "audioPolicy",
-        "framingPolicy"
+        "audioPolicy"
       ],
       "properties": {
         "kind": {
@@ -2269,6 +2275,14 @@
             "required": ["pictureKind"]
           },
           "then": { "properties": { "imageMotion": false } }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "pictureKind": { "not": { "const": "image" } } },
+            "required": ["pictureKind"]
+          },
+          "then": { "properties": { "framingPolicy": true }, "required": ["framingPolicy"] }
         }
       ]
     },
