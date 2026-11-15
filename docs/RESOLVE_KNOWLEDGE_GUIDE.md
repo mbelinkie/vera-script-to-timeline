@@ -1283,6 +1283,15 @@ carrying its level and fades onto a clip with a new ID. Hand-made grades,
 Fusion compositions, linked clips, stills and other frame rates were not
 tested.
 
+The shipped update command then did the same on a VERA-built timeline
+(November 15, 2026, `--resolve-app` on 21.2): a row grew from 96 to 144
+frames with a new narration recording while the next row moved 48 frames,
+and the reverse update from that folder shrank it back. The moved row's
+clips kept their IDs and scripted grade, zoom, clip colour, marker, OFX
+effect and level. A Cross Dissolve added outside the script on the cut that
+had to open made the command refuse in its plan, before any write. A placed
+audio clip arrived with a Green clip colour that the command clears.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)
