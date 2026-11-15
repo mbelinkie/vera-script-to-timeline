@@ -44,6 +44,7 @@ ATTESTATION_SCHEMA_V2 = "vera-injected-delivery-attestation/v2"
 VIEW_SCHEMA_V2 = "resolve-native-view/v2"
 RECEIPT_SCHEMA_V2 = "v2-package-verification/v1"
 DELIVERY_VERSION = "2"
+SUPPORTED_V2_IDENTITIES = SUPPORTED_IDENTITIES | {("21.2.0", "6")}
 BUILD_FILE_NAMES = (
     "timeline-manifest.json",
     "build-report.json",
@@ -3528,17 +3529,15 @@ def run_workflow_delivery_v2(
             or not getattr(connected, "scripting_available", False)
             or getattr(connected, "suffix", "")
             or (getattr(connected, "version", None), getattr(connected, "build", None))
-            not in SUPPORTED_IDENTITIES
+            not in SUPPORTED_V2_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
         if native_otio and (
             getattr(connected, "version", None),
             getattr(connected, "build", None),
         ) != ("21.1.1", "10"):
-            # The general v2 delivery adapter accepts 21.1.0/14 too, but
-            # imported Type-22/59 still motion and raster geometry have only
+            # Imported Type-22/59 still motion and raster geometry have only
             # been positively qualified in installed Studio 21.1.1 build 10.
-            # An older otherwise-supported Studio must refuse before writes.
             raise WorkflowV2Error(
                 "native image motion requires measured Studio 21.1.1 build 10"
             )

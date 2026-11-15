@@ -24,6 +24,12 @@ def parser() -> argparse.ArgumentParser:
         "--existing-project", help="add a new timeline to this named project"
     )
     command.add_argument(
+        "--resolve-app",
+        type=Path,
+        metavar="BUNDLE.app",
+        help="select a Resolve Studio app bundle (default: standard installation)",
+    )
+    command.add_argument(
         "--package-timings",
         action="store_true",
         help="print optional package hash/copy/slate/audio/verification sub-timings",
@@ -53,6 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output=args.output,
         existing_project=args.existing_project,
         package_cache=args.package_cache,
+        resolve_app=args.resolve_app,
     )
     timings = StageTimings(package_detail=args.package_timings)
     try:

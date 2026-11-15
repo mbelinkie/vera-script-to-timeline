@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+import os
 import platform
 import plistlib
 import re
@@ -401,8 +402,14 @@ def run_delivery(
     )
 
 
-def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
-    """Import the vendor bridge and connect only after local safety checks pass."""
+def load_resolve_adapter(
+    local: LocalFacts, *, scripting_library: Path | None = None
+) -> ResolveAdapter:
+    """Import the vendor bridge with the library inside the selected app bundle.
+
+    RESOLVE_SCRIPT_LIB is the Blackmagic stub's supported override. Limit its
+    lifetime to the connection so the next command keeps its original setup.
+    """
     module_path = Path(local.scripting_module_path)
     spec = importlib.util.spec_from_file_location("DaVinciResolveScript", module_path)
     if spec is None or spec.loader is None:
@@ -410,16 +417,25 @@ def load_resolve_adapter(local: LocalFacts) -> ResolveAdapter:
     module = importlib.util.module_from_spec(spec)
     previous_module = sys.modules.get(spec.name)
     sys.modules[spec.name] = module
+    previous_library = os.environ.get("RESOLVE_SCRIPT_LIB")
     try:
+        if scripting_library is not None:
+            os.environ["RESOLVE_SCRIPT_LIB"] = str(scripting_library)
         spec.loader.exec_module(module)
+        loaded_module = sys.modules.get(spec.name, module)
+        resolve = loaded_module.scriptapp("Resolve")
     except BaseException:
         if previous_module is None:
             sys.modules.pop(spec.name, None)
         else:
             sys.modules[spec.name] = previous_module
         raise
-    loaded_module = sys.modules.get(spec.name, module)
-    resolve = loaded_module.scriptapp("Resolve")
+    finally:
+        if scripting_library is not None:
+            if previous_library is None:
+                os.environ.pop("RESOLVE_SCRIPT_LIB", None)
+            else:
+                os.environ["RESOLVE_SCRIPT_LIB"] = previous_library
     if resolve is None:
         raise StudioSpikeError("Resolve returned no scripting connection")
     return PublicResolveAdapter(resolve)
