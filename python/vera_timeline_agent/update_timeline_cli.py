@@ -157,6 +157,31 @@ def _write_new_baseline(
     load_baseline(output)
 
 
+def _batch(
+    edits: Sequence[Mapping[str, Any]], timeline: Any
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split a length change's edits into clip operations and transitions."""
+    ops: list[dict[str, Any]] = []
+    transition_edits: list[dict[str, Any]] = []
+    for edit in edits:
+        if edit["route"] == planning.ROUTE_TRANSITION:
+            transition_edits.append(dict(edit))
+        elif edit["route"] == planning.ROUTE_RETIME:
+            ops.append(dict(edit))
+        else:  # A same-length swap is a retime that goes nowhere.
+            item = native.live_items(timeline)[edit["resolveItemId"]][2]
+            ops.append(
+                {
+                    **edit,
+                    "startFrame": item.GetStart(False),
+                    "previousStartFrame": item.GetStart(False),
+                    "previousDurationFrames": edit["durationFrames"],
+                    "replaceAudio": False,
+                }
+            )
+    return ops, transition_edits
+
+
 def _write_full_baseline(
     output: Path,
     baseline: Baseline,
@@ -294,6 +319,29 @@ def update_once(
             plan["group"] == planning.ROUTE_RETIME and plan["refusal"] is None
             for plan in plans
         )
+        if grouped:
+            # Show a problem with the live timeline in the plan, not after he
+            # has agreed to it. This reads Resolve and changes nothing.
+            try:
+                all_ops, all_transitions = _batch(
+                    [edit for plan in plans for edit in plan["edits"]], timeline
+                )
+                retime.precheck(
+                    timeline,
+                    all_ops,
+                    planning.editor_moves(observation, comparison)[0],
+                    all_transitions,
+                )
+            except retime.RetimePrecheckError as error:
+                grouped = False
+                for plan in plans:
+                    if plan["refusal"] is None:
+                        plan["refusal"] = (
+                            "The timeline's length changes, so every changed "
+                            "row has to be updated together, and that is not "
+                            f"possible: {error}."
+                        )
+                        plan["edits"] = []
         # A length change brings the whole timeline to the script, markers too.
         gaps = (
             []
@@ -378,22 +426,7 @@ def update_once(
         editor: dict[str, int] = {}
         expect: dict[str, dict[str, Any]] = {}
         if retiming:
-            for edit in edits:
-                if edit["route"] == planning.ROUTE_TRANSITION:
-                    transition_edits.append(edit)
-                elif edit["route"] == planning.ROUTE_RETIME:
-                    ops.append(edit)
-                else:  # A same-length swap is a retime that goes nowhere.
-                    item = native.live_items(timeline)[edit["resolveItemId"]][2]
-                    ops.append(
-                        {
-                            **edit,
-                            "startFrame": item.GetStart(False),
-                            "previousStartFrame": item.GetStart(False),
-                            "previousDurationFrames": edit["durationFrames"],
-                            "replaceAudio": False,
-                        }
-                    )
+            ops, transition_edits = _batch(edits, timeline)
             editor = planning.editor_moves(observation, comparison)[0]
             try:
                 expect = retime.precheck(timeline, ops, editor, transition_edits)

@@ -1124,8 +1124,10 @@ def test_hand_made_transition_on_the_opened_cut_stops_before_any_change(
     dissolve = Item("dissolve", 18, 4, None)
     dissolve.timeline = case.timeline
     case.timeline.tracks["video", 1].append(dissolve)
-    with pytest.raises(NeedsAction, match="made by hand at frame 18"):
-        case.run("safe")
+    report = case.run("safe")
+    assert report["status"] == "unchanged"
+    assert "made by hand at frame 18" in report["rowsRefused"][0]["reason"]
+    assert "Refused" in case.said[0]  # He sees it in the plan, before agreeing.
     assert len(case.project.timelines) == 1 and case.clip("row-2").duration == 10
 
 
