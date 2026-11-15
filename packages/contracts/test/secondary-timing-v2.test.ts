@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { compareSecondaryTimingV2, SecondaryTimingComparisonErrorV2 } from "../src/authoring-v2.js";
+import { compareSecondaryTimingV2, previewSecondaryTimingReconcileV2, SecondaryTimingComparisonErrorV2 } from "../src/authoring-v2.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
 import type {
   CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2,
@@ -286,5 +286,173 @@ describe("#391 read-only exact secondary timing differences", () => {
     const original = paths.map((path) => digest(readFileSync(path, "utf8")));
     expect(root()).toMatchObject({ schemaVersion: "timeline-manifest/v2" });
     expect(paths.map((path) => digest(readFileSync(path, "utf8")))).toEqual(original);
+  });
+});
+
+function overlayFixture(pictureKind: "image" | "clip", logicalFrames = 240): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const doc = document();
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  row.overlayEvents.push({
+    id: id(40), version: 1,
+    payload: { kind: "visual", payloadId: id(41), pictureKind,
+      source: { kind: "media_reference", mediaReferenceId: id(8) },
+      sourceUsage: pictureKind === "clip" ? { sourceInFrame: 0 } : null,
+      audioPolicy: "mute", framingPolicy: "contain" },
+    timing: { kind: "timed", start: { kind: "word", anchor: {
+      blockId: row.id, tokenId: id(7), affinity: "before", quotedWord: "hello", anchorVersion: row.version,
+    } }, durationMs: 1000 },
+  });
+  const deps = dependencies();
+  deps.tracks.push({ id: "overlay", kind: "video", index: 5, name: "Overlay" });
+  deps.roles.overlayTrackIds = ["overlay"];
+  const descriptor = structuredClone(deps.occurrenceResolutions[0]!);
+  descriptor.owner = { kind: "overlay_event", blockId: row.id, overlayEventId: id(40) };
+  descriptor.payloadId = id(41);
+  descriptor.selectedSourceRange = null;
+  descriptor.logicalSourceBounds.endFrame = logicalFrames;
+  descriptor.preparedMediaRequirementKey = "prep:overlay";
+  deps.occurrenceResolutions.push(descriptor);
+  const prepared = structuredClone(deps.preparedMedia[0]!);
+  prepared.requirementKey = "prep:overlay";
+  prepared.requestedRange.duration = pictureKind === "clip" ? { numerator: 1, denominator: 1 } : { numerator: 1, denominator: 30 };
+  prepared.verification.decodedFrameCount = pictureKind === "clip" ? 24 : 1;
+  prepared.verification.deliveredHash = digest(`overlay-${pictureKind}`);
+  prepared.derivation = { ...prepared.derivation!, outputHash: prepared.verification.deliveredHash };
+  prepared.artifactLocator = `prepared/overlay-${pictureKind}.mov`;
+  deps.preparedMedia.push(prepared);
+  return { doc, deps };
+}
+
+describe("#391 fail-closed secondary timing reconciliation", () => {
+  it("previews a frame-exact +2 still duration change at 24000/1001 without touching signed inputs", () => {
+    const { doc, deps } = twoVisualOnlyRows(1000);
+    const before = compiled(doc, deps);
+    const frozen = JSON.stringify([doc, deps, before]);
+    const event = before.events.find((item) => item.provenance.blockId === id(30))!;
+    const op = { kind: "visual_only_duration" as const, blockId: id(30), expectedBlockVersion: 1,
+      expectedRange: event.recordRange, durationOverrideMs: 1084 };
+    const result = previewSecondaryTimingReconcileV2(doc, deps, before, op);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.disposition).toBe("proposed_not_applied");
+    expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({ version: 2, visualOnlyTiming: { durationOverrideMs: 1084 } });
+    expect(result.comparison.visualEvents.map((item) => [item.ownerId, item.startDeltaFrames, item.endDeltaFrames])
+      .sort((left, right) => String(left[0]).localeCompare(String(right[0])))).toEqual([
+      [id(31), 0, 2], [id(33), 2, 2],
+    ]);
+    expect(result.comparison.frameRate).toEqual({ numerator: 24000, denominator: 1001 });
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, op)).toEqual(result);
+    expect(JSON.stringify([doc, deps, before])).toBe(frozen);
+  });
+
+  it("preserves frozen narration text, word anchor, primary range and source inpoint when a still overlay changes", () => {
+    const { doc, deps } = overlayFixture("image");
+    const before = compiled(doc, deps);
+    const frozen = JSON.stringify([doc, deps, before]);
+    const overlay = before.events.find((item) => item.provenance.overlayEventId === id(40))!;
+    const result = previewSecondaryTimingReconcileV2(doc, deps, before, {
+      kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+      expectedRange: overlay.recordRange, durationMs: 1250,
+    });
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.comparison.boundaries.every((item) => item.deltaFrames === 0)).toBe(true);
+    expect(result.comparison.visualEvents.find((item) => item.eventId === overlay.eventId)).toMatchObject({
+      startDeltaFrames: 0, endDeltaFrames: 6, durationDeltaFrames: 6,
+      beforeSourceRange: overlay.sourceRange, afterSourceRange: overlay.sourceRange,
+    });
+    expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({ text: "hello", tokens: (doc.activeDraft.blocks[0] as NarrationBlockV2).tokens });
+    expect(result.candidateDocument.activeDraft.blocks[0]).toMatchObject({ overlayEvents: [{
+      version: 2,
+      timing: { start: (doc.activeDraft.blocks[0] as NarrationBlockV2).overlayEvents[0]!.timing.start },
+    }] });
+    expect(JSON.stringify([doc, deps, before])).toBe(frozen);
+  });
+
+  it("refuses source exhaustion using original logical frames (not record-frame counts)", () => {
+    const { doc, deps } = overlayFixture("clip", 50);
+    const before = compiled(doc, deps);
+    const overlay = before.events.find((item) => item.provenance.overlayEventId === id(40))!;
+    const result = previewSecondaryTimingReconcileV2(doc, deps, before, {
+      kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+      expectedRange: overlay.recordRange, durationMs: 3000,
+    });
+    expect(result).toMatchObject({ ok: false, code: "SOURCE_INSUFFICIENT", disposition: "refused" });
+    if (!result.ok) expect(result.diagnostics.map((item) => item.code)).toContain("SOURCE_INSUFFICIENT");
+  });
+
+  it("rejects collapsed, stale and semantically overconstrained changes", () => {
+    const { doc, deps } = twoVisualOnlyRows(1000);
+    const before = compiled(doc, deps);
+    const event = before.events.find((item) => item.provenance.blockId === id(30))!;
+    const operation = { kind: "visual_only_duration" as const, blockId: id(30), expectedBlockVersion: 1,
+      expectedRange: event.recordRange, durationOverrideMs: 0 };
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, operation)).toMatchObject({ ok: false, code: "INVALID_DURATION" });
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, { ...operation, durationOverrideMs: 1001 })).toMatchObject({ ok: false, code: "NO_FRAME_CHANGE" });
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, { ...operation, durationOverrideMs: 1084, expectedBlockVersion: 2 })).toMatchObject({ ok: false, code: "STALE_TARGET" });
+    const forged = structuredClone(before);
+    forged.events[0]!.recordRange.endFrame += 1;
+    expect(previewSecondaryTimingReconcileV2(doc, deps, forged, { ...operation, durationOverrideMs: 1084 })).toMatchObject({ ok: false, code: "BASELINE_UNVERIFIED" });
+    const anchored = overlayFixture("image");
+    const row = anchored.doc.activeDraft.blocks[0] as NarrationBlockV2;
+    anchored.deps.narrationTimingMaps[0]!.tokens[0].audibleEnd = { numerator: 1, denominator: 1 };
+    anchored.deps.narrationTimingMaps[0]!.tokens[0].endBasis = "evidenced_audible_end";
+    anchored.deps.narrationTimingMaps[0]!.precision = "audible_word_marks";
+    row.overlayEvents[0]!.timing = { kind: "timed", durationMs: 1000,
+      end: { kind: "audible_word_end", anchor: {
+        blockId: id(6), tokenId: id(7), affinity: "after", quotedWord: "hello", anchorVersion: 1,
+      } } };
+    const initial = compiled(anchored.doc, anchored.deps);
+    const range = initial.events.find((item) => item.provenance.overlayEventId === id(40))!.recordRange;
+    const collapsed = previewSecondaryTimingReconcileV2(anchored.doc, anchored.deps, initial, {
+      kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+      expectedRange: range, durationMs: 1,
+    });
+    expect(collapsed).toMatchObject({ ok: false, code: "RECONCILIATION_UNSAFE" });
+    if (!collapsed.ok) expect(collapsed.diagnostics.map((item) => item.code)).toContain("COLLAPSED_BOUNDARY");
+
+    row.overlayEvents[0]!.timing.start = { kind: "word", anchor: {
+      blockId: id(6), tokenId: id(7), affinity: "before", quotedWord: "hello", anchorVersion: 1,
+    } };
+    const dualAnchored = compiled(anchored.doc, anchored.deps);
+    const dualRange = dualAnchored.events.find((item) => item.provenance.overlayEventId === id(40))!.recordRange;
+    expect(previewSecondaryTimingReconcileV2(anchored.doc, anchored.deps, dualAnchored, {
+      kind: "overlay_duration", blockId: id(6), overlayEventId: id(40), expectedEventVersion: 1,
+      expectedRange: dualRange, durationMs: 1250,
+    })).toMatchObject({ ok: false, code: "UNSUPPORTED_TIMING_EDIT" });
+  });
+
+  it("refuses stale narration hashes and primary frame offsets without changing media-ended or word anchors", () => {
+    const doc = document(), deps = dependencies();
+    const before = compiled(doc, deps);
+    const owner = before.visualSequenceResolutions[0]!;
+    const op = { kind: "primary_frame_offset" as const, blockId: id(6), slotId: id(16),
+      expectedSequenceVersion: 1, expectedBaselineFrame: owner.resolvedRecordFrame, deltaFrames: 2 };
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, op)).toMatchObject({
+      ok: false, code: "PRIMARY_FRAME_OVERRIDE_UNREPRESENTABLE", proposedFrame: owner.resolvedRecordFrame + 2,
+    });
+    expect(previewSecondaryTimingReconcileV2(doc, deps, before, { ...op, expectedBaselineFrame: 5 })).toMatchObject({ ok: false, code: "STALE_TARGET" });
+    const stale = structuredClone(deps);
+    stale.narrationTimingMaps[0]!.audio!.timingHash = digest("stale cached map");
+    expect(previewSecondaryTimingReconcileV2(doc, stale, before, op)).toMatchObject({ ok: false, code: "BASELINE_UNVERIFIED" });
+    const clip: VisualOnlyBlockV2 = {
+      type: "visual_only", id: id(30), orderKey: "a0", version: 1,
+      payload: { kind: "visual", payloadId: id(31), pictureKind: "clip", source: {
+        kind: "media_reference", mediaReferenceId: id(8),
+      }, audioPolicy: "mute", framingPolicy: "contain" },
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 120 } },
+    };
+    const clipDoc = document();
+    clipDoc.activeDraft.blocks = [clip];
+    const clipDeps = dependencies();
+    clipDeps.narrationTimingMaps = [];
+    clipDeps.document.textHash = digest("");
+    clipDeps.occurrenceResolutions[0]!.payloadId = id(31);
+    clipDeps.occurrenceResolutions[0]!.owner = { kind: "visual_only_block", blockId: id(30) };
+    const clipManifest = compiled(clipDoc, clipDeps);
+    expect(previewSecondaryTimingReconcileV2(clipDoc, clipDeps, clipManifest, {
+      kind: "visual_only_duration", blockId: id(30), expectedBlockVersion: 1,
+      expectedRange: clipManifest.events[0]!.recordRange, durationOverrideMs: 1084,
+    })).toMatchObject({ ok: false, code: "UNSUPPORTED_TIMING_EDIT" });
   });
 });

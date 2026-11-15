@@ -282,6 +282,12 @@ export {
   type SecondaryTimingProblemCodeV2,
 } from "./secondary-timing-v2.js";
 export {
+  previewSecondaryTimingReconcileV2,
+  type SecondaryTimingReconcileCodeV2,
+  type SecondaryTimingReconcileCommandV2,
+  type SecondaryTimingReconcileResultV2,
+} from "./secondary-timing-reconcile-v2.js";
+export {
   snapshotResearchCandidateV2,
   inwardUseRangeV2,
   createResearchClipOccurrenceV2,
