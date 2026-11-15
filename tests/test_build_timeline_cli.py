@@ -1168,12 +1168,17 @@ def test_explicit_resolve_app_routes_matching_library_and_refuses_mismatch(
         bundle_build=bundle_build,
         mas_receipt=False,
     )
-    seen: list[tuple[Path, Path]] = []
+    seen: list[Path] = []
     resolve = object()
+
+    def detect(*, app_path: Path) -> SimpleNamespace:
+        seen.append(app_path)
+        return facts
+
     monkeypatch.setattr(
         studio_spike,
         "detect_local_capabilities",
-        lambda *, app_path: (seen.append((app_path, library)), facts)[1],
+        detect,
     )
 
     def load(observed: object, *, scripting_library: Path) -> Any:
@@ -1192,7 +1197,7 @@ def test_explicit_resolve_app_routes_matching_library_and_refuses_mismatch(
     else:
         with pytest.raises(NeedsAction, match="does not match selected app"):
             build_timeline_once._external_resolve(app)
-    assert seen == [(app, library)]
+    assert seen == [app]
 
 
 def test_explicit_resolve_app_refuses_untrusted_bundle_before_connect(
