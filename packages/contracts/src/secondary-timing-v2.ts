@@ -18,9 +18,12 @@ export type SecondaryTimingProblemCodeV2 =
   | "DUPLICATE_OWNER" | "INCONSISTENT_RANGE";
 
 export class SecondaryTimingComparisonErrorV2 extends Error {
-  constructor(readonly code: SecondaryTimingProblemCodeV2, detail: string) {
+  readonly code: SecondaryTimingProblemCodeV2;
+
+  constructor(code: SecondaryTimingProblemCodeV2, detail: string) {
     super(detail);
     this.name = "SecondaryTimingComparisonErrorV2";
+    this.code = code;
   }
 }
 
