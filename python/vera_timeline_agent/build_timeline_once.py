@@ -525,13 +525,24 @@ def _require_workflow_status(
     ):
         return
     if result.get("partialTargetRetained"):
+        found = result.get("discrepancies")
+        detail = (
+            f" ({result.get('failureStage') or 'readback'}: "
+            f"{', '.join(sorted({str(item) for item in found}))})"
+            if isinstance(found, list) and found
+            else ""
+        )
         raise UncertainResult(
-            "Resolve native write is uncertain; named existing project retained; "
-            "inspect it before another attempt"
-            if existing_project
-            else (
-                "Resolve native write is uncertain; partial disposable project retained"
+            (
+                "Resolve native write is uncertain; named existing project retained; "
+                "inspect it before another attempt"
+                if existing_project
+                else (
+                    "Resolve native write is uncertain; "
+                    "partial disposable project retained"
+                )
             )
+            + detail
         )
     if isinstance(result.get("refusal"), str):
         raise NeedsAction(result["refusal"])

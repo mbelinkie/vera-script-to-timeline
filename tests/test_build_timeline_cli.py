@@ -1287,6 +1287,19 @@ def test_only_real_audio_and_fractional_refusals_get_specific_messages() -> None
             "verified",
             existing_project=True,
         )
+    with pytest.raises(
+        UncertainResult, match=r"retained.*\(verify: event-source-range, track-name\)"
+    ):
+        build_timeline_once._require_workflow_status(
+            {
+                "status": "verification_failed",
+                "partialTargetRetained": True,
+                "failureStage": "verify",
+                "discrepancies": ["track-name", "event-source-range", "track-name"],
+            },
+            "verified",
+            existing_project=True,
+        )
 
 
 def test_native_verified_status_without_independent_verification_is_uncertain() -> None:

@@ -894,6 +894,18 @@ def test_existing_preflight_refuses_without_native_writes(failure: str) -> None:
     assert project.pool.creates == manager.saves == manager.loads == 0
 
 
+def test_existing_preflight_reads_a_frame_rate_resolve_gives_as_a_number() -> None:
+    # Studio 21.1.1 and 21.2 answer 24.0, not "24", once the project holds a
+    # timeline with its own settings (a presenter source, #48 live check).
+    adapter, project, _manager = _existing_project_fixture()
+    wanted = _existing_settings()
+    project.settings["timelineFrameRate"] = float(wanted["timelineFrameRate"])
+    adapter.preflight_existing_project("Review Project", wanted, "VERA New")
+    project.settings["timelineFrameRate"] = float(wanted["timelineFrameRate"]) + 1
+    with pytest.raises(ValueError, match="rate or settings differ"):
+        adapter.preflight_existing_project("Review Project", wanted, "VERA New 2")
+
+
 def test_existing_project_switch_and_reopened_uid_drift_fail_closed() -> None:
     adapter, project, manager = _existing_project_fixture()
     adapter.preflight_existing_project(
@@ -3196,6 +3208,30 @@ def test_fractional_narration_source_clock_requires_sample_bound_eof() -> None:
             timeline=bad_timeline,
             **bad_observations,
         ), changed
+
+
+def test_frame_aligned_narration_read_a_frame_short_needs_exact_end_time() -> None:
+    # #48 live check, Studio 21.1.1 build 10 at 24 fps: a 452-frame WAV ending
+    # exactly on a frame read back as source frames 0-450, end time 18.8333 s.
+    event, source, manifest_source, timeline, observations = (
+        _fractional_narration_proof(sample_count=904_000, duration_frames=452)
+    )
+    timeline = {**timeline, "frameRate": {"numerator": 24, "denominator": 1}}
+    arguments: dict[str, Any] = {
+        "event": event,
+        "source": source,
+        "manifest_source": manifest_source,
+        "preparation_bindings": {},
+        "timeline": timeline,
+        "allow_24fps": True,
+    }
+    assert observations["actual_end"] == 450
+    assert workflow_v2._fractional_source_range_matches(**arguments, **observations)
+    early: dict[str, Any] = {
+        **observations,
+        "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 450 / 24},
+    }
+    assert not workflow_v2._fractional_source_range_matches(**arguments, **early)
 
 
 def test_fractional_narration_accepts_authored_record_end_within_audio_extent() -> None:

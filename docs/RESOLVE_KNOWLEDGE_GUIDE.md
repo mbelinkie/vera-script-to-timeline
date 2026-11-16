@@ -1341,6 +1341,37 @@ effect and level. A Cross Dissolve added outside the script on the cut that
 had to open made the command refuse in its plan, before any write. A placed
 audio clip arrived with a Green clip colour that the command clears.
 
+### RK-52 — Presenter takes cut into a normal build from a graded compound
+
+**Measured on Studio 21.1.1 build 10, Local scripting, November 16, 2026**
+(#48, [presenter-conform.md](presenter-conform.md)). Throwaway project, 24
+fps, synthetic 3840×2160 recording in the #94 compound source, four-row
+script. The normal build added its timeline to that project and verified;
+the presenter command then removed four of its clips with
+`Timeline.DeleteClips(items, False)` and placed three pieces of the compound
+with `AppendToTimeline` (`trackIndex` 1, no media type). Each piece landed
+its picture on V1 and its linked sound on A1 at the asked record frame, with
+left offsets 48, 1200 and 1652 as asked. `SetName`, `SetClipColor` and zoom 2
+on the picture, and every untouched clip on V2, V3 and A2, read back the same
+after save, close and reopen.
+
+Three things the normal build needed for this:
+
+- `Project.GetSetting("timelineFrameRate")` answers the number `24.0`, not
+  the text `"24"`, once the project holds a timeline with its own settings
+  (the 4K grade timeline). Seen on 21.1.1 and 21.2.
+- A narration WAV that ends exactly on a frame can read back one frame
+  short. A 452-frame and a 428-frame WAV gave `GetSourceEndFrame` 450 and
+  426, while a 526-frame one gave 525; all three gave the exact source end
+  time. The verifier now accepts the short reading only with that exact end
+  time.
+- An SVG still fails `ImportMedia`. The temporary presenter picture has to be
+  a raster file, as real prepared inputs supply.
+
+Not tested: a real grade inside the compound (a script cannot make one),
+29.97 fps, music beds, and 21.2, where the normal build's own check refuses
+these inputs' stills and slates before the presenter step is reached.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)

@@ -3304,8 +3304,12 @@ def _fractional_source_range_matches(
                 and abs(start_error) <= 1
                 and (
                     (
-                        exact_frames.denominator != 1
-                        and expected_duration == record_duration
+                        # The integer getter reads one frame short of the last
+                        # frame when the audio ends inside it, and for some
+                        # lengths that end exactly on a frame (452 frames at
+                        # 24 fps on Studio 21.1.1). The source end time must
+                        # then prove the whole file is used.
+                        expected_duration == record_duration
                         and actual_end == record_duration - 2
                         and eof_error is not None
                         and abs(eof_error) <= 1

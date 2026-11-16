@@ -310,8 +310,11 @@ def check_source(project: Any, recording: Recording, names: Names) -> Any:
 
 def place_piece(
     project: Any, timeline: Any, compound: Any, piece: Piece, zoom: float
-) -> None:
-    """Cut one piece of the source into an edit timeline, framed tight or wide."""
+) -> Any:
+    """Cut one piece of the source into an edit timeline, framed tight or wide.
+
+    Returns the clips Resolve placed: the picture and its linked sound.
+    """
     _must(project.SetCurrentTimeline(timeline), "selecting the edit timeline")
     placed = _append(
         project.GetMediaPool(),
@@ -328,6 +331,7 @@ def place_piece(
             and picture[0].SetProperty("ZoomY", zoom),
             "the tight framing zoom",
         )
+    return placed
 
 
 def check_pieces(

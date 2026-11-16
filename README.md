@@ -91,8 +91,11 @@ cached narration only.
 Before building from approved presenter footage, use the **offline recorded
 conform timing preview** described in [Presenter takes and recorded conform](docs/presenter-takes.md#recorded-timing-from-approved-takes-47).
 It freezes exact source and word timing and reports picture movement and
-short source clips; its silent timing WAVs are **not deliverable presenter
-audio** and must be replaced before building in Resolve (#48).
+short source clips. Then build the timeline with
+[Presenter timeline from approved takes](docs/presenter-conform.md): each
+take's picture and cleaned sound are cut from the recording's graded source
+onto V1 and A1 of a new timeline, and the preview's silent timing WAVs are
+removed from it.
 
 Prepare a **v2 structured script JSON**, local media and narration in advance.
 The input directory must contain `compiler-dependencies.json` (prepared media
