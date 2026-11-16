@@ -15,8 +15,8 @@ MIN_SAMPLE_WINDOWS = 3
 MAX_EDGE_JITTER_PX = 2
 MIN_ACTIVE_MEAN_LUMA = 18.0
 MIN_DIMENSION_COVERAGE = 0.5
-MIN_FULL_AXIS_COVERAGE = 0.98
-# shortcut: static edge-aligned title cards can still resemble active picture.
+# shortcut: edge-aligned graphics share bar geometry; use motion/texture evidence
+# when those false detections need to be distinguished.
 
 
 @dataclass(frozen=True)
@@ -74,8 +74,8 @@ def select_stable_active_rect(
     content for bars. The union of agreeing candidates is selected, preserving any
     pixels that appeared active in at least one window. A full-frame result is
     treated as no crop. This intentionally favors leaving a sliver of bar over
-    cutting into picture content. To reject small inset graphics, each bound
-    must cover at least half of both source dimensions and nearly all of one.
+    cutting into picture content. To reject inset graphics, each bound must
+    cover at least half of both source dimensions and span one full source axis.
 
     ``active_mean_luma`` is an upstream measurement on an 8-bit 0..255 scale.
     """
@@ -127,11 +127,10 @@ def select_stable_active_rect(
     if (
         selected.width / source_width < MIN_DIMENSION_COVERAGE
         or selected.height / source_height < MIN_DIMENSION_COVERAGE
-        or max(
-            selected.width / source_width,
-            selected.height / source_height,
+        or not (
+            (selected.x == 0 and selected.right == source_width)
+            or (selected.y == 0 and selected.bottom == source_height)
         )
-        < MIN_FULL_AXIS_COVERAGE
     ):
         return None
     return selected

@@ -100,6 +100,17 @@ def test_rejects_small_inset_title_like_region_but_accepts_letterbox_bounds() ->
     )
 
 
+def test_refuses_nearly_full_but_all_sides_inset_region() -> None:
+    samples = _samples(
+        CropRect(2, 20, 316, 140),
+        CropRect(2, 20, 316, 140),
+        CropRect(2, 20, 316, 140),
+    )
+
+    # The bounds cover over 98% of the width but could still describe an inset graphic.
+    assert select_stable_active_rect((320, 180), samples) is None
+
+
 def test_transform_rejects_out_of_bounds_crop() -> None:
     with pytest.raises(ValueError, match="inside source_size"):
         crop_to_fill_transform((1920, 1080), (1920, 1080), CropRect(0, 90, 1920, 1000))
