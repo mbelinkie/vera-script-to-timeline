@@ -395,6 +395,19 @@ level — and is never presented as frame-exact until compiled timing is
 verified. A secondary timing mode (Phase 5) lets the editor fine-tune frame
 boundaries without changing the paragraph or its semantic anchors.
 
+**Cuts tied to speech.** In an automatic build, place a picture cut a few
+frames before the measured start of the next word. Use three frames as the
+initial lead. Keep the outgoing picture through the earlier pause. If the lead
+would put the cut inside the previous spoken word, shorten it to fit the
+available gap. Preserve deliberate frame-level edits and keep independently
+timed scenes and media boundaries on their own timing. Report missing
+word-level evidence rather than inventing a cut time.
+
+**Picture between adjacent visuals.** Carry the outgoing picture until the
+incoming cut during an unassigned pause. A return to the host requires an
+explicitly authored on-camera span or cutaway. If the outgoing source lacks
+the needed frames, report the gap for review.
+
 **Coverage rule.** Every spoken token belongs to exactly one host-visibility
 state. Every VO interval must be covered by at least one full-frame visual
 instruction or an explicit unresolved-visual placeholder. Gaps, contradictory
@@ -1146,6 +1159,16 @@ Use Resolve's native Dynamic Zoom first where the installed edition and delivery
 route can demonstrably preserve the required behavior. Prove duration changes,
 customization and save/reopen rather than treating API availability as runtime
 success; use a custom fallback only for a demonstrated native-route limitation.
+Keep stills as image sources on the timeline so native motion stays editable.
+Report when a build route cannot deliver the requested motion.
+
+Projects may opt in to hiding black bars encoded in source media ([#600]).
+Detect stable active-picture bounds and use the minimum uniform zoom and
+centering needed to hide the bars. Respect explicit clip framing and skip
+ambiguous detections. This option is off by default and leaves the source
+media intact.
+
+[#600]: https://github.com/mbelinkie/vera-script-to-timeline/issues/600
 
 Webpage capture uses a local headless-browser worker for public pages — no
 browser extension. Authenticated, paywalled, or session-dependent pages are
@@ -2111,6 +2134,11 @@ in-script prose ("Erika Vikman — Singer") backed by full identities; compile
 to live Fusion insertion in Studio and the declared fallback in Free, each
 reported honestly; field validation with template-named slates for invalid
 data.
+In Studio, keep authored graphics editable as live Fusion compositions on
+V4 by default. An optional **Render all graphics while building** mode may
+render graphics to separate overlay assets on the same track, preserving
+transparency where the graphic overlays picture and keeping the same timing.
+Report which mode the build delivered.
 *Done when:* the producer places a lower third and a chart from authored
 data, sees both correct in Studio, and sees the Free package contain the
 declared fallback with the report saying exactly which.
