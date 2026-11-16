@@ -3695,6 +3695,35 @@ def test_resolve_212_general_build_admission_is_exact_and_prewrite(
         assert adapter.calls[:2] == ["connected_facts", "probe"]
 
 
+@pytest.mark.parametrize("rate", [(24000, 1001), (25, 1), (30, 1)])
+def test_older_studio_refuses_unqualified_motion_rates_before_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rate: tuple[int, int]
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, frame_rate=rate)
+    package = workflow_v2.load_verified_package_v2(attestation, digest)
+    package.view["events"][0]["pictureTreatment"] = {"imageMotion": {"mode": "none"}}
+    monkeypatch.setattr(workflow_v2, "load_verified_package_v2", lambda *_: package)
+    monkeypatch.setattr(workflow_v2, "_validate_semantics", lambda *_: None)
+    monkeypatch.setattr(workflow_v2, "_requires_native_otio", lambda _: True)
+    monkeypatch.setattr(
+        workflow_v2,
+        "_verify_native_otio_plan",
+        lambda package: package.root / "test.otio",
+    )
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        adapter_factory=lambda _: adapter,
+        allow_fractional_native=True,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["failureStage"] == "Resolve connection preflight"
+    assert result["partialTargetRetained"] is False
+    assert adapter.calls == ["connected_facts"]
+
+
 def test_resolve_212_still_motion_guard_is_not_relaxed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
