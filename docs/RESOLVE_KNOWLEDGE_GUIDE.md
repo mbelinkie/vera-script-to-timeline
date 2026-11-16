@@ -1259,7 +1259,20 @@ music and Cross Dissolve retain their separate 21.1.1 gates; they were not
 qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
 this Intel host, as recorded in the #564 comparison.
 
-<<<<<<< HEAD
+**#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable
+24 fps timeline built by the normal command from a Research cutter package.
+The synthetic H.264/AAC cut was verified and copied before compilation; the
+reopened picture kept both source and record intervals at `[0,96)`. The cut
+used synthetic catalog and acquisition inputs with real FFmpeg; this does
+not qualify other source formats or authenticate a live catalog.
+
+The combined #82 timeline also saved, closed, reopened and verified on the
+same Studio build at 24 fps. It retained three cut pictures, one narration
+item, and two static authored slates. The failed fetch slate occupied
+`[264,300)` with the recorded label and a duration of 1.5 seconds. This
+qualifies intentional, package-verified PNG slates on that route; undefined
+and unresolved preview slates still refuse native build.
+
 ### RK-50 — In-place row update on the original timeline, and two readback traps
 
 **Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**
@@ -1312,21 +1325,6 @@ clips kept their IDs and scripted grade, zoom, clip colour, marker, OFX
 effect and level. A Cross Dissolve added outside the script on the cut that
 had to open made the command refuse in its plan, before any write. A placed
 audio clip arrived with a Green clip colour that the command clears.
-=======
-**#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable
-24 fps timeline built by the normal command from a Research cutter package.
-The synthetic H.264/AAC cut was verified and copied before compilation; the
-reopened picture kept both source and record intervals at `[0,96)`. The cut
-used synthetic catalog and acquisition inputs with real FFmpeg; this does
-not qualify other source formats or authenticate a live catalog.
-
-The combined #82 timeline also saved, closed, reopened and verified on the
-same Studio build at 24 fps. It retained three cut pictures, one narration
-item, and two static authored slates. The failed fetch slate occupied
-`[264,300)` with the recorded label and a duration of 1.5 seconds. This
-qualifies intentional, package-verified PNG slates on that route; undefined
-and unresolved preview slates still refuse native build.
->>>>>>> origin/main
 
 ## #318 action crosswalk
 
