@@ -172,6 +172,52 @@ def _music_package_case(
     return case, event_id, source_id
 
 
+def test_still_rate_probe_rejects_stale_rate_and_decode_evidence() -> None:
+    stream = {
+        "codec_type": "video",
+        "codec_name": "png",
+        "width": 1000,
+        "height": 1000,
+        "pix_fmt": "rgb24",
+        "nb_read_frames": "1",
+        "avg_frame_rate": "24000/1001",
+        "r_frame_rate": "24000/1001",
+        "time_base": "1001/24000",
+    }
+    frame = {"media_type": "video", "width": 1000, "height": 1000, "pix_fmt": "rgb24"}
+    probe = {"streams": [stream], "frames": [frame]}
+    command = ["ffmpeg", "synthetic decode"]
+    record = {
+        "stillRateProbe": probe,
+        "stillRateProbeHash": identity_hash(probe),
+        "stillDecode": {"decodedFrameCount": 1, "commandHash": identity_hash(command)},
+        "commands": [command],
+    }
+    binding = {
+        "mode": "verified_reuse",
+        "targetRate": {"numerator": 24000, "denominator": 1001},
+    }
+    source = {
+        "kind": "image",
+        "codec": "png",
+        "frames": 1,
+        "width": 1000,
+        "height": 1000,
+    }
+    v2_package._validated_still_rate_probe(record, binding, source)
+    for change in ("rate", "frame", "command"):
+        broken = copy.deepcopy(record)
+        if change == "rate":
+            broken["stillRateProbe"]["streams"][0]["time_base"] = "1/24"
+            broken["stillRateProbeHash"] = identity_hash(broken["stillRateProbe"])
+        elif change == "frame":
+            broken["stillDecode"]["decodedFrameCount"] = 2
+        else:
+            broken["commands"] = []
+        with pytest.raises(v2_package.V2PackageError, match="still preparation"):
+            v2_package._validated_still_rate_probe(broken, binding, source)
+
+
 def test_music_package_roundtrip_is_attested_and_preserves_pcm(tmp_path: Path) -> None:
     case, event_id, source_id = _music_package_case(tmp_path)
     built = case.build()
