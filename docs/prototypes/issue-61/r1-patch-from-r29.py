@@ -1,13 +1,20 @@
+# Keep the original line lengths and glyphs in embedded HTML and JavaScript.
+# ruff: noqa: E501, RUF001
+
 import sys
-p = sys.argv[1]
-s = open(p, encoding="utf-8").read()
+from pathlib import Path
+
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+
 
 def once(s, old, new):
     assert s.count(old) == 1, (s.count(old), old[:80])
     return s.replace(old, new)
 
+
 # ---------- (A) constants ----------
-CONST = r'''// ---- issue 61 r1 (S16): YouTube page composite on the accepted S03 r29 surface. Simulated only: no capture, download, compositing or Resolve call happens here. ----
+CONST = r"""// ---- issue 61 r1 (S16): YouTube page composite on the accepted S03 r29 surface. Simulated only: no capture, download, compositing or Resolve call happens here. ----
 const Y61 = {
   tpl: { name: "Watch page, standard", rev: 1, rect: { x: 4.2, y: 10.5, w: 61.5, h: 61.5 } },
   zoom: 1.18,
@@ -19,19 +26,22 @@ const Y61 = {
 };
 const Y61_NEW = (state) => ({ state: state || "ready", clip: "ok", rev: 1, revs: [DEEP(Y61.revA)], rect: DEEP(Y61.tpl.rect), rectBy: "template", check: false, aspect: "16:9", motion: "zoom", focus: null, age: "", builds: [] });
 
-class Component extends DCLogic {'''
+class Component extends DCLogic {"""
 s = once(s, "class Component extends DCLogic {", CONST)
 
 # ---------- (B) menu item ----------
-TRIM = '''if (slot.media) menuItems.push({ label: "Trim", style: st, pick: () => { this._playerOpener = document.querySelector('[data-slot="' + slot.id + '"]'); this.setState({ menu: null }); this.openPlayer(row.id, slot.id, true); } });'''
-MENU = TRIM + '''
+TRIM = """if (slot.media) menuItems.push({ label: "Trim", style: st, pick: () => { this._playerOpener = document.querySelector('[data-slot="' + slot.id + '"]'); this.setState({ menu: null }); this.openPlayer(row.id, slot.id, true); } });"""
+MENU = (
+    TRIM
+    + """
         if (slot.kind === "clip" && slot.media && !s.srt) menuItems.push(slot.ytc
           ? { label: "Open YouTube page composite", style: st, pick: () => { this.setState({ menu: null }); this.y61Open(row.id, slot.id); } }
-          : { label: "Present on YouTube page", meta: "captures the public watch page once; the clip plays in its player", style: st, pick: () => this.y61Make(row.id, slot.id) });'''
+          : { label: "Present on YouTube page", meta: "captures the public watch page once; the clip plays in its player", style: st, pick: () => this.y61Make(row.id, slot.id) });"""
+)
 s = once(s, TRIM, MENU)
 
 # ---------- (C) methods ----------
-METHODS = r'''  // ---- issue 61 r1 (S16): YouTube page composite ----
+METHODS = r"""  // ---- issue 61 r1 (S16): YouTube page composite ----
   y61Ref() { const p = this.state.y61Panel; if (!p) return null; const row = (this.state.rows || []).find(r => r.id === p.rowId), slot = row && row.visuals.find(v => v.id === p.slotId); return slot && slot.ytc ? { row, slot, y: slot.ytc } : null; }
   y61Name(slot) { return slot.dispName || slot.title || "this clip"; }
   y61Say(msg) { this.setState({ cmToast: { msg, undo: false } }); }
@@ -233,11 +243,15 @@ METHODS = r'''  // ---- issue 61 r1 (S16): YouTube page composite ----
     return res;
   }
 
-  renderVals('''
+  renderVals("""
 s = once(s, "\n  renderVals(", "\n" + METHODS)
 
 # ---------- (D) chain ----------
-s = once(s, "Object.assign(out, this.r24Vals(out)); }\n    else { out.trPopOpen = false;", "Object.assign(out, this.r24Vals(out)); Object.assign(out, this.r61Vals(out, cmp)); }\n    else { out.y61On = false; out.h61 = []; out.trPopOpen = false;")
+s = once(
+    s,
+    "Object.assign(out, this.r24Vals(out)); }\n    else { out.trPopOpen = false;",
+    "Object.assign(out, this.r24Vals(out)); Object.assign(out, this.r61Vals(out, cmp)); }\n    else { out.y61On = false; out.h61 = []; out.trPopOpen = false;",
+)
 
 # ---------- (E) template ----------
 HARN = '''<div data-h61="1" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:1240px">
@@ -248,7 +262,7 @@ HARN = '''<div data-h61="1" style="display:flex;gap:8px;align-items:center;flex-
 <sc-if value="{{ testOn }}"'''
 s = once(s, '<sc-if value="{{ testOn }}"', HARN)
 
-DLG = '''<sc-if value="{{ y61On }}" hint-placeholder-val="{{ false }}">
+DLG = """<sc-if value="{{ y61On }}" hint-placeholder-val="{{ false }}">
 <div role="dialog" aria-label="YouTube page composite" data-y61="1" onKeyDown="{{ y61Key }}" style="{{ y61Style }}">
 <div style="{{ y61HeadStyle }}">
 <span style="{{ y61TitleStyle }}">{{ y61Title }}</span>
@@ -292,7 +306,9 @@ DLG = '''<sc-if value="{{ y61On }}" hint-placeholder-val="{{ false }}">
 </div>
 </sc-if>
 
-<sc-if value="{{ playerVisible }}" hint-placeholder-val="{{ false }}">'''
-s = once(s, '<sc-if value="{{ playerVisible }}" hint-placeholder-val="{{ false }}">', DLG)
-open(p, "w", encoding="utf-8").write(s)
+<sc-if value="{{ playerVisible }}" hint-placeholder-val="{{ false }}">"""
+s = once(
+    s, '<sc-if value="{{ playerVisible }}" hint-placeholder-val="{{ false }}">', DLG
+)
+p.write_text(s, encoding="utf-8")
 print("patched", len(s))
