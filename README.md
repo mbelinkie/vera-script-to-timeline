@@ -140,7 +140,7 @@ existing-project mode and mixed unqualified plain stills refuse before writes.
 Empty intermediate audio slots are materialized as verified OTIO gap tracks,
 not silently compacted into A2.
 The native check validates A5, source identity, exact timing, gain and fades
-again after save/close/reopen. Native source audio remains unsupported.
+again after save/close/reopen. See the separate standalone source audio profile below.
 
 The build command reuses unchanged prepared source media through a disposable
 per-user package cache. By default it lives at
@@ -202,9 +202,15 @@ missing, the project is incompatible or any structural check fails. A possibly
 partial native write is retained, never retried or deleted automatically. No
 render or audio comparison is performed. A new project can use VERA's exact
 default rate of **24000/1001** (Resolve displays **23.976**). The Studio
-check covered prepared same-rate picture and 48 kHz narration. The command
-refuses fractional rates in existing-project mode and refuses native source
-audio.
+check covered prepared same-rate picture and 48 kHz narration. Fractional
+rates require a new project.
+
+**Standalone source audio (#594):** Studio **21.2.0 build 6** can build
+complete prepared standalone clips into a new 23.976 fps project. The
+picture and its verified WAV start at frame zero of their prepared media
+and cover the same timeline interval. Resolve verifies the placed ranges
+and gain after reopening. This uses direct placement and does not mix
+with the whole-timeline OTIO route.
 
 To compare two prepared scripts with their verified timeline durations, run
 `uv run --frozen python scripts/check_timeline_speed.py` with the short and long

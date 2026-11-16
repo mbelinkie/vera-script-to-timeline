@@ -3032,6 +3032,43 @@ def test_fractional_video_source_clock_requires_hash_bound_rate_and_source_times
         ), changed
 
 
+def test_full_fractional_derivative_uses_its_prepared_video_clock() -> None:
+    proof = _fractional_video_proof()
+    event, _, manifest_source, _, observations, bindings = proof
+    binding = bindings["video-prep"]
+    binding["mode"] = "derived_cfr"
+    mapping = manifest_source["sourceTimeMapping"]
+    original_rate = {"numerator": 25, "denominator": 1}
+    mapping["sourceRate"] = original_rate
+    mapping["sourceOrigin"] = {"numerator": 7, "denominator": 1}
+    mapping["sourceFrameMap"].update(
+        decodedPackageFrameCount=400,
+        decodedPackageFrameRate=original_rate,
+        packageFrameZeroLogicalFrame=3000,
+        loggedTimeAtPackageFrameZero=mapping["sourceOrigin"],
+        probeHash="original-probe-hash",
+        descriptorHash="original-probe-hash",
+    )
+    binding["verification"]["decodedFrameCount"] = 240
+    event["recordRange"]["durationFrames"] = 240
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 240}
+    event["v2Event"]["sourceRange"] = {"startFrame": 0, "endFrame": 240}
+    observations.update(
+        actual_start=0,
+        actual_end=239,
+        record_duration=240,
+        source_times={"GetSourceStartTime": 0.0, "GetSourceEndTime": 10.01},
+        media_properties={"Frames": "240"},
+    )
+
+    assert _fractional_source_range_matches(proof)
+    observations["source_times"]["GetSourceEndTime"] = 10.0
+    assert not _fractional_source_range_matches(proof)
+    observations["source_times"]["GetSourceEndTime"] = 10.01
+    binding["mode"] = "verified_reuse"
+    assert not _fractional_source_range_matches(proof)
+
+
 def _normal_25fps_video_verify_fixture(
     *, shape: str = "exclusive", end_time: float = 3.0
 ) -> tuple[Any, Any, dict[str, Any]]:

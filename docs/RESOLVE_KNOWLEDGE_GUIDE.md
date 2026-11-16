@@ -1273,6 +1273,21 @@ item, and two static authored slates. The failed fetch slate occupied
 qualifies intentional, package-verified PNG slates on that route; undefined
 and unresolved preview slates still refuse native build.
 
+**#594 standalone source audio delta:** Studio **21.2.0 build 6**,
+Local scripting, Intel Mac. The regular Prep Media and build commands delivered
+a 1920×1080, 816-frame timeline at 24000/1001 in a new disposable project,
+including narration, two standalone audio placements at 0 and −18 dB, and
+one muted standalone clip. The structural check passed after save, close
+and reopen. The 25 fps picture required verified CFR preparation. Resolve
+read its 240-frame derivative from source frame 0 through 239 and reported
+exact source-time edges at 0 and 10.010 seconds. The verified derivative's
+decoded frame count and clock govern that full-range readback.
+
+The 34.034-second sample took 13.46 seconds through Prep Media using previously
+prepared assets, 40.58 seconds for the full build and check, and 23.96 seconds
+for the Resolve portion. This qualifies matching zero-start prepared picture
+and WAV ranges on the direct new-project route. See [#594](https://github.com/mbelinkie/vera-script-to-timeline/issues/594).
+
 ### RK-50 — In-place row update on the original timeline, and two readback traps
 
 **Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**

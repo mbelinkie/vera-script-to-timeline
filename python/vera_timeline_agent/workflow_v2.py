@@ -3371,6 +3371,15 @@ def _fractional_source_range_matches(
                 expected_start,
                 expected_start - 1,
             } and actual_end in {expected_end, expected_end - 1}
+        # A verified CFR derivative supplies its own zero-origin clock. Its
+        # original media may have a different rate, origin, and decoded length.
+        full_fractional_derivative = (
+            rate == _QUALIFIED_FRACTIONAL_RATE
+            and isinstance(binding, Mapping)
+            and binding.get("mode") == "derived_cfr"
+            and expected_start == 0
+            and expected_end == decoded_frame_count
+        )
         provenance = manifest_event.get("provenance")
         if (
             manifest_start != expected_start
@@ -3384,10 +3393,8 @@ def _fractional_source_range_matches(
             or binding.get("timeMapping") != source_mapping
             or event_mapping != source_mapping
             or event_mapping.get("sourceFrameMap") != source_frame_map
-            or event_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
             or event_mapping.get("deliveredOrigin")
             != {"numerator": 0, "denominator": 1}
-            or event_mapping.get("sourceRate") != expected_rate
             or event_mapping.get("deliveredRate") != expected_rate
             or not isinstance(verification, Mapping)
             or not isinstance(provenance, Mapping)
@@ -3395,13 +3402,8 @@ def _fractional_source_range_matches(
             or manifest_source.get("deliveredHash") != source.get("contentHash")
             or verification.get("deliveredHash") != source.get("contentHash")
             or verification.get("decodedFrameRate") != expected_rate
-            or source_frame_map.get("decodedPackageFrameRate") != expected_rate
             or type(verification.get("decodedFrameCount")) is not int
-            or verification.get("decodedFrameCount")
-            != source_frame_map.get("decodedPackageFrameCount")
             or type(verification.get("probeHash")) is not str
-            or verification.get("probeHash") != source_frame_map.get("probeHash")
-            or verification.get("probeHash") != source_frame_map.get("descriptorHash")
             or verification.get("probeHash")
             != manifest_source.get("deliveredProbeHash")
             or not isinstance(media_properties, Mapping)
@@ -3411,14 +3413,23 @@ def _fractional_source_range_matches(
             or expected_start < 0
             or expected_start >= verification["decodedFrameCount"]
             or expected_end > verification["decodedFrameCount"]
+            or actual_start < 0
+            or not native_source_range_matches
+            or not _native_speed_matches(speed, 100)
+        ):
+            return False
+        if not full_fractional_derivative and (
+            event_mapping.get("sourceOrigin") != {"numerator": 0, "denominator": 1}
+            or event_mapping.get("sourceRate") != expected_rate
+            or source_frame_map.get("decodedPackageFrameRate") != expected_rate
+            or decoded_frame_count != source_frame_map.get("decodedPackageFrameCount")
+            or verification["probeHash"] != source_frame_map.get("probeHash")
+            or verification["probeHash"] != source_frame_map.get("descriptorHash")
             or source_frame_map.get("packageFrameZeroLogicalFrame") != 0
             or source_frame_map.get("packageVideoPtsOrigin")
             != {"numerator": 0, "denominator": 1}
             or source_frame_map.get("loggedTimeAtPackageFrameZero")
             != {"numerator": 0, "denominator": 1}
-            or actual_start < 0
-            or not native_source_range_matches
-            or not _native_speed_matches(speed, 100)
         ):
             return False
         start_error = _source_time_error_samples(
