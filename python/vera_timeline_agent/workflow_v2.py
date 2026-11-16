@@ -1095,6 +1095,81 @@ def _requires_native_otio(view: Mapping[str, Any]) -> bool:
     )
 
 
+def _native_source_audio_profile_qualified(
+    timeline: Mapping[str, Any],
+    view: Mapping[str, Any],
+    *,
+    allow_fractional_native: bool,
+    existing_project: str | None,
+    native_otio: bool,
+) -> bool:
+    """Admit only full source-audio pairs on the new fractional direct route."""
+    if (
+        allow_fractional_native is not True
+        or existing_project is not None
+        or native_otio
+        or _frame_rate(timeline) != _QUALIFIED_FRACTIONAL_RATE
+    ):
+        return False
+
+    sources = {source["id"]: source for source in view["sources"]}
+    events = view["events"]
+    source_audio_events = [event for event in events if event["kind"] == "source_audio"]
+    if not source_audio_events:
+        return False
+
+    paired_visual_ids: set[str] = set()
+    for audio_event in source_audio_events:
+        source = sources.get(audio_event.get("sourceId"))
+        original = audio_event.get("v2Event")
+        record_range = audio_event.get("recordRange")
+        source_range = audio_event.get("sourceRange")
+        provenance = original["provenance"]
+        video_source_id = provenance.get("sourceId")
+        video_source = sources.get(video_source_id)
+        audio_path = source.get("path") if isinstance(source, Mapping) else None
+        if (
+            audio_event["sourceId"] != audio_event["id"]
+            or source["kind"] != "audio"
+            or not isinstance(audio_path, str)
+            or not audio_path.endswith(".wav")
+            or not isinstance(source.get("contentHash"), str)
+            or not isinstance(video_source, Mapping)
+            or video_source.get("kind") != "video"
+            or provenance.get("deliveredSourceHash") != video_source.get("contentHash")
+            or any(
+                provenance.get(key) is not None
+                for key in ("sequenceId", "slotId", "overlayEventId")
+            )
+            or source_range["startFrame"] != 0
+            or source_range["durationFrames"] != record_range["durationFrames"]
+        ):
+            return False
+
+        matching_visuals = [
+            event
+            for event in events
+            if event["kind"] == "primary_visual"
+            and event["sourceId"] == video_source_id
+            and event["recordRange"] == record_range
+            and event["sourceRange"]["startFrame"] == 0
+            and event["sourceRange"].get("durationFrames")
+            == record_range["durationFrames"]
+            and event["v2Event"]["trackRole"] == "primary_root"
+            and all(
+                event["v2Event"]["provenance"].get(key) is None
+                for key in ("sequenceId", "slotId", "overlayEventId")
+            )
+        ]
+        if len(matching_visuals) != 1:
+            return False
+        visual_id = matching_visuals[0].get("id")
+        if not isinstance(visual_id, str) or visual_id in paired_visual_ids:
+            return False
+        paired_visual_ids.add(visual_id)
+    return True
+
+
 def _native_otio_transport_tracks(view: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Independently derive required empty A1-A4 OTIO lanes for signed A5 music."""
     tracks = [dict(track) for track in view["tracks"]]
@@ -3436,11 +3511,23 @@ def run_workflow_delivery_v2(
         has_source_audio = any(
             event.get("kind") == "source_audio" for event in view["events"]
         )
+        native_otio = _requires_native_otio(view)
+        source_audio_profile_qualified = _native_source_audio_profile_qualified(
+            timeline,
+            view,
+            allow_fractional_native=allow_fractional_native,
+            existing_project=existing_project,
+            native_otio=native_otio,
+        )
         result["sourceAudioPresent"] = has_source_audio
         result["sourceAudioNativeQualified"] = False
-        if has_source_audio and action == "build":
+        if (
+            has_source_audio
+            and action == "build"
+            and not source_audio_profile_qualified
+        ):
             raise WorkflowV2Error(
-                "native source-audio delivery awaits #178 qualification"
+                "native source-audio requires a full 24000/1001 new-project pair"
             )
         has_music = any(event.get("kind") == "music" for event in view["events"])
         result["nativeMusicRateQualified"] = not has_music or _frame_rate(timeline) == (
@@ -3484,7 +3571,6 @@ def run_workflow_delivery_v2(
             raise WorkflowV2Error(
                 "a picture treatment lacks a qualified native mapping"
             )
-        native_otio = _requires_native_otio(view)
         transition_plans = tuple(
             cast(list[Mapping[str, Any]], manifest.get("transitions", []))
         )
@@ -3539,6 +3625,14 @@ def run_workflow_delivery_v2(
             or connected_identity not in SUPPORTED_V2_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
+        if has_source_audio:
+            result["sourceAudioNativeQualified"] = (
+                source_audio_profile_qualified and connected_identity == ("21.2.0", "6")
+            )
+            if action == "build" and not result["sourceAudioNativeQualified"]:
+                raise WorkflowV2Error(
+                    "native source-audio requires measured Studio 21.2.0 build 6"
+                )
         if native_otio and connected_identity == ("21.1.1", "10"):
             if any(
                 event["recordRange"]["durationFrames"] == 72
