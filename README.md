@@ -398,6 +398,9 @@ During development, run:
 npm run validate:fast
 ```
 
+Fast validation selects Node from `.nvmrc` for the runner and its subprocesses.
+npm caches the pinned runtime after the first download.
+
 This keeps generated-currentness, all lint and type checks, fast TypeScript
 unit coverage, and Python tests that are non-slow or explicitly marked as fast
 unit coverage inside a slow module, on eight workers with work stealing to keep uneven tests balanced. Contracts

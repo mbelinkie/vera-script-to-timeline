@@ -40,7 +40,7 @@
     "check:python": "npm run lint:python && npm run typecheck:python && npm run test:python",
     "validate": "npm run check:contracts-generated && npm run check:typescript && npm run check:python",
     "test:python:fast": "uv run --frozen pytest -m \"(not slow) or fast\" -n 8 --dist=worksteal",
-    "validate:fast": "node scripts/validate-fast.mjs",
+    "validate:fast": "npm exec --yes --package=\"node@$(cat .nvmrc)\" -- node scripts/validate-fast.mjs",
     "test:ci": "node --test scripts/ci-docs-only.test.mjs"
   },
   "devDependencies": {
