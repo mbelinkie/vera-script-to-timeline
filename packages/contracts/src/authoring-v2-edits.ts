@@ -87,7 +87,11 @@ export function applyVisualSequenceEditV2(
     if (row && row.type !== "section") markStashOriginEditedV2(row);
     // D193: recalculate the whole picture sequence in the same edit, so a
     // removed visual never leaves two On Camera cards side by side or a
-    // return with nothing to return from. Unresolved rows are left as they are.
+    // return with nothing to return from. Unresolved rows are left as they
+    // are. Only edits that remove or re-relate a slot can create either
+    // problem; inserting a slot or moving one cut keeps the row as authored.
+    if (!["delete_slot", "flatten_cutaway_group", "move_payload", "swap_payloads", "swap_ranges", "set_visual_range", "set_on_camera_framing"].includes(command.kind)) continue;
+    if (command.kind === "move_payload" && blockId !== command.sourceBlockId) continue;
     const edited = findRow(working, blockId);
     const normalized = edited ? normalizeCoverageV2(edited) : null;
     if (edited?.primaryVisualSequence && normalized) edited.primaryVisualSequence.slots = normalized;
