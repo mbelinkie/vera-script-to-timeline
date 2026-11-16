@@ -1,5 +1,6 @@
 import type { ScriptDocumentV2, RowGapV2, SupportingItemV2, StashOutlineEntryV2, StashOriginV2, StashRowGroupV2, NarrationBlockV2, NarratedVisualPayloadV2, VisualOnlyBlockV2 } from "./generated/contracts-v2.js";
-import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
+import type { AuthoringDiagnosticV2, VisualSequenceEditCommandV2, VisualSequenceEditResultV2 } from "./authoring-v2.js";
+import { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
@@ -1785,6 +1786,25 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command);
       if (result.ok) { history.push(current); current = result.document; revision++; }
       return { ...result, document: structuredClone(result.document) };
+    },
+    /**
+     * Visual edits share the row history. A confirmed range change and all its
+     * fallout (neighbouring ranges, On Camera passages, framing, returns, card
+     * order) are exactly one entry; a refused edit adds none.
+     */
+    applyVisualEdit(command: VisualSequenceEditCommandV2, expectedRevision = revision): VisualSequenceEditResultV2 {
+      if (expectedRevision !== revision || revision === Number.MAX_SAFE_INTEGER) {
+        return refused(structuredClone(current), "ROW_REVISION_STALE", "The session changed before this edit, or its revision cannot advance.");
+      }
+      const blockId = command.kind === "move_payload" ? command.sourceBlockId : command.blockId;
+      const row = current.activeDraft.blocks.find((block) => block.id === blockId);
+      const sequenceVersion = row?.type === "narration" ? row.primaryVisualSequence?.version ?? 0 : 0;
+      const result = applyVisualSequenceEditV2(current, sequenceVersion, command);
+      if (!result.ok) return { ...result, document: structuredClone(current) };
+      history.push(current);
+      revision++;
+      current = { ...result.document, rowEditRevision: revision };
+      return { ...result, document: structuredClone(current) };
     },
     undo(): RowEditResultV2 {
       if (revision === Number.MAX_SAFE_INTEGER) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session revision cannot advance.");

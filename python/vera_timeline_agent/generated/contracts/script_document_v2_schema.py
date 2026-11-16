@@ -156,6 +156,7 @@ class SelectedSourceRange(TypedDict):
 class PrimaryVisualPayload1(TypedDict):
     kind: Literal["on_camera"]
     presenterChoiceId: EntityId | None
+    framing: NotRequired[Literal["wide", "tight"]]
 
 
 class PrimaryVisualPayload2(TypedDict):
@@ -416,6 +417,12 @@ class ContentSlot(TypedDict):
     version: EntityVersion
 
 
+class UnattachedVisualV2(TypedDict):
+    slotId: EntityId
+    payload: NarratedVisualPayloadV2
+    version: EntityVersion
+
+
 class ReturnSlot(TypedDict):
     id: EntityId
     kind: Literal["return"]
@@ -600,6 +607,7 @@ class NarrationBlockV2(TypedDict):
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
     attachedFootage: NotRequired[AttachedFootageV2]
+    unattachedVisuals: NotRequired[list[UnattachedVisualV2]]
 
 
 type StashedRowV2 = (
