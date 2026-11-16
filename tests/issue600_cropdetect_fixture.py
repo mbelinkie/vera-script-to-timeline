@@ -1,33 +1,25 @@
 """Tiny generated clips for #600 cropdetect characterization.
 
 Run with ``uv run python tests/issue600_cropdetect_fixture.py`` and
-``--output-dir /tmp/issue600``.
-The clips use lossless FFV1 so the test exercises cropdetect rather than encoder
-ringing. They are disposable synthetic media, never Resolve inputs.
+``--output-dir /tmp/issue600``. The clips use lossless FFV1 and are disposable
+synthetic media, never Resolve inputs.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
-from vera_timeline_agent.cropdetect import CropRect
-
-
-@dataclass(frozen=True)
-class CropObservation:
-    time_seconds: float
-    rect: CropRect
-
+from vera_timeline_agent.cropdetect import CropDetection, analyze_media
 
 _GRAPHS = {
     "letterbox": "testsrc2=size=320x140:rate=10:duration=2,pad=320:180:0:20:black",
     "pillarbox": "testsrc2=size=272x180:rate=10:duration=2,pad=320:180:24:0:black",
+    "asymmetric": "testsrc2=size=320x130:rate=10:duration=2,pad=320:180:0:20:black",
     "near_black": "color=c=0x101010:s=320x180:r=10:d=2,format=yuv420p",
     "changing": (
         "testsrc2=size=320x140:rate=10:duration=1,pad=320:180:0:20:black[a];"
@@ -40,17 +32,12 @@ _GRAPHS = {
 }
 
 # Reuse the letterbox clip as an explicit-framing control for downstream
-# integration tests. This is fixture metadata; it does not claim to test the
-# caller's override precedence or Resolve's transform conventions.
+# integration tests. This does not prove Resolve's transform conventions.
 OVERRIDE_CONTROL = {
     "source_fixture": "letterbox",
     "framing_override": {"zoom": 180 / 140, "center_x": 0.5, "center_y": 0.5},
     "expected_action": "preserve-explicit-framing",
 }
-
-_CROP_RE = re.compile(
-    r"\bt:([0-9.]+).*?\bcrop=(\d+):(\d+):(\d+):(\d+)"
-)
 
 
 def _run(ffmpeg: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -62,7 +49,7 @@ def _run(ffmpeg: str, *args: str) -> subprocess.CompletedProcess[str]:
 def generate_issue600_cropdetect_fixtures(
     output_dir: Path, ffmpeg: str | None = None
 ) -> dict[str, Path]:
-    """Generate five short 320x180 FFV1 clips under ``output_dir``."""
+    """Generate short 320x180 FFV1 clips under ``output_dir``."""
     executable = ffmpeg or shutil.which("ffmpeg")
     if executable is None:
         raise FileNotFoundError("ffmpeg is required to generate issue #600 fixtures")
@@ -95,59 +82,23 @@ def generate_issue600_cropdetect_fixtures(
     return paths
 
 
-def observe_issue600_cropdetect(
-    path: Path, ffmpeg: str | None = None
-) -> list[CropObservation]:
-    """Return cropdetect's per-frame rectangles using its default black mode."""
-    executable = ffmpeg or shutil.which("ffmpeg")
-    if executable is None:
-        raise FileNotFoundError("ffmpeg is required to inspect issue #600 fixtures")
-    result = _run(
-        executable,
-        "-hide_banner",
-        "-loglevel",
-        "info",
-        "-i",
-        str(path),
-        "-vf",
-        "cropdetect=limit=0.0941176:round=2:reset=0",
-        "-an",
-        "-f",
-        "null",
-        "-",
-    )
-    observations = []
-    for match in _CROP_RE.finditer(result.stderr):
-        time_seconds, width, height, x, y = match.groups()
-        observations.append(
-            CropObservation(
-                float(time_seconds), CropRect(int(x), int(y), int(width), int(height))
-            )
-        )
-    if not observations:
-        raise RuntimeError(f"cropdetect produced no observations for {path}")
-    return observations
-
-
-def sampled_windows(
-    observations: list[CropObservation], count: int = 3
-) -> list[CropObservation]:
-    """Choose first, middle, and last observations from the analyzed range."""
-    if len(observations) < count:
-        return observations
-    indices = sorted(
-        {
-            round(index * (len(observations) - 1) / (count - 1))
-            for index in range(count)
-        }
-    )
-    return [observations[index] for index in indices]
+def _detection_report(detection: CropDetection) -> dict[str, object]:
+    return {
+        "source_size": detection.source_size,
+        "used_range": detection.used_range,
+        "active_rect": (
+            asdict(detection.active_rect) if detection.active_rect is not None else None
+        ),
+        "accepted": detection.accepted,
+        "refusal_reason": detection.refusal_reason,
+        "samples": [asdict(sample) for sample in detection.samples],
+    }
 
 
 def _report(output_dir: Path, ffmpeg: str) -> dict[str, object]:
     fixtures = generate_issue600_cropdetect_fixtures(output_dir, ffmpeg)
-    observations = {
-        name: observe_issue600_cropdetect(path, ffmpeg)
+    detections = {
+        name: analyze_media(path, (0.0, 2.0), ffmpeg=ffmpeg)
         for name, path in fixtures.items()
     }
     return {
@@ -155,21 +106,14 @@ def _report(output_dir: Path, ffmpeg: str) -> dict[str, object]:
         "fixtures": {
             name: {
                 "path": str(fixtures[name]),
-                "observations": [
-                    {"time_seconds": item.time_seconds, "rect": asdict(item.rect)}
-                    for item in observations[name]
-                ],
-                "sampled_windows": [
-                    {"time_seconds": item.time_seconds, "rect": asdict(item.rect)}
-                    for item in sampled_windows(observations[name])
-                ],
+                **_detection_report(detections[name]),
             }
             for name in fixtures
         },
         "override_control": OVERRIDE_CONTROL,
         "note": (
-            "cropdetect bounds alone do not establish that dark edges are "
-            "baked-in bars"
+            "cropdetect geometry and temporal agreement cannot distinguish all "
+            "edge-aligned graphics from baked-in bars"
         ),
     }
 

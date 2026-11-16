@@ -1,23 +1,18 @@
 from __future__ import annotations
 
 import shutil
+from itertools import pairwise
 
 import pytest
 from issue600_cropdetect_fixture import (
     OVERRIDE_CONTROL,
     generate_issue600_cropdetect_fixtures,
-    observe_issue600_cropdetect,
-    sampled_windows,
 )
-from vera_timeline_agent.cropdetect import (
-    CropRect,
-    CropWindowSample,
-    select_stable_active_rect,
-)
+from vera_timeline_agent.cropdetect import CropRect, analyze_media
 
 
 @pytest.mark.slow
-def test_generated_controls_characterize_cropdetect_and_stable_selection(
+def test_ffmpeg_sampler_accepts_only_stable_symmetric_bars_without_mutating_media(
     tmp_path,
 ) -> None:
     ffmpeg = shutil.which("ffmpeg")
@@ -25,37 +20,42 @@ def test_generated_controls_characterize_cropdetect_and_stable_selection(
         pytest.skip("ffmpeg is required for synthetic cropdetect fixtures")
 
     paths = generate_issue600_cropdetect_fixtures(tmp_path, ffmpeg)
-    observed = {
-        name: sampled_windows(observe_issue600_cropdetect(path, ffmpeg))
+    before = paths["letterbox"].read_bytes()
+    detections = {
+        name: analyze_media(path, (0.2, 1.8), ffmpeg=ffmpeg)
         for name, path in paths.items()
     }
-    expected = {
-        "letterbox": CropRect(0, 20, 320, 140),
-        "pillarbox": CropRect(24, 0, 272, 180),
-        "near_black": CropRect(0, 0, 320, 180),
-        "dark_title": CropRect(120, 60, 80, 60),
-    }
-    assert all(len(windows) == 3 for windows in observed.values())
-    for name, rect in expected.items():
-        assert [item.rect for item in observed[name]] == [rect, rect, rect]
-    assert observed["changing"][0].rect == CropRect(0, 20, 320, 140)
-    assert observed["changing"][-1].rect == CropRect(0, 0, 320, 180)
 
-    def select(name: str, mean_luma: float = 120.0) -> CropRect | None:
-        samples = [
-            CropWindowSample(f"{name}-{index}", item.rect, mean_luma)
-            for index, item in enumerate(observed[name])
-        ]
-        return select_stable_active_rect((320, 180), samples)
+    assert detections["letterbox"].source_size == (320, 180)
+    assert detections["letterbox"].active_rect == CropRect(0, 20, 320, 140)
+    assert detections["pillarbox"].active_rect == CropRect(24, 0, 272, 180)
+    assert detections["asymmetric"].active_rect is None
+    assert detections["near_black"].active_rect is None
+    assert detections["changing"].active_rect is None
+    assert detections["dark_title"].active_rect is None
 
-    assert select("letterbox") == expected["letterbox"]
-    assert select("pillarbox") == expected["pillarbox"]
-    assert select("near_black") is None
-    assert select("changing") is None
-    # The title patch is bright (Y=235) despite its near-black background.
-    # Rejecting this stable false crop needs a geometric/edge guard as well as
-    # temporal agreement and mean luma; cropdetect cannot infer intent alone.
-    assert select("dark_title", mean_luma=235.0) is None
+    for detection in detections.values():
+        assert len(detection.samples) == 3
+        assert all(
+            sample.frame_count is not None and sample.frame_count >= 2
+            for sample in detection.samples
+        )
+        assert all(
+            sample.start_seconds is not None
+            and sample.end_seconds is not None
+            and 0.2 <= sample.start_seconds < sample.end_seconds <= 1.8
+            for sample in detection.samples
+        )
+        assert all(
+            left.end_seconds <= right.start_seconds
+            for left, right in pairwise(detection.samples)
+        )
 
+    assert detections["letterbox"].accepted
+    assert (
+        detections["asymmetric"].refusal_reason == "unstable_or_ambiguous_crop_evidence"
+    )
+    assert detections["near_black"].refusal_reason == "no_bars_detected"
+    assert paths["letterbox"].read_bytes() == before
     assert OVERRIDE_CONTROL["source_fixture"] == "letterbox"
     assert OVERRIDE_CONTROL["expected_action"] == "preserve-explicit-framing"

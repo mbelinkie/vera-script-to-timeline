@@ -111,6 +111,36 @@ def test_refuses_nearly_full_but_all_sides_inset_region() -> None:
     assert select_stable_active_rect((320, 180), samples) is None
 
 
+@pytest.mark.parametrize(
+    "rect",
+    [
+        CropRect(0, 20, 320, 130),  # unequal top and bottom bars
+        CropRect(24, 20, 272, 140),  # inset on both axes
+        CropRect(0, 20, 320, 150),  # one-sided crop
+    ],
+    ids=["asymmetric-bars", "both-axes-inset", "one-sided-crop"],
+)
+def test_refuses_asymmetric_or_ambiguous_bar_geometry(rect: CropRect) -> None:
+    assert select_stable_active_rect((320, 180), _samples(rect, rect, rect)) is None
+
+
+def test_refuses_overlapping_or_too_short_sample_windows() -> None:
+    rect = CropRect(0, 20, 320, 140)
+    overlapping = [
+        CropWindowSample("one", rect, 100, 0.0, 0.5, 5),
+        CropWindowSample("two", rect, 100, 0.4, 0.9, 5),
+        CropWindowSample("three", rect, 100, 1.0, 1.5, 5),
+    ]
+    too_short = [
+        CropWindowSample("one", rect, 100, 0.0, 0.5, 1),
+        CropWindowSample("two", rect, 100, 0.5, 1.0, 5),
+        CropWindowSample("three", rect, 100, 1.0, 1.5, 5),
+    ]
+
+    assert select_stable_active_rect((320, 180), overlapping) is None
+    assert select_stable_active_rect((320, 180), too_short) is None
+
+
 def test_transform_rejects_out_of_bounds_crop() -> None:
     with pytest.raises(ValueError, match="inside source_size"):
         crop_to_fill_transform((1920, 1080), (1920, 1080), CropRect(0, 90, 1920, 1000))
