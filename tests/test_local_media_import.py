@@ -502,6 +502,16 @@ def test_reconcile_refuses_target_changed_while_decoding(
     assert source.read_bytes() == DATA
 
 
+def test_lock_symlink_is_refused(
+    fixture: tuple[LocalImportApproval, Path, Path, Path],
+) -> None:
+    approval, state, source, project = fixture
+    (project / ".vera-local-import.lock").symlink_to(source)
+    _refuse("source_unsafe", _run, approval, state)
+    assert source.read_bytes() == DATA
+    assert not (state / "receipts").exists()
+
+
 def test_concurrent_same_id_publishes_once(
     fixture: tuple[LocalImportApproval, Path, Path, Path],
 ) -> None:
