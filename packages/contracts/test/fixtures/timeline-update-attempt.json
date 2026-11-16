@@ -1,0 +1,70 @@
+{
+  "baseline": "5c5fb053149b3392cf54ad1b2ed1322246a1d3c9097344d5ae7d0d994b055a87",
+  "completed": true,
+  "current": "5c5fb053149b3392cf54ad1b2ed1322246a1d3c9097344d5ae7d0d994b055a87",
+  "outcomes": [
+    {
+      "change": "row-2",
+      "error": null,
+      "receipt": {
+        "after": "5c5fb053149b3392cf54ad1b2ed1322246a1d3c9097344d5ae7d0d994b055a87",
+        "before": "8ac44cb352309613e06a01fe3426b88057bb6667a55d98a0af5922d6591608ed",
+        "change": "row-2",
+        "plan": "b272b5e7d5f86ebab2e05e508089daaeaec2a8c2a7dcb80cfbb60f7fc670546d",
+        "target": "t-uid"
+      },
+      "status": "verified"
+    },
+    {
+      "change": "row-3",
+      "error": null,
+      "receipt": null,
+      "status": "blocked"
+    }
+  ],
+  "plan": {
+    "baseline": "8ac44cb352309613e06a01fe3426b88057bb6667a55d98a0af5922d6591608ed",
+    "changes": [
+      {
+        "change": {
+          "blocked": null,
+          "edits": [
+            {
+              "durationFrames": 10,
+              "eventId": "event-row-2",
+              "previousEventId": "event-row-2",
+              "resolveItemId": "native-event-row-2",
+              "route": "replace_in_place",
+              "sourceId": "src-new-picture",
+              "sourceStartFrame": 0,
+              "swapPicture": true
+            }
+          ],
+          "id": "row-2",
+          "kind": "cut",
+          "order": 0
+        },
+        "disposition": "selected"
+      },
+      {
+        "change": {
+          "blocked": "This row changes length from 10 to 12 frames. Resolve 21.1.1 cannot move or trim existing clips from a script. Doing this would mean deleting and recreating clips and losing the finishing on them. Make this change by hand on a copy, or upgrade Resolve.",
+          "edits": [
+            {
+              "route": "none"
+            }
+          ],
+          "id": "row-3",
+          "kind": "structural",
+          "order": 1
+        },
+        "disposition": "blocked"
+      }
+    ],
+    "hash": "b272b5e7d5f86ebab2e05e508089daaeaec2a8c2a7dcb80cfbb60f7fc670546d",
+    "source": "sha256:build-2",
+    "target": "t-uid",
+    "version": 1
+  },
+  "version": 1
+}

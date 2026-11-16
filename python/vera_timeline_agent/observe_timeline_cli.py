@@ -17,6 +17,7 @@ from .row_timeline_map import (
     observe_item_details,
     validate_saved_row_map,
 )
+from .timeline_baseline import load_baseline, read_record
 from .workflow_v2 import (
     _assert_readback_target,
     _current_readback_target,
@@ -205,6 +206,17 @@ def observe_output(
 ) -> dict[str, Any]:
     """Read the active timeline and compare its clips with the verified baseline."""
     root = _regular_absolute(output.absolute(), "build output", directory=True)
+    if read_record(root) is not None:
+        # An in-place update folder (#104) composes its baseline.
+        baseline = load_baseline(root)
+        with exclusive_resolve_build():
+            return observe_current(
+                resolve_factory()
+                if resolve_factory
+                else _external_resolve(resolve_app),
+                baseline.saved,
+                baseline.view,
+            )
     saved = _read_saved_row_map(root)
     if saved is None:
         raise ValueError("this build output has no row-timeline-map.json baseline")
@@ -218,20 +230,31 @@ def observe_output(
     validate_saved_row_map(package.manifest, package.view, saved)
     if saved["timelineName"] != package.attestation["timelineName"]:
         raise ValueError("baseline timeline name differs from the verified build")
+    with exclusive_resolve_build():
+        return observe_current(
+            resolve_factory() if resolve_factory else _external_resolve(resolve_app),
+            saved,
+            package.view,
+        )
+
+
+def observe_current(
+    resolve: Any, saved: Mapping[str, Any], view: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Compare the open timeline with a validated baseline. Caller holds the lock."""
     saved_items = {
         item["resolveItemId"]: item for row in saved["rows"] for item in row["items"]
     }
-    stamps = {event["id"]: _stamp(event) for event in package.view["events"]}
-    with exclusive_resolve_build():
-        manager, timeline, project_uid, timeline_uid = _current_readback_target(
-            resolve_factory() if resolve_factory else _external_resolve(resolve_app),
-            project_name=saved["projectName"],
-            timeline_name=saved["timelineName"],
-            project_uid=saved["resolveProjectId"],
-            timeline_uid=saved["timelineId"],
-        )
-        current = _read_items(timeline, saved_items, stamps)
-        _assert_readback_target(manager, project_uid, timeline_uid)
+    stamps = {event["id"]: _stamp(event) for event in view["events"]}
+    manager, timeline, project_uid, timeline_uid = _current_readback_target(
+        resolve,
+        project_name=saved["projectName"],
+        timeline_name=saved["timelineName"],
+        project_uid=saved["resolveProjectId"],
+        timeline_uid=saved["timelineId"],
+    )
+    current = _read_items(timeline, saved_items, stamps)
+    _assert_readback_target(manager, project_uid, timeline_uid)
 
     rows = [
         {
@@ -244,9 +267,7 @@ def observe_output(
         for row in saved["rows"]
     ]
     rows_by_id = {row["rowId"]: row["items"] for row in rows}
-    event_kinds = {
-        event["id"]: event["v2Event"]["kind"] for event in package.view["events"]
-    }
+    event_kinds = {event["id"]: event["v2Event"]["kind"] for event in view["events"]}
     for uid, item in current.items():
         if uid in saved_items:
             continue

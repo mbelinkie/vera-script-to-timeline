@@ -32,7 +32,11 @@ from .package_cache import default_cache_root
 from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
-from .workflow_v2 import load_verified_package_v2, run_workflow_delivery_v2
+from .workflow_v2 import (
+    VerifiedPackageV2,
+    load_verified_package_v2,
+    run_workflow_delivery_v2,
+)
 from .workflow_v2_cli import attest_package_v2
 
 T = TypeVar("T")
@@ -546,15 +550,13 @@ def _require_workflow_status(
     )
 
 
-def deliver_compiled(
+def package_compiled(
     compiled: CompileResult,
     *,
     timings: StageTimings,
-    existing_project: str | None = None,
     package_cache: Path | None = None,
-    resolve_app: Path | None = None,
-) -> DeliveryResult:
-    """Package immutable bytes and create one new Studio timeline target."""
+) -> tuple[VerifiedPackageV2, Path, str]:
+    """Package and attest immutable bytes. Never contacts Resolve."""
     if compiled.music_resolution is not None:
         verify_music_pins(compiled.music_resolution)
 
@@ -629,6 +631,21 @@ def deliver_compiled(
         compiled.manifest
     ):
         raise BuildJobError("attested package does not match compiled manifest")
+    return checked, attestation, digest
+
+
+def deliver_compiled(
+    compiled: CompileResult,
+    *,
+    timings: StageTimings,
+    existing_project: str | None = None,
+    package_cache: Path | None = None,
+    resolve_app: Path | None = None,
+) -> DeliveryResult:
+    """Package immutable bytes and create one new Studio timeline target."""
+    checked, attestation, digest = package_compiled(
+        compiled, timings=timings, package_cache=package_cache
+    )
 
     with timings.span("Resolve step + check"), exclusive_resolve_build():
         resolve = timings.run(

@@ -1273,6 +1273,59 @@ item, and two static authored slates. The failed fetch slate occupied
 qualifies intentional, package-verified PNG slates on that route; undefined
 and unresolved preview slates still refuse native build.
 
+### RK-50 — In-place row update on the original timeline, and two readback traps
+
+**Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**
+#104's update command ran on a throwaway two-row 24 fps build (#327's
+synthetic inputs). Row 1 carried a scripted 1.2 zoom, an Orange clip color,
+a −12 dB clip volume and an extra clip on V2. The command duplicated the
+timeline as the archive, replaced row 2's picture on the *original* timeline
+through the take selector, replaced that clip's VERA marker, then saved,
+closed and reopened. Row 2 kept its item ID, position and length and showed
+the new source; row 1's settings, the V2 clip and the archive read back
+unchanged. The update folder then served as the baseline: the observe
+command reported only the V2 clip as an addition. A script that made row 2
+longer was refused without touching Resolve. A hand-applied grade, Fusion
+effect or transition was not part of this run; RK-47 covers those on a
+duplicate.
+
+Two traps found on the way:
+
+- A timeline made by `DuplicateTimeline` omits audio clip settings that are
+  at their off or zero default (the Dialogue Leveler and Voice Isolation
+  keys of `GetProperties`) until the project is reopened. Compare a missing
+  setting as equal to an off or zero value, never to a set one.
+- A Media Pool item handle returned by `ImportMedia` stops answering after
+  `CloseProject` and `LoadProject`. Read its media ID before closing.
+
+### RK-51 — On 21.2 a row can change length without recreating later clips
+
+**Measured on Studio 21.2.0 build 6, Local scripting, November 14, 2026.**
+[#104's probes](investigations/issue-104/README.md) used throwaway 24 fps
+projects with scripted finishing. `Timeline.MoveItems` moved later rows 48
+frames with the same clip IDs and kept a grade (read with `GetCDL`), zoom,
+clip colour, clip marker, OFX effect and volume; a dissolve between two rows
+that moved together kept its ID. `SetRightOffset` extended and shortened a
+picture in place, also after a take swap, and the swapped clip kept its own
+grade, zoom and marker. All of it survived save, close and reopen.
+
+Two limits. A dissolve on the cut that opens when the later row moves away is
+dropped and does not return when the gap closes. Audio clips have no take
+selector (`AddTake` returns false), so a narration clip that becomes a
+different file must be placed anew, with `CopyAttributes` and `SetFades`
+carrying its level and fades onto a clip with a new ID. Hand-made grades,
+Fusion compositions, linked clips, stills and other frame rates were not
+tested.
+
+The shipped update command then did the same on a VERA-built timeline
+(November 15, 2026, `--resolve-app` on 21.2): a row grew from 96 to 144
+frames with a new narration recording while the next row moved 48 frames,
+and the reverse update from that folder shrank it back. The moved row's
+clips kept their IDs and scripted grade, zoom, clip colour, marker, OFX
+effect and level. A Cross Dissolve added outside the script on the cut that
+had to open made the command refuse in its plan, before any write. A placed
+audio clip arrived with a Green clip colour that the command clears.
+
 ## #318 action crosswalk
 
 The [original S03/S05 matrix](investigations/issue-318-capability-audit.md)

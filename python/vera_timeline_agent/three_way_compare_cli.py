@@ -19,6 +19,7 @@ from .build_stage_receipt import canonical_json
 from .readback_timeline_cli import _load_readback_package, _read_saved_row_map
 from .row_timeline_map import SCHEMA_VERSION_V2, validate_saved_row_map
 from .three_way_compare import compare_three_way_rows
+from .timeline_baseline import load_baseline, read_record
 from .v2_package import _compiler_hash
 from .workflow_v2 import _read_regular, _regular_absolute, _strict_object
 
@@ -120,23 +121,35 @@ def compare_offline(
 ) -> dict[str, Any]:
     """Classify without acquiring any native lock or contacting Resolve."""
     root = _regular_absolute(baseline_output, "verified build output", directory=True)
-    saved = _read_saved_row_map(root)
-    if (
-        saved is None
-        or saved.get("schemaVersion") != SCHEMA_VERSION_V2
-        or saved.get("version") != 2
-    ):
-        raise ValueError("a verified v2 row-timeline-map.json baseline is required")
-    package = _load_readback_package(root)
-    validate_saved_row_map(package.manifest, package.view, saved)
-    if saved.get("timelineName") != package.attestation.get(
-        "timelineName"
-    ) or saved.get("projectName") != package.attestation.get("projectName"):
-        raise ValueError("baseline target differs from attested delivery")
-    baseline_document = _json_file(
-        package.root / "Builds" / package.manifest["buildId"] / "script-document.json",
-        "attested original script",
-    )
+    if read_record(root) is not None:
+        # An in-place update folder (#104) composes its baseline.
+        baseline = load_baseline(root)
+        saved = baseline.saved
+        baseline_manifest: dict[str, Any] = baseline.manifest
+        baseline_document = baseline.document
+    else:
+        loaded = _read_saved_row_map(root)
+        if (
+            loaded is None
+            or loaded.get("schemaVersion") != SCHEMA_VERSION_V2
+            or loaded.get("version") != 2
+        ):
+            raise ValueError("a verified v2 row-timeline-map.json baseline is required")
+        saved = loaded
+        package = _load_readback_package(root)
+        validate_saved_row_map(package.manifest, package.view, saved)
+        if saved.get("timelineName") != package.attestation.get(
+            "timelineName"
+        ) or saved.get("projectName") != package.attestation.get("projectName"):
+            raise ValueError("baseline target differs from attested delivery")
+        baseline_manifest = package.manifest
+        baseline_document = _json_file(
+            package.root
+            / "Builds"
+            / package.manifest["buildId"]
+            / "script-document.json",
+            "attested original script",
+        )
     observed = _json_file(observation, "saved #101 observation")
     if "status" in observed or observed.get("rows") is None:
         raise ValueError(
@@ -191,7 +204,7 @@ def compare_offline(
         raise ValueError("compiler JSON bytes differ from the returned objects")
     _assert_current_compiler(current, prepared, manifest, report)
     return compare_three_way_rows(
-        package.manifest, saved, baseline_document, manifest, current, observed
+        baseline_manifest, saved, baseline_document, manifest, current, observed
     )
 
 
