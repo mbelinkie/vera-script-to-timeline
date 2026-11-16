@@ -1120,14 +1120,14 @@ def _native_source_audio_profile_qualified(
 
     paired_visual_ids: set[str] = set()
     for audio_event in source_audio_events:
-        source = sources.get(audio_event.get("sourceId"))
-        original = audio_event.get("v2Event")
-        record_range = audio_event.get("recordRange")
-        source_range = audio_event.get("sourceRange")
+        source = sources[audio_event["sourceId"]]
+        original = audio_event["v2Event"]
+        record_range = audio_event["recordRange"]
+        source_range = audio_event["sourceRange"]
         provenance = original["provenance"]
         video_source_id = provenance.get("sourceId")
         video_source = sources.get(video_source_id)
-        audio_path = source.get("path") if isinstance(source, Mapping) else None
+        audio_path = source["path"]
         if (
             audio_event["sourceId"] != audio_event["id"]
             or source["kind"] != "audio"
