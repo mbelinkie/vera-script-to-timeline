@@ -1104,6 +1104,26 @@ evidence has not been converted into generalized product admission. #164
 owns preset/focus policy; #319 owns the web authoring consumer, not the
 underlying source/profile acceptance decision.
 
+**#508 delta — Studio 21.2.0 build 6, centered fill.** The normal VERA build
+created a fresh 1920×1080/24 fps project with verified, unchanged 8-bit RGB PNG
+stills: 1000×1000 square (48 frames), 1600×900 wide (96), 900×1600 tall (72),
+and a 1000×1000 explicit Fit/None control (48). Save, close and reopen verified
+the exact source and record extents. Resolve retained Type-22 fill and the
+centered Type-59 scale keys (1/1.05 to 1/1.20) for all three moving clips.
+The reopened Edit viewer showed filled frames at the sampled positions and
+visible zoom on the square; the control retained fit with zoom disabled and
+showed all four source corners with black padding. This was an 11-second
+synthetic timeline inspected without rendering. Color page clip thumbnails
+showed the fitted source even on moving clips, so they cannot verify the
+timeline's framing or motion.
+
+The new authoring default applies to ordinary images with omitted framing;
+explicit authored policies and earlier frozen builds keep their behavior.
+Fill intentionally crops tall images. Explicit Fit/None is static with black
+padding. Moving Fit, other image profiles, fractional-rate motion, and custom
+motion on Studio 21.2 remain unqualified. This check does not qualify music
+or transitions on 21.2. See [#508](https://github.com/mbelinkie/vera-script-to-timeline/issues/508).
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
@@ -1239,6 +1259,7 @@ music and Cross Dissolve retain their separate 21.1.1 gates; they were not
 qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
 this Intel host, as recorded in the #564 comparison.
 
+<<<<<<< HEAD
 ### RK-50 — In-place row update on the original timeline, and two readback traps
 
 **Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**
@@ -1291,6 +1312,21 @@ clips kept their IDs and scripted grade, zoom, clip colour, marker, OFX
 effect and level. A Cross Dissolve added outside the script on the cut that
 had to open made the command refuse in its plan, before any write. A placed
 audio clip arrived with a Green clip colour that the command clears.
+=======
+**#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable
+24 fps timeline built by the normal command from a Research cutter package.
+The synthetic H.264/AAC cut was verified and copied before compilation; the
+reopened picture kept both source and record intervals at `[0,96)`. The cut
+used synthetic catalog and acquisition inputs with real FFmpeg; this does
+not qualify other source formats or authenticate a live catalog.
+
+The combined #82 timeline also saved, closed, reopened and verified on the
+same Studio build at 24 fps. It retained three cut pictures, one narration
+item, and two static authored slates. The failed fetch slate occupied
+`[264,300)` with the recorded label and a duration of 1.5 seconds. This
+qualifies intentional, package-verified PNG slates on that route; undefined
+and unresolved preview slates still refuse native build.
+>>>>>>> origin/main
 
 ## #318 action crosswalk
 

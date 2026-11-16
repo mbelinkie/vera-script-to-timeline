@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from vera_timeline_agent.native_image_motion import (
+    DEFAULT_IMAGE_MOTION,
     MotionBinding,
     MotionRefusal,
     Qualification,
@@ -149,6 +150,29 @@ def test_verified_png_none_supports_measured_static_contain(
     assert proof is not None
     assert admit_motion(motion, binding, proof, framing="contain") == proof
     assert native_effect_records(motion, proof)[0]["Enabled"] is False
+
+
+@pytest.mark.parametrize(
+    ("size", "frames"),
+    [((1000, 1000), 48), ((1600, 900), 96), ((900, 1600), 72)],
+)
+def test_centered_default_covers_verified_square_wide_and_tall_pngs(
+    tmp_path: Path, size: tuple[int, int], frames: int
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    proof = production_qualification(
+        DEFAULT_IMAGE_MOTION,
+        binding,
+        "cover",
+        verified_asset=source,
+        delivered_probe=probe,
+        frame_rate=(24, 1),
+    )
+    assert proof is not None
+    assert admit_motion(DEFAULT_IMAGE_MOTION, binding, proof, framing="cover") == proof
+    assert proof.native_start_center == proof.native_end_center == (0, 0)
+    assert proof.native_start_scale == pytest.approx(1 / 1.05)
+    assert proof.native_end_scale == pytest.approx(1 / 1.2)
 
 
 @pytest.mark.parametrize(

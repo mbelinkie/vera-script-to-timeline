@@ -61,6 +61,33 @@ corresponding lockfile change with the dependency change.
 
 ## One command: build a VERA v2 script in Resolve Studio
 
+To prepare narration and standalone logged Research clip rows ahead of the build, use
+`prep_media`. It takes the v2 script and its frozen compiler settings and
+prints the prepared script and input directory to pass to the build command.
+Resolve can stay closed during preparation.
+
+```sh
+uv run --frozen python -m vera_timeline_agent.prep_media \
+  --script "/absolute/path/to/script-document.json" \
+  --inputs "/absolute/path/to/compiler-settings" \
+  --project-root "/absolute/path/to/authoring-project" \
+  --research-export-root "/absolute/path/to/research/exports" \
+  --confirm-source-rights
+```
+
+For a missing Research cut, the command uses the authenticated local Research
+cutter. Set `VERA_RESEARCH_BEARER` for the project and use the export directory
+configured in Research. The command copies verified cuts into the authoring
+project's `Media` folder; it leaves Research's package and the original
+script in place. A verified project copy is available offline on the next run.
+Other types of source media need their existing prepared inputs.
+
+Narration uses the selected voice profile and the same project-local cache on
+each run. If the script needs narration, pass the matching `--data-policy`.
+To generate audio missing from the cache, also pass `--confirm-provider-call`
+and an explicit `--max-cost-usd` limit. Omit provider confirmation to use
+cached narration only.
+
 Before building from approved presenter footage, use the **offline recorded
 conform timing preview** described in [Presenter takes and recorded conform](docs/presenter-takes.md#recorded-timing-from-approved-takes-47).
 It freezes exact source and word timing and reports picture movement and

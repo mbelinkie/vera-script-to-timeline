@@ -100,6 +100,12 @@ const validateReport = ajv.getSchema<BuildReportV2>(buildReportSchema.$id)!;
 
 interface Fraction { n: bigint; d: bigint }
 type ImageMotionV1 = NonNullable<AuthoringDefaultsV2["imageMotionDefault"]>;
+const omittedImageFramingMotion = {
+  mode: "native_dynamic_zoom",
+  start: { focusX: 0.5, focusY: 0.5, scale: 1.05 },
+  end: { focusX: 0.5, focusY: 0.5, scale: 1.2 },
+  easing: "linear",
+} satisfies Extract<ImageMotionV1, { mode: "native_dynamic_zoom" }>;
 type CutawaySlot = ContentSlot & { relation: Extract<ContentSlot["relation"], { kind: "cutaway" }> };
 interface TimedRow {
   kind: "narration";
@@ -1277,18 +1283,18 @@ function effectivePresenterStill(document: ScriptDocumentV2, dependencies: Compi
 
 function mediaStillTreatment(
   pictureKind: string,
-  framingPolicy: string,
+  framingPolicy: string | undefined,
   projectDefault: ImageMotionV1 | undefined,
   occurrenceOverride: ImageMotionV1 | undefined,
 ): TimelineEventV2["pictureTreatment"] {
   if (pictureKind === "clip") return undefined;
   if (pictureKind !== "image" && pictureKind !== "capture" && pictureKind !== "graphic") return undefined;
-  if (framingPolicy !== "contain" && framingPolicy !== "cover" && framingPolicy !== "native") throw new RangeError("Media-backed still frames require a supported framing policy.");
-  // A missing default is a legacy frozen input: retain the byte-identical pre-motion
-  // output. New settings explicitly pin their desired geometry, and an occurrence
-  // override (including None) replaces that default without consulting Resolve.
-  const imageMotion = occurrenceOverride ?? projectDefault;
-  return { kind: "still_frame", pictureKind, framingPolicy, ...(imageMotion ? { imageMotion: structuredClone(imageMotion) } : {}) };
+  // Only an omitted ordinary-image policy gets the new default; explicit legacy policies stay frozen.
+  const omittedImageFraming = pictureKind === "image" && framingPolicy === undefined;
+  const resolvedFramingPolicy = omittedImageFraming ? "cover" : framingPolicy;
+  if (resolvedFramingPolicy !== "contain" && resolvedFramingPolicy !== "cover" && resolvedFramingPolicy !== "native") throw new RangeError("Media-backed still frames require a supported framing policy.");
+  const imageMotion = occurrenceOverride ?? projectDefault ?? (omittedImageFraming ? omittedImageFramingMotion : undefined);
+  return { kind: "still_frame", pictureKind, framingPolicy: resolvedFramingPolicy, ...(imageMotion ? { imageMotion: structuredClone(imageMotion) } : {}) };
 }
 
 function sourceMappingProblem(descriptor: OccurrenceMediaResolutionV2): string | null {

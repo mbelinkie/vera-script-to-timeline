@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const migrations = vi.hoisted(() => ({
-  auth: vi.fn(), docs: vi.fn(), comments: vi.fn(), history: vi.fn(), ideas: vi.fn(), builds: vi.fn(), collaboration: vi.fn(),
+  auth: vi.fn(), docs: vi.fn(), comments: vi.fn(), history: vi.fn(), ideas: vi.fn(), subtitle: vi.fn(), builds: vi.fn(), collaboration: vi.fn(),
 }));
 vi.mock("@vera/project-authorization", async (importOriginal) => ({
   ...await importOriginal<object>(),
@@ -13,6 +13,7 @@ vi.mock("@vera/project-documents", async (importOriginal) => ({
   applyProjectCommentsMigration: migrations.comments,
   applyProjectHistoryMigration: migrations.history,
   applyProjectIdeasMigration: migrations.ideas,
+  applyProjectSubtitleCopiesMigration: migrations.subtitle,
 }));
 vi.mock("@vera/project-builds", async (importOriginal) => ({
   ...await importOriginal<object>(),
@@ -30,6 +31,7 @@ import { PROJECT_DOCUMENTS_MIGRATION, PROJECT_DOCUMENTS_MIGRATION_DIGEST,
   PROJECT_COMMENTS_MIGRATION, PROJECT_COMMENTS_MIGRATION_DIGEST } from "@vera/project-documents";
 import { PROJECT_HISTORY_MIGRATION, PROJECT_HISTORY_MIGRATION_DIGEST,
   PROJECT_IDEAS_MIGRATION, PROJECT_IDEAS_MIGRATION_DIGEST } from "@vera/project-documents";
+import { PROJECT_SUBTITLE_COPIES_MIGRATION, PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST } from "@vera/project-documents";
 import { PROJECT_BUILDS_MIGRATION, PROJECT_BUILDS_MIGRATION_DIGEST,
   BUILD_REFUSALS_MIGRATION, BUILD_REFUSALS_MIGRATION_DIGEST } from "@vera/project-builds";
 
@@ -50,6 +52,7 @@ const receipts = [
   { name: PROJECT_COMMENTS_MIGRATION, version: 2, checksum: PROJECT_COMMENTS_MIGRATION_DIGEST },
   { name: PROJECT_HISTORY_MIGRATION, version: 3, checksum: PROJECT_HISTORY_MIGRATION_DIGEST },
   { name: PROJECT_IDEAS_MIGRATION, version: 4, checksum: PROJECT_IDEAS_MIGRATION_DIGEST },
+  { name: PROJECT_SUBTITLE_COPIES_MIGRATION, version: 5, checksum: PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
   { name: PROJECT_COLLABORATION_MIGRATION, version: 1, checksum: PROJECT_COLLABORATION_MIGRATION_DIGEST },
@@ -77,6 +80,7 @@ describe("QA target preflight and ordered migrations", () => {
     migrations.comments.mockResolvedValue(undefined);
     migrations.history.mockResolvedValue(undefined);
     migrations.ideas.mockResolvedValue(undefined);
+    migrations.subtitle.mockResolvedValue(undefined);
     migrations.builds.mockResolvedValue(undefined);
     migrations.collaboration.mockResolvedValue(undefined);
   });
@@ -93,6 +97,8 @@ describe("QA target preflight and ordered migrations", () => {
       { schema_name: "public", table_name: "stt_idea_heads" },
       { schema_name: "public", table_name: "stt_idea_revisions" },
       { schema_name: "public", table_name: "stt_ideas_mutation_receipts" },
+      { schema_name: "public", table_name: "stt_subtitle_copy_heads" },
+      { schema_name: "public", table_name: "stt_subtitle_copy_revisions" },
     ] });
     await expect(assertQaDatabaseTarget(h.client, config)).resolves.toBeUndefined();
     expect(h.query).toHaveBeenCalledTimes(2);
@@ -152,13 +158,17 @@ describe("QA target preflight and ordered migrations", () => {
       calls.push("ideas"); expect(db).toBe(h.client);
       return Promise.resolve();
     });
+    migrations.subtitle.mockImplementation((db: SqlClient) => {
+      calls.push("subtitle"); expect(db).toBe(h.client);
+      return Promise.resolve();
+    });
     migrations.builds.mockImplementation((db: SqlClient) => {
       calls.push("builds"); expect(db).toBe(h.client);
       return Promise.resolve();
     });
     const h = harness();
     expect(await applyQaMigrations(h.pool, config)).toEqual(receipts);
-    expect(calls).toEqual(["auth", "docs", "comments", "history", "ideas", "builds"]);
+    expect(calls).toEqual(["auth", "docs", "comments", "history", "ideas", "subtitle", "builds"]);
     expect(h.query.mock.calls.map(([sql]) => sql.includes("FROM vera_schema_migrations")))
       .toEqual([false, false, true]);
     expect(h.release).toHaveBeenCalledOnce();
@@ -172,7 +182,10 @@ describe("QA target preflight and ordered migrations", () => {
         { ...row, version: 99 } : row),
       receipts.map((row) => row.name === PROJECT_IDEAS_MIGRATION ?
         { ...row, checksum: "0".repeat(64) } : row),
+      receipts.map((row) => row.name === PROJECT_SUBTITLE_COPIES_MIGRATION ?
+        { ...row, checksum: "0".repeat(64) } : row),
       receipts.filter((row) => row.name !== PROJECT_IDEAS_MIGRATION),
+      receipts.filter((row) => row.name !== PROJECT_SUBTITLE_COPIES_MIGRATION),
       [receipts[0]!],
       [...receipts, { name: "unexpected", version: 1, checksum: "c".repeat(64) }],
     ]) {

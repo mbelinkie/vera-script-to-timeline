@@ -274,6 +274,20 @@ export interface VisualSequenceEditResultV2 {
 
 export { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 export {
+  compareSecondaryTimingV2,
+  SecondaryTimingComparisonErrorV2,
+  type SecondaryTimingComparisonV2,
+  type SecondaryBoundaryDifferenceV2,
+  type SecondaryVisualEventDifferenceV2,
+  type SecondaryTimingProblemCodeV2,
+} from "./secondary-timing-v2.js";
+export {
+  previewSecondaryTimingReconcileV2,
+  type SecondaryTimingReconcileCodeV2,
+  type SecondaryTimingReconcileCommandV2,
+  type SecondaryTimingReconcileResultV2,
+} from "./secondary-timing-reconcile-v2.js";
+export {
   snapshotResearchCandidateV2,
   inwardUseRangeV2,
   createResearchClipOccurrenceV2,
