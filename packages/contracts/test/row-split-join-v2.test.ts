@@ -369,6 +369,22 @@ describe("#579 split then join (D124)", () => {
     expect(session.undo().document.activeDraft.blocks).toEqual(start.activeDraft.blocks);
   });
 
+  it("still restores the split after an intervening command is refused", () => {
+    const start = documentOf([chalkCrescent()]);
+    const session = createRowEditSessionV2(start);
+    const split = session.apply(splitChalk);
+    expect(split.ok).toBe(true);
+    const refused = session.apply({ kind: "join_rows", rowId: NEW_ROW, direction: "next", words: null });
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics.map((item) => item.code)).toEqual(["ROW_JOIN_NO_NEIGHBOUR"]);
+    expect(refused.document).toEqual(split.document);
+    expect(session.undoDepth).toBe(1);
+
+    const joined = session.apply(backspace);
+    expect(joined.ok).toBe(true);
+    expect(joined.document.activeDraft.blocks).toEqual(start.activeDraft.blocks);
+  });
+
   it("an edit in between makes it an ordinary join: a new paragraph, and the visual stays clipped", () => {
     const session = createRowEditSessionV2(documentOf([chalkCrescent()]));
     expect(session.apply(splitChalk).ok).toBe(true);
@@ -400,6 +416,104 @@ describe("#579 split then join (D124)", () => {
     const split = apply(documentOf([chalkCrescent()]), splitChalk);
     const joined = apply(split, backspace);
     expect(cards(joined, rowId(CHALK))).toEqual(["S1 0-8", "OC wide 8-23", "S2 23-29"]);
+  });
+});
+
+describe("#579 split/join review regressions", () => {
+  function wordlessWithPayload(row: number, payload: ContentSlot["payload"]): NarrationBlockV2 {
+    const block = rowOf(row, "[hold here]", [{ at: 0, onCamera: "OC1" }]);
+    const slot = block.primaryVisualSequence!.slots[0];
+    if (!slot || slot.kind !== "content") throw new Error("Expected the wordless row's base slot.");
+    block.primaryVisualSequence!.slots[0] = { ...slot, payload };
+    return block;
+  }
+
+  const undefinedPayload = (row: number): ContentSlot["payload"] => ({
+    kind: "undefined", payloadId: id(row * 100_000 + 90_001), description: "Need aerial of bridge",
+  });
+
+  it("keeps a wordless destination's placed visual as unattached when spoken words join it", () => {
+    const visual = rowOf(299, "picture", [{ at: 0, still: "S1" }]).primaryVisualSequence!.slots[0];
+    if (!visual || visual.kind !== "content" || visual.payload.kind !== "visual") throw new Error("Expected a visual slot.");
+    const destination = wordlessWithPayload(210, visual.payload);
+    const source = rowOf(211, "New spoken words");
+    const result = apply(documentOf([destination, source]), {
+      kind: "join_rows", rowId: rowId(211), direction: "previous", words: null,
+    });
+
+    expect(find(result, rowId(210)).unattachedVisuals).toEqual([{
+      slotId: slotId(210, "OC1"), payload: visual.payload, version: 1,
+    }]);
+    expect(cards(result, rowId(210))).toContain("OC1 unattached");
+  });
+
+  it("refuses when a wordless source's undefined picture or chosen On Camera take cannot be preserved", () => {
+    const undefinedSource = wordlessWithPayload(220, undefinedPayload(220));
+    const chosenTake = wordlessWithPayload(222, { kind: "on_camera", presenterChoiceId: id(900_222), framing: "tight" });
+    for (const source of [undefinedSource, chosenTake]) {
+      expectRefused(documentOf([rowOf(221, "Previous words"), source]), {
+        kind: "join_rows", rowId: source.id, direction: "previous", words: null,
+      }, "ROW_SPLIT_JOIN_UNSUPPORTED");
+    }
+  });
+
+  it("refuses when a wordless destination's undefined picture or chosen take cannot be kept", () => {
+    const undefinedDestination = wordlessWithPayload(230, undefinedPayload(230));
+    const chosenTake = wordlessWithPayload(232, { kind: "on_camera", presenterChoiceId: null, framing: "tight" });
+    for (const destination of [undefinedDestination, chosenTake]) {
+      expectRefused(documentOf([destination, rowOf(231, "Incoming words")]), {
+        kind: "join_rows", rowId: rowId(231), direction: "previous", words: null,
+      }, "ROW_SPLIT_JOIN_UNSUPPORTED");
+    }
+
+    const generated = apply(documentOf([rowOf(234, "[hold here]"), rowOf(235, "Incoming words")]), {
+      kind: "join_rows", rowId: rowId(235), direction: "previous", words: null,
+    });
+    expect(words(find(generated, rowId(234)))).toContain("Incoming");
+  });
+
+  it("follows a saved card reference when its card moves and refuses if the card becomes unattached", () => {
+    const cardId = slotId(241, "S1");
+    const reference = (owner: number, card: string) => ({
+      id: id(owner), rowId: rowId(owner), kind: "reference" as const,
+      anchor: { kind: "card", blockId: rowId(owner), cardId: card },
+    });
+    const moving = documentOf([rowOf(240, "Prior words"), stills(241)], {
+      rowReferences: [reference(241, cardId)],
+    });
+    const result = apply(moving, {
+      kind: "join_rows", rowId: rowId(241), direction: "previous", words: selection(241, 0, 4),
+    });
+    expect(result.rowReferences).toEqual([{
+      ...reference(241, cardId), rowId: rowId(240),
+      anchor: { ...reference(241, cardId).anchor, blockId: rowId(240) },
+    }]);
+
+    const visual = rowOf(299, "picture", [{ at: 0, still: "S1" }]).primaryVisualSequence!.slots[0];
+    if (!visual || visual.kind !== "content" || visual.payload.kind !== "visual") throw new Error("Expected a visual slot.");
+    const destination = wordlessWithPayload(242, visual.payload);
+    expectRefused(documentOf([destination, rowOf(243, "Incoming words")], {
+      rowReferences: [reference(242, slotId(242, "OC1"))],
+    }), { kind: "join_rows", rowId: rowId(243), direction: "previous", words: null }, "ROW_REFERENCE_REVIEW_REQUIRED");
+  });
+
+  it("keeps supporting-item gap endpoints in their documented order", () => {
+    const gap = (value: number, before: number, after: number) => ({
+      id: id(value), version: 1, orderKey: `support-${value}`, role: "editor_note" as const, content: "Review this gap",
+      placement: { kind: "point" as const, anchor: { kind: "between_blocks" as const, beforeBlockId: rowId(before), afterBlockId: rowId(after) } },
+    });
+    const [a, b, c] = [250, 251, 252].map((row) => rowOf(row, `Words in ${row}`));
+    const crossing = documentOf([a!, b!], { activeDraft: { blocks: [a!, b!], supportingItems: [gap(254, 250, 251)] } });
+    expectRefused(crossing, { kind: "join_rows", rowId: rowId(251), direction: "previous", words: null }, "ROW_REFERENCE_REVIEW_REQUIRED");
+
+    const trailingGap = gap(255, 251, 252);
+    const beforeSplit = documentOf([a!, b!, c!], { activeDraft: { blocks: [a!, b!, c!], supportingItems: [trailingGap] } });
+    const split = apply(beforeSplit, {
+      kind: "split_row", rowId: rowId(251), newRowId: NEW_ROW, at: { beforeTokenId: tokenId(251, 2) },
+    });
+    expect(split.activeDraft.supportingItems[0]!.placement).toEqual({
+      kind: "point", anchor: { kind: "between_blocks", beforeBlockId: NEW_ROW, afterBlockId: rowId(252) },
+    });
   });
 });
 

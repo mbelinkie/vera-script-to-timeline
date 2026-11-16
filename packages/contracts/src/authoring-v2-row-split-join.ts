@@ -8,7 +8,7 @@ import {
   redistributeCoverageV2,
 } from "./authoring-v2-coverage.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
-import { inspectStageDirectionsV2 } from "./authoring-v2-stage-directions.js";
+import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 
 /**
@@ -269,6 +269,13 @@ function setList<K extends "annotations" | "performanceBeats" | "unattachedVisua
   else delete row[key];
 }
 
+function unmovableWordlessSlot(row: NarrationBlockV2) {
+  return row.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" && (
+    slot.payload.kind === "undefined" ||
+    slot.payload.kind === "on_camera" && (slot.payload.presenterChoiceId !== null || slot.payload.framing !== undefined)
+  ));
+}
+
 /**
  * Build the rows a move leaves: `remaining` (null when the source row is
  * removed) and `destination` with the moved words added before or after its own.
@@ -278,8 +285,23 @@ function moveEntities(
   remaining: NarrationBlockV2 | null,
   destination: NarrationBlockV2,
   side: "append" | "prepend",
+  recipient?: NarrationBlockV2,
 ): Problem | null {
   const source = move.source;
+  const wordlessSource = move.removed && spokenTokensV2(source).length === 0 ? source : undefined;
+  const wordlessRecipient = recipient && spokenTokensV2(recipient).length === 0 && spokenTokensV2(destination).length > 0
+    ? recipient
+    : undefined;
+  const unmovableRow = wordlessSource ?? wordlessRecipient;
+  const unmovableSlot = unmovableRow ? unmovableWordlessSlot(unmovableRow) : undefined;
+  if (unmovableSlot) {
+    return problem(
+      "ROW_SPLIT_JOIN_UNSUPPORTED",
+      "This wordless row has an undefined picture or a chosen On Camera take that cannot move without spoken words. Attach it to words before the edit.",
+      unmovableRow!.id,
+      unmovableSlot.id,
+    );
+  }
   const order = <T>(own: T[], arriving: T[]): T[] => side === "append" ? [...own, ...arriving] : [...arriving, ...own];
   const annotations = divide(source.annotations, move, "A pronunciation or performance note");
   if (isProblem(annotations)) return annotations;
@@ -295,12 +317,19 @@ function moveEntities(
   setList(destination, "annotations", order(destination.annotations ?? [], annotations.go), destination.annotations !== undefined);
   setList(destination, "performanceBeats", order(destination.performanceBeats ?? [], beats.go), destination.performanceBeats !== undefined);
   destination.overlayEvents = order(destination.overlayEvents, overlays.go);
+  const sourceVisuals = wordlessSource ? placedVisualsAsUnattachedV2(source) : [];
+  const recipientVisuals = wordlessRecipient ? placedVisualsAsUnattachedV2(wordlessRecipient) : [];
   if (move.removed) {
     destination.notes = order(destination.notes, source.notes);
+  }
+  if (move.removed || recipientVisuals.length > 0) {
     // Visuals with no word to travel on are kept for Attach to words, never dropped.
-    const wordless = source.tokens.every((token) => token.spoken === false) ? placedVisualsAsUnattachedV2(source) : [];
     setList(destination, "unattachedVisuals",
-      order(destination.unattachedVisuals ?? [], [...(source.unattachedVisuals ?? []), ...wordless]),
+      order(destination.unattachedVisuals ?? [], [
+        ...(move.removed ? source.unattachedVisuals ?? [] : []),
+        ...sourceVisuals,
+        ...recipientVisuals,
+      ]),
       destination.unattachedVisuals !== undefined);
   }
   return null;
@@ -366,7 +395,7 @@ function follow(map: Map<string, Edge>, rowId: string | null | undefined): strin
 }
 
 /** Move row-level references so each still means the same place in the script. */
-function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move: Move): Problem | null {
+function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move: Move, targets: NarrationBlockV2[]): Problem | null {
   const refuse = (message: string, entityId?: string): Problem => problem("ROW_REFERENCE_REVIEW_REQUIRED", message, move.source.id, entityId);
 
   for (const pair of working.rowTransitions ?? []) {
@@ -402,8 +431,8 @@ function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move:
     if (!value || typeof value !== "object") return true;
     const item = value as Record<string, unknown>;
     if (!Array.isArray(value) && typeof item.afterBlockId === "string" && typeof item.beforeBlockId === "string") {
-      const after = follow(edges.trailing, item.afterBlockId);
-      const before = follow(edges.leading, item.beforeBlockId);
+      const after = follow(edges.leading, item.afterBlockId);
+      const before = follow(edges.trailing, item.beforeBlockId);
       if (isProblem(after) || isProblem(before)) return false;
       item.afterBlockId = after;
       item.beforeBlockId = before;
@@ -419,6 +448,18 @@ function retargetReferences(working: ScriptDocumentV2, edges: EdgeChanges, move:
   }
 
   for (const reference of working.rowReferences ?? []) {
+    if (reference.anchor.kind === "card" && (reference.anchor.blockId === move.source.id || reference.anchor.blockId === move.destinationId)) {
+      const cardId = reference.anchor.cardId;
+      if (typeof cardId === "string") {
+        const holders = targets.filter((target) => target.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === cardId));
+        if (holders.length !== 1) {
+          return refuse("The card this reference points to would no longer be placed on a row. Reattach the reference or preserve the card before completing the edit.", reference.id);
+        }
+        reference.rowId = holders[0]!.id;
+        reference.anchor.blockId = holders[0]!.id;
+        continue;
+      }
+    }
     if (reference.rowId !== move.source.id) continue;
     const named = [...tokenReferences(reference.anchor)];
     const moving = named.filter((tokenId) => move.movedTokenIds.has(tokenId)).length;
@@ -511,13 +552,13 @@ function split(working: ScriptDocumentV2, command: SplitRowCommandV2): Problem |
   const move: Move = { source: stored, destinationId: made.id, movedTokenIds: new Set(made.tokens.map((token) => token.id)), removed: false };
   const entities = moveEntities(move, kept, made, "append");
   if (entities) return entities;
-  const references = retargetReferences(working, above
-    ? { trailing: new Map(), leading: new Map([[stored.id, made.id]]) }
-    : { trailing: new Map([[stored.id, made.id]]), leading: new Map() }, move);
-  if (references) return references;
   const spoken = made.tokens.some((token) => token.spoken !== false);
   const pictures = recover([stored], above ? [made, kept] : [kept, made], spoken);
   if (pictures) return pictures;
+  const references = retargetReferences(working, above
+    ? { trailing: new Map(), leading: new Map([[stored.id, made.id]]) }
+    : { trailing: new Map([[stored.id, made.id]]), leading: new Map() }, move, above ? [made, kept] : [kept, made]);
+  if (references) return references;
   blocks.splice(index, 1, ...(above ? [made, kept] : [kept, made]));
   return null;
 }
@@ -574,20 +615,19 @@ function join(working: ScriptDocumentV2, command: JoinRowsCommandV2): Problem | 
     remaining.tokens = remainder.tokens;
   }
   const move: Move = { source: stored, destinationId: target.id, movedTokenIds: new Set(moving.tokens.map((token) => token.id)), removed };
-  const entities = moveEntities(move, remaining, grown, previous ? "append" : "prepend");
+  const entities = moveEntities(move, remaining, grown, previous ? "append" : "prepend", target);
   if (entities) return entities;
   const edges: EdgeChanges = !removed
     ? { trailing: new Map(), leading: new Map() }
     : previous
       ? { trailing: new Map([[stored.id, target.id]]), leading: new Map([[stored.id, REFUSE]]) }
       : { trailing: new Map([[stored.id, REFUSE]]), leading: new Map([[stored.id, target.id]]) };
-  const references = retargetReferences(working, edges, move);
-  if (references) return references;
-
   const targets = previous ? [grown, ...(remaining ? [remaining] : [])] : [...(remaining ? [remaining] : []), grown];
   const spoken = moving.tokens.some((token) => token.spoken !== false);
   const pictures = recover(previous ? [target, stored] : [stored, target], targets, spoken);
   if (pictures) return pictures;
+  const references = retargetReferences(working, edges, move, targets);
+  if (references) return references;
   const first = Math.min(index, neighbourIndex);
   blocks.splice(first, 2, ...targets);
   return null;

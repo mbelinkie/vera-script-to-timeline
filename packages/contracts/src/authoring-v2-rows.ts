@@ -1809,12 +1809,12 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
     apply(command: RowEditCommandV2, expectedRevision = revision): RowEditResultV2 {
       if (expectedRevision !== revision) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session changed before this edit.");
       const split = lastSplit;
-      lastSplit = null;
       if (split && split.revision === revision && revision !== Number.MAX_SAFE_INTEGER &&
         isSplitOrJoinCommandV2(command) && command.kind === "join_rows" && joinReversesSplitV2(current, command, split.rowIds)) {
         // Joining the two halves straight back restores the row exactly as it was before the
         // split: clipped visuals get their words back and no paragraph break is added. It is
         // still one edit, so Undo returns to the split rows.
+        lastSplit = null;
         history.push(current);
         revision++;
         current = { ...structuredClone(split.before), rowEditRevision: revision };
@@ -1822,7 +1822,9 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       }
       const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command);
       if (result.ok) {
-        if (command.kind === "split_row") lastSplit = { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] };
+        lastSplit = command.kind === "split_row"
+          ? { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] }
+          : null;
         history.push(current); current = result.document; revision++;
       }
       return { ...result, document: structuredClone(result.document) };
