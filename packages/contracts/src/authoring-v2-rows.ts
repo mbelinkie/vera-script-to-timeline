@@ -9,6 +9,13 @@ import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.j
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
+import {
+  applySplitOrJoinV2,
+  isSplitOrJoinCommandV2,
+  joinReversesSplitV2,
+  type JoinRowsCommandV2,
+  type SplitRowCommandV2,
+} from "./authoring-v2-row-split-join.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -46,6 +53,8 @@ export type RowEditCommandV2 =
   | { kind: "edit_row"; rowId: string; row: Row }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
   | { kind: "delete_rows"; rowIds: string[] }
+  | SplitRowCommandV2
+  | JoinRowsCommandV2
   | StageDirectionEditCommandV2;
 
 /** Public bounded Stash ownership commands, used through applyRowEditV2. */
@@ -1181,6 +1190,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash placement with an optional boolean includeDescendants.");
     }
     if (isStageDirectionKind(command.kind) && !validStageDirectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete stage-direction edit command.");
+    if ((command.kind === "split_row" || command.kind === "join_rows") && (!isJsonValue(command) || !isSplitOrJoinCommandV2(command))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide a complete split or join command: the row, the cursor or selected words, and for a split an unused new row ID.");
+    }
   } catch {
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
@@ -1442,6 +1454,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     const deleted = deleteRows(working, command.rowIds);
     if ("code" in deleted) return { ok: false, document, diagnostics: [deleted] };
     moved = deleted.rows;
+  } else if (command.kind === "split_row" || command.kind === "join_rows") {
+    // Word identities, visuals and row references are settled inside; any refusal discards the clone.
+    const problem = applySplitOrJoinV2(working, command);
+    if (problem) return { ok: false, document, diagnostics: [problem] };
   } else if (attachmentKind(command.kind)) {
     // Exact payload discrimination is checked above; all graph changes happen only on the clone.
     const attachmentCommand = command as StashFootageCommandV2;
@@ -1702,7 +1718,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   if (working.stashOutline?.length === 0 && !working.stashSections?.length) delete working.stashOutline;
   if (working.stash?.length === 0 && document.stash === undefined) delete working.stash;
   if (JSON.stringify(working) === JSON.stringify(document)) return refused(document, "ROW_EDIT_NO_CHANGE", "The edit would leave Stash and Draft unchanged.");
-  const relationshipProblem = updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
+  // A split or join has already moved each transition and music cue to the row that holds its words.
+  const relationshipProblem = command.kind === "split_row" || command.kind === "join_rows"
+    ? null
+    : updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };
   working.rowEditRevision = expectedRevision + 1;
   const after = validateScriptDocumentV2(working);
@@ -1724,7 +1743,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group") {
+  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+    command.kind === "split_row" || command.kind === "join_rows") {
     const saved = serializedDocument(working);
     return saved
       ? { ok: true, document: saved, diagnostics: [] }
@@ -1773,6 +1793,11 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
   let current = structuredClone(initial);
   let revision = current.rowEditRevision ?? 0;
   const history: ScriptDocumentV2[] = [];
+  /**
+   * D124: the split this session made last, while nothing has changed since.
+   * Every edit and every Undo advances the revision, so one number proves that.
+   */
+  let lastSplit: { revision: number; before: ScriptDocumentV2; rowIds: [string, string] } | null = null;
   return {
     get document() { return structuredClone(current); },
     get revision() { return revision; },
@@ -1783,8 +1808,25 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
     },
     apply(command: RowEditCommandV2, expectedRevision = revision): RowEditResultV2 {
       if (expectedRevision !== revision) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session changed before this edit.");
+      const split = lastSplit;
+      if (split && split.revision === revision && revision !== Number.MAX_SAFE_INTEGER &&
+        isSplitOrJoinCommandV2(command) && command.kind === "join_rows" && joinReversesSplitV2(current, command, split.rowIds)) {
+        // Joining the two halves straight back restores the row exactly as it was before the
+        // split: clipped visuals get their words back and no paragraph break is added. It is
+        // still one edit, so Undo returns to the split rows.
+        lastSplit = null;
+        history.push(current);
+        revision++;
+        current = { ...structuredClone(split.before), rowEditRevision: revision };
+        return { ok: true, document: structuredClone(current), diagnostics: [] };
+      }
       const result = applyRowEditV2(current, current.rowEditRevision ?? 0, command);
-      if (result.ok) { history.push(current); current = result.document; revision++; }
+      if (result.ok) {
+        lastSplit = command.kind === "split_row"
+          ? { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] }
+          : null;
+        history.push(current); current = result.document; revision++;
+      }
       return { ...result, document: structuredClone(result.document) };
     },
     /**

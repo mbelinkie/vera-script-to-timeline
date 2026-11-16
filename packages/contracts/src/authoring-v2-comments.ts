@@ -98,6 +98,16 @@ function attachment(document: ScriptDocumentV2, anchor: CommentAnchorV2): Commen
   return { anchor: structuredClone(anchor), status: "attached", tokens: [], quotedText: null };
 }
 
+/** The same word or card anchor in the one other row that now holds its first word or its card. */
+function followedAnchor(document: ScriptDocumentV2, anchor: CommentAnchorV2): CommentAnchorV2 | null {
+  if (anchor.kind !== "text" && anchor.kind !== "card") return null;
+  const holders = document.activeDraft.blocks.filter((block) => block.type === "narration" && block.id !== anchor.blockId && (
+    anchor.kind === "text"
+      ? block.tokens.some((token) => token.id === anchor.startTokenId)
+      : block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId)));
+  return holders.length === 1 ? { ...anchor, blockId: holders[0]!.id } : null;
+}
+
 /** Injected attribution only: this module neither authenticates actors nor grants permissions. */
 export function createCommentStateV2(document: ScriptDocumentV2): CommentStateV2 {
   const parsed = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(document));
@@ -119,7 +129,16 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
       next.document = document;
       for (const thread of next.threads) {
         if (thread.attachment.status === "stale") continue;
-        const current = attachment(document, thread.attachment.anchor);
+        let current = attachment(document, thread.attachment.anchor);
+        if (!current) {
+          // A split or join moves words and visuals to another row with their IDs; the comment follows them.
+          const followed = followedAnchor(document, thread.attachment.anchor);
+          const moved = followed ? attachment(document, followed) : null;
+          if (moved && sameAuthoringJsonV2(moved.tokens, thread.attachment.tokens) && moved.quotedText === thread.attachment.quotedText) {
+            thread.attachment.anchor = moved.anchor;
+            current = moved;
+          }
+        }
         const anchor = thread.attachment.anchor;
         const previousBlock = anchor.kind === "text" ? state.document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
         const nextBlock = anchor.kind === "text" ? document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
