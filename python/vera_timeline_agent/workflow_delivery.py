@@ -74,6 +74,10 @@ class PublicResolveAdapter(AcceptedResolveAdapter):
             raise ValueError("named existing project has no unique identity")
         for key, expected in settings.items():
             actual = current.GetSetting(key)
+            # Resolve gives the rate as a number once a project holds a
+            # timeline with its own settings, such as a presenter source.
+            if key == "timelineFrameRate" and type(actual) in (int, float):
+                actual = str(actual)
             if not isinstance(actual, str) or not actual:
                 raise ValueError("existing project setting is unavailable")
             if key == "timelineFrameRate":
