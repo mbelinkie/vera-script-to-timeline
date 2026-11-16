@@ -351,6 +351,17 @@ def update_once(
             else planning.global_gaps(baseline.view, current.view, comparison)
         )
         emit(planning.render_plan(plans, gaps))
+        # The same music warnings the build prints, so a short file is not missed.
+        report_path = output / "build-report.json"
+        if report_path.is_file():
+            for diagnostic in _read_json(report_path).get("diagnostics", []):
+                if diagnostic.get("code") in {
+                    "MUSIC_FILE_MISSING",
+                    "MUSIC_SOURCE_SHORTER",
+                    "MUSIC_SPAN_INVALID",
+                    "MUSIC_SETTINGS_UNSUPPORTED",
+                }:
+                    emit(f"Music warning: {diagnostic.get('message')}")
 
         def finish(
             attempt: Mapping[str, Any] | None, archive: str | None, status: str
