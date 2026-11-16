@@ -1288,6 +1288,13 @@ prepared assets, 40.58 seconds for the full build and check, and 23.96 seconds
 for the Resolve portion. This qualifies matching zero-start prepared picture
 and WAV ranges on the direct new-project route. See [#594](https://github.com/mbelinkie/vera-script-to-timeline/issues/594).
 
+**#36 audio readback delta:** Studio 21.2.0 build 6 at 24000/1001 can
+return the exclusive source end for some narration and standalone WAVs
+after reopen. The verifier accepts that integer only when the precise
+source times at normal speed prove both edges to within one sample: the
+verified file's end for whole-file narration, and the expected frame
+boundary for a zero-start, record-matched standalone placement.
+
 ### RK-50 — In-place row update on the original timeline, and two readback traps
 
 **Measured on Studio 21.1.1 build 10, Local scripting, November 14, 2026.**

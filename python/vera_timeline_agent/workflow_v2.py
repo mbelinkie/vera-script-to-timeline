@@ -2870,7 +2870,21 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 else:
                                     if actual_start != expected_source_range[0]:
                                         discrepancies.append("event-source-start")
-                                    if actual_end != expected_source_range[1]:
+                                    if actual_end != expected_source_range[1] and not (
+                                        source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
+                                        and event["kind"] == "source_audio"
+                                        and source_record.get("kind") == "audio"
+                                        and actual_start
+                                        == expected_source_range[0]
+                                        == 0
+                                        and type(actual_end) is int
+                                        and actual_end
+                                        == expected_source_range[1] + 1
+                                        == record["durationFrames"]
+                                        and _fractional_audio_edges_match(
+                                            item, actual_end
+                                        )
+                                    ):
                                         discrepancies.append("event-source-end")
                             media_item = item.GetMediaPoolItem()
                         actual_media_id = (
@@ -3069,6 +3083,21 @@ def _source_time_error_samples(
     else:
         return None
     return (seconds - expected_seconds) * sample_rate
+
+
+def _fractional_audio_edges_match(item: Any, frames: int) -> bool:
+    for name, expected in (
+        ("GetSourceStartTime", Fraction(0)),
+        ("GetSourceEndTime", Fraction(frames * 1001, 24000)),
+    ):
+        getter = getattr(item, name, None)
+        error = (
+            _source_time_error_samples(getter(), expected) if callable(getter) else None
+        )
+        if error is None or abs(error) > 1:
+            return False
+    speed = getattr(item, "GetSpeed", None)
+    return callable(speed) and _native_speed_matches(speed(), 100)
 
 
 def _native_speed_matches(speed: object, expected_percent: int) -> bool:
@@ -3308,9 +3337,16 @@ def _fractional_source_range_matches(
                         # frame when the audio ends inside it, and for some
                         # lengths that end exactly on a frame (452 frames at
                         # 24 fps on Studio 21.1.1). The source end time must
-                        # then prove the whole file is used.
+                        # then prove the whole file is used. Studio 21.2 can
+                        # also report the exclusive end at 23.976 fps.
                         expected_duration == record_duration
-                        and actual_end == record_duration - 2
+                        and (
+                            actual_end == record_duration - 2
+                            or (
+                                rate == _QUALIFIED_FRACTIONAL_RATE
+                                and actual_end == record_duration
+                            )
+                        )
                         and eof_error is not None
                         and abs(eof_error) <= 1
                     )
