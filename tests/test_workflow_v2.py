@@ -2396,6 +2396,21 @@ def test_native_audio_reopened_gain_discrepancy_is_reported() -> None:
     assert adapter.verify(view) == ("event-properties",)
 
 
+def test_fractional_standalone_audio_exclusive_end_requires_exact_edges() -> None:
+    adapter, item, view = _native_audio_fixture(-18)
+    view["timeline"]["frameRate"] = {"numerator": 24000, "denominator": 1001}
+    adapter.place_event(view["events"][0])
+
+    item.source_end = 10
+    item.GetSourceStartTime = lambda: 0
+    item.GetSourceEndTime = lambda: 10 * 1001 / 24_000
+    item.GetSpeed = lambda: {"Percentage": 100}
+    assert adapter.verify(view) == ()
+
+    item.GetSourceEndTime = lambda: 10 * 1001 / 24_000 - 2 / 48_000
+    assert adapter.verify(view) == ("event-source-end",)
+
+
 def test_native_readback_captures_uid_from_reopened_matched_item() -> None:
     adapter, item, view = _native_audio_fixture(-18)
     adapter.place_event(view["events"][0])
@@ -3232,6 +3247,19 @@ def test_frame_aligned_narration_read_a_frame_short_needs_exact_end_time() -> No
         "source_times": {"GetSourceStartTime": 0.0, "GetSourceEndTime": 450 / 24},
     }
     assert not workflow_v2._fractional_source_range_matches(**arguments, **early)
+
+
+@pytest.mark.parametrize("sample_count", [367_000, 368_368])
+def test_fractional_narration_exclusive_end_requires_exact_eof(
+    sample_count: int,
+) -> None:
+    proof = _fractional_narration_proof(sample_count=sample_count)
+    observations = proof[4]
+    observations["actual_end"] = observations["record_duration"]
+    assert _fractional_source_range_matches(proof)
+
+    observations["source_times"]["GetSourceEndTime"] -= 2 / 48_000
+    assert not _fractional_source_range_matches(proof)
 
 
 def test_fractional_narration_accepts_authored_record_end_within_audio_extent() -> None:
