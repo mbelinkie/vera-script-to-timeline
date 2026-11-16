@@ -1273,6 +1273,18 @@ item, and two static authored slates. The failed fetch slate occupied
 qualifies intentional, package-verified PNG slates on that route; undefined
 and unresolved preview slates still refuse native build.
 
+**#600 static bar-removal feasibility:** Studio **21.2.0 build 6**, Local
+scripting on the Intel Mac, built and reopened a normal 1920×1080, 24 fps
+VERA timeline containing two generated 320×180 H.264 clips. After that build,
+an exact-target test applied equal editable `ZoomX`/`ZoomY` values of 180/140
+for centered 20-pixel letterbox bars and 320/272 for centered 24-pixel
+pillarbox bars, with `Pan` and `Tilt` zero. Three exported stills per clip
+showed the formerly black edge regions filled. The values and decoded still
+pixels matched after save, close and reopen. The test did not measure
+asymmetric offsets, other aspect ratios, still images, or automatic detection;
+it is not yet product acceptance. Reuse only this centered static-transform
+result; test the normal integrated build and refusal cases separately.
+
 **#594 standalone source audio delta:** Studio **21.2.0 build 6**,
 Local scripting, Intel Mac. The regular Prep Media and build commands delivered
 a 1920×1080, 816-frame timeline at 24000/1001 in a new disposable project,
