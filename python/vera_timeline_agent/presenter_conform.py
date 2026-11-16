@@ -363,7 +363,9 @@ def check_project(resolve: Any, name: str, recording: Recording) -> dict[str, An
     return other_timelines(project)
 
 
-def _expected(row_map: Json, plan: Plan) -> dict[tuple[str, int], list[tuple[int, int]]]:
+def _expected(
+    row_map: Json, plan: Plan
+) -> dict[tuple[str, int], list[tuple[int, int]]]:
     kept: dict[tuple[str, int], list[tuple[int, int]]] = {}
     for row in row_map["rows"]:
         for item in row["items"]:
@@ -459,7 +461,9 @@ def conform_timeline(
         _must(timeline.DeleteClips(gone, False), "removing the temporary clips")
         for take in plan.takes:
             placed = place_piece(project, timeline, compound, take.piece, zoom)
-            picture = [item for item in placed if item.GetProperty("ZoomX") is not False]
+            picture = [
+                item for item in placed if item.GetProperty("ZoomX") is not False
+            ]
             for item in picture or list(placed[:1]):
                 item.SetName(take.label)
                 _must(

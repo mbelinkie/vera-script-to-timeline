@@ -340,8 +340,10 @@ The immutable output folder is required to **not exist** yet. It contains:
   the real compiler's media requirements before use.
 - `preview-only/preview-only-*.wav` and `NOT_DELIVERABLE.txt`: deterministic
   hash-verified **silent duration carriers**, not the presenter's recorded
-  sound and not audio masters. **Never pass these to #48 as actual presenter
-  audio**; #48 must bind real recorded audio with verified bytes.
+  sound and not audio masters. The presenter timeline command
+  ([presenter-conform.md](presenter-conform.md)) uses them only to hold each
+  row's length while the normal build runs, then removes them and places the
+  cleaned recorded sound.
 
 The optional `--framing-map /absolute/path/to/map.json` accepts an object
 like `{"row-1":"tight","row-2":"wide"}`. Unspecified rows are frozen as
