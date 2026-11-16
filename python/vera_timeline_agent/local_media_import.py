@@ -594,12 +594,17 @@ def _guarded_roots(
             raise ImportModelError("permission_denied")
         # A project-level OS lock is shared even if two workers supply
         # different private-state paths. It never authorizes the operation.
-        lock_fd = os.open(
-            ".vera-local-import.lock",
-            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
-            0o600,
-            dir_fd=project,
-        )
+        # macOS can return ENOENT for racing non-exclusive creates.
+        lock_flags = os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC
+        try:
+            lock_fd = os.open(
+                ".vera-local-import.lock",
+                lock_flags | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=project,
+            )
+        except FileExistsError:
+            lock_fd = os.open(".vera-local-import.lock", lock_flags, dir_fd=project)
         stack.callback(_close, lock_fd)
         info = os.fstat(lock_fd)
         if (
