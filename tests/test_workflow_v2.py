@@ -263,6 +263,8 @@ def _make_package(
     source_audio_gain: int | float = -18,
     source_audio_policy: str | None = None,
     source_audio_range_duration: int | None = None,
+    source_audio_record_start: int = 0,
+    source_audio_record_duration: int = 10,
     picture_treatment: dict[str, Any] | None = None,
     marker_track_kind: str = "video",
     marker_track_index: int = 2,
@@ -392,7 +394,10 @@ def _make_package(
             "kind": "source_audio",
             "trackId": "source-audio",
             "trackRole": "source_audio",
-            "recordRange": {"startFrame": 0, "endFrame": 10},
+            "recordRange": {
+                "startFrame": source_audio_record_start,
+                "endFrame": source_audio_record_start + source_audio_record_duration,
+            },
             "sourceRange": None,
             "sourceTimeMapping": None,
             "preparationBindingHash": "sha256:" + "1" * 64,
@@ -423,10 +428,14 @@ def _make_package(
                 "sourceId": audio_source_id,
                 "trackId": "source-audio",
                 "trackKind": "audio",
-                "recordRange": {"startFrame": 0, "durationFrames": 10},
+                "recordRange": {
+                    "startFrame": source_audio_record_start,
+                    "durationFrames": source_audio_record_duration,
+                },
                 "sourceRange": {
                     "startFrame": 0,
-                    "durationFrames": source_audio_range_duration or 10,
+                    "durationFrames": source_audio_range_duration
+                    or source_audio_record_duration,
                 },
                 "v2Event": audio_event,
                 "gainDb": source_audio_gain,
@@ -2188,6 +2197,138 @@ def test_native_source_audio_is_refused_before_adapter_creation(
     assert result["sourceAudioNativeQualified"] is False
 
 
+def test_fractional_source_audio_uses_the_reopened_direct_v2_route(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, fractional=True, source_audio=True)
+
+    class Studio212Adapter(_FakeAdapter):
+        def connected_facts(self) -> Any:
+            self._call("connected_facts")
+            return _Connected(version="21.2.0", build="6")
+
+    preflight_adapter = Studio212Adapter()
+    preflight = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: preflight_adapter,
+    )
+    assert preflight["status"] == "preflight_passed"
+    assert preflight["nativeRateQualified"] is True
+    assert preflight["sourceAudioNativeQualified"] is True
+
+    adapter = Studio212Adapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "verified", (
+        result.get("failureStage"),
+        result.get("failureType"),
+    )
+    assert result["sourceAudioNativeQualified"] is True
+    assert adapter.calls.count("place_event") == 2
+    assert adapter.calls[-2:] == ["save_close_reopen", "verify"]
+
+
+def test_fractional_source_audio_requires_the_qualified_connected_build(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, fractional=True, source_audio=True)
+    adapter = _FakeAdapter()
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=lambda _resolve: adapter,
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert result["sourceAudioNativeQualified"] is False
+    assert "probe" not in adapter.calls
+    assert "create_project" not in adapter.calls
+
+
+@pytest.mark.parametrize("route", ["existing_project", "otio"])
+def test_fractional_source_audio_rejects_existing_and_otio_routes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, route: str
+) -> None:
+    attestation, digest, _ = _make_package(tmp_path, fractional=True, source_audio=True)
+    kwargs: dict[str, Any] = {}
+    if route == "existing_project":
+        kwargs["existing_project"] = "Review Project"
+    else:
+        monkeypatch.setattr(workflow_v2, "_requires_native_otio", lambda _view: True)
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("unsupported source-audio route reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=forbidden,
+        **kwargs,
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert result["sourceAudioNativeQualified"] is False
+    assert called is False
+
+
+def test_fractional_source_audio_requires_full_matched_record_geometry(
+    tmp_path: Path,
+) -> None:
+    attestation, digest, _ = _make_package(
+        tmp_path,
+        fractional=True,
+        source_audio=True,
+        source_audio_record_start=1,
+        source_audio_record_duration=9,
+    )
+    called = False
+
+    def forbidden(_resolve: Any) -> Any:
+        nonlocal called
+        called = True
+        raise AssertionError("unmatched source-audio range reached Resolve")
+
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        digest,
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        allow_fractional_native=True,
+        adapter_factory=forbidden,
+    )
+
+    assert result["status"] == "stopped_safely"
+    assert result["sourceAudioNativeQualified"] is False
+    assert called is False
+
+
 @pytest.mark.parametrize(
     ("policy", "gain_db", "expected_status"),
     [
@@ -2889,6 +3030,43 @@ def test_fractional_video_source_clock_requires_hash_bound_rate_and_source_times
             timeline=bad_timeline,
             **bad_observations,
         ), changed
+
+
+def test_full_fractional_derivative_uses_its_prepared_video_clock() -> None:
+    proof = _fractional_video_proof()
+    event, _, manifest_source, _, observations, bindings = proof
+    binding = bindings["video-prep"]
+    binding["mode"] = "derived_cfr"
+    mapping = manifest_source["sourceTimeMapping"]
+    original_rate = {"numerator": 25, "denominator": 1}
+    mapping["sourceRate"] = original_rate
+    mapping["sourceOrigin"] = {"numerator": 7, "denominator": 1}
+    mapping["sourceFrameMap"].update(
+        decodedPackageFrameCount=400,
+        decodedPackageFrameRate=original_rate,
+        packageFrameZeroLogicalFrame=3000,
+        loggedTimeAtPackageFrameZero=mapping["sourceOrigin"],
+        probeHash="original-probe-hash",
+        descriptorHash="original-probe-hash",
+    )
+    binding["verification"]["decodedFrameCount"] = 240
+    event["recordRange"]["durationFrames"] = 240
+    event["sourceRange"] = {"startFrame": 0, "durationFrames": 240}
+    event["v2Event"]["sourceRange"] = {"startFrame": 0, "endFrame": 240}
+    observations.update(
+        actual_start=0,
+        actual_end=239,
+        record_duration=240,
+        source_times={"GetSourceStartTime": 0.0, "GetSourceEndTime": 10.01},
+        media_properties={"Frames": "240"},
+    )
+
+    assert _fractional_source_range_matches(proof)
+    observations["source_times"]["GetSourceEndTime"] = 10.0
+    assert not _fractional_source_range_matches(proof)
+    observations["source_times"]["GetSourceEndTime"] = 10.01
+    binding["mode"] = "verified_reuse"
+    assert not _fractional_source_range_matches(proof)
 
 
 def _normal_25fps_video_verify_fixture(
