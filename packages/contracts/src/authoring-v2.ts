@@ -410,6 +410,7 @@ export {
   type RowEditResultV2,
   type RowGapV2,
 } from "./authoring-v2-rows.js";
+export type { JoinRowsCommandV2, RowWordSelectionV2, SplitRowCommandV2 } from "./authoring-v2-row-split-join.js";
 export {
   placementAnchorKeyV2,
   resolveTimedPlacementV2,

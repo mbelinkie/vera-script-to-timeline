@@ -162,6 +162,131 @@ export function normalizeCoverageV2(row: NarrationBlockV2): Slot[] | null {
   return normalizeSlots(row);
 }
 
+/** A stable identity derived from existing ones, so replaying an edit writes the same document. */
+export function derivedCoverageIdV2(seed: string): string {
+  const hex = createHash("sha256").update(seed, "utf8").digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${"89ab"[Number.parseInt(hex[16]!, 16) % 4]!}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** A row with no spoken words shows one On Camera card. */
+export function emptyRowCoverageV2(sequenceId: string): ContentSlot[] {
+  return [{
+    id: derivedCoverageIdV2(`${sequenceId}:on_camera:empty`), kind: "content", relation: { kind: "base" },
+    boundaryBefore: { kind: "row_start" }, payload: { kind: "on_camera", presenterChoiceId: null },
+    playoutPolicy: "match_structural_interval", version: 1,
+  }];
+}
+
+/** The deliberately placed visuals of a row, in the shape kept for Attach to words. */
+export function placedVisualsAsUnattachedV2(row: NarrationBlockV2): UnattachedVisualV2[] {
+  return (row.primaryVisualSequence?.slots ?? []).flatMap((slot): UnattachedVisualV2[] =>
+    slot.kind === "content" && slot.payload.kind === "visual" ? [{ slotId: slot.id, payload: slot.payload, version: 1 }] : []);
+}
+
+/**
+ * Recalculate coverage after words move between rows (split and join, S03 D97).
+ *
+ * `sources` are the rows as stored before the edit. `targets` are the rows the
+ * edit leaves, with their final ID, text and tokens and a primary sequence
+ * whose ID is the one to write. Every spoken token keeps its ID, so each word
+ * is found in exactly one target.
+ *
+ * A visual travels with its first word and keeps the words that stay next to
+ * it; where its words part company it is clipped, so no visual ends up in two
+ * rows. On Camera then fills every word nothing covers, by the same rule as a
+ * range change (D193): a passage keeps its Wide or Tight choice in both rows,
+ * and keeps its stored identity in the row its first word goes to.
+ *
+ * Returns the slots to store for each target, or null where a target's stored
+ * slots must stay exactly as they are.
+ */
+export function redistributeCoverageV2(
+  sources: NarrationBlockV2[],
+  targets: NarrationBlockV2[],
+): (Slot[] | null)[] | CoverageRefusalV2 {
+  if (!sources.some((source) => source.primaryVisualSequence)) return targets.map(() => null);
+  const where = new Map<string, { target: number; offset: number }>();
+  targets.forEach((target, index) => spokenTokensV2(target).forEach((token, offset) => where.set(token.id, { target: index, offset })));
+  const layouts = targets.map((): { visuals: PlacedVisual[]; passages: Passage[] } => ({ visuals: [], passages: [] }));
+  const prior: Slot[] = [];
+  const identityHolder = new Map<string, number>();
+
+  for (const source of sources) {
+    if (!source.primaryVisualSequence) continue;
+    prior.push(...source.primaryVisualSequence.slots);
+    const tokens = spokenTokensV2(source);
+    if (tokens.length === 0) continue;
+    const layout = readLayout(source);
+    if (isCoverageRefusalV2(layout)) return layout;
+    /** The leading words of [start, end) that stay together, as a range in their new row. */
+    const place = (start: number, end: number): { target: number; start: number; count: number } | null => {
+      const head = where.get(tokens[start]!.id);
+      if (!head) return null;
+      let count = 1;
+      while (start + count < end) {
+        const next = where.get(tokens[start + count]!.id);
+        if (!next || next.target !== head.target || next.offset !== head.offset + count) break;
+        count += 1;
+      }
+      return { target: head.target, start: head.offset, count };
+    };
+    const lost = (): CoverageRefusalV2 => refusal("RANGE_OUTSIDE_ROW", "A word that carries a visual would no longer be in any row.");
+    const rowOf = new Map<string, number>();
+    const moved: { visual: PlacedVisual; target: number }[] = [];
+    for (const visual of layout.visuals) {
+      const placed = place(visual.start, visual.end);
+      if (!placed) return lost();
+      rowOf.set(visual.slot.id, placed.target);
+      moved.push({ target: placed.target, visual: { ...visual, start: placed.start, end: placed.start + placed.count } });
+    }
+    for (const { visual, target } of moved) {
+      // A cutaway whose parent went to the other row stands on its own.
+      if (visual.parentId && rowOf.get(visual.parentId) !== target) visual.parentId = null;
+      layouts[target]!.visuals.push(visual);
+    }
+    for (const passage of layout.passages) {
+      for (let cursor = passage.start; cursor < passage.end;) {
+        const placed = place(cursor, passage.end);
+        if (!placed) return lost();
+        const holder = identityHolder.get(passage.slot.id);
+        if (holder === undefined) identityHolder.set(passage.slot.id, placed.target);
+        const sequenceId = targets[placed.target]!.primaryVisualSequence?.id ?? targets[placed.target]!.id;
+        const slot = holder === undefined || holder === placed.target
+          ? passage.slot
+          : { ...passage.slot, id: derivedCoverageIdV2(`${sequenceId}:carried:${passage.slot.id}`) };
+        layouts[placed.target]!.passages.push({ ...passage, slot, start: placed.start, end: placed.start + placed.count });
+        cursor += placed.count;
+      }
+    }
+  }
+
+  const result: (Slot[] | null)[] = [];
+  for (const [index, target] of targets.entries()) {
+    const sequence = target.primaryVisualSequence;
+    if (!sequence) return refusal("PRIMARY_SEQUENCE_MISSING", "The row has no primary visual sequence.", target.id);
+    const wordCount = spokenTokensV2(target).length;
+    if (wordCount === 0) {
+      const stored = sources.find((source) => source.id === target.id);
+      // A row that had no spoken words before the edit keeps its stored pictures untouched.
+      if (stored?.primaryVisualSequence && spokenTokensV2(stored).length === 0) {
+        result.push(null);
+        continue;
+      }
+      result.push(emptyRowCoverageV2(sequence.id));
+      continue;
+    }
+    const layout = layouts[index]!;
+    const slots = buildSlots(
+      { ...target, primaryVisualSequence: { ...sequence, slots: prior } },
+      { wordCount, visuals: layout.visuals, passages: layout.passages },
+      layout.visuals,
+    );
+    if (isCoverageRefusalV2(slots)) return slots;
+    result.push(slots);
+  }
+  return result;
+}
+
 function normalizeSlots(row: NarrationBlockV2): Slot[] | null {
   const sequence = row.primaryVisualSequence;
   if (!sequence) return null;
