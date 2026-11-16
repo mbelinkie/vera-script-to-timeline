@@ -103,11 +103,15 @@ Please reply with a yes or a change for each.
 3. **Sound follows the existing Footage rule**, with no separate sound control on the composite.
 4. **After a refresh VERA asks you to check the rectangle** instead of trying to find the player itself.
 5. **A broken composite builds as a labelled placeholder**, and switching to plain Footage is always your choice.
-6. **Comments are out of frame** in the standard template: title, channel, view count and description are visible, comments sit below. Say so if you want a second template that shows comments.
+6. **Capture beyond one screen in the next design pass.** Include the full expanded description and the top comment, with enough room below to zoom toward the description and view count.
 7. **Look and wording** of the panel and the card badge.
 
 ## Tested
 
-In a browser at 1280×800 and 1024×768, 32 scripted checks each: panel stays inside the app frame with no sideways overflow; focus moves into the panel and back to the card; play shows the zoom; rectangle and focus point work by pointer handlers and by keyboard; refresh, revision choice, every sample state, the 4:3 fit, removal and Undo. All states carry text or a symbol, not colour alone. Three keyboard-focus checks failed on the first run, were fixed, and were re-run at 1280×800 only. The accepted prototype's own **Run checks** button was started but had not finished when this was written, so it is not a result either way.
+Browser recheck on 2026-11-16. **Run checks** reported 105 passes and the same 26 failures in r1 and in the untouched S03 r29 baseline. The harness covers the 1280×800 and 1024×768 layouts.
+
+At 1024×768, opening **Composite ready** focused **Play**. Activating **Adjust rectangle** focused the player rectangle, and activating **Move focus point** focused the ring. All three focus checks passed.
+
+Fable’s earlier pass ran 32 scripted S16 checks at each layout. Those covered overflow, focus and focus return, zoom playback, pointer and keyboard editing, refresh, revision choice, sample states, 4:3 fit, removal, and Undo. Each state used text or a symbol. After three keyboard-focus fixes, Fable rechecked them at 1280×800.
 
 Not yet done: a self-contained single-file export; the remaining S15, S17 and S18 states and the rest of S16 (Spotlight, motion focus on captures); the full control and state matrix for those.
