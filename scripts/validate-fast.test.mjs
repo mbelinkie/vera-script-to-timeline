@@ -103,7 +103,7 @@ test("an unavailable child status cannot accidentally count as a pass", () => {
 
 test("package scripts include timer tests in both fast and full TS, without altering full validate", () => {
   const { scripts } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(scripts["validate:fast"], "node scripts/validate-fast.mjs");
+  assert.equal(scripts["validate:fast"], 'npm exec --yes --package="node@$(cat .nvmrc)" -- node scripts/validate-fast.mjs');
   assert.equal(scripts.validate, "npm run check:contracts-generated && npm run check:typescript && npm run check:python");
   assert.equal(scripts["test:python:fast"], 'uv run --frozen pytest -m "(not slow) or fast" -n 8 --dist=worksteal');
   for (const name of ["test:typescript", "test:typescript:fast"]) {
