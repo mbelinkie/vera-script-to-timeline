@@ -35,6 +35,10 @@ export type NarrationBlockV2 = {
    * Explicitly owned footage clip; never an ordinary Stash outline row. The contained clip row is authoritative until converted into an active visual occurrence.
    */
   attachedFootage?: AttachedFootageV2;
+  /**
+   * Deliberately placed visuals that lost every anchor word in a range edit. They are kept for Attach to words recovery and are never built. On Camera is never stored here. Omission is equivalent to an empty array.
+   */
+  unattachedVisuals?: UnattachedVisualV2[];
 };
 export type NarratedVisualPayloadV2 = {
   [k: string]: unknown;
@@ -801,6 +805,10 @@ export interface ContentSlot {
     | {
         kind: "on_camera";
         presenterChoiceId: string | null;
+        /**
+         * Wide or Tight presenter framing for this On Camera passage. Omission means wide. On Camera fills the narration no visual covers; only this choice is authored.
+         */
+        framing?: "wide" | "tight";
       }
     | NarratedVisualPayloadV2
     | {
@@ -975,6 +983,14 @@ export interface VisualOnlyTimingV2 {
     startFrame: number;
     durationFrames: number;
   };
+}
+export interface UnattachedVisualV2 {
+  /**
+   * The content slot ID the visual had while it was attached, kept so reattachment and occurrence bindings can reuse it.
+   */
+  slotId: string;
+  payload: NarratedVisualPayloadV2;
+  version: number;
 }
 export interface DirectionBlock {
   type: "direction";

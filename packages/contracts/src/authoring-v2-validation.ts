@@ -160,6 +160,10 @@ export function validateScriptDocumentV2(
       addId(sequence.id, `${path}/primaryVisualSequence/id`, block.id);
       validateSequence(block, sequence.slots, path, diagnostics, addId);
     }
+    (block.unattachedVisuals ?? []).forEach((item, itemIndex) => {
+      addId(item.slotId, `${path}/unattachedVisuals/${itemIndex}/slotId`, block.id);
+      addId(item.payload.payloadId, `${path}/unattachedVisuals/${itemIndex}/payload/payloadId`, block.id);
+    });
     block.overlayEvents.forEach((event, eventIndex) => {
       const eventPath = `${path}/overlayEvents/${eventIndex}`;
       overlayIds.add(event.id);

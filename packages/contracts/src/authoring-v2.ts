@@ -11,6 +11,10 @@ import type {
   NarrationBoundaryEvidenceV1,
 } from "./generated/contracts-v2.js";
 
+import type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
+
+export type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
+
 export type WordBoundaryAnchorV2 = WordInpointAnchor | WordAudibleEndAnchor;
 
 export interface AuthoringDiagnosticV2 {
@@ -63,11 +67,45 @@ export interface ProjectedAppearanceV2 {
   structuralIndex: number;
   humanOrdinal: number | null;
   hostState: Exclude<ProjectedHostStateV2, "unresolved">;
+  /** Wide or Tight for an On Camera passage; null for every other picture. */
+  framing: OnCameraFramingV2 | null;
   startTokenIndex: number;
   endTokenIndexExclusive: number;
   startTokenId: string | null;
   endTokenId: string | null;
   onCameraResumes: boolean;
+}
+
+/** One card in the row's stack, in the order the pictures appear. */
+export interface ProjectedCardV2 {
+  kind: "on_camera" | "visual" | "undefined" | "unattached_visual";
+  /** A compact "resumes" card: the same picture returning after a cutaway. Never the first On Camera in a row. */
+  compact: boolean;
+  slotId: string;
+  payloadId: string | null;
+  humanOrdinal: number | null;
+  framing: OnCameraFramingV2 | null;
+  /** The words this card connects to; null only for an unattached visual. */
+  startTokenIndex: number | null;
+  endTokenIndexExclusive: number | null;
+  /** Offered only for a deliberately placed visual that lost its words, never for On Camera. */
+  recovery: "attach_to_words" | null;
+}
+
+/** The word range a placed visual's brackets enclose, cutaways inside it included. On Camera has none. */
+export interface ProjectedBracketV2 {
+  slotId: string;
+  payloadId: string | null;
+  startTokenIndex: number;
+  endTokenIndexExclusive: number;
+  startTokenId: string | null;
+  lastTokenId: string | null;
+}
+
+export interface ProjectedUnattachedVisualV2 {
+  slotId: string;
+  payloadId: string;
+  recovery: "attach_to_words";
 }
 
 export interface ProjectedPrimarySlotV2 {
@@ -125,6 +163,9 @@ export interface PrimarySequenceRowProjectionV2 {
   renderable: boolean;
   tokens: ProjectedTokenV2[];
   appearances: ProjectedAppearanceV2[];
+  cards: ProjectedCardV2[];
+  brackets: ProjectedBracketV2[];
+  unattached: ProjectedUnattachedVisualV2[];
   slots: ProjectedPrimarySlotV2[];
   returns: ProjectedReturnV2[];
   overlays: ProjectedOverlayV2[];
@@ -217,6 +258,32 @@ export type VisualSequenceEditCommandV2 =
       blockId: string;
       firstSlotId: string;
       secondSlotId: string;
+    }
+  | {
+      /** Swap ranges: two placed visuals exchange word anchors; sources, trims and comments stay with each visual. */
+      kind: "swap_ranges";
+      blockId: string;
+      firstSlotId: string;
+      secondSlotId: string;
+    }
+  | {
+      /**
+       * Give a placed visual the whole selection, first to last word inclusive.
+       * Neighbouring visuals make room, On Camera fills every word left
+       * uncovered, and returns are recalculated in the same edit.
+       */
+      kind: "set_visual_range";
+      blockId: string;
+      slotId: string;
+      startTokenId: string;
+      endTokenId: string;
+    }
+  | {
+      /** The only authored On Camera choice: Wide or Tight for one passage. */
+      kind: "set_on_camera_framing";
+      blockId: string;
+      slotId: string;
+      framing: OnCameraFramingV2;
     }
   | {
       kind: "move_payload";
