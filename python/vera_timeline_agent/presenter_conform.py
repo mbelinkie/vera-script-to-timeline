@@ -383,10 +383,13 @@ def check_conformed(
     start = timeline.GetStartFrame()
     kept = _expected(row_map, plan)
     for kind in ("video", "audio"):
-        for index in range(1, timeline.GetTrackCount(kind) + 1):
+        count = timeline.GetTrackCount(kind)
+        if any(slot[0] == kind and slot[1] > count for slot in kept):
+            raise ConformError(f"A {kind} track of the script's own clips is gone.")
+        for index in range(1, count + 1):
             items = sorted(
                 timeline.GetItemListInTrack(kind, index) or [],
-                key=lambda item: item.GetStart(False),
+                key=lambda item: (item.GetStart(False), item.GetDuration(False)),
             )
             if index > 1:
                 spans = [(i.GetStart(False), i.GetDuration(False)) for i in items]
@@ -478,10 +481,11 @@ def conform_timeline(
         if other_timelines(project, timeline_name) != dict(before):
             raise ConformError("An earlier timeline in the project changed.")
         project.SetCurrentTimeline(reopened)
-    except (SourceError, ConformError) as error:
+    except Exception as error:
+        # Whatever went wrong, the timeline may hold only some of its takes.
         raise ConformError(
             f'{error} The unfinished timeline "{timeline_name}" is left in '
-            f'"{project_name}"; delete it before trying again.'
+            f'"{project_name}", possibly unsaved; delete it before trying again.'
         ) from error
 
 
@@ -541,29 +545,34 @@ def build(
         audio.absolute(),
         output / "inputs",
     )
-    with exclusive_resolve_build():
-        before = check_project(
-            _external_resolve(resolve_app), project_name, inputs.recording
-        )
-    timings = StageTimings(emit=emit)
     try:
-        compiled = compile_prepared(
-            BuildOptions(
-                script=inputs.folder / "script-document.json",
-                inputs=inputs.folder,
-                output=output / "build",
-                existing_project=project_name,
-                resolve_app=resolve_app,
-            ),
-            timings=timings,
-        )
-    except NeedsAction as error:
-        raise ConformError(
-            f"{error}. The recorded timing changed what a picture needs from its "
-            "clip; see impact.txt beside the snapshot for the rows that moved, "
-            "then prepare the media again."
-        ) from error
-    plan = plan_takes(inputs.snapshot, _read(compiled.manifest, "the build plan"))
+        with exclusive_resolve_build():
+            before = check_project(
+                _external_resolve(resolve_app), project_name, inputs.recording
+            )
+        timings = StageTimings(emit=emit)
+        try:
+            compiled = compile_prepared(
+                BuildOptions(
+                    script=inputs.folder / "script-document.json",
+                    inputs=inputs.folder,
+                    output=output / "build",
+                    existing_project=project_name,
+                    resolve_app=resolve_app,
+                ),
+                timings=timings,
+            )
+        except NeedsAction as error:
+            raise ConformError(
+                f"{error}. The recorded timing changed what a picture needs from its "
+                "clip; see impact.txt beside the snapshot for the rows that moved, "
+                "then prepare the media again."
+            ) from error
+        plan = plan_takes(inputs.snapshot, _read(compiled.manifest, "the build plan"))
+    except BaseException:
+        # Nothing in Resolve has changed yet, so the folder can be used again.
+        shutil.rmtree(output, ignore_errors=True)
+        raise
     delivered = deliver_compiled(
         compiled,
         timings=timings,
