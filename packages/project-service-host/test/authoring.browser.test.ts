@@ -206,8 +206,7 @@ describe("browser authoring over the local project service", () => {
     context = await browser.newContext();
     const page = await context.newPage();
     await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
-    await expect.poll(async () => await page.evaluate(() =>
-      localStorage.getItem("vera.authoring.sessionProof")?.length)).toBe(64);
+    await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
     expect(new URL(page.url()).hash).toBe("");
     await page.close();
   }, 60_000);
