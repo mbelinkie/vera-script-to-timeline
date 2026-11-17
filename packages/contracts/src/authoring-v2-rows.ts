@@ -10,8 +10,9 @@ import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.j
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
-import { isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
+import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
+import { reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import {
   applySplitOrJoinV2,
   isSplitOrJoinCommandV2,
@@ -60,6 +61,7 @@ export type RowEditCommandV2 =
   | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2; includeDescendants?: boolean }
   | { kind: "set_stash_completion"; rowId: string; completed: boolean }
   | { kind: "edit_row"; rowId: string; row: Row }
+  | { kind: "edit_narration_text"; rowId: string; startOffset: number; endOffset: number; insertedText: string; editId: string }
   /** Reorder the first and additional visuals together without changing their metadata. */
   | { kind: "reorder_visual_only"; rowId: string; payloadIds: string[] }
   | { kind: "set_visual_only_hold"; rowId: string; payloadId: string; holdSeconds: number }
@@ -195,6 +197,13 @@ function validStageDirectionCommand(value: unknown): value is StageDirectionEdit
 function validAuthoredRowCommand(value: unknown): boolean {
   try {
     if (!plainObject(value)) return false;
+    if (value.kind === "edit_narration_text") {
+      return isJsonValue(value) && exactKeys(value, ["kind", "rowId", "startOffset", "endOffset", "insertedText", "editId"]) &&
+        typeof value.rowId === "string" && value.rowId.length > 0 &&
+        typeof value.editId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value.editId) &&
+        Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset) &&
+        typeof value.insertedText === "string";
+    }
     if (value.kind === "edit_row") {
       return exactKeys(value, ["kind", "rowId", "row"]) && typeof value.rowId === "string" && value.rowId.length > 0 &&
         rowPayload(value.row) && value.row.id === value.rowId;
@@ -210,6 +219,16 @@ function validAuthoredRowCommand(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+/** Reserve all document UUID values, including IDs in media, Stash and extras. */
+function documentUuids(value: unknown, result = new Set<string>()): Set<string> {
+  if (typeof value === "string") {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value)) result.add(value.toLowerCase());
+  } else if (value && typeof value === "object") {
+    for (const child of Object.values(value)) documentUuids(child, result);
+  }
+  return result;
 }
 
 function validVisualOnlyCommand(value: unknown): boolean {
@@ -1233,7 +1252,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash return and an exact optional outline drop destination.");
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
-    if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
+    if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
@@ -1265,7 +1284,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
   // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
   const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
-  if ((command.kind === "edit_row" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
+  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
@@ -1539,6 +1558,32 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (problem) return { ok: false, document, diagnostics: [problem] };
     // All surviving and removed members participate in relationship/audio review.
     moved = document.stash?.flatMap((bundle) => bundle.rows).filter((row) => command.expectedRowIds.includes(row.id)) ?? [];
+  } else if (command.kind === "edit_narration_text") {
+    const index = blocks.findIndex((block) => block.id === command.rowId);
+    const current = blocks[index];
+    if (!current) return refused(document, "ROW_NOT_FOUND", "Choose an existing active Draft narration row.");
+    if (current.type !== "narration" || current.state !== "active" || current.plainDirection === true) {
+      return refused(document, "NARRATION_TEXT_TARGET_INVALID", "Only active ordinary narration rows can be edited with a text splice.");
+    }
+    if (!Number.isSafeInteger(current.version) || current.version === Number.MAX_SAFE_INTEGER) {
+      return refused(document, "NARRATION_TEXT_REVISION_INVALID", "The narration row version cannot advance.");
+    }
+    const splice = spliceNarrationTextV2(current, command, {
+      documentId: document.id, revision: expectedRevision, reservedIds: documentUuids(document),
+    });
+    if (!splice.ok) return refused(document, splice.code, splice.message);
+    const coverage = reconcileNarrationTextCoverageV2(current, splice.row);
+    if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
+    const row = { ...splice.row, version: current.version + 1,
+      primaryVisualSequence: {
+        ...current.primaryVisualSequence!, slots: coverage.slots,
+        version: current.primaryVisualSequence!.version +
+          (sameAuthoringJsonV2(coverage.slots, current.primaryVisualSequence!.slots) ? 0 : 1),
+      },
+    };
+    if (coverage.unattachedVisuals.length > 0) row.unattachedVisuals = coverage.unattachedVisuals;
+    else delete row.unattachedVisuals;
+    blocks[index] = row;
   } else if (command.kind === "set_stash_completion") {
     const entry = working.stashOutline?.find((candidate) => candidate.rowId === command.rowId);
     const row = stashRowById(working, command.rowId);
@@ -2014,7 +2059,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
