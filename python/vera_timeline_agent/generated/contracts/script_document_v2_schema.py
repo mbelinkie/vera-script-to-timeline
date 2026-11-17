@@ -391,6 +391,7 @@ type SourceReference = (
 class NarratedVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
+    displayName: NotRequired[str]
     pictureKind: Literal[
         "unresolved_visual",
         "clip",
@@ -527,6 +528,7 @@ class OverlayEventV2(TypedDict):
 class StandaloneVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
+    displayName: NotRequired[str]
     pictureKind: Literal[
         "clip",
         "image",

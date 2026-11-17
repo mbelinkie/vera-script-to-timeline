@@ -46,6 +46,10 @@ export type NarratedVisualPayloadV2 = {
 } & {
   kind: "visual";
   payloadId: string;
+  /**
+   * Optional name for this visual placement only, never the referenced media source.
+   */
+  displayName?: string;
   pictureKind:
     | "unresolved_visual"
     | "clip"
@@ -164,6 +168,10 @@ export type StandaloneVisualPayloadV2 = {
 } & {
   kind: "visual";
   payloadId: string;
+  /**
+   * Optional name for this visual placement only, never the referenced media source.
+   */
+  displayName?: string;
   pictureKind:
     | "clip"
     | "image"
