@@ -304,9 +304,17 @@ export function reconcileNarrationTextCoverageV2(
     // D135/D146: a single picture stays in the sequence. The row edit handles
     // clearing multiple pictures with the ordered visuals-only representation.
     const pictures = sequence.slots.filter((slot): slot is ContentSlot =>
-      slot.kind === "content" && slot.payload.kind === "visual");
-    if (pictures.length > 1 || waiting.length > 0) {
+      slot.kind === "content" && slot.payload.kind !== "on_camera");
+    if (pictures.length + waiting.length > 1) {
       return unresolved("Review the pictures before clearing all spoken words in this row.");
+    }
+    const waitingPicture = waiting[0];
+    if (waitingPicture) {
+      if (after.text !== "") return unresolved("This picture is still waiting for a spoken word.");
+      return { slots: [{
+        id: waitingPicture.slotId, kind: "content", relation: { kind: "base" }, boundaryBefore: { kind: "row_start" },
+        payload: waitingPicture.payload, playoutPolicy: "match_structural_interval", version: waitingPicture.version,
+      }], unattachedVisuals: [] };
     }
     const picture = pictures[0] ?? sequence.slots.find((slot): slot is ContentSlot => slot.kind === "content" && slot.payload.kind === "on_camera");
     if (!picture) return unresolved("The empty row has no picture to keep.");

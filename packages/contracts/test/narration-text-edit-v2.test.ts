@@ -340,6 +340,18 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
     expect(pictureCards(result)).toEqual(["S1 0-0"]);
   });
 
+  it("clears leftover paragraph whitespace and keeps the only waiting picture as the row's picture", () => {
+    const source = pictureRow("one two\nthree four\n", false);
+    const waiting = pictureEdit(source, edit(8, 14, "", 2103));
+    expect(waiting.unattachedVisuals?.map((visual) => visual.slotId)).toEqual([id(302)]);
+    const cleared = pictureEdit(waiting, edit(0, waiting.text.length - 1, "", 2104));
+    expect(cleared.text).toBe("");
+    expect(cleared.tokens).toEqual([]);
+    expect(cleared.unattachedVisuals).toBeUndefined();
+    expect(pictureCards(cleared)).toEqual(["S1 0-0"]);
+    expect(cleared.primaryVisualSequence!.slots[0]).toMatchObject({ payload: waiting.unattachedVisuals![0]!.payload });
+  });
+
   it("a waiting picture can be attached again and retains its trim after another start-word deletion", () => {
     const source = pictureRow(H);
     const clip = (source.primaryVisualSequence!.slots[1] as ContentSlot).payload;
@@ -431,6 +443,18 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
       additionalVisuals: [{ payload: { payloadId: id(403) } }],
     });
     expect(session.undo().document.activeDraft.blocks).toEqual(initial.activeDraft.blocks);
+  });
+
+  it("refuses to change the timing of a clip that plays to its own end when clearing multiple pictures", () => {
+    const source = pictureRow(H);
+    const [, clip, following] = source.primaryVisualSequence!.slots as ContentSlot[];
+    clip!.playoutPolicy = "complete_logged_clip";
+    following!.boundaryBefore = { kind: "previous_media_end", controllingSlotId: clip!.id };
+    const initial = documentOf(source);
+    const session = createRowEditSessionV2(initial);
+    const result = session.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, H.length, "", 2159) });
+    expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "RANGE_SEQUENCE_UNRESOLVED" }], document: initial });
+    expect(session.undoDepth).toBe(0);
   });
 
   it("keeps a visual on the first part of its split word and follows a cue from the right of a join", () => {
@@ -729,16 +753,22 @@ describe("#580 strict atomic command gates", () => {
     source.tokens[1]!.spoken = false;
     source.tokens[2]!.spoken = false;
     const typed = pictureEdit(source, edit(8, 8, " low ", 2023));
-    expect(typed.text).toBe("listen [ low soft voice] now");
+    expect(typed.text).toBe("listen [low soft voice] now");
     expect(typed.tokens.map(({ value, spoken }) => [value, spoken !== false])).toEqual([
       ["listen", true], ["low", false], ["soft", false], ["voice", false], ["now", true],
     ]);
     expect(typed.tokens.slice(2).map((token) => token.id)).toEqual(source.tokens.slice(1).map((token) => token.id));
-    const deleted = pictureEdit(typed, edit(9, 23, "", 2024));
+    const deleted = pictureEdit(typed, edit(8, 22, "", 2024));
     expect(deleted.text).toBe("listen  now");
     expect(deleted.tokens.map((token) => token.id)).toEqual([id(100), id(103)]);
     expect(plan(source, edit(7, 8, "", 2025))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
     expect(plan(source, edit(18, 19, "", 2026))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
+    const firstDeleted = pictureEdit(source, edit(8, 12, "", 2029));
+    expect(firstDeleted.text).toBe("listen [voice] now");
+    expect(firstDeleted.tokens[1]).toMatchObject({ id: id(102), spoken: false });
+    const lastDeleted = pictureEdit(source, edit(13, 18, "", 2030));
+    expect(lastDeleted.text).toBe("listen [soft] now");
+    expect(lastDeleted.tokens[1]).toMatchObject({ id: id(101), spoken: false });
   });
 
   it("preserves the first surviving fragment when splitting or joining a repeated non-Latin word", () => {

@@ -33,6 +33,9 @@ function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | Author
     ...(row.unattachedVisuals ?? []).map((item) => item.payload),
   ];
   if (visuals.length < 2) return null;
+  if (slots.some((slot) => slot.kind === "content" && slot.playoutPolicy !== "match_structural_interval")) {
+    return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "A clip that plays to its own end cannot be moved to wordless playout without losing its timing.");
+  }
   if (row.attachedFootage || row.notes.length || row.overlayEvents.length ||
       row.annotations?.length || row.performanceBeats?.length ||
       slots.some((slot) => slot.kind === "content" &&

@@ -43,10 +43,8 @@ export function inspectStageDirectionsV2(row: NarrationBlockV2): {
     const endTokenIndexExclusive = index;
     const first = row.tokens[startTokenIndex]!;
     const last = row.tokens[endTokenIndexExclusive - 1]!;
-    let openOffset = first.startOffset - 1;
-    let closeOffset = last.endOffset;
-    while (/\s/u.test(row.text[openOffset] ?? "")) openOffset -= 1;
-    while (/\s/u.test(row.text[closeOffset] ?? "")) closeOffset += 1;
+    const openOffset = first.startOffset - 1;
+    const closeOffset = last.endOffset;
     if (row.text[openOffset] !== "[" || row.text[closeOffset] !== "]") {
       issues.push({ tokenIndex: startTokenIndex, message: "Direction tokens must have one complete square-bracket pair." });
       continue;

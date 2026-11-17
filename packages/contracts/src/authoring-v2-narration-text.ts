@@ -124,10 +124,26 @@ export function spliceNarrationTextV2(
         startOffset = openOffset;
         endOffset = closeOffset + 1;
         insertedText = "";
+        continue;
+      }
+      // Saved direction brackets sit against their words so row seams and
+      // collaboration's tokenization recognize the same pair.
+      if (startOffset === openOffset + 1) {
+        insertedText = insertedText.trimStart();
+        if (!insertedText) {
+          while (/\s/u.test(row.text[endOffset] ?? "")) endOffset += 1;
+        }
+      }
+      if (endOffset === closeOffset) {
+        insertedText = insertedText.trimEnd();
+        if (!insertedText) {
+          while (/\s/u.test(row.text[startOffset - 1] ?? "")) startOffset -= 1;
+        }
       }
     }
   }
-  const text = row.text.slice(0, startOffset) + insertedText + row.text.slice(endOffset);
+  const rawText = row.text.slice(0, startOffset) + insertedText + row.text.slice(endOffset);
+  const text = rawText.trim() ? rawText : "";
   if (text === row.text) return refusal("NARRATION_TEXT_NO_CHANGE", "The replacement leaves the narration text unchanged.");
   const nextLexemes = lexemes(text);
   const delta = insertedText.length - (endOffset - startOffset);
