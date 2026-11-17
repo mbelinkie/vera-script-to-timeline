@@ -10,7 +10,7 @@ sections of the r29 spec, D numbers are its design decisions, r numbers are the
 dated passes in the decisions file, # numbers are the issues that build each
 line.
 
-**Status: proposed, waiting for Matthew's yes (#377).**
+**Status: agreed by Matthew on 2026-11-16 as proposed (#377).**
 
 ## First version: one writer, on your Mac
 
