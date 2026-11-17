@@ -186,7 +186,7 @@ describe("Research clip usage derived from the saved document", () => {
     ]);
   });
 
-  it("recomputes after a real Stash return and Undo without persisted counts", () => {
+  it("recomputes after a note copy and Undo, preserving its independent source-use count", () => {
     const { doc, note } = researchStashFixture(false);
     const before = indexResearchClipUsageV2(doc)[0]!;
     expect([before.scriptCount, before.stashCount]).toEqual([0, 1]);
@@ -198,25 +198,31 @@ describe("Research clip usage derived from the saved document", () => {
     expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
     assertValid(returned.document);
     const moved = indexResearchClipUsageV2(returned.document)[0]!;
-    expect([moved.scriptCount, moved.stashCount]).toEqual([1, 0]);
-    expect(moved.scriptUses[0]?.rowId).toBe(note.id);
+    expect([moved.scriptCount, moved.stashCount]).toEqual([1, 1]);
+    const copyId = returned.document.activeDraft.blocks.find((row) =>
+      row.type === "narration" && row.stashOrigin?.sourceNoteRowId === note.id)?.id;
+    expect(copyId).toBeTruthy();
+    expect(copyId).not.toBe(note.id);
+    if (!copyId) throw new Error("Missing independent copy ID");
+    expect(moved.scriptUses[0]?.rowId).toBe(copyId);
+    expect(moved.stashUses[0]?.rowId).toBe(note.id);
 
     // A real authored edit clears Stash return eligibility, not the one-slot
     // mirror. It must not turn one saved footage placement into two uses.
-    const editedRow = structuredClone(returned.document.activeDraft.blocks.find((row) => row.id === note.id));
+    const editedRow = structuredClone(returned.document.activeDraft.blocks.find((row) => row.id === copyId));
     if (editedRow?.type !== "narration") throw new Error("Returned note missing");
     setText(editedRow, "Look closer now");
-    const edited = session.apply({ kind: "edit_row", rowId: note.id, row: editedRow });
+    const edited = session.apply({ kind: "edit_row", rowId: copyId, row: editedRow });
     expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
     assertValid(edited.document);
-    const savedEdit = edited.document.activeDraft.blocks.find((row) => row.id === note.id);
+    const savedEdit = edited.document.activeDraft.blocks.find((row) => row.id === copyId);
     if (savedEdit?.type !== "narration") throw new Error("Edited note missing");
     expect(savedEdit.stashOrigin?.returnEligible).toBe(false);
-    expect(indexResearchClipUsageV2(edited.document)[0]).toMatchObject({ scriptCount: 1, stashCount: 0 });
+    expect(indexResearchClipUsageV2(edited.document)[0]).toMatchObject({ scriptCount: 1, stashCount: 1 });
 
     const undoEdit = session.undo();
     expect(undoEdit.ok, JSON.stringify(undoEdit.diagnostics)).toBe(true);
-    expect(indexResearchClipUsageV2(undoEdit.document)[0]).toMatchObject({ scriptCount: 1, stashCount: 0 });
+    expect(indexResearchClipUsageV2(undoEdit.document)[0]).toMatchObject({ scriptCount: 1, stashCount: 1 });
 
     const undone = session.undo();
     expect(undone.ok, JSON.stringify(undone.diagnostics)).toBe(true);

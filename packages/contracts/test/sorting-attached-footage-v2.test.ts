@@ -41,23 +41,27 @@ function saveAndAccept(trial: ReturnType<typeof createSortingTrialV2>, baseline:
 }
 
 describe("issue 367 attached footage in Sorting", () => {
-  it("refuses edits-only promotion of an edited note while it still owns its original clip", () => {
+  it("accepts edits-only for an edited independent note copy while retaining the source and its clip", () => {
     const { doc: baseline, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(), includeDescendants: false });
-    const placed = noteAt(trial.document, note.id);
+    const placed = trial.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(placed.stashOrigin?.sourceNoteRowId).toBe(note.id);
     const text = "Edited owner remains attached";
-    apply(trial, { kind: "edit_row", rowId: note.id, row: { ...placed, text,
+    apply(trial, { kind: "edit_row", rowId: placed.id, row: { ...placed, text,
       tokens: [{ ...placed.tokens[0]!, value: text, startOffset: 0, endOffset: text.length }], version: placed.version + 1 } });
     const pending = trial.document;
-    const refused = resumeSortingTrialV2(trial.serialize()).accept(baseline, "edits_only");
-    expect(refused).toMatchObject({ ok: false, changed: false, document: baseline,
-      diagnostics: [{ code: "SORTING_PROJECTION_DEPENDENCY_INVALID" }] });
+    const edits = resumeSortingTrialV2(trial.serialize()).accept(baseline, "edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.activeDraft.blocks.map((row) => row.id)).toContain(placed.id);
+    expect(noteAt(edits.document, placed.id).text).toBe(text);
+    expect(noteAt(edits.document, note.id).attachedFootage?.clip.id).toBe(clip.id);
     expect(trial.document).toEqual(pending);
     for (const mode of ["all", "sorting_only", "discard"] as const) {
       const accepted = saveAndAccept(resumeSortingTrialV2(trial.serialize()), baseline, mode);
       expect(noteAt(accepted, note.id).attachedFootage?.clip.id).toBe(clip.id);
       expect(independentClip(accepted, clip.id)).toBeUndefined();
+      expect(accepted.activeDraft.blocks.some((row) => row.id === placed.id)).toBe(mode === "all");
     }
   });
 
@@ -119,8 +123,10 @@ describe("issue 367 attached footage in Sorting", () => {
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 30 });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(), includeDescendants: false });
-    expect(trial.movedRowIds).toContain(note.id);
+    expect(trial.movedRowIds).not.toContain(note.id);
     expect(trial.movedRowIds).not.toContain(child.id);
+    const copiedId = trial.document.activeDraft.blocks[0]!.id;
+    expect(copiedId).not.toBe(note.id);
     const result = saveAndAccept(trial, baseline, mode);
     const owner = noteAt(result, note.id);
     expect(owner.attachedFootage?.clip.id).toBe(clip.id);
@@ -130,12 +136,11 @@ describe("issue 367 attached footage in Sorting", () => {
     });
     expect(independentClip(result, clip.id)).toBeUndefined();
     const positioned = result.stashOutline?.find((entry) => entry.rowId === child.id);
-    expect(positioned?.parentRowId).toBe(mode === "all" || mode === "sorting_only" ? null : note.id);
-    expect(result.activeDraft.blocks.some((row) => row.id === note.id)).toBe(mode === "all" || mode === "sorting_only");
+    expect(positioned?.parentRowId).toBe(note.id);
+    expect(result.activeDraft.blocks.some((row) => row.id === copiedId)).toBe(mode === "all" || mode === "edits_only");
     if (mode === "sorting_only") {
-      const returned = applyRowEditV2(result, result.rowEditRevision ?? 0, { kind: "stash_rows", rowIds: [note.id], bundleId: id(740400) });
-      expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
-      expect(noteAt(returned.document, note.id).attachedFootage?.clip).toEqual(clip);
+      expect(result.stashOutline?.find((entry) => entry.rowId === note.id)?.kind).toBe("note");
+      expect(noteAt(result, note.id).attachedFootage?.clip).toEqual(clip);
     }
   });
 
