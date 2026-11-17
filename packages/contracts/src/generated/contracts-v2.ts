@@ -1239,6 +1239,10 @@ export interface CompilerDependenciesV2 {
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
   narrationBoundaryEvidence?: NarrationBoundaryEvidenceV1[];
+  /**
+   * Quiet intervals observed on the delivered narration PCM and bound to its frozen timing map.
+   */
+  narrationQuietGapEvidence?: NarrationQuietGapEvidenceV1[];
   graphicProvenanceSnapshots?: GraphicProvenanceSnapshot[];
   resolvedGraphicContents?: ResolvedGraphicContent[];
 }
@@ -1521,6 +1525,45 @@ export interface MeasuredBoundaryAlgorithmV1 {
   parameters: {
     [k: string]: unknown;
   };
+}
+export interface NarrationQuietGapEvidenceV1 {
+  schemaVersion: "vera-speech-gaps/v1";
+  method: "pcm_quiet_windows_between_onsets/v1";
+  blockId: string;
+  timingHash: string;
+  audioHash: string;
+  audio: {
+    sampleRate: number;
+    channels: number;
+    durationSamples: number;
+  };
+  parameters: {
+    analysisWindowMs: 5;
+    analysisHopMs: 1;
+    quietThresholdDbfs: -42;
+    minimumQuietDurationMs: 30;
+  };
+  tokenPairs: {
+    beforeTokenId: string;
+    afterTokenId: string;
+    onsetWindow: QuietGapSampleRange;
+    status: "detected" | "absent" | "ambiguous";
+    gapDurationSamples: number;
+    quietWindow: null | {
+      startSample: number;
+      endSample: number;
+      durationSamples: number;
+    };
+    reason:
+      | "unique_terminal_quiet_run"
+      | "no_qualifying_quiet_run"
+      | "nonterminal_quiet_run"
+      | "multiple_qualifying_quiet_runs";
+  }[];
+}
+export interface QuietGapSampleRange {
+  startSample: number;
+  endSample: number;
 }
 export interface GraphicProvenanceSnapshot {
   schemaVersion: "graphic-provenance/v1";

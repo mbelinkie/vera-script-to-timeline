@@ -929,6 +929,34 @@ describe("pure v2 compiler", () => {
     });
   }
 
+  it.each([
+    { startSample: 72_000, audioMatches: true, frame: 45 },
+    { startSample: 94_400, audioMatches: true, frame: 48 },
+    { startSample: 72_000, audioMatches: false, frame: 48 },
+  ])("uses only a bound and frame-aligned quiet window ($frame)", ({ startSample, audioMatches, frame }) => {
+    const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture();
+    const map = deps.narrationTimingMaps[0]!;
+    const { sampleRate, channels, durationSamples } = map.audio!;
+    deps.narrationQuietGapEvidence = [{
+      schemaVersion: "vera-speech-gaps/v1", method: "pcm_quiet_windows_between_onsets/v1",
+      blockId: map.blockId, timingHash: map.timingHash, audioHash: audioMatches ? map.audioHash : digest("wrong audio"),
+      audio: { sampleRate, channels, durationSamples },
+      parameters: { analysisWindowMs: 5, analysisHopMs: 1, quietThresholdDbfs: -42, minimumQuietDurationMs: 30 },
+      tokenPairs: [{
+        beforeTokenId: map.tokens[0]!.tokenId, afterTokenId: map.tokens[1]!.tokenId,
+        onsetWindow: { startSample: 0, endSample: 96_000 },
+        quietWindow: { startSample, endSample: 96_000, durationSamples: 96_000 - startSample },
+        gapDurationSamples: 96_000 - startSample, status: "detected", reason: "unique_terminal_quiet_run",
+      }],
+    }];
+    const result = compileTimelineV2(doc, deps);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.status).toBe("ready");
+    expect(result.manifest.events.find((event) => event.provenance.slotId === incomingSlotId)?.recordRange.startFrame).toBe(frame);
+    expect(result.report.diagnostics.some((item) => item.code === "WORD_TIMING_REQUIRED")).toBe(frame === 48);
+  });
+
   it("keeps a measured cut after the previous end plus its uncertainty", () => {
     const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture({ numerator: 47, denominator: 24 });
     const map = deps.narrationTimingMaps[0]!;

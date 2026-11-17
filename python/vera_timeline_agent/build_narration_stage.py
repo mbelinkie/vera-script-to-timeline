@@ -30,6 +30,7 @@ from .narration.cache import CacheError
 from .narration.compiler_dependencies_v2 import narration_v2_dependency_from_asset
 from .narration.models import NarrationAudioAsset, sha256_bytes
 from .narration.service import NarrationService
+from .narration.speech_gaps import detect_speech_gaps
 from .narration.stage_directions import is_direction_only
 
 
@@ -149,6 +150,31 @@ class NarrationStagePort:
             raise UncertainResult(
                 f"narration cache/effect needs inspection: {error}"
             ) from error
+
+    @staticmethod
+    def _speech_cuts_enabled(snapshot: FrozenBuildSnapshot) -> bool:
+        dependencies = json.loads(snapshot.file("dependencies").read_bytes())
+        compiler = (
+            dependencies.get("compiler") if isinstance(dependencies, dict) else None
+        )
+        return (
+            isinstance(compiler, dict)
+            and compiler.get("version") == "compiler/v2-speech-cuts"
+        )
+
+    def _speech_gaps(self, raw: bytes, maps: list[NarrationTokenTimingMapV2]) -> bytes:
+        assets = json.loads(raw)["assets"]
+        result = []
+        for row, timing in zip(assets, maps, strict=True):
+            cached = self.service.cache.read(
+                "assets", f"{row['blockId']}/{row['assetId']}", "asset.json"
+            )
+            if cached is None or "narration.wav" not in cached.files:
+                raise UncertainResult(
+                    "narration audio unavailable for quiet-gap measurement"
+                )
+            result.append(detect_speech_gaps(timing, cached.files["narration.wav"]))
+        return canonical_json(result)
 
     def _recover_ready_cache(
         self, context: StageContext, snapshot: FrozenBuildSnapshot
@@ -288,13 +314,27 @@ class NarrationStagePort:
                     EffectState.UNCERTAIN,
                     reason="narration token timing differs from cache",
                 )
+            outputs = {"assets": record, "timingMaps": maps_file}
+            if self._speech_cuts_enabled(snapshot):
+                gaps_file = maps_file.parent / "speech-gaps.json"
+                expected = self._speech_gaps(record.read_bytes(), rows)
+                if gaps_file.is_symlink():
+                    raise UncertainResult("quiet-gap evidence is not a regular file")
+                if not gaps_file.exists():
+                    context.renew_lease()
+                    publish_immutable_output(gaps_file, expected)
+                if not gaps_file.is_file() or gaps_file.read_bytes() != expected:
+                    raise UncertainResult(
+                        "quiet-gap evidence differs from verified narration"
+                    )
+                outputs["speechGaps"] = gaps_file
             return Inspection(
                 EffectState.VERIFIED,
                 StageEvidence(
                     adapter_id="narration-v2",
                     adapter_version=self.service.provider.adapter_version,
                     inputs={"document": snapshot.file("document")},
-                    outputs={"assets": record, "timingMaps": maps_file},
+                    outputs=outputs,
                 ),
             )
         if intent.exists():

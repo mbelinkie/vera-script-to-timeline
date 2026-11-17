@@ -68,6 +68,7 @@ export interface MediaRequirementsInputV2 {
   timing: readonly NarrationTokenTimingMapV2[];
   boundaryEvidence?: readonly NarrationBoundaryEvidenceV1[];
   compilerVersion?: CompilerDependenciesV2["compiler"]["version"];
+  quietGapEvidence?: NonNullable<CompilerDependenciesV2["narrationQuietGapEvidence"]>;
   defaults: AuthoringDefaultsV2;
   sourceDescriptors: readonly OccurrenceMediaResolutionV2[];
   frameRate: RationalRate;
@@ -818,6 +819,12 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       ));
       continue;
     }
+    const gapRows = speechCutCompiler ? dependencies.narrationQuietGapEvidence?.filter((item) => item.blockId === block.id) : undefined;
+    const gapRow = gapRows?.length === 1 ? gapRows[0] : undefined;
+    const gapAudio = row.map.audio;
+    const quietPairs = gapRow && gapAudio && gapRow.audioHash === row.map.audioHash && gapRow.timingHash === row.map.timingHash &&
+      gapRow.audio.sampleRate === gapAudio.sampleRate && gapRow.audio.channels === gapAudio.channels &&
+      gapRow.audio.durationSamples === gapAudio.durationSamples ? gapRow.tokenPairs : [];
     const slotStarts = new Map<string, number>();
     for (const slot of sequence.slots) {
       if (slot.kind === "return") continue;
@@ -834,22 +841,26 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           const spoken = spokenTokensV2(block);
           const anchorId = slot.boundaryBefore.anchor.tokenId;
           const index = spoken.findIndex((token) => token.id === anchorId);
-          const prior = index > 0 ? row.tokenTimes.get(spoken[index - 1]!.id) : null;
+          const priorId = index > 0 ? spoken[index - 1]!.id : null;
+          const prior = priorId ? row.tokenTimes.get(priorId) : null;
+          const incoming = row.tokenTimes.get(anchorId)?.start;
+          const rate = rateFraction(dependencies.timeline.frameRate);
+          const previousVisualFrame = Math.max(slotStarts.get(previousRoot.id) ?? rowStart, returnFrame ?? rowStart);
+          const earliestCut = Math.min(start, previousVisualFrame + 1);
           if (prior?.evidenced && prior.end) {
             const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
             const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
             const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
-            const incoming = row.tokenTimes.get(anchorId)?.start;
             if (!incoming || compare(prior.end, incoming) > 0) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The previous word extends beyond the incoming onset; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
             } else if (compare(safeEnd, incoming) >= 0) {
               diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no proven pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
-            } else if (returnFrame !== undefined && returnFrame > start) {
+            } else if (returnFrame != null && returnFrame > start) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The incoming cut would precede the authored return; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
             } else if (priorEnd > start) {
               diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no frame-aligned pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
             } else {
-              start = Math.max(start - 3, priorEnd, returnFrame ?? rowStart);
+              start = Math.max(start - 3, priorEnd, earliestCut);
               const edge = resolvedEdges.get(slot.id);
               const evidence = boundaryEvidence.find((item) => item.entityId === slot.id && item.kind === "word_start");
               if (edge && evidence) {
@@ -860,7 +871,28 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
               if (edge && start !== edge.frame) edge.precision = "between_words";
             }
           } else if (index > 0) {
-            diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "The previous word has no evidenced audible end; the picture cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+            const pairs = quietPairs.filter((pair) => pair.afterTokenId === anchorId);
+            const pair = pairs.length === 1 ? pairs[0] : undefined;
+            const window = pair?.status === "detected" && pair.reason === "unique_terminal_quiet_run" ? pair.quietWindow : null;
+            if (window && pair && gapAudio && prior?.start && incoming && pair.beforeTokenId === priorId) {
+              const sampleRate = BigInt(gapAudio.sampleRate);
+              const onsetSample = (time: Fraction) => ceil(time.n * sampleRate, time.d);
+              const duration = window.endSample - window.startSample;
+              if (BigInt(pair.onsetWindow.startSample) === onsetSample(prior.start) &&
+                  BigInt(pair.onsetWindow.endSample) === onsetSample(incoming) &&
+                  window.startSample > pair.onsetWindow.startSample && window.endSample === pair.onsetWindow.endSample &&
+                  window.endSample < gapAudio.durationSamples && duration === window.durationSamples &&
+                  duration === pair.gapDurationSamples && BigInt(duration) * 1000n >= 30n * sampleRate) {
+                const lower = rowStart + framesAt(frac(BigInt(window.startSample), sampleRate), rate);
+                // Stay strictly inside the half-open quiet sample interval.
+                const upper = rowStart + framesAt(frac(BigInt(window.endSample), sampleRate), rate) - 1;
+                const candidate = Math.max(start - 3, lower, earliestCut);
+                if (candidate <= upper && candidate < start) start = candidate;
+              }
+            }
+            if (start === resolvedEdges.get(slot.id)?.frame) {
+              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "No measured pause supports an early picture cut; the cut remains at the incoming word start.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+            }
           }
         }
       }
@@ -1871,7 +1903,7 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
       document: { documentId: document.id, projectId: document.projectId, revision: 1, liveHeadSequence: document.liveHeadSequence, contentHash: document.liveContentHash, textHash: shaText(document.activeDraft.blocks.filter((item): item is NarrationBlockV2 => item.type === "narration").map((item) => item.text).join("\n")), settingsHash: input.defaults.settingsHash },
       compiler: { version: input.compilerVersion ?? "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
       timeline: { frameRate: input.frameRate, width: 1, height: 1, audioSampleRate: 48000, startFrame: 0, durationFrames: 1 }, tracks: [{ id: "video", kind: "video", index: 1, name: "video" }],
-      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
+      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), ...(input.quietGapEvidence ? { narrationQuietGapEvidence: input.quietGapEvidence } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
     };
     if (!validateDependencies(synthetic)) return { ok: false, diagnostics: schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES") };
       const validRows = buildTimedRows(document, synthetic);

@@ -26,6 +26,7 @@ try {
       timing: value.narrationTimingMaps,
       boundaryEvidence: value.narrationBoundaryEvidence ?? [],
       compilerVersion: value.compiler.version,
+      quietGapEvidence: value.narrationQuietGapEvidence ?? [],
       defaults: value.authoringDefaults,
       sourceDescriptors: value.occurrenceResolutions,
       frameRate: value.timeline.frameRate,
