@@ -174,6 +174,7 @@ def prepare_project(
     report: Callable[[str], None] = print,
     tools: MediaTools | None = None,
     narration_key: str = "default",
+    speech_cuts: bool = False,
 ) -> Path:
     """Prepare the active draft; the input script and previous builds stay intact.
 
@@ -191,6 +192,8 @@ def prepare_project(
     dependencies = read_json_object(dependency_path)
     if dependencies.get("schemaVersion") != "compiler-dependencies/v2":
         raise ValueError("Prep Media requires v2 compiler settings")
+    if speech_cuts and dependencies["compiler"]["version"] == "compiler/v2":
+        dependencies["compiler"]["version"] = "compiler/v2-speech-cuts"
     frozen = dependencies["document"]
     for document_key, frozen_key in (
         ("id", "documentId"),
@@ -481,11 +484,15 @@ def main(argv: list[str] | None = None) -> int:
             data_policy_attestation=args.data_policy,
             max_cost_usd=args.max_cost_usd,
             skip_block_ids=recorded_ids,
+            measure_quiet_gaps=dependencies["compiler"]["version"]
+            == "compiler/v2-speech-cuts",
         )
         for timing in dependencies["narrationTimingMaps"]:
             if timing["blockId"] not in recorded_ids:
                 media_paths.pop(f"source:{timing['narrationAssetId']}", None)
         dependencies["narrationTimingMaps"] = prepared.narration_timing_maps
+        if dependencies["compiler"]["version"] == "compiler/v2-speech-cuts":
+            dependencies["narrationQuietGapEvidence"] = prepared.quiet_gaps
         media_paths.update(prepared.media_paths)
 
     try:
@@ -496,6 +503,7 @@ def main(argv: list[str] | None = None) -> int:
             acquire=acquire,
             narration=narration,
             narration_key=f"{args.voice_profile}:{args.data_policy}",
+            speech_cuts=True,
         )
     except (
         BuildJobError,

@@ -21,12 +21,14 @@ try {
   const dependencies: unknown = JSON.parse(decoder.decode(raw[1]));
   if (dependencies === null || typeof dependencies !== "object" || Array.isArray(dependencies)) throw new Error("dependencies must be an object");
   const d = dependencies as import("./generated/contracts-v2.js").CompilerDependenciesV2;
-  if (d.schemaVersion !== "compiler-dependencies/v2" || !Array.isArray(d.narrationTimingMaps) ||
+  if (d.schemaVersion !== "compiler-dependencies/v2" || !d.compiler?.version || !Array.isArray(d.narrationTimingMaps) ||
       !Array.isArray(d.occurrenceResolutions) || !d.authoringDefaults || !d.timeline?.frameRate)
     throw new Error("invalid frozen media-needs dependencies");
   const needs = resolveMediaRequirementsV2(document, {
     timing: d.narrationTimingMaps,
     boundaryEvidence: d.narrationBoundaryEvidence ?? [],
+    compilerVersion: d.compiler.version,
+    quietGapEvidence: d.narrationQuietGapEvidence ?? [],
     defaults: d.authoringDefaults,
     sourceDescriptors: d.occurrenceResolutions,
     frameRate: d.timeline.frameRate,

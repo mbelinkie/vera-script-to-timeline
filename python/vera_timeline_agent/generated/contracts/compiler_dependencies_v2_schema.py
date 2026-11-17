@@ -7,6 +7,14 @@ from typing import Any, Literal, NotRequired, TypedDict
 
 from . import script_document_v2_schema
 
+
+class Parameters(TypedDict):
+    analysisWindowMs: Literal[5]
+    analysisHopMs: Literal[1]
+    quietThresholdDbfs: Literal[-42]
+    minimumQuietDurationMs: Literal[30]
+
+
 type SafeInteger = int
 
 
@@ -174,6 +182,23 @@ class GraphicProvenanceCitation(TypedDict):
 
 
 type JsonValue = bool | float | str | list[JsonValue] | dict[str, JsonValue] | None
+
+
+class QuietGapSampleRange(TypedDict):
+    startSample: NonNegativeSafeInteger
+    endSample: PositiveSafeInteger
+
+
+class Audio(TypedDict):
+    sampleRate: PositiveSafeInteger
+    channels: PositiveSafeInteger
+    durationSamples: PositiveSafeInteger
+
+
+class QuietWindow(TypedDict):
+    startSample: NonNegativeSafeInteger
+    endSample: PositiveSafeInteger
+    durationSamples: PositiveSafeInteger
 
 
 type EntityId = script_document_v2_schema.EntityId
@@ -527,6 +552,32 @@ class MeasuredBoundaryAlgorithmV1(TypedDict):
     parameters: dict[str, Any]
 
 
+class TokenPair(TypedDict):
+    beforeTokenId: EntityId
+    afterTokenId: EntityId
+    onsetWindow: QuietGapSampleRange
+    status: Literal["detected", "absent", "ambiguous"]
+    gapDurationSamples: NonNegativeSafeInteger
+    quietWindow: QuietWindow | None
+    reason: Literal[
+        "unique_terminal_quiet_run",
+        "no_qualifying_quiet_run",
+        "nonterminal_quiet_run",
+        "multiple_qualifying_quiet_runs",
+    ]
+
+
+class NarrationQuietGapEvidenceV1(TypedDict):
+    schemaVersion: Literal["vera-speech-gaps/v1"]
+    method: Literal["pcm_quiet_windows_between_onsets/v1"]
+    blockId: EntityId
+    timingHash: ContentHash
+    audioHash: ContentHash
+    audio: Audio
+    parameters: Parameters
+    tokenPairs: list[TokenPair]
+
+
 class AuthoringDefaultsV2(TypedDict):
     settingsHash: ContentHash
     visualOnlyStillDurationMs: PositiveSafeInteger
@@ -640,5 +691,6 @@ class CompilerDependenciesV2(TypedDict):
     preparedMedia: list[PreparedMediaBindingV1]
     presenterAlignmentResolutions: list[PresenterAlignmentResolutionV1]
     narrationBoundaryEvidence: NotRequired[list[NarrationBoundaryEvidenceV1]]
+    narrationQuietGapEvidence: NotRequired[list[NarrationQuietGapEvidenceV1]]
     graphicProvenanceSnapshots: NotRequired[list[GraphicProvenanceSnapshot]]
     resolvedGraphicContents: NotRequired[list[ResolvedGraphicContent]]

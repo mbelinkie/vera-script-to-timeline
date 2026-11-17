@@ -21,6 +21,16 @@ class OutputConsistencyError(ValueError):
     """Refusal; the controller must retain the attempt, including partial effects."""
 
 
+SPEECH_CUT_WARNING = (
+    "No measured pause supports an early picture cut. "
+    "The cut stays at the incoming word start."
+)
+
+SPEECH_CUT_SOURCE_WARNING = (
+    "The incoming clip has too few source frames for the full early cut. "
+    "The lead was shortened."
+)
+
 TEMPORARY_PRESENTER_MESSAGE = "On Camera uses the effective temporary presenter still."
 TEMPORARY_PRESENTER_COMPLETION_MESSAGE = (
     "Replace the temporary presenter still when an accepted presenter source "
@@ -74,7 +84,7 @@ def _stable_compiler_id(label: str) -> str:
 def validate_temporary_presenter_report(
     document: Any, manifest: Any, report: Any
 ) -> set[str]:
-    """Validate the sole renderable v2 warning against active slots and events.
+    """Validate renderable v2 warnings against active slots and events.
 
     This stdlib-only check is shared by host packaging, cached admission replay,
     and the installed native boundary. It accepts only compiler-shaped temporary
@@ -102,6 +112,10 @@ def validate_temporary_presenter_report(
         events[event_id] = event
 
     authored_slots: dict[str, tuple[str, str]] = {}
+    speech_cut_slots: set[str] = set()
+    speech_cut_compiler = (
+        manifest.get("compiler", {}).get("version") == "compiler/v2-speech-cuts"
+    )
     for block in blocks:
         _require(type(block) is dict, "narration block must be an object")
         if block.get("type") != "narration" or block.get("state") != "active":
@@ -117,6 +131,14 @@ def validate_temporary_presenter_report(
         for slot in slots:
             _require(type(slot) is dict, "primary visual slot must be an object")
             payload = slot.get("payload")
+            if (
+                speech_cut_compiler
+                and slot.get("relation", {}).get("kind") == "sequential"
+                and slot.get("boundaryBefore", {}).get("kind") == "spoken_word"
+                and type(payload) is dict
+                and payload.get("kind") == "visual"
+            ):
+                speech_cut_slots.add(_identity(slot.get("id")))
             if (
                 type(payload) is dict
                 and payload.get("kind") == "on_camera"
@@ -161,6 +183,42 @@ def validate_temporary_presenter_report(
     _require(
         type(diagnostic_values) is list, "build report diagnostics are not an array"
     )
+    presenter_diagnostics = []
+    warned_speech_slots: set[str] = set()
+    for diagnostic in diagnostic_values:
+        if (
+            speech_cut_compiler
+            and type(diagnostic) is dict
+            and diagnostic.get("code") == "WORD_TIMING_REQUIRED"
+        ):
+            slot_id = _identity(diagnostic.get("entity", {}).get("id"))
+            message = diagnostic.get("message")
+            _require(
+                message in (SPEECH_CUT_WARNING, SPEECH_CUT_SOURCE_WARNING)
+                and slot_id in speech_cut_slots
+                and slot_id not in warned_speech_slots
+                and diagnostic
+                == {
+                    "id": _stable_compiler_id(
+                        f"WORD_TIMING_REQUIRED:slot:{slot_id}:boundaryBefore:{message}"
+                    ),
+                    "code": "WORD_TIMING_REQUIRED",
+                    "message": message,
+                    "entity": {"id": slot_id, "kind": "slot", "path": "boundaryBefore"},
+                    "severity": "warning",
+                    "evidence": {
+                        "kind": "anchor_issue",
+                        "anchorId": slot_id,
+                        "reason": "word_timing_required",
+                    },
+                    "recoveryActionKinds": [],
+                },
+                "build report contains a non-canonical speech cut warning",
+            )
+            warned_speech_slots.add(slot_id)
+        else:
+            presenter_diagnostics.append(diagnostic)
+    diagnostic_values = presenter_diagnostics
     if not diagnostic_values:
         _require(
             not events_by_temporary_slot,

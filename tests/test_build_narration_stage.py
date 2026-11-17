@@ -2,7 +2,9 @@
 
 import hashlib
 import json
+import wave
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -377,3 +379,39 @@ def test_changed_provider_request_is_not_reused(setup: NarrationCase) -> None:
         incompatible.inspect(ctx, snapshot).state != EffectState.ABSENT
         or provider.calls == 1
     )
+
+
+def test_opted_in_job_recovers_quiet_gaps_from_verified_cached_audio(
+    setup: NarrationCase,
+) -> None:
+    tmp, snapshot, ctx = setup
+    snapshot.file("dependencies").write_text(
+        '{"compiler":{"version":"compiler/v2-speech-cuts"}}'
+    )
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as writer:
+        writer.setparams((1, 3, 48_000, 0, "NONE", "not compressed"))
+        writer.writeframes(b"\0" * 144_000)
+
+    class WavNormalizer(LocalNormalizer):
+        def normalize_pcm(self, *_args: Any, **_kwargs: Any) -> NormalizationResult:
+            return replace(super().normalize_pcm(), wav_bytes=buffer.getvalue())
+
+    provider = LocalProvider()
+    voice = service(tmp, provider)
+    voice.normalizer = cast(Normalizer, WavNormalizer())
+    port = NarrationStagePort(voice, consent(snapshot))
+    port.execute(ctx, snapshot)
+    inspected = port.inspect(ctx, snapshot)
+    assert inspected.evidence is not None
+    file = inspected.evidence.outputs["speechGaps"]
+    first = file.read_bytes()
+    assert json.loads(first)[0]["tokenPairs"] == []
+
+    file.unlink()
+    assert port.inspect(ctx, snapshot).state == EffectState.VERIFIED
+    assert file.read_bytes() == first
+    assert provider.calls == 1
+    file.write_text("[]")
+    with pytest.raises(UncertainResult, match="quiet-gap evidence differs"):
+        port.inspect(ctx, snapshot)
