@@ -130,6 +130,90 @@ export function setVisualRangeV2(
   return outcome(sequence.slots, slots, moved.unattached, unattached);
 }
 
+/**
+ * Attach a visual that has no words yet to the whole selection (D87, D113).
+ * It is the same make-room rule as a range change: `moveRange` decides what
+ * the neighbouring visuals keep. A selection that sits wholly inside one
+ * visual, or inside one On Camera passage, becomes a cutaway that returns to
+ * it after the selection (D94).
+ */
+export function attachVisualV2(
+  row: NarrationBlockV2,
+  slotId: string,
+  startTokenId: string,
+  endTokenId: string,
+): CoverageEditOutcomeV2 | CoverageRefusalV2 {
+  const sequence = row.primaryVisualSequence;
+  if (!sequence) return refusal("PRIMARY_SEQUENCE_MISSING", "The row has no primary visual sequence.");
+  const waiting = (row.unattachedVisuals ?? []).find((item) => item.slotId === slotId);
+  if (!waiting) {
+    return refusal("ATTACH_VISUAL_MISSING", "Choose a visual in this row that is waiting for Attach to words.", slotId);
+  }
+  const tokens = spokenTokensV2(row);
+  const first = tokens.findIndex((token) => token.id === startTokenId);
+  const last = tokens.findIndex((token) => token.id === endTokenId);
+  if (first < 0 || last < 0) {
+    return refusal("RANGE_OUTSIDE_ROW", "The selection falls outside this row's spoken words.", slotId);
+  }
+  if (last < first) return refusal("RANGE_REVERSED", "The selection's last word comes before its first word.", slotId);
+  const layout = readLayout(row);
+  if (isCoverageRefusalV2(layout)) return layout;
+  const start = first;
+  const end = last + 1;
+  const slot: ContentSlot = {
+    id: waiting.slotId, kind: "content", relation: { kind: "sequential" }, boundaryBefore: { kind: "row_start" },
+    payload: waiting.payload, playoutPolicy: "match_structural_interval", version: waiting.version,
+  };
+  const container = layout.visuals.find((visual) => !visual.parentId && visual.start < start && end < visual.end);
+  const insidePassage = layout.passages.some((passage) => passage.start < start && end < passage.end);
+  let displaced: PlacedVisual[] = [];
+  const place = (parentId: string | null): Slot[] | CoverageRefusalV2 => {
+    const arriving: PlacedVisual = { slot, start: -1, end: -1, parentId, cameraCutaway: insidePassage };
+    const moved = moveRange({ ...layout, visuals: [...layout.visuals, arriving] }, slotId, start, end);
+    if (isCoverageRefusalV2(moved)) return moved;
+    displaced = moved.unattached;
+    return buildSlots(row, layout, moved.visuals);
+  };
+  let slots = container ? place(container.slot.id) : place(null);
+  // Where a cutaway cannot be stored (the parent's other cutaways are elsewhere), the visual before simply ends at the selection.
+  if (container && isCoverageRefusalV2(slots)) slots = place(null);
+  if (isCoverageRefusalV2(slots)) return slots;
+  const unattached = displaced.flatMap((visual): UnattachedVisualV2[] =>
+    visual.slot.payload.kind === "visual"
+      ? [{ slotId: visual.slot.id, payload: visual.slot.payload, version: 1 }]
+      : []);
+  return outcome(sequence.slots, slots, displaced, unattached);
+}
+
+/**
+ * Take one placed visual off its words (move to another row, Stash, Delete).
+ * On Camera fills the words it leaves (D193); a cutaway inside it stands on
+ * its own. A row with no spoken words goes back to its single On Camera card.
+ */
+export function removeVisualV2(row: NarrationBlockV2, slotId: string): CoverageEditOutcomeV2 | CoverageRefusalV2 {
+  const sequence = row.primaryVisualSequence;
+  if (!sequence) return refusal("PRIMARY_SEQUENCE_MISSING", "The row has no primary visual sequence.");
+  const target = sequence.slots.find((slot) => slot.id === slotId);
+  if (!target || target.kind !== "content" || target.payload.kind === "on_camera") {
+    return refusal("VISUAL_SLOT_MISSING", "Choose a visual that is placed in this row.", slotId);
+  }
+  const gone: PlacedVisual = { slot: target, start: 0, end: 0, parentId: null, cameraCutaway: false };
+  if (spokenTokensV2(row).length === 0) {
+    if (sequence.slots.length !== 1) {
+      return unresolved("This row has no spoken words but holds more than one picture, which this edit cannot recalculate.", slotId);
+    }
+    return outcome(sequence.slots, emptyRowCoverageV2(sequence.id), [gone], []);
+  }
+  const layout = readLayout(row);
+  if (isCoverageRefusalV2(layout)) return layout;
+  const visuals = layout.visuals
+    .filter((visual) => visual.slot.id !== slotId)
+    .map((visual) => ({ ...visual, parentId: visual.parentId === slotId ? null : visual.parentId }));
+  const slots = buildSlots(row, layout, visuals);
+  if (isCoverageRefusalV2(slots)) return slots;
+  return outcome(sequence.slots, slots, [gone], []);
+}
+
 /** Set Wide or Tight for one On Camera passage; the choice covers the passage's return too. */
 export function setOnCameraFramingV2(
   row: NarrationBlockV2,

@@ -850,6 +850,10 @@ export interface GraphicRevisionSource {
 export interface UnresolvedVisualSource {
   kind: "unresolved_visual";
   description: string;
+  /**
+   * The type the writer chose for this visual before picking its media (Change type to Footage, Still Image, Web Capture or Graphic with nothing selected yet). Omitted for an ordinary Need to Find.
+   */
+  wantedPictureKind?: "clip" | "image" | "capture" | "graphic";
 }
 export interface IntentionalPlaceholderSource {
   kind: "intentional_placeholder";
@@ -1960,6 +1964,7 @@ export interface BuildDiagnosticV2 {
     | "STALE_ANCHOR"
     | "COLLAPSED_BOUNDARY"
     | "UNPLACED_SUPPORTING_ITEM"
+    | "UNATTACHED_VISUAL"
     | "VISUAL_UNDEFINED"
     | "SOURCE_AUDIO_OVERLAP"
     | "TRACK_ROLE_COLLISION"

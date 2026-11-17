@@ -1,5 +1,6 @@
 import type {
   ContentSlot,
+  NarratedVisualPayloadV2,
   NarrationTokenTimingMapV2,
   RationalRate,
   RationalTime,
@@ -286,6 +287,47 @@ export type VisualSequenceEditCommandV2 =
       framing: OnCameraFramingV2;
     }
   | {
+      /**
+       * Drag a visual card to another row (D87, D88). The visual keeps its
+       * source and trim. In a row with narration it lands with no words,
+       * waiting for Attach to words; in a row with no narration it is simply
+       * that row's picture (D146). On Camera fills the words it leaves.
+       */
+      kind: "move_visual_to_row";
+      blockId: string;
+      slotId: string;
+      destinationBlockId: string;
+    }
+  | {
+      /** Attach to words (D113): give a waiting visual the whole selection; neighbours make room as for a range change. */
+      kind: "attach_visual_to_words";
+      blockId: string;
+      slotId: string;
+      startTokenId: string;
+      endTokenId: string;
+    }
+  | {
+      /**
+       * Change type (D93, D100). The visual keeps its words, its identity and
+       * so its comments. Anything the new type cannot hold is listed in
+       * `evidence.dropped`. Choosing On Camera removes the visual, because On
+       * Camera is what fills words no visual covers.
+       */
+      kind: "change_visual_type";
+      blockId: string;
+      slotId: string;
+      to: VisualTypeChangeV2;
+    }
+  | {
+      /**
+       * Delete a visual (D100). On Camera fills its words. Deleting the row's
+       * last visual leaves a Visual Undefined card on those words instead.
+       */
+      kind: "delete_visual";
+      blockId: string;
+      slotId: string;
+    }
+  | {
       kind: "move_payload";
       sourceBlockId: string;
       sourceSlotId: string;
@@ -321,11 +363,36 @@ export type VisualSequenceEditCommandV2 =
       sourceUsage: { sourceInFrame: number } | null;
     };
 
+type VisualSourceV2 = NarratedVisualPayloadV2["source"];
+
+/**
+ * The type list of D93. A type that shows media takes its source here; when
+ * `source` is left out the visual keeps its current source if the new type can
+ * show it, and otherwise becomes Need to Find until one is chosen.
+ */
+export type VisualTypeChangeV2 =
+  | { type: "footage"; source?: Extract<VisualSourceV2, { kind: "media_reference" }>; sourceInFrame?: number }
+  | { type: "still_image"; source?: Extract<VisualSourceV2, { kind: "media_reference" }> }
+  | { type: "web_capture"; source?: Extract<VisualSourceV2, { kind: "capture_revision" }> }
+  | { type: "graphic"; source?: Extract<VisualSourceV2, { kind: "graphic_revision" }> }
+  | { type: "onscreen_placeholder"; text?: string }
+  | { type: "need_to_find"; description?: string }
+  | { type: "visual_undefined" }
+  | { type: "on_camera" };
+
+/** One thing a Change type could not carry over, in words the writer can read. */
+export interface DroppedVisualDetailV2 {
+  what: "source" | "trim" | "research_clip" | "image_motion" | "source_audio" | "visual";
+  message: string;
+}
+
 export interface VisualEditEvidenceV2 {
   kind: VisualSequenceEditCommandV2["kind"];
   blockIds: string[];
   slotIds: string[];
   payloadIds: string[];
+  /** Change type only: what the new type could not keep. Empty when nothing was lost. */
+  dropped?: DroppedVisualDetailV2[];
   supportingItemId?: string;
   lineage?: { fromSupportingItemId: string; toPayloadId: string };
   beforeSequenceVersions: Record<string, number>;
@@ -371,6 +438,7 @@ export {
 } from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {
   applyStageDirectionEditV2,
   undoStageDirectionEditV2,

@@ -716,6 +716,11 @@
         "description": {
           "type": "string",
           "minLength": 1
+        },
+        "wantedPictureKind": {
+          "description": "The type the writer chose for this visual before picking its media (Change type to Footage, Still Image, Web Capture or Graphic with nothing selected yet). Omitted for an ordinary Need to Find.",
+          "type": "string",
+          "enum": ["clip", "image", "capture", "graphic"]
         }
       }
     },
