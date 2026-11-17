@@ -694,6 +694,18 @@ describe("persisted plain-direction intent (phase 1)", () => {
 });
 
 describe("D109 Stash section rename and deletion", () => {
+  it("refuses nested Stash descendants that are not in depth-first preorder", () => {
+    const { doc } = attachmentFixture();
+    expect(validateScriptDocumentV2(doc).valid).toBe(true);
+    const invalid = structuredClone(doc);
+    const [parentNote, childClip] = invalid.stashOutline!.slice(2, 4);
+    invalid.stashOutline!.splice(2, 2, childClip!, parentNote!);
+    expect(validateScriptDocumentV2(invalid).diagnostics).toContainEqual(expect.objectContaining({
+      code: "ROW_REFERENCE_INVALID",
+      message: "The Stash outline must be a deterministic depth-first preorder without cycles.",
+    }));
+  });
+
   it("keeps nested note contents, owned footage and an ordinary saved group intact ahead of unsorted roots", () => {
     const gone = id(811000);
     const kept = id(811001);
