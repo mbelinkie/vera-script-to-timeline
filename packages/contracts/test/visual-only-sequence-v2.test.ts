@@ -56,6 +56,64 @@ function sequence(): Frozen {
 }
 
 describe("#585 visuals-only ordered cards", () => {
+  it("keeps distinct placement names with each held visual and never changes compiled events or report", () => {
+    const { document, dependencies } = sequence();
+    const baseline = compileTimelineV2(document, dependencies);
+    expect(baseline.ok, JSON.stringify(baseline)).toBe(true);
+    if (!baseline.ok) return;
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    // First and third stills are two placements of the same source.
+    expect(row.payload.source).toEqual(row.additionalVisuals![1]!.payload.source);
+    const session = createRowEditSessionV2(document);
+    for (const [payloadId, name] of [
+      [id(3102), "Different angle"], [id(31), "Hero"], [id(3101), "Trimmed insert"],
+    ] as Array<[string, string]>) {
+      const renamed = session.apply({ kind: "rename_visual_placement", rowId: row.id, payloadId, name });
+      expect(renamed.ok, JSON.stringify(renamed.diagnostics)).toBe(true);
+    }
+    expect(session.undoDepth).toBe(3);
+    const named = session.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect([named.payload.displayName, ...named.additionalVisuals!.map((item) => item.payload.displayName)])
+      .toEqual(["Hero", "Trimmed insert", "Different angle"]);
+    expect(named.payload.source).toEqual(named.additionalVisuals![1]!.payload.source);
+    const compiled = compileTimelineV2(session.document, dependencies);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.manifest).toEqual(baseline.manifest);
+    expect(compiled.report).toEqual(baseline.report);
+    expect(compiled.manifestJson).toBe(baseline.manifestJson);
+    expect(compiled.reportJson).toBe(baseline.reportJson);
+    expect(compiled.manifest.events.filter((event) => event.kind === "primary_visual")
+      .map((event) => event.provenance.payloadId)).toEqual([id(31), id(3101), id(3102)]);
+
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document));
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.document).toEqual(session.document);
+    const ordered = session.apply({
+      kind: "reorder_visual_only", rowId: row.id, payloadIds: [id(3102), id(3101), id(31)],
+    });
+    expect(ordered.ok, JSON.stringify(ordered.diagnostics)).toBe(true);
+    const after = ordered.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect([after.payload.displayName, ...after.additionalVisuals!.map((item) => item.payload.displayName)])
+      .toEqual(["Different angle", "Trimmed insert", "Hero"]);
+    expect(after.visualOnlyTiming.durationOverrideMs).toBe(2500);
+    expect(after.additionalVisuals![1]!.visualOnlyTiming.durationOverrideMs).toBe(4000);
+    const noNames = structuredClone(ordered.document);
+    const stripped = noNames.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    delete stripped.payload.displayName;
+    for (const item of stripped.additionalVisuals ?? []) delete item.payload.displayName;
+    const withNames = compileTimelineV2(ordered.document, dependencies);
+    const withoutNames = compileTimelineV2(noNames, dependencies);
+    expect(withNames.ok, JSON.stringify(withNames)).toBe(true);
+    expect(withoutNames.ok, JSON.stringify(withoutNames)).toBe(true);
+    if (withNames.ok && withoutNames.ok) {
+      expect(withNames.manifest).toEqual(withoutNames.manifest);
+      expect(withNames.report).toEqual(withoutNames.report);
+    }
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.displayName).toBe("Hero");
+  });
+
   it("validates, saves and reloads still/trimmed-clip/still with distinct held durations", () => {
     const { document } = sequence();
     expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });

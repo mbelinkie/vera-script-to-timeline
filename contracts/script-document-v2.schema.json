@@ -809,6 +809,12 @@
         "payloadId": {
           "$ref": "#/$defs/EntityId"
         },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Optional name for this visual placement only, never the referenced media source."
+        },
         "pictureKind": {
           "type": "string",
           "enum": [
@@ -876,6 +882,17 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "displayName": {} },
+            "required": ["displayName"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "pictureKind": { "enum": ["clip", "image"] } }
+          }
+        },
         {
           "if": {
             "type": "object",
@@ -2098,6 +2115,12 @@
         "payloadId": {
           "$ref": "#/$defs/EntityId"
         },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Optional name for this visual placement only, never the referenced media source."
+        },
         "pictureKind": {
           "type": "string",
           "enum": [
@@ -2134,6 +2157,17 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "displayName": {} },
+            "required": ["displayName"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "pictureKind": { "enum": ["clip", "image"] } }
+          }
+        },
         {
           "if": {
             "type": "object",

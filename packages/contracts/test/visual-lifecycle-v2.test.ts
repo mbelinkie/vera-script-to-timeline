@@ -504,3 +504,98 @@ describe("#578 stash one visual", () => {
     refusedWith(untrimmed, stash("F", 1), "STASH_VISUAL_TRIM_REQUIRED");
   });
 });
+
+describe("#588 a name belongs to one visual placement", () => {
+  it("keeps a single clip's name/source/trim through move, waiting, attach, Stash, reload and return", () => {
+    const duplicate = rowOf(4, TEN, [{ at: 0, visual: "F" }]);
+    const start = twoRows();
+    start.activeDraft.blocks.push(duplicate);
+    // The two placements intentionally refer to the same media, but have different payload IDs.
+    expect(footage(1).source).toEqual(footage(4).source);
+    const name = "Window angle ✨";
+    const renamed = act(start, {
+      kind: "rename_visual_placement", rowId: rowId(1), payloadId: footage(1).payloadId, name,
+    }).document;
+    expect((placed(renamed, 1, "F")!.payload as NarratedVisualPayloadV2).displayName).toBe(name);
+    expect(placed(renamed, 4, "F")!.payload).toEqual(footage(4));
+
+    const moved = act(renamed, move("F")).document;
+    const named = { ...footage(1), displayName: name };
+    expect(find(moved, 2).unattachedVisuals![0]!.payload).toEqual(named);
+    expect(placed(moved, 4, "F")!.payload).toEqual(footage(4));
+    const attached = act(moved, {
+      kind: "attach_visual_to_words", blockId: rowId(2), slotId: slotId(1, "F"),
+      startTokenId: word(moved, 2, 3), endTokenId: word(moved, 2, 6),
+    }).document;
+    const placedClip = find(attached, 2).primaryVisualSequence!.slots.find((slot) => slot.id === slotId(1, "F")) as ContentSlot;
+    expect(placedClip.payload).toEqual(named);
+
+    const stashed = act(attached, {
+      kind: "stash_visual", rowId: rowId(2), slotId: slotId(1, "F"),
+      bundleId: id(60_001), stashRowId: id(60_002), sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    const saved = stashed.stash![0]!.rows[0] as VisualOnlyBlockV2;
+    expect(saved.payload).toEqual({
+      kind: "visual", payloadId: named.payloadId, pictureKind: "clip", source: named.source,
+      audioPolicy: "quiet", framingPolicy: "cover", displayName: name,
+    });
+    expect(saved.visualOnlyTiming.selectedSourceRange).toEqual(named.selectedSourceRange);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(stashed));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const returned = act(loaded.document, {
+      kind: "place_stash_rows", rowIds: [saved.id],
+      destination: { sectionId: null, afterRowId: rowId(4), beforeRowId: null },
+    }).document;
+    expect(returned.activeDraft.blocks.at(-1)).toMatchObject({ id: saved.id, payload: saved.payload });
+    expect(placed(returned, 4, "F")!.payload).toEqual(footage(4));
+  });
+
+  it("keeps a still's placement name when stashed without changing its source", () => {
+    const start = documentOf([rowOf(1, TEN, [{ at: 0, visual: "F" }])]);
+    const base = placed(start, 1, "F")!.payload as NarratedVisualPayloadV2;
+    base.pictureKind = "image";
+    base.audioPolicy = "mute";
+    base.sourceUsage = null;
+    delete base.selectedSourceRange;
+    const renamed = act(start, {
+      kind: "rename_visual_placement", rowId: rowId(1), payloadId: base.payloadId, name: "Low light still",
+    }).document;
+    const stashed = act(renamed, {
+      kind: "stash_visual", rowId: rowId(1), slotId: slotId(1, "F"),
+      bundleId: id(60_001), stashRowId: id(60_002), sectionId: null, parentRowId: null, afterRowId: null,
+    }).document;
+    const clip = stashed.stash![0]!.rows[0] as VisualOnlyBlockV2;
+    expect(clip.payload).toMatchObject({
+      payloadId: base.payloadId, pictureKind: "image", displayName: "Low light still", source: base.source,
+    });
+    expect(clip.visualOnlyTiming.selectedSourceRange).toBeUndefined();
+    const returned = act(stashed, {
+      kind: "place_stash_rows", rowIds: [clip.id],
+      destination: { sectionId: null, afterRowId: rowId(1), beforeRowId: null },
+    }).document;
+    expect((returned.activeDraft.blocks[1] as VisualOnlyBlockV2).payload).toEqual(clip.payload);
+  });
+
+  it("preserves names on a source-preserving footage trim/retype, but clears them for different media or type", () => {
+    const named = act(twoRows(), {
+      kind: "rename_visual_placement", rowId: rowId(1), payloadId: footage(1).payloadId, name: "Close detail",
+    }).document;
+    const changedTrim = act(named, {
+      kind: "change_visual_type", blockId: rowId(1), slotId: slotId(1, "F"),
+      to: { type: "footage", source: { kind: "media_reference", mediaReferenceId: MEDIA }, sourceInFrame: 64 },
+    }).document;
+    expect(placed(changedTrim, 1, "F")!.payload).toMatchObject({
+      pictureKind: "clip", displayName: "Close detail", sourceUsage: { sourceInFrame: 64 },
+    });
+    const replaced = act(changedTrim, {
+      kind: "change_visual_type", blockId: rowId(1), slotId: slotId(1, "F"),
+      to: { type: "footage", source: { kind: "media_reference", mediaReferenceId: id(889) } },
+    }).document;
+    expect(placed(replaced, 1, "F")!.payload).not.toHaveProperty("displayName");
+    const unsupported = act(named, {
+      kind: "change_visual_type", blockId: rowId(1), slotId: slotId(1, "F"), to: { type: "graphic" },
+    }).document;
+    expect(placed(unsupported, 1, "F")!.payload).not.toHaveProperty("displayName");
+  });
+});
