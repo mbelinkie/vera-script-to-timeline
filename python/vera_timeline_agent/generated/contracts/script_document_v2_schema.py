@@ -116,6 +116,7 @@ class GraphicRevisionSource(TypedDict):
 class UnresolvedVisualSource(TypedDict):
     kind: Literal["unresolved_visual"]
     description: str
+    wantedPictureKind: NotRequired[Literal["clip", "image", "capture", "graphic"]]
 
 
 class IntentionalPlaceholderSource(TypedDict):
@@ -156,6 +157,7 @@ class SelectedSourceRange(TypedDict):
 class PrimaryVisualPayload1(TypedDict):
     kind: Literal["on_camera"]
     presenterChoiceId: EntityId | None
+    framing: NotRequired[Literal["wide", "tight"]]
 
 
 class PrimaryVisualPayload2(TypedDict):
@@ -218,6 +220,12 @@ class StashRowGroupV2(TypedDict):
     rowIds: list[EntityId]
     createdBy: NotRequired[EntityId]
     createdAt: NotRequired[str]
+
+
+class StashChecklistV2(TypedDict):
+    completed: bool
+    manualRevision: NonNegativeSafeInteger
+    automaticCopyId: NotRequired[EntityId]
 
 
 class StashParentOriginContextV2(TypedDict):
@@ -383,6 +391,7 @@ type SourceReference = (
 class NarratedVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
+    displayName: NotRequired[str]
     pictureKind: Literal[
         "unresolved_visual",
         "clip",
@@ -413,6 +422,12 @@ class ContentSlot(TypedDict):
     boundaryBefore: BoundaryBefore
     payload: PrimaryVisualPayload
     playoutPolicy: Literal["match_structural_interval", "complete_logged_clip"]
+    version: EntityVersion
+
+
+class UnattachedVisualV2(TypedDict):
+    slotId: EntityId
+    payload: NarratedVisualPayloadV2
     version: EntityVersion
 
 
@@ -513,6 +528,7 @@ class OverlayEventV2(TypedDict):
 class StandaloneVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
+    displayName: NotRequired[str]
     pictureKind: Literal[
         "clip",
         "image",
@@ -527,6 +543,13 @@ class StandaloneVisualPayloadV2(TypedDict):
     imageMotion: NotRequired[ImageMotionV1]
 
 
+class VisualOnlyAdditionalV2(TypedDict):
+    payload: StandaloneVisualPayloadV2
+    visualOnlyTiming: VisualOnlyTimingV2
+    researchClip: NotRequired[ResearchClipSnapshotV2]
+    frameBinding: NotRequired[ResearchFrameBindingV2]
+
+
 class StashOriginV2(TypedDict):
     kind: Literal["note", "clip", "row"]
     parentRowId: EntityId | None
@@ -537,6 +560,10 @@ class StashOriginV2(TypedDict):
     followingSiblingRowIds: NotRequired[list[EntityId]]
     originalParentContext: NotRequired[StashParentOriginContextV2]
     returnEligible: bool
+    sourceNoteRowId: NotRequired[EntityId]
+    sourceContentStamp: NotRequired[str]
+    completionCaused: NotRequired[bool]
+    completionManualRevision: NotRequired[NonNegativeSafeInteger]
     originalAttachedNoteRowId: NotRequired[EntityId]
     originalAttachedNoteParentRowId: NotRequired[EntityId | None]
     originalAttachedNoteAfterSiblingRowId: NotRequired[EntityId | None]
@@ -563,6 +590,8 @@ class VisualOnlyBlockV2(TypedDict):
     orderKey: str
     payload: StandaloneVisualPayloadV2
     visualOnlyTiming: VisualOnlyTimingV2
+    additionalVisuals: NotRequired[list[VisualOnlyAdditionalV2]]
+    stashChecklist: NotRequired[StashChecklistV2]
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
     researchClip: NotRequired[ResearchClipSnapshotV2]
@@ -598,8 +627,10 @@ class NarrationBlockV2(TypedDict):
     state: Literal["active", "excluded"]
     notes: list[str]
     stashOrigin: NotRequired[StashOriginV2]
+    stashChecklist: NotRequired[StashChecklistV2]
     version: EntityVersion
     attachedFootage: NotRequired[AttachedFootageV2]
+    unattachedVisuals: NotRequired[list[UnattachedVisualV2]]
 
 
 type StashedRowV2 = (

@@ -603,7 +603,11 @@ def _issue336_synthetic_qualification(monkeypatch: pytest.MonkeyPatch) -> None:
         )
         return native_image_motion.Qualification(
             edition="studio",
-            version="21.1.1.10",
+            version=(
+                "21.2.0.6"
+                if _verified.get("frame_rate") in {(24000, 1001), (25, 1), (30, 1)}
+                else "21.1.1.10"
+            ),
             route="native_otio",
             binding=binding,
             motion_hash=native_image_motion.motion_hash(motion),
@@ -644,8 +648,8 @@ class _Issue336NativeRouteAdapter:
         self.calls.append("connected")
         return SimpleNamespace(
             edition="studio",
-            version="21.1.1",
-            build="10",
+            version="21.2.0",
+            build="6",
             suffix="",
             scripting_available=True,
         )
@@ -728,7 +732,9 @@ class _Issue336NativeRouteAdapter:
         }
 
 
-@pytest.mark.parametrize("motion", [{"mode": "none"}, _ISSUE336_NATIVE])
+@pytest.mark.parametrize(
+    "motion", [{"mode": "none"}, native_image_motion.DEFAULT_IMAGE_MOTION]
+)
 def test_issue336_uses_one_guarded_whole_native_otio_without_append_or_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, motion: dict[str, Any]
 ) -> None:

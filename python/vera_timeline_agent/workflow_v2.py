@@ -3863,6 +3863,14 @@ def run_workflow_delivery_v2(
                     "native source-audio requires measured Studio 21.2.0 build 6"
                 )
         if native_otio and connected_identity == ("21.1.1", "10"):
+            if _frame_rate(timeline) != (24, 1) and any(
+                isinstance(picture := event.get("pictureTreatment"), Mapping)
+                and "imageMotion" in picture
+                for event in view["events"]
+            ):
+                raise WorkflowV2Error(
+                    "image motion at this rate requires the measured Studio 21.2 build"
+                )
             if any(
                 event["recordRange"]["durationFrames"] == 72
                 and isinstance(picture := event.get("pictureTreatment"), Mapping)

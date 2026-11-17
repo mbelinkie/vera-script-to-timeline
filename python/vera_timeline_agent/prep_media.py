@@ -25,7 +25,12 @@ from .narration.normalize import Normalizer
 from .narration.service import VOICE_PROFILES, NarrationService
 from .narration.stage_directions import is_direction_only
 from .placeholder_slate import render_placeholder_slate
-from .prep_media_inputs import prepare_cut_inputs, read_json_object
+from .prep_media_inputs import (
+    compiler_media_needs,
+    prepare_cut_inputs,
+    prepare_still_inputs,
+    read_json_object,
+)
 from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
 from .v2_package import _compiler_hash
 
@@ -289,15 +294,28 @@ def prepare_project(
         prepared_script = stage / "script.json"
         prepared_script.write_bytes(canonical_json(document))
         narration(prepared_script, dependencies, media_paths, media_root)
-        delivery = prepare_cut_inputs(
+        needs = compiler_media_needs(prepared_script, dependencies, media_root)
+        dependencies["timeline"]["durationFrames"] = needs["durationFrames"]
+        still_delivery = prepare_still_inputs(
+            needs,
+            dependencies,
+            media_paths,
+            preparations,
+            media_root,
+            tools=tools,
+            report=report,
+        )
+        cut_delivery = prepare_cut_inputs(
             prepared_script,
             dependencies,
             cut_sources,
             preparations,
             media_root,
             tools=tools,
+            needs=needs,
             report=report_cut,
         )
+        delivery = {**cut_delivery, **still_delivery}
         keys = {
             entry["preparedMediaRequirementKey"]
             for entry in mappings

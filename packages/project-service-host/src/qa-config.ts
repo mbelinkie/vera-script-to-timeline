@@ -10,6 +10,7 @@ export interface QaConfig {
   readonly databaseName: string;
   readonly databaseUser: string;
   readonly identityFile: string;
+  readonly authoringToken?: string;
 }
 
 export class QaConfigError extends Error {

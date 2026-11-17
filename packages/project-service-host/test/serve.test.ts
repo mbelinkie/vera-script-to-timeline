@@ -158,6 +158,8 @@ describe("development QA service bootstrap and shutdown", () => {
     await expect(startQaServer({ ...config, port: 0 }, h)).rejects.toThrow(QaStartupRefusal);
     await expect(startQaServer({ ...config, identityFile: `${config.identityFile}.missing` }, h))
       .rejects.toThrow(QaStartupRefusal);
+    await expect(startQaServer({ ...config, authoringToken: randomBytes(32).toString("hex") }, h))
+      .rejects.toThrow(QaStartupRefusal);
     expect(h.createPool).not.toHaveBeenCalled();
   });
 
@@ -169,6 +171,33 @@ describe("development QA service bootstrap and shutdown", () => {
     expect(h.close).toHaveBeenCalledOnce();
     const got = await fetch(`http://127.0.0.1:${config.port}/v1/projects`).catch(() => null);
     expect(got).toBeNull();
+  });
+
+  it("limits the browser identity to same-origin project and document routes", async () => {
+    const config = await setup();
+    const h = infra();
+    const server = await startQaServer({ ...config, authoringToken: privateToken }, h);
+    running.push(server);
+    h.connect.mockClear();
+    const origin = `http://127.0.0.1:${config.port}`;
+    const route = `${origin}/authoring/projects/${randomUUID()}`;
+    expect((await fetch(route)).status).toBe(403);
+    expect((await fetch(route, { headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: "http://127.0.0.1:2",
+    } })).status).toBe(403);
+    expect((await fetch(route, { headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+    } })).status).toBe(401);
+    const deniedSession = await fetch(`${origin}/authoring/session`, { method: "POST", headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+      "X-VERA-Launch": randomBytes(32).toString("hex"),
+    } });
+    expect(deniedSession.status).toBe(401);
+    expect(await deniedSession.json()).toEqual({ error: "authoring_browser_required" });
+    expect((await fetch(route + "/builds", { headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+    } })).status).toBe(404);
+    expect(h.connect).not.toHaveBeenCalled();
   });
 
   it("refuses a competing listener and closes its database pool", async () => {

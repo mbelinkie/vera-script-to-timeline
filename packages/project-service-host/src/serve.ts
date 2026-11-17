@@ -19,6 +19,7 @@ import { loadQaIdentity } from "./qa-identity.js";
 import { parseQaConfig, type QaConfig } from "./qa-config.js";
 import { applyQaMigrations } from "./migrate.js";
 import { createQaPgPool, type QaPgPool } from "./pg-pool.js";
+import { createAuthoringHandler, DEFAULT_AUTHORING_PORT } from "./authoring.js";
 
 export class QaStartupRefusal extends Error {
   override readonly name = "QaStartupRefusal";
@@ -38,6 +39,7 @@ function protectedCheckoutRoots(): readonly string[] {
 
 export interface QaRunningServer {
   readonly server: Server;
+  readonly authoringLaunchCode?: string;
   stop(): Promise<void>;
 }
 
@@ -88,6 +90,13 @@ export async function startQaServer(
   };
   try {
     const identity = await loadQaIdentity(config.identityFile, protectedCheckoutRoots());
+    const host = `127.0.0.1:${config.port}`;
+    const origin = `http://${host}`;
+    const authorization = config.authoringToken === undefined ? undefined :
+      `Bearer ${config.authoringToken}`;
+    if (authorization !== undefined) {
+      await identity.authenticate(new Request(origin, { headers: { authorization } }));
+    }
     pool = (infrastructure.createPool ?? createQaPgPool)(config, () => {
       idleFailed = true;
       void stop().catch(() => undefined);
@@ -123,7 +132,7 @@ export async function startQaServer(
           /^\/v1\/agent\/projects\/[^/]+\/(jobs\/|queue$)/u.test(path)) return builds(request);
       return projects(request);
     };
-    server = await listenQaHttp(config.bindHost, config.port, async (request) => {
+    const handleApi = async (request: Request) => {
       const projectId = /^\/v1\/projects\/([a-fA-F0-9-]{36})(?:\/|$)/u.exec(new URL(request.url).pathname)?.[1];
       if (!projectId) return await route(request);
       // Readers and builds see the live text. This only runs while live text is
@@ -136,10 +145,13 @@ export async function startQaServer(
         await live.revalidate(projectId).catch(() => undefined);
       }
       return response;
-    }, createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live,
-      expectedHost: `127.0.0.1:${config.port}` }));
+    };
+    const authoring = authorization === undefined ? undefined : createAuthoringHandler(origin, authorization, handleApi);
+    server = await listenQaHttp(config.bindHost, config.port,
+      async (request) => await authoring?.handle(request) ?? await handleApi(request),
+      createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
     if (idleFailed) throw new QaStartupRefusal();
-    return { server, stop };
+    return { server, stop, ...(authoring && { authoringLaunchCode: authoring.launchCode }) };
   } catch {
     await stop().catch(() => undefined);
     throw new QaStartupRefusal();
@@ -147,7 +159,10 @@ export async function startQaServer(
 }
 
 /** Only the trusted checkout's own HEAD is used for source pin verification. */
-export async function serveQaFromEnvironment(env: NodeJS.ProcessEnv = process.env): Promise<QaRunningServer> {
+export async function serveQaFromEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+  authoring = false,
+): Promise<QaRunningServer> {
   try {
     const sha = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: REPOSITORY_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
@@ -156,18 +171,31 @@ export async function serveQaFromEnvironment(env: NodeJS.ProcessEnv = process.en
       cwd: REPOSITORY_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
     });
     if (dirty.trim() !== "") throw new QaStartupRefusal();
-    return await startQaServer(parseQaConfig(env, sha, REPOSITORY_ROOT));
+    if (!authoring) return await startQaServer(parseQaConfig(env, sha, REPOSITORY_ROOT));
+    const authoringToken = env.VERA_STT_QA_AUTHORING_TOKEN;
+    if (!authoringToken) throw new QaStartupRefusal();
+    const config = parseQaConfig({
+      ...env,
+      VERA_STT_MODE: "development-qa",
+      VERA_STT_QA_HOST: "127.0.0.1",
+      VERA_STT_QA_PORT: env.VERA_STT_QA_PORT ?? DEFAULT_AUTHORING_PORT,
+      VERA_STT_SOURCE_SHA: sha,
+    }, sha, REPOSITORY_ROOT);
+    return await startQaServer({ ...config, authoringToken });
   } catch {
     throw new QaStartupRefusal();
   }
 }
 
 async function main(): Promise<void> {
-  const running = await serveQaFromEnvironment();
+  const authoring = process.argv[2] === "--authoring";
+  const running = await serveQaFromEnvironment(process.env, authoring);
   const addr = running.server.address();
   if (typeof addr !== "object" || addr === null) throw new QaStartupRefusal();
-  // Do not print environment, database URLs, identity paths, actors or tokens.
-  process.stdout.write(`STT development-QA listening on 127.0.0.1:${addr.port}\n`);
+  // The local link carries a per-launch browser code. Keep the API token private.
+  process.stdout.write(running.authoringLaunchCode ?
+    `Open VERA Authoring at http://127.0.0.1:${addr.port}/#launch=${running.authoringLaunchCode}\n` :
+    `STT development-QA listening on 127.0.0.1:${addr.port}\n`);
   const shutdown = () => { void running.stop().catch(() => { process.exitCode = 1; }); };
   process.once("SIGINT", shutdown);
   process.once("SIGTERM", shutdown);

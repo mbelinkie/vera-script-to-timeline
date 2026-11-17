@@ -106,9 +106,12 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     restore_stash: ["kind", "bundleId", "destination"],
     restore_stash_rows: ["kind", "rowIds", "destination"],
     create_stash_section: ["kind", "sectionId", "title"],
+    rename_stash_section: ["kind", "sectionId", "title"],
+    delete_stash_section: ["kind", "sectionId"],
     move_stash_rows: ["kind", "rowIds", "sectionId"],
     set_stash_outline: ["kind", "entries"],
     place_stash_rows: ["kind", "rowIds", "destination"],
+    set_stash_completion: ["kind", "rowId", "completed"],
     attach_stash_footage: ["kind", "noteRowId", "clipRowId"],
     replace_stash_footage: ["kind", "noteRowId", "clipRowId", "releasedBundleId"],
     detach_stash_footage: ["kind", "noteRowId", "bundleId"],
@@ -131,6 +134,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
+  if (kind === "set_stash_completion") return typeof value.rowId === "string" && value.rowId.length > 0 && typeof value.completed === "boolean";
   if (kind === "edit_row") return typeof value.rowId === "string";
   if (kind === "place_stash_rows" && Object.hasOwn(value, "includeDescendants") && typeof value.includeDescendants !== "boolean") return false;
   if (kind === "attach_stash_footage" || kind === "replace_stash_footage" || kind === "detach_stash_footage" || kind === "cleanup_blank_stash_note" || kind === "place_attached_footage") {
@@ -164,6 +168,12 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     const keys = ["sectionId", "parentRowId", "afterRowId", "beforeRowId"];
     return Object.keys(fields).length === keys.length && keys.every((key) => Object.hasOwn(fields, key) &&
       (fields[key] === null || typeof fields[key] === "string" && (key !== "parentRowId" || fields[key] !== "")));
+  }
+  if (kind === "rename_stash_section" || kind === "delete_stash_section") {
+    // Sorting's serialized-action gate must be as strict as the row-edit preflight.
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return typeof value.sectionId === "string" && uuid.test(value.sectionId) &&
+      (kind === "delete_stash_section" || typeof value.title === "string" && value.title.trim().length > 0);
   }
   if (kind === "create_stash_section") return typeof value.sectionId === "string" && typeof value.title === "string";
   if (kind === "move_stash_rows") return value.sectionId === null || typeof value.sectionId === "string";
@@ -241,6 +251,7 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
         : group ? group.rowIds
         : command.kind === "place_stash_rows" ? command.includeDescendants === false ? command.rowIds : selectedOutlineRows(beforeDocument, command.rowIds)
           : command.kind === "place_attached_footage" ? beforeDocument.stash?.flatMap((bundle) => bundle.rows).flatMap((row) => row.id === command.noteRowId && row.type === "narration" && row.attachedFootage ? [row.attachedFootage.clip.id] : []) ?? []
+          : command.kind === "delete_stash_section" ? [...before].filter(([, location]) => location.container.startsWith(`stash:${command.sectionId}:`)).map(([id]) => id)
           : command.kind === "set_stash_outline" ? beforeDocument.stashOutline ? beforeDocument.stashOutline.flatMap((entry) => {
             const next = command.entries.find((item) => item.rowId === entry.rowId);
             return next && (next.kind !== entry.kind || next.parentRowId !== entry.parentRowId || next.sectionId !== entry.sectionId || beforeDocument.stashOutline!.findIndex((item) => item.rowId === entry.rowId) !== command.entries.findIndex((item) => item.rowId === entry.rowId)) ? [entry.rowId] : [];

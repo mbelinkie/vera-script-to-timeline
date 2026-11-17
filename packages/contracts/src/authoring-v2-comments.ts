@@ -17,6 +17,8 @@ export interface CommentAttachmentV2 {
   /** Exact semantic evidence, never a search query for automatic repair. */
   tokens: { id: string; value: string }[];
   quotedText: string | null;
+  /** Replay-derived provenance for a single document edit, not an auto-repair hint. */
+  orphanedByDocumentOperationId?: string;
 }
 export interface CommentThreadV2 {
   id: string; attachment: CommentAttachmentV2; resolved: boolean; messages: CommentMessageV2[];
@@ -30,6 +32,7 @@ export type CommentOperationV2 = Attribution & (
   | { kind: "reopen"; threadId: string }
   | { kind: "reattach"; threadId: string; anchor: CommentAnchorV2 }
   | { kind: "replace_document"; document: ScriptDocumentV2 }
+  | { kind: "undo_document"; document: ScriptDocumentV2; undoOfOperationId: string }
 );
 export interface CommentStateV2 {
   initialDocument: ScriptDocumentV2;
@@ -65,10 +68,11 @@ function operationInput(value: unknown): CommentOperationV2 {
     : op.kind === "reply" ? "id actorId kind threadId messageId body mentionActorIds"
       : op.kind === "resolve" || op.kind === "reopen" ? "id actorId kind threadId"
         : op.kind === "reattach" ? "id actorId kind threadId anchor"
-          : op.kind === "replace_document" ? "id actorId kind document" : "";
+          : op.kind === "replace_document" ? "id actorId kind document"
+            : op.kind === "undo_document" ? "id actorId kind document undoOfOperationId" : "";
   if (!names) throw new Error("Unsupported comment operation.");
   fields(op, names);
-  for (const key of ["id", "actorId", "threadId", "messageId", "body"]) {
+  for (const key of ["id", "actorId", "threadId", "messageId", "body", "undoOfOperationId"]) {
     if (key in op && !nonempty(op[key])) throw new Error(`${key} must be nonempty.`);
   }
   if ("anchor" in op) anchorInput(op.anchor);
@@ -94,8 +98,22 @@ function attachment(document: ScriptDocumentV2, anchor: CommentAnchorV2): Commen
     if (tokens.some((token, index) => !Number.isSafeInteger(token.startOffset) || !Number.isSafeInteger(token.endOffset) || token.startOffset < 0 || token.endOffset <= token.startOffset || token.endOffset > block.text.length || block.text.slice(token.startOffset, token.endOffset) !== token.value || index > 0 && token.startOffset < tokens[index - 1]!.endOffset)) return null;
     return { anchor: structuredClone(anchor), status: "attached", tokens: tokens.map(({ id, value }) => ({ id, value })), quotedText: commentQuoteV2(block, tokens[0]!.startOffset, tokens.at(-1)!.endOffset) };
   }
-  if (anchor.kind === "card" && !(block.type === "narration" && block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId))) return null;
+  if (anchor.kind === "card" && !(block.type === "narration" && (
+    block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId) ||
+    block.unattachedVisuals?.some((visual) => visual.slotId === anchor.cardId)
+  ))) return null;
   return { anchor: structuredClone(anchor), status: "attached", tokens: [], quotedText: null };
+}
+
+/** The same word or card anchor in the one other row that now holds its first word or its card. */
+function followedAnchor(document: ScriptDocumentV2, anchor: CommentAnchorV2): CommentAnchorV2 | null {
+  if (anchor.kind !== "text" && anchor.kind !== "card") return null;
+  const holders = document.activeDraft.blocks.filter((block) => block.type === "narration" && block.id !== anchor.blockId && (
+    anchor.kind === "text"
+      ? block.tokens.some((token) => token.id === anchor.startTokenId)
+      : block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId) ||
+        block.unattachedVisuals?.some((visual) => visual.slotId === anchor.cardId)));
+  return holders.length === 1 ? { ...anchor, blockId: holders[0]!.id } : null;
 }
 
 /** Injected attribution only: this module neither authenticates actors nor grants permissions. */
@@ -112,14 +130,53 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
     const op = operationInput(input);
     if (state.history.some((prior) => prior.id === op.id)) throw new Error("Duplicate operation ID.");
     const next = { ...state, document: structuredClone(state.document), threads: structuredClone(state.threads), history: [...state.history] };
-    if (op.kind === "replace_document") {
+    if (op.kind === "replace_document" || op.kind === "undo_document") {
       const document = createCommentStateV2(op.document).document;
       if (document.id !== state.document.id || document.projectId !== state.document.projectId) throw new Error("Document identity changed.");
       if (sameAuthoringJsonV2(document, state.document)) throw new Error("Document edit has no change.");
+      if (op.kind === "undo_document") {
+        // A comment op cannot attest to a row session's Undo. Require the most recent
+        // document edit, its exact preimage and the row session's next revision instead.
+        const lastIndex = state.history.findLastIndex((item) => item.kind === "replace_document" || item.kind === "undo_document");
+        const last = state.history[lastIndex];
+        if (!last || last.kind !== "replace_document" || last.id !== op.undoOfOperationId ||
+          !sameAuthoringJsonV2(last.document, state.document)) throw new Error("Undo does not match the latest document edit.");
+        const preceding = state.history.slice(0, lastIndex).findLast((item) => item.kind === "replace_document" || item.kind === "undo_document");
+        const priorDocument = preceding && (preceding.kind === "replace_document" || preceding.kind === "undo_document")
+          ? preceding.document : state.initialDocument;
+        const preimage = structuredClone(priorDocument);
+        const restored = structuredClone(document);
+        delete preimage.rowEditRevision;
+        delete restored.rowEditRevision;
+        const beforeRevision = state.document.rowEditRevision;
+        const undoRevision = document.rowEditRevision;
+        if (!sameAuthoringJsonV2(preimage, restored) ||
+          typeof beforeRevision !== "number" || !Number.isSafeInteger(beforeRevision) ||
+          typeof undoRevision !== "number" || !Number.isSafeInteger(undoRevision) ||
+          undoRevision !== beforeRevision + 1) throw new Error("Undo document is not the verified pre-edit image.");
+      }
       next.document = document;
       for (const thread of next.threads) {
-        if (thread.attachment.status === "stale") continue;
-        const current = attachment(document, thread.attachment.anchor);
+        if (thread.attachment.status === "stale") {
+          if (op.kind === "undo_document" && thread.attachment.orphanedByDocumentOperationId === op.undoOfOperationId) {
+            const restored = attachment(document, thread.attachment.anchor);
+            if (restored && sameAuthoringJsonV2(restored.tokens, thread.attachment.tokens) &&
+              restored.quotedText === thread.attachment.quotedText) thread.attachment = restored;
+          }
+          // A later document operation cannot revive an older orphan by coincidence.
+          delete thread.attachment.orphanedByDocumentOperationId;
+          continue;
+        }
+        let current = attachment(document, thread.attachment.anchor);
+        if (!current) {
+          // A split or join moves words and visuals to another row with their IDs; the comment follows them.
+          const followed = followedAnchor(document, thread.attachment.anchor);
+          const moved = followed ? attachment(document, followed) : null;
+          if (moved && sameAuthoringJsonV2(moved.tokens, thread.attachment.tokens) && moved.quotedText === thread.attachment.quotedText) {
+            thread.attachment.anchor = moved.anchor;
+            current = moved;
+          }
+        }
         const anchor = thread.attachment.anchor;
         const previousBlock = anchor.kind === "text" ? state.document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
         const nextBlock = anchor.kind === "text" ? document.activeDraft.blocks.find((block) => block.id === anchor.blockId) : undefined;
@@ -129,7 +186,10 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
             nextBlock.tokens.map((token) => ({ ...token, spoken: null })),
           );
         if (!current || !sameAuthoringJsonV2(current.tokens, thread.attachment.tokens) ||
-          current.quotedText !== thread.attachment.quotedText && !classificationOnly) thread.attachment.status = "stale";
+          current.quotedText !== thread.attachment.quotedText && !classificationOnly) {
+          thread.attachment.status = "stale";
+          if (op.kind === "replace_document") thread.attachment.orphanedByDocumentOperationId = op.id;
+        }
         else thread.attachment.quotedText = current.quotedText;
       }
     } else {

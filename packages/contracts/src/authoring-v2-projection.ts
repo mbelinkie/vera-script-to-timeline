@@ -18,6 +18,8 @@ import type {
   PrimarySequenceProjectionV2,
   PrimarySequenceRowProjectionV2,
   ProjectedAppearanceV2,
+  ProjectedBracketV2,
+  ProjectedCardV2,
   ProjectedHostStateV2,
   ProjectedOverlayV2,
   ProjectedPrimarySlotV2,
@@ -35,6 +37,7 @@ import {
 import { boundaryEvidenceProblemV2 } from "./narration-boundary-evidence-v2.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
+import { onCameraFramingV2, type OnCameraFramingV2 } from "./authoring-v2-coverage.js";
 
 type ProjectionTiming = NarrationTokenTimingMapV2 | NarrationBoundaryEvidenceV1;
 type PointAnchor = NonNullable<TimedPlacement["start"]>;
@@ -275,31 +278,19 @@ function projectRow(
     };
   });
 
-  const slotById = new Map(slotViews.map((slot) => [slot.slotId, slot]));
-  for (const group of groups) {
-    if (group.root.payload.kind !== "on_camera" || !group.returnSlot) continue;
-    const returnIndex = returnTokenIndices.get(group.returnSlot.id);
-    const rootStart = rootIntervals.get(group.root.id)?.start;
-    const firstChildStart = group.children[0]
-      ? childIntervals.get(group.children[0].id)?.start
-      : null;
-    if (
-      returnIndex === null || returnIndex === undefined || returnIndex < 1 ||
-      rootStart === null || rootStart === undefined ||
-      firstChildStart === null || firstChildStart === undefined ||
-      rootStart >= firstChildStart
-    ) continue;
-    const previous = tokens[returnIndex - 1];
-    const previousSlot = previous?.primarySlotId ? slotById.get(previous.primarySlotId) : undefined;
-    if (previous?.hostState === "voiceover" && previousSlot?.payloadKind === "visual") {
-      const returned = tokens[returnIndex];
-      if (returned?.primarySlotId === group.root.id && returned.hostState === "on_camera") {
-        tokens[returnIndex] = { ...returned, onCameraResumes: true };
-      }
+  const framingBySlot = new Map<string, OnCameraFramingV2>();
+  for (const slot of sequence.slots) {
+    // Only an explicit choice is recorded here, so an authored framing wins when passages meet.
+    if (slot.kind === "content" && slot.payload.kind === "on_camera" && slot.payload.framing) {
+      framingBySlot.set(slot.id, onCameraFramingV2(slot.payload)!);
     }
   }
-
-  const appearances = coalesceAppearances(tokens, slotViews);
+  const appearances = coalesceAppearances(tokens, slotViews, framingBySlot);
+  for (const appearance of appearances) {
+    if (!appearance.onCameraResumes) continue;
+    tokens[appearance.startTokenIndex] = { ...tokens[appearance.startTokenIndex]!, onCameraResumes: true };
+  }
+  const { cards, brackets } = projectCards(appearances, slotViews, row);
   const overlays = row.overlayEvents.map((event) => projectOverlay(event, row, orderById));
   const supportingItems = document.activeDraft.supportingItems.map((item) => ({
     itemId: item.id,
@@ -316,6 +307,13 @@ function projectRow(
     renderable: !hasErrors && tokens.every((token) => token.hostState !== "unresolved"),
     tokens,
     appearances,
+    cards,
+    brackets,
+    unattached: (row.unattachedVisuals ?? []).map((item) => ({
+      slotId: item.slotId,
+      payloadId: item.payload.payloadId,
+      recovery: "attach_to_words" as const,
+    })),
     slots: slotViews,
     returns: returnViews,
     overlays,
@@ -586,9 +584,16 @@ function payloadId(payload: ContentSlot["payload"]): string | null {
   return payload.kind === "on_camera" ? null : payload.payloadId;
 }
 
+/**
+ * One appearance per uninterrupted picture. Adjacent On Camera coverage is a
+ * single passage whatever slots store it (D182, D190), and a passage is a
+ * return only when the same shot appeared earlier in the row with a real
+ * visual in between (D193). Nothing here depends on how the return is stored.
+ */
 function coalesceAppearances(
   tokens: ProjectedTokenV2[],
   slots: ProjectedPrimarySlotV2[],
+  framingBySlot: ReadonlyMap<string, OnCameraFramingV2>,
 ): ProjectedAppearanceV2[] {
   const slotById = new Map(slots.map((slot) => [slot.slotId, slot]));
   const appearances: ProjectedAppearanceV2[] = [];
@@ -599,10 +604,20 @@ function coalesceAppearances(
       continue;
     }
     let end = start + 1;
-    while (end < tokens.length && tokens[end]!.primarySlotId === token.primarySlotId) end += 1;
+    while (end < tokens.length && (
+      tokens[end]!.primarySlotId === token.primarySlotId ||
+      (token.hostState === "on_camera" && tokens[end]!.hostState === "on_camera")
+    )) end += 1;
     const slot = slotById.get(token.primarySlotId);
     if (slot) {
+      const authored = tokens.slice(start, end).find((item) => item.primarySlotId && framingBySlot.has(item.primarySlotId));
+      const framing = token.hostState === "on_camera" ? framingBySlot.get(authored?.primarySlotId ?? "") ?? "wide" : null;
+      const sinceSameShot = appearances.findLastIndex((earlier) => earlier.hostState === "on_camera" && earlier.framing === framing);
+      const onCameraResumes = framing !== null && sinceSameShot >= 0 &&
+        appearances.slice(sinceSameShot + 1).some((between) => between.hostState !== "on_camera") &&
+        appearances.at(-1)!.endTokenIndexExclusive === start;
       appearances.push({
+        framing,
         slotId: slot.slotId,
         payloadId: slot.payloadId,
         structuralIndex: slot.structuralIndex,
@@ -612,12 +627,82 @@ function coalesceAppearances(
         endTokenIndexExclusive: end,
         startTokenId: tokens[start]?.tokenId ?? null,
         endTokenId: tokens[end]?.tokenId ?? null,
-        onCameraResumes: token.onCameraResumes,
+        onCameraResumes,
       });
     }
     start = end;
   }
   return appearances;
+}
+
+/**
+ * The card stack and brackets, read from the same appearances as the words.
+ * A visual's first appearance is its full card; a later one is the compact
+ * "resumes" card after a cutaway. On Camera has cards but never brackets.
+ */
+function projectCards(
+  appearances: ProjectedAppearanceV2[],
+  slots: ProjectedPrimarySlotV2[],
+  row: NarrationBlockV2,
+): { cards: ProjectedCardV2[]; brackets: ProjectedBracketV2[] } {
+  const slotById = new Map(slots.map((slot) => [slot.slotId, slot]));
+  const spoken = spokenTokensV2(row);
+  const seen = new Set<string>();
+  const cards: ProjectedCardV2[] = appearances.map((appearance) => {
+    const onCamera = appearance.hostState === "on_camera";
+    const compact = onCamera ? appearance.onCameraResumes : seen.has(appearance.slotId);
+    seen.add(appearance.slotId);
+    return {
+      kind: onCamera ? "on_camera" : slotById.get(appearance.slotId)?.payloadKind === "undefined" ? "undefined" : "visual",
+      compact,
+      slotId: appearance.slotId,
+      payloadId: appearance.payloadId,
+      humanOrdinal: appearance.humanOrdinal,
+      framing: appearance.framing,
+      startTokenIndex: appearance.startTokenIndex,
+      endTokenIndexExclusive: appearance.endTokenIndexExclusive,
+      recovery: null,
+    };
+  });
+  // D135/D146: an ordinary narration row can have no words yet still own its
+  // one main picture. With no token appearances, project a zero-word card
+  // rather than making that retained picture disappear from the editor.
+  if (spoken.length === 0 && row.text === "" && row.plainDirection !== true && slots.length === 1) {
+    const only = slots[0]!;
+    const stored = row.primaryVisualSequence?.slots[0];
+    const framing = stored?.kind === "content" && stored.payload.kind === "on_camera"
+      ? onCameraFramingV2(stored.payload) : null;
+    cards.push({
+      kind: only.payloadKind === "on_camera" ? "on_camera" : only.payloadKind === "undefined" ? "undefined" : "visual",
+      compact: false, slotId: only.slotId, payloadId: only.payloadId, humanOrdinal: only.humanOrdinal,
+      framing, startTokenIndex: 0, endTokenIndexExclusive: 0, recovery: null,
+    });
+  }
+  for (const item of row.unattachedVisuals ?? []) {
+    cards.push({
+      kind: "unattached_visual", compact: false, slotId: item.slotId, payloadId: item.payload.payloadId,
+      humanOrdinal: null, framing: null, startTokenIndex: null, endTokenIndexExclusive: null, recovery: "attach_to_words",
+    });
+  }
+  const brackets: ProjectedBracketV2[] = [];
+  for (const appearance of appearances) {
+    if (appearance.hostState === "on_camera") continue;
+    const existing = brackets.find((bracket) => bracket.slotId === appearance.slotId);
+    if (existing) {
+      existing.endTokenIndexExclusive = appearance.endTokenIndexExclusive;
+      existing.lastTokenId = spoken[appearance.endTokenIndexExclusive - 1]?.id ?? null;
+      continue;
+    }
+    brackets.push({
+      slotId: appearance.slotId,
+      payloadId: appearance.payloadId,
+      startTokenIndex: appearance.startTokenIndex,
+      endTokenIndexExclusive: appearance.endTokenIndexExclusive,
+      startTokenId: appearance.startTokenId,
+      lastTokenId: spoken[appearance.endTokenIndexExclusive - 1]?.id ?? null,
+    });
+  }
+  return { cards, brackets };
 }
 
 function estimateMediaCuts(
@@ -818,6 +903,9 @@ function emptyRow(blockId: string, diagnostics: AuthoringDiagnosticV2[]): Primar
     renderable: false,
     tokens: [],
     appearances: [],
+    cards: [],
+    brackets: [],
+    unattached: [],
     slots: [],
     returns: [],
     overlays: [],

@@ -160,6 +160,10 @@ export function validateScriptDocumentV2(
       addId(sequence.id, `${path}/primaryVisualSequence/id`, block.id);
       validateSequence(block, sequence.slots, path, diagnostics, addId);
     }
+    (block.unattachedVisuals ?? []).forEach((item, itemIndex) => {
+      addId(item.slotId, `${path}/unattachedVisuals/${itemIndex}/slotId`, block.id);
+      addId(item.payload.payloadId, `${path}/unattachedVisuals/${itemIndex}/payload/payloadId`, block.id);
+    });
     block.overlayEvents.forEach((event, eventIndex) => {
       const eventPath = `${path}/overlayEvents/${eventIndex}`;
       overlayIds.add(event.id);
@@ -201,6 +205,17 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
+    // Empty ordinary narration is a Draft-only authoring state (#580).
+    // Parked Stash notes retain their historical contract: empty note text
+    // requires explicit plainDirection intent, not an ordinary wordless row.
+    bundle.rows.forEach((row, rowIndex) => {
+      if (row.type === "narration" && row.plainDirection !== true && row.text === "") diagnostics.push({
+        code: "PLAIN_DIRECTION_INTENT_INVALID",
+        message: "An empty Stash note requires explicit plain-direction intent.",
+        jsonPath: `${path}/rows/${rowIndex}/text`,
+        blockId: row.id,
+      });
+    });
     const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({
       ...item,
@@ -277,6 +292,21 @@ export function validateScriptDocumentV2(
     const sourceId = row.payload.source.kind === "media_reference" ? row.payload.source.mediaReferenceId : undefined;
     validateBoundedResearch(row.researchClip, row.frameBinding,
       row.visualOnlyTiming.selectedSourceRange, row.payload.pictureKind, sourceId, path, row.id);
+    if (row.additionalVisuals?.length) {
+      const payloadIds = new Set([row.payload.payloadId]);
+      row.additionalVisuals.forEach((visual, index) => {
+        const visualPath = `${path}/additionalVisuals/${index}`;
+        if (payloadIds.has(visual.payload.payloadId)) diagnostics.push({
+          code: "ENTITY_ID_DUPLICATE", message: "Each visual in this row needs a distinct payload ID.",
+          jsonPath: `${visualPath}/payload/payloadId`, entityId: visual.payload.payloadId,
+        });
+        payloadIds.add(visual.payload.payloadId);
+        const mediaReferenceId = visual.payload.source.kind === "media_reference" ? visual.payload.source.mediaReferenceId : undefined;
+        validateBoundedResearch(visual.researchClip, visual.frameBinding,
+          visual.visualOnlyTiming.selectedSourceRange, visual.payload.pictureKind, mediaReferenceId,
+          visualPath, row.id);
+      });
+    }
     if (row.stashOrigin?.originalAttachedNoteRowId && row.stashOrigin.kind !== "clip") {
       reportClip("Historical attached-note return provenance requires a clip origin.", path, row.id);
     }
@@ -531,6 +561,9 @@ function validateTokens(
   addId: (id: string, path: string, owner?: string) => void,
 ): void {
   let previousEnd = 0;
+  // Preserve legacy ordinary-narration validation semantics: the compiler and
+  // omission adapters issue their own more specific Unicode diagnostics.
+  // The new text splice independently refuses unpaired input and insertion.
   if (row.plainDirection === true && hasUnpairedSurrogate(row.text)) {
     diagnostics.push({
       code: "PLAIN_DIRECTION_INTENT_INVALID",
@@ -538,6 +571,21 @@ function validateTokens(
       jsonPath: `${path}/text`,
       blockId: row.id,
     });
+  }
+  if (row.text === "" && row.plainDirection !== true) {
+    const slots = row.primaryVisualSequence?.slots;
+    const picture = slots?.[0];
+    if (row.tokens.length !== 0 || (row.unattachedVisuals?.length ?? 0) !== 0 ||
+        slots?.length !== 1 || picture?.kind !== "content" ||
+        picture.relation.kind !== "base" || picture.boundaryBefore.kind !== "row_start" ||
+        picture.playoutPolicy !== "match_structural_interval") {
+      diagnostics.push({
+        code: "EMPTY_NARRATION_VISUAL_INVALID",
+        message: "An empty narration row keeps exactly one base picture, with no word anchors or waiting pictures.",
+        jsonPath: `${path}/primaryVisualSequence`,
+        blockId: row.id,
+      });
+    }
   }
   const isSplitSurrogate = (offset: number): boolean => {
     const before = row.text.charCodeAt(offset - 1);

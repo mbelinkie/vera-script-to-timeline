@@ -716,6 +716,11 @@
         "description": {
           "type": "string",
           "minLength": 1
+        },
+        "wantedPictureKind": {
+          "description": "The type the writer chose for this visual before picking its media (Change type to Footage, Still Image, Web Capture or Graphic with nothing selected yet). Omitted for an ordinary Need to Find.",
+          "type": "string",
+          "enum": ["clip", "image", "capture", "graphic"]
         }
       }
     },
@@ -804,6 +809,12 @@
         "payloadId": {
           "$ref": "#/$defs/EntityId"
         },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Optional name for this visual placement only, never the referenced media source."
+        },
         "pictureKind": {
           "type": "string",
           "enum": [
@@ -871,6 +882,17 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "displayName": {} },
+            "required": ["displayName"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "pictureKind": { "enum": ["clip", "image"] } }
+          }
+        },
         {
           "if": {
             "type": "object",
@@ -957,7 +979,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [
@@ -1117,6 +1139,14 @@
                   "type": "null"
                 }
               ]
+            },
+            "framing": {
+              "description": "Wide or Tight presenter framing for this On Camera passage. Omission means wide. On Camera fills the narration no visual covers; only this choice is authored.",
+              "type": "string",
+              "enum": [
+                "wide",
+                "tight"
+              ]
             }
           }
         },
@@ -1224,6 +1254,27 @@
             "match_structural_interval",
             "complete_logged_clip"
           ]
+        },
+        "version": {
+          "$ref": "#/$defs/EntityVersion"
+        }
+      }
+    },
+    "UnattachedVisualV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slotId",
+        "payload",
+        "version"
+      ],
+      "properties": {
+        "slotId": {
+          "description": "The content slot ID the visual had while it was attached, kept so reattachment and occurrence bindings can reuse it.",
+          "$ref": "#/$defs/EntityId"
+        },
+        "payload": {
+          "$ref": "#/$defs/NarratedVisualPayloadV2"
         },
         "version": {
           "$ref": "#/$defs/EntityVersion"
@@ -1626,7 +1677,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [
@@ -1894,6 +1945,7 @@
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"
         },
+        "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "version": {
           "$ref": "#/$defs/EntityVersion"
         },
@@ -1904,6 +1956,13 @@
               "$ref": "#/$defs/AttachedFootageV2"
             }
           ]
+        },
+        "unattachedVisuals": {
+          "description": "Deliberately placed visuals that lost every anchor word in a range edit. They are kept for Attach to words recovery and are never built. On Camera is never stored here. Omission is equivalent to an empty array.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnattachedVisualV2"
+          }
         }
       },
       "allOf": [
@@ -1919,16 +1978,28 @@
             }
           },
           "else": {
-            "properties": {
-              "text": {
-                "type": "string",
-                "minLength": 1
+            "anyOf": [
+              {
+                "properties": {
+                  "text": { "type": "string", "minLength": 1 },
+                  "tokens": { "type": "array", "minItems": 1 }
+                }
               },
-              "tokens": {
-                "type": "array",
-                "minItems": 1
+              {
+                "required": ["primaryVisualSequence"],
+                "properties": {
+                  "text": { "const": "" },
+                  "tokens": { "type": "array", "maxItems": 0 },
+                  "unattachedVisuals": { "type": "array", "maxItems": 0 },
+                  "primaryVisualSequence": {
+                    "type": "object",
+                    "properties": {
+                      "slots": { "type": "array", "minItems": 1, "maxItems": 1 }
+                    }
+                  }
+                }
               }
-            }
+            ]
           }
         },
         {
@@ -2044,6 +2115,12 @@
         "payloadId": {
           "$ref": "#/$defs/EntityId"
         },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Optional name for this visual placement only, never the referenced media source."
+        },
         "pictureKind": {
           "type": "string",
           "enum": [
@@ -2080,6 +2157,17 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "displayName": {} },
+            "required": ["displayName"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "pictureKind": { "enum": ["clip", "image"] } }
+          }
+        },
         {
           "if": {
             "type": "object",
@@ -2160,7 +2248,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [
@@ -2314,6 +2402,14 @@
         "visualOnlyTiming": {
           "$ref": "#/$defs/VisualOnlyTimingV2"
         },
+        "additionalVisuals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/VisualOnlyAdditionalV2"
+          }
+        },
+        "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"
         },
@@ -2386,6 +2482,39 @@
                   }
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    "VisualOnlyAdditionalV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload", "visualOnlyTiming"],
+      "properties": {
+        "payload": { "$ref": "#/$defs/StandaloneVisualPayloadV2" },
+        "visualOnlyTiming": { "$ref": "#/$defs/VisualOnlyTimingV2" },
+        "researchClip": { "$ref": "#/$defs/ResearchClipSnapshotV2" },
+        "frameBinding": { "$ref": "#/$defs/ResearchFrameBindingV2" }
+      },
+      "allOf": [
+        {
+          "if": { "type": "object", "properties": { "payload": { "type": "object", "properties": { "pictureKind": { "const": "clip" } } } } },
+          "then": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": {
+                "type": "object",
+                "required": ["selectedSourceRange"],
+                "properties": { "selectedSourceRange": {} },
+                "not": { "type": "object", "required": ["durationOverrideMs"], "properties": { "durationOverrideMs": {} } }
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": { "type": "object", "not": { "type": "object", "required": ["selectedSourceRange"], "properties": { "selectedSourceRange": {} } } }
             }
           }
         }
@@ -2638,6 +2767,17 @@
         }
       }
     },
+    "StashChecklistV2": {
+      "description": "Manual toggles and a first automatic check are separate persisted events. Returns never count active copies.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed", "manualRevision"],
+      "properties": {
+        "completed": { "type": "boolean" },
+        "manualRevision": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "automaticCopyId": { "$ref": "#/$defs/EntityId" }
+      }
+    },
     "StashOriginV2": {
       "type": "object",
       "additionalProperties": false,
@@ -2716,6 +2856,21 @@
         },
         "returnEligible": {
           "type": "boolean"
+        },
+        "sourceNoteRowId": {
+          "description": "Stable original Stash note identity for a copied spoken row; a missing source is not resurrected.",
+          "$ref": "#/$defs/EntityId"
+        },
+        "sourceContentStamp": {
+          "description": "Exact frozen authored source/attachment content at placement, excluding checklist toggles and organization.",
+          "type": "string"
+        },
+        "completionCaused": {
+          "description": "Whether this insertion was the first unchecked-to-checked transition.",
+          "type": "boolean"
+        },
+        "completionManualRevision": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
         },
         "originalAttachedNoteRowId": {
           "description": "Historical exclusive owner note for an independently placed clip. Not a current ownership edge.",
