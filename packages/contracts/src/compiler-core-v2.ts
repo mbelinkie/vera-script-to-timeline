@@ -213,6 +213,13 @@ function diagnostic(code: BuildDiagnosticV2["code"], message: string, target: En
   };
 }
 
+function speechCutTimingWarning(slotId: string): BuildDiagnosticV2 {
+  return diagnostic(
+    "WORD_TIMING_REQUIRED", "No measured pause supports an early picture cut. The cut stays at the incoming word start.",
+    entity("slot", slotId, "boundaryBefore"), { kind: "anchor_issue", anchorId: slotId, reason: "word_timing_required" }, [], "warning",
+  );
+}
+
 function textHashForRow(block: NarrationBlockV2): string { return shaText(block.text); }
 
 /** A binding cannot be substituted for another span, artifact version, or digest. */
@@ -862,11 +869,11 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
             if (!incoming || compare(prior.end, incoming) > 0) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The previous word extends beyond the incoming onset; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
             } else if (compare(safeEnd, incoming) >= 0) {
-              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no proven pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+              diagnostics.push(speechCutTimingWarning(slot.id));
             } else if (returnFrame != null && returnFrame > start) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The incoming cut would precede the authored return; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
             } else if (priorEnd > start) {
-              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no frame-aligned pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+              diagnostics.push(speechCutTimingWarning(slot.id));
             } else {
               start = Math.max(start - 3, priorEnd, earliestCut);
               const edge = resolvedEdges.get(slot.id);
@@ -899,7 +906,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
               }
             }
             if (start === resolvedEdges.get(slot.id)?.frame) {
-              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "No measured pause supports an early picture cut; the cut remains at the incoming word start.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+              diagnostics.push(speechCutTimingWarning(slot.id));
             }
           }
         }
