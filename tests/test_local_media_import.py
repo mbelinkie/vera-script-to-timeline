@@ -581,6 +581,8 @@ def test_ffmpeg_decoder_checks_full_frame_count_and_private_fd_only(
         assert "-timeout" not in args
         if args[0] == "ffprobe":
             assert "-count_frames" in args and "-select_streams" in args
+            assert args[args.index("-codec_whitelist") + 1] == "png"
+            assert "-c:v" not in args
             output = json.dumps(
                 {
                     "streams": [
