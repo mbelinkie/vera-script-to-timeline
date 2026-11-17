@@ -413,17 +413,63 @@ describe("#584 phase 3: inline note speech and independent first-word footage", 
     expect(saved(second.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 0 });
   });
 
-  it("preserves manual checkbox history and never overwrites an earlier automatic copy identity", () => {
+  it("preserves manual checkbox history while retiring an earlier reversible copy completion", () => {
     const { doc, source, command } = fixture();
     source.stashChecklist = { completed: true, manualRevision: 7, automaticCopyId: id(47000) };
     const result = applyRowEditV2(doc, 0, command);
     expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
-    expect(saved(result.document, source.id).stashChecklist).toEqual(source.stashChecklist);
+    expect(saved(result.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 7 });
     const unchecked = structuredClone(doc);
     saved(unchecked, source.id).stashChecklist = { completed: false, manualRevision: 8 };
     const first = applyRowEditV2(unchecked, 0, command);
     expect(first.ok).toBe(true);
     expect(saved(first.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 8 });
+  });
+
+  it("returning a previously placed copy cannot uncheck a note that was also inserted inline", () => {
+    const { doc, target, source, command } = fixture();
+    const placed = applyRowEditV2(doc, 0, {
+      kind: "place_stash_rows", rowIds: [source.id], includeDescendants: false,
+      destination: { sectionId: null, afterRowId: target.id, beforeRowId: null },
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const copy = placed.document.activeDraft.blocks[1] as NarrationBlockV2;
+    expect(saved(placed.document, source.id).stashChecklist?.automaticCopyId).toBe(copy.id);
+    const inserted = applyRowEditV2(placed.document, 1, command);
+    expect(inserted.ok, JSON.stringify(inserted.diagnostics)).toBe(true);
+    expect(saved(inserted.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+    const returned = applyRowEditV2(inserted.document, 2, {
+      kind: "stash_rows", rowIds: [copy.id], bundleId: id(49888),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(saved(returned.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+    expect((returned.document.activeDraft.blocks[0] as NarrationBlockV2).text)
+      .toBe("Alpha [literal] words beta");
+  });
+
+  it("repeating an inline note after Sorting acceptance never reuses copied token or footage identities", () => {
+    const { doc, target, source, command } = fixture(true);
+    const follower = row(390, "afterwards");
+    doc.activeDraft.blocks.push(follower);
+    const trial = createSortingTrialV2(doc);
+    expect(trial.apply({ kind: "move_rows", rowIds: [follower.id], destination: {
+      sectionId: null, afterRowId: null, beforeRowId: target.id,
+    } }).ok).toBe(true);
+    const first = trial.apply(command);
+    expect(first.ok, JSON.stringify(first.diagnostics)).toBe(true);
+    const accepted = trial.accept(doc, "all");
+    expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+    expect(accepted.document.rowEditRevision).toBe(1);
+    const second = applyRowEditV2(accepted.document, 1, command);
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const targetRow = second.document.activeDraft.blocks.find((block) => block.id === target.id) as NarrationBlockV2;
+    expect(targetRow.text).toBe("Alpha [literal] words [literal] words beta");
+    expect(new Set(targetRow.tokens.map((token) => token.id)).size).toBe(targetRow.tokens.length);
+    const visuals = targetRow.primaryVisualSequence!.slots.filter((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual") as ContentSlot[];
+    expect(visuals).toHaveLength(2);
+    expect(new Set(visuals.map((slot) => slot.id)).size).toBe(2);
+    expect(saved(second.document, source.id).stashChecklist?.completed).toBe(true);
   });
 
   it("keeps existing real stage directions and UTF-16 offsets, while inserted brackets stay literal", () => {
@@ -488,7 +534,7 @@ describe("#584 phase 3: inline note speech and independent first-word footage", 
 
     const collision = structuredClone(doc);
     const minted = copyStashNoteAsSpokenV2(source,
-      `${doc.id}:0:${source.id}:inline:${target.id}`);
+      `${doc.id}:0:${source.id}:inline:${target.id}:${target.version}:${command.beforeTokenId}`);
     (collision.activeDraft.blocks[0] as NarrationBlockV2).tokens[0]!.id = minted.tokens[0]!.id;
     const duplicated = applyRowEditV2(collision, 0, command);
     expect(duplicated.ok).toBe(false);
@@ -824,6 +870,31 @@ describe("#584 phase 2: saved visual row ownership and reference fences", () => 
 });
 
 describe("#584 phase 4: cut-word Sorting and persisted comments", () => {
+  it("refuses a saved-row ID tombstoned earlier in the same Sorting trial", () => {
+    const source = row(190, "Alpha beta gamma delta");
+    const deleted = row(191, "Old row");
+    const baseline = documentWith(source);
+    baseline.activeDraft.blocks.push(deleted);
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ kind: "delete_rows", rowIds: [deleted.id] }).ok).toBe(true);
+    const before = trial.document;
+    const refused = trial.apply({ ...command(source), stashRowId: deleted.id });
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics[0]?.code).toBe("SORTING_ROW_ID_REUSED");
+    expect(trial.document).toEqual(before);
+    expect(trial.undoDepth).toBe(1);
+
+    const newborn = row(192, "Temporary row");
+    const created = trial.apply({ kind: "create_row", row: newborn,
+      destination: { sectionId: null, afterRowId: source.id, beforeRowId: null } });
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    expect(trial.apply({ kind: "delete_rows", rowIds: [newborn.id] }).ok).toBe(true);
+    const earlierBirth = trial.document;
+    const refusedAgain = trial.apply({ ...command(source), stashRowId: newborn.id });
+    expect(refusedAgain.ok).toBe(false);
+    expect(refusedAgain.diagnostics[0]?.code).toBe("SORTING_ROW_ID_REUSED");
+    expect(trial.document).toEqual(earlierBirth);
+  });
   it("keeps the complete cut and new Stash note in edits-only, but never in sorting-only or Discard", () => {
     const source = row(180, "Alpha beta gamma delta");
     const follower = row(181, "A following row");

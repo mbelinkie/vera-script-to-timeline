@@ -1374,7 +1374,11 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     // Every use of the source note is a fresh occurrence. No link back to the
     // source is created: later edits/deletions cannot undo its completion.
-    const copy = copyStashNoteAsSpokenV2(source, `${document.id}:${expectedRevision}:${source.id}:inline:${target.id}`);
+    // Sorting acceptance can rewind rowEditRevision relative to an in-trial
+    // edit. Include the edited row version and exact gap so a subsequent
+    // insertion cannot mint the same owned token/clip identities.
+    const copy = copyStashNoteAsSpokenV2(source,
+      `${document.id}:${expectedRevision}:${source.id}:inline:${target.id}:${target.version}:${command.beforeTokenId}`);
     const spliced = spliceSpokenStashNoteV2(target, copy, command.beforeTokenId);
     if ("error" in spliced) return refused(document, "STASH_NOTE_INSERT_INVALID", spliced.error);
     const newIds = copy.tokens.map((token) => token.id);
@@ -1421,7 +1425,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     markStashOriginEditedV2(updated);
     blocks[index] = updated;
     const checklist = stashChecklistV2(source);
-    if (!checklist.completed) source.stashChecklist = { ...checklist, completed: true };
+    // Once an inline occurrence exists, no reversible whole-row copy may
+    // uncheck the note on return. Preserve manual history, but retire the
+    // earlier automaticCopyId (if any).
+    source.stashChecklist = { completed: true, manualRevision: checklist.manualRevision };
   } else if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");

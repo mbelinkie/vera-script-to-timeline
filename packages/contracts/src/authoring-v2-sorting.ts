@@ -233,8 +233,11 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     apply(command: RowEditCommandV2, expectedRevision = session.revision): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial order.");
       if (!commandAllowed(command)) return failure("SORTING_COMMAND_INVALID", "Provide a supported, complete row authoring or organization command.");
-      if ((command.kind === "create_row" || command.kind === "create_stash_note" || command.kind === "create_stash_clip") &&
-        (originalPositions.has(command.row.id) || projection.births.some((birth) => birth.rowId === command.row.id))) {
+      const createdRowId = command.kind === "stash_selected_words" ? command.stashRowId :
+        command.kind === "create_row" || command.kind === "create_stash_note" || command.kind === "create_stash_clip"
+          ? command.row.id : null;
+      if (createdRowId && (originalPositions.has(createdRowId) ||
+        projection.births.some((birth) => birth.rowId === createdRowId))) {
         return failure("SORTING_ROW_ID_REUSED", "Create material with a fresh row identity; use Undo to restore a deleted row.");
       }
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");
