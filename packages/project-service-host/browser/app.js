@@ -27,6 +27,7 @@ let sessionProof = "";
 
 async function api(path, method = "GET", data) {
   await connecting;
+  try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep the current proof. */ }
   const headers = { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
   if (data) headers["Content-Type"] = "application/json";
   const response = await fetch(`/authoring/projects${path}`, {
@@ -198,6 +199,8 @@ async function saveName() {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
       setSaveStatus("A newer project name was saved elsewhere. Your unsaved name is still here.", "conflict");
+    } else if (error instanceof ApiError && error.status === 401) {
+      setSaveStatus("Your unsaved name is still here. Open the private VERA launch link in another tab, then retry here.", "retry");
     } else {
       setSaveStatus("Couldn’t save the project name. Your unsaved name is still here.", "retry");
     }
@@ -250,7 +253,7 @@ async function connectBrowser() {
       return;
     }
   } catch { /* Show the same recovery for an unavailable host. */ }
-  homeStatus.textContent = browserRequired;
+  if (!sessionProof) homeStatus.textContent = browserRequired;
 }
 
 const connecting = connectBrowser();

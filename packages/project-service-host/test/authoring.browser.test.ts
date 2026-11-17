@@ -221,6 +221,7 @@ describe("browser authoring over the local project service", () => {
   it("creates, saves, reloads, restarts, exports, and preserves view settings", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
+    const oldLaunchCode = host!.authoringLaunchCode!;
     const projectId = await createProject(page, origin, "Browser created project");
     const seeded = documentFixture(projectId);
     const initial = await appRequest(page, `/authoring/projects/${projectId}/document`);
@@ -300,7 +301,9 @@ describe("browser authoring over the local project service", () => {
     expect(await page.locator("#script-rows").innerText()).toContain(seeded.firstRowText);
 
     const openPage = await context.newPage();
-    await openPage.goto(origin);
+    const oldLaunchResponse = openPage.waitForResponse(response => response.url() === `${origin}/authoring/session`);
+    await openPage.goto(`${origin}/#launch=${oldLaunchCode}`);
+    expect((await oldLaunchResponse).status()).toBe(401);
     await openPage.locator("#open-script-link").fill(page.url());
     await openPage.locator("#open-project-form button[type=submit]").click();
     await openPage.locator("#script-rows").waitFor({ state: "visible" });

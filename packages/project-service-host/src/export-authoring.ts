@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { linkSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { constants, copyFileSync, linkSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -120,9 +120,19 @@ export async function runExportAuthoringCli(
     const stagedFile = join(staging, "script.json");
     writeFileSync(stagedFile, `${serialized}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
     // Link a complete file into place. Existing paths are refused atomically.
-    linkSync(stagedFile, outputPath);
-  } catch {
-    process.stderr.write(`WRITE_ERROR: Could not create ${outputPath}; the command never overwrites files.\n`);
+    try {
+      linkSync(stagedFile, outputPath);
+    } catch (error) {
+      // External disks and network shares can lack hard links. Node cleans up failed exclusive copies.
+      const code = record(error)?.code;
+      if (typeof code !== "string" || !["ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EPERM"].includes(code)) throw error;
+      copyFileSync(stagedFile, outputPath, constants.COPYFILE_EXCL);
+    }
+  } catch (error) {
+    const code = record(error)?.code;
+    const reason = code === "EEXIST" ? "Choose a new output file." :
+      `File system error ${typeof code === "string" ? code : "unknown"}.`;
+    process.stderr.write(`WRITE_ERROR: Could not export to ${outputPath}. ${reason}\n`);
     return EXPORT_AUTHORING_EXIT.write;
   } finally {
     if (staging) {
