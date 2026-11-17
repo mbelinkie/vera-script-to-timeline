@@ -82,6 +82,7 @@ class DeliveryResult:
     denominator: int
     named_transition_cuts: tuple[str, ...] = ()
     music_warnings: tuple[str, ...] = ()
+    bar_removal_outcomes: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass
@@ -749,6 +750,10 @@ def deliver_compiled(
             f"{diagnostic['code']}: {diagnostic['message']}"
             for diagnostic in _read_json(compiled.report).get("diagnostics", [])
             if diagnostic.get("code") in {"MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER"}
+        ),
+        bar_removal_outcomes=tuple(
+            (outcome["eventId"], outcome.get("reason", "applied"))
+            for outcome in native.get("barRemovalOutcomes", ())
         ),
     )
 

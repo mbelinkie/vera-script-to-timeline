@@ -141,6 +141,15 @@ absolute paths to local assets. Optional matching `media-needs.json` and
 `media-needs.dependencies.json` may be included. The command **does not**
 interpret prose, download footage or call a paid narration provider.
 
+To hide black bars already encoded in video, set `hideEncodedBars` to
+`true` in the saved project settings. For standalone CLI inputs, set it in
+`authoringDefaults` in `compiler-dependencies.json` instead. The default is
+off. On Studio 21.2.0 build 6, VERA applies an editable zoom to eligible video
+with stable, centered bars and the same aspect ratio as the timeline. Explicit
+framing and uncertain detections keep their original framing. Timelines that
+use native OTIO for still motion or music are covered by the
+[mixed timeline follow-up](https://github.com/mbelinkie/vera-script-to-timeline/issues/635).
+
 With **DaVinci Resolve Studio 21.2.0 build 6** or **21.1.1 build 10** running, External Scripting set
 to **Local**, and an existing project open on a timeline page, run from the
 repository checkout after the bootstrap commands above:

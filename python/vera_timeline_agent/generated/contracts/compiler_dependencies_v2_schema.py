@@ -583,6 +583,7 @@ class AuthoringDefaultsV2(TypedDict):
     visualOnlyStillDurationMs: PositiveSafeInteger
     presenterStill: script_document_v2_schema.PresenterStillReference | None
     imageMotionDefault: NotRequired[script_document_v2_schema.ImageMotionV1]
+    hideEncodedBars: NotRequired[bool]
     sourceAudioLevelPolicy: SourceAudioLevelPolicy
 
 
