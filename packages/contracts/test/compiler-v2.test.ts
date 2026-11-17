@@ -928,6 +928,49 @@ describe("pure v2 compiler", () => {
     });
   }
 
+  it("includes the speech cut lead in source sufficiency for the incoming clip", () => {
+    const requirementsFor = (sourceEndFrame: number) => {
+      const { doc, deps, tokenIds } = completeClipBoundaryFixture([
+        { value: "alpha", start: { numerator: 0, denominator: 1 }, audibleEnd: { numerator: 19, denominator: 2 } },
+        { value: "beta", start: { numerator: 10, denominator: 1 }, audibleEnd: { numerator: 21, denominator: 2 } },
+        { value: "gamma", start: { numerator: 11, denominator: 1 } },
+      ]);
+      const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+      const [outgoing, incoming] = row.primaryVisualSequence!.slots;
+      if (outgoing?.kind !== "content" || incoming?.kind !== "content" || incoming.payload.kind !== "visual") {
+        throw new Error("fixture requires two sequential visual clips");
+      }
+      outgoing.playoutPolicy = "match_structural_interval";
+      incoming.boundaryBefore = {
+        kind: "spoken_word",
+        anchor: { blockId: row.id, tokenId: tokenIds[1]!, affinity: "before", quotedWord: "beta", anchorVersion: row.version },
+      };
+      const descriptor = deps.occurrenceResolutions.find((item) => item.owner.kind === "primary_slot" && item.owner.slotId === incoming.id);
+      if (!descriptor) throw new Error("fixture requires a source descriptor for the incoming clip");
+      descriptor.logicalSourceBounds.endFrame = sourceEndFrame;
+      return resolveMediaRequirementsV2(doc, {
+        timing: deps.narrationTimingMaps,
+        defaults: deps.authoringDefaults,
+        sourceDescriptors: deps.occurrenceResolutions,
+        frameRate: deps.timeline.frameRate,
+      });
+    };
+
+    const sufficient = requirementsFor(54);
+    expect(sufficient.ok).toBe(true);
+    if (sufficient.ok) {
+      expect(sufficient.requirements.find((item) => item.payloadId === id(18))).toMatchObject({
+        recordRange: { startFrame: 237, endFrame: 288 },
+        requiredSourceRange: { startFrame: 0, endFrame: 54 },
+        sourceSufficiency: "sufficient",
+      });
+    }
+
+    const insufficient = requirementsFor(53);
+    expect(insufficient.ok).toBe(false);
+    if (!insufficient.ok) expect(insufficient.diagnostics.map((item) => item.code)).toContain("SOURCE_INSUFFICIENT");
+  });
+
   it("reuses same-rate source bytes with a nonzero authored inpoint", () => {
     const doc = document();
     const deps = dependencies();
