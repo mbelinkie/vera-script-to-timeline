@@ -36,16 +36,16 @@ function rowExcerpt(row: Row): string {
 }
 
 /**
- * An active note returned from Stash may show its attached owner as a single
- * primary slot. Match the validator's exact mirror rule, never just identity:
- * two independently placed occurrences of the same clip still count twice.
+ * An attached footage owner can also be displayed as a single primary slot.
+ * Authored edits clear return eligibility without removing that exact mirror,
+ * so provenance flags cannot decide the count. Independent or stale placements
+ * are still counted separately unless every mirror field matches exactly.
  */
 function hasExactAttachedMirror(row: NarrationBlockV2): boolean {
   const clip = row.attachedFootage?.clip;
   const slots = row.primaryVisualSequence?.slots;
   const slot = slots?.length === 1 ? slots[0] : undefined;
-  if (!clip || row.stashOrigin?.kind !== "note" || !row.stashOrigin.returnEligible ||
-      slot?.kind !== "content" || slot.payload.kind !== "visual") return false;
+  if (!clip || slot?.kind !== "content" || slot.payload.kind !== "visual") return false;
 
   const payload = slot.payload;
   const selected = clip.visualOnlyTiming.selectedSourceRange;
