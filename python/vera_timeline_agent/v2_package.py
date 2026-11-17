@@ -1597,56 +1597,6 @@ class _Preparation:
     relative_path: str
 
 
-def _validated_still_rate_probe(
-    record: JsonObject, binding: JsonObject, source_probe: JsonObject
-) -> None:
-    """Bind a one-frame PNG clock probe to the unchanged imported source."""
-    probe = record.get("stillRateProbe")
-    decoded = record.get("stillDecode")
-    commands = record.get("commands")
-    try:
-        if not isinstance(probe, dict) or not isinstance(decoded, dict):
-            raise ValueError
-        streams, frames = probe["streams"], probe["frames"]
-        if (
-            not isinstance(streams, list)
-            or len(streams) != 1
-            or not isinstance(frames, list)
-            or len(frames) != 1
-        ):
-            raise ValueError
-        stream, frame = streams[0], frames[0]
-        rate = binding["targetRate"]
-        expected_rate = Fraction(rate["numerator"], rate["denominator"])
-        if (
-            record.get("stillRateProbeHash") != identity_hash(probe)
-            or binding.get("mode") != "verified_reuse"
-            or source_probe.get("kind") != "image"
-            or source_probe.get("codec") != "png"
-            or source_probe.get("frames") != 1
-            or stream.get("codec_type") != "video"
-            or stream.get("codec_name") != "png"
-            or stream.get("width") != source_probe.get("width")
-            or stream.get("height") != source_probe.get("height")
-            or stream.get("pix_fmt") != "rgb24"
-            or str(stream.get("nb_read_frames")) != "1"
-            or Fraction(stream["avg_frame_rate"]) != expected_rate
-            or Fraction(stream["r_frame_rate"]) != expected_rate
-            or Fraction(stream["time_base"]) != 1 / expected_rate
-            or frame.get("media_type") != "video"
-            or frame.get("width") != stream.get("width")
-            or frame.get("height") != stream.get("height")
-            or frame.get("pix_fmt") != stream.get("pix_fmt")
-            or decoded.get("decodedFrameCount") != 1
-            or not isinstance(commands, list)
-            or decoded.get("commandHash")
-            not in [identity_hash(command) for command in commands]
-        ):
-            raise ValueError
-    except (KeyError, TypeError, ValueError, ZeroDivisionError):
-        raise _error("still preparation has invalid rate or decode evidence") from None
-
-
 def _validate_preparations(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1763,8 +1713,6 @@ def _validate_preparations(
             raise _error(
                 f"prep {requirement_key} probe/profile/tool hashes do not bind"
             )
-        if "stillRateProbe" in record:
-            _validated_still_rate_probe(record, binding, source_probe)
         if mapping.get("sourceFrameMap") != descriptor.get(
             "sourceFrameMap"
         ) or mapping.get("mappingHash") != identity_hash(
@@ -3008,23 +2956,14 @@ def _native_motion_for_event(
                 binding,
                 framing,
                 verified_asset=source_artifact.origin,
-                delivered_probe=cast(
-                    JsonObject,
-                    preparation.record.get(
-                        "stillRateProbe", preparation.record["deliveredProbe"]
-                    ),
-                ),
+                delivered_probe=cast(JsonObject, preparation.record["deliveredProbe"]),
                 frame_rate=(
                     cast(int, timeline["frameRate"]["numerator"]),
                     cast(int, timeline["frameRate"]["denominator"]),
                 ),
             )
         qualified = native_image_motion.admit_motion(
-            motion,
-            binding,
-            proof,
-            framing=framing,
-            version=proof.version if proof is not None else "21.1.1.10",
+            motion, binding, proof, framing=framing
         )
         return native_image_motion.native_effect_records(
             motion, qualified

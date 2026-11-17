@@ -126,21 +126,15 @@ def production_qualification(
 
     The caller must supply a verified package asset and its independently
     validated preparation receipt. A standalone authored motion dictionary
-    cannot grant a qualification. The bounded frame-rate and duration envelope
-    excludes unmeasured codecs, color transforms, aspect ratios, backgrounds,
-    and moving contain (which needs a proven derived matte).
+    cannot grant a qualification. The deliberately narrow 16:9/24fps route
+    excludes unmeasured codecs, color transforms, aspect ratios, durations,
+    backgrounds, and moving contain (which needs a proven derived matte).
     """
     duration = binding.record_end - binding.record_start
-    default_or_none = motion in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
-    rate_qualified = frame_rate == (24, 1) or (
-        frame_rate in {(24000, 1001), (25, 1), (30, 1)}
-        and duration in {48, 72, 96}
-        and default_or_none
-    )
     if (
         verified_asset is None
         or delivered_probe is None
-        or not rate_qualified
+        or frame_rate != (24, 1)
         or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
         or binding.original_hash != binding.source_hash
         or (
@@ -152,7 +146,6 @@ def production_qualification(
         or framing not in {"contain", "cover"}
     ):
         return None
-    qualification_version = "21.1.1.10" if frame_rate == (24, 1) else "21.2.0.6"
     dimensions = _verified_rgb_png_dimensions(
         verified_asset, binding.source_hash, delivered_probe
     )
@@ -166,7 +159,7 @@ def production_qualification(
     if motion == {"mode": "none"}:
         return Qualification(
             edition="studio",
-            version=qualification_version,
+            version="21.1.1.10",
             route="native_otio",
             binding=binding,
             motion_hash=motion_hash(motion),
@@ -201,7 +194,7 @@ def production_qualification(
         return None
     return Qualification(
         edition="studio",
-        version=qualification_version,
+        version="21.1.1.10",
         route="native_otio",
         binding=binding,
         motion_hash=motion_hash(motion),

@@ -128,24 +128,14 @@ def test_bounded_verified_png_has_reusable_real_source_bound_proof(
         frame_rate=(24, 1),
     )
     assert proof is not None
-    assert proof.version == "21.1.1.10"
     assert proof.binding == binding
     assert (proof.source_width, proof.source_height) == (1600, 900)
     assert admit_motion(MOTION, binding, proof, framing="cover") == proof
     assert len(native_effect_records(MOTION, proof)) == 2
 
 
-@pytest.mark.parametrize(
-    ("frame_rate", "expected_version"),
-    [
-        ((24, 1), "21.1.1.10"),
-        ((24000, 1001), "21.2.0.6"),
-        ((25, 1), "21.2.0.6"),
-        ((30, 1), "21.2.0.6"),
-    ],
-)
 def test_verified_png_none_supports_measured_static_contain(
-    tmp_path: Path, frame_rate: tuple[int, int], expected_version: str
+    tmp_path: Path,
 ) -> None:
     source, binding, probe = _verified_png_case(tmp_path, 1000, 1000, 48)
     motion = {"mode": "none"}
@@ -155,14 +145,10 @@ def test_verified_png_none_supports_measured_static_contain(
         "contain",
         verified_asset=source,
         delivered_probe=probe,
-        frame_rate=frame_rate,
+        frame_rate=(24, 1),
     )
     assert proof is not None
-    assert proof.version == expected_version
-    assert (
-        admit_motion(motion, binding, proof, framing="contain", version=proof.version)
-        == proof
-    )
+    assert admit_motion(motion, binding, proof, framing="contain") == proof
     assert native_effect_records(motion, proof)[0]["Enabled"] is False
 
 
@@ -170,21 +156,8 @@ def test_verified_png_none_supports_measured_static_contain(
     ("size", "frames"),
     [((1000, 1000), 48), ((1600, 900), 96), ((900, 1600), 72)],
 )
-@pytest.mark.parametrize(
-    ("frame_rate", "expected_version"),
-    [
-        ((24, 1), "21.1.1.10"),
-        ((24000, 1001), "21.2.0.6"),
-        ((25, 1), "21.2.0.6"),
-        ((30, 1), "21.2.0.6"),
-    ],
-)
 def test_centered_default_covers_verified_square_wide_and_tall_pngs(
-    tmp_path: Path,
-    size: tuple[int, int],
-    frames: int,
-    frame_rate: tuple[int, int],
-    expected_version: str,
+    tmp_path: Path, size: tuple[int, int], frames: int
 ) -> None:
     source, binding, probe = _verified_png_case(tmp_path, *size, frames)
     proof = production_qualification(
@@ -193,56 +166,19 @@ def test_centered_default_covers_verified_square_wide_and_tall_pngs(
         "cover",
         verified_asset=source,
         delivered_probe=probe,
-        frame_rate=frame_rate,
+        frame_rate=(24, 1),
     )
     assert proof is not None
-    assert proof.version == expected_version
-    assert (
-        admit_motion(
-            DEFAULT_IMAGE_MOTION,
-            binding,
-            proof,
-            framing="cover",
-            version=proof.version,
-        )
-        == proof
-    )
+    assert admit_motion(DEFAULT_IMAGE_MOTION, binding, proof, framing="cover") == proof
     assert proof.native_start_center == proof.native_end_center == (0, 0)
     assert proof.native_start_scale == pytest.approx(1 / 1.05)
     assert proof.native_end_scale == pytest.approx(1 / 1.2)
 
 
 @pytest.mark.parametrize(
-    ("frame_rate", "frames"),
-    [
-        ((30000, 1001), 48),
-        ((24000, 1001), 24),
-        ((25, 1), 144),
-        ((30, 1), 24),
-    ],
-)
-def test_new_rate_candidates_refuse_unmeasured_rate_or_frame_extent(
-    tmp_path: Path, frame_rate: tuple[int, int], frames: int
-) -> None:
-    source, binding, probe = _verified_png_case(tmp_path, 1600, 900, frames)
-    assert (
-        production_qualification(
-            DEFAULT_IMAGE_MOTION,
-            binding,
-            "cover",
-            verified_asset=source,
-            delivered_probe=probe,
-            frame_rate=frame_rate,
-        )
-        is None
-    )
-
-
-@pytest.mark.parametrize(
     "change",
     [
         "wrong-rate",
-        "unsupported-rate",
         "wrong-resolution",
         "unmeasured-duration",
         "unmeasured-framing",
@@ -262,8 +198,6 @@ def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
     frame_rate = (24, 1)
     if change == "wrong-rate":
         frame_rate = (25, 1)
-    elif change == "unsupported-rate":
-        frame_rate = (30000, 1001)
     elif change == "wrong-resolution":
         binding = replace(binding, timeline_width=1280)
     elif change == "unmeasured-duration":
