@@ -83,7 +83,7 @@ function sequentialSpeechCutFixture(previousEnd?: { numerator: number; denominat
   if (outgoing.kind !== "content") throw new Error("fixture requires an outgoing root slot");
   outgoing.payload = {
     kind: "visual", payloadId: id(17), pictureKind: "intentional_placeholder",
-    source: { kind: "intentional_placeholder", text: "Outgoing picture" }, audioPolicy: "mute", framingPolicy: "contain",
+    source: { kind: "intentional_placeholder", text: "Outgoing picture" }, sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
   };
   const incomingSlotId = id(18);
   const presenterSlotId = id(20);
@@ -93,7 +93,7 @@ function sequentialSpeechCutFixture(previousEnd?: { numerator: number; denominat
       boundaryBefore: { kind: "spoken_word", anchor: { blockId: row.id, tokenId: id(41), affinity: "before", quotedWord: "beta", anchorVersion: row.version } },
       payload: {
         kind: "visual", payloadId: id(19), pictureKind: "intentional_placeholder",
-        source: { kind: "intentional_placeholder", text: "Incoming picture" }, audioPolicy: "mute", framingPolicy: "contain",
+        source: { kind: "intentional_placeholder", text: "Incoming picture" }, sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
       },
       playoutPolicy: "match_structural_interval", version: 1,
     },
@@ -765,7 +765,7 @@ describe("pure v2 compiler", () => {
     it(`places a sequential visual cut correctly for a ${scenario.name}`, () => {
       const { doc, deps, incomingSlotId, presenterSlotId } = sequentialSpeechCutFixture(scenario.previousEnd);
       const compiled = compileTimelineV2(doc, deps);
-      expect(compiled.ok).toBe(true);
+      expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
       if (!compiled.ok) return;
 
       const outgoing = compiled.manifest.events.find((event) => event.provenance.slotId === id(16));
