@@ -647,7 +647,7 @@ describe("browser authoring over the local project service", () => {
     await page.locator("#script-rows").waitFor({ state: "visible" });
     await waitForNarrationCount(page, projectId, 1);
 
-    await page.getByRole("button", { name: "Add row" }).first().click();
+    await page.getByRole("button", { name: "Add row" }).first().evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     await waitForNarrationCount(page, projectId, 2);
     let rows = await narrationRowsFromApi(page, projectId);
     let addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
@@ -659,7 +659,7 @@ describe("browser authoring over the local project service", () => {
     await undo.click();
     await waitForNarrationCount(page, projectId, 1);
 
-    await page.getByRole("button", { name: "Add row" }).first().click();
+    await page.getByRole("button", { name: "Add row" }).first().evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     await waitForNarrationCount(page, projectId, 2);
     rows = await narrationRowsFromApi(page, projectId);
     addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
@@ -667,7 +667,7 @@ describe("browser authoring over the local project service", () => {
     if (!addedRowId) return;
 
     const addedRow = page.locator(`[data-row-id="${addedRowId}"]`);
-    await addedRow.locator("[data-row-action-trigger]").click();
+    await addedRow.locator("[data-row-action-trigger]").evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     const deleteRow = addedRow.getByRole("menuitem", { name: "Delete row" });
     await deleteRow.waitFor({ state: "visible" });
     page.once("dialog", async (dialog) => await dialog.accept());

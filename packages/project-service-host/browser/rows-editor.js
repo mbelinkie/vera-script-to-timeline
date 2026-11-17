@@ -123,10 +123,6 @@ function currentRangeIds(state) {
   return rowRange(blocksOf(state.scriptDocument), state.range.anchorId, state.range.focusId) ?? [];
 }
 
-function sectionFor(blocks, rowId) {
-  return rowIndex(blocks).get(rowId)?.sectionId ?? null;
-}
-
 function confirmDelete(state, rowIds) {
   if (typeof state.confirmDelete === "function") return state.confirmDelete(rowIds);
   if (typeof globalThis.confirm !== "function") return true;
@@ -256,7 +252,7 @@ function updateRangeState(state) {
     "Select the last row in the range. Escape cancels.";
   toolbar.append(hint);
 
-  if (ids.length > 0) {
+  if (ids.length > 0 && state.range.confirmed) {
     const deleteButton = button(state.root.ownerDocument, "row-range-toolbar__delete", "Delete selected rows", "Delete group");
     deleteButton.dataset.rowRangeDelete = "true";
     toolbar.append(deleteButton);
@@ -336,7 +332,7 @@ function gapFromDivider(divider) {
 function destinationForDrop(state, rowIds, targetId, placeBefore) {
   const blocks = blocksOf(state.scriptDocument);
   const target = rowIndex(blocks).get(targetId);
-  if (!target || rowIds.some((id) => sectionFor(blocks, id) !== target.sectionId)) return null;
+  if (!target || rowIds.some((id) => !rowIndex(blocks).has(id))) return null;
   const remaining = target.rows.filter((row) => !rowIds.includes(row.id));
   const targetPosition = remaining.findIndex((row) => row.id === targetId);
   if (targetPosition < 0) return null;
@@ -497,7 +493,7 @@ function handleKeydown(state, event) {
     }
     return;
   }
-  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu]")) return;
+  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu], [data-row-action-trigger]")) return;
   if (event.key === "ArrowUp") {
     event.preventDefault();
     moveRangeFocus(state, -1);

@@ -211,7 +211,9 @@
   font-size: 0.68rem;
   font-weight: 700;
   opacity: 0;
-  pointer-events: none;
+  /* Keep the compact divider target hit-testable for keyboard and native
+     automation even before hover reveals its label. */
+  pointer-events: auto;
   transform: translate(-50%, -0.15rem);
   transition: opacity 120ms ease, transform 120ms ease;
   white-space: nowrap;
