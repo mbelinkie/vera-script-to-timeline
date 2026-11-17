@@ -365,6 +365,12 @@ export {
   type FrameIntervalV2,
 } from "./authoring-v2-research-snapshot.js";
 export {
+  indexResearchClipUsageV2,
+  type ResearchClipLocationKindV2,
+  type ResearchClipUseLocationV2,
+  type ResearchClipUsageV2,
+} from "./research-clip-usage-v2.js";
+export {
   createCommentStateV2, applyCommentOperationV2, serializeCommentStateV2, deserializeCommentStateV2,
   type CommentAnchorV2, type CommentAttachmentV2, type CommentMessageV2, type CommentThreadV2,
   type CommentOperationV2, type CommentStateV2, type CommentResultV2,
