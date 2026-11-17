@@ -283,7 +283,9 @@ export async function preparePublicWebpageVisuals(
   options: WebpagePrepMediaOptions,
 ): Promise<WebpagePrepMediaOutcome> {
   if (authored.projectId !== options.projectId || options.reference.projectId !== options.projectId ||
-      options.reference.resourceId !== authored.id || options.reference.kind !== "draft_occurrence") {
+      options.reference.resourceId !== authored.id ||
+      options.reference.resourceVersionDigest !== authored.liveContentHash ||
+      options.reference.kind !== "draft_occurrence") {
     throw new Error("webpage preparation requires the frozen project and authored reference");
   }
   const document = structuredClone(authored);

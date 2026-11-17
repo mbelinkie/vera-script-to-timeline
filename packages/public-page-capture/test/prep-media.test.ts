@@ -213,12 +213,25 @@ describe("#394 public webpage capture for Prep Media", () => {
       .rejects.toThrow("raster does not match");
   });
 
+  it("refuses a reference to a different frozen document version before contacting the service", async () => {
+    const document = await authored();
+    const service = new FakeCaptureService();
+    const valid = options(await root(), service, document);
+    await expect(preparePublicWebpageVisuals(document, {
+      ...valid,
+      reference: { ...valid.reference, resourceVersionDigest: hash("stale content") },
+    })).rejects.toThrow("frozen project");
+    expect(service.create).not.toHaveBeenCalled();
+  });
+
   it("detects tampering with cached bytes and never silently recaptures", async () => {
     const document = await authored();
     const projectRoot = await root();
     const service = new FakeCaptureService();
     const result = await preparePublicWebpageVisuals(document, options(projectRoot, service, document));
-    await writeFile(result.captures[0]!.rasterPath!, Buffer.from("modified"));
+    // Mutate bytes without changing length so this specifically protects
+    // the digest check, not merely the file-size check.
+    await writeFile(result.captures[0]!.rasterPath!, Buffer.alloc(raster.byteLength, 0x41));
     await expect(preparePublicWebpageVisuals(document, options(projectRoot, service, document)))
       .rejects.toThrow("immutable byte verification");
     expect(service.job).toHaveBeenCalledTimes(1);
