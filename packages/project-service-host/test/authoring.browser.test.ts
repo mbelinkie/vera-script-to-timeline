@@ -161,6 +161,46 @@ function editableDocumentFixture(
   return { document: seeded.document, firstRowText: text, rowId: row.id, ...(anchorTokenId ? { anchorTokenId } : {}) };
 }
 
+function multiNarrationDocumentFixture(
+  projectId: string,
+  texts: readonly string[],
+): { document: ScriptDocumentV2; rowIds: string[] } {
+  if (texts.length < 2) throw new Error("browser row fixture needs at least two narration rows");
+  const seeded = documentFixture(projectId);
+  const first = seeded.document.activeDraft.blocks.find((block) => block.type === "narration");
+  if (!first || first.type !== "narration") throw new Error("browser document fixture has no narration row");
+  first.text = texts[0]!;
+  first.tokens = narrationWords(first.text);
+  const rows = [first];
+  for (const text of texts.slice(1)) {
+    const row = structuredClone(first);
+    row.id = randomUUID();
+    row.orderKey = `row-${row.id}`;
+    row.text = text;
+    row.tokens = narrationWords(text);
+    if (row.primaryVisualSequence) {
+      row.primaryVisualSequence.id = randomUUID();
+      row.primaryVisualSequence.slots = row.primaryVisualSequence.slots.map((slot) => {
+        if (slot.kind !== "content") return { ...slot, id: randomUUID() };
+        const payload = slot.payload.kind === "visual" && slot.payload.source.kind === "media_reference"
+          ? { ...slot.payload, payloadId: randomUUID(), source: { ...slot.payload.source, mediaReferenceId: randomUUID() } }
+          : { ...slot.payload, payloadId: randomUUID() };
+        return {
+          ...slot,
+          id: randomUUID(),
+          relation: { kind: "base" },
+          boundaryBefore: { kind: "row_start" },
+          payload,
+        };
+      });
+    }
+    rows.push(row);
+  }
+  const visualOnlyIndex = seeded.document.activeDraft.blocks.findIndex((block) => block.type === "visual_only");
+  seeded.document.activeDraft.blocks.splice(visualOnlyIndex < 0 ? seeded.document.activeDraft.blocks.length : visualOnlyIndex, 0, ...rows.slice(1));
+  return { document: seeded.document, rowIds: rows.map((row) => row.id) };
+}
+
 async function appRequest(
   page: Page,
   path: string,
@@ -647,7 +687,10 @@ describe("browser authoring over the local project service", () => {
     await page.locator("#script-rows").waitFor({ state: "visible" });
     await waitForNarrationCount(page, projectId, 1);
 
-    await page.getByRole("button", { name: "Add row" }).first().evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    const addRow = page.getByRole("button", { name: "Add row" }).last();
+    await addRow.scrollIntoViewIfNeeded();
+    await addRow.hover();
+    await addRow.click();
     await waitForNarrationCount(page, projectId, 2);
     let rows = await narrationRowsFromApi(page, projectId);
     let addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
@@ -659,7 +702,10 @@ describe("browser authoring over the local project service", () => {
     await undo.click();
     await waitForNarrationCount(page, projectId, 1);
 
-    await page.getByRole("button", { name: "Add row" }).first().evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    const secondAddRow = page.getByRole("button", { name: "Add row" }).last();
+    await secondAddRow.scrollIntoViewIfNeeded();
+    await secondAddRow.hover();
+    await secondAddRow.click();
     await waitForNarrationCount(page, projectId, 2);
     rows = await narrationRowsFromApi(page, projectId);
     addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
@@ -667,7 +713,9 @@ describe("browser authoring over the local project service", () => {
     if (!addedRowId) return;
 
     const addedRow = page.locator(`[data-row-id="${addedRowId}"]`);
-    await addedRow.locator("[data-row-action-trigger]").evaluate((button) => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    const rowActions = addedRow.locator("[data-row-action-trigger]");
+    await addedRow.hover();
+    await rowActions.click();
     const deleteRow = addedRow.getByRole("menuitem", { name: "Delete row" });
     await deleteRow.waitFor({ state: "visible" });
     page.once("dialog", async (dialog) => await dialog.accept());
@@ -680,6 +728,66 @@ describe("browser authoring over the local project service", () => {
     await waitForNarrationCount(page, projectId, 2);
     rows = await narrationRowsFromApi(page, projectId);
     expect(rows.map((row) => row.id)).toContain(addedRowId);
+    await page.close();
+  }, 90_000);
+
+  it("selects a contiguous row range, deletes it, and restores the range with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Range selection project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row", "third row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+
+    const firstRow = page.locator(`[data-row-id="${seeded.rowIds[0]}"]`);
+    const secondRow = page.locator(`[data-row-id="${seeded.rowIds[1]}"]`);
+    await firstRow.hover();
+    await firstRow.locator("[data-row-action-trigger]").click();
+    await firstRow.getByRole("menuitem", { name: "Select range" }).click();
+    await secondRow.locator(".narration-cell").click();
+
+    const deleteGroup = page.getByRole("button", { name: "Delete selected rows" });
+    await deleteGroup.waitFor({ state: "visible" });
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await deleteGroup.click();
+    await waitForNarrationCount(page, projectId, 1);
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual([seeded.rowIds[2]]);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual(seeded.rowIds);
+    await page.close();
+  }, 90_000);
+
+  it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Row reorder project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row", "third row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+
+    const sourceRow = page.locator(`[data-row-id="${seeded.rowIds[1]}"]`);
+    const targetRow = page.locator(`[data-row-id="${seeded.rowIds[0]}"]`);
+    await sourceRow.hover();
+    const sourceHandle = sourceRow.locator("[data-row-action-trigger]");
+    await sourceHandle.dragTo(targetRow, { targetPosition: { x: 20, y: 2 } });
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual([
+      seeded.rowIds[1], seeded.rowIds[0], seeded.rowIds[2],
+    ]);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual(seeded.rowIds);
     await page.close();
   }, 90_000);
 

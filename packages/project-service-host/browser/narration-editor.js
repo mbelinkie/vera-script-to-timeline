@@ -272,6 +272,17 @@ function changedRange(oldText, newText) {
     oldEnd -= 1;
     newEnd -= 1;
   }
+  // Diffing UTF-16 code units can stop between the two units of a shared
+  // surrogate pair (for example, 😀 -> 😃). Expand both sides before emitting
+  // the replacement so the model always receives scalar-aligned old spans and
+  // complete inserted text.
+  const scalarStart = (text, offset) => offset > 0 && offset < text.length &&
+    /[\uD800-\uDBFF]/u.test(text[offset - 1]) && /[\uDC00-\uDFFF]/u.test(text[offset]) ? offset - 1 : offset;
+  const scalarEnd = (text, offset) => offset > 0 && offset < text.length &&
+    /[\uD800-\uDBFF]/u.test(text[offset - 1]) && /[\uDC00-\uDFFF]/u.test(text[offset]) ? offset + 1 : offset;
+  start = Math.min(scalarStart(oldText, start), scalarStart(newText, start));
+  oldEnd = scalarEnd(oldText, oldEnd);
+  newEnd = scalarEnd(newText, newEnd);
   return { startOffset: start, endOffset: oldEnd, insertedText: newText.slice(start, newEnd) };
 }
 
@@ -545,7 +556,7 @@ export function mountNarration(root, scriptDocument, command, rerender) {
       return;
     }
     selectionGuard = true;
-    try { savedSelection = snapSelection(editor, row, selection); }
+    try { savedSelection = snapSelection(editor, localRow, selection); }
     finally { selectionGuard = false; }
     updateActions();
   }
