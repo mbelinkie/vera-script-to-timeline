@@ -864,12 +864,14 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           const rate = rateFraction(dependencies.timeline.frameRate);
           const previousVisualFrame = Math.max(resolvedEdges.get(previousRoot.id)?.frame ?? slotStarts.get(previousRoot.id) ?? rowStart, returnFrame ?? rowStart);
           const earliestCut = Math.min(start, previousVisualFrame + 1);
-          if (prior?.evidenced && prior.end) {
+          if (returnFrame != null && returnFrame > start) {
+            diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The authored return follows the incoming picture boundary.", entity("block", block.id, "primaryVisualSequence"), undefined, ["repair_document", "refresh_timing"]));
+          } else if (prior?.evidenced && prior.end) {
             const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
             const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
             const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
-            if (!incoming || compare(safeEnd, incoming) >= 0 || priorEnd > start || (returnFrame ?? rowStart) > start) {
-              if (!incoming || compare(safeEnd, incoming) !== 0 || uncertainty) diagnostics.push(speechCutTimingWarning(slot.id));
+            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start) {
+              diagnostics.push(speechCutTimingWarning(slot.id));
             } else {
               start = Math.max(start - 3, priorEnd, earliestCut);
             }
@@ -959,7 +961,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         const end = next ? slotStarts.get(next.id) : rowEnd;
         if (descriptor && end !== undefined) {
           const selection = slot.payload.selectedSourceRange;
-          const availableEnd = selection ? selection.startFrame + selection.durationFrames : descriptor.logicalSourceBounds.endFrame;
+          const logicalEnd = descriptor.logicalSourceBounds.endFrame;
+          const availableEnd = selection ? Math.min(selection.startFrame + selection.durationFrames, logicalEnd) : logicalEnd;
           while (start < edge.frame) {
             const requiredEnd = requiredSourceEnd(descriptor, end - start, dependencies.timeline.frameRate);
             if (requiredEnd !== null && requiredEnd <= availableEnd) break;
