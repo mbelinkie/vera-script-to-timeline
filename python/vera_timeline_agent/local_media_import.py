@@ -119,6 +119,11 @@ class FFmpegDecoder:
         demuxer, codec_option = self._demuxer(fd, kind)
         location = f"/dev/fd/{fd}"
         base = ["-protocol_whitelist", "file,pipe", "-f", demuxer, *codec_option]
+        # FFprobe versions shipped by Ubuntu do not support FFmpeg's -c:v
+        # input option. Restrict the decoder by whitelist for the probe instead.
+        probe_base = ["-protocol_whitelist", "file,pipe", "-f", demuxer]
+        if codec_option:
+            probe_base += ["-codec_whitelist", codec_option[1]]
         output = self._invoke(
             [
                 self.ffprobe,
@@ -131,7 +136,7 @@ class FFmpegDecoder:
                 "-count_frames",
                 "-select_streams",
                 "v",
-                *base,
+                *probe_base,
                 "-show_entries",
                 "stream=codec_type,codec_name,width,height,nb_read_frames",
                 "-of",

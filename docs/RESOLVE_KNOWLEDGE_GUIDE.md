@@ -1124,6 +1124,27 @@ padding. Moving Fit, other image profiles, fractional-rate motion, and custom
 motion on Studio 21.2 remain unqualified. This check does not qualify music
 or transitions on 21.2. See [#508](https://github.com/mbelinkie/vera-script-to-timeline/issues/508).
 
+**#603 rate delta, Studio 21.2.0 build 6:** Generated RGB PNGs, narration and
+video passed the normal Prep Media handoff and Build save/close/reopen with zero
+structural discrepancies at exact 24000/1001, 25/1 and 30/1. The stills were
+prebound using verified local imports and generated preparation receipts; the
+ordinary import UI does not yet create those bindings. At each rate the square,
+wide and tall Fill stills retained 48/96/72-frame holds and native zoom keys;
+the 48-frame square Fit/None control remained static. Sampled first, middle and
+last decoded 1080p render frames showed motion and no black edge pixels for Fill,
+and identical padded control samples. Separate native square, wide and tall
+tests at 24000/1001 (72 frames), 25 (75) and 30 (90) covered the default
+three-second hold. A 30 fps native-only
+12/37/240-frame square sweep reopened and moved. These are sampled results,
+not proof for arbitrary dimensions, durations, profiles or motion parameters.
+
+A separate disposable native 30000/1001 timeline reopened with the same
+48/96/72/48-frame stills and a 360-frame render at exact 30000/1001; sampled
+Fill frames moved and the control stayed static. Normal 29.97 build admission
+remains unsupported: `_SUPPORTED_PACKAGE_RATES` excludes 30000/1001, before
+the motion gate; #597 tracks its normal-build work. This native result does not
+qualify that path. See [#603](https://github.com/mbelinkie/vera-script-to-timeline/issues/603).
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
