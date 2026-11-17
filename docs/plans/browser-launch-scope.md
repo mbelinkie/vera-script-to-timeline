@@ -19,15 +19,15 @@ line.
 | 1 | Open the editor in a browser on your Mac. No sign-in. Start a script or open one; it saves as you work and is there after a reload. | — | #64 (saving: #380, done) |
 | 2 | Aa size and Thumbnail size sliders, remembered in that browser. | §1, D33, D102 | #64 |
 | 3 | Two-column rows. Add a row at a divider, delete a row, drag rows to reorder, select a range and delete it. | §2, D29, D101, D42 | #65 |
-| 4 | Type, delete and paste plain text in narration. Visuals stay on their words. Erasing all the words keeps the row and its visuals. | §3, D135, D139, D119 | #65 on #580 |
+| 4 | Type, delete and paste plain text in narration. Visuals stay on their words. Erasing all the words keeps the row and its visuals. | §3, D135, D139, D119 | #65 on #580; paste: #620 |
 | 5 | Stage directions: Make spoken, Make stage direction. | §3, D3, D68 | #65 (#341, done) |
-| 6 | Paragraphs inside a row (Return). Split a row (Tab, or from a selection) and join rows (Backspace, or from a selection). | §2, §3, D97, D114, D115 | #65 on #581 (#579, done) |
-| 7 | Sections: add, rename, delete a break. | §6, D106 | #65 on #582 |
+| 6 | Paragraphs inside a row (Return). Split a row (Tab, or from a selection) and join rows (Backspace, or from a selection). | §2, §3, D97, D114, D115 | #620 on #581 (#579, done) |
+| 7 | Sections: add, rename, delete a break. | §6, D106 | #620 on #582 |
 | 8 | Undo, with the top-bar label and recent-actions menu, for the current session. | §1, D34 | #65 |
 | 9 | Select words, Add visual, pick a type. Cards stack in cue order. Delete a visual; change its type. The kinds you can add are Onscreen Placeholder, Need to Find and Visual Undefined; On Camera appears by itself (line 11). | §3, §4, D93, D94, D100 | #67 on #578 |
-| 10 | Footage, stills and web captures already in the script show as cards and can be re-ranged, moved to another row and attached to words, or deleted. | §4, D87, D88, D113 | #67 on #578 |
+| 10 | Footage, stills and web captures already in the script show as cards and can be re-ranged, moved to another row and attached to words, or deleted. | §4, D87, D88, D113 | #67 and #621 on #578 |
 | 11 | Range brackets: drag a bracket or Reselect range. On Camera fills every word no visual covers, with Wide or Tight. | §4, D190, D192, D193, r19, r25 | #66 (#577, #119, done) |
-| 12 | Rows with no narration: + Visual, several visuals in a chosen order, each with a hold in seconds. | §4, D96, r19 | #67 on #585 |
+| 12 | Rows with no narration: + Visual, several visuals in a chosen order, each with a hold in seconds. | §4, D96, r19 | #621 on #585 |
 | 13 | Build the timeline from the saved script: one command writes the saved script to a file, then the existing Prep Media and build commands run as they do today. | — | #64 (build: README "One command") |
 
 Two things to know about this cut:
@@ -68,6 +68,6 @@ reconnecting footage from Stash · music beyond #326 · motion and framing.
 
 ## Build order
 
-#64, then #65, then #66 and #67 side by side. #580, #581, #582 and #585 are
+#64, then #65, then #620, #66 and #67 side by side, then #621. #580, #581, #582 and #585 are
 saved-document operations with no screen of their own; they can run now, in
 parallel with #64. #578 has an open pull request (#615).
