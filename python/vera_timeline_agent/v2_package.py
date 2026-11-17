@@ -2994,29 +2994,23 @@ def _native_motion_for_event(
         preparation = (
             prepared.get(cast(str, requirement_key)) if prepared is not None else None
         )
-        if (
-            timeline["frameRate"]["numerator"],
-            timeline["frameRate"]["denominator"],
-        ) != (24, 1) and (
-            preparation is None
-            or not isinstance(preparation.record.get("stillEvidence"), dict)
-            or not isinstance(preparation.record.get("sourceProbe"), dict)
-            or preparation.record["sourceProbe"].get("kind") != "image"
-            or preparation.record.get("deliveredProbe")
-            != preparation.record.get("sourceProbe")
-        ):
-            raise _error(f"image motion {event_id} lacks PNG preparation evidence")
         if source_artifact is None or preparation is None:
             proof = native_image_motion.production_qualification(
                 motion, binding, framing
             )
         else:
+            probe = preparation.record["deliveredProbe"]
+            if (
+                timeline["frameRate"]["numerator"],
+                timeline["frameRate"]["denominator"],
+            ) != (24, 1) and preparation.record.get("sourceProbe") != probe:
+                probe = None
             proof = native_image_motion.production_qualification(
                 motion,
                 binding,
                 framing,
                 verified_asset=source_artifact.origin,
-                delivered_probe=cast(JsonObject, preparation.record["deliveredProbe"]),
+                delivered_probe=cast(JsonObject | None, probe),
                 frame_rate=(
                     cast(int, timeline["frameRate"]["numerator"]),
                     cast(int, timeline["frameRate"]["denominator"]),

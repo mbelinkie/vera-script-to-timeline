@@ -1132,8 +1132,9 @@ ordinary import UI does not yet create those bindings. At each rate the square,
 wide and tall Fill stills retained 48/96/72-frame holds and native zoom keys;
 the 48-frame square Fit/None control remained static. Sampled first, middle and
 last decoded 1080p render frames showed motion and no black edge pixels for Fill,
-and identical padded control samples. Separate native square tests at 25/75
-and 30/90 frames covered the default three-second hold. A 30 fps native-only
+and identical padded control samples. Separate native square, wide and tall
+tests at 24000/1001 (72 frames), 25 (75) and 30 (90) covered the default
+three-second hold. A 30 fps native-only
 12/37/240-frame square sweep reopened and moved. These are sampled results,
 not proof for arbitrary dimensions, durations, profiles or motion parameters.
 

@@ -142,6 +142,7 @@ def production_qualification(
     if (
         verified_asset is None
         or delivered_probe is None
+        or (frame_rate != (24, 1) and delivered_probe.get("kind") != "image")
         or (frame_rate != (24, 1) and not qualified_default)
         or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
         or binding.original_hash != binding.source_hash
@@ -171,8 +172,9 @@ def production_qualification(
                 (dimensions, duration)
                 in {((1000, 1000), 48), ((1600, 900), 96), ((900, 1600), 72)}
                 or (
-                    dimensions == (1000, 1000)
-                    and (frame_rate, duration) in {((25, 1), 75), ((30, 1), 90)}
+                    dimensions in {(1000, 1000), (1600, 900), (900, 1600)}
+                    and (frame_rate, duration)
+                    in {((24000, 1001), 72), ((25, 1), 75), ((30, 1), 90)}
                 )
             )
         ) or (

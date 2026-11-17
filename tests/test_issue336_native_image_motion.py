@@ -114,8 +114,19 @@ def _verified_png_case(
     return source, binding, probe
 
 
+def _import_probe(size: tuple[int, int]) -> dict[str, Any]:
+    return {
+        "kind": "image",
+        "demuxer": "image2pipe",
+        "codec": "png",
+        "width": size[0],
+        "height": size[1],
+        "frames": 1,
+    }
+
+
 def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None:
-    source, binding, _ = _verified_png_case(tmp_path, 1000, 1000, 48)
+    source, binding, legacy_probe = _verified_png_case(tmp_path, 1000, 1000, 48)
     probe = {
         "kind": "image",
         "demuxer": "image2pipe",
@@ -134,6 +145,17 @@ def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None
             delivered_probe=probe,
         )
         is not None
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            frame_rate=(24000, 1001),
+            verified_asset=source,
+            delivered_probe=legacy_probe,
+        )
+        is None
     )
     assert (
         production_qualification(
@@ -210,6 +232,7 @@ def test_default_fractional_still_proof_is_specific_to_studio_212(
     rate: tuple[int, int],
 ) -> None:
     source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    probe = _import_probe(size)
     proof = production_qualification(
         motion,
         binding,
@@ -244,6 +267,7 @@ def test_unmeasured_rate_combinations_refuse(
     framing: str,
 ) -> None:
     source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    probe = _import_probe(size)
     assert (
         production_qualification(
             motion,
@@ -257,11 +281,15 @@ def test_unmeasured_rate_combinations_refuse(
     )
 
 
-@pytest.mark.parametrize(("rate", "frames"), [((25, 1), 75), ((30, 1), 90)])
-def test_default_duration_is_qualified_only_for_measured_square(
-    tmp_path: Path, rate: tuple[int, int], frames: int
+@pytest.mark.parametrize(
+    ("rate", "frames"), [((24000, 1001), 72), ((25, 1), 75), ((30, 1), 90)]
+)
+@pytest.mark.parametrize("size", [(1000, 1000), (1600, 900), (900, 1600)])
+def test_default_duration_is_qualified_for_measured_sizes(
+    tmp_path: Path, rate: tuple[int, int], frames: int, size: tuple[int, int]
 ) -> None:
-    source, binding, probe = _verified_png_case(tmp_path, 1000, 1000, frames)
+    source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    probe = _import_probe(size)
     assert (
         production_qualification(
             DEFAULT_IMAGE_MOTION,
@@ -272,18 +300,6 @@ def test_default_duration_is_qualified_only_for_measured_square(
             frame_rate=rate,
         )
         is not None
-    )
-    source, binding, probe = _verified_png_case(tmp_path, 1600, 900, frames)
-    assert (
-        production_qualification(
-            DEFAULT_IMAGE_MOTION,
-            binding,
-            "cover",
-            verified_asset=source,
-            delivered_probe=probe,
-            frame_rate=rate,
-        )
-        is None
     )
 
 
