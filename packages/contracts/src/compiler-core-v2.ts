@@ -1511,6 +1511,20 @@ function compileSupportingItems(
   const events: TimelineEventV2[] = [];
   const diagnostics: BuildDiagnosticV2[] = [];
   const programmeEnd = rows.reduce((end, row) => Math.max(end, row.startFrame + row.durationFrames), 0);
+  // A visual waiting for Attach to words has no place in the programme: leave it out and say so.
+  for (const block of document.activeDraft.blocks) {
+    if (block.type !== "narration" || block.state !== "active") continue;
+    for (const waiting of block.unattachedVisuals ?? []) {
+      diagnostics.push(diagnostic(
+        "UNATTACHED_VISUAL",
+        "A visual in this row is not attached to any words, so it is left out of the build. Use Attach to words to place it.",
+        entity("slot", waiting.slotId, `/activeDraft/blocks/${block.id}/unattachedVisuals`),
+        { kind: "anchor_issue", anchorId: waiting.slotId, reason: "unplaced" },
+        ["reattach_unplaced_item"],
+        "warning",
+      ));
+    }
+  }
   for (const item of document.activeDraft.supportingItems) {
     if (item.role === "picture") {
       const reason = item.placement.kind === "unplaced" ? item.placement.reason : "Supporting pictures must be promoted into the primary visual sequence before compilation.";
