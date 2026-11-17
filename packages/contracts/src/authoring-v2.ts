@@ -443,6 +443,12 @@ export {
   type CommentOperationV2, type CommentStateV2, type CommentResultV2,
 } from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
+export {
+  spliceNarrationTextV2,
+  type NarrationTextReplacementV2,
+  type NarrationTextIdentityV2,
+  type NarrationTextSpliceResultV2,
+} from "./authoring-v2-narration-text.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {
