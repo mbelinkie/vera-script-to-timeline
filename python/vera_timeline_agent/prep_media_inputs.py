@@ -346,16 +346,14 @@ def prepare_cut_inputs(
     media_root: Path,
     *,
     tools: MediaTools,
+    needs: Json | None = None,
     report: Callable[[str, bool, float], None] | None = None,
 ) -> dict[str, tuple[Path, PreparedMedia]]:
     """Prepare bindings for the source ranges selected by the compiler."""
     descriptors = {
         item["payloadId"]: item for item in dependencies["occurrenceResolutions"]
     }
-    with tempfile.TemporaryDirectory(prefix=".needs-", dir=media_root) as attempt:
-        plan_input = Path(attempt) / "compiler-dependencies.json"
-        plan_input.write_bytes(canonical_json(dependencies))
-        needs = invoke_bridge("needs", script, plan_input).needs
+    needs = needs or compiler_media_needs(script, dependencies, media_root)
     dependencies["timeline"]["durationFrames"] = needs["durationFrames"]
     if not cut_sources:
         return {}
@@ -407,6 +405,95 @@ def prepare_cut_inputs(
             report(payload_id, result.reused, monotonic() - started)
     if pending:
         raise ValueError("Compiler did not plan every Research cut")
+    dependencies["preparedMedia"] = list(prepared.values())
+    return delivery
+
+
+def compiler_media_needs(script: Path, dependencies: Json, media_root: Path) -> Json:
+    """Ask the pinned compiler which bound source ranges this script needs."""
+    with tempfile.TemporaryDirectory(prefix=".needs-", dir=media_root) as attempt:
+        plan_input = Path(attempt) / "compiler-dependencies.json"
+        plan_input.write_bytes(canonical_json(dependencies))
+        return invoke_bridge("needs", script, plan_input).needs
+
+
+def prepare_still_inputs(
+    needs: Json,
+    dependencies: Json,
+    media_paths: Json,
+    preparation_paths: dict[str, str],
+    media_root: Path,
+    *,
+    tools: MediaTools,
+    report: Callable[[str], None] | None = None,
+) -> dict[str, tuple[Path, PreparedMedia]]:
+    """Bind selected project-local PNG stills using the compiler's exact ranges."""
+    descriptors: dict[str, list[Json]] = {}
+    for descriptor in dependencies["occurrenceResolutions"]:
+        descriptors.setdefault(descriptor["payloadId"], []).append(descriptor)
+
+    authorization: PreparationAuthorization | None = None
+    prepared: dict[str, PreparedMediaBindingV1] = {
+        item["requirementKey"]: item for item in dependencies["preparedMedia"]
+    }
+    delivery: dict[str, tuple[Path, PreparedMedia]] = {}
+    seen: set[str] = set()
+    root = media_root / "Prepared Stills"
+    for need in needs["requirements"]:
+        payload_id = need["payloadId"]
+        matches = descriptors.get(payload_id, [])
+        if len(matches) != 1:
+            continue
+        descriptor = matches[0]
+        if (
+            descriptor["mediaReferenceId"] != need["mediaReferenceId"]
+            or descriptor["sourceSnapshot"]["system"] != "local_import"
+        ):
+            continue
+        locator = media_paths.get(f"source:{descriptor['mediaReferenceId']}")
+        if not isinstance(locator, str) or not Path(locator).is_absolute():
+            continue
+        source = Path(locator)
+        if source.suffix.lower() != ".png":
+            continue
+        if payload_id in seen:
+            raise ValueError("Compiler planned a local still more than once")
+        seen.add(payload_id)
+        if need["sourceSufficiency"] != "sufficient":
+            raise ValueError(
+                "Local still does not cover the compiler's requested range"
+            )
+        if authorization is None:
+            authorization = PreparationAuthorization(
+                "prep-media-project-local",
+                (media_root,),
+                root,
+                identity_hash(tools.fingerprint()),
+            )
+        started = monotonic()
+        result = prepare_still_media(
+            source,
+            cast(OccurrenceMediaResolutionV2, descriptor),
+            cast(RequestedPreparationRangeV1, need["requestedRange"]),
+            cast(RationalRate, dependencies["timeline"]["frameRate"]),
+            authorization=authorization,
+            tools=tools,
+        )
+        binding = result.binding
+        if binding != read_json_object(result.receipt_path)["binding"]:
+            raise ValueError("Prepared still belongs to a different source binding")
+        key = binding["requirementKey"]
+        descriptor["preparedMediaRequirementKey"] = key
+        prepared[key] = binding
+        previous = delivery.get(key)
+        if previous is not None and previous[0] != source:
+            raise ValueError("Shared still preparation has conflicting source paths")
+        delivery[key] = (source, result)
+        preparation_paths[key] = str(result.receipt_path)
+        if report is not None:
+            status = "reused" if result.reused else "prepared"
+            report(f"Still {payload_id}: {status} ({monotonic() - started:.2f}s)")
+
     dependencies["preparedMedia"] = list(prepared.values())
     return delivery
 

@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import pytest
 from test_issue336_product_package import _authored_png_case
-from vera_timeline_agent import prep_media_inputs
+from vera_timeline_agent import prep_media, prep_media_inputs
 from vera_timeline_agent.generated.contracts.compiler_dependencies_v2_schema import (
     RationalRate,
     RequestedPreparationRangeV1,
@@ -30,6 +30,135 @@ from vera_timeline_agent.v2_package import (
 )
 
 from scripts.issue336_studio_qualify import png
+
+_STILL_FIXTURE = (
+    Path(__file__).parent / "data/authoring_v2/issue_173/compiler/"
+    "visual-only-image-still-25fps-default.input.golden.json"
+)
+
+
+@pytest.mark.slow
+def test_normal_prep_media_binds_selected_project_local_png(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = json.loads(_STILL_FIXTURE.read_bytes())
+    document = fixture["document"]
+    dependencies = fixture["dependencies"]
+    original_descriptor = dependencies["occurrenceResolutions"][0]
+
+    project_root = tmp_path / "project"
+    source = project_root / "Media" / "Local Images" / "still.png"
+    source.parent.mkdir(parents=True)
+    png(source, 32, 24)
+
+    tools = MediaTools()
+    fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
+            fd, "image"
+        )
+    finally:
+        os.close(fd)
+    descriptor = _descriptor(source, facts, Fraction(25))
+    descriptor.update(
+        payloadId=original_descriptor["payloadId"],
+        owner=original_descriptor["owner"],
+        mediaReferenceId=original_descriptor["mediaReferenceId"],
+    )
+    dependencies["occurrenceResolutions"] = [descriptor]
+    dependencies["preparedMedia"] = []
+
+    script = tmp_path / "script.json"
+    script.write_bytes(canonical_json_bytes(document))
+    inputs = tmp_path / "compiler-settings"
+    inputs.mkdir()
+    (inputs / "compiler-dependencies.json").write_bytes(
+        canonical_json_bytes(dependencies)
+    )
+    media_paths = {
+        f"source:{descriptor['mediaReferenceId']}": str(source),
+        "event:unrelated": str(tmp_path / "unrelated.bin"),
+    }
+    Path(media_paths["event:unrelated"]).write_bytes(b"preserved")
+    (inputs / "media-paths.json").write_bytes(canonical_json_bytes(media_paths))
+
+    monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
+    prepared = prep_media.prepare_project(
+        script,
+        inputs,
+        project_root,
+        acquire=lambda _: None,
+        narration=lambda *_: None,
+        tools=tools,
+        report=lambda _: None,
+    )
+
+    prepared_dependencies = json.loads(
+        (prepared / "compiler-dependencies.json").read_bytes()
+    )
+    prepared_descriptor = prepared_dependencies["occurrenceResolutions"][0]
+    key = prepared_descriptor["preparedMediaRequirementKey"]
+    assert key is not None
+    assert [
+        item["requirementKey"] for item in prepared_dependencies["preparedMedia"]
+    ] == [key]
+    preparation_paths = json.loads((prepared / "preparation-paths.json").read_bytes())
+    assert set(preparation_paths) == {key}
+    receipt = json.loads(Path(preparation_paths[key]).read_bytes())
+    assert receipt["binding"] == prepared_dependencies["preparedMedia"][0]
+    assert receipt["stillEvidence"]["strictPng"]["decodedFrameCount"] == 1
+
+    manifest = prep_media_inputs.read_json_object(
+        prepared / "compiler-dependencies.json"
+    )
+    assert manifest["timeline"]["frameRate"] == {"numerator": 25, "denominator": 1}
+    output_media = json.loads((prepared / "media-paths.json").read_bytes())
+    compiled_source = next(
+        item
+        for item in prep_media_inputs.invoke_bridge(
+            "compile",
+            prepared / "script.json",
+            prepared / "compiler-dependencies.json",
+        ).result["manifest"]["sources"]
+        if item["preparationRequirementKey"] == key
+    )
+    assert output_media[f"source:{compiled_source['id']}"] == str(source)
+    assert output_media[f"original:{compiled_source['id']}"] == str(source)
+    assert output_media["event:unrelated"] == media_paths["event:unrelated"]
+
+
+def test_prep_media_refuses_local_png_outside_project_media(
+    tmp_path: Path,
+) -> None:
+    dependencies = json.loads(_STILL_FIXTURE.read_bytes())["dependencies"]
+    descriptor = dependencies["occurrenceResolutions"][0]
+    dependencies["preparedMedia"] = []
+    needs = {
+        "requirements": [
+            {
+                "payloadId": descriptor["payloadId"],
+                "mediaReferenceId": descriptor["mediaReferenceId"],
+                "requestedRange": _request(Fraction(25)),
+                "sourceSufficiency": "sufficient",
+            }
+        ]
+    }
+    media_root = tmp_path / "project" / "Media"
+    media_root.mkdir(parents=True)
+    outside_png = tmp_path / "outside.png"
+    tools = MediaTools()
+
+    with pytest.raises(MediaPreparationError, match="unauthorized_path"):
+        prep_media_inputs.prepare_still_inputs(
+            needs,
+            dependencies,
+            {f"source:{descriptor['mediaReferenceId']}": str(outside_png)},
+            {},
+            media_root,
+            tools=tools,
+        )
+
+    assert not (media_root / "Prepared Stills").exists()
 
 
 def _descriptor(source: Path, facts: Any, rate: Fraction) -> dict[str, Any]:
