@@ -44,8 +44,10 @@ _GRAPHS = {
     "odd_bars": "color=c=gray:s=320x138:r=10:d=4,pad=320:180:0:21:black",
     "portrait": "color=c=gray:s=100x180:r=10:d=4,pad=320:180:110:0:black",
     "pc_letterbox": (
-        "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black,"
-        "scale=in_range=tv:out_range=pc,format=yuvj420p"
+        # Generate full-range luma directly. Swscale range conversion in
+        # FFmpeg 6 can retain limited-range black in a full-range stream.
+        "nullsrc=s=320x180:r=10:d=4,format=yuvj420p,"
+        "geq=lum='if(between(Y,22,155),128,0)':cb=128:cr=128"
     ),
     "outside_range": (
         "color=c=gray:s=320x180:r=10:d=1[a];"
