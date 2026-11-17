@@ -157,3 +157,17 @@ def test_bound_research_use_range_survives_rebinding_without_changing_source(
     }
     with pytest.raises(ValueError, match="outside the verified cut"):
         bind_research_cut(first, tmp_path, MediaTools())
+
+    # A stale or substituted frame binding cannot silently retarget this use.
+    first["visualOnlyTiming"]["selectedSourceRange"] = {
+        "startFrame": 24,
+        "durationFrames": 36,
+    }
+    forged = json.loads(json.dumps(first))
+    forged["frameBinding"]["mediaReferenceId"] = "00000000-0000-4000-8000-000000000099"
+    with pytest.raises(ValueError, match="does not match the verified cut"):
+        bind_research_cut(forged, tmp_path, MediaTools())
+    assert forged["visualOnlyTiming"]["selectedSourceRange"] == {
+        "startFrame": 24,
+        "durationFrames": 36,
+    }
