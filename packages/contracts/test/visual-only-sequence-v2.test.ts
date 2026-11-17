@@ -116,14 +116,15 @@ describe("#585 visuals-only ordered cards", () => {
     const { document } = sequence();
     const session = createRowEditSessionV2(document);
     const rowId = document.activeDraft.blocks[0]!.id;
-    for (const payloadIds of [
-      [id(31), id(3101)],
-      [id(31), id(3101), id(999999)],
-      [id(31), id(31), id(3102)],
-      [id(31), id(3101), id(3102)],
+    for (const { payloadIds, refusal } of [
+      { payloadIds: [id(31), id(3101)], refusal: "VISUAL_ORDER_INVALID" },
+      { payloadIds: [id(31), id(3101), id(999999)], refusal: "VISUAL_ORDER_INVALID" },
+      { payloadIds: [id(31), id(31), id(3102)], refusal: "ROW_COMMAND_INVALID" },
+      { payloadIds: [id(31), id(3101), id(3102)], refusal: "ROW_EDIT_NO_CHANGE" },
     ]) {
       const result = session.apply({ kind: "reorder_visual_only", rowId, payloadIds });
       expect(result.ok).toBe(false);
+      expect(result.diagnostics.map((item) => item.code)).toContain(refusal);
       expect(result.document).toEqual(document);
       expect(session.undoDepth).toBe(0);
     }
@@ -147,7 +148,12 @@ describe("#585 visuals-only ordered cards", () => {
     const { document } = sequence();
     const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
     row.additionalVisuals![1]!.payload.payloadId = row.payload.payloadId;
-    expect(validateScriptDocumentV2(document).diagnostics.map((item) => item.code)).toContain("ENTITY_ID_DUPLICATE");
+    expect(validateScriptDocumentV2(document).diagnostics).toContainEqual(expect.objectContaining({
+      code: "ENTITY_ID_DUPLICATE",
+      message: "Each visual in this row needs a distinct payload ID.",
+      jsonPath: "/activeDraft/blocks/0/additionalVisuals/1/payload/payloadId",
+      entityId: row.payload.payloadId,
+    }));
     row.additionalVisuals![1]!.payload.payloadId = id(3102);
     row.additionalVisuals![1]!.visualOnlyTiming.selectedSourceRange = { startFrame: 0, durationFrames: 1 };
     expect(validateScriptDocumentV2(document).diagnostics.map((item) => item.code)).toContain("SCHEMA_INVALID");
