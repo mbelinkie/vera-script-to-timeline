@@ -252,6 +252,29 @@ describe("script section-break edits", () => {
     expect(validateScriptDocumentV2(inNamed.document).diagnostics).toEqual([]);
   });
 
+  it("reviews a transition crossed by a new break and refuses changed music coverage", () => {
+    const [a, b, c] = [row(892), row(893), row(894)];
+    const command: RowEditCommandV2 = {
+      kind: "create_section", sectionId: id(8920), title: "New chapter", destination: gap(null, a.id, b.id),
+    };
+    const musical = documentWith([a, b, c], { rowAudioSpans: [audioSpan(8921, a.id, c.id)] });
+    const refused = applyRowEditV2(musical, 0, command);
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(refused.document).toBe(musical);
+
+    const transition = {
+      id: id(8922), fromRowId: a.id, toRowId: b.id, effect: "dip" as const,
+      settings: { frames: 4 }, state: "active" as const,
+    };
+    const withTransition = documentWith([a, b, c], { rowTransitions: [transition] });
+    const result = applyRowEditV2(withTransition, 0, command);
+    expect(result.ok).toBe(true);
+    expect(result.document.rowTransitions).toEqual([{ ...transition, state: "needs_review" }]);
+    expect(rows(result.document)).toEqual([a.id, b.id, c.id]);
+    expect(validateScriptDocumentV2(result.document).diagnostics).toEqual([]);
+  });
+
   it("renames only the target heading title and version, with one document revision", () => {
     const [a, b] = [row(820), row(821)];
     const heading = section(8200, "Original");
@@ -303,6 +326,8 @@ describe("script section-break edits", () => {
       expect(result.document, JSON.stringify(value)).toBe(initial);
       expect(result.diagnostics.length).toBeGreaterThan(0);
     }
+    expect(applyRowEditV2(initial, 0, { ...create, sectionId: a.id }).diagnostics[0]?.code)
+      .toBe("SECTION_ID_DUPLICATE");
     const stale = applyRowEditV2(initial, 1, create);
     expect(stale.ok).toBe(false);
     expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
