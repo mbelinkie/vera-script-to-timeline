@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyCommentOperationV2,
   applyRowEditV2,
+  createCommentStateV2,
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
+  deserializeCommentStateV2,
   projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
+  serializeCommentStateV2,
   spliceNarrationTextV2,
   validateScriptDocumentV2,
+  type CommentAnchorV2,
+  type CommentOperationV2,
+  type CommentStateV2,
   type NarrationTextReplacementV2,
   type RowEditCommandV2,
 } from "@vera/contracts/authoring-v2";
@@ -137,6 +144,20 @@ function apply(row: NarrationBlockV2, replacement: NarrationTextReplacementV2) {
   expect(undo.ok).toBe(true);
   expect({ ...session.document, rowEditRevision: 0 }).toEqual({ ...original, rowEditRevision: 0 });
   return editedRow(result.document);
+}
+
+function commentOperation(state: CommentStateV2, operation: CommentOperationV2): CommentStateV2 {
+  const result = applyCommentOperationV2(state, state.revision, operation);
+  expect(result.ok, result.ok ? "" : result.error).toBe(true);
+  if (!result.ok) throw new Error(result.error);
+  return result.state;
+}
+
+function commentOn(state: CommentStateV2, anchor: CommentAnchorV2, n: number): CommentStateV2 {
+  return commentOperation(state, {
+    kind: "create", id: `comment-create-${n}`, actorId: "test-reviewer", threadId: `thread-${n}`,
+    messageId: `comment-message-${n}`, body: "Review the exact words or card", mentionActorIds: [], anchor,
+  });
 }
 
 describe("#580 positional word identities (H matrix)", () => {
@@ -272,6 +293,89 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
     expect(result.document).toEqual(initial);
     expect(session.document).toEqual(initial);
     expect(session.undoDepth).toBe(0);
+  });
+});
+
+describe("#580 comment C1/C2/C3 attachment and verified narration Undo", () => {
+  for (const { name, replacement, orphanedIndex } of [
+    { name: "H4", replacement: edit(4, 8, "", 2804), orphanedIndex: 0 },
+    { name: "H6", replacement: edit(26, 33, "", 2806), orphanedIndex: 1 },
+  ]) {
+    it(`${name} retains the card comment, preserves unaffected text, and selectively revives only the orphan on Undo`, () => {
+      const initial = documentOf(pictureRow(H));
+      const row = editedRow(initial);
+      const session = createRowEditSessionV2(initial);
+      const c1: CommentAnchorV2 = { kind: "text", blockId: row.id, startTokenId: id(101), endTokenId: id(102) };
+      const c2: CommentAnchorV2 = { kind: "text", blockId: row.id, startTokenId: id(104), endTokenId: id(105) };
+      const c3: CommentAnchorV2 = { kind: "card", blockId: row.id, cardId: id(302) };
+      let comments = createCommentStateV2(initial);
+      [c1, c2, c3].forEach((anchor, i) => { comments = commentOn(comments, anchor, i); });
+      expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["attached", "attached", "attached"]);
+      expect(comments.threads.slice(0, 2).map((thread) => thread.attachment.quotedText)).toEqual(["the harbor", "the harbor"]);
+
+      const edited = session.apply({ kind: "edit_narration_text", rowId: row.id, ...replacement });
+      expect(edited.ok).toBe(true);
+      comments = commentOperation(comments, { kind: "replace_document", id: `edit-${name}`,
+        actorId: "test-reviewer", document: edited.document });
+      expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(
+        orphanedIndex === 0 ? ["stale", "attached", "attached"] : ["attached", "stale", "attached"],
+      );
+      expect(comments.threads[orphanedIndex]!.attachment).toMatchObject({
+        anchor: orphanedIndex === 0 ? c1 : c2,
+        quotedText: "the harbor", orphanedByDocumentOperationId: `edit-${name}`,
+      });
+      expect(comments.threads[2]!.attachment.anchor).toEqual(c3);
+      if (name === "H4") {
+        expect(editedRow(edited.document).unattachedVisuals?.map((visual) => visual.slotId)).toEqual([id(302)]);
+      }
+      expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+
+      // A reply may follow the edit in comment history without becoming a new document edit.
+      comments = commentOperation(comments, { kind: "reply", id: `reply-${name}`,
+        actorId: "test-reviewer", threadId: "thread-2", messageId: `reply-message-${name}`,
+        body: "The waiting card still exists", mentionActorIds: [],
+      });
+
+      const undone = session.undo();
+      expect(undone.ok).toBe(true);
+      comments = commentOperation(comments, { kind: "undo_document", id: `undo-${name}`,
+        actorId: "test-reviewer", undoOfOperationId: `edit-${name}`, document: undone.document });
+      expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["attached", "attached", "attached"]);
+      expect(comments.threads.slice(0, 2).map((thread) => thread.attachment.quotedText)).toEqual(["the harbor", "the harbor"]);
+      expect(comments.threads.every((thread) => !Object.hasOwn(thread.attachment, "orphanedByDocumentOperationId"))).toBe(true);
+      expect(comments.threads[2]!.messages).toHaveLength(2);
+      expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+    });
+  }
+
+  it("a waiting card comment follows the same slot ID to another row and back, not its source title", () => {
+    const initial = documentOf(pictureRow(H));
+    const other = rowOf("other row");
+    other.id = id(11);
+    other.orderKey = "next-row";
+    other.tokens = other.tokens.map((token, index) => ({ ...token, id: id(610 + index) }));
+    other.primaryVisualSequence!.id = id(620);
+    other.primaryVisualSequence!.slots[0]!.id = id(621);
+    initial.activeDraft.blocks.push(other);
+    expect(validateScriptDocumentV2(initial).valid).toBe(true);
+    const anchor: CommentAnchorV2 = { kind: "card", blockId: id(10), cardId: id(302) };
+    let comments = commentOn(createCommentStateV2(initial), anchor, 0);
+    const transferred = structuredClone(initial);
+    const origin = transferred.activeDraft.blocks[0] as NarrationBlockV2;
+    const destination = transferred.activeDraft.blocks[1] as NarrationBlockV2;
+    const [slot] = origin.primaryVisualSequence!.slots.splice(1, 1);
+    if (!slot || slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected visual slot");
+    destination.unattachedVisuals = [{ slotId: slot.id, payload: slot.payload, version: slot.version }];
+    expect(validateScriptDocumentV2(transferred).valid).toBe(true);
+    comments = commentOperation(comments, { kind: "replace_document", id: "transfer-waiting-card",
+      actorId: "test-reviewer", document: transferred });
+    expect(comments.threads[0]!.attachment).toMatchObject({
+      status: "attached", anchor: { ...anchor, blockId: destination.id },
+    });
+    comments = commentOperation(comments, { kind: "replace_document", id: "return-placed-card",
+      actorId: "test-reviewer", document: initial });
+    expect(comments.threads[0]!.attachment).toMatchObject({ status: "attached", anchor });
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
   });
 });
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   applyCommentOperationV2, createCommentStateV2, serializeCommentStateV2, deserializeCommentStateV2,
-  applyRowEditV2, validateScriptDocumentV2,
+  applyRowEditV2, createRowEditSessionV2, validateScriptDocumentV2,
   type CommentAnchorV2, type CommentOperationV2, type CommentStateV2,
 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
@@ -125,6 +125,94 @@ describe("bounded sequential S03 comments", () => {
     expect(state.threads[0]!.attachment.status).toBe("attached");
     expect(state.threads[0]!.id).toBe("thread-0");
     expect(state.threads[0]!.messages[0]!.id).toBe("message-0");
+  });
+
+  it("explicit Undo restores only newly orphaned comments, never an already stale lookalike", () => {
+    const { document, first, anchors } = fixture();
+    const session = createRowEditSessionV2(document);
+    let state = apply(createCommentStateV2(document), create(anchors[0]!, 0));
+    const deletion = (editId: string) => session.apply({
+      kind: "edit_narration_text", rowId: first.id,
+      startOffset: 6, endOffset: 11, insertedText: "", editId,
+    });
+    const deletedBefore = deletion(id(700));
+    expect(deletedBefore.ok).toBe(true);
+    state = apply(state, { id: "earlier-delete", actorId, kind: "replace_document", document: deletedBefore.document });
+    expect(state.threads[0]!.attachment).toMatchObject({ status: "stale", orphanedByDocumentOperationId: "earlier-delete" });
+
+    const restoredBefore = session.undo();
+    expect(restoredBefore.ok).toBe(true);
+    state = apply(state, { id: "ordinary-restore", actorId, kind: "replace_document", document: restoredBefore.document });
+    expect(state.threads[0]!.attachment.status).toBe("stale");
+    expect(state.threads[0]!.attachment.orphanedByDocumentOperationId).toBeUndefined();
+    state = apply(state, create(anchors[0]!, 1));
+
+    const deletedAgain = deletion(id(701));
+    expect(deletedAgain.ok).toBe(true);
+    state = apply(state, { id: "latest-delete", actorId, kind: "replace_document", document: deletedAgain.document });
+    expect(state.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "stale"]);
+    expect(state.threads[1]!.attachment.orphanedByDocumentOperationId).toBe("latest-delete");
+    const originalEvidence = structuredClone(state.threads[1]!.attachment);
+    const savedAfterDelete = deserializeCommentStateV2(serializeCommentStateV2(state));
+    expect(savedAfterDelete).toEqual(state);
+
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    const undo = { id: "verified-undo", actorId, kind: "undo_document" as const,
+      undoOfOperationId: "latest-delete", document: undone.document };
+    expect(applyCommentOperationV2(state, state.revision,
+      { ...undo, undoOfOperationId: "earlier-delete" }).state).toBe(state);
+    state = apply(state, undo);
+    expect(state.threads[0]!.attachment.status).toBe("stale");
+    expect(state.threads[1]!.attachment).toMatchObject({
+      status: "attached", anchor: originalEvidence.anchor,
+      tokens: originalEvidence.tokens, quotedText: originalEvidence.quotedText,
+    });
+    expect(state.threads[1]!.attachment).not.toHaveProperty("orphanedByDocumentOperationId");
+    expect(state.threads[1]!.messages).toEqual(savedAfterDelete.threads[1]!.messages);
+    expect(deserializeCommentStateV2(serializeCommentStateV2(state))).toEqual(state);
+  });
+
+  it("refuses forged, stale and replayed Undo claims without changing any comment history", () => {
+    const { document, first, anchors } = fixture();
+    const session = createRowEditSessionV2(document);
+    let state = apply(createCommentStateV2(document), create(anchors[0]!, 0));
+    const edited = session.apply({ kind: "edit_narration_text", rowId: first.id,
+      startOffset: 6, endOffset: 11, insertedText: "", editId: id(710) });
+    expect(edited.ok).toBe(true);
+    state = apply(state, { id: "edit-to-undo", actorId, kind: "replace_document", document: edited.document });
+    const restored = session.undo();
+    expect(restored.ok).toBe(true);
+    const correct = { id: "undo", actorId, kind: "undo_document" as const,
+      undoOfOperationId: "edit-to-undo", document: restored.document };
+    const alteredText = structuredClone(restored.document);
+    (alteredText.activeDraft.blocks[0] as NarrationBlockV2).notes.push("forged modification");
+    const wrongRevision = { ...restored.document, rowEditRevision: edited.document.rowEditRevision };
+    const invalid = [
+      { ...correct, undoOfOperationId: "unrelated" },
+      { ...correct, undoOfOperationId: "" },
+      { ...correct, document: alteredText },
+      { ...correct, document: wrongRevision },
+      { ...correct, actorId: "" },
+      { ...correct, extra: true },
+    ];
+    for (const forged of invalid) {
+      const result = applyCommentOperationV2(state, state.revision, forged as typeof correct);
+      expect(result).toMatchObject({ ok: false, state });
+      expect(result.state).toBe(state);
+    }
+    expect(applyCommentOperationV2(state, state.revision - 1, correct).ok).toBe(false);
+    const snapshot = structuredClone(state);
+    expect(state).toEqual(snapshot);
+    const successful = apply(state, correct);
+    expect(successful.threads[0]!.attachment.status).toBe("attached");
+    expect(applyCommentOperationV2(successful, successful.revision, { ...correct, id: "second-undo" }).state).toBe(successful);
+    const serialized = JSON.parse(serializeCommentStateV2(successful)) as { operations: CommentOperationV2[] };
+    const last = serialized.operations.at(-1)!;
+    if (last.kind !== "undo_document") throw new Error("Expected Undo record");
+    last.undoOfOperationId = "forged";
+    expect(() => deserializeCommentStateV2(JSON.stringify(serialized))).toThrow(/Undo does not match/);
+    expect(deserializeCommentStateV2(serializeCommentStateV2(successful))).toEqual(successful);
   });
 
   it("stales rewritten interior tokens, missing cards and missing blocks, preserving their old evidence", () => {
