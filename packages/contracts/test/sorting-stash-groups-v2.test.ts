@@ -7,6 +7,7 @@ import {
   type RowEditCommandV2,
 } from "../src/authoring-v2.js";
 import type { ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
+import { createSortingProjectionV2, updateSortingProjectionV2 } from "../src/authoring-v2-sorting-projection.js";
 import { researchId as id, researchNote, researchStashFixture } from "./issue-367-fixture.js";
 
 const gap = { sectionId: null, afterRowId: null, beforeRowId: null };
@@ -51,6 +52,67 @@ function settle(trial: ReturnType<typeof createSortingTrialV2>, baseline: Script
 }
 
 describe("Sorting — atomic Stash groups (issue 366 phase 4)", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("replays D109 section deletion with a saved group, attached footage and %s acceptance", (mode) => {
+    const { baseline: groupedDocument, anchor, note, clip, groupId } = grouped();
+    const baseline = structuredClone(groupedDocument);
+    const sectionId = id(992000);
+    const loose = researchNote(992010);
+    baseline.stash!.push({ id: id(992020), rows: [loose], supportingItems: [] });
+    baseline.stashSections = [{ id: sectionId, title: "Group section", rowIds: [] }];
+    baseline.stashOutline!.unshift({ rowId: loose.id, kind: "note", parentRowId: null, sectionId: null });
+    for (const entry of baseline.stashOutline!.slice(1)) entry.sectionId = sectionId;
+    expect(validateScriptDocumentV2(baseline).valid, JSON.stringify(validateScriptDocumentV2(baseline).diagnostics)).toBe(true);
+    const trial = createSortingTrialV2(baseline);
+    trialApply(trial, { kind: "delete_stash_section", sectionId });
+    expect(trial.document.stashOutline!.map((entry) => entry.rowId)).toEqual([anchor.id, note.id, loose.id]);
+    expect(trial.movedRowIds).toEqual(expect.arrayContaining([anchor.id, note.id]));
+    expect(trial.undoDepth).toBe(1);
+    const projection = updateSortingProjectionV2(createSortingProjectionV2(baseline), baseline, trial.document,
+      { kind: "delete_stash_section", sectionId });
+    expect(projection.stableSlots.filter((slot) => [anchor.id, note.id].includes(slot.rowId)).map((slot) =>
+      slot.slot.surface === "stash" ? slot.slot.entry.sectionId : "draft")).toEqual([null, null]);
+    const output = settle(trial, baseline, mode);
+    const moved = mode === "all" || mode === "sorting_only";
+    expect(output.stashSections).toEqual(moved ? undefined : baseline.stashSections);
+    expect(output.stashOutline!.map((entry) => entry.rowId)).toEqual(moved ? [anchor.id, note.id, loose.id] : [loose.id, anchor.id, note.id]);
+    expect(output.stashOutline!.map((entry) => entry.sectionId)).toEqual(moved ? [null, null, null] : [null, sectionId, sectionId]);
+    expect(output.stashGroups).toEqual([{ id: groupId, rowIds: [anchor.id, note.id] }]);
+    expect(output.stash).toEqual(baseline.stash);
+    expect((rowById(output, note.id) as typeof note).attachedFootage?.clip).toEqual(clip);
+    const undone = resumeSortingTrialV2(trial.serialize());
+    expect(undone.returnToSorting()).toBe(true);
+    expect(undone.undo().ok).toBe(true);
+    expect({ ...undone.document, rowEditRevision: 0 }).toEqual({ ...baseline, rowEditRevision: 0 });
+  });
+
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("replays Stash section rename without moving a single row in %s", (mode) => {
+    const { baseline: original, anchor, note } = grouped(false);
+    const baseline = structuredClone(original);
+    const sectionId = id(992100);
+    baseline.stashSections = [{ id: sectionId, title: "Before", rowIds: [] }];
+    for (const entry of baseline.stashOutline!) entry.sectionId = sectionId;
+    const trial = createSortingTrialV2(baseline);
+    const bad = trial.apply({ kind: "rename_stash_section", sectionId, title: " " });
+    expect(bad.diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
+    const badDelete = trial.apply({ kind: "delete_stash_section", sectionId, extra: true } as unknown as RowEditCommandV2);
+    expect(badDelete.diagnostics[0]?.code).toBe("SORTING_COMMAND_INVALID");
+    expect(trial.undoDepth).toBe(0);
+    const renamed = trial.apply({ kind: "rename_stash_section", sectionId, title: "After" });
+    expect(renamed.ok, JSON.stringify(renamed.diagnostics)).toBe(true);
+    expect(trial.movedRowIds).toEqual([]);
+    expect(trial.undoDepth).toBe(1);
+    const noOp = trial.apply({ kind: "rename_stash_section", sectionId, title: "After" });
+    expect(noOp.diagnostics[0]?.code).toBe("ROW_EDIT_NO_CHANGE");
+    expect(trial.undoDepth).toBe(1);
+    const output = settle(trial, baseline, mode);
+    expect(output.stashSections?.[0]?.title).toBe(mode === "all" || mode === "sorting_only" ? "After" : "Before");
+    expect(output.stashOutline).toEqual(baseline.stashOutline);
+    expect(output.stash).toEqual(baseline.stash);
+    expect(output.stashOutline?.map((entry) => entry.rowId)).toEqual([anchor.id, note.id]);
+    const tampered = JSON.parse(trial.serialize()) as { actions: Record<string, unknown>[] };
+    tampered.actions[0]!.extra = true;
+    expect(() => resumeSortingTrialV2(JSON.stringify(tampered))).toThrow(/Invalid saved Sorting operation/);
+  });
   it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes %s on compact group formation, preserving embedded footage", (mode) => {
     const { doc, anchor, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(doc);

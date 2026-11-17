@@ -45,6 +45,8 @@ export type RowEditCommandV2 =
   | { kind: "restore_stash"; bundleId: string; destination: RowGapV2 }
   | { kind: "restore_stash_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "create_stash_section"; sectionId: string; title: string }
+  | { kind: "rename_stash_section"; sectionId: string; title: string }
+  | { kind: "delete_stash_section"; sectionId: string }
   | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null }
   | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
   | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
@@ -258,6 +260,15 @@ function validDraftSectionCommand(value: unknown): boolean {
   return value.kind === "create_section"
     ? exactKeys(value, ["kind", "sectionId", "title", "destination"]) && rowGapPayload(value.destination)
     : exactKeys(value, ["kind", "sectionId", "title"]);
+}
+
+/** Section organization commands must be exact plain JSON with a section UUID. */
+function validStashSectionChangeCommand(value: unknown): boolean {
+  if (!plainObject(value) || !isJsonValue(value) || typeof value.sectionId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.sectionId)) return false;
+  if (value.kind === "delete_stash_section") return exactKeys(value, ["kind", "sectionId"]);
+  return value.kind === "rename_stash_section" && exactKeys(value, ["kind", "sectionId", "title"]) &&
+    typeof value.title === "string" && value.title.trim().length > 0;
 }
 
 function validAttachmentCommand(value: unknown): boolean {
@@ -1255,6 +1266,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
+    if ((command.kind === "rename_stash_section" || command.kind === "delete_stash_section") && !validStashSectionChangeCommand(command)) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash section command with a valid section ID and, for rename, a nonblank title.");
+    }
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
       (!isJsonValue(command) ||
@@ -1814,6 +1828,26 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     ensureStashOutline(working);
     (working.stashSections ??= []).push({ id: command.sectionId, title: command.title, rowIds: [] });
+  } else if (command.kind === "rename_stash_section") {
+    const section = working.stashSections?.find((item) => item.id === command.sectionId);
+    if (!section) return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section.");
+    // Rename only the heading; legacy rowIds are intentionally left untouched.
+    section.title = command.title;
+  } else if (command.kind === "delete_stash_section") {
+    const sectionIndex = working.stashSections?.findIndex((item) => item.id === command.sectionId) ?? -1;
+    if (sectionIndex < 0) return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section.");
+    const hasLegacyRows = working.stashSections![sectionIndex]!.rowIds.length > 0;
+    const hasCanonicalRows = working.stashOutline?.some((entry) => entry.sectionId === command.sectionId) ?? false;
+    if (hasLegacyRows || hasCanonicalRows) {
+      // Upgrade before removing the legacy section so its membership is not lost.
+      const entries = ensureStashOutline(working);
+      const promoted = entries.filter((entry) => entry.sectionId === command.sectionId)
+        .map((entry) => ({ ...entry, sectionId: null }));
+      const remaining = entries.filter((entry) => entry.sectionId !== command.sectionId);
+      // A single contiguous preorder block at the very top of unsorted.
+      working.stashOutline = [...promoted, ...remaining];
+    }
+    working.stashSections!.splice(sectionIndex, 1);
   } else if (command.kind === "move_stash_rows") {
     if (!Array.isArray(command.rowIds) || command.rowIds.length === 0 || command.rowIds.some((id) => typeof id !== "string") || new Set(command.rowIds).size !== command.rowIds.length) {
       return refused(document, "ROW_SELECTION_INVALID", "Select one or more distinct saved rows.");

@@ -100,6 +100,40 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("replays a legacy rowIds section deletion with %s acceptance", (mode) => {
+    const baseline = document();
+    const sectionId = id(770000);
+    const sectioned = row(770010);
+    const loose = row(770020);
+    const retained = row(770030);
+    baseline.stash = [{ id: id(770040), rows: [sectioned, loose, retained], supportingItems: [] }];
+    baseline.stashSections = [
+      { id: sectionId, title: "Old heading", rowIds: [sectioned.id] },
+      { id: id(770001), title: "Other", rowIds: [retained.id] },
+    ];
+    expect(baseline.stashOutline).toBeUndefined();
+    expect(validateScriptDocumentV2(baseline).valid).toBe(true);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "delete_stash_section", sectionId });
+    expect(trial.movedRowIds).toContain(sectioned.id);
+    expect(trial.document.stashOutline?.map((entry) => entry.rowId)).toEqual([sectioned.id, loose.id, retained.id]);
+    expect(trial.document.stashSections?.map((section) => section.rowIds)).toEqual([[]]);
+    const saved = trial.serialize();
+    const resumed = resumeSortingTrialV2(saved);
+    expect(resumed.document).toEqual(trial.document);
+    const result = mode === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, mode);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const output = result.document;
+    const applied = mode === "all" || mode === "sorting_only";
+    expect(output.stashOutline?.map((entry) => entry.rowId)).toEqual(applied ? [sectioned.id, loose.id, retained.id] : undefined);
+    expect(output.stashSections).toEqual(applied ? [{ id: id(770001), title: "Other", rowIds: [] }] : baseline.stashSections);
+    expect(output.stash).toEqual(baseline.stash);
+    expect(validateScriptDocumentV2(output).valid).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(output))).toEqual({ ok: true, document: output });
+    const undo = resumeSortingTrialV2(saved);
+    expect(undo.undo().ok).toBe(true);
+    expect({ ...undo.document, rowEditRevision: undefined }).toEqual({ ...baseline, rowEditRevision: undefined });
+  });
   it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes %s after the original note parent moves and two deleted children need the historical top fallback", (outcome) => {
     let baseline = applyDocument(document(), {
       kind: "create_stash_note", bundleId: id(6100), row: row(6101), sectionId: null, parentRowId: null, afterRowId: null, mode: "authored",
