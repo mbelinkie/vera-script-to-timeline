@@ -222,6 +222,98 @@ function gap(sectionId: string | null, afterRowId: string | null, beforeRowId: s
   return { sectionId, afterRowId, beforeRowId };
 }
 
+describe("script section-break edits", () => {
+  it("creates a titled section at the exact between-row gap, preserving rows and the prior section", () => {
+    const [a, b, c] = [row(800), row(801), row(802)];
+    const initial = documentWith([a, b, c]);
+    const sectionId = id(8100);
+    const created = applyRowEditV2(initial, 0, {
+      kind: "create_section", sectionId, title: "Chapter Two", destination: gap(null, a.id, b.id),
+    });
+    expect(created.ok).toBe(true);
+    expect(created.document.activeDraft.blocks).toEqual([
+      a, { type: "section", id: sectionId, orderKey: `section-${sectionId}`, title: "Chapter Two", version: 1 }, b, c,
+    ]);
+    expect(created.document.rowEditRevision).toBe(1);
+    expect(rows(created.document)).toEqual([a.id, b.id, c.id]);
+    expect(initial.activeDraft.blocks).toEqual([a, b, c]);
+    expect(selectRowRangeV2(created.document, a.id, c.id)).toMatchObject({ rowIds: [a.id], boundaryReached: true });
+
+    const named = documentWith([section(8101, "Opening"), a, b, c]);
+    const inNamed = applyRowEditV2(named, 0, {
+      kind: "create_section", sectionId, title: "  Kept as typed  ", destination: gap(id(8101), a.id, b.id),
+    });
+    expect(inNamed.ok).toBe(true);
+    expect(inNamed.document.activeDraft.blocks).toEqual([
+      section(8101, "Opening"), a,
+      { type: "section", id: sectionId, orderKey: `section-${sectionId}`, title: "  Kept as typed  ", version: 1 }, b, c,
+    ]);
+    expect(inNamed.document.rowEditRevision).toBe(1);
+    expect(validateScriptDocumentV2(inNamed.document).diagnostics).toEqual([]);
+  });
+
+  it("renames only the target heading title and version, with one document revision", () => {
+    const [a, b] = [row(820), row(821)];
+    const heading = section(8200, "Original");
+    const initial = documentWith([heading, a, b]);
+    const renamed = applyRowEditV2(initial, 0, {
+      kind: "rename_section", sectionId: heading.id, title: "  Renamed exactly  ",
+    });
+    expect(renamed.ok).toBe(true);
+    expect(renamed.document).toEqual({
+      ...initial,
+      rowEditRevision: 1,
+      activeDraft: { ...initial.activeDraft, blocks: [{ ...heading, title: "  Renamed exactly  ", version: 2 }, a, b] },
+    });
+    expect(initial.activeDraft.blocks[0]).toEqual(heading);
+  });
+
+  it("atomically refuses blank titles, wrong gaps, bad IDs, duplicates, and stale CAS", () => {
+    const [a, b, c] = [row(830), row(831), row(832)];
+    const heading = section(8300, "Existing");
+    const initial = documentWith([a, heading, b, c]);
+    const snapshot = structuredClone(initial);
+    const sectionId = id(8301);
+    const create = { kind: "create_section" as const, sectionId, title: "New", destination: gap(heading.id, b.id, c.id) };
+    const malformed: unknown[] = [
+      { ...create, title: "" },
+      { ...create, title: " \t " },
+      { ...create, title: 4 },
+      { ...create, sectionId: "not-a-uuid" },
+      { ...create, sectionId: a.id },
+      { ...create, sectionId: b.tokens[0]!.id },
+      { ...create, destination: gap(heading.id, null, b.id) },
+      { ...create, destination: gap(heading.id, c.id, null) },
+      { ...create, destination: gap(heading.id, a.id, b.id) },
+      { ...create, destination: gap(null, a.id, b.id) },
+      { ...create, destination: { ...create.destination, beforeRowId: 5 } },
+      { ...create, destination: { ...create.destination, extra: true } },
+      { ...create, unexpected: true },
+      { kind: "rename_section", sectionId: heading.id, title: " " },
+      { kind: "rename_section", sectionId: heading.id, title: heading.title },
+      { kind: "rename_section", sectionId: id(8302), title: "Missing" },
+      { kind: "rename_section", sectionId: heading.id, title: "Other", extra: true },
+    ];
+    const accessor = { ...create };
+    Object.defineProperty(accessor, "title", { get: () => "Accessor title", enumerable: true });
+    malformed.push(accessor);
+    for (const value of malformed) {
+      const result = applyRowEditV2(initial, 0, value as RowEditCommandV2);
+      expect(result.ok, JSON.stringify(value)).toBe(false);
+      expect(result.document, JSON.stringify(value)).toBe(initial);
+      expect(result.diagnostics.length).toBeGreaterThan(0);
+    }
+    const stale = applyRowEditV2(initial, 1, create);
+    expect(stale.ok).toBe(false);
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(stale.document).toBe(initial);
+    const staleRename = applyRowEditV2(initial, 1, { kind: "rename_section", sectionId: heading.id, title: "Renamed" });
+    expect(staleRename.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(staleRename.document).toBe(initial);
+    expect(initial).toEqual(snapshot);
+  });
+});
+
 describe("provisional Sorting trials", () => {
   it("keeps script and saved Stash canonical until one complete acceptance", () => {
     const [a, b, c] = [richNarration(610), row(630), row(650)];
