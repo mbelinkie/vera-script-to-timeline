@@ -3533,6 +3533,7 @@ def _validate_encoded_bars_evidence(
             rate,
             (source_start, source_end),
             timeline_size,
+            color_range,
         )
     return evidence
 
@@ -3545,6 +3546,7 @@ def _validate_encoded_bars_analysis(
     rate: Fraction,
     source_range: tuple[int, int],
     timeline_size: tuple[int, int],
+    color_range: str | None,
 ) -> None:
     expected_keys = {
         "source_size",
@@ -3572,7 +3574,7 @@ def _validate_encoded_bars_analysis(
     if (
         analysis.get("source_size") != list(source_size)
         or analysis.get("used_range") != expected_used_range
-        or analysis.get("color_range") != video.get("color_range")
+        or analysis.get("color_range") != color_range
         or frame_rate_value != expected_rate
         or not isinstance(analysis.get("samples"), list)
     ):

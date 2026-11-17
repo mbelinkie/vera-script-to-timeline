@@ -1312,8 +1312,10 @@ zero pan/tilt to the same generated clip profiles and verified the item
 properties after save, close and reopen. Stills from the first, middle and
 last frame of each used interval showed picture in both former bar regions.
 An off build of the same media reopened with 1.0 zoom and zero pan/tilt on
-both clips. Reuse is limited to centered bars on video through the measured
-clip placement route with matching source and timeline aspect.
+both clips. A second opt-in build reopened all six clips. The dark, changing,
+ambiguous and explicitly framed controls all kept 1.0 zoom and zero pan/tilt.
+Reuse is limited to centered bars on video through the measured clip
+placement route with matching source and timeline aspect.
 
 **#594 standalone source audio delta:** Studio **21.2.0 build 6**,
 Local scripting, Intel Mac. The regular Prep Media and build commands delivered
