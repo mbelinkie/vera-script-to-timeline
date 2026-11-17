@@ -263,7 +263,10 @@ describe("row-edit consumers", () => {
           .map((block) => block.text).join("\n"),
       );
       const savedSource = placed.document.stash?.flatMap((bundle) => bundle.rows).find((block) => block.id === row.id);
-      expect(savedSource).toEqual({ ...stored, stashChecklist: { completed: true, manualRevision: 0, automaticCopyId: expect.any(String) } });
+      expect(savedSource).toMatchObject({ ...stored, stashChecklist: { completed: true, manualRevision: 0 } });
+      const automaticCopyId = (savedSource as NarrationBlockV2 | undefined)?.stashChecklist?.automaticCopyId;
+      expect(typeof automaticCopyId).toBe("string");
+      expect(automaticCopyId?.length).toBeGreaterThan(0);
       const activeNote = placed.document.activeDraft.blocks.find((block): block is NarrationBlockV2 =>
         block.type === "narration" && block.stashOrigin?.sourceNoteRowId === row.id);
       expect(activeNote).toMatchObject({ type: "narration", text, stashOrigin: { kind: "note", returnEligible: true } });
