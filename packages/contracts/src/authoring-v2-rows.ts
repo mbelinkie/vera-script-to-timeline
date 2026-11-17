@@ -20,6 +20,11 @@ import {
   type JoinRowsCommandV2,
   type SplitRowCommandV2,
 } from "./authoring-v2-row-split-join.js";
+import {
+  isStashSelectedWordsCommandV2,
+  preparePlainStashWordCutV2,
+  type StashSelectedWordsCommandV2,
+} from "./authoring-v2-stash-words.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -35,6 +40,7 @@ export type RowEditCommandV2 =
   | { kind: "rename_section"; sectionId: string; title: string }
   | { kind: "delete_section_break"; sectionId: string }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
+  | StashSelectedWordsCommandV2
   | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
   | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
   | { kind: "move_stash_group"; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
@@ -1251,6 +1257,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       Object.hasOwn(command, "destination") && !stashReturnDestinationPayload(command.destination))) {
       return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash return and an exact optional outline drop destination.");
     }
+    if (command.kind === "stash_selected_words" && (!isJsonValue(command) || !isStashSelectedWordsCommandV2(command))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide one exact word selection, source row and unused Stash IDs.");
+    }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
@@ -1323,7 +1332,19 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   const blocks = working.activeDraft.blocks;
   let moved: Row[] = [];
   let placementCounts: RowEditResultV2["placementCounts"];
-  if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
+  if (command.kind === "stash_selected_words") {
+    // Construct both sides before writing: an unsafe selection never leaves
+    // half a note in Stash or removes only part of the narration text.
+    const cut = preparePlainStashWordCutV2(document, command, documentUuids(document));
+    if ("code" in cut) return { ok: false, document, diagnostics: [cut] };
+    const index = blocks.findIndex((block) => block.id === command.rowId);
+    blocks.splice(index, 1, cut.updated);
+    const outline = ensureStashOutline(working);
+    // Always prepend to unsectioned Stash (not the old afterRowId:null append
+    // behaviour), preserving all existing section roots and child preorders.
+    outline.unshift({ rowId: cut.note.id, kind: "note", sectionId: null, parentRowId: null });
+    (working.stash ??= []).push({ id: command.bundleId, rows: [cut.note], supportingItems: [] });
+  } else if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
     const outline = ensureStashOutline(working);
@@ -2059,7 +2080,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
