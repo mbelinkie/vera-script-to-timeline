@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { linkSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
@@ -40,7 +40,7 @@ export async function runExportAuthoringCli(
     return EXPORT_AUTHORING_EXIT.usage;
   }
   const projectId = suppliedProjectId.toLowerCase();
-  const outputPath = resolve(env.INIT_CWD || process.cwd(), requestedOutputPath);
+  const outputPath = resolve(env.VERA_EXPORT_CWD || env.INIT_CWD || process.cwd(), requestedOutputPath);
 
   const token = env.VERA_STT_QA_AUTHORING_TOKEN;
   if (!token || !TOKEN.test(token)) {
@@ -114,12 +114,21 @@ export async function runExportAuthoringCli(
     return EXPORT_AUTHORING_EXIT.refused;
   }
 
+  let staging: string | undefined;
   try {
-    // Exclusive creation refuses existing files and symlinks without a preflight race.
-    writeFileSync(outputPath, `${serialized}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    staging = mkdtempSync(join(dirname(outputPath), ".vera-export-"));
+    const stagedFile = join(staging, "script.json");
+    writeFileSync(stagedFile, `${serialized}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    // Link a complete file into place. Existing paths are refused atomically.
+    linkSync(stagedFile, outputPath);
   } catch {
     process.stderr.write(`WRITE_ERROR: Could not create ${outputPath}; the command never overwrites files.\n`);
     return EXPORT_AUTHORING_EXIT.write;
+  } finally {
+    if (staging) {
+      try { rmSync(staging, { recursive: true, force: true }); }
+      catch { process.stderr.write("WRITE_WARNING: Could not remove the export staging directory.\n"); }
+    }
   }
 
   process.stdout.write(`Saved project ${projectId} script to ${outputPath}\n`);

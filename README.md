@@ -81,7 +81,8 @@ export VERA_STT_QA_AUTHORING_TOKEN
 npm run serve:authoring
 ```
 
-Open the URL printed by the host. In the browser address, the project ID is the
+Open the private URL printed by the host to connect your browser to this local
+identity. Keep that launch link private. In the browser address, the project ID is the
 UUID after `?project=`. In a second terminal, write the current saved document
 to a new JSON file. The exporter reads the authenticated project document,
 validates it as `ScriptDocumentV2`, and creates the output file exclusively.

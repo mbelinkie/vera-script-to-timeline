@@ -21,9 +21,13 @@ let saveTimer;
 let saving = false;
 let opening = false;
 let conflicted = false;
+const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
+const sessionKey = "vera.authoring.sessionProof";
+let sessionProof = "";
 
 async function api(path, method = "GET", data) {
-  const headers = { "X-VERA-Authoring": "1" };
+  await connecting;
+  const headers = { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
   if (data) headers["Content-Type"] = "application/json";
   const response = await fetch(`/authoring/projects${path}`, {
     method, headers, body: data && JSON.stringify(data),
@@ -98,6 +102,10 @@ async function showScript(projectId) {
 }
 
 function showOpenError(error) {
+  if (error instanceof ApiError && error.status === 401) {
+    homeStatus.textContent = browserRequired;
+    return;
+  }
   homeStatus.textContent = error instanceof ApiError && [403, 404].includes(error.status) ?
     "Couldn’t open that script. Check the link or project ID." :
     "Couldn’t load the script. Check that VERA Authoring is running and try again.";
@@ -141,8 +149,8 @@ newForm.addEventListener("submit", async (event) => {
     created = true;
     await showScript(pendingCreate.projectId);
     pendingCreate = undefined;
-  } catch {
-    homeStatus.textContent = created ?
+  } catch (error) {
+    homeStatus.textContent = error instanceof ApiError && error.status === 401 ? browserRequired : created ?
       "Script saved. Couldn’t open it. Try Start script again." :
       "Couldn’t save the new script. Its name is still here. Try Start script again.";
   } finally {
@@ -226,6 +234,26 @@ function protectDraft(event) {
 }
 
 window.addEventListener("beforeunload", protectDraft);
+async function connectBrowser() {
+  try { sessionProof = localStorage.getItem(sessionKey) ?? ""; } catch { /* The current page can still connect. */ }
+  const launchCode = new URLSearchParams(location.hash.slice(1)).get("launch");
+  if (!launchCode) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  try {
+    const response = await fetch("/authoring/session", {
+      method: "POST", headers: { "X-VERA-Authoring": "1", "X-VERA-Launch": launchCode },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (response.ok) {
+      ({ sessionProof } = await response.json());
+      try { localStorage.setItem(sessionKey, sessionProof); } catch { /* Keep the proof in this page. */ }
+      return;
+    }
+  } catch { /* Show the same recovery for an unavailable host. */ }
+  homeStatus.textContent = browserRequired;
+}
+
+const connecting = connectBrowser();
 const initialProject = new URLSearchParams(location.search).get("project");
 if (initialProject !== null) {
   openLink.value = initialProject;

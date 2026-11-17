@@ -1,7 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -128,6 +128,7 @@ async function appRequest(
       method: requestMethod,
       headers: {
         "X-VERA-Authoring": "1",
+        "X-VERA-Session": localStorage.getItem("vera.authoring.sessionProof") ?? "",
         ...(requestBody === undefined ? {} : { "Content-Type": "application/json" }),
       },
       ...(requestBody === undefined ? {} : { body: JSON.stringify(requestBody) }),
@@ -203,6 +204,12 @@ describe("browser authoring over the local project service", () => {
     await startHost();
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:${config.port}/#launch=${host!.authoringLaunchCode!}`);
+    await expect.poll(async () => await page.evaluate(() =>
+      localStorage.getItem("vera.authoring.sessionProof")?.length)).toBe(64);
+    expect(new URL(page.url()).hash).toBe("");
+    await page.close();
   }, 60_000);
 
   afterAll(async () => {
@@ -307,12 +314,16 @@ describe("browser authoring over the local project service", () => {
       VERA_STT_QA_PORT: String(config.port),
       VERA_STT_QA_AUTHORING_TOKEN: authoringToken,
     };
-    await execFile("npm", ["run", "export:script", "--", projectId, exportedPath], {
-      cwd: REPOSITORY_ROOT,
+    const exportCommand = ["--prefix", REPOSITORY_ROOT, "run", "export:script", "--", projectId, "browser-export.json"];
+    const exportOptions = {
+      cwd: directory,
       env,
       timeout: 60_000,
       maxBuffer: 4 * 1024 * 1024,
-    });
+    };
+    await execFile("npm", exportCommand, exportOptions);
+    await expect(execFile("npm", exportCommand, exportOptions)).rejects.toMatchObject({ code: 73 });
+    expect((await readdir(directory)).some((entry) => entry.startsWith(".vera-export-"))).toBe(false);
     const persisted = await appRequest(page, `/authoring/projects/${projectId}/document`);
     expect(persisted.status).toBe(200);
     expect(JSON.parse(await readFile(exportedPath, "utf8"))).toEqual(

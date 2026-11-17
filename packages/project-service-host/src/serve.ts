@@ -39,6 +39,7 @@ function protectedCheckoutRoots(): readonly string[] {
 
 export interface QaRunningServer {
   readonly server: Server;
+  readonly authoringLaunchCode?: string;
   stop(): Promise<void>;
 }
 
@@ -147,10 +148,10 @@ export async function startQaServer(
     };
     const authoring = authorization === undefined ? undefined : createAuthoringHandler(origin, authorization, handleApi);
     server = await listenQaHttp(config.bindHost, config.port,
-      async (request) => await authoring?.(request) ?? await handleApi(request),
+      async (request) => await authoring?.handle(request) ?? await handleApi(request),
       createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
     if (idleFailed) throw new QaStartupRefusal();
-    return { server, stop };
+    return { server, stop, ...(authoring && { authoringLaunchCode: authoring.launchCode }) };
   } catch {
     await stop().catch(() => undefined);
     throw new QaStartupRefusal();
@@ -191,8 +192,9 @@ async function main(): Promise<void> {
   const running = await serveQaFromEnvironment(process.env, authoring);
   const addr = running.server.address();
   if (typeof addr !== "object" || addr === null) throw new QaStartupRefusal();
-  // Do not print environment, database URLs, identity paths, actors or tokens.
-  process.stdout.write(authoring ? `Open VERA Authoring at http://127.0.0.1:${addr.port}/\n` :
+  // The local link carries a per-launch browser code. Keep the API token private.
+  process.stdout.write(running.authoringLaunchCode ?
+    `Open VERA Authoring at http://127.0.0.1:${addr.port}/#launch=${running.authoringLaunchCode}\n` :
     `STT development-QA listening on 127.0.0.1:${addr.port}\n`);
   const shutdown = () => { void running.stop().catch(() => { process.exitCode = 1; }); };
   process.once("SIGINT", shutdown);

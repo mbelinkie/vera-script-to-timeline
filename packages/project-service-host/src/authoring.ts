@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -9,14 +10,23 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const PROOF = /^[0-9a-f]{64}$/u;
+
+function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
+  return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
+}
 
 /** Same-origin access to only the single-writer project/document routes. */
 export function createAuthoringHandler(
   origin: string,
   authorization: string,
   projects: (request: Request) => Promise<Response>,
-): (request: Request) => Promise<Response | undefined> {
-  return async (request) => {
+) {
+  const launchProof = randomBytes(32);
+  // Keep the enrolled browser working after host restart. Tie it to the
+  // configured identity and port without giving the browser the API token.
+  const browserProof = createHmac("sha256", authorization).update(`vera-authoring:${origin}`).digest();
+  const handle = async (request: Request): Promise<Response | undefined> => {
     const url = new URL(request.url);
     const asset = request.method === "GET" ? ASSETS.get(url.pathname) : undefined;
     if (asset) {
@@ -34,9 +44,10 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const startsSession = path === "/session" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
-    if (!allowed || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+    if ((!allowed && !startsSession) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
 
     // Cross-origin browser code cannot set this header without a successful
     // CORS preflight. Fetch Metadata also excludes other sites and local ports.
@@ -45,6 +56,12 @@ export function createAuthoringHandler(
         request.headers.get("x-vera-authoring") !== "1" ||
         (suppliedOrigin !== null && suppliedOrigin !== origin)) {
       return Response.json({ error: "same_origin_required" }, { status: 403 });
+    }
+    if (startsSession && matchesProof(request.headers.get("x-vera-launch"), launchProof)) {
+      return Response.json({ sessionProof: browserProof.toString("hex") });
+    }
+    if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
+      return Response.json({ error: "authoring_browser_required" }, { status: 401 });
     }
     const headers = new Headers({ authorization });
     const contentType = request.headers.get("content-type");
@@ -55,4 +72,5 @@ export function createAuthoringHandler(
       body: request.body ? await request.arrayBuffer() : null,
     }));
   };
+  return { launchCode: launchProof.toString("hex"), handle };
 }

@@ -185,6 +185,15 @@ describe("development QA service bootstrap and shutdown", () => {
     expect((await fetch(route, { headers: {
       "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: "http://127.0.0.1:2",
     } })).status).toBe(403);
+    expect((await fetch(route, { headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+    } })).status).toBe(401);
+    const deniedSession = await fetch(`${origin}/authoring/session`, { method: "POST", headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+      "X-VERA-Launch": randomBytes(32).toString("hex"),
+    } });
+    expect(deniedSession.status).toBe(401);
+    expect(await deniedSession.json()).toEqual({ error: "authoring_browser_required" });
     expect((await fetch(route + "/builds", { headers: {
       "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
     } })).status).toBe(404);
