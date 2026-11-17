@@ -7,7 +7,10 @@ import {
   deserializeAuthoringDocumentV2,
   projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
+  spliceSpokenStashNoteV2,
+  copyStashNoteAsSpokenV2,
   validateScriptDocumentV2,
+  type InsertStashNoteWordsCommandV2,
   type StashSelectedWordsCommandV2,
 } from "../src/authoring-v2.js";
 import type { ContentSlot, NarrationBlockV2, ReturnSlot, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
@@ -287,6 +290,250 @@ describe("#584 phase 1: select narration words to top-of-Stash plain note", () =
     expect(refused.diagnostics.some((entry) => entry.code === "ROW_REFERENCE_REVIEW_REQUIRED")).toBe(true);
     expect(refused.document).toBe(doc);
     expect(doc.activeDraft.blocks[0]).toEqual(source);
+  });
+});
+
+describe("#584 phase 3: inline note speech and independent first-word footage", () => {
+  const note = (n: number, text = "[literal] words"): NarrationBlockV2 => {
+    const result = row(n, text);
+    result.plainDirection = true;
+    result.tokens.forEach((token) => { token.spoken = false; });
+    return result;
+  };
+  const withAttachment = (source: NarrationBlockV2): void => {
+    source.attachedFootage = { clip: {
+      type: "visual_only", id: id(45000), orderKey: "stash-clip",
+      payload: { kind: "visual", payloadId: id(45001), pictureKind: "clip",
+        source: { kind: "media_reference", mediaReferenceId: id(45002) },
+        audioPolicy: "quiet", framingPolicy: "contain" },
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 13, durationFrames: 55 } },
+      version: 1,
+    } };
+  };
+  const fixture = (attach = false) => {
+    const target = row(300, "Alpha beta");
+    const source = note(301);
+    const child = note(302, "untouched child");
+    if (attach) withAttachment(source);
+    const doc = documentWith(target);
+    doc.stash = [
+      { id: id(46000), rows: [source], supportingItems: [] },
+      { id: id(46001), rows: [child], supportingItems: [] },
+    ];
+    doc.stashOutline = [
+      { rowId: source.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: child.id, kind: "note", parentRowId: source.id, sectionId: null },
+    ];
+    const command: InsertStashNoteWordsCommandV2 = {
+      kind: "insert_stash_note_words", rowId: target.id, noteRowId: source.id,
+      beforeTokenId: target.tokens[1]!.id,
+    };
+    return { doc, target, source, child, command };
+  };
+  const saved = (doc: ScriptDocumentV2, id: string) => doc.stash!.flatMap((bundle) => bundle.rows)
+    .find((item) => item.id === id) as NarrationBlockV2;
+
+  it("splices brackets as spoken words with original neighbor IDs, checks only the source and survives save/reload", () => {
+    const { doc, target, source, child, command } = fixture();
+    const session = createRowEditSessionV2(doc);
+    const added = session.apply(command);
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    const placed = added.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(placed.text).toBe("Alpha [literal] words beta");
+    expect(placed.tokens.map((token) => token.value)).toEqual(["Alpha", "[literal]", "words", "beta"]);
+    expect(placed.tokens.map((token) => token.id).filter((id) => target.tokens.some((t) => t.id === id)))
+      .toEqual(target.tokens.map((token) => token.id));
+    expect(placed.tokens.slice(1, 3).every((token) => token.spoken === true)).toBe(true);
+    expect(placed.stashOrigin).toBeUndefined();
+    expect(placed.version).toBe(2);
+    assertOffsets(placed);
+    expect(saved(added.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+    expect(saved(added.document, source.id).text).toBe(source.text);
+    expect(saved(added.document, child.id)).toEqual(child);
+    expect(added.document.stashOutline).toEqual(doc.stashOutline);
+    expect(added.document.rowEditRevision).toBe(1);
+    expect(session.undoDepth).toBe(1);
+    expect(validateScriptDocumentV2(added.document).valid).toBe(true);
+    const restored = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(added.document));
+    expect(restored.ok).toBe(true);
+    if (restored.ok) expect(restored.document).toEqual(added.document);
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    expect({ ...undone.document, rowEditRevision: undefined }).toEqual({ ...doc, rowEditRevision: undefined });
+    expect(session.undoDepth).toBe(0);
+    const redone = session.redo();
+    expect(redone.ok).toBe(true);
+    expect({ ...redone.document, rowEditRevision: undefined })
+      .toEqual({ ...added.document, rowEditRevision: undefined });
+    expect(redone.document.rowEditRevision).toBe(3);
+    expect(session.redoDepth).toBe(0);
+  });
+
+  it("copies trimmed footage to exactly the first inserted word with fresh visual ownership", () => {
+    const { doc, target, source, command } = fixture(true);
+    const original = structuredClone(source.attachedFootage);
+    const applied = applyRowEditV2(doc, 0, command);
+    expect(applied.ok, JSON.stringify(applied.diagnostics)).toBe(true);
+    const active = applied.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const visuals = active.primaryVisualSequence!.slots.filter((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual") as ContentSlot[];
+    expect(visuals).toHaveLength(1);
+    const inserted = active.tokens[1]!;
+    expect(visuals[0]!.boundaryBefore).toMatchObject({ kind: "spoken_word", anchor: { tokenId: inserted.id } });
+    expect(visuals[0]!.id).not.toBe(source.primaryVisualSequence!.slots[0]!.id);
+    expect(visuals[0]!.payload.kind).toBe("visual");
+    if (visuals[0]!.payload.kind !== "visual") throw Error("missing copied clip");
+    expect(visuals[0]!.payload.payloadId).not.toBe(original!.clip.payload.payloadId);
+    expect(visuals[0]!.payload.source).toEqual(original!.clip.payload.source);
+    expect(visuals[0]!.payload.selectedSourceRange).toEqual({ startFrame: 13, durationFrames: 55 });
+    expect(visuals[0]!.payload.audioPolicy).toBe("quiet");
+    expect(active.attachedFootage).toBeUndefined();
+    expect(saved(applied.document, source.id).attachedFootage).toEqual(original);
+    expect(source.attachedFootage).toEqual(original);
+    const assigned = projectPrimarySequenceV2(applied.document).rows[0]!.tokens;
+    expect(assigned[1]!.primarySlotId).toBe(visuals[0]!.id);
+    expect(assigned[2]!.primarySlotId).not.toBe(visuals[0]!.id);
+    expect(assigned[0]!.primarySlotId).not.toBe(visuals[0]!.id);
+    expect(assigned[3]!.primarySlotId).not.toBe(visuals[0]!.id);
+    expect(active.tokens[0]!.id).toBe(target.tokens[0]!.id);
+    expect(validateScriptDocumentV2(applied.document).diagnostics).toEqual([]);
+
+    const second = applyRowEditV2(applied.document, 1, command);
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const again = second.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const slots = again.primaryVisualSequence!.slots.filter((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual") as ContentSlot[];
+    expect(slots).toHaveLength(2);
+    expect(new Set(slots.map((slot) => slot.id)).size).toBe(2);
+    expect(saved(second.document, source.id).attachedFootage).toEqual(original);
+    expect(saved(second.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+  });
+
+  it("preserves manual checkbox history and never overwrites an earlier automatic copy identity", () => {
+    const { doc, source, command } = fixture();
+    source.stashChecklist = { completed: true, manualRevision: 7, automaticCopyId: id(47000) };
+    const result = applyRowEditV2(doc, 0, command);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(saved(result.document, source.id).stashChecklist).toEqual(source.stashChecklist);
+    const unchecked = structuredClone(doc);
+    saved(unchecked, source.id).stashChecklist = { completed: false, manualRevision: 8 };
+    const first = applyRowEditV2(unchecked, 0, command);
+    expect(first.ok).toBe(true);
+    expect(saved(first.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 8 });
+  });
+
+  it("keeps existing real stage directions and UTF-16 offsets, while inserted brackets stay literal", () => {
+    const { doc, source, target, command } = fixture();
+    source.text = "🎬 [literal] words\n";
+    source.tokens = [...source.text.matchAll(/\S+/gu)].map((match, index) => ({
+      id: id(48000 + index), value: match[0], startOffset: match.index,
+      endOffset: match.index + match[0].length, spoken: false,
+    }));
+    target.text = "Hello [quiet] there beta\n";
+    target.tokens = [
+      { ...target.tokens[0]!, value: "Hello", startOffset: 0, endOffset: 5 },
+      { id: id(48010), value: "quiet", startOffset: 7, endOffset: 12, spoken: false },
+      { id: id(48011), value: "there", startOffset: 14, endOffset: 19 },
+      { ...target.tokens[1]!, value: "beta", startOffset: 20, endOffset: 24 },
+    ];
+    expect(validateScriptDocumentV2(doc).valid).toBe(true);
+    const copied = copyStashNoteAsSpokenV2(source, "pure-test-584");
+    const pure = spliceSpokenStashNoteV2(target, copied, command.beforeTokenId);
+    expect("error" in pure).toBe(false);
+    if ("error" in pure) throw Error(pure.error);
+    expect(pure.row.text).toBe("Hello [quiet] there 🎬 [literal] words\nbeta\n");
+    expect(pure.row.tokens[1]!.spoken).toBe(false);
+    expect(pure.row.tokens.slice(3, 6).every((token) => token.spoken === true)).toBe(true);
+    assertOffsets(pure.row);
+    const applied = applyRowEditV2(doc, 0, command);
+    expect(applied.ok, JSON.stringify(applied.diagnostics)).toBe(true);
+    expect((applied.document.activeDraft.blocks[0] as NarrationBlockV2).text).toBe(pure.row.text);
+    expect(validateScriptDocumentV2(applied.document).valid).toBe(true);
+  });
+
+  it("refuses invalid gap, source, stale revision, malformed command and unsafe attachment atomically", () => {
+    const { doc, source, target, command } = fixture(true);
+    const cases: Array<{ input: unknown; rev?: number; code: string }> = [
+      { input: command, rev: 1, code: "ROW_REVISION_STALE" },
+      { input: { ...command, beforeTokenId: target.tokens[0]!.id }, code: "STASH_NOTE_INSERT_INVALID" },
+      { input: { ...command, beforeTokenId: id(59999) }, code: "STASH_NOTE_INSERT_INVALID" },
+      { input: { ...command, noteRowId: id(59998) }, code: "STASH_NOTE_CONTENT_INVALID" },
+      { input: { ...command, extra: true }, code: "ROW_COMMAND_INVALID" },
+      { input: { ...command, rowId: "not-uuid" }, code: "ROW_COMMAND_INVALID" },
+    ];
+    for (const { input, rev = 0, code } of cases) {
+      const before = structuredClone(doc);
+      const refused = applyRowEditV2(doc, rev, input as InsertStashNoteWordsCommandV2);
+      expect(refused.ok, JSON.stringify(input)).toBe(false);
+      expect(refused.diagnostics.map((item) => item.code), JSON.stringify(input)).toContain(code);
+      expect(refused.document).toBe(doc);
+      expect(doc).toEqual(before);
+    }
+    const fullAudio = structuredClone(doc);
+    saved(fullAudio, source.id).attachedFootage!.clip.payload.audioPolicy = "full";
+    const refused = applyRowEditV2(fullAudio, 0, command);
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics[0]?.code).toBe("STASH_ATTACHMENT_VISUAL_CONFLICT");
+    expect(refused.document).toBe(fullAudio);
+
+    const brokenOffset = structuredClone(doc);
+    (brokenOffset.activeDraft.blocks[0] as NarrationBlockV2).tokens[0]!.endOffset = 1;
+    const bad = applyRowEditV2(brokenOffset, 0, command);
+    expect(bad.ok).toBe(false);
+    expect(bad.document).toBe(brokenOffset);
+
+    const collision = structuredClone(doc);
+    const minted = copyStashNoteAsSpokenV2(source,
+      `${doc.id}:0:${source.id}:inline:${target.id}`);
+    (collision.activeDraft.blocks[0] as NarrationBlockV2).tokens[0]!.id = minted.tokens[0]!.id;
+    const duplicated = applyRowEditV2(collision, 0, command);
+    expect(duplicated.ok).toBe(false);
+    expect(duplicated.diagnostics[0]?.code).toBe("STASH_WORD_ID_DUPLICATE");
+    expect(duplicated.document).toBe(collision);
+  });
+
+  it("refuses blank notes, genuine nonspoken direction gaps and destination rows with owned footage", () => {
+    const { doc, source, command } = fixture();
+    source.text = "";
+    source.tokens = [];
+    const blank = applyRowEditV2(doc, 0, command);
+    expect(blank.ok).toBe(false);
+    expect(blank.diagnostics[0]?.code).toBe("STASH_NOTE_CONTENT_INVALID");
+    expect(blank.document).toBe(doc);
+
+    const withDirection = fixture();
+    const receiver = withDirection.target;
+    receiver.text = "Alpha [quiet] beta";
+    receiver.tokens = [
+      { ...receiver.tokens[0]!, value: "Alpha", startOffset: 0, endOffset: 5 },
+      { id: id(48020), value: "quiet", startOffset: 7, endOffset: 12, spoken: false },
+      { ...receiver.tokens[1]!, value: "beta", startOffset: 14, endOffset: 18 },
+    ];
+    expect(validateScriptDocumentV2(withDirection.doc).valid).toBe(true);
+    const badGap = applyRowEditV2(withDirection.doc, 0, withDirection.command);
+    expect(badGap.ok).toBe(false);
+    expect(badGap.diagnostics[0]?.code).toBe("STASH_NOTE_INSERT_INVALID");
+    expect(badGap.document).toBe(withDirection.doc);
+
+    const ownedTarget = fixture();
+    withAttachment(ownedTarget.target);
+    const conflict = applyRowEditV2(ownedTarget.doc, 0, ownedTarget.command);
+    expect(conflict.ok).toBe(false);
+    expect(conflict.diagnostics[0]?.code).toBe("NARRATION_TEXT_TARGET_INVALID");
+    expect(conflict.document).toBe(ownedTarget.doc);
+  });
+
+  it("does not retain stale redo after a new edit, and failed edits add no Undo", () => {
+    const { doc, target, command } = fixture();
+    const session = createRowEditSessionV2(doc);
+    expect(session.apply({ ...command, beforeTokenId: target.tokens[0]!.id }).ok).toBe(false);
+    expect(session.undoDepth).toBe(0);
+    expect(session.apply(command).ok).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    expect(session.redoDepth).toBe(1);
+    expect(session.apply(command).ok).toBe(true);
+    expect(session.redoDepth).toBe(0);
+    expect(session.redo().diagnostics[0]?.code).toBe("ROW_REDO_EMPTY");
   });
 });
 

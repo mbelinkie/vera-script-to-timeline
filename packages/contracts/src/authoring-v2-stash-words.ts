@@ -3,7 +3,7 @@ import type { AuthoringDiagnosticV2 } from "./authoring-v2.js";
 import { derivedCoverageIdV2, isCoverageRefusalV2, redistributeCoverageV2 } from "./authoring-v2-coverage.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { markStashOriginEditedV2 } from "./authoring-v2-stash-origin.js";
-import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
+import { inspectStageDirectionsV2, spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { wordCoverageOffsetV2 } from "./authoring-v2-validation.js";
 import { cutNarrationWordRangeV2, moveWordAnchoredEntitiesToStashV2, type RowWordSelectionV2 } from "./authoring-v2-row-split-join.js";
 
@@ -14,6 +14,14 @@ export type StashSelectedWordsCommandV2 = {
   words: RowWordSelectionV2;
   bundleId: string;
   stashRowId: string;
+};
+
+/** The right-hand spoken word identifies an interior gap, never an offset guessed from text. */
+export type InsertStashNoteWordsCommandV2 = {
+  kind: "insert_stash_note_words";
+  noteRowId: string;
+  rowId: string;
+  beforeTokenId: string;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -33,6 +41,81 @@ export function isStashSelectedWordsCommandV2(value: unknown): value is StashSel
     Object.hasOwn(selection, "endTokenId") &&
     typeof selection.startTokenId === "string" && UUID.test(selection.startTokenId) &&
     typeof selection.endTokenId === "string" && UUID.test(selection.endTokenId);
+}
+
+export function isInsertStashNoteWordsCommandV2(value: unknown): value is InsertStashNoteWordsCommandV2 {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return false;
+  const command = value as Record<string, unknown>;
+  return Object.keys(command).length === 4 &&
+    ["kind", "noteRowId", "rowId", "beforeTokenId"].every((key) => Object.hasOwn(command, key)) &&
+    command.kind === "insert_stash_note_words" &&
+    [command.noteRowId, command.rowId, command.beforeTokenId].every((id) => typeof id === "string" && UUID.test(id));
+}
+
+export type SpokenNoteSpliceV2 =
+  | { row: NarrationBlockV2; firstInsertedTokenId: string }
+  | { error: string };
+
+function validSpokenSpliceText(row: NarrationBlockV2): boolean {
+  for (let offset = 0; offset < row.text.length; offset += 1) {
+    const unit = row.text.charCodeAt(offset);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = row.text.charCodeAt(offset + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      offset += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+  }
+  let previousEnd = 0;
+  return row.tokens.every((token) => {
+    if (!Number.isSafeInteger(token.startOffset) || !Number.isSafeInteger(token.endOffset) ||
+      token.startOffset < previousEnd || token.endOffset <= token.startOffset || token.endOffset > row.text.length ||
+      row.text.slice(token.startOffset, token.endOffset) !== token.value) return false;
+    previousEnd = token.endOffset;
+    return true;
+  });
+}
+
+/** Pure UTF-16 splice: preserve every existing token ID, and treat note brackets as speech. */
+export function spliceSpokenStashNoteV2(
+  target: NarrationBlockV2,
+  copiedNote: NarrationBlockV2,
+  beforeTokenId: string,
+): SpokenNoteSpliceV2 {
+  if (target.type !== "narration" || target.plainDirection === true ||
+    copiedNote.type !== "narration" || copiedNote.plainDirection === true ||
+    copiedNote.tokens.length === 0 || copiedNote.tokens.some((token) => token.spoken === false)) {
+    return { error: "Choose a nonblank spoken note and an editable narration row." };
+  }
+  if (!validSpokenSpliceText(target) || !validSpokenSpliceText(copiedNote)) {
+    return { error: "The saved word offsets or Unicode text cannot be spliced safely." };
+  }
+  const boundary = target.tokens.findIndex((token) => token.id === beforeTokenId);
+  if (boundary < 1 || boundary >= target.tokens.length ||
+    target.tokens[boundary - 1]!.spoken === false || target.tokens[boundary]!.spoken === false) {
+    return { error: "Choose a gap between adjacent spoken words in the same row." };
+  }
+  const directions = inspectStageDirectionsV2(target);
+  if (directions.issues.length || directions.runs.some((run) =>
+    run.startTokenIndex < boundary && boundary < run.endTokenIndexExclusive)) {
+    return { error: "A note cannot be inserted into a stage direction." };
+  }
+  const offset = target.tokens[boundary]!.startOffset;
+  const left = target.text.slice(0, offset);
+  const right = target.text.slice(offset);
+  const before = left && !/\s$/u.test(left) && !/^\s/u.test(copiedNote.text) ? " " : "";
+  const after = right && !/\s$/u.test(copiedNote.text) && !/^\s/u.test(right) ? " " : "";
+  const insertion = before + copiedNote.text + after;
+  const newTokenStart = left.length + before.length;
+  const row = structuredClone(target);
+  row.text = left + insertion + right;
+  row.tokens = [
+    ...target.tokens.slice(0, boundary).map((token) => ({ ...token })),
+    ...copiedNote.tokens.map((token) => ({ ...token, spoken: true,
+      startOffset: token.startOffset + newTokenStart, endOffset: token.endOffset + newTokenStart })),
+    ...target.tokens.slice(boundary).map((token) => ({ ...token,
+      startOffset: token.startOffset + insertion.length, endOffset: token.endOffset + insertion.length })),
+  ];
+  return { row, firstInsertedTokenId: copiedNote.tokens[0]!.id };
 }
 
 const issue = (code: string, message: string, blockId?: string): AuthoringDiagnosticV2 => ({
