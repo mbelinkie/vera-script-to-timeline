@@ -109,6 +109,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     move_stash_rows: ["kind", "rowIds", "sectionId"],
     set_stash_outline: ["kind", "entries"],
     place_stash_rows: ["kind", "rowIds", "destination"],
+    set_stash_completion: ["kind", "rowId", "completed"],
     attach_stash_footage: ["kind", "noteRowId", "clipRowId"],
     replace_stash_footage: ["kind", "noteRowId", "clipRowId", "releasedBundleId"],
     detach_stash_footage: ["kind", "noteRowId", "bundleId"],
@@ -131,6 +132,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
+  if (kind === "set_stash_completion") return typeof value.rowId === "string" && value.rowId.length > 0 && typeof value.completed === "boolean";
   if (kind === "edit_row") return typeof value.rowId === "string";
   if (kind === "place_stash_rows" && Object.hasOwn(value, "includeDescendants") && typeof value.includeDescendants !== "boolean") return false;
   if (kind === "attach_stash_footage" || kind === "replace_stash_footage" || kind === "detach_stash_footage" || kind === "cleanup_blank_stash_note" || kind === "place_attached_footage") {

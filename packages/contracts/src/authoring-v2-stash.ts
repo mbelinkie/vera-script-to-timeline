@@ -77,6 +77,11 @@ export function applyStashRowEditV2(
     !sameAuthoringJsonV2(current.attachedFootage, command.row.attachedFootage)) {
     return refused(document, "STASH_ATTACHMENT_REVIEW_REQUIRED", "Use explicit Stash footage commands to change an owned attachment.");
   }
+  if ("stashChecklist" in current && !sameAuthoringJsonV2(current.stashChecklist,
+    "stashChecklist" in command.row ? command.row.stashChecklist : undefined) ||
+    !("stashChecklist" in current) && "stashChecklist" in command.row) {
+    return refused(document, "STASH_CHECKLIST_COMMAND_REQUIRED", "Use the dedicated Stash completion command, not a row replacement.");
+  }
 
   const authoredCurrent = structuredClone(current);
   const authoredReplacement = structuredClone(command.row);

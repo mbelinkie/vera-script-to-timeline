@@ -65,6 +65,14 @@ interface GroupSaveBirth {
   rowId: string;
 }
 
+/** A note-copy gesture carries its ordinary clip/row moves as authored edits. */
+interface MixedCopyPlacement {
+  copiedRowIds: string[];
+  movedRowIds: string[];
+  draftRowOrder: string[];
+  destinationSlots: { rowId: string; slot: Extract<RowSlot, { surface: "draft" }> }[];
+}
+
 /** Serializable sidecar for composing the four Sorting outcomes by stable row identity. */
 export interface SortingProjectionV2 {
   baseline: ScriptDocumentV2;
@@ -82,6 +90,8 @@ export interface SortingProjectionV2 {
   groupSaveBirths: GroupSaveBirth[];
   /** A removed group ID cannot acquire a second, potentially unrelated meaning in one trial. */
   groupIdentityConflicts: string[];
+  /** Present only when a single placement copied notes AND moved other saved rows. */
+  mixedCopyPlacements?: MixedCopyPlacement[];
 }
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -258,6 +268,24 @@ export function updateSortingProjectionV2(
   const beforeSlots = slotRecords(before);
   const afterSlots = slotRecords(after);
   const baselineRows = rowMap(next.baseline);
+
+  if (command.kind === "place_stash_rows") {
+    const copies = [...afterRows].filter(([rowId, row]) => !beforeRows.has(rowId) &&
+      row.type === "narration" && !!row.stashOrigin?.sourceNoteRowId).map(([rowId]) => rowId);
+    const moved = [...beforeRows.keys()].filter((rowId) => beforeSlots.get(rowId)?.surface === "stash" &&
+      afterSlots.get(rowId)?.surface === "draft");
+    if (copies.length && moved.length) {
+      const destinationSlots = moved.flatMap((rowId) => {
+        const slot = afterSlots.get(rowId);
+        return slot?.surface === "draft" ? [{ rowId, slot: structuredClone(slot) }] : [];
+      });
+      (next.mixedCopyPlacements ??= []).push({
+        copiedRowIds: copies, movedRowIds: moved,
+        draftRowOrder: after.activeDraft.blocks.filter((block) => block.type !== "section").map((block) => block.id),
+        destinationSlots,
+      });
+    }
+  }
 
   if (command.kind === "save_stash_group") {
     for (const member of command.members) {
@@ -833,7 +861,10 @@ function normalizeRowForLocation(
     const original = rowMap(baseline).get(rowId);
     if (original?.stashOrigin) result.stashOrigin = { ...original.stashOrigin, returnEligible: changed ? false : original.stashOrigin.returnEligible };
     else if (changed && result.stashOrigin) result.stashOrigin.returnEligible = false;
-    else if (!original?.stashOrigin) delete result.stashOrigin;
+    // A newly authored Stash note copy is an edit birth. Unlike an ordinary
+    // moved row it has no baseline identity: retain its persisted source and
+    // completion-cause history in edits-only acceptance.
+    else if (!original?.stashOrigin && !result.stashOrigin?.sourceNoteRowId) delete result.stashOrigin;
   }
   return result;
 }
@@ -1048,6 +1079,28 @@ export function projectSortingDocumentV2(
     const droppedIds = new Set<string>();
 
     if (mode === "edits_only") {
+      // Stage the ordinary members of a mixed authored Place before restoring
+      // newly copied notes. Their initial Draft slots can border a copy birth,
+      // so first position them against surviving baseline anchors; the birth
+      // planner can then safely insert each copy at its exact recorded gap.
+      for (const gesture of state.mixedCopyPlacements ?? []) {
+        for (const rowId of gesture.draftRowOrder.filter((id) => gesture.movedRowIds.includes(id))) {
+          const originalSlot = gesture.destinationSlots.find((item) => item.rowId === rowId)?.slot;
+          if (!originalSlot) return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "Mixed Stash placement is missing its saved Draft destination.");
+          const currentIndex = gesture.draftRowOrder.indexOf(rowId);
+          const existingSlots = slotRecords(output);
+          const neighbor = (id: string) => {
+            const slot = existingSlots.get(id);
+            return slot?.surface === "draft" && slot.sectionId === originalSlot.sectionId;
+          };
+          const before = gesture.draftRowOrder.slice(0, currentIndex).reverse().find(neighbor) ?? null;
+          const after = gesture.draftRowOrder.slice(currentIndex + 1).find(neighbor) ?? null;
+          if (!moveRow(output, rowId, { surface: "draft", sectionId: originalSlot.sectionId,
+            afterRowId: before, beforeRowId: after })) {
+            return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A mixed Place gesture cannot keep its original Draft gap in edits-only.");
+          }
+        }
+      }
       const birthsToRestore = editsOnlyBirths(state).filter((birth) => !detached.has(birth.rowId));
       const restoreRows = new Map(baselineRows);
       for (const birth of birthsToRestore) {
@@ -1118,6 +1171,31 @@ export function projectSortingDocumentV2(
       }
     }
 
+    // Copying notes is an authored edit, so ordinary clips/rows moved in that
+    // very same Place command must follow its note copies in edits-only and
+    // return to their saved positions in sorting-only. Independent clip-only
+    // placement remains an organization change.
+    for (const gesture of state.mixedCopyPlacements ?? []) {
+      if (mode === "sorting_only") {
+        const originalOutline = effectiveOutline(baseline);
+        for (const entry of originalOutline.filter((item) => gesture.movedRowIds.includes(item.rowId))) {
+          const originalSlot = baselineSlots.get(entry.rowId);
+          if (!originalSlot || originalSlot.surface !== "stash") {
+            return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "A mixed Place gesture lost its saved Stash location.");
+          }
+          const siblings = originalOutline.filter((item) => item.parentRowId === entry.parentRowId && item.sectionId === entry.sectionId);
+          const position = siblings.findIndex((item) => item.rowId === entry.rowId);
+          const existing = new Set(effectiveOutline(output).map((item) => item.rowId));
+          const before = siblings.slice(0, position).reverse().find((item) => existing.has(item.rowId))?.rowId ?? null;
+          const after = siblings.slice(position + 1).find((item) => existing.has(item.rowId))?.rowId ?? null;
+          if (!moveRow(output, entry.rowId, { ...originalSlot,
+            afterSiblingRowId: before, beforeSiblingRowId: after })) {
+            return refuse(current, "SORTING_PROJECTION_DESTINATION_INVALID", "A mixed Place gesture cannot restore its saved Stash gap in sorting-only.");
+          }
+        }
+      }
+    }
+
     const outputSlots = slotRecords(output);
     const outputRowIds = new Set(outputSlots.keys());
     for (const rowId of outputRowIds) {
@@ -1157,6 +1235,10 @@ export function projectSortingDocumentV2(
         return refuse(current, "SORTING_PROJECTION_DEPENDENCY_INVALID", "The row's Stash return location depends on a new row that sorting-only removes.");
       }
       const normalized = normalizeRowForLocation(selectedRow, rowId, slot, baseline, priorSlot, changed || !!birth && !!latestRow && !sameJson(contentRow(birth.row), contentRow(latestRow)), mode, layoutOrigin);
+      if (mode === "edits_only" && slot.surface === "draft" && latestRow?.stashOrigin &&
+        state.mixedCopyPlacements?.some((gesture) => gesture.movedRowIds.includes(rowId))) {
+        normalized.stashOrigin = structuredClone(latestRow.stashOrigin);
+      }
       const presented = reconcileAttachmentPresentation(normalized, slot);
       if (!presented) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", `Row ${rowId}'s attached footage has an incompatible visual slot for the selected location.`);
       replaceRow(output, rowId, presented);
