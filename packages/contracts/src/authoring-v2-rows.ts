@@ -22,7 +22,7 @@ import {
 } from "./authoring-v2-row-split-join.js";
 import {
   isStashSelectedWordsCommandV2,
-  preparePlainStashWordCutV2,
+  prepareStashWordCutV2,
   type StashSelectedWordsCommandV2,
 } from "./authoring-v2-stash-words.js";
 
@@ -1335,15 +1335,15 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   if (command.kind === "stash_selected_words") {
     // Construct both sides before writing: an unsafe selection never leaves
     // half a note in Stash or removes only part of the narration text.
-    const cut = preparePlainStashWordCutV2(document, command, documentUuids(document));
+    const cut = prepareStashWordCutV2(document, command, documentUuids(document));
     if ("code" in cut) return { ok: false, document, diagnostics: [cut] };
     const index = blocks.findIndex((block) => block.id === command.rowId);
     blocks.splice(index, 1, cut.updated);
     const outline = ensureStashOutline(working);
     // Always prepend to unsectioned Stash (not the old afterRowId:null append
     // behaviour), preserving all existing section roots and child preorders.
-    outline.unshift({ rowId: cut.note.id, kind: "note", sectionId: null, parentRowId: null });
-    (working.stash ??= []).push({ id: command.bundleId, rows: [cut.note], supportingItems: [] });
+    outline.unshift({ rowId: cut.saved.id, kind: cut.kind, sectionId: null, parentRowId: null });
+    (working.stash ??= []).push({ id: command.bundleId, rows: [cut.saved], supportingItems: [] });
   } else if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");

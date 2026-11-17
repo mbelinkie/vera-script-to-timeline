@@ -371,6 +371,22 @@ function moveEntities(
   return null;
 }
 
+/** Move only word-owned annotations, beats and overlays into a saved Stash row.
+ * Row-level notes, attached footage and orphan visuals are deliberately not
+ * inferred to belong to a selection. A straddling anchor is an atomic refusal.
+ */
+export function moveWordAnchoredEntitiesToStashV2(
+  source: NarrationBlockV2,
+  remaining: NarrationBlockV2,
+  saved: NarrationBlockV2,
+): AuthoringDiagnosticV2 | null {
+  const move: Move = {
+    source, destinationId: saved.id,
+    movedTokenIds: new Set(saved.tokens.map((token) => token.id)), removed: false,
+  };
+  return moveEntities(move, remaining, saved, "append");
+}
+
 /**
  * Recalculate the rows' pictures from the stored rows, then stamp versions.
  * When no spoken word changes row, stored pictures are left exactly as they are.

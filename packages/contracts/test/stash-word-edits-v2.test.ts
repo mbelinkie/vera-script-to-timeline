@@ -5,11 +5,12 @@ import {
   createRowEditSessionV2,
   cutNarrationWordRangeV2,
   deserializeAuthoringDocumentV2,
+  projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
   validateScriptDocumentV2,
   type StashSelectedWordsCommandV2,
 } from "../src/authoring-v2.js";
-import type { NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
+import type { ContentSlot, NarrationBlockV2, ReturnSlot, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 
 const id = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 const textHash = `sha256:${"a".repeat(64)}`;
@@ -52,6 +53,69 @@ function assertOffsets(row: NarrationBlockV2): void {
   for (const token of row.tokens) {
     expect(row.text.slice(token.startOffset, token.endOffset)).toBe(token.value);
   }
+}
+
+type Picture =
+  | { at: number; kind: "visual"; number: number; clip?: boolean; cutawayFrom?: number }
+  | { at: number; kind: "camera"; number: number; framing?: "wide" | "tight" }
+  | { at: number; kind: "return"; number: number; from: number };
+
+/** Exact word-start cues, including a preserved source trim, not inferred text matches. */
+function withPictures(source: NarrationBlockV2, pictures: Picture[]): NarrationBlockV2 {
+  const anchor = (at: number) => ({
+    blockId: source.id, tokenId: source.tokens[at]!.id, quotedWord: source.tokens[at]!.value,
+    affinity: "before" as const, anchorVersion: 1,
+  });
+  const slots: Array<ContentSlot | ReturnSlot> = pictures.map((picture, index) => {
+    if (picture.kind === "return") return {
+      id: id(picture.number), kind: "return", parentSlotId: id(picture.from), inpoint: anchor(picture.at), version: 1,
+    };
+    const payload: ContentSlot["payload"] = picture.kind === "camera"
+      ? { kind: "on_camera", presenterChoiceId: null, ...(picture.framing ? { framing: picture.framing } : {}) }
+      : picture.clip
+        ? { kind: "visual", payloadId: id(picture.number + 1000), pictureKind: "clip",
+          source: { kind: "media_reference", mediaReferenceId: id(9500) },
+          sourceUsage: { sourceInFrame: 48 }, selectedSourceRange: { startFrame: 48, durationFrames: 96 },
+          audioPolicy: "quiet", framingPolicy: "cover" }
+        : { kind: "visual", payloadId: id(picture.number + 1000), pictureKind: "intentional_placeholder",
+          source: { kind: "intentional_placeholder", text: `shot ${picture.number}` },
+          sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain" };
+    return {
+      id: id(picture.number), kind: "content",
+      relation: picture.kind === "visual" && picture.cutawayFrom
+        ? { kind: "cutaway", parentSlotId: id(picture.cutawayFrom) }
+        : { kind: index === 0 ? "base" : "sequential" },
+      boundaryBefore: index === 0 ? { kind: "row_start" } : { kind: "spoken_word", anchor: anchor(picture.at) },
+      payload, playoutPolicy: "match_structural_interval", version: 1,
+    };
+  });
+  source.primaryVisualSequence!.slots = slots;
+  return source;
+}
+
+function assertCovered(doc: ScriptDocumentV2): void {
+  expect(validateScriptDocumentV2(doc).diagnostics).toEqual([]);
+  const active = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const saved = doc.stash![0]!.rows[0] as NarrationBlockV2;
+  for (const value of [active, saved]) assertOffsets(value);
+  const allTokens = [...active.tokens, ...saved.tokens].map((token) => token.id);
+  expect(new Set(allTokens).size).toBe(allTokens.length);
+  const owned = [active, saved].flatMap((value) => value.primaryVisualSequence!.slots
+    .filter((slot) => slot.kind === "content" && slot.payload.kind === "visual")
+    .map((slot) => slot.id));
+  expect(new Set(owned).size).toBe(owned.length);
+  for (const source of [active, saved]) {
+    if (source.plainDirection) continue;
+    const projection = projectPrimarySequenceV2({ ...doc,
+      activeDraft: { blocks: [source], supportingItems: [] },
+      stash: undefined, stashOutline: undefined, stashSections: undefined,
+    });
+    expect(projection.rows[0]?.renderable).toBe(true);
+    expect(projection.rows[0]?.tokens.every((token) => token.primarySlotId !== null)).toBe(true);
+  }
+  const roundTrip = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(doc));
+  expect(roundTrip.ok).toBe(true);
+  if (roundTrip.ok) expect(roundTrip.document).toEqual(doc);
 }
 
 describe("#584 phase 1: select narration words to top-of-Stash plain note", () => {
@@ -177,7 +241,7 @@ describe("#584 phase 1: select narration words to top-of-Stash plain note", () =
     }
   });
 
-  it("refuses selected stage directions and any placed visuals or anchored objects until ownership handling", () => {
+  it("refuses selected stage directions and keeps a prior-start visual clipped behind", () => {
     const source = row(140, "one [quiet words] two three");
     source.tokens[1]!.spoken = false;
     source.tokens[2]!.spoken = false;
@@ -196,10 +260,17 @@ describe("#584 phase 1: select narration words to top-of-Stash plain note", () =
       sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
     };
     const visual = documentWith(visualSource);
-    const denied = applyRowEditV2(visual, 0, command(visualSource));
-    expect(denied.ok).toBe(false);
-    expect(denied.diagnostics[0]?.code).toBe("STASH_WORD_OWNERSHIP_REVIEW_REQUIRED");
-    expect(denied.document).toBe(visual);
+    const carried = applyRowEditV2(visual, 0, command(visualSource));
+    expect(carried.ok, JSON.stringify(carried.diagnostics)).toBe(true);
+    expect(carried.document.stashOutline![0]?.kind).toBe("note");
+    const retained = carried.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const saved = carried.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(retained.primaryVisualSequence!.slots.some((candidate) => candidate.id === slot.id)).toBe(true);
+    expect(saved.primaryVisualSequence!.slots.some((candidate) => candidate.id === slot.id)).toBe(false);
+    const assigned = projectPrimarySequenceV2(carried.document).rows[0]!.tokens.map((token) => token.primarySlotId);
+    expect(assigned.slice(0, 1)).toEqual([slot.id]);
+    expect(assigned.slice(1).every((owner) => owner !== slot.id)).toBe(true);
+    assertCovered(carried.document);
     expect(visual.activeDraft.blocks[0]).toEqual(visualSource);
   });
 
@@ -216,5 +287,206 @@ describe("#584 phase 1: select narration words to top-of-Stash plain note", () =
     expect(refused.diagnostics.some((entry) => entry.code === "ROW_REFERENCE_REVIEW_REQUIRED")).toBe(true);
     expect(refused.document).toBe(doc);
     expect(doc.activeDraft.blocks[0]).toEqual(source);
+  });
+});
+
+describe("#584 phase 2: saved visual row ownership and reference fences", () => {
+  const words = "one two three four five six seven eight nine ten eleven twelve";
+  const original = (n: number, pictures: Picture[]) => withPictures(row(n, words), pictures);
+  const save = (source: NarrationBlockV2, from: number, to: number): ScriptDocumentV2 => {
+    const applied = applyRowEditV2(documentWith(source), 0, command(source, from, to));
+    expect(applied.ok, JSON.stringify(applied.diagnostics)).toBe(true);
+    expect(applied.document.stashOutline![0]?.kind).toBe("row");
+    assertCovered(applied.document);
+    expect([
+      ...(applied.document.activeDraft.blocks[0] as NarrationBlockV2).tokens,
+      ...(applied.document.stash![0]!.rows[0] as NarrationBlockV2).tokens,
+    ].map((token) => token.id).sort()).toEqual(source.tokens.map((token) => token.id).sort());
+    return applied.document;
+  };
+
+  it("moves only a visual starting in the selection and preserves clip trim, source, and audio choices", () => {
+    const source = original(160, [
+      { kind: "camera", number: 7001, at: 0 },
+      { kind: "visual", number: 7002, at: 3, clip: true },
+      { kind: "camera", number: 7003, at: 8, framing: "tight" },
+    ]);
+    const result = save(source, 2, 5);
+    const retained = result.activeDraft.blocks[0] as NarrationBlockV2;
+    const saved = result.stash![0]!.rows[0] as NarrationBlockV2;
+    const originalClip = source.primaryVisualSequence!.slots[1] as ContentSlot;
+    const arrived = saved.primaryVisualSequence!.slots.find((slot) => slot.id === originalClip.id) as ContentSlot;
+    expect(arrived.payload).toEqual(originalClip.payload);
+    expect(saved.tokens.map((token) => token.value)).toEqual(["three", "four", "five", "six"]);
+    expect(retained.primaryVisualSequence!.slots.some((slot) => slot.id === originalClip.id)).toBe(false);
+    expect(saved.primaryVisualSequence!.slots[0]?.kind).toBe("content");
+    expect((saved.primaryVisualSequence!.slots[0] as ContentSlot).boundaryBefore.kind).toBe("row_start");
+  });
+
+  it("a visual starting at the first removed word has exactly one owner, even at a prefix boundary", () => {
+    const source = original(165, [
+      { kind: "visual", number: 7501, at: 0, clip: true },
+      { kind: "camera", number: 7502, at: 4 },
+      { kind: "visual", number: 7503, at: 8 },
+    ]);
+    const result = save(source, 0, 2);
+    const sourceRow = result.activeDraft.blocks[0] as NarrationBlockV2;
+    const savedRow = result.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(savedRow.primaryVisualSequence!.slots.some((slot) => slot.id === id(7501))).toBe(true);
+    expect(sourceRow.primaryVisualSequence!.slots.some((slot) => slot.id === id(7501))).toBe(false);
+    expect(sourceRow.primaryVisualSequence!.slots.some((slot) => slot.id === id(7503))).toBe(true);
+    expect(savedRow.tokens.map((token) => token.id)).toEqual(source.tokens.slice(0, 3).map((token) => token.id));
+  });
+
+  it("a visual-bearing word cut is one atomic Undo, restoring the exact source and Stash", () => {
+    const source = original(168, [
+      { kind: "camera", number: 7801, at: 0 },
+      { kind: "visual", number: 7802, at: 3, clip: true },
+    ]);
+    const initial = documentWith(source);
+    const session = createRowEditSessionV2(initial);
+    const result = session.apply(command(source, 2, 5));
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    assertCovered(result.document);
+    expect(session.undoDepth).toBe(1);
+    const restored = session.undo();
+    expect(restored.ok).toBe(true);
+    expect(restored.document.activeDraft).toEqual(initial.activeDraft);
+    expect(restored.document.stash).toBeUndefined();
+    expect(restored.document.stashOutline).toBeUndefined();
+    expect(initial).toEqual(documentWith(source));
+  });
+
+  it("moves two starts, leaves an earlier-start visual behind, and retains Tight coverage on both sides", () => {
+    const source = original(161, [
+      { kind: "visual", number: 7101, at: 0 },
+      { kind: "camera", number: 7102, at: 3, framing: "tight" },
+      { kind: "visual", number: 7103, at: 5 },
+      { kind: "visual", number: 7104, at: 7 },
+      { kind: "camera", number: 7105, at: 10 },
+    ]);
+    const result = save(source, 4, 8);
+    const active = result.activeDraft.blocks[0] as NarrationBlockV2;
+    const saved = result.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(active.primaryVisualSequence!.slots.some((slot) => slot.id === id(7101))).toBe(true);
+    expect(active.primaryVisualSequence!.slots.some((slot) => slot.id === id(7103) || slot.id === id(7104))).toBe(false);
+    expect(saved.primaryVisualSequence!.slots.some((slot) => slot.id === id(7103))).toBe(true);
+    expect(saved.primaryVisualSequence!.slots.some((slot) => slot.id === id(7104))).toBe(true);
+    expect(saved.primaryVisualSequence!.slots.some((slot) => slot.kind === "content" && slot.payload.kind === "on_camera" && slot.payload.framing === "tight")).toBe(true);
+  });
+
+  it("a Tight On Camera choice that starts before the cut stays behind; a choice starting inside is saved", () => {
+    const source = original(167, [
+      { kind: "camera", number: 7701, at: 0, framing: "tight" },
+      { kind: "camera", number: 7702, at: 8, framing: "wide" },
+    ]);
+    const beforeStart = applyRowEditV2(documentWith(source), 0, command(source, 2, 4));
+    expect(beforeStart.ok, JSON.stringify(beforeStart.diagnostics)).toBe(true);
+    expect(beforeStart.document.stashOutline![0]!.kind).toBe("note");
+    const note = beforeStart.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(note.plainDirection).toBe(true);
+    expect(note.primaryVisualSequence!.slots).toHaveLength(1);
+    expect((note.primaryVisualSequence!.slots[0] as ContentSlot).payload).toEqual({ kind: "on_camera", presenterChoiceId: null });
+    assertCovered(beforeStart.document);
+
+    const insideStart = save(source, 8, 10);
+    const moved = insideStart.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(moved.plainDirection).toBeUndefined();
+    expect(moved.primaryVisualSequence!.slots.some((slot) => slot.id === id(7702))).toBe(true);
+  });
+
+  it("a cutaway starting inside a selection moves as a single visual, with no orphan return", () => {
+    const source = original(162, [
+      { kind: "visual", number: 7201, at: 0 },
+      { kind: "visual", number: 7202, at: 4, cutawayFrom: 7201 },
+      { kind: "return", number: 7203, at: 7, from: 7201 },
+      { kind: "camera", number: 7204, at: 10 },
+    ]);
+    const result = save(source, 3, 6);
+    const active = result.activeDraft.blocks[0] as NarrationBlockV2;
+    const saved = result.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(saved.primaryVisualSequence!.slots.some((slot) => slot.id === id(7202))).toBe(true);
+    expect(active.primaryVisualSequence!.slots.some((slot) => slot.id === id(7202))).toBe(false);
+    expect(saved.primaryVisualSequence!.slots.every((slot) => slot.kind !== "return" ||
+      saved.primaryVisualSequence!.slots.some((other) => other.kind === "content" && other.id === slot.parentSlotId))).toBe(true);
+  });
+
+  it("moving an anchored annotation rewrites its row while a straddling annotation refuses atomically", () => {
+    const source = original(163, [{ kind: "camera", number: 7301, at: 0 }, { kind: "visual", number: 7302, at: 2 }]);
+    const range = (from: number, to: number) => ({
+      blockId: source.id, startTokenId: source.tokens[from]!.id, endTokenId: source.tokens[to]!.id,
+      startAffinity: "before" as const, endAffinity: "after" as const,
+      quotedText: source.text.slice(source.tokens[from]!.startOffset, source.tokens[to]!.endOffset), anchorVersion: 1,
+    });
+    source.annotations = [{ id: id(7601), kind: "performance_note", range: range(3, 4),
+      value: "gentle", includeInPrompter: true, version: 1 }];
+    const result = save(source, 2, 5);
+    const saved = result.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(saved.annotations?.[0]?.range.blockId).toBe(saved.id);
+    expect((result.activeDraft.blocks[0] as NarrationBlockV2).annotations).toEqual([]);
+
+    const straddling = structuredClone(source);
+    straddling.annotations![0]!.range = range(1, 3);
+    const input = documentWith(straddling);
+    const refused = applyRowEditV2(input, 0, command(straddling, 2, 5));
+    expect(refused.ok).toBe(false);
+    expect(refused.diagnostics.map((entry) => entry.code)).toContain("ROW_ANCHOR_STRADDLES_BOUNDARY");
+    expect(refused.document).toBe(input);
+    expect(input).toEqual(documentWith(straddling));
+  });
+
+  it("parks words with an anchored performance note as a spoken saved row even without placed visuals", () => {
+    const source = row(166, "alpha beta gamma delta");
+    source.annotations = [{
+      id: id(7901), kind: "performance_note",
+      range: { blockId: source.id, startTokenId: source.tokens[1]!.id,
+        endTokenId: source.tokens[1]!.id, startAffinity: "before", endAffinity: "after",
+        quotedText: "beta", anchorVersion: 1 },
+      value: "pause", includeInPrompter: true, version: 1,
+    }];
+    const result = applyRowEditV2(documentWith(source), 0, command(source, 1, 1));
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.stashOutline?.[0]?.kind).toBe("row");
+    const saved = result.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(saved.plainDirection).toBeUndefined();
+    expect(saved.annotations?.[0]?.range.blockId).toBe(saved.id);
+    expect(saved.tokens[0]?.spoken).not.toBe(false);
+    assertCovered(result.document);
+  });
+
+  it("refuses row transitions, music spanning the row, card comments and unattached footage without mutation", () => {
+    const source = original(164, [{ kind: "camera", number: 7401, at: 0 }, { kind: "visual", number: 7402, at: 2 }]);
+    const scenarios: ScriptDocumentV2[] = [];
+    const transition = documentWith(source);
+    transition.activeDraft.blocks.push(row(169, "outside row"));
+    transition.rowTransitions = [{ id: id(7602), fromRowId: source.id, toRowId: id(169),
+      effect: "crossfade", settings: { frames: 6 }, state: "active" }];
+    scenarios.push(transition);
+    const music = documentWith(source);
+    music.rowAudioSpans = [{ id: id(7606), startRowId: source.id, endRowId: source.id,
+      source: { mediaReferenceId: id(7607), artifactId: id(7608), artifactVersion: 1,
+        contentHash: textHash }, settings: { gainDb: -12 } }];
+    scenarios.push(music);
+    const comment = documentWith(source);
+    comment.rowReferences = [{ id: id(7603), kind: "comment", rowId: source.id,
+      anchor: { kind: "card", blockId: source.id, cardId: id(7402) } }];
+    scenarios.push(comment);
+    const unowned = structuredClone(source);
+    unowned.unattachedVisuals = [{ slotId: id(7604), payload: {
+      kind: "visual", payloadId: id(7605), pictureKind: "intentional_placeholder",
+      source: { kind: "intentional_placeholder", text: "unattached" }, sourceUsage: null,
+      audioPolicy: "mute", framingPolicy: "contain",
+    }, version: 1 }];
+    scenarios.push(documentWith(unowned));
+    for (const [index, input] of scenarios.entries()) {
+      expect(validateScriptDocumentV2(input).diagnostics, `fixture ${index}`).toEqual([]);
+      const before = structuredClone(input);
+      const result = applyRowEditV2(input, 0, command(source, 2, 5));
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics.map((entry) => entry.code)).toContain(index === 3
+        ? "STASH_WORD_OWNERSHIP_REVIEW_REQUIRED" : "ROW_REFERENCE_REVIEW_REQUIRED");
+      expect(result.document).toBe(input);
+      expect(input).toEqual(before);
+    }
   });
 });
