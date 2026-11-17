@@ -253,6 +253,41 @@ describe("#580 positional word identities (H matrix)", () => {
 });
 
 describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
+  it("H5 edits inside a cued word without moving its picture, stales the old quote, and Undo revives only that comment", () => {
+    const initial = documentOf(pictureRow(H));
+    const row = editedRow(initial);
+    const session = createRowEditSessionV2(initial);
+    let comments = commentOn(createCommentStateV2(initial), {
+      kind: "text", blockId: row.id, startTokenId: id(101), endTokenId: id(102),
+    }, 55);
+    const result = session.apply({ kind: "edit_narration_text", rowId: row.id, ...edit(5, 5, "!", 2055) });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const next = editedRow(result.document);
+    expect(next.text).toBe("now t!he harbor sleeps the harbor wakes");
+    expect(next.tokens[1]).toMatchObject({ id: id(101), value: "t!he", startOffset: 4, endOffset: 8 });
+    expect(next.tokens[4]).toMatchObject({ id: id(104), value: "the", startOffset: 23, endOffset: 26 });
+    expect(pictureCards(next)).toEqual(["OC tight 0-1", "S1 1-4", "S2 4-7"]);
+    expect((next.primaryVisualSequence!.slots[1] as ContentSlot).boundaryBefore).toMatchObject({
+      kind: "spoken_word", anchor: { tokenId: id(101), quotedWord: "t!he" },
+    });
+    comments = commentOperation(comments, {
+      kind: "replace_document", id: "h5-edit", actorId: "test-reviewer", document: result.document,
+    });
+    expect(comments.threads[0]!.attachment).toMatchObject({
+      status: "stale", quotedText: "the harbor", orphanedByDocumentOperationId: "h5-edit",
+    });
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    comments = commentOperation(comments, {
+      kind: "undo_document", id: "h5-undo", actorId: "test-reviewer",
+      undoOfOperationId: "h5-edit", document: undone.document,
+    });
+    expect(comments.threads[0]!.attachment).toMatchObject({ status: "attached", quotedText: "the harbor" });
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+    expect(session.undoDepth).toBe(0);
+  });
+
   it("H4 parks a deleted-start clip without stealing another harbor, preserving trim, and Undo restores it", () => {
     const source = pictureRow(H);
     const clip = (source.primaryVisualSequence!.slots[1] as ContentSlot).payload;
@@ -504,6 +539,14 @@ describe("#580 UTF-16, Unicode and partial-word edits (U matrix)", () => {
     expect(session.undoDepth).toBe(0);
     expect(session.revision).toBe(0);
     expect(session.undo().ok).toBe(false);
+  });
+
+  it("refuses a splice on legacy malformed UTF-16 text without altering the source", () => {
+    const malformed = rowOf("bad\ud800 text");
+    const original = structuredClone(malformed);
+    expect(plan(malformed, edit(0, 0, "new ", 2017)))
+      .toMatchObject({ ok: false, code: "NARRATION_TEXT_SPAN_INVALID" });
+    expect(malformed).toEqual(original);
   });
 
   it("retains a rewritten token's identity for an insertion inside a word", () => {

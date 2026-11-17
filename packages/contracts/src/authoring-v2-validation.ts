@@ -205,6 +205,17 @@ export function validateScriptDocumentV2(
     registerTree(bundle, path);
     bundle.rows.forEach((row) => allRows.add(row.id));
     surfaces.push(bundle.rows);
+    // Empty ordinary narration is a Draft-only authoring state (#580).
+    // Parked Stash notes retain their historical contract: empty note text
+    // requires explicit plainDirection intent, not an ordinary wordless row.
+    bundle.rows.forEach((row, rowIndex) => {
+      if (row.type === "narration" && row.plainDirection !== true && row.text === "") diagnostics.push({
+        code: "PLAIN_DIRECTION_INTENT_INVALID",
+        message: "An empty Stash note requires explicit plain-direction intent.",
+        jsonPath: `${path}/rows/${rowIndex}/text`,
+        blockId: row.id,
+      });
+    });
     const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
     diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({
       ...item,
@@ -535,10 +546,13 @@ function validateTokens(
   addId: (id: string, path: string, owner?: string) => void,
 ): void {
   let previousEnd = 0;
-  if (hasUnpairedSurrogate(row.text)) {
+  // Preserve legacy ordinary-narration validation semantics: the compiler and
+  // omission adapters issue their own more specific Unicode diagnostics.
+  // The new text splice independently refuses unpaired input and insertion.
+  if (row.plainDirection === true && hasUnpairedSurrogate(row.text)) {
     diagnostics.push({
-      code: row.plainDirection === true ? "PLAIN_DIRECTION_INTENT_INVALID" : "TOKEN_TEXT_MISMATCH",
-      message: "Narration text must contain complete UTF-16 surrogate pairs.",
+      code: "PLAIN_DIRECTION_INTENT_INVALID",
+      message: "Plain direction text must contain complete UTF-16 surrogate pairs.",
       jsonPath: `${path}/text`,
       blockId: row.id,
     });
@@ -571,7 +585,7 @@ function validateTokens(
       token.endOffset <= token.startOffset ||
       token.endOffset > row.text.length ||
       row.text.slice(token.startOffset, token.endOffset) !== token.value ||
-      isSplitSurrogate(token.startOffset) || isSplitSurrogate(token.endOffset)
+      (row.plainDirection === true && (isSplitSurrogate(token.startOffset) || isSplitSurrogate(token.endOffset)))
     ) {
       diagnostics.push({
         code: row.plainDirection === true ? "PLAIN_DIRECTION_INTENT_INVALID" : "TOKEN_TEXT_MISMATCH",
