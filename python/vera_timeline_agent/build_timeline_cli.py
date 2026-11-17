@@ -68,6 +68,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Named transition built as cut_insufficient_handles: {warning}")
         for warning in completed.music_warnings:
             print(f"Music warning: {warning}")
+        for event_id, outcome in completed.bar_removal_outcomes:
+            print(f"Black bar removal for {event_id}: {outcome}")
         timings.finish(
             frames=completed.frames,
             numerator=completed.numerator,

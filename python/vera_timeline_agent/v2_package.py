@@ -18,7 +18,7 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from fractions import Fraction
 from itertools import pairwise
@@ -32,7 +32,7 @@ import jsonschema  # type: ignore[import-untyped]
 import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
-from vera_timeline_agent import native_image_motion
+from vera_timeline_agent import cropdetect, native_image_motion
 from vera_timeline_agent.build_jobs import BuildJobError
 from vera_timeline_agent.music_input import inspect_music, music_event_id
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
@@ -64,6 +64,8 @@ DEPENDENCIES_FILENAME = "compiler-dependencies.json"
 DELIVERY_VIEW_FILENAME = "delivery-view.json"
 OTIO_FILENAME = "timeline.otio"
 VERIFICATION_FILENAME = "package-verification.json"
+ENCODED_BARS_FILENAME = "encoded-bars.json"
+ENCODED_BARS_SCHEMA_VERSION = "encoded-bars-evidence/v1"
 VIEW_SCHEMA_VERSION = "resolve-native-view/v2"
 VERIFICATION_SCHEMA_VERSION = "v2-package-verification/v1"
 _HASH_PREFIX = "sha256:"
@@ -132,6 +134,7 @@ class _PackageSubtimings:
 
     @contextmanager
     def measure(self, stage: str) -> Iterator[None]:
+        self.seconds.setdefault(stage, 0.0)
         started = perf_counter()
         try:
             yield
@@ -142,8 +145,8 @@ class _PackageSubtimings:
             self.seconds[stage] += max(0.0, perf_counter() - started)
 
     def report(self) -> None:
-        for stage in _PACKAGE_STAGES:
-            self.observer(stage, self.seconds[stage], stage not in self.failed)
+        for stage, seconds in self.seconds.items():
+            self.observer(stage, seconds, stage not in self.failed)
 
 
 @contextmanager
@@ -774,6 +777,12 @@ def _validate_manifest_semantics(
     frozen_default = cast(JsonObject, dependencies["authoringDefaults"]).get(
         "imageMotionDefault"
     )
+    hide_encoded_bars = (
+        cast(JsonObject, dependencies.get("authoringDefaults", {})).get(
+            "hideEncodedBars"
+        )
+        is True
+    )
     timeline = cast(JsonObject, manifest["timeline"])
     rate = _fraction(timeline.get("frameRate"), "timeline frame rate", positive=True)
     start = _safe_frame(timeline.get("startFrame"), "timeline startFrame")
@@ -1009,6 +1018,52 @@ def _validate_manifest_semantics(
             )
 
         if event_kind in {"primary_visual", "overlay_visual"}:
+            provenance = cast(JsonObject, event.get("provenance"))
+            payload = authored_visuals.get(cast(str, provenance.get("payloadId")))
+            expected_bars_intent: JsonObject | None = None
+            if hide_encoded_bars and payload is not None:
+                picture_kind = payload.get("pictureKind")
+                framing = payload.get("framingPolicy")
+                if framing is not None:
+                    expected_bars_intent = {
+                        "mode": "keep",
+                        "reason": (
+                            "framing_ambiguous"
+                            if picture_kind == "clip" and framing == "contain"
+                            else "explicit_framing"
+                        ),
+                    }
+                elif picture_kind == "clip":
+                    expected_bars_intent = {"mode": "detect_and_fill"}
+                elif picture_kind == "image":
+                    treatment = event.get("pictureTreatment")
+                    motion = (
+                        treatment.get("imageMotion")
+                        if isinstance(treatment, dict)
+                        else None
+                    )
+                    moving = (
+                        isinstance(motion, dict)
+                        and motion.get("mode") == "native_dynamic_zoom"
+                    )
+                    expected_bars_intent = {
+                        "mode": "keep",
+                        "reason": (
+                            "motion_route_unproven"
+                            if moving
+                            else "still_route_unproven"
+                        ),
+                    }
+                elif picture_kind in {"capture", "graphic"}:
+                    expected_bars_intent = {
+                        "mode": "keep",
+                        "reason": "unsupported_picture_kind",
+                    }
+            if event.get("encodedBars") != expected_bars_intent:
+                raise _error(
+                    f"visual event {event_id} bar-removal intent differs from "
+                    "the authored payload and frozen setting"
+                )
             source_range = event.get("sourceRange")
             source_start, source_end = _range(
                 source_range, f"event {event_id} sourceRange"
@@ -2406,7 +2461,11 @@ def _delivery_view(
     source_paths: Mapping[str, str] | None = None,
     validate: bool = True,
     cache: _MediaCacheSession | None = None,
+    encoded_bars_evidence: JsonObject | None = None,
 ) -> JsonObject:
+    encoded_bars_evidence = _validate_encoded_bars_evidence(
+        manifest, dependencies, prepared, encoded_bars_evidence
+    )
     events = cast(list[JsonObject], manifest["events"])
     source_records = _unique_by_id(manifest.get("sources"), "source")
     binding_by_hash = {
@@ -2480,6 +2539,12 @@ def _delivery_view(
         for source_id, (kind, path, content_hash) in source_specs.items()
     ]
     tracks = _unique_by_id(manifest.get("tracks"), "track")
+    encoded_bars_rows = {
+        cast(str, row["eventId"]): row
+        for row in cast(
+            list[JsonObject], (encoded_bars_evidence or {}).get("events", [])
+        )
+    }
     events_view: list[JsonObject] = []
     markers: list[JsonObject] = []
     for event in events:
@@ -2572,6 +2637,25 @@ def _delivery_view(
             else None,
             "pictureTreatment": event.get("pictureTreatment"),
         }
+        if "encodedBars" in event:
+            row = encoded_bars_rows.get(event_id)
+            if row is None or not isinstance(row.get("decision"), dict):
+                raise _error(f"bar-removal event {event_id} has no frozen evidence")
+            decision = cast(JsonObject, row["decision"])
+            if decision.get("decision") == "apply":
+                projected["barRemoval"] = {
+                    "decision": "apply",
+                    "zoom": decision["zoom"],
+                    "pan": 0.0,
+                    "tilt": 0.0,
+                    "detectionHash": row["recordHash"],
+                }
+            else:
+                projected["barRemoval"] = {
+                    "decision": "skip",
+                    "reason": decision["reason"],
+                    "detectionHash": row["recordHash"],
+                }
         if kind == "music":
             projected["musicTreatment"] = event["music"]
         events_view.append(projected)
@@ -2586,7 +2670,13 @@ def _delivery_view(
     }
     if validate:
         _validate_delivery_view(
-            manifest, dependencies, view, prepared, artifacts, cache=cache
+            manifest,
+            dependencies,
+            view,
+            prepared,
+            artifacts,
+            cache=cache,
+            encoded_bars_evidence=encoded_bars_evidence,
         )
         source_map = _unique_by_id(sources_view, "delivery source")
         for event in events_view:
@@ -2608,6 +2698,7 @@ def _validate_delivery_view(
     artifacts: Mapping[str, _InputArtifact],
     *,
     cache: _MediaCacheSession | None = None,
+    encoded_bars_evidence: JsonObject | None = None,
 ) -> None:
     if set(view) != {
         "schemaVersion",
@@ -2822,6 +2913,7 @@ def _validate_delivery_view(
         artifact_map,
         source_paths=source_paths,
         validate=False,
+        encoded_bars_evidence=encoded_bars_evidence,
     )
     if view != expected:
         raise _error("delivery view differs from the exact v2 manifest projection")
@@ -3062,13 +3154,518 @@ def _event_source_rate(event: JsonObject, timeline_rate: Fraction) -> Fraction:
         treatment = event.get("pictureTreatment")
         if isinstance(treatment, dict) and treatment.get("kind") == "still_frame":
             return timeline_rate
-        mapping = cast(JsonObject, event["v2Event"].get("sourceTimeMapping"))
+        original = cast(JsonObject, event.get("v2Event", event))
+        mapping = cast(JsonObject, original.get("sourceTimeMapping"))
         return _fraction(
             mapping.get("deliveredRate"),
-            f"event {event['id']} delivered rate",
+            f"event {original.get('eventId', event.get('id'))} delivered rate",
             positive=True,
         )
     return timeline_rate
+
+
+def _delivered_probe_video(preparation: _Preparation) -> JsonObject:
+    """Return the selected delivered video stream from the frozen prep receipt."""
+    inputs = cast(JsonObject, preparation.record["inputs"])
+    stream_index = inputs["videoStreamIndex"]
+    streams = cast(JsonObject, preparation.record["deliveredProbe"])["streams"]
+    if not isinstance(streams, list):
+        raise _error("preparation delivered probe has no stream list")
+    for stream in streams:
+        if isinstance(stream, dict) and stream.get("index") == stream_index:
+            return stream
+    raise _error("preparation delivered probe lacks its selected video stream")
+
+
+def _encoded_bars_color_range(
+    intent: JsonObject, preparation: _Preparation
+) -> str | None:
+    if intent.get("mode") == "detect_and_fill":
+        value = _delivered_probe_video(preparation).get("color_range")
+        if value in ("tv", "pc"):
+            return cast(str, value)
+    return None
+
+
+def _make_encoded_bars_evidence(
+    manifest: JsonObject,
+    dependencies: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    artifacts: Mapping[str, _InputArtifact],
+    *,
+    timing: _PackageSubtimings | None = None,
+) -> JsonObject | None:
+    """Analyze eligible clips once, before the view is frozen and Resolve runs."""
+    defaults = cast(JsonObject, dependencies["authoringDefaults"])
+    if defaults.get("hideEncodedBars") is not True:
+        return None
+
+    timeline = cast(JsonObject, manifest["timeline"])
+    timeline_size = (
+        _safe_frame(timeline.get("width"), "timeline width", positive=True),
+        _safe_frame(timeline.get("height"), "timeline height", positive=True),
+    )
+    timeline_rate = _fraction(
+        timeline.get("frameRate"), "timeline frame rate", positive=True
+    )
+    source_records = _unique_by_id(manifest.get("sources"), "source")
+    manifest_events = cast(list[JsonObject], manifest["events"])
+    has_native_otio_route = any(
+        event.get("kind") == "music"
+        or (
+            isinstance(event.get("pictureTreatment"), dict)
+            and "imageMotion" in event["pictureTreatment"]
+        )
+        for event in manifest_events
+    )
+    eligible_events = [
+        event
+        for event in manifest_events
+        if isinstance(event.get("encodedBars"), dict)
+        and event["encodedBars"].get("mode") == "detect_and_fill"
+    ]
+
+    analyzer_tool = None
+    analyzer_tool_hash: str | None = None
+    analyzer_tool_available = False
+    if eligible_events and not has_native_otio_route:
+        try:
+            from vera_timeline_agent.media_preparation import (
+                MediaPreparationError,
+                MediaTools,
+            )
+
+            analyzer_tool = MediaTools()
+            analyzer_tool_hash = identity_hash(analyzer_tool.fingerprint())
+            analyzer_tool_available = True
+        except MediaPreparationError as error:
+            if error.code not in {"tool_unavailable", "unsupported_tools"}:
+                raise _error("bar-removal tool fingerprint did not complete") from error
+
+    rows: list[JsonObject] = []
+    for event in manifest_events:
+        intent = event.get("encodedBars")
+        if not isinstance(intent, dict):
+            continue
+        event_id = cast(str, event["eventId"])
+        provenance = cast(JsonObject, event["provenance"])
+        source_id = cast(str, provenance["sourceId"])
+        source = source_records[source_id]
+        source_range = cast(JsonObject, event["sourceRange"])
+        source_start, source_end = _range(source_range, f"event {event_id} sourceRange")
+        source_range_record = {
+            "startFrame": source_start,
+            "durationFrames": source_end - source_start,
+        }
+        rate = _event_source_rate(event, timeline_rate)
+        requirement_key = cast(str, source["preparationRequirementKey"])
+        preparation = prepared.get(requirement_key)
+        if preparation is None:
+            raise _error(f"bar-removal event {event_id} has no preparation receipt")
+        binding = cast(JsonObject, preparation.record["binding"])
+        profile = cast(JsonObject, binding["profile"])
+        verification = cast(JsonObject, binding["verification"])
+        tool_hash = cast(str, profile["toolHash"])
+        delivered_probe_hash = cast(str, verification["probeHash"])
+        source_artifact = artifacts.get(f"source:{source_id}")
+        if source_artifact is None:
+            raise _error(
+                f"bar-removal event {event_id} has no delivered media artifact"
+            )
+        delivered_hash = cast(str, source["deliveredHash"])
+        if source_artifact.content_hash != delivered_hash:
+            raise _error(f"bar-removal event {event_id} does not use delivered bytes")
+        color_range = _encoded_bars_color_range(intent, preparation)
+
+        analysis: JsonObject | None = None
+        decision: JsonObject
+        analysis_tool_hash: str | None = None
+        if intent.get("mode") == "keep":
+            decision = {"decision": "skip", "reason": intent["reason"]}
+        elif has_native_otio_route:
+            decision = {
+                "decision": "skip",
+                "reason": "native_otio_route_unproven",
+            }
+        elif not analyzer_tool_available or analyzer_tool is None:
+            decision = {"decision": "skip", "reason": "analysis_failed"}
+        elif analyzer_tool_hash != tool_hash:
+            analysis_tool_hash = analyzer_tool_hash
+            decision = {"decision": "skip", "reason": "tool_identity_mismatch"}
+        else:
+            analysis_tool_hash = analyzer_tool_hash
+            used_range = (
+                float(Fraction(source_start, 1) / rate),
+                float(Fraction(source_end, 1) / rate),
+            )
+            try:
+                # Recheck the exact delivered derivative immediately before
+                # decoding it; a stale preparation or mutable source must fail closed.
+                if _file_hash(source_artifact.origin) != delivered_hash:
+                    raise _SuppliedHashMismatch(
+                        f"delivered source {source_id} changed before bar analysis"
+                    )
+                with _measure(timing, "bar detection"):
+                    detection = cropdetect.analyze_media(
+                        source_artifact.origin,
+                        used_range,
+                        timeline_size=timeline_size,
+                        ffmpeg=analyzer_tool.ffmpeg,
+                        ffprobe=analyzer_tool.ffprobe,
+                    )
+                analysis = cast(
+                    JsonObject, json.loads(_canonical_json(asdict(detection)))
+                )
+                if detection.color_range != color_range or detection.frame_rate != (
+                    rate.numerator,
+                    rate.denominator,
+                ):
+                    analysis = None
+                    decision = {
+                        "decision": "skip",
+                        "reason": "probe_mismatch",
+                    }
+                elif detection.accepted and detection.zoom is not None:
+                    decision = {"decision": "apply", "zoom": detection.zoom}
+                else:
+                    decision = {
+                        "decision": "skip",
+                        "reason": detection.refusal_reason or "insufficient_evidence",
+                    }
+            except cropdetect.CropAnalysisError as error:
+                raise _error(f"bar analysis did not complete for {event_id}") from error
+
+        row: JsonObject = {
+            "eventId": event_id,
+            "sourceId": source_id,
+            "intent": intent,
+            "deliveredHash": delivered_hash,
+            "deliveredProbeHash": delivered_probe_hash,
+            "sourceRange": source_range_record,
+            "sourceRate": {
+                "numerator": rate.numerator,
+                "denominator": rate.denominator,
+            },
+            "toolHash": tool_hash,
+            "analysisToolHash": analysis_tool_hash,
+            "colorRange": color_range,
+            "timelineSize": list(timeline_size),
+            "analysis": analysis,
+            "decision": decision,
+        }
+        row["recordHash"] = _hash_bytes(_canonical_json(row))
+        rows.append(row)
+    return {
+        "schemaVersion": ENCODED_BARS_SCHEMA_VERSION,
+        "buildId": manifest["buildId"],
+        "manifestId": manifest["id"],
+        "detectorVersion": cropdetect.DETECTOR_VERSION,
+        "thresholdsHash": cropdetect.thresholds_hash(),
+        "events": rows,
+    }
+
+
+def _validate_encoded_bars_evidence(
+    manifest: JsonObject,
+    dependencies: JsonObject,
+    prepared: Mapping[str, _Preparation],
+    evidence: object,
+) -> JsonObject | None:
+    """Check the frozen detector binding and pure geometry without decoding again."""
+    defaults = cast(JsonObject, dependencies.get("authoringDefaults", {}))
+    enabled = defaults.get("hideEncodedBars") is True
+    if not enabled:
+        if evidence is not None:
+            raise _error("bar-removal evidence exists while the frozen setting is off")
+        return None
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "schemaVersion",
+        "buildId",
+        "manifestId",
+        "detectorVersion",
+        "thresholdsHash",
+        "events",
+    }:
+        raise _error("bar-removal evidence is missing or malformed")
+    if (
+        evidence.get("schemaVersion") != ENCODED_BARS_SCHEMA_VERSION
+        or evidence.get("buildId") != manifest.get("buildId")
+        or evidence.get("manifestId") != manifest.get("id")
+        or evidence.get("detectorVersion") != cropdetect.DETECTOR_VERSION
+        or evidence.get("thresholdsHash") != cropdetect.thresholds_hash()
+        or not isinstance(evidence.get("events"), list)
+    ):
+        raise _error("bar-removal evidence has a stale detector or build identity")
+
+    expected_events = {
+        cast(str, event["eventId"]): event
+        for event in cast(list[JsonObject], manifest["events"])
+        if "encodedBars" in event
+    }
+    rows = cast(list[JsonObject], evidence["events"])
+    rows_by_id = _unique_by_id(rows, "encoded-bars evidence", "eventId")
+    if set(rows_by_id) != set(expected_events):
+        raise _error("bar-removal evidence event set differs from compiler intent")
+    sources = _unique_by_id(manifest.get("sources"), "source")
+    timeline = cast(JsonObject, manifest["timeline"])
+    timeline_size = (
+        _safe_frame(timeline["width"], "timeline width", positive=True),
+        _safe_frame(timeline["height"], "timeline height", positive=True),
+    )
+    timeline_rate = _fraction(
+        timeline.get("frameRate"), "timeline frame rate", positive=True
+    )
+    for event_id, event in expected_events.items():
+        row = rows_by_id[event_id]
+        if set(row) != {
+            "eventId",
+            "sourceId",
+            "intent",
+            "deliveredHash",
+            "deliveredProbeHash",
+            "sourceRange",
+            "sourceRate",
+            "toolHash",
+            "analysisToolHash",
+            "colorRange",
+            "timelineSize",
+            "analysis",
+            "decision",
+            "recordHash",
+        }:
+            raise _error(f"bar-removal evidence {event_id} has unexpected fields")
+        provenance = cast(JsonObject, event["provenance"])
+        source_id = cast(str, provenance["sourceId"])
+        source = sources[source_id]
+        requirement_key = cast(str, source["preparationRequirementKey"])
+        binding = next(
+            (
+                item
+                for item in prepared.values()
+                if item.requirement_key == requirement_key
+            ),
+            None,
+        )
+        if binding is None:
+            raise _error(f"bar-removal evidence {event_id} has no preparation")
+        prep_binding = cast(JsonObject, binding.record["binding"])
+        profile = cast(JsonObject, prep_binding["profile"])
+        verification = cast(JsonObject, prep_binding["verification"])
+        source_start, source_end = _range(
+            event.get("sourceRange"), f"event {event_id} sourceRange"
+        )
+        rate = _event_source_rate(event, timeline_rate)
+        expected_range = {
+            "startFrame": source_start,
+            "durationFrames": source_end - source_start,
+        }
+        expected_rate = {"numerator": rate.numerator, "denominator": rate.denominator}
+        color_range = _encoded_bars_color_range(event["encodedBars"], binding)
+        if (
+            row.get("sourceId") != source_id
+            or row.get("intent") != event.get("encodedBars")
+            or row.get("deliveredHash") != source.get("deliveredHash")
+            or row.get("deliveredProbeHash") != verification.get("probeHash")
+            or row.get("sourceRange") != expected_range
+            or row.get("sourceRate") != expected_rate
+            or row.get("toolHash") != profile.get("toolHash")
+            or row.get("timelineSize") != list(timeline_size)
+            or row.get("colorRange") != color_range
+        ):
+            raise _error(
+                f"bar-removal evidence {event_id} is not bound to delivered media"
+            )
+        record_without_hash = {
+            key: value for key, value in row.items() if key != "recordHash"
+        }
+        expected_hash = _hash_bytes(_canonical_json(record_without_hash))
+        if row.get("recordHash") != expected_hash:
+            raise _error(f"bar-removal evidence {event_id} hash differs")
+        decision = row.get("decision")
+        analysis = row.get("analysis")
+        if not isinstance(decision, dict):
+            raise _error(f"bar-removal evidence {event_id} has no decision")
+        if event["encodedBars"].get("mode") == "keep":
+            if (
+                decision
+                != {
+                    "decision": "skip",
+                    "reason": event["encodedBars"]["reason"],
+                }
+                or analysis is not None
+            ):
+                raise _error(
+                    f"bar-removal evidence {event_id} ignores authored framing"
+                )
+            continue
+        if analysis is None:
+            if (
+                set(decision) != {"decision", "reason"}
+                or decision.get("decision") != "skip"
+                or decision.get("reason")
+                not in {
+                    "native_otio_route_unproven",
+                    "analysis_failed",
+                    "tool_identity_mismatch",
+                    "probe_mismatch",
+                }
+                or (
+                    decision.get("reason") != "tool_identity_mismatch"
+                    and row.get("analysisToolHash")
+                    not in {None, profile.get("toolHash")}
+                )
+            ):
+                raise _error(
+                    f"bar-removal evidence {event_id} has an invalid analysis skip"
+                )
+            continue
+        if not isinstance(analysis, dict) or row.get("analysisToolHash") != profile.get(
+            "toolHash"
+        ):
+            raise _error(
+                f"bar-removal analysis {event_id} has an unbound tool identity"
+            )
+        _validate_encoded_bars_analysis(
+            event_id,
+            analysis,
+            decision,
+            binding,
+            rate,
+            (source_start, source_end),
+            timeline_size,
+            color_range,
+        )
+    return evidence
+
+
+def _validate_encoded_bars_analysis(
+    event_id: str,
+    analysis: JsonObject,
+    decision: JsonObject,
+    preparation: _Preparation,
+    rate: Fraction,
+    source_range: tuple[int, int],
+    timeline_size: tuple[int, int],
+    color_range: str | None,
+) -> None:
+    expected_keys = {
+        "source_size",
+        "used_range",
+        "samples",
+        "active_rect",
+        "refusal_reason",
+        "zoom",
+        "color_range",
+        "frame_rate",
+        "sample_stride",
+        "source_frame_count",
+    }
+    if set(analysis) != expected_keys:
+        raise _error(f"bar-removal analysis {event_id} has unexpected fields")
+    video = _delivered_probe_video(preparation)
+    source_size = (video.get("width"), video.get("height"))
+    start, end = source_range
+    expected_used_range = [
+        float(Fraction(start, 1) / rate),
+        float(Fraction(end, 1) / rate),
+    ]
+    frame_rate_value = analysis.get("frame_rate")
+    expected_rate = [rate.numerator, rate.denominator]
+    if (
+        analysis.get("source_size") != list(source_size)
+        or analysis.get("used_range") != expected_used_range
+        or analysis.get("color_range") != color_range
+        or frame_rate_value != expected_rate
+        or not isinstance(analysis.get("samples"), list)
+    ):
+        raise _error(f"bar-removal analysis {event_id} differs from prepared media")
+    raw_samples = cast(list[JsonObject], analysis["samples"])
+    samples: list[cropdetect.CropFrameSample] = []
+    for index, raw in enumerate(raw_samples):
+        if set(raw) != {
+            "frame_index",
+            "pts_seconds",
+            "active_rect",
+            "cropdetect_rect",
+            "active_mean_luma",
+            "informative",
+            "bar_max_luma",
+            "bar_stddev_luma",
+        }:
+            raise _error(f"bar-removal sample {event_id} has unexpected fields")
+        rect_value = raw.get("active_rect")
+        if not isinstance(rect_value, dict) or set(rect_value) != {
+            "x",
+            "y",
+            "width",
+            "height",
+        }:
+            raise _error(f"bar-removal sample {event_id} has invalid crop geometry")
+        rect = cropdetect.CropRect(**rect_value)
+        cropdetect_rect_value = raw.get("cropdetect_rect")
+        cropdetect_rect = None
+        if cropdetect_rect_value is not None:
+            if not isinstance(cropdetect_rect_value, dict) or set(
+                cropdetect_rect_value
+            ) != {"x", "y", "width", "height"}:
+                raise _error(
+                    f"bar-removal sample {event_id} has invalid raw crop geometry"
+                )
+            cropdetect_rect = cropdetect.CropRect(**cropdetect_rect_value)
+        sample = cropdetect.CropFrameSample(
+            frame_index=cast(int, raw["frame_index"]),
+            pts_seconds=cast(float, raw["pts_seconds"]),
+            active_rect=rect,
+            active_mean_luma=cast(float, raw["active_mean_luma"]),
+            informative=cast(bool, raw["informative"]),
+            bar_max_luma=cast(int | None, raw["bar_max_luma"]),
+            bar_stddev_luma=cast(float | None, raw["bar_stddev_luma"]),
+            cropdetect_rect=cropdetect_rect,
+        )
+        if sample.frame_index != index:
+            raise _error(f"bar-removal sample {event_id} frame sequence differs")
+        samples.append(sample)
+    active_value = analysis.get("active_rect")
+    refusal = analysis.get("refusal_reason")
+    zoom = analysis.get("zoom")
+    if active_value is not None:
+        if not isinstance(active_value, dict) or set(active_value) != {
+            "x",
+            "y",
+            "width",
+            "height",
+        }:
+            raise _error(f"bar-removal analysis {event_id} has invalid active bounds")
+        assessment = cropdetect.evaluate_crop_samples(
+            cast(tuple[int, int], source_size),
+            timeline_size,
+            cast(str, analysis["color_range"]),
+            samples,
+        )
+        stride = max(1, round(float(rate) / cropdetect.SAMPLE_RATE_FPS))
+        if (
+            analysis.get("source_frame_count") != end - start
+            or analysis.get("sample_stride") != stride
+            or len(samples) != (end - start + stride - 1) // stride
+            or any(
+                not math.isfinite(sample.pts_seconds)
+                or abs(sample.pts_seconds - float((start + index * stride) / rate))
+                > float(1 / rate) / 2
+                for index, sample in enumerate(samples)
+            )
+            or assessment.active_rect is None
+            or asdict(assessment.active_rect) != active_value
+            or assessment.zoom != zoom
+            or refusal is not None
+            or decision != {"decision": "apply", "zoom": zoom}
+        ):
+            raise _error(f"bar-removal analysis {event_id} does not justify its zoom")
+    elif (
+        refusal is None
+        or decision != {"decision": "skip", "reason": refusal}
+        or (zoom is not None and not isinstance(zoom, (int, float)))
+    ):
+        raise _error(f"bar-removal analysis {event_id} has inconsistent refusal data")
 
 
 def _build_otio(
@@ -3530,6 +4127,7 @@ def _build_staging(
     prepared: Mapping[str, _Preparation],
     artifacts: Mapping[str, _InputArtifact],
     view: JsonObject,
+    encoded_bars_evidence: JsonObject | None = None,
     timing: _PackageSubtimings | None = None,
     cache: _MediaCacheSession | None = None,
 ) -> JsonObject:
@@ -3543,6 +4141,11 @@ def _build_staging(
     ):
         _write_exclusive(build_root / filename, raw)
     _write_exclusive(build_root / DELIVERY_VIEW_FILENAME, _canonical_json(view))
+    if encoded_bars_evidence is not None:
+        _write_exclusive(
+            build_root / ENCODED_BARS_FILENAME,
+            _canonical_json(encoded_bars_evidence),
+        )
     for item in prepared.values():
         _write_exclusive(staging / item.relative_path, item.raw)
     for artifact in artifacts.values():
@@ -3781,6 +4384,22 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
         document, dependencies, manifest, report, prep_paths
     )
 
+    encoded_bars_evidence: JsonObject | None = None
+    if (
+        cast(JsonObject, dependencies["authoringDefaults"]).get("hideEncodedBars")
+        is True
+    ):
+        evidence_path = _safe_package_file(
+            project_root,
+            f"{BUILD_DIRECTORY}/{build_id}/{ENCODED_BARS_FILENAME}",
+            "packaged bar-removal evidence",
+        )
+        encoded_bars_evidence, evidence_raw = _load_json(
+            evidence_path, "packaged bar-removal evidence"
+        )
+        if _canonical_json(encoded_bars_evidence) != evidence_raw:
+            raise _error("bar-removal evidence is not canonical JSON")
+
     sources = _unique_by_id(view.get("sources"), "delivery source")
     source_hashes = receipt.get("sourceHashes")
     if not isinstance(source_hashes, dict) or set(source_hashes) != set(sources):
@@ -3890,7 +4509,14 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
                     prep.record["audio"]["contentHash"],
                     "audio",
                 )
-    _validate_delivery_view(manifest, dependencies, view, prepared, artifacts)
+    _validate_delivery_view(
+        manifest,
+        dependencies,
+        view,
+        prepared,
+        artifacts,
+        encoded_bars_evidence=encoded_bars_evidence,
+    )
 
     # Reconstruct the only permitted package inventory from frozen IDs, view
     # sources and preparation receipts; receipt-signed unrelated files are not accepted.
@@ -3906,6 +4532,8 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
             VERIFICATION_FILENAME,
         )
     }
+    if encoded_bars_evidence is not None:
+        expected_inventory.add(f"{BUILD_DIRECTORY}/{build_id}/{ENCODED_BARS_FILENAME}")
     expected_inventory.update(item.relative_path for item in prepared.values())
     expected_inventory.update(source["path"] for source in sources.values())
     expected_inventory.update(
@@ -4058,7 +4686,21 @@ def _build_v2_package(
         document, dependencies, manifest, report, preparation_paths
     )
     artifacts = _media_artifacts(manifest, prepared, media_paths, timing, cache)
-    view = _delivery_view(manifest, dependencies, prepared, artifacts, cache=cache)
+    encoded_bars_evidence = _make_encoded_bars_evidence(
+        manifest,
+        dependencies,
+        prepared,
+        artifacts,
+        timing=timing,
+    )
+    view = _delivery_view(
+        manifest,
+        dependencies,
+        prepared,
+        artifacts,
+        cache=cache,
+        encoded_bars_evidence=encoded_bars_evidence,
+    )
 
     root = project_root.absolute()
     if root == root.parent or root.name in {"", ".", ".."}:
@@ -4096,6 +4738,7 @@ def _build_v2_package(
             prepared=prepared,
             artifacts=artifacts,
             view=view,
+            encoded_bars_evidence=encoded_bars_evidence,
             timing=timing,
             cache=cache,
         )
