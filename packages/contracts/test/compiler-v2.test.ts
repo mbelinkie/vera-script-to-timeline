@@ -107,6 +107,7 @@ function sequentialSpeechCutFixture(previousEnd?: { numerator: number; denominat
   );
 
   const deps = dependencies();
+  deps.compiler.version = "compiler/v2-speech-cuts";
   const map = deps.narrationTimingMaps[0]!;
   map.textHash = digest(text);
   map.precision = previousEnd ? "audible_word_marks" : "next_word_derived";
@@ -929,12 +930,13 @@ describe("pure v2 compiler", () => {
   }
 
   it("includes the speech cut lead in source sufficiency for the incoming clip", () => {
-    const requirementsFor = (sourceEndFrame: number) => {
+    const requirementsFor = (sourceEndFrame: number, compilerVersion = "compiler/v2-speech-cuts") => {
       const { doc, deps, tokenIds } = completeClipBoundaryFixture([
         { value: "alpha", start: { numerator: 0, denominator: 1 }, audibleEnd: { numerator: 19, denominator: 2 } },
         { value: "beta", start: { numerator: 10, denominator: 1 }, audibleEnd: { numerator: 21, denominator: 2 } },
         { value: "gamma", start: { numerator: 11, denominator: 1 } },
       ]);
+      deps.compiler.version = compilerVersion;
       const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
       const [outgoing, incoming] = row.primaryVisualSequence!.slots;
       if (outgoing?.kind !== "content" || incoming?.kind !== "content" || incoming.payload.kind !== "visual") {
@@ -948,8 +950,13 @@ describe("pure v2 compiler", () => {
       const descriptor = deps.occurrenceResolutions.find((item) => item.owner.kind === "primary_slot" && item.owner.slotId === incoming.id);
       if (!descriptor) throw new Error("fixture requires a source descriptor for the incoming clip");
       descriptor.logicalSourceBounds.endFrame = sourceEndFrame;
+      const outgoingDescriptor = deps.occurrenceResolutions.find((item) => item.owner.kind === "primary_slot" && item.owner.slotId === outgoing.id);
+      if (!outgoingDescriptor) throw new Error("fixture requires a source descriptor for the outgoing clip");
+      outgoingDescriptor.logicalSourceBounds.endFrame = 251;
+      outgoingDescriptor.sourceFrameMap.decodedPackageFrameCount = 251;
       return resolveMediaRequirementsV2(doc, {
         timing: deps.narrationTimingMaps,
+        compilerVersion,
         defaults: deps.authoringDefaults,
         sourceDescriptors: deps.occurrenceResolutions,
         frameRate: deps.timeline.frameRate,
@@ -966,9 +973,31 @@ describe("pure v2 compiler", () => {
       });
     }
 
+    const legacy = requirementsFor(53, "compiler/v2");
+    expect(legacy.ok, JSON.stringify(legacy)).toBe(true);
+    if (legacy.ok) {
+      expect(legacy.requirements.find((item) => item.payloadId === id(18))).toMatchObject({
+        recordRange: { startFrame: 240, endFrame: 288 },
+        requiredSourceRange: { startFrame: 0, endFrame: 51 },
+        sourceSufficiency: "sufficient",
+      });
+    }
+
     const insufficient = requirementsFor(53);
     expect(insufficient.ok).toBe(false);
     if (!insufficient.ok) expect(insufficient.diagnostics.map((item) => item.code)).toContain("SOURCE_INSUFFICIENT");
+  });
+
+  it("preserves the frozen compiler/v2 speech boundary", () => {
+    const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture({ numerator: 3, denominator: 2 });
+    deps.compiler.version = "compiler/v2";
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+
+    expect(compiled.manifest.events.find((event) => event.provenance.slotId === incomingSlotId)?.recordRange.startFrame).toBe(48);
+    expect(compiled.report.diagnostics.some((item) => item.code === "WORD_TIMING_REQUIRED")).toBe(false);
+    expect(compiled.manifest.visualSequenceResolutions.find((item) => item.slotId === incomingSlotId)?.boundaryDelta).toEqual({ numerator: 0, denominator: 1 });
   });
 
   it("reuses same-rate source bytes with a nonzero authored inpoint", () => {

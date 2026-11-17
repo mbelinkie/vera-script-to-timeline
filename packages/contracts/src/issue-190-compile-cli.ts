@@ -25,6 +25,7 @@ try {
     return compiler.resolveMediaRequirementsV2(document, {
       timing: value.narrationTimingMaps,
       boundaryEvidence: value.narrationBoundaryEvidence ?? [],
+      compilerVersion: value.compiler.version,
       defaults: value.authoringDefaults,
       sourceDescriptors: value.occurrenceResolutions,
       frameRate: value.timeline.frameRate,

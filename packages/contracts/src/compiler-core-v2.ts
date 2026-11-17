@@ -67,6 +67,7 @@ export type CompileTimelineResultV2 =
 export interface MediaRequirementsInputV2 {
   timing: readonly NarrationTokenTimingMapV2[];
   boundaryEvidence?: readonly NarrationBoundaryEvidenceV1[];
+  compilerVersion?: CompilerDependenciesV2["compiler"]["version"];
   defaults: AuthoringDefaultsV2;
   sourceDescriptors: readonly OccurrenceMediaResolutionV2[];
   frameRate: RationalRate;
@@ -641,6 +642,7 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
 }
 
 function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, requirePrepared = true, transitionHandles: ReadonlyMap<string, TransitionHandles> = new Map()): ResolvedPlan {
+  const speechCutCompiler = dependencies.compiler.version === "compiler/v2-speech-cuts";
   const built = buildTimedRows(document, dependencies);
   const diagnostics = [...built.diagnostics];
   const events: TimelineEventV2[] = [];
@@ -822,7 +824,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       let start: number | null = slot.boundaryBefore.kind === "row_start" ? rowStart
         : slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end" ? resolveWord(slot.boundaryBefore.anchor, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/boundaryBefore`)
           : null;
-      if (start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual") {
+      if (speechCutCompiler && start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual") {
         const previous = sequence.slots[sequence.slots.indexOf(slot) - 1];
         if (previous?.kind === "content" && previous.payload.kind === "visual" && previous.playoutPolicy === "match_structural_interval") {
           const spoken = spokenTokensV2(block);
@@ -1035,7 +1037,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       }
       if (emittedEvent) rowEvents.push(emittedEvent);
       if (emittedEvent || payload.kind === "on_camera" && payload.presenterChoiceId !== null) {
-        const startTime = (evidenceHash || slot.boundaryBefore.kind === "audible_word_end" || slot.boundaryBefore.kind === "spoken_word" ? resolvedEdges.get(slot.id)?.time : null) ?? row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+        const startTime = (evidenceHash || slot.boundaryBefore.kind === "audible_word_end" || speechCutCompiler && slot.boundaryBefore.kind === "spoken_word" ? resolvedEdges.get(slot.id)?.time : null) ?? row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
         const delta = sub(frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator)), startTime);
         sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === slot.id), relation: isChild ? "child" : "root", slotId: slot.id, payloadId, returnSlotId: null, boundaryKind: slot.boundaryBefore.kind === "previous_media_end" ? "media_end" : slot.boundaryBefore.kind === "audible_word_end" ? "word_end" : "word_start", resolvedRecordFrame: range.startFrame, boundaryDelta: wireOrThrow(delta, "sequence boundary delta"), rootRanges: isChild ? [] : [range], childRanges: isChild ? [range] : [], topmostAppearances: emittedEvent ? [{ eventId, recordRange: range }] : [], hostState: payload.kind === "on_camera" ? "on_camera" : "voiceover", visualOrdinal: rowProjection?.slots.find((item) => item.slotId === slot.id)?.humanOrdinal ?? null, eventIds: emittedEvent ? [eventId] : [], sourceRange: occurrenceRange, sourceTimeMapping: mapping, preparationRequirementKey: requirementKey, presenterChoice, ...provenanceEvidence, alignmentPrecision: resolvedEdges.get(slot.id)?.precision === "between_words" ? "between_words" : "verification" in row.map ? resolvedEdges.get(slot.id)?.precision ?? "unknown" : slot.boundaryBefore.kind === "audible_word_end" || row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" });
       }
@@ -1855,7 +1857,7 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     const synthetic: CompilerDependenciesV2 = {
       schemaVersion: "compiler-dependencies/v2", build: { buildId: document.id, manifestId: document.id, reportId: document.id, buildClass: "preview" },
       document: { documentId: document.id, projectId: document.projectId, revision: 1, liveHeadSequence: document.liveHeadSequence, contentHash: document.liveContentHash, textHash: shaText(document.activeDraft.blocks.filter((item): item is NarrationBlockV2 => item.type === "narration").map((item) => item.text).join("\n")), settingsHash: input.defaults.settingsHash },
-      compiler: { version: "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
+      compiler: { version: input.compilerVersion ?? "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
       timeline: { frameRate: input.frameRate, width: 1, height: 1, audioSampleRate: 48000, startFrame: 0, durationFrames: 1 }, tracks: [{ id: "video", kind: "video", index: 1, name: "video" }],
       roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
     };
