@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from itertools import pairwise
+from pathlib import Path
 
 import pytest
 from issue600_cropdetect_fixture import (
@@ -13,7 +14,7 @@ from vera_timeline_agent.cropdetect import CropRect, analyze_media
 
 @pytest.mark.slow
 def test_ffmpeg_whole_range_evidence_rejects_ambiguous_or_unsafe_frames(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     ffmpeg = shutil.which("ffmpeg")
     ffprobe = shutil.which("ffprobe")

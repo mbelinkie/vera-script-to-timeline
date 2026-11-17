@@ -3521,7 +3521,7 @@ def test_video_bar_removal_only_writes_a_qualified_apply(decision: str | None) -
     adapter.expected_stamps = {}
     adapter.expected_properties = {}
     adapter.expected_source_ranges = {}
-    event = {
+    event: dict[str, Any] = {
         "id": "clip-event",
         "kind": "primary_visual",
         "sourceId": "source",
