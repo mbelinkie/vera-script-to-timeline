@@ -179,7 +179,7 @@ export function changeVisualTypeV2(row: NarrationBlockV2, slotId: string, to: Vi
   if (slot?.payload.kind === "on_camera") {
     return refusal("ON_CAMERA_NOT_A_VISUAL", "On Camera fills the words no visual covers, so it has no type to change. Add a visual on those words instead.", slotId);
   }
-  const current = (waiting?.payload ?? slot!.payload) as Extract<ContentSlot["payload"], { kind: "visual" | "undefined" }>;
+  const current = (waiting?.payload ?? slot!.payload);
 
   if (to.type === "on_camera") {
     // On Camera is not stored as a visual: choosing it means nothing covers these words any more.

@@ -22,7 +22,12 @@ import type {
   ScriptDocumentV2,
   VisualOnlyBlockV2,
 } from "@vera/contracts/v2";
-import type { RowEditCommandV2, VisualSequenceEditCommandV2 } from "../src/authoring-v2.js";
+import type { RowEditCommandV2, VisualSequenceEditCommandV2, VisualSequenceEditResultV2 } from "../src/authoring-v2.js";
+
+type MoveCommand = Extract<VisualSequenceEditCommandV2, { kind: "move_visual_to_row" }>;
+type AttachCommand = Extract<VisualSequenceEditCommandV2, { kind: "attach_visual_to_words" }>;
+type ChangeCommand = Extract<VisualSequenceEditCommandV2, { kind: "change_visual_type" }>;
+type StashCommand = Extract<RowEditCommandV2, { kind: "stash_visual" }>;
 
 /**
  * #578: move a visual to another row unattached, attach it to words, change
@@ -139,8 +144,7 @@ function act(
   command: VisualSequenceEditCommandV2 | RowEditCommandV2,
 ): { document: ScriptDocumentV2; dropped: { what: string; message: string }[] } {
   const session = createRowEditSessionV2(start);
-  const visual = isVisualCommand(command);
-  const result = visual ? session.applyVisualEdit(command) : session.apply(command);
+  const result = isVisualCommand(command) ? session.applyVisualEdit(command) : session.apply(command);
   expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
   expect(validateScriptDocumentV2(result.document).diagnostics.filter((item) => item.severity !== "warning")).toEqual([]);
   // One Undo.
@@ -151,7 +155,7 @@ function act(
   const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
   expect(reloaded.ok).toBe(true);
   if (reloaded.ok) expect(reloaded.document).toEqual(result.document);
-  const dropped = "evidence" in result ? result.evidence?.dropped ?? [] : [];
+  const dropped = (result as VisualSequenceEditResultV2).evidence?.dropped ?? [];
   return { document: result.document, dropped };
 }
 
@@ -171,7 +175,7 @@ function refusedWith(start: ScriptDocumentV2, command: VisualSequenceEditCommand
   return result.diagnostics[0]!.message;
 }
 
-const move = (name: string, from = 1, to = 2): VisualSequenceEditCommandV2 =>
+const move = (name: string, from = 1, to = 2): MoveCommand =>
   ({ kind: "move_visual_to_row", blockId: rowId(from), slotId: slotId(from, name), destinationBlockId: rowId(to) });
 
 /** Row 1 opens on footage then On Camera; row 2 is two stills meeting at word 5. */
@@ -295,7 +299,7 @@ describe("#578 an unattached visual and the build", () => {
 });
 
 describe("#578 attach to words", () => {
-  const attach = (doc: ScriptDocumentV2, first: number, last: number): VisualSequenceEditCommandV2 => ({
+  const attach = (doc: ScriptDocumentV2, first: number, last: number): AttachCommand => ({
     kind: "attach_visual_to_words", blockId: rowId(2), slotId: slotId(1, "F"),
     startTokenId: word(doc, 2, first), endTokenId: word(doc, 2, last),
   });
@@ -340,7 +344,7 @@ describe("#578 attach to words", () => {
 });
 
 describe("#578 change type", () => {
-  const change = (name: string, to: Extract<VisualSequenceEditCommandV2, { kind: "change_visual_type" }>["to"], row = 1): VisualSequenceEditCommandV2 =>
+  const change = (name: string, to: ChangeCommand["to"], row = 1): ChangeCommand =>
     ({ kind: "change_visual_type", blockId: rowId(row), slotId: slotId(row, name), to });
 
   it("keeps the slot's words and the comment on its card, and says what the new type dropped", () => {
@@ -412,7 +416,7 @@ describe("#578 change type", () => {
 
   it("changes the type of a visual that is waiting for words", () => {
     const waiting = act(twoRows(), move("F")).document;
-    const command: VisualSequenceEditCommandV2 = { kind: "change_visual_type", blockId: rowId(2), slotId: slotId(1, "F"), to: { type: "need_to_find", description: "Harbour at dusk" } };
+    const command: ChangeCommand = { kind: "change_visual_type", blockId: rowId(2), slotId: slotId(1, "F"), to: { type: "need_to_find", description: "Harbour at dusk" } };
     const { document } = act(waiting, command);
     expect(cards(document, 2)).toEqual(["S1 0-5", "S2 5-10", "F unattached"]);
     expect(find(document, 2).unattachedVisuals![0]).toMatchObject({ version: 2, payload: { source: { description: "Harbour at dusk" } } });
@@ -459,7 +463,7 @@ describe("#578 delete a visual", () => {
 });
 
 describe("#578 stash one visual", () => {
-  const stash = (name: string, row: number): RowEditCommandV2 => ({
+  const stash = (name: string, row: number): StashCommand => ({
     kind: "stash_visual", rowId: rowId(row), slotId: slotId(row, name), bundleId: id(60_001), stashRowId: id(60_002),
     sectionId: null, parentRowId: null, afterRowId: null,
   });
@@ -485,7 +489,7 @@ describe("#578 stash one visual", () => {
     expect((document.stash![0]!.rows[0] as VisualOnlyBlockV2).payload).toMatchObject({ pictureKind: "intentional_placeholder", source: { text: "S1 card" } });
 
     const waiting = act(twoRows(), move("F")).document;
-    const stashed = act(waiting, { ...stash("F", 2), slotId: slotId(1, "F") } as RowEditCommandV2).document;
+    const stashed = act(waiting, { ...stash("F", 2), slotId: slotId(1, "F") }).document;
     expect(cards(stashed, 2)).toEqual(["S1 0-5", "S2 5-10"]);
     expect(stashed.stash).toHaveLength(1);
   });
@@ -493,8 +497,8 @@ describe("#578 stash one visual", () => {
   it("is refused for On Camera, for footage with no chosen length, and for IDs already in use", () => {
     const start = twoRows();
     expect(refusedWith(start, stash("OC1", 1), "ON_CAMERA_NOT_A_VISUAL")).toContain("On Camera");
-    refusedWith(start, { ...stash("F", 1), stashRowId: rowId(2) } as RowEditCommandV2, "ROW_ID_DUPLICATE");
-    refusedWith(start, { ...stash("F", 1), sectionId: id(31337) } as RowEditCommandV2, "STASH_SECTION_NOT_FOUND");
+    refusedWith(start, { ...stash("F", 1), stashRowId: rowId(2) }, "ROW_ID_DUPLICATE");
+    refusedWith(start, { ...stash("F", 1), sectionId: id(31337) }, "STASH_SECTION_NOT_FOUND");
     const untrimmed = twoRows();
     delete (placed(untrimmed, 1, "F")!.payload as NarratedVisualPayloadV2).selectedSourceRange;
     refusedWith(untrimmed, stash("F", 1), "STASH_VISUAL_TRIM_REQUIRED");

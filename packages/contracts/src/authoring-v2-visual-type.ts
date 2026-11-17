@@ -120,7 +120,7 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
         kind: "visual", payloadId: old.payloadId, pictureKind: kind, source: to.source,
         sourceUsage: null, audioPolicy: "mute",
         ...(kind !== "image" || previous?.framingPolicy !== undefined ? { framingPolicy } : {}),
-      } as VisualPayload;
+      };
     }
   }
 
@@ -128,7 +128,7 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
     const next = payload.kind === "visual" ? payload : null;
     // Still Image, Web Capture and Graphic all support a slow move across the picture; keep it between them.
     const holdsMotion = next !== null && ["image", "capture", "graphic"].includes(next.pictureKind);
-    if (previous.imageMotion && holdsMotion) next!.imageMotion = previous.imageMotion;
+    if (previous.imageMotion && holdsMotion) next.imageMotion = previous.imageMotion;
     if (!sourceKept && !textKept) {
       const why = "source" in to && to.source ? "replaced by the new one" : `because ${label} does not use it`;
       dropped.push({ what: "source", message: `${describeSource(previous.source)}, ${why}.` });
