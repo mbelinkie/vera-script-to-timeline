@@ -114,6 +114,52 @@ def _verified_png_case(
     return source, binding, probe
 
 
+def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None:
+    source, binding, _ = _verified_png_case(tmp_path, 1000, 1000, 48)
+    probe = {
+        "kind": "image",
+        "demuxer": "image2pipe",
+        "codec": "png",
+        "width": 1000,
+        "height": 1000,
+        "frames": 1,
+    }
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            frame_rate=(24, 1),
+            verified_asset=source,
+            delivered_probe=probe,
+        )
+        is not None
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            frame_rate=(30000, 1001),
+            verified_asset=source,
+            delivered_probe=probe,
+        )
+        is None
+    )
+    for change in ({"frames": True}, {"codec": "mjpeg"}, {"width": 999}):
+        assert (
+            production_qualification(
+                DEFAULT_IMAGE_MOTION,
+                binding,
+                "cover",
+                verified_asset=source,
+                delivered_probe={**probe, **change},
+                frame_rate=(24, 1),
+            )
+            is None
+        )
+
+
 @pytest.mark.parametrize("frames", [24, 48, 96, 144])
 def test_bounded_verified_png_has_reusable_real_source_bound_proof(
     tmp_path: Path, frames: int
@@ -132,6 +178,72 @@ def test_bounded_verified_png_has_reusable_real_source_bound_proof(
     assert (proof.source_width, proof.source_height) == (1600, 900)
     assert admit_motion(MOTION, binding, proof, framing="cover") == proof
     assert len(native_effect_records(MOTION, proof)) == 2
+
+
+@pytest.mark.parametrize(
+    ("size", "frames", "motion", "framing"),
+    [
+        ((1000, 1000), 48, DEFAULT_IMAGE_MOTION, "cover"),
+        ((1600, 900), 96, DEFAULT_IMAGE_MOTION, "cover"),
+        ((900, 1600), 72, DEFAULT_IMAGE_MOTION, "cover"),
+        ((1000, 1000), 48, {"mode": "none"}, "contain"),
+    ],
+)
+@pytest.mark.parametrize("rate", [(24000, 1001), (25, 1), (30, 1)])
+def test_default_fractional_still_proof_is_specific_to_studio_212(
+    tmp_path: Path,
+    size: tuple[int, int],
+    frames: int,
+    motion: dict[str, Any],
+    framing: str,
+    rate: tuple[int, int],
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    proof = production_qualification(
+        motion,
+        binding,
+        framing,
+        verified_asset=source,
+        delivered_probe=probe,
+        frame_rate=rate,
+    )
+    assert proof is not None and proof.version == "21.2.0.6"
+    assert (
+        admit_motion(motion, binding, proof, framing=framing, version="21.2.0.6")
+        == proof
+    )
+    with pytest.raises(MotionRefusal, match="version"):
+        admit_motion(motion, binding, proof, framing=framing, version="21.1.1.10")
+
+
+@pytest.mark.parametrize(("rate", "frames"), [((25, 1), 75), ((30, 1), 90)])
+def test_default_duration_is_qualified_only_for_measured_square(
+    tmp_path: Path, rate: tuple[int, int], frames: int
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, 1000, 1000, frames)
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            verified_asset=source,
+            delivered_probe=probe,
+            frame_rate=rate,
+        )
+        is not None
+    )
+    source, binding, probe = _verified_png_case(tmp_path, 1600, 900, frames)
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            verified_asset=source,
+            delivered_probe=probe,
+            frame_rate=rate,
+        )
+        is None
+    )
 
 
 def test_verified_png_none_supports_measured_static_contain(

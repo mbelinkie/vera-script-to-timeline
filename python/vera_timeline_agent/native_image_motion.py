@@ -126,19 +126,28 @@ def production_qualification(
 
     The caller must supply a verified package asset and its independently
     validated preparation receipt. A standalone authored motion dictionary
-    cannot grant a qualification. The deliberately narrow 16:9/24fps route
+    cannot grant a qualification. The deliberately narrow 16:9 route
     excludes unmeasured codecs, color transforms, aspect ratios, durations,
     backgrounds, and moving contain (which needs a proven derived matte).
     """
     duration = binding.record_end - binding.record_start
+    qualified_default = (
+        frame_rate in {(24000, 1001), (25, 1), (30, 1)}
+        and (
+            duration in {48, 72, 96}
+            or (frame_rate, duration) in {((25, 1), 75), ((30, 1), 90)}
+        )
+        and motion in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
+    )
     if (
         verified_asset is None
         or delivered_probe is None
-        or frame_rate != (24, 1)
+        or (frame_rate != (24, 1) and not qualified_default)
         or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
         or binding.original_hash != binding.source_hash
         or (
             duration not in {24, 48, 96, 144}
+            and not qualified_default
             and (
                 duration != 72 or motion not in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
             )
@@ -152,6 +161,9 @@ def production_qualification(
     if dimensions is None:
         return None
     width, height = dimensions
+    if duration in {75, 90} and dimensions != (1000, 1000):
+        return None
+    version = "21.2.0.6" if qualified_default else "21.1.1.10"
     # Do not generalize a handful of decoded public aspect/size fixtures into
     # native raster proof for every resolution sharing the same aspect ratio.
     if (width, height) not in {(1000, 1000), (1600, 900), (900, 1600)}:
@@ -159,7 +171,7 @@ def production_qualification(
     if motion == {"mode": "none"}:
         return Qualification(
             edition="studio",
-            version="21.1.1.10",
+            version=version,
             route="native_otio",
             binding=binding,
             motion_hash=motion_hash(motion),
@@ -194,7 +206,7 @@ def production_qualification(
         return None
     return Qualification(
         edition="studio",
-        version="21.1.1.10",
+        version=version,
         route="native_otio",
         binding=binding,
         motion_hash=motion_hash(motion),
@@ -285,6 +297,15 @@ def _verified_rgb_png_dimensions(
             return None
     except zlib.error:
         return None
+    if type(probe.get("frames")) is int and probe == {
+        "kind": "image",
+        "demuxer": "image2pipe",
+        "codec": "png",
+        "width": width,
+        "height": height,
+        "frames": 1,
+    }:
+        return dimensions
     streams = probe.get("streams")
     frames = probe.get("frames")
     if (
