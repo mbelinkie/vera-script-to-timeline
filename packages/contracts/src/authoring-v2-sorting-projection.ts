@@ -191,6 +191,8 @@ function subtreeRows(document: ScriptDocumentV2, roots: string[]): string[] {
 
 function selectedRows(document: ScriptDocumentV2, command: RowEditCommandV2): string[] {
   switch (command.kind) {
+    case "delete_stash_section":
+      return effectiveOutline(document).filter((entry) => entry.sectionId === command.sectionId).map((entry) => entry.rowId);
     case "move_rows":
     case "stash_rows":
     case "restore_stash_rows":

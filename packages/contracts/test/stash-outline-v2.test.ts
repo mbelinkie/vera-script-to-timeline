@@ -693,6 +693,272 @@ describe("persisted plain-direction intent (phase 1)", () => {
   });
 });
 
+describe("D109 Stash section rename and deletion", () => {
+  it("refuses nested Stash descendants that are not in depth-first preorder", () => {
+    const { doc } = attachmentFixture();
+    expect(validateScriptDocumentV2(doc).valid).toBe(true);
+    const invalid = structuredClone(doc);
+    const [parentNote, childClip] = invalid.stashOutline!.slice(2, 4);
+    invalid.stashOutline!.splice(2, 2, childClip!, parentNote!);
+    expect(validateScriptDocumentV2(invalid).diagnostics).toContainEqual(expect.objectContaining({
+      code: "ROW_REFERENCE_INVALID",
+      message: "The Stash outline must be a deterministic depth-first preorder without cycles.",
+    }));
+  });
+
+  it("keeps nested note contents, owned footage and an ordinary saved group intact ahead of unsorted roots", () => {
+    const gone = id(811000);
+    const kept = id(811001);
+    const groupId = id(811002);
+    const { doc, note, attached, ordinary, nested, grandchild, other } = attachmentFixture();
+    const attachedResult = applyRowEditV2(doc, 0, {
+      kind: "attach_stash_footage", noteRowId: note.id, clipRowId: attached.id,
+    });
+    expect(attachedResult.ok, JSON.stringify(attachedResult.diagnostics)).toBe(true);
+    const original = structuredClone(attachedResult.document);
+    const first = clip(811010);
+    const second = clip(811020);
+    const another = clip(811030);
+    original.stash!.push(
+      { id: id(811040), rows: [first, second], supportingItems: [] },
+      { id: id(811041), rows: [another], supportingItems: [] },
+    );
+    original.stashSections = [
+      { id: gone, title: "Gone", rowIds: [] },
+      { id: kept, title: "Kept", rowIds: [] },
+    ];
+    original.stashOutline = [
+      { rowId: other.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: note.id, kind: "note", parentRowId: null, sectionId: gone },
+      { rowId: ordinary.id, kind: "clip", parentRowId: note.id, sectionId: gone },
+      { rowId: nested.id, kind: "note", parentRowId: note.id, sectionId: gone },
+      { rowId: grandchild.id, kind: "clip", parentRowId: nested.id, sectionId: gone },
+      { rowId: first.id, kind: "row", parentRowId: null, sectionId: gone },
+      { rowId: second.id, kind: "row", parentRowId: null, sectionId: gone },
+      { rowId: another.id, kind: "clip", parentRowId: null, sectionId: kept },
+    ];
+    original.stashGroups = [{ id: groupId, rowIds: [first.id, second.id] }];
+    expect(validateScriptDocumentV2(original).valid, JSON.stringify(validateScriptDocumentV2(original).diagnostics)).toBe(true);
+    const baselineRows = structuredClone(original.stash);
+    const baselineGroups = structuredClone(original.stashGroups);
+    const session = createRowEditSessionV2(original);
+    const deleted = session.apply({ kind: "delete_stash_section", sectionId: gone });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    const expected = [
+      ...original.stashOutline.slice(1, 7).map((entry) => ({ ...entry, sectionId: null })),
+      original.stashOutline[0], original.stashOutline[7],
+    ];
+    expect(deleted.document.stashOutline).toEqual(expected);
+    expect(deleted.document.stashSections).toEqual([{ id: kept, title: "Kept", rowIds: [] }]);
+    expect(deleted.document.stashGroups).toEqual(baselineGroups);
+    expect(deleted.document.stash).toEqual(baselineRows);
+    const owner = deleted.document.stash!.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id);
+    expect(owner?.type).toBe("narration");
+    if (owner?.type === "narration") expect(owner.attachedFootage?.clip).toEqual(attached);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(deleted.document)))
+      .toEqual({ ok: true, document: deleted.document });
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().document).toEqual({ ...original, rowEditRevision: 3 });
+    const firstDelete = session.apply({ kind: "delete_stash_section", sectionId: gone });
+    expect(firstDelete.ok).toBe(true);
+    const secondDelete = session.apply({ kind: "delete_stash_section", sectionId: kept });
+    expect(secondDelete.ok, JSON.stringify(secondDelete.diagnostics)).toBe(true);
+    expect(secondDelete.document.stashSections).toBeUndefined();
+    expect(secondDelete.document.stashOutline?.map((entry) => entry.rowId)).toEqual([
+      another.id, note.id, ordinary.id, nested.id, grandchild.id, first.id, second.id, other.id,
+    ]);
+    expect(secondDelete.document.stashGroups).toEqual(baselineGroups);
+    expect(secondDelete.document.stash).toEqual(baselineRows);
+    expect(validateScriptDocumentV2(secondDelete.document).valid).toBe(true);
+  });
+
+  it("returns a previously placed saved row to the top after its historical section is deleted (#368)", () => {
+    const sectionId = id(812000);
+    const loose = clip(812010);
+    const sectioned = clip(812020);
+    const original = documentWith();
+    original.stash = [{ id: id(812030), rows: [loose, sectioned], supportingItems: [] }];
+    original.stashSections = [{ id: sectionId, title: "Historical section", rowIds: [] }];
+    original.stashOutline = [
+      { rowId: loose.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: sectioned.id, kind: "row", parentRowId: null, sectionId },
+    ];
+    const session = createRowEditSessionV2(original);
+    const placed = session.apply({ kind: "place_stash_rows", rowIds: [sectioned.id], destination: gap(null, null, null) });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const placedRow = placed.document.activeDraft.blocks.find((row) => row.id === sectioned.id);
+    expect(placedRow?.type).toBe("visual_only");
+    if (placedRow?.type === "visual_only") expect(placedRow.stashOrigin?.sectionId).toBe(sectionId);
+    const deleted = session.apply({ kind: "delete_stash_section", sectionId });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(deleted.document.stashSections).toBeUndefined();
+    const returned = session.apply({ kind: "stash_rows", rowIds: [sectioned.id], bundleId: id(812040) });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(returned.document.stashSections).toBeUndefined();
+    expect(returned.document.stashOutline?.map((entry) => [entry.rowId, entry.sectionId])).toEqual([
+      [sectioned.id, null], [loose.id, null],
+    ]);
+    expect(returned.document.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === sectioned.id))
+      .toEqual(sectioned);
+    expect(validateScriptDocumentV2(returned.document).valid).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(returned.document)))
+      .toEqual({ ok: true, document: returned.document });
+    expect(session.undo().document).toEqual({ ...deleted.document, rowEditRevision: 4 });
+    expect(session.undo().document).toEqual({ ...placed.document, rowEditRevision: 5 });
+    expect(session.undo().document).toEqual({ ...original, rowEditRevision: 6 });
+  });
+  it("renames only the heading, preserving legacy membership and a single serialized Undo", () => {
+    const sectionId = id(810000);
+    const row = narration(810010);
+    const original = documentWith();
+    original.stash = [{ id: id(810020), rows: [row], supportingItems: [] }];
+    original.stashSections = [{ id: sectionId, title: "Original", rowIds: [row.id] }];
+    expect(validateScriptDocumentV2(original).valid).toBe(true);
+    const session = createRowEditSessionV2(original);
+    const result = session.apply({ kind: "rename_stash_section", sectionId, title: "  New name  " });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document).toEqual({
+      ...original, stashSections: [{ id: sectionId, title: "  New name  ", rowIds: [row.id] }], rowEditRevision: 1,
+    });
+    expect(result.document.stashOutline).toBeUndefined();
+    expect(session.undoDepth).toBe(1);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document)))
+      .toEqual({ ok: true, document: result.document });
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    expect(undone.document).toEqual({ ...original, rowEditRevision: 2 });
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("refuses no-op, empty, malformed, missing and stale section commands atomically", () => {
+    const sectionId = id(810100);
+    const original = documentWith();
+    original.stashSections = [{ id: sectionId, title: "Keep", rowIds: [] }];
+    const noOp = applyRowEditV2(original, 0, { kind: "rename_stash_section", sectionId, title: "Keep" });
+    expect(noOp.diagnostics[0]?.code).toBe("ROW_EDIT_NO_CHANGE");
+    expect(noOp.document).toBe(original);
+
+    type Command = Parameters<typeof applyRowEditV2>[2];
+    const invalid: unknown[] = [
+      { kind: "rename_stash_section", sectionId, title: " \t " },
+      { kind: "rename_stash_section", sectionId },
+      { kind: "rename_stash_section", sectionId, title: "Ok", extra: true },
+      { kind: "rename_stash_section", sectionId: "not-a-uuid", title: "Ok" },
+      { kind: "rename_stash_section", sectionId, title: null },
+      { kind: "delete_stash_section", sectionId, extra: "wrong" },
+      { kind: "delete_stash_section", sectionId: "not-a-uuid" },
+      { kind: "delete_stash_section" },
+    ];
+    for (const command of invalid) {
+      const result = applyRowEditV2(original, 0, command as Command);
+      expect(result.diagnostics[0]?.code, JSON.stringify(command)).toBe("ROW_COMMAND_INVALID");
+      expect(result.document).toBe(original);
+    }
+    for (const command of [
+      { kind: "rename_stash_section", sectionId: id(810101), title: "Other" },
+      { kind: "delete_stash_section", sectionId: id(810101) },
+    ] as Command[]) {
+      const result = applyRowEditV2(original, 0, command);
+      expect(result.diagnostics[0]?.code).toBe("STASH_SECTION_NOT_FOUND");
+      expect(result.document).toBe(original);
+    }
+    expect(applyRowEditV2(original, 1, { kind: "delete_stash_section", sectionId }).diagnostics[0]?.code)
+      .toBe("ROW_REVISION_STALE");
+    const session = createRowEditSessionV2(original);
+    expect(session.apply({ kind: "rename_stash_section", sectionId, title: "Keep" }).ok).toBe(false);
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("deletes an empty section without changing saved rows or other headings", () => {
+    const gone = id(810200);
+    const kept = id(810201);
+    const original = documentWith();
+    original.stashSections = [
+      { id: gone, title: "Empty", rowIds: [] },
+      { id: kept, title: "Keep", rowIds: [] },
+    ];
+    const result = applyRowEditV2(original, 0, { kind: "delete_stash_section", sectionId: gone });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document).toEqual({
+      ...original, stashSections: [{ id: kept, title: "Keep", rowIds: [] }], rowEditRevision: 1,
+    });
+    expect(result.document.stashOutline).toBeUndefined();
+    const last = applyRowEditV2(result.document, 1, { kind: "delete_stash_section", sectionId: kept });
+    expect(last.ok, JSON.stringify(last.diagnostics)).toBe(true);
+    expect(last.document.stashSections).toBeUndefined();
+  });
+
+  it("promotes a complete nested canonical section to unsectioned index zero in one Undo", () => {
+    const gone = id(810300);
+    const kept = id(810301);
+    const loose = narration(810310);
+    const parent = narration(810320);
+    const child = narration(810330);
+    const grandchild = clip(810340);
+    const sibling = narration(810350);
+    const otherSection = narration(810360);
+    const rows = [loose, parent, child, grandchild, sibling, otherSection];
+    const original = documentWith();
+    original.stash = rows.map((row, index) => ({ id: id(810400 + index), rows: [row], supportingItems: [] }));
+    original.stashSections = [
+      { id: gone, title: "Remove", rowIds: [] },
+      { id: kept, title: "Keep", rowIds: [] },
+    ];
+    original.stashOutline = [
+      { rowId: loose.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: parent.id, kind: "note", parentRowId: null, sectionId: gone },
+      { rowId: child.id, kind: "note", parentRowId: parent.id, sectionId: gone },
+      { rowId: grandchild.id, kind: "clip", parentRowId: child.id, sectionId: gone },
+      { rowId: sibling.id, kind: "note", parentRowId: null, sectionId: gone },
+      { rowId: otherSection.id, kind: "note", parentRowId: null, sectionId: kept },
+    ];
+    expect(validateScriptDocumentV2(original).valid).toBe(true);
+    const session = createRowEditSessionV2(original);
+    const deleted = session.apply({ kind: "delete_stash_section", sectionId: gone });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(deleted.document.stashSections).toEqual([{ id: kept, title: "Keep", rowIds: [] }]);
+    expect(outline(deleted.document)).toEqual([
+      ...original.stashOutline.slice(1, 5).map((entry) => ({ ...entry, sectionId: null })),
+      original.stashOutline[0],
+      original.stashOutline[5],
+    ]);
+    expect(deleted.document.stash).toEqual(original.stash);
+    expect(deleted.document.rowEditRevision).toBe(1);
+    expect(validateScriptDocumentV2(deleted.document).valid).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(deleted.document)))
+      .toEqual({ ok: true, document: deleted.document });
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().document).toEqual({ ...original, rowEditRevision: 2 });
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("canonicalizes legacy membership before deleting its populated section", () => {
+    const gone = id(810500);
+    const kept = id(810501);
+    const sectioned = narration(810510);
+    const loose = narration(810520);
+    const other = narration(810530);
+    const original = documentWith();
+    original.stash = [{ id: id(810540), rows: [sectioned, loose, other], supportingItems: [] }];
+    original.stashSections = [
+      { id: gone, title: "Gone", rowIds: [sectioned.id] },
+      { id: kept, title: "Keep", rowIds: [other.id] },
+    ];
+    const session = createRowEditSessionV2(original);
+    const deleted = session.apply({ kind: "delete_stash_section", sectionId: gone });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(outline(deleted.document)).toEqual([
+      { rowId: sectioned.id, kind: "row", parentRowId: null, sectionId: null },
+      { rowId: loose.id, kind: "row", parentRowId: null, sectionId: null },
+      { rowId: other.id, kind: "row", parentRowId: null, sectionId: kept },
+    ]);
+    expect(deleted.document.stashSections).toEqual([{ id: kept, title: "Keep", rowIds: [] }]);
+    expect(deleted.document.stash).toEqual(original.stash);
+    expect(validateScriptDocumentV2(deleted.document).valid).toBe(true);
+    expect(session.undo().document).toEqual({ ...original, rowEditRevision: 2 });
+  });
+});
+
 describe("mixed Stash outline contract", () => {
   it("saves, places and returns literal nested/unmatched and empty notes without inventing syntax or identities", () => {
     const literal = "  [outer [inner]] ] unmatched 'quoted' 😀\nsecond line [\n ";

@@ -332,6 +332,31 @@ function visualOnlyBlock(
   };
 }
 
+function documentWithVisualPlacement(
+  placement: "narrated" | "standalone",
+  pictureKind: "clip" | "image" | "capture" | "graphic" | "intentional_placeholder",
+) {
+  if (placement === "narrated") {
+    return {
+      document: documentWithBlock(narrationBlock({
+        sequence: primaryVisualSequence([
+          contentSlot({ payload: narratedVisualPayload(pictureKind) }),
+        ]),
+      })),
+      payloadPath: ["activeDraft", "blocks", 0, "primaryVisualSequence", "slots", 0, "payload"] as (string | number)[],
+    };
+  }
+  return {
+    document: documentWithBlock(visualOnlyBlock(
+      pictureKind,
+      pictureKind === "clip"
+        ? { kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 120 } }
+        : { kind: "visual_only" },
+    )),
+    payloadPath: ["activeDraft", "blocks", 0, "payload"] as (string | number)[],
+  };
+}
+
 function setAt(root: unknown, path: (string | number)[], value: unknown): void {
   let current = root;
   for (const segment of path.slice(0, -1)) {
@@ -369,6 +394,67 @@ function expectSettingsInvalid(value: unknown): void {
 }
 
 describe("authoring v2 document and project-settings schemas", () => {
+  it("accepts optional per-placement names on narrated and standalone clips and stills and saves them unchanged", () => {
+    for (const placement of ["narrated", "standalone"] as const) {
+      for (const pictureKind of ["clip", "image"] as const) {
+        const { document, payloadPath } = documentWithVisualPlacement(placement, pictureKind);
+        expectDocumentValid(document); // Existing documents without aliases remain valid.
+
+        setAt(document, [...payloadPath, "displayName"], "Close-up — café ☕");
+        expectDocumentValid(document);
+        expect(validateScriptDocumentV2(document).valid).toBe(true);
+        const serialized = serializeAuthoringDocumentV2(
+          document as Parameters<typeof serializeAuthoringDocumentV2>[0],
+        );
+        const loaded = deserializeAuthoringDocumentV2(serialized);
+        expect(loaded.ok).toBe(true);
+        if (loaded.ok) {
+          expect(serializeAuthoringDocumentV2(loaded.document)).toBe(serialized);
+        }
+      }
+    }
+  });
+
+  it("refuses empty, whitespace-only, nonstring or unsupported visual placement names", () => {
+    for (const placement of ["narrated", "standalone"] as const) {
+      for (const pictureKind of ["clip", "image"] as const) {
+        for (const invalidName of ["", " \t\n\u2003 ", null, 123, [], {}]) {
+          const { document, payloadPath } = documentWithVisualPlacement(placement, pictureKind);
+          setAt(document, [...payloadPath, "displayName"], invalidName);
+          expectDocumentInvalid(document);
+        }
+      }
+
+      for (const pictureKind of ["capture", "graphic", "intentional_placeholder"] as const) {
+        const { document, payloadPath } = documentWithVisualPlacement(placement, pictureKind);
+        expectDocumentValid(document);
+        setAt(document, [...payloadPath, "displayName"], "Not allowed here");
+        expectDocumentInvalid(document);
+      }
+    }
+
+    const unresolved = documentWithVisualPlacement("narrated", "clip");
+    setAt(unresolved.document, [...unresolved.payloadPath, "pictureKind"], "unresolved_visual");
+    setAt(unresolved.document, [...unresolved.payloadPath, "source"], {
+      kind: "unresolved_visual", description: "Needs a source",
+    });
+    setAt(unresolved.document, [...unresolved.payloadPath, "sourceUsage"], null);
+    setAt(unresolved.document, [...unresolved.payloadPath, "displayName"], "Not a source yet");
+    expectDocumentInvalid(unresolved.document);
+  });
+
+  it("keeps placement names out of media sources and rejects arbitrary extra fields", () => {
+    for (const placement of ["narrated", "standalone"] as const) {
+      const { document, payloadPath } = documentWithVisualPlacement(placement, "image");
+      setAt(document, [...payloadPath, "source", "displayName"], "Do not rename source");
+      expectDocumentInvalid(document);
+
+      const other = documentWithVisualPlacement(placement, "image");
+      setAt(other.document, [...other.payloadPath, "unexpectedName"], "Extra field");
+      expectDocumentInvalid(other.document);
+    }
+  });
+
   it("accepts internal and terminal LF without shifting frozen UTF-16 token offsets", () => {
     const paragraph = narrationBlock();
     paragraph.text = "😀 hello\nworld\n";

@@ -23,6 +23,44 @@ function draft(projectId: string): ScriptDocumentV2 {
 }
 
 describe("project storage typed boundary", () => {
+  it("roundtrips independent names for two placements of one still without touching their source", () => {
+    const projectId = randomUUID();
+    const input = draft(projectId);
+    const mediaReferenceId = randomUUID();
+    const firstPayloadId = randomUUID();
+    const nextPayloadId = randomUUID();
+    const source = { kind: "media_reference" as const, mediaReferenceId };
+    input.activeDraft.blocks = [{
+      type: "visual_only", id: randomUUID(), orderKey: "still-1", version: 1,
+      payload: {
+        kind: "visual", payloadId: firstPayloadId, pictureKind: "image",
+        source, audioPolicy: "mute", displayName: "Establishing still",
+      },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 3000 },
+      additionalVisuals: [{
+        payload: {
+          kind: "visual", payloadId: nextPayloadId, pictureKind: "image",
+          source: structuredClone(source), audioPolicy: "mute",
+        },
+        visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 5000 },
+      }],
+    }];
+    const stored = checkedDocument(input, projectId);
+    const restored = checkedDocument(JSON.parse(stored.documentJson), projectId, input.id);
+    expect(restored).toEqual(stored);
+    expect(restored.document.activeDraft.blocks).toEqual(input.activeDraft.blocks);
+    const row = restored.document.activeDraft.blocks[0];
+    if (row?.type !== "visual_only") throw new Error("Expected wordless stills");
+    expect(row.payload).toMatchObject({ payloadId: firstPayloadId, displayName: "Establishing still", source });
+    expect(row.additionalVisuals![0].payload).toMatchObject({ payloadId: nextPayloadId, source });
+    expect(row.additionalVisuals![0].payload).not.toHaveProperty("displayName");
+    const unnamed = structuredClone(input);
+    if (unnamed.activeDraft.blocks[0]?.type !== "visual_only") throw new Error("Expected stills");
+    delete unnamed.activeDraft.blocks[0].payload.displayName;
+    expect(checkedDocument(unnamed, projectId).digest).not.toBe(stored.digest);
+    expect(restored.document.liveHeadSequence).toBe(3);
+  });
+
   it("keeps internal and trailing LF bytes, frozen UTF-16 tokens and distinct save digests", () => {
     const projectId = randomUUID();
     const input = draft(projectId);

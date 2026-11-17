@@ -218,6 +218,180 @@ function rows(document: ScriptDocumentV2): string[] {
     .map((block) => block.id);
 }
 
+describe("#588 visual placement names", () => {
+  const rename = (rowId: string, payloadId: string, name: string): RowEditCommandV2 =>
+    ({ kind: "rename_visual_placement", rowId, payloadId, name });
+
+  it("renames only one of several uses of the same media, with one document revision and Undo", () => {
+    const first = richNarration(22000);
+    const second = richNarration(32000);
+    const wordless = visualOnly(42000);
+    const firstSlot = first.primaryVisualSequence!.slots[0] as ContentSlot;
+    const secondSlot = second.primaryVisualSequence!.slots[0] as ContentSlot;
+    if (firstSlot.payload.kind !== "visual" || secondSlot.payload.kind !== "visual") throw new Error("Expected clips");
+    secondSlot.payload.source = structuredClone(firstSlot.payload.source);
+    wordless.payload.source = structuredClone(firstSlot.payload.source);
+    const initial = documentWith([first, second, wordless]);
+    expect(validateScriptDocumentV2(initial).valid).toBe(true);
+    const baseline = structuredClone(initial);
+    const session = createRowEditSessionV2(initial);
+
+    const changed = session.apply(rename(first.id, firstSlot.payload.payloadId, "  Window   take ✨  "));
+    expect(changed.ok, JSON.stringify(changed.diagnostics)).toBe(true);
+    expect(session.revision).toBe(1);
+    expect(session.undoDepth).toBe(1);
+    const renamed = changed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const newSlot = renamed.primaryVisualSequence!.slots[0] as ContentSlot;
+    if (newSlot.payload.kind !== "visual") throw new Error("Expected clip");
+    expect(newSlot.payload.displayName).toBe("Window   take ✨");
+    expect(changed.document.activeDraft.blocks[1]).toEqual(second);
+    expect(changed.document.activeDraft.blocks[2]).toEqual(wordless);
+    const expected = structuredClone(initial);
+    const expectedSlot = (expected.activeDraft.blocks[0] as NarrationBlockV2).primaryVisualSequence!.slots[0] as ContentSlot;
+    if (expectedSlot.payload.kind !== "visual") throw new Error("Expected clip");
+    expectedSlot.payload.displayName = "Window   take ✨";
+    expected.rowEditRevision = 1;
+    expect(changed.document).toEqual(expected);
+    expect(initial).toEqual(baseline);
+
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document));
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.document).toEqual(changed.document);
+    expect(session.undo().ok).toBe(true);
+    expect(session.undoDepth).toBe(0);
+    expect(session.document).toEqual({ ...baseline, rowEditRevision: 2 });
+  });
+
+  it("targets waiting narration visuals, the first and extra wordless visuals, and saved Stash rows", () => {
+    const spoken = richNarration(51000);
+    const pending = structuredClone((spoken.primaryVisualSequence!.slots[1] as ContentSlot).payload);
+    if (pending.kind !== "visual") throw new Error("Expected still");
+    pending.payloadId = id(110000);
+    spoken.unattachedVisuals = [{ slotId: id(110001), payload: pending, version: 1 }];
+    const wordless = visualOnly(61000);
+    const additional = structuredClone(wordless.payload);
+    additional.payloadId = id(64000);
+    wordless.additionalVisuals = [{ payload: additional, visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 2000 } }];
+    const initial = documentWith([spoken, wordless]);
+    const initialValidation = validateScriptDocumentV2(initial);
+    expect(initialValidation.valid, JSON.stringify(initialValidation.diagnostics)).toBe(true);
+    const session = createRowEditSessionV2(initial);
+    expect(session.apply(rename(spoken.id, pending.payloadId, "Waiting still")).ok).toBe(true);
+    expect(session.apply(rename(wordless.id, wordless.payload.payloadId, "First still")).ok).toBe(true);
+    expect(session.apply(rename(wordless.id, additional.payloadId, "Second still")).ok).toBe(true);
+    const saved = session.apply({ kind: "stash_rows", rowIds: [spoken.id], bundleId: id(69000) });
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    const renamedInStash = session.apply(rename(spoken.id, pending.payloadId, "Stashed still"));
+    expect(renamedInStash.ok, JSON.stringify(renamedInStash.diagnostics)).toBe(true);
+    const stashRow = renamedInStash.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(stashRow.unattachedVisuals![0]!.payload.displayName).toBe("Stashed still");
+    expect((renamedInStash.document.activeDraft.blocks[0] as VisualOnlyBlockV2).additionalVisuals![0].payload.displayName).toBe("Second still");
+    expect((renamedInStash.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.displayName).toBe("First still");
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document));
+    expect(loaded.ok).toBe(true);
+    if (loaded.ok) expect(loaded.document).toEqual(session.document);
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.stash![0]!.rows[0] as NarrationBlockV2).unattachedVisuals![0]!.payload.displayName).toBe("Waiting still");
+  });
+
+  it("clears a custom name on whitespace and refuses no-ops without history or source mutation", () => {
+    const clip = visualOnly(72000);
+    const session = createRowEditSessionV2(documentWith([clip]));
+    expect(session.apply(rename(clip.id, clip.payload.payloadId, "  Closeup  ")).ok).toBe(true);
+    const named = session.document;
+    const unchanged = session.apply(rename(clip.id, clip.payload.payloadId, "Closeup"));
+    expect(unchanged.ok).toBe(false);
+    expect(unchanged.diagnostics[0]?.code).toBe("ROW_EDIT_NO_CHANGE");
+    expect(unchanged.document).toEqual(named);
+    expect(session.undoDepth).toBe(1);
+    expect(session.revision).toBe(1);
+    const cleared = session.apply(rename(clip.id, clip.payload.payloadId, " \t\u2003 "));
+    expect(cleared.ok, JSON.stringify(cleared.diagnostics)).toBe(true);
+    expect((cleared.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload).not.toHaveProperty("displayName");
+    expect(session.undoDepth).toBe(2);
+    const secondClear = session.apply(rename(clip.id, clip.payload.payloadId, "  "));
+    expect(secondClear.ok).toBe(false);
+    expect(session.undoDepth).toBe(2);
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.displayName).toBe("Closeup");
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.displayName).toBeUndefined();
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("refuses wrong row, missing or unsupported placement, malformed command and stale revision", () => {
+    const clip = visualOnly(80000);
+    const neighbor = visualOnly(83000);
+    const onCamera = row(86000);
+    const document = documentWith([clip, neighbor, onCamera]);
+    const input = rename(clip.id, clip.payload.payloadId, "New name");
+    const invalid: Array<[RowEditCommandV2, string]> = [
+      [rename(neighbor.id, clip.payload.payloadId, "Wrong row"), "VISUAL_NOT_FOUND"],
+      [rename(clip.id, id(89999), "Missing"), "VISUAL_NOT_FOUND"],
+      [rename(onCamera.id, clip.payload.payloadId, "Not a visual"), "VISUAL_NOT_FOUND"],
+      [rename(id(89998), clip.payload.payloadId, "Missing row"), "ROW_NOT_FOUND"],
+      [rename("", clip.payload.payloadId, "Invalid"), "ROW_COMMAND_INVALID"],
+      [rename(clip.id, "", "Invalid"), "ROW_COMMAND_INVALID"],
+      [{ ...input, unexpected: "unsafe" } as unknown as RowEditCommandV2, "ROW_COMMAND_INVALID"],
+      [{ ...input, name: null } as unknown as RowEditCommandV2, "ROW_COMMAND_INVALID"],
+      [{ ...input, name: 12 } as unknown as RowEditCommandV2, "ROW_COMMAND_INVALID"],
+      [Object.assign(Object.create({ inherited: true }), input) as RowEditCommandV2, "ROW_COMMAND_INVALID"],
+    ];
+    const unsupported = structuredClone(document);
+    const visual = unsupported.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    visual.payload.pictureKind = "unresolved_visual";
+    visual.payload.source = { kind: "unresolved_visual", description: "Choose footage" };
+    expect(validateScriptDocumentV2(unsupported).valid).toBe(true);
+    const unsupportedResult = applyRowEditV2(unsupported, 0, input);
+    expect(unsupportedResult.ok).toBe(false);
+    expect(unsupportedResult.diagnostics[0]?.code).toBe("VISUAL_RENAME_UNSUPPORTED");
+    expect(unsupportedResult.document).toBe(unsupported);
+
+    const session = createRowEditSessionV2(document);
+    for (const [command, code] of invalid) {
+      const current = session.document;
+      const result = session.apply(command);
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics[0]?.code).toBe(code);
+      expect(result.document).toEqual(current);
+      expect(session.revision).toBe(0);
+      expect(session.undoDepth).toBe(0);
+    }
+    const stale = applyRowEditV2(document, 1, input);
+    expect(stale.ok).toBe(false);
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(stale.document).toBe(document);
+    const exhausted = { ...document, rowEditRevision: Number.MAX_SAFE_INTEGER };
+    const overflow = applyRowEditV2(exhausted, Number.MAX_SAFE_INTEGER, input);
+    expect(overflow.ok).toBe(false);
+    expect(overflow.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(overflow.document).toBe(exhausted);
+    expect(document.activeDraft.blocks).toEqual([clip, neighbor, onCamera]);
+  });
+
+  it("keeps grouped Stash members atomic and refuses preexisting invalid alias data", () => {
+    const [a, b] = [visualOnly(91000), visualOnly(94000)];
+    const initial = documentWith([a, b]);
+    const stashed = applyRowEditV2(initial, 0, { kind: "stash_rows", rowIds: [a.id, b.id], bundleId: id(98000) });
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
+    const group = applyRowEditV2(stashed.document, 1, { kind: "group_stash_rows", groupId: id(99000), rowIds: [a.id, b.id] });
+    expect(group.ok, JSON.stringify(group.diagnostics)).toBe(true);
+    const session = createRowEditSessionV2(group.document);
+    const attempt = session.apply(rename(a.id, a.payload.payloadId, "Not independently"));
+    expect(attempt.ok).toBe(false);
+    expect(attempt.diagnostics[0]?.code).toBe("STASH_GROUP_ATOMIC_REQUIRED");
+    expect(session.document).toEqual(group.document);
+    expect(session.undoDepth).toBe(0);
+
+    const bad = structuredClone(initial);
+    (bad.activeDraft.blocks[0] as VisualOnlyBlockV2).payload.displayName = " \t ";
+    const malformed = applyRowEditV2(bad, 0, rename(b.id, b.payload.payloadId, "Valid name"));
+    expect(malformed.ok).toBe(false);
+    expect(malformed.diagnostics.some((diagnostic) => diagnostic.code === "SCHEMA_INVALID")).toBe(true);
+    expect(malformed.document).toBe(bad);
+  });
+});
+
 describe("#580 narration splice across saved authoring extras", () => {
   it("keeps section order, annotation and overlay, citations, comment references and unrelated rows byte-for-byte", () => {
     const rich = richNarration(7500);
