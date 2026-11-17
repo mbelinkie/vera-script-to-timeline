@@ -361,16 +361,126 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
     }]);
   });
 
-  it("P3 refuses clearing multiple placed pictures atomically, without dropping media", () => {
+  it("P3 clears the row into ordered wordless pictures and restores the original anchors on Undo", () => {
     const source = pictureRow(H);
     const initial = documentOf(source);
     const session = createRowEditSessionV2(initial);
+    let comments = createCommentStateV2(initial);
+    comments = commentOn(comments, { kind: "text", blockId: source.id, startTokenId: id(101), endTokenId: id(102) }, 0);
+    comments = commentOn(comments, { kind: "card", blockId: source.id, cardId: id(302) }, 1);
+    comments = commentOn(comments, { kind: "card", blockId: source.id, cardId: id(303) }, 2);
+
     const result = session.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, H.length, "", 2153) });
-    expect(result.ok).toBe(false);
-    expect(result.diagnostics[0]?.code).toBe("RANGE_SEQUENCE_UNRESOLVED");
-    expect(result.document).toEqual(initial);
-    expect(session.document).toEqual(initial);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(session.undoDepth).toBe(1);
+    expect(result.document.activeDraft.blocks).toEqual([{
+      id: source.id, orderKey: source.orderKey, type: "visual_only", version: 2,
+      payload: {
+        kind: "visual", payloadId: id(402), pictureKind: "clip",
+        source: { kind: "media_reference", mediaReferenceId: id(777) },
+        audioPolicy: "quiet", framingPolicy: "cover",
+      },
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 48, durationFrames: 96 } },
+      additionalVisuals: [{
+        payload: {
+          kind: "visual", payloadId: id(403), pictureKind: "intentional_placeholder",
+          source: { kind: "intentional_placeholder", text: "Harbor still" }, audioPolicy: "mute", framingPolicy: "contain",
+        },
+        visualOnlyTiming: { kind: "visual_only" },
+      }],
+    }]);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document))).toEqual({ ok: true, document: result.document });
+    comments = commentOperation(comments, { kind: "replace_document", id: "clear", actorId: "test-reviewer", document: result.document });
+    expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "attached", "attached"]);
+    expect(comments.threads.slice(1).map((thread) => thread.attachment.anchor)).toEqual([
+      { kind: "card", blockId: source.id, cardId: id(402) }, { kind: "card", blockId: source.id, cardId: id(403) },
+    ]);
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+    const undo = session.undo();
+    expect(undo.ok).toBe(true);
+    expect(undo.document.activeDraft.blocks).toEqual(initial.activeDraft.blocks);
     expect(session.undoDepth).toBe(0);
+    comments = commentOperation(comments, {
+      kind: "undo_document", id: "undo-clear", actorId: "test-reviewer", document: undo.document, undoOfOperationId: "clear",
+    });
+    expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["attached", "attached", "attached"]);
+    expect(comments.threads.slice(1).map((thread) => thread.attachment.anchor)).toEqual([
+      { kind: "card", blockId: source.id, cardId: id(302) }, { kind: "card", blockId: source.id, cardId: id(303) },
+    ]);
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+  });
+
+  it("clears a cutaway and its return into two pictures in first-appearance order", () => {
+    const source = pictureRow(H);
+    const slots = source.primaryVisualSequence!.slots;
+    const cutaway = slots[2] as ContentSlot;
+    const anchor = (index: number) => ({
+      blockId: source.id, tokenId: source.tokens[index]!.id, quotedWord: source.tokens[index]!.value,
+      anchorVersion: 1, affinity: "before" as const,
+    });
+    cutaway.relation = { kind: "cutaway", parentSlotId: id(302) };
+    cutaway.boundaryBefore = { kind: "spoken_word", anchor: anchor(2) };
+    slots.push({ id: id(304), kind: "return", parentSlotId: id(302), inpoint: anchor(3), version: 1 });
+    const initial = documentOf(source);
+    expect(validateScriptDocumentV2(initial).diagnostics.filter((item) => item.severity !== "warning")).toEqual([]);
+    const session = createRowEditSessionV2(initial);
+    const result = session.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, H.length, "", 2158) });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      type: "visual_only", id: source.id, payload: { payloadId: id(402) },
+      additionalVisuals: [{ payload: { payloadId: id(403) } }],
+    });
+    expect(session.undo().document.activeDraft.blocks).toEqual(initial.activeDraft.blocks);
+  });
+
+  it("keeps a visual on the first part of its split word and follows a cue from the right of a join", () => {
+    const source = pictureRow(H);
+    const split = pictureEdit(source, edit(5, 5, " ", 2154));
+    expect(pictureCards(split)).toEqual(["OC tight 0-1", "S1 1-5", "S2 5-8"]);
+    expect(split.tokens[1]).toMatchObject({ id: id(101), value: "t" });
+    const joined = pictureEdit(source, edit(3, 4, "", 2155));
+    expect(pictureCards(joined)).toEqual(["S1 0-3", "S2 3-6"]);
+    expect(joined.tokens[0]).toMatchObject({ id: id(100), value: "nowthe" });
+    expect(joined.primaryVisualSequence!.slots[0]).toMatchObject({ id: id(302), boundaryBefore: { kind: "row_start" } });
+  });
+
+  it("keeps both visual IDs when joining adjacent cue words that collapse onto one word", () => {
+    const source = pictureRow(H);
+    const second = source.primaryVisualSequence!.slots[2] as ContentSlot;
+    second.boundaryBefore = { kind: "spoken_word", anchor: {
+      blockId: source.id, tokenId: id(102), quotedWord: "harbor", anchorVersion: 1, affinity: "before",
+    } };
+    const joined = pictureEdit(source, edit(7, 8, "", 2156));
+    expect(pictureCards(joined)).toEqual(["OC tight 0-1", "S1 1-2", "OC tight 2-6", "S2 unattached"]);
+    expect(joined.unattachedVisuals).toEqual([{ slotId: second.id, version: second.version, payload: second.payload }]);
+  });
+
+  it("stales the changed direction quote while keeping a comment on the other occurrence attached", () => {
+    const source = pictureRow("now the [harbor] sleeps the harbor wakes");
+    source.tokens[2]!.spoken = false;
+    const initial = documentOf(source);
+    const session = createRowEditSessionV2(initial);
+    let comments = createCommentStateV2(initial);
+    for (const [index, tokenId] of [id(102), id(105)].entries()) {
+      comments = commentOn(comments, { kind: "text", blockId: source.id, startTokenId: tokenId, endTokenId: tokenId }, index);
+    }
+    const result = session.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(12, 12, " ", 2157) });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(editedRow(result.document).text).toBe("now the [har bor] sleeps the harbor wakes");
+    expect(editedRow(result.document).primaryVisualSequence).toEqual(source.primaryVisualSequence);
+    comments = commentOperation(comments, {
+      kind: "replace_document", id: "split-direction", actorId: "test-reviewer", document: result.document,
+    });
+    expect(comments.threads.map(({ attachment }) => [attachment.status, attachment.quotedText])).toEqual([
+      ["stale", "harbor"], ["attached", "harbor"],
+    ]);
+    const undo = session.undo();
+    expect(undo.ok).toBe(true);
+    comments = commentOperation(comments, {
+      kind: "undo_document", id: "undo-split-direction", actorId: "test-reviewer",
+      document: undo.document, undoOfOperationId: "split-direction",
+    });
+    expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["attached", "attached"]);
   });
 });
 

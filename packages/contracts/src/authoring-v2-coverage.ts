@@ -301,13 +301,12 @@ export function reconcileNarrationTextCoverageV2(
   }
 
   if (newWords.length === 0) {
-    // D135/D146: an empty row keeps its one actual picture *in the sequence*.
-    // Multiple pictures (or an additional waiting picture) need #585's
-    // wordless card-order representation; never discard any of them here.
+    // D135/D146: a single picture stays in the sequence. The row edit handles
+    // clearing multiple pictures with the ordered visuals-only representation.
     const pictures = sequence.slots.filter((slot): slot is ContentSlot =>
       slot.kind === "content" && slot.payload.kind === "visual");
-    if (pictures.length > 1 || waiting.length > 0 || sequence.slots.some((slot) => slot.kind === "return")) {
-      return unresolved("Several pictures cannot yet be preserved without narration; keep their words until the wordless ordering is available.");
+    if (pictures.length > 1 || waiting.length > 0) {
+      return unresolved("Review the pictures before clearing all spoken words in this row.");
     }
     const picture = pictures[0] ?? sequence.slots.find((slot): slot is ContentSlot => slot.kind === "content" && slot.payload.kind === "on_camera");
     if (!picture) return unresolved("The empty row has no picture to keep.");

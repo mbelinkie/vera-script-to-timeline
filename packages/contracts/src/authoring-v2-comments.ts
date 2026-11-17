@@ -98,16 +98,38 @@ function attachment(document: ScriptDocumentV2, anchor: CommentAnchorV2): Commen
     if (tokens.some((token, index) => !Number.isSafeInteger(token.startOffset) || !Number.isSafeInteger(token.endOffset) || token.startOffset < 0 || token.endOffset <= token.startOffset || token.endOffset > block.text.length || block.text.slice(token.startOffset, token.endOffset) !== token.value || index > 0 && token.startOffset < tokens[index - 1]!.endOffset)) return null;
     return { anchor: structuredClone(anchor), status: "attached", tokens: tokens.map(({ id, value }) => ({ id, value })), quotedText: commentQuoteV2(block, tokens[0]!.startOffset, tokens.at(-1)!.endOffset) };
   }
-  if (anchor.kind === "card" && !(block.type === "narration" && (
-    block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId) ||
-    block.unattachedVisuals?.some((visual) => visual.slotId === anchor.cardId)
-  ))) return null;
+  if (anchor.kind === "card") {
+    const exists = block.type === "narration" ? (
+      block.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.id === anchor.cardId) ||
+      block.unattachedVisuals?.some((visual) => visual.slotId === anchor.cardId)
+    ) : block.type === "visual_only" && (block.payload.payloadId === anchor.cardId ||
+      block.additionalVisuals?.some((visual) => visual.payload.payloadId === anchor.cardId));
+    if (!exists) return null;
+  }
   return { anchor: structuredClone(anchor), status: "attached", tokens: [], quotedText: null };
 }
 
 /** The same word or card anchor in the one other row that now holds its first word or its card. */
-function followedAnchor(document: ScriptDocumentV2, anchor: CommentAnchorV2): CommentAnchorV2 | null {
+function followedAnchor(before: ScriptDocumentV2, document: ScriptDocumentV2, anchor: CommentAnchorV2): CommentAnchorV2 | null {
   if (anchor.kind !== "text" && anchor.kind !== "card") return null;
+  if (anchor.kind === "card") {
+    const previous = before.activeDraft.blocks.find((block) => block.id === anchor.blockId);
+    const current = document.activeDraft.blocks.find((block) => block.id === anchor.blockId);
+    // Wordless cards use payload IDs. Follow the same visual in either
+    // direction so clearing narration and Undo keep its comment attached.
+    const narration = previous?.type === "narration" ? previous : current?.type === "narration" ? current : undefined;
+    if (narration && ((previous?.type === "narration" && current?.type === "visual_only") ||
+                      (previous?.type === "visual_only" && current?.type === "narration"))) {
+      const placements = [
+        ...(narration.primaryVisualSequence?.slots ?? []).flatMap((slot) =>
+          slot.kind === "content" && slot.payload.kind === "visual" ? [{ slotId: slot.id, payload: slot.payload }] : []),
+        ...(narration.unattachedVisuals ?? []),
+      ];
+      const placement = placements.find((card) => previous.type === "narration"
+        ? card.slotId === anchor.cardId : card.payload.payloadId === anchor.cardId);
+      if (placement) return { ...anchor, cardId: previous.type === "narration" ? placement.payload.payloadId : placement.slotId };
+    }
+  }
   const holders = document.activeDraft.blocks.filter((block) => block.type === "narration" && block.id !== anchor.blockId && (
     anchor.kind === "text"
       ? block.tokens.some((token) => token.id === anchor.startTokenId)
@@ -170,7 +192,7 @@ export function applyCommentOperationV2(state: CommentStateV2, expectedRevision:
         let current = attachment(document, thread.attachment.anchor);
         if (!current) {
           // A split or join moves words and visuals to another row with their IDs; the comment follows them.
-          const followed = followedAnchor(document, thread.attachment.anchor);
+          const followed = followedAnchor(state.document, document, thread.attachment.anchor);
           const moved = followed ? attachment(document, followed) : null;
           if (moved && sameAuthoringJsonV2(moved.tokens, thread.attachment.tokens) && moved.quotedText === thread.attachment.quotedText) {
             thread.attachment.anchor = moved.anchor;
