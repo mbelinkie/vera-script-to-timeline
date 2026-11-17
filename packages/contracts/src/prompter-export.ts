@@ -468,7 +468,9 @@ function renderText(
       cursor = offset;
     }
     rendered += plan.block.text.slice(cursor);
-    renderedBlocks.push(rendered.trimEnd());
+    // A terminal LF belongs to the authored row, not the row separator.
+    // Remove cosmetic horizontal padding only; retain paragraph boundaries.
+    renderedBlocks.push(rendered.replace(/[\t ]+$/u, ""));
     priorState = plan.states.at(-1)!;
   }
   return renderedBlocks.length === 0

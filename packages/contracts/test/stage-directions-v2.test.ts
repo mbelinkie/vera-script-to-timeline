@@ -18,6 +18,7 @@ import {
   validateScriptDocumentV2,
 } from "../src/authoring-v2.js";
 import { applyVisualSequenceEditV2 } from "../src/authoring-v2-edits.js";
+import { isWordAnchorCurrentV2, wordAnchorForTokenV2 } from "../src/authoring-v2-validation.js";
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-core-v2.js";
 import { exportPrompter } from "../src/prompter-export.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, NarrationTokenTimingMapV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
@@ -104,6 +105,79 @@ function documentWithText(text: string, words: string[]): { document: ScriptDocu
 function requireSuccess<T extends { ok: boolean }>(result: T): asserts result is T & { ok: true } {
   if (!result.ok) throw new Error(JSON.stringify("diagnostics" in result ? result.diagnostics : result));
 }
+
+describe("paragraph layout in frozen narration rows", () => {
+  it.each([
+    { text: "hello\nworld\n", words: ["hello", "world"], offsets: [[0, 5], [6, 11]] },
+    { text: "😀 hello\nworld\n", words: ["😀", "hello", "world"], offsets: [[0, 2], [3, 8], [9, 14]] },
+  ])("saves $text with terminal LF and UTF-16 anchors intact", ({ text, words, offsets }) => {
+    const { document, row } = documentWithText(text, words);
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    expect(row.tokens.map(({ startOffset, endOffset }) => [startOffset, endOffset])).toEqual(offsets);
+    const anchors = row.tokens.map((token) => wordAnchorForTokenV2(row, token.id, row.version));
+    expect(anchors.every((anchor) => anchor !== null && isWordAnchorCurrentV2(anchor, row))).toBe(true);
+
+    const serialized = serializeAuthoringDocumentV2(document);
+    expect(serialized).toContain(JSON.stringify(text));
+    const restored = deserializeAuthoringDocumentV2(serialized);
+    requireSuccess(restored);
+    const loaded = restored.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(loaded.text).toBe(text);
+    expect(loaded.tokens).toEqual(row.tokens);
+    expect(anchors.every((anchor) => anchor !== null && isWordAnchorCurrentV2(anchor, loaded))).toBe(true);
+    expect(serializeAuthoringDocumentV2(restored.document)).toBe(serialized);
+
+    const exported = exportPrompter(restored.document, { includeSectionNavigation: false, includeBeatNumbers: false });
+    requireSuccess(exported);
+    expect(exported.text).toBe(`(OC)\n${text}\n`);
+    expect(exported.sidecar.textSha256).toBe(digest(exported.text));
+    expect(exportPrompter(restored.document, { includeSectionNavigation: false, includeBeatNumbers: false })).toEqual(exported);
+  });
+
+  it("distinguishes a terminal paragraph break from the separator between adjacent rows", () => {
+    const { document, row } = documentWithText("first\nline\n", ["first", "line"]);
+    const { row: secondSource } = documentWithText("second line", ["second", "line"]);
+    const second = structuredClone(secondSource);
+    second.id = id(950);
+    second.orderKey = "b0";
+    second.tokens = second.tokens.map((token, index) => ({ ...token, id: id(951 + index) }));
+    second.primaryVisualSequence = {
+      id: id(960), version: 1, slots: [{
+        id: id(961), kind: "content", version: 1, relation: { kind: "base" },
+        boundaryBefore: { kind: "row_start" },
+        payload: { kind: "on_camera", presenterChoiceId: null },
+        playoutPolicy: "match_structural_interval",
+      }],
+    };
+    document.activeDraft.blocks.push(second);
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const exported = exportPrompter(document, { includeSectionNavigation: false, includeBeatNumbers: false });
+    requireSuccess(exported);
+    expect(exported.text).toBe("(OC)\nfirst\nline\n\n\nsecond line\n");
+
+    row.text = "first\nline";
+    const withoutTerminal = exportPrompter(document, { includeSectionNavigation: false, includeBeatNumbers: false });
+    requireSuccess(withoutTerminal);
+    expect(withoutTerminal.text).toBe("(OC)\nfirst\nline\n\nsecond line\n");
+  });
+
+  it("keeps a visible annotation cue anchored to a word after a paragraph break", () => {
+    const { document, row } = documentWithText("hello\nworld\n", ["hello", "world"]);
+    const world = row.tokens[1]!;
+    row.annotations = [{
+      id: id(970), kind: "performance_note", version: 1, value: "Emphasize",
+      includeInPrompter: true,
+      range: { blockId: row.id, startTokenId: world.id, endTokenId: world.id,
+        startAffinity: "before", endAffinity: "after", quotedText: world.value, anchorVersion: row.version },
+    }];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const exported = exportPrompter(document, { includeSectionNavigation: false, includeBeatNumbers: false });
+    requireSuccess(exported);
+    expect(exported.text).toBe("(OC)\nhello\n[PERFORMANCE: Emphasize]\nworld\n\n");
+    expect(exported.sidecar.textSha256).toBe(digest(exported.text));
+    expect(exported.sidecar.beats.flatMap((beat) => beat.annotations).some((entry) => entry.id === id(970))).toBe(true);
+  });
+});
 
 describe("paired stage-direction operations", () => {
   it("treats whole-row plain direction brackets as literal, even when nested or unmatched", () => {

@@ -369,6 +369,28 @@ function expectSettingsInvalid(value: unknown): void {
 }
 
 describe("authoring v2 document and project-settings schemas", () => {
+  it("accepts internal and terminal LF without shifting frozen UTF-16 token offsets", () => {
+    const paragraph = narrationBlock();
+    paragraph.text = "😀 hello\nworld\n";
+    paragraph.tokens = [
+      { id: ids.tokenOne, value: "hello", startOffset: 3, endOffset: 8 },
+      { id: ids.tokenTwo, value: "world", startOffset: 9, endOffset: 14 },
+    ];
+    const source = documentWithBlock(paragraph);
+    expectDocumentValid(source);
+    const json = JSON.stringify(source);
+    const restored = deserializeAuthoringDocumentV2(json);
+    expect(restored.ok, JSON.stringify(restored)).toBe(true);
+    if (!restored.ok) return;
+    expect(serializeAuthoringDocumentV2(restored.document)).toBe(json);
+    const row = restored.document.activeDraft.blocks[0];
+    expect(row?.type).toBe("narration");
+    if (row?.type !== "narration") return;
+    expect(row.text).toBe("😀 hello\nworld\n");
+    expect(row.tokens).toEqual(paragraph.tokens);
+    expect(row.text.slice(row.tokens[1]!.startOffset, row.tokens[1]!.endOffset)).toBe("world");
+  });
+
   it("accepts optional frozen Stash origin history and preserves six-field legacy origins", () => {
     const legacy = {
       kind: "note", parentRowId: ids.slot, sectionId: null,
