@@ -10,6 +10,8 @@ import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.j
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
+import { isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
+import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import {
   applySplitOrJoinV2,
   isSplitOrJoinCommandV2,
@@ -28,6 +30,9 @@ export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null }
 export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
+  | { kind: "create_section"; sectionId: string; title: string; destination: RowGapV2 }
+  | { kind: "rename_section"; sectionId: string; title: string }
+  | { kind: "delete_section_break"; sectionId: string }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
   | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
   | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
@@ -42,6 +47,8 @@ export type RowEditCommandV2 =
   | { kind: "move_stash_rows"; rowIds: string[]; sectionId: string | null }
   | { kind: "create_stash_note"; bundleId: string; row: NarrationBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; mode?: "default_direction" | "authored" }
   | { kind: "create_stash_clip"; bundleId: string; row: VisualOnlyBlockV2; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
+  /** Stash one visual (D91): lift it out of its row into a new Stash item with its source and trim. Never On Camera. */
+  | { kind: "stash_visual"; rowId: string; slotId: string; bundleId: string; stashRowId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
   | { kind: "attach_stash_footage"; noteRowId: string; clipRowId: string }
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
   | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string }
@@ -200,6 +207,22 @@ function validAuthoredRowCommand(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+function draftSectionKind(kind: unknown): kind is "create_section" | "rename_section" | "delete_section_break" {
+  return kind === "create_section" || kind === "rename_section" || kind === "delete_section_break";
+}
+
+/** Strict JSON command boundary; section IDs follow the document's UUID identity contract. */
+function validDraftSectionCommand(value: unknown): boolean {
+  if (!plainObject(value) || !isJsonValue(value) || typeof value.sectionId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.sectionId)) return false;
+  if (value.kind === "delete_section_break") return exactKeys(value, ["kind", "sectionId"]);
+  if (value.kind !== "create_section" && value.kind !== "rename_section") return false;
+  if (typeof value.title !== "string" || value.title.trim().length === 0) return false;
+  return value.kind === "create_section"
+    ? exactKeys(value, ["kind", "sectionId", "title", "destination"]) && rowGapPayload(value.destination)
+    : exactKeys(value, ["kind", "sectionId", "title"]);
 }
 
 function validAttachmentCommand(value: unknown): boolean {
@@ -1195,6 +1218,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
+    if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
       (!isJsonValue(command) ||
@@ -1298,6 +1322,35 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       moved = taken.rows;
     }
     blocks.splice(index, 0, ...moved);
+  } else if (command.kind === "create_section") {
+    const index = gapIndex(blocks, command.destination);
+    // A section divider cannot be at a document edge or replace an existing divider.
+    if (index === null || blocks[index - 1]?.type === "section" || blocks[index]?.type === "section" ||
+      blocks[index - 1]?.id !== command.destination.afterRowId || blocks[index]?.id !== command.destination.beforeRowId) {
+      return refused(document, "ROW_DESTINATION_INVALID", "Create a section only at an exact gap between two adjacent rows in one section.");
+    }
+    if (blocks.some((block) => block.id === command.sectionId)) {
+      return refused(document, "SECTION_ID_DUPLICATE", "A new section needs an unused block ID.");
+    }
+    blocks.splice(index, 0, {
+      type: "section", id: command.sectionId, orderKey: `section-${command.sectionId}`, title: command.title, version: 1,
+    });
+  } else if (command.kind === "rename_section") {
+    const heading = blocks.find((block): block is Extract<Block, { type: "section" }> =>
+      block.type === "section" && block.id === command.sectionId);
+    if (!heading) return refused(document, "ROW_SELECTION_INVALID", "Choose an existing section heading to rename.");
+    if (heading.title === command.title) return refused(document, "ROW_EDIT_NO_CHANGE", "The section already has that title.");
+    if (!Number.isSafeInteger(heading.version) || heading.version >= Number.MAX_SAFE_INTEGER) {
+      return refused(document, "ROW_CONTENT_INVALID", "The section version cannot advance safely.");
+    }
+    heading.title = command.title;
+    heading.version += 1;
+  } else if (command.kind === "delete_section_break") {
+    const index = blocks.findIndex((block) => block.type === "section" && block.id === command.sectionId);
+    if (index < 0) return refused(document, "ROW_SELECTION_INVALID", "Choose an existing script section break to delete.");
+    // Removing only the heading keeps all row objects, IDs, order and attached intent.
+    // The shared relationship guard below refuses any newly ambiguous audio coverage.
+    blocks.splice(index, 1);
   } else if (command.kind === "move_section") {
     const section = sections(blocks).find((part) => part.id === command.sectionId && part.id !== null);
     const headings = blocks.filter((block) => block.type === "section");
@@ -1716,6 +1769,52 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     entries.splice(insertAt, 0, { rowId: row.id, kind, parentRowId: command.parentRowId, sectionId: command.sectionId });
     (working.stash ??= []).push({ id: command.bundleId, rows: [row], supportingItems: [] });
+  } else if (command.kind === "stash_visual") {
+    const text = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+    const place = (value: unknown): value is string | null => value === null || text(value);
+    if (!isJsonValue(command) ||
+      !exactKeys(command, ["kind", "rowId", "slotId", "bundleId", "stashRowId", "sectionId", "parentRowId", "afterRowId"]) ||
+      !text(command.rowId) || !text(command.slotId) || !text(command.bundleId) || !text(command.stashRowId) ||
+      !place(command.sectionId) || !place(command.parentRowId) || !place(command.afterRowId)) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide the row, the visual, new Stash IDs and an exact Stash outline location.");
+    }
+    const row = blocks.find((block): block is NarrationBlockV2 => block.type === "narration" && block.id === command.rowId);
+    if (!row) return refused(document, "ROW_SELECTION_INVALID", "Choose a visual in a script row with narration to stash.");
+    if ((working.stash ?? []).some((bundle) => bundle.id === command.bundleId)) return refused(document, "ROW_COMMAND_INVALID", "Provide an unused Stash bundle ID.");
+    if (blocks.some((block) => block.id === command.stashRowId) || stashRowById(working, command.stashRowId)) return refused(document, "ROW_ID_DUPLICATE", "A stashed visual needs a new saved-row ID.");
+    ensureStashOutline(working);
+    const entries = working.stashOutline!;
+    if (!sectionExists(working, command.sectionId)) return refused(document, "STASH_SECTION_NOT_FOUND", "Choose an existing Stash section or the unsectioned Stash area.");
+    if (command.parentRowId !== null) {
+      const parent = entries.find((entry) => entry.rowId === command.parentRowId);
+      if (!parent || parent.kind !== "note" || parent.sectionId !== command.sectionId) return refused(document, "STASH_OUTLINE_PARENT_INVALID", "Nest an item under a saved note in the same Stash section.");
+    }
+    const insertAt = outlineInsertionIndex(working, entries, command.parentRowId, command.sectionId, command.afterRowId);
+    if (insertAt === null) return refused(document, "STASH_OUTLINE_SLOT_INVALID", "Choose a current sibling in the same Stash outline location.");
+    const lifted = liftVisualV2(row, command.slotId, "stashed");
+    if (isCoverageRefusalV2(lifted)) return { ok: false, document, diagnostics: [{ ...diagnostic(lifted.code, lifted.message), blockId: row.id, entityId: lifted.entityId ?? command.slotId }] };
+    const visual = lifted.payload;
+    const footage = visual.pictureKind === "clip";
+    if (footage && !visual.selectedSourceRange) {
+      return refused(document, "STASH_VISUAL_TRIM_REQUIRED", "This footage has an in-point but no chosen length, so Stash cannot keep its trim. Trim it in the row first, then stash it.");
+    }
+    const clip: VisualOnlyBlockV2 = {
+      type: "visual_only", id: command.stashRowId, orderKey: row.orderKey, version: 1,
+      payload: {
+        kind: "visual", payloadId: visual.payloadId, pictureKind: visual.pictureKind, source: visual.source,
+        audioPolicy: visual.audioPolicy,
+        ...(visual.framingPolicy !== undefined ? { framingPolicy: visual.framingPolicy } : {}),
+        ...(visual.imageMotion !== undefined ? { imageMotion: visual.imageMotion } : {}),
+      },
+      visualOnlyTiming: { kind: "visual_only", ...(footage ? { selectedSourceRange: visual.selectedSourceRange! } : {}) },
+      ...(visual.researchClip ? { researchClip: visual.researchClip } : {}),
+      ...(visual.frameBinding ? { frameBinding: visual.frameBinding } : {}),
+    };
+    // Footage arrives as a compact Stash clip; any other visual is an ordinary saved row holding that one picture.
+    const compact = footage || visual.pictureKind === "unresolved_visual" && visual.researchClip !== undefined && visual.frameBinding === undefined;
+    markStashOriginEditedV2(row);
+    entries.splice(insertAt, 0, { rowId: clip.id, kind: compact ? "clip" : "row", parentRowId: command.parentRowId, sectionId: command.sectionId });
+    (working.stash ??= []).push({ id: command.bundleId, rows: [clip], supportingItems: [] });
   } else if (command.kind === "set_stash_outline") {
     if (!Array.isArray(command.entries)) return refused(document, "STASH_OUTLINE_COMMAND_INVALID", "Provide the complete ordered Stash outline.");
     const current = ensureStashOutline(working);
@@ -1850,7 +1949,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
   if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
-    command.kind === "split_row" || command.kind === "join_rows") {
+    command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
+    command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
     return saved
       ? { ok: true, document: saved, diagnostics: [] }

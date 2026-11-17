@@ -21,8 +21,16 @@ import {
   type CoverageEditOutcomeV2,
   type CoverageRefusalV2,
 } from "./authoring-v2-coverage.js";
+import {
+  attachVisualToWordsV2,
+  changeVisualTypeV2,
+  deleteVisualV2,
+  moveVisualToRowV2,
+  type VisualLifecycleResultV2,
+} from "./authoring-v2-visual-lifecycle.js";
 import type {
   AuthoringDiagnosticV2,
+  DroppedVisualDetailV2,
   VisualDestinationV2,
   VisualEditEvidenceV2,
   WordBoundaryAnchorV2,
@@ -51,6 +59,7 @@ interface MutationResult {
   payloadIds: string[];
   supportingItemId?: string;
   lineage?: VisualEditEvidenceV2["lineage"];
+  dropped?: DroppedVisualDetailV2[];
 }
 
 /**
@@ -126,6 +135,7 @@ export function applyVisualSequenceEditV2(
     afterSequenceVersions: afterVersions,
     ...(mutation.supportingItemId ? { supportingItemId: mutation.supportingItemId } : {}),
     ...(mutation.lineage ? { lineage: mutation.lineage } : {}),
+    ...(mutation.dropped ? { dropped: mutation.dropped } : {}),
   };
   return { ok: true, document: working, diagnostics: [], evidence };
 }
@@ -161,6 +171,19 @@ function applyCommand(
       return coverageEdit(document, command.blockId, command.slotId, (row) => setVisualRangeV2(row, command.slotId, command.startTokenId, command.endTokenId));
     case "set_on_camera_framing":
       return coverageEdit(document, command.blockId, command.slotId, (row) => setOnCameraFramingV2(row, command.slotId, command.framing));
+    case "move_visual_to_row": {
+      const source = findRow(document, command.blockId);
+      const destination = findRow(document, command.destinationBlockId);
+      if (!source) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", command.blockId);
+      if (!destination) return refused("MOVE_DESTINATION_MISSING", "Choose a script row to move this visual to. It can have narration or none.", command.destinationBlockId, command.slotId);
+      return lifecycle([command.blockId, command.destinationBlockId], command.slotId, moveVisualToRowV2(source, destination, command.slotId));
+    }
+    case "attach_visual_to_words":
+      return lifecycleInRow(document, command.blockId, command.slotId, (row) => attachVisualToWordsV2(row, command.slotId, command.startTokenId, command.endTokenId));
+    case "change_visual_type":
+      return lifecycleInRow(document, command.blockId, command.slotId, (row) => changeVisualTypeV2(row, command.slotId, command.to));
+    case "delete_visual":
+      return lifecycleInRow(document, command.blockId, command.slotId, (row) => deleteVisualV2(row, command.slotId));
     case "move_payload":
       return movePayload(document, expectedVersion, command);
     case "delete_slot":
@@ -438,6 +461,22 @@ function coverageEdit(
   if (result.unattached.length > 0) row.unattachedVisuals = [...(row.unattachedVisuals ?? []), ...result.unattached];
   sequence.version += 1;
   return changed([blockId], result.changedSlotIds, result.payloadIds);
+}
+
+function lifecycleInRow(
+  document: ScriptDocumentV2,
+  blockId: string,
+  slotId: string,
+  edit: (row: NarrationBlockV2) => VisualLifecycleResultV2,
+): MutationResult {
+  const row = findRow(document, blockId);
+  if (!row) return refused("PRIMARY_SEQUENCE_MISSING", "The row has no primary sequence.", blockId);
+  return lifecycle([blockId], slotId, edit(row));
+}
+
+function lifecycle(blockIds: string[], slotId: string, result: VisualLifecycleResultV2): MutationResult {
+  if (isCoverageRefusalV2(result)) return refused(result.code, result.message, blockIds[0]!, result.entityId ?? slotId);
+  return { ...changed(blockIds, result.slotIds, result.payloadIds), ...(result.dropped ? { dropped: result.dropped } : {}) };
 }
 
 function movePayload(

@@ -116,6 +116,7 @@ class GraphicRevisionSource(TypedDict):
 class UnresolvedVisualSource(TypedDict):
     kind: Literal["unresolved_visual"]
     description: str
+    wantedPictureKind: NotRequired[Literal["clip", "image", "capture", "graphic"]]
 
 
 class IntentionalPlaceholderSource(TypedDict):
