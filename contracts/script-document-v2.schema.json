@@ -962,7 +962,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [
@@ -1660,7 +1660,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [
@@ -2201,7 +2201,7 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "const": "capture_revision"
+                    "enum": ["capture_revision", "url"]
                   }
                 },
                 "required": [

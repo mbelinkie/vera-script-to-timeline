@@ -29,6 +29,9 @@ export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null }
 export type RowEditCommandV2 =
   | { kind: "move_rows"; rowIds: string[]; destination: RowGapV2 }
   | { kind: "move_section"; sectionId: string; destination: { afterSectionId: string | null; beforeSectionId: string | null } }
+  | { kind: "create_section"; sectionId: string; title: string; destination: RowGapV2 }
+  | { kind: "rename_section"; sectionId: string; title: string }
+  | { kind: "delete_section_break"; sectionId: string }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
   | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
   | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
@@ -201,6 +204,22 @@ function validAuthoredRowCommand(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+function draftSectionKind(kind: unknown): kind is "create_section" | "rename_section" | "delete_section_break" {
+  return kind === "create_section" || kind === "rename_section" || kind === "delete_section_break";
+}
+
+/** Strict JSON command boundary; section IDs follow the document's UUID identity contract. */
+function validDraftSectionCommand(value: unknown): boolean {
+  if (!plainObject(value) || !isJsonValue(value) || typeof value.sectionId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.sectionId)) return false;
+  if (value.kind === "delete_section_break") return exactKeys(value, ["kind", "sectionId"]);
+  if (value.kind !== "create_section" && value.kind !== "rename_section") return false;
+  if (typeof value.title !== "string" || value.title.trim().length === 0) return false;
+  return value.kind === "create_section"
+    ? exactKeys(value, ["kind", "sectionId", "title", "destination"]) && rowGapPayload(value.destination)
+    : exactKeys(value, ["kind", "sectionId", "title"]);
 }
 
 function validAttachmentCommand(value: unknown): boolean {
@@ -1185,6 +1204,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
+    if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
       (!isJsonValue(command) ||
@@ -1280,6 +1300,35 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       moved = taken.rows;
     }
     blocks.splice(index, 0, ...moved);
+  } else if (command.kind === "create_section") {
+    const index = gapIndex(blocks, command.destination);
+    // A section divider cannot be at a document edge or replace an existing divider.
+    if (index === null || blocks[index - 1]?.type === "section" || blocks[index]?.type === "section" ||
+      blocks[index - 1]?.id !== command.destination.afterRowId || blocks[index]?.id !== command.destination.beforeRowId) {
+      return refused(document, "ROW_DESTINATION_INVALID", "Create a section only at an exact gap between two adjacent rows in one section.");
+    }
+    if (blocks.some((block) => block.id === command.sectionId)) {
+      return refused(document, "SECTION_ID_DUPLICATE", "A new section needs an unused block ID.");
+    }
+    blocks.splice(index, 0, {
+      type: "section", id: command.sectionId, orderKey: `section-${command.sectionId}`, title: command.title, version: 1,
+    });
+  } else if (command.kind === "rename_section") {
+    const heading = blocks.find((block): block is Extract<Block, { type: "section" }> =>
+      block.type === "section" && block.id === command.sectionId);
+    if (!heading) return refused(document, "ROW_SELECTION_INVALID", "Choose an existing section heading to rename.");
+    if (heading.title === command.title) return refused(document, "ROW_EDIT_NO_CHANGE", "The section already has that title.");
+    if (!Number.isSafeInteger(heading.version) || heading.version >= Number.MAX_SAFE_INTEGER) {
+      return refused(document, "ROW_CONTENT_INVALID", "The section version cannot advance safely.");
+    }
+    heading.title = command.title;
+    heading.version += 1;
+  } else if (command.kind === "delete_section_break") {
+    const index = blocks.findIndex((block) => block.type === "section" && block.id === command.sectionId);
+    if (index < 0) return refused(document, "ROW_SELECTION_INVALID", "Choose an existing script section break to delete.");
+    // Removing only the heading keeps all row objects, IDs, order and attached intent.
+    // The shared relationship guard below refuses any newly ambiguous audio coverage.
+    blocks.splice(index, 1);
   } else if (command.kind === "move_section") {
     const section = sections(blocks).find((part) => part.id === command.sectionId && part.id !== null);
     const headings = blocks.filter((block) => block.type === "section");
@@ -1794,7 +1843,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
   if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
-    command.kind === "split_row" || command.kind === "join_rows") {
+    command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
+    command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
     return saved
       ? { ok: true, document: saved, diagnostics: [] }
