@@ -32,8 +32,6 @@ MAX_EDGE_JITTER_RATIO = 0.005
 MIN_BAR_SIZE_PX = 4
 MIN_BAR_SIZE_RATIO = 0.01
 MIN_DIMENSION_COVERAGE = 0.5
-SUPPORTED_ACTIVE_ASPECTS = (2.39, 2.35, 2.20, 2.00, 1.85, 1.78, 1.66, 1.50, 1.33, 1.25)
-MAX_ACTIVE_ASPECT_ERROR = 0.015
 MAX_ZOOM = 1.40
 ZOOM_DECIMAL_PLACES = 4
 MAX_SOURCE_TIMELINE_ASPECT_ERROR = 0.005
@@ -56,8 +54,6 @@ _THRESHOLDS = {
     "minBarSizePx": MIN_BAR_SIZE_PX,
     "minBarSizeRatio": MIN_BAR_SIZE_RATIO,
     "minDimensionCoverage": MIN_DIMENSION_COVERAGE,
-    "supportedActiveAspects": SUPPORTED_ACTIVE_ASPECTS,
-    "maxActiveAspectError": MAX_ACTIVE_ASPECT_ERROR,
     "maxZoom": MAX_ZOOM,
     "zoomDecimalPlaces": ZOOM_DECIMAL_PLACES,
     "maxSourceTimelineAspectError": MAX_SOURCE_TIMELINE_ASPECT_ERROR,
@@ -368,8 +364,6 @@ def evaluate_crop_samples(
         or reference_rect.height / height < MIN_DIMENSION_COVERAGE
     ):
         return CropAssessment(None, "invalid_geometry", zoom)
-    if not _standard_active_aspect(reference_rect):
-        return CropAssessment(None, "nonstandard_aspect", zoom)
     if timeline_size is None or not _same_aspect(source_size, timeline_size):
         return CropAssessment(None, "route_unproven", zoom)
     return CropAssessment(reference_rect, None, zoom)
@@ -818,14 +812,6 @@ def _zoom_for_samples(
 def _round_zoom_up(raw_zoom: float) -> float:
     factor = 10**ZOOM_DECIMAL_PLACES
     return float(math.ceil(raw_zoom * factor - 1e-12) / factor)
-
-
-def _standard_active_aspect(rect: CropRect) -> bool:
-    aspect = rect.width / rect.height
-    return any(
-        abs(aspect - standard) / standard <= MAX_ACTIVE_ASPECT_ERROR
-        for standard in SUPPORTED_ACTIVE_ASPECTS
-    )
 
 
 def _same_aspect(source_size: tuple[int, int], timeline_size: tuple[int, int]) -> bool:

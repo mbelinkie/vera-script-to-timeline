@@ -40,6 +40,18 @@ CLIPS = {
     "letterbox": "testsrc2=size=320x140:rate=24:duration=3,pad=320:180:0:20:black",
     "pillarbox": "testsrc2=size=272x180:rate=24:duration=3,pad=320:180:24:0:black",
 }
+CONTROLS = {
+    "near-black": "color=c=0x101010:s=320x180:r=24:d=3",
+    "changing": (
+        "testsrc2=size=320x140:rate=24:duration=1.5,pad=320:180:0:20:black[a];"
+        "testsrc2=size=320x180:rate=24:duration=1.5[b];[a][b]concat=n=2:v=1:a=0"
+    ),
+    "ambiguous": (
+        "color=c=0x080808:s=320x180:r=24:d=3,"
+        "drawbox=x=120:y=60:w=80:h=60:color=white:t=fill"
+    ),
+    "override": CLIPS["letterbox"],
+}
 Json = dict[str, Any]
 
 
@@ -112,7 +124,9 @@ def _generate_clip(path: Path, graph: str) -> None:
     )
 
 
-def prepare(root: Path) -> Path:
+def prepare(
+    root: Path, *, hide_encoded_bars: bool = False, controls: bool = False
+) -> Path:
     if root.exists() or root.is_symlink():
         raise ValueError("choose a new, unused fixture directory")
     root = root.absolute()
@@ -131,7 +145,8 @@ def prepare(root: Path) -> Path:
     )
     original_paths: dict[str, Path] = {}
     inspections = {}
-    for name, graph in CLIPS.items():
+    clips = {**CLIPS, **CONTROLS} if controls else CLIPS
+    for name, graph in clips.items():
         path = media / f"issue600-{name}.mp4"
         _generate_clip(path, graph)
         inspection = inspect_media(
@@ -151,6 +166,8 @@ def prepare(root: Path) -> Path:
     source_template = json.loads(TEMPLATE.read_bytes())
     document = copy.deepcopy(source_template["document"])
     dependencies = copy.deepcopy(source_template["dependencies"])
+    if hide_encoded_bars:
+        dependencies["authoringDefaults"]["hideEncodedBars"] = True
     run_id = uuid.uuid4().hex[:12]
     document.update(
         id=_id(f"document:{run_id}"),
@@ -164,11 +181,11 @@ def prepare(root: Path) -> Path:
         "buildClass": "preview",
     }
     dependencies["timeline"].update(
-        frameRate=wire(RATE), durationFrames=FRAME_COUNT * len(CLIPS)
+        frameRate=wire(RATE), durationFrames=FRAME_COUNT * len(clips)
     )
     blocks = []
     occurrence_templates = []
-    for index, name in enumerate(CLIPS):
+    for index, name in enumerate(clips):
         block = copy.deepcopy(source_template["document"]["activeDraft"]["blocks"][0])
         block_id = _id(f"block:{run_id}:{name}")
         payload_id = _id(f"payload:{run_id}:{name}")
@@ -177,9 +194,11 @@ def prepare(root: Path) -> Path:
         block["payload"].update(
             payloadId=payload_id,
             audioPolicy="mute",
-            framingPolicy="contain",
             source={"kind": "media_reference", "mediaReferenceId": reference_id},
         )
+        block["payload"].pop("framingPolicy", None)
+        if name == "override":
+            block["payload"]["framingPolicy"] = "contain"
         block["visualOnlyTiming"]["selectedSourceRange"] = {
             "startFrame": 0,
             "durationFrames": FRAME_COUNT,
@@ -299,9 +318,11 @@ def prepare(root: Path) -> Path:
                         {"x": 0, "y": 20, "width": 320, "height": 140}
                         if name == "letterbox"
                         else {"x": 24, "y": 0, "width": 272, "height": 180}
+                        if name == "pillarbox"
+                        else None
                     ),
                 }
-                for name in CLIPS
+                for name in clips
             ],
             "normalBuildCommand": (
                 f'PATH="{NODE_BIN}:$PATH" ctx-wire run uv run --frozen python -m '
@@ -316,9 +337,13 @@ def prepare(root: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path, help="new disposable fixture directory")
+    parser.add_argument("--hide-encoded-bars", action="store_true")
+    parser.add_argument("--controls", action="store_true")
     args = parser.parse_args()
     try:
-        root = prepare(args.root)
+        root = prepare(
+            args.root, hide_encoded_bars=args.hide_encoded_bars, controls=args.controls
+        )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.error(f"fixture preparation failed: {error}")
     print(f"Prepared offline issue #600 normal-build fixture at {root}")

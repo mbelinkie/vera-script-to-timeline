@@ -123,12 +123,12 @@ def test_rejects_unsafe_geometry(rect: CropRect) -> None:
     assert result.refusal_reason == "invalid_geometry"
 
 
-def test_caps_zoom_and_refuses_aspect_or_timeline_mismatch() -> None:
+def test_caps_zoom_and_refuses_timeline_aspect_mismatch() -> None:
     portrait = CropRect(110, 0, 100, 180)
     over_zoom = evaluate_crop_samples(
         SOURCE_SIZE, SOURCE_SIZE, "tv", _samples(portrait)
     )
-    unsupported_aspect = evaluate_crop_samples(
+    nonstandard_active_aspect = evaluate_crop_samples(
         SOURCE_SIZE,
         SOURCE_SIZE,
         "tv",
@@ -138,7 +138,7 @@ def test_caps_zoom_and_refuses_aspect_or_timeline_mismatch() -> None:
 
     assert over_zoom.refusal_reason == "zoom_exceeds_limit"
     assert over_zoom.zoom == 3.2
-    assert unsupported_aspect.refusal_reason == "nonstandard_aspect"
+    assert nonstandard_active_aspect.active_rect == CropRect(0, 20, 320, 140)
     assert route_unproven.refusal_reason == "route_unproven"
 
 

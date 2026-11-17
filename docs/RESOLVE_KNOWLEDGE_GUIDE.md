@@ -1306,6 +1306,15 @@ asymmetric offsets, other aspect ratios, still images, or automatic detection;
 it is not yet product acceptance. Reuse only this centered static-transform
 result; test the normal integrated build and refusal cases separately.
 
+**#600 normal-build delta:** With the project opt-in enabled, the normal
+Studio 21.2.0 build 6 CLI applied uniform zooms of 1.2858 and 1.1765 with
+zero pan/tilt to the same generated clip profiles and verified the item
+properties after save, close and reopen. Stills from the first, middle and
+last frame of each used interval showed picture in both former bar regions.
+An off build of the same media reopened with 1.0 zoom and zero pan/tilt on
+both clips. Reuse is limited to centered bars on video through the measured
+clip placement route with matching source and timeline aspect.
+
 **#594 standalone source audio delta:** Studio **21.2.0 build 6**,
 Local scripting, Intel Mac. The regular Prep Media and build commands delivered
 a 1920×1080, 816-frame timeline at 24000/1001 in a new disposable project,

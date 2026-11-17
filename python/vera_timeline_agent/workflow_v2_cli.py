@@ -94,9 +94,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
     ]
     name = f"VERA Delivery {verified.build_id} {uuid.uuid4().hex[:12]}"
     build_files = BUILD_FILES + tuple(
-        filename
-        for filename in OPTIONAL_BUILD_FILES
-        if (build / filename).is_file()
+        filename for filename in OPTIONAL_BUILD_FILES if (build / filename).is_file()
     )
     value = {
         "schemaVersion": "vera-injected-delivery-attestation/v2",

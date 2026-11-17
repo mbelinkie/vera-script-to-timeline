@@ -32,8 +32,7 @@ import jsonschema  # type: ignore[import-untyped]
 import opentimelineio as otio  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
-from vera_timeline_agent import native_image_motion
-from vera_timeline_agent import cropdetect
+from vera_timeline_agent import cropdetect, native_image_motion
 from vera_timeline_agent.build_jobs import BuildJobError
 from vera_timeline_agent.music_input import inspect_music, music_event_id
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
@@ -779,7 +778,9 @@ def _validate_manifest_semantics(
         "imageMotionDefault"
     )
     hide_encoded_bars = (
-        cast(JsonObject, dependencies["authoringDefaults"]).get("hideEncodedBars")
+        cast(JsonObject, dependencies.get("authoringDefaults", {})).get(
+            "hideEncodedBars"
+        )
         is True
     )
     timeline = cast(JsonObject, manifest["timeline"])
@@ -2534,7 +2535,9 @@ def _delivery_view(
     tracks = _unique_by_id(manifest.get("tracks"), "track")
     encoded_bars_rows = {
         cast(str, row["eventId"]): row
-        for row in cast(list[JsonObject], (encoded_bars_evidence or {}).get("events", []))
+        for row in cast(
+            list[JsonObject], (encoded_bars_evidence or {}).get("events", [])
+        )
     }
     events_view: list[JsonObject] = []
     markers: list[JsonObject] = []
@@ -3145,10 +3148,11 @@ def _event_source_rate(event: JsonObject, timeline_rate: Fraction) -> Fraction:
         treatment = event.get("pictureTreatment")
         if isinstance(treatment, dict) and treatment.get("kind") == "still_frame":
             return timeline_rate
-        mapping = cast(JsonObject, event["v2Event"].get("sourceTimeMapping"))
+        original = cast(JsonObject, event.get("v2Event", event))
+        mapping = cast(JsonObject, original.get("sourceTimeMapping"))
         return _fraction(
             mapping.get("deliveredRate"),
-            f"event {event['id']} delivered rate",
+            f"event {original.get('eventId', event.get('id'))} delivered rate",
             positive=True,
         )
     return timeline_rate
@@ -3245,7 +3249,9 @@ def _make_encoded_bars_evidence(
         delivered_probe_hash = cast(str, verification["probeHash"])
         source_artifact = artifacts.get(f"source:{source_id}")
         if source_artifact is None:
-            raise _error(f"bar-removal event {event_id} has no delivered media artifact")
+            raise _error(
+                f"bar-removal event {event_id} has no delivered media artifact"
+            )
         delivered_hash = cast(str, source["deliveredHash"])
         if source_artifact.content_hash != delivered_hash:
             raise _error(f"bar-removal event {event_id} does not use delivered bytes")
@@ -3349,10 +3355,8 @@ def _validate_encoded_bars_evidence(
     evidence: object,
 ) -> JsonObject | None:
     """Check the frozen detector binding and pure geometry without decoding again."""
-    enabled = (
-        cast(JsonObject, dependencies["authoringDefaults"]).get("hideEncodedBars")
-        is True
-    )
+    defaults = cast(JsonObject, dependencies.get("authoringDefaults", {}))
+    enabled = defaults.get("hideEncodedBars") is True
     if not enabled:
         if evidence is not None:
             raise _error("bar-removal evidence exists while the frozen setting is off")
@@ -3387,7 +3391,10 @@ def _validate_encoded_bars_evidence(
         raise _error("bar-removal evidence event set differs from compiler intent")
     sources = _unique_by_id(manifest.get("sources"), "source")
     timeline = cast(JsonObject, manifest["timeline"])
-    timeline_size = [timeline["width"], timeline["height"]]
+    timeline_size = (
+        _safe_frame(timeline["width"], "timeline width", positive=True),
+        _safe_frame(timeline["height"], "timeline height", positive=True),
+    )
     timeline_rate = _fraction(
         timeline.get("frameRate"), "timeline frame rate", positive=True
     )
@@ -3444,11 +3451,16 @@ def _validate_encoded_bars_evidence(
             or row.get("sourceRange") != expected_range
             or row.get("sourceRate") != expected_rate
             or row.get("toolHash") != profile.get("toolHash")
-            or row.get("timelineSize") != timeline_size
-            or row.get("colorRange") != _delivered_probe_video(binding).get("color_range")
+            or row.get("timelineSize") != list(timeline_size)
+            or row.get("colorRange")
+            != _delivered_probe_video(binding).get("color_range")
         ):
-            raise _error(f"bar-removal evidence {event_id} is not bound to delivered media")
-        record_without_hash = {key: value for key, value in row.items() if key != "recordHash"}
+            raise _error(
+                f"bar-removal evidence {event_id} is not bound to delivered media"
+            )
+        record_without_hash = {
+            key: value for key, value in row.items() if key != "recordHash"
+        }
         expected_hash = _hash_bytes(_canonical_json(record_without_hash))
         if row.get("recordHash") != expected_hash:
             raise _error(f"bar-removal evidence {event_id} hash differs")
@@ -3457,11 +3469,17 @@ def _validate_encoded_bars_evidence(
         if not isinstance(decision, dict):
             raise _error(f"bar-removal evidence {event_id} has no decision")
         if event["encodedBars"].get("mode") == "keep":
-            if decision != {
-                "decision": "skip",
-                "reason": event["encodedBars"]["reason"],
-            } or analysis is not None:
-                raise _error(f"bar-removal evidence {event_id} ignores authored framing")
+            if (
+                decision
+                != {
+                    "decision": "skip",
+                    "reason": event["encodedBars"]["reason"],
+                }
+                or analysis is not None
+            ):
+                raise _error(
+                    f"bar-removal evidence {event_id} ignores authored framing"
+                )
             continue
         if analysis is None:
             if (
@@ -3474,13 +3492,22 @@ def _validate_encoded_bars_evidence(
                     "tool_identity_mismatch",
                     "probe_mismatch",
                 }
-                or row.get("analysisToolHash")
-                not in {None, profile.get("toolHash")}
+                or (
+                    decision.get("reason") != "tool_identity_mismatch"
+                    and row.get("analysisToolHash")
+                    not in {None, profile.get("toolHash")}
+                )
             ):
-                raise _error(f"bar-removal evidence {event_id} has an invalid analysis skip")
+                raise _error(
+                    f"bar-removal evidence {event_id} has an invalid analysis skip"
+                )
             continue
-        if not isinstance(analysis, dict) or row.get("analysisToolHash") != profile.get("toolHash"):
-            raise _error(f"bar-removal analysis {event_id} has an unbound tool identity")
+        if not isinstance(analysis, dict) or row.get("analysisToolHash") != profile.get(
+            "toolHash"
+        ):
+            raise _error(
+                f"bar-removal analysis {event_id} has an unbound tool identity"
+            )
         _validate_encoded_bars_analysis(
             event_id,
             analysis,
@@ -3488,7 +3515,7 @@ def _validate_encoded_bars_evidence(
             binding,
             rate,
             (source_start, source_end),
-            tuple(cast(list[int], timeline_size)),
+            timeline_size,
         )
     return evidence
 
@@ -3519,7 +3546,10 @@ def _validate_encoded_bars_analysis(
     video = _delivered_probe_video(preparation)
     source_size = (video.get("width"), video.get("height"))
     start, end = source_range
-    expected_used_range = [float(Fraction(start, 1) / rate), float(Fraction(end, 1) / rate)]
+    expected_used_range = [
+        float(Fraction(start, 1) / rate),
+        float(Fraction(end, 1) / rate),
+    ]
     frame_rate_value = analysis.get("frame_rate")
     expected_rate = [rate.numerator, rate.denominator]
     if (
@@ -3593,8 +3623,18 @@ def _validate_encoded_bars_analysis(
             cast(str, analysis["color_range"]),
             samples,
         )
+        stride = max(1, round(float(rate) / cropdetect.SAMPLE_RATE_FPS))
         if (
-            not assessment.accepted
+            analysis.get("source_frame_count") != end - start
+            or analysis.get("sample_stride") != stride
+            or len(samples) != (end - start + stride - 1) // stride
+            or any(
+                not math.isfinite(sample.pts_seconds)
+                or abs(sample.pts_seconds - float((start + index * stride) / rate))
+                > float(1 / rate) / 2
+                for index, sample in enumerate(samples)
+            )
+            or assessment.active_rect is None
             or asdict(assessment.active_rect) != active_value
             or assessment.zoom != zoom
             or refusal is not None
@@ -4326,7 +4366,10 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
     )
 
     encoded_bars_evidence: JsonObject | None = None
-    if cast(JsonObject, dependencies["authoringDefaults"]).get("hideEncodedBars") is True:
+    if (
+        cast(JsonObject, dependencies["authoringDefaults"]).get("hideEncodedBars")
+        is True
+    ):
         evidence_path = _safe_package_file(
             project_root,
             f"{BUILD_DIRECTORY}/{build_id}/{ENCODED_BARS_FILENAME}",
@@ -4471,9 +4514,7 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
         )
     }
     if encoded_bars_evidence is not None:
-        expected_inventory.add(
-            f"{BUILD_DIRECTORY}/{build_id}/{ENCODED_BARS_FILENAME}"
-        )
+        expected_inventory.add(f"{BUILD_DIRECTORY}/{build_id}/{ENCODED_BARS_FILENAME}")
     expected_inventory.update(item.relative_path for item in prepared.values())
     expected_inventory.update(source["path"] for source in sources.values())
     expected_inventory.update(
