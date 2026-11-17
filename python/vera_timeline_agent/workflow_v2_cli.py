@@ -41,6 +41,7 @@ BUILD_FILES = (
     "timeline.otio",
     "package-verification.json",
 )
+OPTIONAL_BUILD_FILES = ("encoded-bars.json",)
 
 
 def attest_package_v2(package_root: Path, output: Path) -> Path:
@@ -68,6 +69,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         Path("python/vera_timeline_agent/v2_package.py"),
         Path("python/vera_timeline_agent/presenter_warning_validation.py"),
         Path("python/vera_timeline_agent/native_image_motion.py"),
+        Path("python/vera_timeline_agent/cropdetect.py"),
         Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
         Path("python/vera_timeline_agent/row_timeline_map.py"),
@@ -91,6 +93,11 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         ],
     ]
     name = f"VERA Delivery {verified.build_id} {uuid.uuid4().hex[:12]}"
+    build_files = BUILD_FILES + tuple(
+        filename
+        for filename in OPTIONAL_BUILD_FILES
+        if (build / filename).is_file()
+    )
     value = {
         "schemaVersion": "vera-injected-delivery-attestation/v2",
         "status": "ready_to_import",
@@ -113,7 +120,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
             "mediaCount": verified.media_count,
         },
         "packageFiles": before,
-        "files": {name: sha256(build / name) for name in BUILD_FILES},
+        "files": {name: sha256(build / name) for name in build_files},
     }
     # Check the same runtime consumer before publishing the operator handoff.
     temporary = output.with_name(f".{output.name}-{uuid.uuid4().hex}.check")

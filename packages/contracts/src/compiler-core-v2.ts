@@ -720,7 +720,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
                 const delivered = deliveredRangeForOriginalRange(descriptor, binding.timeMapping, sourceIn, deliveredSourceFrames);
                 const common = { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: payload.payloadId, overlayEventId: null, sourceId, originalSourceHash: descriptor.sourceSnapshot.contentHash, deliveredSourceHash: binding.verification.deliveredHash, timingMapHash: null, compilerVersion: dependencies.compiler.version };
                 const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy, dependencies.authoringDefaults.imageMotionDefault, payload.imageMotion);
-                rowEvents.push({ eventId, kind: "primary_visual", trackId: dependencies.roles.primaryRootTrackId, trackRole: "primary_root", recordRange: range, provenance: common, sourceRange: delivered, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}) });
+                const bars = encodedBarsIntent(dependencies.authoringDefaults.hideEncodedBars === true, payload.pictureKind, payload.framingPolicy, pictureTreatment);
+                rowEvents.push({ eventId, kind: "primary_visual", trackId: dependencies.roles.primaryRootTrackId, trackRole: "primary_root", recordRange: range, provenance: common, sourceRange: delivered, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}), ...(bars ? { encodedBars: bars } : {}) });
                 if (payload.audioPolicy !== "mute" && isClip) {
                   const sourceAudioTrack = dependencies.roles.sourceAudioTrackIds[0];
                   if (!sourceAudioTrack || !dependencies.tracks.some((track) => track.id === sourceAudioTrack && track.kind === "audio")) throw new RangeError("enabled source audio requires a configured audio track");
@@ -994,7 +995,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
             occurrenceRange = deliveredRangeForOriginalRange(descriptor, binding.timeMapping, sourceIn, deliveredSourceFrames);
             mapping = binding.timeMapping;
             const pictureTreatment = mediaStillTreatment(payload.pictureKind, payload.framingPolicy, dependencies.authoringDefaults.imageMotionDefault, payload.imageMotion);
-            emittedEvent = { eventId, kind: "primary_visual", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: { ...common, sourceId: deliveredSourceId(descriptor, binding), deliveredSourceHash: binding.verification.deliveredHash }, sourceRange: occurrenceRange, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}) };
+            const bars = encodedBarsIntent(dependencies.authoringDefaults.hideEncodedBars === true, payload.pictureKind, payload.framingPolicy, pictureTreatment);
+            emittedEvent = { eventId, kind: "primary_visual", trackId: structuralTrack, trackRole: structuralRole, recordRange: range, provenance: { ...common, sourceId: deliveredSourceId(descriptor, binding), deliveredSourceHash: binding.verification.deliveredHash }, sourceRange: occurrenceRange, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}), ...(bars ? { encodedBars: bars } : {}) };
             if (payload.audioPolicy === "quiet" && isClip) {
               const audioTrack = dependencies.roles.sourceAudioTrackIds[0];
               if (!audioTrack || !dependencies.tracks.some((track) => track.id === audioTrack && track.kind === "audio")) throw new RangeError("Quiet source audio requires a configured audio track");
@@ -1135,7 +1137,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", error instanceof Error ? error.message : String(error), entity("overlay_event", overlay.id, "pictureTreatment"), undefined, ["repair_document"]));
         continue;
       }
-      rowEvents.push({ eventId, kind: "overlay_visual", trackId: dependencies.roles.overlayTrackIds[0] ?? "media-needs", trackRole: "overlay", recordRange: range, provenance, sourceRange: delivered, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}) });
+      const bars = encodedBarsIntent(dependencies.authoringDefaults.hideEncodedBars === true, overlay.payload.pictureKind, overlay.payload.framingPolicy, pictureTreatment);
+      rowEvents.push({ eventId, kind: "overlay_visual", trackId: dependencies.roles.overlayTrackIds[0] ?? "media-needs", trackRole: "overlay", recordRange: range, provenance, sourceRange: delivered, sourceTimeMapping: binding.timeMapping, preparationBindingHash: sha256CanonicalJson(binding), audio: null, ...(pictureTreatment ? { pictureTreatment } : {}), ...(bars ? { encodedBars: bars } : {}) });
       if (overlay.payload.audioPolicy === "quiet" && requirePrepared) {
         const audioTrack = dependencies.roles.sourceAudioTrackIds[0];
         if (!audioTrack || !dependencies.tracks.some((track) => track.id === audioTrack && track.kind === "audio")) diagnostics.push(diagnostic("TRACK_ROLE_COLLISION", "Quiet overlay source audio requires a configured audio track.", entity("overlay_event", overlay.id, "roles")));
@@ -1295,6 +1298,43 @@ function mediaStillTreatment(
   if (resolvedFramingPolicy !== "contain" && resolvedFramingPolicy !== "cover" && resolvedFramingPolicy !== "native") throw new RangeError("Media-backed still frames require a supported framing policy.");
   const imageMotion = occurrenceOverride ?? projectDefault ?? (omittedImageFraming ? omittedImageFramingMotion : undefined);
   return { kind: "still_frame", pictureKind, framingPolicy: resolvedFramingPolicy, ...(imageMotion ? { imageMotion: structuredClone(imageMotion) } : {}) };
+}
+
+function encodedBarsIntent(
+  enabled: boolean,
+  pictureKind: string,
+  framingPolicy: string | undefined,
+  pictureTreatment: TimelineEventV2["pictureTreatment"],
+): TimelineEventV2["encodedBars"] {
+  if (!enabled) return undefined;
+  if (framingPolicy === "cover" || framingPolicy === "native") {
+    return { mode: "keep", reason: "explicit_framing" };
+  }
+  if (pictureKind === "clip") {
+    if (framingPolicy === undefined) return { mode: "detect_and_fill" };
+    return {
+      mode: "keep",
+      reason: framingPolicy === "contain" ? "framing_ambiguous" : "explicit_framing",
+    };
+  }
+  if (framingPolicy === "contain") {
+    return { mode: "keep", reason: "explicit_framing" };
+  }
+  if (pictureKind === "image") {
+    const motion = pictureTreatment?.kind === "still_frame"
+      ? pictureTreatment.imageMotion
+      : undefined;
+    return {
+      mode: "keep",
+      reason: motion?.mode === "native_dynamic_zoom"
+        ? "motion_route_unproven"
+        : "still_route_unproven",
+    };
+  }
+  if (pictureKind === "capture" || pictureKind === "graphic") {
+    return { mode: "keep", reason: "unsupported_picture_kind" };
+  }
+  return undefined;
 }
 
 function sourceMappingProblem(descriptor: OccurrenceMediaResolutionV2): string | null {

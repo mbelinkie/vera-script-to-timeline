@@ -12,50 +12,64 @@ from vera_timeline_agent.cropdetect import CropRect, analyze_media
 
 
 @pytest.mark.slow
-def test_ffmpeg_sampler_accepts_only_stable_symmetric_bars_without_mutating_media(
+def test_ffmpeg_whole_range_evidence_rejects_ambiguous_or_unsafe_frames(
     tmp_path,
 ) -> None:
     ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg is None:
-        pytest.skip("ffmpeg is required for synthetic cropdetect fixtures")
+    ffprobe = shutil.which("ffprobe")
+    if ffmpeg is None or ffprobe is None:
+        pytest.skip("ffmpeg and ffprobe are required for synthetic cropdetect fixtures")
 
     paths = generate_issue600_cropdetect_fixtures(tmp_path, ffmpeg)
     before = paths["letterbox"].read_bytes()
     detections = {
-        name: analyze_media(path, (0.2, 1.8), ffmpeg=ffmpeg)
+        name: analyze_media(
+            path,
+            (1.0, 5.0) if name == "outside_range" else (0.0, 4.0),
+            timeline_size=(320, 180),
+            ffmpeg=ffmpeg,
+            ffprobe=ffprobe,
+        )
         for name, path in paths.items()
     }
 
-    assert detections["letterbox"].source_size == (320, 180)
-    assert detections["letterbox"].active_rect == CropRect(0, 20, 320, 140)
-    assert detections["pillarbox"].active_rect == CropRect(24, 0, 272, 180)
-    assert detections["asymmetric"].active_rect is None
-    assert detections["near_black"].active_rect is None
-    assert detections["changing"].active_rect is None
-    assert detections["dark_title"].active_rect is None
+    assert detections["letterbox"].active_rect == CropRect(0, 22, 320, 134)
+    assert detections["letterbox"].zoom == 1.3637
+    assert detections["pillarbox"].active_rect == CropRect(40, 0, 240, 180)
+    assert detections["pillarbox"].zoom == 1.3334
+    assert detections["odd_bars"].active_rect == CropRect(0, 20, 320, 138)
+    assert detections["pc_letterbox"].active_rect == CropRect(0, 22, 320, 134)
+    assert detections["pc_letterbox"].color_range == "pc"
+    assert detections["outside_range"].active_rect == CropRect(0, 22, 320, 134)
 
-    for detection in detections.values():
-        assert len(detection.samples) == 3
+    expected_refusals = {
+        "asymmetric": "invalid_geometry",
+        "near_black": "insufficient_evidence",
+        "changing": "changing",
+        "dark_title": "invalid_geometry",
+        "noisy_bars": "not_flat_black",
+        "subtitle": "changing",
+        "fade": "insufficient_evidence",
+        "portrait": "zoom_exceeds_limit",
+        "offset_pts": "range_clock_mismatch",
+    }
+    for name, reason in expected_refusals.items():
+        assert detections[name].active_rect is None, name
+        assert detections[name].refusal_reason == reason, name
+
+    for name, detection in detections.items():
+        if detection.refusal_reason in {
+            "insufficient_evidence",
+            "range_clock_mismatch",
+        }:
+            continue
+        assert len(detection.samples) >= 12, name
+        assert detection.sample_stride == 2, name
         assert all(
-            sample.frame_count is not None and sample.frame_count >= 2
-            for sample in detection.samples
-        )
-        assert all(
-            sample.start_seconds is not None
-            and sample.end_seconds is not None
-            and 0.2 <= sample.start_seconds < sample.end_seconds <= 1.8
-            for sample in detection.samples
-        )
-        assert all(
-            left.end_seconds <= right.start_seconds
+            left.pts_seconds < right.pts_seconds
             for left, right in pairwise(detection.samples)
         )
-
-    assert detections["letterbox"].accepted
-    assert (
-        detections["asymmetric"].refusal_reason == "unstable_or_ambiguous_crop_evidence"
-    )
-    assert detections["near_black"].refusal_reason == "no_bars_detected"
+    assert detections["outside_range"].used_range == (1.0, 5.0)
     assert paths["letterbox"].read_bytes() == before
     assert OVERRIDE_CONTROL["source_fixture"] == "letterbox"
     assert OVERRIDE_CONTROL["expected_action"] == "preserve-explicit-framing"

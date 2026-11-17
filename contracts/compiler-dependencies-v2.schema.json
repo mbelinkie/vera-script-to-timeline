@@ -329,6 +329,10 @@
           "$ref": "script-document-v2.schema.json#/$defs/ImageMotionV1",
           "description": "Frozen project image-motion configuration used by the compiler, not a live Resolve default."
         },
+        "hideEncodedBars": {
+          "type": "boolean",
+          "description": "Frozen opt-in to detect stable baked-in bars on eligible video clips; absent means off."
+        },
         "sourceAudioLevelPolicy": {
           "type": "object",
           "additionalProperties": false,

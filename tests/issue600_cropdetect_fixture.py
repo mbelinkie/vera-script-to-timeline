@@ -17,18 +17,42 @@ from pathlib import Path
 from vera_timeline_agent.cropdetect import CropDetection, analyze_media
 
 _GRAPHS = {
-    "letterbox": "testsrc2=size=320x140:rate=10:duration=2,pad=320:180:0:20:black",
-    "pillarbox": "testsrc2=size=272x180:rate=10:duration=2,pad=320:180:24:0:black",
-    "asymmetric": "testsrc2=size=320x130:rate=10:duration=2,pad=320:180:0:20:black",
-    "near_black": "color=c=0x101010:s=320x180:r=10:d=2,format=yuv420p",
+    "letterbox": "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black",
+    "pillarbox": "color=c=gray:s=240x180:r=10:d=4,pad=320:180:40:0:black",
+    "asymmetric": "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:10:black",
+    "near_black": "color=c=0x101010:s=320x180:r=10:d=4,format=yuv420p",
     "changing": (
-        "testsrc2=size=320x140:rate=10:duration=1,pad=320:180:0:20:black[a];"
-        "testsrc2=size=320x180:rate=10:duration=1[b];[a][b]concat=n=2:v=1:a=0"
+        "color=c=gray:s=320x134:r=10:d=2,pad=320:180:0:23:black[a];"
+        "color=c=gray:s=320x180:r=10:d=2[b];[a][b]concat=n=2:v=1:a=0"
     ),
     "dark_title": (
-        "color=c=0x080808:s=320x180:r=10:d=2,"
+        "color=c=0x080808:s=320x180:r=10:d=4,"
         "drawbox=x=120:y=60:w=80:h=60:color=white:t=fill,format=yuv420p"
     ),
+    "noisy_bars": (
+        "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black,"
+        "noise=alls=10:allf=t:all_seed=1"
+    ),
+    "subtitle": (
+        "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black,"
+        "drawbox=x=20:y=2:w=120:h=18:color=white:t=fill:enable='gte(t,2)'"
+    ),
+    "fade": (
+        "testsrc2=size=320x134:rate=10:duration=4,pad=320:180:0:23:black,"
+        "fade=t=out:st=1:d=3:color=black"
+    ),
+    "odd_bars": "color=c=gray:s=320x138:r=10:d=4,pad=320:180:0:21:black",
+    "portrait": "color=c=gray:s=100x180:r=10:d=4,pad=320:180:110:0:black",
+    "pc_letterbox": (
+        "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black,"
+        "scale=in_range=tv:out_range=pc,format=yuvj420p"
+    ),
+    "outside_range": (
+        "color=c=gray:s=320x180:r=10:d=1[a];"
+        "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black[b];"
+        "[a][b]concat=n=2:v=1:a=0"
+    ),
+    "offset_pts": "color=c=gray:s=320x134:r=10:d=4,pad=320:180:0:23:black",
 }
 
 # Reuse the letterbox clip as an explicit-framing control for downstream
@@ -49,7 +73,7 @@ def _run(ffmpeg: str, *args: str) -> subprocess.CompletedProcess[str]:
 def generate_issue600_cropdetect_fixtures(
     output_dir: Path, ffmpeg: str | None = None
 ) -> dict[str, Path]:
-    """Generate short 320x180 FFV1 clips under ``output_dir``."""
+    """Generate short synthetic 320x180 FFV1 clips under ``output_dir``."""
     executable = ffmpeg or shutil.which("ffmpeg")
     if executable is None:
         raise FileNotFoundError("ffmpeg is required to generate issue #600 fixtures")
@@ -68,14 +92,16 @@ def generate_issue600_cropdetect_fixtures(
             "-i",
             graph,
             "-frames:v",
-            "20",
+            "50",
             "-an",
             "-c:v",
             "ffv1",
             "-level",
             "3",
             "-pix_fmt",
-            "yuv420p",
+            "yuvj420p" if name == "pc_letterbox" else "yuv420p",
+            *(["-color_range", "pc"] if name == "pc_letterbox" else []),
+            *(["-output_ts_offset", "2"] if name == "offset_pts" else []),
             str(path),
         )
         paths[name] = path
@@ -98,7 +124,12 @@ def _detection_report(detection: CropDetection) -> dict[str, object]:
 def _report(output_dir: Path, ffmpeg: str) -> dict[str, object]:
     fixtures = generate_issue600_cropdetect_fixtures(output_dir, ffmpeg)
     detections = {
-        name: analyze_media(path, (0.0, 2.0), ffmpeg=ffmpeg)
+        name: analyze_media(
+            path,
+            (1.0, 5.0) if name == "outside_range" else (0.0, 4.0),
+            timeline_size=(320, 180),
+            ffmpeg=ffmpeg,
+        )
         for name, path in fixtures.items()
     }
     return {

@@ -37,6 +37,10 @@
     "imageMotionDefault": {
       "$ref": "#/$defs/ImageMotionV1",
       "description": "Configured automatic image motion for new builds; older settings without this field retain legacy still behavior."
+    },
+    "hideEncodedBars": {
+      "type": "boolean",
+      "description": "Opt in to detecting and removing stable baked-in bars from eligible video clips during new builds; absent means off."
     }
   },
   "$defs": {

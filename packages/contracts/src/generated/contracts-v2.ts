@@ -419,6 +419,22 @@ export type TimelineEventV2 = {
   sourceTimeMapping: PreparationTimeMappingV1 | null;
   preparationBindingHash: string | null;
   audio: SourceAudioEventV2 | null;
+  /**
+   * Frozen project intent for optional package-time baked-bar analysis.
+   */
+  encodedBars?:
+    | {
+        mode: "detect_and_fill";
+      }
+    | {
+        mode: "keep";
+        reason:
+          | "explicit_framing"
+          | "framing_ambiguous"
+          | "still_route_unproven"
+          | "motion_route_unproven"
+          | "unsupported_picture_kind";
+      };
   music?: MusicEventV2;
   pictureTreatment?:
     StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2;
@@ -1164,6 +1180,10 @@ export interface AuthoringProjectSettingsV1 {
         end: ImageMotionFrameV11;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+  /**
+   * Opt in to detecting and removing stable baked-in bars from eligible video clips during new builds; absent means off.
+   */
+  hideEncodedBars?: boolean;
 }
 export interface PresenterStillReference1 {
   mediaReferenceId: string;
@@ -1253,6 +1273,10 @@ export interface AuthoringDefaultsV2 {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+  /**
+   * Frozen opt-in to detect stable baked-in bars on eligible video clips; absent means off.
+   */
+  hideEncodedBars?: boolean;
   sourceAudioLevelPolicy: {
     version: string;
     quietGainDb: -18;
