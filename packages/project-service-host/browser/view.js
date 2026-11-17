@@ -163,6 +163,9 @@ function renderVisuals(document, block) {
   }
   if (block.type === "visual_only") {
     list.append(renderVisualCard(document, block.payload, block.researchClip));
+    for (const visual of block.additionalVisuals ?? []) {
+      list.append(renderVisualCard(document, visual.payload, visual.researchClip));
+    }
   }
 
   if (!list.childElementCount) {

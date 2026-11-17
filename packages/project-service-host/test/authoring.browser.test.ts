@@ -33,6 +33,10 @@ const DOCUMENT_FIXTURE = new URL(
   "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json",
   import.meta.url,
 );
+const VISUAL_ONLY_FIXTURE = new URL(
+  "../../../tests/data/authoring_v2/issue_173/compiler/visual-only-image-still-25fps-default.input.golden.json",
+  import.meta.url,
+);
 
 interface ApiResult {
   readonly status: number;
@@ -100,6 +104,16 @@ function documentFixture(projectId: string): { document: ScriptDocumentV2; first
   document.title = "Browser saved script";
   const narration = document.activeDraft.blocks.find((block) => block.type === "narration");
   if (!narration) throw new Error("browser document fixture has no narration row");
+  const visualSource = JSON.parse(readFileSync(VISUAL_ONLY_FIXTURE, "utf8")) as { document: ScriptDocumentV2 };
+  const row = visualSource.document.activeDraft.blocks.find((block) => block.type === "visual_only");
+  if (!row) throw new Error("browser visual fixture has no visual-only row");
+  document.activeDraft.blocks.push({
+    ...row, id: randomUUID(), orderKey: "z", payload: { ...row.payload, payloadId: randomUUID() },
+    additionalVisuals: [{
+      payload: { ...row.payload, payloadId: randomUUID(), pictureKind: "clip" },
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 25 } },
+    }],
+  });
   return { document, firstRowText: narration.text };
 }
 
@@ -227,6 +241,8 @@ describe("browser authoring over the local project service", () => {
     await page.locator("#script-rows").waitFor({ state: "visible" });
     expect(await page.locator("#script-rows").innerText()).toContain(seeded.firstRowText);
     expect(await page.locator("#script-title").textContent()).toBe("Browser saved script");
+    expect(await page.locator('[data-row-kind="visual_only"] .visual-card__type').allTextContents())
+      .toEqual(["Still image", "Footage"]);
 
     const authoringSize = page.locator("#authoring-size");
     const thumbnailSize = page.locator("#thumbnail-size");
