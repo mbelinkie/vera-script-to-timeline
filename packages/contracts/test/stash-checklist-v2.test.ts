@@ -175,6 +175,38 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     expect(saved.document.stashOutline?.some((entry) => entry.rowId === copied.id && entry.kind === "row")).toBe(true);
   });
 
+  it("permanently breaks a copy's return link after a source edit, even when source bytes are restored", () => {
+    const { doc, source } = fixture(true);
+    const placed = place(doc, [source.id]);
+    expect(placed.ok).toBe(true);
+    const copiedId = placed.document.activeDraft.blocks[0]!.id;
+    const original = structuredClone(savedNote(placed.document, source.id));
+    const edited = structuredClone(original);
+    edited.notes.push("temporary change");
+    const changed = applyRowEditV2(placed.document, 1, { kind: "edit_row", rowId: source.id, row: edited });
+    expect(changed.ok, JSON.stringify(changed.diagnostics)).toBe(true);
+    expect((changed.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
+    const restored = applyRowEditV2(changed.document, 2, { kind: "edit_row", rowId: source.id, row: original });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    expect(savedNote(restored.document, source.id).notes).toEqual(original.notes);
+    const saved = applyRowEditV2(restored.document, 3, {
+      kind: "stash_rows", rowIds: [copiedId], bundleId: id(920),
+    });
+    expect(saved.ok, JSON.stringify(saved.diagnostics)).toBe(true);
+    expect(saved.document.stashOutline?.find((item) => item.rowId === copiedId)?.kind).toBe("row");
+    expect(savedNote(saved.document, source.id).stashChecklist?.completed).toBe(true);
+
+    const clipPlaced = place(doc, [source.id]);
+    const clipId = (savedNote(clipPlaced.document, source.id).attachedFootage?.clip.id)!;
+    const footage = applyRowEditV2(clipPlaced.document, 1, {
+      kind: "trim_research_clip", clipRowId: clipId, edge: "clear_out",
+    });
+    // The fixture's generic media reference is not an evidenced Research clip,
+    // so a rejected trim cannot invalidate the link or alter completion.
+    expect(footage.ok).toBe(false);
+    expect(footage.document).toBe(clipPlaced.document);
+  });
+
   it("skips completed descendants and clips regardless of Hide completed, but retains needed ancestor context", () => {
     const { doc, source, child, other } = fixture();
     const checked = applyRowEditV2(doc, 0, { kind: "set_stash_completion", rowId: other.id, completed: true });

@@ -17,6 +17,29 @@ export function stashNoteContentStampV2(note: NarrationBlockV2): string {
   return JSON.stringify(copy);
 }
 
+/** A link broken by an authored source edit stays broken even if the author
+ * later restores the exact prior bytes. Completion changes are not source edits. */
+export function invalidateChangedStashSourceLinksV2(before: ScriptDocumentV2, after: ScriptDocumentV2): void {
+  const oldRows = new Map((before.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
+  const newRows = new Map((after.stash ?? []).flatMap((bundle) => bundle.rows.map((row) => [row.id, row] as const)));
+  const changed = new Set<string>();
+  for (const entry of before.stashOutline ?? []) {
+    if (entry.kind !== "note") continue;
+    const original = oldRows.get(entry.rowId);
+    const current = newRows.get(entry.rowId);
+    if (original?.type !== "narration") continue;
+    if (current?.type !== "narration" || stashNoteContentStampV2(original) !== stashNoteContentStampV2(current)) {
+      changed.add(entry.rowId);
+    }
+  }
+  if (!changed.size) return;
+  for (const row of after.activeDraft.blocks) {
+    if (row.type === "narration" && row.stashOrigin?.sourceNoteRowId && changed.has(row.stashOrigin.sourceNoteRowId)) {
+      row.stashOrigin.returnEligible = false;
+    }
+  }
+}
+
 /** Stable UUIDs for replay of one optimistic edit, distinct for every insertion. */
 function copyUuid(seed: string, ordinal: number): string {
   const input = `${seed}:${ordinal}`;

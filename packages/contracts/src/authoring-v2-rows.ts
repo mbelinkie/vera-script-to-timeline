@@ -5,7 +5,7 @@ import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDirectionEditCommandV2 } from "./authoring-v2-stage-direction-edits.js";
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
 import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
-import { copyStashNoteAsSpokenV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
+import { copyStashNoteAsSpokenV2, invalidateChangedStashSourceLinksV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
 import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
@@ -1230,7 +1230,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       document.stash?.flatMap((bundle) => bundle.rows).find((item): item is NarrationBlockV2 => item.id === stageCommand.blockId && item.type === "narration");
     const edited = applyStageDirectionEditV2(document, row?.version ?? -1, stageCommand);
     if (!edited.ok) return { ok: false, document, diagnostics: edited.diagnostics };
-    const serialized = serializedDocument({ ...edited.document, rowEditRevision: expectedRevision + 1 });
+    const stageResult = { ...edited.document, rowEditRevision: expectedRevision + 1 };
+    invalidateChangedStashSourceLinksV2(document, stageResult);
+    const serialized = serializedDocument(stageResult);
     return serialized
       ? { ok: true, document: serialized, diagnostics: [] }
       : refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON.");
@@ -1817,6 +1819,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     : updateRelationships(document, working, command, new Set(moved.map((row) => row.id)));
   if (relationshipProblem) return { ok: false, document, diagnostics: [relationshipProblem] };
   working.rowEditRevision = expectedRevision + 1;
+  invalidateChangedStashSourceLinksV2(document, working);
   const after = validateScriptDocumentV2(working);
   const signature = (document: ScriptDocumentV2, item: AuthoringDiagnosticV2) => {
     const path = item.jsonPath.replace(/^\/activeDraft\/(blocks|supportingItems)\/(\d+)(?=\/|$)/, (_match: string, collection: "blocks" | "supportingItems", index: string) => `/activeDraft/${collection}/${document.activeDraft[collection][Number(index)]?.id ?? index}`);

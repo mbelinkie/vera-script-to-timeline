@@ -4,6 +4,7 @@ import { serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
+import { invalidateChangedStashSourceLinksV2 } from "./authoring-v2-stash-checklist.js";
 
 export type StashedRowV2 = RowStashBundleV2["rows"][number];
 
@@ -102,6 +103,7 @@ export function applyStashRowEditV2(
     return refused(document, "STASH_ROW_JSON_INVALID", "The edited row must be losslessly representable as saved JSON.");
   }
 
+  invalidateChangedStashSourceLinksV2(document, working);
   const after = validateScriptDocumentV2(working);
   // Draft content is untouched; parked semantic problems remain visible warnings until restore.
   const errors = after.diagnostics.filter((item) => fatalDocumentDiagnostics.has(item.code));
