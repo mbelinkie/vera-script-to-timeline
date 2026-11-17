@@ -835,6 +835,8 @@ def _refused(
     *,
     zoom: float | None = None,
 ) -> CropDetection:
+    if frame_rate is None and probe.frame_rate is not None:
+        frame_rate = (probe.frame_rate.numerator, probe.frame_rate.denominator)
     return CropDetection(
         source_size=probe.size,
         used_range=source_range,

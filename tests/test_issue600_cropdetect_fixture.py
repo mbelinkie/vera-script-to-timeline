@@ -70,6 +70,15 @@ def test_ffmpeg_whole_range_evidence_rejects_ambiguous_or_unsafe_frames(
             for left, right in pairwise(detection.samples)
         )
     assert detections["outside_range"].used_range == (1.0, 5.0)
+    short = analyze_media(
+        paths["letterbox"],
+        (0.0, 1.0),
+        timeline_size=(320, 180),
+        ffmpeg=ffmpeg,
+        ffprobe=ffprobe,
+    )
+    assert short.refusal_reason == "insufficient_evidence"
+    assert short.frame_rate == detections["letterbox"].frame_rate
     assert paths["letterbox"].read_bytes() == before
     assert OVERRIDE_CONTROL["source_fixture"] == "letterbox"
     assert OVERRIDE_CONTROL["expected_action"] == "preserve-explicit-framing"

@@ -1024,22 +1024,28 @@ def _validate_manifest_semantics(
             if hide_encoded_bars and payload is not None:
                 picture_kind = payload.get("pictureKind")
                 framing = payload.get("framingPolicy")
-                if picture_kind == "clip":
-                    if framing == "contain":
-                        expected_bars_intent = {
-                            "mode": "keep",
-                            "reason": "framing_ambiguous",
-                        }
-                    elif framing in {"cover", "native"}:
-                        expected_bars_intent = {
-                            "mode": "keep",
-                            "reason": "explicit_framing",
-                        }
-                    else:
-                        expected_bars_intent = {"mode": "detect_and_fill"}
+                if framing is not None:
+                    expected_bars_intent = {
+                        "mode": "keep",
+                        "reason": (
+                            "framing_ambiguous"
+                            if picture_kind == "clip" and framing == "contain"
+                            else "explicit_framing"
+                        ),
+                    }
+                elif picture_kind == "clip":
+                    expected_bars_intent = {"mode": "detect_and_fill"}
                 elif picture_kind == "image":
                     treatment = event.get("pictureTreatment")
-                    moving = isinstance(treatment, dict) and "imageMotion" in treatment
+                    motion = (
+                        treatment.get("imageMotion")
+                        if isinstance(treatment, dict)
+                        else None
+                    )
+                    moving = (
+                        isinstance(motion, dict)
+                        and motion.get("mode") == "native_dynamic_zoom"
+                    )
                     expected_bars_intent = {
                         "mode": "keep",
                         "reason": (
@@ -1048,7 +1054,7 @@ def _validate_manifest_semantics(
                             else "still_route_unproven"
                         ),
                     }
-                else:
+                elif picture_kind in {"capture", "graphic"}:
                     expected_bars_intent = {
                         "mode": "keep",
                         "reason": "unsupported_picture_kind",
@@ -3171,6 +3177,16 @@ def _delivered_probe_video(preparation: _Preparation) -> JsonObject:
     raise _error("preparation delivered probe lacks its selected video stream")
 
 
+def _encoded_bars_color_range(
+    intent: JsonObject, preparation: _Preparation
+) -> str | None:
+    if intent.get("mode") == "detect_and_fill":
+        value = _delivered_probe_video(preparation).get("color_range")
+        if value in ("tv", "pc"):
+            return cast(str, value)
+    return None
+
+
 def _make_encoded_bars_evidence(
     manifest: JsonObject,
     dependencies: JsonObject,
@@ -3214,13 +3230,17 @@ def _make_encoded_bars_evidence(
     analyzer_tool_available = False
     if eligible_events and not has_native_otio_route:
         try:
-            from vera_timeline_agent.media_preparation import MediaTools
+            from vera_timeline_agent.media_preparation import (
+                MediaPreparationError,
+                MediaTools,
+            )
 
             analyzer_tool = MediaTools()
             analyzer_tool_hash = identity_hash(analyzer_tool.fingerprint())
             analyzer_tool_available = True
-        except Exception:
-            analyzer_tool_available = False
+        except MediaPreparationError as error:
+            if error.code not in {"tool_unavailable", "unsupported_tools"}:
+                raise _error("bar-removal tool fingerprint did not complete") from error
 
     rows: list[JsonObject] = []
     for event in manifest_events:
@@ -3255,10 +3275,7 @@ def _make_encoded_bars_evidence(
         delivered_hash = cast(str, source["deliveredHash"])
         if source_artifact.content_hash != delivered_hash:
             raise _error(f"bar-removal event {event_id} does not use delivered bytes")
-        delivered_video = _delivered_probe_video(preparation)
-        color_range = delivered_video.get("color_range")
-        if color_range not in {"tv", "pc"}:
-            color_range = None
+        color_range = _encoded_bars_color_range(intent, preparation)
 
         analysis: JsonObject | None = None
         decision: JsonObject
@@ -3299,7 +3316,10 @@ def _make_encoded_bars_evidence(
                 analysis = cast(
                     JsonObject, json.loads(_canonical_json(asdict(detection)))
                 )
-                if detection.color_range != color_range:
+                if detection.color_range != color_range or detection.frame_rate != (
+                    rate.numerator,
+                    rate.denominator,
+                ):
                     analysis = None
                     decision = {
                         "decision": "skip",
@@ -3312,11 +3332,8 @@ def _make_encoded_bars_evidence(
                         "decision": "skip",
                         "reason": detection.refusal_reason or "insufficient_evidence",
                     }
-            except _SuppliedHashMismatch:
-                raise
-            except Exception:
-                analysis = None
-                decision = {"decision": "skip", "reason": "analysis_failed"}
+            except cropdetect.CropAnalysisError as error:
+                raise _error(f"bar analysis did not complete for {event_id}") from error
 
         row: JsonObject = {
             "eventId": event_id,
@@ -3443,6 +3460,7 @@ def _validate_encoded_bars_evidence(
             "durationFrames": source_end - source_start,
         }
         expected_rate = {"numerator": rate.numerator, "denominator": rate.denominator}
+        color_range = _encoded_bars_color_range(event["encodedBars"], binding)
         if (
             row.get("sourceId") != source_id
             or row.get("intent") != event.get("encodedBars")
@@ -3452,8 +3470,7 @@ def _validate_encoded_bars_evidence(
             or row.get("sourceRate") != expected_rate
             or row.get("toolHash") != profile.get("toolHash")
             or row.get("timelineSize") != list(timeline_size)
-            or row.get("colorRange")
-            != _delivered_probe_video(binding).get("color_range")
+            or row.get("colorRange") != color_range
         ):
             raise _error(
                 f"bar-removal evidence {event_id} is not bound to delivered media"
