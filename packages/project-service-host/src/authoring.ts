@@ -1,5 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { applyRowEditV2, type RowEditCommandV2 } from "@vera/contracts/authoring-v2";
+import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
 
@@ -45,9 +47,10 @@ export function createAuthoringHandler(
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
     const startsSession = path === "/session" && request.method === "POST";
+    const isCommand = path === "/command" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
-    if ((!allowed && !startsSession) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+    if ((!allowed && !startsSession && !isCommand) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
 
     // Cross-origin browser code cannot set this header without a successful
     // CORS preflight. Fetch Metadata also excludes other sites and local ports.
@@ -62,6 +65,14 @@ export function createAuthoringHandler(
     }
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (isCommand) {
+      try {
+        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2 };
+        return Response.json(applyRowEditV2(body.document, body.document.rowEditRevision ?? 0, body.command));
+      } catch {
+        return Response.json({ error: "invalid_command" }, { status: 400 });
+      }
     }
     const headers = new Headers({ authorization });
     const contentType = request.headers.get("content-type");
