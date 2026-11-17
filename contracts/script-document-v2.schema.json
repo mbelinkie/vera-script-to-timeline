@@ -1928,6 +1928,7 @@
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"
         },
+        "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "version": {
           "$ref": "#/$defs/EntityVersion"
         },
@@ -2355,6 +2356,7 @@
         "visualOnlyTiming": {
           "$ref": "#/$defs/VisualOnlyTimingV2"
         },
+        "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"
         },
@@ -2679,6 +2681,17 @@
         }
       }
     },
+    "StashChecklistV2": {
+      "description": "Manual toggles and a first automatic check are separate persisted events. Returns never count active copies.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed", "manualRevision"],
+      "properties": {
+        "completed": { "type": "boolean" },
+        "manualRevision": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "automaticCopyId": { "$ref": "#/$defs/EntityId" }
+      }
+    },
     "StashOriginV2": {
       "type": "object",
       "additionalProperties": false,
@@ -2757,6 +2770,21 @@
         },
         "returnEligible": {
           "type": "boolean"
+        },
+        "sourceNoteRowId": {
+          "description": "Stable original Stash note identity for a copied spoken row; a missing source is not resurrected.",
+          "$ref": "#/$defs/EntityId"
+        },
+        "sourceContentStamp": {
+          "description": "Exact frozen authored source/attachment content at placement, excluding checklist toggles and organization.",
+          "type": "string"
+        },
+        "completionCaused": {
+          "description": "Whether this insertion was the first unchecked-to-checked transition.",
+          "type": "boolean"
+        },
+        "completionManualRevision": {
+          "$ref": "#/$defs/NonNegativeSafeInteger"
         },
         "originalAttachedNoteRowId": {
           "description": "Historical exclusive owner note for an independently placed clip. Not a current ownership edge.",

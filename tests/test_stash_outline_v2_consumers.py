@@ -186,8 +186,8 @@ if (JSON.stringify(mixedSavedConsumers) !== JSON.stringify(baselineConsumers)) {
   throw new Error("The mixed saved outline changed consumer output.");
 }
 
-// After placement, the all-direction note has no speech timing and can yield
-// NARRATION_DURATION_UNKNOWN, so the compiler proof stays on the saved outline.
+// Each compact source note remains in Stash. The script gets fresh, spoken
+// copies, while ordinary descendant footage moves from its saved position.
 apply({
   kind: "place_stash_rows",
   rowIds: [input.noteRow.id, input.citationNoteRow.id],
@@ -197,6 +197,17 @@ apply({
     beforeRowId: null,
   },
 });
+const copiedNote = document.activeDraft.blocks.find((block) =>
+  block.type === "narration" && block.stashOrigin?.sourceNoteRowId === input.noteRow.id
+);
+const copiedCitationNote = document.activeDraft.blocks.find((block) =>
+  block.type === "narration" &&
+    block.stashOrigin?.sourceNoteRowId === input.citationNoteRow.id
+);
+if (!copiedNote || !copiedCitationNote || copiedNote.id === input.noteRow.id ||
+    copiedCitationNote.id === input.citationNoteRow.id) {
+  throw new Error("A placed compact note did not receive an independent Draft ID");
+}
 const placedSerialized = savedSnapshot();
 const placedPrompter = exportPrompter(document, {
   includeSectionNavigation: true,
@@ -217,7 +228,7 @@ const placedNeeds = resolveMediaRequirementsV2(document, {
 
 apply({
   kind: "stash_rows",
-  rowIds: [input.noteRow.id, input.clipRow.id, input.citationNoteRow.id],
+  rowIds: [copiedNote.id, input.clipRow.id, copiedCitationNote.id],
   bundleId: input.returnBundleId,
 });
 const returnedSerialized = savedSnapshot();
@@ -239,6 +250,7 @@ process.stdout.write(
     placedCompilerDiagnostics: placedCompiler.ok ? [] : placedCompiler.diagnostics,
     placedMediaDiagnostics: placedNeeds.ok ? [] : placedNeeds.diagnostics,
     returnedSerialized,
+    copyIds: { note: copiedNote.id, citation: copiedCitationNote.id },
   }),
 );
 """
@@ -415,6 +427,8 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
     note_id = payload["noteRow"]["id"]
     clip_id = payload["clipRow"]["id"]
     citation_note_id = payload["citationNoteRow"]["id"]
+    note_copy_id = operation["copyIds"]["note"]
+    citation_copy_id = operation["copyIds"]["citation"]
     saved_row_id = payload["savedRow"]["id"]
     active_row_id = payload["activeRowId"]
     section_id = payload["sectionId"]
@@ -498,38 +512,76 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
     active_blocks = placed["activeDraft"]["blocks"]
     active_ids = [block["id"] for block in active_blocks]
     assert section_id not in active_ids
-    assert active_ids == [active_row_id, note_id, clip_id, citation_note_id]
-    assert placed["stashOutline"] == [expected_outline[3]]
+    assert active_ids == [active_row_id, note_copy_id, clip_id, citation_copy_id]
+    assert note_copy_id not in {note_id, citation_note_id}
+    assert citation_copy_id not in {note_id, citation_note_id, note_copy_id}
+    assert placed["stashOutline"] == [
+        expected_outline[0],
+        expected_outline[2],
+        expected_outline[3],
+    ]
     assert placed["stashSections"] == saved["stashSections"]
 
-    placed_note = next(block for block in active_blocks if block["id"] == note_id)
+    placed_note = next(block for block in active_blocks if block["id"] == note_copy_id)
     assert placed_note["type"] == "narration"
-    assert placed_note["plainDirection"] is True
+    assert placed_note.get("plainDirection") is None
+    assert placed_note["stashOrigin"]["sourceNoteRowId"] == note_id
     assert placed_note["text"] == payload["noteRow"]["text"]
-    assert is_direction_only(placed_note)
-    assert masked_text(placed_note) == " " * (
-        len(placed_note["text"].encode("utf-16-le")) // 2
-    )
+    assert not is_direction_only(placed_note)
+    assert masked_text(placed_note) == placed_note["text"]
     assert placed_note["tokens"]
-    assert all(token.get("spoken") is False for token in placed_note["tokens"])
-    assert placed["activeDraft"]["supportingItems"] == [payload["citation"]]
+    assert all(token.get("spoken") is not False for token in placed_note["tokens"])
+    assert placed["activeDraft"]["supportingItems"] == []
+
+    for source_id, copy_id in (
+        (note_id, note_copy_id),
+        (citation_note_id, citation_copy_id),
+    ):
+        source = next(
+            row
+            for bundle in placed["stash"]
+            for row in bundle["rows"]
+            if row["id"] == source_id
+        )
+        assert source["stashChecklist"] == {
+            "completed": True,
+            "manualRevision": 0,
+            "automaticCopyId": copy_id,
+        }
+        assert (
+            next(
+                entry for entry in placed["stashOutline"] if entry["rowId"] == source_id
+            )["kind"]
+            == "note"
+        )
 
     placed_clip = next(block for block in active_blocks if block["id"] == clip_id)
     assert placed_clip["type"] == "visual_only"
     assert placed_clip["payload"] == payload["clipRow"]["payload"]
     assert placed_clip["visualOnlyTiming"] == payload["clipRow"]["visualOnlyTiming"]
     placed_citation_note = next(
-        block for block in active_blocks if block["id"] == citation_note_id
+        block for block in active_blocks if block["id"] == citation_copy_id
     )
     assert placed_citation_note["type"] == "narration"
+    assert placed_citation_note["stashOrigin"]["sourceNoteRowId"] == citation_note_id
     assert all(
         token.get("spoken") is not False for token in placed_citation_note["tokens"]
     )
-    assert _narration_ids(placed) == [active_row_id, citation_note_id]
+    scheduled = _narration_ids(placed)
+    assert len(scheduled) == 3
+    assert set(scheduled) == {active_row_id, note_copy_id, citation_copy_id}
     prompter = operation["placedPrompter"]
     assert prompter["ok"] is True
-    assert placed_note["text"] not in prompter["text"]
+    assert placed_note["text"] in prompter["text"]
+    assert placed_citation_note["text"] in prompter["text"]
     assert note_id not in prompter["sidecarJson"]
+    assert [
+        beat["expectedText"] for beat in json.loads(prompter["sidecarJson"])["beats"]
+    ] == [
+        "hello",
+        placed_note["text"],
+        placed_citation_note["text"],
+    ]
     assert "NARRATION_DURATION_UNKNOWN" in {
         issue["code"] for issue in operation["placedCompilerDiagnostics"]
     }
@@ -537,7 +589,24 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
         issue["code"] for issue in operation["placedMediaDiagnostics"]
     }
 
-    assert returned["stashOutline"] == expected_outline
+    assert returned["stashOutline"] == [
+        expected_outline[0],
+        expected_outline[1],
+        {
+            "rowId": note_copy_id,
+            "kind": "row",
+            "parentRowId": None,
+            "sectionId": section_id,
+        },
+        {
+            "rowId": citation_copy_id,
+            "kind": "row",
+            "parentRowId": None,
+            "sectionId": section_id,
+        },
+        expected_outline[2],
+        expected_outline[3],
+    ]
     assert returned["stashSections"] == saved["stashSections"]
     assert returned["activeDraft"] == operation["baselineActiveDraft"]
     assert returned["activeDraft"]["supportingItems"] == []
@@ -546,4 +615,26 @@ def test_stash_outline_consumers_exclude_saved_items_until_placed() -> None:
         and citation_note_id in {row["id"] for row in bundle["rows"]}
         for bundle in returned["stash"]
     )
+    # A grouped return does not erase its already-used source notes. Copies
+    # remain complete saved rows, and the source's causation is retained.
+    for source_id, copy_id in (
+        (note_id, note_copy_id),
+        (citation_note_id, citation_copy_id),
+    ):
+        saved_source = next(
+            row
+            for bundle in returned["stash"]
+            for row in bundle["rows"]
+            if row["id"] == source_id
+        )
+        saved_copy = next(
+            row
+            for bundle in returned["stash"]
+            for row in bundle["rows"]
+            if row["id"] == copy_id
+        )
+        assert saved_source["stashChecklist"]["completed"] is True
+        assert saved_source["stashChecklist"]["automaticCopyId"] == copy_id
+        assert "stashOrigin" not in saved_copy
+        assert saved_copy["text"] == saved_source["text"]
     assert _narration_ids(returned) == [active_row_id]
