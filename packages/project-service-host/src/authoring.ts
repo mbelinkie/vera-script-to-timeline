@@ -10,6 +10,10 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
+  ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
+  ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
+  ["/narration-editor.js", ["narration-editor.js", "text/javascript; charset=utf-8"]],
+  ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
