@@ -664,6 +664,20 @@ function projectCards(
       recovery: null,
     };
   });
+  // D135/D146: an ordinary narration row can have no words yet still own its
+  // one main picture. With no token appearances, project a zero-word card
+  // rather than making that retained picture disappear from the editor.
+  if (spoken.length === 0 && row.text === "" && row.plainDirection !== true && slots.length === 1) {
+    const only = slots[0]!;
+    const stored = row.primaryVisualSequence?.slots[0];
+    const framing = stored?.kind === "content" && stored.payload.kind === "on_camera"
+      ? onCameraFramingV2(stored.payload) : null;
+    cards.push({
+      kind: only.payloadKind === "on_camera" ? "on_camera" : only.payloadKind === "undefined" ? "undefined" : "visual",
+      compact: false, slotId: only.slotId, payloadId: only.payloadId, humanOrdinal: only.humanOrdinal,
+      framing, startTokenIndex: 0, endTokenIndexExclusive: 0, recovery: null,
+    });
+  }
   for (const item of row.unattachedVisuals ?? []) {
     cards.push({
       kind: "unattached_visual", compact: false, slotId: item.slotId, payloadId: item.payload.payloadId,

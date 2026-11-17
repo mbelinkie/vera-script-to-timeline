@@ -9,9 +9,9 @@ import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.j
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
-import { isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
+import { reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import {
   applySplitOrJoinV2,
   isSplitOrJoinCommandV2,
@@ -1508,9 +1508,18 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       documentId: document.id, revision: expectedRevision, reservedIds: documentUuids(document),
     });
     if (!splice.ok) return refused(document, splice.code, splice.message);
-    // Reconciliation of deleted visual starts/quotes is a separate atomic
-    // extension. The shared post-edit validator refuses any dangling anchor.
-    blocks[index] = { ...splice.row, version: current.version + 1 };
+    const coverage = reconcileNarrationTextCoverageV2(current, splice.row);
+    if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
+    const row = { ...splice.row, version: current.version + 1,
+      primaryVisualSequence: {
+        ...current.primaryVisualSequence!, slots: coverage.slots,
+        version: current.primaryVisualSequence!.version +
+          (sameAuthoringJsonV2(coverage.slots, current.primaryVisualSequence!.slots) ? 0 : 1),
+      },
+    };
+    if (coverage.unattachedVisuals.length > 0) row.unattachedVisuals = coverage.unattachedVisuals;
+    else delete row.unattachedVisuals;
+    blocks[index] = row;
   } else if (command.kind === "edit_row") {
     const index = blocks.findIndex((block) => block.type !== "section" && block.id === command.rowId);
     if (index < 0) return refused(document, "ROW_NOT_FOUND", "Choose an existing Draft or Stash row to edit.");

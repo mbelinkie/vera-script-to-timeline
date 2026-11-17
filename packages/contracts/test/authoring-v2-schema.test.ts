@@ -459,7 +459,7 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectSettingsValid(projectSettings(presenterStillReference()));
   });
 
-  it("allows zero-length literal directions only under explicit whole-row intent", () => {
+  it("allows zero-length literal directions and rejects mismatched ordinary text/tokens", () => {
     const empty = narrationBlock();
     empty.text = "";
     empty.tokens = [];
@@ -491,6 +491,27 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectDocumentInvalid(documentWithBlock({ ...visualOnlyBlock(), plainDirection: true }));
     // Absence of the marker must remain compatible with saved pre-#365 rows.
     expectDocumentValid(documentWithBlock(narrationBlock()));
+  });
+
+  it("allows an exactly empty narration row with one retained base picture, but not extra pictures or waiting media", () => {
+    const empty = narrationBlock();
+    empty.text = "";
+    empty.tokens = [];
+    empty.primaryVisualSequence = primaryVisualSequence([contentSlot({ payload: narratedVisualPayload() })]);
+    expectDocumentValid(documentWithBlock(empty));
+
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: undefined }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, tokens: [
+      { id: ids.tokenOne, value: "hello", startOffset: 0, endOffset: 5 },
+    ] }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, text: "not empty" }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([]) }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([
+      contentSlot({ payload: narratedVisualPayload() }), contentSlot({ id: ids.event, relation: "sequential" }),
+    ]) }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, unattachedVisuals: [
+      { slotId: ids.event, payload: narratedVisualPayload(), version: 1 },
+    ] }));
   });
 
   it("accepts each structural content-slot, relation, boundary, payload, and return variant", () => {

@@ -535,13 +535,28 @@ function validateTokens(
   addId: (id: string, path: string, owner?: string) => void,
 ): void {
   let previousEnd = 0;
-  if (row.plainDirection === true && hasUnpairedSurrogate(row.text)) {
+  if (hasUnpairedSurrogate(row.text)) {
     diagnostics.push({
-      code: "PLAIN_DIRECTION_INTENT_INVALID",
-      message: "Plain direction text must contain complete UTF-16 surrogate pairs.",
+      code: row.plainDirection === true ? "PLAIN_DIRECTION_INTENT_INVALID" : "TOKEN_TEXT_MISMATCH",
+      message: "Narration text must contain complete UTF-16 surrogate pairs.",
       jsonPath: `${path}/text`,
       blockId: row.id,
     });
+  }
+  if (row.text === "" && row.plainDirection !== true) {
+    const slots = row.primaryVisualSequence?.slots;
+    const picture = slots?.[0];
+    if (row.tokens.length !== 0 || (row.unattachedVisuals?.length ?? 0) !== 0 ||
+        slots?.length !== 1 || picture?.kind !== "content" ||
+        picture.relation.kind !== "base" || picture.boundaryBefore.kind !== "row_start" ||
+        picture.playoutPolicy !== "match_structural_interval") {
+      diagnostics.push({
+        code: "EMPTY_NARRATION_VISUAL_INVALID",
+        message: "An empty narration row keeps exactly one base picture, with no word anchors or waiting pictures.",
+        jsonPath: `${path}/primaryVisualSequence`,
+        blockId: row.id,
+      });
+    }
   }
   const isSplitSurrogate = (offset: number): boolean => {
     const before = row.text.charCodeAt(offset - 1);
@@ -556,7 +571,7 @@ function validateTokens(
       token.endOffset <= token.startOffset ||
       token.endOffset > row.text.length ||
       row.text.slice(token.startOffset, token.endOffset) !== token.value ||
-      (row.plainDirection === true && (isSplitSurrogate(token.startOffset) || isSplitSurrogate(token.endOffset)))
+      isSplitSurrogate(token.startOffset) || isSplitSurrogate(token.endOffset)
     ) {
       diagnostics.push({
         code: row.plainDirection === true ? "PLAIN_DIRECTION_INTENT_INVALID" : "TOKEN_TEXT_MISMATCH",
