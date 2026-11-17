@@ -514,6 +514,43 @@ describe("authoring v2 document and project-settings schemas", () => {
     ] }));
   });
 
+  it("#580 P2 saves an ordinary wordless picture row without manufacturing words or durations", () => {
+    const retained = contentSlot({ payload: narratedVisualPayload("clip", "quiet") });
+    const empty = narrationBlock();
+    empty.text = "";
+    empty.tokens = [];
+    empty.primaryVisualSequence = primaryVisualSequence([retained]);
+    const document = documentWithBlock(empty);
+    expectDocumentValid(document);
+    // The schema fixture builder is intentionally untyped; validation above
+    // establishes it as a ScriptDocumentV2 before the typed serializer call.
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(
+      document as unknown as Parameters<typeof serializeAuthoringDocumentV2>[0],
+    ));
+    expect(loaded).toEqual({ ok: true, document });
+    const reloadedRow = loaded.ok ? loaded.document.activeDraft.blocks[0] : null;
+    expect(reloadedRow).toEqual(empty);
+    expect(reloadedRow?.type === "narration" && reloadedRow.tokens).toEqual([]);
+    expect(reloadedRow?.type === "narration" && reloadedRow.primaryVisualSequence?.slots).toEqual([retained]);
+
+    // P3 is deliberately refused by the row command: an alternate saved JSON
+    // cannot sneak in another placed, waiting or word-anchored picture.
+    const multiPicture = structuredClone(empty);
+    multiPicture.primaryVisualSequence = primaryVisualSequence([
+      retained, contentSlot({ id: ids.event, relation: "sequential" }),
+    ]);
+    const invalidDocuments = [
+      documentWithBlock(multiPicture),
+      documentWithBlock({ ...empty, unattachedVisuals: [{ slotId: ids.event, payload: narratedVisualPayload(), version: 1 }] }),
+      documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([]) }),
+      documentWithBlock({ ...empty, tokens: narrationBlock().tokens }),
+    ];
+    for (const invalid of invalidDocuments) {
+      expectDocumentInvalid(invalid);
+      expect(deserializeAuthoringDocumentV2(JSON.stringify(invalid)).ok).toBe(false);
+    }
+  });
+
   it("accepts each structural content-slot, relation, boundary, payload, and return variant", () => {
     const slots = [
       contentSlot({ relation: "base", boundaryBefore: { kind: "row_start" } }),

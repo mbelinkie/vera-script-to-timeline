@@ -85,13 +85,21 @@ function pictureEdit(row: NarrationBlockV2, replacement: NarrationTextReplacemen
   const result = session.apply({ kind: "edit_narration_text", rowId: row.id, ...replacement });
   expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
   expect(session.undoDepth).toBe(1);
+  expect(session.revision).toBe(1);
   expect(validateScriptDocumentV2(result.document).diagnostics.filter((item) => item.severity !== "warning")).toEqual([]);
   const saved = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
   expect(saved.ok).toBe(true);
-  if (saved.ok) expect(saved.document).toEqual(result.document);
+  if (saved.ok) {
+    expect(saved.document).toEqual(result.document);
+    expect(projectPrimarySequenceV2(saved.document)).toEqual(projectPrimarySequenceV2(result.document));
+  }
   const undone = session.undo();
   expect(undone.ok).toBe(true);
+  expect(session.undoDepth).toBe(0);
+  expect(session.revision).toBe(2);
   expect({ ...session.document, rowEditRevision: 0 }).toEqual({ ...original, rowEditRevision: 0 });
+  expect(validateScriptDocumentV2(undone.document).diagnostics.filter((item) => item.severity !== "warning")).toEqual([]);
+  expect(session.undo().ok).toBe(false);
   return editedRow(result.document);
 }
 
@@ -206,6 +214,41 @@ describe("#580 positional word identities (H matrix)", () => {
     expect(h2.createdTokenIds).not.toEqual(h3.createdTokenIds);
     expect(outline(apply(source, edit(4, 4, "the harbor ", 2002)))).toEqual(outline(h2.row));
     expect(outline(apply(source, edit(15, 15, "the harbor ", 2003)))).toEqual(outline(h3.row));
+  });
+
+  it.each([
+    { name: "H1", replacement: edit(26, 32, "old harbor", 2901),
+      cards: ["OC tight 0-1", "S1 1-4", "S2 4-8"], statuses: ["attached", "stale", "attached"] },
+    { name: "H2", replacement: edit(4, 4, "the harbor ", 2902),
+      cards: ["OC tight 0-3", "S1 3-6", "S2 6-9"], statuses: ["attached", "attached", "attached"] },
+    { name: "H3", replacement: edit(15, 15, "the harbor ", 2903),
+      cards: ["OC tight 0-1", "S1 1-6", "S2 6-9"], statuses: ["attached", "attached", "attached"] },
+  ])("$name preserves the exact visual cues, text comments and saved projection", ({ name, replacement, cards, statuses }) => {
+    const source = pictureRow(H);
+    const before = structuredClone(source);
+    const next = pictureEdit(source, replacement);
+    expect(source).toEqual(before);
+    expect(pictureCards(next)).toEqual(cards);
+    expect(next.primaryVisualSequence!.slots.map((slot) => slot.id)).toEqual(before.primaryVisualSequence!.slots.map((slot) => slot.id));
+    expect(next.primaryVisualSequence!.slots.map((slot) => slot.kind === "content" ? slot.payload : null))
+      .toEqual(before.primaryVisualSequence!.slots.map((slot) => slot.kind === "content" ? slot.payload : null));
+    for (const [index, tokenId] of [[1, id(101)], [4, id(104)]] as const) {
+      const slot = next.primaryVisualSequence!.slots[index === 1 ? 1 : 2];
+      expect(slot?.kind).toBe("content");
+      if (slot?.kind === "content") expect(slot.boundaryBefore).toMatchObject({
+        kind: "spoken_word", anchor: { tokenId, quotedWord: "the" },
+      });
+    }
+    let comments = createCommentStateV2(documentOf(source));
+    comments = commentOn(comments, { kind: "text", blockId: source.id, startTokenId: id(101), endTokenId: id(102) }, 11);
+    comments = commentOn(comments, { kind: "text", blockId: source.id, startTokenId: id(104), endTokenId: id(105) }, 12);
+    comments = commentOn(comments, { kind: "card", blockId: source.id, cardId: id(302) }, 13);
+    comments = commentOperation(comments, { kind: "replace_document", id: `matrix-${name}`,
+      actorId: "test-reviewer", document: documentOf(next) });
+    expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(statuses);
+    expect(comments.threads[0]!.attachment.anchor).toMatchObject({ startTokenId: id(101) });
+    expect(comments.threads[1]!.attachment.anchor).toMatchObject({ startTokenId: id(104) });
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
   });
 });
 
@@ -424,6 +467,30 @@ describe("#580 UTF-16, Unicode and partial-word edits (U matrix)", () => {
       expect(outline(apply(source, testCase.replacement))).toEqual(outline(planned.row));
     });
   }
+
+  it.each([
+    { name: "U1", replacement: edit(0, 0, "le ", 3011), cards: ["OC tight 0-3", "S1 3-5"], stale: false },
+    { name: "U2", replacement: edit(4, 5, "", 3012), cards: ["OC tight 0-2", "S1 2-4"], stale: true },
+    { name: "U3", replacement: edit(6, 9, "", 3013), cards: ["OC tight 0-1", "S1 1-3"], stale: false },
+    { name: "U4", replacement: edit(9, 9, "עולם ", 3014), cards: ["OC tight 0-3", "S1 3-5"], stale: false },
+    { name: "U6", replacement: edit(0, 5, "café", 3016), cards: ["OC tight 0-2", "S1 2-4"], stale: true },
+  ])("$name keeps the RTL visual cue and exact Unicode text through save and one Undo", ({ replacement, cards, stale }) => {
+    const source = pictureRow(U, false);
+    const originalClip = structuredClone(source.primaryVisualSequence!.slots[1]);
+    const after = pictureEdit(source, replacement);
+    expect(pictureCards(after)).toEqual(cards);
+    expect(after.primaryVisualSequence!.slots[1]).toMatchObject({
+      id: id(302), kind: "content", payload: (originalClip as ContentSlot).payload,
+      boundaryBefore: { kind: "spoken_word", anchor: { tokenId: id(102), quotedWord: "שלום" } },
+    });
+    let comments = commentOn(createCommentStateV2(documentOf(source)), {
+      kind: "text", blockId: source.id, startTokenId: id(100), endTokenId: id(100),
+    }, 24);
+    comments = commentOperation(comments, { kind: "replace_document", id: `unicode-${replacement.editId}`,
+      actorId: "test-reviewer", document: documentOf(after) });
+    expect(comments.threads[0]!.attachment.status).toBe(stale ? "stale" : "attached");
+    expect(deserializeCommentStateV2(serializeCommentStateV2(comments))).toEqual(comments);
+  });
 
   it("U5 refuses a half emoji before changing the document or undo history", () => {
     const source = rowOf(U);

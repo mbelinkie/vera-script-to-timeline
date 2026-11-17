@@ -218,6 +218,109 @@ function rows(document: ScriptDocumentV2): string[] {
     .map((block) => block.id);
 }
 
+describe("#580 narration splice across saved authoring extras", () => {
+  it("keeps section order, annotation and overlay, citations, comment references and unrelated rows byte-for-byte", () => {
+    const rich = richNarration(7500);
+    const neighbor = row(81000);
+    const marker = direction(7900);
+    const reference: NonNullable<ScriptDocumentV2["rowReferences"]>[number] = {
+      id: id(9001), rowId: rich.id, kind: "comment",
+      anchor: { commentId: "review-7500", tokenId: wordAnchor(rich, 1).tokenId, quotedText: "words" },
+    };
+    const initial = documentWith([section(7800, "Part"), rich, marker, neighbor], {
+      supportingItems: [citation(rich, 9000)], rowReferences: [reference],
+    });
+    expect(validateScriptDocumentV2(initial).diagnostics).toEqual([]);
+    const baseline = structuredClone(initial);
+    const session = createRowEditSessionV2(initial);
+    const edited = session.apply({
+      kind: "edit_narration_text", rowId: rich.id,
+      startOffset: 0, endOffset: 0, insertedText: "Important ", editId: id(95000),
+    });
+    expect(edited.ok, JSON.stringify(edited.diagnostics)).toBe(true);
+    expect(edited.document.rowEditRevision).toBe(1);
+    expect(session.undoDepth).toBe(1);
+    expect(edited.document.activeDraft.blocks.map((block) => block.id)).toEqual(initial.activeDraft.blocks.map((block) => block.id));
+    expect(edited.document.activeDraft.blocks.filter((block) => block.id !== rich.id))
+      .toEqual(initial.activeDraft.blocks.filter((block) => block.id !== rich.id));
+    const changed = edited.document.activeDraft.blocks[1];
+    expect(changed?.type).toBe("narration");
+    if (changed?.type !== "narration") return;
+    expect(changed.tokens.slice(1).map((token) => token.id)).toEqual(rich.tokens.map((token) => token.id));
+    expect(changed.tokens.slice(1).map((token) => token.startOffset)).toEqual(
+      rich.tokens.map((token) => token.startOffset + "Important ".length),
+    );
+    expect(changed.notes).toEqual(rich.notes);
+    expect(changed.annotations).toEqual(rich.annotations);
+    expect(changed.overlayEvents).toEqual(rich.overlayEvents);
+    // A newly spoken prefix needs an On Camera passage before the original
+    // clip; that derived gap is not a replacement for either authored picture.
+    const authoredPictures = (slots: ContentSlot[]) => slots
+      .filter((slot) => slot.payload.kind === "visual")
+      .map((slot) => ({ id: slot.id, payload: slot.payload }));
+    expect(changed.primaryVisualSequence!.slots[0]).toMatchObject({
+      kind: "content", payload: { kind: "on_camera" }, boundaryBefore: { kind: "row_start" },
+    });
+    expect(authoredPictures(changed.primaryVisualSequence!.slots.filter((slot): slot is ContentSlot => slot.kind === "content")))
+      .toEqual(authoredPictures(rich.primaryVisualSequence!.slots.filter((slot): slot is ContentSlot => slot.kind === "content")));
+    expect(edited.document.activeDraft.supportingItems).toEqual(initial.activeDraft.supportingItems);
+    expect(edited.document.rowReferences).toEqual(initial.rowReferences);
+    expect(edited.document.extras).toEqual([]);
+    expect(validateScriptDocumentV2(edited.document).diagnostics).toEqual([]);
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(edited.document));
+    expect(loaded).toEqual({ ok: true, document: edited.document });
+
+    expect(session.undo().ok).toBe(true);
+    expect(session.undoDepth).toBe(0);
+    expect(session.revision).toBe(2);
+    const undoneWithoutRevision = structuredClone(session.document);
+    delete undoneWithoutRevision.rowEditRevision;
+    expect(undoneWithoutRevision).toEqual(baseline);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(session.document)).ok).toBe(true);
+    expect(session.undo().ok).toBe(false);
+    expect(initial).toEqual(baseline);
+  });
+
+  it("P3 refuses a multi-picture row with anchored annotation, overlay and citation without losing any saved data", () => {
+    const rich = richNarration(7600);
+    const initial = documentWith([rich, row(81001)], { supportingItems: [citation(rich, 9100)] });
+    const baseline = structuredClone(initial);
+    expect(validateScriptDocumentV2(initial).diagnostics).toEqual([]);
+    const session = createRowEditSessionV2(initial);
+    const result = session.apply({
+      kind: "edit_narration_text", rowId: rich.id,
+      startOffset: 0, endOffset: rich.text.length, insertedText: "", editId: id(96000),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics[0]?.code).toBe("RANGE_SEQUENCE_UNRESOLVED");
+    expect(result.document).toEqual(initial);
+    expect(session.document).toEqual(initial);
+    expect(session.undoDepth).toBe(0);
+    expect(session.revision).toBe(0);
+    expect(session.undo().ok).toBe(false);
+    expect(initial).toEqual(baseline);
+  });
+
+  it("refuses rewriting an externally quoted annotation/citation instead of saving silently stale anchors", () => {
+    const rich = richNarration(7700);
+    const document = documentWith([rich], { supportingItems: [citation(rich, 9200)] });
+    expect(validateScriptDocumentV2(document).diagnostics).toEqual([]);
+    const session = createRowEditSessionV2(document);
+    const first = rich.tokens[0]!;
+    const result = session.apply({
+      kind: "edit_narration_text", rowId: rich.id,
+      startOffset: first.startOffset, endOffset: first.endOffset,
+      insertedText: "changed", editId: id(97000),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((item) => item.code)).toContain("STALE_TEXT_RANGE");
+    expect(result.document).toEqual(document);
+    expect(session.document).toEqual(document);
+    expect(session.undoDepth).toBe(0);
+    expect(session.revision).toBe(0);
+  });
+});
+
 function gap(sectionId: string | null, afterRowId: string | null, beforeRowId: string | null) {
   return { sectionId, afterRowId, beforeRowId };
 }
