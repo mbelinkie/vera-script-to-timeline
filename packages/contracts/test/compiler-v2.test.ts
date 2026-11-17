@@ -951,6 +951,107 @@ describe("pure v2 compiler", () => {
     }
   });
 
+  it("cuts a visual root after a cutaway return without moving the presenter span", () => {
+    const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture({ numerator: 3, denominator: 2 });
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const sequence = row.primaryVisualSequence!;
+    const root = sequence.slots[0]!;
+    const incoming = sequence.slots.find((slot) => slot.id === incomingSlotId)!;
+    if (root.kind !== "content" || incoming.kind !== "content") throw new Error("fixture requires visual roots");
+
+    const text = "alpha beta gamma delta";
+    const tokens = [
+      { id: id(40), value: "alpha", startOffset: 0, endOffset: 5 },
+      { id: id(41), value: "beta", startOffset: 6, endOffset: 10 },
+      { id: id(42), value: "gamma", startOffset: 11, endOffset: 16 },
+      { id: id(43), value: "delta", startOffset: 17, endOffset: 22 },
+    ];
+    row.text = text;
+    row.tokens = tokens;
+    const timing = deps.narrationTimingMaps[0]!;
+    timing.textHash = digest(text);
+    timing.timingHash = digest("issue 601 cutaway return timing");
+    timing.audio!.timingHash = timing.timingHash;
+    timing.audio!.durationSamples = 240_000;
+    timing.tokens = [
+      { tokenId: id(40), startOffset: 0, endOffset: 5, quotedText: "alpha", startTime: { numerator: 0, denominator: 1 }, endBasis: "next_word_derived" },
+      { tokenId: id(41), startOffset: 6, endOffset: 10, quotedText: "beta", startTime: { numerator: 2, denominator: 1 }, endBasis: "next_word_derived" },
+      { tokenId: id(42), startOffset: 11, endOffset: 16, quotedText: "gamma", startTime: { numerator: 3, denominator: 1 }, audibleEnd: { numerator: 7, denominator: 2 }, endBasis: "evidenced_audible_end" },
+      { tokenId: id(43), startOffset: 17, endOffset: 22, quotedText: "delta", startTime: { numerator: 9, denominator: 2 }, endBasis: "unknown" },
+    ];
+    deps.document.textHash = timing.textHash;
+    const childSlotId = id(21);
+    const returnSlotId = id(22);
+    sequence.slots = [
+      root,
+      {
+        id: childSlotId, kind: "content", relation: { kind: "cutaway", parentSlotId: root.id },
+        boundaryBefore: { kind: "spoken_word", anchor: { blockId: row.id, tokenId: id(41), affinity: "before", quotedWord: "beta", anchorVersion: row.version } },
+        payload: { kind: "on_camera", presenterChoiceId: null }, playoutPolicy: "match_structural_interval", version: 1,
+      },
+      { id: returnSlotId, kind: "return", parentSlotId: root.id,
+        inpoint: { blockId: row.id, tokenId: id(42), affinity: "before", quotedWord: "gamma", anchorVersion: row.version }, version: 1 },
+      { ...incoming, boundaryBefore: { kind: "spoken_word", anchor: { blockId: row.id, tokenId: id(43), affinity: "before", quotedWord: "delta", anchorVersion: row.version } } },
+    ];
+    deps.tracks.find((track) => track.id === "placeholder")!.index = 3;
+    deps.tracks.find((track) => track.id === "presenter")!.index = 4;
+    deps.tracks.find((track) => track.id === "markers")!.index = 5;
+    deps.tracks.push({ id: "video-child", kind: "video", index: 2, name: "Child" });
+    deps.roles.childTrackIds = ["video-child"];
+
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) {
+      const rootEvent = compiled.manifest.events.find((event) => event.provenance.slotId === root.id)!;
+      const presenter = compiled.manifest.events.find((event) => event.provenance.slotId === childSlotId)!;
+      const incomingEvent = compiled.manifest.events.find((event) => event.provenance.slotId === incomingSlotId)!;
+      expect(rootEvent.recordRange).toEqual({ startFrame: 0, endFrame: 105 });
+      expect(presenter.recordRange).toEqual({ startFrame: 48, endFrame: 72 });
+      expect(incomingEvent.recordRange).toEqual({ startFrame: 105, endFrame: 120 });
+      expect(compiled.manifest.composition.returns).toEqual([{ returnSlotId, rootEventId: rootEvent.eventId, recordFrame: 72, emitsNewSourceEvent: false }]);
+      expect(compiled.manifest.visualSequenceResolutions.find((item) => item.slotId === incomingSlotId)?.boundaryDelta).toEqual({ numerator: -1, denominator: 8 });
+    }
+  });
+
+  it("keeps the incoming onset with a warning when word-end uncertainty reaches it", () => {
+    const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture({ numerator: 47, denominator: 24 });
+    const map = deps.narrationTimingMaps[0]!;
+    deps.narrationBoundaryEvidence = [{
+      schemaVersion: "narration-boundary-evidence/v1", blockId: map.blockId, blockRevision: map.blockRevision,
+      textHash: map.textHash, tokenizationVersion: "script-document/v2-frozen-tokens", narrationAssetId: map.narrationAssetId,
+      audioHash: map.audioHash, timingHash: map.timingHash, alignmentVersion: map.alignmentVersion, audio: map.audio!,
+      tokens: map.tokens.map((token) => ({ tokenId: token.tokenId, startOffset: token.startOffset, endOffset: token.endOffset,
+        quotedText: token.quotedText, onset: token.startTime, ...(token.audibleEnd ? { audibleEnd: token.audibleEnd } : {}) })),
+      verification: { method: "measured_audio_boundaries/v1", algorithm: { id: "vera-polly-marks-energy-ends", version: "3", parametersHash: digest("{}\n"), parameters: {} },
+        measurementArtifactLocator: "Measurements/test.json", measurementArtifactHash: digest("artifact"), onsetBasis: "provider_word_marks_lag_verified",
+        onsetUncertainty: { numerator: 0, denominator: 1 }, audibleEndUncertainty: { numerator: 1, denominator: 24 } },
+    }];
+    deps.narrationTimingMaps = [];
+
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) {
+      const incoming = compiled.manifest.events.find((event) => event.provenance.slotId === incomingSlotId);
+      expect(incoming?.recordRange.startFrame).toBe(48);
+      expect(compiled.report.diagnostics.find((item) => item.code === "WORD_TIMING_REQUIRED")).toMatchObject({ severity: "warning" });
+    }
+  });
+
+  it("keeps previous_media_end as its independent incoming boundary under speech cuts", () => {
+    const { doc, deps } = completeClipBoundaryFixture([
+      { value: "alpha", start: { numerator: 0, denominator: 1 } },
+      { value: "beta", start: { numerator: 10, denominator: 1 } },
+      { value: "gamma", start: { numerator: 11, denominator: 1 } },
+    ]);
+    deps.compiler.version = "compiler/v2-speech-cuts";
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) {
+      expect(compiled.manifest.events.find((event) => event.provenance.slotId === id(16))?.recordRange.endFrame).toBe(240);
+      expect(compiled.manifest.events.find((event) => event.provenance.slotId === id(19))?.recordRange.startFrame).toBe(240);
+    }
+  });
+
   it("includes the speech cut lead in source sufficiency for the incoming clip", () => {
     const requirementsFor = (sourceEndFrame: number, compilerVersion = "compiler/v2-speech-cuts") => {
       const { doc, deps, tokenIds } = completeClipBoundaryFixture([

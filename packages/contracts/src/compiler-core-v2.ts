@@ -826,7 +826,11 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           : null;
       if (speechCutCompiler && start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual") {
         const previous = sequence.slots[sequence.slots.indexOf(slot) - 1];
-        if (previous?.kind === "content" && previous.payload.kind === "visual" && previous.playoutPolicy === "match_structural_interval") {
+        const previousRoot = previous?.kind === "return"
+          ? sequence.slots.find((candidate) => candidate.kind === "content" && candidate.id === previous.parentSlotId)
+          : previous;
+        const returnFrame = previous?.kind === "return" ? returnFrames.get(previous.id) : undefined;
+        if (previousRoot?.kind === "content" && previousRoot.relation.kind !== "cutaway" && previousRoot.payload.kind === "visual" && previousRoot.playoutPolicy === "match_structural_interval") {
           const spoken = spokenTokensV2(block);
           const anchorId = slot.boundaryBefore.anchor.tokenId;
           const index = spoken.findIndex((token) => token.id === anchorId);
@@ -836,10 +840,16 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
             const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
             const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
             const incoming = row.tokenTimes.get(anchorId)?.start;
-            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start) {
+            if (!incoming || compare(prior.end, incoming) > 0) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The previous word extends beyond the incoming onset; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
+            } else if (compare(safeEnd, incoming) >= 0) {
+              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no proven pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
+            } else if (returnFrame !== undefined && returnFrame > start) {
+              diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The incoming cut would precede the authored return; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
+            } else if (priorEnd > start) {
+              diagnostics.push(diagnostic("WORD_TIMING_REQUIRED", "Word-end uncertainty leaves no frame-aligned pause for an early picture cut; the cut remains at the incoming onset.", entity("slot", slot.id, "boundaryBefore"), { kind: "anchor_issue", anchorId: slot.id, reason: "word_timing_required" }, ["refresh_timing"], "warning"));
             } else {
-              start = Math.max(start - 3, priorEnd);
+              start = Math.max(start - 3, priorEnd, returnFrame ?? rowStart);
               const edge = resolvedEdges.get(slot.id);
               const evidence = boundaryEvidence.find((item) => item.entityId === slot.id && item.kind === "word_start");
               if (edge && evidence) {
