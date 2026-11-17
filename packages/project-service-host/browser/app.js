@@ -49,6 +49,7 @@ function viewPreference(id, property, defaultValue) {
   const update = () => {
     const percent = Number(input.value);
     document.documentElement.style.setProperty(property, String(percent / 100));
+    if (id === "thumbnail-size") document.documentElement.dataset.thumbnailScale = String(percent);
     input.setAttribute("aria-valuetext", `${percent}%`);
     const output = authoring.querySelector(`output[for="${id}"]`);
     if (output) output.value = `${percent}%`;
