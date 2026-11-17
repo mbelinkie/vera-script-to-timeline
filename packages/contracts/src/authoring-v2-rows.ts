@@ -60,6 +60,9 @@ export type RowEditCommandV2 =
   | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2; includeDescendants?: boolean }
   | { kind: "set_stash_completion"; rowId: string; completed: boolean }
   | { kind: "edit_row"; rowId: string; row: Row }
+  /** Reorder the first and additional visuals together without changing their metadata. */
+  | { kind: "reorder_visual_only"; rowId: string; payloadIds: string[] }
+  | { kind: "set_visual_only_hold"; rowId: string; payloadId: string; holdSeconds: number }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
   | { kind: "delete_rows"; rowIds: string[] }
   | SplitRowCommandV2
@@ -207,6 +210,19 @@ function validAuthoredRowCommand(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+function validVisualOnlyCommand(value: unknown): boolean {
+  if (!plainObject(value) || !isJsonValue(value) || typeof value.rowId !== "string" || value.rowId.length === 0) return false;
+  if (value.kind === "reorder_visual_only") {
+    return exactKeys(value, ["kind", "rowId", "payloadIds"]) && rowIdsPayload(value.payloadIds) &&
+      value.payloadIds.length > 1 && new Set(value.payloadIds).size === value.payloadIds.length;
+  }
+  if (value.kind === "set_visual_only_hold") {
+    return exactKeys(value, ["kind", "rowId", "payloadId", "holdSeconds"]) &&
+      typeof value.payloadId === "string" && value.payloadId.length > 0 && typeof value.holdSeconds === "number";
+  }
+  return false;
 }
 
 function draftSectionKind(kind: unknown): kind is "create_section" | "rename_section" | "delete_section_break" {
@@ -1218,6 +1234,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
+    if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
@@ -1248,7 +1265,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
   // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
   const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
-  if (command.kind === "edit_row" && grouped.has(command.rowId) ||
+  if ((command.kind === "edit_row" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
@@ -1533,6 +1550,45 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (checklist.completed === command.completed) return refused(document, "ROW_EDIT_NO_CHANGE", "The Stash checkbox already has this state.");
     if (checklist.manualRevision === Number.MAX_SAFE_INTEGER) return refused(document, "STASH_CHECKLIST_REVISION_EXHAUSTED", "Manual checkbox history cannot advance.");
     row.stashChecklist = { completed: command.completed, manualRevision: checklist.manualRevision + 1 };
+  } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") {
+    const row = blocks.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.rowId);
+    if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an existing visuals-only Draft row.");
+    if (row.version === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_CONTENT_INVALID", "The visual row version cannot advance safely.");
+    const visuals = [
+      { payload: row.payload, visualOnlyTiming: row.visualOnlyTiming, ...(row.researchClip ? { researchClip: row.researchClip } : {}), ...(row.frameBinding ? { frameBinding: row.frameBinding } : {}) },
+      ...row.additionalVisuals ?? [],
+    ];
+    if (command.kind === "reorder_visual_only") {
+      const oldIds = visuals.map((item) => item.payload.payloadId);
+      if (command.payloadIds.length !== oldIds.length || new Set(command.payloadIds).size !== oldIds.length ||
+        command.payloadIds.some((id) => !oldIds.includes(id))) {
+        return refused(document, "VISUAL_ORDER_INVALID", "Choose every existing visual exactly once; no visual may be lost or added.");
+      }
+      if (command.payloadIds.every((id, index) => id === oldIds[index])) return refused(document, "ROW_EDIT_NO_CHANGE", "The visuals already have this order.");
+      const ordered = command.payloadIds.map((id) => visuals.find((item) => item.payload.payloadId === id)!);
+      const [first, ...rest] = ordered;
+      row.payload = first!.payload;
+      row.visualOnlyTiming = first!.visualOnlyTiming;
+      if (first!.researchClip) row.researchClip = first!.researchClip; else delete row.researchClip;
+      if (first!.frameBinding) row.frameBinding = first!.frameBinding; else delete row.frameBinding;
+      row.additionalVisuals = rest as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
+    } else {
+      const milliseconds = command.holdSeconds * 1000;
+      if (!Number.isFinite(milliseconds) || milliseconds <= 0 || !Number.isSafeInteger(milliseconds)) {
+        return refused(document, "VISUAL_HOLD_INVALID", "Hold must be a positive number of seconds, precise to one millisecond (for example 4.0 or 2.5).");
+      }
+      const target = visuals.find((item) => item.payload.payloadId === command.payloadId);
+      if (!target) return refused(document, "VISUAL_NOT_FOUND", "Choose an existing visual in this row.");
+      if (target.payload.pictureKind === "clip" || target.payload.pictureKind === "unresolved_visual") {
+        return refused(document, "VISUAL_HOLD_INVALID", "Only a still or other untimed visual can have an editable hold; clips use their trimmed length.");
+      }
+      if (target.visualOnlyTiming.durationOverrideMs === milliseconds) return refused(document, "ROW_EDIT_NO_CHANGE", "This visual already has that hold.");
+      target.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: milliseconds };
+      row.visualOnlyTiming = visuals[0]!.visualOnlyTiming;
+      if (visuals.length > 1) row.additionalVisuals = visuals.slice(1) as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
+    }
+    row.version += 1;
+    markStashOriginEditedV2(row);
   } else if (command.kind === "edit_row") {
     const index = blocks.findIndex((block) => block.type !== "section" && block.id === command.rowId);
     if (index < 0) return refused(document, "ROW_NOT_FOUND", "Choose an existing Draft or Stash row to edit.");
@@ -1563,6 +1619,16 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
     const row = structuredClone(command.row);
     if ([...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)].some((existing) => existing.id === row.id)) return refused(document, "ROW_ID_DUPLICATE", "A new row needs an unused row ID.");
+    // New authored still cards start at D146's four-second hold. Never migrate
+    // historical single-visual rows or change their frozen default/goldens.
+    if (row.type === "visual_only") {
+      for (const visual of [row, ...row.additionalVisuals ?? []]) {
+        if (visual.payload.pictureKind !== "clip" && visual.payload.pictureKind !== "unresolved_visual" &&
+          visual.visualOnlyTiming.durationOverrideMs === undefined) {
+          visual.visualOnlyTiming.durationOverrideMs = 4000;
+        }
+      }
+    }
     blocks.splice(index, 0, row);
     moved = [row];
   } else if (command.kind === "delete_rows") {
@@ -1948,7 +2014,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);

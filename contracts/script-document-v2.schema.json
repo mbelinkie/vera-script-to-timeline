@@ -2356,6 +2356,13 @@
         "visualOnlyTiming": {
           "$ref": "#/$defs/VisualOnlyTimingV2"
         },
+        "additionalVisuals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/VisualOnlyAdditionalV2"
+          }
+        },
         "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"
@@ -2429,6 +2436,39 @@
                   }
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    "VisualOnlyAdditionalV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload", "visualOnlyTiming"],
+      "properties": {
+        "payload": { "$ref": "#/$defs/StandaloneVisualPayloadV2" },
+        "visualOnlyTiming": { "$ref": "#/$defs/VisualOnlyTimingV2" },
+        "researchClip": { "$ref": "#/$defs/ResearchClipSnapshotV2" },
+        "frameBinding": { "$ref": "#/$defs/ResearchFrameBindingV2" }
+      },
+      "allOf": [
+        {
+          "if": { "type": "object", "properties": { "payload": { "type": "object", "properties": { "pictureKind": { "const": "clip" } } } } },
+          "then": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": {
+                "type": "object",
+                "required": ["selectedSourceRange"],
+                "properties": { "selectedSourceRange": {} },
+                "not": { "type": "object", "required": ["durationOverrideMs"], "properties": { "durationOverrideMs": {} } }
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "visualOnlyTiming": { "type": "object", "not": { "type": "object", "required": ["selectedSourceRange"], "properties": { "selectedSourceRange": {} } } }
             }
           }
         }

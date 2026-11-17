@@ -541,6 +541,13 @@ class StandaloneVisualPayloadV2(TypedDict):
     imageMotion: NotRequired[ImageMotionV1]
 
 
+class VisualOnlyAdditionalV2(TypedDict):
+    payload: StandaloneVisualPayloadV2
+    visualOnlyTiming: VisualOnlyTimingV2
+    researchClip: NotRequired[ResearchClipSnapshotV2]
+    frameBinding: NotRequired[ResearchFrameBindingV2]
+
+
 class StashOriginV2(TypedDict):
     kind: Literal["note", "clip", "row"]
     parentRowId: EntityId | None
@@ -581,6 +588,7 @@ class VisualOnlyBlockV2(TypedDict):
     orderKey: str
     payload: StandaloneVisualPayloadV2
     visualOnlyTiming: VisualOnlyTimingV2
+    additionalVisuals: NotRequired[list[VisualOnlyAdditionalV2]]
     stashChecklist: NotRequired[StashChecklistV2]
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
