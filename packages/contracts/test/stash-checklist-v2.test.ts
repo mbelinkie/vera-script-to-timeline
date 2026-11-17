@@ -197,7 +197,9 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     expect(savedNote(saved.document, source.id).stashChecklist?.completed).toBe(true);
 
     const clipPlaced = place(doc, [source.id]);
-    const clipId = (savedNote(clipPlaced.document, source.id).attachedFootage?.clip.id)!;
+    const attachedClip = savedNote(clipPlaced.document, source.id).attachedFootage?.clip;
+    if (!attachedClip) throw new Error("Expected saved attached footage");
+    const clipId = attachedClip.id;
     const footage = applyRowEditV2(clipPlaced.document, 1, {
       kind: "trim_research_clip", clipRowId: clipId, edge: "clear_out",
     });
@@ -205,6 +207,61 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     // so a rejected trim cannot invalidate the link or alter completion.
     expect(footage.ok).toBe(false);
     expect(footage.document).toBe(clipPlaced.document);
+  });
+
+  it("breaks linked returns on attached-footage edits, even after reattaching the original clip", () => {
+    const { doc, source } = fixture(true);
+    const placed = place(doc, [source.id]);
+    expect(placed.ok).toBe(true);
+    const copyId = placed.document.activeDraft.blocks[0]!.id;
+    const clipId = source.attachedFootage!.clip.id;
+    const detached = applyRowEditV2(placed.document, 1, {
+      kind: "detach_stash_footage", noteRowId: source.id, bundleId: id(936),
+    });
+    expect(detached.ok, JSON.stringify(detached.diagnostics)).toBe(true);
+    expect((detached.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
+    const reattached = applyRowEditV2(detached.document, 2, {
+      kind: "attach_stash_footage", noteRowId: source.id, clipRowId: clipId,
+    });
+    expect(reattached.ok, JSON.stringify(reattached.diagnostics)).toBe(true);
+    expect(savedNote(reattached.document, source.id).attachedFootage?.clip.id).toBe(clipId);
+    const returned = applyRowEditV2(reattached.document, 3, {
+      kind: "stash_rows", rowIds: [copyId], bundleId: id(937),
+    });
+    expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
+    expect(returned.document.stashOutline?.find((item) => item.rowId === copyId)?.kind).toBe("row");
+    expect(savedNote(returned.document, source.id).stashChecklist?.completed).toBe(true);
+  });
+
+  it("does not invalidate a linked copy after moving it, but grouped return keeps saved members", () => {
+    const { doc, source, child } = fixture();
+    const first = place(doc, [source.id]);
+    expect(first.ok).toBe(true);
+    const sourceCopyId = first.document.activeDraft.blocks[0]!.id;
+    const second = place(first.document, [child.id], sourceCopyId);
+    expect(second.ok).toBe(true);
+    const childCopyId = second.document.activeDraft.blocks[1]!.id;
+    const moved = applyRowEditV2(second.document, 2, {
+      kind: "move_rows", rowIds: [sourceCopyId], destination: gap(childCopyId),
+    });
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    expect((moved.document.activeDraft.blocks[1] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(true);
+    const single = applyRowEditV2(moved.document, 3, {
+      kind: "stash_rows", rowIds: [sourceCopyId], bundleId: id(941),
+    });
+    expect(single.ok, JSON.stringify(single.diagnostics)).toBe(true);
+    expect(savedNote(single.document, source.id).stashChecklist?.completed).toBe(false);
+
+    const grouped = applyRowEditV2(second.document, 2, {
+      kind: "stash_group_rows", rowIds: [sourceCopyId, childCopyId],
+      bundleId: id(942), groupId: id(943), sectionId: null, parentRowId: null, afterRowId: null,
+    });
+    expect(grouped.ok, JSON.stringify(grouped.diagnostics)).toBe(true);
+    expect(grouped.document.activeDraft.blocks).toHaveLength(0);
+    expect(grouped.document.stashOutline?.find((item) => item.rowId === sourceCopyId)?.kind).toBe("row");
+    expect(grouped.document.stashOutline?.find((item) => item.rowId === childCopyId)?.kind).toBe("row");
+    expect(savedNote(grouped.document, source.id).stashChecklist?.completed).toBe(true);
+    expect(savedNote(grouped.document, child.id).stashChecklist?.completed).toBe(true);
   });
 
   it("skips completed descendants and clips regardless of Hide completed, but retains needed ancestor context", () => {

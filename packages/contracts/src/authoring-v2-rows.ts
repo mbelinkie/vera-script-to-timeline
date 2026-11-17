@@ -648,6 +648,10 @@ function planStashReturn(
   const original = new Map(rows.map((row) => [row.id, row.stashOrigin] as const));
   const placed = new Set<string>();
   const cursors = new Map<string, string>();
+  // #373: when several independent copies are saved together as full rows,
+  // the run must keep its authored order. Their distinct source-note anchors
+  // can otherwise insert the second copy *before* the first copy.
+  const copiedBatchCursors = new Map<string, string>();
 
   if (destination) {
     if (!sectionExists(document, destination.sectionId)) return null;
@@ -812,6 +816,12 @@ function planStashReturn(
             return first >= 0 ? first : outlineInsertionIndex(document, result, null, sectionId, null) ?? -1; })();
         cursors.set(key, row.id);
       }
+    }
+    if (!destination && rows.length > 1 && row.type === "narration" && row.stashOrigin?.sourceNoteRowId) {
+      const key = `${parentRowId ?? "root"}:${sectionId ?? "unsectioned"}`;
+      const predecessor = copiedBatchCursors.get(key);
+      if (predecessor) insertAt = outlineSubtreeEnd(result, predecessor) + 1;
+      copiedBatchCursors.set(key, row.id);
     }
     if (insertAt < 0 || insertAt > result.length) return null;
     result.splice(insertAt, 0, { rowId: row.id, kind: returnedKinds.get(row.id)!, parentRowId, sectionId });

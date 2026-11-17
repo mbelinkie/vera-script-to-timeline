@@ -1109,6 +1109,30 @@ export function projectSortingDocumentV2(
         restoreRows.set(birth.rowId, structuredClone(row));
       }
       const birthPlacements = birthsToRestore.map((birth) => {
+        // Returning an edited Stash note copy saves a *new complete row*; it
+        // does not move the original compact note or undo its checklist edit.
+        // This is part of the authored copy gesture and must survive edits-only
+        // acceptance at its final saved-row location rather than resurrecting
+        // the birth at its initial Draft gap.
+        if (birth.slot.surface === "draft" && birth.row.type === "narration" &&
+          birth.row.stashOrigin?.sourceNoteRowId && birth.lastSlot.surface === "stash" &&
+          birth.lastSlot.entry.kind === "row") {
+          // A sibling returned in the same batch may have moved only for
+          // organization. Edits-only rejects that independent layout change;
+          // anchor the saved copy to the nearest still-saved peer in the
+          // *actual final* outline, never to the now-absent moved sibling.
+          const destination = birth.lastSlot;
+          const peers = effectiveOutline(current).filter((entry) =>
+            entry.parentRowId === destination.entry.parentRowId && entry.sectionId === destination.entry.sectionId);
+          const index = peers.findIndex((entry) => entry.rowId === birth.rowId);
+          if (index < 0) return { rowId: birth.rowId, slot: destination };
+          const available = new Set(effectiveOutline(output).filter((entry) =>
+            entry.parentRowId === destination.entry.parentRowId && entry.sectionId === destination.entry.sectionId)
+            .map((entry) => entry.rowId));
+          const afterSiblingRowId = peers.slice(0, index).reverse().find((entry) => available.has(entry.rowId))?.rowId ?? null;
+          const beforeSiblingRowId = peers.slice(index + 1).find((entry) => available.has(entry.rowId))?.rowId ?? null;
+          return { rowId: birth.rowId, slot: { ...destination, afterSiblingRowId, beforeSiblingRowId } };
+        }
         const groupBirth = state.groupSaveBirths.find((item) => item.rowId === birth.rowId);
         const baselineGroup = groupBirth && baseline.stashGroups?.find((group) => group.id === groupBirth.groupId);
         if (!baselineGroup || birth.slot.surface !== "stash") return { rowId: birth.rowId, slot: birth.slot };

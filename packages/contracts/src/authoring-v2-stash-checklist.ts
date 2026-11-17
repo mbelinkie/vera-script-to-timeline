@@ -87,9 +87,13 @@ export function copyStashNoteAsSpokenV2(note: NarrationBlockV2, seed: string): N
   copied.orderKey = `stash-copy-${copied.id}`;
   delete copied.stashOrigin;
   delete copied.stashChecklist;
-  delete copied.plainDirection;
-  // D84: copied brackets are literal spoken text, not an implicit Make stage direction.
-  for (const token of copied.tokens) delete token.spoken;
+  // An empty source has no semantic speech span to convert. The v2 Draft
+  // schema requires empty narration to remain an explicit plain direction.
+  // Non-empty literal brackets are words, never inferred as stage syntax.
+  if (copied.text.length > 0) {
+    delete copied.plainDirection;
+    for (const token of copied.tokens) delete token.spoken;
+  }
   if (copied.attachedFootage) {
     delete copied.attachedFootage.clip.stashOrigin;
     delete copied.attachedFootage.clip.stashChecklist;
