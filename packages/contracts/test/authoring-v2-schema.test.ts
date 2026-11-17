@@ -391,7 +391,7 @@ describe("authoring v2 document and project-settings schemas", () => {
     expect(row.text.slice(row.tokens[1]!.startOffset, row.tokens[1]!.endOffset)).toBe("world");
     // A shift into the LF is not a cosmetic edit: authored UTF-16 anchors
     // must refuse stale token offsets even when the JSON schema still fits.
-    const shifted = structuredClone(source);
+    const shifted = structuredClone(restored.document);
     const shiftedRow = shifted.activeDraft.blocks[0];
     if (shiftedRow?.type !== "narration") throw new Error("Expected narration");
     shiftedRow.tokens[1]!.startOffset -= 1;
