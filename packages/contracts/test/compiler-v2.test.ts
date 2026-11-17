@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-core-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
-import { applyRowEditV2 } from "../src/authoring-v2-rows.js";
+import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
+import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -76,6 +77,149 @@ function visualOnlyDependencies(): CompilerDependenciesV2 {
   value.document.textHash = digest("");
   return value;
 }
+
+/** A bound, two-use Research cut at 24 fps; each placement has its own source interval. */
+function researchTrimBuildFixture(): { document: ScriptDocumentV2; dependenciesFor: (doc: ScriptDocumentV2) => CompilerDependenciesV2 } {
+  const first = withResearchClipUseRangeV2(researchOccurrence(730100), { startFrame: 12, endFrame: 108 });
+  const second = researchOccurrence(730200);
+  const doc = visualOnlyDocument(first);
+  doc.activeDraft.blocks.push(second);
+  const dependenciesFor = (current: ScriptDocumentV2): CompilerDependenciesV2 => {
+    const deps = dependencies();
+    deps.narrationTimingMaps = [];
+    deps.document.textHash = digest("");
+    const rows = current.activeDraft.blocks.filter((row): row is VisualOnlyBlockV2 => row.type === "visual_only");
+    const prototype = deps.occurrenceResolutions[0]!;
+    const preparedPrototype = deps.preparedMedia[0]!;
+    deps.occurrenceResolutions = rows.map((row, index) => {
+      const selected = row.visualOnlyTiming.selectedSourceRange!;
+      const descriptor = structuredClone(prototype);
+      descriptor.payloadId = row.payload.payloadId;
+      descriptor.owner = { kind: "visual_only_block", blockId: row.id };
+      descriptor.mediaReferenceId = row.frameBinding!.mediaReferenceId;
+      descriptor.sourceSnapshot = {
+        ...descriptor.sourceSnapshot, system: "research", snapshotId: row.researchClip!.clipId,
+        version: row.researchClip!.clipVersion, packageId: row.frameBinding!.mediaReferenceId,
+      };
+      descriptor.logicalSourceBounds = { startFrame: 12, endFrame: 108, frameRate: { numerator: 24, denominator: 1 } };
+      descriptor.sourceFrameMap.packageFrameZeroLogicalFrame = 0;
+      descriptor.sourceFrameMap.decodedPackageFrameRate = { numerator: 24, denominator: 1 };
+      descriptor.sourceFrameMap.decodedPackageFrameCount = 120;
+      descriptor.sourceFrameMap.packageVideoTimeBase = { numerator: 1, denominator: 24 };
+      descriptor.occurrenceSourceInFrame = selected.startFrame;
+      descriptor.selectedSourceRange = { startFrame: selected.startFrame, endFrame: selected.startFrame + selected.durationFrames };
+      descriptor.preparedMediaRequirementKey = `prep:research-${index}`;
+      return descriptor;
+    });
+    deps.preparedMedia = rows.map((row, index) => {
+      const selected = row.visualOnlyTiming.selectedSourceRange!;
+      const descriptor = deps.occurrenceResolutions[index]!;
+      const binding = structuredClone(preparedPrototype);
+      binding.requirementKey = descriptor.preparedMediaRequirementKey!;
+      binding.mode = "verified_reuse";
+      delete binding.derivation;
+      binding.originalSource = {
+        mediaReferenceId: descriptor.mediaReferenceId, contentHash: descriptor.sourceSnapshot.contentHash,
+        probeHash: descriptor.sourceSnapshot.probeHash,
+      };
+      binding.requestedRange.sourceInFrame = selected.startFrame;
+      binding.requestedRange.duration = selected.durationFrames % 24 === 0
+        ? { numerator: selected.durationFrames / 24, denominator: 1 }
+        : { numerator: selected.durationFrames / 12, denominator: 2 };
+      binding.timeMapping.sourceRate = { numerator: 24, denominator: 1 };
+      binding.timeMapping.deliveredRate = { numerator: 24, denominator: 1 };
+      binding.timeMapping.sourceFrameMap = structuredClone(descriptor.sourceFrameMap);
+      binding.verification = {
+        ...binding.verification, deliveredHash: descriptor.sourceSnapshot.contentHash,
+        probeHash: descriptor.sourceSnapshot.probeHash, decodedFrameCount: 120,
+        decodedFrameRate: { numerator: 24, denominator: 1 }, videoTimeBase: { numerator: 1, denominator: 24 },
+      };
+      return binding;
+    });
+    return deps;
+  };
+  return { document: doc, dependenciesFor };
+}
+
+describe("#389 bounded Research clip occurrence survives media requirements and timeline compilation", () => {
+  const verify = (
+    doc: ScriptDocumentV2, dependenciesFor: (doc: ScriptDocumentV2) => CompilerDependenciesV2,
+    ranges: [number, number][],
+  ) => {
+    const deps = dependenciesFor(doc);
+    const before = JSON.stringify([doc, deps]);
+    expect(validateScriptDocumentV2(doc)).toMatchObject({ valid: true });
+    const needs = resolveMediaRequirementsV2(doc, {
+      timing: [], defaults: deps.authoringDefaults, sourceDescriptors: deps.occurrenceResolutions,
+      frameRate: deps.timeline.frameRate,
+    });
+    expect(needs.ok, JSON.stringify(needs)).toBe(true);
+    if (!needs.ok) throw new Error(JSON.stringify(needs));
+    expect(needs.requirements.map((item) => item.requiredSourceRange)).toEqual(ranges.map(([startFrame, endFrame]) => ({ startFrame, endFrame })));
+    expect(needs.requirements.map((item) => item.requestedRange.sourceInFrame)).toEqual(ranges.map(([start]) => start));
+    expect(needs.durationFrames).toBe(ranges.reduce((sum, [start, end]) => sum + end - start, 0));
+    const built = compileTimelineV2(doc, deps);
+    expect(built.ok, JSON.stringify(built)).toBe(true);
+    if (!built.ok) throw new Error(JSON.stringify(built));
+    expect(built.report.status).toBe("ready");
+    const pictures = built.manifest.events.filter((event) => event.kind === "primary_visual");
+    expect(pictures.map((event) => event.sourceRange)).toEqual(ranges.map(([startFrame, endFrame]) => ({ startFrame, endFrame })));
+    let recordStart = 0;
+    for (const [index, [start, end]] of ranges.entries()) {
+      expect(pictures[index]?.recordRange).toEqual({ startFrame: recordStart, endFrame: recordStart + end - start });
+      recordStart += end - start;
+    }
+    expect(JSON.stringify([doc, deps])).toBe(before);
+  };
+
+  it("builds an inward trim without touching the Research snapshot or another use; clearing restores the full clip", () => {
+    const { document: original, dependenciesFor } = researchTrimBuildFixture();
+    const clip = original.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const other = original.activeDraft.blocks[1];
+    const frozen = structuredClone(original);
+    verify(original, dependenciesFor, [[12, 108], [24, 60]]);
+
+    const trimmedIn = applyRowEditV2(original, 0, { kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 36 });
+    expect(trimmedIn.ok, JSON.stringify(trimmedIn.diagnostics)).toBe(true);
+    const trimmedOut = applyRowEditV2(trimmedIn.document, trimmedIn.document.rowEditRevision ?? 0, { kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 72 });
+    expect(trimmedOut.ok, JSON.stringify(trimmedOut.diagnostics)).toBe(true);
+    verify(trimmedOut.document, dependenciesFor, [[36, 72], [24, 60]]);
+    const first = trimmedOut.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(first.researchClip).toEqual(clip.researchClip);
+    expect(first.frameBinding).toEqual(clip.frameBinding);
+    expect(trimmedOut.document.activeDraft.blocks[1]).toEqual(other);
+    expect(original).toEqual(frozen);
+
+    const invalid = [
+      { edge: "in", frame: 11 }, { edge: "out", frame: 109 },
+      { edge: "out", frame: 36 }, { edge: "in", frame: 72 },
+    ] as const;
+    for (const attempt of invalid) {
+      const refused = applyRowEditV2(trimmedOut.document, trimmedOut.document.rowEditRevision ?? 0, {
+        kind: "trim_research_clip", clipRowId: clip.id, ...attempt,
+      });
+      expect(refused.ok).toBe(false);
+      expect(refused.diagnostics).toMatchObject([{ code: "RESEARCH_CLIP_TRIM_INVALID" }]);
+      expect(refused.document).toEqual(trimmedOut.document);
+    }
+
+    const resetIn = applyRowEditV2(trimmedOut.document, trimmedOut.document.rowEditRevision ?? 0, { kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 12 });
+    expect(resetIn.ok).toBe(true);
+    const cleared = applyRowEditV2(resetIn.document, resetIn.document.rowEditRevision ?? 0, { kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out" });
+    expect(cleared.ok).toBe(true);
+    verify(cleared.document, dependenciesFor, [[12, 108], [24, 60]]);
+    expect((cleared.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming).toEqual(clip.visualOnlyTiming);
+
+    const session = createRowEditSessionV2(original);
+    expect(session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "in", frame: 36 }).ok).toBe(true);
+    expect(session.apply({ kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: 72 }).ok).toBe(true);
+    expect(session.undo().ok).toBe(true);
+    const undone = session.undo();
+    expect(undone.ok).toBe(true);
+    verify(undone.document, dependenciesFor, [[12, 108], [24, 60]]);
+    expect((undone.document.activeDraft.blocks[0] as VisualOnlyBlockV2).researchClip).toEqual(clip.researchClip);
+  });
+});
 
 function threeRowMusicFixture(samples = 48000 * 16): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
   const first = intentionalSlateBlock(4000);
