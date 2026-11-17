@@ -25,6 +25,46 @@ type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
 export type { RowGapV2 } from "./generated/contracts-v2.js";
 
+/** D135/D146: use the existing ordered visuals-only row when clearing several pictures. */
+function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | AuthoringDiagnosticV2 | null {
+  const slots = row.primaryVisualSequence?.slots ?? [];
+  const visuals = [
+    ...slots.flatMap((slot) => slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload] : []),
+    ...(row.unattachedVisuals ?? []).map((item) => item.payload),
+  ];
+  if (visuals.length < 2) return null;
+  if (slots.some((slot) => slot.kind === "content" && slot.playoutPolicy !== "match_structural_interval")) {
+    return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "A clip that plays to its own end cannot be moved to wordless playout without losing its timing.");
+  }
+  if (row.attachedFootage || row.notes.length || row.overlayEvents.length ||
+      row.annotations?.length || row.performanceBeats?.length ||
+      slots.some((slot) => slot.kind === "content" &&
+        (slot.payload.kind === "undefined" || slot.payload.kind === "on_camera" && slot.payload.presenterChoiceId !== null))) {
+    return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review the row's additional picture or narration settings before clearing all its words.");
+  }
+  const placements = [];
+  for (const visual of visuals) {
+    const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...payload } = visual;
+    if (payload.pictureKind === "clip" && (!selectedSourceRange ||
+        sourceUsage?.sourceInFrame !== selectedSourceRange.startFrame)) {
+      return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Give each clip a selected source range before clearing its narration.");
+    }
+    placements.push({
+      payload,
+      visualOnlyTiming: { kind: "visual_only" as const, ...(selectedSourceRange ? { selectedSourceRange } : {}) },
+      ...(researchClip ? { researchClip } : {}),
+      ...(frameBinding ? { frameBinding } : {}),
+    });
+  }
+  return {
+    type: "visual_only", id: row.id, orderKey: row.orderKey, version: row.version + 1,
+    ...placements[0]!,
+    additionalVisuals: [placements[1]!, ...placements.slice(2)],
+    ...(row.stashOrigin ? { stashOrigin: row.stashOrigin } : {}),
+    ...(row.stashChecklist ? { stashChecklist: row.stashChecklist } : {}),
+  };
+}
+
 /** Exact outline gap for a deliberate Stash drop (not an active-Draft RowGap). */
 export type StashReturnDestinationV2 = RowGapV2 & { parentRowId: string | null };
 
@@ -1611,18 +1651,24 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       documentId: document.id, revision: expectedRevision, reservedIds: documentUuids(document),
     });
     if (!splice.ok) return refused(document, splice.code, splice.message);
-    const coverage = reconcileNarrationTextCoverageV2(current, splice.row);
-    if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
-    const row = { ...splice.row, version: current.version + 1,
-      primaryVisualSequence: {
-        ...current.primaryVisualSequence!, slots: coverage.slots,
-        version: current.primaryVisualSequence!.version +
-          (sameAuthoringJsonV2(coverage.slots, current.primaryVisualSequence!.slots) ? 0 : 1),
-      },
-    };
-    if (coverage.unattachedVisuals.length > 0) row.unattachedVisuals = coverage.unattachedVisuals;
-    else delete row.unattachedVisuals;
-    blocks[index] = row;
+    const wordless = splice.row.text === "" ? clearToVisualOnlyRow(current) : null;
+    if (wordless) {
+      if (!("type" in wordless)) return { ok: false, document, diagnostics: [wordless] };
+      blocks[index] = wordless;
+    } else {
+      const coverage = reconcileNarrationTextCoverageV2(current, splice.row, splice.reshapedTokenIds);
+      if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
+      const row = { ...splice.row, version: current.version + 1,
+        primaryVisualSequence: {
+          ...current.primaryVisualSequence!, slots: coverage.slots,
+          version: current.primaryVisualSequence!.version +
+            (sameAuthoringJsonV2(coverage.slots, current.primaryVisualSequence!.slots) ? 0 : 1),
+        },
+      };
+      if (coverage.unattachedVisuals.length > 0) row.unattachedVisuals = coverage.unattachedVisuals;
+      else delete row.unattachedVisuals;
+      blocks[index] = row;
+    }
   } else if (command.kind === "set_stash_completion") {
     const entry = working.stashOutline?.find((candidate) => candidate.rowId === command.rowId);
     const row = stashRowById(working, command.rowId);
