@@ -26,6 +26,7 @@ from .narration.models import SynthesisSettings
 from .narration.normalize import MediaToolError
 from .narration.provider import SpeechProviderError
 from .narration.service import BlockPlan, NarrationService, ServiceConfig
+from .narration.speech_gaps import detect_speech_gaps
 from .narration.stage_directions import is_direction_only
 
 _DATA_POLICIES = {
@@ -41,6 +42,7 @@ class PreparedNarrationInputs:
 
     narration_timing_maps: list[NarrationTokenTimingMapV2]
     media_paths: dict[str, str]
+    quiet_gaps: list[dict[str, Any]]
 
 
 def narration_service_config(
@@ -169,6 +171,7 @@ def prepare_v2_narration_inputs(
     data_policy_attestation: str | None = None,
     max_cost_usd: float = 0.0,
     skip_block_ids: Iterable[str] = (),
+    measure_quiet_gaps: bool = False,
     report: Callable[[str], None] = print,
 ) -> PreparedNarrationInputs:
     """Build v2 timing maps and package paths from ready cache assets.
@@ -216,6 +219,7 @@ def prepare_v2_narration_inputs(
     )
 
     maps: list[NarrationTokenTimingMapV2] = []
+    quiet_gaps: list[dict[str, Any]] = []
     media_paths: dict[str, str] = {}
     for block, plan, planning_seconds in zip(work, plans, plan_seconds, strict=True):
         started = monotonic()
@@ -251,6 +255,10 @@ def prepare_v2_narration_inputs(
                 raise NeedsAction("ready narration cache audio path is unsafe")
             if media_key in media_paths:
                 raise BuildJobError("duplicate narration source asset ID")
+            if measure_quiet_gaps:
+                quiet_gaps.append(
+                    detect_speech_gaps(timing_map, cached.files["narration.wav"])
+                )
             maps.append(timing_map)
             media_paths[media_key] = str(audio_path)
             elapsed = planning_seconds + max(0.0, monotonic() - started)
@@ -269,4 +277,4 @@ def prepare_v2_narration_inputs(
                 f"narration block {block['id']} failed: {error}"
             ) from error
 
-    return PreparedNarrationInputs(maps, media_paths)
+    return PreparedNarrationInputs(maps, media_paths, quiet_gaps)

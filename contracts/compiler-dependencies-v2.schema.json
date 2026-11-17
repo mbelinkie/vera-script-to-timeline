@@ -85,6 +85,11 @@
         "$ref": "#/$defs/NarrationBoundaryEvidenceV1"
       }
     },
+    "narrationQuietGapEvidence": {
+      "description": "Quiet intervals observed on the delivered narration PCM and bound to its frozen timing map.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/NarrationQuietGapEvidenceV1" }
+    },
     "graphicProvenanceSnapshots": {
       "type": "array",
       "default": [],
@@ -101,6 +106,79 @@
     }
   },
   "$defs": {
+    "QuietGapSampleRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startSample", "endSample"],
+      "properties": {
+        "startSample": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "endSample": { "$ref": "#/$defs/PositiveSafeInteger" }
+      }
+    },
+    "NarrationQuietGapEvidenceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "method", "blockId", "timingHash", "audioHash", "audio", "parameters", "tokenPairs"],
+      "properties": {
+        "schemaVersion": { "const": "vera-speech-gaps/v1" },
+        "method": { "const": "pcm_quiet_windows_between_onsets/v1" },
+        "blockId": { "$ref": "#/$defs/EntityId" },
+        "timingHash": { "$ref": "#/$defs/ContentHash" },
+        "audioHash": { "$ref": "#/$defs/ContentHash" },
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sampleRate", "channels", "durationSamples"],
+          "properties": {
+            "sampleRate": { "$ref": "#/$defs/PositiveSafeInteger" },
+            "channels": { "$ref": "#/$defs/PositiveSafeInteger" },
+            "durationSamples": { "$ref": "#/$defs/PositiveSafeInteger" }
+          }
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisWindowMs", "analysisHopMs", "quietThresholdDbfs", "minimumQuietDurationMs"],
+          "properties": {
+            "analysisWindowMs": { "const": 5 },
+            "analysisHopMs": { "const": 1 },
+            "quietThresholdDbfs": { "const": -42 },
+            "minimumQuietDurationMs": { "const": 30 }
+          }
+        },
+        "tokenPairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["beforeTokenId", "afterTokenId", "onsetWindow", "status", "gapDurationSamples", "quietWindow", "reason"],
+            "properties": {
+              "beforeTokenId": { "$ref": "#/$defs/EntityId" },
+              "afterTokenId": { "$ref": "#/$defs/EntityId" },
+              "onsetWindow": { "$ref": "#/$defs/QuietGapSampleRange" },
+              "status": { "enum": ["detected", "absent", "ambiguous"] },
+              "gapDurationSamples": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+              "quietWindow": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["startSample", "endSample", "durationSamples"],
+                    "properties": {
+                      "startSample": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+                      "endSample": { "$ref": "#/$defs/PositiveSafeInteger" },
+                      "durationSamples": { "$ref": "#/$defs/PositiveSafeInteger" }
+                    }
+                  }
+                ]
+              },
+              "reason": { "enum": ["unique_terminal_quiet_run", "no_qualifying_quiet_run", "nonterminal_quiet_run", "multiple_qualifying_quiet_runs"] }
+            }
+          }
+        }
+      }
+    },
     "SafeInteger": {
       "type": "integer",
       "minimum": -9007199254740991,

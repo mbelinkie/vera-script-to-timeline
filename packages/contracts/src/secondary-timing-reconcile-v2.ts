@@ -44,6 +44,8 @@ const sameRange = (a: FrameRangeV2, b: FrameRangeV2): boolean => !!b &&
 const mediaInput = (deps: CompilerDependenciesV2) => ({
   timing: deps.narrationTimingMaps,
   ...(deps.narrationBoundaryEvidence ? { boundaryEvidence: deps.narrationBoundaryEvidence } : {}),
+  compilerVersion: deps.compiler.version,
+    quietGapEvidence: deps.narrationQuietGapEvidence ?? [],
   defaults: deps.authoringDefaults,
   sourceDescriptors: deps.occurrenceResolutions,
   frameRate: deps.timeline.frameRate,

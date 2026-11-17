@@ -68,6 +68,8 @@ export type CompileTimelineResultV2 =
 export interface MediaRequirementsInputV2 {
   timing: readonly NarrationTokenTimingMapV2[];
   boundaryEvidence?: readonly NarrationBoundaryEvidenceV1[];
+  compilerVersion?: CompilerDependenciesV2["compiler"]["version"];
+  quietGapEvidence?: NonNullable<CompilerDependenciesV2["narrationQuietGapEvidence"]>;
   defaults: AuthoringDefaultsV2;
   sourceDescriptors: readonly OccurrenceMediaResolutionV2[];
   frameRate: RationalRate;
@@ -209,6 +211,15 @@ function diagnostic(code: BuildDiagnosticV2["code"], message: string, target: En
     id: stableId(`${code}:${target.kind}:${target.id ?? ""}:${target.path ?? ""}:${message}`), severity, code, message, entity: target,
     evidence: evidence ?? { kind: "details", message }, recoveryActionKinds: recovery,
   };
+}
+
+function speechCutTimingWarning(slotId: string, limitedBySource = false): BuildDiagnosticV2 {
+  return diagnostic(
+    "WORD_TIMING_REQUIRED", limitedBySource
+      ? "The incoming clip has too few source frames for the full early cut. The lead was shortened."
+      : "No measured pause supports an early picture cut. The cut stays at the incoming word start.",
+    entity("slot", slotId, "boundaryBefore"), { kind: "anchor_issue", anchorId: slotId, reason: "word_timing_required" }, [], "warning",
+  );
 }
 
 function textHashForRow(block: NarrationBlockV2): string { return shaText(block.text); }
@@ -648,6 +659,7 @@ function emittedTransitionPlans(pairs: FrozenTransitionPair[], resolved: Resolve
 }
 
 function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2, requirePrepared = true, transitionHandles: ReadonlyMap<string, TransitionHandles> = new Map()): ResolvedPlan {
+  const speechCutCompiler = dependencies.compiler.version === "compiler/v2-speech-cuts";
   const built = buildTimedRows(document, dependencies);
   const diagnostics = [...built.diagnostics];
   const events: TimelineEventV2[] = [];
@@ -824,12 +836,72 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       ));
       continue;
     }
+    const gapRows = speechCutCompiler ? dependencies.narrationQuietGapEvidence?.filter((item) => item.blockId === block.id) : undefined;
+    const gapRow = gapRows?.length === 1 ? gapRows[0] : undefined;
+    const gapAudio = row.map.audio;
+    const quietPairs = gapRow && gapAudio && gapRow.audioHash === row.map.audioHash && gapRow.timingHash === row.map.timingHash &&
+      gapRow.audio.sampleRate === gapAudio.sampleRate && gapRow.audio.channels === gapAudio.channels &&
+      gapRow.audio.durationSamples === gapAudio.durationSamples ? gapRow.tokenPairs : [];
     const slotStarts = new Map<string, number>();
     for (const slot of sequence.slots) {
       if (slot.kind === "return") continue;
       let start: number | null = slot.boundaryBefore.kind === "row_start" ? rowStart
         : slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end" ? resolveWord(slot.boundaryBefore.anchor, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/boundaryBefore`)
           : null;
+      if (speechCutCompiler && start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual" && slot.playoutPolicy === "match_structural_interval") {
+        const previous = sequence.slots[sequence.slots.indexOf(slot) - 1];
+        const previousRoot = previous?.kind === "return"
+          ? sequence.slots.find((candidate) => candidate.kind === "content" && candidate.id === previous.parentSlotId)
+          : previous;
+        const returnFrame = previous?.kind === "return" ? returnFrames.get(previous.id) : undefined;
+        if (previousRoot?.kind === "content" && previousRoot.relation.kind !== "cutaway" && previousRoot.payload.kind === "visual" && previousRoot.playoutPolicy === "match_structural_interval") {
+          const spoken = spokenTokensV2(block);
+          const anchorId = slot.boundaryBefore.anchor.tokenId;
+          const index = spoken.findIndex((token) => token.id === anchorId);
+          const priorId = index > 0 ? spoken[index - 1]!.id : null;
+          const prior = priorId ? row.tokenTimes.get(priorId) : null;
+          const incoming = row.tokenTimes.get(anchorId)?.start;
+          const rate = rateFraction(dependencies.timeline.frameRate);
+          const previousVisualFrame = Math.max(resolvedEdges.get(previousRoot.id)?.frame ?? slotStarts.get(previousRoot.id) ?? rowStart, returnFrame ?? rowStart);
+          const earliestCut = Math.min(start, previousVisualFrame + 1);
+          if (returnFrame != null && returnFrame > start) {
+            diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The authored return follows the incoming picture boundary.", entity("block", block.id, "primaryVisualSequence"), undefined, ["repair_document", "refresh_timing"]));
+          } else if (prior?.evidenced && prior.end) {
+            const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
+            const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
+            const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
+            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start ||
+                (uncertainty && uncertainty.n > 0n && compare(safeEnd, incoming) === 0)) {
+              diagnostics.push(speechCutTimingWarning(slot.id));
+            } else {
+              start = Math.max(start - 3, priorEnd, earliestCut);
+            }
+          } else if (index > 0) {
+            const pairs = quietPairs.filter((pair) => pair.afterTokenId === anchorId);
+            const pair = pairs.length === 1 ? pairs[0] : undefined;
+            const window = pair?.status === "detected" && pair.reason === "unique_terminal_quiet_run" ? pair.quietWindow : null;
+            if (window && pair && gapAudio && prior?.start && incoming && pair.beforeTokenId === priorId) {
+              const sampleRate = BigInt(gapAudio.sampleRate);
+              const onsetSample = (time: Fraction) => ceil(time.n * sampleRate, time.d);
+              const duration = window.endSample - window.startSample;
+              if (BigInt(pair.onsetWindow.startSample) === onsetSample(prior.start) &&
+                  BigInt(pair.onsetWindow.endSample) === onsetSample(incoming) &&
+                  window.startSample > pair.onsetWindow.startSample && window.endSample === pair.onsetWindow.endSample &&
+                  window.endSample < gapAudio.durationSamples && duration === window.durationSamples &&
+                  duration === pair.gapDurationSamples && BigInt(duration) * 1000n >= 30n * sampleRate) {
+                const lower = rowStart + framesAt(frac(BigInt(window.startSample), sampleRate), rate);
+                // Stay strictly inside the half-open quiet sample interval.
+                const upper = rowStart + framesAt(frac(BigInt(window.endSample), sampleRate), rate) - 1;
+                const candidate = Math.max(start - 3, lower, earliestCut);
+                if (candidate <= upper && candidate < start) start = candidate;
+              }
+            }
+            if (start === resolvedEdges.get(slot.id)?.frame) {
+              diagnostics.push(speechCutTimingWarning(slot.id));
+            }
+          }
+        }
+      }
       if (slot.boundaryBefore.kind === "previous_media_end") {
         const controllingSlotId = slot.boundaryBefore.controllingSlotId;
         const controlled = sequence.slots.find((candidate) => candidate.kind === "content" && candidate.id === controllingSlotId);
@@ -877,6 +949,40 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
     }
     const content = sequence.slots.filter((slot): slot is ContentSlot => slot.kind === "content");
     const roots = content.filter((slot) => slot.relation.kind === "base" || slot.relation.kind === "sequential");
+    // Work backwards so a later shot's final start determines the earlier shot's duration.
+    if (speechCutCompiler) for (let index = roots.length - 1; index >= 0; index--) {
+      const slot = roots[index]!;
+      const edge = resolvedEdges.get(slot.id);
+      const candidate = slotStarts.get(slot.id);
+      if (edge?.kind !== "word_start" || candidate === undefined || candidate >= edge.frame) continue;
+      let start = candidate;
+      if (slot.payload.kind === "visual" && slot.payload.pictureKind === "clip") {
+        const descriptor = descriptorByPayload.get(slot.payload.payloadId);
+        const next = roots[index + 1];
+        const end = next ? slotStarts.get(next.id) : rowEnd;
+        if (descriptor && end !== undefined) {
+          const selection = slot.payload.selectedSourceRange;
+          const logicalEnd = descriptor.logicalSourceBounds.endFrame;
+          const availableEnd = selection ? Math.min(selection.startFrame + selection.durationFrames, logicalEnd) : logicalEnd;
+          while (start < edge.frame) {
+            const requiredEnd = requiredSourceEnd(descriptor, end - start, dependencies.timeline.frameRate);
+            if (requiredEnd !== null && requiredEnd <= availableEnd) break;
+            start++;
+          }
+          if (start !== candidate) diagnostics.push(speechCutTimingWarning(slot.id, true));
+        }
+      }
+      slotStarts.set(slot.id, start);
+      if (start === edge.frame) continue;
+      edge.precision = "between_words";
+      const evidence = boundaryEvidence.find((item) => item.entityId === slot.id && item.kind === "word_start");
+      if (evidence) {
+        evidence.resolvedRecordFrame = start;
+        const local = frac(BigInt(start - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+        evidence.delta = wireOrThrow(sub(local, edge.time), "boundary delta");
+        evidence.precision = "between_words";
+      }
+    }
     const children = content.filter((slot): slot is CutawaySlot => slot.relation.kind === "cutaway");
     const rangeBySlot = new Map<string, FrameRangeV2>();
     roots.forEach((slot, index) => {
@@ -1015,9 +1121,9 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       }
       if (emittedEvent) rowEvents.push(emittedEvent);
       if (emittedEvent || payload.kind === "on_camera" && payload.presenterChoiceId !== null) {
-        const startTime = (evidenceHash || slot.boundaryBefore.kind === "audible_word_end" ? resolvedEdges.get(slot.id)?.time : null) ?? row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+        const startTime = (evidenceHash || slot.boundaryBefore.kind === "audible_word_end" || speechCutCompiler && slot.boundaryBefore.kind === "spoken_word" ? resolvedEdges.get(slot.id)?.time : null) ?? row.tokenTimes.get(block.tokens.find((token) => row.tokenFrames.get(token.id) === range.startFrame - rowStart)?.id ?? "")?.start ?? frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
         const delta = sub(frac(BigInt(range.startFrame - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator)), startTime);
-        sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === slot.id), relation: isChild ? "child" : "root", slotId: slot.id, payloadId, returnSlotId: null, boundaryKind: slot.boundaryBefore.kind === "previous_media_end" ? "media_end" : slot.boundaryBefore.kind === "audible_word_end" ? "word_end" : "word_start", resolvedRecordFrame: range.startFrame, boundaryDelta: wireOrThrow(delta, "sequence boundary delta"), rootRanges: isChild ? [] : [range], childRanges: isChild ? [range] : [], topmostAppearances: emittedEvent ? [{ eventId, recordRange: range }] : [], hostState: payload.kind === "on_camera" ? "on_camera" : "voiceover", visualOrdinal: rowProjection?.slots.find((item) => item.slotId === slot.id)?.humanOrdinal ?? null, eventIds: emittedEvent ? [eventId] : [], sourceRange: occurrenceRange, sourceTimeMapping: mapping, preparationRequirementKey: requirementKey, presenterChoice, ...provenanceEvidence, alignmentPrecision: "verification" in row.map ? resolvedEdges.get(slot.id)?.precision ?? "unknown" : slot.boundaryBefore.kind === "audible_word_end" || row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" });
+        sequenceResolutions.push({ documentId: document.id, blockId: block.id, blockRevision: block.version, sequenceId: sequence.id, sequenceVersion: sequence.version, structuralSlotIndex: sequence.slots.findIndex((item) => item.id === slot.id), relation: isChild ? "child" : "root", slotId: slot.id, payloadId, returnSlotId: null, boundaryKind: slot.boundaryBefore.kind === "previous_media_end" ? "media_end" : slot.boundaryBefore.kind === "audible_word_end" ? "word_end" : "word_start", resolvedRecordFrame: range.startFrame, boundaryDelta: wireOrThrow(delta, "sequence boundary delta"), rootRanges: isChild ? [] : [range], childRanges: isChild ? [range] : [], topmostAppearances: emittedEvent ? [{ eventId, recordRange: range }] : [], hostState: payload.kind === "on_camera" ? "on_camera" : "voiceover", visualOrdinal: rowProjection?.slots.find((item) => item.slotId === slot.id)?.humanOrdinal ?? null, eventIds: emittedEvent ? [eventId] : [], sourceRange: occurrenceRange, sourceTimeMapping: mapping, preparationRequirementKey: requirementKey, presenterChoice, ...provenanceEvidence, alignmentPrecision: resolvedEdges.get(slot.id)?.precision === "between_words" ? "between_words" : "verification" in row.map ? resolvedEdges.get(slot.id)?.precision ?? "unknown" : slot.boundaryBefore.kind === "audible_word_end" || row.map.precision === "audible_word_marks" ? "audible_word" : "next_word_derived" });
       }
     }
     for (const returned of sequence.slots.filter((slot) => slot.kind === "return")) {
@@ -1837,9 +1943,9 @@ export function resolveMediaRequirementsV2(documentInput: unknown, input: MediaR
     const synthetic: CompilerDependenciesV2 = {
       schemaVersion: "compiler-dependencies/v2", build: { buildId: document.id, manifestId: document.id, reportId: document.id, buildClass: "preview" },
       document: { documentId: document.id, projectId: document.projectId, revision: 1, liveHeadSequence: document.liveHeadSequence, contentHash: document.liveContentHash, textHash: shaText(document.activeDraft.blocks.filter((item): item is NarrationBlockV2 => item.type === "narration").map((item) => item.text).join("\n")), settingsHash: input.defaults.settingsHash },
-      compiler: { version: "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
+      compiler: { version: input.compilerVersion ?? "compiler/v2", sourceHash: `sha256:${"0".repeat(64)}`, profileHash: `sha256:${"0".repeat(64)}` }, authoringDefaults: input.defaults,
       timeline: { frameRate: input.frameRate, width: 1, height: 1, audioSampleRate: 48000, startFrame: 0, durationFrames: 1 }, tracks: [{ id: "video", kind: "video", index: 1, name: "video" }],
-      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
+      roles: { primaryRootTrackId: "video", childTrackIds: [], overlayTrackIds: [], presenterTrackId: "video", placeholderTrackId: "video", narrationTrackId: "video", sourceAudioTrackIds: [], markerTrackId: "video" }, narrationTimingMaps: [...input.timing], ...(input.boundaryEvidence ? { narrationBoundaryEvidence: [...input.boundaryEvidence] } : {}), ...(input.quietGapEvidence ? { narrationQuietGapEvidence: input.quietGapEvidence } : {}), occurrenceResolutions: [...input.sourceDescriptors], preparedMedia: [], presenterAlignmentResolutions: [],
     };
     if (!validateDependencies(synthetic)) return { ok: false, diagnostics: schemaDiagnostics(validateDependencies.errors, "DEPENDENCIES") };
       const validRows = buildTimedRows(document, synthetic);
