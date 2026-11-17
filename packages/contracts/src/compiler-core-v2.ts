@@ -870,7 +870,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
             const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
             const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
             const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
-            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start) {
+            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start ||
+                (uncertainty && uncertainty.n > 0n && compare(safeEnd, incoming) === 0)) {
               diagnostics.push(speechCutTimingWarning(slot.id));
             } else {
               start = Math.max(start - 3, priorEnd, earliestCut);
