@@ -943,7 +943,7 @@ describe("pure v2 compiler", () => {
       audio: { sampleRate, channels, durationSamples },
       parameters: { analysisWindowMs: 5, analysisHopMs: 1, quietThresholdDbfs: -42, minimumQuietDurationMs: 30 },
       tokenPairs: [{
-        beforeTokenId: map.tokens[0]!.tokenId, afterTokenId: map.tokens[1]!.tokenId,
+        beforeTokenId: map.tokens[0].tokenId, afterTokenId: map.tokens[1]!.tokenId,
         onsetWindow: { startSample: 0, endSample: 96_000 },
         quietWindow: { startSample, endSample: 96_000, durationSamples: 96_000 - startSample },
         gapDurationSamples: 96_000 - startSample, status: "detected", reason: "unique_terminal_quiet_run",
