@@ -10,11 +10,13 @@
     "lint": "eslint src test --max-warnings=0",
     "typecheck": "tsc --project tsconfig.json",
     "test": "vitest run --maxWorkers=1",
-    "test:fast": "vitest run --maxWorkers=1 --exclude test/postgres.integration.test.ts",
+    "test:fast": "vitest run --maxWorkers=1 --exclude test/postgres.integration.test.ts --exclude test/authoring.browser.test.ts",
     "serve:qa": "tsx src/serve.ts",
+    "export:script": "tsx src/export-authoring.ts",
     "smoke:qa": "tsx src/qa-smoke.ts"
   },
   "dependencies": {
+    "@vera/contracts": "0.0.0",
     "@vera/project-authorization": "0.0.0",
     "@vera/project-builds": "0.0.0",
     "@vera/project-collaboration": "0.0.0",
@@ -23,6 +25,8 @@
     "tsx": "4.20.6"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1"
+    "@electric-sql/pglite": "0.5.8",
+    "@types/pg": "8.23.1",
+    "playwright": "1.63.0"
   }
 }
