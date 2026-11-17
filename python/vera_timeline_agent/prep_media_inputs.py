@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import tempfile
 from collections.abc import Callable, Mapping
@@ -13,7 +14,7 @@ from time import monotonic
 from typing import Any, cast
 
 from .build_compiler_bridge import invoke_bridge
-from .build_jobs import publish_immutable_output
+from .build_jobs import BuildJobError, publish_immutable_output
 from .build_stage_receipt import canonical_json, hash_file
 from .generated.contracts.compiler_dependencies_v2_schema import (
     OccurrenceMediaResolutionV2,
@@ -228,6 +229,7 @@ def prepare_still_media(
         "targetRate": wire(target),
         "profile": profile,
         "stillInterpretation": "one_png_frame_held_at_timeline_rate/v1",
+        "authorizationReference": authorization.reference,
     }
     key = identity_hash(inputs)
     geometry = preparation_geometry(
@@ -312,13 +314,25 @@ def prepare_still_media(
     }
     root = _assert_under(authorization.write_root, (authorization.write_root,))
     root.mkdir(parents=True, exist_ok=True)
+    if (
+        shutil.disk_usage(root).free
+        < len(canonical_json(record)) + authorization.minimum_free_bytes
+    ):
+        raise MediaPreparationError(
+            "insufficient_disk", "still receipt exceeds free-space reserve"
+        )
     published_root = root / "published"
     published = published_root / key.removeprefix("sha256:")
     _assert_under(published_root, (root,)).mkdir(exist_ok=True)
     _assert_under(published, (root,)).mkdir(exist_ok=True)
     receipt_path = published / "receipt.json"
     reused = receipt_path.exists()
-    publish_immutable_output(receipt_path, canonical_json(record))
+    try:
+        publish_immutable_output(receipt_path, canonical_json(record))
+    except BuildJobError as error:
+        raise MediaPreparationError(
+            "published_conflict", "still receipt differs"
+        ) from error
     if read_json_object(receipt_path) != record or file_hash(source) != source_hash:
         raise MediaPreparationError("published_conflict", "still receipt differs")
     return PreparedMedia(binding, receipt_path, source, None, reused)

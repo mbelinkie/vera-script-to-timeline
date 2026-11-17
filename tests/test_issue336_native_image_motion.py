@@ -129,11 +129,22 @@ def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None
             DEFAULT_IMAGE_MOTION,
             binding,
             "cover",
-            frame_rate=(24, 1),
+            frame_rate=(24000, 1001),
             verified_asset=source,
             delivered_probe=probe,
         )
         is not None
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            frame_rate=(24, 1),
+            verified_asset=source,
+            delivered_probe=probe,
+        )
+        is None
     )
     assert (
         production_qualification(
@@ -154,7 +165,7 @@ def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None
                 "cover",
                 verified_asset=source,
                 delivered_probe={**probe, **change},
-                frame_rate=(24, 1),
+                frame_rate=(24000, 1001),
             )
             is None
         )
@@ -214,6 +225,36 @@ def test_default_fractional_still_proof_is_specific_to_studio_212(
     )
     with pytest.raises(MotionRefusal, match="version"):
         admit_motion(motion, binding, proof, framing=framing, version="21.1.1.10")
+
+
+@pytest.mark.parametrize(
+    ("size", "frames", "motion", "framing"),
+    [
+        ((900, 1600), 96, DEFAULT_IMAGE_MOTION, "cover"),
+        ((1600, 900), 48, {"mode": "none"}, "contain"),
+        ((1000, 1000), 75, {"mode": "none"}, "contain"),
+        ((1000, 1000), 48, {"mode": "none"}, "cover"),
+    ],
+)
+def test_unmeasured_rate_combinations_refuse(
+    tmp_path: Path,
+    size: tuple[int, int],
+    frames: int,
+    motion: dict[str, Any],
+    framing: str,
+) -> None:
+    source, binding, probe = _verified_png_case(tmp_path, *size, frames)
+    assert (
+        production_qualification(
+            motion,
+            binding,
+            framing,
+            verified_asset=source,
+            delivered_probe=probe,
+            frame_rate=(25, 1),
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(("rate", "frames"), [((25, 1), 75), ((30, 1), 90)])

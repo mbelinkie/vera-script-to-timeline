@@ -3000,6 +3000,10 @@ def _native_motion_for_event(
         ) != (24, 1) and (
             preparation is None
             or not isinstance(preparation.record.get("stillEvidence"), dict)
+            or not isinstance(preparation.record.get("sourceProbe"), dict)
+            or preparation.record["sourceProbe"].get("kind") != "image"
+            or preparation.record.get("deliveredProbe")
+            != preparation.record.get("sourceProbe")
         ):
             raise _error(f"image motion {event_id} lacks PNG preparation evidence")
         if source_artifact is None or preparation is None:

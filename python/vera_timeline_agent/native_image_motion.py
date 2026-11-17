@@ -161,8 +161,28 @@ def production_qualification(
     if dimensions is None:
         return None
     width, height = dimensions
-    if duration in {75, 90} and dimensions != (1000, 1000):
+    if frame_rate == (24, 1) and delivered_probe.get("kind") == "image":
         return None
+    if qualified_default:
+        measured = (
+            motion == DEFAULT_IMAGE_MOTION
+            and framing == "cover"
+            and (
+                (dimensions, duration)
+                in {((1000, 1000), 48), ((1600, 900), 96), ((900, 1600), 72)}
+                or (
+                    dimensions == (1000, 1000)
+                    and (frame_rate, duration) in {((25, 1), 75), ((30, 1), 90)}
+                )
+            )
+        ) or (
+            motion == {"mode": "none"}
+            and framing == "contain"
+            and dimensions == (1000, 1000)
+            and duration == 48
+        )
+        if not measured:
+            return None
     version = "21.2.0.6" if qualified_default else "21.1.1.10"
     # Do not generalize a handful of decoded public aspect/size fixtures into
     # native raster proof for every resolution sharing the same aspect ratio.
