@@ -281,6 +281,7 @@ export interface NarrationCoverageReconciliationV2 {
 export function reconcileNarrationTextCoverageV2(
   before: NarrationBlockV2,
   after: NarrationBlockV2,
+  reshapedTokenIds: ReadonlyMap<string, readonly string[]>,
 ): NarrationCoverageReconciliationV2 | CoverageRefusalV2 {
   const sequence = before.primaryVisualSequence;
   if (!sequence || !after.primaryVisualSequence || after.primaryVisualSequence.id !== sequence.id) {
@@ -289,7 +290,15 @@ export function reconcileNarrationTextCoverageV2(
   const oldWords = spokenTokensV2(before);
   const newWords = spokenTokensV2(after);
   const position = new Map(newWords.map((token, index) => [token.id, index]));
+  const firstPosition = (id: string) => position.get(reshapedTokenIds.get(id)?.[0] ?? id);
+  const lastPosition = (id: string) => position.get(reshapedTokenIds.get(id)?.at(-1) ?? id);
   const waiting = [...(before.unattachedVisuals ?? [])];
+
+  // Changes entirely inside stage directions leave all spoken cues intact.
+  if (after.text !== "" && oldWords.length === newWords.length &&
+      oldWords.every((word, index) => word.id === newWords[index]!.id && word.value === newWords[index]!.value)) {
+    return { slots: sequence.slots, unattachedVisuals: waiting };
+  }
 
   if (newWords.length === 0) {
     // D135/D146: an empty row keeps its one actual picture *in the sequence*.
@@ -326,28 +335,32 @@ export function reconcileNarrationTextCoverageV2(
 
   const lost = new Set<string>();
   const visuals: PlacedVisual[] = [];
+  const claimedStarts = new Set<number>();
   // A surviving visual's last word and the start of the next passage both
   // constrain its range; the existing layout supplies the actual boundaries.
   const boundaries = [...source.visuals.map((visual) => visual.start),
     ...source.passages.map((passage) => passage.start)].sort((a, b) => a - b);
   for (const visual of source.visuals) {
-    const start = position.get(oldWords[visual.start]!.id);
-    if (start === undefined) {
+    const start = firstPosition(oldWords[visual.start]!.id);
+    // A join can collapse two starts onto one word. Keep the earlier card
+    // placed and retain the other card, with its own identity, for reattachment.
+    if (start === undefined || claimedStarts.has(start)) {
       if (visual.slot.payload.kind !== "visual") return unresolved("A non-media visual lost its start word.", visual.slot.id);
       lost.add(visual.slot.id);
       waiting.push({ slotId: visual.slot.id, payload: visual.slot.payload, version: visual.slot.version });
       continue;
     }
+    claimedStarts.add(start);
     // Include new words introduced inside the old interval. If a following
     // boundary's original token survives, stop exactly at that token.
     const following = boundaries.find((boundary) => boundary >= visual.end);
-    const nextBoundary = following === undefined ? undefined : position.get(oldWords[following]?.id ?? "");
+    const nextBoundary = following === undefined ? undefined : firstPosition(oldWords[following]?.id ?? "");
     const last = oldWords.slice(visual.start, visual.end).reduce<number | undefined>((latest, token) => {
-      const at = position.get(token.id);
+      const at = lastPosition(token.id);
       return at === undefined ? latest : Math.max(latest ?? at, at);
     }, undefined);
-    const end = nextBoundary !== undefined && nextBoundary > start
-      ? nextBoundary : following === undefined ? newWords.length : last === undefined ? start + 1 : last + 1;
+    const end = nextBoundary !== undefined
+      ? Math.max(start + 1, nextBoundary) : following === undefined ? newWords.length : last === undefined ? start + 1 : last + 1;
     if (end <= start) return unresolved("A surviving picture would have no words left.", visual.slot.id);
     visuals.push({ ...visual, start, end });
   }
@@ -357,14 +370,14 @@ export function reconcileNarrationTextCoverageV2(
   }
   // A return cannot be silently rebound to a different spoken word.
   for (const slot of sequence.slots) {
-    if (slot.kind === "return" && slot.inpoint && !position.has(slot.inpoint.tokenId)) {
+    if (slot.kind === "return" && slot.inpoint && firstPosition(slot.inpoint.tokenId) === undefined) {
       return unresolved("The word where a cutaway returns was deleted.", slot.id);
     }
   }
 
   const passages: Passage[] = source.passages.flatMap((passage) => {
     const starts = oldWords.slice(passage.start, passage.end)
-      .map((token) => position.get(token.id)).filter((index): index is number => index !== undefined);
+      .flatMap((token) => [firstPosition(token.id), lastPosition(token.id)]).filter((index): index is number => index !== undefined);
     return starts.length ? [{ ...passage, start: Math.min(...starts), end: Math.max(...starts) + 1 }] : [];
   });
   const slots = buildSlots(after, { wordCount: newWords.length, visuals, passages }, visuals);
@@ -374,7 +387,8 @@ export function reconcileNarrationTextCoverageV2(
   for (const prior of sequence.slots) {
     if (prior.kind !== "return") continue;
     const rebuilt = slots.find((slot) => slot.id === prior.id);
-    if (rebuilt?.kind !== "return" || rebuilt.inpoint?.tokenId !== prior.inpoint?.tokenId) {
+    const expected = prior.inpoint ? newWords[firstPosition(prior.inpoint.tokenId) ?? -1]?.id : undefined;
+    if (rebuilt?.kind !== "return" || rebuilt.inpoint?.tokenId !== expected) {
       return unresolved("The cutaway's return cue cannot be preserved exactly through this edit.", prior.id);
     }
   }

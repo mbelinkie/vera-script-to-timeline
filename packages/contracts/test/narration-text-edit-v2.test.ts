@@ -614,12 +614,37 @@ describe("#580 strict atomic command gates", () => {
     expect(plan(row, replacement)).toEqual(first);
   });
 
-  it("refuses edits inside nonspoken stage directions without changing flags or text", () => {
+  it("types and deletes within a paired stage direction while preserving speech intent", () => {
     const source = rowOf("listen [soft voice] now");
     source.tokens[1]!.spoken = false;
     source.tokens[2]!.spoken = false;
-    const before = structuredClone(source);
-    expect(plan(source, edit(9, 13, "loud", 2023))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
-    expect(source).toEqual(before);
+    const typed = pictureEdit(source, edit(8, 8, " low ", 2023));
+    expect(typed.text).toBe("listen [ low soft voice] now");
+    expect(typed.tokens.map(({ value, spoken }) => [value, spoken !== false])).toEqual([
+      ["listen", true], ["low", false], ["soft", false], ["voice", false], ["now", true],
+    ]);
+    expect(typed.tokens.slice(2).map((token) => token.id)).toEqual(source.tokens.slice(1).map((token) => token.id));
+    const deleted = pictureEdit(typed, edit(9, 23, "", 2024));
+    expect(deleted.text).toBe("listen  now");
+    expect(deleted.tokens.map((token) => token.id)).toEqual([id(100), id(103)]);
+    expect(plan(source, edit(7, 8, "", 2025))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
+    expect(plan(source, edit(18, 19, "", 2026))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
+  });
+
+  it("preserves the first surviving fragment when splitting or joining a repeated non-Latin word", () => {
+    const source = rowOf("שלום שלום");
+    const split = plan(source, edit(7, 7, " ", 2027));
+    expect(split.ok).toBe(true);
+    if (!split.ok) return;
+    const [first, left, right] = split.row.tokens;
+    expect([first, left, right].map((word) => [word?.id, word?.value])).toEqual([
+      [id(100), "שלום"], [id(101), "של"], [split.createdTokenIds[0], "ום"],
+    ]);
+    expect(split.reshapedTokenIds.get(id(101))).toEqual([left!.id, right!.id]);
+    const joined = plan(split.row, edit(7, 8, "", 2028));
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+    expect(outline(joined.row)).toEqual(outline(source));
+    expect(joined.reshapedTokenIds.get(right!.id)).toEqual([left!.id]);
   });
 });

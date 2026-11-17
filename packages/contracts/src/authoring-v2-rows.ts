@@ -1611,7 +1611,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       documentId: document.id, revision: expectedRevision, reservedIds: documentUuids(document),
     });
     if (!splice.ok) return refused(document, splice.code, splice.message);
-    const coverage = reconcileNarrationTextCoverageV2(current, splice.row);
+    const coverage = reconcileNarrationTextCoverageV2(current, splice.row, splice.reshapedTokenIds);
     if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
     const row = { ...splice.row, version: current.version + 1,
       primaryVisualSequence: {
