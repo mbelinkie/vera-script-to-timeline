@@ -3493,6 +3493,61 @@ def test_fractional_multiframe_video_still_refuses_before_adapter(
     assert adapter_called is False
 
 
+@pytest.mark.parametrize("decision", [None, "skip", "apply"])
+def test_video_bar_removal_only_writes_a_qualified_apply(decision: str | None) -> None:
+    properties = {"ZoomX": 1.0, "ZoomY": 1.0, "Pan": 0.0, "Tilt": 0.0}
+    writes: list[tuple[str, float]] = []
+
+    def set_property(key: str, value: float) -> bool:
+        writes.append((key, value))
+        properties[key] = value
+        return True
+
+    item = SimpleNamespace(
+        AddMarker=lambda *_: True,
+        SetProperty=set_property,
+        GetProperties=lambda: dict(properties),
+    )
+    adapter: Any = workflow_v2.PublicResolveAdapter.__new__(
+        workflow_v2.PublicResolveAdapter
+    )
+    adapter.assert_current_target = lambda: None
+    adapter.media_by_source = {"source": object()}
+    adapter.pool = SimpleNamespace(AppendToTimeline=lambda _: [item])
+    adapter._v2_sources = {"source": {"kind": "video"}}
+    adapter._v2_tracks = ({"id": "video-track", "kind": "video", "index": 1},)
+    adapter._bar_removal_runtime_enabled = decision == "apply"
+    adapter.expected_events = {}
+    adapter.expected_stamps = {}
+    adapter.expected_properties = {}
+    adapter.expected_source_ranges = {}
+    event = {
+        "id": "clip-event",
+        "kind": "primary_visual",
+        "sourceId": "source",
+        "trackId": "video-track",
+        "trackKind": "video",
+        "recordRange": {"startFrame": 0, "durationFrames": 72},
+        "sourceRange": {"startFrame": 0, "durationFrames": 72},
+        "v2Event": {"eventId": "clip-event"},
+        "gainDb": None,
+        "pictureTreatment": None,
+    }
+    if decision == "apply":
+        event["barRemoval"] = {"decision": "apply", "zoom": 1.25}
+    elif decision == "skip":
+        event["barRemoval"] = {"decision": "skip", "reason": "explicit_framing"}
+
+    adapter.place_event(event)
+
+    if decision == "apply":
+        assert writes == [("ZoomX", 1.25), ("ZoomY", 1.25)]
+        assert adapter.expected_properties["clip-event"] == properties
+    else:
+        assert writes == []
+        assert adapter.expected_properties["clip-event"] == {}
+
+
 def test_still_media_placement_converts_duration_but_preserves_start() -> None:
     class Media:
         def __init__(self) -> None:
