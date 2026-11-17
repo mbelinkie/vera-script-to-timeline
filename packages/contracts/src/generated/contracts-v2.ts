@@ -149,6 +149,10 @@ export type VisualOnlyBlockV2 = {
   orderKey: string;
   payload: StandaloneVisualPayloadV2;
   visualOnlyTiming: VisualOnlyTimingV2;
+  /**
+   * @minItems 1
+   */
+  additionalVisuals?: [VisualOnlyAdditionalV2, ...VisualOnlyAdditionalV2[]];
   stashChecklist?: StashChecklistV2;
   stashOrigin?: StashOriginV2;
   version: number;
@@ -189,6 +193,19 @@ export type StandaloneVisualPayloadV2 = {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+};
+export type VisualOnlyAdditionalV2 = {
+  [k: string]: unknown;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
 };
 export type SupportingItemV2 = {
   [k: string]: unknown;
