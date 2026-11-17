@@ -267,6 +267,120 @@ export function placedVisualsAsUnattachedV2(row: NarrationBlockV2): UnattachedVi
     slot.kind === "content" && slot.payload.kind === "visual" ? [{ slotId: slot.id, payload: slot.payload, version: 1 }] : []);
 }
 
+export interface NarrationCoverageReconciliationV2 {
+  slots: Slot[];
+  unattachedVisuals: UnattachedVisualV2[];
+}
+
+/**
+ * Rebuild the picture sequence after an *already identity-mapped* text splice.
+ * A visual follows its original first token, never the next word or an equal
+ * phrase elsewhere. A lost start becomes a waiting visual with its original
+ * media payload. readLayout/buildSlots remain the single range/On Camera engine.
+ */
+export function reconcileNarrationTextCoverageV2(
+  before: NarrationBlockV2,
+  after: NarrationBlockV2,
+): NarrationCoverageReconciliationV2 | CoverageRefusalV2 {
+  const sequence = before.primaryVisualSequence;
+  if (!sequence || !after.primaryVisualSequence || after.primaryVisualSequence.id !== sequence.id) {
+    return refusal("PRIMARY_SEQUENCE_MISSING", "Text edits require the row's existing picture sequence.");
+  }
+  const oldWords = spokenTokensV2(before);
+  const newWords = spokenTokensV2(after);
+  const position = new Map(newWords.map((token, index) => [token.id, index]));
+  const waiting = [...(before.unattachedVisuals ?? [])];
+
+  if (newWords.length === 0) {
+    // D135/D146: an empty row keeps its one actual picture *in the sequence*.
+    // Multiple pictures (or an additional waiting picture) need #585's
+    // wordless card-order representation; never discard any of them here.
+    const pictures = sequence.slots.filter((slot): slot is ContentSlot =>
+      slot.kind === "content" && slot.payload.kind === "visual");
+    if (pictures.length > 1 || waiting.length > 0 || sequence.slots.some((slot) => slot.kind === "return")) {
+      return unresolved("Several pictures cannot yet be preserved without narration; keep their words until the wordless ordering is available.");
+    }
+    const picture = pictures[0] ?? sequence.slots.find((slot): slot is ContentSlot => slot.kind === "content" && slot.payload.kind === "on_camera");
+    if (!picture) return unresolved("The empty row has no picture to keep.");
+    const single: ContentSlot = {
+      ...picture, relation: { kind: "base" }, boundaryBefore: { kind: "row_start" },
+      playoutPolicy: "match_structural_interval",
+    };
+    if (picture.playoutPolicy !== "match_structural_interval") {
+      return unresolved("A media-timed picture cannot be changed to wordless playout without losing its timing.", picture.id);
+    }
+    if (!sameAuthoringJsonV2(single, picture)) single.version += 1;
+    return { slots: [single], unattachedVisuals: [] };
+  }
+
+  if (oldWords.length === 0) {
+    if (sequence.slots.length !== 1 || waiting.length > 0 || sequence.slots[0]?.kind !== "content") {
+      return unresolved("This wordless picture sequence cannot be given new narration without reviewing the pictures.");
+    }
+    const only = sequence.slots[0];
+    return { slots: [only], unattachedVisuals: [] };
+  }
+
+  const source = readLayout(before);
+  if (isCoverageRefusalV2(source)) return source;
+
+  const lost = new Set<string>();
+  const visuals: PlacedVisual[] = [];
+  // A surviving visual's last word and the start of the next passage both
+  // constrain its range; the existing layout supplies the actual boundaries.
+  const boundaries = [...source.visuals.map((visual) => visual.start),
+    ...source.passages.map((passage) => passage.start)].sort((a, b) => a - b);
+  for (const visual of source.visuals) {
+    const start = position.get(oldWords[visual.start]!.id);
+    if (start === undefined) {
+      if (visual.slot.payload.kind !== "visual") return unresolved("A non-media visual lost its start word.", visual.slot.id);
+      lost.add(visual.slot.id);
+      waiting.push({ slotId: visual.slot.id, payload: visual.slot.payload, version: visual.slot.version });
+      continue;
+    }
+    // Include new words introduced inside the old interval. If a following
+    // boundary's original token survives, stop exactly at that token.
+    const following = boundaries.find((boundary) => boundary >= visual.end);
+    const nextBoundary = following === undefined ? undefined : position.get(oldWords[following]?.id ?? "");
+    const last = oldWords.slice(visual.start, visual.end).reduce<number | undefined>((latest, token) => {
+      const at = position.get(token.id);
+      return at === undefined ? latest : Math.max(latest ?? at, at);
+    }, undefined);
+    const end = nextBoundary !== undefined && nextBoundary > start
+      ? nextBoundary : following === undefined ? newWords.length : last === undefined ? start + 1 : last + 1;
+    if (end <= start) return unresolved("A surviving picture would have no words left.", visual.slot.id);
+    visuals.push({ ...visual, start, end });
+  }
+
+  if (visuals.some((visual) => visual.parentId && lost.has(visual.parentId))) {
+    return unresolved("A cutaway's parent lost its cue word; preserve the cutaway by revising the edit.");
+  }
+  // A return cannot be silently rebound to a different spoken word.
+  for (const slot of sequence.slots) {
+    if (slot.kind === "return" && slot.inpoint && !position.has(slot.inpoint.tokenId)) {
+      return unresolved("The word where a cutaway returns was deleted.", slot.id);
+    }
+  }
+
+  const passages: Passage[] = source.passages.flatMap((passage) => {
+    const starts = oldWords.slice(passage.start, passage.end)
+      .map((token) => position.get(token.id)).filter((index): index is number => index !== undefined);
+    return starts.length ? [{ ...passage, start: Math.min(...starts), end: Math.max(...starts) + 1 }] : [];
+  });
+  const slots = buildSlots(after, { wordCount: newWords.length, visuals, passages }, visuals);
+  if (isCoverageRefusalV2(slots)) return slots;
+  // A reflow that silently changes a cutaway's return cue is not a safe
+  // splice, even when the original cue token still happens to exist.
+  for (const prior of sequence.slots) {
+    if (prior.kind !== "return") continue;
+    const rebuilt = slots.find((slot) => slot.id === prior.id);
+    if (rebuilt?.kind !== "return" || rebuilt.inpoint?.tokenId !== prior.inpoint?.tokenId) {
+      return unresolved("The cutaway's return cue cannot be preserved exactly through this edit.", prior.id);
+    }
+  }
+  return { slots, unattachedVisuals: waiting };
+}
+
 /**
  * Recalculate coverage after words move between rows (split and join, S03 D97).
  *

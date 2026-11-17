@@ -147,6 +147,12 @@ export function retypeVisualPayloadV2(old: RetypablePayload, to: RetypeTarget): 
       dropped.push({ what: "source_audio", message: "The quiet source sound was dropped, because only footage carries sound." });
     }
   }
+  // A name describes this placement of a particular source, not an arbitrary
+  // future choice. Keep it through source-preserving retypes (including trims).
+  if (sourceKept && previous?.displayName && payload.kind === "visual" &&
+    (payload.pictureKind === "clip" || payload.pictureKind === "image")) {
+    payload.displayName = previous.displayName;
+  }
   if (sameAuthoringJsonV2(payload, old)) return unchanged(label);
   return { ok: true, payload, dropped };
 }

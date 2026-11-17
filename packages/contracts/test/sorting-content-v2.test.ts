@@ -73,6 +73,11 @@ function narration(doc: ScriptDocumentV2, rowId: string): NarrationBlockV2 {
   if (found?.type !== "narration") throw new Error("Missing narration fixture");
   return found;
 }
+function copiedNote(doc: ScriptDocumentV2, sourceId: string): NarrationBlockV2 {
+  const row = doc.activeDraft.blocks.find((item) => item.type === "narration" && item.stashOrigin?.sourceNoteRowId === sourceId);
+  if (row?.type !== "narration") throw new Error("Missing independent Stash note copy");
+  return row;
+}
 const activeIds = (doc: ScriptDocumentV2) => doc.activeDraft.blocks.map((item) => item.id);
 
 describe("content-editable Sorting", () => {
@@ -82,13 +87,14 @@ describe("content-editable Sorting", () => {
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "place_stash_rows", rowIds: [id(500)], destination: gap(id(300), null) });
     const placedSnapshot = trial.document;
-    const parent = narration(trial.document, id(500));
+    const parent = copiedNote(trial.document, id(500));
     apply(trial, { kind: "edit_row", rowId: parent.id, row: authored(parent) });
     const editedSnapshot = trial.document;
-    apply(trial, { kind: "stash_rows", rowIds: [id(500), id(600)], bundleId: id(8900) });
-    expect(trial.document.stashOutline?.map((entry) => [entry.rowId, entry.kind, entry.parentRowId])).toEqual([
-      [id(400), "note", null], [id(500), "row", null], [id(600), "clip", null],
-    ]);
+    apply(trial, { kind: "stash_rows", rowIds: [parent.id, id(600)], bundleId: id(8900) });
+    expect(trial.document.stashOutline?.find((entry) => entry.rowId === id(500))?.kind).toBe("note");
+    expect(trial.document.stashOutline?.find((entry) => entry.rowId === parent.id)?.kind).toBe("row");
+    expect(narration(trial.document, parent.id).text).toMatch(/^EDIT/);
+    expect(narration(trial.document, id(500)).stashChecklist?.completed).toBe(true);
     const pending = trial.preview();
     const snapshot = trial.serialize();
     if (outcome === "all") {
@@ -109,11 +115,13 @@ describe("content-editable Sorting", () => {
     expect(reloaded.ok).toBe(true);
     if (reloaded.ok) expect(reloaded.document).toEqual(result.document);
     const entries = result.document.stashOutline!;
-    expect(entries.find((entry) => entry.rowId === id(500))?.kind).toBe(outcome === "all" || outcome === "edits_only" ? "row" : "note");
-    expect(entries.find((entry) => entry.rowId === id(600))?.parentRowId).toBe(
-      outcome === "all" || outcome === "edits_only" || outcome === "sorting_only" ? null : id(500),
-    );
-    expect(narration(result.document, id(500)).text).toBe(outcome === "all" || outcome === "edits_only" ? `EDIT ${row(500).text}` : row(500).text);
+    expect(entries.find((entry) => entry.rowId === id(500))?.kind).toBe("note");
+    expect(entries.find((entry) => entry.rowId === parent.id)?.kind === "row").toBe(outcome === "all" || outcome === "edits_only");
+    expect(entries.some((entry) => entry.rowId === id(600))).toBe(outcome !== "edits_only");
+    expect(result.document.activeDraft.blocks.some((row) => row.id === id(600))).toBe(outcome === "edits_only");
+    expect(narration(result.document, id(500)).text).toBe(row(500).text);
+    expect(narration(result.document, id(500)).stashChecklist?.completed ?? false).toBe(outcome === "all" || outcome === "edits_only");
+    if (outcome === "all" || outcome === "edits_only") expect(narration(result.document, parent.id).text).toMatch(/^EDIT/);
     expect(baseline).toEqual(original);
   });
 
@@ -121,18 +129,18 @@ describe("content-editable Sorting", () => {
     const baseline = seed();
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "place_stash_rows", rowIds: [id(500)], destination: gap(id(300), null) });
-    const parent = narration(trial.document, id(500));
+    const parent = copiedNote(trial.document, id(500));
     apply(trial, { kind: "edit_row", rowId: parent.id, row: authored(parent) });
-    apply(trial, { kind: "stash_rows", rowIds: [id(500), id(600)], bundleId: id(8910),
+    apply(trial, { kind: "stash_rows", rowIds: [parent.id, id(600)], bundleId: id(8910),
       destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: id(400) } });
     const resumed = resumeSortingTrialV2(trial.serialize());
     expect(resumed.document).toEqual(trial.document);
     const result = outcome === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, outcome);
     expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
-    expect(result.document.stashOutline?.map((entry) => entry.rowId)).toEqual(
-      outcome === "all" || outcome === "sorting_only" ? [id(500), id(600), id(400)] : [id(400), id(500), id(600)],
-    );
+    expect(result.document.stashOutline?.find((entry) => entry.rowId === id(500))?.kind).toBe("note");
+    expect(result.document.stashOutline?.some((entry) => entry.rowId === parent.id)).toBe(outcome === "all" || outcome === "edits_only");
+    if (outcome === "all") expect(result.document.stashOutline?.[0]?.rowId).toBe(parent.id);
   });
 
   it("keeps attached-footage trims authored while parent-only placement remains layout", () => {
@@ -140,13 +148,15 @@ describe("content-editable Sorting", () => {
     const trial = createSortingTrialV2(doc);
     apply(trial, { kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out" });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(null, null), includeDescendants: false });
+    const copyId = copiedNote(trial.document, note.id).id;
     const saved = trial.serialize();
     const edits = resumeSortingTrialV2(saved).accept(doc, "edits_only");
     const sorting = resumeSortingTrialV2(saved).accept(doc, "sorting_only");
     expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
     expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
     expect(edits.document.stash?.flatMap((bundle) => bundle.rows).some((row) => row.id === note.id)).toBe(true);
-    expect(sorting.document.activeDraft.blocks.some((row) => row.id === note.id)).toBe(true);
+    expect(edits.document.activeDraft.blocks.some((row) => row.id === copyId)).toBe(true);
+    expect(sorting.document.activeDraft.blocks.some((row) => row.id === copyId)).toBe(false);
     expect(narration(edits.document, note.id).attachedFootage?.clip.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 84 });
     expect(narration(sorting.document, note.id).attachedFootage?.clip.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 24, durationFrames: 36 });
     expect(validateScriptDocumentV2(edits.document).valid).toBe(true);
@@ -162,17 +172,17 @@ describe("content-editable Sorting", () => {
     expect(original.text).toBe(raw);
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "place_stash_rows", rowIds: [id(800)], destination: gap(id(300), null) });
-    const placed = narration(trial.document, id(800));
-    expect(placed.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
-    apply(trial, { kind: "make_spoken", blockId: placed.id, startOffset: 0, endOffset: raw.length });
-    const spoken = narration(trial.document, id(800));
+    const placed = copiedNote(trial.document, id(800));
+    expect(placed.stashOrigin).toMatchObject({ kind: "note", sourceNoteRowId: id(800), returnEligible: true });
+    // D84: copying is itself spoken; literal brackets need no Make spoken step.
+    const spoken = placed;
     expect(spoken.text).toBe(raw);
     expect(spoken.plainDirection).toBeUndefined();
     expect(spoken.tokens.every((token) => token.spoken === undefined)).toBe(true);
     apply(trial, { kind: "edit_row", rowId: spoken.id, row: {
       ...spoken, text: rewritten, tokens: [{ ...spoken.tokens[0]!, value: rewritten, startOffset: 0, endOffset: rewritten.length }], version: spoken.version + 1,
     } });
-    apply(trial, { kind: "move_rows", rowIds: [id(100)], destination: gap(id(300), id(800)) });
+    apply(trial, { kind: "move_rows", rowIds: [id(100)], destination: gap(id(300), placed.id) });
     const expectedPending = trial.preview();
     const saved = trial.serialize();
     const resumed = resumeSortingTrialV2(saved);
@@ -187,30 +197,26 @@ describe("content-editable Sorting", () => {
     expect(afterLoad.ok).toBe(true);
     if (!afterLoad.ok) return;
     expect(afterLoad.document).toEqual(result.document);
-    const note = narration(afterLoad.document, id(800));
+    const source = narration(afterLoad.document, id(800));
+    expect(source.text).toBe(raw);
+    expect(source.plainDirection).toBe(true);
     if (outcome === "all") {
-      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100), id(800)]);
-      expect(note).toMatchObject({ text: rewritten, stashOrigin: { kind: "note", returnEligible: false } });
-      expect(note.plainDirection).toBeUndefined();
+      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100), placed.id]);
+      expect(narration(result.document, placed.id)).toMatchObject({ text: rewritten, stashOrigin: { kind: "note", returnEligible: false } });
+      expect(narration(result.document, placed.id).plainDirection).toBeUndefined();
     } else if (outcome === "edits_only") {
-      expect(activeIds(result.document)).toEqual(activeIds(baseline));
-      expect(note.text).toBe(rewritten);
-      expect(note.plainDirection).toBeUndefined();
-      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("row");
-      expect(note.stashOrigin).toBeUndefined();
+      expect(activeIds(result.document)).toEqual([...activeIds(baseline), placed.id]);
+      expect(narration(result.document, placed.id).text).toBe(rewritten);
+      expect(narration(result.document, placed.id).plainDirection).toBeUndefined();
+      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("note");
+      expect(source.stashChecklist?.completed).toBe(true);
     } else if (outcome === "sorting_only") {
-      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100), id(800)]);
-      expect(note.text).toBe(raw);
-      expect(note.plainDirection).toBe(true);
-      expect(note.tokens.every((token) => token.spoken === false)).toBe(true);
-      expect(note.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
-      const returned = applyRowEditV2(result.document, result.document.rowEditRevision ?? 0, { kind: "stash_rows", rowIds: [id(800)], bundleId: id(8801) });
-      expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
-      expect(narration(returned.document, id(800))).toEqual(original);
-      expect(returned.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("note");
+      expect(activeIds(result.document)).toEqual([id(200), id(300), id(100)]);
+      expect(source).toEqual(original);
+      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(800))?.kind).toBe("note");
     } else {
       expect(result.document).toEqual(baseline);
-      expect(note).toEqual(original);
+      expect(source).toEqual(original);
     }
     expect(baseline).toEqual(baselineCopy);
   });
@@ -283,12 +289,13 @@ describe("content-editable Sorting", () => {
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "place_stash_rows", rowIds: [id(500)], destination: gap(id(300), null) });
     const original = trial.document;
+    const copyId = copiedNote(original, id(500)).id;
     const footage = original.activeDraft.blocks.find((item) => item.id === id(600));
     if (footage?.type !== "visual_only") throw new Error("Missing clip");
     apply(trial, { kind: "edit_row", rowId: footage.id, row: { ...footage, version: 2, payload: { ...footage.payload, framingPolicy: "cover" } } });
     expect(trial.undo().ok).toBe(true);
     expect({ ...trial.document, rowEditRevision: 0 }).toEqual({ ...original, rowEditRevision: 0 });
-    apply(trial, { kind: "stash_rows", rowIds: [id(500), id(600)], bundleId: id(8300) });
+    apply(trial, { kind: "stash_rows", rowIds: [copyId, id(600)], bundleId: id(8300) });
     const accepted = trial.accept(baseline, "sorting_only");
     expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
     expect(accepted.document.stashOutline).toEqual(baseline.stashOutline);
@@ -302,9 +309,10 @@ describe("content-editable Sorting", () => {
     apply(trial, { kind: "create_row", row: row(700), destination: gap(id(300), null) });
     apply(trial, { kind: "move_rows", rowIds: [id(100)], destination: gap(id(700), null) });
     apply(trial, { kind: "place_stash_rows", rowIds: [id(400), id(500)], destination: gap(id(200), id(300)) });
+    const copied400 = copiedNote(trial.document, id(400));
+    const copied500 = copiedNote(trial.document, id(500));
     apply(trial, { kind: "edit_row", rowId: id(100), row: authored(narration(trial.document, id(100))) });
-    const note = narration(trial.document, id(400));
-    apply(trial, { kind: "make_spoken", blockId: note.id, startOffset: note.tokens[0]!.startOffset, endOffset: note.tokens.at(-1)!.endOffset });
+    // Each copy is already spoken (D84); source notes remain saved and unchanged.
     const footage = trial.document.activeDraft.blocks.find((item) => item.id === id(600));
     if (footage?.type !== "visual_only") throw new Error("Missing converted footage");
     apply(trial, { kind: "edit_row", rowId: footage.id, row: { ...footage, visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 10, durationFrames: 24 } }, version: 2 } });
@@ -325,24 +333,32 @@ describe("content-editable Sorting", () => {
     expect(validateScriptDocumentV2(result.document).valid).toBe(true);
     expect(baseline).toEqual(original);
     if (outcome === "discard") { expect(result.document).toEqual(baseline); return; }
-    expect(result.document.rowEditRevision).toBe((baseline.rowEditRevision ?? 0) + 1);
+    expect(result.document.rowEditRevision).toBe((baseline.rowEditRevision ?? 0) + (outcome === "sorting_only" ? 0 : 1));
     if (outcome === "all") {
-      expect(activeIds(result.document)).toEqual([id(400), id(500), id(600), id(300), id(700), id(100)]);
+      expect(activeIds(result.document)).toEqual([copied400.id, copied500.id, id(600), id(300), id(700), id(100)]);
       expect(narration(result.document, id(100)).text).toMatch(/^EDIT/);
-      expect(narration(result.document, id(400)).stashOrigin?.returnEligible).toBe(false);
+      expect(narration(result.document, copied400.id).stashOrigin?.sourceNoteRowId).toBe(id(400));
+      expect(narration(result.document, id(400)).stashChecklist?.completed).toBe(true);
     } else if (outcome === "edits_only") {
-      expect(activeIds(result.document)).toEqual([id(100), id(300), id(700)]);
+      expect(activeIds(result.document)).toContain(copied400.id);
+      expect(activeIds(result.document)).toContain(copied500.id);
+      expect(activeIds(result.document)).toContain(id(600));
+      expect(activeIds(result.document)).not.toContain(id(200));
       expect(narration(result.document, id(100)).text).toMatch(/^EDIT/);
       expect(narration(result.document, id(400)).text).toBe(row(400).text);
-      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(400))?.kind).toBe("row");
-      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(600))).toMatchObject({ kind: "row", parentRowId: id(500) });
+      expect(result.document.stashOutline?.find((entry) => entry.rowId === id(400))?.kind).toBe("note");
+      expect(narration(result.document, id(400)).stashChecklist?.completed).toBe(true);
+      expect(result.document.stashOutline?.some((entry) => entry.rowId === id(600))).toBe(false);
     } else {
-      // The move's only destination was the discarded new row: it is removed too.
-      expect(activeIds(result.document)).toEqual([id(100), id(200), id(400), id(500), id(600), id(300)]);
+      // Sorting-only cannot retain an authored note-copy gesture or its clip.
+      expect(activeIds(result.document).sort()).toEqual([id(100), id(200), id(300)].sort());
+      expect(activeIds(result.document)).not.toContain(copied400.id);
+      expect(activeIds(result.document)).not.toContain(copied500.id);
       expect(narration(result.document, id(100)).text).toBe(row(100).text);
       expect(narration(result.document, id(400)).text).toBe(row(400).text);
       expect(narration(result.document, id(400)).plainDirection).toBe(true);
-      expect(narration(result.document, id(400)).stashOrigin?.returnEligible).toBe(true);
+      expect(narration(result.document, id(400)).stashChecklist?.completed ?? false).toBe(false);
+      expect(result.document.stashOutline?.some((entry) => entry.rowId === id(600))).toBe(true);
     }
   });
 
@@ -350,10 +366,12 @@ describe("content-editable Sorting", () => {
     const baseline = seed();
     const trial = createSortingTrialV2(baseline);
     const snapshots: ScriptDocumentV2[] = [trial.document];
+    apply(trial, { kind: "place_stash_rows", rowIds: [id(400)], destination: gap(id(300), null), includeDescendants: false });
+    snapshots.push(trial.document);
+    const copy = copiedNote(trial.document, id(400));
     for (const command of [
-      { kind: "place_stash_rows", rowIds: [id(400)], destination: gap(id(300), null) },
-      { kind: "edit_row", rowId: id(400), row: authored(narration(baseline, id(400))) },
-      { kind: "stash_rows", rowIds: [id(400)], bundleId: id(8100) },
+      { kind: "edit_row", rowId: copy.id, row: authored(copy) },
+      { kind: "stash_rows", rowIds: [copy.id], bundleId: id(8100) },
       { kind: "create_row", row: row(700), destination: gap(id(300), null) },
       { kind: "delete_rows", rowIds: [id(200)] },
     ] satisfies RowEditCommandV2[]) { apply(trial, command); snapshots.push(trial.document); }

@@ -66,7 +66,7 @@ describe("Sorting selective projections", () => {
     }
     expect(doc.stash?.flatMap((bundle) => bundle.rows).find((row) => row.id === note.id)).toEqual(note);
   });
-  it("promotes untouched children of an edited saved parent in edits-only without changing baseline", () => {
+  it("keeps untouched descendants under a retained source note when edits-only accepts its edited copy", () => {
     const parent = row(10);
     const child = clip(20);
     let baseline = apply(document(), {
@@ -76,27 +76,28 @@ describe("Sorting selective projections", () => {
       kind: "create_stash_clip", bundleId: id(31), row: child, sectionId: null, parentRowId: parent.id, afterRowId: null,
     });
     const state = createSortingProjectionV2(baseline);
-    const placement: RowEditCommandV2 = { kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null) };
+    const placement: RowEditCommandV2 = { kind: "place_stash_rows", rowIds: [parent.id], destination: gap(null, null), includeDescendants: false };
     const placed = apply(baseline, placement);
     const afterPlace = updateSortingProjectionV2(state, baseline, placed, placement);
-    const placedParent = placed.activeDraft.blocks.find((block) => block.id === parent.id);
-    if (placedParent?.type !== "narration") throw new Error("Missing converted note");
+    const placedParent = placed.activeDraft.blocks.find((block) => block.type === "narration" && block.stashOrigin?.sourceNoteRowId === parent.id);
+    if (placedParent?.type !== "narration") throw new Error("Missing copied note");
     const edited = apply(placed, {
-      kind: "edit_row", rowId: parent.id,
+      kind: "edit_row", rowId: placedParent.id,
       row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0]!, value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
     });
     const stateWithEdit = updateSortingProjectionV2(afterPlace, placed, edited, {
-      kind: "edit_row", rowId: parent.id,
+      kind: "edit_row", rowId: placedParent.id,
       row: { ...placedParent, text: "Edited parent", tokens: [{ ...placedParent.tokens[0]!, value: "Edited parent", startOffset: 0, endOffset: 13 }], version: 2 },
     });
 
     const projected = projectSortingDocumentV2(stateWithEdit, edited, "edits_only");
     expect(projected.ok, JSON.stringify(projected.diagnostics)).toBe(true);
     expect(projected.document.stashOutline).toEqual([
-      { rowId: parent.id, kind: "row", parentRowId: null, sectionId: null },
-      { rowId: child.id, kind: "clip", parentRowId: null, sectionId: null },
+      { rowId: parent.id, kind: "note", parentRowId: null, sectionId: null },
+      { rowId: child.id, kind: "clip", parentRowId: parent.id, sectionId: null },
     ]);
-    expect(projected.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === parent.id)).toMatchObject({ text: "Edited parent" });
+    expect(projected.document.activeDraft.blocks.find((saved) => saved.id === placedParent.id)).toMatchObject({ text: "Edited parent" });
+    expect(projected.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === parent.id)).toMatchObject({ text: parent.text, stashChecklist: { completed: true } });
     expect(baseline.stashOutline?.find((entry) => entry.rowId === child.id)?.parentRowId).toBe(parent.id);
   });
 

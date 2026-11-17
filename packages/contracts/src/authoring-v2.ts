@@ -17,6 +17,13 @@ import type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
 export type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
 
 export type WordBoundaryAnchorV2 = WordInpointAnchor | WordAudibleEndAnchor;
+export {
+  stashChecklistV2,
+  stashNoteContentStampV2,
+  copyStashNoteAsSpokenV2,
+  projectStashChecklistV2,
+} from "./authoring-v2-stash-checklist.js";
+export type { StashChecklistProjectionV2 } from "./authoring-v2-stash-checklist.js";
 
 export interface AuthoringDiagnosticV2 {
   code: string;
@@ -443,6 +450,12 @@ export {
   type CommentOperationV2, type CommentStateV2, type CommentResultV2,
 } from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
+export {
+  spliceNarrationTextV2,
+  type NarrationTextReplacementV2,
+  type NarrationTextIdentityV2,
+  type NarrationTextSpliceResultV2,
+} from "./authoring-v2-narration-text.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
 export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {

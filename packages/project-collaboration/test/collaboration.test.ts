@@ -267,9 +267,47 @@ describe("live collaboration", () => {
     expect(sameJson(content(saved.document), content(documentOf(b)))).toBe(true);
   });
 
+  it("saves concurrent deletions that leave a valid one-picture row with no narration", async () => {
+    const h = await harness(["hello world"]);
+    const [row] = h.rowIds as [string];
+    const a = client();
+    const b = client();
+    const la = await link(h.hub, h.projectId, h.owner, a);
+    const lb = await link(h.hub, h.projectId, h.editor, b);
+    await settle(la, lb);
+
+    editRow(a, row, () => "world");
+    editRow(b, row, () => "hello ");
+    await settle(la, lb);
+    expect(rowText(a, row).trim()).toBe("");
+    expect(a.status?.materialization).toBe("current");
+    const saved = await h.documents.getDocument(h.projectId, h.owner);
+    const block = saved.document.activeDraft.blocks[1] as NarrationBlockV2;
+    expect(block.text).toBe("");
+    expect(block.tokens).toEqual([]);
+    expect(block.primaryVisualSequence?.slots).toHaveLength(1);
+    expect(block.unattachedVisuals ?? []).toEqual([]);
+    expect(sameJson(content(saved.document), content(documentOf(a)))).toBe(true);
+  });
+
   it("holds the last good saved revision while a merge cannot be saved as a script at all", async () => {
     const h = await harness(["hello world"]);
     const [row] = h.rowIds as [string];
+    // A wordless single-picture row is now valid (#580). Seed a valid waiting
+    // visual so each deletion is individually storable, but their merged
+    // wordless row cannot silently discard or store that extra picture.
+    const before = await h.documents.getDocument(h.projectId, h.owner);
+    const seeded = structuredClone(before.document);
+    const seededRow = seeded.activeDraft.blocks[1] as NarrationBlockV2;
+    const picture = seededRow.primaryVisualSequence?.slots[0];
+    if (!picture || picture.kind !== "content" || picture.payload.kind !== "visual") {
+      throw new Error("Expected the fixture's single base picture");
+    }
+    const waiting = { slotId: randomUUID(), payload: { ...picture.payload, payloadId: randomUUID() }, version: 1 };
+    seededRow.unattachedVisuals = [waiting];
+    await h.documents.putDocument(h.projectId, h.owner, {
+      expectedRevision: before.revision, clientMutationId: randomUUID(), document: seeded,
+    });
     const a = client();
     const b = client();
     const la = await link(h.hub, h.projectId, h.owner, a);
@@ -280,14 +318,16 @@ describe("live collaboration", () => {
     editRow(a, row, () => "world");
     editRow(b, row, () => "hello ");
     await settle(la, lb);
-    // Both deletions merge into a narration row with no words: not a storable script.
+    // Both deletions merge into a wordless row with waiting media: not storable.
     expect(rowText(a, row).trim()).toBe("");
+    expect((documentOf(a).activeDraft.blocks[1] as NarrationBlockV2).unattachedVisuals).toEqual([waiting]);
     expect(a.status?.materialization).toBe("unstorable");
     expect(a.status?.buildable).toBe(false);
     expect(a.status?.diagnostics.length).toBeGreaterThan(0);
     const held = await h.documents.getDocument(h.projectId, h.owner);
     expect(held.revision).toBeGreaterThanOrEqual(start.revision);
     expect((held.document.activeDraft.blocks[1] as NarrationBlockV2).tokens.length).toBeGreaterThan(0);
+    expect((held.document.activeDraft.blocks[1] as NarrationBlockV2).unattachedVisuals).toEqual([waiting]);
     expect(a.status?.documentRevision).toBe(held.revision);
 
     editRow(b, row, (text) => text + "back again");
@@ -295,6 +335,7 @@ describe("live collaboration", () => {
     expect(a.status?.materialization).toBe("current");
     const saved = await h.documents.getDocument(h.projectId, h.owner);
     expect((saved.document.activeDraft.blocks[1] as NarrationBlockV2).text).toBe(rowText(a, row));
+    expect((saved.document.activeDraft.blocks[1] as NarrationBlockV2).unattachedVisuals).toEqual([waiting]);
     expect(rowText(a, row)).toContain("back again");
   });
 

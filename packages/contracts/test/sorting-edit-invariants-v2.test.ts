@@ -166,17 +166,24 @@ describe("Sorting row-edit invariants", () => {
       expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
     };
     applied({ kind: "place_stash_rows", rowIds: [source.id], destination: gap(id(500), null) });
+    let placed = trial.document.activeDraft.blocks.find((block) =>
+      block.type === "narration" && block.stashOrigin?.sourceNoteRowId === source.id);
+    if (placed?.type !== "narration") throw new Error("Independent note copy disappeared");
+    const copyId = placed.id;
+    expect(copyId).not.toBe(source.id);
+    expect(trial.document.stashOutline?.find((entry) => entry.rowId === source.id)?.kind).toBe("note");
+    expect(placed.plainDirection).toBe(raw.length === 0 ? true : undefined);
     if (raw.length > 0 && caseIndex % 2 === 1) {
-      applied({ kind: "make_spoken", blockId: source.id, startOffset: 0, endOffset: raw.length });
+      applied({ kind: "make_stage_direction", blockId: copyId, startOffset: 0, endOffset: raw.length });
+      placed = trial.document.activeDraft.blocks.find((block) => block.id === copyId);
     }
-    const placed = trial.document.activeDraft.blocks.find((block) => block.id === source.id);
-    if (placed?.type !== "narration") throw new Error("Placed note disappeared");
+    if (placed?.type !== "narration") throw new Error("Edited copy disappeared");
     const rewritten = `${raw}! ${caseIndex}`;
-    applied({ kind: "edit_row", rowId: source.id, row: { ...placed, text: rewritten,
+    applied({ kind: "edit_row", rowId: copyId, row: { ...placed, text: rewritten,
       tokens: [{ id: placed.tokens[0]?.id ?? id(10000), value: rewritten, startOffset: 0, endOffset: rewritten.length,
         ...(placed.plainDirection === true ? { spoken: false as const } : {}) }], version: placed.version + 1,
     } });
-    applied({ kind: "move_rows", rowIds: [id(100)], destination: gap(source.id, null) });
+    applied({ kind: "move_rows", rowIds: [id(100)], destination: gap(copyId, null) });
     const snapshot = trial.serialize();
     const accepted = [
       resumeSortingTrialV2(snapshot).accept(baseline, "all"),
@@ -189,18 +196,27 @@ describe("Sorting row-edit invariants", () => {
       expect(validateScriptDocumentV2(result.document).valid).toBe(true);
     }
     const note = (result: ScriptDocumentV2) => {
-      const found = [...result.activeDraft.blocks, ...(result.stash ?? []).flatMap((bundle) => bundle.rows)].find((block) => block.id === source.id);
-      if (found?.type !== "narration") throw new Error("Missing literal note");
+      const found = result.stash?.flatMap((bundle) => bundle.rows).find((block) => block.id === source.id);
+      if (found?.type !== "narration") throw new Error("Missing retained source note");
       return found;
     };
-    expect(note(accepted[0]!.document).text).toBe(rewritten);
-    expect(note(accepted[1]!.document).text).toBe(rewritten);
-    expect(accepted[1]!.document.stashOutline?.find((entry) => entry.rowId === source.id)?.kind).toBe("row");
-    expect(accepted[1]!.document.activeDraft.blocks.map((block) => block.id)).toEqual(baseline.activeDraft.blocks.map((block) => block.id));
-    expect(note(accepted[2]!.document).text).toBe(raw);
-    expect(note(accepted[2]!.document).plainDirection).toBe(true);
-    expect(note(accepted[2]!.document).stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
-    expect(note(accepted[3]!.document).plainDirection).toBe(true);
+    for (const result of accepted) {
+      expect(note(result.document).text).toBe(raw);
+      expect(note(result.document).plainDirection).toBe(true);
+      expect(result.document.stashOutline?.find((entry) => entry.rowId === source.id)?.kind).toBe("note");
+    }
+    for (const outcome of [0, 1]) {
+      const result = accepted[outcome]!.document;
+      expect(result.activeDraft.blocks.find((block) => block.id === copyId)).toMatchObject({ text: rewritten });
+      expect(note(result).stashChecklist?.completed).toBe(true);
+    }
+    for (const outcome of [2, 3]) {
+      const result = accepted[outcome]!.document;
+      expect(result.activeDraft.blocks.some((block) => block.id === copyId)).toBe(false);
+      expect(note(result).stashChecklist?.completed ?? false).toBe(false);
+    }
+    expect(accepted[0]!.document.activeDraft.blocks.map((block) => block.id).indexOf(id(100)))
+      .toBe(accepted[0]!.document.activeDraft.blocks.map((block) => block.id).indexOf(copyId) + 1);
     expect(accepted[3]!.document).toEqual(baseline);
   });
   it.each(Array.from({ length: 65 }, (_, index) => index))("keeps content-only acceptance outcomes consistent for sequence %i", (caseIndex) => {

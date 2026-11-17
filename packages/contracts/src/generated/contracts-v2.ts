@@ -30,6 +30,7 @@ export type NarrationBlockV2 = {
   state: "active" | "excluded";
   notes: string[];
   stashOrigin?: StashOriginV2;
+  stashChecklist?: StashChecklistV2;
   version: number;
   /**
    * Explicitly owned footage clip; never an ordinary Stash outline row. The contained clip row is authoritative until converted into an active visual occurrence.
@@ -45,6 +46,10 @@ export type NarratedVisualPayloadV2 = {
 } & {
   kind: "visual";
   payloadId: string;
+  /**
+   * Optional name for this visual placement only, never the referenced media source.
+   */
+  displayName?: string;
   pictureKind:
     | "unresolved_visual"
     | "clip"
@@ -148,6 +153,11 @@ export type VisualOnlyBlockV2 = {
   orderKey: string;
   payload: StandaloneVisualPayloadV2;
   visualOnlyTiming: VisualOnlyTimingV2;
+  /**
+   * @minItems 1
+   */
+  additionalVisuals?: [VisualOnlyAdditionalV2, ...VisualOnlyAdditionalV2[]];
+  stashChecklist?: StashChecklistV2;
   stashOrigin?: StashOriginV2;
   version: number;
   researchClip?: ResearchClipSnapshotV2;
@@ -158,6 +168,10 @@ export type StandaloneVisualPayloadV2 = {
 } & {
   kind: "visual";
   payloadId: string;
+  /**
+   * Optional name for this visual placement only, never the referenced media source.
+   */
+  displayName?: string;
   pictureKind:
     | "clip"
     | "image"
@@ -187,6 +201,19 @@ export type StandaloneVisualPayloadV2 = {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+};
+export type VisualOnlyAdditionalV2 = {
+  [k: string]: unknown;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
 };
 export type SupportingItemV2 = {
   [k: string]: unknown;
@@ -943,6 +970,19 @@ export interface StashOriginV2 {
   originalParentContext?: StashParentOriginContextV2;
   returnEligible: boolean;
   /**
+   * Stable original Stash note identity for a copied spoken row; a missing source is not resurrected.
+   */
+  sourceNoteRowId?: string;
+  /**
+   * Exact frozen authored source/attachment content at placement, excluding checklist toggles and organization.
+   */
+  sourceContentStamp?: string;
+  /**
+   * Whether this insertion was the first unchecked-to-checked transition.
+   */
+  completionCaused?: boolean;
+  completionManualRevision?: number;
+  /**
    * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
    */
   originalAttachedNoteRowId?: string;
@@ -976,6 +1016,14 @@ export interface StashParentOriginContextV2 {
    * Original peers after the note parent, nearest first.
    */
   followingSiblingRowIds: string[];
+}
+/**
+ * Manual toggles and a first automatic check are separate persisted events. Returns never count active copies.
+ */
+export interface StashChecklistV2 {
+  completed: boolean;
+  manualRevision: number;
+  automaticCopyId?: string;
 }
 export interface AttachedFootageV2 {
   clip: VisualOnlyBlockV2;

@@ -32,6 +32,7 @@ import type {
   TimelineManifestV2,
   TransitionPlanV2,
   VisualOnlyBlockV2,
+  VisualOnlyAdditionalV2,
   VisualSequenceResolutionV2,
 } from "./generated/contracts-v2.js";
 import genericTorso from "./assets/generic-torso-v1.json" with { type: "json" };
@@ -121,6 +122,8 @@ interface TimedRow {
 interface VisualOnlyTimedRow {
   kind: "visual_only";
   block: VisualOnlyBlockV2;
+  /** Absent for the original first visual, preserving legacy event identities. */
+  visual?: VisualOnlyAdditionalV2;
   startFrame: number;
   durationFrames: number;
 }
@@ -317,14 +320,14 @@ function unresolvedResearchMedia(document: ScriptDocumentV2): CompileDiagnosticV
         };
       }
     }
-    const clip = block.type === "visual_only" ? block :
-      block.type === "narration" && block.state === "active" ? block.attachedFootage?.clip : undefined;
-    if (clip?.researchClip && (clip.payload.pictureKind !== "clip" || !clip.frameBinding ||
+    const clips = block.type === "visual_only" ? [block, ...block.additionalVisuals ?? []] :
+      block.type === "narration" && block.state === "active" && block.attachedFootage ? [block.attachedFootage.clip] : [];
+    for (const clip of clips) if (clip.researchClip && (clip.payload.pictureKind !== "clip" || !clip.frameBinding ||
       !clip.visualOnlyTiming.selectedSourceRange)) {
       return {
         code: "RESEARCH_MEDIA_UNRESOLVED",
         message: "This Research-logged clip has no evidenced Timeline media/frame binding and cannot be timed, prepared or built.",
-        jsonPath: `/activeDraft/blocks/${index}`, entityId: clip.id,
+        jsonPath: `/activeDraft/blocks/${index}`, entityId: block.id,
       };
     }
     if (block.type === "narration" && block.state === "active" &&
@@ -390,27 +393,31 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
   };
   for (const block of active) {
     if (block.type === "visual_only") {
-      const timing = block.visualOnlyTiming;
-      let durationFrames: number;
-      try {
-        if (timing.selectedSourceRange) {
-          const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === block.payload.payloadId);
-          const sourceRate = descriptor ? rateFraction(descriptor.logicalSourceBounds.frameRate) : null;
-          if (!sourceRate) throw new RangeError("visual-only selected source duration has no exact source-rate descriptor");
-          const selected = timing.selectedSourceRange;
-          if (!Number.isSafeInteger(selected.startFrame) || !Number.isSafeInteger(selected.durationFrames) || selected.durationFrames <= 0) throw new RangeError("visual-only selected source range is invalid");
-          const targetRate = rateFraction(dependencies.timeline.frameRate);
-          durationFrames = safe(ceil(BigInt(selected.durationFrames) * sourceRate.d * targetRate.n, sourceRate.n * targetRate.d), "visual-only duration");
-        } else {
-          const durationMs = timing.durationOverrideMs ?? dependencies.authoringDefaults.visualOnlyStillDurationMs;
-          if (!Number.isSafeInteger(durationMs) || durationMs <= 0) throw new RangeError("visual-only still duration must be a positive safe integer");
-          durationFrames = safe(ceil(BigInt(durationMs) * BigInt(dependencies.timeline.frameRate.numerator), 1000n * BigInt(dependencies.timeline.frameRate.denominator)), "visual-only duration");
+      const visuals: Array<VisualOnlyAdditionalV2 | undefined> = [undefined, ...block.additionalVisuals ?? []];
+      for (const visual of visuals) {
+        const timing = visual?.visualOnlyTiming ?? block.visualOnlyTiming;
+        const payload = visual?.payload ?? block.payload;
+        let durationFrames: number;
+        try {
+          if (timing.selectedSourceRange) {
+            const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === payload.payloadId);
+            const sourceRate = descriptor ? rateFraction(descriptor.logicalSourceBounds.frameRate) : null;
+            if (!sourceRate) throw new RangeError("visual-only selected source duration has no exact source-rate descriptor");
+            const selected = timing.selectedSourceRange;
+            if (!Number.isSafeInteger(selected.startFrame) || !Number.isSafeInteger(selected.durationFrames) || selected.durationFrames <= 0) throw new RangeError("visual-only selected source range is invalid");
+            const targetRate = rateFraction(dependencies.timeline.frameRate);
+            durationFrames = safe(ceil(BigInt(selected.durationFrames) * sourceRate.d * targetRate.n, sourceRate.n * targetRate.d), "visual-only duration");
+          } else {
+            const durationMs = timing.durationOverrideMs ?? (block.additionalVisuals?.length ? 4000 : dependencies.authoringDefaults.visualOnlyStillDurationMs);
+            if (!Number.isSafeInteger(durationMs) || durationMs <= 0) throw new RangeError("visual-only still duration must be a positive safe integer");
+            durationFrames = safe(ceil(BigInt(durationMs) * BigInt(dependencies.timeline.frameRate.numerator), 1000n * BigInt(dependencies.timeline.frameRate.denominator)), "visual-only duration");
+          }
+          if (durationFrames <= 0) throw new RangeError("visual-only duration collapses to zero frames");
+          rows.push({ kind: "visual_only", block, ...(visual ? { visual } : {}), startFrame: cursor, durationFrames });
+          cursor = safe(BigInt(cursor) + BigInt(durationFrames), "timeline duration");
+        } catch (error) {
+          diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", error instanceof Error ? error.message : String(error), entity("block", block.id, "visualOnlyTiming"), undefined, ["repair_document"]));
         }
-        if (durationFrames <= 0) throw new RangeError("visual-only duration collapses to zero frames");
-        rows.push({ kind: "visual_only", block, startFrame: cursor, durationFrames });
-        cursor = safe(BigInt(cursor) + BigInt(durationFrames), "timeline duration");
-      } catch (error) {
-        diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", error instanceof Error ? error.message : String(error), entity("block", block.id, "visualOnlyTiming"), undefined, ["repair_document"]));
       }
       continue;
     }
@@ -554,7 +561,7 @@ function freezeRowTransitions(document: ScriptDocumentV2, dependencies: Compiler
     const block = row.block;
     if (block.type === "narration" && block.overlayEvents.length) throw new RangeError(`Row ${block.id} has overlays; its visible transition boundary is not a single primary-root pair`);
     const slot = block.type === "narration" && block.primaryVisualSequence?.slots.length === 1 ? block.primaryVisualSequence.slots[0] : null;
-    const payload = block.type === "visual_only" ? block.payload : slot?.kind === "content" && slot.relation.kind === "base" && slot.boundaryBefore.kind === "row_start" && slot.playoutPolicy === "match_structural_interval" ? slot.payload : null;
+    const payload = block.type === "visual_only" ? (block.additionalVisuals?.length ? null : block.payload) : slot?.kind === "content" && slot.relation.kind === "base" && slot.boundaryBefore.kind === "row_start" && slot.playoutPolicy === "match_structural_interval" ? slot.payload : null;
     if (!payload || payload.kind !== "visual" || payload.pictureKind !== "clip" || payload.audioPolicy !== "mute") {
       throw new RangeError(`Row ${block.id} needs one full-row, muted primary-root video clip for a native picture transition`);
     }
@@ -674,7 +681,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       const rowDiagnosticStart = diagnostics.length;
       const rowEvents: TimelineEventV2[] = [];
       const block = row.block;
-      const payload = block.payload;
+      const payload = row.visual?.payload ?? block.payload;
+      const timing = row.visual?.visualOnlyTiming ?? block.visualOnlyTiming;
       const range = { startFrame: row.startFrame, endFrame: safe(BigInt(row.startFrame) + BigInt(row.durationFrames), "visual-only end") };
       const eventId = stableId(`event:${document.id}:visual_only:${block.id}:${payload.payloadId}`);
       if (payload.pictureKind === "intentional_placeholder") {
@@ -682,13 +690,13 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
         rowEvents.push({ eventId, kind: "placeholder", trackId: dependencies.roles.primaryRootTrackId, trackRole: "primary_root", recordRange: range, provenance: { documentId: document.id, blockId: block.id, sequenceId: null, slotId: null, payloadId: payload.payloadId, overlayEventId: null, sourceId: null, originalSourceHash: null, deliveredSourceHash: null, timingMapHash: null, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null, pictureTreatment: { kind: "slate", purpose: "intentional", text } });
       } else {
         const descriptor = descriptorByPayload.get(payload.payloadId);
-        if (!descriptor || descriptor.owner.kind !== "visual_only_block" || descriptor.owner.blockId !== block.id || payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId || authoredSelectionMismatch(block.visualOnlyTiming.selectedSourceRange, descriptor)) {
+        if (!descriptor || descriptor.owner.kind !== "visual_only_block" || descriptor.owner.blockId !== block.id || payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== payload.source.mediaReferenceId || authoredSelectionMismatch(timing.selectedSourceRange, descriptor)) {
           diagnostics.push(diagnostic("MISSING_OCCURRENCE_BINDING", "The visual-only source does not have an exact descriptor for this block and payload.", entity("block", block.id, "occurrenceResolutions"), undefined, ["rebind_media"]));
         } else {
           if (payload.audioPolicy !== "mute" && !verifiedSourceAudioStream(descriptor)) diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "Enabled visual-only source audio has no single verified audio stream.", entity("occurrence", descriptor.payloadId, "sourceAudioStreamMappings"), undefined, ["rebind_media"]));
           const requirementKey = descriptor.preparedMediaRequirementKey;
           const binding = requirementKey ? prepared.get(requirementKey) : undefined;
-          const authoredSelection = block.visualOnlyTiming.selectedSourceRange;
+          const authoredSelection = timing.selectedSourceRange;
           const selected: FrameRangeV2 | null = authoredSelection
             ? { startFrame: authoredSelection.startFrame, endFrame: safe(BigInt(authoredSelection.startFrame) + BigInt(authoredSelection.durationFrames), "visual-only selected range end") }
             : null;
@@ -1242,7 +1250,9 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
   }
   const expectedPayloadIds = new Set<string>();
   for (const block of document.activeDraft.blocks) {
-    if (block.type === "visual_only" && block.payload.source.kind !== "intentional_placeholder" && block.payload.source.kind !== "unresolved_visual") expectedPayloadIds.add(block.payload.payloadId);
+    if (block.type === "visual_only") for (const visual of [block, ...block.additionalVisuals ?? []]) {
+      if (visual.payload.source.kind !== "intentional_placeholder" && visual.payload.source.kind !== "unresolved_visual") expectedPayloadIds.add(visual.payload.payloadId);
+    }
     if (block.type === "narration" && block.state === "active") {
       for (const slot of block.primaryVisualSequence?.slots ?? []) if (slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.pictureKind !== "intentional_placeholder" && slot.payload.pictureKind !== "unresolved_visual") expectedPayloadIds.add(slot.payload.payloadId);
       for (const overlay of block.overlayEvents) if (overlay.payload.source.kind !== "intentional_placeholder" && overlay.payload.source.kind !== "unresolved_visual") expectedPayloadIds.add(overlay.payload.payloadId);
@@ -1828,7 +1838,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     const supportingItemResults = supporting.items;
     const firstNarration = resolved.timedRows.find((item): item is TimedRow => item.kind === "narration");
     const onlyVisualOnly = resolved.timedRows.length === 1 && resolved.timedRows[0]?.kind === "visual_only" ? resolved.timedRows[0] : null;
-    const standaloneDescriptor = onlyVisualOnly?.block.payload.pictureKind === "clip"
+    const standaloneDescriptor = onlyVisualOnly?.block.additionalVisuals === undefined && onlyVisualOnly?.block.payload.pictureKind === "clip"
       ? dependencies.occurrenceResolutions.find((item) => item.payloadId === onlyVisualOnly.block.payload.payloadId)
       : undefined;
     const durationKind: TimelineManifestV2["durationBasis"]["kind"] = firstNarration ? "narration_spine" : standaloneDescriptor ? "standalone_clip" : "visual_only_duration";

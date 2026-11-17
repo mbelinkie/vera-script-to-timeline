@@ -100,6 +100,40 @@ function rowReference(rowValue: NarrationBlockV2): SupportingItemV2 {
 }
 
 describe("Sorting recovery", () => {
+  it.each(["all", "edits_only", "sorting_only", "discard"] as const)("replays a legacy rowIds section deletion with %s acceptance", (mode) => {
+    const baseline = document();
+    const sectionId = id(770000);
+    const sectioned = row(770010);
+    const loose = row(770020);
+    const retained = row(770030);
+    baseline.stash = [{ id: id(770040), rows: [sectioned, loose, retained], supportingItems: [] }];
+    baseline.stashSections = [
+      { id: sectionId, title: "Old heading", rowIds: [sectioned.id] },
+      { id: id(770001), title: "Other", rowIds: [retained.id] },
+    ];
+    expect(baseline.stashOutline).toBeUndefined();
+    expect(validateScriptDocumentV2(baseline).valid).toBe(true);
+    const trial = createSortingTrialV2(baseline);
+    apply(trial, { kind: "delete_stash_section", sectionId });
+    expect(trial.movedRowIds).toContain(sectioned.id);
+    expect(trial.document.stashOutline?.map((entry) => entry.rowId)).toEqual([sectioned.id, loose.id, retained.id]);
+    expect(trial.document.stashSections?.map((section) => section.rowIds)).toEqual([[]]);
+    const saved = trial.serialize();
+    const resumed = resumeSortingTrialV2(saved);
+    expect(resumed.document).toEqual(trial.document);
+    const result = mode === "discard" ? resumed.discard(baseline) : resumed.accept(baseline, mode);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const output = result.document;
+    const applied = mode === "all" || mode === "sorting_only";
+    expect(output.stashOutline?.map((entry) => entry.rowId)).toEqual(applied ? [sectioned.id, loose.id, retained.id] : undefined);
+    expect(output.stashSections).toEqual(applied ? [{ id: id(770001), title: "Other", rowIds: [] }] : baseline.stashSections);
+    expect(output.stash).toEqual(baseline.stash);
+    expect(validateScriptDocumentV2(output).valid).toBe(true);
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(output))).toEqual({ ok: true, document: output });
+    const undo = resumeSortingTrialV2(saved);
+    expect(undo.undo().ok).toBe(true);
+    expect({ ...undo.document, rowEditRevision: undefined }).toEqual({ ...baseline, rowEditRevision: undefined });
+  });
   it.each(["all", "edits_only", "sorting_only", "discard"] as const)("composes %s after the original note parent moves and two deleted children need the historical top fallback", (outcome) => {
     let baseline = applyDocument(document(), {
       kind: "create_stash_note", bundleId: id(6100), row: row(6101), sectionId: null, parentRowId: null, afterRowId: null, mode: "authored",
@@ -191,7 +225,7 @@ describe("Sorting recovery", () => {
     tampered.actions[0]!.noteRowId = id(999999);
     expect(() => resumeSortingTrialV2(JSON.stringify(tampered))).toThrow(/Invalid saved Sorting operation/);
   });
-  it.each(["", "  literal [[nested] unmatched ] 'quoted' 🧵\nnew line["])("replays a plain Stash note and retains exact text and return eligibility: %j", (text) => {
+  it.each(["", "  literal [[nested] unmatched ] 'quoted' 🧵\nnew line["])("replays a source-retaining note copy with exact text and reversible completion: %j", (text) => {
     const note = rawNote(5400, text);
     let baseline = applyDocument(document(), { kind: "create_stash_section", sectionId: id(5401), title: "Ideas" });
     baseline = applyDocument(baseline, {
@@ -214,9 +248,19 @@ describe("Sorting recovery", () => {
     const accepted = sorted.accept(baseline, "sorting_only");
     expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
     if (!accepted.ok) return;
-    const placed = accepted.document.activeDraft.blocks.find((block) => block.id === note.id);
-    expect(placed).toMatchObject({ text, plainDirection: true, stashOrigin: { kind: "note", sectionId: id(5401), returnEligible: true } });
-    const returned = applyDocument(accepted.document, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5403) });
+    expect(accepted.document.activeDraft.blocks.some((block) => block.type === "narration" && block.stashOrigin?.sourceNoteRowId === note.id)).toBe(false);
+    expect(accepted.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id)).toEqual(original);
+
+    const authored = resumeSortingTrialV2(serialized).accept(baseline, "all");
+    expect(authored.ok, JSON.stringify(authored.diagnostics)).toBe(true);
+    if (!authored.ok) return;
+    const placed = authored.document.activeDraft.blocks.find((block) => block.type === "narration" && block.stashOrigin?.sourceNoteRowId === note.id);
+    expect(placed).toMatchObject({ text, stashOrigin: { kind: "note", sourceNoteRowId: note.id, sectionId: id(5401), returnEligible: true } });
+    if (placed?.type !== "narration") throw new Error("Missing independent note copy");
+    expect(placed.id).not.toBe(note.id);
+    expect(placed.plainDirection).toBe(text === "" ? true : undefined);
+    expect((authored.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id) as NarrationBlockV2).stashChecklist?.completed).toBe(true);
+    const returned = applyDocument(authored.document, { kind: "stash_rows", rowIds: [placed.id], bundleId: id(5403) });
     expect(returned.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id)).toEqual(original);
     expect(returned.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: id(5401) });
   });
@@ -291,27 +335,24 @@ describe("Sorting recovery", () => {
     const trial = createSortingTrialV2(baseline);
     apply(trial, { kind: "move_stash_rows", rowIds: [note.id], sectionId: sectionB });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });
-    const placed = trial.document.activeDraft.blocks.find((block) => block.id === note.id);
+    const placed = trial.document.activeDraft.blocks.find((block) => block.type === "narration" && block.stashOrigin?.sourceNoteRowId === note.id);
     if (placed?.type !== "narration") throw new Error("Missing placed Stash note");
     const editedText = "Edited note";
     apply(trial, {
-      kind: "edit_row", rowId: note.id,
+      kind: "edit_row", rowId: placed.id,
       row: { ...placed, text: editedText, tokens: [{ ...placed.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: placed.version + 1 },
     });
-    if (deleteAfterEdit) apply(trial, { kind: "delete_rows", rowIds: [note.id] });
+    if (deleteAfterEdit) apply(trial, { kind: "delete_rows", rowIds: [placed.id] });
 
     const accepted = resumeSortingTrialV2(trial.serialize()).accept(baseline, "sorting_only");
     expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
     if (!accepted.ok) return;
-    const restored = accepted.document.activeDraft.blocks.find((block) => block.id === note.id);
-    if (restored?.type !== "narration") throw new Error("Sorting-only did not restore the saved note");
-    expect(restored.text).toBe(note.text);
-    expect(restored.stashOrigin).toMatchObject({ kind: "note", sectionId: sectionB, returnEligible: true });
-
-    const returned = applyDocument(accepted.document, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5004) });
-    expect(returned.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: sectionB });
-    expect(returned.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id)).toEqual(note);
-    expect(validateScriptDocumentV2(returned).valid).toBe(true);
+    expect(accepted.document.activeDraft.blocks.some((block) => block.id === placed.id)).toBe(false);
+    expect(accepted.document.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: sectionB });
+    const retained = accepted.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === note.id);
+    expect(retained).toMatchObject({ text: note.text, stashChecklist: { completed: false } });
+    expect((retained as NarrationBlockV2).plainDirection).toBeUndefined();
+    expect(validateScriptDocumentV2(accepted.document).valid).toBe(true);
   });
 
   it("restores original compact-note kind and return eligibility after sorting-only re-placement", () => {
@@ -321,30 +362,33 @@ describe("Sorting recovery", () => {
       sectionId: null, parentRowId: null, afterRowId: null, mode: "authored",
     });
     baseline = applyDocument(baseline, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });
-    const original = baseline.activeDraft.blocks.find((block) => block.id === note.id);
+    const original = baseline.activeDraft.blocks.find((block) => block.type === "narration" && block.stashOrigin?.sourceNoteRowId === note.id);
     if (original?.type !== "narration") throw new Error("Missing baseline placed note");
     expect(original.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
 
     const trial = createSortingTrialV2(baseline);
     const editedText = "Edited note";
     apply(trial, {
-      kind: "edit_row", rowId: note.id,
+      kind: "edit_row", rowId: original.id,
       row: { ...original, text: editedText, tokens: [{ ...original.tokens[0]!, value: editedText, startOffset: 0, endOffset: editedText.length }], version: original.version + 1 },
     });
-    apply(trial, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5102) });
+    apply(trial, { kind: "stash_rows", rowIds: [original.id], bundleId: id(5102) });
     apply(trial, { kind: "place_stash_rows", rowIds: [note.id], destination: gap(id(400), null) });
 
     const accepted = resumeSortingTrialV2(trial.serialize()).accept(baseline, "sorting_only");
     expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
     if (!accepted.ok) return;
-    const restored = accepted.document.activeDraft.blocks.find((block) => block.id === note.id);
-    if (restored?.type !== "narration") throw new Error("Missing sorting-only note");
-    expect(restored.text).toBe(original.text);
-    expect(restored.stashOrigin).toMatchObject({ kind: "note", returnEligible: true });
-
-    const returned = applyDocument(accepted.document, { kind: "stash_rows", rowIds: [note.id], bundleId: id(5103) });
-    expect(returned.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: null });
-    expect(validateScriptDocumentV2(returned).valid).toBe(true);
+    // The copy was returned to Stash inside Sorting. Sorting-only retains
+    // that organizational return but not its edited text. It must not turn
+    // an independent copy into a duplicate compact source note.
+    const savedCopy = accepted.document.stash?.flatMap((bundle) => bundle.rows).find((saved) => saved.id === original.id);
+    expect(savedCopy).toMatchObject({ id: original.id, text: original.text });
+    expect(savedCopy?.stashOrigin).toBeUndefined();
+    expect(accepted.document.activeDraft.blocks.some((block) => block.id === original.id)).toBe(false);
+    expect(accepted.document.stashOutline?.find((entry) => entry.rowId === original.id)?.kind).toBe("row");
+    expect(accepted.document.stashOutline?.find((entry) => entry.rowId === note.id)).toMatchObject({ kind: "note", sectionId: null });
+    expect(accepted.document.stashOutline?.filter((entry) => entry.kind === "note").map((entry) => entry.rowId)).toEqual([note.id]);
+    expect(validateScriptDocumentV2(accepted.document).valid).toBe(true);
   });
 
   it("restores row-local attachments through Undo, trial reload, and sorting-only", () => {
