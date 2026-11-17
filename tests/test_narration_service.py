@@ -19,6 +19,7 @@ from vera_timeline_agent.narration.models import (
     ProviderResult,
     ProviderTimingMark,
     SynthesisRequest,
+    sha256_bytes,
 )
 from vera_timeline_agent.narration.normalize import Normalizer
 from vera_timeline_agent.narration.service import (
@@ -97,6 +98,80 @@ def service(tmp_path: Path, provider: FakeProvider) -> NarrationService:
         provider=provider,
         normalizer=Normalizer(),
         config=ServiceConfig(data_policy_attestation="inworld_terms_accepted"),
+    )
+
+
+def test_paragraph_linefeeds_keep_provider_input_but_not_source_identity() -> None:
+    baseline: dict[str, Any] = {
+        "id": "00000000-0000-4000-8000-000000000581",
+        "version": 1,
+        "text": "Keep the light on ",
+        "tokens": [
+            {"id": "t1", "value": "Keep", "startOffset": 0, "endOffset": 4},
+            {"id": "t2", "value": "the", "startOffset": 5, "endOffset": 8},
+            {"id": "t3", "value": "light", "startOffset": 9, "endOffset": 14},
+            {"id": "t4", "value": "on", "startOffset": 15, "endOffset": 17},
+        ],
+    }
+    paragraph = {**baseline, "text": "Keep the\nlight on\n"}
+    config = ServiceConfig()
+    provider = FakeProvider()
+
+    ordinary = config.request_for(baseline)
+    laid_out = config.request_for(paragraph)
+
+    assert ordinary.text == laid_out.text == baseline["text"]
+    assert provider.prepare_input(ordinary) == provider.prepare_input(laid_out)
+    assert ordinary.source_text_hash is None
+    assert laid_out.source_text_hash == sha256_bytes(paragraph["text"].encode("utf-8"))
+    assert ordinary.identity(
+        provider.prepare_input(ordinary), provider.adapter_version
+    ) != laid_out.identity(provider.prepare_input(laid_out), provider.adapter_version)
+    # Both variants are frozen against equal-width source separators.
+    assert baseline["tokens"] == paragraph["tokens"]
+    assert len(ordinary.text.encode("utf-16-le")) == len(
+        paragraph["text"].encode("utf-16-le")
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "single_line", "word_offsets"),
+    [
+        ("🌍\nhello\n", "🌍 hello ", (3, 8)),
+        ("🌍\r\nhello\r\n", "🌍  hello  ", (4, 9)),
+        ("hello\rworld", "hello world", (6, 11)),
+    ],
+)
+def test_provider_projection_replaces_each_cr_lf_utf16_unit(
+    source: str, single_line: str, word_offsets: tuple[int, int]
+) -> None:
+    # Emoji occupy two UTF-16 units, CRLF two; neither is allowed to shift
+    # subsequent frozen word offsets in the provider's timing coordinates.
+    start, end = word_offsets
+    word = source.encode("utf-16-le")[start * 2 : end * 2].decode("utf-16-le")
+    block = {
+        "id": "00000000-0000-4000-8000-000000000582",
+        "version": 1,
+        "text": source,
+        "tokens": [
+            {"id": "frozen-word", "value": word, "startOffset": start, "endOffset": end}
+        ],
+    }
+    request = ServiceConfig().request_for(block)
+    comparator = ServiceConfig().request_for({**block, "text": single_line})
+    provider = FakeProvider()
+
+    assert request.text == comparator.text == single_line
+    assert provider.prepare_input(request) == provider.prepare_input(comparator)
+    assert request.source_text_hash == sha256_bytes(source.encode("utf-8"))
+    assert comparator.source_text_hash is None
+    assert len(request.text.encode("utf-16-le")) == len(source.encode("utf-16-le"))
+    assert len(request.text.encode("utf-16-le")) == len(
+        comparator.text.encode("utf-16-le")
+    )
+    assert (
+        request.text.encode("utf-16-le")[start * 2 : end * 2].decode("utf-16-le")
+        == word
     )
 
 

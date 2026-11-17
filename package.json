@@ -33,6 +33,8 @@
     "test:otio-package": "uv run --frozen pytest tests/test_otio_package.py",
     "test:free-trial": "uv run --frozen pytest tests/test_free_trial.py",
     "validate:script": "node packages/contracts/src/script-validator-cli.ts",
+    "serve:authoring": "npm run serve:qa --workspace @vera/project-service-host -- --authoring",
+    "export:script": "VERA_EXPORT_CWD=\"$INIT_CWD\" npm run --workspace @vera/project-service-host export:script --",
     "research:clips": "node packages/contracts/src/research-clip-cli.ts clips",
     "research:add-clip": "node packages/contracts/src/research-clip-cli.ts add-clip",
     "export:prompter": "node packages/contracts/src/prompter-export-cli.ts",

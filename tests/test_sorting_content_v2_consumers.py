@@ -232,13 +232,25 @@ for (const outcome of ["all", "edits_only", "sorting_only", "discard"]) {
   applyTrial(trial, {
     kind: "place_stash_rows", rowIds: [id(400)], destination: gap(id(200), id(300)),
   });
+  const copied = trial.document.activeDraft.blocks.find(
+    (block) => block.type === "narration" &&
+      block.stashOrigin?.sourceNoteRowId === id(400)
+  );
+  if (copied?.type !== "narration" || copied.id === id(400)) {
+    throw new Error("Stash placement did not create an independent note copy");
+  }
+  if (!trial.document.stashOutline?.some(
+    (entry) => entry.rowId === id(400) && entry.kind === "note"
+  )) {
+    throw new Error("Stash placement removed its compact source note");
+  }
   applyTrial(trial, {
     kind: "edit_row", rowId: originalId,
     row: rewritten(narration(trial.document, originalId)),
   });
   applyTrial(trial, {
-    kind: "edit_row", rowId: id(400),
-    row: rewritten(narration(trial.document, id(400))),
+    kind: "edit_row", rowId: copied.id,
+    row: rewritten(narration(trial.document, copied.id)),
   });
   applyTrial(trial, { kind: "delete_rows", rowIds: [id(100)] });
   trial.preview();
@@ -248,7 +260,7 @@ for (const outcome of ["all", "edits_only", "sorting_only", "discard"]) {
     ? resumed.discard(baseline)
     : resumed.accept(baseline, outcome);
   if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
-  outcomes[outcome] = saveResult(result.document);
+  outcomes[outcome] = { ...saveResult(result.document), copyId: copied.id };
 }
 process.stdout.write(JSON.stringify({
   baselineSerialized, outcomes,
@@ -340,7 +352,7 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
     assert outcomes["edits_only"]["document"]["activeDraft"]["blocks"]
     assert set(_narration_ids(outcomes["all"]["document"])) == {
         ids["retained"],
-        ids["parked"],
+        outcomes["all"]["copyId"],
         ids["retainedSecond"],
         ids["created"],
         ids["original"],
@@ -350,13 +362,13 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
         ids["retained"],
         ids["retainedSecond"],
         ids["created"],
+        outcomes["edits_only"]["copyId"],
     }
     assert set(_narration_ids(outcomes["sorting_only"]["document"])) == {
         ids["original"],
         ids["deleted"],
         ids["retained"],
         ids["retainedSecond"],
-        ids["parked"],
     }
     assert set(_narration_ids(outcomes["discard"]["document"])) == {
         ids["original"],
@@ -369,19 +381,36 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
     edits_document = outcomes["edits_only"]["document"]
     sorting_document = outcomes["sorting_only"]["document"]
     discard_document = outcomes["discard"]["document"]
-    parked_all = next(
+    copied_all = next(
         block
         for block in all_document["activeDraft"]["blocks"]
-        if block["id"] == ids["parked"]
+        if block["id"] == outcomes["all"]["copyId"]
     )
-    parked_edits = next(
+    copied_edits = next(
+        block
+        for block in edits_document["activeDraft"]["blocks"]
+        if block["id"] == outcomes["edits_only"]["copyId"]
+    )
+    source_all = next(
+        row
+        for stash in all_document["stash"]
+        for row in stash["rows"]
+        if row["id"] == ids["parked"]
+    )
+    source_edits = next(
         row
         for stash in edits_document["stash"]
         for row in stash["rows"]
         if row["id"] == ids["parked"]
     )
-    assert parked_all["text"] == "EDIT Saved"
-    assert parked_edits["text"] == "EDIT Saved"
+    assert copied_all["text"] == copied_edits["text"] == "EDIT Saved"
+    assert copied_all["stashOrigin"]["sourceNoteRowId"] == ids["parked"]
+    assert copied_edits["stashOrigin"]["sourceNoteRowId"] == ids["parked"]
+    assert copied_all["stashOrigin"]["returnEligible"] is False
+    assert copied_edits["stashOrigin"]["returnEligible"] is False
+    assert source_all["text"] == source_edits["text"] == "Saved"
+    assert source_all["stashChecklist"]["completed"] is True
+    assert source_edits["stashChecklist"]["completed"] is True
     assert all(
         block["id"] != ids["parked"]
         for block in edits_document["activeDraft"]["blocks"]
@@ -394,9 +423,10 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
         for block in edits_document["activeDraft"]["blocks"]
     )
     sorting_parked = next(
-        block
-        for block in sorting_document["activeDraft"]["blocks"]
-        if block["id"] == ids["parked"]
+        row
+        for stash in sorting_document["stash"]
+        for row in stash["rows"]
+        if row["id"] == ids["parked"]
     )
     baseline_parked = next(
         row
@@ -405,8 +435,8 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
         if row["id"] == ids["parked"]
     )
     assert sorting_parked["text"] == baseline_parked["text"] == "Saved"
-    assert sorting_parked["stashOrigin"]["returnEligible"] is True
-    assert parked_all["stashOrigin"]["returnEligible"] is False
+    assert sorting_parked["stashChecklist"]["completed"] is False
+    assert ids["parked"] not in _narration_ids(sorting_document)
     assert (
         next(
             block
@@ -437,8 +467,6 @@ def test_sorting_outcomes_reach_python_and_typescript_consumers(tmp_path: Path) 
     for name in ("sorting_only", "discard"):
         consumers = outcomes[name]["consumers"]
         expected_text = ["hello", "world", "again", "third"]
-        if name == "sorting_only":
-            expected_text.insert(3, "Saved")
         assert consumers["prompter"]["expectedText"] == expected_text
         assert consumers["compiler"]["ok"] is True
         assert consumers["needs"]["ok"] is True

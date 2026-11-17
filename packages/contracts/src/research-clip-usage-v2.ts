@@ -103,6 +103,9 @@ export function indexResearchClipUsageV2(
 
     if (row.type === "visual_only") {
       add(row.researchClip, "visual_only", row.id);
+      for (const visual of row.additionalVisuals ?? []) {
+        add(visual.researchClip, "visual_only", visual.payload.payloadId);
+      }
     } else if (row.type === "narration") {
       // These are structural saved-occurrence order, not inferred playback times.
       for (const slot of row.primaryVisualSequence?.slots ?? []) {

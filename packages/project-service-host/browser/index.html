@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-thumbnail-scale="22">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17191f">
+    <title>VERA Script to Timeline</title>
+    <link rel="stylesheet" href="/authoring.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main id="home-view" class="home-view">
+      <div class="home-card">
+        <p class="eyebrow">VERA · SCRIPT TO TIMELINE</p>
+        <h1>Start writing</h1>
+        <section class="home-action" aria-labelledby="new-script-heading">
+          <h2 id="new-script-heading">New script</h2>
+          <form id="new-project-form">
+            <label for="new-project-title">Project name</label>
+            <input id="new-project-title" name="title" type="text" autocomplete="off" maxlength="300" required>
+            <button type="submit">Start script</button>
+          </form>
+        </section>
+
+        <section class="home-action" aria-labelledby="open-script-heading">
+          <h2 id="open-script-heading">Open a saved script</h2>
+          <form id="open-project-form">
+            <label for="open-script-link">Script URL or project ID</label>
+            <input id="open-script-link" name="script" type="text" autocomplete="url" spellcheck="false" required>
+            <button type="submit">Open script</button>
+          </form>
+        </section>
+
+        <p id="home-status" class="form-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      </div>
+    </main>
+
+    <div id="authoring-view" class="authoring-view" hidden>
+      <header class="app-bar">
+        <a id="project-home" class="home-link" href="/" aria-label="Home">VERA</a>
+
+        <div class="document-heading">
+          <h1 id="script-title" tabindex="-1">Untitled script</h1>
+          <label class="project-name" for="project-title">
+            <span>Project ·</span>
+          <input id="project-title" name="project-title" type="text" autocomplete="off" maxlength="300" aria-label="Project name">
+          </label>
+        </div>
+
+        <div class="toolbar-controls" role="group" aria-label="View settings">
+          <label class="range-control range-control--authoring">
+            <span class="range-control__mark" aria-hidden="true">Aa</span>
+            <input id="authoring-size" type="range" min="80" max="150" step="5" value="100" aria-label="Authoring size">
+          </label>
+
+          <label class="range-control range-control--thumbnails">
+            <span class="range-control__label">Thumbnails</span>
+            <input id="thumbnail-size" type="range" min="0" max="100" step="1" value="22" aria-label="Thumbnail size">
+            <output id="thumbnail-size-value" for="thumbnail-size">22%</output>
+          </label>
+        </div>
+      </header>
+
+      <main class="script-stage">
+        <div class="save-feedback">
+          <p id="save-status" class="save-status" role="status" aria-live="polite" aria-atomic="true"></p>
+          <button id="retry-save" class="quiet-button" type="button" hidden>Retry save</button>
+          <a
+            id="conflict-open-saved"
+            class="quiet-button"
+            href="/"
+            target="_blank"
+            rel="noopener"
+            aria-label="Open the saved version in a new tab"
+            hidden
+          >Open saved version</a>
+        </div>
+
+        <section class="script-paper" aria-label="Script">
+          <div id="script-rows" class="script-rows"></div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

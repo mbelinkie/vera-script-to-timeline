@@ -4,6 +4,7 @@ import { serializeAuthoringDocumentV2, type RowEditResultV2 } from "./authoring-
 import { validateScriptDocumentV2 } from "./authoring-v2-validation.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
+import { invalidateChangedStashSourceLinksV2 } from "./authoring-v2-stash-checklist.js";
 
 export type StashedRowV2 = RowStashBundleV2["rows"][number];
 
@@ -77,6 +78,11 @@ export function applyStashRowEditV2(
     !sameAuthoringJsonV2(current.attachedFootage, command.row.attachedFootage)) {
     return refused(document, "STASH_ATTACHMENT_REVIEW_REQUIRED", "Use explicit Stash footage commands to change an owned attachment.");
   }
+  if ("stashChecklist" in current && !sameAuthoringJsonV2(current.stashChecklist,
+    "stashChecklist" in command.row ? command.row.stashChecklist : undefined) ||
+    !("stashChecklist" in current) && "stashChecklist" in command.row) {
+    return refused(document, "STASH_CHECKLIST_COMMAND_REQUIRED", "Use the dedicated Stash completion command, not a row replacement.");
+  }
 
   const authoredCurrent = structuredClone(current);
   const authoredReplacement = structuredClone(command.row);
@@ -97,6 +103,7 @@ export function applyStashRowEditV2(
     return refused(document, "STASH_ROW_JSON_INVALID", "The edited row must be losslessly representable as saved JSON.");
   }
 
+  invalidateChangedStashSourceLinksV2(document, working);
   const after = validateScriptDocumentV2(working);
   // Draft content is untouched; parked semantic problems remain visible warnings until restore.
   const errors = after.diagnostics.filter((item) => fatalDocumentDiagnostics.has(item.code));
