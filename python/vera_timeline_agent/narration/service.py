@@ -84,12 +84,15 @@ class ServiceConfig:
         has_directions = isinstance(tokens, list) and any(
             isinstance(token, dict) and token.get("spoken") is False for token in tokens
         )
-        source_text_hash = None
-        if has_directions and isinstance(tokens, list):
-            spoken_text = mask_stage_directions(block)
-            source_text_hash = sha256_bytes(text.encode("utf-8"))
-        else:
-            spoken_text = text
+        masked = mask_stage_directions(block) if has_directions else text
+        # Paragraph layout is not spoken: replace each CR/LF with a space,
+        # preserving subsequent frozen word positions in UTF-16 code units.
+        spoken_text = masked.replace("\r", " ").replace("\n", " ")
+        source_text_hash = (
+            sha256_bytes(text.encode("utf-8"))
+            if has_directions or spoken_text != text
+            else None
+        )
         return SynthesisRequest(
             block_id=block_id,
             block_revision=revision,
