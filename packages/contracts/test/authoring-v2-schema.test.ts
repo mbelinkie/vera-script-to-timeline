@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchemaObject } from "ajv/dist/2020.js";
 import * as formatsModule from "ajv-formats";
 import { describe, expect, it } from "vitest";
-import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "../src/authoring-v2.js";
+import { deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2, validateScriptDocumentV2 } from "../src/authoring-v2.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const documentSchema = JSON.parse(
@@ -389,6 +389,13 @@ describe("authoring v2 document and project-settings schemas", () => {
     expect(row.text).toBe("😀 hello\nworld\n");
     expect(row.tokens).toEqual(paragraph.tokens);
     expect(row.text.slice(row.tokens[1]!.startOffset, row.tokens[1]!.endOffset)).toBe("world");
+    // A shift into the LF is not a cosmetic edit: authored UTF-16 anchors
+    // must refuse stale token offsets even when the JSON schema still fits.
+    const shifted = structuredClone(source);
+    const shiftedRow = shifted.activeDraft.blocks[0];
+    if (shiftedRow?.type !== "narration") throw new Error("Expected narration");
+    shiftedRow.tokens[1]!.startOffset -= 1;
+    expect(validateScriptDocumentV2(shifted).diagnostics.map((item) => item.code)).toContain("TOKEN_TEXT_MISMATCH");
   });
 
   it("accepts optional frozen Stash origin history and preserves six-field legacy origins", () => {
