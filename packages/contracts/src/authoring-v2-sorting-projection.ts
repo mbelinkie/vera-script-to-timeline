@@ -1334,7 +1334,12 @@ function normalizeOutlineKinds(
     if (mode === "sorting_only") {
       entry.kind = baselineSlot?.surface === "stash"
         ? baselineSlot.entry.kind
-        : original?.stashOrigin?.returnEligible ? original.stashOrigin.kind : "row";
+        // An authored independent copy must NEVER become another compact
+        // source note. Its sourceNoteRowId still names a separately retained
+        // Stash note, so accepting a saved-copy return as organization keeps
+        // the copy as a complete row even when its own content edit is dropped.
+        : original?.stashOrigin?.sourceNoteRowId ? "row"
+          : original?.stashOrigin?.returnEligible ? original.stashOrigin.kind : "row";
     } else if (birth) {
       entry.kind = state.convertedEditedIds.includes(entry.rowId) && bornChanged
         ? "row"

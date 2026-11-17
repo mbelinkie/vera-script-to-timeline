@@ -188,11 +188,19 @@ describe("Research logged-clip snapshot and exclusive owner", () => {
       destination: { sectionId: null, afterRowId: null, beforeRowId: null },
     });
     expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const copied = placed.document.activeDraft.blocks.find((block) =>
+      block.type === "narration" && block.stashOrigin?.sourceNoteRowId === id(100));
+    expect(copied?.id).not.toBe(id(100));
+    if (copied?.type !== "narration") throw new Error("Missing independent Stash copy");
     const session = createRowEditSessionV2(placed.document);
-    const returned = session.apply({
-      kind: "stash_rows", rowIds: [id(100)], bundleId: id(700),
+    const invalidDestination = session.apply({
+      kind: "stash_rows", rowIds: [copied.id], bundleId: id(700),
       destination: { sectionId: null, parentRowId: null, afterRowId: null, beforeRowId: null },
     });
+    expect(invalidDestination.ok).toBe(false);
+    expect(invalidDestination.diagnostics[0]?.code).toBe("STASH_ORIGIN_DESTINATION_INVALID");
+    expect(session.document).toEqual(placed.document);
+    const returned = session.apply({ kind: "stash_rows", rowIds: [copied.id], bundleId: id(700) });
     expect(returned.ok, JSON.stringify(returned.diagnostics)).toBe(true);
     const saved = returned.document.stash!.flatMap((bundle) => bundle.rows);
     expect(saved).toHaveLength(1);

@@ -224,7 +224,7 @@ describe("row-edit consumers", () => {
     expect(mediaNeeds(flattened.document, dependencies)).toEqual(mediaNeeds(ordinary.document, dependencies));
   });
   it.each(["", "[nested [literal]] 🌍", "orphan ] [\n'quoted'"])(
-    "keeps a saved and placed plain note unspoken without inventing duration: %j",
+    "excludes a compact saved note but includes its independently spoken Draft copy: %j",
     (text) => {
       const { document, dependencies } = input();
       const baseline = exportPrompter(document, exportSettings);
@@ -262,13 +262,22 @@ describe("row-edit consumers", () => {
         placed.document.activeDraft.blocks.filter((block): block is NarrationBlockV2 => block.type === "narration")
           .map((block) => block.text).join("\n"),
       );
-      const activeNote = placed.document.activeDraft.blocks.find((block) => block.id === row.id);
-      expect(activeNote).toMatchObject({ text, plainDirection: true });
+      const savedSource = placed.document.stash?.flatMap((bundle) => bundle.rows).find((block) => block.id === row.id);
+      expect(savedSource).toEqual({ ...stored, stashChecklist: { completed: true, manualRevision: 0, automaticCopyId: expect.any(String) } });
+      const activeNote = placed.document.activeDraft.blocks.find((block): block is NarrationBlockV2 =>
+        block.type === "narration" && block.stashOrigin?.sourceNoteRowId === row.id);
+      expect(activeNote).toMatchObject({ type: "narration", text, stashOrigin: { kind: "note", returnEligible: true } });
+      expect(activeNote?.id).not.toBe(row.id);
+      expect(activeNote?.plainDirection).toBe(text === "" ? true : undefined);
+      if (text === "") expect(activeNote?.tokens).toEqual([]);
+      else expect(activeNote?.tokens.every((token) => token.spoken !== false)).toBe(true);
       const exported = exportPrompter(placed.document, exportSettings);
       expect(exported.ok).toBe(true);
       if (exported.ok) {
-        expect(exported.sidecarJson).toBe(baseline.sidecarJson);
-        if (text) expect(exported.text).not.toContain(text);
+        if (text) {
+          expect(exported.sidecarJson).not.toBe(baseline.sidecarJson);
+          expect(exported.text).not.toBe(baseline.text);
+        } else expect(exported.sidecarJson).toBe(baseline.sidecarJson);
       }
       const compiled = compileTimelineV2(placed.document, dependencies);
       expect(compiled.ok).toBe(false);
@@ -564,7 +573,10 @@ describe("Stash Research footage consumer honesty (issue 367 phase 3)", () => {
     expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
     expect(placed.document.activeDraft.blocks.some((block) => block.id === clip.id)).toBe(false);
     const view = projectPrimarySequenceV2(placed.document);
-    const row = view.rows.find((item) => item.blockId === note.id);
+    const copied = placed.document.activeDraft.blocks.find((block) =>
+      block.type === "narration" && block.stashOrigin?.sourceNoteRowId === note.id);
+    expect(copied?.id).not.toBe(note.id);
+    const row = view.rows.find((item) => item.blockId === copied?.id);
     expect(row?.renderable).toBe(false);
     expect(row?.diagnostics.some((item) => item.code === "RESEARCH_MEDIA_UNRESOLVED")).toBe(true);
     const build = compileTimelineV2(placed.document, dependencies);
