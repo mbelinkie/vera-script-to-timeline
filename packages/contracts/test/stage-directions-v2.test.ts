@@ -107,6 +107,84 @@ function requireSuccess<T extends { ok: boolean }>(result: T): asserts result is
 }
 
 describe("paragraph layout in frozen narration rows", () => {
+  it("compiles fresh LF-frozen timing exactly like equal-width spoken spaces, without trusting stale evidence", () => {
+    const baseline = documentWithText("😀 hello world ", ["😀", "hello", "world"]);
+    const paragraph = documentWithText("😀 hello\nworld\n", ["😀", "hello", "world"]);
+    expect(paragraph.row.text.replace(/[\r\n]/gu, " ")).toBe(baseline.row.text);
+    expect(paragraph.row.tokens).toEqual(baseline.row.tokens);
+
+    const singleDeps = compilerDependencies(baseline.document, baseline.row);
+    const lfDeps = compilerDependencies(paragraph.document, paragraph.row);
+    const singleMap = singleDeps.narrationTimingMaps[0]!;
+    const lfMap = lfDeps.narrationTimingMaps[0]!;
+    expect(lfMap.textHash).toBe(digest(paragraph.row.text));
+    expect(lfMap.textHash).not.toBe(singleMap.textHash);
+    expect(lfMap.timingHash).not.toBe(singleMap.timingHash);
+    expect(lfMap.tokens).toEqual(singleMap.tokens);
+    expect(lfMap.audio!.durationSamples).toBe(singleMap.audio!.durationSamples);
+
+    const singleNeeds = mediaNeeds(baseline.document, singleDeps);
+    const lfNeeds = mediaNeeds(paragraph.document, lfDeps);
+    requireSuccess(singleNeeds);
+    requireSuccess(lfNeeds);
+    expect(lfNeeds.durationFrames).toBe(singleNeeds.durationFrames);
+    expect(lfNeeds.durationFrames).toBe(72);
+
+    const singleBuild = compileTimelineV2(baseline.document, singleDeps);
+    const lfBuild = compileTimelineV2(paragraph.document, lfDeps);
+    requireSuccess(singleBuild);
+    requireSuccess(lfBuild);
+    expect(lfBuild.manifest.timeline.durationFrames).toBe(singleBuild.manifest.timeline.durationFrames);
+    expect(lfBuild.manifest.timeline.durationFrames).toBe(72);
+    const eventGeometry = (events: typeof lfBuild.manifest.events) => events.map((event) => ({
+      kind: event.kind, trackId: event.trackId, recordRange: event.recordRange,
+    }));
+    expect(eventGeometry(lfBuild.manifest.events)).toEqual(eventGeometry(singleBuild.manifest.events));
+    expect(lfBuild.manifest.events.length).toBeGreaterThan(0);
+    // Timeline events are byte-identical apart from intentional timing provenance.
+    const withoutTimingHash = (events: typeof lfBuild.manifest.events) => events.map((event) => ({
+      ...event, provenance: { ...event.provenance, timingMapHash: null },
+    }));
+    expect(withoutTimingHash(lfBuild.manifest.events)).toEqual(withoutTimingHash(singleBuild.manifest.events));
+
+    // Even with the document-level digest forged current, old row evidence is invalid.
+    const staleText = structuredClone(singleDeps);
+    staleText.document.textHash = digest(paragraph.row.text);
+    const staleTextNeeds = mediaNeeds(paragraph.document, staleText);
+    expect(staleTextNeeds.ok).toBe(false);
+    if (!staleTextNeeds.ok) {
+      expect(staleTextNeeds.diagnostics.map((item) => item.code)).toContain("TEXT_HASH_MISMATCH");
+    }
+
+    const staleRevision = structuredClone(lfDeps);
+    staleRevision.narrationTimingMaps[0]!.blockRevision += 1;
+    const staleRevisionNeeds = mediaNeeds(paragraph.document, staleRevision);
+    expect(staleRevisionNeeds.ok).toBe(false);
+    if (!staleRevisionNeeds.ok) {
+      expect(staleRevisionNeeds.diagnostics.map((item) => item.code)).toContain("STALE_TIMING_MAP");
+    }
+
+    // An offset into the LF or a substituted token identity cannot reuse the fresh map.
+    for (const mutate of [
+      (map: NarrationTokenTimingMapV2) => { map.tokens[2]!.startOffset -= 1; },
+      (map: NarrationTokenTimingMapV2) => { map.tokens[2]!.tokenId = id(999); },
+    ]) {
+      const staleToken = structuredClone(lfDeps);
+      mutate(staleToken.narrationTimingMaps[0]!);
+      const refused = mediaNeeds(paragraph.document, staleToken);
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.diagnostics.map((item) => item.code)).toContain("STALE_TIMING_MAP");
+    }
+
+    const staleTiming = structuredClone(lfDeps);
+    staleTiming.narrationTimingMaps[0]!.audio!.timingHash = digest("different timing evidence");
+    const refusedTiming = mediaNeeds(paragraph.document, staleTiming);
+    expect(refusedTiming.ok).toBe(false);
+    if (!refusedTiming.ok) {
+      expect(refusedTiming.diagnostics.map((item) => item.code)).toContain("TIMING_HASH_MISMATCH");
+    }
+  });
+
   it.each([
     { text: "hello\nworld\n", words: ["hello", "world"], offsets: [[0, 5], [6, 11]] },
     { text: "😀 hello\nworld\n", words: ["😀", "hello", "world"], offsets: [[0, 2], [3, 8], [9, 14]] },
