@@ -929,6 +929,28 @@ describe("pure v2 compiler", () => {
     });
   }
 
+  it("keeps a measured cut after the previous end plus its uncertainty", () => {
+    const { doc, deps, incomingSlotId } = sequentialSpeechCutFixture({ numerator: 47, denominator: 24 });
+    const map = deps.narrationTimingMaps[0]!;
+    deps.narrationBoundaryEvidence = [{
+      schemaVersion: "narration-boundary-evidence/v1", blockId: map.blockId, blockRevision: map.blockRevision,
+      textHash: map.textHash, tokenizationVersion: "script-document/v2-frozen-tokens", narrationAssetId: map.narrationAssetId,
+      audioHash: map.audioHash, timingHash: map.timingHash, alignmentVersion: map.alignmentVersion, audio: map.audio!,
+      tokens: map.tokens.map((token) => ({ tokenId: token.tokenId, startOffset: token.startOffset, endOffset: token.endOffset,
+        quotedText: token.quotedText, onset: token.startTime, ...(token.audibleEnd ? { audibleEnd: token.audibleEnd } : {}) })),
+      verification: { method: "measured_audio_boundaries/v1", algorithm: { id: "vera-polly-marks-energy-ends", version: "3", parametersHash: digest("{}\n"), parameters: {} },
+        measurementArtifactLocator: "Measurements/test.json", measurementArtifactHash: digest("artifact"), onsetBasis: "provider_word_marks_lag_verified",
+        onsetUncertainty: { numerator: 0, denominator: 1 }, audibleEndUncertainty: { numerator: 1, denominator: 48 } },
+    }];
+    deps.narrationTimingMaps = [];
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (compiled.ok) {
+      expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+      expect(compiled.manifest.events.find((event) => event.provenance.slotId === incomingSlotId)?.recordRange.startFrame).toBe(48);
+    }
+  });
+
   it("includes the speech cut lead in source sufficiency for the incoming clip", () => {
     const requirementsFor = (sourceEndFrame: number, compilerVersion = "compiler/v2-speech-cuts") => {
       const { doc, deps, tokenIds } = completeClipBoundaryFixture([

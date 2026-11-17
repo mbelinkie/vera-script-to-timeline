@@ -832,9 +832,11 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           const index = spoken.findIndex((token) => token.id === anchorId);
           const prior = index > 0 ? row.tokenTimes.get(spoken[index - 1]!.id) : null;
           if (prior?.evidenced && prior.end) {
-            const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(prior.end, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
+            const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
+            const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
+            const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
             const incoming = row.tokenTimes.get(anchorId)?.start;
-            if (!incoming || compare(prior.end, incoming) > 0 || priorEnd > start) {
+            if (!incoming || compare(safeEnd, incoming) > 0 || priorEnd > start) {
               diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The previous word extends beyond the incoming onset; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
             } else {
               start = Math.max(start - 3, priorEnd);
