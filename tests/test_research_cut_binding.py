@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from vera_timeline_agent.media_preparation import MediaTools
 from vera_timeline_agent.prep_media import failed_fetch_slate
 from vera_timeline_agent.research_cut_binding import (
     Json,
+    bind_research_cut,
     copy_cut,
     cut_identity,
     verify_cut,
@@ -86,3 +90,70 @@ def test_failed_clip_uses_label_and_logged_duration_without_claiming_frames() ->
         "durationOverrideMs": 1012,
     }
     assert "frameBinding" not in row
+
+
+def test_bound_research_use_range_survives_rebinding_without_changing_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A verified full cut is reused; placements keep separate inward intervals."""
+    import vera_timeline_agent.research_cut_binding as binder
+
+    digest = "sha256:" + "a" * 64
+    probe = "sha256:" + "b" * 64
+    video = tmp_path / f"{CLIP_ID}.mp4"
+    video.write_bytes(b"synthetic inspected fixture")
+    monkeypatch.setattr(binder, "verify_cut", lambda _folder, _snap: (video, digest))
+    media = SimpleNamespace(
+        content_hash=digest,
+        probe_hash=probe,
+        video_frames=[None] * 96,
+        video={},
+        audio={"index": 1, "sample_rate": 48000},
+        audio_origin=Fraction(0),
+        audio_hash="sha256:" + "c" * 64,
+        rate=Fraction(24),
+        pts_origin=Fraction(0),
+        time_base=Fraction(1, 24),
+    )
+    monkeypatch.setattr(binder, "inspect_media", lambda *_args, **_kwargs: media)
+    snapshot = {**SNAPSHOT, "clipVersion": 7}
+    first: Json = {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "researchClip": snapshot,
+        "payload": {"payloadId": "00000000-0000-4000-8000-000000000022"},
+        "visualOnlyTiming": {"kind": "visual_only"},
+    }
+    second = json.loads(json.dumps(first))
+    second["id"] = "00000000-0000-4000-8000-000000000031"
+    second["payload"]["payloadId"] = "00000000-0000-4000-8000-000000000032"
+    binder.bind_research_cut(first, tmp_path, MediaTools())
+    binder.bind_research_cut(second, tmp_path, MediaTools())
+    assert first["frameBinding"] == second["frameBinding"]
+    assert first["visualOnlyTiming"]["selectedSourceRange"] == {
+        "startFrame": 0,
+        "durationFrames": 96,
+    }
+    first["visualOnlyTiming"]["selectedSourceRange"] = {
+        "startFrame": 24,
+        "durationFrames": 36,
+    }
+    _, _, descriptor = bind_research_cut(first, tmp_path, MediaTools())
+    assert descriptor["occurrenceSourceInFrame"] == 24
+    assert descriptor["selectedSourceRange"] == {"startFrame": 24, "endFrame": 60}
+    assert descriptor["logicalSourceBounds"] == {
+        "startFrame": 0,
+        "endFrame": 96,
+        "frameRate": {"numerator": 24, "denominator": 1},
+    }
+    assert second["visualOnlyTiming"]["selectedSourceRange"] == {
+        "startFrame": 0,
+        "durationFrames": 96,
+    }
+    assert first["researchClip"] == second["researchClip"] == snapshot
+
+    first["visualOnlyTiming"]["selectedSourceRange"] = {
+        "startFrame": 24,
+        "durationFrames": 73,
+    }
+    with pytest.raises(ValueError, match="outside the verified cut"):
+        bind_research_cut(first, tmp_path, MediaTools())
