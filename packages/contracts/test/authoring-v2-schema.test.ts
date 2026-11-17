@@ -488,7 +488,7 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectSettingsValid(projectSettings(presenterStillReference()));
   });
 
-  it("allows zero-length literal directions only under explicit whole-row intent", () => {
+  it("allows zero-length literal directions and rejects mismatched ordinary text/tokens", () => {
     const empty = narrationBlock();
     empty.text = "";
     empty.tokens = [];
@@ -520,6 +520,64 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectDocumentInvalid(documentWithBlock({ ...visualOnlyBlock(), plainDirection: true }));
     // Absence of the marker must remain compatible with saved pre-#365 rows.
     expectDocumentValid(documentWithBlock(narrationBlock()));
+  });
+
+  it("allows an exactly empty narration row with one retained base picture, but not extra pictures or waiting media", () => {
+    const empty = narrationBlock();
+    empty.text = "";
+    empty.tokens = [];
+    empty.primaryVisualSequence = primaryVisualSequence([contentSlot({ payload: narratedVisualPayload() })]);
+    expectDocumentValid(documentWithBlock(empty));
+
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: undefined }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, tokens: [
+      { id: ids.tokenOne, value: "hello", startOffset: 0, endOffset: 5 },
+    ] }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, text: "not empty" }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([]) }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([
+      contentSlot({ payload: narratedVisualPayload() }), contentSlot({ id: ids.event, relation: "sequential" }),
+    ]) }));
+    expectDocumentInvalid(documentWithBlock({ ...empty, unattachedVisuals: [
+      { slotId: ids.event, payload: narratedVisualPayload(), version: 1 },
+    ] }));
+  });
+
+  it("#580 P2 saves an ordinary wordless picture row without manufacturing words or durations", () => {
+    const retained = contentSlot({ payload: narratedVisualPayload("clip", "quiet") });
+    const empty = narrationBlock();
+    empty.text = "";
+    empty.tokens = [];
+    empty.primaryVisualSequence = primaryVisualSequence([retained]);
+    const document = documentWithBlock(empty);
+    expectDocumentValid(document);
+    // The schema fixture builder is intentionally untyped; validation above
+    // establishes it as a ScriptDocumentV2 before the typed serializer call.
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(
+      document as unknown as Parameters<typeof serializeAuthoringDocumentV2>[0],
+    ));
+    expect(loaded).toEqual({ ok: true, document });
+    const reloadedRow = loaded.ok ? loaded.document.activeDraft.blocks[0] : null;
+    expect(reloadedRow).toEqual(empty);
+    expect(reloadedRow?.type === "narration" && reloadedRow.tokens).toEqual([]);
+    expect(reloadedRow?.type === "narration" && reloadedRow.primaryVisualSequence?.slots).toEqual([retained]);
+
+    // P3 is deliberately refused by the row command: an alternate saved JSON
+    // cannot sneak in another placed, waiting or word-anchored picture.
+    const multiPicture = structuredClone(empty);
+    multiPicture.primaryVisualSequence = primaryVisualSequence([
+      retained, contentSlot({ id: ids.event, relation: "sequential" }),
+    ]);
+    const invalidDocuments = [
+      documentWithBlock(multiPicture),
+      documentWithBlock({ ...empty, unattachedVisuals: [{ slotId: ids.event, payload: narratedVisualPayload(), version: 1 }] }),
+      documentWithBlock({ ...empty, primaryVisualSequence: primaryVisualSequence([]) }),
+      documentWithBlock({ ...empty, tokens: narrationBlock().tokens }),
+    ];
+    for (const invalid of invalidDocuments) {
+      expectDocumentInvalid(invalid);
+      expect(deserializeAuthoringDocumentV2(JSON.stringify(invalid)).ok).toBe(false);
+    }
   });
 
   it("accepts each structural content-slot, relation, boundary, payload, and return variant", () => {

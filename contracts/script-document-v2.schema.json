@@ -1961,16 +1961,28 @@
             }
           },
           "else": {
-            "properties": {
-              "text": {
-                "type": "string",
-                "minLength": 1
+            "anyOf": [
+              {
+                "properties": {
+                  "text": { "type": "string", "minLength": 1 },
+                  "tokens": { "type": "array", "minItems": 1 }
+                }
               },
-              "tokens": {
-                "type": "array",
-                "minItems": 1
+              {
+                "required": ["primaryVisualSequence"],
+                "properties": {
+                  "text": { "const": "" },
+                  "tokens": { "type": "array", "maxItems": 0 },
+                  "unattachedVisuals": { "type": "array", "maxItems": 0 },
+                  "primaryVisualSequence": {
+                    "type": "object",
+                    "properties": {
+                      "slots": { "type": "array", "minItems": 1, "maxItems": 1 }
+                    }
+                  }
+                }
               }
-            }
+            ]
           }
         },
         {
