@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { applyStashRowEditV2 } from "../src/authoring-v2-stash.js";
+import { parkAttachedFootageForSortingV2, presentAttachedFootageForSortingV2 } from "../src/authoring-v2-rows.js";
+import { researchStashFixture } from "./issue-367-fixture.js";
 import {
   applyRowEditV2,
   createRowEditSessionV2,
@@ -138,6 +140,48 @@ function editNarration(row: NarrationBlockV2): NarrationBlockV2 {
 }
 
 describe("saved Stash row edits", () => {
+  it("carries an attached clip alias through a Stash note copy, its Sorting mirror, rename and park", () => {
+    const { doc, note } = researchStashFixture();
+    const storedClip = note.attachedFootage!.clip;
+    storedClip.payload.displayName = "Source angle";
+    const originalSource = structuredClone(storedClip.payload.source);
+    const session = createRowEditSessionV2(doc);
+    const placed = session.apply({
+      kind: "place_stash_rows", rowIds: [note.id],
+      destination: { sectionId: null, afterRowId: null, beforeRowId: null },
+      includeDescendants: false,
+    });
+    expect(placed.ok, JSON.stringify(placed.diagnostics)).toBe(true);
+    const active = placed.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const slot = active.primaryVisualSequence!.slots[0]!;
+    if (slot.kind !== "content" || slot.payload.kind !== "visual") throw new Error("Expected the copied clip mirror");
+    expect(active.attachedFootage!.clip.payload.displayName).toBe("Source angle");
+    expect(slot.payload.displayName).toBe("Source angle");
+    expect(slot.payload.source).toEqual(originalSource);
+    const rename = session.apply({
+      kind: "rename_visual_placement", rowId: active.id, payloadId: slot.payload.payloadId,
+      name: "Alternate angle",
+    });
+    expect(rename.ok, JSON.stringify(rename.diagnostics)).toBe(true);
+    expect(session.undoDepth).toBe(2);
+    const renamed = rename.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(renamed.attachedFootage!.clip.payload.displayName).toBe("Alternate angle");
+    expect((renamed.primaryVisualSequence!.slots[0] as typeof slot).payload).toMatchObject({
+      displayName: "Alternate angle", source: originalSource,
+    });
+    expect((rename.document.stash!.find((bundle) => bundle.rows.some((row) => row.id === note.id))!.rows[0] as NarrationBlockV2)
+      .attachedFootage!.clip.payload.displayName).toBe("Source angle");
+    const parked = structuredClone(renamed);
+    expect(parkAttachedFootageForSortingV2(parked)).toBe(true);
+    expect(presentAttachedFootageForSortingV2(parked)).toBe(true);
+    expect(parked.primaryVisualSequence).toEqual(renamed.primaryVisualSequence);
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(rename.document));
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.document).toEqual(rename.document);
+    expect(session.undo().ok).toBe(true);
+    expect((session.document.activeDraft.blocks[0] as NarrationBlockV2).attachedFootage!.clip.payload.displayName).toBe("Source angle");
+  });
+
   it("preserves the typed visual, token and anchored citation identities over two explicit cross-section returns", () => {
     const state = stashFixtureNarration();
     const original = structuredClone(state.document.stash![0]!.rows[0]);
