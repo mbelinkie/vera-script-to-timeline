@@ -574,6 +574,10 @@ html[data-thumbnail-scale="0"] .visual-card__image {
   visibility: hidden;
 }
 
+html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:hover {
+  z-index: 3;
+}
+
 html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:hover .visual-card__preview,
 html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visible .visual-card__preview {
   display: block;
