@@ -1,0 +1,58 @@
+import { readFile } from "node:fs/promises";
+
+export const DEFAULT_AUTHORING_PORT = "38429";
+
+const ASSETS = new Map<string, readonly [string, string]>([
+  ["/", ["index.html", "text/html; charset=utf-8"]],
+  ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
+  ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
+]);
+const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+
+/** Same-origin access to only the single-writer project/document routes. */
+export function createAuthoringHandler(
+  origin: string,
+  authorization: string,
+  projects: (request: Request) => Promise<Response>,
+): (request: Request) => Promise<Response | undefined> {
+  return async (request) => {
+    const url = new URL(request.url);
+    const asset = request.method === "GET" ? ASSETS.get(url.pathname) : undefined;
+    if (asset) {
+      const [file, mime] = asset;
+      const contents = await readFile(new URL(`../browser/${file}`, import.meta.url), "utf8");
+      return new Response(contents, { headers: {
+        "Content-Type": mime,
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; " +
+          "connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; " +
+          "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "Referrer-Policy": "no-referrer",
+      } });
+    }
+    if (!url.pathname.startsWith("/authoring/")) return undefined;
+    const path = url.pathname.slice("/authoring".length);
+    const route = PROJECT.exec(path);
+    const allowed = path === "/projects" ? request.method === "POST" :
+      route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
+    if (!allowed || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+
+    // Cross-origin browser code cannot set this header without a successful
+    // CORS preflight. Fetch Metadata also excludes other sites and local ports.
+    const suppliedOrigin = request.headers.get("origin");
+    if (request.headers.get("sec-fetch-site") !== "same-origin" ||
+        request.headers.get("x-vera-authoring") !== "1" ||
+        (suppliedOrigin !== null && suppliedOrigin !== origin)) {
+      return Response.json({ error: "same_origin_required" }, { status: 403 });
+    }
+    const headers = new Headers({ authorization });
+    const contentType = request.headers.get("content-type");
+    if (contentType) headers.set("content-type", contentType);
+    return await projects(new Request(`${origin}/v1${path}`, {
+      method: request.method,
+      headers,
+      body: request.body ? await request.arrayBuffer() : null,
+    }));
+  };
+}
