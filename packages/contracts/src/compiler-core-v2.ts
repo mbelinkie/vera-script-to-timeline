@@ -213,9 +213,11 @@ function diagnostic(code: BuildDiagnosticV2["code"], message: string, target: En
   };
 }
 
-function speechCutTimingWarning(slotId: string): BuildDiagnosticV2 {
+function speechCutTimingWarning(slotId: string, limitedBySource = false): BuildDiagnosticV2 {
   return diagnostic(
-    "WORD_TIMING_REQUIRED", "No measured pause supports an early picture cut. The cut stays at the incoming word start.",
+    "WORD_TIMING_REQUIRED", limitedBySource
+      ? "The incoming clip has too few source frames for the full early cut. The lead was shortened."
+      : "No measured pause supports an early picture cut. The cut stays at the incoming word start.",
     entity("slot", slotId, "boundaryBefore"), { kind: "anchor_issue", anchorId: slotId, reason: "word_timing_required" }, [], "warning",
   );
 }
@@ -846,7 +848,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       let start: number | null = slot.boundaryBefore.kind === "row_start" ? rowStart
         : slot.boundaryBefore.kind === "spoken_word" || slot.boundaryBefore.kind === "audible_word_end" ? resolveWord(slot.boundaryBefore.anchor, slot.id, `/activeDraft/blocks/${document.activeDraft.blocks.indexOf(block)}/primaryVisualSequence/slots/${sequence.slots.indexOf(slot)}/boundaryBefore`)
           : null;
-      if (speechCutCompiler && start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual") {
+      if (speechCutCompiler && start !== null && slot.boundaryBefore.kind === "spoken_word" && slot.relation.kind === "sequential" && slot.payload.kind === "visual" && slot.playoutPolicy === "match_structural_interval") {
         const previous = sequence.slots[sequence.slots.indexOf(slot) - 1];
         const previousRoot = previous?.kind === "return"
           ? sequence.slots.find((candidate) => candidate.kind === "content" && candidate.id === previous.parentSlotId)
@@ -860,30 +862,16 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           const prior = priorId ? row.tokenTimes.get(priorId) : null;
           const incoming = row.tokenTimes.get(anchorId)?.start;
           const rate = rateFraction(dependencies.timeline.frameRate);
-          const previousVisualFrame = Math.max(slotStarts.get(previousRoot.id) ?? rowStart, returnFrame ?? rowStart);
+          const previousVisualFrame = Math.max(resolvedEdges.get(previousRoot.id)?.frame ?? slotStarts.get(previousRoot.id) ?? rowStart, returnFrame ?? rowStart);
           const earliestCut = Math.min(start, previousVisualFrame + 1);
           if (prior?.evidenced && prior.end) {
             const uncertainty = "verification" in row.map && row.map.verification.method === "measured_audio_boundaries/v1" ? fromWire(row.map.verification.audibleEndUncertainty) : null;
             const safeEnd = uncertainty ? add(prior.end, uncertainty) : prior.end;
             const priorEnd = safe(BigInt(rowStart) + BigInt(framesAt(safeEnd, rateFraction(dependencies.timeline.frameRate))), "previous word end frame");
-            if (!incoming || compare(prior.end, incoming) > 0) {
-              diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The previous word extends beyond the incoming onset; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
-            } else if (compare(safeEnd, incoming) >= 0) {
-              diagnostics.push(speechCutTimingWarning(slot.id));
-            } else if (returnFrame != null && returnFrame > start) {
-              diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", "The incoming cut would precede the authored return; no safe picture cut is available.", entity("block", block.id, "primaryVisualSequence"), undefined, ["refresh_timing", "manual_review"]));
-            } else if (priorEnd > start) {
-              diagnostics.push(speechCutTimingWarning(slot.id));
+            if (!incoming || compare(safeEnd, incoming) >= 0 || priorEnd > start || (returnFrame ?? rowStart) > start) {
+              if (!incoming || compare(safeEnd, incoming) !== 0 || uncertainty) diagnostics.push(speechCutTimingWarning(slot.id));
             } else {
               start = Math.max(start - 3, priorEnd, earliestCut);
-              const edge = resolvedEdges.get(slot.id);
-              const evidence = boundaryEvidence.find((item) => item.entityId === slot.id && item.kind === "word_start");
-              if (edge && evidence) {
-                evidence.resolvedRecordFrame = start;
-                evidence.delta = wireOrThrow(sub(frac(BigInt(start - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator)), edge.time), "boundary delta");
-                if (start !== edge.frame) evidence.precision = "between_words";
-              }
-              if (edge && start !== edge.frame) edge.precision = "between_words";
             }
           } else if (index > 0) {
             const pairs = quietPairs.filter((pair) => pair.afterTokenId === anchorId);
@@ -958,6 +946,39 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
     }
     const content = sequence.slots.filter((slot): slot is ContentSlot => slot.kind === "content");
     const roots = content.filter((slot) => slot.relation.kind === "base" || slot.relation.kind === "sequential");
+    // Work backwards so a later shot's final start determines the earlier shot's duration.
+    if (speechCutCompiler) for (let index = roots.length - 1; index >= 0; index--) {
+      const slot = roots[index]!;
+      const edge = resolvedEdges.get(slot.id);
+      const candidate = slotStarts.get(slot.id);
+      if (edge?.kind !== "word_start" || candidate === undefined || candidate >= edge.frame) continue;
+      let start = candidate;
+      if (slot.payload.kind === "visual" && slot.payload.pictureKind === "clip") {
+        const descriptor = descriptorByPayload.get(slot.payload.payloadId);
+        const next = roots[index + 1];
+        const end = next ? slotStarts.get(next.id) : rowEnd;
+        if (descriptor && end !== undefined) {
+          const selection = slot.payload.selectedSourceRange;
+          const availableEnd = selection ? selection.startFrame + selection.durationFrames : descriptor.logicalSourceBounds.endFrame;
+          while (start < edge.frame) {
+            const requiredEnd = requiredSourceEnd(descriptor, end - start, dependencies.timeline.frameRate);
+            if (requiredEnd !== null && requiredEnd <= availableEnd) break;
+            start++;
+          }
+          if (start !== candidate) diagnostics.push(speechCutTimingWarning(slot.id, true));
+        }
+      }
+      slotStarts.set(slot.id, start);
+      if (start === edge.frame) continue;
+      edge.precision = "between_words";
+      const evidence = boundaryEvidence.find((item) => item.entityId === slot.id && item.kind === "word_start");
+      if (evidence) {
+        evidence.resolvedRecordFrame = start;
+        const local = frac(BigInt(start - rowStart) * BigInt(dependencies.timeline.frameRate.denominator), BigInt(dependencies.timeline.frameRate.numerator));
+        evidence.delta = wireOrThrow(sub(local, edge.time), "boundary delta");
+        evidence.precision = "between_words";
+      }
+    }
     const children = content.filter((slot): slot is CutawaySlot => slot.relation.kind === "cutaway");
     const rangeBySlot = new Map<string, FrameRangeV2>();
     roots.forEach((slot, index) => {

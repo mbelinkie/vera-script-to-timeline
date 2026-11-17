@@ -26,6 +26,11 @@ SPEECH_CUT_WARNING = (
     "The cut stays at the incoming word start."
 )
 
+SPEECH_CUT_SOURCE_WARNING = (
+    "The incoming clip has too few source frames for the full early cut. "
+    "The lead was shortened."
+)
+
 TEMPORARY_PRESENTER_MESSAGE = "On Camera uses the effective temporary presenter still."
 TEMPORARY_PRESENTER_COMPLETION_MESSAGE = (
     "Replace the temporary presenter still when an accepted presenter source "
@@ -187,16 +192,18 @@ def validate_temporary_presenter_report(
             and diagnostic.get("code") == "WORD_TIMING_REQUIRED"
         ):
             slot_id = _identity(diagnostic.get("entity", {}).get("id"))
+            message = diagnostic.get("message")
             _require(
-                slot_id in speech_cut_slots
+                message in (SPEECH_CUT_WARNING, SPEECH_CUT_SOURCE_WARNING)
+                and slot_id in speech_cut_slots
                 and slot_id not in warned_speech_slots
                 and diagnostic
                 == {
                     "id": _stable_compiler_id(
-                        f"WORD_TIMING_REQUIRED:slot:{slot_id}:boundaryBefore:{SPEECH_CUT_WARNING}"
+                        f"WORD_TIMING_REQUIRED:slot:{slot_id}:boundaryBefore:{message}"
                     ),
                     "code": "WORD_TIMING_REQUIRED",
-                    "message": SPEECH_CUT_WARNING,
+                    "message": message,
                     "entity": {"id": slot_id, "kind": "slot", "path": "boundaryBefore"},
                     "severity": "warning",
                     "evidence": {

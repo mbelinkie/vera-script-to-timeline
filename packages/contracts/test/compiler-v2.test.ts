@@ -1134,7 +1134,16 @@ describe("pure v2 compiler", () => {
       });
     }
 
-    const insufficient = requirementsFor(53);
+    const shortened = requirementsFor(53);
+    expect(shortened.ok, JSON.stringify(shortened)).toBe(true);
+    if (shortened.ok) {
+      expect(shortened.requirements.find((item) => item.payloadId === id(18))).toMatchObject({
+        recordRange: { startFrame: 238, endFrame: 288 },
+        requiredSourceRange: { startFrame: 0, endFrame: 53 },
+        sourceSufficiency: "sufficient",
+      });
+    }
+    const insufficient = requirementsFor(50);
     expect(insufficient.ok).toBe(false);
     if (!insufficient.ok) expect(insufficient.diagnostics.map((item) => item.code)).toContain("SOURCE_INSUFFICIENT");
   });
