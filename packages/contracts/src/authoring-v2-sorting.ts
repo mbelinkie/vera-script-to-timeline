@@ -3,6 +3,7 @@ import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { createSortingProjectionV2, updateSortingProjectionV2, projectSortingDocumentV2 } from "./authoring-v2-sorting-projection.js";
 import { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
 import type { CommentStateV2 } from "./authoring-v2-comments.js";
+import { isInsertStashNoteWordsCommandV2, isStashSelectedWordsCommandV2 } from "./authoring-v2-stash-words.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
@@ -95,6 +96,8 @@ function originalRowPositions(baseline: Map<string, Position>, containers: Map<s
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
   if (!command || typeof command !== "object" || Array.isArray(command)) return false;
+  if ("kind" in command && command.kind === "stash_selected_words") return isStashSelectedWordsCommandV2(command);
+  if ("kind" in command && command.kind === "insert_stash_note_words") return isInsertStashNoteWordsCommandV2(command);
   if ("kind" in command && ["stash_group_rows", "group_stash_rows", "move_stash_group", "ungroup_stash_group",
     "delete_stash_group", "place_stash_group", "save_stash_group"].includes(String(command.kind))) {
     return isStashGroupCommandV2(command);

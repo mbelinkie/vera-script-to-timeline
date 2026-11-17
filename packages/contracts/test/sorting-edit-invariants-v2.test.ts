@@ -123,6 +123,60 @@ function commandsFor(caseIndex: number): RowEditCommandV2[] {
 }
 
 describe("Sorting row-edit invariants", () => {
+  it("does not split the original or saved visual owner across selected-word Sorting outcomes", () => {
+    const source = row(730);
+    source.text = "one two three four five";
+    source.tokens = [...source.text.matchAll(/\S+/gu)].map((match, index) => ({
+      id: id(12000 + index), value: match[0], startOffset: match.index,
+      endOffset: match.index + match[0].length,
+    }));
+    source.primaryVisualSequence!.slots.push({
+      id: id(13000), kind: "content", version: 1, relation: { kind: "sequential" },
+      boundaryBefore: { kind: "spoken_word", anchor: {
+        blockId: source.id, tokenId: source.tokens[2]!.id, quotedWord: "three",
+        affinity: "before", anchorVersion: 1,
+      } },
+      payload: { kind: "visual", payloadId: id(13001), pictureKind: "intentional_placeholder",
+        source: { kind: "intentional_placeholder", text: "shot three" },
+        sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain" },
+      playoutPolicy: "match_structural_interval",
+    });
+    const baseline = { ...document([900]), activeDraft: { blocks: [source, row(900)], supportingItems: [] } };
+    expect(validateScriptDocumentV2(baseline).valid).toBe(true);
+    const gesture: RowEditCommandV2 = {
+      kind: "stash_selected_words", rowId: source.id, bundleId: id(14000), stashRowId: id(14001),
+      words: { startTokenId: source.tokens[1]!.id, endTokenId: source.tokens[3]!.id },
+    };
+    const trial = createSortingTrialV2(baseline);
+    const refused = trial.apply({ ...gesture, words: { startTokenId: id(999999), endTokenId: source.tokens[3]!.id } });
+    expect(refused.ok).toBe(false);
+    expect(trial.undoDepth).toBe(0);
+    const acceptedGesture = trial.apply(gesture);
+    expect(acceptedGesture.ok, JSON.stringify(acceptedGesture.diagnostics)).toBe(true);
+    const trail = trial.serialize();
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const selected = resumeSortingTrialV2(trail).accept(baseline, mode);
+      expect(selected.ok, `${mode}: ${JSON.stringify(selected.diagnostics)}`).toBe(true);
+      expect(validateScriptDocumentV2(selected.document).valid).toBe(true);
+      const active = selected.document.activeDraft.blocks[0] as NarrationBlockV2;
+      const saved = selected.document.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === id(14001));
+      if (mode === "sorting_only") {
+        expect(active).toEqual(source);
+        expect(saved).toBeUndefined();
+      } else {
+        expect(active.text).toBe("one five");
+        expect(saved?.type).toBe("narration");
+        expect(saved?.text).toBe("two three four");
+        expect(selected.document.stashOutline?.find((entry) => entry.rowId === id(14001))?.kind).toBe("row");
+        const activeSlots = active.primaryVisualSequence!.slots.map((slot) => slot.id);
+        const savedSlots = (saved as NarrationBlockV2).primaryVisualSequence!.slots.map((slot) => slot.id);
+        expect(activeSlots).not.toContain(id(13000));
+        expect(savedSlots).toContain(id(13000));
+        expect(new Set([...activeSlots, ...savedSlots]).size).toBe(activeSlots.length + savedSlots.length);
+      }
+    }
+    expect(resumeSortingTrialV2(trail).discard(baseline).document).toEqual(baseline);
+  });
   it.each([24, 30, 42, 54] as const)("conserves one Research occurrence across sorting/content split at in-frame %i", (frame) => {
     const { doc, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(doc);

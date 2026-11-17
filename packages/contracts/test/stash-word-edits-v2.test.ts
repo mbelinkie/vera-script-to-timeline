@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyRowEditV2,
+  applyCommentOperationV2,
+  createCommentStateV2,
   createRowEditSessionV2,
+  createSortingTrialV2,
   cutNarrationWordRangeV2,
   deserializeAuthoringDocumentV2,
   projectPrimarySequenceV2,
+  resumeSortingTrialV2,
   serializeAuthoringDocumentV2,
   spliceSpokenStashNoteV2,
   copyStashNoteAsSpokenV2,
@@ -535,6 +539,87 @@ describe("#584 phase 3: inline note speech and independent first-word footage", 
     expect(session.redoDepth).toBe(0);
     expect(session.redo().diagnostics[0]?.code).toBe("ROW_REDO_EMPTY");
   });
+
+  it("keeps inline text, copied clip and source checklist together across Sorting outcomes and reload", () => {
+    const { doc, target, source, child, command } = fixture(true);
+    const other = row(310, "Later row");
+    doc.activeDraft.blocks.push(other);
+    const trial = createSortingTrialV2(doc);
+    const refused = trial.apply({ ...command, beforeTokenId: id(99999) });
+    expect(refused.ok).toBe(false);
+    expect(trial.document).toEqual(doc);
+    expect(trial.undoDepth).toBe(0);
+    const inserted = trial.apply(command);
+    expect(inserted.ok, JSON.stringify(inserted.diagnostics)).toBe(true);
+    expect(trial.undoDepth).toBe(1);
+    expect(trial.apply({ kind: "move_rows", rowIds: [target.id], destination: {
+      sectionId: null, afterRowId: other.id, beforeRowId: null,
+    } }).ok).toBe(true);
+    const snapshot = trial.serialize();
+    expect(resumeSortingTrialV2(snapshot).document).toEqual(trial.document);
+
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const outcome = resumeSortingTrialV2(snapshot).accept(doc, mode);
+      expect(outcome.ok, `${mode}: ${JSON.stringify(outcome.diagnostics)}`).toBe(true);
+      expect(validateScriptDocumentV2(outcome.document).valid).toBe(true);
+      const placed = outcome.document.activeDraft.blocks.find((item) => item.id === target.id) as NarrationBlockV2;
+      const checked = saved(outcome.document, source.id);
+      expect(saved(outcome.document, child.id)).toEqual(child);
+      expect(checked.attachedFootage).toEqual(source.attachedFootage);
+      expect(outcome.document.activeDraft.blocks.map((item) => item.id)).toEqual(
+        mode === "edits_only" ? [target.id, other.id] : [other.id, target.id]);
+      if (mode === "sorting_only") {
+        expect(placed).toEqual(target);
+        expect(checked.stashChecklist).toBeUndefined();
+      } else {
+        expect(placed.text).toBe("Alpha [literal] words beta");
+        expect(placed.primaryVisualSequence?.slots.filter((slot) => slot.kind === "content" && slot.payload.kind === "visual")).toHaveLength(1);
+        expect(checked.stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+      }
+      const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(outcome.document));
+      expect(reloaded.ok).toBe(true);
+      if (reloaded.ok) expect(reloaded.document).toEqual(outcome.document);
+    }
+    const discarded = resumeSortingTrialV2(snapshot).discard(doc);
+    expect(discarded.ok).toBe(true);
+    expect(discarded.document).toEqual(doc);
+  });
+
+  it("reconciles survivor and spanning word comments only when inline speech is accepted", () => {
+    const { doc, target, command } = fixture();
+    let comments = createCommentStateV2(doc);
+    for (const [number, anchor] of [
+      { startTokenId: target.tokens[0]!.id, endTokenId: target.tokens[0]!.id },
+      { startTokenId: target.tokens[0]!.id, endTokenId: target.tokens[1]!.id },
+    ].entries()) {
+      const result = applyCommentOperationV2(comments, comments.revision, {
+        kind: "create", id: `insert-comment-${number}`, actorId: "writer",
+        threadId: `insert-thread-${number}`, messageId: `insert-message-${number}`,
+        body: "Keep this discussion", mentionActorIds: [],
+        anchor: { kind: "text", blockId: target.id, ...anchor },
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) comments = result.state;
+    }
+    const trial = createSortingTrialV2(doc);
+    expect(trial.apply(command).ok).toBe(true);
+    const snapshot = trial.serialize();
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const accepted = resumeSortingTrialV2(snapshot).accept(doc, mode, {
+        state: comments, id: `inline-accept-${mode}`, actorId: "writer",
+      });
+      expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+      expect(accepted.comments?.threads.map((thread) => thread.attachment.status)).toEqual(
+        mode === "sorting_only" ? ["attached", "attached"] : ["attached", "stale"]);
+      expect(accepted.comments?.threads.map((thread) => thread.messages[0]!.body))
+        .toEqual(["Keep this discussion", "Keep this discussion"]);
+    }
+    const discard = resumeSortingTrialV2(snapshot).discard(doc, {
+      state: comments, id: "inline-discard", actorId: "writer",
+    });
+    expect(discard.ok).toBe(true);
+    expect(discard.comments).toEqual(comments);
+  });
 });
 
 describe("#584 phase 2: saved visual row ownership and reference fences", () => {
@@ -735,5 +820,87 @@ describe("#584 phase 2: saved visual row ownership and reference fences", () => 
       expect(result.document).toBe(input);
       expect(input).toEqual(before);
     }
+  });
+});
+
+describe("#584 phase 4: cut-word Sorting and persisted comments", () => {
+  it("keeps the complete cut and new Stash note in edits-only, but never in sorting-only or Discard", () => {
+    const source = row(180, "Alpha beta gamma delta");
+    const follower = row(181, "A following row");
+    const existingNote = row(182, "Old note");
+    existingNote.plainDirection = true;
+    existingNote.tokens.forEach((token) => { token.spoken = false; });
+    const baseline = documentWith(source);
+    baseline.activeDraft.blocks.push(follower);
+    baseline.stash = [{ id: id(8100), rows: [existingNote], supportingItems: [] }];
+    baseline.stashOutline = [{ rowId: existingNote.id, kind: "note", parentRowId: null, sectionId: null }];
+    const selection = command(source);
+    const before = structuredClone(baseline);
+
+    let comments = createCommentStateV2(baseline);
+    for (const [number, tokenIndex] of [1, 3].entries()) {
+      const token = source.tokens[tokenIndex]!;
+      const created = applyCommentOperationV2(comments, comments.revision, {
+        kind: "create", id: `cut-comment-${number}`, actorId: "reviewer",
+        threadId: `cut-thread-${number}`, messageId: `cut-message-${number}`,
+        body: "Keep comment history", mentionActorIds: [],
+        anchor: { kind: "text", blockId: source.id, startTokenId: token.id, endTokenId: token.id },
+      });
+      expect(created.ok).toBe(true);
+      if (created.ok) comments = created.state;
+    }
+
+    const trial = createSortingTrialV2(baseline);
+    expect(trial.apply({ ...selection, words: { ...selection.words, endTokenId: id(99999) } }).ok).toBe(false);
+    expect(trial.undoDepth).toBe(0);
+    expect(trial.document).toEqual(before);
+    const cut = trial.apply(selection);
+    expect(cut.ok, JSON.stringify(cut.diagnostics)).toBe(true);
+    expect(trial.undoDepth).toBe(1);
+    expect(trial.document.stashOutline?.map((item) => item.rowId)).toEqual([selection.stashRowId, existingNote.id]);
+    expect(trial.apply({ kind: "move_rows", rowIds: [follower.id], destination: {
+      sectionId: null, afterRowId: null, beforeRowId: source.id,
+    } }).ok).toBe(true);
+    const trialSnapshot = trial.serialize();
+    expect(resumeSortingTrialV2(trialSnapshot).document).toEqual(trial.document);
+
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const result = resumeSortingTrialV2(trialSnapshot).accept(baseline, mode, {
+        state: comments, id: `accept-cut-${mode}`, actorId: "reviewer",
+      });
+      expect(result.ok, `${mode}: ${JSON.stringify(result.diagnostics)}`).toBe(true);
+      expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+      expect(result.document.activeDraft.blocks.map((item) => item.id)).toEqual(
+        mode === "edits_only" ? [source.id, follower.id] : [follower.id, source.id]);
+      const active = result.document.activeDraft.blocks.find((item) => item.id === source.id) as NarrationBlockV2;
+      const selectedNote = result.document.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === selection.stashRowId);
+      if (mode === "sorting_only") {
+        expect(active).toEqual(source);
+        expect(selectedNote).toBeUndefined();
+        expect(result.comments?.threads.map((thread) => thread.attachment.status)).toEqual(["attached", "attached"]);
+      } else {
+        expect(active.text).toBe("Alpha delta");
+        expect(selectedNote?.type).toBe("narration");
+        expect(selectedNote?.text).toBe("beta gamma");
+        expect(result.document.stashOutline?.[0]).toEqual({
+          rowId: selection.stashRowId, kind: "note", parentRowId: null, sectionId: null,
+        });
+        expect(result.comments?.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "attached"]);
+      }
+      expect(result.document.stashOutline?.at(-1)?.rowId).toBe(existingNote.id);
+      expect(result.comments?.threads.map((thread) => thread.messages[0]?.body)).toEqual([
+        "Keep comment history", "Keep comment history",
+      ]);
+      const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+      expect(reloaded.ok).toBe(true);
+      if (reloaded.ok) expect(reloaded.document).toEqual(result.document);
+    }
+    const discarded = resumeSortingTrialV2(trialSnapshot).discard(baseline, {
+      state: comments, id: "discard-cut", actorId: "reviewer",
+    });
+    expect(discarded.ok).toBe(true);
+    expect(discarded.document).toEqual(before);
+    expect(discarded.comments).toEqual(comments);
+    expect(baseline).toEqual(before);
   });
 });

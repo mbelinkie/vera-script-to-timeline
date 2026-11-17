@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyRowEditV2, createRowEditSessionV2, createSortingTrialV2,
-  deserializeAuthoringDocumentV2, projectStashChecklistV2,
+  deserializeAuthoringDocumentV2, projectStashChecklistV2, resumeSortingTrialV2,
   serializeAuthoringDocumentV2, validateScriptDocumentV2,
 } from "../src/authoring-v2.js";
 import type { NarrationBlockV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
@@ -347,5 +347,41 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     const discarded = createSortingTrialV2(baseline);
     expect(discarded.apply(command).ok).toBe(true);
     expect(discarded.discard(baseline).document).toEqual(baseline);
+  });
+
+  it("checks the source of an inline note only in accepted edits and preserves manual history through replay", () => {
+    const { doc, source, child } = fixture(true);
+    const target = note(400, "Alpha beta");
+    delete target.plainDirection;
+    target.tokens.forEach((token) => { delete token.spoken; });
+    doc.activeDraft.blocks.push(target);
+    source.stashChecklist = { completed: false, manualRevision: 6 };
+    const inserted = { kind: "insert_stash_note_words" as const, noteRowId: source.id, rowId: target.id,
+      beforeTokenId: target.tokens[1]!.id };
+    const session = createRowEditSessionV2(doc);
+    expect(session.apply(inserted).ok).toBe(true);
+    expect(savedNote(session.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 6 });
+    expect(withoutRevision(session.undo().document)).toEqual(withoutRevision(doc));
+    expect(session.redo().ok).toBe(true);
+    expect(savedNote(session.document, source.id).stashChecklist).toEqual({ completed: true, manualRevision: 6 });
+
+    const trial = createSortingTrialV2(doc);
+    expect(trial.apply(inserted).ok).toBe(true);
+    for (const mode of ["all", "edits_only", "sorting_only"] as const) {
+      const accepted = resumeSortingTrialV2(trial.serialize()).accept(doc, mode);
+      expect(accepted.ok, `${mode}: ${JSON.stringify(accepted.diagnostics)}`).toBe(true);
+      expect(savedNote(accepted.document, source.id).stashChecklist).toEqual({
+        completed: mode !== "sorting_only", manualRevision: 6,
+      });
+      expect(savedNote(accepted.document, child.id)).toEqual(child);
+      // A checked parent remains visible while its unchecked nested note
+      // needs that ancestor for context; the checkbox, not visibility, is the
+      // authority for whether the insertion was accepted.
+      expect(projectStashChecklistV2(accepted.document, true).visibleRowIds).toContain(source.id);
+      const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(accepted.document));
+      expect(reloaded.ok).toBe(true);
+      if (reloaded.ok) expect(reloaded.document).toEqual(accepted.document);
+    }
+    expect(resumeSortingTrialV2(trial.serialize()).discard(doc).document).toEqual(doc);
   });
 });

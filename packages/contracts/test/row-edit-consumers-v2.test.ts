@@ -8,6 +8,7 @@ import {
   applyRowEditV2,
   deserializeAuthoringDocumentV2,
   serializeAuthoringDocumentV2,
+  validateScriptDocumentV2,
 } from "@vera/contracts/authoring-v2";
 import { applyStashRowEditV2 } from "../src/authoring-v2-stash.js";
 import type {
@@ -552,6 +553,108 @@ describe("row-edit consumers", () => {
 
     const needs = mediaNeeds(document, dependencies);
     expect(needs).toEqual(baselineNeeds);
+  });
+
+  it("uses only surviving words after a Stash word cut in prompter, compiler and media readiness", () => {
+    const { document, dependencies } = input();
+    const source = activeNarration(document);
+    source.text = "Alpha beta gamma delta";
+    source.tokens = [...source.text.matchAll(/\S+/gu)].map((match, index) => ({
+      id: id(9900 + index), value: match[0], startOffset: match.index,
+      endOffset: match.index + match[0].length,
+    }));
+    updateSpokenTiming(document, source, dependencies);
+    const before = compileTimelineV2(document, dependencies);
+    expect(before.ok, JSON.stringify(before.ok ? [] : before.diagnostics)).toBe(true);
+    const parked = applyRowEditV2(document, document.rowEditRevision ?? 0, {
+      kind: "stash_selected_words", rowId: source.id, stashRowId: id(9961), bundleId: id(9962),
+      words: { startTokenId: source.tokens[1]!.id, endTokenId: source.tokens[2]!.id },
+    });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    if (!parked.ok) return;
+    const persisted = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(parked.document));
+    expect(persisted.ok).toBe(true);
+    if (!persisted.ok) return;
+    expect(validateScriptDocumentV2(persisted.document).valid).toBe(true);
+    const remaining = activeNarration(persisted.document);
+    const saved = persisted.document.stash?.[0]?.rows[0] as NarrationBlockV2;
+    expect(remaining.text).toBe("Alpha delta");
+    expect(saved.text).toBe("beta gamma");
+    const exported = exportPrompter(persisted.document, exportSettings);
+    expect(exported.ok).toBe(true);
+    if (exported.ok) {
+      // Presenter/voiceover partitions can insert beat markers inside a row.
+      expect(exported.text).toContain("Alpha");
+      expect(exported.text).toContain("delta");
+      expect(exported.text).not.toContain("beta gamma");
+    }
+    // Word editing changes the narration timing contract; consumers must not
+    // silently reuse the pre-cut speech alignment.
+    const stale = mediaNeeds(persisted.document, dependencies);
+    expect(stale.ok).toBe(false);
+    updateSpokenTiming(persisted.document, remaining, dependencies);
+    const compiled = compileTimelineV2(persisted.document, dependencies);
+    const needs = mediaNeeds(persisted.document, dependencies);
+    expect(compiled.ok, JSON.stringify(compiled.ok ? [] : compiled.diagnostics)).toBe(true);
+    expect(needs.ok, JSON.stringify(needs.ok ? [] : needs.diagnostics)).toBe(true);
+    if (compiled.ok) expect(compiled.manifest.events.some((event) => event.provenance.blockId === saved.id)).toBe(false);
+  });
+
+  it("treats inserted Stash brackets as literal speech in persisted prompter and timeline consumers", () => {
+    const { document, dependencies } = input();
+    const target = activeNarration(document);
+    target.text = "Alpha beta";
+    target.tokens = [
+      { id: id(9970), value: "Alpha", startOffset: 0, endOffset: 5 },
+      { id: id(9971), value: "beta", startOffset: 6, endOffset: 10 },
+    ];
+    updateSpokenTiming(document, target, dependencies);
+    const note = structuredClone(target);
+    note.id = id(9972);
+    note.orderKey = "note-literal";
+    note.text = "[literal] words";
+    note.plainDirection = true;
+    note.tokens = [
+      { id: id(9973), value: "[literal]", startOffset: 0, endOffset: 9, spoken: false },
+      { id: id(9974), value: "words", startOffset: 10, endOffset: 15, spoken: false },
+    ];
+    note.primaryVisualSequence = { id: id(9975), version: 1, slots: [{
+      id: id(9976), kind: "content", relation: { kind: "base" }, version: 1,
+      boundaryBefore: { kind: "row_start" }, payload: { kind: "on_camera", presenterChoiceId: null },
+      playoutPolicy: "match_structural_interval",
+    }] };
+    document.stash = [{ id: id(9977), rows: [note], supportingItems: [] }];
+    document.stashOutline = [{ rowId: note.id, kind: "note", parentRowId: null, sectionId: null }];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const inserted = applyRowEditV2(document, document.rowEditRevision ?? 0, {
+      kind: "insert_stash_note_words", noteRowId: note.id, rowId: target.id,
+      beforeTokenId: target.tokens[1]!.id,
+    });
+    expect(inserted.ok, JSON.stringify(inserted.diagnostics)).toBe(true);
+    if (!inserted.ok) return;
+    const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(inserted.document));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const spoken = activeNarration(loaded.document);
+    expect(spoken.text).toBe("Alpha [literal] words beta");
+    expect(spoken.tokens.slice(1, 3).map((token) => [token.value, token.spoken]))
+      .toEqual([["[literal]", true], ["words", true]]);
+    const exported = exportPrompter(loaded.document, exportSettings);
+    expect(exported.ok).toBe(true);
+    if (exported.ok) {
+      expect(exported.text).toContain("[literal]");
+      expect(exported.text).toContain("words");
+    }
+    const savedNote = loaded.document.stash![0]!.rows[0] as NarrationBlockV2;
+    expect(savedNote.text).toBe(note.text);
+    expect(savedNote.stashChecklist).toEqual({ completed: true, manualRevision: 0 });
+    expect(mediaNeeds(loaded.document, dependencies).ok).toBe(false);
+    updateSpokenTiming(loaded.document, spoken, dependencies);
+    const compiled = compileTimelineV2(loaded.document, dependencies);
+    const needs = mediaNeeds(loaded.document, dependencies);
+    expect(compiled.ok, JSON.stringify(compiled.ok ? [] : compiled.diagnostics)).toBe(true);
+    expect(needs.ok, JSON.stringify(needs.ok ? [] : needs.diagnostics)).toBe(true);
+    if (compiled.ok) expect(compiled.manifest.events.some((event) => event.provenance.blockId === note.id)).toBe(false);
   });
 });
 
