@@ -62,6 +62,8 @@ export type RowEditCommandV2 =
   | { kind: "set_stash_completion"; rowId: string; completed: boolean }
   | { kind: "edit_row"; rowId: string; row: Row }
   | { kind: "edit_narration_text"; rowId: string; startOffset: number; endOffset: number; insertedText: string; editId: string }
+  /** Rename this use of a clip/still, never its shared media source. Blank clears the alias. */
+  | { kind: "rename_visual_placement"; rowId: string; payloadId: string; name: string }
   /** Reorder the first and additional visuals together without changing their metadata. */
   | { kind: "reorder_visual_only"; rowId: string; payloadIds: string[] }
   | { kind: "set_visual_only_hold"; rowId: string; payloadId: string; holdSeconds: number }
@@ -242,6 +244,27 @@ function validVisualOnlyCommand(value: unknown): boolean {
       typeof value.payloadId === "string" && value.payloadId.length > 0 && typeof value.holdSeconds === "number";
   }
   return false;
+}
+
+function validRenameVisualPlacementCommand(value: unknown): boolean {
+  return plainObject(value) && isJsonValue(value) &&
+    exactKeys(value, ["kind", "rowId", "payloadId", "name"]) &&
+    value.kind === "rename_visual_placement" &&
+    typeof value.rowId === "string" && value.rowId.length > 0 &&
+    typeof value.payloadId === "string" && value.payloadId.length > 0 &&
+    typeof value.name === "string";
+}
+
+/** Locate one saved placement by payload identity, including waiting and wordless visuals. */
+function rowVisualPlacements(row: NarrationBlockV2 | VisualOnlyBlockV2): Array<NarratedVisualPayloadV2 | VisualOnlyBlockV2["payload"]> {
+  if (row.type === "visual_only") {
+    return [row.payload, ...(row.additionalVisuals ?? []).map((visual) => visual.payload)];
+  }
+  return [
+    ...(row.primaryVisualSequence?.slots ?? []).flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload] : []),
+    ...(row.unattachedVisuals ?? []).map((visual) => visual.payload),
+  ];
 }
 
 function draftSectionKind(kind: unknown): kind is "create_section" | "rename_section" | "delete_section_break" {
@@ -1254,6 +1277,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
+    if (command.kind === "rename_visual_placement" && !validRenameVisualPlacementCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide one visual placement and a text name, with no extra fields.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if (attachmentKind(command.kind) && (!isJsonValue(command) || !validAttachmentCommand(command))) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact footage attachment command.");
     if (command.kind === "place_stash_rows" &&
@@ -1284,7 +1308,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
   // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
   const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
-  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
+  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
@@ -1595,6 +1619,31 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     if (checklist.completed === command.completed) return refused(document, "ROW_EDIT_NO_CHANGE", "The Stash checkbox already has this state.");
     if (checklist.manualRevision === Number.MAX_SAFE_INTEGER) return refused(document, "STASH_CHECKLIST_REVISION_EXHAUSTED", "Manual checkbox history cannot advance.");
     row.stashChecklist = { completed: command.completed, manualRevision: checklist.manualRevision + 1 };
+  } else if (command.kind === "rename_visual_placement") {
+    const row = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)]
+      .find((item): item is NarrationBlockV2 | VisualOnlyBlockV2 =>
+        item.id === command.rowId && (item.type === "narration" || item.type === "visual_only"));
+    if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an existing visual row in Draft or Stash.");
+    const candidates = rowVisualPlacements(row).filter((item) => item.payloadId === command.payloadId);
+    if (candidates.length !== 1) return refused(document, "VISUAL_NOT_FOUND", "Choose exactly one visual placement in this row.");
+    const payload = candidates[0]!;
+    if (payload.pictureKind !== "clip" && payload.pictureKind !== "image") {
+      return refused(document, "VISUAL_RENAME_UNSUPPORTED", "Only Footage and Still Image placements can have custom names.");
+    }
+    const name = command.name.trim();
+    if ((payload.displayName ?? "") === name) return refused(document, "ROW_EDIT_NO_CHANGE", "This placement already has that name.");
+    if (name) payload.displayName = name;
+    else delete payload.displayName;
+    // Attached footage has one visible mirrored slot and one owned source payload.
+    // Keep both names aligned without touching the source's media reference.
+    const attached = row.type === "narration" ? row.attachedFootage : undefined;
+    if (row.type === "narration" && attached &&
+      row.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" && slot.payload === payload &&
+        payload.payloadId === attachedVisualPayloadId(row.id, attached.clip.id, slot.id))) {
+      if (name) attached.clip.payload.displayName = name;
+      else delete attached.clip.payload.displayName;
+    }
+    markStashOriginEditedV2(row);
   } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") {
     const row = blocks.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.rowId);
     if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an existing visuals-only Draft row.");
@@ -2059,7 +2108,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
