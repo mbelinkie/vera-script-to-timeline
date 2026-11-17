@@ -160,6 +160,10 @@ export function validateScriptDocumentV2(
       addId(sequence.id, `${path}/primaryVisualSequence/id`, block.id);
       validateSequence(block, sequence.slots, path, diagnostics, addId);
     }
+    (block.unattachedVisuals ?? []).forEach((item, itemIndex) => {
+      addId(item.slotId, `${path}/unattachedVisuals/${itemIndex}/slotId`, block.id);
+      addId(item.payload.payloadId, `${path}/unattachedVisuals/${itemIndex}/payload/payloadId`, block.id);
+    });
     block.overlayEvents.forEach((event, eventIndex) => {
       const eventPath = `${path}/overlayEvents/${eventIndex}`;
       overlayIds.add(event.id);
@@ -277,6 +281,21 @@ export function validateScriptDocumentV2(
     const sourceId = row.payload.source.kind === "media_reference" ? row.payload.source.mediaReferenceId : undefined;
     validateBoundedResearch(row.researchClip, row.frameBinding,
       row.visualOnlyTiming.selectedSourceRange, row.payload.pictureKind, sourceId, path, row.id);
+    if (row.additionalVisuals?.length) {
+      const payloadIds = new Set([row.payload.payloadId]);
+      row.additionalVisuals.forEach((visual, index) => {
+        const visualPath = `${path}/additionalVisuals/${index}`;
+        if (payloadIds.has(visual.payload.payloadId)) diagnostics.push({
+          code: "ENTITY_ID_DUPLICATE", message: "Each visual in this row needs a distinct payload ID.",
+          jsonPath: `${visualPath}/payload/payloadId`, entityId: visual.payload.payloadId,
+        });
+        payloadIds.add(visual.payload.payloadId);
+        const mediaReferenceId = visual.payload.source.kind === "media_reference" ? visual.payload.source.mediaReferenceId : undefined;
+        validateBoundedResearch(visual.researchClip, visual.frameBinding,
+          visual.visualOnlyTiming.selectedSourceRange, visual.payload.pictureKind, mediaReferenceId,
+          visualPath, row.id);
+      });
+    }
     if (row.stashOrigin?.originalAttachedNoteRowId && row.stashOrigin.kind !== "clip") {
       reportClip("Historical attached-note return provenance requires a clip origin.", path, row.id);
     }

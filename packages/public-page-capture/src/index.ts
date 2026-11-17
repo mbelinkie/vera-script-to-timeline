@@ -8,6 +8,7 @@ export * from "./errors.js";
 export * from "./identities.js";
 export * from "./object-store.js";
 export * from "./policy.js";
+export * from "./prep-media.js";
 export * from "./profile.js";
 export * from "./raster.js";
 export * from "./service.js";

@@ -61,6 +61,43 @@ corresponding lockfile change with the dependency change.
 
 ## One command: build a VERA v2 script in Resolve Studio
 
+Browser authoring uses the local PostgreSQL service. Set
+`VERA_STT_QA_DATABASE_URL` to a database provisioned as described in the
+[development-QA setup](docs/verification/issue-159-development-qa.md).
+Set `VERA_STT_QA_IDENTITY_FILE` to the absolute path of its private
+mode-`0600` identity file outside the checkout. The file uses version `1` and a
+`credentials` array with a `tokenSha256` hex digest, issuer
+`urn:vera:stt:development-qa`, and stable `subject` for your local identity.
+The raw token is 32 random bytes encoded as hex. The host command uses
+`127.0.0.1:38429` by default and needs a clean checkout.
+
+Start the host in one terminal:
+
+```sh
+printf 'Authoring token: '
+read -r -s VERA_STT_QA_AUTHORING_TOKEN
+printf '\n'
+export VERA_STT_QA_AUTHORING_TOKEN
+npm run serve:authoring
+```
+
+Open the private URL printed by the host to connect your browser to this local
+identity. Keep that launch link private. In the browser address, the project ID is the
+UUID after `?project=`. In a second terminal, write the current saved document
+to a new JSON file. The exporter reads the authenticated project document,
+validates it as `ScriptDocumentV2`, and creates the output file exclusively.
+Relative output paths resolve from the directory where you run the command.
+
+```sh
+printf 'Authoring token: '
+read -r -s VERA_STT_QA_AUTHORING_TOKEN
+printf '\n'
+export VERA_STT_QA_AUTHORING_TOKEN
+printf 'Project ID from the browser address: '
+IFS= read -r PROJECT_ID
+npm run export:script -- "$PROJECT_ID" "/absolute/path/to/script-document.json"
+```
+
 To prepare narration and standalone logged Research clip rows ahead of the build, use
 `prep_media`. It takes the v2 script and its frozen compiler settings and
 prints the prepared script and input directory to pass to the build command.
@@ -397,6 +434,9 @@ During development, run:
 ```sh
 npm run validate:fast
 ```
+
+Fast validation selects Node from `.nvmrc` for the runner and its subprocesses.
+npm caches the pinned runtime after the first download.
 
 This keeps generated-currentness, all lint and type checks, fast TypeScript
 unit coverage, and Python tests that are non-slow or explicitly marked as fast

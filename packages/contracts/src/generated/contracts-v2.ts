@@ -30,11 +30,16 @@ export type NarrationBlockV2 = {
   state: "active" | "excluded";
   notes: string[];
   stashOrigin?: StashOriginV2;
+  stashChecklist?: StashChecklistV2;
   version: number;
   /**
    * Explicitly owned footage clip; never an ordinary Stash outline row. The contained clip row is authoritative until converted into an active visual occurrence.
    */
   attachedFootage?: AttachedFootageV2;
+  /**
+   * Deliberately placed visuals that lost every anchor word in a range edit. They are kept for Attach to words recovery and are never built. On Camera is never stored here. Omission is equivalent to an empty array.
+   */
+  unattachedVisuals?: UnattachedVisualV2[];
 };
 export type NarratedVisualPayloadV2 = {
   [k: string]: unknown;
@@ -144,6 +149,11 @@ export type VisualOnlyBlockV2 = {
   orderKey: string;
   payload: StandaloneVisualPayloadV2;
   visualOnlyTiming: VisualOnlyTimingV2;
+  /**
+   * @minItems 1
+   */
+  additionalVisuals?: [VisualOnlyAdditionalV2, ...VisualOnlyAdditionalV2[]];
+  stashChecklist?: StashChecklistV2;
   stashOrigin?: StashOriginV2;
   version: number;
   researchClip?: ResearchClipSnapshotV2;
@@ -183,6 +193,19 @@ export type StandaloneVisualPayloadV2 = {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+};
+export type VisualOnlyAdditionalV2 = {
+  [k: string]: unknown;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
+} & {
+  payload: StandaloneVisualPayloadV2;
+  visualOnlyTiming: VisualOnlyTimingV2;
+  researchClip?: ResearchClipSnapshotV2;
+  frameBinding?: ResearchFrameBindingV2;
 };
 export type SupportingItemV2 = {
   [k: string]: unknown;
@@ -801,6 +824,10 @@ export interface ContentSlot {
     | {
         kind: "on_camera";
         presenterChoiceId: string | null;
+        /**
+         * Wide or Tight presenter framing for this On Camera passage. Omission means wide. On Camera fills the narration no visual covers; only this choice is authored.
+         */
+        framing?: "wide" | "tight";
       }
     | NarratedVisualPayloadV2
     | {
@@ -842,6 +869,10 @@ export interface GraphicRevisionSource {
 export interface UnresolvedVisualSource {
   kind: "unresolved_visual";
   description: string;
+  /**
+   * The type the writer chose for this visual before picking its media (Change type to Footage, Still Image, Web Capture or Graphic with nothing selected yet). Omitted for an ordinary Need to Find.
+   */
+  wantedPictureKind?: "clip" | "image" | "capture" | "graphic";
 }
 export interface IntentionalPlaceholderSource {
   kind: "intentional_placeholder";
@@ -931,6 +962,19 @@ export interface StashOriginV2 {
   originalParentContext?: StashParentOriginContextV2;
   returnEligible: boolean;
   /**
+   * Stable original Stash note identity for a copied spoken row; a missing source is not resurrected.
+   */
+  sourceNoteRowId?: string;
+  /**
+   * Exact frozen authored source/attachment content at placement, excluding checklist toggles and organization.
+   */
+  sourceContentStamp?: string;
+  /**
+   * Whether this insertion was the first unchecked-to-checked transition.
+   */
+  completionCaused?: boolean;
+  completionManualRevision?: number;
+  /**
    * Historical exclusive owner note for an independently placed clip. Not a current ownership edge.
    */
   originalAttachedNoteRowId?: string;
@@ -965,6 +1009,14 @@ export interface StashParentOriginContextV2 {
    */
   followingSiblingRowIds: string[];
 }
+/**
+ * Manual toggles and a first automatic check are separate persisted events. Returns never count active copies.
+ */
+export interface StashChecklistV2 {
+  completed: boolean;
+  manualRevision: number;
+  automaticCopyId?: string;
+}
 export interface AttachedFootageV2 {
   clip: VisualOnlyBlockV2;
 }
@@ -975,6 +1027,14 @@ export interface VisualOnlyTimingV2 {
     startFrame: number;
     durationFrames: number;
   };
+}
+export interface UnattachedVisualV2 {
+  /**
+   * The content slot ID the visual had while it was attached, kept so reattachment and occurrence bindings can reuse it.
+   */
+  slotId: string;
+  payload: NarratedVisualPayloadV2;
+  version: number;
 }
 export interface DirectionBlock {
   type: "direction";
@@ -1944,6 +2004,7 @@ export interface BuildDiagnosticV2 {
     | "STALE_ANCHOR"
     | "COLLAPSED_BOUNDARY"
     | "UNPLACED_SUPPORTING_ITEM"
+    | "UNATTACHED_VISUAL"
     | "VISUAL_UNDEFINED"
     | "SOURCE_AUDIO_OVERLAP"
     | "TRACK_ROLE_COLLISION"

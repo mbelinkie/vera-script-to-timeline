@@ -243,6 +243,60 @@ def test_rejects_stale_timing_hash_revision_text_and_token_snapshot() -> None:
         narration_v2_dependency_from_asset(narration_asset, timing, stale_token)
 
 
+def test_paragraph_frozen_word_times_preserve_source_identity() -> None:
+    timing = timing_json()
+    baseline = block()
+    baseline["text"] = TEXT + " "
+    paragraph = block()
+    paragraph["text"] = TEXT.replace("🌍 go?", "🌍\ngo?") + "\n"
+    assert paragraph["text"].replace("\n", " ") == baseline["text"]
+    assert paragraph["tokens"] == baseline["tokens"]
+
+    baseline_asset = replace(
+        asset(timing), text_hash=sha256_bytes(baseline["text"].encode("utf-8"))
+    )
+    paragraph_asset = replace(
+        asset(timing), text_hash=sha256_bytes(paragraph["text"].encode("utf-8"))
+    )
+    single_map = narration_v2_dependency_from_asset(baseline_asset, timing, baseline)
+    lf_map = narration_v2_dependency_from_asset(paragraph_asset, timing, paragraph)
+    assert lf_map["textHash"] == paragraph_asset.text_hash
+    assert lf_map["textHash"] != single_map["textHash"]
+    assert {**lf_map, "textHash": single_map["textHash"]} == single_map
+    assert list(map_schema_validator().iter_errors(lf_map)) == []
+    assert [(word["startOffset"], word["endOffset"]) for word in lf_map["tokens"]] == [
+        (0, 2),
+        (4, 9),
+        (10, 15),
+        (16, 18),
+        (19, 21),
+    ]
+
+    # An old source-hash binding cannot be recycled for an LF-only edit.
+    with pytest.raises(NarrationDependencyError, match="text hash differs"):
+        narration_v2_dependency_from_asset(baseline_asset, timing, paragraph)
+
+    # Neither the CR/LF source nor UTF-16 offsets may be silently normalized.
+    shifted_token = block()
+    shifted_token["text"] = paragraph["text"]
+    shifted_token["tokens"][4]["startOffset"] -= 1
+    with pytest.raises(
+        NarrationDependencyError, match="token text differs from UTF-16 slice"
+    ):
+        narration_v2_dependency_from_asset(paragraph_asset, timing, shifted_token)
+
+    moved_mark = json.loads(timing)
+    moved_mark["marks"][4]["start_utf16"] -= 1
+    invalid_timing = canonical_json_bytes(moved_mark)
+    updated_asset = replace(
+        paragraph_asset, raw_timing_hash=sha256_bytes(invalid_timing)
+    )
+    with pytest.raises(
+        NarrationDependencyError, match="does not exactly cover frozen tokens"
+    ):
+        narration_v2_dependency_from_asset(updated_asset, invalid_timing, paragraph)
+
+
 @pytest.mark.parametrize("raw", ["", "[nested [text]] 🌍", "orphan ] and ["])
 def test_plain_direction_cannot_bind_spoken_audio_even_with_a_ready_asset(
     raw: str,

@@ -1,5 +1,6 @@
 import type {
   ContentSlot,
+  NarratedVisualPayloadV2,
   NarrationTokenTimingMapV2,
   RationalRate,
   RationalTime,
@@ -11,7 +12,18 @@ import type {
   NarrationBoundaryEvidenceV1,
 } from "./generated/contracts-v2.js";
 
+import type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
+
+export type { OnCameraFramingV2 } from "./authoring-v2-coverage.js";
+
 export type WordBoundaryAnchorV2 = WordInpointAnchor | WordAudibleEndAnchor;
+export {
+  stashChecklistV2,
+  stashNoteContentStampV2,
+  copyStashNoteAsSpokenV2,
+  projectStashChecklistV2,
+} from "./authoring-v2-stash-checklist.js";
+export type { StashChecklistProjectionV2 } from "./authoring-v2-stash-checklist.js";
 
 export interface AuthoringDiagnosticV2 {
   code: string;
@@ -63,11 +75,45 @@ export interface ProjectedAppearanceV2 {
   structuralIndex: number;
   humanOrdinal: number | null;
   hostState: Exclude<ProjectedHostStateV2, "unresolved">;
+  /** Wide or Tight for an On Camera passage; null for every other picture. */
+  framing: OnCameraFramingV2 | null;
   startTokenIndex: number;
   endTokenIndexExclusive: number;
   startTokenId: string | null;
   endTokenId: string | null;
   onCameraResumes: boolean;
+}
+
+/** One card in the row's stack, in the order the pictures appear. */
+export interface ProjectedCardV2 {
+  kind: "on_camera" | "visual" | "undefined" | "unattached_visual";
+  /** A compact "resumes" card: the same picture returning after a cutaway. Never the first On Camera in a row. */
+  compact: boolean;
+  slotId: string;
+  payloadId: string | null;
+  humanOrdinal: number | null;
+  framing: OnCameraFramingV2 | null;
+  /** The words this card connects to; null only for an unattached visual. */
+  startTokenIndex: number | null;
+  endTokenIndexExclusive: number | null;
+  /** Offered only for a deliberately placed visual that lost its words, never for On Camera. */
+  recovery: "attach_to_words" | null;
+}
+
+/** The word range a placed visual's brackets enclose, cutaways inside it included. On Camera has none. */
+export interface ProjectedBracketV2 {
+  slotId: string;
+  payloadId: string | null;
+  startTokenIndex: number;
+  endTokenIndexExclusive: number;
+  startTokenId: string | null;
+  lastTokenId: string | null;
+}
+
+export interface ProjectedUnattachedVisualV2 {
+  slotId: string;
+  payloadId: string;
+  recovery: "attach_to_words";
 }
 
 export interface ProjectedPrimarySlotV2 {
@@ -125,6 +171,9 @@ export interface PrimarySequenceRowProjectionV2 {
   renderable: boolean;
   tokens: ProjectedTokenV2[];
   appearances: ProjectedAppearanceV2[];
+  cards: ProjectedCardV2[];
+  brackets: ProjectedBracketV2[];
+  unattached: ProjectedUnattachedVisualV2[];
   slots: ProjectedPrimarySlotV2[];
   returns: ProjectedReturnV2[];
   overlays: ProjectedOverlayV2[];
@@ -219,6 +268,73 @@ export type VisualSequenceEditCommandV2 =
       secondSlotId: string;
     }
   | {
+      /** Swap ranges: two placed visuals exchange word anchors; sources, trims and comments stay with each visual. */
+      kind: "swap_ranges";
+      blockId: string;
+      firstSlotId: string;
+      secondSlotId: string;
+    }
+  | {
+      /**
+       * Give a placed visual the whole selection, first to last word inclusive.
+       * Neighbouring visuals make room, On Camera fills every word left
+       * uncovered, and returns are recalculated in the same edit.
+       */
+      kind: "set_visual_range";
+      blockId: string;
+      slotId: string;
+      startTokenId: string;
+      endTokenId: string;
+    }
+  | {
+      /** The only authored On Camera choice: Wide or Tight for one passage. */
+      kind: "set_on_camera_framing";
+      blockId: string;
+      slotId: string;
+      framing: OnCameraFramingV2;
+    }
+  | {
+      /**
+       * Drag a visual card to another row (D87, D88). The visual keeps its
+       * source and trim. In a row with narration it lands with no words,
+       * waiting for Attach to words; in a row with no narration it is simply
+       * that row's picture (D146). On Camera fills the words it leaves.
+       */
+      kind: "move_visual_to_row";
+      blockId: string;
+      slotId: string;
+      destinationBlockId: string;
+    }
+  | {
+      /** Attach to words (D113): give a waiting visual the whole selection; neighbours make room as for a range change. */
+      kind: "attach_visual_to_words";
+      blockId: string;
+      slotId: string;
+      startTokenId: string;
+      endTokenId: string;
+    }
+  | {
+      /**
+       * Change type (D93, D100). The visual keeps its words, its identity and
+       * so its comments. Anything the new type cannot hold is listed in
+       * `evidence.dropped`. Choosing On Camera removes the visual, because On
+       * Camera is what fills words no visual covers.
+       */
+      kind: "change_visual_type";
+      blockId: string;
+      slotId: string;
+      to: VisualTypeChangeV2;
+    }
+  | {
+      /**
+       * Delete a visual (D100). On Camera fills its words. Deleting the row's
+       * last visual leaves a Visual Undefined card on those words instead.
+       */
+      kind: "delete_visual";
+      blockId: string;
+      slotId: string;
+    }
+  | {
       kind: "move_payload";
       sourceBlockId: string;
       sourceSlotId: string;
@@ -254,11 +370,36 @@ export type VisualSequenceEditCommandV2 =
       sourceUsage: { sourceInFrame: number } | null;
     };
 
+type VisualSourceV2 = NarratedVisualPayloadV2["source"];
+
+/**
+ * The type list of D93. A type that shows media takes its source here; when
+ * `source` is left out the visual keeps its current source if the new type can
+ * show it, and otherwise becomes Need to Find until one is chosen.
+ */
+export type VisualTypeChangeV2 =
+  | { type: "footage"; source?: Extract<VisualSourceV2, { kind: "media_reference" }>; sourceInFrame?: number }
+  | { type: "still_image"; source?: Extract<VisualSourceV2, { kind: "media_reference" }> }
+  | { type: "web_capture"; source?: Extract<VisualSourceV2, { kind: "capture_revision" }> }
+  | { type: "graphic"; source?: Extract<VisualSourceV2, { kind: "graphic_revision" }> }
+  | { type: "onscreen_placeholder"; text?: string }
+  | { type: "need_to_find"; description?: string }
+  | { type: "visual_undefined" }
+  | { type: "on_camera" };
+
+/** One thing a Change type could not carry over, in words the writer can read. */
+export interface DroppedVisualDetailV2 {
+  what: "source" | "trim" | "research_clip" | "image_motion" | "source_audio" | "visual";
+  message: string;
+}
+
 export interface VisualEditEvidenceV2 {
   kind: VisualSequenceEditCommandV2["kind"];
   blockIds: string[];
   slotIds: string[];
   payloadIds: string[];
+  /** Change type only: what the new type could not keep. Empty when nothing was lost. */
+  dropped?: DroppedVisualDetailV2[];
   supportingItemId?: string;
   lineage?: { fromSupportingItemId: string; toPayloadId: string };
   beforeSequenceVersions: Record<string, number>;
@@ -298,12 +439,19 @@ export {
   type FrameIntervalV2,
 } from "./authoring-v2-research-snapshot.js";
 export {
+  indexResearchClipUsageV2,
+  type ResearchClipLocationKindV2,
+  type ResearchClipUseLocationV2,
+  type ResearchClipUsageV2,
+} from "./research-clip-usage-v2.js";
+export {
   createCommentStateV2, applyCommentOperationV2, serializeCommentStateV2, deserializeCommentStateV2,
   type CommentAnchorV2, type CommentAttachmentV2, type CommentMessageV2, type CommentThreadV2,
   type CommentOperationV2, type CommentStateV2, type CommentResultV2,
 } from "./authoring-v2-comments.js";
 export { projectPrimarySequenceV2 } from "./authoring-v2-projection.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {
   applyStageDirectionEditV2,
   undoStageDirectionEditV2,
@@ -343,6 +491,7 @@ export {
   type RowEditResultV2,
   type RowGapV2,
 } from "./authoring-v2-rows.js";
+export type { JoinRowsCommandV2, RowWordSelectionV2, SplitRowCommandV2 } from "./authoring-v2-row-split-join.js";
 export {
   placementAnchorKeyV2,
   resolveTimedPlacementV2,
