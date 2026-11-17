@@ -11,6 +11,7 @@ from typing import Any, cast
 import pytest
 from test_issue336_product_package import _authored_png_case
 from vera_timeline_agent import prep_media, prep_media_inputs
+from vera_timeline_agent.build_compiler_bridge import invoke_bridge
 from vera_timeline_agent.generated.contracts.compiler_dependencies_v2_schema import (
     RationalRate,
     RequestedPreparationRangeV1,
@@ -115,7 +116,7 @@ def test_normal_prep_media_binds_selected_project_local_png(
     output_media = json.loads((prepared / "media-paths.json").read_bytes())
     compiled_source = next(
         item
-        for item in prep_media_inputs.invoke_bridge(
+        for item in invoke_bridge(
             "compile",
             prepared / "script.json",
             prepared / "compiler-dependencies.json",
