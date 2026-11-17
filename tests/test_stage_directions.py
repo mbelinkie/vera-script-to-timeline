@@ -156,8 +156,8 @@ def test_explicit_spoken_conversion_preserves_literal_brackets_for_provider() ->
     assert [token["value"] for token in spoken_tokens(block)] == [raw]
     assert masked_text(block) == raw
     request = ServiceConfig().request_for(block)
-    assert request.text == raw
-    assert request.source_text_hash is None
+    assert request.text == raw.replace("\n", " ")
+    assert request.source_text_hash == sha256_bytes(raw.encode("utf-8"))
 
 
 @pytest.mark.parametrize("corruption", ["false", "spoken", "bad_offset", "surrogate"])
@@ -324,6 +324,38 @@ def test_masks_direction_at_equal_utf16_width_and_service_uses_masked_text() -> 
     assert request.text == expected
     assert request.source_text_hash == sha256_bytes(TEXT.encode("utf-8"))
     assert [token["value"] for token in spoken_tokens(block)] == [
+        "The",
+        "🌍",
+        "waits",
+    ]
+
+
+def test_direction_masking_precedes_paragraph_projection_without_offset_shift() -> None:
+    baseline = mixed_block()
+    baseline["text"] += " "
+    paragraph = mixed_block()
+    paragraph["text"] = "The 🌍 [softly]\nwaits\n"
+
+    masked = masked_text(paragraph)
+    expected = "The 🌍 " + " " * 8 + " waits "
+    ordinary = ServiceConfig().request_for(baseline)
+    laid_out = ServiceConfig().request_for(paragraph)
+    provider = _FakeProvider()
+
+    assert masked == "The 🌍 " + " " * 8 + "\nwaits\n"
+    assert ordinary.text == laid_out.text == expected
+    assert provider.prepare_input(ordinary) == provider.prepare_input(laid_out)
+    assert laid_out.source_text_hash == sha256_bytes(paragraph["text"].encode("utf-8"))
+    assert ordinary.source_text_hash == sha256_bytes(baseline["text"].encode("utf-8"))
+    assert ordinary.source_text_hash != laid_out.source_text_hash
+    assert ordinary.identity(
+        provider.prepare_input(ordinary), provider.adapter_version
+    ) != laid_out.identity(provider.prepare_input(laid_out), provider.adapter_version)
+    assert paragraph["tokens"] == baseline["tokens"]
+    assert len(paragraph["text"].encode("utf-16-le")) == len(
+        laid_out.text.encode("utf-16-le")
+    )
+    assert [token["value"] for token in spoken_tokens(paragraph)] == [
         "The",
         "🌍",
         "waits",
