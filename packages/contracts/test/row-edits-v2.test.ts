@@ -312,6 +312,152 @@ describe("script section-break edits", () => {
     expect(staleRename.document).toBe(initial);
     expect(initial).toEqual(snapshot);
   });
+
+  it("deletes a middle break without losing or rewriting its rows, references, music or reviewed transitions", () => {
+    // Rich narration's second slot uses value+4001; keep it distinct from b's value+4000.
+    const [a, b, c, d] = [richNarration(940), row(841), row(842), row(843)];
+    const [first, middle, last] = [section(8400, "First"), section(8401, "Middle"), section(8402, "Last")];
+    const span = audioSpan(8403, b.id, c.id, { gainDb: -9, loop: false });
+    const oldBoundary = {
+      id: id(8404), fromRowId: a.id, toRowId: b.id, effect: "crossfade" as const,
+      settings: { frames: 7 }, state: "needs_review" as const,
+    };
+    const inSection = {
+      id: id(8405), fromRowId: b.id, toRowId: c.id, effect: "dip" as const,
+      settings: { frames: 6 }, state: "active" as const,
+    };
+    const initial = documentWith([first, a, middle, b, c, last, d], {
+      rowAudioSpans: [span], rowTransitions: [oldBoundary, inSection],
+      supportingItems: [citation(a, 8406)],
+      rowReferences: [{ id: id(8407), rowId: c.id, kind: "comment", anchor: { label: "unchanged" } }],
+    });
+    const snapshot = structuredClone(initial);
+    const result = applyRowEditV2(initial, 0, { kind: "delete_section_break", sectionId: middle.id });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks).toEqual([first, a, b, c, last, d]);
+    expect(rows(result.document)).toEqual([a.id, b.id, c.id, d.id]);
+    expect(result.document.rowAudioSpans).toEqual([span]);
+    expect(result.document.rowTransitions).toEqual([oldBoundary, inSection]);
+    expect(result.document.activeDraft.supportingItems).toEqual(initial.activeDraft.supportingItems);
+    expect(result.document.rowReferences).toEqual(initial.rowReferences);
+    expect(result.document.rowEditRevision).toBe(1);
+    expect(validateScriptDocumentV2(result.document).diagnostics).toEqual([]);
+    expect(selectRowRangeV2(result.document, a.id, c.id)).toMatchObject({
+      rowIds: [a.id, b.id, c.id], boundaryReached: false,
+    });
+    expect(initial).toEqual(snapshot);
+  });
+
+  it("deletes leading and later breaks, leaving the first rows unsectioned and all other order intact", () => {
+    const [a, b, c, d] = [row(850), row(851), row(852), row(853)];
+    const [first, second, third] = [section(8500, "First"), section(8501, "Second"), section(8502, "Third")];
+    const initial = documentWith([first, a, second, b, c, third, d]);
+    const leading = applyRowEditV2(initial, 0, { kind: "delete_section_break", sectionId: first.id });
+    expect(leading.ok).toBe(true);
+    expect(leading.document.activeDraft.blocks).toEqual([a, second, b, c, third, d]);
+    expect(selectRowRangeV2(leading.document, a.id, d.id)).toMatchObject({
+      rowIds: [a.id], boundaryReached: true,
+    });
+    const later = applyRowEditV2(leading.document, 1, { kind: "delete_section_break", sectionId: third.id });
+    expect(later.ok).toBe(true);
+    expect(later.document.activeDraft.blocks).toEqual([a, second, b, c, d]);
+    expect(selectRowRangeV2(later.document, b.id, d.id)).toMatchObject({
+      rowIds: [b.id, c.id, d.id], boundaryReached: false,
+    });
+    expect(rows(later.document)).toEqual([a.id, b.id, c.id, d.id]);
+    expect(initial.activeDraft.blocks).toEqual([first, a, second, b, c, third, d]);
+  });
+
+  it("refuses deleting a break that would newly span music over its former boundary", () => {
+    const [a, b, c] = [row(860), row(861), row(862)];
+    const [first, second] = [section(8600, "First"), section(8601, "Second")];
+    // This unresolved cross-section source is retained at baseline; merging it
+    // would create a new audible extent and must require explicit review.
+    const span = audioSpan(8602, a.id, c.id);
+    const initial = documentWith([first, a, second, b, c], { rowAudioSpans: [span] });
+    const snapshot = structuredClone(initial);
+    const command: RowEditCommandV2 = { kind: "delete_section_break", sectionId: second.id };
+    const direct = applyRowEditV2(initial, 0, command);
+    expect(direct.ok).toBe(false);
+    expect(direct.diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(direct.document).toBe(initial);
+    const session = createRowEditSessionV2(initial);
+    expect(session.apply(command).diagnostics[0]?.code).toBe("AUDIO_REVIEW_REQUIRED");
+    expect(session.document).toEqual(initial);
+    expect(session.undoDepth).toBe(0);
+    expect(session.undo().diagnostics[0]?.code).toBe("ROW_UNDO_EMPTY");
+    expect(initial).toEqual(snapshot);
+  });
+
+  it("refuses missing, malformed and stale delete operations without changing the input", () => {
+    const [a, b] = [row(870), row(871)];
+    const first = section(8700, "First");
+    const initial = documentWith([first, a, b]);
+    const bad: unknown[] = [
+      { kind: "delete_section_break", sectionId: id(8701) },
+      { kind: "delete_section_break", sectionId: a.id },
+      { kind: "delete_section_break", sectionId: "" },
+      { kind: "delete_section_break", sectionId: "not-a-uuid" },
+      { kind: "delete_section_break", sectionId: first.id, extra: true },
+    ];
+    for (const command of bad) {
+      const result = applyRowEditV2(initial, 0, command as RowEditCommandV2);
+      expect(result.ok).toBe(false);
+      expect(result.document).toBe(initial);
+    }
+    const stale = applyRowEditV2(initial, 1, { kind: "delete_section_break", sectionId: first.id });
+    expect(stale.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    expect(stale.document).toBe(initial);
+    const session = createRowEditSessionV2(initial);
+    expect(session.apply({ kind: "delete_section_break", sectionId: id(8701) }).ok).toBe(false);
+    expect(session.undoDepth).toBe(0);
+  });
+
+  it("gives create, rename and delete exactly one Undo each and persists every successful document", () => {
+    const [a, b, c] = [row(880), row(881), row(882)];
+    const heading = section(8800, "Original");
+    const initial = documentWith([heading, a, b, c]);
+    const commands: RowEditCommandV2[] = [
+      { kind: "create_section", sectionId: id(8801), title: "New", destination: gap(heading.id, a.id, b.id) },
+      { kind: "rename_section", sectionId: heading.id, title: "New name" },
+      { kind: "delete_section_break", sectionId: heading.id },
+    ];
+    for (const command of commands) {
+      const session = createRowEditSessionV2(initial);
+      const outcome = session.apply(command);
+      expect(outcome.ok, command.kind).toBe(true);
+      expect(session.undoDepth).toBe(1);
+      expect(session.revision).toBe(1);
+      expect(outcome.document.rowEditRevision).toBe(1);
+      expect(serializeAuthoringDocumentV2(outcome.document)).toBe(JSON.stringify(outcome.document));
+      const loaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(outcome.document));
+      expect(loaded.ok).toBe(true);
+      if (loaded.ok) expect(loaded.document).toEqual(outcome.document);
+      expect(session.undo().ok).toBe(true);
+      expect(session.undoDepth).toBe(0);
+      expect(session.revision).toBe(2);
+      expect(session.document).toEqual({ ...initial, rowEditRevision: 2 });
+      expect(session.undo().diagnostics[0]?.code).toBe("ROW_UNDO_EMPTY");
+    }
+  });
+
+  it("refuses non-JSON section results instead of persisting a lossy document", () => {
+    const [a, b] = [row(890), row(891)];
+    const heading = section(8900, "Old");
+    const initial = documentWith([heading, a, b], {
+      rowReferences: [{ id: id(8901), rowId: a.id, kind: "reference", anchor: { score: Number.NaN } }],
+    });
+    for (const command of [
+      { kind: "create_section", sectionId: id(8902), title: "New", destination: gap(heading.id, a.id, b.id) },
+      { kind: "rename_section", sectionId: heading.id, title: "New" },
+      { kind: "delete_section_break", sectionId: heading.id },
+    ] satisfies RowEditCommandV2[]) {
+      const result = applyRowEditV2(initial, 0, command);
+      expect(result.ok, command.kind).toBe(false);
+      expect(result.document, command.kind).toBe(initial);
+      expect(result.diagnostics.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("provisional Sorting trials", () => {

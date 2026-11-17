@@ -1319,6 +1319,12 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     heading.title = command.title;
     heading.version += 1;
+  } else if (command.kind === "delete_section_break") {
+    const index = blocks.findIndex((block) => block.type === "section" && block.id === command.sectionId);
+    if (index < 0) return refused(document, "ROW_SELECTION_INVALID", "Choose an existing script section break to delete.");
+    // Removing only the heading keeps all row objects, IDs, order and attached intent.
+    // The shared relationship guard below refuses any newly ambiguous audio coverage.
+    blocks.splice(index, 1);
   } else if (command.kind === "move_section") {
     const section = sections(blocks).find((part) => part.id === command.sectionId && part.id !== null);
     const headings = blocks.filter((block) => block.type === "section");
@@ -1787,7 +1793,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
   if (command.kind === "edit_row" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
-    command.kind === "split_row" || command.kind === "join_rows") {
+    command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
+    command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
     return saved
       ? { ok: true, document: saved, diagnostics: [] }
