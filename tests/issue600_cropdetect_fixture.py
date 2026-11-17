@@ -100,7 +100,9 @@ def generate_issue600_cropdetect_fixtures(
             "3",
             "-pix_fmt",
             "yuvj420p" if name == "pc_letterbox" else "yuv420p",
-            *(["-color_range", "pc"] if name == "pc_letterbox" else []),
+            # Older FFmpeg builds leave the stream range unset unless told.
+            "-color_range",
+            "pc" if name == "pc_letterbox" else "tv",
             *(["-output_ts_offset", "2"] if name == "offset_pts" else []),
             str(path),
         )

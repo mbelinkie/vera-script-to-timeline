@@ -1110,7 +1110,7 @@
         {
           "if": {
             "type": "object",
-            "properties": { "pictureKind": { "not": { "enum": ["image", "clip"] } } },
+            "properties": { "pictureKind": { "not": { "enum": ["image", "clip", "unresolved_visual"] } } },
             "required": ["pictureKind"]
           },
           "then": { "properties": { "framingPolicy": true }, "required": ["framingPolicy"] }
@@ -2367,7 +2367,7 @@
         {
           "if": {
             "type": "object",
-            "properties": { "pictureKind": { "not": { "enum": ["image", "clip"] } } },
+            "properties": { "pictureKind": { "not": { "enum": ["image", "clip", "unresolved_visual"] } } },
             "required": ["pictureKind"]
           },
           "then": { "properties": { "framingPolicy": true }, "required": ["framingPolicy"] }

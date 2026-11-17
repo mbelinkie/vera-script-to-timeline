@@ -179,7 +179,7 @@ export function createResearchClipOccurrenceV2(input: ResearchClipOccurrenceInpu
     payload: {
       kind: "visual", payloadId: input.payloadId, pictureKind: "clip",
       source: { kind: "media_reference", mediaReferenceId: binding.mediaReferenceId },
-        audioPolicy: "mute",
+      audioPolicy: "mute",
     },
     visualOnlyTiming: { kind: "visual_only", selectedSourceRange: use },
   };
