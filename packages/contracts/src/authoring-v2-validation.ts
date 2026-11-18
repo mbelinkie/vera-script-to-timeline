@@ -20,6 +20,7 @@ import type {
   TimedPlacement,
   ResearchClipSnapshotV2,
   ResearchFrameBindingV2,
+  QuoteBoxV2,
   VisualOnlyBlockV2,
 } from "./generated/contracts-v2.js";
 import type {
@@ -192,6 +193,9 @@ export function validateScriptDocumentV2(
         event.id,
         overlayIds,
       );
+      if (event.quoteBox) {
+        validateQuoteBox(event.quoteBox, `${eventPath}/quoteBox`, block.id, event.id, diagnostics);
+      }
     });
   }
 
@@ -1028,6 +1032,37 @@ function validateTimedAnchors(
         ...(ownerId ? { entityId: ownerId } : {}),
       });
     }
+  }
+}
+
+function validateQuoteBox(
+  quoteBox: QuoteBoxV2,
+  path: string,
+  blockId: string,
+  eventId: string,
+  diagnostics: AuthoringDiagnosticV2[],
+): void {
+  for (const field of ["displayText", "speakerName", "speakerTitle", "citationText"] as const) {
+    if (!hasUnpairedSurrogate(quoteBox[field])) continue;
+    diagnostics.push({
+      code: "QUOTE_BOX_TEXT_INVALID",
+      message: "Quote box text must contain complete UTF-16 surrogate pairs.",
+      jsonPath: `${path}/${field}`,
+      blockId,
+      entityId: eventId,
+    });
+  }
+  if (quoteBox.italicSpan === null) return;
+  const { start, end } = quoteBox.italicSpan;
+  const citationLength = [...quoteBox.citationText.trim()].length;
+  if (start >= end || end > citationLength) {
+    diagnostics.push({
+      code: "QUOTE_BOX_ITALIC_SPAN_INVALID",
+      message: `A quote box italic span must be a non-empty half-open range within the trimmed citation (${citationLength} Unicode code points).`,
+      jsonPath: `${path}/italicSpan`,
+      blockId,
+      entityId: eventId,
+    });
   }
 }
 
