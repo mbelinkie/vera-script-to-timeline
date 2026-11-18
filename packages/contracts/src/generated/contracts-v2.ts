@@ -1247,6 +1247,7 @@ export interface RowAudioSpanIntentV2 {
     gainDb?: number;
     [k: string]: unknown;
   };
+  timing?: MusicCueTimingV2;
   review?: RowAudioReviewV2;
 }
 export interface RowAudioSourceV2 {
@@ -1254,6 +1255,41 @@ export interface RowAudioSourceV2 {
   artifactId: string;
   artifactVersion: number;
   contentHash: string;
+}
+/**
+ * Exactly three fixed points at normal playback speed. Omit the point to derive. Source points are frame boundaries on the build's timeline rate.
+ */
+export interface MusicCueTimingV2 {
+  sourceInFrame?: number;
+  sourceOutFrame?: number;
+  timelineIn?:
+    | {
+        kind: "frame";
+        frame: number;
+      }
+    | {
+        kind: "row_edge";
+        blockId: string;
+        edge: "start" | "end";
+      }
+    | {
+        kind: "word";
+        anchor: WordInpointAnchor | WordAudibleEndAnchor;
+      };
+  timelineOut?:
+    | {
+        kind: "frame";
+        frame: number;
+      }
+    | {
+        kind: "row_edge";
+        blockId: string;
+        edge: "start" | "end";
+      }
+    | {
+        kind: "word";
+        anchor: WordInpointAnchor | WordAudibleEndAnchor;
+      };
 }
 export interface RowAudioReviewV2 {
   previousEndRowId: string;

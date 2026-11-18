@@ -16,6 +16,7 @@ import type {
   CompilerDependenciesV2,
   EntityReferenceV2,
   FrameRangeV2,
+  MusicCueTimingV2,
   NarratedVisualPayloadV2,
   NarrationBlockV2,
   NarrationTokenTimingMapV2,
@@ -49,7 +50,7 @@ import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { decideTransitionBoundary, requestedTransitionFrames } from "./transition-boundary-v2.js";
-import { planMusicSpanFrames } from "./row-audio-music.js";
+import { availableMusicFrames, planAnchoredMusicFrames, planMusicSpanFrames } from "./row-audio-music.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -258,6 +259,23 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     id: row.block.id, startFrame: row.startFrame, endFrame: row.startFrame + row.durationFrames,
     ...(sections.get(row.block.id) ? { sectionId: sections.get(row.block.id)! } : {}),
   }));
+  const timelineLength = bounds.at(-1)?.endFrame ?? 0;
+  const fixedFrame = (point: MusicCueTimingV2["timelineIn"], label: string): number | undefined => {
+    if (!point) return undefined;
+    if (point.kind === "frame") return point.frame;
+    if (point.kind === "row_edge") {
+      const row = point.edge === "start"
+        ? bounds.find((candidate) => candidate.id === point.blockId)
+        : bounds.findLast((candidate) => candidate.id === point.blockId);
+      if (row) return point.edge === "start" ? row.startFrame : row.endFrame;
+    } else {
+      const resolved = point.anchor.affinity === "before"
+        ? supportingPointFrame({ kind: "word", anchor: point.anchor }, document, rows, [], deps.timeline.frameRate)
+        : supportingPointFrame({ kind: "audible_word_end", anchor: point.anchor }, document, rows, [], deps.timeline.frameRate);
+      if (resolved) return resolved.frame;
+    }
+    throw new RangeError(`The music ${label} pin could not be resolved. Refresh word timing or choose a timed row edge or timeline frame.`);
+  };
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
     const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string): void => {
@@ -278,9 +296,21 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     }
     let geometry;
     try {
-      geometry = planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
-    } catch {
-      warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
+      const timing = span.timing;
+      geometry = timing
+        ? planAnchoredMusicFrames(
+          timing.sourceInFrame, timing.sourceOutFrame,
+          fixedFrame(timing.timelineIn, "timeline in"), fixedFrame(timing.timelineOut, "timeline out"),
+          availableMusicFrames(binding.durationSamples, binding.sampleRate, deps.timeline.frameRate), timelineLength,
+        )
+        : planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
+    } catch (error) {
+      if (span.timing) {
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostics.push(diagnostic("MUSIC_SPAN_INVALID", message, target, { kind: "details", message }, ["manual_review"]));
+      } else {
+        warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
+      }
       continue;
     }
     if (!geometry) {

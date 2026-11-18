@@ -944,6 +944,17 @@ is a code-level integration, **not yet real Studio production acceptance**;
 the final disposable application check and Matthew's one listening judgment
 remain to be completed. Existing projects, arbitrary effects/stills, stereo,
 looping and advanced fade shapes remain unqualified.
+
+**#574 end-anchored music on 21.2.** Studio **21.2.0 build 6**, with Local
+scripting, built a fresh 24 fps timeline from a verified package with two
+H.264 picture clips and a mono 48 kHz PCM16 WAV. With source out and both
+timeline points fixed, Resolve reopened A5 with source `[72,192)` and timeline
+`[24,144)`, spanning the picture cut at frame 72. Reopened verification
+matched the gain and fades, and a separate SDK readback confirmed both ranges
+and the cut. Save, close, and reopen took 9.35 seconds. This qualifies the
+bounded music route on that build with moving picture. Mixed still treatments
+and other music rates keep their existing gates.
+
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -1286,8 +1297,8 @@ selecting the 21.1.1 bundle was refused before project mutation.
 
 **Reuse/delta:** this qualifies only the selected-app mixed build and
 structural readback on those builds. Native OTIO image motion, row-spanning
-music and Cross Dissolve retain their separate 21.1.1 gates; they were not
-qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
+music and Cross Dissolve have separate qualification. See RK-42 for the #574
+24 fps music result on 21.2. The vendor's stated Mac requirements omit
 this Intel host, as recorded in the #564 comparison.
 
 **#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable

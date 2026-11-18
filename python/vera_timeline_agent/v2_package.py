@@ -1335,6 +1335,71 @@ def _validate_manifest_semantics(
     del visual_source_ids  # kept explicit above for media-input classification.
 
 
+def _music_pin_frame(
+    point: JsonObject,
+    document: JsonObject,
+    dependencies: JsonObject,
+    rows: list[tuple[str, str | None, int, int]],
+    rate: Fraction,
+) -> int:
+    if point["kind"] == "frame":
+        return _safe_frame(point["frame"], "music timeline pin")
+    anchor = point.get("anchor")
+    block_id = point["blockId"] if anchor is None else anchor["blockId"]
+    row = next((row for row in rows if row[0] == block_id), None)
+    if row is None:
+        raise _error("music timeline pin refers to a row without compiled timing")
+    if anchor is None:
+        return row[2] if point["edge"] == "start" else row[3]
+
+    block = next(
+        block for block in document["activeDraft"]["blocks"] if block["id"] == block_id
+    )
+    token = next(
+        (
+            token
+            for token in block.get("tokens", [])
+            if token["id"] == anchor["tokenId"]
+        ),
+        None,
+    )
+    maps = [
+        timing
+        for key in ("narrationTimingMaps", "narrationBoundaryEvidence")
+        for timing in dependencies.get(key, [])
+        if timing["blockId"] == block_id
+    ]
+    if (
+        block["type"] != "narration"
+        or token is None
+        or token.get("spoken") is False
+        or token["value"] != anchor["quotedWord"]
+        or len(maps) != 1
+        or maps[0]["blockRevision"] != block["version"]
+        or maps[0].get("precision") in {"sentence_only", "estimated"}
+    ):
+        raise _error("music timeline pin lacks current word timing")
+    timing = maps[0]
+    word: JsonObject = next(
+        (mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {}
+    )
+    if anchor["affinity"] == "before":
+        time = word.get("onset" if "verification" in timing else "startTime")
+    else:
+        time = word.get("audibleEnd")
+        if (
+            "verification" not in timing
+            and word.get("endBasis") != "evidenced_audible_end"
+        ):
+            time = None
+    if time is None:
+        raise _error("music timeline pin lacks evidence for the selected word edge")
+    frame = row[2] + math.ceil(_fraction(time, "music word time") * rate)
+    if not row[2] <= frame <= row[3]:
+        raise _error("music word pin falls outside its narration row")
+    return frame
+
+
 def _validate_music_event(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1387,9 +1452,8 @@ def _validate_music_event(
     ):
         raise _error(f"music event {event_id} differs from its verified PCM identity")
 
-    # Recover row boundaries from ordinary authored row events, not from the
-    # music record being checked. Only an active, ordered, same-section run
-    # can claim the saved span's requested endpoint.
+    # Recover anchor positions from the ordinary program events and frozen inputs.
+    timing = span.get("timing")
     rows: list[tuple[str, str | None, int, int]] = []
     section: str | None = None
     for block in document["activeDraft"]["blocks"]:
@@ -1408,14 +1472,14 @@ def _validate_music_event(
             == ("narration" if block["type"] == "narration" else "primary_visual")
             and other["provenance"].get("blockId") == block["id"]
         ]
-        if block["type"] == "visual_only" and not possible:
-            possible = [
+        if block["type"] == "visual_only" and (timing is not None or not possible):
+            possible.extend(
                 other
                 for other in manifest["events"]
                 if other["kind"] == "placeholder"
                 and other.get("trackRole") == "primary_root"
                 and other["provenance"].get("blockId") == block["id"]
-            ]
+            )
         if not possible:
             raise _error(f"music row {block['id']} lacks compiled timing")
         ranges = [
@@ -1429,19 +1493,6 @@ def _validate_music_event(
                 max(pair[1] for pair in ranges),
             )
         )
-    row_ids = [row[0] for row in rows]
-    if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
-        raise _error(f"music event {event_id} references uncompiled row endpoints")
-    first_index = row_ids.index(span["startRowId"])
-    last_index = row_ids.index(span["endRowId"])
-    run = rows[first_index : last_index + 1]
-    if (
-        last_index < first_index
-        or not run
-        or any(row[1] != run[0][1] for row in run)
-        or any(previous[3] != following[2] for previous, following in pairwise(run))
-    ):
-        raise _error(f"music event {event_id} spans disconnected program rows")
     record_start, record_end = _range(event["recordRange"], "music recordRange")
     source_start, source_end = _range(event["sourceRange"], "music sourceRange")
     samples = _safe_frame(binding["durationSamples"], "music samples", positive=True)
@@ -1449,6 +1500,52 @@ def _validate_music_event(
     requested = _safe_frame(
         music["requestedEndFrame"], "music requestedEndFrame", positive=True
     )
+    if timing is not None:
+        fixed = {
+            key: _music_pin_frame(value, document, dependencies, rows, rate)
+            if key in {"timelineIn", "timelineOut"}
+            else _safe_frame(value, "music source trim")
+            for key, value in timing.items()
+        }
+        delivered = {
+            "sourceInFrame": source_start,
+            "sourceOutFrame": source_end,
+            "timelineIn": record_start,
+            "timelineOut": record_end,
+        }
+        # Equal positive durations make the fourth point unique.
+        if (
+            len(fixed) != 3
+            or any(delivered[key] != value for key, value in fixed.items())
+            or source_end - source_start != record_end - record_start
+            or source_end > available
+            or record_end > manifest["timeline"]["durationFrames"]
+            or requested != record_end
+        ):
+            raise _error(
+                f"music event {event_id} differs from its three signed timing pins"
+            )
+    else:
+        row_ids = [row[0] for row in rows]
+        if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
+            raise _error(f"music event {event_id} references uncompiled row endpoints")
+        run = rows[
+            row_ids.index(span["startRowId"]) : row_ids.index(span["endRowId"]) + 1
+        ]
+        if (
+            not run
+            or any(row[1] != run[0][1] for row in run)
+            or any(previous[3] != following[2] for previous, following in pairwise(run))
+        ):
+            raise _error(f"music event {event_id} spans disconnected program rows")
+        if (
+            record_start != run[0][2]
+            or requested != run[-1][3]
+            or source_start != 0
+            or source_end != record_end - record_start
+            or record_end != min(requested, record_start + available)
+        ):
+            raise _error(f"music event {event_id} duration differs from signed span")
     settings = span.get("settings", {})
     supported = all(
         (
@@ -1465,12 +1562,6 @@ def _validate_music_event(
     )
     if (
         not supported
-        or record_start != run[0][2]
-        or requested != run[-1][3]
-        or source_start != 0
-        or source_end != record_end - record_start
-        or record_end != min(requested, record_start + available)
-        or requested <= record_start
         or not isinstance(music["gainDb"], (int, float))
         or isinstance(music["gainDb"], bool)
         or not math.isfinite(music["gainDb"])

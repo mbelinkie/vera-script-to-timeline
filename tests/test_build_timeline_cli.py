@@ -235,6 +235,31 @@ def test_compiles_prepared_input_offline_without_provider_or_resolve(
     assert result.output.is_dir()
 
 
+@pytest.mark.slow
+def test_build_cli_explains_an_out_of_range_anchored_music_cue(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    _add_music(options)
+    doc = json.loads(options.script.read_bytes())
+    doc["rowAudioSpans"][0]["timing"] = {
+        "sourceOutFrame": 1,
+        "timelineIn": {"kind": "frame", "frame": 0},
+        "timelineOut": {"kind": "frame", "frame": 12},
+    }
+    options.script.write_text(json.dumps(doc))
+    frozen = options.script.read_bytes()
+
+    assert (
+        build_timeline_cli.main(
+            ["--script", str(options.script), "--output", str(options.output)]
+        )
+        == 2
+    )
+    assert "Adjust a source trim or move a timeline pin" in capsys.readouterr().err
+    assert options.script.read_bytes() == frozen
+
+
 @pytest.mark.parametrize("name", ["selected-clip-ntsc", "narrated-image-still-holds"])
 def test_actual_pinned_compiler_fixture_preserves_golden_manifest_and_report(
     tmp_path: Path, name: str

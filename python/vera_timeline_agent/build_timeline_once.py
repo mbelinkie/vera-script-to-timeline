@@ -27,7 +27,12 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
-from .music_input import MusicResolution, resolve_music_bindings, verify_music_pins
+from .music_input import (
+    MusicResolution,
+    music_event_id,
+    resolve_music_bindings,
+    verify_music_pins,
+)
 from .package_cache import default_cache_root
 from .quote_box_inputs import freeze_quote_box_inputs
 from .row_timeline_map import make_row_timeline_map
@@ -598,6 +603,32 @@ def package_compiled(
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
+    if compiled.music_resolution is not None:
+        # Authored input uses the stable occurrence ID. The package carries
+        # the same PCM bytes as both the original and delivered source.
+        manifest = _read_json(compiled.manifest)
+        music_sources = {
+            event["eventId"]: event["provenance"]["sourceId"]
+            for event in manifest["events"]
+            if event["kind"] == "music"
+        }
+        spans = compiled.music_resolution.dependencies["musicBindings"]
+        for span in spans:
+            event_id = music_event_id(
+                manifest["document"]["documentId"],
+                span["spanId"],
+                span["source"]["artifactId"],
+            )
+            path = media.pop(f"event:{event_id}", None)
+            source_id = music_sources.get(event_id)
+            if path is None or source_id is None:
+                continue
+            for key in (f"source:{source_id}", f"original:{source_id}"):
+                if key in media:
+                    raise BuildJobError(
+                        "music media is already mapped to a package source"
+                    )
+                media[key] = path
     preparations = _checked_path_mapping(
         compiled.inputs.preparation_paths, "preparation-paths"
     )

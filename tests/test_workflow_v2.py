@@ -1444,8 +1444,11 @@ def _native_music_fixture() -> tuple[Any, Any, dict[str, Any]]:
     return adapter, item, view
 
 
+@pytest.mark.parametrize("version,build", [("21.1.1", "10"), ("21.2.0", "6")])
 def test_signed_music_package_routes_to_one_fresh_otio_not_source_audio(
     tmp_path: Path,
+    version: str,
+    build: str,
 ) -> None:
     case, music_id, source_id = _music_package_case(
         tmp_path, scenario="source-audio-no"
@@ -1462,7 +1465,12 @@ def test_signed_music_package_routes_to_one_fresh_otio_not_source_audio(
     assert workflow_v2._requires_native_otio(package.view)
     assert workflow_v2._verify_native_otio_plan(package).is_file()
 
-    adapter = _FakeAdapter()
+    class MusicAdapter(_FakeAdapter):
+        def connected_facts(self) -> Any:
+            self._call("connected_facts")
+            return _Connected(version=version, build=build)
+
+    adapter = MusicAdapter()
     result = workflow_v2.run_workflow_delivery_v2(
         object(),
         attestation,
