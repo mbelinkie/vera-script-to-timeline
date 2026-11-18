@@ -2409,6 +2409,30 @@
             "$ref": "#/$defs/VisualOnlyAdditionalV2"
           }
         },
+        "clearedNarration": {
+          "description": "The picture sequence of a wordless row that came from clearing editable narration.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version", "slots"],
+          "properties": {
+            "id": { "$ref": "#/$defs/EntityId" },
+            "version": { "$ref": "#/$defs/EntityVersion" },
+            "slots": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "version", "visualId"],
+                "properties": {
+                  "id": { "$ref": "#/$defs/EntityId" },
+                  "version": { "$ref": "#/$defs/EntityVersion" },
+                  "visualId": { "$ref": "#/$defs/EntityId" }
+                }
+              }
+            }
+          }
+        },
         "stashChecklist": { "$ref": "#/$defs/StashChecklistV2" },
         "stashOrigin": {
           "$ref": "#/$defs/StashOriginV2"

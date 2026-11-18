@@ -160,6 +160,9 @@ function renderVisuals(document, block) {
     for (const { payload } of block.overlayEvents) {
       list.append(renderVisualCard(document, payload, payload.researchClip));
     }
+    for (const { payload } of block.unattachedVisuals ?? []) {
+      list.append(renderVisualCard(document, payload, payload.researchClip));
+    }
   }
   if (block.type === "visual_only") {
     list.append(renderVisualCard(document, block.payload, block.researchClip));
@@ -216,7 +219,7 @@ function renderRow(document, block) {
   if (block.state) row.dataset.state = block.state;
 
   const narration = makeElement(document, "div", "narration-cell");
-  if (block.type === "narration") {
+  if (block.type === "narration" || (block.type === "visual_only" && block.clearedNarration)) {
     const paragraph = makeElement(document, "p", "narration-text");
     if (block.plainDirection) paragraph.classList.add("narration-text--plain-direction");
     appendNarrationText(document, paragraph, block);

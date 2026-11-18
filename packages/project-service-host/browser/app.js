@@ -24,6 +24,11 @@ let documentSaving = false;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
+let editRefused = false;
+let renderRequested = false;
+let forceRender = false;
+let renderTimer;
+const composingRows = new Set();
 const undoStack = [];
 let narrationCleanup = [];
 let pendingName;
@@ -134,10 +139,16 @@ function renderEditor() {
   renderRows(root, scriptDocument);
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
-    command: (command, label) => queueCommand(command, label, renderEditor),
+    command: (command, label) => queueCommand(command, label, { structural: true }),
   });
-  root.querySelectorAll('[data-row-kind="narration"] .narration-cell').forEach((cell) => {
-    narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, renderEditor));
+  root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
+    narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
+      compositionChange(rowId, active) {
+        if (active) composingRows.add(rowId);
+        else { composingRows.delete(rowId); scheduleRender(); }
+      },
+      requestRender: scheduleRender,
+    }));
   });
   if (rowId && caret !== null) {
     const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === rowId);
@@ -156,6 +167,20 @@ function renderEditor() {
       document.getSelection().addRange(range);
     }
   }
+}
+
+function scheduleRender(force = false) {
+  renderRequested = true;
+  forceRender ||= force === true;
+  if (renderTimer) return;
+  renderTimer = setTimeout(() => {
+    renderTimer = undefined;
+    if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
+    if (!forceRender && document.activeElement?.matches("[data-narration-editor]")) return;
+    renderRequested = false;
+    forceRender = false;
+    renderEditor();
+  }, 0);
 }
 
 async function saveDocument() {
@@ -178,13 +203,25 @@ async function saveDocument() {
     return;
   } finally { documentSaving = false; }
   if (documentDirty) void saveDocument();
-  else setSaveStatus("Saved");
+  else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
-function queueCommand(command, label, after) {
+function queueCommand(command, label, options = {}) {
+  if (options.structural && composingRows.size) return Promise.resolve(false);
   commandsPending += 1;
   commandQueue = commandQueue.then(async () => {
-    if (conflicted) return false;
+    if (conflicted || editRefused) return false;
+    if (options.expectedRow) {
+      const expected = options.expectedRow;
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === expected.id);
+      const matchesNarration = row?.type === "narration" && row.text === expected.text &&
+        Boolean(row.plainDirection) === expected.plainDirection;
+      const matchesCleared = row?.type === "visual_only" && row.clearedNarration &&
+        expected.text === "" && !expected.plainDirection;
+      if (!matchesNarration && !matchesCleared) {
+        throw new Error("The script changed while you were typing. Your unsaved text is still here.");
+      }
+    }
     const response = await fetch("/authoring/command", {
       method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
       body: JSON.stringify({ document: scriptDocument, command }),
@@ -196,10 +233,13 @@ function queueCommand(command, label, after) {
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    if (after) after();
+    scheduleRender(options.structural);
     return true;
-  }).catch((error) => { setSaveStatus(error.message || "Edit could not be applied."); return false; })
-    .finally(() => { commandsPending -= 1; });
+  }).catch((error) => {
+    if (options.expectedRow) editRefused = true;
+    setSaveStatus(error.message || "Edit could not be applied.");
+    return false;
+  }).finally(() => { commandsPending -= 1; if (renderRequested) scheduleRender(); });
   return commandQueue;
 }
 
@@ -223,18 +263,20 @@ function updateUndo() {
 }
 
 function undo() {
+  if (composingRows.size) return;
+  commandsPending += 1;
   commandQueue = commandQueue.then(() => {
-    if (conflicted || !undoStack.length) return;
+    if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
     updateUndo();
     documentDirty = true;
-    renderEditor();
     void saveDocument();
-  });
+    scheduleRender(true);
+  }).finally(() => { commandsPending -= 1; if (renderRequested) scheduleRender(); });
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+  if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();
   }
@@ -368,7 +410,7 @@ projectTitle.addEventListener("keydown", (event) => {
 retrySave.addEventListener("click", () => { if (pendingDocument || documentDirty) void saveDocument(); else void saveName(); });
 
 function protectDraft(event) {
-  if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || (project && projectTitle.value.trim() !== project.title)) {
+  if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
     event.preventDefault();
     event.returnValue = true;
   }

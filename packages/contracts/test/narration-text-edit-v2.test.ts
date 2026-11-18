@@ -400,8 +400,38 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
         },
         visualOnlyTiming: { kind: "visual_only" },
       }],
+      clearedNarration: { id: id(300), version: 1, slots: [
+        { id: id(302), version: 1, visualId: id(402) },
+        { id: id(303), version: 1, visualId: id(403) },
+      ] },
     }]);
-    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document))).toEqual({ ok: true, document: result.document });
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(reloaded).toEqual({ ok: true, document: result.document });
+    if (!reloaded.ok) throw new Error("Expected cleared narration to reload");
+    const afterReload = createRowEditSessionV2(reloaded.document);
+    const retyped = afterReload.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, 0, "新", 2160) });
+    expect(retyped.ok, JSON.stringify(retyped.diagnostics)).toBe(true);
+    expect(retyped.document.activeDraft.blocks).toMatchObject([{
+      type: "narration", id: source.id, orderKey: source.orderKey, version: 3, text: "新",
+      primaryVisualSequence: { id: id(300), slots: [{
+        boundaryBefore: { kind: "row_start" }, payload: { kind: "on_camera", presenterChoiceId: null },
+      }] },
+      unattachedVisuals: [
+        { slotId: id(302), payload: { payloadId: id(402), selectedSourceRange: { startFrame: 48, durationFrames: 96 }, audioPolicy: "quiet" } },
+        { slotId: id(303), payload: { payloadId: id(403), framingPolicy: "contain" } },
+      ],
+    }]);
+    expect(afterReload.undo().document.activeDraft.blocks).toEqual(reloaded.document.activeDraft.blocks);
+
+    const genuineWordless = structuredClone(result.document);
+    const wordlessRow = genuineWordless.activeDraft.blocks[0];
+    if (wordlessRow?.type !== "visual_only") throw new Error("Expected a wordless picture row");
+    delete wordlessRow.clearedNarration;
+    const refusedRetype = createRowEditSessionV2(genuineWordless)
+      .apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, 0, "x", 2161) });
+    expect(refusedRetype).toMatchObject({
+      ok: false, document: genuineWordless, diagnostics: [{ code: "NARRATION_TEXT_TARGET_INVALID" }],
+    });
     comments = commentOperation(comments, { kind: "replace_document", id: "clear", actorId: "test-reviewer", document: result.document });
     expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "attached", "attached"]);
     expect(comments.threads.slice(1).map((thread) => thread.attachment.anchor)).toEqual([

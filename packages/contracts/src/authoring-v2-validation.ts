@@ -87,6 +87,20 @@ export function validateScriptDocumentV2(
       });
     } else blocksById.set(block.id, block);
     addId(block.id, `${path}/id`, block.id);
+    if (block.type === "visual_only" && block.clearedNarration) {
+      const visualIds = [block.payload, ...(block.additionalVisuals ?? []).map((item) => item.payload)]
+        .map((visual) => visual.payloadId);
+      const slotVisualIds = new Set(block.clearedNarration.slots.map((slot) => slot.visualId));
+      if (slotVisualIds.size !== block.clearedNarration.slots.length ||
+          visualIds.length !== slotVisualIds.size || visualIds.some((id) => !slotVisualIds.has(id))) {
+        diagnostics.push({
+          code: "CLEARED_NARRATION_INVALID",
+          message: "A cleared narration picture sequence must identify each picture exactly once.",
+          jsonPath: `${path}/clearedNarration/slots`,
+          blockId: block.id,
+        });
+      }
+    }
     if (block.type !== "narration") continue;
 
     validateTokens(block, path, diagnostics, addId);
@@ -221,7 +235,7 @@ export function validateScriptDocumentV2(
       ...item,
       // Parked narration may have unfinished authoring work, but corrupt plain
       // direction intent is never safe to import or later place in the Draft.
-      ...(item.code === "PLAIN_DIRECTION_INTENT_INVALID" ? {} : { severity: "warning" as const }),
+      ...(["PLAIN_DIRECTION_INTENT_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code) ? {} : { severity: "warning" as const }),
       jsonPath: item.jsonPath.replace("/activeDraft/blocks", `${path}/rows`).replace("/activeDraft/supportingItems", `${path}/supportingItems`),
     })));
   }

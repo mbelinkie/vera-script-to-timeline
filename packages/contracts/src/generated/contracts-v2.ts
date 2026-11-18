@@ -157,6 +157,33 @@ export type VisualOnlyBlockV2 = {
    * @minItems 1
    */
   additionalVisuals?: [VisualOnlyAdditionalV2, ...VisualOnlyAdditionalV2[]];
+  /**
+   * The picture sequence of a wordless row that came from clearing editable narration.
+   */
+  clearedNarration?: {
+    id: string;
+    version: number;
+    /**
+     * @minItems 2
+     */
+    slots: [
+      {
+        id: string;
+        version: number;
+        visualId: string;
+      },
+      {
+        id: string;
+        version: number;
+        visualId: string;
+      },
+      ...{
+        id: string;
+        version: number;
+        visualId: string;
+      }[],
+    ];
+  };
   stashChecklist?: StashChecklistV2;
   stashOrigin?: StashOriginV2;
   version: number;

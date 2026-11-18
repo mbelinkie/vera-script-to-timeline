@@ -24,7 +24,8 @@ function narrationRow(documentModel, root) {
   const blocks = documentModel?.activeDraft?.blocks;
   if (!Array.isArray(blocks)) return null;
   const row = blocks.find((block) => block && block.id === rowId);
-  return row?.type === "narration" ? row : null;
+  if (row?.type === "narration") return row;
+  return row?.type === "visual_only" && row.clearedNarration ? { ...row, type: "narration", text: "", tokens: [] } : null;
 }
 
 function textAtPoint(root, node, offset) {
@@ -200,7 +201,7 @@ function localStageEdit(row, action) {
       openOffset === action.startOffset && closeOffset + 1 === action.endOffset);
     if (!run) return { ...row, plainDirection: undefined, tokens: lexicalTokens(row.text) };
     const text = `${row.text.slice(0, run.openOffset)}${row.text.slice(run.openOffset + 1, run.closeOffset)}${row.text.slice(run.closeOffset + 1)}`;
-    return { ...row, text, tokens: lexicalTokens(text, directionRuns(row).filter((item) => item !== run).map(({ openOffset, closeOffset }) => ({
+    return { ...row, text, tokens: lexicalTokens(text, directionRuns(row).filter((item) => item.openOffset !== run.openOffset).map(({ openOffset, closeOffset }) => ({
       openOffset: openOffset > run.closeOffset ? openOffset - 2 : openOffset,
       closeOffset: closeOffset > run.closeOffset ? closeOffset - 2 : closeOffset,
     })))};
@@ -325,10 +326,11 @@ function deletionRange(event, editor, oldText) {
 }
 
 /** Install the writing controls for one existing narration cell. */
-export function mountNarration(root, scriptDocument, command, rerender) {
+export function mountNarration(root, scriptDocument, command, options = {}) {
   if (!root || !root.ownerDocument || typeof command !== "function") return () => undefined;
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
+  const { compositionChange, requestRender } = options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
   editor.dataset.narrationEditor = "true";
@@ -358,26 +360,7 @@ export function mountNarration(root, scriptDocument, command, rerender) {
   let compositionText = knownText;
   let savedSelection = null;
   let selectionGuard = false;
-  let queue = Promise.resolve();
-  let pendingDispatches = 0;
-  let rerenderTimer = 0;
   let editingBlocked = false;
-  let rerenderAllowed = true;
-
-  function requestRerender() {
-    if (rerenderTimer || typeof rerender !== "function") return;
-    rerenderTimer = setTimeout(() => {
-      rerenderTimer = 0;
-      // Keep the live editor in place until all queued keystrokes have reached
-      // the model; otherwise a fast paste/type sequence loses its caret.
-      if (!rerenderAllowed) return;
-      if (pendingDispatches) {
-        requestRerender();
-        return;
-      }
-      rerender();
-    }, 0);
-  }
 
   function currentSelection() {
     const selection = rangeSelection(editor);
@@ -398,61 +381,61 @@ export function mountNarration(root, scriptDocument, command, rerender) {
     );
   }
 
-  function dispatch(payload, label) {
-    pendingDispatches += 1;
-    const task = queue.then(async () => {
-      let successful = false;
-      try {
-        if (editingBlocked) return false;
-        const result = await command(payload, label, () => {
-          requestRerender();
-        });
-        successful = result !== false && result?.ok !== false;
-      } finally {
-        pendingDispatches -= 1;
-        if (successful) requestRerender();
-        else {
-          // Keep a refused/conflicted draft visible, but do not apply another
-          // edit against a document the model did not accept.
-          editingBlocked = true;
-          rerenderAllowed = false;
-          if (rerenderTimer) {
-            clearTimeout(rerenderTimer);
-            rerenderTimer = 0;
-          }
-        }
-      }
+  function expectedRow(rowSnapshot) {
+    return {
+      id: rowSnapshot.id,
+      text: rowSnapshot.text,
+      plainDirection: rowSnapshot.plainDirection === true,
+    };
+  }
+
+  function dispatch(payload, label, rowSnapshot) {
+    if (editingBlocked) return Promise.resolve(false);
+    let result;
+    try {
+      // Invoke the app command immediately at the input event. The app owns
+      // serialization and the document-wide refusal/render policy.
+      result = command(payload, label, { expectedRow: expectedRow(rowSnapshot) });
+    } catch {
+      editingBlocked = true;
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(result).then((accepted) => {
+      if (accepted === false) editingBlocked = true;
+      return accepted === true;
+    }, () => {
+      editingBlocked = true;
+      return false;
     });
-    const handled = task.catch(() => false);
-    queue = handled.then(() => undefined);
-    return handled;
   }
 
   function replaceText(startOffset, endOffset, insertedText, label = "Edit narration", sourceText = editor.textContent ?? "") {
     const oldText = sourceText;
     if (startOffset < 0 || endOffset < startOffset || endOffset > oldText.length) return;
-    const delimiterOffset = directionDelimiterAt(localRow, startOffset, endOffset, oldText);
+    const priorRow = localRow;
+    const delimiterOffset = directionDelimiterAt(priorRow, startOffset, endOffset, oldText);
     if (delimiterOffset !== null) {
-      const run = directionRuns(localRow).find(({ openOffset, closeOffset }) =>
+      const run = directionRuns(priorRow).find(({ openOffset, closeOffset }) =>
         openOffset === delimiterOffset || closeOffset === delimiterOffset);
       if (!run) return;
-      const nextText = `${oldText.slice(0, run.openOffset)}${oldText.slice(run.openOffset + 1, run.closeOffset)}${oldText.slice(run.closeOffset + 1)}`;
+      // The model's delimiter command removes only the paired brackets; the
+      // words between them remain ordinary narration in the optimistic view.
+      const nextText = `${priorRow.text.slice(0, run.openOffset)}${priorRow.text.slice(run.openOffset + 1, run.closeOffset)}${priorRow.text.slice(run.closeOffset + 1)}`;
       editor.textContent = nextText;
       knownText = nextText;
-      localRow = localTextEdit(localRow, run.openOffset, run.closeOffset + 1, "");
+      localRow = localStageEdit(priorRow, { kind: "make_spoken", startOffset: run.openOffset, endOffset: run.closeOffset + 1 });
       setCaret(editor, startOffset <= run.openOffset ? startOffset : Math.max(0, startOffset - 2));
-      void dispatch({ kind: "delete_direction_delimiter", blockId: localRow.id, offset: delimiterOffset }, "Remove stage direction");
-      return;
+      return dispatch({ kind: "delete_direction_delimiter", blockId: priorRow.id, offset: delimiterOffset }, "Remove stage direction", priorRow);
     }
     const nextText = oldText.slice(0, startOffset) + insertedText + oldText.slice(endOffset);
     if (nextText === oldText) return;
     if ((editor.textContent ?? "") !== nextText) editor.textContent = nextText;
     knownText = nextText;
-    localRow = localTextEdit(localRow, startOffset, endOffset, insertedText);
+    localRow = localTextEdit(priorRow, startOffset, endOffset, insertedText);
     setCaret(editor, startOffset + insertedText.length);
-    void dispatch({
-      kind: "edit_narration_text", rowId: localRow.id, startOffset, endOffset, insertedText, editId: newId(),
-    }, label);
+    return dispatch({
+      kind: "edit_narration_text", rowId: priorRow.id, startOffset, endOffset, insertedText, editId: newId(),
+    }, nextText === "" ? "Cleared narration" : label, priorRow);
   }
 
   function fallbackInput() {
@@ -492,16 +475,23 @@ export function mountNarration(root, scriptDocument, command, rerender) {
     if (editingBlocked) return;
     composing = true;
     compositionText = knownText;
+    if (typeof compositionChange === "function") compositionChange(row.id, true);
   }
 
   function onCompositionEnd() {
-    if (editingBlocked) return;
+    const wasComposing = composing;
     composing = false;
+    if (editingBlocked) {
+      if (wasComposing && typeof compositionChange === "function") compositionChange(row.id, false);
+      return;
+    }
     const nextText = editor.textContent ?? "";
-    if (nextText === compositionText) return;
-    const edit = changedRange(compositionText, nextText);
-    knownText = compositionText;
-    replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", compositionText);
+    if (nextText !== compositionText) {
+      const edit = changedRange(compositionText, nextText);
+      knownText = compositionText;
+      replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", compositionText);
+    }
+    if (wasComposing && typeof compositionChange === "function") compositionChange(row.id, false);
   }
 
   function performAction(action) {
@@ -516,8 +506,8 @@ export function mountNarration(root, scriptDocument, command, rerender) {
         openOffset === action.startOffset && closeOffset + 1 === action.endOffset);
       setSelection(editor, action.startOffset, removedPair ? Math.max(action.startOffset, action.endOffset - 2) : action.endOffset);
     }
-    const payload = { kind: action.kind, blockId: localRow.id, startOffset: action.startOffset, endOffset: action.endOffset };
-    void dispatch(payload, action.kind === "make_spoken" ? "Make spoken" : "Make stage direction");
+    const payload = { kind: action.kind, blockId: priorRow.id, startOffset: action.startOffset, endOffset: action.endOffset };
+    void dispatch(payload, action.kind === "make_spoken" ? "Make spoken" : "Make stage direction", priorRow);
     actions.hidden = true;
   }
 
@@ -548,6 +538,15 @@ export function mountNarration(root, scriptDocument, command, rerender) {
     }
   }
 
+  function onFocus() {
+    hint.hidden = false;
+  }
+
+  function onBlur() {
+    hint.hidden = true;
+    if (typeof requestRender === "function") requestRender();
+  }
+
   function onSelectionChange() {
     if (selectionGuard || !selectionInside(editor, document.getSelection())) return;
     const selection = rangeSelection(editor);
@@ -566,8 +565,8 @@ export function mountNarration(root, scriptDocument, command, rerender) {
   editor.addEventListener("compositionstart", onCompositionStart);
   editor.addEventListener("compositionend", onCompositionEnd);
   editor.addEventListener("keydown", leaveText);
-  editor.addEventListener("focus", () => { hint.hidden = false; });
-  editor.addEventListener("blur", () => { hint.hidden = true; });
+  editor.addEventListener("focus", onFocus);
+  editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", (event) => event.preventDefault());
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
@@ -581,12 +580,14 @@ export function mountNarration(root, scriptDocument, command, rerender) {
     editor.removeEventListener("compositionstart", onCompositionStart);
     editor.removeEventListener("compositionend", onCompositionEnd);
     editor.removeEventListener("keydown", leaveText);
+    editor.removeEventListener("focus", onFocus);
+    editor.removeEventListener("blur", onBlur);
     document.removeEventListener("selectionchange", onSelectionChange);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     spokenButton.removeEventListener("mousedown", preserveActionSelection);
     stageButton.removeEventListener("click", activateAction);
     spokenButton.removeEventListener("click", activateAction);
-    if (rerenderTimer) clearTimeout(rerenderTimer);
+    if (composing && typeof compositionChange === "function") compositionChange(row.id, false);
   };
 }
 

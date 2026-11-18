@@ -12,7 +12,7 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
-import { reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
+import { emptyRowCoverageV2, reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import {
   applySplitOrJoinV2,
   isSplitOrJoinCommandV2,
@@ -27,10 +27,13 @@ export type { RowGapV2 } from "./generated/contracts-v2.js";
 
 /** D135/D146: use the existing ordered visuals-only row when clearing several pictures. */
 function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | AuthoringDiagnosticV2 | null {
-  const slots = row.primaryVisualSequence?.slots ?? [];
+  const sequence = row.primaryVisualSequence;
+  if (!sequence) return null;
+  const slots = sequence.slots;
   const visuals = [
-    ...slots.flatMap((slot) => slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload] : []),
-    ...(row.unattachedVisuals ?? []).map((item) => item.payload),
+    ...slots.flatMap((slot) => slot.kind === "content" && slot.payload.kind === "visual"
+      ? [{ id: slot.id, version: slot.version, payload: slot.payload }] : []),
+    ...(row.unattachedVisuals ?? []).map((item) => ({ id: item.slotId, version: item.version, payload: item.payload })),
   ];
   if (visuals.length < 2) return null;
   if (slots.some((slot) => slot.kind === "content" && slot.playoutPolicy !== "match_structural_interval")) {
@@ -43,7 +46,7 @@ function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | Author
     return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review the row's additional picture or narration settings before clearing all its words.");
   }
   const placements = [];
-  for (const visual of visuals) {
+  for (const { payload: visual } of visuals) {
     const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...payload } = visual;
     if (payload.pictureKind === "clip" && (!selectedSourceRange ||
         sourceUsage?.sourceInFrame !== selectedSourceRange.startFrame)) {
@@ -56,10 +59,59 @@ function clearToVisualOnlyRow(row: NarrationBlockV2): VisualOnlyBlockV2 | Author
       ...(frameBinding ? { frameBinding } : {}),
     });
   }
+  const [firstSlot, secondSlot, ...remainingSlots] = visuals.map(({ id, version, payload }) => ({
+    id, version, visualId: payload.payloadId,
+  }));
   return {
     type: "visual_only", id: row.id, orderKey: row.orderKey, version: row.version + 1,
     ...placements[0]!,
     additionalVisuals: [placements[1]!, ...placements.slice(2)],
+    clearedNarration: {
+      id: sequence.id, version: sequence.version,
+      slots: [firstSlot!, secondSlot!, ...remainingSlots],
+    },
+    ...(row.stashOrigin ? { stashOrigin: row.stashOrigin } : {}),
+    ...(row.stashChecklist ? { stashChecklist: row.stashChecklist } : {}),
+  };
+}
+
+/**
+ * Preserve every picture without assigning it a new cue. On Camera covers
+ * the new narration until the writer attaches pictures to words.
+ */
+function restoreClearedNarration(
+  row: VisualOnlyBlockV2,
+  sequence: NonNullable<VisualOnlyBlockV2["clearedNarration"]>,
+): NarrationBlockV2 | AuthoringDiagnosticV2 {
+  const visuals = [row, ...(row.additionalVisuals ?? [])];
+  const slots = new Map(sequence.slots.map((slot) => [slot.visualId, slot]));
+  const restored = [];
+  for (const visual of visuals) {
+    const slot = slots.get(visual.payload.payloadId);
+    const { audioPolicy } = visual.payload;
+    const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
+    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined) {
+      return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
+    }
+    const payload: NarratedVisualPayloadV2 = {
+      ...visual.payload,
+      audioPolicy,
+      sourceUsage: selectedSourceRange ? { sourceInFrame: selectedSourceRange.startFrame } : null,
+      ...(selectedSourceRange ? { selectedSourceRange } : {}),
+      ...(visual.researchClip ? { researchClip: visual.researchClip } : {}),
+      ...(visual.frameBinding ? { frameBinding: visual.frameBinding } : {}),
+    };
+    restored.push({ slotId: slot.id, version: slot.version + 1, payload });
+  }
+  return {
+    type: "narration", id: row.id, orderKey: row.orderKey, version: row.version,
+    state: "active", timingPolicy: "narration_spine",
+    text: "", tokens: [], overlayEvents: [], notes: [],
+    primaryVisualSequence: {
+      id: sequence.id, version: sequence.version + 1,
+      slots: emptyRowCoverageV2(sequence.id),
+    },
+    unattachedVisuals: restored,
     ...(row.stashOrigin ? { stashOrigin: row.stashOrigin } : {}),
     ...(row.stashChecklist ? { stashChecklist: row.stashChecklist } : {}),
   };
@@ -254,7 +306,8 @@ function validAuthoredRowCommand(value: unknown): boolean {
     }
     if (value.kind === "create_row") {
       return exactKeys(value, ["kind", "row", "destination"]) && rowPayload(value.row) &&
-        !Object.hasOwn(value.row, "stashOrigin") && !Object.hasOwn(value.row, "stashChecklist") && rowGapPayload(value.destination);
+        !Object.hasOwn(value.row, "stashOrigin") && !Object.hasOwn(value.row, "stashChecklist") &&
+        !Object.hasOwn(value.row, "clearedNarration") && rowGapPayload(value.destination);
     }
     if (value.kind === "delete_rows") {
       return exactKeys(value, ["kind", "rowIds"]) && rowIdsPayload(value.rowIds) && value.rowIds.length > 0 && new Set(value.rowIds).size === value.rowIds.length;
@@ -1355,7 +1408,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   if (command.kind === "save_stash_group" && command.expectedRevision !== expectedRevision) {
     return refused(document, "ROW_REVISION_STALE", "A staged group Save must use the exact revision at which its member editor opened.");
@@ -1639,8 +1692,12 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     moved = document.stash?.flatMap((bundle) => bundle.rows).filter((row) => command.expectedRowIds.includes(row.id)) ?? [];
   } else if (command.kind === "edit_narration_text") {
     const index = blocks.findIndex((block) => block.id === command.rowId);
-    const current = blocks[index];
-    if (!current) return refused(document, "ROW_NOT_FOUND", "Choose an existing active Draft narration row.");
+    const block = blocks[index];
+    if (!block) return refused(document, "ROW_NOT_FOUND", "Choose an existing active Draft narration row.");
+    const restored = block.type === "visual_only" && block.clearedNarration
+      ? restoreClearedNarration(block, block.clearedNarration) : null;
+    if (restored && !("type" in restored)) return { ok: false, document, diagnostics: [restored] };
+    const current = restored ?? block;
     if (current.type !== "narration" || current.state !== "active" || current.plainDirection === true) {
       return refused(document, "NARRATION_TEXT_TARGET_INVALID", "Only active ordinary narration rows can be edited with a text splice.");
     }
@@ -1652,7 +1709,9 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     });
     if (!splice.ok) return refused(document, splice.code, splice.message);
     const wordless = splice.row.text === "" ? clearToVisualOnlyRow(current) : null;
-    if (wordless) {
+    if (restored) {
+      blocks[index] = { ...splice.row, version: current.version + 1 };
+    } else if (wordless) {
       if (!("type" in wordless)) return { ok: false, document, diagnostics: [wordless] };
       blocks[index] = wordless;
     } else {
@@ -1752,6 +1811,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     try { replacement = structuredClone(command.row); }
     catch { return refused(document, "ROW_CONTENT_INVALID", "The edited row must be losslessly representable as valid saved JSON."); }
     if (replacement.id !== current.id || replacement.type !== current.type) return refused(document, "ROW_IDENTITY_INVALID", "An authored row edit must preserve the row's existing ID and type.");
+    if (current.type === "visual_only" && replacement.type === "visual_only" &&
+      !sameAuthoringJsonV2(current.clearedNarration, replacement.clearedNarration)) {
+      return refused(document, "ROW_CONTENT_INVALID", "Only a narration text edit can change whether a row contains cleared narration.");
+    }
     if (current.type === "narration" && replacement.type === "narration" && current.plainDirection !== replacement.plainDirection) {
       return refused(document, "ROW_CONTENT_INVALID", "Use explicit Make spoken or Make stage direction to change plain-note speech intent.");
     }
@@ -2232,7 +2295,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
   let document: unknown;
   try { document = JSON.parse(json); } catch { return { ok: false, diagnostics: [diagnostic("DOCUMENT_JSON_INVALID", "The saved document is not valid JSON.")] }; }
   const validation = validateScriptDocumentV2(document);
-  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID"].includes(item.code));
+  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code));
   return fatal.length ? { ok: false, diagnostics: fatal } : { ok: true, document: document as ScriptDocumentV2 };
 }
 

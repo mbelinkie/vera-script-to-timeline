@@ -609,6 +609,84 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("keeps a cleared multi-visual row editable after reload and retyping without changing visual identity or order", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Clear multi-visual narration project");
+    const initialText = "clear this multi visual narration";
+    const seeded = editableDocumentFixture(projectId, initialText, true);
+    const seededRow = seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!seededRow || seededRow.type !== "narration" || !seededRow.primaryVisualSequence) {
+      throw new Error("browser multi-visual fixture has no narration sequence");
+    }
+    const visualSlots = seededRow.primaryVisualSequence.slots.filter(
+      (slot) => slot.kind === "content" && slot.payload.kind === "visual",
+    );
+    if (visualSlots.length !== 2 || visualSlots.some((slot) => slot.kind !== "content" || slot.payload.kind !== "visual")) {
+      throw new Error("browser multi-visual fixture did not create two visual slots");
+    }
+    visualSlots.forEach((slot, index) => {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual") return;
+      const startFrame = index * 25;
+      slot.payload.selectedSourceRange = { startFrame, durationFrames: 25 };
+      slot.payload.sourceUsage = { ...slot.payload.sourceUsage, sourceInFrame: startFrame };
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    const initial = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!initial?.primaryVisualSequence) throw new Error("saved multi-visual fixture did not load");
+    const initialVisualIds = initial.primaryVisualSequence.slots.flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload.payloadId] : []);
+    expect(initialVisualIds).toHaveLength(2);
+
+    const rowFromDocument = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      if (response.status !== 200) return null;
+      return (response.body as SavedDocument).document.activeDraft.blocks.find((block) => block.id === seeded.rowId) ?? null;
+    };
+    const visualOnlyIds = (block: ScriptDocumentV2["activeDraft"]["blocks"][number]) =>
+      block.type === "visual_only"
+        ? [block.payload.payloadId, ...(block.additionalVisuals ?? []).map((visual) => visual.payload.payloadId)]
+        : [];
+
+    await editor.fill("");
+    await expect.poll(async () => (await rowFromDocument())?.type ?? null).toBe("visual_only");
+    const cleared = await rowFromDocument();
+    if (!cleared || cleared.type !== "visual_only") throw new Error("cleared narration did not become a visual-only row");
+    expect(cleared.clearedNarration).toBeTruthy();
+    expect(visualOnlyIds(cleared)).toEqual(initialVisualIds);
+    expect(await row.locator(".visual-card").count()).toBe(2);
+
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const reloadedRow = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const reloadedEditor = reloadedRow.locator("[data-narration-editor]");
+    await expect.poll(async () => await editorText(reloadedEditor)).toBe("");
+    expect(await reloadedRow.locator(".visual-card").count()).toBe(2);
+    const reloaded = await rowFromDocument();
+    if (!reloaded || reloaded.type !== "visual_only") throw new Error("cleared row did not survive reload");
+    expect(reloaded.clearedNarration).toBeTruthy();
+    expect(visualOnlyIds(reloaded)).toEqual(initialVisualIds);
+
+    const retypedText = "retyped after clear";
+    await reloadedEditor.fill(retypedText);
+    await waitForNarrationText(page, projectId, seeded.rowId, retypedText);
+    const retyped = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(retyped?.text).toBe(retypedText);
+    const retypedVisualIds = [...(retyped?.primaryVisualSequence?.slots.flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload.payloadId] : []) ?? []),
+    ...(retyped?.unattachedVisuals ?? []).map((visual) => visual.payload.payloadId)];
+    expect(retypedVisualIds).toEqual(initialVisualIds);
+    await reloadedEditor.blur();
+    await expect.poll(async () => await reloadedRow.locator(".visual-card").count()).toBe(3);
+    await page.close();
+  }, 90_000);
+
   it("keeps a stale tab's narration draft visible when another tab saves first", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const firstPage = await context.newPage();
@@ -639,6 +717,96 @@ describe("browser authoring over the local project service", () => {
     await waitForNarrationText(firstPage, projectId, seeded.rowId, savedText);
     await firstPage.close();
     await stalePage.close();
+  }, 90_000);
+
+  it("refuses a stale cross-row save without losing the second tab's narration draft", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const firstPage = await context.newPage();
+    const stalePage = await context.newPage();
+    const projectId = await createProject(firstPage, origin, "Cross-row conflict project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row starts here", "second row starts here"]);
+    await saveDocumentFixture(firstPage, projectId, seeded.document);
+    const projectUrl = `${origin}/?project=${projectId}`;
+    await firstPage.goto(projectUrl);
+    await firstPage.locator("#script-rows").waitFor({ state: "visible" });
+    await stalePage.goto(projectUrl);
+    await stalePage.locator("#script-rows").waitFor({ state: "visible" });
+
+    const firstEditor = firstPage.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    const staleEditor = stalePage.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await firstEditor.waitFor({ state: "visible" });
+    await staleEditor.waitFor({ state: "visible" });
+    const firstText = "first tab saved row one";
+    await firstEditor.fill(firstText);
+    await waitForNarrationText(firstPage, projectId, seeded.rowIds[0]!, firstText);
+
+    const staleText = "stale tab kept row two";
+    await staleEditor.fill(staleText);
+    await expect.poll(async () => await stalePage.locator("#save-status").textContent())
+      .toBe("A newer script was saved elsewhere. Your unsaved changes are still here.");
+    expect(await editorText(staleEditor)).toBe(staleText);
+    const persistedRows = await narrationRowsFromApi(firstPage, projectId);
+    expect(persistedRows.map((row) => row.text)).toEqual([firstText, "second row starts here"]);
+    await firstPage.close();
+    await stalePage.close();
+  }, 90_000);
+
+  it("serializes cross-row edits while the first command is held, then undoes only the latest edit", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Held command project");
+    const initialTexts = ["row A starts here", "row B starts here"] as const;
+    const seeded = multiNarrationDocumentFixture(projectId, initialTexts);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const firstEditor = page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    const secondEditor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await firstEditor.waitFor({ state: "visible" });
+    await secondEditor.waitFor({ state: "visible" });
+
+    let commandCount = 0;
+    let firstCommandStartedResolve: () => void = () => {};
+    const firstCommandStarted = new Promise<void>((resolve) => { firstCommandStartedResolve = resolve; });
+    let releaseFirstCommand: () => void = () => {};
+    const firstCommandReleased = new Promise<void>((resolve) => { releaseFirstCommand = resolve; });
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      commandCount += 1;
+      if (commandCount === 1) {
+        firstCommandStartedResolve();
+        await firstCommandReleased;
+      }
+      await route.continue();
+    });
+
+    const firstText = "row A saved first";
+    const secondText = "row B queued second";
+    await firstEditor.fill(firstText);
+    await firstCommandStarted;
+    expect(commandCount).toBe(1);
+    await secondEditor.fill(secondText);
+    // The second edit is queued behind the held command, not applied to the
+    // stale pre-command document or silently dropped while the first is open.
+    await page.waitForTimeout(25);
+    expect(commandCount).toBe(1);
+
+    releaseFirstCommand();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      firstText, secondText,
+    ]);
+    expect(await editorText(firstEditor)).toBe(firstText);
+    expect(await editorText(secondEditor)).toBe(secondText);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      firstText, initialTexts[1],
+    ]);
+    await page.close();
   }, 90_000);
 
   it("commits rapid sequential keystrokes and waits for IME composition to end", async () => {
@@ -674,6 +842,49 @@ describe("browser authoring over the local project service", () => {
       element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: " 東京" }));
     });
     await waitForNarrationText(page, projectId, seeded.rowId, `${rapidText} 東京`);
+    await page.close();
+  }, 90_000);
+
+  it("replaces one emoji with another through IME without splitting its surrogate pair", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Emoji composition project");
+    const initialText = "say 😀 now";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    await editor.evaluate((element) => {
+      const document = element.ownerDocument;
+      const before = element.textContent ?? "";
+      const oldEmoji = "😀";
+      const start = before.indexOf(oldEmoji);
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      let cursor = 0;
+      while (textNode && (start < cursor || start + oldEmoji.length > cursor + (textNode.textContent?.length ?? 0))) {
+        cursor += textNode.textContent?.length ?? 0;
+        textNode = walker.nextNode();
+      }
+      if (!textNode || start < 0) throw new Error("emoji fixture text was not rendered");
+      const selection = document.getSelection();
+      const range = document.createRange();
+      range.setStart(textNode, start - cursor);
+      range.setEnd(textNode, start - cursor + oldEmoji.length);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+      element.textContent = before.replace(oldEmoji, "😃");
+      element.dispatchEvent(new InputEvent("input", {
+        bubbles: true, inputType: "insertCompositionText", data: "😃", isComposing: true,
+      }));
+      element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "😃" }));
+    });
+    await waitForNarrationText(page, projectId, seeded.rowId, "say 😃 now");
+    const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(saved?.tokens.map((token) => token.value)).toEqual(["say", "😃", "now"]);
     await page.close();
   }, 90_000);
 
