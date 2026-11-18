@@ -200,9 +200,13 @@ def frozen_source_file(
     except (OSError, ValueError, KeyError):
         raise FrozenInputRefusal("accepted source lookup failed") from None
     fd = _source_descriptor(record, project_id, source_id, revision, digest, roots)
-    if preserve_png_suffix and destination is not None and record is not None:
-        if record.path.suffix.lower() == ".png":
-            destination = destination.with_suffix(".png")
+    if (
+        preserve_png_suffix
+        and destination is not None
+        and record is not None
+        and record.path.suffix.lower() == ".png"
+    ):
+        destination = destination.with_suffix(".png")
     output_fd: int | None = None
     staged: Path | None = None
     try:

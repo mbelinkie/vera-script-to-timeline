@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from test_issue603_still_preparation import _descriptor
 from vera_timeline_agent import prep_media_inputs
+from vera_timeline_agent.build_compile_stage import CompileStagePort
 from vera_timeline_agent.build_compiler_bridge import invoke_bridge
 from vera_timeline_agent.build_composition import EffectState, FrozenBuildSnapshot
 from vera_timeline_agent.build_jobs import BuildJobError, NeedsAction, StageContext
@@ -162,6 +163,8 @@ def test_frozen_still_preparation_and_recovery(
     monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
     port.execute(context, snapshot)
     assert port.inspect(context, snapshot).state == EffectState.VERIFIED
+    compiled = CompileStagePort()._checked_compile(context, snapshot)
+    assert compiled.result["report"]["status"] == "ready"
     paths = port.paths(context, snapshot)
     result = json.loads(paths["dependencies"].read_bytes())
     key = result["occurrenceResolutions"][0]["preparedMediaRequirementKey"]
