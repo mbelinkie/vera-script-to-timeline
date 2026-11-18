@@ -1137,6 +1137,11 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     const to = part?.rows.findIndex((row) => row.id === end) ?? -1;
     return part && to >= from && from >= 0 ? part.rows.slice(from, to + 1).map((row) => row.id) : null;
   };
+  const matchedRows = (document: ScriptDocumentV2, cueId: string): string[] => document.activeDraft.blocks.flatMap((block) => {
+    if (block.type !== "visual_only") return [];
+    const timings = [block.visualOnlyTiming, ...(block.additionalVisuals ?? []).map((visual) => visual.visualOnlyTiming)];
+    return timings.some((timing) => timing.matchAudioDuration?.cueId === cueId) ? [block.id] : [];
+  });
   for (const [index, span] of spans.entries()) {
     const oldRows = covered(priorLocations, span.startRowId, span.endRowId);
     const nextRows = covered(nextLocations, span.startRowId, span.endRowId);
@@ -1161,6 +1166,15 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     for (let offset = 1; offset < oldRows.length; offset++) {
       if (newStartSection.rows[startIndex + offset]?.id !== oldRows[offset]) break;
       retainedEndRowId = oldRows[offset]!;
+    }
+    const retainedRows = covered(nextLocations, span.startRowId, retainedEndRowId) ?? [];
+    const stranded = matchedRows(before, span.id).filter((rowId) => !retainedRows.includes(rowId));
+    if (stranded.length > 0) {
+      return {
+        ...diagnostic("MUSIC_MATCH_STRANDED", "This move would shorten a music cue away from a matched still. Clear Match audio duration on the affected visual or keep it inside the cue, then try again."),
+        blockId: stranded[0],
+        entityId: span.id,
+      };
     }
     const target = after.rowAudioSpans![index]!;
     target.review ??= { previousEndRowId: span.endRowId, previousSettings: structuredClone(span.settings), alert: "Music shortened by this move" };
@@ -1437,7 +1451,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID", "MUSIC_MATCH_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  // A concurrently removed cue leaves an explicit stale match. Keep the
+  // document editable so the author can clear it; the compiler remains
+  // fail-closed while the link is present.
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   if (command.kind === "save_stash_group" && command.expectedRevision !== expectedRevision) {
     return refused(document, "ROW_REVISION_STALE", "A staged group Save must use the exact revision at which its member editor opened.");
@@ -2497,7 +2514,9 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
   let document: unknown;
   try { document = JSON.parse(json); } catch { return { ok: false, diagnostics: [diagnostic("DOCUMENT_JSON_INVALID", "The saved document is not valid JSON.")] }; }
   const validation = validateScriptDocumentV2(document);
-  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID", "MUSIC_MATCH_INVALID"].includes(item.code));
+  // A stale match is recoverable authoring state after concurrent cue removal;
+  // retain it for an explicit clear and let the compiler refuse to guess.
+  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code));
   return fatal.length ? { ok: false, diagnostics: fatal } : { ok: true, document: document as ScriptDocumentV2 };
 }
 
