@@ -498,6 +498,12 @@ export {
   type RowGapV2,
 } from "./authoring-v2-rows.js";
 export type { JoinRowsCommandV2, RowWordSelectionV2, SplitRowCommandV2 } from "./authoring-v2-row-split-join.js";
+export { cutNarrationWordRangeV2 } from "./authoring-v2-row-split-join.js";
+export {
+  isStashSelectedWordsCommandV2, prepareStashWordCutV2,
+  isInsertStashNoteWordsCommandV2, spliceSpokenStashNoteV2,
+  type StashSelectedWordsCommandV2, type InsertStashNoteWordsCommandV2,
+} from "./authoring-v2-stash-words.js";
 export {
   placementAnchorKeyV2,
   resolveTimedPlacementV2,

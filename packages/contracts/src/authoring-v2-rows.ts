@@ -12,7 +12,7 @@ import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblin
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
-import { reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
+import { attachVisualV2, reconcileNarrationTextCoverageV2, isCoverageRefusalV2 } from "./authoring-v2-coverage.js";
 import {
   applySplitOrJoinV2,
   isSplitOrJoinCommandV2,
@@ -20,6 +20,14 @@ import {
   type JoinRowsCommandV2,
   type SplitRowCommandV2,
 } from "./authoring-v2-row-split-join.js";
+import {
+  isInsertStashNoteWordsCommandV2,
+  isStashSelectedWordsCommandV2,
+  prepareStashWordCutV2,
+  spliceSpokenStashNoteV2,
+  type InsertStashNoteWordsCommandV2,
+  type StashSelectedWordsCommandV2,
+} from "./authoring-v2-stash-words.js";
 
 type Block = ScriptDocumentV2["activeDraft"]["blocks"][number];
 type Row = Exclude<Block, { type: "section" }>;
@@ -75,6 +83,8 @@ export type RowEditCommandV2 =
   | { kind: "rename_section"; sectionId: string; title: string }
   | { kind: "delete_section_break"; sectionId: string }
   | { kind: "stash_rows"; rowIds: string[]; bundleId: string; destination?: StashReturnDestinationV2 }
+  | StashSelectedWordsCommandV2
+  | InsertStashNoteWordsCommandV2
   | { kind: "stash_group_rows"; rowIds: string[]; bundleId: string; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null; createdBy?: string; createdAt?: string }
   | { kind: "group_stash_rows"; rowIds: string[]; groupId: string; createdBy?: string; createdAt?: string }
   | { kind: "move_stash_group"; groupId: string; sectionId: string | null; parentRowId: string | null; afterRowId: string | null }
@@ -1326,6 +1336,12 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       Object.hasOwn(command, "destination") && !stashReturnDestinationPayload(command.destination))) {
       return refused(document, "ROW_COMMAND_INVALID", "Provide a valid Stash return and an exact optional outline drop destination.");
     }
+    if (command.kind === "stash_selected_words" && (!isJsonValue(command) || !isStashSelectedWordsCommandV2(command))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide one exact word selection, source row and unused Stash IDs.");
+    }
+    if (command.kind === "insert_stash_note_words" && (!isJsonValue(command) || !isInsertStashNoteWordsCommandV2(command))) {
+      return refused(document, "ROW_COMMAND_INVALID", "Provide one saved Stash note, receiving row and spoken-word gap.");
+    }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
     if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
@@ -1402,7 +1418,98 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   const blocks = working.activeDraft.blocks;
   let moved: Row[] = [];
   let placementCounts: RowEditResultV2["placementCounts"];
-  if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
+  if (command.kind === "stash_selected_words") {
+    // Construct both sides before writing: an unsafe selection never leaves
+    // half a note in Stash or removes only part of the narration text.
+    const cut = prepareStashWordCutV2(document, command, documentUuids(document));
+    if ("code" in cut) return { ok: false, document, diagnostics: [cut] };
+    const index = blocks.findIndex((block) => block.id === command.rowId);
+    blocks.splice(index, 1, cut.updated);
+    const outline = ensureStashOutline(working);
+    // Always prepend to unsectioned Stash (not the old afterRowId:null append
+    // behaviour), preserving all existing section roots and child preorders.
+    outline.unshift({ rowId: cut.saved.id, kind: cut.kind, sectionId: null, parentRowId: null });
+    (working.stash ??= []).push({ id: command.bundleId, rows: [cut.saved], supportingItems: [] });
+  } else if (command.kind === "insert_stash_note_words") {
+    const entry = working.stashOutline?.find((candidate) => candidate.rowId === command.noteRowId);
+    const source = stashRowById(working, command.noteRowId);
+    const index = blocks.findIndex((block) => block.id === command.rowId);
+    const target = blocks[index];
+    if (!entry || entry.kind !== "note" || grouped.has(command.noteRowId) || source?.type !== "narration" || source.plainDirection !== true ||
+      !source.text.trim() || source.tokens.length === 0) {
+      return refused(document, "STASH_NOTE_CONTENT_INVALID", "Choose a nonblank Stash note with literal words.");
+    }
+    if (source.overlayEvents.length || source.annotations?.length || source.performanceBeats?.length ||
+      source.unattachedVisuals?.length) {
+      return refused(document, "STASH_NOTE_CONTENT_INVALID", "A note with additional word-owned objects needs an explicit placement review.");
+    }
+    if (target?.type !== "narration" || target.state !== "active" || target.plainDirection === true ||
+      target.attachedFootage || !target.primaryVisualSequence) {
+      return refused(document, "NARRATION_TEXT_TARGET_INVALID", "Choose an active spoken row with a supported visual sequence.");
+    }
+    if (!Number.isSafeInteger(target.version) || target.version === Number.MAX_SAFE_INTEGER ||
+      !Number.isSafeInteger(target.primaryVisualSequence.version) || target.primaryVisualSequence.version === Number.MAX_SAFE_INTEGER) {
+      return refused(document, "ROW_CONTENT_INVALID", "The receiving row version cannot advance.");
+    }
+    // Every use of the source note is a fresh occurrence. No link back to the
+    // source is created: later edits/deletions cannot undo its completion.
+    // Sorting acceptance can rewind rowEditRevision relative to an in-trial
+    // edit. Include the edited row version and exact gap so a subsequent
+    // insertion cannot mint the same owned token/clip identities.
+    const copy = copyStashNoteAsSpokenV2(source,
+      `${document.id}:${expectedRevision}:${source.id}:inline:${target.id}:${target.version}:${command.beforeTokenId}`);
+    const spliced = spliceSpokenStashNoteV2(target, copy, command.beforeTokenId);
+    if ("error" in spliced) return refused(document, "STASH_NOTE_INSERT_INVALID", spliced.error);
+    const newIds = copy.tokens.map((token) => token.id);
+    let picture: { id: string; payload: NarratedVisualPayloadV2; version: number } | undefined;
+    if (source.attachedFootage) {
+      if (!presentAttachedFootageForSortingV2(copy)) {
+        return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The attached footage needs one unambiguous source slot and quiet or muted audio.");
+      }
+      const slot = copy.primaryVisualSequence?.slots[0];
+      if (!slot || slot.kind !== "content" || slot.payload.kind !== "visual") {
+        return refused(document, "STASH_ATTACHMENT_VISUAL_CONFLICT", "The note's attached footage could not be represented as a placed visual.");
+      }
+      picture = { id: slot.id, payload: slot.payload, version: slot.version };
+      newIds.push(slot.id, slot.payload.payloadId);
+    }
+    const reserved = documentUuids(document);
+    if (new Set(newIds.map((id) => id.toLowerCase())).size !== newIds.length ||
+      newIds.some((id) => reserved.has(id.toLowerCase()))) {
+      return refused(document, "STASH_WORD_ID_DUPLICATE", "A copied word or visual identity already belongs to another document entity.");
+    }
+    // Inline Stash insertion preserves every receiver token ID; none are reshaped.
+    const coverage = reconcileNarrationTextCoverageV2(target, spliced.row, new Map());
+    if (isCoverageRefusalV2(coverage)) return refused(document, coverage.code, coverage.message);
+    const updated = spliced.row;
+    updated.primaryVisualSequence!.slots = coverage.slots;
+    if (coverage.unattachedVisuals.length) updated.unattachedVisuals = coverage.unattachedVisuals;
+    else delete updated.unattachedVisuals;
+    if (picture) {
+      updated.unattachedVisuals = [...updated.unattachedVisuals ?? [], {
+        slotId: picture.id, payload: picture.payload, version: picture.version,
+      }];
+      const attached = attachVisualV2(updated, picture.id, spliced.firstInsertedTokenId, spliced.firstInsertedTokenId);
+      if (isCoverageRefusalV2(attached) || attached.unattached.length !== 0) {
+        return refused(document, isCoverageRefusalV2(attached) ? attached.code : "STASH_ATTACHMENT_VISUAL_CONFLICT",
+          isCoverageRefusalV2(attached) ? attached.message : "Adding footage would strand an existing visual.");
+      }
+      updated.primaryVisualSequence!.slots = attached.slots;
+      updated.unattachedVisuals = (updated.unattachedVisuals ?? []).filter((item) => item.slotId !== picture.id);
+      if (!updated.unattachedVisuals.length) delete updated.unattachedVisuals;
+    }
+    if (!sameAuthoringJsonV2(updated.primaryVisualSequence!.slots, target.primaryVisualSequence.slots)) {
+      updated.primaryVisualSequence!.version += 1;
+    }
+    updated.version += 1;
+    markStashOriginEditedV2(updated);
+    blocks[index] = updated;
+    const checklist = stashChecklistV2(source);
+    // Once an inline occurrence exists, no reversible whole-row copy may
+    // uncheck the note on return. Preserve manual history, but retire the
+    // earlier automaticCopyId (if any).
+    source.stashChecklist = { completed: true, manualRevision: checklist.manualRevision };
+  } else if (command.kind === "restore_stash" || command.kind === "restore_stash_rows") {
     const index = gapIndex(blocks, command.destination);
     if (index === null) return refused(document, "ROW_DESTINATION_INVALID", "Choose an exact current section gap.");
     const outline = ensureStashOutline(working);
@@ -2190,7 +2297,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
@@ -2241,6 +2348,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
   let current = structuredClone(initial);
   let revision = current.rowEditRevision ?? 0;
   const history: ScriptDocumentV2[] = [];
+  const redoHistory: ScriptDocumentV2[] = [];
   /**
    * D124: the split this session made last, while nothing has changed since.
    * Every edit and every Undo advances the revision, so one number proves that.
@@ -2250,6 +2358,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
     get document() { return structuredClone(current); },
     get revision() { return revision; },
     get undoDepth() { return history.length; },
+    get redoDepth() { return redoHistory.length; },
     view(kind: "script" | "outline" | "stash") {
       if (kind === "stash") return structuredClone(current.stash ?? []);
       return structuredClone(kind === "outline" ? current.activeDraft.blocks.filter((block) => block.type === "section") : current.activeDraft.blocks);
@@ -2264,6 +2373,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
         // still one edit, so Undo returns to the split rows.
         lastSplit = null;
         history.push(current);
+        redoHistory.length = 0;
         revision++;
         current = { ...structuredClone(split.before), rowEditRevision: revision };
         return { ok: true, document: structuredClone(current), diagnostics: [] };
@@ -2274,6 +2384,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
           ? { revision: revision + 1, before: current, rowIds: [command.rowId, command.newRowId] }
           : null;
         history.push(current); current = result.document; revision++;
+        redoHistory.length = 0;
       }
       return { ...result, document: structuredClone(result.document) };
     },
@@ -2292,6 +2403,7 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       const result = applyVisualSequenceEditV2(current, sequenceVersion, command);
       if (!result.ok) return { ...result, document: structuredClone(current) };
       history.push(current);
+      redoHistory.length = 0;
       revision++;
       current = { ...result.document, rowEditRevision: revision };
       return { ...result, document: structuredClone(current) };
@@ -2300,8 +2412,20 @@ export function createRowEditSessionV2(initial: ScriptDocumentV2) {
       if (revision === Number.MAX_SAFE_INTEGER) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session revision cannot advance.");
       const previous = history.pop();
       if (!previous) return refused(structuredClone(current), "ROW_UNDO_EMPTY", "There is no row transaction to undo.");
+      redoHistory.push(current);
+      lastSplit = null;
       revision++;
       current = { ...previous, rowEditRevision: revision };
+      return { ok: true, document: structuredClone(current), diagnostics: [] };
+    },
+    redo(): RowEditResultV2 {
+      if (revision === Number.MAX_SAFE_INTEGER) return refused(structuredClone(current), "ROW_REVISION_STALE", "The session revision cannot advance.");
+      const next = redoHistory.pop();
+      if (!next) return refused(structuredClone(current), "ROW_REDO_EMPTY", "There is no row transaction to redo.");
+      history.push(current);
+      lastSplit = null;
+      revision++;
+      current = { ...next, rowEditRevision: revision };
       return { ok: true, document: structuredClone(current), diagnostics: [] };
     },
   };

@@ -3,6 +3,7 @@ import { sameAuthoringJsonV2 as sameJson } from "./authoring-v2-json.js";
 import { createSortingProjectionV2, updateSortingProjectionV2, projectSortingDocumentV2 } from "./authoring-v2-sorting-projection.js";
 import { resolveSortingCommentsV2, type SortingCommentContextV2 } from "./authoring-v2-sorting-comments.js";
 import type { CommentStateV2 } from "./authoring-v2-comments.js";
+import { isInsertStashNoteWordsCommandV2, isStashSelectedWordsCommandV2 } from "./authoring-v2-stash-words.js";
 import {
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
@@ -95,6 +96,8 @@ function originalRowPositions(baseline: Map<string, Position>, containers: Map<s
 
 function commandAllowed(command: unknown): command is RowEditCommandV2 {
   if (!command || typeof command !== "object" || Array.isArray(command)) return false;
+  if ("kind" in command && command.kind === "stash_selected_words") return isStashSelectedWordsCommandV2(command);
+  if ("kind" in command && command.kind === "insert_stash_note_words") return isInsertStashNoteWordsCommandV2(command);
   if ("kind" in command && ["stash_group_rows", "group_stash_rows", "move_stash_group", "ungroup_stash_group",
     "delete_stash_group", "place_stash_group", "save_stash_group"].includes(String(command.kind))) {
     return isStashGroupCommandV2(command);
@@ -238,8 +241,11 @@ export function createSortingTrialV2(initial: ScriptDocumentV2) {
     apply(command: RowEditCommandV2, expectedRevision = session.revision): RowEditResultV2 {
       if (phase !== "sorting") return failure("SORTING_READ_ONLY", "Return to Sorting before changing trial order.");
       if (!commandAllowed(command)) return failure("SORTING_COMMAND_INVALID", "Provide a supported, complete row authoring or organization command.");
-      if ((command.kind === "create_row" || command.kind === "create_stash_note" || command.kind === "create_stash_clip") &&
-        (originalPositions.has(command.row.id) || projection.births.some((birth) => birth.rowId === command.row.id))) {
+      const createdRowId = command.kind === "stash_selected_words" ? command.stashRowId :
+        command.kind === "create_row" || command.kind === "create_stash_note" || command.kind === "create_stash_clip"
+          ? command.row.id : null;
+      if (createdRowId && (originalPositions.has(createdRowId) ||
+        projection.births.some((birth) => birth.rowId === createdRowId))) {
         return failure("SORTING_ROW_ID_REUSED", "Create material with a fresh row identity; use Undo to restore a deleted row.");
       }
       if (actions.filter((action) => action.kind !== "undo").length >= MAX_EDITS) return failure("SORTING_TRIAL_LIMIT", "Finish this bounded trial before adding more operations.");

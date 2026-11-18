@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ScriptDocumentV2, NarrationBlockV2, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 import { applyRowEditV2, type RowEditCommandV2 } from "../src/authoring-v2-rows.js";
+import { createSortingTrialV2 } from "../src/authoring-v2-sorting.js";
+import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import {
   createSortingProjectionV2,
   projectSortingDocumentV2,
@@ -47,6 +49,58 @@ function apply(document: ScriptDocumentV2, command: RowEditCommandV2): ScriptDoc
 }
 
 describe("Sorting selective projections", () => {
+  it.each(["stash_selected_words", "insert_stash_note_words"] as const)(
+    "treats %s on a saved-note copy as authored editing, not a reversible Stash return",
+    (gesture) => {
+      const source = row(501);
+      source.text = "Alpha beta gamma delta";
+      source.tokens = [...source.text.matchAll(/\S+/gu)].map((match, index) => ({
+        id: id(510 + index), value: match[0], startOffset: match.index,
+        endOffset: match.index + match[0].length, spoken: false,
+      }));
+      source.plainDirection = true;
+      const baseline = apply(document(), {
+        kind: "create_stash_note", bundleId: id(520), row: source,
+        sectionId: null, parentRowId: null, afterRowId: null, mode: "authored",
+      });
+      const place: RowEditCommandV2 = {
+        kind: "place_stash_rows", rowIds: [source.id], destination: gap(null, null), includeDescendants: false,
+      };
+      const placed = apply(baseline, place);
+      const target = placed.activeDraft.blocks[0];
+      if (target?.type !== "narration") throw new Error("Expected a copied spoken note");
+      expect(target.stashOrigin?.returnEligible).toBe(true);
+      const command: RowEditCommandV2 = gesture === "stash_selected_words"
+        ? { kind: gesture, rowId: target.id, stashRowId: id(521), bundleId: id(522),
+          words: { startTokenId: target.tokens[1]!.id, endTokenId: target.tokens[1]!.id } }
+        : { kind: gesture, rowId: target.id, noteRowId: source.id, beforeTokenId: target.tokens[2]!.id };
+      const edited = apply(placed, command);
+      const projection = updateSortingProjectionV2(
+        updateSortingProjectionV2(createSortingProjectionV2(baseline), baseline, placed, place),
+        placed, edited, command,
+      );
+      expect(projection.convertedEditedIds).toContain(target.id);
+      expect((edited.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
+      for (const mode of ["edits_only", "sorting_only"] as const) {
+        const projected = projectSortingDocumentV2(projection, edited, mode);
+        expect(projected.ok, `${gesture} ${mode}: ${JSON.stringify(projected.diagnostics)}`).toBe(true);
+        if (mode === "edits_only") {
+          expect(projected.document.activeDraft.blocks).toHaveLength(1);
+          expect((projected.document.activeDraft.blocks[0] as NarrationBlockV2).stashOrigin?.returnEligible).toBe(false);
+        } else {
+          expect(projected.document.activeDraft.blocks).toHaveLength(0);
+          expect(projected.document.stashOutline).toEqual(baseline.stashOutline);
+        }
+      }
+      // Acceptance through the public trial must agree with the pure sidecar.
+      const trial = createSortingTrialV2(baseline);
+      expect(trial.apply(place).ok).toBe(true);
+      expect(trial.apply(command).ok).toBe(true);
+      const accepted = trial.accept(baseline, "edits_only");
+      expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+      expect(validateScriptDocumentV2(accepted.document).valid).toBe(true);
+    },
+  );
   it("keeps a pre-existing attached identity in exactly one owner for both selective modes", () => {
     const { doc, note, clip } = researchStashFixture();
     const command: RowEditCommandV2 = { kind: "place_attached_footage", noteRowId: note.id, destination: gap(null, null) };

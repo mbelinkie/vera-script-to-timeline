@@ -194,6 +194,42 @@ function concat(first: Piece, second: Piece, paragraph: boolean): Piece {
   };
 }
 
+/** Extract an inclusive ID-based word range, leaving its original row alive.
+ * Reuse the same whitespace/paragraph seams as split and join, rather than
+ * rebuilding offsets from word strings (which fails for repeated Unicode words).
+ * A whole-row selection is deliberately a separate whole-row Stash operation.
+ */
+export function cutNarrationWordRangeV2(
+  row: NarrationBlockV2,
+  words: RowWordSelectionV2,
+): { remaining: Piece; extracted: Piece } | AuthoringDiagnosticV2 {
+  if (row.type !== "narration" || row.plainDirection === true) {
+    return problem("ROW_SELECTION_INVALID", "Select spoken words in a narration row.", row.id);
+  }
+  const inspected = inspectStageDirectionsV2(row);
+  if (inspected.issues.length > 0) return problem("ROW_STAGE_DIRECTION_INVALID", "Repair the row's direction delimiters first.", row.id);
+  const range = selected(row, words);
+  if (isProblem(range)) return range;
+  const { from, to } = range;
+  if (from === 0 && to === row.tokens.length) {
+    return problem("ROW_STASH_WHOLE_ROW", "Use whole-row Stash for every word of a row.", row.id);
+  }
+  if (row.tokens.slice(from, to).some((token) => token.spoken === false) ||
+    row.tokens[from]?.id !== words.startTokenId || row.tokens[to - 1]?.id !== words.endTokenId ||
+    inspected.runs.some((run) => run.startTokenIndex < to && from < run.endTokenIndexExclusive)) {
+    return problem("ROW_STASH_DIRECTION_BOUNDARY", "Select only complete spoken words, without dividing a stage direction.", row.id);
+  }
+  const start = from === 0 ? 0 : seam(row, from).tailStart;
+  const end = to === row.tokens.length ? row.text.length : seam(row, to).headEnd;
+  const extracted: Piece = {
+    text: row.text.slice(start, end),
+    tokens: row.tokens.slice(from, to).map((token) => ({
+      ...token, startOffset: token.startOffset - start, endOffset: token.endOffset - start,
+    })),
+  };
+  return { remaining: concat(head(row, from), tail(row, to), false), extracted };
+}
+
 const TOKEN_KEYS = ["tokenId", "startTokenId", "endTokenId"];
 
 function tokenReferences(value: unknown, found = new Set<string>()): Set<string> {
@@ -333,6 +369,22 @@ function moveEntities(
       destination.unattachedVisuals !== undefined);
   }
   return null;
+}
+
+/** Move only word-owned annotations, beats and overlays into a saved Stash row.
+ * Row-level notes, attached footage and orphan visuals are deliberately not
+ * inferred to belong to a selection. A straddling anchor is an atomic refusal.
+ */
+export function moveWordAnchoredEntitiesToStashV2(
+  source: NarrationBlockV2,
+  remaining: NarrationBlockV2,
+  saved: NarrationBlockV2,
+): AuthoringDiagnosticV2 | null {
+  const move: Move = {
+    source, destinationId: saved.id,
+    movedTokenIds: new Set(saved.tokens.map((token) => token.id)), removed: false,
+  };
+  return moveEntities(move, remaining, saved, "append");
 }
 
 /**
