@@ -680,7 +680,7 @@ describe("browser authoring over the local project service", () => {
       }, "Set visual range"), {
       rowId: seeded.rowId, slotId: still.id, first: row.tokens[0]!.id, last: row.tokens[1]!.id,
     });
-    expect(rangeAccepted, await page.locator("#save-status").textContent()).toBe(true);
+    expect(rangeAccepted).toBe(true);
     const stack = page.locator(`[data-row-id="${seeded.rowId}"] .visuals-list`);
     await expect.poll(async () => await stack.locator("[data-slot-id]").count()).toBe(2);
     expect(await stack.locator(".visual-card[data-kind='on-camera']").count()).toBe(1);
