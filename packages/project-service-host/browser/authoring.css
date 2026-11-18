@@ -413,6 +413,39 @@ input {
   background: #f1f5fb;
 }
 
+.visual-card__framing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.12rem;
+  border: 1px solid #bacde4;
+  border-radius: 0.36rem;
+  background: #fff;
+}
+
+.visual-card__framing-choice {
+  min-height: 1.65rem;
+  padding: 0.22rem 0.5rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #415b7b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+}
+
+.visual-card__framing-choice[aria-pressed="true"] {
+  background: #285d89;
+  color: #fff;
+  font-weight: 650;
+}
+
+.visual-card__framing-choice:focus-visible {
+  outline: 2px solid #b07d22;
+  outline-offset: 2px;
+}
+
 .visual-card:has(.visual-card__image:empty) {
   grid-template-columns: 0 minmax(0, 1fr);
   column-gap: 0;
@@ -554,6 +587,16 @@ input {
   color: #397783;
   font-size: 0.68rem;
   line-height: 1.35;
+}
+
+.visual-return[data-kind="on_camera"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border-color: #c7d5e5;
+  background: #f1f5fb;
+  color: #415b7b;
 }
 
 .visual-card__preview {

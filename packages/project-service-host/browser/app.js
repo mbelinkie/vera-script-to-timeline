@@ -141,6 +141,11 @@ function renderEditor() {
   structuralFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
+  const framingFocus = active?.matches("[data-visual-framing]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.closest("[data-slot-id]")?.dataset.slotId,
+    framing: active.dataset.visualFraming,
+  } : null;
   let caret = null;
   if (rowId && document.getSelection()?.rangeCount) {
     const selection = document.getSelection().getRangeAt(0);
@@ -183,6 +188,13 @@ function renderEditor() {
       document.getSelection().removeAllRanges();
       document.getSelection().addRange(range);
     }
+  }
+  if (framingFocus) {
+    const button = [...root.querySelectorAll("[data-visual-framing]")].find((item) =>
+      item.dataset.visualFraming === framingFocus.framing &&
+      item.closest("[data-row-id]")?.dataset.rowId === framingFocus.rowId &&
+      item.closest("[data-slot-id]")?.dataset.slotId === framingFocus.slotId);
+    button?.focus();
   }
 }
 
@@ -269,7 +281,7 @@ function invalidateProjection() {
       const { projection } = await authoringVisualPost("projection", { document: snapshot });
       if (generation !== projectionGeneration || snapshot !== scriptDocument) return;
       visualProjection = projection;
-      scheduleRender();
+      scheduleRender(true);
     } catch { /* Keep editing without derived decorations if projection is unavailable. */ }
   }, 30);
 }

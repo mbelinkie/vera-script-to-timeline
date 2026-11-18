@@ -181,6 +181,37 @@ function editableDocumentFixture(
   return { document: seeded.document, firstRowText: text, rowId: row.id, ...(anchorTokenId ? { anchorTokenId } : {}) };
 }
 
+/** Model-shaped r29 examples; the page must render the model's projection, not the stored slot list. */
+function onCameraDocumentFixture(projectId: string, arrangement: "after-still" | "return" | "different-shot") {
+  const seeded = editableDocumentFixture(projectId, "one two three four five six seven eight nine");
+  const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+  if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing narration sequence");
+  const original = row.primaryVisualSequence.slots[0];
+  if (!original || original.kind !== "content") throw new Error("missing base visual");
+  const anchor = (index: number) => ({
+    kind: "spoken_word" as const,
+    anchor: {
+      blockId: row.id, tokenId: row.tokens[index]!.id, affinity: "before" as const,
+      quotedWord: row.tokens[index]!.value, anchorVersion: 1,
+    },
+  });
+  const camera = (index: number, framing?: "wide" | "tight") => ({
+    ...original, id: randomUUID(), relation: { kind: "sequential" as const },
+    boundaryBefore: anchor(index),
+    payload: { kind: "on_camera" as const, presenterChoiceId: null, ...(framing ? { framing } : {}) },
+  });
+  const still = { ...original, relation: { kind: "sequential" as const }, boundaryBefore: anchor(3) };
+  if (arrangement === "after-still") {
+    const after = camera(3);
+    row.primaryVisualSequence.slots = [original, after];
+    return { ...seeded, firstCameraSlotId: after.id };
+  }
+  const first = { ...camera(3), relation: { kind: "base" as const }, boundaryBefore: { kind: "row_start" as const } };
+  const last = camera(6, arrangement === "different-shot" ? "tight" : undefined);
+  row.primaryVisualSequence.slots = [first, still, last];
+  return { ...seeded, firstCameraSlotId: first.id, lastCameraSlotId: last.id };
+}
+
 function multiNarrationDocumentFixture(
   projectId: string,
   texts: readonly string[],
@@ -553,6 +584,112 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.version)
       .toBe(originalVersion + 1);
     expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
+    await page.close();
+  }, 90_000);
+
+  it("draws model-projected cards: first OC after still is full, and only real returns are compact", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    for (const arrangement of ["after-still", "return", "different-shot"] as const) {
+      const projectId = await createProject(page, origin, `Projected cards ${arrangement}`);
+      const seeded = onCameraDocumentFixture(projectId, arrangement);
+      await saveDocumentFixture(page, projectId, seeded.document);
+      const result = await appRequest(page, "/authoring/projection", "POST", { document: seeded.document });
+      expect(result.status).toBe(200);
+      const projected = result.body as { projection: { rows: Array<{ blockId: string; renderable: boolean;
+        cards: Array<{ kind: string; compact: boolean; slotId: string; startTokenIndex: number }> }> } };
+      const modelCards = projected.projection.rows.find((row) => row.blockId === seeded.rowId);
+      expect(modelCards?.renderable).toBe(true);
+      await page.goto(`${origin}/?project=${projectId}`);
+      const stack = page.locator(`[data-row-id="${seeded.rowId}"] .visuals-list`);
+      await expect.poll(async () => await stack.locator("[data-slot-id]").count()).toBe(modelCards?.cards.length);
+      const visible = await stack.locator("[data-slot-id]").evaluateAll((items) => items.map((item) => ({
+        slotId: (item as HTMLElement).dataset.slotId,
+        compact: item.classList.contains("visual-return"),
+      })));
+      expect(visible).toEqual(modelCards?.cards.map((card) => ({ slotId: card.slotId, compact: card.compact })));
+      if (arrangement === "after-still") {
+        expect(await stack.locator(".visual-card").count()).toBe(2);
+        expect(await stack.locator(".visual-card[data-kind='on-camera']").count()).toBe(1);
+        expect(await stack.locator(".visual-return").count()).toBe(0);
+        expect(modelCards?.cards[1]).toMatchObject({ kind: "on_camera", compact: false, startTokenIndex: 3 });
+      } else if (arrangement === "return") {
+        expect(await stack.locator(".visual-card[data-kind='on-camera']").count()).toBe(1);
+        expect(await stack.locator(".visual-return[data-kind='on_camera']").innerText()).toContain("OC resumes");
+      } else {
+        expect(await stack.locator(".visual-card[data-kind='on-camera']").count()).toBe(2);
+        expect(await stack.locator(".visual-return").count()).toBe(0);
+      }
+      // Visual-only rows and their thumbnail previews do not depend on narrated projection.
+      expect(await page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBe(2);
+      expect(await page.locator('[data-row-kind="visual_only"] .visual-card__preview').count()).toBe(2);
+    }
+    await page.close();
+  }, 90_000);
+
+  it("stores per-passage Wide/Tight with one Undo, reload, and no-op refusal", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "On Camera framing controls");
+    const seeded = onCameraDocumentFixture(projectId, "after-still");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const stack = page.locator(`[data-row-id="${seeded.rowId}"] .visuals-list`);
+    const oc = stack.locator(`.visual-card[data-slot-id="${seeded.firstCameraSlotId}"]`);
+    const wide = oc.getByRole("button", { name: "Wide" });
+    const tight = oc.getByRole("button", { name: "Tight" });
+    await tight.waitFor({ state: "visible" });
+    expect(await wide.getAttribute("aria-pressed")).toBe("true");
+    await tight.click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.slots.find((item) => item.id === seeded.firstCameraSlotId && item.kind === "content")
+    ).toMatchObject({ payload: { kind: "on_camera", framing: "tight" } });
+    expect(await tight.getAttribute("aria-pressed")).toBe("true");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Set On Camera Tight"]);
+    await tight.click();
+    await expect.poll(async () => await page.locator("#save-status").textContent()).toContain("already Tight");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Set On Camera Tight"]);
+    await page.getByRole("button", { name: "Undo Set On Camera Tight" }).click();
+    await expect.poll(async () => await wide.getAttribute("aria-pressed")).toBe("true");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await tight.click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.slots.find((item) => item.id === seeded.firstCameraSlotId && item.kind === "content")
+    ).toMatchObject({ payload: { kind: "on_camera", framing: "tight" } });
+    await page.reload();
+    await expect.poll(async () => await stack.locator('.visual-card__framing-choice[aria-pressed="true"]').textContent()).toBe("Tight");
+    await page.close();
+  }, 90_000);
+
+  it("updates projected OC coverage after a range change without manufacturing a compact return", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Uncovered words get OC");
+    const seeded = onCameraDocumentFixture(projectId, "after-still");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor({ state: "visible" });
+    const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing narration row");
+    const still = row.primaryVisualSequence.slots[0]!;
+    const rangeAccepted = await page.evaluate(async ({ rowId, slotId, first, last }) =>
+      await window.__veraVisualTest!.queueVisualCommand({
+        kind: "set_visual_range", blockId: rowId, slotId, startTokenId: first, endTokenId: last,
+      }, "Set visual range"), {
+      rowId: seeded.rowId, slotId: still.id, first: row.tokens[0]!.id, last: row.tokens[1]!.id,
+    });
+    expect(rangeAccepted, await page.locator("#save-status").textContent()).toBe(true);
+    const stack = page.locator(`[data-row-id="${seeded.rowId}"] .visuals-list`);
+    await expect.poll(async () => await stack.locator("[data-slot-id]").count()).toBe(2);
+    expect(await stack.locator(".visual-card[data-kind='on-camera']").count()).toBe(1);
+    expect(await stack.locator(".visual-return").count()).toBe(0);
+    await expect.poll(async () => await page.evaluate((rowId) =>
+      window.__veraVisualTest!.projectedPrimaryRow(rowId)?.brackets[0]?.endTokenIndexExclusive, seeded.rowId)).toBe(2);
+    await page.getByRole("button", { name: "Undo Set visual range" }).click();
+    await expect.poll(async () => await page.evaluate((rowId) =>
+      window.__veraVisualTest!.projectedPrimaryRow(rowId)?.brackets[0]?.endTokenIndexExclusive, seeded.rowId)).toBe(3);
     await page.close();
   }, 90_000);
 
