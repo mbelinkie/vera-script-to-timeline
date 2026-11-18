@@ -1151,7 +1151,7 @@ package and guarded Local delivery at exact 24000/1001. The disposable project
 saved, closed and reopened with the same packaged source and a 72-frame hold
 at [0,72). Independent connected readback matched the source clock, frame
 boundaries, enabled native Dynamic Zoom and its exported Type-59 center and
-scale endpoints against the attested OTIO. No render or other source profile
+scale endpoints and their spacing against the attested OTIO. No render or other source profile
 was tested. See [#633](https://github.com/mbelinkie/vera-script-to-timeline/issues/633).
 
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives

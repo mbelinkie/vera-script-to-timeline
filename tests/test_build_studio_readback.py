@@ -166,6 +166,10 @@ def test_exported_native_zoom_endpoints_match_signed_opaque_keys(
     resolve = SimpleNamespace(EXPORT_OTIO=1, EXPORT_NONE=0)
     timeline = SimpleNamespace(Export=export)
     readback._exported_motion_matches(resolve, timeline, object(), "event", source)
+    exported = document(clip(("0", "24"), (0.8, 1.0)))
+    with pytest.raises(NeedsAction, match="endpoints differ"):
+        readback._exported_motion_matches(resolve, timeline, object(), "event", source)
+    exported = document(clip(("0", "1000"), (0.8, 1.0)))
     exported["tracks"]["children"][0]["children"][0]["effects"][0]["metadata"][
         "Resolve_OTIO"
     ]["Parameters"][1]["Key Frames"]["1000"]["Value"] = 1.2

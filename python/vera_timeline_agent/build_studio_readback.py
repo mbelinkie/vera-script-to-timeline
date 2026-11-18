@@ -39,7 +39,7 @@ def _clips(document: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     ]
 
 
-def _zoom_keys(clip: Mapping[str, Any]) -> dict[str, list[Any]]:
+def _zoom_keys(clip: Mapping[str, Any]) -> dict[str, tuple[int, list[Any]]]:
     effects = [
         effect["metadata"]["Resolve_OTIO"]
         for effect in clip["effects"]
@@ -48,7 +48,7 @@ def _zoom_keys(clip: Mapping[str, Any]) -> dict[str, list[Any]]:
     if len(effects) != 1 or effects[0].get("Enabled") is not True:
         raise NeedsAction("exported native Dynamic Zoom is missing or disabled")
     parameters = effects[0].get("Parameters", [])
-    result: dict[str, list[Any]] = {}
+    result: dict[str, tuple[int, list[Any]]] = {}
     for name in ("dynamicZoomCenter", "dynamicZoomScale"):
         matches = [p for p in parameters if p.get("Parameter ID") == name]
         if len(matches) != 1 or not isinstance(matches[0].get("Key Frames"), Mapping):
@@ -57,7 +57,11 @@ def _zoom_keys(clip: Mapping[str, Any]) -> dict[str, list[Any]]:
         if len(frames) != 2:
             raise NeedsAction("exported native Dynamic Zoom endpoints differ")
         try:
-            result[name] = [frames[key]["Value"] for key in sorted(frames, key=int)]
+            keys = sorted(frames, key=int)
+            result[name] = (
+                int(keys[1]) - int(keys[0]),
+                [frames[key]["Value"] for key in keys],
+            )
         except (KeyError, TypeError, ValueError) as error:
             raise NeedsAction(
                 "exported native Dynamic Zoom endpoints are invalid"
@@ -119,7 +123,8 @@ def _exported_motion_matches(
             raise NeedsAction("exported still source is missing or ambiguous")
         actual = _zoom_keys(found[0])
         if not all(
-            _same_value(actual[name], values) for name, values in expected.items()
+            actual[name][0] == span and _same_value(actual[name][1], values)
+            for name, (span, values) in expected.items()
         ):
             raise NeedsAction("reopened native Dynamic Zoom endpoints differ")
 
