@@ -92,7 +92,7 @@ def _exported_motion_matches(
         raise NeedsAction("signed still event is not unique")
     expected = _zoom_keys(matches[0])
     with tempfile.TemporaryDirectory(
-        prefix="vera-still-readback-", dir="/private/tmp"
+        prefix="vera-still-readback-", dir=Path(tempfile.gettempdir()).resolve()
     ) as directory:
         export = Path(directory) / "timeline.otio"
         if (
