@@ -1,4 +1,12 @@
+import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
+
+/** Pure clipboard grammar: a single LF stays within a row; a blank line separates rows. */
+export function pasteParagraphBlocks(text) {
+  if (typeof text !== "string") throw new TypeError("Plain-text paste requires text.");
+  return text.replace(/\r\n?/gu, "\n").split(/\n{2,}/u);
+}
 
 function newId() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") return globalThis.crypto.randomUUID();
@@ -321,6 +329,39 @@ function selectedAction(row, selection) {
   return null;
 }
 
+/** Mirror the model's stage-direction boundary snapping before offering row actions. */
+function selectionWords(row, selection) {
+  if (row.plainDirection || !Array.isArray(row.tokens)) return null;
+  const range = textRangeForSelection(row, selection);
+  if (!range) return null;
+  const runs = directionRuns(row);
+  const snap = (boundary) => runs.find((run) =>
+    run.startIndex < boundary && boundary < run.endIndexExclusive)?.endIndexExclusive ?? boundary;
+  const from = snap(range.firstIndex);
+  const to = snap(range.lastIndex + 1);
+  if (from >= to) return null;
+  return { from, to, first: from === 0, last: to === row.tokens.length };
+}
+
+function selectionRowActions(row, selection, documentModel) {
+  const range = selectionWords(row, selection);
+  if (!range || !range.first && !range.last) return [];
+  const blocks = documentModel?.activeDraft?.blocks ?? [];
+  const index = blocks.findIndex((block) => block.id === row.id);
+  if (index < 0) return [];
+  const options = [];
+  if (!(range.first && range.last)) options.push({ kind: "split_row" });
+  for (const [direction, edge, neighbour] of [
+    ["previous", range.first, blocks[index - 1]],
+    ["next", range.last, blocks[index + 1]],
+  ]) {
+    if (!edge || !neighbour) continue;
+    if (neighbour.type === "section") options.push({ kind: `join_${direction}`, disabled: true });
+    else if (neighbour.type === "narration") options.push({ kind: `join_${direction}` });
+  }
+  return options;
+}
+
 function directionDelimiterAt(row, start, end, text) {
   if (end - start !== 1) return null;
   const removed = text.slice(start, end);
@@ -415,7 +456,19 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   stageButton.type = "button";
   const spokenButton = element(document, "button", "narration-editor__action", "Make spoken");
   spokenButton.type = "button";
-  actions.append(stageButton, spokenButton);
+  const actionDivider = element(document, "span", "narration-editor__divider");
+  actionDivider.setAttribute("aria-hidden", "true");
+  const rowButtons = [
+    ["split_row", "Split into new row"],
+    ["join_previous", "Join to previous row"],
+    ["join_next", "Join to next row"],
+  ].map(([kind, label]) => {
+    const button = element(document, "button", "narration-editor__action", label);
+    button.type = "button";
+    button.dataset.rowSelectionAction = kind;
+    return button;
+  });
+  actions.append(stageButton, spokenButton, actionDivider, ...rowButtons);
   root.replaceChildren(editor, actions, hint);
 
   let knownText = typeof row.text === "string" ? row.text : "";
@@ -426,6 +479,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   let selectionGuard = false;
   let editingBlocked = false;
   let mounted = true;
+  const typingSession = newId();
+  let typingBoundary = 0;
+  let expectedCaret = null;
 
   function currentSelection() {
     const selection = rangeSelection(editor);
@@ -435,9 +491,19 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function updateActions() {
     const action = selectedAction(localRow, savedSelection);
-    actions.hidden = !action;
+    const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
+    actions.hidden = !action && rowActions.length === 0;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
+    actionDivider.hidden = !action || rowActions.length === 0;
+    rowButtons.forEach((button) => {
+      const option = rowActions.find((entry) => entry.kind === button.dataset.rowSelectionAction);
+      button.hidden = !option;
+      button.disabled = option?.disabled === true;
+      button.title = option?.disabled ? "Rows cannot be joined across a section break." : "";
+      if (option?.disabled) button.setAttribute("aria-label", `${button.textContent} — unavailable across a section break`);
+      else button.removeAttribute("aria-label");
+    });
     if (!action) return;
     const quoted = action.text.trim().replace(/\s+/gu, " ").slice(0, 80);
     const suffix = quoted ? ` for “${quoted}”` : "";
@@ -454,22 +520,22 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     };
   }
 
-  function dispatch(payload, label, rowSnapshot) {
+  function dispatch(payload, label, rowSnapshot, meta = {}) {
     if (editingBlocked) return Promise.resolve(false);
     let result;
     try {
       // Invoke the app command immediately at the input event. The app owns
       // serialization and the document-wide refusal/render policy.
-      result = command(payload, label, { expectedRow: expectedRow(rowSnapshot) });
+      result = command(payload, label, { expectedRow: expectedRow(rowSnapshot), ...meta });
     } catch {
       editingBlocked = true;
       return Promise.resolve(false);
     }
     return Promise.resolve(result).then((accepted) => {
-      if (accepted === false) editingBlocked = true;
+      if (accepted === false && !meta.structural) editingBlocked = true;
       return accepted === true;
     }, () => {
-      editingBlocked = true;
+      if (!meta.structural) editingBlocked = true;
       return false;
     });
   }
@@ -480,6 +546,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const priorRow = localRow;
     const delimiterOffset = directionDelimiterAt(priorRow, startOffset, endOffset, oldText);
     if (delimiterOffset !== null && insertedText === "") {
+      typingBoundary += 1;
       const run = directionRuns(priorRow).find(({ openOffset, closeOffset }) =>
         openOffset === delimiterOffset || closeOffset === delimiterOffset);
       if (!run) return;
@@ -510,12 +577,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     knownText = localRow.text;
     renderEditor(editor, localRow);
     const localEdit = normalizedTextEdit(priorRow, startOffset, endOffset, insertedText);
-    setCaret(editor, Math.min(localEdit.startOffset + localEdit.insertedText.length, localRow.text.length));
+    expectedCaret = Math.min(localEdit.startOffset + localEdit.insertedText.length, localRow.text.length);
+    setCaret(editor, expectedCaret);
     savedSelection = null;
     updateActions();
     return dispatch({
       kind: "edit_narration_text", rowId: priorRow.id, startOffset, endOffset, insertedText, editId: newId(),
-    }, nextText === "" ? "Cleared narration" : label, priorRow);
+    }, nextText === "" ? "Cleared narration" : label, priorRow,
+    label === "Edit narration" ? { typingSession, typingBoundary } : {});
   }
 
   function fallbackInput() {
@@ -527,6 +596,92 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", oldText);
   }
 
+  function paragraphBreak(range) {
+    if (!range || editingBlocked) return;
+    // At the first character Return only offers the Tab hint (S03 D114).
+    if (range.startOffset === 0 && range.endOffset === 0) return;
+    void replaceText(range.startOffset, range.endOffset, "\n", "New paragraph");
+  }
+
+  function pastePlainText(text) {
+    if (editingBlocked || composing || !text) return;
+    const range = targetRange({}, editor);
+    if (!range) return;
+    const blocks = pasteParagraphBlocks(text);
+    const insertedText = blocks.join("\n\n");
+    const priorRow = localRow;
+    const nextRow = localTextEdit(priorRow, range.startOffset, range.endOffset, insertedText);
+    if (nextRow.text === priorRow.text && blocks.length === 1) return;
+    localRow = nextRow;
+    knownText = nextRow.text;
+    renderEditor(editor, localRow);
+    setCaret(editor, Math.min(range.startOffset + insertedText.length, localRow.text.length));
+    savedSelection = null;
+    updateActions();
+    // A structural paste may replace this editor with several rows. Prevent
+    // further local typing until the model has accepted and rendered it;
+    // refusals retain this visible draft for explicit discard.
+    void dispatch({ kind: "paste_plain_text", rowId: priorRow.id,
+      startOffset: range.startOffset, endOffset: range.endOffset, blocks },
+    "Paste text", priorRow, { paste: true });
+    editingBlocked = true;
+  }
+
+  function splitAtCaret(offset) {
+    if (editingBlocked) return;
+    const before = localRow;
+    const newRowId = newId();
+    // Resolve token identity *after* queued typing has been accepted. The
+    // optimistic tokenizer does not own IDs and must not invent them.
+    const intent = (currentDocument) => {
+      const blocks = currentDocument.activeDraft.blocks;
+      const actual = blocks.find((block) => block.id === before.id);
+      if (!actual || actual.type !== "narration") throw new Error("The row changed before the split.");
+      const index = actual.tokens.findIndex((token) => token.endOffset > offset);
+      const boundary = index < 0 ? actual.tokens.length : index;
+      if (boundary === 0 || boundary === actual.tokens.length) {
+        const atStart = boundary === 0;
+        const gap = rowGaps(blocks).find((item) => atStart
+          ? item.beforeRowId === before.id : item.afterRowId === before.id);
+        if (!gap) throw new Error("The insertion gap changed before the split.");
+        return { kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap };
+      }
+      return { kind: "split_row", rowId: before.id, newRowId, at: { beforeTokenId: actual.tokens[boundary].id } };
+    };
+    void dispatch(intent, "Split row", before, {
+      structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+    });
+  }
+
+  function joinPrevious() {
+    if (editingBlocked) return;
+    const before = localRow;
+    // A neighbouring section is a hard boundary. Let the model give the
+    // exact refusal, without changing the optimistic editor's text.
+    void dispatch({ kind: "join_rows", rowId: before.id, direction: "previous", words: null },
+      "Join rows", before, { structural: true, focusPrevious: true });
+  }
+
+  function onStructuralKey(event) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
+    if (event.key === "Escape") return leaveText(event);
+    if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      paragraphBreak(targetRange(event, editor));
+    } else if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault();
+      const range = targetRange(event, editor);
+      if (range) splitAtCaret(range.endOffset);
+    } else if (event.key === "Backspace") {
+      const range = targetRange(event, editor);
+      if (range?.startOffset === 0 && range.endOffset === 0) {
+        event.preventDefault();
+        joinPrevious();
+      }
+    }
+  }
+
   function onBeforeInput(event) {
     if (editingBlocked) {
       event.preventDefault();
@@ -534,10 +689,17 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     }
     if (composing || event.isComposing) return;
     const type = event.inputType || "";
-    if (type === "insertLineBreak" || type === "insertParagraph" || type === "insertFromPaste" || type === "insertFromDrop") {
-      // Paragraphs and paste parsing belong to #620; do not let the browser
-      // create an unmodelled newline or HTML fragment in this slice.
+    if (type === "insertLineBreak" || type === "insertParagraph") {
       event.preventDefault();
+      paragraphBreak(targetRange(event, editor));
+      return;
+    }
+    if (type === "insertFromPaste" || type === "insertFromDrop") {
+      event.preventDefault();
+      if (type === "insertFromPaste" && !editingBlocked) {
+        const plain = event.dataTransfer?.getData?.("text/plain");
+        if (typeof plain === "string" && plain) pastePlainText(plain);
+      }
       return;
     }
     const insertion = type === "insertText" || type === "insertReplacementText";
@@ -566,6 +728,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onCompositionStart() {
     if (editingBlocked) return;
+    typingBoundary += 1;
     composing = true;
     compositionText = knownText;
     if (typeof compositionChange === "function") compositionChange(row.id, true);
@@ -584,7 +747,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       knownText = compositionText;
       replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", compositionText);
     }
+    typingBoundary += 1;
     if (wasComposing && typeof compositionChange === "function") compositionChange(row.id, false);
+  }
+
+  function onPaste(event) {
+    event.preventDefault();
+    const plain = event.clipboardData?.getData("text/plain");
+    if (typeof plain === "string") pastePlainText(plain);
   }
 
   function performAction(action) {
@@ -604,6 +774,39 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     }
     const payload = { kind: action.kind, blockId: priorRow.id, startOffset: action.startOffset, endOffset: action.endOffset };
     void dispatch(payload, action.kind === "make_spoken" ? "Make spoken" : "Make stage direction", priorRow);
+    actions.hidden = true;
+  }
+
+  function performRowSelection(kind) {
+    if (editingBlocked || composing || !savedSelection) return;
+    const selection = { ...savedSelection };
+    const options = selectionRowActions(localRow, selection, scriptDocument);
+    if (!options.some((option) => option.kind === kind && !option.disabled)) return;
+    const before = localRow;
+    const newRowId = newId();
+    const index = scriptDocument.activeDraft.blocks.findIndex((block) => block.id === before.id);
+    const neighbour = scriptDocument.activeDraft.blocks[index + (kind === "join_previous" ? -1 : 1)];
+    const focusAfter = kind === "split_row" ? { rowId: newRowId, offset: 0 }
+      : { rowId: neighbour.id, offset: kind === "join_previous" ? neighbour.text.length : 0 };
+    // Use the committed model's IDs, never IDs from the optimistic tokenizer.
+    // Resolution runs in app.js after earlier queued typing has committed.
+    const intent = (latest) => {
+      const actual = latest.activeDraft.blocks.find((block) => block.id === before.id);
+      if (!actual || actual.type !== "narration") throw new Error("The selected row changed.");
+      const current = selectionWords(actual, selection);
+      const allowed = selectionRowActions(actual, selection, latest);
+      if (!current || !allowed.some((option) => option.kind === kind && !option.disabled)) {
+        throw new Error("The selection is no longer available.");
+      }
+      const words = { startTokenId: actual.tokens[current.from].id, endTokenId: actual.tokens[current.to - 1].id };
+      return kind === "split_row" ? { kind, rowId: before.id, newRowId, at: words }
+        : { kind: "join_rows", rowId: before.id, direction: kind === "join_previous" ? "previous" : "next", words };
+    };
+    const label = kind === "split_row" ? "Split selection" : "Join selected words";
+    void dispatch(intent, label, before, { structural: true, focusAfter }).then((accepted) => {
+      if (!accepted) editingBlocked = false;
+    });
+    editingBlocked = true;
     actions.hidden = true;
   }
 
@@ -661,24 +864,39 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       updateActions();
       return;
     }
+    if (expectedCaret !== null && (selection.startOffset !== expectedCaret || selection.endOffset !== expectedCaret)) {
+      typingBoundary += 1;
+    }
+    expectedCaret = selection.endOffset;
     selectionGuard = true;
     try { savedSelection = snapSelection(editor, localRow, selection); }
     finally { selectionGuard = false; }
     updateActions();
   }
 
+  function onTypingPointer() {
+    typingBoundary += 1;
+  }
+
   editor.addEventListener("beforeinput", onBeforeInput);
   editor.addEventListener("input", fallbackInput);
   editor.addEventListener("compositionstart", onCompositionStart);
   editor.addEventListener("compositionend", onCompositionEnd);
-  editor.addEventListener("keydown", leaveText);
+  editor.addEventListener("keydown", onStructuralKey);
+  editor.addEventListener("pointerdown", onTypingPointer);
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
-  editor.addEventListener("paste", (event) => event.preventDefault());
+  editor.addEventListener("paste", onPaste);
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   stageButton.addEventListener("click", activateAction);
   spokenButton.addEventListener("click", activateAction);
+  const rowActionListeners = rowButtons.map((button) => {
+    const onClick = () => performRowSelection(button.dataset.rowSelectionAction);
+    button.addEventListener("mousedown", preserveActionSelection);
+    button.addEventListener("click", onClick);
+    return { button, onClick };
+  });
   document.addEventListener("selectionchange", onSelectionChange);
 
   return () => {
@@ -687,14 +905,20 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("input", fallbackInput);
     editor.removeEventListener("compositionstart", onCompositionStart);
     editor.removeEventListener("compositionend", onCompositionEnd);
-    editor.removeEventListener("keydown", leaveText);
+    editor.removeEventListener("keydown", onStructuralKey);
+    editor.removeEventListener("pointerdown", onTypingPointer);
     editor.removeEventListener("focus", onFocus);
     editor.removeEventListener("blur", onBlur);
+    editor.removeEventListener("paste", onPaste);
     document.removeEventListener("selectionchange", onSelectionChange);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     spokenButton.removeEventListener("mousedown", preserveActionSelection);
     stageButton.removeEventListener("click", activateAction);
     spokenButton.removeEventListener("click", activateAction);
+    for (const { button, onClick } of rowActionListeners) {
+      button.removeEventListener("mousedown", preserveActionSelection);
+      button.removeEventListener("click", onClick);
+    }
     if (composing && typeof compositionChange === "function") compositionChange(row.id, false);
   };
 }
