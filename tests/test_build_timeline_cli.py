@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from issue177_package_fixture import make_package_case
 from vera_timeline_agent import build_timeline_cli, build_timeline_once, studio_spike
-from vera_timeline_agent.build_compiler_bridge import BridgeOutput
+from vera_timeline_agent.build_compiler_bridge import BlockedBuildReport, BridgeOutput
 from vera_timeline_agent.build_jobs import (
     BuildJobError,
     NeedsAction,
@@ -349,6 +349,28 @@ def test_symlink_and_ambiguous_companion_refused(tmp_path: Path) -> None:
     )
     with pytest.raises(BuildJobError, match="ambiguous"):
         select_prepared_inputs(options)
+
+
+def test_compile_keeps_blocked_report_with_actionable_reason(tmp_path: Path) -> None:
+    options = _inputs(tmp_path / "inputs")
+    fake = _fake_bridge()
+    report = {
+        "status": "blocked",
+        "diagnostics": [
+            {"severity": "blocking", "message": "The installed quote title is missing."}
+        ],
+    }
+    raw = json.dumps(report)
+
+    def bridge(kind: str, document: Path, dependencies: Path) -> BridgeOutput:
+        if kind == "compile":
+            raise BlockedBuildReport(raw, report)
+        return fake(kind, document, dependencies)
+
+    with pytest.raises(BlockedBuildReport, match="quote title is missing"):
+        compile_prepared(options, bridge=bridge)
+    assert (options.output / "build-report.json").read_text() == raw
+    assert not (options.output / "timeline-manifest.json").exists()
 
 
 def test_cli_reports_delivery_failure_as_non_success(

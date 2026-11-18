@@ -898,6 +898,13 @@ def _validate_manifest_semantics(
     events_by_track: defaultdict[str, list[JsonObject]] = defaultdict(list)
     root_events: list[JsonObject] = []
     visual_source_ids: set[str] = set()
+    authored_quotes = {
+        (block["id"], overlay["id"]): overlay["quoteBox"]
+        for block in document["activeDraft"]["blocks"]
+        if block.get("type") == "narration" and block.get("state") == "active"
+        for overlay in block.get("overlayEvents", [])
+        if "quoteBox" in overlay
+    }
     for event in events.values():
         event_id = cast(str, event["eventId"])
         event_kind = cast(str, event["kind"])
@@ -944,6 +951,15 @@ def _validate_manifest_semantics(
                 )
             ):
                 raise _error(f"quote box {event_id} must be a generated V4 graphic")
+            if event_kind == "quote_box":
+                owner = event["provenance"]
+                quote = authored_quotes.pop(
+                    (owner["blockId"], owner["overlayEventId"]), None
+                )
+                if quote is None or quote != event.get("quoteBox"):
+                    raise _error(
+                        f"quote box {event_id} differs from its authored overlay"
+                    )
         elif event_kind == "placeholder":
             allowed = {
                 root_id,
@@ -1193,6 +1209,9 @@ def _validate_manifest_semantics(
             )
 
         events_by_track[track_id].append(event)
+
+    if authored_quotes:
+        raise _error("an authored quote box is absent from the build")
 
     source_audio_events = sorted(
         (

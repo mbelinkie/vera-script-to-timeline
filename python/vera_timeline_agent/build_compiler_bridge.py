@@ -19,6 +19,22 @@ _SCRIPTS = {
 _SCHEMAS = {"needs": "vera-build-media-needs/v1", "compile": "issue-190-v2-compile/v1"}
 
 
+class BlockedBuildReport(BuildJobError):
+    """A validated compiler response that explains why the build must stop."""
+
+    def __init__(self, report_json: str, report: dict[str, Any]) -> None:
+        self.report_json = report_json
+        messages = [
+            diagnostic["message"]
+            for diagnostic in report.get("diagnostics", [])
+            if isinstance(diagnostic, dict)
+            and isinstance(diagnostic.get("message"), str)
+            and diagnostic.get("severity") in {"blocking", "error"}
+        ]
+        detail = " ".join(messages[:3])
+        super().__init__(f"compiler report is not ready: {detail}")
+
+
 @dataclass(frozen=True)
 class BridgeOutput:
     kind: str
@@ -105,6 +121,15 @@ def invoke_bridge(
         if not isinstance(compiled, dict) or compiled.get("ok") is not True:
             raise BuildJobError("compiler produced no successful manifest/report")
         report = compiled.get("report")
+        raw_report = compiled.get("reportJson")
+        if (
+            isinstance(report, dict)
+            and report.get("status") == "blocked"
+            and isinstance(raw_report, str)
+        ):
+            if json.loads(raw_report) != report:
+                raise BuildJobError("compiler JSON differs from its parsed report")
+            raise BlockedBuildReport(raw_report, report)
         if not isinstance(report, dict) or report.get("status") != "ready":
             raise BuildJobError("compiler report is not ready")
         if not all(

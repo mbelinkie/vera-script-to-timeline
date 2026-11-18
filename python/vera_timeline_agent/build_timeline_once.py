@@ -19,7 +19,7 @@ from time import perf_counter
 from typing import Any, Literal, TypeVar, cast
 
 from . import studio_spike
-from .build_compiler_bridge import BridgeOutput, invoke_bridge
+from .build_compiler_bridge import BlockedBuildReport, BridgeOutput, invoke_bridge
 from .build_jobs import (
     BuildJobError,
     NeedsAction,
@@ -380,7 +380,13 @@ def compile_prepared(
             raise BuildJobError("compiler report is not ready")
         return result
 
-    result = reporter.run("compile", compile_once)
+    try:
+        result = reporter.run("compile", compile_once)
+    except BlockedBuildReport as error:
+        publish_immutable_output(
+            output / "build-report.json", error.report_json.encode()
+        )
+        raise
     manifest = output / "timeline-manifest.json"
     report = output / "build-report.json"
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
