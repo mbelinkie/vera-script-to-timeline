@@ -1042,11 +1042,12 @@ function validateQuoteBox(
   eventId: string,
   diagnostics: AuthoringDiagnosticV2[],
 ): void {
-  if (hasUnpairedSurrogate(quoteBox.citationText)) {
+  for (const field of ["displayText", "speakerName", "speakerTitle", "citationText"] as const) {
+    if (!hasUnpairedSurrogate(quoteBox[field])) continue;
     diagnostics.push({
-      code: "QUOTE_BOX_CITATION_INVALID",
-      message: "A quote box citation must contain complete UTF-16 surrogate pairs.",
-      jsonPath: `${path}/citationText`,
+      code: "QUOTE_BOX_TEXT_INVALID",
+      message: "Quote box text must contain complete UTF-16 surrogate pairs.",
+      jsonPath: `${path}/${field}`,
       blockId,
       entityId: eventId,
     });

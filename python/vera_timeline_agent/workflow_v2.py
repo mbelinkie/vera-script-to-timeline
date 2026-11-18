@@ -1160,12 +1160,9 @@ def _validate_view(
 
 def _picture_supported(event_kind: object, picture: object, source_kind: str) -> bool:
     if picture is None:
-        return (
-            event_kind != "placeholder"
-            and (
-                source_kind in {"video", "audio"}
-                or (event_kind == "quote_box" and source_kind == "still")
-            )
+        return event_kind != "placeholder" and (
+            source_kind in {"video", "audio"}
+            or (event_kind == "quote_box" and source_kind == "still")
         )
     if not isinstance(picture, Mapping):
         return False
@@ -2377,13 +2374,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 self._configure_native_music(event)
             elif event["kind"] == "quote_box":
                 track = next(
-                    track
-                    for track in view["tracks"]
-                    if track["id"] == event["trackId"]
+                    track for track in view["tracks"] if track["id"] == event["trackId"]
                 )
-                items = self.timeline.GetItemListInTrack(
-                    track["kind"], track["index"]
-                )
+                items = self.timeline.GetItemListInTrack(track["kind"], track["index"])
                 matches = [
                     item
                     for item in items

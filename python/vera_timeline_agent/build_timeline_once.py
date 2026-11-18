@@ -351,7 +351,12 @@ def compile_prepared(
     needs = reporter.run("media needs", check_needs)
 
     def compile_once() -> BridgeOutput:
-        result = bridge("compile", inputs.script, inputs.dependencies)
+        blocked: BlockedBuildReport | None = None
+        try:
+            result = bridge("compile", inputs.script, inputs.dependencies)
+        except BlockedBuildReport as error:
+            blocked = error
+            result = error.response
         if result.needs != needs:
             raise BuildJobError("compiler temporal plan differs from prepared media")
         if (
@@ -365,6 +370,8 @@ def compile_prepared(
             raise BuildJobError("compiler inputs changed during this build")
         if music is not None:
             verify_music_pins(music)
+        if blocked is not None:
+            raise blocked
         compiled = result.result
         try:
             if (

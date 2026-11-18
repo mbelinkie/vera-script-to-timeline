@@ -890,6 +890,16 @@ describe("authoring v2 document and project-settings schemas", () => {
       expect(serializeAuthoringDocumentV2(loaded.document)).toBe(serialized);
     }
 
+    for (const field of ["displayText", "speakerName", "speakerTitle", "citationText"]) {
+      const malformed = structuredClone(document);
+      setAt(malformed, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", field], "\ud83c");
+      expect(validateScriptDocumentV2(malformed).diagnostics).toContainEqual(expect.objectContaining({
+        code: "QUOTE_BOX_TEXT_INVALID",
+        jsonPath: `/activeDraft/blocks/0/overlayEvents/0/quoteBox/${field}`,
+      }));
+      expect(deserializeAuthoringDocumentV2(JSON.stringify(malformed)).ok).toBe(false);
+    }
+
     const outOfBounds = structuredClone(document);
     setAt(outOfBounds, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", "italicSpan"], {
       start: 9,

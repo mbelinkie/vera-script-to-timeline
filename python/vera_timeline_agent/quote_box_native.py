@@ -38,6 +38,11 @@ QUOTE_BOX_CONTROL_NAMES = frozenset(
     }
 )
 QUOTE_BOX_SIZE_CANDIDATES = (70, 58, 50)
+# Match JavaScript String.trim() when translating authored citation offsets.
+_CITATION_TRIM = (
+    "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005"
+    "\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
 
 
 class QuoteBoxNativeError(RuntimeError):
@@ -106,7 +111,9 @@ def quote_box_controls(quote_box: Mapping[str, Any]) -> dict[str, str | int]:
     speaker_name = _string(quote_box.get("speakerName"), "speakerName").strip()
     speaker_title = _string(quote_box.get("speakerTitle"), "speakerTitle").strip()
     # Authoring defines italic positions over the trimmed Unicode citation.
-    citation = _string(quote_box.get("citationText"), "citationText").strip()
+    citation = _string(quote_box.get("citationText"), "citationText").strip(
+        _CITATION_TRIM
+    )
     italic = quote_box.get("italicSpan")
     if italic is None:
         italic_start = italic_end = 0

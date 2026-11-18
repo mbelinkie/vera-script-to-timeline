@@ -32,7 +32,16 @@ def freeze_quote_box_inputs(
         dependencies["quoteBoxTemplateRevision"] = QUOTE_BOX_TEMPLATE_REVISION
 
     tracks = dependencies["tracks"]
-    overlays = dependencies["roles"]["overlayTrackIds"]
+    roles = dependencies["roles"]
+    overlays = roles["overlayTrackIds"]
+    composition_tracks = {roles["primaryRootTrackId"], *roles["childTrackIds"]}
+    if any(
+        track["id"] in composition_tracks and track["index"] >= 4 for track in tracks
+    ):
+        raise BuildJobError(
+            "Quote Boxes need V4 above the primary picture tracks. "
+            "Move those tracks below V4 before building."
+        )
     occupied = [
         track for track in tracks if track["kind"] == "video" and track["index"] == 4
     ]

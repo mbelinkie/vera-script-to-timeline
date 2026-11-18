@@ -5,6 +5,8 @@ from typing import Any
 
 import pytest
 from vera_timeline_agent import quote_box_native, workflow_v2
+from vera_timeline_agent.build_jobs import BuildJobError
+from vera_timeline_agent.quote_box_inputs import freeze_quote_box_inputs
 from vera_timeline_agent.workflow_v2_cli import RUNTIME_FILES
 
 
@@ -155,6 +157,41 @@ def test_quote_controls_trim_citation_before_mapping_unicode_span() -> None:
         "ItalicStart": 5,
         "ItalicEnd": 10,
     }
+
+
+def test_quote_controls_use_authoring_trim_rules() -> None:
+    quote = _quote()
+    quote["citationText"] = "\ufeffSource\u0085"
+    quote["italicSpan"] = {"start": 0, "end": 7}
+    controls = quote_box_native.quote_box_controls(quote)
+    assert controls["Citation"] == "Source\u0085"
+    assert (controls["ItalicStart"], controls["ItalicEnd"]) == (1, 7)
+
+
+@pytest.mark.parametrize("index", [4, 5])
+def test_quote_lane_rejects_layout_with_picture_on_or_above_v4(index: int) -> None:
+    document = {
+        "activeDraft": {
+            "blocks": [
+                {
+                    "type": "narration",
+                    "state": "active",
+                    "overlayEvents": [{"quoteBox": _quote()}],
+                }
+            ]
+        }
+    }
+    dependencies = {
+        "tracks": [{"id": "child", "kind": "video", "index": index}],
+        "roles": {
+            "primaryRootTrackId": "root",
+            "childTrackIds": ["child"],
+            "overlayTrackIds": [],
+        },
+    }
+    with pytest.raises(BuildJobError, match="need V4 above the primary picture tracks"):
+        freeze_quote_box_inputs(document, dependencies)
+    assert dependencies["tracks"] == [{"id": "child", "kind": "video", "index": index}]
 
 
 @pytest.mark.parametrize(

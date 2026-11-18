@@ -351,7 +351,10 @@ def test_symlink_and_ambiguous_companion_refused(tmp_path: Path) -> None:
         select_prepared_inputs(options)
 
 
-def test_compile_keeps_blocked_report_with_actionable_reason(tmp_path: Path) -> None:
+@pytest.mark.parametrize("change_input", [False, True])
+def test_compile_keeps_blocked_report_with_actionable_reason(
+    tmp_path: Path, change_input: bool
+) -> None:
     options = _inputs(tmp_path / "inputs")
     fake = _fake_bridge()
     report = {
@@ -363,10 +366,18 @@ def test_compile_keeps_blocked_report_with_actionable_reason(tmp_path: Path) -> 
     raw = json.dumps(report)
 
     def bridge(kind: str, document: Path, dependencies: Path) -> BridgeOutput:
+        response = fake(kind, document, dependencies)
         if kind == "compile":
-            raise BlockedBuildReport(raw, report)
-        return fake(kind, document, dependencies)
+            if change_input:
+                document.write_bytes(document.read_bytes() + b"\n")
+            raise BlockedBuildReport(raw, report, response)
+        return response
 
+    if change_input:
+        with pytest.raises(BuildJobError, match="compiler inputs changed"):
+            compile_prepared(options, bridge=bridge)
+        assert not (options.output / "build-report.json").exists()
+        return
     with pytest.raises(BlockedBuildReport, match="quote title is missing"):
         compile_prepared(options, bridge=bridge)
     assert (options.output / "build-report.json").read_text() == raw

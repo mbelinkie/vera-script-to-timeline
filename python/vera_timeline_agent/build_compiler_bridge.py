@@ -22,8 +22,11 @@ _SCHEMAS = {"needs": "vera-build-media-needs/v1", "compile": "issue-190-v2-compi
 class BlockedBuildReport(BuildJobError):
     """A validated compiler response that explains why the build must stop."""
 
-    def __init__(self, report_json: str, report: dict[str, Any]) -> None:
+    def __init__(
+        self, report_json: str, report: dict[str, Any], response: BridgeOutput
+    ) -> None:
         self.report_json = report_json
+        self.response = response
         messages = [
             diagnostic["message"]
             for diagnostic in report.get("diagnostics", [])
@@ -127,9 +130,14 @@ def invoke_bridge(
             and report.get("status") == "blocked"
             and isinstance(raw_report, str)
         ):
-            if json.loads(raw_report) != report:
-                raise BuildJobError("compiler JSON differs from its parsed report")
-            raise BlockedBuildReport(raw_report, report)
+            try:
+                if json.loads(raw_report) != report:
+                    raise BuildJobError("compiler JSON differs from its parsed report")
+            except ValueError as error:
+                raise BuildJobError("compiler report JSON is malformed") from error
+            raise BlockedBuildReport(
+                raw_report, report, BridgeOutput(kind, raw_doc, raw_deps, data)
+            )
         if not isinstance(report, dict) or report.get("status") != "ready":
             raise BuildJobError("compiler report is not ready")
         if not all(

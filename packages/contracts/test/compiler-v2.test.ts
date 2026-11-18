@@ -2497,6 +2497,39 @@ describe("Quote box compiler bindings", () => {
     expect(compiled.manifest.events.some((event) => event.provenance.overlayEventId === overlayId)).toBe(false);
   });
 
+  it("reports a timing repair when two quote boxes overlap on V4", () => {
+    const { doc, deps } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const second = structuredClone(row.overlayEvents[0]!);
+    second.id = id(35);
+    second.payload.payloadId = id(36);
+    row.overlayEvents.push(second);
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status).toBe("blocked");
+    const problem = compiled.report.diagnostics.find((item) => item.entity.id === second.id);
+    expect(problem?.message).toContain("overlaps another graphic on V4");
+    expect(problem?.recoveryActionKinds).toEqual(["repair_document"]);
+  });
+
+  it("reports a quote linked to a background above V4", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const { doc: withOverlay, deps: withOverlayDeps } = sharedPreparationFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const background = (withOverlay.activeDraft.blocks[0] as NarrationBlockV2).overlayEvents[0]!;
+    row.overlayEvents.push(background);
+    row.overlayEvents[0]!.quoteBox!.backgroundPayloadId = background.payload.payloadId;
+    deps.tracks.find((track) => track.id === "markers")!.index = 6;
+    deps.tracks.push({ id: "overlay", kind: "video", index: 5, name: "Overlay" });
+    deps.roles.overlayTrackIds.unshift("overlay");
+    deps.occurrenceResolutions.push(withOverlayDeps.occurrenceResolutions[1]!);
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status).toBe("blocked");
+    const problem = compiled.report.diagnostics.find((item) => item.entity.id === overlayId);
+    expect(problem?.message).toContain("must stay on a video track below");
+  });
+
   it("keeps the quote event visible in the report while blocking a missing installed template", () => {
     const { doc, deps } = quoteBoxFixture();
     deps.quoteBoxTemplateRevision = null;

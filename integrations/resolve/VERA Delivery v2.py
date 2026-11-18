@@ -31,6 +31,7 @@ TI_RUNTIME_FILES = (
     "native_image_motion.py",
     "resolve_native_owner.py",
     "workflow_v2_parent.py",
+    "quote_box_native.py",
 )
 REQUEST_KEYS = {
     "schemaVersion",

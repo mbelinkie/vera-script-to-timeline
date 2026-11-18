@@ -410,7 +410,7 @@ function quoteBoxBackgroundProblem(
   if (!coveringEvent) return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} does not cover the requested quote-box range.`, target, undefined, ["repair_document"]);
   const backgroundTrack = tracks.find((track) => track.id === coveringEvent.trackId);
   if (!backgroundTrack || backgroundTrack.kind !== "video" || backgroundTrack.index >= graphicsTrack.index) {
-    return diagnostic("TRACK_ROLE_COLLISION", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
+    return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
   }
   if (background.source.kind === "intentional_placeholder") {
     return diagnostic("VISUAL_UNDEFINED", "Quote box background is an intentional Need to Find placeholder.", target, undefined, ["repair_document"], "warning");
@@ -1293,10 +1293,16 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           if (requirePrepared) diagnostics.push(diagnostic("TRACK_ROLE_COLLISION", "Quote boxes require one configured V4 video track in overlayTrackIds.", entity("overlay_event", overlay.id, "roles.overlayTrackIds")));
           continue;
         }
-        const backgroundProblem = quoteBoxBackgroundProblem(overlay.quoteBox, overlay.id, authoredPayloadById, descriptorByPayload, [...events, ...rowEvents], dependencies.tracks, graphicsTrack, range);
+        const placedEvents = [...events, ...rowEvents];
+        const backgroundProblem = quoteBoxBackgroundProblem(overlay.quoteBox, overlay.id, authoredPayloadById, descriptorByPayload, placedEvents, dependencies.tracks, graphicsTrack, range);
         if (backgroundProblem) {
           diagnostics.push(backgroundProblem);
           if (backgroundProblem.severity === "blocking" || backgroundProblem.severity === "error") continue;
+        }
+        if (placedEvents.some((event) => event.trackId === graphicsTrack.id &&
+          event.recordRange.startFrame < end && start < event.recordRange.endFrame)) {
+          diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "This quote box overlaps another graphic on V4. Adjust the quote box or graphic range.", entity("overlay_event", overlay.id, "timing"), undefined, ["repair_document"]));
+          continue;
         }
         const eventId = stableId(`event:${document.id}:${block.id}:${overlay.id}:${overlay.payload.payloadId}`);
         const provenance: TimelineEventV2["provenance"] = {
