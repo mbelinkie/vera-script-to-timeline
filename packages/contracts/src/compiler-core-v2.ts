@@ -2115,6 +2115,15 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       resolved.events.push({ eventId, kind: "narration", trackId: dependencies.roles.narrationTrackId, trackRole: "narration", recordRange: { startFrame: start, endFrame: end }, provenance: { documentId: document.id, blockId: row.block.id, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: row.map.audio!.narrationAssetId, originalSourceHash: row.map.audio!.audioHash, deliveredSourceHash: row.map.audio!.audioHash, timingMapHash: row.map.timingHash, ...provenanceEvidence, compilerVersion: dependencies.compiler.version }, sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null });
     }
     const music = compileMusicSpans(document, dependencies, resolved.timedRows);
+    for (const row of resolved.timedRows) {
+      if (row.kind !== "visual_only") continue;
+      const match = (row.visual?.visualOnlyTiming ?? row.block.visualOnlyTiming).matchAudioDuration;
+      if (!match) continue;
+      const cue = music.events.find((event) => event.music?.spanId === match.cueId);
+      if (!cue || cue.recordRange.startFrame >= row.startFrame + row.durationFrames || cue.recordRange.endFrame <= row.startFrame) {
+        resolved.diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "The matched music cue was not placed over this visual. Review its timing or clear the match.", entity("block", row.block.id, "visualOnlyTiming"), undefined, ["repair_document"]));
+      }
+    }
     for (const source of music.sources) sourcesById.set(source.id, source);
     resolved.events.push(...music.events);
     resolved.diagnostics.push(...music.diagnostics);

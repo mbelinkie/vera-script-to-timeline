@@ -466,6 +466,17 @@ describe("#100 verified A5 music compilation", () => {
     expect(music.sourceRange).toEqual({ startFrame: 48, endFrame: 192 });
   });
 
+  it("blocks a match when the resolved cue does not overlap the visual", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const span = doc.rowAudioSpans![0]!;
+    span.timing = { sourceInFrame: 0, sourceOutFrame: 48, timelineIn: { kind: "frame", frame: 0 } };
+    row.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("blocked");
+    expect(JSON.stringify(result.report.diagnostics)).toContain("not placed over this visual");
+  });
+
   it("blocks a matched still when its cue cannot provide verified audio", () => {
     const { doc, deps } = threeRowMusicFixture();
     const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;

@@ -45,6 +45,9 @@ VIEW_SCHEMA_V2 = "resolve-native-view/v2"
 RECEIPT_SCHEMA_V2 = "v2-package-verification/v1"
 DELIVERY_VERSION = "2"
 SUPPORTED_V2_IDENTITIES = SUPPORTED_IDENTITIES | {("21.2.0", "6")}
+# Measured candidate only; broaden after a real Resolve save/close/reopen proof.
+_MUSIC_STILL_CANDIDATE_RECORD = (0, 72)
+_MUSIC_STILL_CANDIDATE_SOURCE = (24, 72)
 BUILD_FILE_NAMES = (
     "timeline-manifest.json",
     "build-report.json",
@@ -1356,6 +1359,112 @@ def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
             and "imageMotion" in event["pictureTreatment"]
         )
         for event in view["events"]
+    )
+
+
+def _native_otio_music_still_candidate(
+    view: Mapping[str, Any],
+    timeline: Mapping[str, Any],
+    *,
+    connected_identity: tuple[object, object],
+    existing_project: str | None,
+    transition_plans: Sequence[Mapping[str, Any]],
+) -> bool:
+    """Admit only the bounded, unproven still-plus-music qualification candidate."""
+    if (
+        connected_identity != ("21.2.0", "6")
+        or existing_project is not None
+        or transition_plans
+    ):
+        return False
+    try:
+        if _frame_rate(timeline) != (24, 1):
+            return False
+    except WorkflowV2Error:
+        return False
+    events_value = view.get("events")
+    if not isinstance(events_value, list) or len(events_value) != 2:
+        return False
+    events = [event for event in events_value if isinstance(event, Mapping)]
+    if len(events) != len(events_value):
+        return False
+    music_events = [event for event in events if event.get("kind") == "music"]
+    still_events = [
+        event
+        for event in events
+        if isinstance(event.get("pictureTreatment"), Mapping)
+        and "imageMotion" in event["pictureTreatment"]
+    ]
+    if len(music_events) != 1 or len(still_events) != 1:
+        return False
+    if any(event.get("kind") == "quote_box" for event in events):
+        return False
+
+    sources_value = view.get("sources")
+    tracks_value = view.get("tracks")
+    if not isinstance(sources_value, list) or not isinstance(tracks_value, list):
+        return False
+    sources = {
+        source.get("id"): source
+        for source in sources_value
+        if isinstance(source, Mapping) and isinstance(source.get("id"), str)
+    }
+    tracks = {
+        track.get("id"): track
+        for track in tracks_value
+        if isinstance(track, Mapping) and isinstance(track.get("id"), str)
+    }
+    still = still_events[0]
+    music = music_events[0]
+    picture = still.get("pictureTreatment")
+    still_source = sources.get(still.get("sourceId"))
+    music_source = sources.get(music.get("sourceId"))
+    music_track = tracks.get(music.get("trackId"))
+    if (
+        not isinstance(picture, Mapping)
+        or picture.get("kind") != "still_frame"
+        or picture.get("imageMotion") != native_image_motion.DEFAULT_IMAGE_MOTION
+        or not isinstance(still_source, Mapping)
+        or still_source.get("kind") != "still"
+        or not isinstance(music_source, Mapping)
+        or music_source.get("kind") != "audio"
+        or not isinstance(music_track, Mapping)
+        or music_track.get("kind") != "audio"
+        or music_track.get("index") != 5
+    ):
+        return False
+    try:
+        still_record = _frame_range(
+            still.get("recordRange"), "candidate still record range"
+        )
+        music_record = _frame_range(
+            music.get("recordRange"), "candidate music record range"
+        )
+        still_source = _frame_range(
+            still.get("sourceRange"), "candidate still source range"
+        )
+        music_source = _frame_range(
+            music.get("sourceRange"), "candidate music source range"
+        )
+    except WorkflowV2Error:
+        return False
+    if (
+        still_record != _MUSIC_STILL_CANDIDATE_RECORD
+        or music_record != _MUSIC_STILL_CANDIDATE_RECORD
+        or still_source[1] != 1
+        or music_source != _MUSIC_STILL_CANDIDATE_SOURCE
+    ):
+        return False
+    visual_v2 = still.get("v2Event")
+    music_v2 = music.get("v2Event")
+    provenance = visual_v2.get("provenance") if isinstance(visual_v2, Mapping) else None
+    music_treatment = music_v2.get("music") if isinstance(music_v2, Mapping) else None
+    block_id = provenance.get("blockId") if isinstance(provenance, Mapping) else None
+    return (
+        isinstance(block_id, str)
+        and isinstance(music_treatment, Mapping)
+        and music_treatment.get("startRowId") == block_id
+        and music_treatment.get("endRowId") == block_id
     )
 
 
@@ -3796,6 +3905,10 @@ def run_workflow_delivery_v2(
         "verified": False,
         "discrepancies": [],
         "partialTargetRetained": False,
+        # This remains false-qualified until a real save/close/reopen check
+        # proves the combined still-and-music route in Resolve.
+        "nativeMusicStillCandidate": False,
+        "nativeMusicStillQualified": False,
     }
     mutation_started = False
     stage = "package validation"
@@ -3999,7 +4112,26 @@ def run_workflow_delivery_v2(
                 raise WorkflowV2Error(
                     "native source-audio requires measured Studio 21.2.0 build 6"
                 )
+        motion_stills = [
+            picture
+            for event in view["events"]
+            if isinstance(picture := event.get("pictureTreatment"), Mapping)
+            and "imageMotion" in picture
+        ]
+        music_still_candidate = _native_otio_music_still_candidate(
+            view,
+            timeline,
+            connected_identity=connected_identity,
+            existing_project=existing_project,
+            transition_plans=transition_plans,
+        )
+        result["nativeMusicStillCandidate"] = music_still_candidate
         if native_otio and connected_identity == ("21.1.1", "10"):
+            if has_music and motion_stills:
+                raise WorkflowV2Error(
+                    "native music with image motion requires the provisional "
+                    "Studio 21.2.0 build 6 candidate"
+                )
             if _frame_rate(timeline) != (24, 1) and any(
                 isinstance(picture := event.get("pictureTreatment"), Mapping)
                 and "imageMotion" in picture
@@ -4020,27 +4152,22 @@ def run_workflow_delivery_v2(
         elif native_otio:
             # #508 checks centered image zoom and explicit None only.
             # Music with moving picture takes the separate 24 fps profile.
-            stills = [
-                picture
-                for event in view["events"]
-                if isinstance(picture := event.get("pictureTreatment"), Mapping)
-                and "imageMotion" in picture
-            ]
             if (
                 connected_identity != ("21.2.0", "6")
                 or (
                     has_music
                     and (
-                        stills
+                        motion_stills
                         or has_quote_boxes
                         or not result["nativeMusicRateQualified"]
                     )
+                    and not music_still_candidate
                 )
-                or (not has_music and not stills)
+                or (not has_music and not motion_stills)
                 or any(
                     picture["imageMotion"]
                     not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
-                    for picture in stills
+                    for picture in motion_stills
                 )
             ):
                 raise WorkflowV2Error(

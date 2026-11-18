@@ -12,8 +12,12 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from issue177_package_fixture import make_package_case
-from test_v2_package import _music_package_case
+from issue177_package_fixture import canonical_json_bytes, make_package_case
+from test_v2_package import (
+    _issue336_synthetic_qualification,
+    _music_package_case,
+    _refresh_document_closure,
+)
 from vera_timeline_agent import workflow_v2
 from vera_timeline_agent.studio_spike import (
     StudioSpikeError,
@@ -1241,6 +1245,153 @@ def test_native_otio_refuses_mixed_plain_stills_and_allows_video() -> None:
     assert workflow_v2._native_otio_has_unqualified_plain_stills(view)
     view["events"][1]["pictureTreatment"] = None
     assert not workflow_v2._native_otio_has_unqualified_plain_stills(view)
+
+
+def _music_motion_candidate_view() -> dict[str, Any]:
+    row_id = "row-586"
+    visual_id = "visual-586"
+    music_id = "music-586"
+    return {
+        "timeline": {"frameRate": {"numerator": 24, "denominator": 1}},
+        "sources": [
+            {"id": "still-source", "kind": "still"},
+            {"id": "music-source", "kind": "audio"},
+        ],
+        "tracks": [
+            {"id": "video-root", "kind": "video", "index": 1},
+            {"id": "music-a5", "kind": "audio", "index": 5},
+        ],
+        "events": [
+            {
+                "id": visual_id,
+                "kind": "primary_visual",
+                "sourceId": "still-source",
+                "trackId": "video-root",
+                "recordRange": {"startFrame": 0, "durationFrames": 72},
+                "sourceRange": {"startFrame": 0, "durationFrames": 1},
+                "pictureTreatment": {
+                    "kind": "still_frame",
+                    "framingPolicy": "cover",
+                    "imageMotion": deepcopy(
+                        workflow_v2.native_image_motion.DEFAULT_IMAGE_MOTION
+                    ),
+                },
+                "v2Event": {"provenance": {"blockId": row_id}},
+            },
+            {
+                "id": music_id,
+                "kind": "music",
+                "sourceId": "music-source",
+                "trackId": "music-a5",
+                "recordRange": {"startFrame": 0, "durationFrames": 72},
+                "sourceRange": {"startFrame": 24, "durationFrames": 72},
+                "v2Event": {
+                    "music": {"startRowId": row_id, "endRowId": row_id}
+                },
+            },
+        ],
+    }
+
+
+def test_native_otio_music_still_candidate_is_narrow_and_unqualified() -> None:
+    view = _music_motion_candidate_view()
+    timeline = view["timeline"]
+    kwargs = {
+        "connected_identity": ("21.2.0", "6"),
+        "existing_project": None,
+        "transition_plans": (),
+    }
+    assert workflow_v2._native_otio_music_still_candidate(view, timeline, **kwargs)
+
+    view["events"][1]["recordRange"]["startFrame"] = 1
+    assert not workflow_v2._native_otio_music_still_candidate(view, timeline, **kwargs)
+    view["events"][1]["recordRange"] = {"startFrame": 0, "durationFrames": 72}
+    view["events"][1]["recordRange"]["durationFrames"] = 73
+    assert not workflow_v2._native_otio_music_still_candidate(view, timeline, **kwargs)
+    view["events"][1]["recordRange"]["durationFrames"] = 72
+    view["events"][1]["sourceRange"]["startFrame"] = 0
+    assert not workflow_v2._native_otio_music_still_candidate(view, timeline, **kwargs)
+    view["events"][1]["sourceRange"]["startFrame"] = 24
+    view["events"][1]["v2Event"]["music"]["startRowId"] = "other-row"
+    assert not workflow_v2._native_otio_music_still_candidate(view, timeline, **kwargs)
+
+    view = _music_motion_candidate_view()
+    assert not workflow_v2._native_otio_music_still_candidate(
+        view,
+        timeline,
+        connected_identity=("21.1.1", "10"),
+        existing_project=None,
+        transition_plans=(),
+    )
+    assert not workflow_v2._native_otio_music_still_candidate(
+        view,
+        timeline,
+        connected_identity=("21.2.0", "6"),
+        existing_project="Review Project",
+        transition_plans=(),
+    )
+    assert not workflow_v2._native_otio_music_still_candidate(
+        view,
+        timeline,
+        connected_identity=("21.2.0", "6"),
+        existing_project=None,
+        transition_plans=({"disposition": "cut"},),
+    )
+
+
+def test_native_otio_music_motion_refuses_on_studio_211_even_at_24fps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case, _, _ = _music_package_case(tmp_path, scenario="source-audio-no")
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    payload = document["activeDraft"]["blocks"][0]["payload"]
+    payload["pictureKind"] = "image"
+    payload.pop("sourceUsage", None)
+    payload.pop("framingPolicy", None)
+    payload["imageMotion"] = deepcopy(
+        workflow_v2.native_image_motion.DEFAULT_IMAGE_MOTION
+    )
+    document["activeDraft"]["blocks"][0]["visualOnlyTiming"].pop(
+        "selectedSourceRange", None
+    )
+    event = manifest["events"][0]
+    event["pictureTreatment"] = {
+        "kind": "still_frame",
+        "pictureKind": "image",
+        "framingPolicy": "cover",
+        "imageMotion": deepcopy(workflow_v2.native_image_motion.DEFAULT_IMAGE_MOTION),
+    }
+    event["sourceRange"] = {"startFrame": 0, "endFrame": 1}
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    _issue336_synthetic_qualification(monkeypatch)
+    case.build()
+    attestation = attest_package_v2(case.project_root, tmp_path / "motion-music.json")
+    adapter = _FakeAdapter()
+    result = workflow_v2.run_workflow_delivery_v2(
+        object(),
+        attestation,
+        sha256(attestation),
+        action="build",
+        authorize_new_nonproduction=True,
+        external_scripting="None",
+        adapter_factory=lambda _resolve: adapter,
+    )
+    assert result["status"] == "stopped_safely"
+    assert result["failureType"] == "WorkflowV2Error"
+    assert result["failureStage"] == "Resolve connection preflight"
+    assert result["nativeMusicStillCandidate"] is False
+    assert result["nativeMusicStillQualified"] is False
+    assert adapter.calls == ["connected_facts"]
 
 
 def _native_audio_fixture(gain_db: int | float) -> tuple[Any, Any, dict[str, Any]]:
