@@ -23,7 +23,7 @@ from pathlib import Path, PurePosixPath
 from time import perf_counter
 from typing import Any, TypeGuard, cast
 
-from . import native_image_motion
+from . import native_image_motion, quote_box_native
 from .row_timeline_map import make_row_timeline_map, observe_item_details
 from .studio_spike import _project_settings, _still_source_frame_duration
 from .transition_delivery_v2 import (
@@ -642,11 +642,16 @@ def _validate_view(
         raise WorkflowV2Error("delivery view arrays are malformed")
 
     motion_still_source_ids: set[str] = set()
+    quote_box_source_ids: set[str] = set()
     for event in cast(list[Any], manifest_events_value):
         if not isinstance(event, Mapping) or event.get("kind") not in {
             "primary_visual",
             "overlay_visual",
         }:
+            if isinstance(event, Mapping) and event.get("kind") == "quote_box":
+                event_id = event.get("eventId")
+                if isinstance(event_id, str):
+                    quote_box_source_ids.add(event_id)
             continue
         treatment = event.get("pictureTreatment")
         provenance = event.get("provenance")
@@ -678,13 +683,21 @@ def _validate_view(
         # an alphabet-only UUID stem, since Resolve treats ANY decimal run
         # in a PNG filename as a numbered sequence, including <id>-still.png.
         safe_name = source_basename.startswith(source_id + ".") or (
-            source_id in motion_still_source_ids
-            and kind == "still"
-            and (
-                source_basename.startswith(source_id + "-still.")
-                or source_basename.startswith(
-                    native_image_motion.native_still_stem(source_id) + "."
+            (
+                source_id in motion_still_source_ids
+                and kind == "still"
+                and (
+                    source_basename.startswith(source_id + "-still.")
+                    or source_basename.startswith(
+                        native_image_motion.native_still_stem(source_id) + "."
+                    )
                 )
+            )
+            or (
+                source_id in quote_box_source_ids
+                and kind == "still"
+                and source_basename
+                == f"{native_image_motion.native_still_stem(source_id)}.png"
             )
         )
         if (
@@ -1000,6 +1013,16 @@ def _validate_view(
                         raise WorkflowV2Error(
                             "placeholder bytes differ from the authored reference"
                         )
+            elif event_kind == "quote_box":
+                quote_box = original.get("quoteBox")
+                if (
+                    source_id != event_id
+                    or delivery_source.get("kind") != "still"
+                    or not isinstance(quote_box, Mapping)
+                    or not isinstance(original.get("provenance"), Mapping)
+                    or original["provenance"].get("sourceId") is not None
+                ):
+                    raise WorkflowV2Error("quote box identity or values are invalid")
             elif provenance_source is not None:
                 if (
                     source_id != provenance_source
@@ -1067,7 +1090,7 @@ def _validate_view(
                 != _manifest_range(original["sourceRange"], "manifest source range")
             ):
                 raise WorkflowV2Error("delivery source range differs from the v2 event")
-        elif event_kind in {"source_audio", "placeholder", "music"}:
+        elif event_kind in {"source_audio", "placeholder", "quote_box", "music"}:
             raise WorkflowV2Error("delivery event has no native source range")
 
         occupied.setdefault(cast(str, track_id), []).append(
@@ -1137,7 +1160,10 @@ def _validate_view(
 
 def _picture_supported(event_kind: object, picture: object, source_kind: str) -> bool:
     if picture is None:
-        return event_kind != "placeholder" and source_kind in {"video", "audio"}
+        return event_kind != "placeholder" and (
+            source_kind in {"video", "audio"}
+            or (event_kind == "quote_box" and source_kind == "still")
+        )
     if not isinstance(picture, Mapping):
         return False
     kind = picture.get("kind")
@@ -1203,7 +1229,7 @@ def _native_treatment_supported(
 
 def _requires_native_otio(view: Mapping[str, Any]) -> bool:
     return any(
-        event.get("kind") == "music"
+        event.get("kind") in {"music", "quote_box"}
         or (
             isinstance(event.get("pictureTreatment"), Mapping)
             and "imageMotion" in event["pictureTreatment"]
@@ -1288,26 +1314,34 @@ def _native_source_audio_profile_qualified(
 
 
 def _native_otio_transport_tracks(view: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Independently derive required empty A1-A4 OTIO lanes for signed A5 music."""
+    """Derive required empty OTIO lanes for sparse V4/A5 native imports."""
     tracks = [dict(track) for track in view["tracks"]]
-    if not any(event.get("kind") == "music" for event in view["events"]):
-        return tracks
-    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
     ids = {track["id"] for track in tracks}
-    for index in range(1, 5):
-        if index in occupied:
+    kinds = {event.get("kind") for event in view["events"]}
+    for event_kind, kind, prefix, target in (
+        ("music", "audio", "A", 5),
+        ("quote_box", "video", "V", 4),
+    ):
+        if event_kind not in kinds:
             continue
-        track_id = f"vera-native-a{index}-pad"
-        if track_id in ids:
-            raise WorkflowV2Error("native A5 padding collides with a signed track ID")
-        tracks.append(
-            {
-                "id": track_id,
-                "kind": "audio",
-                "index": index,
-                "name": f"VERA Empty A{index}",
-            }
-        )
+        occupied = {track["index"] for track in tracks if track["kind"] == kind}
+        for index in range(1, target):
+            if index in occupied:
+                continue
+            track_id = f"vera-native-{prefix.lower()}{index}-pad"
+            if track_id in ids:
+                raise WorkflowV2Error(
+                    f"native {prefix}{target} padding collides with a signed track ID"
+                )
+            tracks.append(
+                {
+                    "id": track_id,
+                    "kind": kind,
+                    "index": index,
+                    "name": f"VERA Empty {prefix}{index}",
+                }
+            )
+            ids.add(track_id)
     return tracks
 
 
@@ -1316,6 +1350,7 @@ def _native_otio_has_unqualified_plain_stills(view: Mapping[str, Any]) -> bool:
     source_kinds = {source["id"]: source["kind"] for source in view["sources"]}
     return any(
         _uses_still_composition(event, source_kinds[event["sourceId"]])
+        and event.get("kind") != "quote_box"
         and not (
             isinstance(event.get("pictureTreatment"), Mapping)
             and "imageMotion" in event["pictureTreatment"]
@@ -2151,11 +2186,16 @@ def _native_otio_single_frame_hold(
     source_range = event.get("sourceRange")
     return (
         source.get("kind") == "still"
-        and isinstance(picture, Mapping)
-        and isinstance(picture.get("imageMotion"), Mapping)
-        and isinstance(frame_map, Mapping)
-        and type(frame_map.get("decodedPackageFrameCount")) is int
-        and frame_map["decodedPackageFrameCount"] == 1
+        and (
+            event.get("kind") == "quote_box"
+            or (
+                isinstance(picture, Mapping)
+                and isinstance(picture.get("imageMotion"), Mapping)
+                and isinstance(frame_map, Mapping)
+                and type(frame_map.get("decodedPackageFrameCount")) is int
+                and frame_map["decodedPackageFrameCount"] == 1
+            )
+        )
         and isinstance(source_range, Mapping)
         and source_range.get("startFrame") == 0
     )
@@ -2177,6 +2217,8 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self.expected_events: dict[str, Mapping[str, Any]] = {}
         self.expected_stamps: dict[str, str] = {}
         self.expected_properties: dict[str, dict[str, Any]] = {}
+        self.expected_quote_boxes: dict[str, dict[str, str | int]] = {}
+        self.quote_box_setting_path: Path | None = None
         self.expected_fades: dict[str, dict[str, int]] = {}
         self.expected_source_ranges: dict[str, tuple[int, int]] = {}
         self.timeline_marker_stamps: dict[int, str] = {}
@@ -2330,6 +2372,26 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         for event in view["events"]:
             if event["kind"] == "music":
                 self._configure_native_music(event)
+            elif event["kind"] == "quote_box":
+                track = next(
+                    track for track in view["tracks"] if track["id"] == event["trackId"]
+                )
+                items = self.timeline.GetItemListInTrack(track["kind"], track["index"])
+                matches = [
+                    item
+                    for item in items
+                    if item.GetStart(False) == event["recordRange"]["startFrame"]
+                    and item.GetDuration(False)
+                    == event["recordRange"]["durationFrames"]
+                    and item.GetMediaPoolItem() is not None
+                    and item.GetMediaPoolItem().GetMediaId()
+                    == self.media_id_by_source.get(event["sourceId"])
+                ]
+                if len(matches) != 1:
+                    raise WorkflowV2Error(
+                        "native OTIO quote box has no unique source-bound V4 item"
+                    )
+                self._configure_quote_box(event, matches[0])
 
         # Native OTIO can import raw timeline markers, but not VERA's custom
         # readback stamp. Replace *only* the expected marker positions on this
@@ -2382,6 +2444,36 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 source_range["startFrame"],
                 source_range["startFrame"] + source_range["durationFrames"] - 1,
             )
+
+    def _configure_quote_box(self, event: Mapping[str, Any], item: Any) -> None:
+        if event.get("kind") != "quote_box":
+            raise WorkflowV2Error("quote-box configuration received a non-quote event")
+        original = event.get("v2Event")
+        quote_box = original.get("quoteBox") if isinstance(original, Mapping) else None
+        if not isinstance(quote_box, Mapping):
+            raise WorkflowV2Error("quote box has no frozen per-use values")
+        revision = quote_box.get("templateRevision")
+        if revision not in {
+            quote_box_native.QUOTE_BOX_TEMPLATE_REVISION,
+            quote_box_native.QUOTE_BOX_SETTING_SHA256,
+        }:
+            raise WorkflowV2Error(
+                "quote box template revision is not the installed pin"
+            )
+        setting = self.quote_box_setting_path
+        if setting is None:
+            setting = quote_box_native.verify_installed_quote_box_setting()
+        self.assert_current_target()
+        try:
+            binding = quote_box_native.configure_quote_box(
+                item,
+                setting,
+                quote_box,
+                timeline_height=self._v2_timeline["height"],
+            )
+        except quote_box_native.QuoteBoxNativeError as error:
+            raise WorkflowV2Error(str(error)) from error
+        self.expected_quote_boxes[cast(str, event["id"])] = dict(binding.values)
 
     def _bind_imported_media(self, view: Mapping[str, Any]) -> None:
         sources = cast(list[Mapping[str, Any]], view["sources"])
@@ -2636,6 +2728,8 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             0, "Cyan", "VERA v2 event", cast(str, event["id"]), 1, custom_data
         ):
             raise WorkflowV2Error("Resolve could not stamp the v2 event")
+        if event["kind"] == "quote_box":
+            self._configure_quote_box(event, item)
         expected_properties: dict[str, Any] = {}
         bar_properties: dict[str, Any] = {}
         if event["kind"] == "source_audio":
@@ -3099,6 +3193,20 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 for key, value in expected_fades.items()
                             ):
                                 discrepancies.append("event-music-fades")
+                        if event.get("kind") == "quote_box":
+                            try:
+                                quote_expected = self.expected_quote_boxes.get(event_id)
+                                if quote_expected is None:
+                                    raise quote_box_native.QuoteBoxNativeError(
+                                        "quote box has no expected controls"
+                                    )
+                                quote_box_native.verify_quote_box(
+                                    item,
+                                    quote_expected,
+                                    timeline_height=self._v2_timeline["height"],
+                                )
+                            except quote_box_native.QuoteBoxNativeError:
+                                discrepancies.append("quote-box")
             actual_markers = self.timeline.GetMarkers()
             expected_marker_frames = set(self.timeline_marker_stamps)
             if (
@@ -3322,6 +3430,15 @@ def _event_source_provenance_matches(
             )
         # The verified package binds generated slate bytes to the authored text.
         return True
+    if event.get("kind") == "quote_box":
+        return (
+            source_id == event.get("id")
+            and source.get("kind") == "still"
+            and manifest_event.get("kind") == "quote_box"
+            and isinstance(manifest_event.get("quoteBox"), Mapping)
+            and isinstance(manifest_event.get("provenance"), Mapping)
+            and manifest_event["provenance"].get("sourceId") is None
+        )
     if manifest_source.get("id") != source_id:
         return False
     if require_hash_binding and manifest_source.get("deliveredHash") != content_hash:
@@ -3389,7 +3506,7 @@ def _fractional_source_range_matches(
                 source_start, _source_duration = _frame_range(
                     event.get("sourceRange"), "still event source range"
                 )
-                if event.get("kind") == "placeholder":
+                if event.get("kind") in {"placeholder", "quote_box"}:
                     manifest_start = 0
                     manifest_duration = record_duration
                     if manifest_event.get("sourceRange") is not None:
@@ -3403,7 +3520,12 @@ def _fractional_source_range_matches(
                 return False
             if (
                 event.get("kind")
-                not in {"primary_visual", "overlay_visual", "placeholder"}
+                not in {
+                    "primary_visual",
+                    "overlay_visual",
+                    "placeholder",
+                    "quote_box",
+                }
                 or source_start != 0
                 or manifest_start != 0
                 or manifest_duration <= 0
@@ -3702,6 +3824,17 @@ def run_workflow_delivery_v2(
             package.view,
             package.attestation,
         )
+        has_quote_boxes = any(
+            event.get("kind") == "quote_box" for event in view["events"]
+        )
+        quote_box_setting: Path | None = None
+        if action == "build" and has_quote_boxes:
+            try:
+                quote_box_setting = (
+                    quote_box_native.verify_installed_quote_box_setting()
+                )
+            except quote_box_native.QuoteBoxNativeError as error:
+                raise WorkflowV2Error(str(error)) from error
         timeline = cast(Mapping[str, Any], manifest["timeline"])
         bar_removal_opt_in = any(
             isinstance(event, Mapping) and "encodedBars" in event
@@ -3895,7 +4028,14 @@ def run_workflow_delivery_v2(
             ]
             if (
                 connected_identity != ("21.2.0", "6")
-                or (has_music and (stills or not result["nativeMusicRateQualified"]))
+                or (
+                    has_music
+                    and (
+                        stills
+                        or has_quote_boxes
+                        or not result["nativeMusicRateQualified"]
+                    )
+                )
                 or (not has_music and not stills)
                 or any(
                     picture["imageMotion"]
@@ -3971,6 +4111,7 @@ def run_workflow_delivery_v2(
             binding["requirementKey"]: binding
             for binding in manifest["preparationBindings"]
         }
+        cast(Any, adapter).quote_box_setting_path = quote_box_setting
         cast(Any, adapter)._v2_transition_plans = transition_plans
 
         def mutate(method: Callable[..., Any], *arguments: Any, label: str) -> Any:

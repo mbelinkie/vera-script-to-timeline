@@ -4,12 +4,15 @@ import struct
 import zlib
 
 import pytest
-from vera_timeline_agent.placeholder_slate import render_placeholder_slate
+from vera_timeline_agent.placeholder_slate import (
+    render_placeholder_slate,
+    transparent_graphic_carrier,
+)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
-def _decode_rgb_png(value: bytes) -> tuple[int, int, bytes]:
+def _decode_png(value: bytes, color_type: int = 2) -> tuple[int, int, bytes]:
     assert value.startswith(PNG_SIGNATURE)
     cursor = len(PNG_SIGNATURE)
     width = 0
@@ -31,7 +34,7 @@ def _decode_rgb_png(value: bytes) -> tuple[int, int, bytes]:
             )
             assert (depth, color, compression, filtering, interlace) == (
                 8,
-                2,
+                color_type,
                 0,
                 0,
                 0,
@@ -44,7 +47,7 @@ def _decode_rgb_png(value: bytes) -> tuple[int, int, bytes]:
 
     assert chunk_names == [b"IHDR", b"IDAT", b"IEND"]
     scanlines = zlib.decompress(compressed)
-    row_size = width * 3 + 1
+    row_size = width * (2 if color_type == 4 else 3) + 1
     assert len(scanlines) == height * row_size
     assert all(scanlines[offset] == 0 for offset in range(0, len(scanlines), row_size))
     pixels = b"".join(
@@ -57,7 +60,7 @@ def _decode_rgb_png(value: bytes) -> tuple[int, int, bytes]:
 def test_renders_valid_png_at_requested_dimensions() -> None:
     value = render_placeholder_slate("MISSING INTERVIEW CLIP", 320, 180)
 
-    width, height, pixels = _decode_rgb_png(value)
+    width, height, pixels = _decode_png(value)
 
     assert (width, height) == (320, 180)
     assert len(pixels) == width * height * 3
@@ -73,7 +76,7 @@ def test_render_is_byte_deterministic_and_label_sensitive() -> None:
 
 
 def test_known_label_draws_foreground_glyph_pixels() -> None:
-    _, _, pixels = _decode_rgb_png(render_placeholder_slate("A", 64, 48))
+    _, _, pixels = _decode_png(render_placeholder_slate("A", 64, 48))
 
     pixel_colors = {
         tuple(pixels[index : index + 3]) for index in range(0, len(pixels), 3)
@@ -108,3 +111,11 @@ def test_rejects_non_integer_dimensions(width: object, height: object) -> None:
 def test_rejects_non_string_label() -> None:
     with pytest.raises(TypeError, match="label must be a string"):
         render_placeholder_slate(123, 64, 48)  # type: ignore[arg-type]
+
+
+def test_quote_carrier_is_transparent_at_timeline_dimensions() -> None:
+    width, height, pixels = _decode_png(
+        transparent_graphic_carrier(320, 180), color_type=4
+    )
+    assert (width, height) == (320, 180)
+    assert pixels == bytes(2 * width * height)

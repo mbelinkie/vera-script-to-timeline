@@ -31,6 +31,7 @@ RUNTIME_FILES = (
     "native_image_motion.py",
     "resolve_native_owner.py",
     "workflow_v2_parent.py",
+    "quote_box_native.py",
 )
 BUILD_FILES = (
     "timeline-manifest.json",
@@ -72,6 +73,7 @@ def attest_package_v2(package_root: Path, output: Path) -> Path:
         Path("python/vera_timeline_agent/cropdetect.py"),
         Path("python/vera_timeline_agent/source_audio_endpoint.py"),
         Path("python/vera_timeline_agent/workflow_v2.py"),
+        Path("python/vera_timeline_agent/quote_box_native.py"),
         Path("python/vera_timeline_agent/row_timeline_map.py"),
         Path("python/vera_timeline_agent/transition_delivery_v2.py"),
         Path("python/vera_timeline_agent/workflow_v2_cli.py"),

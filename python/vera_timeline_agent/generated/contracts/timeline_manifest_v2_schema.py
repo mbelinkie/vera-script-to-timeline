@@ -237,6 +237,7 @@ class TimelineEventV2(TypedDict):
         "narration",
         "primary_visual",
         "overlay_visual",
+        "quote_box",
         "source_audio",
         "music",
         "placeholder",
@@ -263,7 +264,8 @@ class TimelineEventV2(TypedDict):
     audio: SourceAudioEventV2 | None
     encodedBars: NotRequired[EncodedBarsIntentV1]
     music: NotRequired[MusicEventV2]
-    pictureTreatment: NotRequired[PictureTreatmentV2]
+    pictureTreatment: NotRequired[PictureTreatmentV2 | None]
+    quoteBox: NotRequired[script_document_v2_schema.QuoteBoxV2]
     marker: NotRequired[ScriptMarkerTreatmentV2]
 
 

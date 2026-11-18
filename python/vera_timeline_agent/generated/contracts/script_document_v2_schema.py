@@ -182,6 +182,22 @@ class SlotRelation3(TypedDict):
 type SlotRelation = SlotRelation1 | SlotRelation2 | SlotRelation3
 
 
+class ItalicSpan(TypedDict):
+    start: NonNegativeSafeInteger
+    end: NonNegativeSafeInteger
+
+
+class QuoteBoxV2(TypedDict):
+    researchQuoteId: EntityId
+    displayText: str
+    speakerName: str
+    speakerTitle: str
+    citationText: str
+    italicSpan: ItalicSpan | None
+    templateRevision: str
+    backgroundPayloadId: EntityId
+
+
 class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
@@ -546,6 +562,7 @@ class OverlayEventV2(TypedDict):
     id: EntityId
     payload: NarratedVisualPayloadV2
     timing: TimedPlacement
+    quoteBox: NotRequired[QuoteBoxV2]
     version: EntityVersion
 
 

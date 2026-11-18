@@ -44,7 +44,10 @@ from vera_timeline_agent.package_cache import (
     clone_or_copy,
     source_stamp,
 )
-from vera_timeline_agent.placeholder_slate import render_placeholder_slate
+from vera_timeline_agent.placeholder_slate import (
+    render_placeholder_slate,
+    transparent_graphic_carrier,
+)
 from vera_timeline_agent.presenter_warning_validation import (
     OutputConsistencyError,
     validate_temporary_presenter_report,
@@ -895,6 +898,13 @@ def _validate_manifest_semantics(
     events_by_track: defaultdict[str, list[JsonObject]] = defaultdict(list)
     root_events: list[JsonObject] = []
     visual_source_ids: set[str] = set()
+    authored_quotes = {
+        (block["id"], overlay["id"]): overlay["quoteBox"]
+        for block in document["activeDraft"]["blocks"]
+        if block.get("type") == "narration" and block.get("state") == "active"
+        for overlay in block.get("overlayEvents", [])
+        if "quoteBox" in overlay
+    }
     for event in events.values():
         event_id = cast(str, event["eventId"])
         event_kind = cast(str, event["kind"])
@@ -922,11 +932,34 @@ def _validate_manifest_semantics(
                 raise _error(
                     f"primary visual event {event_id} is outside a root or child track"
                 )
-        elif event_kind == "overlay_visual":
+        elif event_kind in {"overlay_visual", "quote_box"}:
             if track_id not in roles.get("overlayTrackIds", []) or role != "overlay":
                 raise _error(
                     f"overlay event {event_id} is outside a configured overlay track"
                 )
+            if event_kind == "quote_box" and (
+                event_track["index"] != 4
+                or any(
+                    event.get(key) is not None
+                    for key in (
+                        "pictureTreatment",
+                        "sourceRange",
+                        "sourceTimeMapping",
+                        "preparationBindingHash",
+                        "audio",
+                    )
+                )
+            ):
+                raise _error(f"quote box {event_id} must be a generated V4 graphic")
+            if event_kind == "quote_box":
+                owner = event["provenance"]
+                quote = authored_quotes.pop(
+                    (owner["blockId"], owner["overlayEventId"]), None
+                )
+                if quote is None or quote != event.get("quoteBox"):
+                    raise _error(
+                        f"quote box {event_id} differs from its authored overlay"
+                    )
         elif event_kind == "placeholder":
             allowed = {
                 root_id,
@@ -1012,9 +1045,9 @@ def _validate_manifest_semantics(
                 )
             if event_kind in {"primary_visual", "overlay_visual"}:
                 visual_source_ids.add(source_id)
-        elif event_kind == "placeholder" and source_id is not None:
+        elif event_kind in {"placeholder", "quote_box"} and source_id is not None:
             raise _error(
-                f"placeholder event {event_id} must use its explicit event media"
+                f"{event_kind} event {event_id} must use its explicit event media"
             )
 
         if event_kind in {"primary_visual", "overlay_visual"}:
@@ -1176,6 +1209,9 @@ def _validate_manifest_semantics(
             )
 
         events_by_track[track_id].append(event)
+
+    if authored_quotes:
+        raise _error("an authored quote box is absent from the build")
 
     source_audio_events = sorted(
         (
@@ -2135,6 +2171,22 @@ def _validate_preparations(
     return prepared
 
 
+def _quote_carrier(event_id: str, timeline: JsonObject) -> _InputArtifact:
+    try:
+        name = native_image_motion.native_still_stem(event_id)
+        raw = transparent_graphic_carrier(timeline["width"], timeline["height"])
+    except ValueError as error:
+        raise _error(f"invalid quote carrier: {error}") from error
+    return _InputArtifact(
+        f"event:{event_id}",
+        Path("."),
+        f"Media/Resolved/{name}.png",
+        _hash_bytes(raw),
+        "still",
+        raw,
+    )
+
+
 def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
@@ -2380,6 +2432,10 @@ def _media_artifacts(
                 )
         _safe_relative(relative, f"package path for {key}")
         artifacts[key] = _InputArtifact(key, source_path, relative, actual, kind)
+    for event in events.values():
+        if event["kind"] == "quote_box":
+            carrier = _quote_carrier(event["eventId"], manifest["timeline"])
+            artifacts[carrier.key] = carrier
     by_binding = {
         _compiler_hash(item.record["binding"]): item for item in prepared.values()
     }
@@ -2576,7 +2632,7 @@ def _delivery_view(
         provenance = cast(JsonObject, event["provenance"])
         if kind == "script_marker":
             continue
-        if kind == "placeholder":
+        if kind in {"placeholder", "quote_box"}:
             source_id = event_id
             key = f"event:{event_id}"
             native_kind = "still"
@@ -2679,7 +2735,7 @@ def _delivery_view(
                     "startFrame": selected_start,
                     "durationFrames": selected_end - selected_start,
                 }
-        elif kind == "placeholder" or kind == "narration":
+        elif kind in {"placeholder", "quote_box", "narration"}:
             source_range = {
                 "startFrame": 0,
                 "durationFrames": record_end - record_start,
@@ -2806,7 +2862,7 @@ def _validate_delivery_view(
     sources = _unique_by_id(view.get("sources"), "delivery source")
     expected_source_ids = {
         event["eventId"]
-        if event["kind"] in {"placeholder", "source_audio"}
+        if event["kind"] in {"placeholder", "quote_box", "source_audio"}
         else cast(JsonObject, event["provenance"])["sourceId"]
         for event in cast(list[JsonObject], manifest["events"])
         if event["kind"] != "script_marker"
@@ -2820,6 +2876,9 @@ def _validate_delivery_view(
         and isinstance(event.get("pictureTreatment"), dict)
         and "imageMotion" in event["pictureTreatment"]
     }
+    quote_ids = {
+        event["eventId"] for event in manifest["events"] if event["kind"] == "quote_box"
+    }
     source_paths: dict[str, str] = {}
     for source_id, source in sources.items():
         if set(source) != {"id", "kind", "path", "contentHash"}:
@@ -2832,7 +2891,12 @@ def _validate_delivery_view(
                 f"delivery source {source_id} path is outside the package Media tree"
             )
         expected_area = "Narration" if source.get("kind") == "audio" else "Resolved"
-        if source_id in motion_still_source_ids:
+        if source_id in quote_ids:
+            named_as_expected = (
+                relative.name
+                == f"{native_image_motion.native_still_stem(source_id)}.png"
+            )
+        elif source_id in motion_still_source_ids:
             named_as_expected = source.get("kind") == "still" and (
                 relative.name.startswith(
                     f"{native_image_motion.native_still_stem(source_id)}."
@@ -2897,6 +2961,18 @@ def _validate_delivery_view(
     }
     for event in cast(list[JsonObject], manifest["events"]):
         event_id = cast(str, event["eventId"])
+        if event["kind"] == "quote_box":
+            carrier = _quote_carrier(event_id, manifest["timeline"])
+            source = sources[event_id]
+            if (
+                source["contentHash"] != carrier.content_hash
+                or source["kind"] != "still"
+            ):
+                raise _error(
+                    f"quote box {event_id} has a different transparent carrier"
+                )
+            artifact_map[carrier.key] = carrier
+            continue
         if event["kind"] == "placeholder":
             treatment = cast(JsonObject, event["pictureTreatment"])
             if treatment["kind"] == "slate":
@@ -3052,32 +3128,34 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
 
 
 def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
-    """Transport A5 through explicit empty audio lanes; never compact it to A2.
-
-    These are deterministic OTIO-only gaps, not new manifest tracks or events.
-    The independent OTIO verifier derives the identical inventory from the
-    signed view, so an omitted or occupied padding lane fails verification.
-    """
+    """Pad sparse native lanes so OTIO imports quote boxes on V4 and music on A5."""
     tracks = cast(list[JsonObject], view["tracks"])
-    if not any(event["kind"] == "music" for event in view["events"]):
-        return _otio_track_order(tracks)
-    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
+    kinds = {event["kind"] for event in view["events"]}
     ids = {track["id"] for track in tracks}
-    padding: list[JsonObject] = []
-    for index in range(1, 5):
-        if index in occupied:
+    padding = []
+    for event_kind, kind, prefix, target in (
+        ("music", "audio", "A", 5),
+        ("quote_box", "video", "V", 4),
+    ):
+        if event_kind not in kinds:
             continue
-        track_id = f"vera-native-a{index}-pad"
-        if track_id in ids:
-            raise _error("native A5 padding collides with a signed track ID")
-        padding.append(
-            {
-                "id": track_id,
-                "kind": "audio",
-                "index": index,
-                "name": f"VERA Empty A{index}",
-            }
-        )
+        occupied = {track["index"] for track in tracks if track["kind"] == kind}
+        for index in range(1, target):
+            if index in occupied:
+                continue
+            track_id = f"vera-native-{prefix.lower()}{index}-pad"
+            if track_id in ids:
+                raise _error(
+                    f"native {prefix}{target} padding collides with a signed track ID"
+                )
+            padding.append(
+                {
+                    "id": track_id,
+                    "kind": kind,
+                    "index": index,
+                    "name": f"VERA Empty {prefix}{index}",
+                }
+            )
     return _otio_track_order([*tracks, *padding])
 
 
@@ -4544,11 +4622,11 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
             )
     for event in cast(list[JsonObject], manifest.get("events", [])):
         event_id = cast(str, event["eventId"])
-        if event["kind"] == "placeholder":
+        if event["kind"] in {"quote_box", "placeholder"}:
             view_source = sources.get(event_id)
             if view_source is None:
                 raise _error(
-                    f"placeholder event {event_id} is absent from delivery view"
+                    f"{event['kind']} event {event_id} is absent from delivery view"
                 )
             artifacts[f"event:{event_id}"] = _InputArtifact(
                 f"event:{event_id}",
