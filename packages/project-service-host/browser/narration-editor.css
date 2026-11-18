@@ -20,8 +20,17 @@
 }
 
 .narration-editor__actions[hidden],
+.narration-editor__action[hidden],
+.narration-editor__divider[hidden],
 .narration-focus-hint[hidden] {
   display: none;
+}
+
+.narration-editor__divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 0 0.2rem;
+  background: #d6c5a7;
 }
 
 .narration-editor__action {
@@ -37,6 +46,12 @@
 .narration-editor__action:focus-visible {
   outline: 2px solid #6d5316;
   outline-offset: 2px;
+}
+
+.narration-editor__action:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  border-style: dashed;
 }
 
 .narration-focus-hint {

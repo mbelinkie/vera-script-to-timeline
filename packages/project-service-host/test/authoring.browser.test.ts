@@ -1542,6 +1542,156 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("offers selection structure actions in accepted order for first, last, whole and interior words", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Selection menu availability");
+    const seeded = multiNarrationDocumentFixture(projectId, ["previous words", "alpha beta gamma delta", "following words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    const visible = () => page.locator(`[data-row-id="${seeded.rowIds[1]}"] .narration-editor__actions button:visible`).allTextContents();
+
+    await selectText(editor, 0, "alpha beta".length);
+    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to previous row"]);
+    await selectText(editor, "gamma".length + "alpha beta ".length, "alpha beta gamma delta".length);
+    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to next row"]);
+    await selectText(editor, 0, "alpha beta gamma delta".length);
+    await expect.poll(visible).toEqual(["Make stage direction", "Join to previous row", "Join to next row"]);
+    await selectText(editor, "alpha ".length, "alpha beta gamma".length);
+    await expect.poll(visible).toEqual(["Make stage direction"]);
+    await page.close();
+  }, 90_000);
+
+  it.each([
+    ["first", 0, "alpha beta".length, ["previous words", "alpha beta", "gamma delta", "following words"]],
+    ["last", "alpha beta ".length, "alpha beta gamma delta".length, ["previous words", "alpha beta", "gamma delta", "following words"]],
+  ])("splits selected %s words with one Undo and focuses the new row", async (_edge, start, end, expected) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Selection split and focus");
+    const seeded = multiNarrationDocumentFixture(projectId, ["previous words", "alpha beta gamma delta", "following words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: "Split into new row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(expected);
+    const rows = await narrationRowsFromApi(page, projectId);
+    const newId = rows.find((row) => !seeded.rowIds.includes(row.id))!.id;
+    await expect.poll(async () => page.locator(`[data-row-id="${newId}"] [data-narration-editor]`)
+      .evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Split selection"]);
+    await page.getByRole("button", { name: "Undo Split selection" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+      .toEqual(["previous words", "alpha beta gamma delta", "following words"]);
+    await page.close();
+  }, 90_000);
+
+  it.each([
+    ["previous", 0, "alpha beta".length, ["previous words alpha beta", "gamma delta", "following words"]],
+    ["next", "alpha beta ".length, "alpha beta gamma delta".length, ["previous words", "alpha beta", "gamma delta following words"]],
+    ["whole", 0, "alpha beta gamma delta".length, ["previous words alpha beta gamma delta", "following words"]],
+  ])("joins selected %s words with one Undo", async (direction, start, end, expected) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Selection partial join");
+    const seeded = multiNarrationDocumentFixture(projectId, ["previous words", "alpha beta gamma delta", "following words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: `Join to ${direction === "next" ? "next" : "previous"} row` }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(expected);
+    await expect.poll(async () => page.locator(`[data-row-id="${seeded.rowIds[direction === "next" ? 2 : 0]}"] [data-narration-editor]`)
+      .evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Join selected words"]);
+    await page.getByRole("button", { name: "Undo Join selected words" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+      .toEqual(["previous words", "alpha beta gamma delta", "following words"]);
+    await page.close();
+  }, 90_000);
+
+  it("disables a join across a section break with an explanation and leaves Undo untouched", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Cross section selection");
+    const seeded = multiNarrationDocumentFixture(projectId, ["before heading", "alpha beta gamma", "after words"]);
+    const sectionId = randomUUID();
+    seeded.document.activeDraft.blocks.splice(1, 0, {
+      type: "section", id: sectionId, orderKey: `section-${sectionId}`, title: "Another section", version: 1,
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await selectText(editor, 0, "alpha beta".length);
+    const join = page.getByRole("button", { name: /Join to previous row/u });
+    await expect.poll(async () => join.isVisible()).toBe(true);
+    expect(await join.isDisabled()).toBe(true);
+    expect(await join.getAttribute("title")).toBe("Rows cannot be joined across a section break.");
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await page.getByRole("button", { name: "Split into new row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+      .toEqual(["before heading", "alpha beta", "gamma", "after words"]);
+    await page.getByRole("button", { name: "Undo Split selection" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+      .toEqual(["before heading", "alpha beta gamma", "after words"]);
+    await page.close();
+  }, 90_000);
+
+  it("carries the anchored visual once and keeps stage directions at their start-word boundary", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual selection carry");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot", true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 0, "alpha beta gamma delta echo".length);
+    await page.getByRole("button", { name: "Split into new row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+      .toEqual(["alpha beta gamma delta echo", "foxtrot"]);
+    const rows = await narrationRowsFromApi(page, projectId);
+    const anchored = rows.filter((row) => row.primaryVisualSequence?.slots.some((slot) =>
+      slot.kind === "content" && slot.boundaryBefore?.kind === "spoken_word" && slot.boundaryBefore.anchor.tokenId === seeded.anchorTokenId));
+    expect(anchored).toHaveLength(1);
+    expect(anchored[0]?.text).toBe("alpha beta gamma delta echo");
+    const visualIds = rows.flatMap((row) => row.primaryVisualSequence?.slots
+      .filter((slot) => slot.kind === "content").map((slot) => slot.id) ?? []);
+    expect(new Set(visualIds).size).toBe(visualIds.length);
+    await page.getByRole("button", { name: "Undo Split selection" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(1);
+    await page.close();
+
+    const stagePage = await context.newPage();
+    const stageId = await createProject(stagePage, origin, "Stage selection boundary");
+    const stage = multiNarrationDocumentFixture(stageId, ["before row", "alpha [quiet wind] omega", "after row"]);
+    const stageRow = stage.document.activeDraft.blocks.find((block) => block.id === stage.rowIds[1]);
+    if (!stageRow || stageRow.type !== "narration") throw new Error("missing stage row");
+    stageRow.tokens = stageRow.tokens.map((token) => ({ ...token, ...(token.value === "quiet" || token.value === "wind" ? { spoken: false } : {}) }));
+    await saveDocumentFixture(stagePage, stageId, stage.document);
+    await stagePage.goto(`${origin}/?project=${stageId}`);
+    const stageEditor = stagePage.locator(`[data-row-id="${stage.rowIds[1]}"] [data-narration-editor]`);
+    await selectText(stageEditor, 0, "alpha [quiet".length);
+    await stagePage.getByRole("button", { name: "Split into new row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(stagePage, stageId)).map((row) => row.text))
+      .toEqual(["before row", "alpha [quiet wind]", "omega", "after row"]);
+    const moved = (await narrationRowsFromApi(stagePage, stageId))[1]!;
+    expect(moved.tokens.filter((token) => token.spoken === false).map((token) => token.value)).toEqual(["quiet", "wind"]);
+    await stagePage.getByRole("button", { name: "Undo Split selection" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(stagePage, stageId)).length).toBe(3);
+    await selectText(stageEditor, "alpha [quiet ".length, "alpha [quiet wind] omega".length);
+    await stagePage.getByRole("button", { name: "Split into new row" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(stagePage, stageId)).map((row) => row.text))
+      .toEqual(["before row", "alpha [quiet wind]", "omega", "after row"]);
+    const unchanged = await narrationRowFromApi(stagePage, stageId, stage.rowIds[1]!);
+    expect(unchanged?.text).toBe("alpha [quiet wind]");
+    expect(unchanged?.tokens.filter((token) => token.spoken === false).map((token) => token.value)).toEqual(["quiet", "wind"]);
+    await stagePage.getByRole("button", { name: "Undo Split selection" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(stagePage, stageId)).length).toBe(3);
+    await stagePage.close();
+  }, 90_000);
+
   it("converts a selected narration passage to a stage direction and undoes it", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

@@ -329,6 +329,39 @@ function selectedAction(row, selection) {
   return null;
 }
 
+/** Mirror the model's stage-direction boundary snapping before offering row actions. */
+function selectionWords(row, selection) {
+  if (row.plainDirection || !Array.isArray(row.tokens)) return null;
+  const range = textRangeForSelection(row, selection);
+  if (!range) return null;
+  const runs = directionRuns(row);
+  const snap = (boundary) => runs.find((run) =>
+    run.startIndex < boundary && boundary < run.endIndexExclusive)?.endIndexExclusive ?? boundary;
+  const from = snap(range.firstIndex);
+  const to = snap(range.lastIndex + 1);
+  if (from >= to) return null;
+  return { from, to, first: from === 0, last: to === row.tokens.length };
+}
+
+function selectionRowActions(row, selection, documentModel) {
+  const range = selectionWords(row, selection);
+  if (!range || !range.first && !range.last) return [];
+  const blocks = documentModel?.activeDraft?.blocks ?? [];
+  const index = blocks.findIndex((block) => block.id === row.id);
+  if (index < 0) return [];
+  const options = [];
+  if (!(range.first && range.last)) options.push({ kind: "split_row" });
+  for (const [direction, edge, neighbour] of [
+    ["previous", range.first, blocks[index - 1]],
+    ["next", range.last, blocks[index + 1]],
+  ]) {
+    if (!edge || !neighbour) continue;
+    if (neighbour.type === "section") options.push({ kind: `join_${direction}`, disabled: true });
+    else if (neighbour.type === "narration") options.push({ kind: `join_${direction}` });
+  }
+  return options;
+}
+
 function directionDelimiterAt(row, start, end, text) {
   if (end - start !== 1) return null;
   const removed = text.slice(start, end);
@@ -423,7 +456,19 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   stageButton.type = "button";
   const spokenButton = element(document, "button", "narration-editor__action", "Make spoken");
   spokenButton.type = "button";
-  actions.append(stageButton, spokenButton);
+  const actionDivider = element(document, "span", "narration-editor__divider");
+  actionDivider.setAttribute("aria-hidden", "true");
+  const rowButtons = [
+    ["split_row", "Split into new row"],
+    ["join_previous", "Join to previous row"],
+    ["join_next", "Join to next row"],
+  ].map(([kind, label]) => {
+    const button = element(document, "button", "narration-editor__action", label);
+    button.type = "button";
+    button.dataset.rowSelectionAction = kind;
+    return button;
+  });
+  actions.append(stageButton, spokenButton, actionDivider, ...rowButtons);
   root.replaceChildren(editor, actions, hint);
 
   let knownText = typeof row.text === "string" ? row.text : "";
@@ -443,9 +488,19 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function updateActions() {
     const action = selectedAction(localRow, savedSelection);
-    actions.hidden = !action;
+    const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
+    actions.hidden = !action && rowActions.length === 0;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
+    actionDivider.hidden = !action || rowActions.length === 0;
+    rowButtons.forEach((button) => {
+      const option = rowActions.find((entry) => entry.kind === button.dataset.rowSelectionAction);
+      button.hidden = !option;
+      button.disabled = option?.disabled === true;
+      button.title = option?.disabled ? "Rows cannot be joined across a section break." : "";
+      if (option?.disabled) button.setAttribute("aria-label", `${button.textContent} — unavailable across a section break`);
+      else button.removeAttribute("aria-label");
+    });
     if (!action) return;
     const quoted = action.text.trim().replace(/\s+/gu, " ").slice(0, 80);
     const suffix = quoted ? ` for “${quoted}”` : "";
@@ -713,6 +768,39 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     actions.hidden = true;
   }
 
+  function performRowSelection(kind) {
+    if (editingBlocked || composing || !savedSelection) return;
+    const selection = { ...savedSelection };
+    const options = selectionRowActions(localRow, selection, scriptDocument);
+    if (!options.some((option) => option.kind === kind && !option.disabled)) return;
+    const before = localRow;
+    const newRowId = newId();
+    const index = scriptDocument.activeDraft.blocks.findIndex((block) => block.id === before.id);
+    const neighbour = scriptDocument.activeDraft.blocks[index + (kind === "join_previous" ? -1 : 1)];
+    const focusAfter = kind === "split_row" ? { rowId: newRowId, offset: 0 }
+      : { rowId: neighbour.id, offset: kind === "join_previous" ? neighbour.text.length : 0 };
+    // Use the committed model's IDs, never IDs from the optimistic tokenizer.
+    // Resolution runs in app.js after earlier queued typing has committed.
+    const intent = (latest) => {
+      const actual = latest.activeDraft.blocks.find((block) => block.id === before.id);
+      if (!actual || actual.type !== "narration") throw new Error("The selected row changed.");
+      const current = selectionWords(actual, selection);
+      const allowed = selectionRowActions(actual, selection, latest);
+      if (!current || !allowed.some((option) => option.kind === kind && !option.disabled)) {
+        throw new Error("The selection is no longer available.");
+      }
+      const words = { startTokenId: actual.tokens[current.from].id, endTokenId: actual.tokens[current.to - 1].id };
+      return kind === "split_row" ? { kind, rowId: before.id, newRowId, at: words }
+        : { kind: "join_rows", rowId: before.id, direction: kind === "join_previous" ? "previous" : "next", words };
+    };
+    const label = kind === "split_row" ? "Split selection" : "Join selected words";
+    void dispatch(intent, label, before, { structural: true, focusAfter }).then((accepted) => {
+      if (!accepted) editingBlocked = false;
+    });
+    editingBlocked = true;
+    actions.hidden = true;
+  }
+
   function preserveActionSelection(event) {
     event.preventDefault();
     currentSelection();
@@ -785,6 +873,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   stageButton.addEventListener("click", activateAction);
   spokenButton.addEventListener("click", activateAction);
+  const rowActionListeners = rowButtons.map((button) => {
+    const onClick = () => performRowSelection(button.dataset.rowSelectionAction);
+    button.addEventListener("mousedown", preserveActionSelection);
+    button.addEventListener("click", onClick);
+    return { button, onClick };
+  });
   document.addEventListener("selectionchange", onSelectionChange);
 
   return () => {
@@ -802,6 +896,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     spokenButton.removeEventListener("mousedown", preserveActionSelection);
     stageButton.removeEventListener("click", activateAction);
     spokenButton.removeEventListener("click", activateAction);
+    for (const { button, onClick } of rowActionListeners) {
+      button.removeEventListener("mousedown", preserveActionSelection);
+      button.removeEventListener("click", onClick);
+    }
     if (composing && typeof compositionChange === "function") compositionChange(row.id, false);
   };
 }
