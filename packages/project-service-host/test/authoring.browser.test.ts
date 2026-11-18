@@ -212,6 +212,26 @@ function onCameraDocumentFixture(projectId: string, arrangement: "after-still" |
   return { ...seeded, firstCameraSlotId: first.id, lastCameraSlotId: last.id };
 }
 
+function foldedLetterRangeFixture(projectId: string) {
+  const seeded = editableDocumentFixture(projectId,
+    "A folded letter sat inside the sleeve for months. I think this was meant for whoever came next. The archivist placed a blank card beside it.");
+  const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+  if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing narration sequence");
+  const first = row.primaryVisualSequence.slots[0];
+  if (first?.kind !== "content" || first.payload.kind !== "visual") throw new Error("missing first still");
+  const anchor = (index: number) => ({
+    kind: "spoken_word" as const,
+    anchor: { blockId: row.id, tokenId: row.tokens[index]!.id, affinity: "before" as const,
+      quotedWord: row.tokens[index]!.value, anchorVersion: 1 },
+  });
+  const oc = { ...first, id: randomUUID(), relation: { kind: "sequential" as const },
+    boundaryBefore: anchor(9), payload: { kind: "on_camera" as const, presenterChoiceId: null, framing: "tight" as const } };
+  const second = { ...first, id: randomUUID(), relation: { kind: "sequential" as const },
+    boundaryBefore: anchor(18), payload: { ...first.payload, payloadId: randomUUID() } };
+  row.primaryVisualSequence.slots = [first, oc, second];
+  return { ...seeded, firstSlotId: first.id, cameraSlotId: oc.id, secondSlotId: second.id };
+}
+
 function multiNarrationDocumentFixture(
   projectId: string,
   texts: readonly string[],
@@ -1538,6 +1558,123 @@ describe("browser authoring over the local project service", () => {
     const reloadedRow = page.locator(`[data-row-id="${seeded.rowId}"]`);
     await expect.poll(async () => await editorText(reloadedRow.locator("[data-narration-editor]"))).toBe(initialText);
     expect(await reloadedRow.locator(".visual-card").count()).toBe(2);
+    await page.close();
+  }, 90_000);
+
+  it("adjusts Folded Letter brackets by keyboard and pointer; whole OC crosses in one Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Folded Letter bracket controls");
+    const seeded = foldedLetterRangeFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const end = row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="end"]`);
+    const second = row.locator(`[data-range-slot="${seeded.secondSlotId}"][data-range-edge="start"]`);
+    await expect(end).toHaveAttribute("data-word-index", "9");
+    await expect(second).toHaveAttribute("data-word-index", "18");
+    expect(await editorText(editor)).toBe(seeded.firstRowText);
+    expect(await row.locator(".narration-range-overlay").getAttribute("contenteditable")).toBe("false");
+    const originalRow = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!originalRow?.primaryVisualSequence) throw new Error("missing original Folded Letter sequence");
+    const originalSequence = originalRow.primaryVisualSequence;
+
+    // Keyboard arrows only preview. Enter sends exactly one range command.
+    await end.focus();
+    await end.press("ArrowLeft");
+    await expect(end).toHaveAttribute("data-word-index", "8");
+    expect(await narrationRowFromApi(page, projectId, seeded.rowId)).toEqual(originalRow);
+    await end.press("Enter");
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.version).toBe(originalSequence.version + 1);
+    const narrowed = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(narrowed?.primaryVisualSequence?.slots.find((slot) => slot.id === seeded.secondSlotId))
+      .toEqual(originalSequence.slots.find((slot) => slot.id === seeded.secondSlotId));
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const projected = await appRequest(page, "/authoring/projection", "POST", { document: saved.document });
+    const projectedRow = (projected.body as { projection: { rows: Array<{ blockId: string; cards: Array<{
+      kind: string; framing: string | null; startTokenIndex: number | null; endTokenIndexExclusive: number | null;
+    }> }> } }).projection.rows.find((item) => item.blockId === seeded.rowId);
+    expect(projectedRow?.cards.map((item) => [item.kind, item.startTokenIndex, item.endTokenIndexExclusive]))
+      .toEqual([["visual", 0, 8], ["on_camera", 8, 18], ["visual", 18, 26]]);
+    expect(projectedRow?.cards[1]?.framing).toBe("tight");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Adjust visual range"]);
+    await page.getByRole("button", { name: "Undo Adjust visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(originalSequence);
+    await expect(end).toHaveAttribute("data-word-index", "9");
+
+    // Pointer snapping reaches the last OC word; the model removes that whole
+    // passage without shifting the untouched second still.
+    const target = await editor.evaluate((node, offset) => {
+      const walker = node.ownerDocument.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let remaining = offset;
+      let text = walker.nextNode();
+      while (text && remaining > (text.textContent?.length ?? 0)) {
+        remaining -= text.textContent?.length ?? 0;
+        text = walker.nextNode();
+      }
+      if (!text) throw new Error("missing target word");
+      const range = node.ownerDocument.createRange();
+      range.setStart(text, remaining);
+      range.collapse(true);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x, y: rect.y + rect.height / 2 };
+    }, originalRow.tokens[17]!.endOffset);
+    const bounds = await end.boundingBox();
+    if (!bounds) throw new Error("bracket has no pointer target");
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x, target.y, { steps: 10 });
+    await expect(end).toHaveAttribute("data-word-index", "18");
+    await page.mouse.up();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.version).toBe(originalSequence.version + 1);
+    const expanded = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(expanded?.primaryVisualSequence?.slots.some((slot) => slot.id === seeded.cameraSlotId)).toBe(false);
+    expect(expanded?.primaryVisualSequence?.slots.find((slot) => slot.id === seeded.secondSlotId))
+      .toEqual(originalSequence.slots.find((slot) => slot.id === seeded.secondSlotId));
+    expect(await row.locator('.visual-card[data-kind="on-camera"]').count()).toBe(0);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Adjust visual range"]);
+    await page.getByRole("button", { name: "Undo Adjust visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(originalSequence);
+    expect(await editorText(editor)).toBe(seeded.firstRowText);
+
+    // Bracket decorations don't enter the editable UTF-16 text or selection.
+    await selectText(editor, 2, 15);
+    expect(await editor.evaluate((node) => node.ownerDocument.getSelection()?.toString())).toBe("folded letter");
+    expect(await editorText(editor)).toBe(seeded.firstRowText);
+    await page.close();
+  }, 90_000);
+
+  it("keeps punctuation and UTF-16 caret offsets editable underneath non-text brackets", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Unicode bracket narration");
+    const text = "Raincoat 🧥 glows. The child found a chalk-crescent beside the workbench!";
+    const seeded = editableDocumentFixture(projectId, text);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const lastHandle = row.locator('[data-range-edge="end"]');
+    await lastHandle.waitFor({ state: "visible" });
+    expect(await editorText(editor)).toBe(text);
+    const emojiStart = text.indexOf("🧥");
+    await selectText(editor, emojiStart, emojiStart + 2);
+    expect(await editor.evaluate((node) => node.ownerDocument.getSelection()?.toString())).toBe("🧥");
+    await lastHandle.focus();
+    await lastHandle.press("ArrowLeft");
+    await lastHandle.press("Escape");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await placeCaret(editor, emojiStart + 2);
+    await editor.press("x");
+    const changed = text.slice(0, emojiStart + 2) + "x" + text.slice(emojiStart + 2);
+    await waitForNarrationText(page, projectId, seeded.rowId, changed);
+    expect(await editorText(editor)).toBe(changed);
     await page.close();
   }, 90_000);
 

@@ -146,6 +146,11 @@ function renderEditor() {
     slotId: active.closest("[data-slot-id]")?.dataset.slotId,
     framing: active.dataset.visualFraming,
   } : null;
+  const bracketFocus = active?.matches("[data-range-slot]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.dataset.rangeSlot,
+    edge: active.dataset.rangeEdge,
+  } : null;
   let caret = null;
   if (rowId && document.getSelection()?.rangeCount) {
     const selection = document.getSelection().getRangeAt(0);
@@ -163,6 +168,8 @@ function renderEditor() {
   });
   root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
     narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
+      projection: projectedPrimaryRow(cell.closest("[data-row-id]")?.dataset.rowId),
+      visualCommand: queueVisualCommand,
       compositionChange(rowId, active) {
         if (active) composingRows.add(rowId);
         else { composingRows.delete(rowId); scheduleRender(); }
@@ -195,6 +202,12 @@ function renderEditor() {
       item.closest("[data-row-id]")?.dataset.rowId === framingFocus.rowId &&
       item.closest("[data-slot-id]")?.dataset.slotId === framingFocus.slotId);
     button?.focus();
+  }
+  if (bracketFocus) {
+    const handle = [...root.querySelectorAll("[data-range-slot]")].find((item) =>
+      item.dataset.rangeSlot === bracketFocus.slotId && item.dataset.rangeEdge === bracketFocus.edge &&
+      item.closest("[data-row-id]")?.dataset.rowId === bracketFocus.rowId);
+    handle?.focus();
   }
 }
 

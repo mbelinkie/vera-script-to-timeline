@@ -6,6 +6,67 @@
   cursor: text;
 }
 
+.narration-editor__surface {
+  position: relative;
+  min-width: 0;
+}
+
+.narration-range-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* D144: a 3px bracket inset with about 6px of forgiving vertical target.
+   The button lives outside contenteditable, so no glyph or handle is saved. */
+.narration-range-handle {
+  position: absolute;
+  width: 14px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0 0 0 -7px;
+  border: 0;
+  background: transparent;
+  color: #9d7032;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.narration-range-handle::before {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  width: 3px;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
+
+.narration-range-handle--start::before {
+  left: 3px;
+  border-left: 2px solid currentColor;
+}
+
+.narration-range-handle--end::before {
+  right: 3px;
+  border-right: 2px solid currentColor;
+}
+
+.narration-range-handle[data-pending="true"],
+.narration-range-handle:focus-visible {
+  color: #1e7182;
+}
+
+.narration-range-handle:focus-visible {
+  outline: 2px solid #1e7182;
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
 .narration-editor:focus {
   outline: 2px solid #c49b50;
   outline-offset: 3px;

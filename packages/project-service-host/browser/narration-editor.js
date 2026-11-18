@@ -1,4 +1,5 @@
 import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+import { moveVisualBracket, proposeVisualRange, stepVisualBracket } from "./range-proposal.js";
 
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
 
@@ -430,12 +431,190 @@ function deletionRange(event, editor, oldText) {
   return range;
 }
 
+/** Range handles live above the editable text, never inside its DOM or offsets. */
+function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
+  if (!projectedRow?.renderable || !projectedRow.brackets?.length ||
+      typeof visualCommand !== "function") return () => undefined;
+  const words = projectedRow.tokens;
+  const byId = new Map(row.tokens.filter((token) => token.spoken !== false).map((token) => [token.id, token]));
+  if (!words.length || words.some((word) => !byId.has(word.tokenId))) return () => undefined;
+  const document = editor.ownerDocument;
+  const overlay = element(document, "div", "narration-range-overlay");
+  overlay.setAttribute("aria-label", "Visual range brackets");
+  overlay.contentEditable = "false";
+  const handles = [];
+  let mounted = true;
+  let pending = null;
+  let dragging = null;
+
+  function boundary(index, edge) {
+    const word = words[edge === "start" ? index : index - 1];
+    const token = byId.get(word?.tokenId);
+    if (!token) return null;
+    const offset = edge === "start" ? token.startOffset : token.endOffset;
+    const point = pointAtTextOffset(editor, offset);
+    const range = document.createRange();
+    range.setStart(point.node, point.offset);
+    range.collapse(true);
+    const box = range.getBoundingClientRect();
+    if (!box.height) return null;
+    return { x: box.left, y: box.top, height: box.height };
+  }
+
+  function positions() {
+    if (!mounted) return;
+    const container = surface.getBoundingClientRect();
+    for (const { bracket, edge, button } of handles) {
+      const selected = pending?.slotId === bracket.slotId ? pending.range : {
+        startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+      };
+      const index = edge === "start" ? selected.startIndex : selected.endIndexExclusive;
+      const box = boundary(index, edge);
+      if (!box) { button.hidden = true; continue; }
+      button.hidden = false;
+      button.style.left = `${box.x - container.left}px`;
+      button.style.top = `${box.y - container.top - 6}px`;
+      button.style.height = `${box.height + 12}px`;
+      button.dataset.wordIndex = String(index);
+      button.dataset.pending = String(pending?.slotId === bracket.slotId);
+      button.setAttribute("aria-valuenow", String(index));
+      button.setAttribute("aria-valuetext", `${edge === "start" ? "Starts" : "Ends"} at word ${edge === "start" ? index + 1 : index} of ${words.length}`);
+    }
+  }
+
+  function setPending(bracket, edge, range) {
+    pending = { slotId: bracket.slotId, edge, range };
+    positions();
+  }
+
+  function reset() {
+    pending = null;
+    dragging = null;
+    positions();
+  }
+
+  function commit(bracket) {
+    const selection = pending?.slotId === bracket.slotId ? pending.range : null;
+    reset();
+    if (!selection) return;
+    const proposal = proposeVisualRange(projectedRow, bracket.slotId, selection.startIndex, selection.endIndexExclusive);
+    if (!proposal.ok) return;
+    // A queued text edit may have arrived while the pointer was down. Refuse
+    // stale gestures instead of substituting newer token identities.
+    void visualCommand((latest) => {
+      const actual = latest.activeDraft.blocks.find((block) => block.id === row.id);
+      if (actual?.type !== "narration" || actual.text !== row.text ||
+          actual.primaryVisualSequence?.version !== row.primaryVisualSequence?.version ||
+          !actual.tokens.some((token) => token.id === proposal.setCommand.startTokenId) ||
+          !actual.tokens.some((token) => token.id === proposal.setCommand.endTokenId)) {
+        throw new Error("The narration changed; adjust this bracket again.");
+      }
+      return proposal.setCommand;
+    }, "Adjust visual range");
+  }
+
+  function nearestBoundary(edge, x, y) {
+    const min = edge === "start" ? 0 : 1;
+    const max = edge === "start" ? words.length - 1 : words.length;
+    let chosen = min;
+    let distance = Infinity;
+    for (let index = min; index <= max; index += 1) {
+      const point = boundary(index, edge);
+      if (!point) continue;
+      const dx = x - point.x;
+      const dy = y - (point.y + point.height / 2);
+      const score = dx * dx + dy * dy * 4;
+      if (score < distance) { distance = score; chosen = index; }
+    }
+    return chosen;
+  }
+
+  for (const bracket of projectedRow.brackets) {
+    if (!Number.isInteger(bracket.startTokenIndex) || !Number.isInteger(bracket.endTokenIndexExclusive) ||
+        bracket.startTokenIndex < 0 || bracket.endTokenIndexExclusive > words.length ||
+        bracket.startTokenIndex >= bracket.endTokenIndexExclusive) continue;
+    for (const edge of ["start", "end"]) {
+      const button = element(document, "button", `narration-range-handle narration-range-handle--${edge}`);
+      button.type = "button";
+      button.dataset.rangeSlot = bracket.slotId;
+      button.dataset.rangeEdge = edge;
+      button.setAttribute("role", "slider");
+      button.setAttribute("aria-label", `${edge === "start" ? "Start" : "End"} bracket for visual ${projectedRow.brackets.indexOf(bracket) + 1}`);
+      button.setAttribute("aria-valuemin", String(edge === "start" ? 0 : 1));
+      button.setAttribute("aria-valuemax", String(edge === "start" ? words.length - 1 : words.length));
+      button.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight Home End Enter Escape");
+      button.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !mounted) return;
+        event.preventDefault();
+        event.stopPropagation();
+        button.focus();
+        dragging = { pointerId: event.pointerId, bracket, edge };
+        setPending(bracket, edge, {
+          startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+        });
+        button.setPointerCapture(event.pointerId);
+      });
+      button.addEventListener("pointermove", (event) => {
+        if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
+        event.preventDefault();
+        const index = nearestBoundary(edge, event.clientX, event.clientY);
+        setPending(bracket, edge, moveVisualBracket({
+          startTokenIndex: pending.range.startIndex, endTokenIndexExclusive: pending.range.endIndexExclusive,
+        }, edge, index, words.length));
+      });
+      button.addEventListener("pointerup", (event) => {
+        if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
+        event.preventDefault();
+        if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+        commit(bracket);
+      });
+      button.addEventListener("pointercancel", reset);
+      button.addEventListener("lostpointercapture", () => { if (dragging?.bracket === bracket) reset(); });
+      button.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault(); event.stopPropagation(); reset(); return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault(); event.stopPropagation(); commit(bracket); return;
+        }
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        const current = pending?.slotId === bracket.slotId ? pending.range : {
+          startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+        };
+        const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 :
+          event.key === "Home" ? -words.length : words.length;
+        setPending(bracket, edge, stepVisualBracket({
+          startTokenIndex: current.startIndex, endTokenIndexExclusive: current.endIndexExclusive,
+        }, edge, delta, words.length));
+      });
+      button.addEventListener("blur", () => { if (!dragging && pending?.slotId === bracket.slotId) reset(); });
+      overlay.append(button);
+      handles.push({ bracket, edge, button });
+    }
+  }
+  surface.append(overlay);
+  const observer = new ResizeObserver(positions);
+  observer.observe(surface);
+  const mutations = new MutationObserver(positions);
+  mutations.observe(editor, { childList: true, characterData: true, subtree: true });
+  document.defaultView?.addEventListener("resize", positions);
+  positions();
+  return () => {
+    mounted = false;
+    observer.disconnect();
+    mutations.disconnect();
+    document.defaultView?.removeEventListener("resize", positions);
+    overlay.remove();
+  };
+}
+
 /** Install the writing controls for one existing narration cell. */
 export function mountNarration(root, scriptDocument, command, options = {}) {
   if (!root || !root.ownerDocument || typeof command !== "function") return () => undefined;
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
-  const { compositionChange, requestRender } = options && typeof options === "object" ? options : {};
+  const { compositionChange, requestRender, projection, visualCommand } = options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
   editor.dataset.narrationEditor = "true";
@@ -469,7 +648,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     return button;
   });
   actions.append(stageButton, spokenButton, actionDivider, ...rowButtons);
-  root.replaceChildren(editor, actions, hint);
+  const surface = element(document, "div", "narration-editor__surface");
+  surface.append(editor);
+  root.replaceChildren(surface, actions, hint);
+  const unmountBrackets = mountRangeBrackets(surface, editor, row, projection, visualCommand);
 
   let knownText = typeof row.text === "string" ? row.text : "";
   let localRow = { ...row, tokens: Array.isArray(row.tokens) ? row.tokens.map((token) => ({ ...token })) : [] };
@@ -901,6 +1083,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   return () => {
     mounted = false;
+    unmountBrackets();
     editor.removeEventListener("beforeinput", onBeforeInput);
     editor.removeEventListener("input", fallbackInput);
     editor.removeEventListener("compositionstart", onCompositionStart);
