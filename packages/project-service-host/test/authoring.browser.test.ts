@@ -687,6 +687,110 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("keeps a refused narration draft visible, then recovers after explicit discard", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Narration refusal recovery project");
+    const initialText = "keep the original narration";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    let commandRequests = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      commandRequests += 1;
+      if (commandRequests === 1) {
+        return await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            diagnostics: [{ code: "TEST_REFUSAL", message: "The test narration edit was refused." }],
+          }),
+        });
+      }
+      return await route.continue();
+    });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const refusedText = "this draft must remain visible";
+    await editor.fill(refusedText);
+    await expect.poll(async () => await page.locator("#save-status").textContent()).toContain("The test narration edit was refused.");
+    const discard = page.getByRole("button", { name: "Discard unsaved text" });
+    await discard.waitFor({ state: "visible" });
+    await expect.poll(async () => await discard.isEnabled()).toBe(true);
+    expect(await editorText(editor)).toBe(refusedText);
+    expect(commandRequests).toBe(1);
+
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await discard.click();
+    await discard.waitFor({ state: "hidden" });
+    await expect.poll(async () => await editorText(editor)).toBe(initialText);
+    await expect.poll(async () => await page.locator("#save-status").textContent()).toBe("Saved");
+
+    const recoveredText = "editing works after discard";
+    await editor.fill(recoveredText);
+    await waitForNarrationText(page, projectId, seeded.rowId, recoveredText);
+    expect(await editorText(editor)).toBe(recoveredText);
+    expect(commandRequests).toBe(2);
+    await page.close();
+  }, 90_000);
+
+  it("moves focus to the row's preview card when Escape leaves an edited narration cell", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Narration Escape focus project");
+    const seeded = editableDocumentFixture(projectId, "focus starts here");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const preview = row.locator(".visual-card").first();
+    await editor.fill("edited before Escape");
+    await waitForNarrationText(page, projectId, seeded.rowId, "edited before Escape");
+    await editor.focus();
+    await editor.press("Escape");
+    await expect.poll(async () => await page.evaluate(() => document.activeElement?.matches(".visual-card") ?? false)).toBe(true);
+    expect(await preview.evaluate((element) => document.activeElement === element)).toBe(true);
+    await page.close();
+  }, 90_000);
+
+  it("hides a stale stage-direction toolbar when the narration selection collapses", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Collapsed narration selection project");
+    const seeded = editableDocumentFixture(projectId, "select this passage");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    const stageButton = page.getByRole("button", { name: /^Make stage direction\b/u });
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    await stageButton.waitFor({ state: "visible" });
+
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      selection?.collapse(element, 0);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    await stageButton.waitFor({ state: "hidden" });
+    await page.close();
+  }, 90_000);
+
   it("keeps a stale tab's narration draft visible when another tab saves first", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const firstPage = await context.newPage();
@@ -1036,6 +1140,106 @@ describe("browser authoring over the local project service", () => {
     await waitForNarrationText(page, projectId, seeded.rowId, initialText);
     const restored = await narrationRowFromApi(page, projectId, seeded.rowId);
     expect(restored?.tokens.some((token) => token.spoken === false)).toBe(false);
+    await page.close();
+  }, 90_000);
+
+  it("types a bracketed cue into an empty row, then classifies its selected cue as a stage direction", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Empty bracketed cue project");
+    const seeded = editableDocumentFixture(projectId, "existing row");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const addRow = page.getByRole("button", { name: "Add row" }).last();
+    await addRow.scrollIntoViewIfNeeded();
+    await addRow.hover();
+    await addRow.click();
+    await waitForNarrationCount(page, projectId, 2);
+    const rows = await narrationRowsFromApi(page, projectId);
+    const emptyRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
+    expect(emptyRowId).toBeTruthy();
+    if (!emptyRowId) return;
+
+    const row = page.locator(`[data-row-id="${emptyRowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    await editor.click();
+    let typed = "";
+    for (const character of ["[", "c", "u", "e", "]"]) {
+      await page.keyboard.type(character);
+      typed += character;
+      await waitForNarrationText(page, projectId, emptyRowId, typed);
+    }
+    expect(await editorText(editor)).toBe("[cue]");
+
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      let cursor = 0;
+      const point = (wanted: number) => {
+        while (node && wanted > cursor + (node.textContent?.length ?? 0)) {
+          cursor += node.textContent?.length ?? 0;
+          node = walker.nextNode();
+        }
+        if (!node) throw new Error("cue selection exceeded rendered editor text");
+        return { node, offset: wanted - cursor };
+      };
+      const start = point(1);
+      const end = point(4);
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    const stageButton = page.getByRole("button", { name: /^Make stage direction\b/u });
+    await stageButton.waitFor({ state: "visible" });
+    await stageButton.click();
+    await waitForNarrationText(page, projectId, emptyRowId, "[cue]");
+    const classified = await narrationRowFromApi(page, projectId, emptyRowId);
+    expect(classified?.tokens.map((token) => [token.value, token.spoken])).toEqual([["cue", false]]);
+    await expect.poll(async () => await editor.locator(".narration-token--direction").allTextContents()).toEqual(["cue"]);
+    await page.close();
+  }, 90_000);
+
+  it("uses text/plain dataTransfer for native replacement input", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Native replacement project");
+    const seeded = editableDocumentFixture(projectId, "replace this passage");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    await editor.click();
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData("text/plain", "native replacement");
+      const event = new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertReplacementText",
+        data: null,
+      });
+      Object.defineProperty(event, "dataTransfer", { configurable: true, value: dataTransfer });
+      element.dispatchEvent(event);
+      if (!event.defaultPrevented) throw new Error("native replacement was not intercepted");
+    });
+    await waitForNarrationText(page, projectId, seeded.rowId, "native replacement");
+    const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(saved?.tokens.map((token) => token.value)).toEqual(["native", "replacement"]);
+    expect(await editorText(editor)).toBe("native replacement");
     await page.close();
   }, 90_000);
 });

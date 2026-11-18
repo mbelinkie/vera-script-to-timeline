@@ -275,6 +275,11 @@
   white-space: nowrap;
 }
 
+.row-range-toolbar__hint--error {
+  color: #8c302d;
+  font-weight: 700;
+}
+
 .row-range-toolbar button {
   flex: 0 0 auto;
   min-height: 1.65rem;

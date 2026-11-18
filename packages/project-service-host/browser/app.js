@@ -25,6 +25,7 @@ let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
 let editRefused = false;
+let refusedMessage = "";
 let renderRequested = false;
 let forceRender = false;
 let renderTimer;
@@ -176,12 +177,16 @@ function scheduleRender(force = false) {
   renderTimer = setTimeout(() => {
     renderTimer = undefined;
     if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
-    if (!forceRender && document.activeElement?.matches("[data-narration-editor]")) return;
+    if (!forceRender && element("script-rows").contains(document.activeElement)) return;
     renderRequested = false;
     forceRender = false;
     renderEditor();
   }, 0);
 }
+
+element("script-rows").addEventListener("focusout", () => {
+  if (renderRequested) setTimeout(() => scheduleRender(), 0);
+});
 
 async function saveDocument() {
   if (!project || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
@@ -236,10 +241,19 @@ function queueCommand(command, label, options = {}) {
     scheduleRender(options.structural);
     return true;
   }).catch((error) => {
-    if (options.expectedRow) editRefused = true;
-    setSaveStatus(error.message || "Edit could not be applied.");
+    if (options.expectedRow) {
+      editRefused = true;
+      refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
+      element("discard-edit").hidden = false;
+      element("discard-edit").disabled = true;
+    }
+    setSaveStatus(refusedMessage || error.message || "Edit could not be applied.");
     return false;
-  }).finally(() => { commandsPending -= 1; if (renderRequested) scheduleRender(); });
+  }).finally(() => {
+    commandsPending -= 1;
+    if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
+    if (renderRequested) scheduleRender();
+  });
   return commandQueue;
 }
 
@@ -272,7 +286,11 @@ function undo() {
     documentDirty = true;
     void saveDocument();
     scheduleRender(true);
-  }).finally(() => { commandsPending -= 1; if (renderRequested) scheduleRender(); });
+  }).finally(() => {
+    commandsPending -= 1;
+    if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
+    if (renderRequested) scheduleRender();
+  });
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
@@ -348,10 +366,24 @@ openForm.addEventListener("submit", (event) => {
 });
 
 function setSaveStatus(message, action) {
+  if (editRefused) message = refusedMessage;
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
 }
+
+element("discard-edit").addEventListener("click", () => {
+  if (!editRefused || commandsPending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
+  editRefused = false;
+  refusedMessage = "";
+  element("discard-edit").hidden = true;
+  forceRender = false;
+  renderRequested = false;
+  renderEditor();
+  if (conflicted) setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
+  else if (pendingDocument || documentDirty) setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
+  else setSaveStatus("Saved");
+});
 
 async function saveName() {
   clearTimeout(saveTimer);

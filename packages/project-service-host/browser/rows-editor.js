@@ -166,6 +166,7 @@ function makeRowActions(state, rowElement) {
   const label = rowLabel(row);
   const actions = state.root.ownerDocument.createElement("div");
   actions.className = "row-actions";
+  actions.dataset.rowActions = "true";
   actions.dataset.rowsEditorGenerated = "true";
 
   const trigger = button(state.root.ownerDocument, "", "⋯");
@@ -213,15 +214,16 @@ function makeRowActions(state, rowElement) {
 }
 
 function updateRowActions(state, selected) {
+  const groupSelected = !!state.range?.confirmed && selected.size > 1;
   for (const row of rowsInRoot(state.root)) {
     const isSelected = selected.has(row.dataset.rowId);
     row.classList.toggle("script-row--selected", isSelected);
     row.dataset.rangeSelected = String(isSelected);
     row.querySelectorAll("[data-row-range-action]").forEach((action) => {
-      action.hidden = !isSelected || !state.range?.confirmed;
+      action.hidden = !isSelected || !groupSelected;
     });
     row.querySelectorAll("[data-row-action='delete'], [data-row-action='select-range']").forEach((action) => {
-      action.hidden = isSelected && !!state.range?.confirmed;
+      action.hidden = isSelected && groupSelected;
     });
   }
 }
@@ -248,12 +250,19 @@ function updateRangeState(state) {
 
   const hint = state.root.ownerDocument.createElement("span");
   hint.className = "row-range-toolbar__hint";
+  if (state.range.message) hint.classList.add("row-range-toolbar__hint--error");
   hint.textContent = state.range.confirmed ? rangeSummary(state, ids) :
-    "Select the last row in the range. Escape cancels.";
+    state.range.message || "Select the last row in the range. Escape cancels.";
   toolbar.append(hint);
 
   if (ids.length > 0 && state.range.confirmed) {
-    const deleteButton = button(state.root.ownerDocument, "row-range-toolbar__delete", "Delete selected rows", "Delete group");
+    const isGroup = ids.length > 1;
+    const deleteButton = button(
+      state.root.ownerDocument,
+      "row-range-toolbar__delete",
+      isGroup ? "Delete selected rows" : "Delete selected row",
+      isGroup ? "Delete group" : "Delete row",
+    );
     deleteButton.dataset.rowRangeDelete = "true";
     toolbar.append(deleteButton);
   }
@@ -394,7 +403,7 @@ function randomId(state) {
 
 function beginRange(state, rowId) {
   if (!rowIndex(blocksOf(state.scriptDocument)).has(rowId)) return;
-  state.range = { anchorId: rowId, focusId: rowId, confirmed: false };
+  state.range = { anchorId: rowId, focusId: rowId, confirmed: false, message: "" };
   decorate(state);
   focusRow(state.root, rowId);
 }
@@ -402,9 +411,14 @@ function beginRange(state, rowId) {
 function finishPointerRange(state, rowId) {
   if (!state.range || !rowId) return;
   const ids = rowRange(blocksOf(state.scriptDocument), state.range.anchorId, rowId);
-  if (!ids) return;
+  if (!ids) {
+    state.range.message = "A range stays within one section. Choose a row in the same section.";
+    updateRangeState(state);
+    return;
+  }
   state.range.focusId = rowId;
   state.range.confirmed = true;
+  state.range.message = "";
   updateRangeState(state);
 }
 
@@ -415,6 +429,7 @@ function moveRangeFocus(state, direction) {
   if (!next) return;
   state.range.focusId = next.id;
   state.range.confirmed = false;
+  state.range.message = "";
   updateRangeState(state);
   focusRow(state.root, next.id);
 }
@@ -466,7 +481,8 @@ function handleClick(state, event) {
   const groupDelete = target.closest("[data-row-range-delete], [data-row-range-action='delete-group']");
   if (groupDelete) {
     const ids = currentRangeIds(state);
-    if (ids.length && confirmDelete(state, ids)) void emit(state, { kind: "delete_rows", rowIds: ids }, "Delete group");
+    const label = ids.length > 1 ? "Delete group" : "Delete row";
+    if (ids.length && confirmDelete(state, ids)) void emit(state, { kind: "delete_rows", rowIds: ids }, label);
     return;
   }
 
@@ -493,7 +509,7 @@ function handleKeydown(state, event) {
     }
     return;
   }
-  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu], [data-row-action-trigger]")) return;
+  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu], [data-row-action-trigger], .row-range-toolbar")) return;
   if (event.key === "ArrowUp") {
     event.preventDefault();
     moveRangeFocus(state, -1);
@@ -503,10 +519,21 @@ function handleKeydown(state, event) {
   } else if (event.key === "Enter") {
     event.preventDefault();
     state.range.confirmed = true;
+    state.range.message = "";
     updateRangeState(state);
     const ids = currentRangeIds(state);
     if (ids[0]) focusRowMenu(state.root, ids[0]);
   }
+}
+
+function handleDocumentPointerdown(state, event) {
+  if (!state.range?.confirmed) return;
+  const target = eventElement(event);
+  if (!target) return;
+  if (target.closest(".row-range-toolbar, .row-actions, [data-row-action-menu], [data-row-action-trigger]")) return;
+  const row = target.closest(".script-row");
+  if (row && currentRangeIds(state).includes(row.dataset.rowId)) return;
+  clearRange(state);
 }
 
 function handleDragstart(state, event) {
@@ -569,6 +596,7 @@ function handleDrop(state, event) {
 
 function install(state) {
   state.root.addEventListener("click", state.onClick);
+  state.root.ownerDocument.addEventListener("pointerdown", state.onDocumentPointerdown, true);
   state.root.addEventListener("keydown", state.onKeydown);
   state.root.addEventListener("dragstart", state.onDragstart);
   state.root.addEventListener("dragover", state.onDragover);
@@ -578,6 +606,7 @@ function install(state) {
 
 function uninstall(state) {
   state.root.removeEventListener("click", state.onClick);
+  state.root.ownerDocument.removeEventListener("pointerdown", state.onDocumentPointerdown, true);
   state.root.removeEventListener("keydown", state.onKeydown);
   state.root.removeEventListener("dragstart", state.onDragstart);
   state.root.removeEventListener("dragover", state.onDragover);
@@ -611,6 +640,7 @@ export function mountRowsEditor(root, scriptDocument, options = {}) {
       busy: false,
     };
     state.onClick = (event) => handleClick(state, event);
+    state.onDocumentPointerdown = (event) => handleDocumentPointerdown(state, event);
     state.onKeydown = (event) => handleKeydown(state, event);
     state.onDragstart = (event) => handleDragstart(state, event);
     state.onDragover = (event) => handleDragover(state, event);

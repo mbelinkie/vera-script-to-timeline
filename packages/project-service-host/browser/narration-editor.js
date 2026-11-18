@@ -154,7 +154,12 @@ function renderEditor(editor, row) {
 }
 
 function lexicalTokens(text, directionRanges = []) {
-  return [...text.matchAll(/[^\s[\]]+/gu)].map((match) => {
+  const words = [...text.matchAll(/[^\s[\]]+/gu)];
+  // Match the model's literal-punctuation fallback: when a row has no
+  // ordinary lexeme, standalone brackets remain editable token text instead
+  // of disappearing from the optimistic selection model.
+  const matches = words.length > 0 ? words : [...text.matchAll(/\S+/gu)];
+  return matches.map((match) => {
     const startOffset = match.index;
     const endOffset = startOffset + match[0].length;
     const direction = directionRanges.some(({ openOffset, closeOffset }) =>
@@ -176,9 +181,48 @@ function translateDirectionRanges(row, startOffset, endOffset, insertedText) {
   });
 }
 
+function normalizedTextEdit(row, startOffset, endOffset, insertedText) {
+  let editStart = startOffset;
+  let editEnd = endOffset;
+  let replacement = insertedText;
+  for (const { openOffset, closeOffset } of directionRuns(row)) {
+    if (openOffset < editStart && editEnd <= closeOffset) {
+      const inner = row.text.slice(openOffset + 1, editStart) + replacement + row.text.slice(editEnd, closeOffset);
+      if (!inner.trim()) {
+        editStart = openOffset;
+        editEnd = closeOffset + 1;
+        replacement = "";
+        continue;
+      }
+      if (editStart === openOffset + 1) {
+        replacement = replacement.trimStart();
+        if (!replacement) while (/\s/u.test(row.text[editEnd] ?? "")) editEnd += 1;
+      }
+      if (editEnd === closeOffset) {
+        replacement = replacement.trimEnd();
+        if (!replacement) while (/\s/u.test(row.text[editStart - 1] ?? "")) editStart -= 1;
+      }
+    }
+  }
+  return { startOffset: editStart, endOffset: editEnd, insertedText: replacement };
+}
+
 function localTextEdit(row, startOffset, endOffset, insertedText) {
-  const text = row.text.slice(0, startOffset) + insertedText + row.text.slice(endOffset);
-  const directions = translateDirectionRanges(row, startOffset, endOffset, insertedText);
+  const edit = normalizedTextEdit(row, startOffset, endOffset, insertedText);
+  const rawText = row.text.slice(0, edit.startOffset) + edit.insertedText + row.text.slice(edit.endOffset);
+  const text = rawText.trim() ? rawText : "";
+  const directions = translateDirectionRanges(row, edit.startOffset, edit.endOffset, edit.insertedText);
+  return { ...row, text, tokens: lexicalTokens(text, directions) };
+}
+
+function localSpokenEdit(row, run) {
+  const text = `${row.text.slice(0, run.openOffset)}${row.text.slice(run.openOffset + 1, run.closeOffset)}${row.text.slice(run.closeOffset + 1)}`;
+  const directions = directionRuns(row)
+    .filter((item) => item.openOffset !== run.openOffset || item.closeOffset !== run.closeOffset)
+    .map(({ openOffset, closeOffset }) => ({
+      openOffset: openOffset > run.closeOffset ? openOffset - 2 : openOffset,
+      closeOffset: closeOffset > run.closeOffset ? closeOffset - 2 : closeOffset,
+    }));
   return { ...row, text, tokens: lexicalTokens(text, directions) };
 }
 
@@ -188,6 +232,11 @@ function localStageEdit(row, action) {
       const next = { ...row, tokens: lexicalTokens(row.text).map((token) => ({ ...token, spoken: false })) };
       delete next.plainDirection;
       return next;
+    }
+    if (row.text[action.startOffset] === "[" && row.text[action.endOffset - 1] === "]") {
+      const directions = [...translateDirectionRanges(row, action.startOffset, action.endOffset, row.text.slice(action.startOffset, action.endOffset)),
+        { openOffset: action.startOffset, closeOffset: action.endOffset - 1 }];
+      return { ...row, tokens: lexicalTokens(row.text, directions) };
     }
     const text = `${row.text.slice(0, action.startOffset)}[${row.text.slice(action.startOffset, action.endOffset)}]${row.text.slice(action.endOffset)}`;
     const startOffset = action.startOffset;
@@ -200,11 +249,7 @@ function localStageEdit(row, action) {
     const run = directionRuns(row).find(({ openOffset, closeOffset }) =>
       openOffset === action.startOffset && closeOffset + 1 === action.endOffset);
     if (!run) return { ...row, plainDirection: undefined, tokens: lexicalTokens(row.text) };
-    const text = `${row.text.slice(0, run.openOffset)}${row.text.slice(run.openOffset + 1, run.closeOffset)}${row.text.slice(run.closeOffset + 1)}`;
-    return { ...row, text, tokens: lexicalTokens(text, directionRuns(row).filter((item) => item.openOffset !== run.openOffset).map(({ openOffset, closeOffset }) => ({
-      openOffset: openOffset > run.closeOffset ? openOffset - 2 : openOffset,
-      closeOffset: closeOffset > run.closeOffset ? closeOffset - 2 : closeOffset,
-    })))};
+    return localSpokenEdit(row, run);
   }
   return row;
 }
@@ -220,6 +265,16 @@ function textRangeForSelection(row, selection) {
     firstIndex: row.tokens.indexOf(selected[0]),
     lastIndex: row.tokens.indexOf(selected[selected.length - 1]),
   };
+}
+
+function includeLiteralDirectionPair(row, range) {
+  if (range.start <= 0 || range.end >= row.text.length ||
+      row.text[range.start - 1] !== "[" || row.text[range.end] !== "]") return range;
+  const expanded = { ...range, start: range.start - 1, end: range.end + 1 };
+  // Do not turn a nested or unmatched literal bracket sequence into a
+  // semantic pair; the model deliberately refuses those ranges.
+  if (row.text[expanded.start - 1] === "[" || row.text[expanded.end] === "]") return null;
+  return expanded;
 }
 
 function snapSelection(root, row, savedSelection) {
@@ -252,7 +307,16 @@ function selectedAction(row, selection) {
   }
   const chosen = row.tokens.slice(range.firstIndex, range.lastIndex + 1);
   if (chosen.length && chosen.every((token) => token.spoken !== false)) {
-    return { kind: "make_stage_direction", startOffset: range.start, endOffset: range.end, text: row.text.slice(range.start, range.end) };
+    if (chosen.some((token) => /[\[\]]/u.test(token.value))) return null;
+    // A stage selection may wrap one adjacent literal pair, but it must never
+    // reinterpret brackets embedded between otherwise spoken words.
+    if (/[\[\]]/u.test(row.text.slice(range.start, range.end))) return null;
+    const stageRange = includeLiteralDirectionPair(row, range);
+    if (!stageRange) return null;
+    const hasOpen = row.text[range.start - 1] === "[";
+    const hasClose = row.text[range.end] === "]";
+    if (hasOpen !== hasClose) return null;
+    return { kind: "make_stage_direction", startOffset: stageRange.start, endOffset: stageRange.end, text: row.text.slice(stageRange.start, stageRange.end) };
   }
   return null;
 }
@@ -361,6 +425,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   let savedSelection = null;
   let selectionGuard = false;
   let editingBlocked = false;
+  let mounted = true;
 
   function currentSelection() {
     const selection = rangeSelection(editor);
@@ -414,25 +479,40 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     if (startOffset < 0 || endOffset < startOffset || endOffset > oldText.length) return;
     const priorRow = localRow;
     const delimiterOffset = directionDelimiterAt(priorRow, startOffset, endOffset, oldText);
-    if (delimiterOffset !== null) {
+    if (delimiterOffset !== null && insertedText === "") {
       const run = directionRuns(priorRow).find(({ openOffset, closeOffset }) =>
         openOffset === delimiterOffset || closeOffset === delimiterOffset);
       if (!run) return;
       // The model's delimiter command removes only the paired brackets; the
       // words between them remain ordinary narration in the optimistic view.
-      const nextText = `${priorRow.text.slice(0, run.openOffset)}${priorRow.text.slice(run.openOffset + 1, run.closeOffset)}${priorRow.text.slice(run.closeOffset + 1)}`;
-      editor.textContent = nextText;
-      knownText = nextText;
-      localRow = localStageEdit(priorRow, { kind: "make_spoken", startOffset: run.openOffset, endOffset: run.closeOffset + 1 });
+      localRow = localSpokenEdit(priorRow, run);
+      knownText = localRow.text;
+      renderEditor(editor, localRow);
       setCaret(editor, startOffset <= run.openOffset ? startOffset : Math.max(0, startOffset - 2));
+      savedSelection = null;
+      updateActions();
       return dispatch({ kind: "delete_direction_delimiter", blockId: priorRow.id, offset: delimiterOffset }, "Remove stage direction", priorRow);
     }
     const nextText = oldText.slice(0, startOffset) + insertedText + oldText.slice(endOffset);
     if (nextText === oldText) return;
-    if ((editor.textContent ?? "") !== nextText) editor.textContent = nextText;
-    knownText = nextText;
     localRow = localTextEdit(priorRow, startOffset, endOffset, insertedText);
-    setCaret(editor, startOffset + insertedText.length);
+    // Match the model's direction-edge whitespace normalization and blank-row
+    // canonicalization before the next input is diffed against this draft.
+    if (localRow.text === priorRow.text) {
+      knownText = priorRow.text;
+      renderEditor(editor, priorRow);
+      const noOpEdit = normalizedTextEdit(priorRow, startOffset, endOffset, insertedText);
+      setCaret(editor, Math.min(noOpEdit.startOffset + noOpEdit.insertedText.length, priorRow.text.length));
+      savedSelection = null;
+      updateActions();
+      return;
+    }
+    knownText = localRow.text;
+    renderEditor(editor, localRow);
+    const localEdit = normalizedTextEdit(priorRow, startOffset, endOffset, insertedText);
+    setCaret(editor, Math.min(localEdit.startOffset + localEdit.insertedText.length, localRow.text.length));
+    savedSelection = null;
+    updateActions();
     return dispatch({
       kind: "edit_narration_text", rowId: priorRow.id, startOffset, endOffset, insertedText, editId: newId(),
     }, nextText === "" ? "Cleared narration" : label, priorRow);
@@ -466,7 +546,20 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const oldText = editor.textContent ?? "";
     const range = deletion ? deletionRange(event, editor, oldText) : targetRange(event, editor);
     if (!range) return;
-    const insertedText = insertion ? (event.data ?? (type === "insertLineBreak" || type === "insertParagraph" ? "\n" : "")) : "";
+    let insertedText = "";
+    if (insertion) {
+      insertedText = event.data;
+      if (insertedText === null || insertedText === undefined) {
+        if (type !== "insertReplacementText") return;
+        try {
+          const transferred = event.dataTransfer?.getData?.("text/plain");
+          if (typeof transferred !== "string" || !transferred) return;
+          insertedText = transferred;
+        } catch {
+          return;
+        }
+      }
+    }
     event.preventDefault();
     replaceText(range.startOffset, range.endOffset, insertedText);
   }
@@ -500,7 +593,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     localRow = localStageEdit(priorRow, action);
     knownText = localRow.text;
     renderEditor(editor, localRow);
-    if (action.kind === "make_stage_direction") setSelection(editor, action.startOffset + 1, action.endOffset + 1);
+    if (action.kind === "make_stage_direction") {
+      const existingPair = priorRow.text[action.startOffset] === "[" && priorRow.text[action.endOffset - 1] === "]";
+      setSelection(editor, action.startOffset + 1, existingPair ? action.endOffset - 1 : action.endOffset + 1);
+    }
     else if (action.kind === "make_spoken") {
       const removedPair = directionRuns(priorRow).some(({ openOffset, closeOffset }) =>
         openOffset === action.startOffset && closeOffset + 1 === action.endOffset);
@@ -522,7 +618,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function leaveText(event) {
-    if (event.key !== "Escape") return;
+    if (event.key !== "Escape" || composing) return;
     event.preventDefault();
     event.stopPropagation();
     editor.blur();
@@ -544,13 +640,24 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onBlur() {
     hint.hidden = true;
-    if (typeof requestRender === "function") requestRender();
+    const rowElement = root.closest("[data-row-id]");
+    const requestIfExternal = () => {
+      if (!mounted || rowElement?.contains(document.activeElement)) return;
+      savedSelection = null;
+      updateActions();
+      if (typeof requestRender === "function") requestRender();
+    };
+    // Let Escape/card and toolbar focus transitions settle before deciding
+    // whether the row is really leaving the editor.
+    queueMicrotask(requestIfExternal);
   }
 
   function onSelectionChange() {
     if (selectionGuard || !selectionInside(editor, document.getSelection())) return;
     const selection = rangeSelection(editor);
     if (!selection) {
+      const focusInEditor = document.activeElement === editor || editor.contains(document.activeElement);
+      if (focusInEditor) savedSelection = null;
       updateActions();
       return;
     }
@@ -575,6 +682,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   document.addEventListener("selectionchange", onSelectionChange);
 
   return () => {
+    mounted = false;
     editor.removeEventListener("beforeinput", onBeforeInput);
     editor.removeEventListener("input", fallbackInput);
     editor.removeEventListener("compositionstart", onCompositionStart);

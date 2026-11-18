@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   applyCommentOperationV2,
   applyRowEditV2,
+  applyStageDirectionEditV2,
   createCommentStateV2,
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
   deserializeCommentStateV2,
+  inspectStageDirectionsV2,
   projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
   serializeCommentStateV2,
@@ -799,6 +801,50 @@ describe("#580 strict atomic command gates", () => {
     const lastDeleted = pictureEdit(source, edit(13, 18, "", 2030));
     expect(lastDeleted.text).toBe("listen [soft] now");
     expect(lastDeleted.tokens[1]).toMatchObject({ id: id(101), spoken: false });
+  });
+
+  it("saves a lone literal bracket and keeps a completed pair spoken", () => {
+    const opened = pictureEdit(rowOf(""), edit(0, 0, "[", 2031));
+    expect(opened.text).toBe("[");
+    expect(opened.tokens).toMatchObject([{ value: "[", startOffset: 0, endOffset: 1 }]);
+    const word = pictureEdit(opened, edit(1, 1, "cue", 2032));
+    const closed = pictureEdit(word, edit(4, 4, "]", 2033));
+    expect(closed.text).toBe("[cue]");
+    expect(closed.tokens).toMatchObject([{ value: "cue", startOffset: 1, endOffset: 4 }]);
+    expect(closed.tokens[0]!.id).not.toBe(opened.tokens[0]!.id);
+    expect(closed.tokens).toEqual(word.tokens);
+    expect(inspectStageDirectionsV2(closed)).toEqual({ runs: [], issues: [] });
+    const classified = applyStageDirectionEditV2(documentOf(closed), closed.version, {
+      kind: "make_stage_direction", blockId: closed.id, startOffset: 0, endOffset: closed.text.length,
+    });
+    expect(classified.ok).toBe(true);
+    expect(editedRow(classified.document)).toMatchObject({ text: "[cue]", tokens: [{ ...closed.tokens[0], spoken: false }] });
+    const erased = pictureEdit(closed, edit(1, 4, "", 2038));
+    expect(erased.text).toBe("[]");
+    expect(erased.tokens).toMatchObject([{ value: "[]", startOffset: 0, endOffset: 2 }]);
+    expect(erased.tokens[0]!.id).not.toBe(closed.tokens[0]!.id);
+  });
+
+  it("edits literal brackets beside a direction without moving word anchors or semantic delimiters", () => {
+    const source = pictureRow("let the [soft voice] cues stay");
+    source.tokens[2]!.spoken = false;
+    source.tokens[3]!.spoken = false;
+    const wrapped = pictureEdit(source, edit(4, 7, "[the]", 2034));
+    expect(wrapped.text).toBe("let [the] [soft voice] cues stay");
+    expect(wrapped.tokens.map(({ id, value, spoken }) => ({ id, value, spoken }))).toEqual(
+      source.tokens.map(({ id, value, spoken }) => ({ id, value, spoken })),
+    );
+    expect(inspectStageDirectionsV2(wrapped)).toEqual({
+      runs: [{ startTokenIndex: 2, endTokenIndexExclusive: 4, openOffset: 10, closeOffset: 21 }], issues: [],
+    });
+    expect(wrapped.primaryVisualSequence).toEqual(source.primaryVisualSequence);
+    const unmatched = pictureEdit(wrapped, edit(4, 5, "", 2035));
+    expect(unmatched.text).toBe("let the] [soft voice] cues stay");
+    const unwrapped = pictureEdit(unmatched, edit(7, 8, "", 2036));
+    expect(unwrapped.text).toBe(source.text);
+    expect(unwrapped.tokens).toEqual(source.tokens);
+    expect(unwrapped.primaryVisualSequence).toEqual(source.primaryVisualSequence);
+    expect(plan(source, edit(13, 13, "[", 2037))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
   });
 
   it("preserves the first surviving fragment when splitting or joining a repeated non-Latin word", () => {
