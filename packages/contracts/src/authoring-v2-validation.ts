@@ -58,6 +58,42 @@ export function validateScriptDocumentV2(
       block.type === "narration" ? block.overlayEvents.map((event) => event.id) : [],
     ),
   );
+  const activeRows = document.activeDraft.blocks.filter((block): block is Exclude<DraftBlock, { type: "section" }> => block.type !== "section");
+  const audioSpans = new Map((document.rowAudioSpans ?? []).map((span) => [span.id, span] as const));
+  const validateAudioMatch = (
+    timing: { matchAudioDuration?: { cueId: string } },
+    pictureKind: string,
+    path: string,
+    blockId: string,
+  ): void => {
+    const match = timing.matchAudioDuration;
+    if (!match) return;
+    if (!["image", "capture", "graphic", "intentional_placeholder"].includes(pictureKind)) {
+      diagnostics.push({
+        code: "MUSIC_MATCH_INVALID",
+        message: "Only a still or other untimed visual can match a music cue.",
+        jsonPath: `${path}/visualOnlyTiming/matchAudioDuration`,
+        blockId,
+      });
+    }
+    const span = audioSpans.get(match.cueId);
+    const start = span ? activeRows.findIndex((row) => row.id === span.startRowId) : -1;
+    const end = span ? activeRows.findIndex((row) => row.id === span.endRowId) : -1;
+    const rowIndex = activeRows.findIndex((row) => row.id === blockId);
+    const startPosition = span ? document.activeDraft.blocks.findIndex((row) => row.id === span.startRowId) : -1;
+    const endPosition = span ? document.activeDraft.blocks.findIndex((row) => row.id === span.endRowId) : -1;
+    const crossesSection = startPosition >= 0 && endPosition >= startPosition &&
+      document.activeDraft.blocks.slice(startPosition, endPosition + 1).some((row) => row.type === "section");
+    if (!span || start < 0 || end < start || rowIndex < start || rowIndex > end || crossesSection) {
+      diagnostics.push({
+        code: "MUSIC_MATCH_INVALID",
+        message: "The matched music cue must exist and span this active visuals-only row.",
+        jsonPath: `${path}/visualOnlyTiming/matchAudioDuration/cueId`,
+        blockId,
+        entityId: match.cueId,
+      });
+    }
+  };
 
   const addId = (id: string, path: string, owner?: string): void => {
     const prior = ids.get(id);
@@ -306,6 +342,7 @@ export function validateScriptDocumentV2(
     const sourceId = row.payload.source.kind === "media_reference" ? row.payload.source.mediaReferenceId : undefined;
     validateBoundedResearch(row.researchClip, row.frameBinding,
       row.visualOnlyTiming.selectedSourceRange, row.payload.pictureKind, sourceId, path, row.id);
+    validateAudioMatch(row.visualOnlyTiming, row.payload.pictureKind, path, row.id);
     if (row.additionalVisuals?.length) {
       const payloadIds = new Set([row.payload.payloadId]);
       row.additionalVisuals.forEach((visual, index) => {
@@ -319,6 +356,7 @@ export function validateScriptDocumentV2(
         validateBoundedResearch(visual.researchClip, visual.frameBinding,
           visual.visualOnlyTiming.selectedSourceRange, visual.payload.pictureKind, mediaReferenceId,
           visualPath, row.id);
+        validateAudioMatch(visual.visualOnlyTiming, visual.payload.pictureKind, visualPath, row.id);
       });
     }
     if (row.stashOrigin?.originalAttachedNoteRowId && row.stashOrigin.kind !== "clip") {

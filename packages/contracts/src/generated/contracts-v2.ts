@@ -1074,6 +1074,12 @@ export interface AttachedFootageV2 {
 export interface VisualOnlyTimingV2 {
   kind: "visual_only";
   durationOverrideMs?: number;
+  /**
+   * Explicit opt-in to match this untimed visual's duration to one saved music cue. The fixed hold remains the fallback if the match is cleared.
+   */
+  matchAudioDuration?: {
+    cueId: string;
+  };
   selectedSourceRange?: {
     startFrame: number;
     durationFrames: number;

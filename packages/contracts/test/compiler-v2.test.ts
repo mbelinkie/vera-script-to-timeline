@@ -394,6 +394,15 @@ describe("#100 verified A5 music compilation", () => {
     expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 384 });
     expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 384 });
   });
+
+  it("does not guess a matched still duration from its fixed hold", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    row.visualOnlyTiming.matchAudioDuration = { cueId: doc.rowAudioSpans![0]!.id };
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("blocked");
+    expect(JSON.stringify(result.report.diagnostics)).toContain("independently resolved source duration");
+  });
 });
 
 function sharedPreparationFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {

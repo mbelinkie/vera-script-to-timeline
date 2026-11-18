@@ -417,6 +417,7 @@ function buildTimedRows(document: ScriptDocumentV2, dependencies: CompilerDepend
         const payload = visual?.payload ?? block.payload;
         let durationFrames: number;
         try {
+          if (timing.matchAudioDuration) throw new RangeError("The matched music cue has no independently resolved source duration; resolve its source window before building.");
           if (timing.selectedSourceRange) {
             const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === payload.payloadId);
             const sourceRate = descriptor ? rateFraction(descriptor.logicalSourceBounds.frameRate) : null;

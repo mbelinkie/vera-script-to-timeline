@@ -182,9 +182,14 @@ class SlotRelation3(TypedDict):
 type SlotRelation = SlotRelation1 | SlotRelation2 | SlotRelation3
 
 
+class MatchAudioDuration(TypedDict):
+    cueId: EntityId
+
+
 class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
+    matchAudioDuration: NotRequired[MatchAudioDuration]
     selectedSourceRange: NotRequired[SelectedSourceRange]
 
 

@@ -171,6 +171,10 @@ export type RowEditCommandV2 =
   /** Reorder the first and additional visuals together without changing their metadata. */
   | { kind: "reorder_visual_only"; rowId: string; payloadIds: string[] }
   | { kind: "set_visual_only_hold"; rowId: string; payloadId: string; holdSeconds: number }
+  /** Explicitly match or unmatch one untimed visual to one saved music cue. */
+  | { kind: "set_visual_only_audio_match"; rowId: string; payloadId: string; cueId: string | null }
+  /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
+  | { kind: "delete_row_audio_span"; cueId: string }
   | { kind: "create_row"; row: Row; destination: RowGapV2 }
   | { kind: "delete_rows"; rowIds: string[] }
   | SplitRowCommandV2
@@ -339,7 +343,11 @@ function documentUuids(value: unknown, result = new Set<string>()): Set<string> 
 }
 
 function validVisualOnlyCommand(value: unknown): boolean {
-  if (!plainObject(value) || !isJsonValue(value) || typeof value.rowId !== "string" || value.rowId.length === 0) return false;
+  if (!plainObject(value) || !isJsonValue(value)) return false;
+  if (value.kind === "delete_row_audio_span") {
+    return exactKeys(value, ["kind", "cueId"]) && typeof value.cueId === "string" && value.cueId.length > 0;
+  }
+  if (typeof value.rowId !== "string" || value.rowId.length === 0) return false;
   if (value.kind === "reorder_visual_only") {
     return exactKeys(value, ["kind", "rowId", "payloadIds"]) && rowIdsPayload(value.payloadIds) &&
       value.payloadIds.length > 1 && new Set(value.payloadIds).size === value.payloadIds.length;
@@ -347,6 +355,11 @@ function validVisualOnlyCommand(value: unknown): boolean {
   if (value.kind === "set_visual_only_hold") {
     return exactKeys(value, ["kind", "rowId", "payloadId", "holdSeconds"]) &&
       typeof value.payloadId === "string" && value.payloadId.length > 0 && typeof value.holdSeconds === "number";
+  }
+  if (value.kind === "set_visual_only_audio_match") {
+    return exactKeys(value, ["kind", "rowId", "payloadId", "cueId"]) &&
+      typeof value.payloadId === "string" && value.payloadId.length > 0 &&
+      (value.cueId === null || typeof value.cueId === "string" && value.cueId.length > 0);
   }
   return false;
 }
@@ -1397,7 +1410,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
-    if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order or hold command with a row and visual ID.");
+    if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "delete_row_audio_span") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order, hold, audio-match, or music-cue deletion command.");
     if (command.kind === "rename_visual_placement" && !validRenameVisualPlacementCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide one visual placement and a text name, with no extra fields.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if ((command.kind === "rename_stash_section" || command.kind === "delete_stash_section") && !validStashSectionChangeCommand(command)) {
@@ -1424,7 +1437,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return refused(document, "ROW_COMMAND_INVALID", "Provide a complete row edit command with plain JSON values.");
   }
   const before = validateScriptDocumentV2(document);
-  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
+  if (before.diagnostics.some((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID", "MUSIC_MATCH_INVALID"].includes(item.code))) return { ok: false, document, diagnostics: before.diagnostics };
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== (document.rowEditRevision ?? 0) || expectedRevision === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_REVISION_STALE", "The row document changed before this edit, or its revision cannot advance.");
   if (command.kind === "save_stash_group" && command.expectedRevision !== expectedRevision) {
     return refused(document, "ROW_REVISION_STALE", "A staged group Save must use the exact revision at which its member editor opened.");
@@ -1432,7 +1445,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
   // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
   const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
-  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") && grouped.has(command.rowId) ||
+  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match") && grouped.has(command.rowId) ||
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
@@ -1471,6 +1484,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   const blocks = working.activeDraft.blocks;
   let moved: Row[] = [];
   let placementCounts: RowEditResultV2["placementCounts"];
+  let operationDiagnostics: AuthoringDiagnosticV2[] = [];
   if (command.kind === "stash_selected_words") {
     // Construct both sides before writing: an unsafe selection never leaves
     // half a note in Stash or removes only part of the narration text.
@@ -1871,7 +1885,46 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       else delete attached.clip.payload.displayName;
     }
     markStashOriginEditedV2(row);
-  } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold") {
+  } else if (command.kind === "delete_row_audio_span") {
+    const spanIndex = working.rowAudioSpans?.findIndex((span) => span.id === command.cueId) ?? -1;
+    if (spanIndex < 0) return refused(document, "MUSIC_CUE_NOT_FOUND", "Choose an existing music cue to remove.");
+    const matched = blocks.flatMap((block) => {
+      if (block.type !== "visual_only") return [];
+      const visuals = [
+        { payload: block.payload, visualOnlyTiming: block.visualOnlyTiming },
+        ...(block.additionalVisuals ?? []),
+      ];
+      return visuals.some((visual) => visual.visualOnlyTiming.matchAudioDuration?.cueId === command.cueId)
+        ? [{ block, visuals }] : [];
+    });
+    if (matched.some(({ block }) => block.version === Number.MAX_SAFE_INTEGER)) {
+      return refused(document, "ROW_CONTENT_INVALID", "A matched visual row cannot advance its version safely.");
+    }
+    working.rowAudioSpans!.splice(spanIndex, 1);
+    if (working.rowAudioSpans!.length === 0) delete working.rowAudioSpans;
+    for (const { block, visuals } of matched) {
+      let restored = false;
+      for (const visual of visuals) {
+        if (visual.visualOnlyTiming.matchAudioDuration?.cueId !== command.cueId) continue;
+        const restoredMilliseconds = visual.visualOnlyTiming.durationOverrideMs ?? 4000;
+        visual.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: restoredMilliseconds };
+        operationDiagnostics.push({
+          ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Removed the music cue; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
+          severity: "warning",
+          blockId: block.id,
+          entityId: visual.payload.payloadId,
+        });
+        restored = true;
+      }
+      if (!restored) continue;
+      const [first, ...rest] = visuals;
+      block.payload = first!.payload;
+      block.visualOnlyTiming = first!.visualOnlyTiming;
+      if (rest.length > 0) block.additionalVisuals = rest as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
+      block.version += 1;
+      markStashOriginEditedV2(block);
+    }
+  } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match") {
     const row = blocks.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.rowId);
     if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an existing visuals-only Draft row.");
     if (row.version === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_CONTENT_INVALID", "The visual row version cannot advance safely.");
@@ -1893,7 +1946,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       if (first!.researchClip) row.researchClip = first!.researchClip; else delete row.researchClip;
       if (first!.frameBinding) row.frameBinding = first!.frameBinding; else delete row.frameBinding;
       row.additionalVisuals = rest as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
-    } else {
+    } else if (command.kind === "set_visual_only_hold") {
       const milliseconds = command.holdSeconds * 1000;
       if (!Number.isFinite(milliseconds) || milliseconds <= 0 || !Number.isSafeInteger(milliseconds)) {
         return refused(document, "VISUAL_HOLD_INVALID", "Hold must be a positive number of seconds, precise to one millisecond (for example 4.0 or 2.5).");
@@ -1903,8 +1956,50 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       if (target.payload.pictureKind === "clip" || target.payload.pictureKind === "unresolved_visual") {
         return refused(document, "VISUAL_HOLD_INVALID", "Only a still or other untimed visual can have an editable hold; clips use their trimmed length.");
       }
+      if (target.visualOnlyTiming.matchAudioDuration) {
+        return refused(document, "VISUAL_HOLD_MATCHED", "This visual follows its matched music cue; clear Match audio duration before editing its fixed hold.");
+      }
       if (target.visualOnlyTiming.durationOverrideMs === milliseconds) return refused(document, "ROW_EDIT_NO_CHANGE", "This visual already has that hold.");
       target.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: milliseconds };
+      row.visualOnlyTiming = visuals[0]!.visualOnlyTiming;
+      if (visuals.length > 1) row.additionalVisuals = visuals.slice(1) as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
+    } else {
+      const target = visuals.find((item) => item.payload.payloadId === command.payloadId);
+      if (!target) return refused(document, "VISUAL_NOT_FOUND", "Choose an existing visual in this row.");
+      if (target.payload.pictureKind === "clip" || target.payload.pictureKind === "unresolved_visual") {
+        return refused(document, "VISUAL_AUDIO_MATCH_UNSUPPORTED", "Only a still or other untimed visual can match a music cue; clips use their trimmed length.");
+      }
+      if (command.cueId === null) {
+        if (!target.visualOnlyTiming.matchAudioDuration) return refused(document, "ROW_EDIT_NO_CHANGE", "This visual is not matched to a music cue.");
+        const restoredMilliseconds = target.visualOnlyTiming.durationOverrideMs ?? 4000;
+        target.visualOnlyTiming = {
+          kind: "visual_only",
+          durationOverrideMs: restoredMilliseconds,
+        };
+        operationDiagnostics = [{
+          ...diagnostic("VISUAL_AUDIO_MATCH_CLEARED", `Match audio duration was cleared; restored the fixed hold of ${(restoredMilliseconds / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} s.`),
+          severity: "warning",
+          blockId: row.id,
+          entityId: target.payload.payloadId,
+        }];
+      } else {
+        const activeRows = blocks.filter((item): item is Row => item.type !== "section");
+        const span = working.rowAudioSpans?.find((item) => item.id === command.cueId);
+        const startIndex = span ? activeRows.findIndex((item) => item.id === span.startRowId) : -1;
+        const endIndex = span ? activeRows.findIndex((item) => item.id === span.endRowId) : -1;
+        const rowIndex = activeRows.findIndex((item) => item.id === row.id);
+        if (!span || startIndex < 0 || endIndex < startIndex || rowIndex < startIndex || rowIndex > endIndex) {
+          return refused(document, "VISUAL_AUDIO_MATCH_INVALID", "Choose a saved music cue that spans this active visuals-only row.");
+        }
+        if (target.visualOnlyTiming.matchAudioDuration?.cueId === command.cueId) {
+          return refused(document, "ROW_EDIT_NO_CHANGE", "This visual already matches that music cue.");
+        }
+        target.visualOnlyTiming = {
+          ...target.visualOnlyTiming,
+          durationOverrideMs: target.visualOnlyTiming.durationOverrideMs ?? 4000,
+          matchAudioDuration: { cueId: command.cueId },
+        };
+      }
       row.visualOnlyTiming = visuals[0]!.visualOnlyTiming;
       if (visuals.length > 1) row.additionalVisuals = visuals.slice(1) as NonNullable<VisualOnlyBlockV2["additionalVisuals"]>;
     }
@@ -2360,12 +2455,12 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "delete_row_audio_span" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);
     return saved
-      ? { ok: true, document: saved, diagnostics: [] }
+      ? { ok: true, document: saved, diagnostics: operationDiagnostics }
       : refused(document, "ROW_CONTENT_INVALID", "The row edit must be losslessly representable as valid saved JSON.");
   }
   return { ok: true, document: working, diagnostics: [], ...(placementCounts ? { placementCounts } : {}) };
@@ -2402,7 +2497,7 @@ export function deserializeAuthoringDocumentV2(json: string): { ok: true; docume
   let document: unknown;
   try { document = JSON.parse(json); } catch { return { ok: false, diagnostics: [diagnostic("DOCUMENT_JSON_INVALID", "The saved document is not valid JSON.")] }; }
   const validation = validateScriptDocumentV2(document);
-  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID"].includes(item.code));
+  const fatal = validation.diagnostics.filter((item) => ["SCHEMA_INVALID", "ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "ROW_REFERENCE_INVALID", "PLAIN_DIRECTION_INTENT_INVALID", "FOOTAGE_OWNER_DUPLICATE", "RESEARCH_CLIP_INVALID", "STASH_GROUP_INVALID", "CLEARED_NARRATION_INVALID", "MUSIC_MATCH_INVALID"].includes(item.code));
   return fatal.length ? { ok: false, diagnostics: fatal } : { ok: true, document: document as ScriptDocumentV2 };
 }
 
