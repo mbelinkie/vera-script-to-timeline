@@ -1,5 +1,5 @@
 import { renderRows } from "./view.js";
-import { mountRowsEditor, createBlankNarrationRow } from "./rows-editor.js";
+import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 
 const element = (id) => document.getElementById(id);
@@ -219,6 +219,94 @@ async function saveDocument() {
   else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
+async function applyBrowserCommand(document, command, splitProof) {
+  const response = await fetch("/authoring/command", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}) }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
+  return result;
+}
+
+// Every intermediate document is private to this queued operation: a refusal
+// or failed request discards *all* steps without a save or an Undo snapshot.
+async function applyPlainPaste(document, intent) {
+  const { rowId, startOffset, endOffset, blocks } = intent;
+  const row = document.activeDraft.blocks.find((item) => item.id === rowId);
+  const editableRow = row?.type === "narration" || row?.type === "visual_only" && row.clearedNarration;
+  if (!editableRow || !Array.isArray(blocks) || !blocks.length ||
+      blocks.some((block) => typeof block !== "string")) throw new Error("The paste target changed.");
+  const insertedText = blocks.join("\n\n");
+  const boundaries = [];
+  for (let index = 0, offset = 0; index < blocks.length - 1; index += 1) {
+    offset += blocks[index].length;
+    boundaries.push({ start: startOffset + offset, end: startOffset + offset + 2 });
+    offset += 2;
+  }
+
+  let working = document;
+  // Always retokenize the complete first write before resolving any split:
+  // later commands MUST use the token IDs returned by the actual model.
+  const oldText = row.type === "narration" ? row.text : "";
+  if (oldText.slice(startOffset, endOffset) !== insertedText) {
+    const edited = await applyBrowserCommand(working, {
+      kind: "edit_narration_text", rowId, startOffset, endOffset, insertedText, editId: crypto.randomUUID(),
+    });
+    working = edited.document;
+  }
+  let currentRowId = rowId;
+  let shifted = 0;
+  let caret = startOffset + insertedText.length;
+  for (const boundary of boundaries) {
+    const current = working.activeDraft.blocks.find((item) => item.id === currentRowId);
+    if (current?.type !== "narration") throw new Error("The pasted row cannot be split safely.");
+    const from = boundary.start - shifted;
+    const to = boundary.end - shifted;
+    if (current.text.slice(from, to) !== "\n\n") throw new Error("The pasted row boundary changed.");
+    const hasLeftWords = current.tokens.some((token) => token.endOffset <= from);
+    const firstRight = current.tokens.find((token) => token.startOffset >= to);
+    if (hasLeftWords && firstRight) {
+      const newRowId = crypto.randomUUID();
+      const result = await applyBrowserCommand(working, {
+        kind: "split_row", rowId: currentRowId, newRowId, at: { beforeTokenId: firstRight.id },
+      });
+      working = result.document;
+      const created = working.activeDraft.blocks.find((item) => item.id === newRowId);
+      if (created?.type !== "narration" || !current.text.endsWith(created.text)) {
+        throw new Error("The model changed the pasted row boundary.");
+      }
+      const removed = current.text.length - created.text.length;
+      shifted += removed;
+      caret -= removed;
+      currentRowId = newRowId;
+      continue;
+    }
+    // The pure split command rightly refuses wordless halves. Remove the
+    // separator with a model edit, then use the existing exact-gap Add row.
+    // This also preserves the existing row's token/visual identities.
+    const withoutBreak = await applyBrowserCommand(working, {
+      kind: "edit_narration_text", rowId: currentRowId, startOffset: from,
+      endOffset: to, insertedText: "", editId: crypto.randomUUID(),
+    });
+    working = withoutBreak.document;
+    shifted += to - from;
+    caret -= to - from;
+    const above = !hasLeftWords;
+    const gap = rowGaps(working.activeDraft.blocks).find((item) => above
+      ? item.beforeRowId === currentRowId : item.afterRowId === currentRowId);
+    if (!gap) throw new Error("The paste insertion gap changed.");
+    const newRowId = crypto.randomUUID();
+    const created = await applyBrowserCommand(working, {
+      kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap,
+    });
+    working = created.document;
+    if (!above) { currentRowId = newRowId; caret = 0; }
+  }
+  return { document: working, focusAfter: { rowId: currentRowId, offset: Math.max(0, caret) } };
+}
+
 function queueCommand(command, label, options = {}) {
   if (options.structural && composingRows.size) return Promise.resolve(false);
   commandsPending += 1;
@@ -238,19 +326,29 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.paste) {
+      const result = await applyPlainPaste(scriptDocument, resolved);
+      if (result.document === scriptDocument) {
+        scheduleRender(true);
+        return true;
+      }
+      undoStack.push({ document: scriptDocument, label });
+      scriptDocument = result.document;
+      lastSplit = null;
+      structuralFocus = result.focusAfter;
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      scheduleRender(true);
+      return true;
+    }
     const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
       resolved.words === null && lastSplit?.newRowId === resolved.rowId &&
       lastSplit.revision === scriptDocument.rowEditRevision ? lastSplit : null;
     const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
-    const response = await fetch("/authoring/command", {
-      method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-      body: JSON.stringify({ document: scriptDocument, command: resolved,
-        ...(replay ? { splitProof: replay.proof } : {}) }),
-    });
-    const result = await response.json();
-    if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
+    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof);
     undoStack.push({ document: scriptDocument, label });
     scriptDocument = result.document;
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
@@ -267,7 +365,7 @@ function queueCommand(command, label, options = {}) {
     scheduleRender(options.structural);
     return true;
   }).catch((error) => {
-    if (options.expectedRow && !options.structural) {
+    if (options.expectedRow && (!options.structural || options.paste)) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
       element("discard-edit").hidden = false;

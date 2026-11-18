@@ -2,6 +2,12 @@ import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
 
+/** Pure clipboard grammar: a single LF stays within a row; a blank line separates rows. */
+export function pasteParagraphBlocks(text) {
+  if (typeof text !== "string") throw new TypeError("Plain-text paste requires text.");
+  return text.replace(/\r\n?/gu, "\n").split(/\n{2,}/u);
+}
+
 function newId() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") return globalThis.crypto.randomUUID();
   const bytes = new Uint8Array(16);
@@ -536,6 +542,30 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     void replaceText(range.startOffset, range.endOffset, "\n", "New paragraph");
   }
 
+  function pastePlainText(text) {
+    if (editingBlocked || composing || !text) return;
+    const range = targetRange({}, editor);
+    if (!range) return;
+    const blocks = pasteParagraphBlocks(text);
+    const insertedText = blocks.join("\n\n");
+    const priorRow = localRow;
+    const nextRow = localTextEdit(priorRow, range.startOffset, range.endOffset, insertedText);
+    if (nextRow.text === priorRow.text && blocks.length === 1) return;
+    localRow = nextRow;
+    knownText = nextRow.text;
+    renderEditor(editor, localRow);
+    setCaret(editor, Math.min(range.startOffset + insertedText.length, localRow.text.length));
+    savedSelection = null;
+    updateActions();
+    // A structural paste may replace this editor with several rows. Prevent
+    // further local typing until the model has accepted and rendered it;
+    // refusals retain this visible draft for explicit discard.
+    void dispatch({ kind: "paste_plain_text", rowId: priorRow.id,
+      startOffset: range.startOffset, endOffset: range.endOffset, blocks },
+    "Paste text", priorRow, { paste: true });
+    editingBlocked = true;
+  }
+
   function splitAtCaret(offset) {
     if (editingBlocked) return;
     const before = localRow;
@@ -603,8 +633,11 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       return;
     }
     if (type === "insertFromPaste" || type === "insertFromDrop") {
-      // Plain-text paste is implemented as one transaction in phase 2.
       event.preventDefault();
+      if (type === "insertFromPaste" && !editingBlocked) {
+        const plain = event.dataTransfer?.getData?.("text/plain");
+        if (typeof plain === "string" && plain) pastePlainText(plain);
+      }
       return;
     }
     const insertion = type === "insertText" || type === "insertReplacementText";
@@ -652,6 +685,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", compositionText);
     }
     if (wasComposing && typeof compositionChange === "function") compositionChange(row.id, false);
+  }
+
+  function onPaste(event) {
+    event.preventDefault();
+    const plain = event.clipboardData?.getData("text/plain");
+    if (typeof plain === "string") pastePlainText(plain);
   }
 
   function performAction(action) {
@@ -741,7 +780,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("keydown", onStructuralKey);
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
-  editor.addEventListener("paste", (event) => event.preventDefault());
+  editor.addEventListener("paste", onPaste);
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   stageButton.addEventListener("click", activateAction);
@@ -757,6 +796,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("keydown", onStructuralKey);
     editor.removeEventListener("focus", onFocus);
     editor.removeEventListener("blur", onBlur);
+    editor.removeEventListener("paste", onPaste);
     document.removeEventListener("selectionchange", onSelectionChange);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     spokenButton.removeEventListener("mousedown", preserveActionSelection);

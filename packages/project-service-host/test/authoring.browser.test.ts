@@ -26,6 +26,7 @@ import type { QaConfig } from "../src/qa-config.js";
 import type { QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, type QaHostInfrastructure, type QaRunningServer } from "../src/serve.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
+import { pasteParagraphBlocks } from "../browser/narration-editor.js";
 
 const execFile = promisify(execFileCallback);
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -297,6 +298,54 @@ async function placeCaret(editor: Locator, offset: number): Promise<void> {
   }, offset);
 }
 
+async function selectText(editor: Locator, from: number, to: number): Promise<void> {
+  await editor.focus();
+  await editor.evaluate((element, { from, to }) => {
+    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node as Text);
+    const point = (offset: number): [Node, number] => {
+      let left = offset;
+      for (const current of nodes) {
+        if (left <= current.length) return [current, left];
+        left -= current.length;
+      }
+      return [nodes.at(-1) ?? element, nodes.length ? nodes.at(-1)!.length : 0];
+    };
+    const selection = element.ownerDocument.getSelection();
+    const range = element.ownerDocument.createRange();
+    const [startNode, startOffset] = point(from);
+    const [endNode, endOffset] = point(to);
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, { from, to });
+}
+
+async function dispatchPlainPaste(editor: Locator, text: string): Promise<void> {
+  await editor.evaluate((element, plain) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", plain);
+    data.setData("text/html", `<strong>Ignored formatted ${plain.length}</strong>`);
+    const event = new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data });
+    element.dispatchEvent(event);
+    if (!event.defaultPrevented) throw new Error("Plain-text paste escaped the editor");
+  }, text);
+}
+
+describe("pure plain clipboard grouping", () => {
+  it.each([
+    ["a", ["a"]], ["a\nb", ["a\nb"]], ["a\nb\n\nc", ["a\nb", "c"]],
+    ["a\r\nb\r\n\r\nc", ["a\nb", "c"]], ["a\n", ["a\n"]],
+    ["a\n\n", ["a", ""]], ["\n\nb", ["", "b"]],
+    ["a\n\n\nb", ["a", "b"]], ["", [""]],
+  ])("preserves paragraph and row boundaries in %j", (source, expected) => {
+    expect(pasteParagraphBlocks(source)).toEqual(expected);
+  });
+});
+
 async function setSlider(page: Page, selector: string, value: number): Promise<void> {
   await page.locator(selector).evaluate((element, nextValue) => {
     const input = element as HTMLInputElement;
@@ -367,6 +416,234 @@ describe("browser authoring over the local project service", () => {
     await host?.stop();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it.each([
+    ["a\nb\n\nc", ["front a\nb", "cback"]],
+    ["a\r\nb\r\n\r\nc", ["front a\nb", "cback"]],
+    ["a\n\nb\n", ["front a", "b\nback"]],
+    ["a\n\nb\n\nc", ["front a", "b", "cback"]],
+  ])("pastes plain %j into the middle as a single Undo step", async (clipboard, expected) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Plain clipboard rows");
+    const seeded = editableDocumentFixture(projectId, "front back");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, "front ".length);
+    await dispatchPlainPaste(editor, clipboard);
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(expected);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Paste text"]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["front back"]);
+    await page.close();
+  }, 90_000);
+
+  it("keeps a single LF and terminal LF inside one row, with no HTML pasted", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Clipboard paragraph");
+    const seeded = editableDocumentFixture(projectId, "hello world");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, "hello world".length);
+    await dispatchPlainPaste(editor, "\r\nnext\r\n");
+    await waitForNarrationText(page, projectId, seeded.rowId, "hello world\nnext\n");
+    expect((await narrationRowsFromApi(page, projectId)).length).toBe(1);
+    expect(await editorText(editor)).toBe("hello world\nnext\n");
+    await page.close();
+  }, 90_000);
+
+  it("keeps the original suffix word IDs and anchored visuals on the pasted row", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Paste visual anchor");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot", true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, "alpha beta gamma delta ".length);
+    await dispatchPlainPaste(editor, "a\nb\n\nc ");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "alpha beta gamma delta a\nb", "c echo foxtrot",
+    ]);
+    const rows = await narrationRowsFromApi(page, projectId);
+    expect(rows[1]?.tokens.find((token) => token.value === "echo")?.id).toBe(seeded.anchorTokenId);
+    expect(JSON.stringify(rows[1]?.primaryVisualSequence)).toContain(seeded.anchorTokenId);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "alpha beta gamma delta echo foxtrot");
+    expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual((seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId) as
+        Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>).primaryVisualSequence);
+    await page.close();
+  }, 90_000);
+
+  it("does not merge a preceding edit's Undo with a paste, including selection replacement and Unicode", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prior edit and paste");
+    const seeded = editableDocumentFixture(projectId, "one two three");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.fill("one two three edited");
+    await waitForNarrationText(page, projectId, seeded.rowId, "one two three edited");
+    await selectText(editor, "one ".length, "one two".length);
+    await dispatchPlainPaste(editor, "😀\n\nnext");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "one 😀", "next three edited",
+    ]);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Paste text", "Edit narration"]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "one two three edited");
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "one two three");
+    await page.close();
+  }, 90_000);
+
+  it("uses exact row gaps for leading and trailing blank clipboard blocks", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Paste blank blocks");
+    const seeded = editableDocumentFixture(projectId, "start end");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, 0);
+    await dispatchPlainPaste(editor, "\n\nnew ");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "", "new start end",
+    ]);
+    await expect.poll(async () => await page.locator(".script-row").count()).toBeGreaterThanOrEqual(3);
+    await page.close();
+  }, 90_000);
+
+  it("creates an empty row for a trailing blank line at the end of the script", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Trailing blank clipboard block");
+    const seeded = editableDocumentFixture(projectId, "first row");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, "first row".length);
+    await dispatchPlainPaste(editor, "\n\n");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "first row", "",
+    ]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["first row"]);
+    await page.close();
+  }, 90_000);
+
+  it("inserts all pasted rows inside their existing section without moving the next heading", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Clipboard within section");
+    const seeded = multiNarrationDocumentFixture(projectId, ["before section", "after section"]);
+    const sectionId = randomUUID();
+    seeded.document.activeDraft.blocks.splice(1, 0, {
+      type: "section", id: sectionId, orderKey: `section-${sectionId}`, title: "Section two", version: 1,
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    await placeCaret(editor, "before section".length);
+    await dispatchPlainPaste(editor, " first\n\nsecond");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "before section first", "second", "after section",
+    ]);
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    expect(saved.document.activeDraft.blocks.slice(0, 4).map((block) => block.type)).toEqual([
+      "narration", "narration", "section", "narration",
+    ]);
+    expect(saved.document.activeDraft.blocks[2]?.id).toBe(sectionId);
+    expect(saved.document.activeDraft.blocks[3]?.id).toBe(seeded.rowIds[1]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "before section", "after section",
+    ]);
+    await page.close();
+  }, 90_000);
+
+  it("serializes a paste behind a pending text edit without reading invented word IDs", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Queued typing before paste");
+    const seeded = editableDocumentFixture(projectId, "first second");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let requests = 0;
+    let started!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { started = resolve; });
+    let release!: () => void;
+    const firstReleased = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      requests += 1;
+      if (requests === 1) { started(); await firstReleased; }
+      await route.continue();
+    });
+    await editor.fill("first second typed");
+    await firstStarted;
+    await placeCaret(editor, "first ".length);
+    await dispatchPlainPaste(editor, "a\n\nb");
+    await page.waitForTimeout(40);
+    expect(requests).toBe(1);
+    release();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "first a", "bsecond typed",
+    ]);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Paste text", "Edit narration"]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "first second typed");
+    await page.close();
+  }, 90_000);
+
+  it("rolls back a refused later paste substep, preserving the visible draft without save or Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Refused paste rollback");
+    const seeded = editableDocumentFixture(projectId, "start finish");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let requests = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      requests += 1;
+      if (requests === 2) {
+        await route.fulfill({ status: 200, contentType: "application/json",
+          body: JSON.stringify({ ok: false, diagnostics: [{ message: "Deliberate second-step refusal" }] }) });
+        return;
+      }
+      await route.continue();
+    });
+    await placeCaret(editor, "start ".length);
+    await dispatchPlainPaste(editor, "a\n\nb");
+    await expect.poll(async () => await page.locator("#save-status").textContent())
+      .toContain("Deliberate second-step refusal");
+    expect(requests).toBe(2);
+    expect(await editorText(editor)).toBe("start a\n\nbfinish");
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["start finish"]);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await page.locator("#discard-edit").waitFor({ state: "visible" });
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await page.locator("#discard-edit").click();
+    expect(await editorText(editor)).toBe("start finish");
+    await page.close();
+  }, 90_000);
 
   it("uses Return for saved paragraph breaks and paragraph Backspace without creating rows", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
