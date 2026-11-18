@@ -26,7 +26,7 @@ describe("#66 bracket proposals use projected spoken word identities", () => {
       swapCommand: { kind: "swap_ranges", firstSlotId: "still-1", secondSlotId: "still-2" },
     });
     expect(proposeVisualRange(projection, "still-1", 4, 6)).toMatchObject({ swapCommand: null });
-    for (const [start, end] of [[0, 3], [3, 3], [-1, 3], [2, 8]]) {
+    for (const [start, end] of [[0, 3], [3, 3], [-1, 3], [2, 8]] as const) {
       expect(proposeVisualRange(projection, "still-1", start, end).ok).toBe(false);
     }
     expect(proposeVisualRange(projection, "absent", 0, 1).ok).toBe(false);

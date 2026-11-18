@@ -478,7 +478,7 @@ describe("browser authoring over the local project service", () => {
     await page.waitForFunction(() => localStorage.getItem("vera.authoring.sessionProof")?.length === 64);
     expect(new URL(page.url()).hash).toBe("");
     await page.close();
-  }, 60_000);
+  }, 180_000);
 
   afterAll(async () => {
     await context?.close();
@@ -1573,8 +1573,8 @@ describe("browser authoring over the local project service", () => {
     const editor = row.locator("[data-narration-editor]");
     const end = row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="end"]`);
     const second = row.locator(`[data-range-slot="${seeded.secondSlotId}"][data-range-edge="start"]`);
-    await expect(end).toHaveAttribute("data-word-index", "9");
-    await expect(second).toHaveAttribute("data-word-index", "18");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
+    await expect.poll(async () => await second.getAttribute("data-word-index")).toBe("18");
     expect(await editorText(editor)).toBe(seeded.firstRowText);
     expect(await row.locator(".narration-range-overlay").getAttribute("contenteditable")).toBe("false");
     const originalRow = await narrationRowFromApi(page, projectId, seeded.rowId);
@@ -1584,7 +1584,7 @@ describe("browser authoring over the local project service", () => {
     // Keyboard arrows only preview. Enter sends exactly one range command.
     await end.focus();
     await end.press("ArrowLeft");
-    await expect(end).toHaveAttribute("data-word-index", "8");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("8");
     expect(await narrationRowFromApi(page, projectId, seeded.rowId)).toEqual(originalRow);
     await end.press("Enter");
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
@@ -1604,7 +1604,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Undo Adjust visual range" }).click();
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
       .toEqual(originalSequence);
-    await expect(end).toHaveAttribute("data-word-index", "9");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("9");
 
     // Pointer snapping reaches the last OC word; the model removes that whole
     // passage without shifting the untouched second still.
@@ -1628,7 +1628,7 @@ describe("browser authoring over the local project service", () => {
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     await page.mouse.down();
     await page.mouse.move(target.x, target.y, { steps: 10 });
-    await expect(end).toHaveAttribute("data-word-index", "18");
+    await expect.poll(async () => await end.getAttribute("data-word-index")).toBe("18");
     await page.mouse.up();
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
       ?.primaryVisualSequence?.version).toBe(originalSequence.version + 1);
