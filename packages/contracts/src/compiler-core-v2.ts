@@ -395,13 +395,10 @@ function quoteBoxBackgroundProblem(
   const target = entity("overlay_event", overlayId, "quoteBox/backgroundPayloadId");
   const background = payloads.get(quoteBox.backgroundPayloadId);
   if (!background) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${quoteBox.backgroundPayloadId} is not an authored visual payload.`, target, undefined, ["repair_document"]);
-  if (background.source.kind === "intentional_placeholder") {
-    return diagnostic("VISUAL_UNDEFINED", "Quote box background is an intentional Need to Find placeholder.", target, undefined, ["repair_document"], "warning");
-  }
   if (background.source.kind === "unresolved_visual" || background.source.kind === "url") {
     return diagnostic("VISUAL_UNDEFINED", "Quote box background has no resolved picture and cannot be built.", target, undefined, ["repair_document"]);
   }
-  if (!descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
+  if (background.source.kind !== "intentional_placeholder" && !descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
   const backgroundEvents = events.filter((event) =>
     (event.kind === "primary_visual" || event.kind === "overlay_visual" || event.kind === "placeholder") &&
     event.provenance.payloadId === background.payloadId,
@@ -414,6 +411,9 @@ function quoteBoxBackgroundProblem(
   const backgroundTrack = tracks.find((track) => track.id === coveringEvent.trackId);
   if (!backgroundTrack || backgroundTrack.kind !== "video" || backgroundTrack.index >= graphicsTrack.index) {
     return diagnostic("TRACK_ROLE_COLLISION", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
+  }
+  if (background.source.kind === "intentional_placeholder") {
+    return diagnostic("VISUAL_UNDEFINED", "Quote box background is an intentional Need to Find placeholder.", target, undefined, ["repair_document"], "warning");
   }
   return null;
 }
@@ -1269,7 +1269,11 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       overlayPlacements.set(overlay.id, result);
       return result;
     };
-    for (const overlay of block.overlayEvents) {
+    // A card can reference a background authored later in the same row.
+    const overlays = block.overlayEvents.some((overlay) => overlay.quoteBox)
+      ? [...block.overlayEvents.filter((overlay) => !overlay.quoteBox), ...block.overlayEvents.filter((overlay) => overlay.quoteBox)]
+      : block.overlayEvents;
+    for (const overlay of overlays) {
       const placement = resolveOverlay(overlay, new Set([overlay.id]));
       if (placement.status !== "resolved" || !placement.interval) {
         diagnostics.push(diagnostic("STALE_ANCHOR", placement.diagnostics[0]?.message ?? "Overlay has no exact interval.", entity("overlay_event", overlay.id, "overlayEvents"), { kind: "anchor_issue", anchorId: overlay.id, reason: "stale" }, ["repair_document", "refresh_timing"]));
