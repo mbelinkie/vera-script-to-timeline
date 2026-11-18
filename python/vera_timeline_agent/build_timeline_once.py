@@ -19,7 +19,7 @@ from time import perf_counter
 from typing import Any, Literal, TypeVar, cast
 
 from . import studio_spike
-from .build_compiler_bridge import BridgeOutput, invoke_bridge
+from .build_compiler_bridge import BlockedBuildReport, BridgeOutput, invoke_bridge
 from .build_jobs import (
     BuildJobError,
     NeedsAction,
@@ -27,8 +27,14 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import hash_file
-from .music_input import MusicResolution, resolve_music_bindings, verify_music_pins
+from .music_input import (
+    MusicResolution,
+    music_event_id,
+    resolve_music_bindings,
+    verify_music_pins,
+)
 from .package_cache import default_cache_root
+from .quote_box_inputs import freeze_quote_box_inputs
 from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
@@ -294,8 +300,9 @@ def compile_prepared(
     source_hash = hash_file(inputs.script)
     original_deps_hash = hash_file(inputs.dependencies)
 
+    document = _read_json(inputs.script)
+
     def freeze_music() -> MusicResolution | None:
-        document = _read_json(inputs.script)
         if not document.get("rowAudioSpans"):
             return None
         original = _read_json(inputs.dependencies)
@@ -309,16 +316,18 @@ def compile_prepared(
         return resolved
 
     music = reporter.run("music resolution", freeze_music)
-    if music is not None:
+    effective_deps = (
+        music.dependencies if music is not None else _read_json(inputs.dependencies)
+    )
+    has_quotes = freeze_quote_box_inputs(document, effective_deps)
+    if has_quotes or music is not None:
         dependencies = output / "effective-compiler-dependencies.json"
         publish_immutable_output(
             dependencies,
-            json.dumps(
-                music.dependencies, sort_keys=True, separators=(",", ":")
-            ).encode(),
+            json.dumps(effective_deps, sort_keys=True, separators=(",", ":")).encode(),
         )
         media_paths = inputs.media_paths
-        if media_paths is not None:
+        if media_paths is not None and music is not None:
             media_paths = output / "effective-media-paths.json"
             publish_immutable_output(
                 media_paths,
@@ -347,7 +356,12 @@ def compile_prepared(
     needs = reporter.run("media needs", check_needs)
 
     def compile_once() -> BridgeOutput:
-        result = bridge("compile", inputs.script, inputs.dependencies)
+        blocked: BlockedBuildReport | None = None
+        try:
+            result = bridge("compile", inputs.script, inputs.dependencies)
+        except BlockedBuildReport as error:
+            blocked = error
+            result = error.response
         if result.needs != needs:
             raise BuildJobError("compiler temporal plan differs from prepared media")
         if (
@@ -361,6 +375,8 @@ def compile_prepared(
             raise BuildJobError("compiler inputs changed during this build")
         if music is not None:
             verify_music_pins(music)
+        if blocked is not None:
+            raise blocked
         compiled = result.result
         try:
             if (
@@ -376,7 +392,13 @@ def compile_prepared(
             raise BuildJobError("compiler report is not ready")
         return result
 
-    result = reporter.run("compile", compile_once)
+    try:
+        result = reporter.run("compile", compile_once)
+    except BlockedBuildReport as error:
+        publish_immutable_output(
+            output / "build-report.json", error.report_json.encode()
+        )
+        raise
     manifest = output / "timeline-manifest.json"
     report = output / "build-report.json"
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
@@ -581,6 +603,32 @@ def package_compiled(
     if compiled.inputs.preparation_paths is None:
         raise NeedsAction("prepared preparation-paths.json is required for packaging")
     media = _checked_path_mapping(compiled.inputs.media_paths, "media-paths")
+    if compiled.music_resolution is not None:
+        # Authored input uses the stable occurrence ID. The package carries
+        # the same PCM bytes as both the original and delivered source.
+        manifest = _read_json(compiled.manifest)
+        music_sources = {
+            event["eventId"]: event["provenance"]["sourceId"]
+            for event in manifest["events"]
+            if event["kind"] == "music"
+        }
+        spans = compiled.music_resolution.dependencies["musicBindings"]
+        for span in spans:
+            event_id = music_event_id(
+                manifest["document"]["documentId"],
+                span["spanId"],
+                span["source"]["artifactId"],
+            )
+            path = media.pop(f"event:{event_id}", None)
+            source_id = music_sources.get(event_id)
+            if path is None or source_id is None:
+                continue
+            for key in (f"source:{source_id}", f"original:{source_id}"):
+                if key in media:
+                    raise BuildJobError(
+                        "music media is already mapped to a package source"
+                    )
+                media[key] = path
     preparations = _checked_path_mapping(
         compiled.inputs.preparation_paths, "preparation-paths"
     )

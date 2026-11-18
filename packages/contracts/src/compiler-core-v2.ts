@@ -16,6 +16,8 @@ import type {
   CompilerDependenciesV2,
   EntityReferenceV2,
   FrameRangeV2,
+  MusicCueTimingV2,
+  NarratedVisualPayloadV2,
   NarrationBlockV2,
   NarrationTokenTimingMapV2,
   NarrationBoundaryEvidenceV1,
@@ -28,6 +30,8 @@ import type {
   RationalTime,
   ReturnSlot,
   ScriptDocumentV2,
+  QuoteBoxV2,
+  StandaloneVisualPayloadV2,
   TimelineEventV2,
   TimelineManifestV2,
   TransitionPlanV2,
@@ -46,7 +50,7 @@ import { isWordAnchorCurrentV2, validateScriptDocumentV2 } from "./authoring-v2-
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { decideTransitionBoundary, requestedTransitionFrames } from "./transition-boundary-v2.js";
-import { planMusicSpanFrames } from "./row-audio-music.js";
+import { availableMusicFrames, planAnchoredMusicFrames, planMusicSpanFrames } from "./row-audio-music.js";
 
 export interface CompileDiagnosticV2 {
   code: string;
@@ -255,6 +259,23 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     id: row.block.id, startFrame: row.startFrame, endFrame: row.startFrame + row.durationFrames,
     ...(sections.get(row.block.id) ? { sectionId: sections.get(row.block.id)! } : {}),
   }));
+  const timelineLength = bounds.at(-1)?.endFrame ?? 0;
+  const fixedFrame = (point: MusicCueTimingV2["timelineIn"], label: string): number | undefined => {
+    if (!point) return undefined;
+    if (point.kind === "frame") return point.frame;
+    if (point.kind === "row_edge") {
+      const row = point.edge === "start"
+        ? bounds.find((candidate) => candidate.id === point.blockId)
+        : bounds.findLast((candidate) => candidate.id === point.blockId);
+      if (row) return point.edge === "start" ? row.startFrame : row.endFrame;
+    } else {
+      const resolved = point.anchor.affinity === "before"
+        ? supportingPointFrame({ kind: "word", anchor: point.anchor }, document, rows, [], deps.timeline.frameRate)
+        : supportingPointFrame({ kind: "audible_word_end", anchor: point.anchor }, document, rows, [], deps.timeline.frameRate);
+      if (resolved) return resolved.frame;
+    }
+    throw new RangeError(`The music ${label} pin could not be resolved. Refresh word timing or choose a timed row edge or timeline frame.`);
+  };
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
     const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string, frame = bounds.find((row) => row.id === span.startRowId)?.startFrame): void => {
@@ -283,9 +304,21 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     }
     let geometry;
     try {
-      geometry = planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
-    } catch {
-      warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
+      const timing = span.timing;
+      geometry = timing
+        ? planAnchoredMusicFrames(
+          timing.sourceInFrame, timing.sourceOutFrame,
+          fixedFrame(timing.timelineIn, "timeline in"), fixedFrame(timing.timelineOut, "timeline out"),
+          availableMusicFrames(binding.durationSamples, binding.sampleRate, deps.timeline.frameRate), timelineLength,
+        )
+        : planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
+    } catch (error) {
+      if (span.timing) {
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostics.push(diagnostic("MUSIC_SPAN_INVALID", message, target, { kind: "details", message }, ["manual_review"]));
+      } else {
+        warn("MUSIC_SPAN_INVALID", `Music span ${span.id} has stale, reversed, inactive or cross-section row endpoints; the cue was omitted.`);
+      }
       continue;
     }
     if (!geometry) {
@@ -359,6 +392,85 @@ function unresolvedResearchMedia(document: ScriptDocumentV2): CompileDiagnosticV
     }
   }
   return null;
+}
+
+type AuthoredVisualPayloadV2 = NarratedVisualPayloadV2 | StandaloneVisualPayloadV2;
+const quoteBoxTemplateRevision = "sha256:b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08230b41bf640ff3754";
+
+function authoredVisualPayloads(document: ScriptDocumentV2): Map<string, AuthoredVisualPayloadV2> {
+  const payloads = new Map<string, AuthoredVisualPayloadV2>();
+  for (const block of document.activeDraft.blocks) {
+    if (block.type === "visual_only") {
+      for (const visual of [block, ...block.additionalVisuals ?? []]) payloads.set(visual.payload.payloadId, visual.payload);
+      continue;
+    }
+    if (block.type !== "narration" || block.state !== "active") continue;
+    for (const slot of block.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind === "content" && slot.payload.kind === "visual") payloads.set(slot.payload.payloadId, slot.payload);
+    }
+    for (const overlay of block.overlayEvents) payloads.set(overlay.payload.payloadId, overlay.payload);
+  }
+  return payloads;
+}
+
+function quoteBoxTrack(dependencies: CompilerDependenciesV2): CompilerDependenciesV2["tracks"][number] | null {
+  const candidates = dependencies.roles.overlayTrackIds
+    .map((id) => dependencies.tracks.find((track) => track.id === id))
+    .filter((track): track is CompilerDependenciesV2["tracks"][number] => track?.kind === "video" && track.index === 4);
+  return candidates.length === 1 ? candidates[0]! : null;
+}
+
+function quoteBoxBackgroundProblem(
+  quoteBox: QuoteBoxV2,
+  overlayId: string,
+  payloads: ReadonlyMap<string, AuthoredVisualPayloadV2>,
+  descriptors: ReadonlyMap<string, OccurrenceMediaResolutionV2>,
+  events: readonly TimelineEventV2[],
+  tracks: readonly CompilerDependenciesV2["tracks"][number][],
+  graphicsTrack: CompilerDependenciesV2["tracks"][number],
+  range: FrameRangeV2,
+): BuildDiagnosticV2 | null {
+  const target = entity("overlay_event", overlayId, "quoteBox/backgroundPayloadId");
+  const background = payloads.get(quoteBox.backgroundPayloadId);
+  if (!background) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${quoteBox.backgroundPayloadId} is not an authored visual payload.`, target, undefined, ["repair_document"]);
+  if (background.source.kind === "unresolved_visual" || background.source.kind === "url") {
+    return diagnostic("VISUAL_UNDEFINED", "Quote box background has no resolved picture and cannot be built.", target, undefined, ["repair_document"]);
+  }
+  if (background.source.kind !== "intentional_placeholder" && !descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
+  const backgroundEvents = events.filter((event) =>
+    (event.kind === "primary_visual" || event.kind === "overlay_visual" || event.kind === "placeholder") &&
+    event.provenance.payloadId === background.payloadId,
+  );
+  if (!backgroundEvents.length) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no compiled visual occurrence.`, target, undefined, ["rebind_media"]);
+  const coveringEvent = backgroundEvents.find((event) =>
+    event.recordRange.startFrame <= range.startFrame && event.recordRange.endFrame >= range.endFrame,
+  );
+  if (!coveringEvent) return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} does not cover the requested quote-box range.`, target, undefined, ["repair_document"]);
+  const backgroundTrack = tracks.find((track) => track.id === coveringEvent.trackId);
+  if (!backgroundTrack || backgroundTrack.kind !== "video" || backgroundTrack.index >= graphicsTrack.index) {
+    return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
+  }
+  if (background.source.kind === "intentional_placeholder") {
+    return diagnostic("VISUAL_UNDEFINED", "Quote box background is an intentional Need to Find placeholder.", target, undefined, ["repair_document"], "warning");
+  }
+  return null;
+}
+
+function quoteBoxTemplateDiagnostics(document: ScriptDocumentV2, dependencies: CompilerDependenciesV2): BuildDiagnosticV2[] {
+  const quoteBoxes = document.activeDraft.blocks.flatMap((block) => block.type === "narration" && block.state === "active"
+    ? block.overlayEvents.flatMap((overlay) => overlay.quoteBox ? [{ overlay, quoteBox: overlay.quoteBox }] : [])
+    : []);
+  if (!quoteBoxes.length) return [];
+  const diagnostics: BuildDiagnosticV2[] = [];
+  if (dependencies.quoteBoxTemplateRevision === undefined || dependencies.quoteBoxTemplateRevision === null) {
+    diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISSING", "The installed EV24 Quote Box .setting was not frozen for this build; install or verify the pinned template before compiling.", entity("build", dependencies.build.buildId, "quoteBoxTemplateRevision"), undefined, ["manual_review"]));
+  } else if (dependencies.quoteBoxTemplateRevision !== quoteBoxTemplateRevision) {
+    diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISMATCH", "The frozen EV24 Quote Box .setting hash does not match the pinned template revision.", entity("build", dependencies.build.buildId, "quoteBoxTemplateRevision"), undefined, ["manual_review"]));
+  }
+  for (const { overlay, quoteBox } of quoteBoxes) if (quoteBox.templateRevision !== quoteBoxTemplateRevision) {
+    diagnostics.push(diagnostic("QUOTE_BOX_TEMPLATE_MISMATCH", `Quote box ${overlay.id} requests template revision ${quoteBox.templateRevision}, not the pinned EV24 Quote Box revision.`, entity("overlay_event", overlay.id, "quoteBox/templateRevision"), undefined, ["repair_document"]));
+  }
+  return diagnostics;
 }
 
 function malformedFrozenText(document: ScriptDocumentV2): CompileDiagnosticV2 | null {
@@ -676,6 +788,8 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
   const sequenceResolutions: VisualSequenceResolutionV2[] = [];
   const boundaryEvidence: TimelineManifestV2["boundaryEvidence"] = [];
   const descriptorByPayload = new Map(dependencies.occurrenceResolutions.map((descriptor) => [descriptor.payloadId, descriptor]));
+  const authoredPayloadById = authoredVisualPayloads(document);
+  const graphicsTrack = quoteBoxTrack(dependencies);
   const prepared = new Map(dependencies.preparedMedia.map((binding) => [binding.requirementKey, binding]));
   const trackIds = new Set(dependencies.tracks.map((track) => track.id));
   if (requirePrepared) {
@@ -1193,7 +1307,11 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       overlayPlacements.set(overlay.id, result);
       return result;
     };
-    for (const overlay of block.overlayEvents) {
+    // A card can reference a background authored later in the same row.
+    const overlays = block.overlayEvents.some((overlay) => overlay.quoteBox)
+      ? [...block.overlayEvents.filter((overlay) => !overlay.quoteBox), ...block.overlayEvents.filter((overlay) => overlay.quoteBox)]
+      : block.overlayEvents;
+    for (const overlay of overlays) {
       const placement = resolveOverlay(overlay, new Set([overlay.id]));
       if (placement.status !== "resolved" || !placement.interval) {
         diagnostics.push(diagnostic("STALE_ANCHOR", placement.diagnostics[0]?.message ?? "Overlay has no exact interval.", entity("overlay_event", overlay.id, "overlayEvents"), { kind: "anchor_issue", anchorId: overlay.id, reason: "stale" }, ["repair_document", "refresh_timing"]));
@@ -1207,6 +1325,54 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       }
       recordEvidence(overlay.id, "independent_timing", fromWire(placement.interval.start)!, start, "unknown");
       recordEvidence(overlay.id, "independent_timing", fromWire(placement.interval.end)!, end, "unknown");
+      const range = { startFrame: start, endFrame: end };
+      if (overlay.quoteBox) {
+        if (!graphicsTrack) {
+          if (requirePrepared) diagnostics.push(diagnostic("TRACK_ROLE_COLLISION", "Quote boxes require one configured V4 video track in overlayTrackIds.", entity("overlay_event", overlay.id, "roles.overlayTrackIds")));
+          continue;
+        }
+        const placedEvents = [...events, ...rowEvents];
+        const backgroundProblem = quoteBoxBackgroundProblem(overlay.quoteBox, overlay.id, authoredPayloadById, descriptorByPayload, placedEvents, dependencies.tracks, graphicsTrack, range);
+        if (backgroundProblem) {
+          diagnostics.push(backgroundProblem);
+          if (backgroundProblem.severity === "blocking" || backgroundProblem.severity === "error") continue;
+        }
+        if (placedEvents.some((event) => event.trackId === graphicsTrack.id &&
+          event.recordRange.startFrame < end && start < event.recordRange.endFrame)) {
+          diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "This quote box overlaps another graphic on V4. Adjust the quote box or graphic range.", entity("overlay_event", overlay.id, "timing"), undefined, ["repair_document"]));
+          continue;
+        }
+        const eventId = stableId(`event:${document.id}:${block.id}:${overlay.id}:${overlay.payload.payloadId}`);
+        const provenance: TimelineEventV2["provenance"] = {
+          documentId: document.id,
+          blockId: block.id,
+          sequenceId: null,
+          slotId: null,
+          payloadId: null,
+          overlayEventId: overlay.id,
+          sourceId: null,
+          originalSourceHash: null,
+          deliveredSourceHash: null,
+          timingMapHash: row.map.timingHash,
+          ...provenanceEvidence,
+          compilerVersion: dependencies.compiler.version,
+        };
+        rowEvents.push({
+          eventId,
+          kind: "quote_box",
+          trackId: graphicsTrack.id,
+          trackRole: "overlay",
+          recordRange: range,
+          provenance,
+          sourceRange: null,
+          sourceTimeMapping: null,
+          preparationBindingHash: null,
+          audio: null,
+          pictureTreatment: null,
+          quoteBox: structuredClone(overlay.quoteBox),
+        });
+        continue;
+      }
       const descriptor = descriptorByPayload.get(overlay.payload.payloadId);
       if (!descriptor || descriptor.owner.kind !== "overlay_event" || descriptor.owner.blockId !== block.id || descriptor.owner.overlayEventId !== overlay.id || overlay.payload.source.kind === "media_reference" && descriptor.mediaReferenceId !== overlay.payload.source.mediaReferenceId || overlay.payload.pictureKind === "clip" && overlay.payload.sourceUsage?.sourceInFrame !== descriptor.occurrenceSourceInFrame) {
         diagnostics.push(diagnostic("MISSING_OCCURRENCE_BINDING", "The overlay has no verified source descriptor.", entity("overlay_event", overlay.id, "occurrenceResolutions"), undefined, ["rebind_media"]));
@@ -1214,7 +1380,6 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
       }
       const binding = descriptor.preparedMediaRequirementKey ? prepared.get(descriptor.preparedMediaRequirementKey) : undefined;
       if (overlay.payload.audioPolicy === "quiet" && !verifiedSourceAudioStream(descriptor)) diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "Quiet overlay source audio has no single verified audio stream.", entity("overlay_event", overlay.id, "sourceAudioStreamMappings"), undefined, ["rebind_media"]));
-      const range = { startFrame: start, endFrame: end };
       const available = { startFrame: descriptor.logicalSourceBounds.startFrame, endFrame: descriptor.logicalSourceBounds.endFrame };
       const sourceIn = overlay.payload.sourceUsage?.sourceInFrame ?? descriptor.occurrenceSourceInFrame;
       const isClip = overlay.payload.pictureKind === "clip";
@@ -1298,7 +1463,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
     }
     if (block.type === "narration" && block.state === "active") {
       for (const slot of block.primaryVisualSequence?.slots ?? []) if (slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.pictureKind !== "intentional_placeholder" && slot.payload.pictureKind !== "unresolved_visual") expectedPayloadIds.add(slot.payload.payloadId);
-      for (const overlay of block.overlayEvents) if (overlay.payload.source.kind !== "intentional_placeholder" && overlay.payload.source.kind !== "unresolved_visual") expectedPayloadIds.add(overlay.payload.payloadId);
+      for (const overlay of block.overlayEvents) if (!overlay.quoteBox && overlay.payload.source.kind !== "intentional_placeholder" && overlay.payload.source.kind !== "unresolved_visual") expectedPayloadIds.add(overlay.payload.payloadId);
     }
   }
   const actual = new Set(dependencies.occurrenceResolutions.map((item) => item.payloadId));
@@ -1879,6 +2044,7 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
   try {
     const frozenTransitions = freezeRowTransitions(document, dependencies);
     const resolved = resolvePlan(document, dependencies, true, frozenTransitions.handles);
+    resolved.diagnostics.push(...quoteBoxTemplateDiagnostics(document, dependencies));
     const invalidTopology = resolved.diagnostics.find((item) => item.code === "TRACK_ROLE_COLLISION");
     if (invalidTopology) return fail({ code: invalidTopology.code, message: invalidTopology.message, ...(invalidTopology.entity.id ? { entityId: invalidTopology.entity.id } : {}) });
     const sourcesById = new Map<string, TimelineManifestV2["sources"][number]>();

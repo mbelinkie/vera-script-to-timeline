@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { applyRowEditV2, type RowEditCommandV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, createRowEditSessionV2, type RowEditCommandV2 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -32,6 +32,16 @@ export function createAuthoringHandler(
   // Keep the enrolled browser working after host restart. Tie it to the
   // configured identity and port without giving the browser the API token.
   const browserProof = createHmac("sha256", authorization).update(`vera-authoring:${origin}`).digest();
+  // D124 is session history, not a property of the submitted document. Keep
+  // exactly one server-owned split and require its opaque proof and *whole*
+  // resulting document before using the model's exact restoration path.
+  let lastSplit: {
+    proof: string;
+    rowId: string;
+    newRowId: string;
+    documentJson: string;
+    session: ReturnType<typeof createRowEditSessionV2>;
+  } | null = null;
   const handle = async (request: Request): Promise<Response | undefined> => {
     const url = new URL(request.url);
     const asset = request.method === "GET" ? ASSETS.get(url.pathname) : undefined;
@@ -72,8 +82,39 @@ export function createAuthoringHandler(
     }
     if (isCommand) {
       try {
-        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2 };
-        return Response.json(applyRowEditV2(body.document, body.document.rowEditRevision ?? 0, body.command));
+        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2; splitProof?: string };
+        const { command, document, splitProof } = body;
+        if (splitProof !== undefined) {
+          const validProof = typeof splitProof === "string" && PROOF.test(splitProof) && lastSplit &&
+            timingSafeEqual(Buffer.from(splitProof, "hex"), Buffer.from(lastSplit.proof, "hex"));
+          const validJoin = command?.kind === "join_rows" && command.direction === "previous" &&
+            command.rowId === lastSplit?.newRowId && command.words === null;
+          const validDocument = lastSplit && JSON.stringify(document) === lastSplit.documentJson &&
+            document.rowEditRevision === lastSplit.session.revision;
+          if (!validProof || !validJoin || !validDocument) {
+            return Response.json({ ok: false, document, diagnostics: [{
+              code: "ROW_SPLIT_CONTEXT_STALE", jsonPath: "/activeDraft",
+              message: "The immediate split restoration is no longer available.",
+            }] });
+          }
+          const session = lastSplit!.session;
+          lastSplit = null;
+          return Response.json(session.apply(command));
+        }
+        if (command?.kind === "split_row") {
+          const session = createRowEditSessionV2(document);
+          const result = session.apply(command);
+          if (!result.ok) return Response.json(result);
+          const proof = randomBytes(32).toString("hex");
+          lastSplit = {
+            proof, rowId: command.rowId, newRowId: command.newRowId,
+            documentJson: JSON.stringify(result.document), session,
+          };
+          return Response.json({ ...result, splitProof: proof });
+        }
+        const result = applyRowEditV2(document, document.rowEditRevision ?? 0, command);
+        if (result.ok) lastSplit = null;
+        return Response.json(result);
       } catch {
         return Response.json({ error: "invalid_command" }, { status: 400 });
       }

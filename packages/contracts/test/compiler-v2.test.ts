@@ -63,6 +63,49 @@ function document(): ScriptDocumentV2 {
   };
 }
 
+const quoteBoxRevision = "sha256:b089282e6ccab68426eb5f0b39168cb11c051e6798cbe08230b41bf640ff3754";
+
+function quoteBoxFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2; overlayId: string; backgroundPayloadId: string } {
+  const doc = document();
+  const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+  const overlayId = id(30);
+  const backgroundPayloadId = id(17);
+  row.overlayEvents.push({
+    id: overlayId,
+    payload: {
+      kind: "visual",
+      payloadId: id(31),
+      pictureKind: "graphic",
+      source: { kind: "graphic_revision", graphicId: id(32), revisionId: id(33) },
+      sourceUsage: null,
+      audioPolicy: "mute",
+      framingPolicy: "contain",
+    },
+    timing: {
+      kind: "timed",
+      start: { kind: "word", anchor: { blockId: row.id, tokenId: id(7), affinity: "before", quotedWord: "hello", anchorVersion: row.version } },
+      end: { kind: "audible_word_end", anchor: { blockId: row.id, tokenId: id(7), affinity: "after", quotedWord: "hello", anchorVersion: row.version } },
+    },
+    quoteBox: {
+      researchQuoteId: id(34),
+      displayText: "A quote",
+      speakerName: "Ada Lovelace",
+      speakerTitle: "Mathematician",
+      citationText: "Source, p. 1",
+      italicSpan: { start: 0, end: 6 },
+      templateRevision: quoteBoxRevision,
+      backgroundPayloadId,
+    },
+    version: 1,
+  });
+  const deps = dependencies();
+  deps.tracks.find((track) => track.id === "markers")!.index = 5;
+  deps.tracks.push({ id: "quote-graphics", kind: "video", index: 4, name: "Quote Graphics" });
+  deps.roles.overlayTrackIds = ["quote-graphics"];
+  deps.quoteBoxTemplateRevision = quoteBoxRevision;
+  return { doc, deps, overlayId, backgroundPayloadId };
+}
+
 function sequentialSpeechCutFixture(previousEnd?: { numerator: number; denominator: number }): {
   doc: ScriptDocumentV2;
   deps: CompilerDependenciesV2;
@@ -289,10 +332,10 @@ describe("#389 bounded Research clip occurrence survives media requirements and 
   });
 });
 
-function threeRowMusicFixture(samples = 48000 * 16): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
-  const first = intentionalSlateBlock(4000);
-  const second = { ...intentionalSlateBlock(4000), id: id(180), orderKey: "a1", payload: { ...intentionalSlateBlock().payload, payloadId: id(181) } } as VisualOnlyBlockV2;
-  const third = { ...intentionalSlateBlock(4000), id: id(182), orderKey: "a2", payload: { ...intentionalSlateBlock().payload, payloadId: id(183) } } as VisualOnlyBlockV2;
+function threeRowMusicFixture(samples = 48000 * 16, lengths = [4000, 4000, 4000]): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const first = intentionalSlateBlock(lengths[0]);
+  const second = { ...intentionalSlateBlock(lengths[1]), id: id(180), orderKey: "a1", payload: { ...intentionalSlateBlock().payload, payloadId: id(181) } } as VisualOnlyBlockV2;
+  const third = { ...intentionalSlateBlock(lengths[2]), id: id(182), orderKey: "a2", payload: { ...intentionalSlateBlock().payload, payloadId: id(183) } } as VisualOnlyBlockV2;
   const doc = visualOnlyDocument(first);
   doc.activeDraft.blocks.push(second, third);
   const deps = visualOnlyDependencies();
@@ -384,6 +427,114 @@ describe("#100 verified A5 music compilation", () => {
     deps.musicBindings!.pop();
     deps.tracks.find((item) => item.id === "music-a5")!.id = "unrelated";
     expect(compileTimelineV2(doc, deps).ok).toBe(false);
+  });
+
+  it("plays a 25-second source selection through the 10-second picture cut", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 120, [10000, 30000, 10000]);
+    doc.rowAudioSpans![0]!.timing = {
+      sourceInFrame: 120, sourceOutFrame: 720,
+      timelineIn: { kind: "row_edge", blockId: doc.activeDraft.blocks[0]!.id, edge: "start" },
+    };
+    const { manifest } = compile(doc, deps);
+    expect(manifest.events.some((event) => event.kind === "placeholder" && event.recordRange.startFrame === 240)).toBe(true);
+    expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      sourceRange: { startFrame: 120, endFrame: 720 },
+      recordRange: { startFrame: 0, endFrame: 600 },
+      music: { gainDb: -12, fadeInFrames: 6, fadeOutFrames: 6, requestedEndFrame: 600 },
+    });
+  });
+
+  it("moves the start under the voiceover while preserving the music ending and outro sync", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 120, [10000, 30000, 10000]);
+    const span = doc.rowAudioSpans![0]!;
+    const timelineOut = { kind: "row_edge", blockId: span.endRowId, edge: "end" } as const;
+    for (const [startSeconds, sourceSeconds] of [[10, 80], [25, 95]] as const) {
+      span.timing = { sourceOutFrame: 2880, timelineIn: { kind: "frame", frame: startSeconds * 24 }, timelineOut };
+      const saved = structuredClone(span.timing);
+      const result = compile(doc, deps);
+      const event = result.manifest.events.find((item) => item.kind === "music")!;
+      expect(event).toMatchObject({
+        sourceRange: { startFrame: sourceSeconds * 24, endFrame: 2880 },
+        recordRange: { startFrame: startSeconds * 24, endFrame: 1200 },
+      });
+      expect(event.recordRange.startFrame + 110 * 24 - event.sourceRange!.startFrame).toBe(40 * 24);
+      expect(span.timing).toEqual(saved);
+    }
+    span.timing = { sourceInFrame: 2280, sourceOutFrame: 2880, timelineOut };
+    expect(compile(doc, deps).manifest.events.find((event) => event.kind === "music")?.recordRange)
+      .toEqual({ startFrame: 600, endFrame: 1200 });
+    span.timing = { sourceInFrame: 2280, timelineIn: { kind: "frame", frame: 600 }, timelineOut };
+    expect(compile(doc, deps).manifest.events.find((event) => event.kind === "music")?.sourceRange)
+      .toEqual({ startFrame: 2280, endFrame: 2880 });
+  });
+
+  it("blocks impossible source windows and unresolved timeline pins without changing the cue", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    for (const [timelineOut, message] of [
+      [{ kind: "frame", frame: 288 }, "Adjust a source trim"],
+      [{ kind: "row_edge", blockId: id(189), edge: "end" }, "Refresh word timing"],
+    ] as const) {
+      span.timing = { sourceOutFrame: 24, timelineIn: { kind: "frame", frame: 0 }, timelineOut };
+      const saved = structuredClone(span.timing);
+      const result = compile(doc, deps);
+      expect(result.manifest.events.some((item) => item.kind === "music")).toBe(false);
+      expect(result.report.status).toBe("blocked");
+      const diagnostic = result.report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+      expect(diagnostic?.severity).toBe("blocking");
+      expect(diagnostic?.message).toContain(message);
+      expect(span.timing).toEqual(saved);
+    }
+  });
+
+  it("pins a row end to the last picture in a multi-picture row", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    const last = doc.activeDraft.blocks.at(-1) as VisualOnlyBlockV2;
+    last.additionalVisuals = [{
+      payload: { ...last.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    }];
+    span.timing = {
+      sourceInFrame: 48,
+      timelineIn: { kind: "frame", frame: 240 },
+      timelineOut: { kind: "row_edge", blockId: last.id, edge: "end" },
+    };
+    expect(compile(doc, deps).manifest.events.find((item) => item.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 240, endFrame: 384 },
+      sourceRange: { startFrame: 48, endFrame: 192 },
+    });
+  });
+
+  it("recalculates from the current timing of a pinned word and refuses an unevidenced end", () => {
+    const { doc, deps } = sequentialSpeechCutFixture({ numerator: 1, denominator: 1 });
+    const { doc: music, deps: musicDeps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const span = music.rowAudioSpans![0]!;
+    doc.rowAudioSpans = [{ ...span, startRowId: row.id, endRowId: row.id, timing: {
+      sourceInFrame: 10,
+      timelineIn: { kind: "word", anchor: { blockId: row.id, tokenId: id(40), affinity: "after", quotedWord: "alpha", anchorVersion: row.version } },
+      timelineOut: { kind: "row_edge", blockId: row.id, edge: "end" },
+    } }];
+    deps.musicBindings = musicDeps.musicBindings!;
+    deps.roles.musicTrackId = "music-a5";
+    deps.tracks.push(musicDeps.tracks.at(-1)!);
+    deps.timeline.frameRate = { numerator: 24, denominator: 1 };
+    const pin = deps.narrationTimingMaps[0]!.tokens[0];
+    const saved = structuredClone(doc.rowAudioSpans[0]!.timing);
+    for (const [numerator, denominator] of [[1, 1], [3, 2]] as const) {
+      const seconds = numerator / denominator;
+      pin.audibleEnd = { numerator, denominator };
+      const event = compile(doc, deps).manifest.events.find((item) => item.kind === "music")!;
+      expect(event.recordRange.startFrame).toBe(seconds * 24);
+      expect(event.sourceRange!.endFrame).toBe(10 + event.recordRange.endFrame - seconds * 24);
+      expect(doc.rowAudioSpans[0]!.timing).toEqual(saved);
+    }
+    delete pin.audibleEnd;
+    pin.endBasis = "next_word_derived";
+    const diagnostic = compile(doc, deps).report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+    expect(diagnostic?.severity).toBe("blocking");
+    expect(diagnostic?.message).toContain("timeline in pin");
   });
 });
 
@@ -2409,5 +2560,98 @@ describe("Research snapshot readiness (issue 367 phase 3)", () => {
       expect(compiled.report.diagnostics.some((d) => d.code === "SOURCE_MAPPING_MISMATCH" || d.code === "MISSING_OCCURRENCE_BINDING")).toBe(true);
       expect(compiled.manifest.events.some((event) => event.kind === "primary_visual")).toBe(false);
     } else expect(compiled.diagnostics.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Quote box compiler bindings", () => {
+  it("compiles a quote graphic over its linked prepared background and keeps media-only needs pure", () => {
+    const { doc, deps, backgroundPayloadId } = quoteBoxFixture();
+    const needs = resolveMediaRequirementsV2(doc, {
+      timing: deps.narrationTimingMaps,
+      defaults: deps.authoringDefaults,
+      sourceDescriptors: deps.occurrenceResolutions,
+      frameRate: deps.timeline.frameRate,
+    });
+    expect(needs.ok, JSON.stringify(needs)).toBe(true);
+
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.report.status).toBe("ready");
+    const quote = compiled.manifest.events.find((event) => event.kind === "quote_box");
+    const background = compiled.manifest.events.find((event) => event.provenance.payloadId === backgroundPayloadId);
+    expect(quote).toMatchObject({
+      trackId: "quote-graphics",
+      trackRole: "overlay",
+      provenance: { payloadId: null, sourceId: null },
+      sourceRange: null,
+      sourceTimeMapping: null,
+      preparationBindingHash: null,
+      audio: null,
+    });
+    expect(background).toBeDefined();
+    expect(background!.recordRange.startFrame).toBeLessThanOrEqual(quote!.recordRange.startFrame);
+    expect(background!.recordRange.endFrame).toBeGreaterThanOrEqual(quote!.recordRange.endFrame);
+    expect(compiled.manifest.sources.some((source) => source.id === quote!.provenance.sourceId)).toBe(false);
+  });
+
+  it("blocks a quote whose linked background occurrence is missing without emitting fake media", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    row.overlayEvents[0]!.quoteBox!.backgroundPayloadId = id(99);
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.report.status).toBe("blocked");
+    const missingBackground = compiled.report.diagnostics.find((item) => item.code === "MISSING_OCCURRENCE_BINDING");
+    expect(missingBackground?.entity.id).toBe(overlayId);
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box")).toBe(false);
+    expect(compiled.manifest.events.some((event) => event.provenance.overlayEventId === overlayId)).toBe(false);
+  });
+
+  it("reports a timing repair when two quote boxes overlap on V4", () => {
+    const { doc, deps } = quoteBoxFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const second = structuredClone(row.overlayEvents[0]!);
+    second.id = id(35);
+    second.payload.payloadId = id(36);
+    row.overlayEvents.push(second);
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status).toBe("blocked");
+    const problem = compiled.report.diagnostics.find((item) => item.entity.id === second.id);
+    expect(problem?.message).toContain("overlaps another graphic on V4");
+    expect(problem?.recoveryActionKinds).toEqual(["repair_document"]);
+  });
+
+  it("reports a quote linked to a background above V4", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const { doc: withOverlay, deps: withOverlayDeps } = sharedPreparationFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const background = (withOverlay.activeDraft.blocks[0] as NarrationBlockV2).overlayEvents[0]!;
+    row.overlayEvents.push(background);
+    row.overlayEvents[0]!.quoteBox!.backgroundPayloadId = background.payload.payloadId;
+    deps.tracks.find((track) => track.id === "markers")!.index = 6;
+    deps.tracks.push({ id: "overlay", kind: "video", index: 5, name: "Overlay" });
+    deps.roles.overlayTrackIds.unshift("overlay");
+    deps.occurrenceResolutions.push(withOverlayDeps.occurrenceResolutions[1]!);
+    const compiled = compileTimelineV2(doc, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status).toBe("blocked");
+    const problem = compiled.report.diagnostics.find((item) => item.entity.id === overlayId);
+    expect(problem?.message).toContain("must stay on a video track below");
+  });
+
+  it("keeps the quote event visible in the report while blocking a missing installed template", () => {
+    const { doc, deps } = quoteBoxFixture();
+    deps.quoteBoxTemplateRevision = null;
+    const compiled = compileTimelineV2(doc, deps);
+    expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.report.status).toBe("blocked");
+    expect(compiled.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "QUOTE_BOX_TEMPLATE_MISSING" }),
+    ]));
+    expect(compiled.manifest.events.some((event) => event.kind === "quote_box")).toBe(true);
   });
 });

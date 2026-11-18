@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
+from vera_timeline_agent.quote_box_inputs import freeze_quote_box_inputs
+from vera_timeline_agent.quote_box_native import QUOTE_BOX_TEMPLATE_REVISION
 
 if TYPE_CHECKING:
     from vera_timeline_agent.v2_package import V2PackageResult
@@ -21,6 +23,7 @@ _FIXTURES = {
     "ntsc": "visual-only-graphic-still-ntsc-default",
 }
 _SCENARIOS = {
+    "quote-background": "narrated-image-still-holds",
     "root-child-overlay-return": "root-child-overlay-return",
     "shared-preparation": "issue531-shared-preparation",
     "intentional-slate": "visual-only-default-25fps",
@@ -361,6 +364,180 @@ def _configure_source_audio(
         _append_report_event(manifest, report, duplicate)
 
 
+def _configure_quote_background(
+    document: Json, dependencies: Json, manifest: Json, report: Json
+) -> None:
+    """Turn one held still row into three sequential quote-box uses."""
+    block = next(
+        block
+        for block in document["activeDraft"]["blocks"]
+        if block["type"] == "narration" and block["state"] == "active"
+    )
+    base_payload = block["primaryVisualSequence"]["slots"][0]["payload"]
+    base_payload_id = base_payload["payloadId"]
+    first = block["overlayEvents"][0]
+    old_overlay_event = next(
+        event for event in manifest["events"] if event["kind"] == "overlay_visual"
+    )
+    old_overlay_payload_id = old_overlay_event["provenance"]["payloadId"]
+    old_requirement = old_overlay_event["preparationBindingHash"]
+    old_source_id = old_overlay_event["provenance"]["sourceId"]
+    old_requirement_key = next(
+        binding["requirementKey"]
+        for binding in manifest["preparationBindings"]
+        if _compiler_hash(binding) == old_requirement
+    )
+    token_ids = [
+        first["timing"]["start"]["anchor"]["tokenId"],
+        _stable_id("quote-token:world"),
+        _stable_id("quote-token:again"),
+    ]
+    block["text"] = "hello world again"
+    block["tokens"] = [
+        {
+            "id": token_ids[0],
+            "value": "hello",
+            "startOffset": 0,
+            "endOffset": 5,
+        },
+        {
+            "id": token_ids[1],
+            "value": "world",
+            "startOffset": 6,
+            "endOffset": 11,
+        },
+        {
+            "id": token_ids[2],
+            "value": "again",
+            "startOffset": 12,
+            "endOffset": 17,
+        },
+    ]
+    timing_map = next(
+        item
+        for item in dependencies["narrationTimingMaps"]
+        if item["blockId"] == block["id"]
+    )
+    timing_map["textHash"] = _raw_hash(block["text"].encode("utf-8"))
+    timing_map["tokens"] = [
+        {
+            "tokenId": token_ids[0],
+            "startOffset": 0,
+            "endOffset": 5,
+            "quotedText": "hello",
+            "startTime": {"numerator": 0, "denominator": 1},
+            "audibleEnd": {"numerator": 1, "denominator": 2},
+            "endBasis": "evidenced_audible_end",
+        },
+        {
+            "tokenId": token_ids[1],
+            "startOffset": 6,
+            "endOffset": 11,
+            "quotedText": "world",
+            "startTime": {"numerator": 1, "denominator": 1},
+            "audibleEnd": {"numerator": 3, "denominator": 2},
+            "endBasis": "evidenced_audible_end",
+        },
+        {
+            "tokenId": token_ids[2],
+            "startOffset": 12,
+            "endOffset": 17,
+            "quotedText": "again",
+            "startTime": {"numerator": 2, "denominator": 1},
+            "audibleEnd": {"numerator": 5, "denominator": 2},
+            "endBasis": "evidenced_audible_end",
+        },
+    ]
+
+    overlays: list[Json] = []
+    for index, token_id in enumerate(token_ids):
+        overlay = copy.deepcopy(first)
+        overlay_id = first["id"] if index == 0 else _stable_id(f"quote-overlay:{index}")
+        payload_id = _stable_id(f"quote-payload:{index}")
+        overlay["id"] = overlay_id
+        overlay["payload"] = {
+            "kind": "visual",
+            "payloadId": payload_id,
+            "pictureKind": "graphic",
+            "source": {
+                "kind": "graphic_revision",
+                "graphicId": _stable_id("quote-graphic"),
+                "revisionId": _stable_id(f"quote-graphic-revision:{index}"),
+            },
+            "sourceUsage": None,
+            "audioPolicy": "mute",
+            "framingPolicy": "contain",
+        }
+        overlay["timing"] = {
+            "kind": "timed",
+            "start": {
+                "kind": "word",
+                "anchor": {
+                    "blockId": block["id"],
+                    "tokenId": token_id,
+                    "affinity": "before",
+                    "quotedWord": block["tokens"][index]["value"],
+                    "anchorVersion": block["version"],
+                },
+            },
+            "durationMs": 1000,
+        }
+        overlay["quoteBox"] = {
+            "researchQuoteId": _stable_id(f"research-quote:{index}"),
+            "displayText": f"A frozen quote {index + 1}.",
+            "speakerName": "Ada Lovelace",
+            "speakerTitle": "Mathematician",
+            "citationText": f"Source {index + 1}",
+            "italicSpan": None,
+            "templateRevision": QUOTE_BOX_TEMPLATE_REVISION,
+            "backgroundPayloadId": base_payload_id,
+        }
+        overlays.append(overlay)
+    block["overlayEvents"] = overlays
+    dependencies["occurrenceResolutions"] = [
+        item
+        for item in dependencies["occurrenceResolutions"]
+        if item["payloadId"] != old_overlay_payload_id
+    ]
+    dependencies["preparedMedia"] = [
+        item
+        for item in dependencies["preparedMedia"]
+        if item["requirementKey"] != old_requirement_key
+    ]
+    manifest["preparationBindings"] = [
+        item
+        for item in manifest["preparationBindings"]
+        if item["requirementKey"] != old_requirement_key
+    ]
+    manifest["sources"] = [
+        item for item in manifest["sources"] if item["id"] != old_source_id
+    ]
+    manifest["events"] = [
+        item
+        for item in manifest["events"]
+        if item["eventId"] != old_overlay_event["eventId"]
+    ]
+    report["mediaPreparation"]["requirements"] = [
+        item
+        for item in report["mediaPreparation"]["requirements"]
+        if item["requirementKey"] != old_requirement_key
+    ]
+    report["eventResults"] = [
+        item
+        for item in report["eventResults"]
+        if item["eventId"] != old_overlay_event["eventId"]
+    ]
+    report["summary"].update(
+        {
+            "eventCount": len(manifest["events"]),
+            "placedCount": len(report["eventResults"]),
+            "sourceCount": len(manifest["sources"]),
+        }
+    )
+    if not freeze_quote_box_inputs(document, dependencies):
+        raise ValueError("quote-background fixture did not freeze quote inputs")
+
+
 @dataclass
 class PackageCase:
     """Files and explicit byte maps consumed by ``build_v2_package``."""
@@ -420,6 +597,8 @@ def make_package_case(
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
 
+    if scenario == "quote-background":
+        _configure_quote_background(document, dependencies, manifest, report)
     if scenario == "root-child-overlay-return":
         _make_child_visual_ready(document, dependencies, manifest, report)
     if scenario in audio_scenarios:
@@ -850,6 +1029,10 @@ def make_package_case(
             narration_bytes = b"synthetic narration audio for issue 177\n"
             narration_hash = _raw_hash(narration_bytes)
             narration["audioHash"] = narration_hash
+            for timing_map in dependencies["narrationTimingMaps"]:
+                if timing_map["narrationAssetId"] == source["id"]:
+                    timing_map["audioHash"] = narration_hash
+                    timing_map["audio"]["audioHash"] = narration_hash
             narration_path = media_dir / f"narration-{source['id']}.wav"
             narration_path.write_bytes(narration_bytes)
             media_paths[f"source:{source['id']}"] = narration_path

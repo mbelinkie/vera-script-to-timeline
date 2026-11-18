@@ -165,6 +165,16 @@ inspection had no authoritative source FPS; it is not Resolve motion evidence.
 #12's pinned EV24 timing is specific to this authored template, not a general
 animation rule. Semantic highlights use the separate RK-45 proof.
 
+**EV24 Quote Box.** Studio 21.2 build 6 retained three separately editable,
+48-frame instances on V4 over one continuous V1 still with centered Dynamic
+Zoom at 1920×1080, 24 fps. Import the pinned setting on each transparent
+carrier and connect the macro to MediaOut. Fusion identifies the connected
+tool as the internal `CitationOver` Merge. Hold-frame exports after reopening
+showed the expected attribution, quotation marks and citation italics across
+an emoji and accented text. At width 1600, the measured sample fit 7, 9 and
+11 quote lines at sizes 70, 58 and 50. Evaluate `Controls.PanelH` for the
+actual text and attribution. [Studio result and test conditions](https://github.com/mbelinkie/vera-script-to-timeline/issues/629#issuecomment-6985290208).
+
 ### RK-05 — Fairlight state readback is weaker than audible/rendered attachment
 
 **Historical native subset; delivered integration unproved.**
@@ -934,6 +944,17 @@ is a code-level integration, **not yet real Studio production acceptance**;
 the final disposable application check and Matthew's one listening judgment
 remain to be completed. Existing projects, arbitrary effects/stills, stereo,
 looping and advanced fade shapes remain unqualified.
+
+**#574 end-anchored music on 21.2.** Studio **21.2.0 build 6**, with Local
+scripting, built a fresh 24 fps timeline from a verified package with two
+H.264 picture clips and a mono 48 kHz PCM16 WAV. With source out and both
+timeline points fixed, Resolve reopened A5 with source `[72,192)` and timeline
+`[24,144)`, spanning the picture cut at frame 72. Reopened verification
+matched the gain and fades, and a separate SDK readback confirmed both ranges
+and the cut. Save, close, and reopen took 9.35 seconds. This qualifies the
+bounded music route on that build with moving picture. Mixed still treatments
+and other music rates keep their existing gates.
+
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -1145,6 +1166,15 @@ remains unsupported: `_SUPPORTED_PACKAGE_RATES` excludes 30000/1001, before
 the motion gate; #597 tracks its normal-build work. This native result does not
 qualify that path. See [#603](https://github.com/mbelinkie/vera-script-to-timeline/issues/603).
 
+**#633 frozen-submission delta, Studio 21.2.0 build 6:** One generated
+1600×900 RGB PNG passed the frozen local build service, verified preparation,
+package and guarded Local delivery at exact 24000/1001. The disposable project
+saved, closed and reopened with the same packaged source and a 72-frame hold
+at [0,72). Independent connected readback matched the source clock, frame
+boundaries, enabled native Dynamic Zoom and its exported Type-59 center and
+scale endpoints and their spacing against the attested OTIO. No render or other source profile
+was tested. See [#633](https://github.com/mbelinkie/vera-script-to-timeline/issues/633).
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
@@ -1276,8 +1306,8 @@ selecting the 21.1.1 bundle was refused before project mutation.
 
 **Reuse/delta:** this qualifies only the selected-app mixed build and
 structural readback on those builds. Native OTIO image motion, row-spanning
-music and Cross Dissolve retain their separate 21.1.1 gates; they were not
-qualified on 21.2 by this fixture. The vendor's stated Mac requirements omit
+music and Cross Dissolve have separate qualification. See RK-42 for the #574
+24 fps music result on 21.2. The vendor's stated Mac requirements omit
 this Intel host, as recorded in the #564 comparison.
 
 **#82 Research cut delta:** Studio 21.2.0 build 6 reopened a disposable

@@ -1405,6 +1405,67 @@
         }
       ]
     },
+    "QuoteBoxV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchQuoteId",
+        "displayText",
+        "speakerName",
+        "speakerTitle",
+        "citationText",
+        "italicSpan",
+        "templateRevision",
+        "backgroundPayloadId"
+      ],
+      "properties": {
+        "researchQuoteId": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "displayText": {
+          "type": "string"
+        },
+        "speakerName": {
+          "type": "string"
+        },
+        "speakerTitle": {
+          "type": "string"
+        },
+        "citationText": {
+          "type": "string"
+        },
+        "italicSpan": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start",
+                "end"
+              ],
+              "properties": {
+                "start": {
+                  "$ref": "#/$defs/NonNegativeSafeInteger"
+                },
+                "end": {
+                  "$ref": "#/$defs/NonNegativeSafeInteger"
+                }
+              }
+            }
+          ]
+        },
+        "templateRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "backgroundPayloadId": {
+          "$ref": "#/$defs/EntityId"
+        }
+      }
+    },
     "UnplacedPlacement": {
       "type": "object",
       "additionalProperties": false,
@@ -1858,10 +1919,56 @@
         "timing": {
           "$ref": "#/$defs/TimedPlacement"
         },
+        "quoteBox": {
+          "$ref": "#/$defs/QuoteBoxV2"
+        },
         "version": {
           "$ref": "#/$defs/EntityVersion"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "quoteBox": {}
+            },
+            "required": [
+              "quoteBox"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "pictureKind": {
+                    "const": "graphic"
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "graphic_revision"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "audioPolicy": {
+                    "const": "mute"
+                  }
+                },
+                "required": [
+                  "pictureKind",
+                  "source",
+                  "audioPolicy"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "NarrationBlockV2": {
       "type": "object",
@@ -3070,10 +3177,63 @@
           },
           "additionalProperties": true
         },
+        "timing": {
+          "$ref": "#/$defs/MusicCueTimingV2"
+        },
         "review": {
           "$ref": "#/$defs/RowAudioReviewV2"
         }
       }
+    },
+    "MusicCueTimingV2": {
+      "type": "object",
+      "description": "Exactly three fixed points at normal playback speed. Omit the point to derive. Source points are frame boundaries on the build's timeline rate.",
+      "additionalProperties": false,
+      "minProperties": 3,
+      "maxProperties": 3,
+      "properties": {
+        "sourceInFrame": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "sourceOutFrame": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "timelineIn": { "$ref": "#/$defs/MusicTimelinePointV2" },
+        "timelineOut": { "$ref": "#/$defs/MusicTimelinePointV2" }
+      }
+    },
+    "MusicTimelinePointV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "frame"],
+          "properties": {
+            "kind": { "const": "frame" },
+            "frame": { "$ref": "#/$defs/NonNegativeSafeInteger" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "blockId", "edge"],
+          "properties": {
+            "kind": { "const": "row_edge" },
+            "blockId": { "$ref": "#/$defs/EntityId" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "anchor"],
+          "properties": {
+            "kind": { "const": "word" },
+            "anchor": {
+              "oneOf": [
+                { "$ref": "#/$defs/WordInpointAnchor" },
+                { "$ref": "#/$defs/WordAudibleEndAnchor" }
+              ]
+            }
+          }
+        }
+      ]
     },
     "OpaqueRowReferenceV2": {
       "type": "object",

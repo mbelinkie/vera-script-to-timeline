@@ -855,6 +855,115 @@ describe("authoring v2 document and project-settings schemas", () => {
     expectDocumentInvalid(fullAudioOverlay);
   });
 
+  it("persists optional quote-box metadata and validates italic spans by trimmed Unicode code points", () => {
+    const quoteBox = {
+      researchQuoteId: ids.support,
+      displayText: "A shortened quote",
+      speakerName: "Ada Lovelace",
+      speakerTitle: "Mathematician",
+      citationText: "  The café 🌍  ",
+      italicSpan: { start: 4, end: 10 },
+      templateRevision: "quote-box-revision-1",
+      backgroundPayloadId: ids.payload,
+    };
+    const overlay = {
+      id: ids.event,
+      payload: narratedVisualPayload("graphic", "mute"),
+      timing: { kind: "timed", start: pointAnchor(), end: pointAnchor(), durationMs: 20 },
+      quoteBox,
+      version: 1,
+    };
+    const document = documentWithBlock(narrationBlock({ overlays: [overlay] }));
+    expectDocumentValid(document);
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+
+    const serialized = serializeAuthoringDocumentV2(
+      document as Parameters<typeof serializeAuthoringDocumentV2>[0],
+    );
+    const loaded = deserializeAuthoringDocumentV2(serialized);
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    if (loaded.ok) {
+      expect(loaded.document.activeDraft.blocks[0]).toMatchObject({
+        type: "narration",
+        overlayEvents: [{ quoteBox }],
+      });
+      expect(serializeAuthoringDocumentV2(loaded.document)).toBe(serialized);
+    }
+
+    for (const field of ["displayText", "speakerName", "speakerTitle", "citationText"]) {
+      const malformed = structuredClone(document);
+      setAt(malformed, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", field], "\ud83c");
+      expect(validateScriptDocumentV2(malformed).diagnostics).toContainEqual(expect.objectContaining({
+        code: "QUOTE_BOX_TEXT_INVALID",
+        jsonPath: `/activeDraft/blocks/0/overlayEvents/0/quoteBox/${field}`,
+      }));
+      expect(deserializeAuthoringDocumentV2(JSON.stringify(malformed)).ok).toBe(false);
+    }
+
+    const outOfBounds = structuredClone(document);
+    setAt(outOfBounds, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", "italicSpan"], {
+      start: 9,
+      end: 11,
+    });
+    expectDocumentValid(outOfBounds);
+    const outOfBoundsResult = validateScriptDocumentV2(outOfBounds);
+    expect(outOfBoundsResult.valid).toBe(false);
+    expect(outOfBoundsResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "QUOTE_BOX_ITALIC_SPAN_INVALID" }),
+    ]));
+    expect(deserializeAuthoringDocumentV2(JSON.stringify(outOfBounds)).ok).toBe(false);
+
+    const reversed = structuredClone(document);
+    setAt(reversed, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", "italicSpan"], {
+      start: 8,
+      end: 4,
+    });
+    expectDocumentValid(reversed);
+    expect(validateScriptDocumentV2(reversed).diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "QUOTE_BOX_ITALIC_SPAN_INVALID" }),
+    ]));
+    expect(deserializeAuthoringDocumentV2(JSON.stringify(reversed)).ok).toBe(false);
+
+    const empty = structuredClone(document);
+    setAt(empty, ["activeDraft", "blocks", 0, "overlayEvents", 0, "quoteBox", "italicSpan"], {
+      start: 5,
+      end: 5,
+    });
+    expectDocumentValid(empty);
+    expect(validateScriptDocumentV2(empty).diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "QUOTE_BOX_ITALIC_SPAN_INVALID" }),
+    ]));
+    expect(deserializeAuthoringDocumentV2(JSON.stringify(empty)).ok).toBe(false);
+  });
+
+  it("leaves legacy overlays unchanged and rejects malformed quote-box metadata", () => {
+    const legacy = documentWithBlock();
+    const legacyJson = JSON.stringify(legacy);
+    const loadedLegacy = deserializeAuthoringDocumentV2(legacyJson);
+    expect(loadedLegacy.ok, JSON.stringify(loadedLegacy)).toBe(true);
+    if (loadedLegacy.ok) expect(serializeAuthoringDocumentV2(loadedLegacy.document)).toBe(legacyJson);
+
+    const invalid = documentWithBlock(narrationBlock({ overlays: [{
+      id: ids.event,
+      payload: narratedVisualPayload("graphic", "mute"),
+      timing: { kind: "timed", start: pointAnchor(), end: pointAnchor(), durationMs: 20 },
+      quoteBox: {
+        researchQuoteId: ids.support,
+        displayText: "Quote",
+        speakerName: "",
+        speakerTitle: "",
+        citationText: "Citation",
+        italicSpan: null,
+        templateRevision: "quote-box-revision-1",
+        backgroundPayloadId: ids.payload,
+        unexpected: true,
+      },
+      version: 1,
+    }] }));
+    expectDocumentInvalid(invalid);
+    expect(deserializeAuthoringDocumentV2(JSON.stringify(invalid)).ok).toBe(false);
+  });
+
   it("accepts the structural two-of-three timing forms but does not resolve anchor agreement", () => {
     const placements = [
       { kind: "timed", start: pointAnchor(), end: pointAnchor() },
