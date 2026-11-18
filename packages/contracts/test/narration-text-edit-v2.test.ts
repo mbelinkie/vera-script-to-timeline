@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   applyCommentOperationV2,
   applyRowEditV2,
+  applyStageDirectionEditV2,
   createCommentStateV2,
   createRowEditSessionV2,
   deserializeAuthoringDocumentV2,
   deserializeCommentStateV2,
+  inspectStageDirectionsV2,
   projectPrimarySequenceV2,
   serializeAuthoringDocumentV2,
   serializeCommentStateV2,
@@ -400,8 +402,38 @@ describe("#580 picture cue reconciliation (H4/H6, P1/P2)", () => {
         },
         visualOnlyTiming: { kind: "visual_only" },
       }],
+      clearedNarration: { id: id(300), version: 1, slots: [
+        { id: id(302), version: 1, visualId: id(402) },
+        { id: id(303), version: 1, visualId: id(403) },
+      ] },
     }]);
-    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document))).toEqual({ ok: true, document: result.document });
+    const reloaded = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(reloaded).toEqual({ ok: true, document: result.document });
+    if (!reloaded.ok) throw new Error("Expected cleared narration to reload");
+    const afterReload = createRowEditSessionV2(reloaded.document);
+    const retyped = afterReload.apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, 0, "新", 2160) });
+    expect(retyped.ok, JSON.stringify(retyped.diagnostics)).toBe(true);
+    expect(retyped.document.activeDraft.blocks).toMatchObject([{
+      type: "narration", id: source.id, orderKey: source.orderKey, version: 3, text: "新",
+      primaryVisualSequence: { id: id(300), slots: [{
+        boundaryBefore: { kind: "row_start" }, payload: { kind: "on_camera", presenterChoiceId: null },
+      }] },
+      unattachedVisuals: [
+        { slotId: id(302), payload: { payloadId: id(402), selectedSourceRange: { startFrame: 48, durationFrames: 96 }, audioPolicy: "quiet" } },
+        { slotId: id(303), payload: { payloadId: id(403), framingPolicy: "contain" } },
+      ],
+    }]);
+    expect(afterReload.undo().document.activeDraft.blocks).toEqual(reloaded.document.activeDraft.blocks);
+
+    const genuineWordless = structuredClone(result.document);
+    const wordlessRow = genuineWordless.activeDraft.blocks[0];
+    if (wordlessRow?.type !== "visual_only") throw new Error("Expected a wordless picture row");
+    delete wordlessRow.clearedNarration;
+    const refusedRetype = createRowEditSessionV2(genuineWordless)
+      .apply({ kind: "edit_narration_text", rowId: source.id, ...edit(0, 0, "x", 2161) });
+    expect(refusedRetype).toMatchObject({
+      ok: false, document: genuineWordless, diagnostics: [{ code: "NARRATION_TEXT_TARGET_INVALID" }],
+    });
     comments = commentOperation(comments, { kind: "replace_document", id: "clear", actorId: "test-reviewer", document: result.document });
     expect(comments.threads.map((thread) => thread.attachment.status)).toEqual(["stale", "attached", "attached"]);
     expect(comments.threads.slice(1).map((thread) => thread.attachment.anchor)).toEqual([
@@ -769,6 +801,50 @@ describe("#580 strict atomic command gates", () => {
     const lastDeleted = pictureEdit(source, edit(13, 18, "", 2030));
     expect(lastDeleted.text).toBe("listen [soft] now");
     expect(lastDeleted.tokens[1]).toMatchObject({ id: id(101), spoken: false });
+  });
+
+  it("saves a lone literal bracket and keeps a completed pair spoken", () => {
+    const opened = pictureEdit(rowOf(""), edit(0, 0, "[", 2031));
+    expect(opened.text).toBe("[");
+    expect(opened.tokens).toMatchObject([{ value: "[", startOffset: 0, endOffset: 1 }]);
+    const word = pictureEdit(opened, edit(1, 1, "cue", 2032));
+    const closed = pictureEdit(word, edit(4, 4, "]", 2033));
+    expect(closed.text).toBe("[cue]");
+    expect(closed.tokens).toMatchObject([{ value: "cue", startOffset: 1, endOffset: 4 }]);
+    expect(closed.tokens[0]!.id).not.toBe(opened.tokens[0]!.id);
+    expect(closed.tokens).toEqual(word.tokens);
+    expect(inspectStageDirectionsV2(closed)).toEqual({ runs: [], issues: [] });
+    const classified = applyStageDirectionEditV2(documentOf(closed), closed.version, {
+      kind: "make_stage_direction", blockId: closed.id, startOffset: 0, endOffset: closed.text.length,
+    });
+    expect(classified.ok).toBe(true);
+    expect(editedRow(classified.document)).toMatchObject({ text: "[cue]", tokens: [{ ...closed.tokens[0], spoken: false }] });
+    const erased = pictureEdit(closed, edit(1, 4, "", 2038));
+    expect(erased.text).toBe("[]");
+    expect(erased.tokens).toMatchObject([{ value: "[]", startOffset: 0, endOffset: 2 }]);
+    expect(erased.tokens[0]!.id).not.toBe(closed.tokens[0]!.id);
+  });
+
+  it("edits literal brackets beside a direction without moving word anchors or semantic delimiters", () => {
+    const source = pictureRow("let the [soft voice] cues stay");
+    source.tokens[2]!.spoken = false;
+    source.tokens[3]!.spoken = false;
+    const wrapped = pictureEdit(source, edit(4, 7, "[the]", 2034));
+    expect(wrapped.text).toBe("let [the] [soft voice] cues stay");
+    expect(wrapped.tokens.map(({ id, value, spoken }) => ({ id, value, spoken }))).toEqual(
+      source.tokens.map(({ id, value, spoken }) => ({ id, value, spoken })),
+    );
+    expect(inspectStageDirectionsV2(wrapped)).toEqual({
+      runs: [{ startTokenIndex: 2, endTokenIndexExclusive: 4, openOffset: 10, closeOffset: 21 }], issues: [],
+    });
+    expect(wrapped.primaryVisualSequence).toEqual(source.primaryVisualSequence);
+    const unmatched = pictureEdit(wrapped, edit(4, 5, "", 2035));
+    expect(unmatched.text).toBe("let the] [soft voice] cues stay");
+    const unwrapped = pictureEdit(unmatched, edit(7, 8, "", 2036));
+    expect(unwrapped.text).toBe(source.text);
+    expect(unwrapped.tokens).toEqual(source.tokens);
+    expect(unwrapped.primaryVisualSequence).toEqual(source.primaryVisualSequence);
+    expect(plan(source, edit(13, 13, "[", 2037))).toMatchObject({ ok: false, code: "NARRATION_TEXT_DIRECTION_UNSUPPORTED" });
   });
 
   it("preserves the first surviving fragment when splitting or joining a repeated non-Latin word", () => {

@@ -19,7 +19,7 @@ import {
   applyProjectSubtitleCopiesMigration,
 } from "@vera/project-documents";
 import { applyProjectCollaborationMigration } from "@vera/project-collaboration";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { QaConfig } from "../src/qa-config.js";
@@ -117,6 +117,90 @@ function documentFixture(projectId: string): { document: ScriptDocumentV2; first
   return { document, firstRowText: narration.text };
 }
 
+function narrationWords(text: string): Array<{ id: string; value: string; startOffset: number; endOffset: number }> {
+  return [...text.matchAll(/[^\s[\]]+/gu)].map((match) => ({
+    id: randomUUID(), value: match[0], startOffset: match.index, endOffset: match.index + match[0].length,
+  }));
+}
+
+function editableDocumentFixture(
+  projectId: string,
+  text: string,
+  withSecondVisual = false,
+): { document: ScriptDocumentV2; firstRowText: string; rowId: string; anchorTokenId?: string } {
+  const seeded = documentFixture(projectId);
+  const row = seeded.document.activeDraft.blocks.find((block) => block.type === "narration");
+  if (!row || row.type !== "narration") throw new Error("browser document fixture has no narration row");
+  const tokens = narrationWords(text);
+  row.text = text;
+  row.tokens = tokens;
+
+  let anchorTokenId: string | undefined;
+  if (withSecondVisual) {
+    const sequence = row.primaryVisualSequence;
+    const firstSlot = sequence?.slots[0];
+    const anchorToken = tokens[4];
+    if (!sequence || !firstSlot || firstSlot.kind !== "content" || firstSlot.payload.kind !== "visual" || !anchorToken) {
+      throw new Error("browser narration fixture cannot add its repeated-word visual");
+    }
+    anchorTokenId = anchorToken.id;
+    sequence.slots = [firstSlot, {
+      ...firstSlot,
+      id: randomUUID(),
+      relation: { kind: "sequential" },
+      boundaryBefore: {
+        kind: "spoken_word",
+        anchor: {
+          blockId: row.id, tokenId: anchorToken.id, affinity: "before",
+          quotedWord: anchorToken.value, anchorVersion: 1,
+        },
+      },
+      payload: { ...firstSlot.payload, payloadId: randomUUID() },
+    }];
+  }
+  return { document: seeded.document, firstRowText: text, rowId: row.id, ...(anchorTokenId ? { anchorTokenId } : {}) };
+}
+
+function multiNarrationDocumentFixture(
+  projectId: string,
+  texts: readonly string[],
+): { document: ScriptDocumentV2; rowIds: string[] } {
+  if (texts.length < 2) throw new Error("browser row fixture needs at least two narration rows");
+  const seeded = documentFixture(projectId);
+  const first = seeded.document.activeDraft.blocks.find((block) => block.type === "narration");
+  if (!first || first.type !== "narration") throw new Error("browser document fixture has no narration row");
+  first.text = texts[0]!;
+  first.tokens = narrationWords(first.text);
+  const rows = [first];
+  for (const text of texts.slice(1)) {
+    const row = structuredClone(first);
+    row.id = randomUUID();
+    row.orderKey = `row-${row.id}`;
+    row.text = text;
+    row.tokens = narrationWords(text);
+    if (row.primaryVisualSequence) {
+      row.primaryVisualSequence.id = randomUUID();
+      row.primaryVisualSequence.slots = row.primaryVisualSequence.slots.map((slot) => {
+        if (slot.kind !== "content") return { ...slot, id: randomUUID() };
+        const payload = slot.payload.kind === "visual" && slot.payload.source.kind === "media_reference"
+          ? { ...slot.payload, payloadId: randomUUID(), source: { ...slot.payload.source, mediaReferenceId: randomUUID() } }
+          : { ...slot.payload, payloadId: randomUUID() };
+        return {
+          ...slot,
+          id: randomUUID(),
+          relation: { kind: "base" },
+          boundaryBefore: { kind: "row_start" },
+          payload,
+        };
+      });
+    }
+    rows.push(row);
+  }
+  const visualOnlyIndex = seeded.document.activeDraft.blocks.findIndex((block) => block.type === "visual_only");
+  seeded.document.activeDraft.blocks.splice(visualOnlyIndex < 0 ? seeded.document.activeDraft.blocks.length : visualOnlyIndex, 0, ...rows.slice(1));
+  return { document: seeded.document, rowIds: rows.map((row) => row.id) };
+}
+
 async function appRequest(
   page: Page,
   path: string,
@@ -145,6 +229,49 @@ async function createProject(page: Page, origin: string, title: string): Promise
   const id = new URL(page.url()).searchParams.get("project");
   if (!id) throw new Error("new project did not open a project URL");
   return id;
+}
+
+async function saveDocumentFixture(page: Page, projectId: string, document: ScriptDocumentV2): Promise<void> {
+  const initial = await appRequest(page, `/authoring/projects/${projectId}/document`);
+  expect(initial.status).toBe(200);
+  const saved = initial.body as SavedDocument;
+  document.id = saved.document.id;
+  document.projectId = projectId;
+  const response = await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+    expectedRevision: saved.revision,
+    clientMutationId: randomUUID(),
+    document,
+  });
+  expect(response.status).toBe(200);
+}
+
+async function narrationRowFromApi(page: Page, projectId: string, rowId: string): Promise<Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> | null> {
+  const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+  if (response.status !== 200) return null;
+  const document = (response.body as SavedDocument).document;
+  const row = document.activeDraft.blocks.find((block) => block.id === rowId);
+  return row?.type === "narration" ? row : null;
+}
+
+async function narrationRowsFromApi(page: Page, projectId: string): Promise<Array<Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>>> {
+  const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+  if (response.status !== 200) return [];
+  return (response.body as SavedDocument).document.activeDraft.blocks.filter(
+    (block): block is Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }> => block.type === "narration",
+  );
+}
+
+async function waitForNarrationText(page: Page, projectId: string, rowId: string, text: string): Promise<void> {
+  await expect.poll(async () => (await narrationRowFromApi(page, projectId, rowId))?.text ?? null).toBe(text);
+}
+
+async function waitForNarrationCount(page: Page, projectId: string, count: number): Promise<void> {
+  await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).length).toBe(count);
+}
+
+async function editorText(editor: Locator): Promise<string> {
+  return await editor.evaluate((element) =>
+    element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : element.textContent ?? "");
 }
 
 async function setSlider(page: Page, selector: string, value: number): Promise<void> {
@@ -278,8 +405,7 @@ describe("browser authoring over the local project service", () => {
     await preview.waitFor({ state: "visible" });
     await page.mouse.move(0, 0);
     await preview.waitFor({ state: "hidden" });
-    await thumbnailSize.focus();
-    await page.keyboard.press("Tab");
+    await card.focus();
     await preview.waitFor({ state: "visible" });
     await setSlider(page, "#thumbnail-size", 50);
 
@@ -388,5 +514,732 @@ describe("browser authoring over the local project service", () => {
     expect(mutationIds).toHaveLength(2);
     expect(mutationIds[1]).toBe(mutationIds[0]);
     expect(await retryPage.locator("#project-title").inputValue()).toBe(failedDraft);
+  }, 90_000);
+
+  it("edits repeated and Unicode narration, keeps visual anchors, undoes by keyboard and button, and reloads", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Narration editing project");
+    const initialText = "the harbor sleeps the harbor wakes";
+    const seeded = editableDocumentFixture(projectId, initialText, true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    expect(await editorText(editor)).toBe(initialText);
+
+    const repeatedEdit = "the harbor sleeps the old harbor wakes";
+    await editor.fill(repeatedEdit);
+    await waitForNarrationText(page, projectId, seeded.rowId, repeatedEdit);
+    const repeatedRow = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(repeatedRow?.tokens.map((token) => token.value)).toEqual([
+      "the", "harbor", "sleeps", "the", "old", "harbor", "wakes",
+    ]);
+    const secondVisual = repeatedRow?.primaryVisualSequence?.slots[1];
+    expect(secondVisual?.kind).toBe("content");
+    if (secondVisual?.kind === "content") {
+      expect(secondVisual.boundaryBefore).toMatchObject({
+        kind: "spoken_word",
+        anchor: { tokenId: seeded.anchorTokenId, quotedWord: "harbor" },
+      });
+    }
+
+    const unicodeEdit = `${repeatedEdit} שלום 東京`;
+    await editor.fill(unicodeEdit);
+    await waitForNarrationText(page, projectId, seeded.rowId, unicodeEdit);
+    const unicodeRow = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(unicodeRow?.tokens.map((token) => token.value).slice(-2)).toEqual(["שלום", "東京"]);
+
+    await editor.press(process.platform === "darwin" ? "Meta+Z" : "Control+Z");
+    await waitForNarrationText(page, projectId, seeded.rowId, repeatedEdit);
+    expect(await editorText(editor)).toBe(repeatedEdit);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationText(page, projectId, seeded.rowId, initialText);
+    expect(await editorText(editor)).toBe(initialText);
+
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const reloadedRow = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    await expect.poll(async () => await editorText(reloadedRow.locator("[data-narration-editor]"))).toBe(initialText);
+    expect(await reloadedRow.locator(".visual-card").count()).toBe(2);
+    await page.close();
+  }, 90_000);
+
+  it("clears narration without deleting its row or visual, then restores both with Undo after reload", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Clear narration project");
+    const initialText = "clear this narration";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.fill("");
+    await waitForNarrationText(page, projectId, seeded.rowId, "");
+    await expect.poll(async () => await editorText(editor)).toBe("");
+    expect(await page.locator(`[data-row-id="${seeded.rowId}"]`).count()).toBe(1);
+    expect(await row.locator(".visual-card").count()).toBe(1);
+    const cleared = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(cleared?.tokens).toEqual([]);
+    expect(cleared?.primaryVisualSequence?.slots).toHaveLength(1);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationText(page, projectId, seeded.rowId, initialText);
+    expect(await editorText(editor)).toBe(initialText);
+    expect(await row.locator(".visual-card").count()).toBe(1);
+
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const reloadedRow = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    await expect.poll(async () => await editorText(reloadedRow.locator("[data-narration-editor]"))).toBe(initialText);
+    expect(await reloadedRow.locator(".visual-card").count()).toBe(1);
+    await page.close();
+  }, 90_000);
+
+  it("keeps a cleared multi-visual row editable after reload and retyping without changing visual identity or order", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Clear multi-visual narration project");
+    const initialText = "clear this multi visual narration";
+    const seeded = editableDocumentFixture(projectId, initialText, true);
+    const seededRow = seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!seededRow || seededRow.type !== "narration" || !seededRow.primaryVisualSequence) {
+      throw new Error("browser multi-visual fixture has no narration sequence");
+    }
+    const visualSlots = seededRow.primaryVisualSequence.slots.filter(
+      (slot) => slot.kind === "content" && slot.payload.kind === "visual",
+    );
+    if (visualSlots.length !== 2 || visualSlots.some((slot) => slot.kind !== "content" || slot.payload.kind !== "visual")) {
+      throw new Error("browser multi-visual fixture did not create two visual slots");
+    }
+    visualSlots.forEach((slot, index) => {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual") return;
+      const startFrame = index * 25;
+      slot.payload.selectedSourceRange = { startFrame, durationFrames: 25 };
+      slot.payload.sourceUsage = { ...slot.payload.sourceUsage, sourceInFrame: startFrame };
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    const initial = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!initial?.primaryVisualSequence) throw new Error("saved multi-visual fixture did not load");
+    const initialVisualIds = initial.primaryVisualSequence.slots.flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload.payloadId] : []);
+    expect(initialVisualIds).toHaveLength(2);
+
+    const rowFromDocument = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      if (response.status !== 200) return null;
+      return (response.body as SavedDocument).document.activeDraft.blocks.find((block) => block.id === seeded.rowId) ?? null;
+    };
+    const visualOnlyIds = (block: ScriptDocumentV2["activeDraft"]["blocks"][number]) =>
+      block.type === "visual_only"
+        ? [block.payload.payloadId, ...(block.additionalVisuals ?? []).map((visual) => visual.payload.payloadId)]
+        : [];
+
+    await editor.fill("");
+    await expect.poll(async () => (await rowFromDocument())?.type ?? null).toBe("visual_only");
+    const cleared = await rowFromDocument();
+    if (!cleared || cleared.type !== "visual_only") throw new Error("cleared narration did not become a visual-only row");
+    expect(cleared.clearedNarration).toBeTruthy();
+    expect(visualOnlyIds(cleared)).toEqual(initialVisualIds);
+    expect(await row.locator(".visual-card").count()).toBe(2);
+
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const reloadedRow = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const reloadedEditor = reloadedRow.locator("[data-narration-editor]");
+    await expect.poll(async () => await editorText(reloadedEditor)).toBe("");
+    expect(await reloadedRow.locator(".visual-card").count()).toBe(2);
+    const reloaded = await rowFromDocument();
+    if (!reloaded || reloaded.type !== "visual_only") throw new Error("cleared row did not survive reload");
+    expect(reloaded.clearedNarration).toBeTruthy();
+    expect(visualOnlyIds(reloaded)).toEqual(initialVisualIds);
+
+    const retypedText = "retyped after clear";
+    await reloadedEditor.fill(retypedText);
+    await waitForNarrationText(page, projectId, seeded.rowId, retypedText);
+    const retyped = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(retyped?.text).toBe(retypedText);
+    const retypedVisualIds = [...(retyped?.primaryVisualSequence?.slots.flatMap((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload.payloadId] : []) ?? []),
+    ...(retyped?.unattachedVisuals ?? []).map((visual) => visual.payload.payloadId)];
+    expect(retypedVisualIds).toEqual(initialVisualIds);
+    await reloadedEditor.blur();
+    await expect.poll(async () => await reloadedRow.locator(".visual-card").count()).toBe(3);
+    await page.close();
+  }, 90_000);
+
+  it("keeps a refused narration draft visible, then recovers after explicit discard", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Narration refusal recovery project");
+    const initialText = "keep the original narration";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    let commandRequests = 0;
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      commandRequests += 1;
+      if (commandRequests === 1) {
+        return await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            diagnostics: [{ code: "TEST_REFUSAL", message: "The test narration edit was refused." }],
+          }),
+        });
+      }
+      return await route.continue();
+    });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const refusedText = "this draft must remain visible";
+    await editor.fill(refusedText);
+    await expect.poll(async () => await page.locator("#save-status").textContent()).toContain("The test narration edit was refused.");
+    const discard = page.getByRole("button", { name: "Discard unsaved text" });
+    await discard.waitFor({ state: "visible" });
+    await expect.poll(async () => await discard.isEnabled()).toBe(true);
+    expect(await editorText(editor)).toBe(refusedText);
+    expect(commandRequests).toBe(1);
+
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await discard.click();
+    await discard.waitFor({ state: "hidden" });
+    await expect.poll(async () => await editorText(editor)).toBe(initialText);
+    await expect.poll(async () => await page.locator("#save-status").textContent()).toBe("Saved");
+
+    const recoveredText = "editing works after discard";
+    await editor.fill(recoveredText);
+    await waitForNarrationText(page, projectId, seeded.rowId, recoveredText);
+    expect(await editorText(editor)).toBe(recoveredText);
+    expect(commandRequests).toBe(2);
+    await page.close();
+  }, 90_000);
+
+  it("moves focus to the row's preview card when Escape leaves an edited narration cell", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Narration Escape focus project");
+    const seeded = editableDocumentFixture(projectId, "focus starts here");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    const preview = row.locator(".visual-card").first();
+    await editor.fill("edited before Escape");
+    await waitForNarrationText(page, projectId, seeded.rowId, "edited before Escape");
+    await editor.focus();
+    await editor.press("Escape");
+    await expect.poll(async () => await page.evaluate(() => document.activeElement?.matches(".visual-card") ?? false)).toBe(true);
+    expect(await preview.evaluate((element) => document.activeElement === element)).toBe(true);
+    await page.close();
+  }, 90_000);
+
+  it("hides a stale stage-direction toolbar when the narration selection collapses", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Collapsed narration selection project");
+    const seeded = editableDocumentFixture(projectId, "select this passage");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    const stageButton = page.getByRole("button", { name: /^Make stage direction\b/u });
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    await stageButton.waitFor({ state: "visible" });
+
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      selection?.collapse(element, 0);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    await stageButton.waitFor({ state: "hidden" });
+    await page.close();
+  }, 90_000);
+
+  it("keeps a stale tab's narration draft visible when another tab saves first", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const firstPage = await context.newPage();
+    const stalePage = await context.newPage();
+    const projectId = await createProject(firstPage, origin, "Narration conflict project");
+    const seeded = editableDocumentFixture(projectId, "shared starting narration");
+    await saveDocumentFixture(firstPage, projectId, seeded.document);
+    const projectUrl = `${origin}/?project=${projectId}`;
+    await firstPage.goto(projectUrl);
+    await firstPage.locator("#script-rows").waitFor({ state: "visible" });
+    await stalePage.goto(projectUrl);
+    await stalePage.locator("#script-rows").waitFor({ state: "visible" });
+
+    const firstEditor = firstPage.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    const staleEditor = stalePage.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await firstEditor.waitFor({ state: "visible" });
+    await staleEditor.waitFor({ state: "visible" });
+    const savedText = "saved by the first tab";
+    await firstEditor.fill(savedText);
+    await waitForNarrationText(firstPage, projectId, seeded.rowId, savedText);
+
+    const staleText = "kept in the stale tab";
+    await staleEditor.fill(staleText);
+    await expect.poll(async () => await stalePage.locator("#save-status").textContent())
+      .toBe("A newer script was saved elsewhere. Your unsaved changes are still here.");
+    expect(await editorText(staleEditor)).toBe(staleText);
+    expect(await stalePage.locator("#conflict-open-saved").isVisible()).toBe(true);
+    await waitForNarrationText(firstPage, projectId, seeded.rowId, savedText);
+    await firstPage.close();
+    await stalePage.close();
+  }, 90_000);
+
+  it("refuses a stale cross-row save without losing the second tab's narration draft", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const firstPage = await context.newPage();
+    const stalePage = await context.newPage();
+    const projectId = await createProject(firstPage, origin, "Cross-row conflict project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row starts here", "second row starts here"]);
+    await saveDocumentFixture(firstPage, projectId, seeded.document);
+    const projectUrl = `${origin}/?project=${projectId}`;
+    await firstPage.goto(projectUrl);
+    await firstPage.locator("#script-rows").waitFor({ state: "visible" });
+    await stalePage.goto(projectUrl);
+    await stalePage.locator("#script-rows").waitFor({ state: "visible" });
+
+    const firstEditor = firstPage.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    const staleEditor = stalePage.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await firstEditor.waitFor({ state: "visible" });
+    await staleEditor.waitFor({ state: "visible" });
+    const firstText = "first tab saved row one";
+    await firstEditor.fill(firstText);
+    await waitForNarrationText(firstPage, projectId, seeded.rowIds[0]!, firstText);
+
+    const staleText = "stale tab kept row two";
+    await staleEditor.fill(staleText);
+    await expect.poll(async () => await stalePage.locator("#save-status").textContent())
+      .toBe("A newer script was saved elsewhere. Your unsaved changes are still here.");
+    expect(await editorText(staleEditor)).toBe(staleText);
+    const persistedRows = await narrationRowsFromApi(firstPage, projectId);
+    expect(persistedRows.map((row) => row.text)).toEqual([firstText, "second row starts here"]);
+    await firstPage.close();
+    await stalePage.close();
+  }, 90_000);
+
+  it("serializes cross-row edits while the first command is held, then undoes only the latest edit", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Held command project");
+    const initialTexts = ["row A starts here", "row B starts here"] as const;
+    const seeded = multiNarrationDocumentFixture(projectId, initialTexts);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const firstEditor = page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    const secondEditor = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await firstEditor.waitFor({ state: "visible" });
+    await secondEditor.waitFor({ state: "visible" });
+
+    let commandCount = 0;
+    let firstCommandStartedResolve: () => void = () => {};
+    const firstCommandStarted = new Promise<void>((resolve) => { firstCommandStartedResolve = resolve; });
+    let releaseFirstCommand: () => void = () => {};
+    const firstCommandReleased = new Promise<void>((resolve) => { releaseFirstCommand = resolve; });
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() !== "POST") return await route.continue();
+      commandCount += 1;
+      if (commandCount === 1) {
+        firstCommandStartedResolve();
+        await firstCommandReleased;
+      }
+      await route.continue();
+    });
+
+    const firstText = "row A saved first";
+    const secondText = "row B queued second";
+    await firstEditor.fill(firstText);
+    await firstCommandStarted;
+    expect(commandCount).toBe(1);
+    await secondEditor.fill(secondText);
+    // The second edit is queued behind the held command, not applied to the
+    // stale pre-command document or silently dropped while the first is open.
+    await page.waitForTimeout(25);
+    expect(commandCount).toBe(1);
+
+    releaseFirstCommand();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      firstText, secondText,
+    ]);
+    expect(await editorText(firstEditor)).toBe(firstText);
+    expect(await editorText(secondEditor)).toBe(secondText);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      firstText, initialTexts[1],
+    ]);
+    await page.close();
+  }, 90_000);
+
+  it("commits rapid sequential keystrokes and waits for IME composition to end", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Rapid narration project");
+    const seeded = editableDocumentFixture(projectId, "rapid");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    let editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    await editor.click();
+    await editor.press("End");
+    await page.keyboard.type(" fast input", { delay: 0 });
+    const rapidText = "rapid fast input";
+    await waitForNarrationText(page, projectId, seeded.rowId, rapidText);
+
+    editor = row.locator("[data-narration-editor]");
+    await editor.evaluate((element) => {
+      element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+      element.textContent = `${element.textContent ?? ""} 東京`;
+      element.dispatchEvent(new InputEvent("input", {
+        bubbles: true, inputType: "insertCompositionText", data: " 東京", isComposing: true,
+      }));
+    });
+    await page.waitForTimeout(50);
+    expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(rapidText);
+
+    await editor.evaluate((element) => {
+      element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: " 東京" }));
+    });
+    await waitForNarrationText(page, projectId, seeded.rowId, `${rapidText} 東京`);
+    await page.close();
+  }, 90_000);
+
+  it("replaces one emoji with another through IME without splitting its surrogate pair", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Emoji composition project");
+    const initialText = "say 😀 now";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    await editor.evaluate((element) => {
+      const document = element.ownerDocument;
+      const before = element.textContent ?? "";
+      const oldEmoji = "😀";
+      const start = before.indexOf(oldEmoji);
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      let cursor = 0;
+      while (textNode && (start < cursor || start + oldEmoji.length > cursor + (textNode.textContent?.length ?? 0))) {
+        cursor += textNode.textContent?.length ?? 0;
+        textNode = walker.nextNode();
+      }
+      if (!textNode || start < 0) throw new Error("emoji fixture text was not rendered");
+      const selection = document.getSelection();
+      const range = document.createRange();
+      range.setStart(textNode, start - cursor);
+      range.setEnd(textNode, start - cursor + oldEmoji.length);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+      element.textContent = before.replace(oldEmoji, "😃");
+      element.dispatchEvent(new InputEvent("input", {
+        bubbles: true, inputType: "insertCompositionText", data: "😃", isComposing: true,
+      }));
+      element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "😃" }));
+    });
+    await waitForNarrationText(page, projectId, seeded.rowId, "say 😃 now");
+    const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(saved?.tokens.map((token) => token.value)).toEqual(["say", "😃", "now"]);
+    await page.close();
+  }, 90_000);
+
+  it("adds and deletes rows, with one Undo restoring each row operation", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Row operation project");
+    const seeded = editableDocumentFixture(projectId, "keep this row");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    await waitForNarrationCount(page, projectId, 1);
+
+    const addRow = page.getByRole("button", { name: "Add row" }).last();
+    await addRow.scrollIntoViewIfNeeded();
+    await addRow.hover();
+    await addRow.click();
+    await waitForNarrationCount(page, projectId, 2);
+    let rows = await narrationRowsFromApi(page, projectId);
+    let addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
+    expect(addedRowId).toBeTruthy();
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationCount(page, projectId, 1);
+
+    const secondAddRow = page.getByRole("button", { name: "Add row" }).last();
+    await secondAddRow.scrollIntoViewIfNeeded();
+    await secondAddRow.hover();
+    await secondAddRow.click();
+    await waitForNarrationCount(page, projectId, 2);
+    rows = await narrationRowsFromApi(page, projectId);
+    addedRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
+    expect(addedRowId).toBeTruthy();
+    if (!addedRowId) return;
+
+    const addedRow = page.locator(`[data-row-id="${addedRowId}"]`);
+    const rowActions = addedRow.locator("[data-row-action-trigger]");
+    await addedRow.hover();
+    await rowActions.click();
+    const deleteRow = addedRow.getByRole("menuitem", { name: "Delete row" });
+    await deleteRow.waitFor({ state: "visible" });
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await deleteRow.click();
+    await waitForNarrationCount(page, projectId, 1);
+
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationCount(page, projectId, 2);
+    rows = await narrationRowsFromApi(page, projectId);
+    expect(rows.map((row) => row.id)).toContain(addedRowId);
+    await page.close();
+  }, 90_000);
+
+  it("selects a contiguous row range, deletes it, and restores the range with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Range selection project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row", "third row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+
+    const firstRow = page.locator(`[data-row-id="${seeded.rowIds[0]}"]`);
+    const secondRow = page.locator(`[data-row-id="${seeded.rowIds[1]}"]`);
+    await firstRow.hover();
+    await firstRow.locator("[data-row-action-trigger]").click();
+    await firstRow.getByRole("menuitem", { name: "Select range" }).click();
+    await secondRow.locator(".narration-cell").click();
+
+    const deleteGroup = page.getByRole("button", { name: "Delete selected rows" });
+    await deleteGroup.waitFor({ state: "visible" });
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await deleteGroup.click();
+    await waitForNarrationCount(page, projectId, 1);
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual([seeded.rowIds[2]]);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual(seeded.rowIds);
+    await page.close();
+  }, 90_000);
+
+  it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Row reorder project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row", "third row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    await waitForNarrationCount(page, projectId, seeded.rowIds.length);
+
+    const sourceRow = page.locator(`[data-row-id="${seeded.rowIds[1]}"]`);
+    const targetRow = page.locator(`[data-row-id="${seeded.rowIds[0]}"]`);
+    await sourceRow.hover();
+    const sourceHandle = sourceRow.locator("[data-row-action-trigger]");
+    await sourceHandle.dragTo(targetRow, { targetPosition: { x: 20, y: 2 } });
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual([
+      seeded.rowIds[1], seeded.rowIds[0], seeded.rowIds[2],
+    ]);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.id)).toEqual(seeded.rowIds);
+    await page.close();
+  }, 90_000);
+
+  it("converts a selected narration passage to a stage direction and undoes it", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Stage direction project");
+    const initialText = "spoken aside";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    const stageButton = page.getByRole("button", { name: /^Make stage direction\b/u });
+    await stageButton.waitFor({ state: "visible" });
+    await stageButton.click();
+    await waitForNarrationText(page, projectId, seeded.rowId, `[${initialText}]`);
+    const direction = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(direction?.tokens.every((token) => token.spoken === false)).toBe(true);
+
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.waitFor({ state: "visible" });
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.click();
+    await waitForNarrationText(page, projectId, seeded.rowId, initialText);
+    const restored = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(restored?.tokens.some((token) => token.spoken === false)).toBe(false);
+    await page.close();
+  }, 90_000);
+
+  it("types a bracketed cue into an empty row, then classifies its selected cue as a stage direction", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Empty bracketed cue project");
+    const seeded = editableDocumentFixture(projectId, "existing row");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const addRow = page.getByRole("button", { name: "Add row" }).last();
+    await addRow.scrollIntoViewIfNeeded();
+    await addRow.hover();
+    await addRow.click();
+    await waitForNarrationCount(page, projectId, 2);
+    const rows = await narrationRowsFromApi(page, projectId);
+    const emptyRowId = rows.find((row) => row.id !== seeded.rowId)?.id;
+    expect(emptyRowId).toBeTruthy();
+    if (!emptyRowId) return;
+
+    const row = page.locator(`[data-row-id="${emptyRowId}"]`);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.waitFor({ state: "visible" });
+    await editor.click();
+    let typed = "";
+    for (const character of ["[", "c", "u", "e", "]"]) {
+      await page.keyboard.type(character);
+      typed += character;
+      await waitForNarrationText(page, projectId, emptyRowId, typed);
+    }
+    expect(await editorText(editor)).toBe("[cue]");
+
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      let cursor = 0;
+      const point = (wanted: number) => {
+        while (node && wanted > cursor + (node.textContent?.length ?? 0)) {
+          cursor += node.textContent?.length ?? 0;
+          node = walker.nextNode();
+        }
+        if (!node) throw new Error("cue selection exceeded rendered editor text");
+        return { node, offset: wanted - cursor };
+      };
+      const start = point(1);
+      const end = point(4);
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      element.ownerDocument.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    const stageButton = page.getByRole("button", { name: /^Make stage direction\b/u });
+    await stageButton.waitFor({ state: "visible" });
+    await stageButton.click();
+    await waitForNarrationText(page, projectId, emptyRowId, "[cue]");
+    const classified = await narrationRowFromApi(page, projectId, emptyRowId);
+    expect(classified?.tokens.map((token) => [token.value, token.spoken])).toEqual([["cue", false]]);
+    await expect.poll(async () => await editor.locator(".narration-token--direction").allTextContents()).toEqual(["cue"]);
+    await page.close();
+  }, 90_000);
+
+  it("uses text/plain dataTransfer for native replacement input", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Native replacement project");
+    const seeded = editableDocumentFixture(projectId, "replace this passage");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    await editor.click();
+    await editor.evaluate((element) => {
+      const selection = element.ownerDocument.getSelection();
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData("text/plain", "native replacement");
+      const event = new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertReplacementText",
+        data: null,
+      });
+      Object.defineProperty(event, "dataTransfer", { configurable: true, value: dataTransfer });
+      element.dispatchEvent(event);
+      if (!event.defaultPrevented) throw new Error("native replacement was not intercepted");
+    });
+    await waitForNarrationText(page, projectId, seeded.rowId, "native replacement");
+    const saved = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(saved?.tokens.map((token) => token.value)).toEqual(["native", "replacement"]);
+    expect(await editorText(editor)).toBe("native replacement");
+    await page.close();
   }, 90_000);
 });
