@@ -1417,6 +1417,7 @@ def _validate_music_event(
         raise _error(f"music event {event_id} differs from its verified PCM identity")
 
     # Recover anchor positions from the ordinary program events and frozen inputs.
+    timing = span.get("timing")
     rows: list[tuple[str, str | None, int, int]] = []
     section: str | None = None
     for block in document["activeDraft"]["blocks"]:
@@ -1435,14 +1436,14 @@ def _validate_music_event(
             == ("narration" if block["type"] == "narration" else "primary_visual")
             and other["provenance"].get("blockId") == block["id"]
         ]
-        if block["type"] == "visual_only" and not possible:
-            possible = [
+        if block["type"] == "visual_only" and (timing is not None or not possible):
+            possible.extend(
                 other
                 for other in manifest["events"]
                 if other["kind"] == "placeholder"
                 and other.get("trackRole") == "primary_root"
                 and other["provenance"].get("blockId") == block["id"]
-            ]
+            )
         if not possible:
             raise _error(f"music row {block['id']} lacks compiled timing")
         ranges = [
@@ -1463,7 +1464,6 @@ def _validate_music_event(
     requested = _safe_frame(
         music["requestedEndFrame"], "music requestedEndFrame", positive=True
     )
-    timing = span.get("timing")
     if timing is not None:
         fixed = {
             key: _music_pin_frame(value, document, dependencies, rows, rate)

@@ -440,6 +440,25 @@ describe("#100 verified A5 music compilation", () => {
     }
   });
 
+  it("pins a row end to the last picture in a multi-picture row", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    const last = doc.activeDraft.blocks.at(-1) as VisualOnlyBlockV2;
+    last.additionalVisuals = [{
+      payload: { ...last.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    }];
+    span.timing = {
+      sourceInFrame: 48,
+      timelineIn: { kind: "frame", frame: 240 },
+      timelineOut: { kind: "row_edge", blockId: last.id, edge: "end" },
+    };
+    expect(compile(doc, deps).manifest.events.find((item) => item.kind === "music")).toMatchObject({
+      recordRange: { startFrame: 240, endFrame: 384 },
+      sourceRange: { startFrame: 48, endFrame: 192 },
+    });
+  });
+
   it("recalculates from the current timing of a pinned word and refuses an unevidenced end", () => {
     const { doc, deps } = sequentialSpeechCutFixture({ numerator: 1, denominator: 1 });
     const { doc: music, deps: musicDeps } = threeRowMusicFixture();

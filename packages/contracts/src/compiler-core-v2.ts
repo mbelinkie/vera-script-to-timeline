@@ -261,7 +261,9 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     if (!point) return undefined;
     if (point.kind === "frame") return point.frame;
     if (point.kind === "row_edge") {
-      const row = bounds.find((candidate) => candidate.id === point.blockId);
+      const row = point.edge === "start"
+        ? bounds.find((candidate) => candidate.id === point.blockId)
+        : bounds.findLast((candidate) => candidate.id === point.blockId);
       if (row) return point.edge === "start" ? row.startFrame : row.endFrame;
     } else {
       const resolved = point.anchor.affinity === "before"
