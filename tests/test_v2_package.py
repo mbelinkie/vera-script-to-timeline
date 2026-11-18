@@ -20,7 +20,13 @@ from issue177_package_fixture import (
     make_package_case,
 )
 from vera_timeline_agent import native_image_motion, v2_package, workflow_v2
-from vera_timeline_agent.music_input import music_event_id
+from vera_timeline_agent.build_timeline_once import (
+    CompileResult,
+    PreparedInputs,
+    StageTimings,
+    package_compiled,
+)
+from vera_timeline_agent.music_input import music_event_id, resolve_music_bindings
 from vera_timeline_agent.narration.models import canonical_json_bytes, identity_hash
 from vera_timeline_agent.package_cache import PackageCache
 from vera_timeline_agent.transition_delivery_v2 import (
@@ -57,6 +63,7 @@ def _music_package_case(
     *,
     missing: bool = False,
     short: bool = False,
+    anchored: bool = False,
     scenario: str = "default",
 ) -> tuple[Any, str, str]:
     """A real 48 kHz mono PCM bed under a synthetic visual-only program row."""
@@ -156,6 +163,19 @@ def _music_package_case(
                 "requestedEndFrame": end_frame,
             },
         }
+        if anchored:
+            span = document["rowAudioSpans"][0]
+            source_out = frames * rate["numerator"] // (48000 * rate["denominator"])
+            span["timing"] = {
+                "sourceOutFrame": source_out,
+                "timelineIn": {"kind": "frame", "frame": 30},
+                "timelineOut": {"kind": "row_edge", "blockId": row_id, "edge": "end"},
+            }
+            music_event["recordRange"]["startFrame"] = 30
+            music_event["sourceRange"] = {
+                "startFrame": source_out - (end_frame - 30),
+                "endFrame": source_out,
+            }
         _append_report_event(manifest, report, music_event)
         report["summary"]["sourceCount"] += 1
         case.media_paths[f"source:{source_id}"] = wav_path
@@ -172,18 +192,45 @@ def _music_package_case(
     return case, event_id, source_id
 
 
-def test_music_package_roundtrip_is_attested_and_preserves_pcm(tmp_path: Path) -> None:
-    case, event_id, source_id = _music_package_case(tmp_path)
-    built = case.build()
-    verified = verify_v2_package(case.project_root)
+@pytest.mark.parametrize("anchored", [False, True])
+def test_music_package_roundtrip_is_attested_and_preserves_pcm(
+    tmp_path: Path, anchored: bool
+) -> None:
+    case, event_id, source_id = _music_package_case(tmp_path, anchored=anchored)
+    project_root = case.project_root
+    if anchored:
+        document = json.loads(case.document_path.read_bytes())
+        dependencies = json.loads(case.dependencies_path.read_bytes())
+        media = {key: str(path) for key, path in case.media_paths.items()}
+        media[f"event:{event_id}"] = media.pop(f"source:{source_id}")
+        del media[f"original:{source_id}"]
+        resolved = resolve_music_bindings(document, dependencies, media)
+        paths = tmp_path / "media-paths.json"
+        paths.write_text(json.dumps(resolved.media_paths))
+        preparations = tmp_path / "preparation-paths.json"
+        preparations.write_text(
+            json.dumps({key: str(path) for key, path in case.preparation_paths.items()})
+        )
+        inputs = PreparedInputs(
+            case.document_path, case.dependencies_path, None, None, preparations, paths
+        )
+        compiled = CompileResult(
+            inputs, tmp_path, case.manifest_path, case.report_path, {}, resolved
+        )
+        package, _, _ = package_compiled(compiled, timings=StageTimings())
+        project_root = package.root
+    else:
+        case.build()
+    verified = verify_v2_package(project_root)
     assert verified.event_count == 2
     assert verified.media_count == 2
-    root = built.project_root / BUILD_DIRECTORY / built.build_id
+    root = project_root / BUILD_DIRECTORY / verified.build_id
     view = json.loads((root / "delivery-view.json").read_text())
     music = next(item for item in view["events"] if item["kind"] == "music")
     assert music["sourceId"] == source_id
-    assert music["recordRange"] == {"startFrame": 0, "durationFrames": 75}
-    assert music["sourceRange"] == {"startFrame": 0, "durationFrames": 75}
+    start = 30 if anchored else 0
+    assert music["recordRange"] == {"startFrame": start, "durationFrames": 75 - start}
+    assert music["sourceRange"] == {"startFrame": start, "durationFrames": 75 - start}
     assert music["gainDb"] == -12
     assert music["musicTreatment"]["fadeInFrames"] == 6
     assert (
@@ -218,6 +265,8 @@ def test_music_package_roundtrip_is_attested_and_preserves_pcm(tmp_path: Path) -
     clip = next(c for c in a5 if isinstance(c, otio.schema.Clip))
     assert clip.metadata["vera"]["event_id"] == event_id
     assert clip.metadata["vera"]["music_treatment"]["gainDb"] == -12
+    assert clip.source_range.start_time.value == start
+    assert clip.source_range.duration.value == 75 - start
     # Native workflow attestation explicitly admits music in phase 4.
     assert receipt["status"] == "ready_to_import"
 
@@ -270,11 +319,14 @@ def test_music_package_missing_or_short_is_not_looped(
         "duration",
         "gain",
         "fade",
+        "shifted-source-window",
     ],
 )
 def test_music_package_rejects_mutated_data(tmp_path: Path, mutation: str) -> None:
-    case, _, source_id = _music_package_case(tmp_path)
-    if mutation in {"a5", "duration", "gain", "fade"}:
+    case, _, source_id = _music_package_case(
+        tmp_path, anchored=mutation == "shifted-source-window"
+    )
+    if mutation in {"a5", "duration", "gain", "fade", "shifted-source-window"}:
         document = json.loads(case.document_path.read_text())
         dependencies = json.loads(case.dependencies_path.read_text())
         manifest = json.loads(case.manifest_path.read_text())
@@ -290,6 +342,9 @@ def test_music_package_rejects_mutated_data(tmp_path: Path, mutation: str) -> No
             ] = music["recordRange"]
         elif mutation == "gain":
             music["music"]["gainDb"] = -3
+        elif mutation == "shifted-source-window":
+            music["sourceRange"]["startFrame"] -= 1
+            music["sourceRange"]["endFrame"] -= 1
         else:
             music["music"]["fadeOutFrames"] = 0
         _refresh_document_closure(document, dependencies, manifest, report)

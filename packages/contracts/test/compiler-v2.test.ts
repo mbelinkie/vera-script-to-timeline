@@ -289,10 +289,10 @@ describe("#389 bounded Research clip occurrence survives media requirements and 
   });
 });
 
-function threeRowMusicFixture(samples = 48000 * 16): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
-  const first = intentionalSlateBlock(4000);
-  const second = { ...intentionalSlateBlock(4000), id: id(180), orderKey: "a1", payload: { ...intentionalSlateBlock().payload, payloadId: id(181) } } as VisualOnlyBlockV2;
-  const third = { ...intentionalSlateBlock(4000), id: id(182), orderKey: "a2", payload: { ...intentionalSlateBlock().payload, payloadId: id(183) } } as VisualOnlyBlockV2;
+function threeRowMusicFixture(samples = 48000 * 16, lengths = [4000, 4000, 4000]): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const first = intentionalSlateBlock(lengths[0]);
+  const second = { ...intentionalSlateBlock(lengths[1]), id: id(180), orderKey: "a1", payload: { ...intentionalSlateBlock().payload, payloadId: id(181) } } as VisualOnlyBlockV2;
+  const third = { ...intentionalSlateBlock(lengths[2]), id: id(182), orderKey: "a2", payload: { ...intentionalSlateBlock().payload, payloadId: id(183) } } as VisualOnlyBlockV2;
   const doc = visualOnlyDocument(first);
   doc.activeDraft.blocks.push(second, third);
   const deps = visualOnlyDependencies();
@@ -380,6 +380,95 @@ describe("#100 verified A5 music compilation", () => {
     deps.musicBindings!.pop();
     deps.tracks.find((item) => item.id === "music-a5")!.id = "unrelated";
     expect(compileTimelineV2(doc, deps).ok).toBe(false);
+  });
+
+  it("plays a 25-second source selection through the 10-second picture cut", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 120, [10000, 30000, 10000]);
+    doc.rowAudioSpans![0]!.timing = {
+      sourceInFrame: 120, sourceOutFrame: 720,
+      timelineIn: { kind: "row_edge", blockId: doc.activeDraft.blocks[0]!.id, edge: "start" },
+    };
+    const { manifest } = compile(doc, deps);
+    expect(manifest.events.some((event) => event.kind === "placeholder" && event.recordRange.startFrame === 240)).toBe(true);
+    expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+      sourceRange: { startFrame: 120, endFrame: 720 },
+      recordRange: { startFrame: 0, endFrame: 600 },
+      music: { gainDb: -12, fadeInFrames: 6, fadeOutFrames: 6, requestedEndFrame: 600 },
+    });
+  });
+
+  it("moves the start under the voiceover while preserving the music ending and outro sync", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 120, [10000, 30000, 10000]);
+    const span = doc.rowAudioSpans![0]!;
+    const timelineOut = { kind: "row_edge", blockId: span.endRowId, edge: "end" } as const;
+    for (const [startSeconds, sourceSeconds] of [[10, 80], [25, 95]] as const) {
+      span.timing = { sourceOutFrame: 2880, timelineIn: { kind: "frame", frame: startSeconds * 24 }, timelineOut };
+      const saved = structuredClone(span.timing);
+      const result = compile(doc, deps);
+      const event = result.manifest.events.find((item) => item.kind === "music")!;
+      expect(event).toMatchObject({
+        sourceRange: { startFrame: sourceSeconds * 24, endFrame: 2880 },
+        recordRange: { startFrame: startSeconds * 24, endFrame: 1200 },
+      });
+      expect(event.recordRange.startFrame + 110 * 24 - event.sourceRange!.startFrame).toBe(40 * 24);
+      expect(span.timing).toEqual(saved);
+    }
+    span.timing = { sourceInFrame: 2280, sourceOutFrame: 2880, timelineOut };
+    expect(compile(doc, deps).manifest.events.find((event) => event.kind === "music")?.recordRange)
+      .toEqual({ startFrame: 600, endFrame: 1200 });
+    span.timing = { sourceInFrame: 2280, timelineIn: { kind: "frame", frame: 600 }, timelineOut };
+    expect(compile(doc, deps).manifest.events.find((event) => event.kind === "music")?.sourceRange)
+      .toEqual({ startFrame: 2280, endFrame: 2880 });
+  });
+
+  it("blocks impossible source windows and unresolved timeline pins without changing the cue", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    for (const [timelineOut, message] of [
+      [{ kind: "frame", frame: 288 }, "Adjust a source trim"],
+      [{ kind: "row_edge", blockId: id(189), edge: "end" }, "Refresh word timing"],
+    ] as const) {
+      span.timing = { sourceOutFrame: 24, timelineIn: { kind: "frame", frame: 0 }, timelineOut };
+      const saved = structuredClone(span.timing);
+      const result = compile(doc, deps);
+      expect(result.manifest.events.some((item) => item.kind === "music")).toBe(false);
+      expect(result.report.status).toBe("blocked");
+      const diagnostic = result.report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+      expect(diagnostic?.severity).toBe("blocking");
+      expect(diagnostic?.message).toContain(message);
+      expect(span.timing).toEqual(saved);
+    }
+  });
+
+  it("recalculates from the current timing of a pinned word and refuses an unevidenced end", () => {
+    const { doc, deps } = sequentialSpeechCutFixture({ numerator: 1, denominator: 1 });
+    const { doc: music, deps: musicDeps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[0] as NarrationBlockV2;
+    const span = music.rowAudioSpans![0]!;
+    doc.rowAudioSpans = [{ ...span, startRowId: row.id, endRowId: row.id, timing: {
+      sourceInFrame: 10,
+      timelineIn: { kind: "word", anchor: { blockId: row.id, tokenId: id(40), affinity: "after", quotedWord: "alpha", anchorVersion: row.version } },
+      timelineOut: { kind: "row_edge", blockId: row.id, edge: "end" },
+    } }];
+    deps.musicBindings = musicDeps.musicBindings!;
+    deps.roles.musicTrackId = "music-a5";
+    deps.tracks.push(musicDeps.tracks.at(-1)!);
+    deps.timeline.frameRate = { numerator: 24, denominator: 1 };
+    const pin = deps.narrationTimingMaps[0]!.tokens[0];
+    const saved = structuredClone(doc.rowAudioSpans[0]!.timing);
+    for (const [numerator, denominator] of [[1, 1], [3, 2]] as const) {
+      const seconds = numerator / denominator;
+      pin.audibleEnd = { numerator, denominator };
+      const event = compile(doc, deps).manifest.events.find((item) => item.kind === "music")!;
+      expect(event.recordRange.startFrame).toBe(seconds * 24);
+      expect(event.sourceRange!.endFrame).toBe(10 + event.recordRange.endFrame - seconds * 24);
+      expect(doc.rowAudioSpans[0]!.timing).toEqual(saved);
+    }
+    delete pin.audibleEnd;
+    pin.endBasis = "next_word_derived";
+    const diagnostic = compile(doc, deps).report.diagnostics.find((item) => item.code === "MUSIC_SPAN_INVALID");
+    expect(diagnostic?.severity).toBe("blocking");
+    expect(diagnostic?.message).toContain("timeline in pin");
   });
 });
 

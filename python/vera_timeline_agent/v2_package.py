@@ -1316,8 +1316,17 @@ def _music_pin_frame(
     if anchor is None:
         return row[2] if point["edge"] == "start" else row[3]
 
-    block = next(block for block in document["activeDraft"]["blocks"] if block["id"] == block_id)
-    token = next((token for token in block.get("tokens", []) if token["id"] == anchor["tokenId"]), None)
+    block = next(
+        block for block in document["activeDraft"]["blocks"] if block["id"] == block_id
+    )
+    token = next(
+        (
+            token
+            for token in block.get("tokens", [])
+            if token["id"] == anchor["tokenId"]
+        ),
+        None,
+    )
     maps = [
         timing
         for key in ("narrationTimingMaps", "narrationBoundaryEvidence")
@@ -1335,12 +1344,17 @@ def _music_pin_frame(
     ):
         raise _error("music timeline pin lacks current word timing")
     timing = maps[0]
-    word = next((mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {})
+    word = next(
+        (mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {}
+    )
     if anchor["affinity"] == "before":
         time = word.get("onset" if "verification" in timing else "startTime")
     else:
         time = word.get("audibleEnd")
-        if "verification" not in timing and word.get("endBasis") != "evidenced_audible_end":
+        if (
+            "verification" not in timing
+            and word.get("endBasis") != "evidenced_audible_end"
+        ):
             time = None
     if time is None:
         raise _error("music timeline pin lacks evidence for the selected word edge")
@@ -1458,8 +1472,10 @@ def _validate_music_event(
             for key, value in timing.items()
         }
         delivered = {
-            "sourceInFrame": source_start, "sourceOutFrame": source_end,
-            "timelineIn": record_start, "timelineOut": record_end,
+            "sourceInFrame": source_start,
+            "sourceOutFrame": source_end,
+            "timelineIn": record_start,
+            "timelineOut": record_end,
         }
         # Equal positive durations make the fourth point unique.
         if (
@@ -1470,12 +1486,16 @@ def _validate_music_event(
             or record_end > manifest["timeline"]["durationFrames"]
             or requested != record_end
         ):
-            raise _error(f"music event {event_id} differs from its three signed timing pins")
+            raise _error(
+                f"music event {event_id} differs from its three signed timing pins"
+            )
     else:
         row_ids = [row[0] for row in rows]
         if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
             raise _error(f"music event {event_id} references uncompiled row endpoints")
-        run = rows[row_ids.index(span["startRowId"]) : row_ids.index(span["endRowId"]) + 1]
+        run = rows[
+            row_ids.index(span["startRowId"]) : row_ids.index(span["endRowId"]) + 1
+        ]
         if (
             not run
             or any(row[1] != run[0][1] for row in run)

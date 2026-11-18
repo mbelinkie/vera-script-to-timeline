@@ -105,7 +105,19 @@ def invoke_bridge(
         if not isinstance(compiled, dict) or compiled.get("ok") is not True:
             raise BuildJobError("compiler produced no successful manifest/report")
         report = compiled.get("report")
-        if not isinstance(report, dict) or report.get("status") != "ready":
+        if not isinstance(report, dict):
+            raise BuildJobError("compiler report is not ready")
+        if report.get("status") != "ready":
+            diagnostics = report.get("diagnostics")
+            if isinstance(diagnostics, list):
+                for item in diagnostics:
+                    if (
+                        isinstance(item, dict)
+                        and item.get("code") == "MUSIC_SPAN_INVALID"
+                        and item.get("severity") == "blocking"
+                        and isinstance(item.get("message"), str)
+                    ):
+                        raise BuildJobError(item["message"])
             raise BuildJobError("compiler report is not ready")
         if not all(
             isinstance(compiled.get(field), str)

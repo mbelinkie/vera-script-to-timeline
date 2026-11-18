@@ -275,13 +275,25 @@ class Settings(TypedDict):
     gainDb: NotRequired[float]
 
 
-class RowAudioSpanIntentV2(TypedDict):
-    id: EntityId
-    startRowId: EntityId
-    endRowId: EntityId
-    source: RowAudioSourceV2
-    settings: Settings
-    review: NotRequired[RowAudioReviewV2]
+class MusicTimelinePointV21(TypedDict):
+    kind: Literal["frame"]
+    frame: NonNegativeSafeInteger
+
+
+class MusicTimelinePointV22(TypedDict):
+    kind: Literal["row_edge"]
+    blockId: EntityId
+    edge: Literal["start", "end"]
+
+
+class MusicTimelinePointV23(TypedDict):
+    kind: Literal["word"]
+    anchor: WordInpointAnchor | WordAudibleEndAnchor
+
+
+type MusicTimelinePointV2 = (
+    MusicTimelinePointV21 | MusicTimelinePointV22 | MusicTimelinePointV23
+)
 
 
 class OpaqueRowReferenceV2(TypedDict):
@@ -582,6 +594,13 @@ class StashOriginV2(TypedDict):
     originalAttachedNoteBeforeSiblingRowId: NotRequired[EntityId | None]
 
 
+class MusicCueTimingV2(TypedDict):
+    sourceInFrame: NotRequired[NonNegativeSafeInteger]
+    sourceOutFrame: NotRequired[NonNegativeSafeInteger]
+    timelineIn: NotRequired[MusicTimelinePointV2]
+    timelineOut: NotRequired[MusicTimelinePointV2]
+
+
 class ScriptSettings(TypedDict):
     presenterStillOverride: NotRequired[PresenterStillReference]
 
@@ -619,6 +638,16 @@ class NoteDraftBlock(TypedDict):
     state: Literal["excluded"]
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion
+
+
+class RowAudioSpanIntentV2(TypedDict):
+    id: EntityId
+    startRowId: EntityId
+    endRowId: EntityId
+    source: RowAudioSourceV2
+    settings: Settings
+    timing: NotRequired[MusicCueTimingV2]
+    review: NotRequired[RowAudioReviewV2]
 
 
 class AttachedFootageV2(TypedDict):
