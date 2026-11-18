@@ -23,6 +23,24 @@ type FrameRangeV2 = compiler_dependencies_v2_schema.FrameRangeV2
 type RationalTime = compiler_dependencies_v2_schema.RationalTime
 
 
+class EncodedBarsIntentV11(TypedDict):
+    mode: Literal["detect_and_fill"]
+
+
+class EncodedBarsIntentV12(TypedDict):
+    mode: Literal["keep"]
+    reason: Literal[
+        "explicit_framing",
+        "framing_ambiguous",
+        "still_route_unproven",
+        "motion_route_unproven",
+        "unsupported_picture_kind",
+    ]
+
+
+type EncodedBarsIntentV1 = EncodedBarsIntentV11 | EncodedBarsIntentV12
+
+
 class Composition(TypedDict):
     framingPolicy: Literal["contain"]
     horizontalAlignment: Literal["center"]
@@ -243,6 +261,7 @@ class TimelineEventV2(TypedDict):
     sourceTimeMapping: compiler_dependencies_v2_schema.PreparationTimeMappingV1 | None
     preparationBindingHash: ContentHash | None
     audio: SourceAudioEventV2 | None
+    encodedBars: NotRequired[EncodedBarsIntentV1]
     music: NotRequired[MusicEventV2]
     pictureTreatment: NotRequired[PictureTreatmentV2]
     marker: NotRequired[ScriptMarkerTreatmentV2]

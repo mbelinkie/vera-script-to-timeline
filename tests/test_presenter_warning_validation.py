@@ -133,3 +133,54 @@ def test_warning_diagnostics_must_be_in_canonical_order() -> None:
     report["diagnostics"].reverse()
     with pytest.raises(OutputConsistencyError, match="do not exactly cover"):
         validate_temporary_presenter_report(document, manifest, report)
+
+
+def test_package_admits_only_canonical_speech_cut_warnings() -> None:
+    from vera_timeline_agent.presenter_warning_validation import (
+        SPEECH_CUT_WARNING,
+        _stable_compiler_id,
+    )
+
+    document, manifest, report = _empty_case()
+    document["activeDraft"]["blocks"] = [
+        {
+            "id": "row",
+            "type": "narration",
+            "state": "active",
+            "primaryVisualSequence": {
+                "id": "sequence",
+                "slots": [
+                    {
+                        "id": "shot",
+                        "kind": "content",
+                        "payload": {"kind": "visual"},
+                        "relation": {"kind": "sequential"},
+                        "boundaryBefore": {"kind": "spoken_word"},
+                    }
+                ],
+            },
+        }
+    ]
+    manifest["compiler"] = {"version": "compiler/v2-speech-cuts"}
+    warning = {
+        "id": _stable_compiler_id(
+            f"WORD_TIMING_REQUIRED:slot:shot:boundaryBefore:{SPEECH_CUT_WARNING}"
+        ),
+        "code": "WORD_TIMING_REQUIRED",
+        "message": SPEECH_CUT_WARNING,
+        "entity": {"id": "shot", "kind": "slot", "path": "boundaryBefore"},
+        "severity": "warning",
+        "evidence": {
+            "kind": "anchor_issue",
+            "anchorId": "shot",
+            "reason": "word_timing_required",
+        },
+        "recoveryActionKinds": [],
+    }
+    report["diagnostics"] = [warning]
+    assert validate_temporary_presenter_report(document, manifest, report) == set()
+    warning["severity"] = "blocking"
+    with pytest.raises(
+        OutputConsistencyError, match="non-canonical speech cut warning"
+    ):
+        validate_temporary_presenter_report(document, manifest, report)

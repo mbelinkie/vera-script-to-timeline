@@ -128,6 +128,24 @@ class MediaStagePort:
             raise BuildJobError("frozen compiler dependencies have unknown schema")
         result = copy.deepcopy(original)
         result["narrationTimingMaps"] = self._narration_maps(context, snapshot)
+        if result.get("compiler", {}).get("version") == "compiler/v2-speech-cuts":
+            path = (
+                snapshot.write_root
+                / context.job_id
+                / "generating_speech"
+                / "speech-gaps.json"
+            )
+            try:
+                if path.is_symlink():
+                    raise ValueError("quiet-gap evidence is a symlink")
+                gaps = json.loads(path.read_bytes())
+                if not isinstance(gaps, list):
+                    raise ValueError("quiet-gap evidence is not a list")
+            except (OSError, ValueError) as error:
+                raise NeedsAction(
+                    "verified narration quiet-gap evidence not published"
+                ) from error
+            result["narrationQuietGapEvidence"] = gaps
         result["preparedMedia"] = []
         return result
 

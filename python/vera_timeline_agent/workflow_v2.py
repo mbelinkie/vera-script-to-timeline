@@ -54,6 +54,7 @@ BUILD_FILE_NAMES = (
     "timeline.otio",
     "package-verification.json",
 )
+OPTIONAL_BUILD_FILE_NAMES = ("encoded-bars.json",)
 ATTESTATION_KEYS = {
     "schemaVersion",
     "status",
@@ -446,9 +447,13 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
     build_id = cast(str, attestation["buildId"])
     build_relative = f"Builds/{build_id}"
     expected_file_map = attestation["files"]
-    if not isinstance(expected_file_map, dict) or set(expected_file_map) != set(
-        BUILD_FILE_NAMES
-    ):
+    expected_file_names = (
+        frozenset(expected_file_map) if isinstance(expected_file_map, dict) else None
+    )
+    if expected_file_names not in {
+        frozenset(BUILD_FILE_NAMES),
+        frozenset((*BUILD_FILE_NAMES, *OPTIONAL_BUILD_FILE_NAMES)),
+    }:
         raise WorkflowV2Error("attestation file digest map is incomplete")
     for digest in expected_file_map.values():
         _raw_hash(digest, "attested package file hash")
@@ -458,7 +463,7 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
         raise WorkflowV2Error("package inventory changed after verification")
     inventory_by_path = {entry["path"]: entry for entry in inventory}
     receipt_rel = f"{build_relative}/package-verification.json"
-    for filename in BUILD_FILE_NAMES:
+    for filename in expected_file_map:
         relative = f"{build_relative}/{filename}"
         entry = inventory_by_path.get(relative)
         if entry is None or entry["sha256"] != expected_file_map[filename]:
@@ -472,6 +477,19 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
     )
     view = _read_package_json(root, f"{build_relative}/delivery-view.json")
     receipt = _read_package_json(root, receipt_rel)
+    bars_enabled = (
+        isinstance(dependencies.get("authoringDefaults"), Mapping)
+        and dependencies["authoringDefaults"].get("hideEncodedBars") is True
+    )
+    if bars_enabled != ("encoded-bars.json" in expected_file_map):
+        raise WorkflowV2Error(
+            "attestation bar-removal evidence differs from the frozen setting"
+        )
+    bar_evidence = (
+        _read_package_json(root, f"{build_relative}/encoded-bars.json")
+        if bars_enabled
+        else None
+    )
     _closed(receipt, RECEIPT_KEYS, "package receipt")
     if (
         manifest.get("schemaVersion") != "timeline-manifest/v2"
@@ -517,7 +535,7 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
         raise WorkflowV2Error(
             "delivery view does not preserve manifest settings and topology"
         )
-    _validate_view(view, manifest, root, inventory_by_path)
+    _validate_view(view, manifest, root, inventory_by_path, bar_evidence)
     _validate_receipt(receipt, manifest, view, inventory_by_path, receipt_rel)
 
     outer_counts = attestation["verification"]
@@ -602,6 +620,7 @@ def _validate_view(
     manifest: Mapping[str, Any],
     root: Path,
     inventory_by_path: Mapping[str, Mapping[str, Any]],
+    bar_evidence: Mapping[str, Any] | None = None,
 ) -> None:
     sources_value = view.get("sources")
     events_value = view.get("events")
@@ -722,6 +741,52 @@ def _validate_view(
         if not isinstance(event_id, str) or not event_id or event_id in manifest_by_id:
             raise WorkflowV2Error("manifest event identities are invalid or repeated")
         manifest_by_id[event_id] = event
+    bar_evidence_by_id: dict[str, Mapping[str, Any]] = {}
+    if bar_evidence is not None:
+        if (
+            set(bar_evidence)
+            != {
+                "schemaVersion",
+                "buildId",
+                "manifestId",
+                "detectorVersion",
+                "thresholdsHash",
+                "events",
+            }
+            or bar_evidence.get("schemaVersion") != "encoded-bars-evidence/v1"
+            or bar_evidence.get("buildId") != manifest.get("buildId")
+            or bar_evidence.get("manifestId") != manifest.get("id")
+            or not isinstance(bar_evidence.get("events"), list)
+        ):
+            raise WorkflowV2Error("bar-removal evidence identity is invalid")
+        for row in cast(list[Any], bar_evidence["events"]):
+            if not isinstance(row, Mapping):
+                raise WorkflowV2Error("bar-removal evidence event is malformed")
+            event_id = row.get("eventId")
+            record_hash = row.get("recordHash")
+            if (
+                not isinstance(event_id, str)
+                or event_id in bar_evidence_by_id
+                or not isinstance(record_hash, str)
+                or not _CONTENT_HASH.fullmatch(record_hash)
+            ):
+                raise WorkflowV2Error("bar-removal evidence identity is invalid")
+            unsigned_row = {
+                key: value for key, value in row.items() if key != "recordHash"
+            }
+            expected_record_hash = "sha256:" + _digest(
+                _canonical_json(unsigned_row).encode("utf-8")
+            )
+            if record_hash != expected_record_hash:
+                raise WorkflowV2Error("bar-removal evidence hash differs")
+            bar_evidence_by_id[event_id] = row
+        expected_bar_ids = {
+            event_id
+            for event_id, event in manifest_by_id.items()
+            if "encodedBars" in event
+        }
+        if set(bar_evidence_by_id) != expected_bar_ids:
+            raise WorkflowV2Error("bar-removal evidence does not match manifest intent")
     expected_media_events = {
         event_id: event
         for event_id, event in manifest_by_id.items()
@@ -738,20 +803,31 @@ def _validate_view(
         )
 
     for event_value in cast(list[Any], events_value):
+        event_id_hint = (
+            event_value.get("id") if isinstance(event_value, Mapping) else None
+        )
+        original_hint = (
+            manifest_by_id.get(event_id_hint)
+            if isinstance(event_id_hint, str)
+            else None
+        )
+        expected_event_keys = {
+            "id",
+            "kind",
+            "sourceId",
+            "trackId",
+            "trackKind",
+            "recordRange",
+            "sourceRange",
+            "v2Event",
+            "gainDb",
+            "pictureTreatment",
+        }
+        if isinstance(original_hint, Mapping) and "encodedBars" in original_hint:
+            expected_event_keys.add("barRemoval")
         event = _closed(
             event_value,
-            {
-                "id",
-                "kind",
-                "sourceId",
-                "trackId",
-                "trackKind",
-                "recordRange",
-                "sourceRange",
-                "v2Event",
-                "gainDb",
-                "pictureTreatment",
-            }
+            expected_event_keys
             | (
                 {"musicTreatment"}
                 if isinstance(event_value, Mapping)
@@ -771,6 +847,47 @@ def _validate_view(
             or event["v2Event"] != original
         ):
             raise WorkflowV2Error("delivery event no longer matches the v2 manifest")
+        if "encodedBars" in original:
+            evidence_row = bar_evidence_by_id.get(event_id)
+            removal = event.get("barRemoval")
+            if evidence_row is None or not isinstance(removal, Mapping):
+                raise WorkflowV2Error("delivery event lacks frozen bar-removal outcome")
+            decision = evidence_row.get("decision")
+            if not isinstance(decision, Mapping) or removal.get(
+                "detectionHash"
+            ) != evidence_row.get("recordHash"):
+                raise WorkflowV2Error(
+                    "delivery event bar-removal evidence hash differs"
+                )
+            if decision.get("decision") == "apply":
+                removal = _closed(
+                    removal,
+                    {"decision", "zoom", "pan", "tilt", "detectionHash"},
+                    "bar-removal delivery decision",
+                )
+                if (
+                    removal.get("decision") != "apply"
+                    or removal.get("zoom") != decision.get("zoom")
+                    or removal.get("pan") != 0
+                    or removal.get("tilt") != 0
+                ):
+                    raise WorkflowV2Error(
+                        "bar-removal transform is not centered and uniform"
+                    )
+            else:
+                removal = _closed(
+                    removal,
+                    {"decision", "reason", "detectionHash"},
+                    "bar-removal delivery decision",
+                )
+                if removal.get("decision") != "skip" or removal.get(
+                    "reason"
+                ) != decision.get("reason"):
+                    raise WorkflowV2Error("bar-removal skip differs from its evidence")
+        elif "barRemoval" in event:
+            raise WorkflowV2Error(
+                "delivery event has an unrequested bar-removal transform"
+            )
         if event["kind"] != original.get("kind"):
             raise WorkflowV2Error("delivery event kind differs from its v2 source")
         track_id = event["trackId"]
@@ -2069,6 +2186,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         self._reopened_row_items: list[dict[str, Any]] = []
         self._v2_transition_plans: tuple[Mapping[str, Any], ...] = ()
         self._v2_transition_uids: dict[str, str] = {}
+        self._bar_removal_runtime_enabled = False
 
     def _locate_v2_boundary(self, plan: Mapping[str, Any]) -> dict[str, Any]:
         """Locate by exact timeline stamp and record geometry, never clip name."""
@@ -2519,6 +2637,7 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         ):
             raise WorkflowV2Error("Resolve could not stamp the v2 event")
         expected_properties: dict[str, Any] = {}
+        bar_properties: dict[str, Any] = {}
         if event["kind"] == "source_audio":
             gain = cast(float, event["gainDb"])
             expected_properties = {"AudioVolumeEnabled": True, "AudioVolume": gain}
@@ -2546,23 +2665,64 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                 "FlipX": False,
                 "FlipY": False,
             }
-        if expected_properties:
-            if "Scaling" in expected_properties:
+        bar_removal = event.get("barRemoval")
+        if isinstance(bar_removal, Mapping) and bar_removal.get("decision") == "apply":
+            if not getattr(self, "_bar_removal_runtime_enabled", False):
+                raise WorkflowV2Error(
+                    "bar-removal transform reached Resolve without native preflight"
+                )
+            zoom = bar_removal.get("zoom")
+            if (
+                isinstance(zoom, bool)
+                or not isinstance(zoom, (int, float))
+                or not math.isfinite(zoom)
+                or zoom <= 1
+                or zoom > 1.4
+            ):
+                raise WorkflowV2Error("bar-removal zoom is outside its attested bounds")
+            bar_properties = {
+                "ZoomX": zoom,
+                "ZoomY": zoom,
+                "Pan": 0.0,
+                "Tilt": 0.0,
+            }
+            for property_name in ("ZoomX", "ZoomY"):
                 self.assert_current_target()
-                if not item.SetProperties({"Scaling": expected_properties["Scaling"]}):
+                if item.SetProperty(property_name, zoom) is not True:
+                    raise WorkflowV2Error(
+                        f"Resolve rejected centered bar-removal {property_name}"
+                    )
+            actual_after_bar_set = item.GetProperties()
+            if not isinstance(actual_after_bar_set, Mapping) or any(
+                not _property_equal(actual_after_bar_set.get(key), value)
+                for key, value in bar_properties.items()
+            ):
+                raise WorkflowV2Error(
+                    "Resolve did not immediately retain centered bar-removal zoom"
+                )
+        expected_properties.update(bar_properties)
+        if expected_properties:
+            remaining_properties = {
+                key: value
+                for key, value in expected_properties.items()
+                if key not in bar_properties
+            }
+            if "Scaling" in remaining_properties:
+                self.assert_current_target()
+                if not item.SetProperties({"Scaling": remaining_properties["Scaling"]}):
                     raise WorkflowV2Error("Resolve rejected v2 event scaling")
                 remaining_properties = {
                     key: value
-                    for key, value in expected_properties.items()
+                    for key, value in remaining_properties.items()
                     if key != "Scaling"
                 }
                 if remaining_properties:
                     self.assert_current_target()
                     if not item.SetProperties(remaining_properties):
                         raise WorkflowV2Error("Resolve rejected v2 event properties")
-            else:
+            elif remaining_properties:
                 self.assert_current_target()
-                if not item.SetProperties(expected_properties):
+                if not item.SetProperties(remaining_properties):
                     raise WorkflowV2Error("Resolve rejected v2 event properties")
             actual = item.GetProperties()
             if not isinstance(actual, Mapping) or any(
@@ -3543,6 +3703,16 @@ def run_workflow_delivery_v2(
             package.attestation,
         )
         timeline = cast(Mapping[str, Any], manifest["timeline"])
+        bar_removal_opt_in = any(
+            isinstance(event, Mapping) and "encodedBars" in event
+            for event in manifest.get("events", [])
+        )
+        has_bar_removal_candidate = any(
+            isinstance(event, Mapping)
+            and isinstance(event.get("barRemoval"), Mapping)
+            and event["barRemoval"].get("decision") == "apply"
+            for event in view.get("events", [])
+        )
         result.update(
             {
                 "buildId": attestation["buildId"],
@@ -3676,6 +3846,18 @@ def run_workflow_delivery_v2(
             or connected_identity not in SUPPORTED_V2_IDENTITIES
         ):
             raise WorkflowV2Error("unsupported connected Resolve edition or build")
+        bar_removal_runtime_reason: str | None = None
+        if has_bar_removal_candidate:
+            if native_otio:
+                bar_removal_runtime_reason = "native_otio_route_unproven"
+            elif connected_identity != ("21.2.0", "6"):
+                bar_removal_runtime_reason = "resolve_build_unproven"
+            elif existing_project is not None:
+                result["barRemovalProjectScaling"] = "existing_project_readback"
+        result["barRemovalOptIn"] = bar_removal_opt_in
+        result["barRemovalNativeQualified"] = (
+            has_bar_removal_candidate and bar_removal_runtime_reason is None
+        )
         if has_source_audio:
             result["sourceAudioNativeQualified"] = (
                 source_audio_profile_qualified and connected_identity == ("21.2.0", "6")
@@ -3737,6 +3919,18 @@ def run_workflow_delivery_v2(
                 existing_project, settings, attestation["timelineName"]
             )
             result["projectName"] = existing_project
+            if has_bar_removal_candidate and bar_removal_runtime_reason is None:
+                try:
+                    scaling = adapter.project.GetSetting(
+                        "timelineInputResMismatchBehavior"
+                    )
+                except Exception:
+                    scaling = None
+                if scaling != "scaleToFit":
+                    bar_removal_runtime_reason = "project_scaling_unproven"
+                    result["barRemovalNativeQualified"] = False
+                else:
+                    result["barRemovalProjectScaling"] = scaling
         if action == "preflight":
             # Preflight is a separate read-only invocation, not an exemption
             # for the next build's independent entry validation.
@@ -3747,6 +3941,8 @@ def run_workflow_delivery_v2(
                 raise WorkflowV2Error("package changed during preflight")
             result["status"] = "preflight_passed"
             result["message"] = "The immutable v2 package passed read-only preflight."
+            if has_bar_removal_candidate and bar_removal_runtime_reason is not None:
+                result["barRemovalSkipReason"] = bar_removal_runtime_reason
             if not result["nativeRateQualified"]:
                 result["nativeRateLimitation"] = "24000/1001 is not natively qualified."
             return result
@@ -3805,6 +4001,66 @@ def run_workflow_delivery_v2(
                 label="create project",
             )
             mutate(adapter.configure_project, settings, label="configure project")
+        if (
+            has_bar_removal_candidate
+            and bar_removal_runtime_reason is None
+            and existing_project is None
+        ):
+            try:
+                scaling = adapter.project.GetSetting("timelineInputResMismatchBehavior")
+            except Exception:
+                scaling = None
+            if scaling != "scaleToFit":
+                bar_removal_runtime_reason = "project_scaling_unproven"
+                result["barRemovalNativeQualified"] = False
+            else:
+                result["barRemovalProjectScaling"] = scaling
+
+        bar_removal_allowed = (
+            has_bar_removal_candidate and bar_removal_runtime_reason is None
+        )
+        cast(Any, adapter)._bar_removal_runtime_enabled = bar_removal_allowed
+        runtime_view = view
+        bar_removal_outcomes: list[dict[str, Any]] = []
+        runtime_events: list[Mapping[str, Any]] = []
+        for event in cast(list[Mapping[str, Any]], view["events"]):
+            removal = event.get("barRemoval")
+            if not isinstance(removal, Mapping):
+                runtime_events.append(event)
+                continue
+            effective = dict(removal)
+            if removal.get("decision") == "apply" and not bar_removal_allowed:
+                effective = {
+                    "decision": "skip",
+                    "reason": bar_removal_runtime_reason
+                    or "native_transform_unavailable",
+                    "detectionHash": removal["detectionHash"],
+                }
+            runtime_event = dict(event)
+            runtime_event["barRemoval"] = effective
+            runtime_events.append(runtime_event)
+            if effective.get("decision") == "apply":
+                bar_removal_outcomes.append(
+                    {
+                        "eventId": event["id"],
+                        "decision": "applied",
+                        "zoom": effective["zoom"],
+                        "detectionHash": effective["detectionHash"],
+                    }
+                )
+            else:
+                bar_removal_outcomes.append(
+                    {
+                        "eventId": event["id"],
+                        "decision": "skipped",
+                        "reason": effective["reason"],
+                        "detectionHash": effective["detectionHash"],
+                    }
+                )
+        if runtime_events != view["events"]:
+            runtime_view = {**view, "events": runtime_events}
+        if bar_removal_outcomes:
+            result["barRemovalOutcomes"] = bar_removal_outcomes
         if native_otio:
             # Import the whole attested OTIO once. AppendToTimeline's still
             # duration is not exact on Studio, and mixing the two routes would
@@ -3814,7 +4070,7 @@ def run_workflow_delivery_v2(
             mutate(
                 adapter.import_verified_otio,
                 native_bound_path,
-                view,
+                runtime_view,
                 attestation["timelineName"],
                 label="import exact native OTIO",
             )
@@ -3853,7 +4109,7 @@ def run_workflow_delivery_v2(
                 label="create timeline",
             )
             mutate(adapter.configure_tracks, view["tracks"], label="configure tracks")
-            for event in view["events"]:
+            for event in runtime_view["events"]:
                 mutate(adapter.place_event, event, label="place timeline event")
         for marker in view["markers"]:
             mutate(adapter.add_v2_marker, marker, label="add timeline marker")
@@ -3874,7 +4130,7 @@ def run_workflow_delivery_v2(
         if existing_project is not None:
             adapter.assert_current_target()
         adapter._capture_row_map = True
-        discrepancies = tuple(adapter.verify(view))
+        discrepancies = tuple(adapter.verify(runtime_view))
         if existing_project is not None:
             adapter.assert_current_target()
         if not discrepancies:
@@ -3882,7 +4138,7 @@ def run_workflow_delivery_v2(
             observation = adapter.reopened_row_observation()
             map_value = make_row_timeline_map(
                 manifest,
-                view,
+                runtime_view,
                 observation["observed"],
                 project_name=existing_project or attestation["projectName"],
                 resolve_project_id=observation["resolveProjectId"],

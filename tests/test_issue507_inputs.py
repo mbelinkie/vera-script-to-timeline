@@ -182,6 +182,31 @@ def test_real_issue173_selected_clip_ntsc_schema_and_pins() -> None:
 
 
 @pytest.mark.parametrize(
+    ("project_value", "compiler_value", "expected"),
+    [(True, None, True), (False, True, None), (None, True, None)],
+)
+def test_bar_removal_uses_frozen_project_setting(
+    project_value: bool | None,
+    compiler_value: bool | None,
+    expected: bool | None,
+) -> None:
+    value = manifest()
+    settings = json.loads(value["settingsJson"])
+    if project_value is not None:
+        settings["hideEncodedBars"] = project_value
+    value["settingsJson"] = json.dumps(settings)
+    value["settingsDigest"] = digest(value["settingsJson"])
+    deps = complete_dependencies(value)
+    if compiler_value is not None:
+        deps["authoringDefaults"]["hideEncodedBars"] = compiler_value
+
+    frozen = json.loads(checked_compiler_dependencies(deps, value, {}))
+
+    assert frozen["authoringDefaults"].get("hideEncodedBars") is expected
+    assert deps["authoringDefaults"].get("hideEncodedBars") is compiler_value
+
+
+@pytest.mark.parametrize(
     "fault", ["missing", "schema", "document", "settings", "source", "prepared"]
 )
 def test_missing_or_contradictory_compiler_data_fails(fault: str) -> None:

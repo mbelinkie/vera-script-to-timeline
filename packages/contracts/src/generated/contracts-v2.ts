@@ -450,6 +450,22 @@ export type TimelineEventV2 = {
   sourceTimeMapping: PreparationTimeMappingV1 | null;
   preparationBindingHash: string | null;
   audio: SourceAudioEventV2 | null;
+  /**
+   * Frozen project intent for optional package-time baked-bar analysis.
+   */
+  encodedBars?:
+    | {
+        mode: "detect_and_fill";
+      }
+    | {
+        mode: "keep";
+        reason:
+          | "explicit_framing"
+          | "framing_ambiguous"
+          | "still_route_unproven"
+          | "motion_route_unproven"
+          | "unsupported_picture_kind";
+      };
   music?: MusicEventV2;
   pictureTreatment?:
     StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2;
@@ -1232,6 +1248,10 @@ export interface AuthoringProjectSettingsV1 {
         end: ImageMotionFrameV11;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+  /**
+   * Opt in to detecting and removing stable baked-in bars from eligible video clips during new builds; absent means off.
+   */
+  hideEncodedBars?: boolean;
 }
 export interface PresenterStillReference1 {
   mediaReferenceId: string;
@@ -1287,6 +1307,10 @@ export interface CompilerDependenciesV2 {
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
   narrationBoundaryEvidence?: NarrationBoundaryEvidenceV1[];
+  /**
+   * Quiet intervals observed on the delivered narration PCM and bound to its frozen timing map.
+   */
+  narrationQuietGapEvidence?: NarrationQuietGapEvidenceV1[];
   graphicProvenanceSnapshots?: GraphicProvenanceSnapshot[];
   resolvedGraphicContents?: ResolvedGraphicContent[];
 }
@@ -1321,6 +1345,10 @@ export interface AuthoringDefaultsV2 {
         end: ImageMotionFrameV1;
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
+  /**
+   * Frozen opt-in to detect stable baked-in bars on eligible video clips; absent means off.
+   */
+  hideEncodedBars?: boolean;
   sourceAudioLevelPolicy: {
     version: string;
     quietGainDb: -18;
@@ -1569,6 +1597,45 @@ export interface MeasuredBoundaryAlgorithmV1 {
   parameters: {
     [k: string]: unknown;
   };
+}
+export interface NarrationQuietGapEvidenceV1 {
+  schemaVersion: "vera-speech-gaps/v1";
+  method: "pcm_quiet_windows_between_onsets/v1";
+  blockId: string;
+  timingHash: string;
+  audioHash: string;
+  audio: {
+    sampleRate: number;
+    channels: number;
+    durationSamples: number;
+  };
+  parameters: {
+    analysisWindowMs: 5;
+    analysisHopMs: 1;
+    quietThresholdDbfs: -42;
+    minimumQuietDurationMs: 30;
+  };
+  tokenPairs: {
+    beforeTokenId: string;
+    afterTokenId: string;
+    onsetWindow: QuietGapSampleRange;
+    status: "detected" | "absent" | "ambiguous";
+    gapDurationSamples: number;
+    quietWindow: null | {
+      startSample: number;
+      endSample: number;
+      durationSamples: number;
+    };
+    reason:
+      | "unique_terminal_quiet_run"
+      | "no_qualifying_quiet_run"
+      | "nonterminal_quiet_run"
+      | "multiple_qualifying_quiet_runs";
+  }[];
+}
+export interface QuietGapSampleRange {
+  startSample: number;
+  endSample: number;
 }
 export interface GraphicProvenanceSnapshot {
   schemaVersion: "graphic-provenance/v1";

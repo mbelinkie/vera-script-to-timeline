@@ -106,8 +106,18 @@ def checked_compiler_dependencies(
                 raise FrozenInputRefusal("compiler source identity not accepted")
         if raw["preparedMedia"]:
             raise FrozenInputRefusal("unverified prepared media in frozen metadata")
+        # The submitted project settings own the opt-in. Compiler metadata
+        # may be supplied separately but cannot change that decision.
+        defaults = dict(raw["authoringDefaults"])
+        if settings.get("hideEncodedBars") is True:
+            defaults["hideEncodedBars"] = True
+        else:
+            defaults.pop("hideEncodedBars", None)
         return json.dumps(
-            raw, sort_keys=True, separators=(",", ":"), allow_nan=False
+            {**raw, "authoringDefaults": defaults},
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
         ).encode()
     except FrozenInputRefusal:
         raise

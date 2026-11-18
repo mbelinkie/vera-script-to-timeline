@@ -389,6 +389,7 @@ describe("Research choices: explicit keep/update CAS", () => {
     expect(first.frameBinding).toBeUndefined();
     expect(first.payload.pictureKind).toBe("unresolved_visual");
     expect(first.payload.source.kind).toBe("unresolved_visual");
+    expect(first.payload.framingPolicy).toBeUndefined();
     expect(first.visualOnlyTiming.selectedSourceRange).toBeUndefined();
     expect(first.version).toBe(h.first.version + 1);
     expect(second).toEqual(h.second);

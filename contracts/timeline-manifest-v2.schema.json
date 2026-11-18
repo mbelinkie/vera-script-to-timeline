@@ -653,6 +653,10 @@
             }
           ]
         },
+        "encodedBars": {
+          "$ref": "#/$defs/EncodedBarsIntentV1",
+          "description": "Frozen project intent for optional package-time baked-bar analysis."
+        },
         "music": {
           "$ref": "#/$defs/MusicEventV2"
         },
@@ -971,6 +975,35 @@
           "description": "Method of the boundary evidence behind boundaryEvidenceHash. Emitted only for measured evidence; absence with a boundaryEvidenceHash means reviewed_audio_boundaries/v1. Measured evidence is never labelled reviewed."
         }
       }
+    },
+    "EncodedBarsIntentV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "detect_and_fill" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "reason"],
+          "properties": {
+            "mode": { "const": "keep" },
+            "reason": {
+              "enum": [
+                "explicit_framing",
+                "framing_ambiguous",
+                "still_route_unproven",
+                "motion_route_unproven",
+                "unsupported_picture_kind"
+              ]
+            }
+          }
+        }
+      ]
     },
     "PictureTreatmentV2": {
       "oneOf": [

@@ -71,3 +71,4 @@ class AuthoringProjectSettingsV1(TypedDict):
     presenterStill: NotRequired[PresenterStillReference]
     visualOnlyStillDurationMs: NotRequired[PositiveSafeInteger]
     imageMotionDefault: NotRequired[ImageMotionV1]
+    hideEncodedBars: NotRequired[bool]

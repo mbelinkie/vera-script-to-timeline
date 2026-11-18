@@ -38,7 +38,12 @@ NATIVE = {
 
 
 def _authored_png_case(
-    root: Path, *, frames: int, motion: dict[str, Any], framing: str
+    root: Path,
+    *,
+    frames: int,
+    motion: dict[str, Any],
+    framing: str,
+    hide_bars: bool = False,
 ) -> Any:
     case = make_package_case(root, rate="25fps")
     document = json.loads(case.document_path.read_text())
@@ -64,6 +69,10 @@ def _authored_png_case(
     document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
     document["activeDraft"]["blocks"][0]["payload"]["framingPolicy"] = framing
     event = manifest["events"][0]
+    if hide_bars:
+        for record in (dependencies, manifest):
+            record["authoringDefaults"]["hideEncodedBars"] = True
+        event["encodedBars"] = {"mode": "keep", "reason": "explicit_framing"}
     event["pictureTreatment"]["imageMotion"] = motion
     event["pictureTreatment"]["framingPolicy"] = framing
     event["recordRange"]["endFrame"] = frames
@@ -200,11 +209,17 @@ def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
     assert clips[0].metadata["vera"]["motion_qualification"].startswith("sha256:")
 
 
+@pytest.mark.parametrize("hide_bars", [False, True])
 def test_real_package_static_none_keeps_contain_without_motion(
     tmp_path: Path,
+    hide_bars: bool,
 ) -> None:
     case = _authored_png_case(
-        tmp_path, frames=48, motion={"mode": "none"}, framing="contain"
+        tmp_path,
+        frames=48,
+        motion={"mode": "none"},
+        framing="contain",
+        hide_bars=hide_bars,
     )
     built = case.build()
     assert verify_v2_package(case.project_root).build_id == built.build_id
