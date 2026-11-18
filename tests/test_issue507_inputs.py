@@ -284,6 +284,34 @@ def test_accepted_png_keeps_suffix_in_frozen_snapshot(tmp_path: Path) -> None:
     ).read_bytes() == image.read_bytes()
 
 
+def test_existing_frozen_bin_path_is_preserved_for_png(tmp_path: Path) -> None:
+    transport = FakeTransport()
+    authority, directory = _accepted(tmp_path, transport)
+    record = authority.accepted[TARGET]
+    image = record.path.with_suffix(".png")
+    record.path.rename(image)
+    authority.accepted[TARGET] = AcceptedSourceFile(
+        record.project_id, record.source_id, record.revision, record.sha256, image
+    )
+    destination = tmp_path / "existing.bin"
+    destination.write_bytes(image.read_bytes())
+    destination.chmod(0o600)
+    assert (
+        frozen_source_file(
+            authority,
+            PROJECT,
+            TARGET,
+            record.revision,
+            record.sha256,
+            (directory,),
+            destination,
+            preserve_png_suffix=True,
+        )
+        == destination
+    )
+    assert not destination.with_suffix(".png").exists()
+
+
 def test_revoked_or_altered_source_fails_before_next_effect(tmp_path: Path) -> None:
     transport, port = FakeTransport(), FakePort()
     authority, directory = _accepted(tmp_path, transport)

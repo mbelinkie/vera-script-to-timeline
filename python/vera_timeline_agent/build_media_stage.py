@@ -11,7 +11,7 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .build_compiler_bridge import invoke_bridge
 from .build_composition import (
@@ -28,6 +28,9 @@ from .build_jobs import (
     publish_immutable_output,
 )
 from .build_stage_receipt import canonical_json, hash_file
+from .generated.contracts.compiler_dependencies_v2_schema import (
+    OccurrenceMediaResolutionV2,
+)
 from .media_preparation import (
     MediaTools,
     PreparationAuthorization,
@@ -281,7 +284,7 @@ class MediaStagePort:
         for item, descriptor in still_rows:
             checked = prepare_still_media(
                 snapshot.file(f"source:{item['mediaReferenceId']}"),
-                descriptor,
+                cast(OccurrenceMediaResolutionV2, descriptor),
                 item["requestedRange"],
                 final["timeline"]["frameRate"],
                 authorization=authorization,
@@ -386,7 +389,7 @@ class MediaStagePort:
             context.renew_lease()
             result = prepare_still_media(
                 snapshot.file(f"source:{item['mediaReferenceId']}"),
-                descriptor,
+                cast(OccurrenceMediaResolutionV2, descriptor),
                 item["requestedRange"],
                 source["timeline"]["frameRate"],
                 authorization=authorization,

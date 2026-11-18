@@ -205,6 +205,7 @@ def frozen_source_file(
         and destination is not None
         and record is not None
         and record.path.suffix.lower() == ".png"
+        and not destination.exists()
     ):
         destination = destination.with_suffix(".png")
     output_fd: int | None = None

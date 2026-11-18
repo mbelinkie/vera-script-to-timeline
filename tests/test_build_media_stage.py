@@ -16,6 +16,7 @@ from vera_timeline_agent.build_media_stage import (
     MediaStageAuthorization,
     MediaStagePort,
 )
+from vera_timeline_agent.build_package_stage import PackageStagePort
 from vera_timeline_agent.local_media_import import FFmpegDecoder
 from vera_timeline_agent.media_preparation import (
     MediaPreparationError,
@@ -83,8 +84,9 @@ def test_stage_req_matching_refuses_duplicate_conflict_and_missing_source() -> N
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("prior_key", [None, "sha256:" + "1" * 64])
 def test_frozen_still_preparation_and_recovery(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prior_key: str | None
 ) -> None:
     fixture = json.loads(
         (ROOT / "visual-only-image-still-25fps-default.input.golden.json").read_bytes()
@@ -107,6 +109,7 @@ def test_frozen_still_preparation_and_recovery(
         owner=original["owner"],
         mediaReferenceId=original["mediaReferenceId"],
     )
+    descriptor["preparedMediaRequirementKey"] = prior_key
     deps["occurrenceResolutions"] = [descriptor]
     deps["preparedMedia"] = []
     document = tmp_path / "document.json"
@@ -165,6 +168,10 @@ def test_frozen_still_preparation_and_recovery(
     assert port.inspect(context, snapshot).state == EffectState.VERIFIED
     compiled = CompileStagePort()._checked_compile(context, snapshot)
     assert compiled.result["report"]["status"] == "ready"
+    CompileStagePort().execute(context, snapshot)
+    package = PackageStagePort()
+    media = package._media(context, snapshot, package._preparations(context, snapshot))
+    assert source in media.values()
     paths = port.paths(context, snapshot)
     result = json.loads(paths["dependencies"].read_bytes())
     key = result["occurrenceResolutions"][0]["preparedMediaRequirementKey"]
@@ -173,7 +180,7 @@ def test_frozen_still_preparation_and_recovery(
         json.loads(paths["needsInput"].read_bytes())["occurrenceResolutions"][0][
             "preparedMediaRequirementKey"
         ]
-        is None
+        == prior_key
     )
     receipt = Path(json.loads(paths["preparations"].read_bytes())[key])
     original_bytes = source.read_bytes()

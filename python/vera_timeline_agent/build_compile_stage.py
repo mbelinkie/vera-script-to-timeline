@@ -53,8 +53,6 @@ class CompileStagePort:
         original = json.loads(snapshot.file("dependencies").read_bytes())
         prepared = json.loads(self.dependencies(context, snapshot).read_bytes())
         for row in expected["requirements"]:
-            if row.get("requirementKey") is not None:
-                continue
             matches = [
                 d
                 for d in original["occurrenceResolutions"]
@@ -72,7 +70,8 @@ class CompileStagePort:
                 and matches[0]["sourceSnapshot"]["system"] == "local_import"
                 and snapshot.file(f"source:{row['mediaReferenceId']}").suffix.lower()
                 == ".png"
-                and matches[0]["preparedMediaRequirementKey"] is None
+                and matches[0]["preparedMediaRequirementKey"]
+                == row.get("requirementKey")
             ):
                 row["requirementKey"] = final[0]["preparedMediaRequirementKey"]
         if result.needs != expected:
