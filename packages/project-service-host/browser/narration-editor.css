@@ -1,0 +1,51 @@
+.narration-editor {
+  min-height: 1.8em;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.narration-editor:focus {
+  outline: 2px solid #c49b50;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.narration-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.narration-editor__actions[hidden],
+.narration-focus-hint[hidden] {
+  display: none;
+}
+
+.narration-editor__action {
+  border: 1px solid #c49b50;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #3b2d16;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.2rem 0.55rem;
+}
+
+.narration-editor__action:focus-visible {
+  outline: 2px solid #6d5316;
+  outline-offset: 2px;
+}
+
+.narration-focus-hint {
+  margin: 0.5rem 0 0;
+  color: #6e737c;
+  font-size: 0.78em;
+}
+
+.narration-token--direction {
+  color: #6f737b;
+  font-style: italic;
+}

@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#17191f">
     <title>VERA Script to Timeline</title>
     <link rel="stylesheet" href="/authoring.css">
+    <link rel="stylesheet" href="/rows-editor.css">
+    <link rel="stylesheet" href="/narration-editor.css">
     <script type="module" src="/app.js"></script>
   </head>
   <body>
@@ -48,6 +50,8 @@
         </div>
 
         <div class="toolbar-controls" role="group" aria-label="View settings">
+          <button id="undo" type="button" disabled>↶ Undo</button>
+          <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
           <label class="range-control range-control--authoring">
             <span class="range-control__mark" aria-hidden="true">Aa</span>
             <input id="authoring-size" type="range" min="80" max="150" step="5" value="100" aria-label="Authoring size">
@@ -65,6 +69,7 @@
         <div class="save-feedback">
           <p id="save-status" class="save-status" role="status" aria-live="polite" aria-atomic="true"></p>
           <button id="retry-save" class="quiet-button" type="button" hidden>Retry save</button>
+          <button id="discard-edit" class="quiet-button" type="button" hidden>Discard unsaved text</button>
           <a
             id="conflict-open-saved"
             class="quiet-button"

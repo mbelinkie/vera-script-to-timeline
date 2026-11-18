@@ -188,6 +188,18 @@ class VisualOnlyTimingV2(TypedDict):
     selectedSourceRange: NotRequired[SelectedSourceRange]
 
 
+class Slot(TypedDict):
+    id: EntityId
+    version: EntityVersion
+    visualId: EntityId
+
+
+class ClearedNarration(TypedDict):
+    id: EntityId
+    version: EntityVersion
+    slots: list[Slot]
+
+
 class WordAudibleEndAnchor(TypedDict):
     blockId: EntityId
     tokenId: EntityId
@@ -591,6 +603,7 @@ class VisualOnlyBlockV2(TypedDict):
     payload: StandaloneVisualPayloadV2
     visualOnlyTiming: VisualOnlyTimingV2
     additionalVisuals: NotRequired[list[VisualOnlyAdditionalV2]]
+    clearedNarration: NotRequired[ClearedNarration]
     stashChecklist: NotRequired[StashChecklistV2]
     stashOrigin: NotRequired[StashOriginV2]
     version: EntityVersion

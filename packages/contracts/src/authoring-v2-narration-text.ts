@@ -56,9 +56,11 @@ function scalarBoundary(text: string, offset: number): boolean {
   return !(preceding >= 0xd800 && preceding <= 0xdbff && following >= 0xdc00 && following <= 0xdfff);
 }
 
-/** Literal lexemes; bracket delimiters are not tokens in the saved narration grammar. */
 function lexemes(text: string): Lexeme[] {
-  return Array.from(text.matchAll(/[^\s[\]]+/gu), (match) => ({
+  const words = [...text.matchAll(/[^\s[\]]+/gu)];
+  // Keep standalone literal punctuation saveable when the row has no word tokens.
+  const matches = words.length > 0 ? words : [...text.matchAll(/\S+/gu)];
+  return matches.map((match) => ({
     value: match[0], startOffset: match.index, endOffset: match.index + match[0].length,
   }));
 }
@@ -106,10 +108,6 @@ export function spliceNarrationTextV2(
   }
   const directions = inspectStageDirectionsV2(row);
   const badDirection = () => refusal("NARRATION_TEXT_DIRECTION_UNSUPPORTED", "Keep both delimiters of each stage direction or remove the pair together.");
-  // Inserting brackets could silently reinterpret an old spoken word as a direction.
-  if (edit.insertedText.includes("[") || edit.insertedText.includes("]")) {
-    return refusal("NARRATION_TEXT_DIRECTION_UNSUPPORTED", "Edit direction delimiters with the dedicated direction commands.");
-  }
   if (directions.issues.length > 0) return badDirection();
 
   let { startOffset, endOffset, insertedText } = edit;
@@ -148,6 +146,7 @@ export function spliceNarrationTextV2(
   const nextLexemes = lexemes(text);
   const delta = insertedText.length - (endOffset - startOffset);
   const translate = (offset: number) => offset < startOffset ? offset : offset + delta;
+  // Only existing semantic pairs can confer nonspoken intent. New brackets are literal.
   const pairs = directions.runs.flatMap(({ openOffset, closeOffset }) =>
     startOffset <= openOffset && openOffset < endOffset ? [] : [{
       openOffset: translate(openOffset), closeOffset: translate(closeOffset),
@@ -160,7 +159,10 @@ export function spliceNarrationTextV2(
     next[index] = { ...token, ...nextLexemes[index]! };
     oldUsed.add(token.id);
   };
-  const sameSpeech = (token: NarrationToken, index: number) => (token.spoken === false) === nonspoken[index];
+  // A placeholder bracket token cannot inherit an erased word's identity.
+  const compatible = (token: NarrationToken, index: number) =>
+    (token.spoken === false) === nonspoken[index] &&
+    /[[\]]/u.test(token.value) === /[[\]]/u.test(nextLexemes[index]!.value);
 
   // Positions before/after the splice are the only globally allowed matches.
   const indexAtStart = new Map(nextLexemes.map((word, index) => [word.startOffset, index]));
@@ -169,7 +171,7 @@ export function spliceNarrationTextV2(
       ? token.startOffset
       : token.startOffset >= endOffset ? token.startOffset + delta : null;
     const index = translated === null ? undefined : indexAtStart.get(translated);
-    if (index !== undefined && nextLexemes[index]!.value === token.value && sameSpeech(token, index)) assign(token, index);
+    if (index !== undefined && nextLexemes[index]!.value === token.value && compatible(token, index)) assign(token, index);
   }
 
   // A split keeps the ID on the first surviving part. In a join, the first
@@ -181,7 +183,7 @@ export function spliceNarrationTextV2(
     if (token.startOffset < startOffset) offsets.push(token.startOffset);
     if (token.endOffset > endOffset) offsets.push(Math.max(token.startOffset, endOffset) + delta);
     const indexes = [...new Set(offsets.map((offset) => nextLexemes.findIndex((word, index) =>
-      word.startOffset <= offset && offset < word.endOffset && sameSpeech(token, index))))].filter((index) => index >= 0);
+      word.startOffset <= offset && offset < word.endOffset && compatible(token, index))))].filter((index) => index >= 0);
     const first = indexes[0];
     if (first === undefined) continue;
     reshaped.set(token.id, indexes);
@@ -195,7 +197,7 @@ export function spliceNarrationTextV2(
   // This is why H1 keeps the second `harbor`'s ID on `harbor`, not on `old`.
   let left = 0;
   while (left < candidates.length && left < remaining.length &&
-    sameSpeech(candidates[left]!, remaining[left]!) &&
+    compatible(candidates[left]!, remaining[left]!) &&
     candidates[left]!.value === nextLexemes[remaining[left]!]!.value) {
     assign(candidates[left]!, remaining[left]!);
     left += 1;
@@ -203,7 +205,7 @@ export function spliceNarrationTextV2(
   let oldRight = candidates.length - 1;
   let newRight = remaining.length - 1;
   while (oldRight >= left && newRight >= left &&
-    sameSpeech(candidates[oldRight]!, remaining[newRight]!) &&
+    compatible(candidates[oldRight]!, remaining[newRight]!) &&
     candidates[oldRight]!.value === nextLexemes[remaining[newRight]!]!.value) {
     assign(candidates[oldRight]!, remaining[newRight]!);
     oldRight -= 1;
@@ -212,7 +214,7 @@ export function spliceNarrationTextV2(
   // Fully replaced words retain identity in edit order within the same speech intent.
   const rewritten = candidates.slice(left, oldRight + 1);
   for (const index of remaining.slice(left, newRight + 1)) {
-    const oldIndex = rewritten.findIndex((token) => sameSpeech(token, index));
+    const oldIndex = rewritten.findIndex((token) => compatible(token, index));
     if (oldIndex >= 0) assign(rewritten.splice(oldIndex, 1)[0]!, index);
   }
 
@@ -233,7 +235,8 @@ export function spliceNarrationTextV2(
   const tokens = next as NarrationToken[];
   const resultRow = { ...structuredClone(row), text, tokens };
   const inspected = inspectStageDirectionsV2(resultRow);
-  if (inspected.issues.length > 0 || inspected.runs.length !== pairs.length) return badDirection();
+  if (inspected.issues.length > 0 || inspected.runs.length !== pairs.length || inspected.runs.some((run, index) =>
+    run.openOffset !== pairs[index]!.openOffset || run.closeOffset !== pairs[index]!.closeOffset)) return badDirection();
   return {
     ok: true,
     row: resultRow,

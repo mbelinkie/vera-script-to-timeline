@@ -1,4 +1,6 @@
 import { renderRows } from "./view.js";
+import { mountRowsEditor, createBlankNarrationRow } from "./rows-editor.js";
+import { mountNarration } from "./narration-editor.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -15,6 +17,21 @@ const openSaved = element("conflict-open-saved");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 let project;
+let scriptDocument;
+let documentRevision;
+let pendingDocument;
+let documentSaving = false;
+let documentDirty = false;
+let commandQueue = Promise.resolve();
+let commandsPending = 0;
+let editRefused = false;
+let refusedMessage = "";
+let renderRequested = false;
+let forceRender = false;
+let renderTimer;
+const composingRows = new Set();
+const undoStack = [];
+let narrationCleanup = [];
 let pendingName;
 let pendingCreate;
 let saveTimer;
@@ -89,7 +106,11 @@ async function showScript(projectId) {
   const [{ project: savedProject }, savedScript] = await Promise.all([
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
-  renderRows(element("script-rows"), savedScript.document);
+  scriptDocument = savedScript.document;
+  documentRevision = savedScript.revision;
+  undoStack.length = 0;
+  renderEditor();
+  updateUndo();
   project = savedProject;
   element("script-title").textContent = savedScript.document.title;
   document.title = `${savedScript.document.title} · VERA Authoring`;
@@ -101,6 +122,183 @@ async function showScript(projectId) {
   setSaveStatus("Saved");
   element("script-title").focus();
 }
+
+function renderEditor() {
+  const root = element("script-rows");
+  const active = document.activeElement;
+  const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
+  let caret = null;
+  if (rowId && document.getSelection()?.rangeCount) {
+    const selection = document.getSelection().getRangeAt(0);
+    const prefix = selection.cloneRange();
+    prefix.selectNodeContents(active);
+    prefix.setEnd(selection.endContainer, selection.endOffset);
+    caret = prefix.toString().length;
+  }
+  narrationCleanup.forEach((cleanup) => cleanup());
+  narrationCleanup = [];
+  renderRows(root, scriptDocument);
+  mountRowsEditor(root, scriptDocument, {
+    createBlankRow: createBlankNarrationRow,
+    command: (command, label) => queueCommand(command, label, { structural: true }),
+  });
+  root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
+    narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
+      compositionChange(rowId, active) {
+        if (active) composingRows.add(rowId);
+        else { composingRows.delete(rowId); scheduleRender(); }
+      },
+      requestRender: scheduleRender,
+    }));
+  });
+  if (rowId && caret !== null) {
+    const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === rowId);
+    const editor = row?.querySelector("[data-narration-editor]");
+    if (editor) {
+      editor.focus();
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      let remaining = caret;
+      let node = walker.nextNode();
+      while (node && remaining > node.length) { remaining -= node.length; node = walker.nextNode(); }
+      const range = document.createRange();
+      if (node) range.setStart(node, Math.min(remaining, node.length));
+      else range.selectNodeContents(editor);
+      range.collapse(!node ? false : true);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(range);
+    }
+  }
+}
+
+function scheduleRender(force = false) {
+  renderRequested = true;
+  forceRender ||= force === true;
+  if (renderTimer) return;
+  renderTimer = setTimeout(() => {
+    renderTimer = undefined;
+    if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
+    if (!forceRender && element("script-rows").contains(document.activeElement)) return;
+    renderRequested = false;
+    forceRender = false;
+    renderEditor();
+  }, 0);
+}
+
+element("script-rows").addEventListener("focusout", () => {
+  if (renderRequested) setTimeout(() => scheduleRender(), 0);
+});
+
+async function saveDocument() {
+  if (!project || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+  if (!pendingDocument) {
+    pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
+    documentDirty = false;
+  }
+  documentSaving = true;
+  setSaveStatus("Saving…");
+  try {
+    const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
+    documentRevision = receipt.revision;
+    pendingDocument = undefined;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      conflicted = true;
+      setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
+    } else setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
+    return;
+  } finally { documentSaving = false; }
+  if (documentDirty) void saveDocument();
+  else if (!editRefused && !conflicted) setSaveStatus("Saved");
+}
+
+function queueCommand(command, label, options = {}) {
+  if (options.structural && composingRows.size) return Promise.resolve(false);
+  commandsPending += 1;
+  commandQueue = commandQueue.then(async () => {
+    if (conflicted || editRefused) return false;
+    if (options.expectedRow) {
+      const expected = options.expectedRow;
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === expected.id);
+      const matchesNarration = row?.type === "narration" && row.text === expected.text &&
+        Boolean(row.plainDirection) === expected.plainDirection;
+      const matchesCleared = row?.type === "visual_only" && row.clearedNarration &&
+        expected.text === "" && !expected.plainDirection;
+      if (!matchesNarration && !matchesCleared) {
+        throw new Error("The script changed while you were typing. Your unsaved text is still here.");
+      }
+    }
+    const response = await fetch("/authoring/command", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+      body: JSON.stringify({ document: scriptDocument, command }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
+    undoStack.push({ document: scriptDocument, label });
+    scriptDocument = result.document;
+    updateUndo();
+    documentDirty = true;
+    void saveDocument();
+    scheduleRender(options.structural);
+    return true;
+  }).catch((error) => {
+    if (options.expectedRow) {
+      editRefused = true;
+      refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
+      element("discard-edit").hidden = false;
+      element("discard-edit").disabled = true;
+    }
+    setSaveStatus(refusedMessage || error.message || "Edit could not be applied.");
+    return false;
+  }).finally(() => {
+    commandsPending -= 1;
+    if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
+    if (renderRequested) scheduleRender();
+  });
+  return commandQueue;
+}
+
+function updateUndo() {
+  const button = element("undo");
+  button.disabled = undoStack.length === 0;
+  button.textContent = undoStack.length ? `↶ Undo ${undoStack[undoStack.length - 1].label}` : "↶ Undo";
+  button.setAttribute("aria-label", undoStack.length ? `Undo ${undoStack[undoStack.length - 1].label}` : "Undo");
+  button.title = undoStack.length ? button.textContent : "Nothing to undo in this session";
+  const history = element("undo-history");
+  history.replaceChildren(...undoStack.slice(-10).reverse().map(({ label }) => {
+    const item = document.createElement("li");
+    item.textContent = label;
+    return item;
+  }));
+  if (!history.childElementCount) {
+    const item = document.createElement("li");
+    item.textContent = "Nothing to undo in this session";
+    history.append(item);
+  }
+}
+
+function undo() {
+  if (composingRows.size) return;
+  commandsPending += 1;
+  commandQueue = commandQueue.then(() => {
+    if (conflicted || editRefused || !undoStack.length) return;
+    scriptDocument = undoStack.pop().document;
+    updateUndo();
+    documentDirty = true;
+    void saveDocument();
+    scheduleRender(true);
+  }).finally(() => {
+    commandsPending -= 1;
+    if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
+    if (renderRequested) scheduleRender();
+  });
+}
+element("undo").addEventListener("click", undo);
+document.addEventListener("keydown", (event) => {
+  if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+    event.preventDefault();
+    undo();
+  }
+});
 
 function showOpenError(error) {
   if (error instanceof ApiError && error.status === 401) {
@@ -168,10 +366,24 @@ openForm.addEventListener("submit", (event) => {
 });
 
 function setSaveStatus(message, action) {
+  if (editRefused) message = refusedMessage;
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
 }
+
+element("discard-edit").addEventListener("click", () => {
+  if (!editRefused || commandsPending || !window.confirm("Discard the unsaved text? Copy anything you want to keep first.")) return;
+  editRefused = false;
+  refusedMessage = "";
+  element("discard-edit").hidden = true;
+  forceRender = false;
+  renderRequested = false;
+  renderEditor();
+  if (conflicted) setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
+  else if (pendingDocument || documentDirty) setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
+  else setSaveStatus("Saved");
+});
 
 async function saveName() {
   clearTimeout(saveTimer);
@@ -227,10 +439,10 @@ projectTitle.addEventListener("keydown", (event) => {
     projectTitle.blur();
   }
 });
-retrySave.addEventListener("click", () => { void saveName(); });
+retrySave.addEventListener("click", () => { if (pendingDocument || documentDirty) void saveDocument(); else void saveName(); });
 
 function protectDraft(event) {
-  if (pendingCreate || pendingName || (project && projectTitle.value.trim() !== project.title)) {
+  if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
     event.preventDefault();
     event.returnValue = true;
   }
