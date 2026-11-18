@@ -417,6 +417,41 @@ describe("browser authoring over the local project service", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("shows the latest build's music warnings in the authoring view", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Music warning report");
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const document = (saved.body as SavedDocument).document;
+    const publish = async (buildId: string, musicWarnings: unknown[]) => await fetch(
+      `${origin}/v1/projects/${projectId}/music-warnings`,
+      { method: "POST", headers: { Authorization: `Bearer ${authoringToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, documentId: document.id, documentRevision: (saved.body as SavedDocument).revision,
+          buildId, musicWarnings }) },
+    );
+    const firstBuild = randomUUID();
+    expect((await publish(firstBuild, [
+      { code: "MUSIC_SOURCE_SHORTER", message: "ambient.wav ends before the selected rows; no loop was used." },
+    ])).status).toBe(201);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain(firstBuild.slice(0, 8));
+    await expect.poll(async () => await page.locator("#music-warning-list").textContent())
+      .toContain("MUSIC_SOURCE_SHORTER");
+    await expect.poll(async () => await page.locator("#music-warning-list").textContent())
+      .toContain("ambient.wav ends before the selected rows");
+
+    const latestBuild = randomUUID();
+    expect((await publish(latestBuild, [])).status).toBe(201);
+    await page.reload();
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain(latestBuild.slice(0, 8));
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain("no music warnings");
+    expect(await page.locator("#music-warning-list li").count()).toBe(0);
+    await page.close();
+  }, 90_000);
+
   it("adds, renames and deletes a section break with inline cancel/no-op and exact Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

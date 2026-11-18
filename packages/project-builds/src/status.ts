@@ -23,6 +23,59 @@ interface DispatchRow {
   assigned_agent_id: string | null;
   lease_expires_at: string | Date | null;
 }
+const MUSIC_WARNING_CODES = new Set([
+  "MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER", "MUSIC_SPAN_INVALID", "MUSIC_SETTINGS_UNSUPPORTED",
+]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.codePointAt(0)!;
+    return code < 32 || code === 127;
+  });
+}
+export interface MusicBuildWarning {
+  readonly code: string;
+  readonly message: string;
+}
+export interface LatestMusicWarnings {
+  readonly buildId: string;
+  readonly documentId: string;
+  readonly documentRevision: number;
+  readonly musicWarnings: readonly MusicBuildWarning[];
+  readonly updatedAt: string;
+}
+interface MusicWarningsInput extends Omit<LatestMusicWarnings, "updatedAt"> {
+  readonly projectId: string;
+}
+
+function parseMusicWarningsInput(projectId: string, value: unknown): MusicWarningsInput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+  const input = value as Record<string, unknown>;
+  const keys = ["projectId", "documentId", "documentRevision", "buildId", "musicWarnings"];
+  if (Object.keys(input).length !== keys.length || keys.some((key) => !Object.hasOwn(input, key)) ||
+      typeof input.projectId !== "string" || input.projectId.toLowerCase() !== projectId ||
+      typeof input.documentId !== "string" || !UUID.test(input.documentId) ||
+      typeof input.buildId !== "string" || !UUID.test(input.buildId) ||
+      typeof input.documentRevision !== "number" || !Number.isSafeInteger(input.documentRevision) ||
+      input.documentRevision < 0 || !Array.isArray(input.musicWarnings) || input.musicWarnings.length > 32) {
+    return invalid();
+  }
+  const musicWarnings = input.musicWarnings.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+    const warning = value as Record<string, unknown>;
+    if (Object.keys(warning).length !== 2 || !Object.hasOwn(warning, "code") ||
+        !Object.hasOwn(warning, "message") || typeof warning.code !== "string" ||
+        !MUSIC_WARNING_CODES.has(warning.code) || typeof warning.message !== "string" ||
+        warning.message.length < 1 || warning.message.length > 1000 ||
+        hasControlCharacter(warning.message)) return invalid();
+    return { code: warning.code, message: warning.message };
+  });
+  return {
+    projectId, documentId: input.documentId.toLowerCase(),
+    documentRevision: input.documentRevision, buildId: input.buildId.toLowerCase(), musicWarnings,
+  };
+}
+
 export interface StageProgress {
   readonly leaseEpoch: number;
   readonly status: "running" | "needs_action" | "waiting_reconcile" | "failed";
@@ -99,6 +152,51 @@ export class ProjectBuildStatusService {
     private readonly clock: BuildClock = () => new Date(),
     private readonly evidenceInspector?: IndependentEvidenceInspector,
   ) {}
+
+  /** Store only the music-warning projection of a local successful build report. */
+  async publishMusicWarnings(projectId: string, editor: UserPrincipal, raw: unknown): Promise<void> {
+    if (!validId(projectId)) return invalid();
+    const input = parseMusicWarningsInput(projectId.toLowerCase(), raw);
+    await this.auth.withAuthorizedMutation(projectId, editor, "preview_build", async (db) => {
+      const revision = (await db.query<{ document_id: string }>(
+        "SELECT document_id FROM stt_document_revisions WHERE project_id=$1 AND revision=$2",
+        [projectId, input.documentRevision],
+      )).rows[0];
+      if (!revision || revision.document_id !== input.documentId) return invalid();
+      await db.query(
+        "INSERT INTO stt_project_latest_music_warnings(project_id,document_id,document_revision," +
+          "build_id,music_warnings,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6) " +
+          "ON CONFLICT(project_id) DO UPDATE SET document_id=EXCLUDED.document_id," +
+          "document_revision=EXCLUDED.document_revision,build_id=EXCLUDED.build_id," +
+          "music_warnings=EXCLUDED.music_warnings,updated_at=EXCLUDED.updated_at",
+        [projectId, input.documentId, input.documentRevision, input.buildId,
+          JSON.stringify(input.musicWarnings), checkedNow(this.clock)],
+      );
+    });
+  }
+
+  async latestMusicWarnings(projectId: string, viewer: UserPrincipal): Promise<LatestMusicWarnings | null> {
+    if (!validId(projectId)) return invalid();
+    return await this.auth.withAuthorizedMutation(projectId, viewer, "view_build_results", async (db) => {
+      const row = (await db.query<{
+        document_id: string; document_revision: number | string; build_id: string;
+        music_warnings: MusicBuildWarning[] | string; updated_at: Date | string;
+      }>(
+        "SELECT document_id,document_revision,build_id,music_warnings,updated_at " +
+          "FROM stt_project_latest_music_warnings WHERE project_id=$1",
+        [projectId],
+      )).rows[0];
+      if (!row) return null;
+      const warnings = typeof row.music_warnings === "string" ? JSON.parse(row.music_warnings) as unknown : row.music_warnings;
+      const checked = parseMusicWarningsInput(projectId.toLowerCase(), {
+        projectId, documentId: row.document_id, documentRevision: safeNumber(row.document_revision),
+        buildId: row.build_id, musicWarnings: warnings,
+      });
+      return { buildId: checked.buildId, documentId: checked.documentId,
+        documentRevision: checked.documentRevision, musicWarnings: checked.musicWarnings,
+        updatedAt: new Date(row.updated_at).toISOString() };
+    });
+  }
 
   /** Scoped discovery only; discovering a job never assigns or authorizes an effect. */
   async pollQueued(input: AgentCredentialInput): Promise<readonly string[]> {

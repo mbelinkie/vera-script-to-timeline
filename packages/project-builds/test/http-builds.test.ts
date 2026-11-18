@@ -23,6 +23,8 @@ function harness() {
   });
   const submit = vi.fn(async () => ({ jobId, status: "queued" }));
   const get = vi.fn(async () => ({ jobId, status: "queued" }));
+  const latestMusicWarnings = vi.fn(async () => null);
+  const publishMusicWarnings = vi.fn(async () => undefined);
   const cancel = vi.fn(async () => "cancelled");
   const pollQueued = vi.fn(async () => [jobId]);
   const claim = vi.fn(async () => ({ jobId, leaseEpoch: 1 }));
@@ -34,6 +36,7 @@ function harness() {
     authorization: { authenticateRequest } as unknown as ProjectAuthorizationService,
     submissions: { submit } as unknown as ProjectBuildSubmissionService,
     status: { get, cancel, pollQueued, claim, frozenForAgent, appendProgress,
+      latestMusicWarnings, publishMusicWarnings,
       inspectEvidence } as unknown as ProjectBuildStatusService,
   });
   function send(path: string, method = "GET", token = userToken, payload?: unknown,
@@ -46,7 +49,7 @@ function harness() {
     }));
   }
   return { send, authenticateRequest, submit, get, cancel, pollQueued, claim, frozenForAgent,
-    appendProgress, inspectEvidence };
+    appendProgress, inspectEvidence, latestMusicWarnings, publishMusicWarnings };
 }
 
 describe("#382 private build transport boundary", () => {
@@ -73,6 +76,20 @@ describe("#382 private build transport boundary", () => {
     expect(h.cancel).toHaveBeenCalledWith(projectId, principal, jobId);
     expect((await h.send(`/v1/projects/${projectId}/builds/${jobId}?spoof=1`)).status).toBe(400);
     expect((await h.send(`/v1/projects/${projectId}/builds/${jobId}`, "GET", machineToken)).status).toBe(401);
+  });
+
+  it("authorizes the latest music-warning projection through the project user boundary", async () => {
+    const h = harness();
+    const route = `/v1/projects/${projectId}/music-warnings`;
+    const report = { buildId: jobId, documentId: randomUUID(), documentRevision: 4,
+      projectId, musicWarnings: [{ code: "MUSIC_SOURCE_SHORTER", message: "bed.wav ended early" }] };
+    expect((await h.send(route, "GET", "wrong")).status).toBe(401);
+    expect(h.latestMusicWarnings).not.toHaveBeenCalled();
+    expect((await h.send(route, "GET", userToken)).status).toBe(200);
+    expect(h.latestMusicWarnings).toHaveBeenCalledWith(projectId, principal);
+    expect((await h.send(route, "POST", userToken, report)).status).toBe(201);
+    expect(h.publishMusicWarnings).toHaveBeenCalledWith(projectId, principal, report);
+    expect((await h.send(route + "?other=1", "GET", userToken)).status).toBe(400);
   });
 
   it("passes the exact scoped token and epoch only to independently authenticating agent methods", async () => {

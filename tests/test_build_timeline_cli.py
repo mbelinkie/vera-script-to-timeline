@@ -437,7 +437,7 @@ def test_cli_reports_delivery_failure_as_non_success(
         "MUSIC_SOURCE_SHORTER: optional-bed.wav ended before the selected rows",
     ],
 )
-def test_cli_success_prints_named_nonblocking_music_warning(
+def test_cli_does_not_claim_vera_handoff_when_authoring_host_is_absent(
     tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch, warning: str
 ) -> None:
     options = _inputs(tmp_path / "inputs")
@@ -453,14 +453,94 @@ def test_cli_success_prints_named_nonblocking_music_warning(
         )
 
     monkeypatch.setattr(build_timeline_cli, "build_once", delivered)
+    monkeypatch.delenv("VERA_STT_QA_AUTHORING_TOKEN", raising=False)
     code = build_timeline_cli.main(
         ["--script", str(options.script), "--output", str(options.output)]
     )
     output = capsys.readouterr()
-    assert code == 0
+    assert code == 3
     assert f"Music warning: {warning}" in output.out
     assert "PASS" in output.out
+    assert "timeline was built and saved" in output.err
+    assert "Do not rerun the build" in output.err
+    assert "saved and independently verified" not in output.out
+
+
+def test_cli_publishes_latest_report_when_local_authoring_is_configured(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+    published: list[Path] = []
+
+    def delivered(_options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        return DeliveryResult("Studio Project", "New Timeline", 25, 25, 1)
+
+    def publish(path: Path) -> tuple[bool, str]:
+        published.append(path)
+        return True, ""
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", delivered)
+    monkeypatch.setattr(build_timeline_cli, "publish_latest_music_warnings", publish)
+    monkeypatch.setenv("VERA_STT_QA_AUTHORING_TOKEN", "a" * 64)
+
+    code = build_timeline_cli.main(
+        ["--script", str(options.script), "--output", str(options.output)]
+    )
+
+    output = capsys.readouterr()
+    assert code == 0
+    assert published == [options.output / "build-report.json"]
+    assert "Latest build warnings published in VERA." in output.out
     assert output.err == ""
+
+
+def test_standalone_build_without_music_warnings_remains_successful(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+
+    def delivered(_options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        return DeliveryResult("Studio Project", "New Timeline", 25, 25, 1)
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", delivered)
+    monkeypatch.delenv("VERA_STT_QA_AUTHORING_TOKEN", raising=False)
+    code = build_timeline_cli.main(
+        ["--script", str(options.script), "--output", str(options.output)]
+    )
+
+    output = capsys.readouterr()
+    assert code == 0
+    assert "saved and independently verified" in output.out
+    assert output.err == ""
+
+
+def test_publish_failure_reports_partial_build_without_claiming_success(
+    tmp_path: Path, capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = _inputs(tmp_path / "inputs")
+
+    def delivered(_options: BuildOptions, *, timings: StageTimings) -> DeliveryResult:
+        return DeliveryResult(
+            "Studio Project", "New Timeline", 25, 25, 1,
+            music_warnings=("MUSIC_SOURCE_SHORTER: bed.wav ended early",),
+        )
+
+    monkeypatch.setattr(build_timeline_cli, "build_once", delivered)
+    monkeypatch.setattr(
+        build_timeline_cli,
+        "publish_latest_music_warnings",
+        lambda _path: (False, "local host unavailable"),
+    )
+    monkeypatch.setenv("VERA_STT_QA_AUTHORING_TOKEN", "a" * 64)
+    code = build_timeline_cli.main(
+        ["--script", str(options.script), "--output", str(options.output)]
+    )
+
+    output = capsys.readouterr()
+    assert code == 3
+    assert "local host unavailable" in output.err
+    assert "Do not rerun the build" in output.err
+    assert "saved and independently verified" not in output.out
 
 
 def test_package_subtimings_are_explicitly_opt_in() -> None:

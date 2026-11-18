@@ -16,6 +16,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
 
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
@@ -60,10 +61,12 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const musicWarnings = MUSIC_WARNINGS.test(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
-      route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
+      route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH")) ||
+      musicWarnings && request.method === "GET";
     if ((!allowed && !startsSession && !isCommand) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
 
     // Cross-origin browser code cannot set this header without a successful

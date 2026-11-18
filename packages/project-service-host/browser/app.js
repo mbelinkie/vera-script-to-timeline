@@ -17,6 +17,7 @@ const openSaved = element("conflict-open-saved");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 let project;
+let activeProjectId;
 let scriptDocument;
 let documentRevision;
 let pendingDocument;
@@ -120,6 +121,7 @@ async function showScript(projectId) {
   renderEditor();
   updateUndo();
   project = savedProject;
+  activeProjectId = projectId;
   element("script-title").textContent = savedScript.document.title;
   document.title = `${savedScript.document.title} · VERA Authoring`;
   projectTitle.value = project.title;
@@ -129,7 +131,39 @@ async function showScript(projectId) {
   authoring.hidden = false;
   setSaveStatus("Saved");
   element("script-title").focus();
+  void refreshMusicWarnings();
 }
+
+async function refreshMusicWarnings() {
+  if (!activeProjectId) return;
+  const status = element("music-warning-status");
+  const list = element("music-warning-list");
+  list.replaceChildren();
+  try {
+    const { report } = await api(`/${activeProjectId}/music-warnings`);
+    if (!report) {
+      status.textContent = "No completed build report is available for this project yet.";
+      return;
+    }
+    const warnings = report.musicWarnings;
+    status.textContent = `Build ${report.buildId.slice(0, 8)} · script revision ${report.documentRevision} · ` +
+      (warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
+    for (const warning of warnings) {
+      const item = document.createElement("li");
+      const code = document.createElement("strong");
+      code.textContent = `${warning.code}: `;
+      item.append(code, document.createTextNode(warning.message));
+      list.append(item);
+    }
+  } catch {
+    status.textContent = "Latest build warnings could not be loaded.";
+  }
+}
+
+window.addEventListener("focus", () => { void refreshMusicWarnings(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void refreshMusicWarnings();
+});
 
 function renderEditor() {
   const root = element("script-rows");

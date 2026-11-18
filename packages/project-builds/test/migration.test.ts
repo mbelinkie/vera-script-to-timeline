@@ -9,6 +9,8 @@ import {
   applyProjectBuildsMigration,
   BUILD_REFUSALS_MIGRATION,
   BUILD_REFUSALS_MIGRATION_DIGEST,
+  LATEST_MUSIC_WARNINGS_MIGRATION,
+  LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST,
   PROJECT_BUILDS_MIGRATION,
   PROJECT_BUILDS_MIGRATION_DIGEST,
 } from "../src/migration.js";
@@ -78,8 +80,9 @@ describe("forward-only checksum-pinned build schema", () => {
       "stt_build_source_pins", "stt_build_dispatches", "stt_build_events",
       "stt_build_evidence",
       "stt_build_preflight_refusals",
+      "stt_project_latest_music_warnings",
     ]) expect(names).toContain(name);
-    expect(names).toHaveLength(19); // original 11 + 8 new, including preflight refusals
+    expect(names).toHaveLength(20); // original 11 + 9 new, including latest music warnings
     const receipts = await db.query<{ checksum: string; version: number }>(
       "SELECT encode(checksum,'hex') AS checksum,schema_version AS version " +
         "FROM vera_schema_migrations WHERE migration_name=$1", [PROJECT_BUILDS_MIGRATION],
@@ -90,7 +93,12 @@ describe("forward-only checksum-pinned build schema", () => {
         "WHERE migration_name=$1", [BUILD_REFUSALS_MIGRATION],
     );
     expect(refusalReceipt.rows[0]?.checksum).toBe(BUILD_REFUSALS_MIGRATION_DIGEST);
-    expect((await db.query("SELECT * FROM vera_schema_migrations")).rows).toHaveLength(4);
+    const musicWarningsReceipt = await db.query<{ checksum: string }>(
+      "SELECT encode(checksum,'hex') AS checksum FROM vera_schema_migrations " +
+        "WHERE migration_name=$1", [LATEST_MUSIC_WARNINGS_MIGRATION],
+    );
+    expect(musicWarningsReceipt.rows[0]?.checksum).toBe(LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST);
+    expect((await db.query("SELECT * FROM vera_schema_migrations")).rows).toHaveLength(5);
   });
 
   it("rejects tampered checksum/version and leaves the original tables/data untouched", async () => {
