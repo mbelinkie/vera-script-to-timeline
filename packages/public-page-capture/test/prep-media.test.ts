@@ -13,7 +13,7 @@ import { PNG } from "pngjs";
 
 import { inspectPublicUrl } from "../src/policy.js";
 import { preparePublicWebpageVisuals, ProjectWebpageStillStore, type WebpagePrepMediaOptions } from "../src/prep-media.js";
-import { CAPTURE_PROFILE_V1 } from "../src/profile.js";
+import { CAPTURE_PROFILE_V2 } from "../src/profile.js";
 
 const PROJECT = "00000000-0000-4000-8000-000000000002";
 const CAPTURE = "22222222-2222-4222-8222-222222222222";
@@ -62,10 +62,10 @@ class FakeCaptureService {
   readonly capture = vi.fn(async () => ({ capture: {
     captureId: CAPTURE, projectId: PROJECT, lifecycle: "active", rowVersion: 1,
     configuration: { requestedUrl: { canonicalDigest: hash(inspectPublicUrl(PAGE_URL).canonicalUrl) },
-      captureProfileId: CAPTURE_PROFILE_V1.profileId, captureProfileVersion: CAPTURE_PROFILE_V1.profileVersion },
+      captureProfileId: CAPTURE_PROFILE_V2.profileId, captureProfileVersion: CAPTURE_PROFILE_V2.profileVersion },
   } }));
   readonly job = vi.fn(async () => ({ job: {
-    state: this.jobState, outputRevisionId: this.jobState.startsWith("committed") ? REVISION : null,
+    captureId: CAPTURE, state: this.jobState, outputRevisionId: this.jobState.startsWith("committed") ? REVISION : null,
   } }));
   readonly revision = vi.fn(async () => ({ revision: {
     projectId: this.revisionProjectId, captureId: CAPTURE, revisionId: REVISION, status: this.revisionStatus,
