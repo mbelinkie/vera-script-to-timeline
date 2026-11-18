@@ -21,7 +21,7 @@ from vera_timeline_agent.row_timeline_map import (
     make_row_timeline_map,
     observe_item_details,
 )
-from vera_timeline_agent.workflow_v2 import _stamp
+from vera_timeline_agent.workflow_v2 import _marker_stamp, _stamp
 
 DOCUMENT = "doc-1"
 ROWS = ("row-1", "row-2", "row-3")
@@ -241,7 +241,13 @@ class Timeline:
     ) -> bool:
         if frame in self.markers:
             return False
-        self.markers[frame] = {"color": color, "name": name, "customData": data}
+        self.markers[frame] = {
+            "color": color,
+            "name": name,
+            "note": note,
+            "duration": duration,
+            "customData": data,
+        }
         return True
 
     def _cuts(self) -> dict[Item, tuple[Item | None, Item | None]]:
@@ -313,6 +319,7 @@ class Timeline:
     def DuplicateTimeline(self, name: str) -> Timeline:
         number = len(self.project.timelines)
         clone = Timeline(self.project, name, f"{self.uid}-copy{number}", self.length)
+        clone.markers = copy.deepcopy(self.markers)
         for slot, items in self.tracks.items():
             clone.tracks[slot] = []
             for item in items:
@@ -736,6 +743,37 @@ class Case:
         return json.loads((self.output / name).read_text())
 
 
+def _attach_music_warning_marker(
+    manifest: dict[str, Any], view: dict[str, Any], frame: int, note: str
+) -> dict[str, Any]:
+    event = {
+        "eventId": "warning-music-span-short",
+        "kind": "script_marker",
+        "trackId": "markers",
+        "trackRole": "marker",
+        "provenance": {
+            "documentId": DOCUMENT,
+            "blockId": "row-2",
+            "sourceId": None,
+        },
+        "recordRange": {"startFrame": frame, "endFrame": frame + 1},
+        "marker": {"supportingItemId": "music-span-1", "text": note},
+    }
+    if not any(track["id"] == "markers" for track in manifest["tracks"]):
+        manifest["tracks"].append({"id": "markers"})
+    manifest["events"].append(event)
+    marker = {
+        "id": event["eventId"],
+        "frame": frame,
+        "color": "YELLOW",
+        "name": "Music warning",
+        "note": note,
+        "provenance": event,
+    }
+    view["markers"].append(marker)
+    return marker
+
+
 SWAP = {"row-2": ("new-picture", 10)}
 
 
@@ -1108,6 +1146,32 @@ def test_shorter_row_trims_first_and_pulls_later_rows_earlier(
         (item.start, item.duration) for item in case.timeline.tracks["video", 1]
     ] == [(0, 6), (6, 10), (16, 10)]
     assert case.timeline.GetEndFrame() == 26
+
+
+def test_length_change_moves_music_warning_marker_and_refreshes_its_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    baseline_marker = _attach_music_warning_marker(
+        case.package.manifest, case.package.view, 10, "120 frames are uncovered"
+    )
+    _attach_music_warning_marker(
+        case.manifest, case.view, 14, "168 frames are uncovered"
+    )
+    case.timeline.markers[10] = {
+        "color": "Yellow",
+        "name": baseline_marker["name"],
+        "note": baseline_marker["note"],
+        "duration": 1,
+        "customData": _marker_stamp(baseline_marker),
+    }
+
+    report = case.run("safe")
+
+    assert report["status"] == "updated"
+    assert list(case.timeline.markers) == [14]
+    assert case.timeline.markers[14]["note"] == "168 frames are uncovered"
+    assert not any("markers are not updated" in line for line in case.said)
 
 
 def test_new_longer_narration_replaces_the_clip_and_carries_its_settings(

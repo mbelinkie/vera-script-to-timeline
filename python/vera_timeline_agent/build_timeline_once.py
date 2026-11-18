@@ -749,7 +749,12 @@ def deliver_compiled(
         music_warnings=tuple(
             f"{diagnostic['code']}: {diagnostic['message']}"
             for diagnostic in _read_json(compiled.report).get("diagnostics", [])
-            if diagnostic.get("code") in {"MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER"}
+            if diagnostic.get("code") in {
+                "MUSIC_FILE_MISSING",
+                "MUSIC_SOURCE_SHORTER",
+                "MUSIC_SPAN_INVALID",
+                "MUSIC_SETTINGS_UNSUPPORTED",
+            }
         ),
         bar_removal_outcomes=tuple(
             (outcome["eventId"], outcome.get("reason", "applied"))
