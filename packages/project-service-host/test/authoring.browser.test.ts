@@ -417,6 +417,189 @@ describe("browser authoring over the local project service", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("adds, renames and deletes a section break with inline cancel/no-op and exact Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Section command controls");
+    const seeded = multiNarrationDocumentFixture(projectId, ["Opening\nparagraph", "Middle scene", "Closing scene"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const divider = page.locator(`[data-after-row-id="${seeded.rowIds[0]}"][data-before-row-id="${seeded.rowIds[1]}"]`);
+    const addSection = async () => {
+      await divider.locator("[data-row-add-options]").click();
+      await divider.getByRole("menuitem", { name: "Add section" }).click();
+    };
+    expect(await page.locator("[data-section-add]").count()).toBe(3);
+    expect(await page.locator("[data-section-add]").first().getAttribute("aria-label")).toBe("Add section");
+    await divider.locator("[data-row-add-options]").click();
+    await divider.getByRole("menuitem", { name: "Add section" }).press("Escape");
+    expect(await divider.getByRole("menuitem", { name: "Add section" }).isVisible()).toBe(false);
+    await addSection();
+    await page.getByRole("textbox", { name: "New section title" }).press("Escape");
+    expect(await page.locator(".script-section-heading").count()).toBe(0);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+
+    await addSection();
+    await page.getByRole("textbox", { name: "New section title" }).press("Enter");
+    expect(await page.locator(".script-section-heading").count()).toBe(0);
+    expect(await page.locator("[data-section-title-form]").count()).toBe(0);
+
+    await addSection();
+    const newTitle = page.getByRole("textbox", { name: "New section title" });
+    await newTitle.fill("  Act I  ");
+    await newTitle.press("Enter");
+    await expect.poll(async () => await page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act I"]);
+    expect(await page.locator("[data-section-add]").count()).toBe(2);
+    const actions = page.getByRole("button", { name: /Section actions for/u });
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Rename section" }).click();
+    const rename = page.getByRole("textbox", { name: "Rename section title" });
+    await rename.fill("Discarded");
+    await rename.press("Escape");
+    expect(await page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act I"]);
+
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Rename section" }).click();
+    await rename.press("Enter"); // unchanged title is not a model command
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add section"]);
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Rename section" }).click();
+    await rename.fill("  Act II ");
+    await rename.press("Enter");
+    await expect.poll(async () => await page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act II"]);
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Delete section break" }).click();
+    await expect.poll(async () => page.locator(".script-section-heading").count()).toBe(0);
+    expect(await page.locator(".script-row").count()).toBe(4); // three narration rows + seeded visual-only row
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual([
+      "Delete section break", "Rename section", "Add section",
+    ]);
+
+    await page.getByRole("button", { name: "Undo Delete section break" }).click();
+    await expect.poll(async () => page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act II"]);
+    await page.getByRole("button", { name: "Undo Rename section" }).click();
+    await expect.poll(async () => page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act I"]);
+    await expect.poll(async () => page.locator("#save-status").textContent()).toBe("Saved");
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const savedBlocks = (saved.body as SavedDocument).document.activeDraft.blocks;
+    const heading = savedBlocks.find((block) => block.type === "section");
+    expect(heading?.type === "section" ? heading.title : null).toBe("Act I");
+    const firstNarration = savedBlocks.find((block) => block.id === seeded.rowIds[0]);
+    expect(firstNarration?.type === "narration" ? firstNarration.text : null)
+      .toBe("Opening\nparagraph");
+
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await page.locator(".script-section-heading__title").allTextContents()).toEqual(["Act I"]);
+    const outputFile = `sections-${randomUUID()}.json`;
+    await execFile("npm", ["--prefix", REPOSITORY_ROOT, "run", "export:script", "--", projectId, outputFile], {
+      cwd: directory,
+      env: { ...process.env, VERA_STT_QA_PORT: String(config.port), VERA_STT_QA_AUTHORING_TOKEN: authoringToken },
+      timeout: 60_000,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    const exported = JSON.parse(await readFile(join(directory, outputFile), "utf8")) as ScriptDocumentV2;
+    expect(exported.activeDraft.blocks).toEqual(savedBlocks);
+    await page.close();
+  }, 90_000);
+
+  it("keeps an opening section's Delete break absent", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Opening section");
+    const seeded = multiNarrationDocumentFixture(projectId, ["First", "Second"]);
+    seeded.document.activeDraft.blocks.unshift({ type: "section", id: randomUUID(), title: "Opening", orderKey: "opening", version: 1 });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(".script-section-heading").waitFor();
+    await page.getByRole("button", { name: /Section actions for/u }).click();
+    expect(await page.locator("[data-section-delete]").count()).toBe(0);
+    await page.close();
+  }, 90_000);
+
+  it("coalesces adjacent typing and backspace but separates pauses and cursor movements", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Useful typing history");
+    const seeded = editableDocumentFixture(projectId, "sun");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, 3);
+    await page.keyboard.type(" moon", { delay: 0 });
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun moon");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
+    await page.waitForTimeout(1150);
+    await page.keyboard.type("lit", { delay: 0 });
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun moonlit");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration", "Edit narration"]);
+
+    await editor.press("ArrowLeft");
+    await editor.press("ArrowRight"); // return to same caret, but start a separate history step
+    await page.keyboard.type("!", { delay: 0 });
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun moonlit!");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual([
+      "Edit narration", "Edit narration", "Edit narration",
+    ]);
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun moonlit");
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun moon");
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun");
+
+    await placeCaret(editor, 3);
+    await editor.press("Backspace");
+    await editor.press("Backspace");
+    await waitForNarrationText(page, projectId, seeded.rowId, "s");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun");
+    await page.close();
+  }, 90_000);
+
+  it.each([1024, 1280])("keeps the header and native authoring slider stationary at %i px", async (width) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width, height: 768 });
+    const projectId = await createProject(page, origin, `Stationary slider ${width}`);
+    const seeded = editableDocumentFixture(projectId, "Long narration ".repeat(380));
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const slider = page.locator("#authoring-size");
+    await setSlider(page, "#authoring-size", 100);
+    const before = await slider.boundingBox();
+    const barBefore = await page.locator(".app-bar").boundingBox();
+    if (!before || !barBefore) throw new Error("Slider/header absent");
+    const centerY = before.y + before.height / 2;
+    await page.mouse.move(before.x + 2, centerY);
+    await page.mouse.down();
+    await page.mouse.move(before.x + before.width - 2, centerY, { steps: 12 });
+    await page.mouse.up();
+    expect(Number(await slider.inputValue())).toBeGreaterThanOrEqual(145);
+    for (const percent of [80, 100, 150]) {
+      await setSlider(page, "#authoring-size", percent);
+      const after = await slider.boundingBox();
+      const header = await page.locator(".app-bar").boundingBox();
+      if (!after || !header) throw new Error("Slider/header disappeared while dragging");
+      expect(Math.abs(after.x - before.x)).toBeLessThan(1);
+      expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+      expect(Math.abs(after.width - before.width)).toBeLessThan(1);
+      expect(Math.abs(header.height - barBefore.height)).toBeLessThan(1);
+      expect(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom)).toBe(String(percent / 100));
+    }
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect.poll(async () => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+    const scrolledBar = await page.locator(".app-bar").boundingBox();
+    expect(Math.abs((scrolledBar?.y ?? -100) - barBefore.y)).toBeLessThan(1);
+    // Context pages share localStorage; leave the original view default for
+    // the existing persistence test's fresh-project expectation.
+    await setSlider(page, "#authoring-size", 100);
+    await page.close();
+  }, 90_000);
+
   it.each([
     ["a\nb\n\nc", ["front a\nb", "cback"]],
     ["a\r\nb\r\n\r\nc", ["front a\nb", "cback"]],
@@ -824,7 +1007,8 @@ describe("browser authoring over the local project service", () => {
     expect(await thumbnailSize.inputValue()).toBe("50");
     expect(await page.evaluate(() => getComputedStyle(document.documentElement)
       .getPropertyValue("--authoring-zoom").trim())).toBe("1.5");
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("24px");
+    // Zoom applies only to the paper; the bar/slider retain the root rem scale.
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("16px");
     expect(await page.evaluate(() => getComputedStyle(document.documentElement)
       .getPropertyValue("--thumbnail-scale").trim())).toBe("0.5");
     const thumbnail = page.locator(".visual-card__image").first();
@@ -1365,7 +1549,8 @@ describe("browser authoring over the local project service", () => {
     await editor.press("End");
     await page.keyboard.type(" fast input", { delay: 0 });
     const rapidText = "rapid fast input";
-    await waitForNarrationText(page, projectId, seeded.rowId, rapidText);
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.text ?? null,
+      { timeout: 10_000 }).toBe(rapidText);
 
     editor = row.locator("[data-narration-editor]");
     await editor.evaluate((element) => {

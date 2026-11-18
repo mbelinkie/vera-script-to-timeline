@@ -479,6 +479,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   let selectionGuard = false;
   let editingBlocked = false;
   let mounted = true;
+  const typingSession = newId();
+  let typingBoundary = 0;
+  let expectedCaret = null;
 
   function currentSelection() {
     const selection = rangeSelection(editor);
@@ -543,6 +546,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const priorRow = localRow;
     const delimiterOffset = directionDelimiterAt(priorRow, startOffset, endOffset, oldText);
     if (delimiterOffset !== null && insertedText === "") {
+      typingBoundary += 1;
       const run = directionRuns(priorRow).find(({ openOffset, closeOffset }) =>
         openOffset === delimiterOffset || closeOffset === delimiterOffset);
       if (!run) return;
@@ -573,12 +577,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     knownText = localRow.text;
     renderEditor(editor, localRow);
     const localEdit = normalizedTextEdit(priorRow, startOffset, endOffset, insertedText);
-    setCaret(editor, Math.min(localEdit.startOffset + localEdit.insertedText.length, localRow.text.length));
+    expectedCaret = Math.min(localEdit.startOffset + localEdit.insertedText.length, localRow.text.length);
+    setCaret(editor, expectedCaret);
     savedSelection = null;
     updateActions();
     return dispatch({
       kind: "edit_narration_text", rowId: priorRow.id, startOffset, endOffset, insertedText, editId: newId(),
-    }, nextText === "" ? "Cleared narration" : label, priorRow);
+    }, nextText === "" ? "Cleared narration" : label, priorRow,
+    label === "Edit narration" ? { typingSession, typingBoundary } : {});
   }
 
   function fallbackInput() {
@@ -657,6 +663,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function onStructuralKey(event) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
     if (event.key === "Escape") return leaveText(event);
     if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
     if (event.key === "Enter") {
@@ -721,6 +728,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onCompositionStart() {
     if (editingBlocked) return;
+    typingBoundary += 1;
     composing = true;
     compositionText = knownText;
     if (typeof compositionChange === "function") compositionChange(row.id, true);
@@ -739,6 +747,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       knownText = compositionText;
       replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", compositionText);
     }
+    typingBoundary += 1;
     if (wasComposing && typeof compositionChange === "function") compositionChange(row.id, false);
   }
 
@@ -855,10 +864,18 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       updateActions();
       return;
     }
+    if (expectedCaret !== null && (selection.startOffset !== expectedCaret || selection.endOffset !== expectedCaret)) {
+      typingBoundary += 1;
+    }
+    expectedCaret = selection.endOffset;
     selectionGuard = true;
     try { savedSelection = snapSelection(editor, localRow, selection); }
     finally { selectionGuard = false; }
     updateActions();
+  }
+
+  function onTypingPointer() {
+    typingBoundary += 1;
   }
 
   editor.addEventListener("beforeinput", onBeforeInput);
@@ -866,6 +883,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("compositionstart", onCompositionStart);
   editor.addEventListener("compositionend", onCompositionEnd);
   editor.addEventListener("keydown", onStructuralKey);
+  editor.addEventListener("pointerdown", onTypingPointer);
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", onPaste);
@@ -888,6 +906,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("compositionstart", onCompositionStart);
     editor.removeEventListener("compositionend", onCompositionEnd);
     editor.removeEventListener("keydown", onStructuralKey);
+    editor.removeEventListener("pointerdown", onTypingPointer);
     editor.removeEventListener("focus", onFocus);
     editor.removeEventListener("blur", onBlur);
     editor.removeEventListener("paste", onPaste);

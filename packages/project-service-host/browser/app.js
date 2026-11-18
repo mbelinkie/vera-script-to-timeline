@@ -31,6 +31,9 @@ let forceRender = false;
 let renderTimer;
 const composingRows = new Set();
 const undoStack = [];
+// A snapshot belongs to the first keystroke of a continuous, adjacent run.
+// Boundaries are captured at input time, not after the network response.
+let typingGroup = null;
 let narrationCleanup = [];
 let structuralFocus = null;
 let lastSplit = null;
@@ -111,6 +114,7 @@ async function showScript(projectId) {
   scriptDocument = savedScript.document;
   documentRevision = savedScript.revision;
   undoStack.length = 0;
+  typingGroup = null;
   lastSplit = null;
   structuralFocus = null;
   renderEditor();
@@ -309,6 +313,7 @@ async function applyPlainPaste(document, intent) {
 
 function queueCommand(command, label, options = {}) {
   if (options.structural && composingRows.size) return Promise.resolve(false);
+  const inputAt = performance.now();
   commandsPending += 1;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
@@ -327,6 +332,7 @@ function queueCommand(command, label, options = {}) {
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
     if (options.paste) {
+      typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
       if (result.document === scriptDocument) {
         scheduleRender(true);
@@ -349,7 +355,28 @@ function queueCommand(command, label, options = {}) {
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
     const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof);
-    undoStack.push({ document: scriptDocument, label });
+    // Never join a paragraph, paste, selection replacement, stage action or
+    // structural command to typing. Consecutive scalar insertions/backspaces
+    // at the same caret are eligible; a changed cursor/session breaks the run.
+    const plainTyping = options.typingSession && resolved.kind === "edit_narration_text" &&
+      !options.structural && !options.paste && typeof resolved.insertedText === "string";
+    const deleted = plainTyping && resolved.insertedText === "" &&
+      resolved.endOffset > resolved.startOffset && resolved.endOffset - resolved.startOffset <= 2;
+    const inserted = plainTyping && resolved.startOffset === resolved.endOffset &&
+      resolved.insertedText.length > 0 && resolved.insertedText.length <= 2 && !resolved.insertedText.includes("\n");
+    const editKind = inserted ? "insert" : deleted ? "delete" : null;
+    const last = typingGroup;
+    const adjacent = editKind === "insert" && last?.endOffset === resolved.startOffset ||
+      editKind === "delete" && (last?.startOffset === resolved.startOffset || last?.startOffset === resolved.endOffset);
+    const merge = !!(editKind && last && last.kind === editKind && adjacent &&
+      last.rowId === resolved.rowId && last.session === options.typingSession &&
+      last.boundary === options.typingBoundary && inputAt >= last.at && inputAt - last.at <= 1000);
+    if (!merge) undoStack.push({ document: scriptDocument, label });
+    typingGroup = editKind ? {
+      kind: editKind, rowId: resolved.rowId, startOffset: resolved.startOffset,
+      endOffset: resolved.startOffset + resolved.insertedText.length,
+      session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
+    } : null;
     scriptDocument = result.document;
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
       proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
@@ -365,6 +392,7 @@ function queueCommand(command, label, options = {}) {
     scheduleRender(options.structural);
     return true;
   }).catch((error) => {
+    typingGroup = null;
     if (options.expectedRow && (!options.structural || options.paste)) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
@@ -402,8 +430,12 @@ function updateUndo() {
 
 function undo() {
   if (composingRows.size) return;
+  typingGroup = null;
   commandsPending += 1;
   commandQueue = commandQueue.then(() => {
+    // Earlier requests may have completed after Undo was queued, restoring
+    // a typing group. Undo is a history boundary at *execution* as well.
+    typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
     lastSplit = null;
