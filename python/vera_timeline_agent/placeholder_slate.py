@@ -92,25 +92,7 @@ def render_placeholder_slate(label: str, width: int, height: int) -> bytes:
     """Render ``label`` as deterministic RGB PNG bytes at exact dimensions."""
     if not isinstance(label, str):
         raise TypeError("label must be a string")
-    if (
-        not isinstance(width, int)
-        or isinstance(width, bool)
-        or not isinstance(height, int)
-        or isinstance(height, bool)
-    ):
-        raise TypeError("placeholder dimensions must be integers")
-    if (
-        width < MIN_DIMENSION
-        or height < MIN_DIMENSION
-        or width > MAX_DIMENSION
-        or height > MAX_DIMENSION
-        or width * height > MAX_PIXELS
-    ):
-        raise ValueError(
-            "placeholder dimensions must be between "
-            f"{MIN_DIMENSION} and {MAX_DIMENSION} pixels per side and no more "
-            f"than {MAX_PIXELS} total pixels"
-        )
+    _validate_dimensions(width, height)
 
     normalized_label = _normalize_label(label)
     pixels = bytearray(_BACKGROUND * (width * height))
@@ -295,6 +277,46 @@ def _set_pixel(
     if 0 <= x < width and 0 <= y < height:
         offset = (y * width + x) * 3
         pixels[offset : offset + 3] = bytes(color)
+
+
+def transparent_graphic_carrier(width: int, height: int) -> bytes:
+    """Timeline-sized transparent PNG for the clip hosting an authored Fusion graph."""
+    _validate_dimensions(width, height)
+    # Grayscale plus alpha, both zero. Stream one scanline at a time.
+    row = bytes(1 + 2 * width)
+    compressor = zlib.compressobj(level=9, wbits=15, strategy=zlib.Z_FIXED)
+    data = (
+        b"".join(compressor.compress(row) for _ in range(height)) + compressor.flush()
+    )
+    header = struct.pack(">IIBBBBB", width, height, 8, 4, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", data)
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _validate_dimensions(width: int, height: int) -> None:
+    if (
+        not isinstance(width, int)
+        or isinstance(width, bool)
+        or not isinstance(height, int)
+        or isinstance(height, bool)
+    ):
+        raise TypeError("image dimensions must be integers")
+    if (
+        width < MIN_DIMENSION
+        or height < MIN_DIMENSION
+        or width > MAX_DIMENSION
+        or height > MAX_DIMENSION
+        or width * height > MAX_PIXELS
+    ):
+        raise ValueError(
+            "image dimensions must be between "
+            f"{MIN_DIMENSION} and {MAX_DIMENSION} pixels per side and no more "
+            f"than {MAX_PIXELS} total pixels"
+        )
 
 
 def _encode_png(pixels: bytearray, width: int, height: int) -> bytes:
