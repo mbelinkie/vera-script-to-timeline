@@ -51,6 +51,7 @@ class FakeCaptureService {
   readAllowed = true;
   revisionStatus: "ready" | "review_required" = "ready";
   revisionProjectId = PROJECT;
+  profileVersion: number = CAPTURE_PROFILE_V2.profileVersion;
   rasterBytes = raster;
   artifactDigest = hash(raster);
   readonly selected = new Set<string>();
@@ -62,7 +63,7 @@ class FakeCaptureService {
   readonly capture = vi.fn(async () => ({ capture: {
     captureId: CAPTURE, projectId: PROJECT, lifecycle: "active", rowVersion: 1,
     configuration: { requestedUrl: { canonicalDigest: hash(inspectPublicUrl(PAGE_URL).canonicalUrl) },
-      captureProfileId: CAPTURE_PROFILE_V2.profileId, captureProfileVersion: CAPTURE_PROFILE_V2.profileVersion },
+      captureProfileId: CAPTURE_PROFILE_V2.profileId, captureProfileVersion: this.profileVersion },
   } }));
   readonly job = vi.fn(async () => ({ job: {
     captureId: CAPTURE, state: this.jobState, outputRevisionId: this.jobState.startsWith("committed") ? REVISION : null,
@@ -126,6 +127,8 @@ describe("#394 public webpage capture for Prep Media", () => {
     const service = new FakeCaptureService();
     const projectRoot = await root();
     const first = await preparePublicWebpageVisuals(document, options(projectRoot, service, document));
+    // The receipt format predates profile v2. Old project pins remain readable.
+    service.profileVersion = 1;
     const second = await preparePublicWebpageVisuals(document, options(projectRoot, service, document));
     expect(second.captures[0]).toMatchObject({ status: "reused", revisionId: REVISION,
       rasterPath: first.captures[0]!.rasterPath });
