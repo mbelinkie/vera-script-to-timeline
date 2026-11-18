@@ -683,12 +683,14 @@ def _validate_view(
         # an alphabet-only UUID stem, since Resolve treats ANY decimal run
         # in a PNG filename as a numbered sequence, including <id>-still.png.
         safe_name = source_basename.startswith(source_id + ".") or (
-            source_id in motion_still_source_ids
-            and kind == "still"
-            and (
-                source_basename.startswith(source_id + "-still.")
-                or source_basename.startswith(
-                    native_image_motion.native_still_stem(source_id) + "."
+            (
+                source_id in motion_still_source_ids
+                and kind == "still"
+                and (
+                    source_basename.startswith(source_id + "-still.")
+                    or source_basename.startswith(
+                        native_image_motion.native_still_stem(source_id) + "."
+                    )
                 )
             )
             or (
@@ -2462,7 +2464,9 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
             quote_box_native.QUOTE_BOX_TEMPLATE_REVISION,
             quote_box_native.QUOTE_BOX_SETTING_SHA256,
         }:
-            raise WorkflowV2Error("quote box template revision is not the installed pin")
+            raise WorkflowV2Error(
+                "quote box template revision is not the installed pin"
+            )
         setting = self.quote_box_setting_path
         if setting is None:
             setting = quote_box_native.verify_installed_quote_box_setting()
@@ -3203,7 +3207,11 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                     raise quote_box_native.QuoteBoxNativeError(
                                         "quote box has no expected controls"
                                     )
-                                quote_box_native.verify_quote_box(item, quote_expected)
+                                quote_box_native.verify_quote_box(
+                                    item,
+                                    quote_expected,
+                                    timeline_height=self._v2_timeline["height"],
+                                )
                             except quote_box_native.QuoteBoxNativeError:
                                 discrepancies.append("quote-box")
             actual_markers = self.timeline.GetMarkers()
@@ -3829,7 +3837,9 @@ def run_workflow_delivery_v2(
         quote_box_setting: Path | None = None
         if action == "build" and has_quote_boxes:
             try:
-                quote_box_setting = quote_box_native.verify_installed_quote_box_setting()
+                quote_box_setting = (
+                    quote_box_native.verify_installed_quote_box_setting()
+                )
             except quote_box_native.QuoteBoxNativeError as error:
                 raise WorkflowV2Error(str(error)) from error
         timeline = cast(Mapping[str, Any], manifest["timeline"])

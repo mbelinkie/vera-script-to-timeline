@@ -387,6 +387,10 @@ function quoteBoxBackgroundProblem(
   overlayId: string,
   payloads: ReadonlyMap<string, AuthoredVisualPayloadV2>,
   descriptors: ReadonlyMap<string, OccurrenceMediaResolutionV2>,
+  events: readonly TimelineEventV2[],
+  tracks: readonly CompilerDependenciesV2["tracks"][number][],
+  graphicsTrack: CompilerDependenciesV2["tracks"][number],
+  range: FrameRangeV2,
 ): BuildDiagnosticV2 | null {
   const target = entity("overlay_event", overlayId, "quoteBox/backgroundPayloadId");
   const background = payloads.get(quoteBox.backgroundPayloadId);
@@ -398,6 +402,19 @@ function quoteBoxBackgroundProblem(
     return diagnostic("VISUAL_UNDEFINED", "Quote box background has no resolved picture and cannot be built.", target, undefined, ["repair_document"]);
   }
   if (!descriptors.has(background.payloadId)) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no verified source descriptor.`, target, undefined, ["rebind_media"]);
+  const backgroundEvents = events.filter((event) =>
+    (event.kind === "primary_visual" || event.kind === "overlay_visual" || event.kind === "placeholder") &&
+    event.provenance.payloadId === background.payloadId,
+  );
+  if (!backgroundEvents.length) return diagnostic("MISSING_OCCURRENCE_BINDING", `Quote box background ${background.payloadId} has no compiled visual occurrence.`, target, undefined, ["rebind_media"]);
+  const coveringEvent = backgroundEvents.find((event) =>
+    event.recordRange.startFrame <= range.startFrame && event.recordRange.endFrame >= range.endFrame,
+  );
+  if (!coveringEvent) return diagnostic("SOURCE_MAPPING_MISMATCH", `Quote box background ${background.payloadId} does not cover the requested quote-box range.`, target, undefined, ["repair_document"]);
+  const backgroundTrack = tracks.find((track) => track.id === coveringEvent.trackId);
+  if (!backgroundTrack || backgroundTrack.kind !== "video" || backgroundTrack.index >= graphicsTrack.index) {
+    return diagnostic("TRACK_ROLE_COLLISION", `Quote box background ${background.payloadId} must stay on a video track below the graphics track for the full quote-box range.`, target, undefined, ["repair_document"]);
+  }
   return null;
 }
 
@@ -1272,7 +1289,7 @@ function resolvePlan(document: ScriptDocumentV2, dependencies: CompilerDependenc
           if (requirePrepared) diagnostics.push(diagnostic("TRACK_ROLE_COLLISION", "Quote boxes require one configured V4 video track in overlayTrackIds.", entity("overlay_event", overlay.id, "roles.overlayTrackIds")));
           continue;
         }
-        const backgroundProblem = quoteBoxBackgroundProblem(overlay.quoteBox, overlay.id, authoredPayloadById, descriptorByPayload);
+        const backgroundProblem = quoteBoxBackgroundProblem(overlay.quoteBox, overlay.id, authoredPayloadById, descriptorByPayload, [...events, ...rowEvents], dependencies.tracks, graphicsTrack, range);
         if (backgroundProblem) {
           diagnostics.push(backgroundProblem);
           if (backgroundProblem.severity === "blocking" || backgroundProblem.severity === "error") continue;

@@ -785,6 +785,9 @@
               "quoteBox"
             ],
             "properties": {
+              "quoteBox": {
+                "$ref": "script-document-v2.schema.json#/$defs/QuoteBoxV2"
+              },
               "trackRole": {
                 "const": "overlay"
               },
