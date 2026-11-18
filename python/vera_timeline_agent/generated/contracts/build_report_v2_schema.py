@@ -44,6 +44,8 @@ type DiagnosticCodeV2 = Literal[
     "MUSIC_SOURCE_SHORTER",
     "MUSIC_SPAN_INVALID",
     "MUSIC_SETTINGS_UNSUPPORTED",
+    "QUOTE_BOX_TEMPLATE_MISSING",
+    "QUOTE_BOX_TEMPLATE_MISMATCH",
 ]
 
 
@@ -170,6 +172,7 @@ class EventResultV2(TypedDict):
         "narration",
         "primary_visual",
         "overlay_visual",
+        "quote_box",
         "source_audio",
         "music",
         "placeholder",

@@ -585,7 +585,7 @@ class LocalBuildAgentService:
         try:
             for source_id, (revision, digest) in pins.items():
                 path = inputs / f"source-{source_id}.bin"
-                frozen_source_file(
+                frozen = frozen_source_file(
                     authority,
                     self.project_id,
                     source_id,
@@ -593,8 +593,10 @@ class LocalBuildAgentService:
                     digest,
                     self.accepted_source_roots,
                     path,
+                    preserve_png_suffix=True,
                 )
-                source_inputs[f"source:{source_id}"] = path
+                assert frozen is not None
+                source_inputs[f"source:{source_id}"] = frozen
         except FrozenInputRefusal:
             raise AgentTransportRefusal(
                 "trusted accepted source bytes unavailable"

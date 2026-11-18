@@ -21,6 +21,8 @@ from typing import Any, Protocol
 import jsonschema  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
+from .v2_package import _compiler_hash
+
 _SOURCE_LIMIT = 8 * 1024**3
 _CHUNK = 1024 * 1024
 
@@ -90,7 +92,11 @@ def checked_compiler_dependencies(
             or binding["projectId"] != manifest["projectId"]
             or binding["documentId"] != doc.get("id")
             or binding["revision"] != manifest["documentRevision"]
-            or binding["contentHash"] != manifest["documentDigest"]
+            or doc.get("liveContentHash")
+            != _compiler_hash(
+                {key: value for key, value in doc.items() if key != "liveContentHash"}
+            )
+            or binding["contentHash"] != doc.get("liveContentHash")
             or binding["settingsHash"] != manifest["settingsDigest"]
             or raw["authoringDefaults"]["settingsHash"] != manifest["settingsDigest"]
             or raw["build"]["buildId"] != manifest["jobId"]
@@ -187,6 +193,8 @@ def frozen_source_file(
     digest: str,
     roots: tuple[Path, ...],
     destination: Path | None,
+    *,
+    preserve_png_suffix: bool = False,
 ) -> Path | None:
     """Recheck accepted record and bytes; optionally create an immutable copy.
 
@@ -198,6 +206,14 @@ def frozen_source_file(
     except (OSError, ValueError, KeyError):
         raise FrozenInputRefusal("accepted source lookup failed") from None
     fd = _source_descriptor(record, project_id, source_id, revision, digest, roots)
+    if (
+        preserve_png_suffix
+        and destination is not None
+        and record is not None
+        and record.path.suffix.lower() == ".png"
+        and not destination.exists()
+    ):
+        destination = destination.with_suffix(".png")
     output_fd: int | None = None
     staged: Path | None = None
     try:

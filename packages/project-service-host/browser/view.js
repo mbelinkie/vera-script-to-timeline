@@ -254,7 +254,10 @@ export function renderRows(root, document) {
   for (const block of blocks) {
     if (!block || typeof block !== "object") continue;
     if (block.type === "section") {
-      root.append(makeElement(ownerDocument, "h2", "script-section-heading", block.title || "Untitled section"));
+      const heading = makeElement(ownerDocument, "h2", "script-section-heading");
+      heading.dataset.sectionId = block.id;
+      heading.append(makeElement(ownerDocument, "span", "script-section-heading__title", block.title || "Untitled section"));
+      root.append(heading);
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {

@@ -319,9 +319,11 @@ def _revision(
     doc_revision: int,
     source_revision: str,
 ) -> tuple[RevisionTransport, FakeInputAuthority, Path]:
+    from vera_timeline_agent.v2_package import _compiler_hash
+
+    doc_data = {"projectId": PROJECT, "id": job_id, "revision": doc_revision}
     doc = json.dumps(
-        {"projectId": PROJECT, "id": job_id, "revision": doc_revision},
-        sort_keys=True,
+        {**doc_data, "liveContentHash": _compiler_hash(doc_data)}, sort_keys=True
     )
     data = manifest("studio")
     data.update(

@@ -44,7 +44,10 @@ from vera_timeline_agent.package_cache import (
     clone_or_copy,
     source_stamp,
 )
-from vera_timeline_agent.placeholder_slate import render_placeholder_slate
+from vera_timeline_agent.placeholder_slate import (
+    render_placeholder_slate,
+    transparent_graphic_carrier,
+)
 from vera_timeline_agent.presenter_warning_validation import (
     OutputConsistencyError,
     validate_temporary_presenter_report,
@@ -895,6 +898,13 @@ def _validate_manifest_semantics(
     events_by_track: defaultdict[str, list[JsonObject]] = defaultdict(list)
     root_events: list[JsonObject] = []
     visual_source_ids: set[str] = set()
+    authored_quotes = {
+        (block["id"], overlay["id"]): overlay["quoteBox"]
+        for block in document["activeDraft"]["blocks"]
+        if block.get("type") == "narration" and block.get("state") == "active"
+        for overlay in block.get("overlayEvents", [])
+        if "quoteBox" in overlay
+    }
     for event in events.values():
         event_id = cast(str, event["eventId"])
         event_kind = cast(str, event["kind"])
@@ -922,11 +932,34 @@ def _validate_manifest_semantics(
                 raise _error(
                     f"primary visual event {event_id} is outside a root or child track"
                 )
-        elif event_kind == "overlay_visual":
+        elif event_kind in {"overlay_visual", "quote_box"}:
             if track_id not in roles.get("overlayTrackIds", []) or role != "overlay":
                 raise _error(
                     f"overlay event {event_id} is outside a configured overlay track"
                 )
+            if event_kind == "quote_box" and (
+                event_track["index"] != 4
+                or any(
+                    event.get(key) is not None
+                    for key in (
+                        "pictureTreatment",
+                        "sourceRange",
+                        "sourceTimeMapping",
+                        "preparationBindingHash",
+                        "audio",
+                    )
+                )
+            ):
+                raise _error(f"quote box {event_id} must be a generated V4 graphic")
+            if event_kind == "quote_box":
+                owner = event["provenance"]
+                quote = authored_quotes.pop(
+                    (owner["blockId"], owner["overlayEventId"]), None
+                )
+                if quote is None or quote != event.get("quoteBox"):
+                    raise _error(
+                        f"quote box {event_id} differs from its authored overlay"
+                    )
         elif event_kind == "placeholder":
             allowed = {
                 root_id,
@@ -1012,9 +1045,9 @@ def _validate_manifest_semantics(
                 )
             if event_kind in {"primary_visual", "overlay_visual"}:
                 visual_source_ids.add(source_id)
-        elif event_kind == "placeholder" and source_id is not None:
+        elif event_kind in {"placeholder", "quote_box"} and source_id is not None:
             raise _error(
-                f"placeholder event {event_id} must use its explicit event media"
+                f"{event_kind} event {event_id} must use its explicit event media"
             )
 
         if event_kind in {"primary_visual", "overlay_visual"}:
@@ -1177,6 +1210,9 @@ def _validate_manifest_semantics(
 
         events_by_track[track_id].append(event)
 
+    if authored_quotes:
+        raise _error("an authored quote box is absent from the build")
+
     source_audio_events = sorted(
         (
             event
@@ -1299,6 +1335,71 @@ def _validate_manifest_semantics(
     del visual_source_ids  # kept explicit above for media-input classification.
 
 
+def _music_pin_frame(
+    point: JsonObject,
+    document: JsonObject,
+    dependencies: JsonObject,
+    rows: list[tuple[str, str | None, int, int]],
+    rate: Fraction,
+) -> int:
+    if point["kind"] == "frame":
+        return _safe_frame(point["frame"], "music timeline pin")
+    anchor = point.get("anchor")
+    block_id = point["blockId"] if anchor is None else anchor["blockId"]
+    row = next((row for row in rows if row[0] == block_id), None)
+    if row is None:
+        raise _error("music timeline pin refers to a row without compiled timing")
+    if anchor is None:
+        return row[2] if point["edge"] == "start" else row[3]
+
+    block = next(
+        block for block in document["activeDraft"]["blocks"] if block["id"] == block_id
+    )
+    token = next(
+        (
+            token
+            for token in block.get("tokens", [])
+            if token["id"] == anchor["tokenId"]
+        ),
+        None,
+    )
+    maps = [
+        timing
+        for key in ("narrationTimingMaps", "narrationBoundaryEvidence")
+        for timing in dependencies.get(key, [])
+        if timing["blockId"] == block_id
+    ]
+    if (
+        block["type"] != "narration"
+        or token is None
+        or token.get("spoken") is False
+        or token["value"] != anchor["quotedWord"]
+        or len(maps) != 1
+        or maps[0]["blockRevision"] != block["version"]
+        or maps[0].get("precision") in {"sentence_only", "estimated"}
+    ):
+        raise _error("music timeline pin lacks current word timing")
+    timing = maps[0]
+    word: JsonObject = next(
+        (mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {}
+    )
+    if anchor["affinity"] == "before":
+        time = word.get("onset" if "verification" in timing else "startTime")
+    else:
+        time = word.get("audibleEnd")
+        if (
+            "verification" not in timing
+            and word.get("endBasis") != "evidenced_audible_end"
+        ):
+            time = None
+    if time is None:
+        raise _error("music timeline pin lacks evidence for the selected word edge")
+    frame = row[2] + math.ceil(_fraction(time, "music word time") * rate)
+    if not row[2] <= frame <= row[3]:
+        raise _error("music word pin falls outside its narration row")
+    return frame
+
+
 def _validate_music_event(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1351,9 +1452,8 @@ def _validate_music_event(
     ):
         raise _error(f"music event {event_id} differs from its verified PCM identity")
 
-    # Recover row boundaries from ordinary authored row events, not from the
-    # music record being checked. Only an active, ordered, same-section run
-    # can claim the saved span's requested endpoint.
+    # Recover anchor positions from the ordinary program events and frozen inputs.
+    timing = span.get("timing")
     rows: list[tuple[str, str | None, int, int]] = []
     section: str | None = None
     for block in document["activeDraft"]["blocks"]:
@@ -1372,14 +1472,14 @@ def _validate_music_event(
             == ("narration" if block["type"] == "narration" else "primary_visual")
             and other["provenance"].get("blockId") == block["id"]
         ]
-        if block["type"] == "visual_only" and not possible:
-            possible = [
+        if block["type"] == "visual_only" and (timing is not None or not possible):
+            possible.extend(
                 other
                 for other in manifest["events"]
                 if other["kind"] == "placeholder"
                 and other.get("trackRole") == "primary_root"
                 and other["provenance"].get("blockId") == block["id"]
-            ]
+            )
         if not possible:
             raise _error(f"music row {block['id']} lacks compiled timing")
         ranges = [
@@ -1393,19 +1493,6 @@ def _validate_music_event(
                 max(pair[1] for pair in ranges),
             )
         )
-    row_ids = [row[0] for row in rows]
-    if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
-        raise _error(f"music event {event_id} references uncompiled row endpoints")
-    first_index = row_ids.index(span["startRowId"])
-    last_index = row_ids.index(span["endRowId"])
-    run = rows[first_index : last_index + 1]
-    if (
-        last_index < first_index
-        or not run
-        or any(row[1] != run[0][1] for row in run)
-        or any(previous[3] != following[2] for previous, following in pairwise(run))
-    ):
-        raise _error(f"music event {event_id} spans disconnected program rows")
     record_start, record_end = _range(event["recordRange"], "music recordRange")
     source_start, source_end = _range(event["sourceRange"], "music sourceRange")
     samples = _safe_frame(binding["durationSamples"], "music samples", positive=True)
@@ -1413,6 +1500,52 @@ def _validate_music_event(
     requested = _safe_frame(
         music["requestedEndFrame"], "music requestedEndFrame", positive=True
     )
+    if timing is not None:
+        fixed = {
+            key: _music_pin_frame(value, document, dependencies, rows, rate)
+            if key in {"timelineIn", "timelineOut"}
+            else _safe_frame(value, "music source trim")
+            for key, value in timing.items()
+        }
+        delivered = {
+            "sourceInFrame": source_start,
+            "sourceOutFrame": source_end,
+            "timelineIn": record_start,
+            "timelineOut": record_end,
+        }
+        # Equal positive durations make the fourth point unique.
+        if (
+            len(fixed) != 3
+            or any(delivered[key] != value for key, value in fixed.items())
+            or source_end - source_start != record_end - record_start
+            or source_end > available
+            or record_end > manifest["timeline"]["durationFrames"]
+            or requested != record_end
+        ):
+            raise _error(
+                f"music event {event_id} differs from its three signed timing pins"
+            )
+    else:
+        row_ids = [row[0] for row in rows]
+        if span["startRowId"] not in row_ids or span["endRowId"] not in row_ids:
+            raise _error(f"music event {event_id} references uncompiled row endpoints")
+        run = rows[
+            row_ids.index(span["startRowId"]) : row_ids.index(span["endRowId"]) + 1
+        ]
+        if (
+            not run
+            or any(row[1] != run[0][1] for row in run)
+            or any(previous[3] != following[2] for previous, following in pairwise(run))
+        ):
+            raise _error(f"music event {event_id} spans disconnected program rows")
+        if (
+            record_start != run[0][2]
+            or requested != run[-1][3]
+            or source_start != 0
+            or source_end != record_end - record_start
+            or record_end != min(requested, record_start + available)
+        ):
+            raise _error(f"music event {event_id} duration differs from signed span")
     settings = span.get("settings", {})
     supported = all(
         (
@@ -1429,12 +1562,6 @@ def _validate_music_event(
     )
     if (
         not supported
-        or record_start != run[0][2]
-        or requested != run[-1][3]
-        or source_start != 0
-        or source_end != record_end - record_start
-        or record_end != min(requested, record_start + available)
-        or requested <= record_start
         or not isinstance(music["gainDb"], (int, float))
         or isinstance(music["gainDb"], bool)
         or not math.isfinite(music["gainDb"])
@@ -2044,6 +2171,22 @@ def _validate_preparations(
     return prepared
 
 
+def _quote_carrier(event_id: str, timeline: JsonObject) -> _InputArtifact:
+    try:
+        name = native_image_motion.native_still_stem(event_id)
+        raw = transparent_graphic_carrier(timeline["width"], timeline["height"])
+    except ValueError as error:
+        raise _error(f"invalid quote carrier: {error}") from error
+    return _InputArtifact(
+        f"event:{event_id}",
+        Path("."),
+        f"Media/Resolved/{name}.png",
+        _hash_bytes(raw),
+        "still",
+        raw,
+    )
+
+
 def _media_artifacts(
     manifest: JsonObject,
     prepared: Mapping[str, _Preparation],
@@ -2289,6 +2432,10 @@ def _media_artifacts(
                 )
         _safe_relative(relative, f"package path for {key}")
         artifacts[key] = _InputArtifact(key, source_path, relative, actual, kind)
+    for event in events.values():
+        if event["kind"] == "quote_box":
+            carrier = _quote_carrier(event["eventId"], manifest["timeline"])
+            artifacts[carrier.key] = carrier
     by_binding = {
         _compiler_hash(item.record["binding"]): item for item in prepared.values()
     }
@@ -2485,7 +2632,7 @@ def _delivery_view(
         provenance = cast(JsonObject, event["provenance"])
         if kind == "script_marker":
             continue
-        if kind == "placeholder":
+        if kind in {"placeholder", "quote_box"}:
             source_id = event_id
             key = f"event:{event_id}"
             native_kind = "still"
@@ -2588,7 +2735,7 @@ def _delivery_view(
                     "startFrame": selected_start,
                     "durationFrames": selected_end - selected_start,
                 }
-        elif kind == "placeholder" or kind == "narration":
+        elif kind in {"placeholder", "quote_box", "narration"}:
             source_range = {
                 "startFrame": 0,
                 "durationFrames": record_end - record_start,
@@ -2715,7 +2862,7 @@ def _validate_delivery_view(
     sources = _unique_by_id(view.get("sources"), "delivery source")
     expected_source_ids = {
         event["eventId"]
-        if event["kind"] in {"placeholder", "source_audio"}
+        if event["kind"] in {"placeholder", "quote_box", "source_audio"}
         else cast(JsonObject, event["provenance"])["sourceId"]
         for event in cast(list[JsonObject], manifest["events"])
         if event["kind"] != "script_marker"
@@ -2729,6 +2876,9 @@ def _validate_delivery_view(
         and isinstance(event.get("pictureTreatment"), dict)
         and "imageMotion" in event["pictureTreatment"]
     }
+    quote_ids = {
+        event["eventId"] for event in manifest["events"] if event["kind"] == "quote_box"
+    }
     source_paths: dict[str, str] = {}
     for source_id, source in sources.items():
         if set(source) != {"id", "kind", "path", "contentHash"}:
@@ -2741,7 +2891,12 @@ def _validate_delivery_view(
                 f"delivery source {source_id} path is outside the package Media tree"
             )
         expected_area = "Narration" if source.get("kind") == "audio" else "Resolved"
-        if source_id in motion_still_source_ids:
+        if source_id in quote_ids:
+            named_as_expected = (
+                relative.name
+                == f"{native_image_motion.native_still_stem(source_id)}.png"
+            )
+        elif source_id in motion_still_source_ids:
             named_as_expected = source.get("kind") == "still" and (
                 relative.name.startswith(
                     f"{native_image_motion.native_still_stem(source_id)}."
@@ -2806,6 +2961,18 @@ def _validate_delivery_view(
     }
     for event in cast(list[JsonObject], manifest["events"]):
         event_id = cast(str, event["eventId"])
+        if event["kind"] == "quote_box":
+            carrier = _quote_carrier(event_id, manifest["timeline"])
+            source = sources[event_id]
+            if (
+                source["contentHash"] != carrier.content_hash
+                or source["kind"] != "still"
+            ):
+                raise _error(
+                    f"quote box {event_id} has a different transparent carrier"
+                )
+            artifact_map[carrier.key] = carrier
+            continue
         if event["kind"] == "placeholder":
             treatment = cast(JsonObject, event["pictureTreatment"])
             if treatment["kind"] == "slate":
@@ -2961,32 +3128,34 @@ def _otio_track_order(tracks: list[JsonObject]) -> list[JsonObject]:
 
 
 def _otio_transport_tracks(view: JsonObject) -> list[JsonObject]:
-    """Transport A5 through explicit empty audio lanes; never compact it to A2.
-
-    These are deterministic OTIO-only gaps, not new manifest tracks or events.
-    The independent OTIO verifier derives the identical inventory from the
-    signed view, so an omitted or occupied padding lane fails verification.
-    """
+    """Pad sparse native lanes so OTIO imports quote boxes on V4 and music on A5."""
     tracks = cast(list[JsonObject], view["tracks"])
-    if not any(event["kind"] == "music" for event in view["events"]):
-        return _otio_track_order(tracks)
-    occupied = {track["index"] for track in tracks if track["kind"] == "audio"}
+    kinds = {event["kind"] for event in view["events"]}
     ids = {track["id"] for track in tracks}
-    padding: list[JsonObject] = []
-    for index in range(1, 5):
-        if index in occupied:
+    padding = []
+    for event_kind, kind, prefix, target in (
+        ("music", "audio", "A", 5),
+        ("quote_box", "video", "V", 4),
+    ):
+        if event_kind not in kinds:
             continue
-        track_id = f"vera-native-a{index}-pad"
-        if track_id in ids:
-            raise _error("native A5 padding collides with a signed track ID")
-        padding.append(
-            {
-                "id": track_id,
-                "kind": "audio",
-                "index": index,
-                "name": f"VERA Empty A{index}",
-            }
-        )
+        occupied = {track["index"] for track in tracks if track["kind"] == kind}
+        for index in range(1, target):
+            if index in occupied:
+                continue
+            track_id = f"vera-native-{prefix.lower()}{index}-pad"
+            if track_id in ids:
+                raise _error(
+                    f"native {prefix}{target} padding collides with a signed track ID"
+                )
+            padding.append(
+                {
+                    "id": track_id,
+                    "kind": kind,
+                    "index": index,
+                    "name": f"VERA Empty {prefix}{index}",
+                }
+            )
     return _otio_track_order([*tracks, *padding])
 
 
@@ -4453,11 +4622,11 @@ def _verify_package(project_root: Path) -> tuple[V2PackageVerification, JsonObje
             )
     for event in cast(list[JsonObject], manifest.get("events", [])):
         event_id = cast(str, event["eventId"])
-        if event["kind"] == "placeholder":
+        if event["kind"] in {"quote_box", "placeholder"}:
             view_source = sources.get(event_id)
             if view_source is None:
                 raise _error(
-                    f"placeholder event {event_id} is absent from delivery view"
+                    f"{event['kind']} event {event_id} is absent from delivery view"
                 )
             artifacts[f"event:{event_id}"] = _InputArtifact(
                 f"event:{event_id}",

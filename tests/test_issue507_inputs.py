@@ -154,13 +154,19 @@ def test_frozen_authority_detects_substitutions(field: str) -> None:
 
 
 def test_real_issue173_selected_clip_ntsc_schema_and_pins() -> None:
+    from vera_timeline_agent.v2_package import _compiler_hash
+
     golden = json.loads(GOLDEN.read_text())
     assert golden["document"]["schemaVersion"] == "script-document/v2"
     original = copy.deepcopy(golden["dependencies"])
     source_id = original["occurrenceResolutions"][0]["mediaReferenceId"]
     source_hash = original["occurrenceResolutions"][0]["sourceSnapshot"]["contentHash"]
     value = manifest()
-    value["documentJson"] = json.dumps(golden["document"])
+    doc = golden["document"]
+    doc["liveContentHash"] = _compiler_hash(
+        {k: v for k, v in doc.items() if k != "liveContentHash"}
+    )
+    value["documentJson"] = json.dumps(doc)
     value["documentDigest"] = digest(value["documentJson"])
     value["documentRevision"] = original["document"]["revision"]
     value["projectId"] = golden["document"]["projectId"]
@@ -170,7 +176,7 @@ def test_real_issue173_selected_clip_ntsc_schema_and_pins() -> None:
     value["selectedSources"] = [
         {"sourceId": source_id, "revision": "v1", "sha256": source_hash}
     ]
-    original["document"]["contentHash"] = value["documentDigest"]
+    original["document"]["contentHash"] = doc["liveContentHash"]
     original["document"]["settingsHash"] = value["settingsDigest"]
     original["authoringDefaults"]["settingsHash"] = value["settingsDigest"]
     original["preparedMedia"] = []  # only verified P5 may publish preparation
@@ -179,6 +185,16 @@ def test_real_issue173_selected_clip_ntsc_schema_and_pins() -> None:
             original, value, _validated_selected_pins(value["selectedSources"])
         )
     )["timeline"]["frameRate"] == {"numerator": 24000, "denominator": 1001}
+
+    altered = copy.deepcopy(doc)
+    altered["liveContentHash"] = digest("wrong")
+    value["documentJson"] = json.dumps(altered)
+    value["documentDigest"] = digest(value["documentJson"])
+    original["document"]["contentHash"] = altered["liveContentHash"]
+    with pytest.raises(FrozenInputRefusal):
+        checked_compiler_dependencies(
+            original, value, _validated_selected_pins(value["selectedSources"])
+        )
 
 
 @pytest.mark.parametrize(
@@ -260,6 +276,56 @@ def test_accepted_source_is_copied_and_pinned_in_local_snapshot(tmp_path: Path) 
         json.loads((source.parent / "dependencies.json").read_text())["schemaVersion"]
         == "compiler-dependencies/v2"
     )
+
+
+def test_accepted_png_keeps_suffix_in_frozen_snapshot(tmp_path: Path) -> None:
+    transport, port = FakeTransport(), FakePort()
+    authority, directory = _accepted(tmp_path, transport)
+    record = authority.accepted[TARGET]
+    image = record.path.with_suffix(".png")
+    record.path.rename(image)
+    authority.accepted[TARGET] = AcceptedSourceFile(
+        record.project_id, record.source_id, record.revision, record.sha256, image
+    )
+    agent = service(
+        tmp_path,
+        transport,
+        port,
+        input_authority=authority,
+        accepted_source_roots=(directory,),
+    )
+    assert agent.run_one(JOB) == "queued"
+    assert (
+        agent.root / "inputs" / JOB / f"source-{TARGET}.png"
+    ).read_bytes() == image.read_bytes()
+
+
+def test_existing_frozen_bin_path_is_preserved_for_png(tmp_path: Path) -> None:
+    transport = FakeTransport()
+    authority, directory = _accepted(tmp_path, transport)
+    record = authority.accepted[TARGET]
+    image = record.path.with_suffix(".png")
+    record.path.rename(image)
+    authority.accepted[TARGET] = AcceptedSourceFile(
+        record.project_id, record.source_id, record.revision, record.sha256, image
+    )
+    destination = tmp_path / "existing.bin"
+    destination.write_bytes(image.read_bytes())
+    destination.chmod(0o600)
+    assert (
+        frozen_source_file(
+            authority,
+            PROJECT,
+            TARGET,
+            record.revision,
+            record.sha256,
+            (directory,),
+            destination,
+            preserve_png_suffix=True,
+        )
+        == destination
+    )
+    assert not destination.with_suffix(".png").exists()
 
 
 def test_revoked_or_altered_source_fails_before_next_effect(tmp_path: Path) -> None:

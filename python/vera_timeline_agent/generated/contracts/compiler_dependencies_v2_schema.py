@@ -690,6 +690,7 @@ class CompilerDependenciesV2(TypedDict):
     occurrenceResolutions: list[OccurrenceMediaResolutionV2]
     preparedMedia: list[PreparedMediaBindingV1]
     presenterAlignmentResolutions: list[PresenterAlignmentResolutionV1]
+    quoteBoxTemplateRevision: NotRequired[ContentHash | None]
     narrationBoundaryEvidence: NotRequired[list[NarrationBoundaryEvidenceV1]]
     narrationQuietGapEvidence: NotRequired[list[NarrationQuietGapEvidenceV1]]
     graphicProvenanceSnapshots: NotRequired[list[GraphicProvenanceSnapshot]]

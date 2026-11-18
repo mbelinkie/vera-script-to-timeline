@@ -41,7 +41,12 @@ def digest(raw: str) -> str:
 
 
 def manifest(mode: str = "free") -> dict[str, Any]:
-    document = json.dumps({"projectId": PROJECT, "id": JOB})
+    from vera_timeline_agent.v2_package import _compiler_hash
+
+    document_data = {"projectId": PROJECT, "id": JOB}
+    document = json.dumps(
+        {**document_data, "liveContentHash": _compiler_hash(document_data)}
+    )
     settings = json.dumps({"projectId": PROJECT, "profile": "synthetic"})
     return {
         "projectId": PROJECT,
@@ -70,7 +75,7 @@ def complete_dependencies(value: dict[str, Any]) -> dict[str, Any]:
             "documentId": json.loads(value["documentJson"])["id"],
             "projectId": value["projectId"],
             "revision": value["documentRevision"],
-            "contentHash": value["documentDigest"],
+            "contentHash": json.loads(value["documentJson"])["liveContentHash"],
             "settingsHash": value["settingsDigest"],
         }
     )

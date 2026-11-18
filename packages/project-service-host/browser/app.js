@@ -1,5 +1,5 @@
 import { renderRows } from "./view.js";
-import { mountRowsEditor, createBlankNarrationRow } from "./rows-editor.js";
+import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 
 const element = (id) => document.getElementById(id);
@@ -31,7 +31,12 @@ let forceRender = false;
 let renderTimer;
 const composingRows = new Set();
 const undoStack = [];
+// A snapshot belongs to the first keystroke of a continuous, adjacent run.
+// Boundaries are captured at input time, not after the network response.
+let typingGroup = null;
 let narrationCleanup = [];
+let structuralFocus = null;
+let lastSplit = null;
 let pendingName;
 let pendingCreate;
 let saveTimer;
@@ -109,6 +114,9 @@ async function showScript(projectId) {
   scriptDocument = savedScript.document;
   documentRevision = savedScript.revision;
   undoStack.length = 0;
+  typingGroup = null;
+  lastSplit = null;
+  structuralFocus = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -125,6 +133,8 @@ async function showScript(projectId) {
 
 function renderEditor() {
   const root = element("script-rows");
+  const requestedFocus = structuralFocus;
+  structuralFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   let caret = null;
@@ -151,13 +161,15 @@ function renderEditor() {
       requestRender: scheduleRender,
     }));
   });
-  if (rowId && caret !== null) {
-    const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === rowId);
+  const targetRowId = requestedFocus?.rowId ?? rowId;
+  const targetCaret = requestedFocus?.offset ?? caret;
+  if (targetRowId && targetCaret !== null) {
+    const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === targetRowId);
     const editor = row?.querySelector("[data-narration-editor]");
     if (editor) {
       editor.focus();
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-      let remaining = caret;
+      let remaining = targetCaret;
       let node = walker.nextNode();
       while (node && remaining > node.length) { remaining -= node.length; node = walker.nextNode(); }
       const range = document.createRange();
@@ -211,8 +223,97 @@ async function saveDocument() {
   else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
+async function applyBrowserCommand(document, command, splitProof) {
+  const response = await fetch("/authoring/command", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}) }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
+  return result;
+}
+
+// Every intermediate document is private to this queued operation: a refusal
+// or failed request discards *all* steps without a save or an Undo snapshot.
+async function applyPlainPaste(document, intent) {
+  const { rowId, startOffset, endOffset, blocks } = intent;
+  const row = document.activeDraft.blocks.find((item) => item.id === rowId);
+  const editableRow = row?.type === "narration" || row?.type === "visual_only" && row.clearedNarration;
+  if (!editableRow || !Array.isArray(blocks) || !blocks.length ||
+      blocks.some((block) => typeof block !== "string")) throw new Error("The paste target changed.");
+  const insertedText = blocks.join("\n\n");
+  const boundaries = [];
+  for (let index = 0, offset = 0; index < blocks.length - 1; index += 1) {
+    offset += blocks[index].length;
+    boundaries.push({ start: startOffset + offset, end: startOffset + offset + 2 });
+    offset += 2;
+  }
+
+  let working = document;
+  // Always retokenize the complete first write before resolving any split:
+  // later commands MUST use the token IDs returned by the actual model.
+  const oldText = row.type === "narration" ? row.text : "";
+  if (oldText.slice(startOffset, endOffset) !== insertedText) {
+    const edited = await applyBrowserCommand(working, {
+      kind: "edit_narration_text", rowId, startOffset, endOffset, insertedText, editId: crypto.randomUUID(),
+    });
+    working = edited.document;
+  }
+  let currentRowId = rowId;
+  let shifted = 0;
+  let caret = startOffset + insertedText.length;
+  for (const boundary of boundaries) {
+    const current = working.activeDraft.blocks.find((item) => item.id === currentRowId);
+    if (current?.type !== "narration") throw new Error("The pasted row cannot be split safely.");
+    const from = boundary.start - shifted;
+    const to = boundary.end - shifted;
+    if (current.text.slice(from, to) !== "\n\n") throw new Error("The pasted row boundary changed.");
+    const hasLeftWords = current.tokens.some((token) => token.endOffset <= from);
+    const firstRight = current.tokens.find((token) => token.startOffset >= to);
+    if (hasLeftWords && firstRight) {
+      const newRowId = crypto.randomUUID();
+      const result = await applyBrowserCommand(working, {
+        kind: "split_row", rowId: currentRowId, newRowId, at: { beforeTokenId: firstRight.id },
+      });
+      working = result.document;
+      const created = working.activeDraft.blocks.find((item) => item.id === newRowId);
+      if (created?.type !== "narration" || !current.text.endsWith(created.text)) {
+        throw new Error("The model changed the pasted row boundary.");
+      }
+      const removed = current.text.length - created.text.length;
+      shifted += removed;
+      caret -= removed;
+      currentRowId = newRowId;
+      continue;
+    }
+    // The pure split command rightly refuses wordless halves. Remove the
+    // separator with a model edit, then use the existing exact-gap Add row.
+    // This also preserves the existing row's token/visual identities.
+    const withoutBreak = await applyBrowserCommand(working, {
+      kind: "edit_narration_text", rowId: currentRowId, startOffset: from,
+      endOffset: to, insertedText: "", editId: crypto.randomUUID(),
+    });
+    working = withoutBreak.document;
+    shifted += to - from;
+    caret -= to - from;
+    const above = !hasLeftWords;
+    const gap = rowGaps(working.activeDraft.blocks).find((item) => above
+      ? item.beforeRowId === currentRowId : item.afterRowId === currentRowId);
+    if (!gap) throw new Error("The paste insertion gap changed.");
+    const newRowId = crypto.randomUUID();
+    const created = await applyBrowserCommand(working, {
+      kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap,
+    });
+    working = created.document;
+    if (!above) { currentRowId = newRowId; caret = 0; }
+  }
+  return { document: working, focusAfter: { rowId: currentRowId, offset: Math.max(0, caret) } };
+}
+
 function queueCommand(command, label, options = {}) {
   if (options.structural && composingRows.size) return Promise.resolve(false);
+  const inputAt = performance.now();
   commandsPending += 1;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
@@ -227,21 +328,72 @@ function queueCommand(command, label, options = {}) {
         throw new Error("The script changed while you were typing. Your unsaved text is still here.");
       }
     }
-    const response = await fetch("/authoring/command", {
-      method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-      body: JSON.stringify({ document: scriptDocument, command }),
-    });
-    const result = await response.json();
-    if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
-    undoStack.push({ document: scriptDocument, label });
+    // A keyboard structural intent is resolved against the latest document,
+    // after any earlier typed words have received their real model token IDs.
+    const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.paste) {
+      typingGroup = null;
+      const result = await applyPlainPaste(scriptDocument, resolved);
+      if (result.document === scriptDocument) {
+        scheduleRender(true);
+        return true;
+      }
+      undoStack.push({ document: scriptDocument, label });
+      scriptDocument = result.document;
+      lastSplit = null;
+      structuralFocus = result.focusAfter;
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      scheduleRender(true);
+      return true;
+    }
+    const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
+      resolved.words === null && lastSplit?.newRowId === resolved.rowId &&
+      lastSplit.revision === scriptDocument.rowEditRevision ? lastSplit : null;
+    const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
+      scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
+    ] : null;
+    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof);
+    // Never join a paragraph, paste, selection replacement, stage action or
+    // structural command to typing. Consecutive scalar insertions/backspaces
+    // at the same caret are eligible; a changed cursor/session breaks the run.
+    const plainTyping = options.typingSession && resolved.kind === "edit_narration_text" &&
+      !options.structural && !options.paste && typeof resolved.insertedText === "string";
+    const deleted = plainTyping && resolved.insertedText === "" &&
+      resolved.endOffset > resolved.startOffset && resolved.endOffset - resolved.startOffset <= 2;
+    const inserted = plainTyping && resolved.startOffset === resolved.endOffset &&
+      resolved.insertedText.length > 0 && resolved.insertedText.length <= 2 && !resolved.insertedText.includes("\n");
+    const editKind = inserted ? "insert" : deleted ? "delete" : null;
+    const last = typingGroup;
+    const adjacent = editKind === "insert" && last?.endOffset === resolved.startOffset ||
+      editKind === "delete" && (last?.startOffset === resolved.startOffset || last?.startOffset === resolved.endOffset);
+    const merge = !!(editKind && last && last.kind === editKind && adjacent &&
+      last.rowId === resolved.rowId && last.session === options.typingSession &&
+      last.boundary === options.typingBoundary && inputAt >= last.at && inputAt - last.at <= 1000);
+    if (!merge) undoStack.push({ document: scriptDocument, label });
+    typingGroup = editKind ? {
+      kind: editKind, rowId: resolved.rowId, startOffset: resolved.startOffset,
+      endOffset: resolved.startOffset + resolved.insertedText.length,
+      session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
+    } : null;
     scriptDocument = result.document;
+    lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
+      proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
+      revision: scriptDocument.rowEditRevision, caret: options.splitCaret,
+    } : null;
+    if (options.focusAfter) structuralFocus = options.focusAfter;
+    else if (previous?.type === "narration") structuralFocus = replay
+      ? { rowId: replay.originalRowId, offset: replay.caret }
+      : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
     updateUndo();
     documentDirty = true;
     void saveDocument();
     scheduleRender(options.structural);
     return true;
   }).catch((error) => {
-    if (options.expectedRow) {
+    typingGroup = null;
+    if (options.expectedRow && (!options.structural || options.paste)) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
       element("discard-edit").hidden = false;
@@ -278,10 +430,16 @@ function updateUndo() {
 
 function undo() {
   if (composingRows.size) return;
+  typingGroup = null;
   commandsPending += 1;
   commandQueue = commandQueue.then(() => {
+    // Earlier requests may have completed after Undo was queued, restoring
+    // a typing group. Undo is a history boundary at *execution* as well.
+    typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
+    lastSplit = null;
+    structuralFocus = null;
     updateUndo();
     documentDirty = true;
     void saveDocument();

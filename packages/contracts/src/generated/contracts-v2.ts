@@ -87,6 +87,15 @@ export type NarratedVisualPayloadV2 = {
     durationFrames: number;
   };
 };
+export type OverlayEventV2 = {
+  [k: string]: unknown;
+} & {
+  id: string;
+  payload: NarratedVisualPayloadV2;
+  timing: TimedPlacement;
+  quoteBox?: QuoteBoxV2;
+  version: number;
+};
 export type TimedPlacement = (
   | {
       start: unknown;
@@ -455,6 +464,7 @@ export type TimelineEventV2 = {
     | "narration"
     | "primary_visual"
     | "overlay_visual"
+    | "quote_box"
     | "source_audio"
     | "music"
     | "placeholder"
@@ -495,7 +505,9 @@ export type TimelineEventV2 = {
       };
   music?: MusicEventV2;
   pictureTreatment?:
-    StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2;
+    | (StillPictureTreatmentV2 | SlatePictureTreatmentV2 | StillFramePictureTreatmentV2)
+    | null;
+  quoteBox?: QuoteBoxV2;
   marker?: ScriptMarkerTreatmentV2;
 };
 export type SourceAudioEventV2 = {
@@ -990,11 +1002,18 @@ export interface ReturnSlot {
   inpoint: WordInpointAnchor | WordAudibleEndAnchor | null;
   version: number;
 }
-export interface OverlayEventV2 {
-  id: string;
-  payload: NarratedVisualPayloadV2;
-  timing: TimedPlacement;
-  version: number;
+export interface QuoteBoxV2 {
+  researchQuoteId: string;
+  displayText: string;
+  speakerName: string;
+  speakerTitle: string;
+  citationText: string;
+  italicSpan: null | {
+    start: number;
+    end: number;
+  };
+  templateRevision: string;
+  backgroundPayloadId: string;
 }
 export interface StashOriginV2 {
   kind: "note" | "clip" | "row";
@@ -1234,6 +1253,7 @@ export interface RowAudioSpanIntentV2 {
     gainDb?: number;
     [k: string]: unknown;
   };
+  timing?: MusicCueTimingV2;
   review?: RowAudioReviewV2;
 }
 export interface RowAudioSourceV2 {
@@ -1241,6 +1261,41 @@ export interface RowAudioSourceV2 {
   artifactId: string;
   artifactVersion: number;
   contentHash: string;
+}
+/**
+ * Exactly three fixed points at normal playback speed. Omit the point to derive. Source points are frame boundaries on the build's timeline rate.
+ */
+export interface MusicCueTimingV2 {
+  sourceInFrame?: number;
+  sourceOutFrame?: number;
+  timelineIn?:
+    | {
+        kind: "frame";
+        frame: number;
+      }
+    | {
+        kind: "row_edge";
+        blockId: string;
+        edge: "start" | "end";
+      }
+    | {
+        kind: "word";
+        anchor: WordInpointAnchor | WordAudibleEndAnchor;
+      };
+  timelineOut?:
+    | {
+        kind: "frame";
+        frame: number;
+      }
+    | {
+        kind: "row_edge";
+        blockId: string;
+        edge: "start" | "end";
+      }
+    | {
+        kind: "word";
+        anchor: WordInpointAnchor | WordAudibleEndAnchor;
+      };
 }
 export interface RowAudioReviewV2 {
   previousEndRowId: string;
@@ -1339,6 +1394,10 @@ export interface CompilerDependenciesV2 {
   occurrenceResolutions: OccurrenceMediaResolutionV2[];
   preparedMedia: PreparedMediaBindingV1[];
   presenterAlignmentResolutions: PresenterAlignmentResolutionV1[];
+  /**
+   * Optional frozen hash of the installed EV24 Quote Box .setting. Omitted for documents without quote boxes; null records a missing or mismatched installed template.
+   */
+  quoteBoxTemplateRevision?: string | null;
   narrationBoundaryEvidence?: NarrationBoundaryEvidenceV1[];
   /**
    * Quiet intervals observed on the delivered narration PCM and bound to its frozen timing map.
@@ -2080,6 +2139,7 @@ export interface EventResultV2 {
     | "narration"
     | "primary_visual"
     | "overlay_visual"
+    | "quote_box"
     | "source_audio"
     | "music"
     | "placeholder"
@@ -2129,7 +2189,9 @@ export interface BuildDiagnosticV2 {
     | "MUSIC_FILE_MISSING"
     | "MUSIC_SOURCE_SHORTER"
     | "MUSIC_SPAN_INVALID"
-    | "MUSIC_SETTINGS_UNSUPPORTED";
+    | "MUSIC_SETTINGS_UNSUPPORTED"
+    | "QUOTE_BOX_TEMPLATE_MISSING"
+    | "QUOTE_BOX_TEMPLATE_MISMATCH";
   message: string;
   entity: EntityReferenceV2;
   evidence:

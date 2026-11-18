@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -48,7 +49,32 @@ class CompileStagePort:
         if not previous.is_file():
             raise BuildJobError("no independently verified media requirements")
         needs = json.loads(previous.read_bytes())
-        if result.needs != needs:
+        expected = copy.deepcopy(needs)
+        original = json.loads(snapshot.file("dependencies").read_bytes())
+        prepared = json.loads(self.dependencies(context, snapshot).read_bytes())
+        for row in expected["requirements"]:
+            matches = [
+                d
+                for d in original["occurrenceResolutions"]
+                if d["payloadId"] == row["payloadId"]
+                and d["mediaReferenceId"] == row["mediaReferenceId"]
+            ]
+            final = [
+                d
+                for d in prepared["occurrenceResolutions"]
+                if d["payloadId"] == row["payloadId"]
+                and d["mediaReferenceId"] == row["mediaReferenceId"]
+            ]
+            if (
+                len(matches) == len(final) == 1
+                and matches[0]["sourceSnapshot"]["system"] == "local_import"
+                and snapshot.file(f"source:{row['mediaReferenceId']}").suffix.lower()
+                == ".png"
+                and matches[0]["preparedMediaRequirementKey"]
+                == row.get("requirementKey")
+            ):
+                row["requirementKey"] = final[0]["preparedMediaRequirementKey"]
+        if result.needs != expected:
             raise BuildJobError(
                 "compiler temporal plan differs from pre-preparation plan"
             )

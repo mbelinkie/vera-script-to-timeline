@@ -154,10 +154,110 @@ function rangeSummary(state, ids) {
 }
 
 function closeMenus(root) {
-  root.querySelectorAll("[data-row-action-menu]").forEach((menu) => { menu.hidden = true; });
-  root.querySelectorAll("[data-row-action-trigger]").forEach((trigger) => {
+  root.querySelectorAll("[data-row-action-menu], [data-section-action-menu], [data-row-gap-menu]").forEach((menu) => { menu.hidden = true; });
+  root.querySelectorAll("[data-row-action-trigger], [data-section-action-trigger], [data-row-add-options]").forEach((trigger) => {
     trigger.setAttribute("aria-expanded", "false");
   });
+}
+
+function sectionHeading(state, sectionId) {
+  return [...state.root.querySelectorAll(".script-section-heading[data-section-id]")]
+    .find((heading) => heading.dataset.sectionId === sectionId) ?? null;
+}
+
+function closeTitleForm(state) {
+  state.root.querySelector("[data-section-title-form]")?.remove();
+}
+
+function openTitleForm(state, { sectionId, destination } = {}) {
+  if (state.busy) return;
+  closeTitleForm(state);
+  closeMenus(state.root);
+  const creating = !!destination;
+  const heading = creating ? null : sectionHeading(state, sectionId);
+  const section = blocksOf(state.scriptDocument).find((block) => block.type === "section" && block.id === sectionId);
+  if (!creating && (!heading || !section)) return;
+  const ownerDocument = state.root.ownerDocument;
+  const form = ownerDocument.createElement("form");
+  form.className = "section-title-form";
+  form.dataset.rowsEditorGenerated = "true";
+  form.dataset.sectionTitleForm = "true";
+  const input = ownerDocument.createElement("input");
+  input.type = "text";
+  input.maxLength = 300;
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", creating ? "New section title" : "Rename section title");
+  input.value = creating ? "" : section.title;
+  const save = button(ownerDocument, "section-title-form__save", creating ? "Add section" : "Save section title", "Save");
+  save.type = "submit";
+  const cancel = button(ownerDocument, "section-title-form__cancel", "Cancel section title", "Cancel");
+  cancel.addEventListener("click", () => closeTitleForm(state));
+  form.append(input, save, cancel);
+  form.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTitleForm(state);
+    }
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = input.value.trim();
+    if (!title || !creating && title === section.title) {
+      closeTitleForm(state);
+      return;
+    }
+    const command = creating
+      ? { kind: "create_section", sectionId: randomId(state), title, destination }
+      : { kind: "rename_section", sectionId, title };
+    input.disabled = true;
+    save.disabled = true;
+    const accepted = await emit(state, command, creating ? "Add section" : "Rename section");
+    if (accepted) closeTitleForm(state);
+    else if (form.isConnected) { input.disabled = false; save.disabled = false; input.focus(); }
+  });
+  if (creating) {
+    const divider = [...state.root.querySelectorAll(".row-divider[data-row-gap]")]
+      .find((candidate) => candidate.dataset.rowGap === gapKey(destination));
+    if (!divider) return;
+    divider.append(form);
+  } else heading.append(form);
+  input.focus();
+  if (!creating) input.select();
+}
+
+function decorateSectionHeadings(state) {
+  const blocks = blocksOf(state.scriptDocument);
+  for (const [index, block] of blocks.entries()) {
+    if (block.type !== "section") continue;
+    const heading = sectionHeading(state, block.id);
+    if (!heading) continue;
+    const actions = state.root.ownerDocument.createElement("div");
+    actions.className = "section-heading-actions";
+    actions.dataset.rowsEditorGenerated = "true";
+    const trigger = button(state.root.ownerDocument, "section-heading-actions__trigger", `Section actions for “${block.title}”`, "⋯");
+    trigger.dataset.sectionActionTrigger = block.id;
+    trigger.setAttribute("aria-haspopup", "menu");
+    trigger.setAttribute("aria-expanded", "false");
+    const menu = state.root.ownerDocument.createElement("div");
+    menu.className = "section-heading-actions__menu";
+    menu.dataset.sectionActionMenu = block.id;
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+    const rename = button(state.root.ownerDocument, "", "Rename section", "Rename");
+    rename.dataset.sectionRename = block.id;
+    rename.setAttribute("role", "menuitem");
+    menu.append(rename);
+    // A heading at the very start is the first section, not a removable break.
+    if (index > 0) {
+      const remove = button(state.root.ownerDocument, "", "Delete section break", "Delete break");
+      remove.dataset.sectionDelete = block.id;
+      remove.setAttribute("role", "menuitem");
+      menu.append(remove);
+    }
+    actions.append(trigger, menu);
+    heading.append(actions);
+  }
 }
 
 function makeRowActions(state, rowElement) {
@@ -295,6 +395,22 @@ function decorateGaps(state) {
     const add = button(state.root.ownerDocument, "row-divider__add", "Add row", "+ Add row");
     add.dataset.rowAdd = "true";
     divider.append(add);
+    if (gap.afterRowId !== null && gap.beforeRowId !== null) {
+      const trigger = button(state.root.ownerDocument, "row-divider__section", "Add row options", "▾");
+      trigger.dataset.rowAddOptions = "true";
+      trigger.setAttribute("aria-haspopup", "menu");
+      trigger.setAttribute("aria-expanded", "false");
+      const menu = state.root.ownerDocument.createElement("div");
+      menu.className = "row-divider__menu";
+      menu.dataset.rowGapMenu = "true";
+      menu.setAttribute("role", "menu");
+      menu.hidden = true;
+      const section = button(state.root.ownerDocument, "", "Add section");
+      section.dataset.sectionAdd = "true";
+      section.setAttribute("role", "menuitem");
+      menu.append(section);
+      divider.append(trigger, menu);
+    }
 
     const before = gap.beforeRowId ? rows.get(gap.beforeRowId) : null;
     const after = gap.afterRowId ? rows.get(gap.afterRowId) : null;
@@ -313,6 +429,7 @@ function decorate(state) {
   removeGenerated(state.root);
   for (const row of rowsInRoot(state.root)) makeRowActions(state, row);
   decorateGaps(state);
+  decorateSectionHeadings(state);
   if (state.range && !rowRange(blocksOf(state.scriptDocument), state.range.anchorId, state.range.focusId)) state.range = null;
   updateRangeState(state);
 }
@@ -438,6 +555,46 @@ function handleClick(state, event) {
   const target = eventElement(event);
   if (!target) return;
 
+  const gapTrigger = target.closest("[data-row-add-options]");
+  if (gapTrigger) {
+    const menu = gapTrigger.parentElement?.querySelector("[data-row-gap-menu]");
+    const open = !!menu && menu.hidden;
+    closeMenus(state.root);
+    if (menu) {
+      menu.hidden = !open;
+      gapTrigger.setAttribute("aria-expanded", String(open));
+      if (open) menu.querySelector("button")?.focus();
+    }
+    return;
+  }
+
+  const sectionTrigger = target.closest("[data-section-action-trigger]");
+  if (sectionTrigger) {
+    const menu = sectionHeading(state, sectionTrigger.dataset.sectionActionTrigger)?.querySelector("[data-section-action-menu]");
+    const open = !!menu && menu.hidden;
+    closeMenus(state.root);
+    if (menu) {
+      menu.hidden = !open;
+      sectionTrigger.setAttribute("aria-expanded", String(open));
+      if (open) menu.querySelector("button")?.focus();
+    }
+    return;
+  }
+  const addSection = target.closest("[data-section-add]");
+  if (addSection) {
+    const divider = addSection.closest("[data-row-gap]");
+    if (divider) openTitleForm(state, { destination: gapFromDivider(divider) });
+    return;
+  }
+  const renameSection = target.closest("[data-section-rename]");
+  if (renameSection) { openTitleForm(state, { sectionId: renameSection.dataset.sectionRename }); return; }
+  const deleteSection = target.closest("[data-section-delete]");
+  if (deleteSection) {
+    closeTitleForm(state);
+    void emit(state, { kind: "delete_section_break", sectionId: deleteSection.dataset.sectionDelete }, "Delete section break");
+    return;
+  }
+
   const trigger = target.closest("[data-row-action-trigger]");
   if (trigger) {
     const menu = trigger.parentElement?.querySelector("[data-row-action-menu]");
@@ -495,7 +652,7 @@ function handleClick(state, event) {
     finishPointerRange(state, rowIdFromEvent(event));
     return;
   }
-  if (!target.closest("[data-row-actions], .row-divider")) closeMenus(state.root);
+  if (!target.closest("[data-row-actions], [data-section-action-menu], .section-heading-actions, .row-divider")) closeMenus(state.root);
 }
 
 function handleKeydown(state, event) {
@@ -503,9 +660,13 @@ function handleKeydown(state, event) {
     if (state.range) {
       event.preventDefault();
       clearRange(state);
-    } else if (eventElement(event)?.closest("[data-row-action-menu]")) {
+    } else if (eventElement(event)?.closest("[data-row-action-menu], [data-section-action-menu], [data-row-gap-menu]")) {
       event.preventDefault();
+      const menu = eventElement(event)?.closest("[data-section-action-menu]");
+      const gapMenu = eventElement(event)?.closest("[data-row-gap-menu]");
       closeMenus(state.root);
+      if (menu) sectionHeading(state, menu.dataset.sectionActionMenu)?.querySelector("[data-section-action-trigger]")?.focus();
+      else if (gapMenu) gapMenu.parentElement?.querySelector("[data-row-add-options]")?.focus();
     }
     return;
   }
@@ -527,10 +688,12 @@ function handleKeydown(state, event) {
 }
 
 function handleDocumentPointerdown(state, event) {
+  if (state.root.querySelector("[data-section-title-form]") &&
+    !eventElement(event)?.closest("[data-section-title-form], [data-section-add], [data-section-rename]")) closeTitleForm(state);
   if (!state.range?.confirmed) return;
   const target = eventElement(event);
   if (!target) return;
-  if (target.closest(".row-range-toolbar, .row-actions, [data-row-action-menu], [data-row-action-trigger]")) return;
+  if (target.closest(".row-range-toolbar, .row-actions, [data-row-action-menu], [data-row-action-trigger], .section-heading-actions")) return;
   const row = target.closest(".script-row");
   if (row && currentRangeIds(state).includes(row.dataset.rowId)) return;
   clearRange(state);
