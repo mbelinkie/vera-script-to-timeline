@@ -29,6 +29,7 @@ from .build_jobs import (
 from .build_stage_receipt import hash_file
 from .music_input import MusicResolution, resolve_music_bindings, verify_music_pins
 from .package_cache import default_cache_root
+from .quote_box_inputs import freeze_quote_box_inputs
 from .row_timeline_map import make_row_timeline_map
 from .v2_package import V2PackageError, build_v2_package, verify_v2_package
 from .workflow_package import sha256
@@ -294,8 +295,9 @@ def compile_prepared(
     source_hash = hash_file(inputs.script)
     original_deps_hash = hash_file(inputs.dependencies)
 
+    document = _read_json(inputs.script)
+
     def freeze_music() -> MusicResolution | None:
-        document = _read_json(inputs.script)
         if not document.get("rowAudioSpans"):
             return None
         original = _read_json(inputs.dependencies)
@@ -309,16 +311,18 @@ def compile_prepared(
         return resolved
 
     music = reporter.run("music resolution", freeze_music)
-    if music is not None:
+    effective_deps = (
+        music.dependencies if music is not None else _read_json(inputs.dependencies)
+    )
+    has_quotes = freeze_quote_box_inputs(document, effective_deps)
+    if has_quotes or music is not None:
         dependencies = output / "effective-compiler-dependencies.json"
         publish_immutable_output(
             dependencies,
-            json.dumps(
-                music.dependencies, sort_keys=True, separators=(",", ":")
-            ).encode(),
+            json.dumps(effective_deps, sort_keys=True, separators=(",", ":")).encode(),
         )
         media_paths = inputs.media_paths
-        if media_paths is not None:
+        if media_paths is not None and music is not None:
             media_paths = output / "effective-media-paths.json"
             publish_immutable_output(
                 media_paths,

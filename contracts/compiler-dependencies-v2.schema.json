@@ -79,6 +79,17 @@
         "$ref": "#/$defs/PresenterAlignmentResolutionV1"
       }
     },
+    "quoteBoxTemplateRevision": {
+      "description": "Optional frozen hash of the installed EV24 Quote Box .setting. Omitted for documents without quote boxes; null records a missing or mismatched installed template.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentHash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "narrationBoundaryEvidence": {
       "type": "array",
       "items": {

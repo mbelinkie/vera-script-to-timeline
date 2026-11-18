@@ -20,6 +20,7 @@ import type {
   TimedPlacement,
   ResearchClipSnapshotV2,
   ResearchFrameBindingV2,
+  QuoteBoxV2,
   VisualOnlyBlockV2,
 } from "./generated/contracts-v2.js";
 import type {
@@ -192,6 +193,9 @@ export function validateScriptDocumentV2(
         event.id,
         overlayIds,
       );
+      if (event.quoteBox) {
+        validateQuoteBox(event.quoteBox, `${eventPath}/quoteBox`, block.id, event.id, diagnostics);
+      }
     });
   }
 
@@ -1028,6 +1032,36 @@ function validateTimedAnchors(
         ...(ownerId ? { entityId: ownerId } : {}),
       });
     }
+  }
+}
+
+function validateQuoteBox(
+  quoteBox: QuoteBoxV2,
+  path: string,
+  blockId: string,
+  eventId: string,
+  diagnostics: AuthoringDiagnosticV2[],
+): void {
+  if (hasUnpairedSurrogate(quoteBox.citationText)) {
+    diagnostics.push({
+      code: "QUOTE_BOX_CITATION_INVALID",
+      message: "A quote box citation must contain complete UTF-16 surrogate pairs.",
+      jsonPath: `${path}/citationText`,
+      blockId,
+      entityId: eventId,
+    });
+  }
+  if (quoteBox.italicSpan === null) return;
+  const { start, end } = quoteBox.italicSpan;
+  const citationLength = [...quoteBox.citationText.trim()].length;
+  if (start >= end || end > citationLength) {
+    diagnostics.push({
+      code: "QUOTE_BOX_ITALIC_SPAN_INVALID",
+      message: `A quote box italic span must be a non-empty half-open range within the trimmed citation (${citationLength} Unicode code points).`,
+      jsonPath: `${path}/italicSpan`,
+      blockId,
+      entityId: eventId,
+    });
   }
 }
 
