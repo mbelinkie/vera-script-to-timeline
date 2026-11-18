@@ -3896,6 +3896,7 @@ def run_workflow_delivery_v2(
             if (
                 connected_identity != ("21.2.0", "6")
                 or (has_music and (stills or not result["nativeMusicRateQualified"]))
+                or (not has_music and not stills)
                 or any(
                     picture["imageMotion"]
                     not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
