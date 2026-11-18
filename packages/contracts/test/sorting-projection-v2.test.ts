@@ -225,6 +225,28 @@ describe("Sorting selective projections", () => {
     expect(edits.document.rowReferences).toBeUndefined();
   });
 
+  it("keeps an authored music-cue deletion in edits-only while restoring it sorting-only", () => {
+    const sourceRow = row(66);
+    const cue = {
+      id: id(67), startRowId: sourceRow.id, endRowId: sourceRow.id,
+      source: { mediaReferenceId: id(68), artifactId: id(69), artifactVersion: 1, contentHash: `sha256:${"b".repeat(64)}` },
+      settings: { gainDb: -12 },
+    };
+    const baseline = { ...document(), activeDraft: { blocks: [sourceRow], supportingItems: [] }, rowAudioSpans: [cue] };
+    const deleted = apply(baseline, { kind: "delete_row_audio_span", cueId: cue.id });
+    const state = updateSortingProjectionV2(createSortingProjectionV2(baseline), baseline, deleted, {
+      kind: "delete_row_audio_span", cueId: cue.id,
+    });
+
+    const edits = projectSortingDocumentV2(state, deleted, "edits_only");
+    expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
+    expect(edits.document.rowAudioSpans).toBeUndefined();
+
+    const sorting = projectSortingDocumentV2(state, deleted, "sorting_only");
+    expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
+    expect(sorting.document.rowAudioSpans).toEqual([cue]);
+  });
+
   it("keeps a surviving birth when edits-only removes its deleted birth anchor", () => {
     const first = row(80);
     const second = row(81);

@@ -967,18 +967,27 @@ function routeSupportingItems(
   return null;
 }
 
-function mergeById<T extends { id: string }>(baseline: T[] | undefined, current: T[] | undefined, useCurrent: boolean): T[] {
+function mergeById<T extends { id: string }>(baseline: T[] | undefined, current: T[] | undefined, selection: "baseline" | "current" | "merge"): T[] {
+  if (selection === "baseline") return (baseline ?? []).map((item) => structuredClone(item));
+  if (selection === "current") return (current ?? []).map((item) => structuredClone(item));
   const result = new Map((baseline ?? []).map((item) => [item.id, structuredClone(item)]));
-  for (const item of current ?? []) if (useCurrent || !result.has(item.id)) result.set(item.id, structuredClone(item));
+  for (const item of current ?? []) result.set(item.id, structuredClone(item));
   return [...result.values()];
 }
 
 function applyRelationships(output: ScriptDocumentV2, baseline: ScriptDocumentV2, current: ScriptDocumentV2, mode: "edits_only" | "sorting_only"): void {
-  const useCurrent = mode === "sorting_only";
+  // Relationship records are authored content.  A current snapshot is the
+  // complete authoritative set when edits-only is selected; merging it into
+  // baseline would resurrect records that the author deleted.  Sorting-only
+  // deliberately keeps the baseline set and ignores relationship edits.
+  const selection = mode === "edits_only" ? "current" : "baseline";
   const rows = rowMap(output);
-  const transitions = mergeById<RowTransitionIntentV2>(baseline.rowTransitions, current.rowTransitions, useCurrent);
-  const spans = mergeById<RowAudioSpanIntentV2>(baseline.rowAudioSpans, current.rowAudioSpans, useCurrent);
-  const references = mergeById<NonNullable<ScriptDocumentV2["rowReferences"]>[number]>(baseline.rowReferences, current.rowReferences, true);
+  const transitions = mergeById<RowTransitionIntentV2>(baseline.rowTransitions, current.rowTransitions, selection);
+  const spans = mergeById<RowAudioSpanIntentV2>(baseline.rowAudioSpans, current.rowAudioSpans, selection);
+  // References are restored with baseline rows in sorting-only; unlike
+  // authored music/transition edits, Sorting commands can remove them as a
+  // consequence of temporarily deleting a row.
+  const references = mergeById<NonNullable<ScriptDocumentV2["rowReferences"]>[number]>(baseline.rowReferences, current.rowReferences, "merge");
   output.rowTransitions = transitions.filter((item) => rows.has(item.fromRowId) && rows.has(item.toRowId));
   output.rowAudioSpans = spans.filter((item) => rows.has(item.startRowId) && rows.has(item.endRowId));
   output.rowReferences = references.filter((item) => rows.has(item.rowId));
