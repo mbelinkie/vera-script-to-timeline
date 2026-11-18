@@ -249,7 +249,10 @@
           "$ref": "#/$defs/Digest"
         },
         "captureProfileId": {
-          "const": "vera-public-page-capture-v1"
+          "enum": [
+            "vera-public-page-capture-v1",
+            "vera-public-page-capture-v2"
+          ]
         },
         "captureProfileDigest": {
           "$ref": "#/$defs/Digest"
@@ -283,6 +286,34 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 1024
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "exact"],
+              "properties": {
+                "kind": {
+                  "const": "passage"
+                },
+                "exact": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+                },
+                "prefix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+                },
+                "suffix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                 }
               }
             }

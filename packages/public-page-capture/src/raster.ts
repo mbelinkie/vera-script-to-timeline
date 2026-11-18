@@ -17,6 +17,14 @@ export interface RasterLimits {
   readonly maxPixels: number;
 }
 
+/** Bounds for a raster whose viewport is supplied by a trusted host. */
+export interface BoundedRasterLimits {
+  readonly maxWidth: number;
+  readonly maxHeight: number;
+  readonly maxBytes: number;
+  readonly maxPixels: number;
+}
+
 export interface VerifiedRaster {
   readonly width: number;
   readonly height: number;
@@ -33,15 +41,40 @@ const pngSignature = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 
-export function verifyPng(bytes: Buffer, limits: RasterLimits): VerifiedRaster {
+function preflightDimensions(
+  bytes: Buffer,
+  limits: BoundedRasterLimits,
+): { readonly width: number; readonly height: number } {
+  if (bytes.byteLength < pngSignature.byteLength ||
+      !bytes.subarray(0, pngSignature.byteLength).equals(pngSignature) ||
+      bytes.byteLength < 33 ||
+      bytes.readUInt32BE(8) !== 13 ||
+      !bytes.subarray(12, 16).equals(Buffer.from("IHDR", "ascii"))) {
+    throw new RasterVerificationError("invalid_png");
+  }
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (width <= 0 || height <= 0 || width > limits.maxWidth || height > limits.maxHeight) {
+    throw new RasterVerificationError("dimension_limit_exceeded");
+  }
+  if (width > Math.floor(limits.maxPixels / height)) {
+    throw new RasterVerificationError("pixel_limit_exceeded");
+  }
+  return { width, height };
+}
+
+function verifyPngWithBounds(
+  bytes: Buffer,
+  limits: BoundedRasterLimits,
+  expected: { readonly width?: number; readonly height?: number } = {},
+): VerifiedRaster {
   if (bytes.byteLength > limits.maxBytes) {
     throw new RasterVerificationError("raster_too_large");
   }
-  if (
-    bytes.byteLength < pngSignature.byteLength ||
-    !bytes.subarray(0, pngSignature.byteLength).equals(pngSignature)
-  ) {
-    throw new RasterVerificationError("invalid_png");
+  const dimensions = preflightDimensions(bytes, limits);
+  if (expected.width !== undefined && expected.height !== undefined &&
+      (dimensions.width !== expected.width || dimensions.height !== expected.height)) {
+    throw new RasterVerificationError("dimension_mismatch");
   }
 
   let decoded: PNG;
@@ -56,14 +89,14 @@ export function verifyPng(bytes: Buffer, limits: RasterLimits): VerifiedRaster {
   if (
     decoded.width <= 0 ||
     decoded.height <= 0 ||
-    decoded.width * decoded.height > limits.maxPixels
+    decoded.width > limits.maxWidth ||
+    decoded.height > limits.maxHeight ||
+    decoded.width > Math.floor(limits.maxPixels / decoded.height)
   ) {
     throw new RasterVerificationError("pixel_limit_exceeded");
   }
-  if (
-    decoded.width !== limits.expectedWidth ||
-    decoded.height !== limits.expectedHeight
-  ) {
+  if (expected.width !== undefined && expected.height !== undefined &&
+      (decoded.width !== expected.width || decoded.height !== expected.height)) {
     throw new RasterVerificationError("dimension_mismatch");
   }
 
@@ -85,4 +118,21 @@ export function verifyPng(bytes: Buffer, limits: RasterLimits): VerifiedRaster {
     verifierProfile: "png_strict",
     verifierVersion: 1,
   };
+}
+
+export function verifyPng(bytes: Buffer, limits: RasterLimits): VerifiedRaster {
+  return verifyPngWithBounds(bytes, {
+    maxWidth: limits.expectedWidth,
+    maxHeight: limits.expectedHeight,
+    maxBytes: limits.maxBytes,
+    maxPixels: limits.maxPixels,
+  }, { width: limits.expectedWidth, height: limits.expectedHeight });
+}
+
+/** Decode and verify a PNG without assuming the fixed capture profile viewport. */
+export function verifyPngWithinBounds(
+  bytes: Buffer,
+  limits: BoundedRasterLimits,
+): VerifiedRaster {
+  return verifyPngWithBounds(bytes, limits);
 }

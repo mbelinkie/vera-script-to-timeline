@@ -7,6 +7,7 @@ export * from "./envelope.js";
 export * from "./errors.js";
 export * from "./identities.js";
 export * from "./object-store.js";
+export * from "./page-pictures.js";
 export * from "./policy.js";
 export * from "./prep-media.js";
 export * from "./profile.js";
