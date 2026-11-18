@@ -262,6 +262,28 @@ def test_accepted_source_is_copied_and_pinned_in_local_snapshot(tmp_path: Path) 
     )
 
 
+def test_accepted_png_keeps_suffix_in_frozen_snapshot(tmp_path: Path) -> None:
+    transport, port = FakeTransport(), FakePort()
+    authority, directory = _accepted(tmp_path, transport)
+    record = authority.accepted[TARGET]
+    image = record.path.with_suffix(".png")
+    record.path.rename(image)
+    authority.accepted[TARGET] = AcceptedSourceFile(
+        record.project_id, record.source_id, record.revision, record.sha256, image
+    )
+    agent = service(
+        tmp_path,
+        transport,
+        port,
+        input_authority=authority,
+        accepted_source_roots=(directory,),
+    )
+    assert agent.run_one(JOB) == "queued"
+    assert (
+        agent.root / "inputs" / JOB / f"source-{TARGET}.png"
+    ).read_bytes() == image.read_bytes()
+
+
 def test_revoked_or_altered_source_fails_before_next_effect(tmp_path: Path) -> None:
     transport, port = FakeTransport(), FakePort()
     authority, directory = _accepted(tmp_path, transport)

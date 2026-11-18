@@ -98,6 +98,7 @@ def prepare_still_media(
     *,
     authorization: PreparationAuthorization,
     tools: MediaTools | None = None,
+    verify_only: bool = False,
 ) -> PreparedMedia:
     """Prepare one imported PNG without assigning a measured source rate."""
     tools = tools or MediaTools()
@@ -313,26 +314,31 @@ def prepare_still_media(
         },
     }
     root = _assert_under(authorization.write_root, (authorization.write_root,))
-    root.mkdir(parents=True, exist_ok=True)
-    if (
-        shutil.disk_usage(root).free
-        < len(canonical_json(record)) + authorization.minimum_free_bytes
-    ):
-        raise MediaPreparationError(
-            "insufficient_disk", "still receipt exceeds free-space reserve"
-        )
     published_root = root / "published"
     published = published_root / key.removeprefix("sha256:")
-    _assert_under(published_root, (root,)).mkdir(exist_ok=True)
-    _assert_under(published, (root,)).mkdir(exist_ok=True)
     receipt_path = published / "receipt.json"
     reused = receipt_path.exists()
-    try:
-        publish_immutable_output(receipt_path, canonical_json(record))
-    except BuildJobError as error:
-        raise MediaPreparationError(
-            "published_conflict", "still receipt differs"
-        ) from error
+    if verify_only:
+        _assert_under(receipt_path, (root,))
+        if not reused:
+            raise MediaPreparationError("missing_receipt", "still receipt missing")
+    else:
+        root.mkdir(parents=True, exist_ok=True)
+        if (
+            shutil.disk_usage(root).free
+            < len(canonical_json(record)) + authorization.minimum_free_bytes
+        ):
+            raise MediaPreparationError(
+                "insufficient_disk", "still receipt exceeds free-space reserve"
+            )
+        _assert_under(published_root, (root,)).mkdir(exist_ok=True)
+        _assert_under(published, (root,)).mkdir(exist_ok=True)
+        try:
+            publish_immutable_output(receipt_path, canonical_json(record))
+        except BuildJobError as error:
+            raise MediaPreparationError(
+                "published_conflict", "still receipt differs"
+            ) from error
     if read_json_object(receipt_path) != record or file_hash(source) != source_hash:
         raise MediaPreparationError("published_conflict", "still receipt differs")
     return PreparedMedia(binding, receipt_path, source, None, reused)

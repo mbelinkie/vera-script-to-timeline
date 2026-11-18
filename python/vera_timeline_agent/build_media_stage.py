@@ -35,6 +35,7 @@ from .media_preparation import (
     _reuse,
     prepare_media,
 )
+from .prep_media_inputs import prepare_still_media
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,51 @@ class MediaStagePort:
             rows.append((item, matches[0]))
         return rows
 
+    @staticmethod
+    def _still_rows(
+        needs: dict[str, Any], descriptors: list[Any], snapshot: FrozenBuildSnapshot
+    ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+        rows = []
+        seen: set[str] = set()
+        for item in needs["requirements"]:
+            matches = [
+                descriptor
+                for descriptor in descriptors
+                if descriptor.get("payloadId") == item.get("payloadId")
+                and descriptor.get("mediaReferenceId") == item.get("mediaReferenceId")
+            ]
+            if (
+                len(matches) != 1
+                or matches[0].get("sourceSnapshot", {}).get("system") != "local_import"
+            ):
+                continue
+            descriptor = matches[0]
+            source = snapshot.file(f"source:{item['mediaReferenceId']}")
+            if source.suffix.lower() != ".png":
+                continue
+            payload = item["payloadId"]
+            if payload in seen:
+                raise BuildJobError("compiler planned a local still more than once")
+            if item.get("sourceSufficiency") != "sufficient":
+                raise NeedsAction("local still cannot satisfy requested range")
+            seen.add(payload)
+            rows.append((item, descriptor))
+        return rows
+
+    @staticmethod
+    def _video_rows(
+        needs: dict[str, Any], descriptors: list[Any], still_rows: list[Any]
+    ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+        still_ids = {id(item) for item, _ in still_rows}
+        return MediaStagePort._reqs(
+            {
+                "requirements": [
+                    item for item in needs["requirements"] if id(item) not in still_ids
+                ]
+            },
+            descriptors,
+        )
+
     def inspect(
         self, context: StageContext, snapshot: FrozenBuildSnapshot
     ) -> Inspection:
@@ -217,22 +263,43 @@ class MediaStagePort:
         needs = self._requirements(context, snapshot, needs_input=paths["needsInput"])
         if paths["needs"].read_bytes() != canonical_json(needs):
             raise BuildJobError("media-needs output changed")
-        rows = self._reqs(needs, json.loads(expected_input)["occurrenceResolutions"])
+        final = self._input_deps(context, snapshot)
+        descriptors = final["occurrenceResolutions"]
+        still_rows = self._still_rows(needs, descriptors, snapshot)
+        rows = self._video_rows(needs, descriptors, still_rows)
         try:
             published = json.loads(paths["preparations"].read_bytes())
         except (ValueError, OSError) as error:
             raise UncertainResult(
                 "cannot read existing media preparation locators"
             ) from error
-        if not isinstance(published, dict) or set(published) != {
-            item["requirementKey"] for item, _ in rows
-        }:
-            raise BuildJobError("media preparation requirement keys changed")
+        if not isinstance(published, dict):
+            raise BuildJobError("invalid media preparation locators")
         bindings = []
         outputs = dict(paths)
+        expected_keys = set()
+        for item, descriptor in still_rows:
+            checked = prepare_still_media(
+                snapshot.file(f"source:{item['mediaReferenceId']}"),
+                descriptor,
+                item["requestedRange"],
+                final["timeline"]["frameRate"],
+                authorization=authorization,
+                tools=self.tools,
+                verify_only=True,
+            )
+            key = checked.binding["requirementKey"]
+            if published.get(key) != str(checked.receipt_path):
+                raise BuildJobError("prepared still identity changed")
+            descriptor["preparedMediaRequirementKey"] = key
+            if key not in expected_keys:
+                bindings.append(checked.binding)
+            expected_keys.add(key)
+            outputs[f"prep:{key}"] = checked.receipt_path
         for item, _descriptor in rows:
             key = item["requirementKey"]
-            locator = published[key]
+            expected_keys.add(key)
+            locator = published.get(key)
             if not isinstance(locator, str):
                 raise BuildJobError("untrusted media preparation path")
             receipt = Path(locator)
@@ -259,7 +326,8 @@ class MediaStagePort:
                 outputs[f"video:{key}"] = checked.video_path
             if checked.audio_path is not None:
                 outputs[f"audio:{key}"] = checked.audio_path
-        final = self._input_deps(context, snapshot)
+        if set(published) != expected_keys:
+            raise BuildJobError("media preparation requirement keys changed")
         final["preparedMedia"] = bindings
         if paths["dependencies"].read_bytes() != canonical_json(final):
             raise BuildJobError(
@@ -290,7 +358,11 @@ class MediaStagePort:
         publish_immutable_output(paths["needsInput"], canonical_json(source))
         needs = self._requirements(context, snapshot, needs_input=paths["needsInput"])
         publish_immutable_output(paths["needs"], canonical_json(needs))
-        requirements = self._reqs(needs, source["occurrenceResolutions"])
+        output = copy.deepcopy(source)
+        still_rows = self._still_rows(needs, output["occurrenceResolutions"], snapshot)
+        requirements = self._video_rows(
+            needs, output["occurrenceResolutions"], still_rows
+        )
         if any(
             item["requirementKey"] not in self.authorization.streams
             for item, _ in requirements
@@ -310,6 +382,23 @@ class MediaStagePort:
         )
         prepared: dict[str, str] = {}
         bindings = []
+        for item, descriptor in still_rows:
+            context.renew_lease()
+            result = prepare_still_media(
+                snapshot.file(f"source:{item['mediaReferenceId']}"),
+                descriptor,
+                item["requestedRange"],
+                source["timeline"]["frameRate"],
+                authorization=authorization,
+                tools=self.tools,
+            )
+            key = result.binding["requirementKey"]
+            descriptor["preparedMediaRequirementKey"] = key
+            if key in prepared and prepared[key] != str(result.receipt_path):
+                raise BuildJobError("conflicting prepared still identity")
+            if key not in prepared:
+                bindings.append(result.binding)
+            prepared[key] = str(result.receipt_path)
         for item, descriptor in requirements:
             context.renew_lease()
             key = item["requirementKey"]
@@ -335,7 +424,6 @@ class MediaStagePort:
             hash_file(result.receipt_path)
             prepared[key] = str(result.receipt_path)
             bindings.append(result.binding)
-        output = copy.deepcopy(source)
         output["preparedMedia"] = bindings
         publish_immutable_output(paths["dependencies"], canonical_json(output))
         publish_immutable_output(paths["preparations"], canonical_json(prepared))
