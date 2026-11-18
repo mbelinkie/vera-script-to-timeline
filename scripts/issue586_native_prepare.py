@@ -335,8 +335,9 @@ def prepare(root: Path) -> Path:
     for source in manifest["sources"]:
         source_id = source["id"]
         if "musicAudio" in source:
-            media_paths[f"source:{source_id}"] = str(music)
-            media_paths[f"original:{source_id}"] = str(music)
+            # The normal package route expands the event locator into these
+            # source keys; mapping them here would duplicate that ownership.
+            continue
         elif (
             source.get("preparationRequirementKey")
             == prepared.binding["requirementKey"]
