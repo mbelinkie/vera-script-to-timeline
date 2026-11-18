@@ -305,7 +305,9 @@ def resume(root: Path, phase: str) -> None:
     snapshot = snapshots[0].stem
     with sqlite3.connect(root / "service" / "jobs" / "build-jobs.sqlite3") as conn:
         rows = conn.execute("SELECT id, status, active_stage FROM jobs").fetchall()
-    expected_status = "waiting" if phase == "reconcile" else "queued"
+    expected_status = (
+        "waiting" if phase in ("reconcile", "preflight-resume") else "queued"
+    )
     if len(rows) != 1 or rows[0][1] != expected_status or rows[0][2] is not None:
         raise ValueError(f"job is not safely queued: {rows}")
     local_job = rows[0][0]
@@ -331,7 +333,7 @@ def resume(root: Path, phase: str) -> None:
     )
     request_id = "issue633-one-use"
     attestation = output / local_job / "v2-attestation.json"
-    if phase in ("native", "reconcile"):
+    if phase in ("native", "reconcile", "preflight-resume"):
         if not attestation.is_file():
             raise ValueError("verified package attestation missing")
         release = root / "release"
@@ -361,7 +363,12 @@ def resume(root: Path, phase: str) -> None:
             if rc:
                 raise ValueError("request preparation refused")
         request_hash = sha256(request)
-        readback = ConnectedStillReadback(request, request_hash, request_id)
+        readback = ConnectedStillReadback(
+            request,
+            request_hash,
+            request_id,
+            resolve_app=Path("/Applications/DaVinci Resolve 21.2/DaVinci Resolve.app"),
+        )
         driver: Any = ParentStudioDriver(
             request,
             request_hash,
@@ -418,6 +425,17 @@ def resume(root: Path, phase: str) -> None:
         result = driver.inspect_build(attestation, sha256(attestation), request_id)
         if result.get("status") != "verified" or result.get("verified") is not True:
             raise ValueError("parent is not verified; inspect only, do not retry")
+        service.store.resume(project, local_job)
+    if phase == "preflight-resume":
+        intent = output / local_job / "building_resolve_timeline" / "intent.json"
+        parent = root / "native-evidence" / "parent.json"
+        if (
+            intent.exists()
+            or intent.is_symlink()
+            or parent.exists()
+            or parent.is_symlink()
+        ):
+            raise ValueError("native intent or parent exists; refuse redispatch")
         service.store.resume(project, local_job)
     for _ in range(5 if phase == "core" else 2):
         state = service.store.status(project, local_job)
