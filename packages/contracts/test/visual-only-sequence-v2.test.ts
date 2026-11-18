@@ -118,9 +118,8 @@ describe("#585 visuals-only ordered cards", () => {
 
     const deleted = session.apply({ kind: "delete_row_audio_span", cueId: cue.id });
     expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
-    expect(deleted.diagnostics).toContainEqual(expect.objectContaining({
-      code: "VISUAL_AUDIO_MATCH_CLEARED", severity: "warning", message: expect.stringContaining("4 s"),
-    }));
+    expect(deleted.diagnostics.some((item) => item.code === "VISUAL_AUDIO_MATCH_CLEARED" &&
+      item.severity === "warning" && item.message.includes("4 s"))).toBe(true);
     const restored = deleted.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
     expect(restored.visualOnlyTiming).toEqual({ kind: "visual_only", durationOverrideMs: 4000 });
     expect(deleted.document.rowAudioSpans).toBeUndefined();
