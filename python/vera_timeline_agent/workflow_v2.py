@@ -3885,8 +3885,8 @@ def run_workflow_delivery_v2(
                     "72-frame image motion requires the measured Studio 21.2 build"
                 )
         elif native_otio:
-            # #508 checks centered image zoom and explicit None only. The
-            # music route and custom Dynamic Zoom keep their previous gate.
+            # #508 checks centered image zoom and explicit None only.
+            # Music with moving picture takes the separate 24 fps profile.
             stills = [
                 picture
                 for event in view["events"]
@@ -3895,8 +3895,7 @@ def run_workflow_delivery_v2(
             ]
             if (
                 connected_identity != ("21.2.0", "6")
-                or has_music
-                or not stills
+                or (has_music and (stills or not result["nativeMusicRateQualified"]))
                 or any(
                     picture["imageMotion"]
                     not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
