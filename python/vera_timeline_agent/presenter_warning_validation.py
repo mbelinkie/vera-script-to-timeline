@@ -1,4 +1,4 @@
-"""Pure product checks for canonical temporary-presenter report warnings.
+"""Pure product checks for canonical renderable build-report warnings.
 
 Extracted intact from the archived qualification output records so packaging
 can continue to refuse malformed warnings after proof-code retirement.
@@ -38,6 +38,14 @@ TEMPORARY_PRESENTER_COMPLETION_MESSAGE = (
 )
 TEMPORARY_PRESENTER_RECOVERY_INSTRUCTION = (
     "Replace the temporary still with an accepted presenter source when available."
+)
+_MUSIC_WARNING_CODES = frozenset(
+    {
+        "MUSIC_FILE_MISSING",
+        "MUSIC_SOURCE_SHORTER",
+        "MUSIC_SPAN_INVALID",
+        "MUSIC_SETTINGS_UNSUPPORTED",
+    }
 )
 
 
@@ -80,16 +88,106 @@ def _stable_compiler_id(label: str) -> str:
     )
 
 
+def _validate_music_diagnostic(
+    diagnostic: Any,
+    spans: set[str],
+) -> None:
+    """Accept compiler-shaped music diagnostics for authored spans."""
+    _require(
+        type(diagnostic) is dict, "build report contains an unsupported diagnostic"
+    )
+    code = diagnostic.get("code")
+    span_id = _identity(diagnostic.get("entity", {}).get("id"))
+    _require(span_id in spans, "music warning does not name an authored span")
+    message = diagnostic.get("message")
+    _require(
+        type(message) is str
+        and bool(message)
+        and len(message) <= 4096
+        and all(unicodedata.category(c) not in {"Cc", "Cf", "Cs"} for c in message),
+        "music warning message is malformed",
+    )
+    entity = {"id": span_id, "kind": "block", "path": f"rowAudioSpans/{span_id}"}
+    warning = diagnostic.get("severity") == "warning"
+    invalid_timing = (
+        code == "MUSIC_SPAN_INVALID"
+        and diagnostic.get("severity") == "blocking"
+        and diagnostic.get("recoveryActionKinds") == ["manual_review"]
+    )
+    _require(
+        (warning and diagnostic.get("recoveryActionKinds") == ["none"])
+        or invalid_timing,
+        "music warning severity or recovery action is non-canonical",
+    )
+    _require(
+        diagnostic
+        == {
+            "id": _stable_compiler_id(
+                f"{code}:block:{span_id}:rowAudioSpans/{span_id}:{message}"
+            ),
+            "severity": diagnostic["severity"],
+            "code": code,
+            "message": message,
+            "entity": entity,
+            "evidence": {"kind": "details", "message": message},
+            "recoveryActionKinds": diagnostic["recoveryActionKinds"],
+        },
+        "build report contains a non-canonical music warning",
+    )
+
+
+def _music_recovery_actions(diagnostics: list[Json], manifest: Json) -> list[Json]:
+    """Derive the small canonical recovery rows supported by music diagnostics."""
+    kinds: list[str] = []
+    for diagnostic in sorted(
+        diagnostics,
+        key=lambda row: (
+            row["code"],
+            row["entity"]["id"],
+            row["id"],
+        ),
+    ):
+        for kind in diagnostic["recoveryActionKinds"]:
+            if kind not in kinds:
+                kinds.append(kind)
+
+    actions: list[Json] = []
+    for kind in kinds:
+        if kind == "none":
+            actions.append(
+                {"kind": "none", "instruction": "No repair action is required."}
+            )
+        elif kind == "manual_review":
+            manifest_document = manifest.get("document")
+            _require(
+                type(manifest_document) is dict,
+                "manifest document identity is required",
+            )
+            document_id = _identity(manifest_document.get("documentId"))
+            actions.append(
+                {
+                    "kind": "manual_review",
+                    "entity": {
+                        "id": document_id,
+                        "kind": "document",
+                        "path": "document",
+                    },
+                    "instruction": "Review the compiler diagnostic.",
+                }
+            )
+    return actions
+
+
 @_refusal
 def validate_temporary_presenter_report(
     document: Any, manifest: Any, report: Any
 ) -> set[str]:
-    """Validate renderable v2 warnings against active slots and events.
+    """Validate renderable v2 warnings against their authored owners and events.
 
     This stdlib-only check is shared by host packaging, cached admission replay,
-    and the installed native boundary. It accepts only compiler-shaped temporary
-    presenter still warnings, their concrete still events, and matching recovery
-    and manual-completion rows.
+    and the installed native boundary. Music and speech warnings are admitted
+    independently; presenter warnings still require concrete still events and
+    matching recovery and manual-completion rows.
     """
     _require(
         type(document) is dict and type(manifest) is dict and type(report) is dict,
@@ -110,6 +208,15 @@ def validate_temporary_presenter_report(
         event_id = _identity(event.get("eventId"))
         _require(event_id not in events, "duplicate manifest event identity")
         events[event_id] = event
+
+    music_spans: set[str] = set()
+    raw_music_spans = document.get("rowAudioSpans", [])
+    _require(type(raw_music_spans) is list, "music spans are malformed")
+    for span in cast(list[Any], raw_music_spans):
+        _require(type(span) is dict, "music span is malformed")
+        span_id = _identity(span.get("id"))
+        _require(span_id not in music_spans, "duplicate music span identity")
+        music_spans.add(span_id)
 
     authored_slots: dict[str, tuple[str, str]] = {}
     speech_cut_slots: set[str] = set()
@@ -185,7 +292,19 @@ def validate_temporary_presenter_report(
     )
     presenter_diagnostics = []
     warned_speech_slots: set[str] = set()
+    music_diagnostics: list[Json] = []
     for diagnostic in diagnostic_values:
+        if (
+            type(diagnostic) is dict
+            and isinstance(diagnostic.get("code"), str)
+            and diagnostic["code"] in _MUSIC_WARNING_CODES
+        ):
+            _validate_music_diagnostic(
+                diagnostic,
+                music_spans,
+            )
+            music_diagnostics.append(diagnostic)
+            continue
         if (
             speech_cut_compiler
             and type(diagnostic) is dict
@@ -219,15 +338,22 @@ def validate_temporary_presenter_report(
         else:
             presenter_diagnostics.append(diagnostic)
     diagnostic_values = presenter_diagnostics
+    music_recovery_actions = _music_recovery_actions(music_diagnostics, manifest)
     if not diagnostic_values:
         _require(
             not events_by_temporary_slot,
             "temporary presenter event is missing its canonical warning",
         )
-        _require(
-            report.get("recoveryActions") == [],
-            "build report has recovery actions without diagnostics",
-        )
+        if music_diagnostics:
+            _require(
+                report.get("recoveryActions") == music_recovery_actions,
+                "build report recovery actions are not canonical for music diagnostics",
+            )
+        else:
+            _require(
+                report.get("recoveryActions") == [],
+                "build report has recovery actions without diagnostics",
+            )
         _require(
             report.get("manualCompletionItems") in (None, []),
             "build report has manual completion items without diagnostics",
@@ -289,6 +415,7 @@ def validate_temporary_presenter_report(
             "slotId": first_slot,
         }
     ]
+    expected_recoveries = music_recovery_actions + expected_recoveries
     _require(
         report.get("recoveryActions") == expected_recoveries,
         "presenter warning recovery action is not canonical",
