@@ -21,6 +21,8 @@ from typing import Any, Protocol
 import jsonschema  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
+from .v2_package import _compiler_hash
+
 _SOURCE_LIMIT = 8 * 1024**3
 _CHUNK = 1024 * 1024
 
@@ -90,7 +92,11 @@ def checked_compiler_dependencies(
             or binding["projectId"] != manifest["projectId"]
             or binding["documentId"] != doc.get("id")
             or binding["revision"] != manifest["documentRevision"]
-            or binding["contentHash"] != manifest["documentDigest"]
+            or doc.get("liveContentHash")
+            != _compiler_hash(
+                {key: value for key, value in doc.items() if key != "liveContentHash"}
+            )
+            or binding["contentHash"] != doc.get("liveContentHash")
             or binding["settingsHash"] != manifest["settingsDigest"]
             or raw["authoringDefaults"]["settingsHash"] != manifest["settingsDigest"]
             or raw["build"]["buildId"] != manifest["jobId"]
