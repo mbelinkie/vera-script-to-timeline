@@ -274,6 +274,29 @@ async function editorText(editor: Locator): Promise<string> {
     element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : element.textContent ?? "");
 }
 
+async function placeCaret(editor: Locator, offset: number): Promise<void> {
+  await editor.focus();
+  await editor.evaluate((element, wanted) => {
+    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    let remaining = wanted;
+    while (node && remaining > (node.textContent?.length ?? 0)) {
+      remaining -= node.textContent?.length ?? 0;
+      node = walker.nextNode();
+    }
+    const range = element.ownerDocument.createRange();
+    if (node) range.setStart(node, Math.min(remaining, node.textContent?.length ?? 0));
+    else {
+      range.selectNodeContents(element);
+      range.collapse(false);
+    }
+    range.collapse(true);
+    const selection = element.ownerDocument.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, offset);
+}
+
 async function setSlider(page: Page, selector: string, value: number): Promise<void> {
   await page.locator(selector).evaluate((element, nextValue) => {
     const input = element as HTMLInputElement;
@@ -344,6 +367,142 @@ describe("browser authoring over the local project service", () => {
     await host?.stop();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("uses Return for saved paragraph breaks and paragraph Backspace without creating rows", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Paragraph keyboard project");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, 6);
+    await editor.press("Enter");
+    await waitForNarrationText(page, projectId, seeded.rowId, "alpha \nbeta gamma");
+    expect(await narrationRowsFromApi(page, projectId)).toHaveLength(1);
+    await placeCaret(editor, 7);
+    await editor.press("Backspace");
+    await waitForNarrationText(page, projectId, seeded.rowId, "alpha beta gamma");
+    await placeCaret(editor, "alpha beta gamma".length);
+    await editor.press("Enter");
+    await waitForNarrationText(page, projectId, seeded.rowId, "alpha beta gamma\n");
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await editorText(editor)).toBe("alpha beta gamma\n");
+    await page.close();
+  }, 90_000);
+
+  it("Tab splits and focuses the new row; immediate Backspace restores exact clipped visuals", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "D124 keyboard project");
+    const text = "the harbor sleeps the harbor wakes";
+    const seeded = editableDocumentFixture(projectId, text, true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, 18);
+    await editor.press("Tab");
+    await waitForNarrationCount(page, projectId, 2);
+    const splitRows = await narrationRowsFromApi(page, projectId);
+    expect(splitRows.map((row) => row.text)).toEqual(["the harbor sleeps", "the harbor wakes"]);
+    const newRowId = splitRows[1]!.id;
+    await expect.poll(async () => await page.evaluate(() =>
+      document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id"))).toBe(newRowId);
+    await page.locator(`[data-row-id="${newRowId}"] [data-narration-editor]`).press("Backspace");
+    await waitForNarrationCount(page, projectId, 1);
+    const restored = await narrationRowFromApi(page, projectId, seeded.rowId);
+    const initial = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId);
+    expect(restored?.text).toBe(text);
+    expect(restored?.tokens).toEqual(initial?.type === "narration" ? initial.tokens : []);
+    expect(restored?.primaryVisualSequence).toEqual(initial?.type === "narration" ? initial.primaryVisualSequence : null);
+    const undo = page.getByRole("button", { name: /^Undo\b/u });
+    await undo.click();
+    await waitForNarrationCount(page, projectId, 2);
+    await undo.click();
+    await waitForNarrationCount(page, projectId, 1);
+    await page.close();
+  }, 90_000);
+
+  it("Tab at the end makes a valid blank row, and Backspace cannot join across a section", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Tab and section project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first line", "second line"]);
+    const sectionId = randomUUID();
+    seeded.document.activeDraft.blocks.splice(1, 0, {
+      type: "section", id: sectionId, orderKey: `section-${sectionId}`, title: "Second act", version: 1,
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const first = page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`);
+    await placeCaret(first, "first line".length);
+    await first.press("Tab");
+    await waitForNarrationCount(page, projectId, 3);
+    const rows = await narrationRowsFromApi(page, projectId);
+    const blank = rows[1];
+    expect(blank?.text).toBe("");
+    expect(blank?.primaryVisualSequence?.slots[0]?.kind).toBe("content");
+    await expect.poll(async () => await page.evaluate(() =>
+      document.activeElement?.closest("[data-row-id]")?.getAttribute("data-row-id"))).toBe(blank?.id);
+    await page.getByRole("button", { name: /^Undo\b/u }).click();
+    await waitForNarrationCount(page, projectId, 2);
+    const second = page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`);
+    await placeCaret(second, 0);
+    await second.press("Backspace");
+    await expect.poll(async () => await page.locator("#save-status").textContent())
+      .toContain("Rows cannot be joined across a section break");
+    expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual(["first line", "second line"]);
+    await page.close();
+  }, 90_000);
+
+  it("requires an authentic immediately current server split proof for D124 replay", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "D124 server proof project");
+    const seeded = editableDocumentFixture(projectId, "the harbor sleeps the harbor wakes", true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const document = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const row = document.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!row || row.type !== "narration") throw new Error("missing D124 source row");
+    const newRowId = randomUUID();
+    const splitCommand = { kind: "split_row", rowId: row.id, newRowId, at: { beforeTokenId: row.tokens[3]!.id } };
+    const split = (await appRequest(page, "/authoring/command", "POST", { document: document.document, command: splitCommand })).body as {
+      ok: boolean; document: ScriptDocumentV2; splitProof: string;
+    };
+    expect(split.ok).toBe(true);
+    expect(split.splitProof).toMatch(/^[0-9a-f]{64}$/u);
+    const join = { kind: "join_rows", rowId: newRowId, direction: "previous", words: null };
+    const forged = (await appRequest(page, "/authoring/command", "POST", {
+      document: split.document, command: join, splitProof: "f".repeat(64),
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(forged.ok).toBe(false);
+    expect(forged.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    const exact = (await appRequest(page, "/authoring/command", "POST", {
+      document: split.document, command: join, splitProof: split.splitProof,
+    })).body as { ok: boolean; document: ScriptDocumentV2 };
+    expect(exact.ok).toBe(true);
+    expect(exact.document.activeDraft.blocks).toEqual(document.document.activeDraft.blocks);
+
+    const second = (await appRequest(page, "/authoring/command", "POST", {
+      document: document.document, command: { ...splitCommand, newRowId: randomUUID() },
+    })).body as { ok: boolean; document: ScriptDocumentV2; splitProof: string };
+    expect(second.ok).toBe(true);
+    const changed = (await appRequest(page, "/authoring/command", "POST", {
+      document: second.document,
+      command: { kind: "edit_narration_text", rowId: seeded.rowId, startOffset: 0, endOffset: 0,
+        insertedText: "fresh ", editId: randomUUID() },
+    })).body as { ok: boolean; document: ScriptDocumentV2 };
+    expect(changed.ok).toBe(true);
+    const stale = (await appRequest(page, "/authoring/command", "POST", {
+      document: changed.document, command: { ...join, rowId: second.document.activeDraft.blocks.find(
+        (block) => block.id !== seeded.rowId && block.type === "narration")?.id }, splitProof: second.splitProof,
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(stale.ok).toBe(false);
+    expect(stale.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    await page.close();
+  }, 90_000);
 
   it("creates, saves, reloads, restarts, exports, and preserves view settings", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

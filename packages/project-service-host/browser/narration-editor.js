@@ -1,3 +1,5 @@
+import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
 
 function newId() {
@@ -454,22 +456,22 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     };
   }
 
-  function dispatch(payload, label, rowSnapshot) {
+  function dispatch(payload, label, rowSnapshot, meta = {}) {
     if (editingBlocked) return Promise.resolve(false);
     let result;
     try {
       // Invoke the app command immediately at the input event. The app owns
       // serialization and the document-wide refusal/render policy.
-      result = command(payload, label, { expectedRow: expectedRow(rowSnapshot) });
+      result = command(payload, label, { expectedRow: expectedRow(rowSnapshot), ...meta });
     } catch {
       editingBlocked = true;
       return Promise.resolve(false);
     }
     return Promise.resolve(result).then((accepted) => {
-      if (accepted === false) editingBlocked = true;
+      if (accepted === false && !meta.structural) editingBlocked = true;
       return accepted === true;
     }, () => {
-      editingBlocked = true;
+      if (!meta.structural) editingBlocked = true;
       return false;
     });
   }
@@ -527,6 +529,67 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     replaceText(edit.startOffset, edit.endOffset, edit.insertedText, "Edit narration", oldText);
   }
 
+  function paragraphBreak(range) {
+    if (!range || editingBlocked) return;
+    // At the first character Return only offers the Tab hint (S03 D114).
+    if (range.startOffset === 0 && range.endOffset === 0) return;
+    void replaceText(range.startOffset, range.endOffset, "\n", "New paragraph");
+  }
+
+  function splitAtCaret(offset) {
+    if (editingBlocked) return;
+    const before = localRow;
+    const newRowId = newId();
+    // Resolve token identity *after* queued typing has been accepted. The
+    // optimistic tokenizer does not own IDs and must not invent them.
+    const intent = (currentDocument) => {
+      const blocks = currentDocument.activeDraft.blocks;
+      const actual = blocks.find((block) => block.id === before.id);
+      if (!actual || actual.type !== "narration") throw new Error("The row changed before the split.");
+      const index = actual.tokens.findIndex((token) => token.endOffset > offset);
+      const boundary = index < 0 ? actual.tokens.length : index;
+      if (boundary === 0 || boundary === actual.tokens.length) {
+        const atStart = boundary === 0;
+        const gap = rowGaps(blocks).find((item) => atStart
+          ? item.beforeRowId === before.id : item.afterRowId === before.id);
+        if (!gap) throw new Error("The insertion gap changed before the split.");
+        return { kind: "create_row", row: createBlankNarrationRow({ id: newRowId }), destination: gap };
+      }
+      return { kind: "split_row", rowId: before.id, newRowId, at: { beforeTokenId: actual.tokens[boundary].id } };
+    };
+    void dispatch(intent, "Split row", before, {
+      structural: true, splitCaret: offset, focusAfter: { rowId: newRowId, offset: 0 },
+    });
+  }
+
+  function joinPrevious() {
+    if (editingBlocked) return;
+    const before = localRow;
+    // A neighbouring section is a hard boundary. Let the model give the
+    // exact refusal, without changing the optimistic editor's text.
+    void dispatch({ kind: "join_rows", rowId: before.id, direction: "previous", words: null },
+      "Join rows", before, { structural: true, focusPrevious: true });
+  }
+
+  function onStructuralKey(event) {
+    if (event.key === "Escape") return leaveText(event);
+    if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      paragraphBreak(targetRange(event, editor));
+    } else if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault();
+      const range = targetRange(event, editor);
+      if (range) splitAtCaret(range.endOffset);
+    } else if (event.key === "Backspace") {
+      const range = targetRange(event, editor);
+      if (range?.startOffset === 0 && range.endOffset === 0) {
+        event.preventDefault();
+        joinPrevious();
+      }
+    }
+  }
+
   function onBeforeInput(event) {
     if (editingBlocked) {
       event.preventDefault();
@@ -534,9 +597,13 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     }
     if (composing || event.isComposing) return;
     const type = event.inputType || "";
-    if (type === "insertLineBreak" || type === "insertParagraph" || type === "insertFromPaste" || type === "insertFromDrop") {
-      // Paragraphs and paste parsing belong to #620; do not let the browser
-      // create an unmodelled newline or HTML fragment in this slice.
+    if (type === "insertLineBreak" || type === "insertParagraph") {
+      event.preventDefault();
+      paragraphBreak(targetRange(event, editor));
+      return;
+    }
+    if (type === "insertFromPaste" || type === "insertFromDrop") {
+      // Plain-text paste is implemented as one transaction in phase 2.
       event.preventDefault();
       return;
     }
@@ -671,7 +738,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("input", fallbackInput);
   editor.addEventListener("compositionstart", onCompositionStart);
   editor.addEventListener("compositionend", onCompositionEnd);
-  editor.addEventListener("keydown", leaveText);
+  editor.addEventListener("keydown", onStructuralKey);
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", (event) => event.preventDefault());
@@ -687,7 +754,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("input", fallbackInput);
     editor.removeEventListener("compositionstart", onCompositionStart);
     editor.removeEventListener("compositionend", onCompositionEnd);
-    editor.removeEventListener("keydown", leaveText);
+    editor.removeEventListener("keydown", onStructuralKey);
     editor.removeEventListener("focus", onFocus);
     editor.removeEventListener("blur", onBlur);
     document.removeEventListener("selectionchange", onSelectionChange);

@@ -32,6 +32,8 @@ let renderTimer;
 const composingRows = new Set();
 const undoStack = [];
 let narrationCleanup = [];
+let structuralFocus = null;
+let lastSplit = null;
 let pendingName;
 let pendingCreate;
 let saveTimer;
@@ -109,6 +111,8 @@ async function showScript(projectId) {
   scriptDocument = savedScript.document;
   documentRevision = savedScript.revision;
   undoStack.length = 0;
+  lastSplit = null;
+  structuralFocus = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -125,6 +129,8 @@ async function showScript(projectId) {
 
 function renderEditor() {
   const root = element("script-rows");
+  const requestedFocus = structuralFocus;
+  structuralFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   let caret = null;
@@ -151,13 +157,15 @@ function renderEditor() {
       requestRender: scheduleRender,
     }));
   });
-  if (rowId && caret !== null) {
-    const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === rowId);
+  const targetRowId = requestedFocus?.rowId ?? rowId;
+  const targetCaret = requestedFocus?.offset ?? caret;
+  if (targetRowId && targetCaret !== null) {
+    const row = [...root.querySelectorAll("[data-row-id]")].find((item) => item.dataset.rowId === targetRowId);
     const editor = row?.querySelector("[data-narration-editor]");
     if (editor) {
       editor.focus();
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-      let remaining = caret;
+      let remaining = targetCaret;
       let node = walker.nextNode();
       while (node && remaining > node.length) { remaining -= node.length; node = walker.nextNode(); }
       const range = document.createRange();
@@ -227,21 +235,39 @@ function queueCommand(command, label, options = {}) {
         throw new Error("The script changed while you were typing. Your unsaved text is still here.");
       }
     }
+    // A keyboard structural intent is resolved against the latest document,
+    // after any earlier typed words have received their real model token IDs.
+    const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
+      resolved.words === null && lastSplit?.newRowId === resolved.rowId &&
+      lastSplit.revision === scriptDocument.rowEditRevision ? lastSplit : null;
+    const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
+      scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
+    ] : null;
     const response = await fetch("/authoring/command", {
       method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-      body: JSON.stringify({ document: scriptDocument, command }),
+      body: JSON.stringify({ document: scriptDocument, command: resolved,
+        ...(replay ? { splitProof: replay.proof } : {}) }),
     });
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
     undoStack.push({ document: scriptDocument, label });
     scriptDocument = result.document;
+    lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
+      proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
+      revision: scriptDocument.rowEditRevision, caret: options.splitCaret,
+    } : null;
+    if (options.focusAfter) structuralFocus = options.focusAfter;
+    else if (previous?.type === "narration") structuralFocus = replay
+      ? { rowId: replay.originalRowId, offset: replay.caret }
+      : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
     updateUndo();
     documentDirty = true;
     void saveDocument();
     scheduleRender(options.structural);
     return true;
   }).catch((error) => {
-    if (options.expectedRow) {
+    if (options.expectedRow && !options.structural) {
       editRefused = true;
       refusedMessage = `${error.message || "Edit could not be applied."} Your unsaved text is still here; copy it or discard it to continue.`;
       element("discard-edit").hidden = false;
@@ -282,6 +308,8 @@ function undo() {
   commandQueue = commandQueue.then(() => {
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
+    lastSplit = null;
+    structuralFocus = null;
     updateUndo();
     documentDirty = true;
     void saveDocument();
