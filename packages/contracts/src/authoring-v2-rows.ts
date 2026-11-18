@@ -1172,7 +1172,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
     if (stranded.length > 0) {
       return {
         ...diagnostic("MUSIC_MATCH_STRANDED", "This move would shorten a music cue away from a matched still. Clear Match audio duration on the affected visual or keep it inside the cue, then try again."),
-        blockId: stranded[0],
+        blockId: stranded[0]!,
         entityId: span.id,
       };
     }
