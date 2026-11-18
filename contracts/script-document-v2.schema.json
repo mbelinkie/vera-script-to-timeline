@@ -3070,10 +3070,63 @@
           },
           "additionalProperties": true
         },
+        "timing": {
+          "$ref": "#/$defs/MusicCueTimingV2"
+        },
         "review": {
           "$ref": "#/$defs/RowAudioReviewV2"
         }
       }
+    },
+    "MusicCueTimingV2": {
+      "type": "object",
+      "description": "Exactly three fixed points at normal playback speed. Omit the point to derive. Source points are frame boundaries on the build's timeline rate.",
+      "additionalProperties": false,
+      "minProperties": 3,
+      "maxProperties": 3,
+      "properties": {
+        "sourceInFrame": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "sourceOutFrame": { "$ref": "#/$defs/NonNegativeSafeInteger" },
+        "timelineIn": { "$ref": "#/$defs/MusicTimelinePointV2" },
+        "timelineOut": { "$ref": "#/$defs/MusicTimelinePointV2" }
+      }
+    },
+    "MusicTimelinePointV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "frame"],
+          "properties": {
+            "kind": { "const": "frame" },
+            "frame": { "$ref": "#/$defs/NonNegativeSafeInteger" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "blockId", "edge"],
+          "properties": {
+            "kind": { "const": "row_edge" },
+            "blockId": { "$ref": "#/$defs/EntityId" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "anchor"],
+          "properties": {
+            "kind": { "const": "word" },
+            "anchor": {
+              "oneOf": [
+                { "$ref": "#/$defs/WordInpointAnchor" },
+                { "$ref": "#/$defs/WordAudibleEndAnchor" }
+              ]
+            }
+          }
+        }
+      ]
     },
     "OpaqueRowReferenceV2": {
       "type": "object",

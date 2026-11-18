@@ -17,6 +17,58 @@ export interface MusicSpanFrames {
   fadeOutFrames: number;
 }
 
+export function availableMusicFrames(
+  sourceSamples: number,
+  sampleRate: number,
+  timelineRate: { numerator: number; denominator: number },
+): number {
+  if (![sourceSamples, sampleRate, timelineRate.numerator, timelineRate.denominator]
+    .every((value) => Number.isSafeInteger(value) && value > 0)) {
+    throw new RangeError("music requires verified positive sample/rate integers");
+  }
+  const available = BigInt(sourceSamples) * BigInt(timelineRate.numerator)
+    / (BigInt(sampleRate) * BigInt(timelineRate.denominator));
+  if (available > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError("music duration exceeds safe frame range");
+  }
+  return Number(available);
+}
+
+export function planAnchoredMusicFrames(
+  sourceIn: number | undefined,
+  sourceOut: number | undefined,
+  timelineIn: number | undefined,
+  timelineOut: number | undefined,
+  sourceLength: number,
+  timelineLength: number,
+): MusicSpanFrames {
+  const points = [sourceIn, sourceOut, timelineIn, timelineOut];
+  if (points.filter((point) => point !== undefined).length !== 3) {
+    throw new RangeError("Fix exactly three of the four music timing points.");
+  }
+  // Do the arithmetic exactly even when intermediate sums exceed safe integers.
+  const [si, so, ti, to] = points.map((point) => BigInt(point ?? 0)) as [bigint, bigint, bigint, bigint];
+  const sourceStart = Number(sourceIn === undefined ? so - (to - ti) : si);
+  const sourceEnd = Number(sourceOut === undefined ? si + (to - ti) : so);
+  const recordStart = Number(timelineIn === undefined ? to - (so - si) : ti);
+  const recordEnd = Number(timelineOut === undefined ? ti + (so - si) : to);
+  if (sourceStart < 0 || sourceEnd > sourceLength || sourceEnd <= sourceStart) {
+    throw new RangeError("The music window falls outside the source or has no duration. Adjust a source trim or move a timeline pin.");
+  }
+  if (recordStart < 0 || recordEnd > timelineLength || recordEnd <= recordStart) {
+    throw new RangeError("The music cue falls outside the built timeline or has no duration. Move a timeline pin or shorten the source window.");
+  }
+  const fade = Math.min(6, Math.floor((recordEnd - recordStart) / 2));
+  return {
+    recordRange: { startFrame: recordStart, endFrame: recordEnd },
+    sourceRange: { startFrame: sourceStart, endFrame: sourceEnd },
+    requestedEndFrame: recordEnd,
+    shorterThanRows: false,
+    fadeInFrames: fade,
+    fadeOutFrames: fade,
+  };
+}
+
 /**
  * Project one verified PCM source onto consecutive active rows. Frame ranges
  * are half-open; a partial last audio frame is never passed to Resolve.
@@ -59,18 +111,10 @@ export function planMusicSpanFrames(
     }
   }
 
-  if (![sourceSamples, sampleRate, timelineRate.numerator, timelineRate.denominator]
-    .every((value) => Number.isSafeInteger(value) && value > 0)) {
-    throw new RangeError("music requires verified positive sample/rate integers");
-  }
-  const available = BigInt(sourceSamples) * BigInt(timelineRate.numerator)
-    / (BigInt(sampleRate) * BigInt(timelineRate.denominator));
-  if (available > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError("music duration exceeds safe frame range");
-  }
+  const available = availableMusicFrames(sourceSamples, sampleRate, timelineRate);
   const first = rows[from]!.startFrame;
   const desiredEnd = rows[through]!.endFrame;
-  const emittedFrames = Math.min(desiredEnd - first, Number(available));
+  const emittedFrames = Math.min(desiredEnd - first, available);
   if (emittedFrames <= 0) return null;
   const last = first + emittedFrames;
   if (!Number.isSafeInteger(last)) {
