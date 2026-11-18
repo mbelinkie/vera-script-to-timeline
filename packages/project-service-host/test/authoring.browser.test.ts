@@ -689,6 +689,25 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("pastes after an emoji without splitting its UTF-16 surrogate pair", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "UTF-16 clipboard boundary");
+    const seeded = editableDocumentFixture(projectId, "hello 😀 world");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, "hello 😀".length);
+    await dispatchPlainPaste(editor, " waves\n\nthen");
+    await expect.poll(async () => (await narrationRowsFromApi(page, projectId)).map((row) => row.text)).toEqual([
+      "hello 😀 waves", "then world",
+    ]);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Paste text"]);
+    await page.getByRole("button", { name: "Undo Paste text" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "hello 😀 world");
+    await page.close();
+  }, 90_000);
+
   it("uses exact row gaps for leading and trailing blank clipboard blocks", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -939,6 +958,22 @@ describe("browser authoring over the local project service", () => {
     })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
     expect(forged.ok).toBe(false);
     expect(forged.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    const tampered = structuredClone(split.document);
+    const tamperedRow = tampered.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!tamperedRow || tamperedRow.type !== "narration") throw new Error("missing split replay source row");
+    tamperedRow.text += " forged";
+    const changedDocument = (await appRequest(page, "/authoring/command", "POST", {
+      document: tampered, command: join, splitProof: split.splitProof,
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(changedDocument.ok).toBe(false);
+    expect(changedDocument.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    const changedRevisionDocument = structuredClone(split.document);
+    changedRevisionDocument.rowEditRevision = (changedRevisionDocument.rowEditRevision ?? 0) + 1;
+    const changedRevision = (await appRequest(page, "/authoring/command", "POST", {
+      document: changedRevisionDocument, command: join, splitProof: split.splitProof,
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(changedRevision.ok).toBe(false);
+    expect(changedRevision.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
     const exact = (await appRequest(page, "/authoring/command", "POST", {
       document: split.document, command: join, splitProof: split.splitProof,
     })).body as { ok: boolean; document: ScriptDocumentV2 };
