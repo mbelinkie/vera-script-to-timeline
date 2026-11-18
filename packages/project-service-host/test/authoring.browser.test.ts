@@ -49,6 +49,25 @@ interface SavedDocument {
   readonly revision: number;
 }
 
+interface BrowserVisualTestApi {
+  queueVisualCommand(intent: unknown, label: string): Promise<boolean>;
+  projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }> } | null;
+}
+
+declare global {
+  interface Window { __veraVisualTest?: BrowserVisualTestApi }
+}
+
+// Browser app.js is a real ESM script. Expose its existing exports only in
+// tests; Vitest otherwise rewrites import() inside page.evaluate into a
+// server-side loader that does not exist in Chromium.
+async function exposeVisualTestApi(page: Page): Promise<void> {
+  await page.route("**/app.js", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, projectedPrimaryRow };` });
+  });
+}
+
 /* The host speaks PostgreSQL through this pool port; serialize PGlite's single session. */
 function pglitePool(database: PGlite): QaPgPool {
   let previous = Promise.resolve();
@@ -416,6 +435,164 @@ describe("browser authoring over the local project service", () => {
     await host?.stop();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("protects pure projection and range commands with the browser session and exact sequence version", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual command authorization");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!row || row.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing visual sequence");
+    const slot = row.primaryVisualSequence.slots[0]!;
+    const original = structuredClone(seeded.document);
+    const body = {
+      document: original, expectedSequenceVersion: row.primaryVisualSequence.version,
+      command: { kind: "set_visual_range", blockId: row.id, slotId: slot.id,
+        startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id },
+    };
+    const proof = await page.evaluate(() => localStorage.getItem("vera.authoring.sessionProof"));
+    for (const path of ["visual-command", "projection"]) {
+      const payload = path === "projection" ? { document: original } : body;
+      const withoutSession = await fetch(`${origin}/authoring/${path}`, {
+        method: "POST", headers: { "sec-fetch-site": "same-origin", "x-vera-authoring": "1", "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(withoutSession.status).toBe(401);
+      const crossSite = await fetch(`${origin}/authoring/${path}`, {
+        method: "POST", headers: { "sec-fetch-site": "cross-site", "origin": "https://untrusted.example",
+          "x-vera-authoring": "1", "x-vera-session": proof!, "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(crossSite.status).toBe(403);
+      expect((await appRequest(page, `/authoring/${path}`, "GET")).status).toBe(404);
+    }
+    const projection = await appRequest(page, "/authoring/projection", "POST", { document: original });
+    expect(projection.status).toBe(200);
+    expect((projection.body as { projection: { rows: Array<{ blockId: string }> } }).projection.rows[0]?.blockId).toBe(row.id);
+    expect((await appRequest(page, "/authoring/visual-command", "POST", {
+      ...body, command: { kind: "delete_slot", blockId: row.id, slotId: slot.id },
+    })).status).toBe(400);
+
+    const stale = await appRequest(page, "/authoring/visual-command", "POST", {
+      ...body, expectedSequenceVersion: row.primaryVisualSequence.version + 1,
+    });
+    expect(stale.status).toBe(200);
+    expect(stale.body).toMatchObject({ ok: false, document: original, diagnostics: [{ code: "SEQUENCE_VERSION_STALE" }] });
+    const refused = await appRequest(page, "/authoring/visual-command", "POST", {
+      ...body, command: { ...body.command, endTokenId: randomUUID() },
+    });
+    expect(refused.body).toMatchObject({ ok: false, document: original, diagnostics: [{ code: "RANGE_OUTSIDE_ROW" }] });
+    const accepted = await appRequest(page, "/authoring/visual-command", "POST", body);
+    expect(accepted.status).toBe(200);
+    const result = accepted.body as { ok: boolean; document: ScriptDocumentV2; projection: {
+      rows: Array<{ brackets: Array<{ slotId: string; endTokenIndexExclusive: number }> }>;
+    } };
+    expect(result.ok).toBe(true);
+    expect(result.document).not.toEqual(original);
+    expect(result.projection.rows[0]?.brackets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ slotId: slot.id, endTokenIndexExclusive: 3 }),
+    ]));
+    // These two routes are pure: the browser must explicitly save a successful edit.
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect((saved.body as SavedDocument).document).toEqual(original);
+    await page.close();
+  }, 90_000);
+
+  it("queues a visual intent against current tokens, saves one snapshot Undo and refuses without history", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Serialized visual edits");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta echo foxtrot");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const oldRow = seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (oldRow?.type !== "narration" || !oldRow.primaryVisualSequence) throw new Error("missing visual row");
+    const originalVersion = oldRow.primaryVisualSequence.version;
+    const slotId = oldRow.primaryVisualSequence.slots[0]!.id;
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let releaseFirst: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    let beganFirst: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => { beganFirst = resolve; });
+    await page.route("**/authoring/command", async (route) => {
+      beganFirst();
+      await gate;
+      await route.continue();
+    });
+    await editor.fill("fresh alpha beta gamma delta echo foxtrot");
+    await started;
+    const pendingVisual = page.evaluate(async ({ rowId, slotId: visualSlot }) => {
+      return await window.__veraVisualTest!.queueVisualCommand((document: ScriptDocumentV2) => {
+        const row = document.activeDraft.blocks.find((block) => block.id === rowId);
+        if (row?.type !== "narration") throw new Error("missing updated tokens");
+        return { kind: "set_visual_range", blockId: rowId, slotId: visualSlot,
+          startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id };
+      }, "Set visual range");
+    }, { rowId: seeded.rowId, slotId });
+    releaseFirst();
+    expect(await pendingVisual).toBe(true);
+    // The preceding retokenization also advances the sequence. The visual
+    // edit must use that current revision, not the pre-typing revision.
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.version)
+      .toBe(originalVersion + 2);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Set visual range", "Edit narration"]);
+    await expect.poll(async () => await page.evaluate((rowId) => {
+      return window.__veraVisualTest!.projectedPrimaryRow(rowId)?.brackets[0]?.endTokenIndexExclusive;
+    }, seeded.rowId)).toBe(3);
+
+    const failed = await page.evaluate(async (rowId) => {
+      return await window.__veraVisualTest!.queueVisualCommand({ kind: "set_visual_range", blockId: rowId, slotId: crypto.randomUUID(),
+        startTokenId: crypto.randomUUID(), endTokenId: crypto.randomUUID() }, "Refused range");
+    }, seeded.rowId);
+    expect(failed).toBe(false);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Set visual range", "Edit narration"]);
+    await page.getByRole("button", { name: "Undo Set visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.version)
+      .toBe(originalVersion + 1);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
+    await page.close();
+  }, 90_000);
+
+  it("discards a delayed projection from before a visual edit", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Stale projection test");
+    const seeded = editableDocumentFixture(projectId, "one two three four five six");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    let releaseOld: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { releaseOld = resolve; });
+    let oldStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => { oldStarted = resolve; });
+    let first = true;
+    await page.route("**/authoring/projection", async (route) => {
+      if (first) { first = false; oldStarted(); await gate; }
+      await route.continue();
+    });
+    await page.goto(`${origin}/?project=${projectId}`);
+    await started;
+    const slotId = (seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId) as
+      Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>).primaryVisualSequence!.slots[0]!.id;
+    const ok = await page.evaluate(async ({ rowId, slotId: id }) => {
+      return await window.__veraVisualTest!.queueVisualCommand((doc: ScriptDocumentV2) => {
+        const row = doc.activeDraft.blocks.find((block) => block.id === rowId);
+        if (row?.type !== "narration") throw new Error("missing row");
+        return { kind: "set_visual_range", blockId: rowId, slotId: id,
+          startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id };
+      }, "Set visual range");
+    }, { rowId: seeded.rowId, slotId });
+    expect(ok).toBe(true);
+    const oldResponse = page.waitForResponse((response) => response.url().endsWith("/authoring/projection"));
+    releaseOld();
+    expect((await oldResponse).status()).toBe(200);
+    await expect.poll(async () => await page.evaluate((rowId) => {
+      return window.__veraVisualTest!.projectedPrimaryRow(rowId)?.brackets[0]?.endTokenIndexExclusive;
+    }, seeded.rowId)).toBe(3);
+    await page.close();
+  }, 90_000);
 
   it("adds, renames and deletes a section break with inline cancel/no-op and exact Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;

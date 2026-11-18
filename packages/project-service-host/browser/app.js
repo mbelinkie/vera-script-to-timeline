@@ -24,6 +24,9 @@ let documentSaving = false;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
+let visualProjection = null;
+let projectionGeneration = 0;
+let projectionTimer;
 let editRefused = false;
 let refusedMessage = "";
 let renderRequested = false;
@@ -113,6 +116,7 @@ async function showScript(projectId) {
   ]);
   scriptDocument = savedScript.document;
   documentRevision = savedScript.revision;
+  invalidateProjection();
   undoStack.length = 0;
   typingGroup = null;
   lastSplit = null;
@@ -147,7 +151,7 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument);
+  renderRows(root, scriptDocument, { projection: visualProjection, visualCommand: queueVisualCommand });
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -232,6 +236,52 @@ async function applyBrowserCommand(document, command, splitProof) {
   const result = await response.json();
   if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
   return result;
+}
+
+async function authoringVisualPost(path, body) {
+  await connecting;
+  try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep enrolled proof. */ }
+  const response = await fetch(`/authoring/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(12_000),
+  });
+  const result = await response.json();
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.diagnostics?.[0]?.message || result.error || "Visual edit could not be applied.");
+  }
+  return result;
+}
+
+// Projection is derived, never saved. In-flight responses are tied to the
+// exact object snapshot and generation; an older network response cannot
+// redraw brackets or On Camera after an edit, Undo or project switch.
+function invalidateProjection() {
+  const generation = ++projectionGeneration;
+  const snapshot = scriptDocument;
+  visualProjection = null;
+  clearTimeout(projectionTimer);
+  if (!snapshot) return;
+  projectionTimer = setTimeout(async () => {
+    projectionTimer = undefined;
+    try {
+      const { projection } = await authoringVisualPost("projection", { document: snapshot });
+      if (generation !== projectionGeneration || snapshot !== scriptDocument) return;
+      visualProjection = projection;
+      scheduleRender();
+    } catch { /* Keep editing without derived decorations if projection is unavailable. */ }
+  }, 30);
+}
+
+export function projectedPrimaryRow(rowId) {
+  return visualProjection?.rows?.find((row) => row.blockId === rowId) ?? null;
+}
+
+// A UI intent can be a function: resolve it *inside* the serialized queue,
+// after any typing or paragraph action has returned real current token IDs.
+export function queueVisualCommand(intent, label) {
+  return queueCommand(intent, label, { visual: true, structural: true });
 }
 
 // Every intermediate document is private to this queued operation: a refusal
@@ -331,6 +381,30 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.visual) {
+      typingGroup = null;
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved?.blockId);
+      if (!row?.primaryVisualSequence) throw new Error("The visual's row is no longer available.");
+      const prior = scriptDocument;
+      const result = await authoringVisualPost("visual-command", {
+        document: prior, command: resolved, expectedSequenceVersion: row.primaryVisualSequence.version,
+      });
+      if (JSON.stringify(result.document) === JSON.stringify(prior)) {
+        throw new Error("This visual edit did not change the script.");
+      }
+      undoStack.push({ document: prior, label });
+      scriptDocument = result.document;
+      lastSplit = null;
+      ++projectionGeneration;
+      clearTimeout(projectionTimer);
+      visualProjection = result.projection ?? null;
+      if (!visualProjection) invalidateProjection();
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      scheduleRender(true);
+      return true;
+    }
     if (options.paste) {
       typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
@@ -340,6 +414,7 @@ function queueCommand(command, label, options = {}) {
       }
       undoStack.push({ document: scriptDocument, label });
       scriptDocument = result.document;
+      invalidateProjection();
       lastSplit = null;
       structuralFocus = result.focusAfter;
       updateUndo();
@@ -378,6 +453,7 @@ function queueCommand(command, label, options = {}) {
       session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
     } : null;
     scriptDocument = result.document;
+    invalidateProjection();
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
       proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
       revision: scriptDocument.rowEditRevision, caret: options.splitCaret,
@@ -438,6 +514,7 @@ function undo() {
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
+    invalidateProjection();
     lastSplit = null;
     structuralFocus = null;
     updateUndo();

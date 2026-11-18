@@ -1,6 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { applyRowEditV2, createRowEditSessionV2, type RowEditCommandV2 } from "@vera/contracts/authoring-v2";
+import {
+  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, projectPrimarySequenceV2,
+  type RowEditCommandV2, type VisualSequenceEditCommandV2,
+} from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -17,6 +20,11 @@ const ASSETS = new Map<string, readonly [string, string]>([
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+// #66 is allowed to change ranges and OC framing, not to create/move/delete
+// pictures. Other visual operations belong to separate browser stories.
+const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
+  "set_visual_range", "swap_ranges", "set_on_camera_framing",
+]);
 
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
@@ -62,9 +70,13 @@ export function createAuthoringHandler(
     const route = PROJECT.exec(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
+    const isVisualCommand = path === "/visual-command" && request.method === "POST";
+    const isProjection = path === "/projection" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
-    if ((!allowed && !startsSession && !isCommand) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isProjection) || url.search) {
+      return Response.json({ error: "not_found" }, { status: 404 });
+    }
 
     // Cross-origin browser code cannot set this header without a successful
     // CORS preflight. Fetch Metadata also excludes other sites and local ports.
@@ -117,6 +129,38 @@ export function createAuthoringHandler(
         return Response.json(result);
       } catch {
         return Response.json({ error: "invalid_command" }, { status: 400 });
+      }
+    }
+    if (isVisualCommand) {
+      try {
+        const body = await request.json() as {
+          document?: ScriptDocumentV2;
+          command?: VisualSequenceEditCommandV2;
+          expectedSequenceVersion?: number;
+        };
+        const { document, command, expectedSequenceVersion } = body;
+        if (!document || !command || !AUTHORING_VISUAL_KINDS.has(command.kind) ||
+            !Number.isSafeInteger(expectedSequenceVersion) || expectedSequenceVersion! < 0) {
+          return Response.json({ error: "invalid_visual_command" }, { status: 400 });
+        }
+        const result = applyVisualSequenceEditV2(document, expectedSequenceVersion!, command);
+        if (result.ok) lastSplit = null;
+        return Response.json(result.ok ? { ...result, projection: projectPrimarySequenceV2(result.document) } : result);
+      } catch {
+        return Response.json({ error: "invalid_visual_command" }, { status: 400 });
+      }
+    }
+    if (isProjection) {
+      try {
+        const body = await request.json() as { document?: ScriptDocumentV2 };
+        if (!body?.document || typeof body.document !== "object" || Array.isArray(body.document)) {
+          return Response.json({ error: "invalid_projection_request" }, { status: 400 });
+        }
+        // A projection reads only the supplied snapshot, never another user's
+        // project or a server-side document store.
+        return Response.json({ projection: projectPrimarySequenceV2(body.document) });
+      } catch {
+        return Response.json({ error: "invalid_projection_request" }, { status: 400 });
       }
     }
     const headers = new Headers({ authorization });
