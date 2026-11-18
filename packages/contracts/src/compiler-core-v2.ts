@@ -257,8 +257,16 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
   }));
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
-    const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string): void => {
+    const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string, frame = bounds.find((row) => row.id === span.startRowId)?.startFrame): void => {
       diagnostics.push(diagnostic(code, message, target, { kind: "details", message }, ["none"], "warning"));
+      const trackId = deps.roles.markerTrackId;
+      if (frame === undefined || frame < 0 || frame >= (bounds.at(-1)?.endFrame ?? 0) || !deps.tracks.some((track) => track.id === trackId)) return;
+      events.push({ eventId: stableId(`music-warning:${document.id}:${span.id}:${code}`), kind: "script_marker", trackId, trackRole: "marker",
+        recordRange: { startFrame: frame, endFrame: frame + 1 },
+        provenance: { documentId: document.id, blockId: span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: null,
+          originalSourceHash: null, deliveredSourceHash: null, timingMapHash: null, compilerVersion: deps.compiler.version },
+        sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
+        marker: { supportingItemId: span.id, text: message } });
     };
     const settings = span.settings as Record<string, unknown>;
     const supported = Object.entries(settings).every(([key, value]) => key === "gainDb" && typeof value === "number" && Number.isFinite(value) && value >= -60 && value <= 0 ||
@@ -300,7 +308,7 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
       sourceRange: geometry.sourceRange, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
       music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: (settings.gainDb as number | undefined) ?? -12,
         fadeInFrames: geometry.fadeInFrames, fadeOutFrames: geometry.fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
-    if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends after ${geometry.sourceRange.endFrame} frames, before requested ${geometry.requestedEndFrame - geometry.recordRange.startFrame} frames; no loop was used.`);
+    if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends early; ${geometry.requestedEndFrame - geometry.recordRange.endFrame} frames are uncovered.`, geometry.recordRange.endFrame);
   }
   return { sources, events, diagnostics };
 }

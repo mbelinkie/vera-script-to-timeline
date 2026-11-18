@@ -326,6 +326,7 @@ describe("#100 verified A5 music compilation", () => {
     expect(compiled.manifest.sources.filter((source) => "musicAudio" in source)).toEqual([{ id: event.provenance.sourceId, musicAudio: deps.musicBindings![0] }]);
     expect(compiled.report.eventResults.find((item) => item.eventId === event.eventId)).toMatchObject({ disposition: "placed", kind: "music" });
     expect(compiled.report.status).toBe("ready");
+    expect(compiled.manifest.events.some((item) => item.kind === "script_marker")).toBe(false);
     expect(JSON.stringify([doc, deps])).toBe(frozen);
   });
 
@@ -347,6 +348,9 @@ describe("#100 verified A5 music compilation", () => {
     expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 168 });
     expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 168 });
     expect(result.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    expect(result.manifest.events.find((item) => item.kind === "script_marker")).toMatchObject({
+      recordRange: { startFrame: 168, endFrame: 169 }, marker: { text: expect.stringContaining("120 frames are uncovered") },
+    });
     deps.musicBindings![0] = { ...deps.musicBindings![0]!, durationSamples: 1 } as never;
     const tooShort = compile(doc, deps);
     expect(tooShort.manifest.events.some((item) => item.kind === "music")).toBe(false);
