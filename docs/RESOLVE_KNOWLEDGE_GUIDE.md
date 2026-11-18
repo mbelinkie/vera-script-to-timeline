@@ -165,6 +165,16 @@ inspection had no authoritative source FPS; it is not Resolve motion evidence.
 #12's pinned EV24 timing is specific to this authored template, not a general
 animation rule. Semantic highlights use the separate RK-45 proof.
 
+**EV24 Quote Box.** Studio 21.2 build 6 retained three separately editable,
+48-frame instances on V4 over one continuous V1 still with centered Dynamic
+Zoom at 1920×1080, 24 fps. Import the pinned setting on each transparent
+carrier and connect the macro to MediaOut. Fusion identifies the connected
+tool as the internal `CitationOver` Merge. Hold-frame exports after reopening
+showed the expected attribution, quotation marks and citation italics across
+an emoji and accented text. At width 1600, the measured sample fit 7, 9 and
+11 quote lines at sizes 70, 58 and 50. Evaluate `Controls.PanelH` for the
+actual text and attribution. [Studio result and test conditions](https://github.com/mbelinkie/vera-script-to-timeline/issues/629#issuecomment-6985290208).
+
 ### RK-05 — Fairlight state readback is weaker than audible/rendered attachment
 
 **Historical native subset; delivered integration unproved.**

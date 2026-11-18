@@ -31,6 +31,7 @@ from .prep_media_inputs import (
     prepare_still_inputs,
     read_json_object,
 )
+from .quote_box_inputs import freeze_quote_box_inputs
 from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
 from .v2_package import _compiler_hash
 
@@ -203,6 +204,7 @@ def prepare_project(
     ):
         if raw_document[document_key] != frozen[frozen_key]:
             raise ValueError("Compiler inputs belong to a different frozen script")
+    freeze_quote_box_inputs(raw_document, dependencies)
     media_root = _plain(project_root / "Media")
     media_root.mkdir(exist_ok=True)
 

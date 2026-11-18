@@ -110,7 +110,7 @@ export function validateGraphicContentsV2(document: ScriptDocumentV2, dependenci
       for (const slot of block.primaryVisualSequence?.slots ?? []) {
         if (slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.source.kind === "graphic_revision") sources.set(slot.payload.payloadId, slot.payload.source);
       }
-      for (const overlay of block.overlayEvents) if (overlay.payload.source.kind === "graphic_revision") sources.set(overlay.payload.payloadId, overlay.payload.source);
+      for (const overlay of block.overlayEvents) if (!overlay.quoteBox && overlay.payload.source.kind === "graphic_revision") sources.set(overlay.payload.payloadId, overlay.payload.source);
     }
   }
   const key = (source: { graphicId: string; revisionId: string }): string => `${source.graphicId}:${source.revisionId}`;

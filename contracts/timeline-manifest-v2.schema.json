@@ -582,6 +582,7 @@
             "narration",
             "primary_visual",
             "overlay_visual",
+            "quote_box",
             "source_audio",
             "music",
             "placeholder",
@@ -661,7 +662,17 @@
           "$ref": "#/$defs/MusicEventV2"
         },
         "pictureTreatment": {
-          "$ref": "#/$defs/PictureTreatmentV2"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PictureTreatmentV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quoteBox": {
+          "$ref": "script-document-v2.schema.json#/$defs/QuoteBoxV2"
         },
         "marker": {
           "$ref": "#/$defs/ScriptMarkerTreatmentV2"
@@ -755,6 +766,64 @@
               "preparationBindingHash": {
                 "$ref": "#/$defs/ContentHash"
               }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "quote_box"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "quoteBox"
+            ],
+            "properties": {
+              "quoteBox": {
+                "$ref": "script-document-v2.schema.json#/$defs/QuoteBoxV2"
+              },
+              "trackRole": {
+                "const": "overlay"
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "payloadId": {
+                    "type": "null"
+                  },
+                  "sourceId": {
+                    "type": "null"
+                  }
+                }
+              },
+              "sourceRange": {
+                "type": "null"
+              },
+              "sourceTimeMapping": {
+                "type": "null"
+              },
+              "preparationBindingHash": {
+                "type": "null"
+              },
+              "audio": {
+                "type": "null"
+              },
+              "pictureTreatment": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "quoteBox"
+              ]
             }
           }
         }
