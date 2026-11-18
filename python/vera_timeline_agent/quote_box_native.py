@@ -22,7 +22,8 @@ QUOTE_BOX_SETTING_SHA256 = (
 )
 QUOTE_BOX_TEMPLATE_REVISION = f"sha256:{QUOTE_BOX_SETTING_SHA256}"
 QUOTE_BOX_ROOT_TOOL = "EV24QuoteBox"
-QUOTE_BOX_RENDER_OUTPUT = "EV24QuoteBox"
+# Fusion resolves the macro InstanceOutput to this internal Merge.
+QUOTE_BOX_RENDER_OUTPUT = "CitationOver"
 QUOTE_BOX_CONTROLS_TOOL = "Controls"
 QUOTE_BOX_CONTROL_NAMES = frozenset(
     {
@@ -66,9 +67,7 @@ def verify_installed_quote_box_setting(path: Path | None = None) -> Path:
     setting = Path(path) if path is not None else installed_quote_box_setting()
     try:
         if setting.is_symlink() or not setting.is_file():
-            raise QuoteBoxNativeError(
-                f"installed {QUOTE_BOX_SETTING_NAME} is missing"
-            )
+            raise QuoteBoxNativeError(f"installed {QUOTE_BOX_SETTING_NAME} is missing")
         actual = hashlib.sha256(setting.read_bytes()).hexdigest()
     except OSError as error:
         raise QuoteBoxNativeError(
@@ -143,39 +142,28 @@ def quote_box_controls(quote_box: Mapping[str, Any]) -> dict[str, str | int]:
     }
 
 
-def _composition_tools(item: Any) -> tuple[Any, dict[Any, Any]]:
+def _composition(item: Any) -> Any:
     try:
-        count = item.GetFusionCompCount()
-        composition = item.GetFusionCompByIndex(1)
-        tools = composition.GetToolList(False) if composition is not None else None
+        if item.GetFusionCompCount() == 1:
+            composition = item.GetFusionCompByIndex(1)
+            if composition is not None:
+                return composition
     except (AttributeError, TypeError, ValueError) as error:
         raise QuoteBoxNativeError(
             "quote box Fusion composition is unreadable"
         ) from error
-    if count != 1 or not isinstance(tools, dict) or not tools:
-        raise QuoteBoxNativeError(
-            "quote box requires exactly one Fusion composition with tools"
-        )
-    return composition, tools
+    raise QuoteBoxNativeError("quote box requires exactly one Fusion composition")
 
 
-def _root_tool(tools: Mapping[Any, Any]) -> Any:
-    roots = []
-    for tool in tools.values():
-        try:
-            name = tool.GetAttrs("TOOLS_Name")
-            registration = tool.GetAttrs("TOOLS_RegID")
-        except (AttributeError, TypeError, ValueError) as error:
-            raise QuoteBoxNativeError(
-                "quote box graph tool identity is unreadable"
-            ) from error
-        if name == QUOTE_BOX_ROOT_TOOL:
-            roots.append((tool, registration))
-    if len(roots) != 1 or roots[0][1] != "MacroOperator":
+def _root_tool(composition: Any) -> Any:
+    try:
+        tool = composition.FindTool(QUOTE_BOX_ROOT_TOOL)
+        if tool is None or tool.GetAttrs("TOOLS_RegID") != "MacroOperator":
+            raise QuoteBoxNativeError(f"expected {QUOTE_BOX_ROOT_TOOL} MacroOperator")
+    except (AttributeError, TypeError, ValueError) as error:
         raise QuoteBoxNativeError(
-            f"expected exactly one {QUOTE_BOX_ROOT_TOOL} MacroOperator"
-        )
-    tool = roots[0][0]
+            "quote box graph tool identity is unreadable"
+        ) from error
     if not callable(getattr(tool, "SetInput", None)) or not callable(
         getattr(tool, "GetInput", None)
     ):
@@ -207,16 +195,18 @@ def _controls_tool(composition: Any) -> Any:
     return tool
 
 
-def _media_out(composition: Any, tools: Mapping[Any, Any], root: Any) -> Any:
-    outputs = []
-    for tool in tools.values():
-        try:
-            if tool.GetAttrs("TOOLS_RegID") == "MediaOut":
-                outputs.append(tool)
-        except (AttributeError, TypeError, ValueError) as error:
-            raise QuoteBoxNativeError(
-                "quote box MediaOut identity is unreadable"
-            ) from error
+def _outputs(composition: Any) -> list[Any]:
+    try:
+        tools = composition.GetToolList(False, "MediaOut")
+        if isinstance(tools, dict):
+            return list(tools.values())
+    except (AttributeError, TypeError, ValueError) as error:
+        raise QuoteBoxNativeError("quote box MediaOut list is unreadable") from error
+    raise QuoteBoxNativeError("quote box MediaOut list is malformed")
+
+
+def _media_out(composition: Any, root: Any) -> Any:
+    outputs = _outputs(composition)
     if len(outputs) > 1:
         raise QuoteBoxNativeError("quote box graph contains duplicate MediaOut tools")
     try:
@@ -237,22 +227,15 @@ def _media_out(composition: Any, tools: Mapping[Any, Any], root: Any) -> Any:
 
 
 def _verify_media_out(item: Any) -> None:
-    _, tools = _composition_tools(item)
-    _root_tool(tools)
-    outputs = []
-    for tool in tools.values():
-        try:
-            if tool.GetAttrs("TOOLS_RegID") == "MediaOut":
-                outputs.append(tool)
-        except (AttributeError, TypeError, ValueError) as error:
-            raise QuoteBoxNativeError(
-                "quote box MediaOut identity is unreadable"
-            ) from error
+    outputs = _outputs(_composition(item))
     if len(outputs) != 1:
         raise QuoteBoxNativeError("quote box graph must contain exactly one MediaOut")
     try:
         source = outputs[0].FindMainInput(1).GetConnectedOutput().GetTool()
-        if source.GetAttrs("TOOLS_Name") != QUOTE_BOX_RENDER_OUTPUT:
+        if (
+            source.GetAttrs("TOOLS_Name") != QUOTE_BOX_RENDER_OUTPUT
+            or source.GetAttrs("TOOLS_RegID") != "Merge"
+        ):
             raise QuoteBoxNativeError(
                 "quote box MacroOperator is not connected to MediaOut"
             )
@@ -266,8 +249,8 @@ def _verify_media_out(item: Any) -> None:
 
 def discover_quote_box_controls(item: Any) -> Any:
     """Require the pinned macro and return its strict control facade."""
-    composition, tools = _composition_tools(item)
-    root = _root_tool(tools)
+    composition = _composition(item)
+    root = _root_tool(composition)
     _controls_tool(composition)
     return root
 
@@ -335,8 +318,8 @@ def configure_quote_box(
         raise QuoteBoxNativeError(
             "quote box item cannot import the pinned setting"
         ) from error
-    composition, tools = _composition_tools(item)
-    root = _root_tool(tools)
+    composition = _composition(item)
+    root = _root_tool(composition)
     controls = _controls_tool(composition)
     locked = False
     try:
@@ -346,7 +329,7 @@ def configure_quote_box(
                 "Resolve rejected the quote box Fusion composition lock"
             )
         locked = True
-        _media_out(composition, tools, root)
+        _media_out(composition, root)
     finally:
         if locked:
             try:
@@ -388,8 +371,8 @@ def verify_quote_box(
 ) -> None:
     """Verify graph wiring and controls after save/close/reopen."""
     _verify_media_out(item)
-    composition, tools = _composition_tools(item)
-    tool = _root_tool(tools)
+    composition = _composition(item)
+    tool = _root_tool(composition)
     controls = _controls_tool(composition)
     if set(expected) != set(QUOTE_BOX_CONTROL_NAMES):
         raise QuoteBoxNativeError("quote box expected control set is incomplete")

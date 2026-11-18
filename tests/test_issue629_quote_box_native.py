@@ -37,6 +37,7 @@ class _Root:
             "ItalicEnd": 0,
         }
         self.controls = _Controls(self)
+        self.output = _FinalMerge()
 
     def GetAttrs(self, key: str) -> str:
         return {"TOOLS_Name": "EV24QuoteBox", "TOOLS_RegID": "MacroOperator"}[key]
@@ -54,24 +55,29 @@ class _Root:
         return self.values[name]
 
 
+class _FinalMerge:
+    def GetAttrs(self, key: str) -> str:
+        return {"TOOLS_Name": "CitationOver", "TOOLS_RegID": "Merge"}[key]
+
+
 class _ConnectedOutput:
-    def __init__(self, source: _Root | None) -> None:
+    def __init__(self, source: _Root | _FinalMerge | None) -> None:
         self.source = source
 
-    def GetTool(self) -> _Root | None:
+    def GetTool(self) -> _Root | _FinalMerge | None:
         return self.source
 
 
 class _MediaOut:
     def __init__(self) -> None:
-        self.source: _Root | None = None
+        self.source: _Root | _FinalMerge | None = None
 
     def GetAttrs(self, key: str) -> str:
         return {"TOOLS_Name": "MediaOut1", "TOOLS_RegID": "MediaOut"}[key]
 
     def ConnectInput(self, name: str, source: _Root) -> bool:
         assert name == "Input"
-        self.source = source
+        self.source = source.output
         return True
 
     def FindMainInput(self, index: int) -> _MediaOut:
@@ -88,16 +94,16 @@ class _Composition:
         self.media_out: _MediaOut | None = None
         self.locked = False
 
-    def GetToolList(self, selected: bool = False) -> dict[int, Any]:
-        assert selected is False
-        tools: dict[int, Any] = {1: self.root}
-        if self.media_out is not None:
-            tools[2] = self.media_out
-        return tools
+    def GetToolList(self, selected: bool, reg_id: str) -> dict[int, Any]:
+        assert selected is False and reg_id == "MediaOut"
+        return {1: self.media_out} if self.media_out else {}
 
-    def FindTool(self, name: str) -> _Controls | None:
-        assert name == "Controls"
-        return self.root.controls
+    def FindTool(self, name: str) -> _Controls | _Root | None:
+        tools: dict[str, _Controls | _Root] = {
+            "Controls": self.root.controls,
+            "EV24QuoteBox": self.root,
+        }
+        return tools.get(name)
 
     def Lock(self) -> None:
         self.locked = True
@@ -177,7 +183,7 @@ def test_configure_quote_box_wires_graph_sizes_panel_and_verifies_reopen(
     assert binding.panel_height == 1000.0
     assert item.composition.locked is False
     assert item.composition.media_out is not None
-    assert item.composition.media_out.source is item.root
+    assert item.composition.media_out.source is item.root.output
     assert item.root.controls.hold_frames == [18, 18]
     quote_box_native.verify_quote_box(
         item,
