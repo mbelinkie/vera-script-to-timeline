@@ -1344,7 +1344,7 @@ def _music_pin_frame(
     ):
         raise _error("music timeline pin lacks current word timing")
     timing = maps[0]
-    word = next(
+    word: JsonObject = next(
         (mark for mark in timing["tokens"] if mark["tokenId"] == anchor["tokenId"]), {}
     )
     if anchor["affinity"] == "before":

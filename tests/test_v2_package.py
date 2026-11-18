@@ -171,7 +171,7 @@ def _music_package_case(
                 "timelineIn": {"kind": "frame", "frame": 30},
                 "timelineOut": {"kind": "row_edge", "blockId": row_id, "edge": "end"},
             }
-            music_event["recordRange"]["startFrame"] = 30
+            music_event["recordRange"] = {"startFrame": 30, "endFrame": end_frame}
             music_event["sourceRange"] = {
                 "startFrame": source_out - (end_frame - 30),
                 "endFrame": source_out,
