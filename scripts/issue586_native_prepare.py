@@ -38,8 +38,7 @@ NODE_BIN = (
     "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin"
 )
 TEMPLATE = (
-    ROOT
-    / "tests/data/authoring_v2/issue_173/compiler/"
+    ROOT / "tests/data/authoring_v2/issue_173/compiler/"
     "visual-only-image-still-25fps-default.input.golden.json"
 )
 RATE = Fraction(24, 1)

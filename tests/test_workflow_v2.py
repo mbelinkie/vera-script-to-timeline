@@ -1285,9 +1285,7 @@ def _music_motion_candidate_view() -> dict[str, Any]:
                 "trackId": "music-a5",
                 "recordRange": {"startFrame": 0, "durationFrames": 72},
                 "sourceRange": {"startFrame": 24, "durationFrames": 72},
-                "v2Event": {
-                    "music": {"startRowId": row_id, "endRowId": row_id}
-                },
+                "v2Event": {"music": {"startRowId": row_id, "endRowId": row_id}},
             },
         ],
     }
