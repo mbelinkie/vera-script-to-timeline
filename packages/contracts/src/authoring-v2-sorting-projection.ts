@@ -387,7 +387,11 @@ export function updateSortingProjectionV2(
     }
   }
 
-  const editedRowId = command.kind === "edit_row" ? command.rowId :
+  // Both word gestures are authored content changes, not changes of Stash
+  // position. An inline insertion also invalidates return eligibility on a
+  // previously placed Stash copy, exactly as edit_row does.
+  const editedRowId = command.kind === "edit_row" || command.kind === "stash_selected_words" ||
+    command.kind === "insert_stash_note_words" ? command.rowId :
     "blockId" in command && typeof command.blockId === "string" ? command.blockId : undefined;
   if (editedRowId && beforeSlots.get(editedRowId)?.surface === "draft" && beforeRows.get(editedRowId)?.stashOrigin) {
     if (!next.convertedEditedIds.includes(editedRowId)) next.convertedEditedIds.push(editedRowId);
