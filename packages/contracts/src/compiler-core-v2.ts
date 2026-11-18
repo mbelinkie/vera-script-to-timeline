@@ -251,10 +251,19 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     if (block.type === "section") section = block.id;
     else sections.set(block.id, section);
   }
-  const bounds = rows.map((row) => ({
-    id: row.block.id, startFrame: row.startFrame, endFrame: row.startFrame + row.durationFrames,
-    ...(sections.get(row.block.id) ? { sectionId: sections.get(row.block.id)! } : {}),
-  }));
+  const bounds: Array<{ id: string; startFrame: number; endFrame: number; sectionId?: string }> = [];
+  for (const row of rows) {
+    const endFrame = row.startFrame + row.durationFrames;
+    const previous = bounds.at(-1);
+    if (previous?.id === row.block.id) {
+      previous.endFrame = endFrame;
+      continue;
+    }
+    bounds.push({
+      id: row.block.id, startFrame: row.startFrame, endFrame,
+      ...(sections.get(row.block.id) ? { sectionId: sections.get(row.block.id)! } : {}),
+    });
+  }
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
     const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string): void => {

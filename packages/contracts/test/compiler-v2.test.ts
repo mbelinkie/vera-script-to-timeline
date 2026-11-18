@@ -381,6 +381,19 @@ describe("#100 verified A5 music compilation", () => {
     deps.tracks.find((item) => item.id === "music-a5")!.id = "unrelated";
     expect(compileTimelineV2(doc, deps).ok).toBe(false);
   });
+
+  it("plans a music span to the end of a multi-visual row", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const middle = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    middle.additionalVisuals = [{
+      payload: { ...middle.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    }];
+    const result = compile(doc, deps);
+    const event = result.manifest.events.find((item) => item.kind === "music")!;
+    expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 384 });
+    expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 384 });
+  });
 });
 
 function sharedPreparationFixture(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
