@@ -304,6 +304,8 @@ export type VisualSequenceEditCommandV2 =
       blockId: string;
       slotId: string;
       destinationBlockId: string;
+      /** Mandatory when receiving into a true visuals-only row; guards its independent revision. */
+      expectedDestinationRowVersion?: number;
     }
   | {
       /** Add one source-free visual on selected spoken words, with all range changes in one Undo step (D94). */

@@ -123,6 +123,21 @@ function documentOf(rows: NarrationBlockV2[]): ScriptDocumentV2 {
   };
 }
 
+function wordlessPictures(rowNumber: number): VisualOnlyBlockV2 {
+  const primary = placeholder(rowNumber, "S1");
+  const next = placeholder(rowNumber, "S2");
+  return {
+    type: "visual_only", id: rowId(rowNumber), orderKey: `a${rowNumber}`, version: 1,
+    payload: standalone(primary), visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    additionalVisuals: [{ payload: standalone(next), visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 2500 } }],
+  };
+}
+
+function standalone(payload: NarratedVisualPayloadV2): VisualOnlyBlockV2["payload"] {
+  return Object.fromEntries(Object.entries(payload).filter(([key]) =>
+    !["sourceUsage", "selectedSourceRange", "researchClip", "frameBinding"].includes(key))) as VisualOnlyBlockV2["payload"];
+}
+
 const TEN = "one two three four five six seven eight nine ten";
 const find = (doc: ScriptDocumentV2, row: number): NarrationBlockV2 =>
   doc.activeDraft.blocks.find((block) => block.id === rowId(row)) as NarrationBlockV2;
@@ -337,6 +352,149 @@ describe("#578 move a visual to another row", () => {
     const undefinedOnly = documentOf([rowOf(1, TEN, [{ at: 0, visual: "S1" }]), rowOf(2, TEN, [{ at: 0, onCamera: "OC1" }])]);
     placed(undefinedOnly, 1, "S1")!.payload = { kind: "undefined", payloadId: id(909), description: "Not chosen" };
     refusedWith(undefinedOnly, move("S1"), "VISUAL_UNDEFINED_EMPTY");
+  });
+});
+
+describe("#621 move whole pictures across narrated and wordless rows", () => {
+  it("promotes a genuinely blank narrated row on first + Visual and appends another at 4.0 seconds", () => {
+    const start = twoRows();
+    const blank = rowOf(3, "one", [{ at: 0, onCamera: "OC1" }]);
+    blank.text = "";
+    blank.tokens = [];
+    start.activeDraft.blocks.push(blank);
+    const first = act(start, { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: id(93010), slotId: id(93011), visualType: "onscreen_placeholder" }).document;
+    const promoted = first.activeDraft.blocks[2] as VisualOnlyBlockV2;
+    expect(promoted.type).toBe("visual_only");
+    expect(promoted.payload.payloadId).toBe(id(93010));
+    expect(promoted.visualOnlyTiming.durationOverrideMs).toBe(4000);
+    const next = act(first, { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: id(93012), slotId: id(93013), visualType: "need_to_find" }).document;
+    expect((next.activeDraft.blocks[2] as VisualOnlyBlockV2).additionalVisuals![0].visualOnlyTiming.durationOverrideMs).toBe(4000);
+    refusedWith(first, { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: id(93010), slotId: id(93014), visualType: "onscreen_placeholder" }, "VISUAL_ID_DUPLICATE");
+    refusedWith(first, { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: id(93015), slotId: id(93016), visualType: "footage" } as unknown as RowEditCommandV2, "ROW_COMMAND_INVALID");
+  });
+
+  it("promotes an existing single picture into a mapped wordless stack without changing its original identity", () => {
+    const start = twoRows();
+    const blank = rowOf(3, "one", [{ at: 0, visual: "S1" }]);
+    blank.text = "";
+    blank.tokens = [];
+    start.activeDraft.blocks.push(blank);
+    const { document } = act(start, { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: id(93017), slotId: id(93018), visualType: "onscreen_placeholder" });
+    const converted = document.activeDraft.blocks[2] as VisualOnlyBlockV2;
+    expect(converted.payload.payloadId).toBe(placeholder(3, "S1").payloadId);
+    expect(converted.additionalVisuals![0].payload.payloadId).toBe(id(93017));
+    expect(converted.clearedNarration!.slots.map((item) => item.id)).toEqual([slotId(3, "S1"), id(93018)]);
+    const restored = createRowEditSessionV2(document).apply({ kind: "edit_narration_text",
+      rowId: blank.id, startOffset: 0, endOffset: 0, insertedText: "Now", editId: id(93019) });
+    expect(restored.ok, JSON.stringify(restored.diagnostics)).toBe(true);
+    const narrated = restored.document.activeDraft.blocks[2] as NarrationBlockV2;
+    expect(narrated.type).toBe("narration");
+    expect(narrated.unattachedVisuals!.map((item) => item.slotId)).toEqual([slotId(3, "S1"), id(93018)]);
+  });
+
+  it("appends a trimmed clip and its source metadata to a real wordless row, with one Undo", () => {
+    const start = twoRows();
+    start.activeDraft.blocks.push(wordlessPictures(3));
+    const { document } = act(start, {
+      ...move("F", 1, 3), expectedDestinationRowVersion: 1,
+    });
+    const destination = document.activeDraft.blocks[2] as VisualOnlyBlockV2;
+    expect(destination.additionalVisuals).toHaveLength(2);
+    expect(destination.additionalVisuals![1]).toEqual({
+      payload: standalone(footage(1)),
+      visualOnlyTiming: { kind: "visual_only", selectedSourceRange: { startFrame: 48, durationFrames: 96 } },
+    });
+    expect(cards(document, 1)).toEqual(["OC wide 0-10"]);
+    refusedWith(start, move("F", 1, 3), "ROW_REVISION_STALE");
+    refusedWith(start, { ...move("F", 1, 3), expectedDestinationRowVersion: 0 }, "ROW_REVISION_STALE");
+    const invalid = structuredClone(start);
+    delete (placed(invalid, 1, "F")!.payload as NarratedVisualPayloadV2).selectedSourceRange;
+    refusedWith(invalid, { ...move("F", 1, 3), expectedDestinationRowVersion: 1 }, "WORDLESS_CLIP_TRIM_REQUIRED");
+    const complete = structuredClone(start);
+    placed(complete, 1, "F")!.playoutPolicy = "complete_logged_clip";
+    refusedWith(complete, { ...move("F", 1, 3), expectedDestinationRowVersion: 1 }, "WORDLESS_PLAYOUT_UNSUPPORTED");
+  });
+
+  it("adds a narrated visual to a mapped wordless row without orphaning original slot IDs", () => {
+    const start = twoRows();
+    const mapped = wordlessPictures(3);
+    mapped.clearedNarration = { id: id(93300), version: 2, slots: [
+      { id: id(93301), version: 1, visualId: mapped.payload.payloadId },
+      { id: id(93302), version: 1, visualId: mapped.additionalVisuals![0].payload.payloadId },
+    ] };
+    start.activeDraft.blocks.push(mapped);
+    const { document } = act(start, { ...move("F", 1, 3), expectedDestinationRowVersion: 1 });
+    const updated = document.activeDraft.blocks[2] as VisualOnlyBlockV2;
+    expect(updated.clearedNarration!.slots).toHaveLength(3);
+    expect(updated.clearedNarration!.slots[2]).toEqual({ id: slotId(1, "F"), version: 1,
+      visualId: footage(1).payloadId });
+    expect(updated.additionalVisuals![1]!.visualOnlyTiming.selectedSourceRange).toEqual({ startFrame: 48, durationFrames: 96 });
+  });
+
+  it("moves a wordless picture onto spoken words as a waiting visual, preserving trim and IDs", () => {
+    const start = twoRows();
+    const source = wordlessPictures(3);
+    source.payload = standalone(footage(3));
+    source.visualOnlyTiming = { kind: "visual_only", selectedSourceRange: { startFrame: 48, durationFrames: 96 } };
+    start.activeDraft.blocks.push(source);
+    const { document } = act(start, {
+      kind: "move_wordless_visual", sourceRowId: source.id, payloadId: source.payload.payloadId,
+      destinationRowId: rowId(2), destinationSlotId: id(91000), expectedDestinationSequenceVersion: 1,
+    });
+    const target = find(document, 2);
+    expect(target.unattachedVisuals![0]).toEqual({ slotId: id(91000), payload: footage(3), version: 1 });
+    expect((document.activeDraft.blocks[2] as VisualOnlyBlockV2).payload.payloadId).toBe(placeholder(3, "S2").payloadId);
+    refusedWith(start, {
+      kind: "move_wordless_visual", sourceRowId: source.id, payloadId: source.payload.payloadId,
+      destinationRowId: rowId(2), destinationSlotId: id(91001), expectedDestinationSequenceVersion: 2,
+    }, "SEQUENCE_VERSION_STALE");
+  });
+
+  it("moves the last wordless picture without deleting its row, using a new visible four-second placeholder", () => {
+    const start = twoRows();
+    const source = wordlessPictures(3);
+    delete source.additionalVisuals;
+    start.activeDraft.blocks.push(source, wordlessPictures(4));
+    refusedWith(start, {
+      kind: "move_wordless_visual", sourceRowId: source.id, payloadId: source.payload.payloadId,
+      destinationRowId: rowId(4),
+    }, "WORDLESS_EMPTY_SOURCE");
+    const { document } = act(start, {
+      kind: "move_wordless_visual", sourceRowId: source.id, payloadId: source.payload.payloadId,
+      destinationRowId: rowId(4), replacementPayloadId: id(92000),
+    });
+    const remaining = document.activeDraft.blocks[2] as VisualOnlyBlockV2;
+    const destination = document.activeDraft.blocks[3] as VisualOnlyBlockV2;
+    expect(remaining.id).toBe(source.id);
+    expect(remaining.payload.payloadId).toBe(id(92000));
+    expect(remaining.visualOnlyTiming.durationOverrideMs).toBe(4000);
+    expect(destination.additionalVisuals![1]!.payload.payloadId).toBe(source.payload.payloadId);
+  });
+
+  it("refuses moves that would orphan a cleared-narration identity map", () => {
+    const start = twoRows();
+    const source = wordlessPictures(3);
+    source.clearedNarration = { id: id(93000), version: 1, slots: [
+      { id: id(93001), version: 1, visualId: source.payload.payloadId },
+      { id: id(93002), version: 1, visualId: source.additionalVisuals![0].payload.payloadId },
+    ] };
+    start.activeDraft.blocks.push(source);
+    refusedWith(start, {
+      kind: "move_wordless_visual", sourceRowId: source.id, payloadId: source.payload.payloadId,
+      destinationRowId: rowId(2), expectedDestinationSequenceVersion: 1,
+    }, "CLEARED_NARRATION_REVIEW_REQUIRED");
+    const added = act(start, { kind: "add_visual_to_wordless_row", rowId: source.id,
+      payloadId: id(93003), slotId: id(93004), visualType: "onscreen_placeholder" }).document;
+    const moved = act(added, { kind: "move_wordless_visual", sourceRowId: source.id,
+      payloadId: id(93003), destinationRowId: rowId(2), expectedDestinationSequenceVersion: 1 }).document;
+    const map = (moved.activeDraft.blocks[2] as VisualOnlyBlockV2).clearedNarration!;
+    expect(map.slots).toHaveLength(2);
+    expect(find(moved, 2).unattachedVisuals![0]!.slotId).toBe(id(93004));
   });
 });
 

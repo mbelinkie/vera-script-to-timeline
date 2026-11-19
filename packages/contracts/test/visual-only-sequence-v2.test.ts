@@ -68,6 +68,26 @@ function musicCue(cueId: number, rowId: string): RowAudioSpanIntentV2 {
 }
 
 describe("#585 visuals-only ordered cards", () => {
+  it("#621 appends independent four-second placeholders, keeps order across save/reload and one-step Undo", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const session = createRowEditSessionV2(document);
+    const beforeCount = row.additionalVisuals!.length;
+    const result = session.apply({ kind: "add_visual_to_wordless_row", rowId: row.id,
+      payloadId: id(94111), slotId: id(94112), visualType: "onscreen_placeholder" });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(session.undoDepth).toBe(1);
+    const actual = result.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(actual.additionalVisuals).toHaveLength(beforeCount + 1);
+    expect(actual.additionalVisuals!.at(-1)!.visualOnlyTiming.durationOverrideMs).toBe(4000);
+    const copy = deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document));
+    expect(copy).toEqual({ ok: true, document: result.document });
+    expect(session.undo().document.activeDraft.blocks[0]).toEqual(row);
+    const bad = createRowEditSessionV2(document).apply({ kind: "add_visual_to_wordless_row", rowId: row.id,
+      payloadId: row.payload.payloadId, slotId: id(94113), visualType: "onscreen_placeholder" });
+    expect(bad.ok).toBe(false);
+    expect(bad.diagnostics.map((item) => item.code)).toContain("VISUAL_ID_DUPLICATE");
+  });
   it("stores an explicit selected music cue, keeps the fixed hold, and makes it read-only", () => {
     const { document } = sequence();
     const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
