@@ -718,7 +718,10 @@ function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, 
 
   function updateSelection() {
     if (!mounted || reviewing) return;
-    pending = selectionProposal();
+    const next = selectionProposal();
+    // A delayed selectionchange can report the same words after Enter shows a refusal.
+    if (next?.startIndex === pending?.startIndex && next?.endIndexExclusive === pending?.endIndexExclusive) return;
+    pending = next;
     state.pending = pending;
     proposal = null;
     display();
