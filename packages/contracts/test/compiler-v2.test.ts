@@ -454,6 +454,132 @@ describe("#100 verified A5 music compilation", () => {
     expect(compileTimelineV2(doc, deps).ok).toBe(false);
   });
 
+  it("plans a music span to the end of a multi-visual row", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const middle = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    middle.additionalVisuals = [{
+      payload: { ...middle.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    }];
+    const result = compile(doc, deps);
+    const event = result.manifest.events.find((item) => item.kind === "music")!;
+    expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 384 });
+    expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 384 });
+  });
+
+  it("does not guess a matched still duration from its fixed hold", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    row.visualOnlyTiming.matchAudioDuration = { cueId: doc.rowAudioSpans![0]!.id };
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("blocked");
+    expect(JSON.stringify(result.report.diagnostics)).toContain("independently resolved source duration");
+  });
+
+  it("uses fixed source endpoints for a matched still before planning its cue", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const span = doc.rowAudioSpans![0]!;
+    span.timing = {
+      sourceInFrame: 48,
+      sourceOutFrame: 192,
+      timelineIn: { kind: "frame", frame: 0 },
+    };
+    row.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
+    const result = compile(doc, deps);
+    const still = result.manifest.events.find((event) => event.kind === "placeholder" && event.provenance.blockId === row.id)!;
+    const music = result.manifest.events.find((event) => event.kind === "music")!;
+    expect(still.recordRange).toEqual({ startFrame: 96, endFrame: 240 });
+    expect(music.recordRange).toEqual(still.recordRange);
+    expect(music.provenance.blockId).toBe(row.id);
+    expect(music.sourceRange).toEqual({ startFrame: 48, endFrame: 192 });
+  });
+
+  it("attaches the cue to the specific visual, then restores its saved placement when cleared", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const span = doc.rowAudioSpans![0]!;
+    const visual = {
+      payload: { ...row.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only" as const, durationOverrideMs: 4000, matchAudioDuration: { cueId: span.id } },
+    };
+    row.additionalVisuals = [visual];
+    span.timing = { sourceInFrame: 24, sourceOutFrame: 72, timelineOut: { kind: "frame", frame: 48 } };
+    for (const [hold, expectedStart] of [[4000, 192], [2000, 144]] as const) {
+      row.visualOnlyTiming.durationOverrideMs = hold;
+      const { manifest } = compile(doc, deps);
+      const still = manifest.events.find((event) => event.provenance.payloadId === visual.payload.payloadId)!;
+      expect(still.recordRange).toEqual({ startFrame: expectedStart, endFrame: expectedStart + 48 });
+      expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+        recordRange: still.recordRange,
+        sourceRange: { startFrame: 24, endFrame: 72 },
+      });
+    }
+    Reflect.deleteProperty(visual.visualOnlyTiming, "matchAudioDuration");
+    const { manifest } = compile(doc, deps);
+    expect(manifest.events.find((event) => event.kind === "music")?.recordRange).toEqual({ startFrame: 0, endFrame: 48 });
+    expect(manifest.events.find((event) => event.provenance.payloadId === visual.payload.payloadId)?.recordRange)
+      .toEqual({ startFrame: 144, endFrame: 240 });
+  });
+
+  it("blocks an A5 collision after matching and allows different cues on adjacent visuals", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const firstRow = doc.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const secondRow = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const firstCue = doc.rowAudioSpans![0]!;
+    firstCue.timing = { sourceInFrame: 24, sourceOutFrame: 72, timelineIn: { kind: "frame", frame: 80 } };
+    const secondCue = { ...firstCue, id: id(190) };
+    doc.rowAudioSpans!.push(secondCue);
+    deps.musicBindings!.push({ ...deps.musicBindings![0]!, spanId: secondCue.id });
+
+    secondRow.visualOnlyTiming.matchAudioDuration = { cueId: secondCue.id };
+    const blocked = compile(doc, deps);
+    expect(blocked.report.status).toBe("blocked");
+    expect(JSON.stringify(blocked.report.diagnostics)).toContain("overlaps another cue on the music track");
+
+    firstRow.visualOnlyTiming.matchAudioDuration = { cueId: firstCue.id };
+    const { manifest, report } = compile(doc, deps);
+    expect(report.status).toBe("ready");
+    expect(manifest.events.filter((event) => event.kind === "music").map((event) => event.recordRange))
+      .toEqual([{ startFrame: 0, endFrame: 48 }, { startFrame: 48, endFrame: 96 }]);
+  });
+
+  it("blocks a matched still when its cue cannot provide verified audio", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const span = doc.rowAudioSpans![0]!;
+    span.timing = {
+      sourceInFrame: 48,
+      sourceOutFrame: 192,
+      timelineIn: { kind: "row_edge", blockId: row.id, edge: "start" },
+    };
+    row.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
+    deps.musicBindings = [];
+    const missingBinding = compile(doc, deps);
+    expect(missingBinding.report.status).toBe("blocked");
+    expect(JSON.stringify(missingBinding.report.diagnostics)).toContain("verified audio binding");
+    deps.musicBindings = [{ spanId: span.id, source: structuredClone(span.source), displayFilename: "synthetic.wav", status: "ready", sampleRate: 48000, channels: 1, durationSamples: 48000 * 16 }];
+    span.settings = { gainDb: -12, trimStartFrames: 1 };
+    const unsupportedSettings = compile(doc, deps);
+    expect(unsupportedSettings.report.status).toBe("blocked");
+    expect(JSON.stringify(unsupportedSettings.report.diagnostics)).toContain("unsupported settings");
+  });
+
+  it("rejects a matched cue with reversed fixed source endpoints", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const span = doc.rowAudioSpans![0]!;
+    span.timing = {
+      sourceInFrame: 192,
+      sourceOutFrame: 48,
+      timelineIn: { kind: "row_edge", blockId: row.id, edge: "start" },
+    };
+    row.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("blocked");
+    expect(JSON.stringify(result.report.diagnostics)).toContain("sourceOutFrame must be greater than sourceInFrame");
+  });
+
   it("plays a 25-second source selection through the 10-second picture cut", () => {
     const { doc, deps } = threeRowMusicFixture(48000 * 120, [10000, 30000, 10000]);
     doc.rowAudioSpans![0]!.timing = {

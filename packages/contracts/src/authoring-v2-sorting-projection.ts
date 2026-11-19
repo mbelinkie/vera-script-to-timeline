@@ -92,6 +92,8 @@ export interface SortingProjectionV2 {
   groupIdentityConflicts: string[];
   /** Present only when a single placement copied notes AND moved other saved rows. */
   mixedCopyPlacements?: MixedCopyPlacement[];
+  /** Cues explicitly removed as edits, independent of row order. */
+  deletedAudioCueIds?: string[];
 }
 
 const diagnostic = (code: string, message: string): AuthoringDiagnosticV2 => ({
@@ -265,6 +267,9 @@ export function updateSortingProjectionV2(
   command: RowEditCommandV2,
 ): SortingProjectionV2 {
   const next = structuredClone(state);
+  if (command.kind === "delete_row_audio_span") {
+    (next.deletedAudioCueIds ??= []).push(command.cueId);
+  }
   const beforeRows = rowMap(before);
   const afterRows = rowMap(after);
   const beforeSlots = slotRecords(before);
@@ -973,14 +978,19 @@ function mergeById<T extends { id: string }>(baseline: T[] | undefined, current:
   return [...result.values()];
 }
 
-function applyRelationships(output: ScriptDocumentV2, baseline: ScriptDocumentV2, current: ScriptDocumentV2, mode: "edits_only" | "sorting_only"): void {
+function applyRelationships(output: ScriptDocumentV2, state: SortingProjectionV2, current: ScriptDocumentV2, mode: "edits_only" | "sorting_only"): void {
+  const baseline = state.baseline;
   const useCurrent = mode === "sorting_only";
+  const deletedCues = new Set(useCurrent ? [] : state.deletedAudioCueIds);
   const rows = rowMap(output);
   const transitions = mergeById<RowTransitionIntentV2>(baseline.rowTransitions, current.rowTransitions, useCurrent);
   const spans = mergeById<RowAudioSpanIntentV2>(baseline.rowAudioSpans, current.rowAudioSpans, useCurrent);
+  // References are restored with baseline rows in sorting-only; unlike
+  // authored music/transition edits, Sorting commands can remove them as a
+  // consequence of temporarily deleting a row.
   const references = mergeById<NonNullable<ScriptDocumentV2["rowReferences"]>[number]>(baseline.rowReferences, current.rowReferences, true);
   output.rowTransitions = transitions.filter((item) => rows.has(item.fromRowId) && rows.has(item.toRowId));
-  output.rowAudioSpans = spans.filter((item) => rows.has(item.startRowId) && rows.has(item.endRowId));
+  output.rowAudioSpans = spans.filter((item) => !deletedCues.has(item.id) && rows.has(item.startRowId) && rows.has(item.endRowId));
   output.rowReferences = references.filter((item) => rows.has(item.rowId));
   if (output.rowTransitions.length === 0) delete output.rowTransitions;
   if (output.rowAudioSpans.length === 0) delete output.rowAudioSpans;
@@ -1280,7 +1290,7 @@ export function projectSortingDocumentV2(
     if (groupProblem) return refuse(current, "SORTING_PROJECTION_GROUP_INVALID", groupProblem);
     const supportProblem = routeSupportingItems(output, baseline, current, mode, droppedIds);
     if (supportProblem) return refuse(current, "SORTING_PROJECTION_ATTACHMENT_INVALID", supportProblem);
-    applyRelationships(output, baseline, current, mode);
+    applyRelationships(output, state, current, mode);
     const originalClipIds = clipOwnershipIds(baseline);
     const currentClipIds = clipOwnershipIds(current);
     const outputClipIds = clipOwnershipIds(output);

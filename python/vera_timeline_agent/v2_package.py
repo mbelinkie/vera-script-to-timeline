@@ -907,6 +907,17 @@ def _validate_manifest_semantics(
         for overlay in block.get("overlayEvents", [])
         if "quoteBox" in overlay
     }
+    music_matches: dict[str, tuple[str, str]] = {}
+    for block in document["activeDraft"]["blocks"]:
+        if block["type"] != "visual_only":
+            continue
+        for visual in (block, *block.get("additionalVisuals", [])):
+            match = visual["visualOnlyTiming"].get("matchAudioDuration")
+            if match is not None:
+                cue_id = match["cueId"]
+                if cue_id in music_matches:
+                    raise _error("a music cue can match only one visual")
+                music_matches[cue_id] = (block["id"], visual["payload"]["payloadId"])
     for event in events.values():
         event_id = cast(str, event["eventId"])
         event_kind = cast(str, event["kind"])
@@ -1206,14 +1217,17 @@ def _validate_manifest_semantics(
                     f"source audio event {event_id} preparation mapping is stale"
                 )
         elif event_kind == "music":
+            match = music_matches.pop(event["music"]["spanId"], None)
             _validate_music_event(
-                document, dependencies, manifest, event, sources[source_id], rate
+                document, dependencies, manifest, event, sources[source_id], rate, match
             )
 
         events_by_track[track_id].append(event)
 
     if authored_quotes:
         raise _error("an authored quote box is absent from the build")
+    if music_matches:
+        raise _error("an authored matched music cue is absent from the build")
 
     source_audio_events = sorted(
         (
@@ -1409,6 +1423,7 @@ def _validate_music_event(
     event: JsonObject,
     source: JsonObject,
     rate: Fraction,
+    matched_visual: tuple[str, str] | None,
 ) -> None:
     """Derive signed music placement and treatment from the saved span and PCM pin."""
     event_id = cast(str, event["eventId"])
@@ -1446,7 +1461,8 @@ def _validate_music_event(
         music["audioHash"] != content_hash
         or provenance.get("originalSourceHash") != content_hash
         or provenance.get("deliveredSourceHash") != content_hash
-        or provenance.get("blockId") != span["startRowId"]
+        or provenance.get("blockId")
+        != (matched_visual[0] if matched_visual else span["startRowId"])
         or provenance.get("sourceId") != expected_source_id
         or event.get("audio") is not None
         or event.get("sourceTimeMapping") is not None
@@ -1502,6 +1518,31 @@ def _validate_music_event(
     requested = _safe_frame(
         music["requestedEndFrame"], "music requestedEndFrame", positive=True
     )
+    if matched_visual is not None:
+        pictures = [
+            other
+            for other in manifest["events"]
+            if other["kind"] in {"primary_visual", "placeholder"}
+            and other.get("trackRole") == "primary_root"
+            and (
+                other["provenance"].get("blockId"),
+                other["provenance"].get("payloadId"),
+            )
+            == matched_visual
+        ]
+        if (
+            len(pictures) != 1
+            or _range(pictures[0]["recordRange"], "matched visual timing")
+            != (record_start, record_end)
+            or timing is None
+            or not {"sourceInFrame", "sourceOutFrame"}.issubset(timing)
+        ):
+            raise _error(f"music event {event_id} differs from its signed visual match")
+        timing = {
+            "sourceInFrame": timing["sourceInFrame"],
+            "sourceOutFrame": timing["sourceOutFrame"],
+            "timelineIn": {"kind": "frame", "frame": record_start},
+        }
     if timing is not None:
         fixed = {
             key: _music_pin_frame(value, document, dependencies, rows, rate)
@@ -3272,9 +3313,9 @@ def _native_motion_for_event(
         else:
             probe = preparation.record["deliveredProbe"]
             if (
-                timeline["frameRate"]["numerator"],
-                timeline["frameRate"]["denominator"],
-            ) != (24, 1) and preparation.record.get("sourceProbe") != probe:
+                probe.get("kind") == "image"
+                and preparation.record.get("sourceProbe") != probe
+            ):
                 probe = None
             proof = native_image_motion.production_qualification(
                 motion,
@@ -3292,15 +3333,7 @@ def _native_motion_for_event(
             binding,
             proof,
             framing=framing,
-            version=(
-                "21.2.0.6"
-                if (
-                    timeline["frameRate"]["numerator"],
-                    timeline["frameRate"]["denominator"],
-                )
-                in {(24000, 1001), (25, 1), (30, 1)}
-                else "21.1.1.10"
-            ),
+            version=proof.version if proof is not None else "21.1.1.10",
         )
         return native_image_motion.native_effect_records(
             motion, qualified

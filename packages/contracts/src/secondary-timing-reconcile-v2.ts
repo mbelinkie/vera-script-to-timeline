@@ -107,6 +107,9 @@ export function previewSecondaryTimingReconcileV2(
         block.visualOnlyTiming.selectedSourceRange || block.researchClip) {
       return refusal("UNSUPPORTED_TIMING_EDIT", "Selected/complete clips cannot be stretched using a still-duration override.");
     }
+    if (block.visualOnlyTiming.matchAudioDuration) {
+      return refusal("UNSUPPORTED_TIMING_EDIT", "A visual matched to music derives its duration from the cue; clear the match before editing its fixed hold.");
+    }
     if (!isPositiveSafe(command.durationOverrideMs)) return refusal("INVALID_DURATION", "Still duration must be positive safe integer milliseconds.");
     if (!isPositiveSafe(block.version) || block.version === Number.MAX_SAFE_INTEGER) {
       return refusal("INVALID_INPUT", "The visual-only row cannot advance its version safely.");

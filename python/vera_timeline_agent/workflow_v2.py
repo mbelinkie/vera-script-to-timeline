@@ -125,6 +125,7 @@ class VerifiedPackageV2:
     manifest: dict[str, Any]
     view: dict[str, Any]
     attestation: dict[str, Any]
+    prepared_motion_sources: frozenset[str] = frozenset()
 
 
 def _digest(payload: bytes) -> str:
@@ -555,9 +556,25 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
     except TransitionRefusal as error:
         raise WorkflowV2Error(f"signed picture transition refused: {error}") from error
 
+    motion_sources = {
+        event["sourceId"]
+        for event in view["events"]
+        if "imageMotion" in (event.get("pictureTreatment") or {})
+    }
+    preparations = receipt["preparations"]
+    prepared_motion_sources = frozenset(
+        source["id"]
+        for source in manifest["sources"]
+        if source["id"] in motion_sources
+        and (key := source.get("preparationRequirementKey")) in preparations
+        and _read_package_json(root, preparations[key]["path"])["deliveredProbe"].get(
+            "kind"
+        )
+        == "image"
+    )
     if _inventory(root) != inventory:
         raise WorkflowV2Error("package changed while it was being loaded")
-    return VerifiedPackageV2(root, manifest, view, attestation)
+    return VerifiedPackageV2(root, manifest, view, attestation, prepared_motion_sources)
 
 
 def _validate_receipt(
@@ -4047,13 +4064,16 @@ def run_workflow_delivery_v2(
                     "native source-audio requires measured Studio 21.2.0 build 6"
                 )
         if native_otio and connected_identity == ("21.1.1", "10"):
-            if _frame_rate(timeline) != (24, 1) and any(
-                isinstance(picture := event.get("pictureTreatment"), Mapping)
-                and "imageMotion" in picture
-                for event in view["events"]
+            if package.prepared_motion_sources or (
+                _frame_rate(timeline) != (24, 1)
+                and any(
+                    isinstance(picture := event.get("pictureTreatment"), Mapping)
+                    and "imageMotion" in picture
+                    for event in view["events"]
+                )
             ):
                 raise WorkflowV2Error(
-                    "image motion at this rate requires the measured Studio 21.2 build"
+                    "this image motion profile requires the measured Studio 21.2 build"
                 )
             if any(
                 event["recordRange"]["durationFrames"] == 72
@@ -4065,10 +4085,9 @@ def run_workflow_delivery_v2(
                     "72-frame image motion requires the measured Studio 21.2 build"
                 )
         elif native_otio:
-            # #508 checks centered image zoom and explicit None only.
-            # Music with moving picture takes the separate 24 fps profile.
+            # The package separately checks the prepared still recipe and A5 PCM.
             stills = [
-                picture
+                event
                 for event in view["events"]
                 if isinstance(picture := event.get("pictureTreatment"), Mapping)
                 and "imageMotion" in picture
@@ -4078,16 +4097,19 @@ def run_workflow_delivery_v2(
                 or (
                     has_music
                     and (
-                        stills
+                        any(
+                            event["sourceId"] not in package.prepared_motion_sources
+                            for event in stills
+                        )
                         or has_quote_boxes
                         or not result["nativeMusicRateQualified"]
                     )
                 )
                 or (not has_music and not stills)
                 or any(
-                    picture["imageMotion"]
+                    event["pictureTreatment"]["imageMotion"]
                     not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
-                    for picture in stills
+                    for event in stills
                 )
             ):
                 raise WorkflowV2Error(
