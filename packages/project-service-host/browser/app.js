@@ -23,8 +23,6 @@ const visualCommandKinds = new Set([
 let project;
 let activeProjectId;
 let scriptDocument;
-let projected;
-let projectionDocument;
 let flashVisualIds = new Set();
 let visualFeedback = "";
 let cardFocus = null;
@@ -34,6 +32,10 @@ let documentSaving = false;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
+let visualProjection = null;
+let activeReselect = null;
+let projectionGeneration = 0;
+let projectionTimer;
 let editRefused = false;
 let refusedMessage = "";
 let renderRequested = false;
@@ -122,15 +124,28 @@ async function showScript(projectId) {
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
   scriptDocument = savedScript.document;
-  projected = await fetchProjection(scriptDocument);
-  projectionDocument = scriptDocument;
   flashVisualIds = new Set();
   visualFeedback = "";
   documentRevision = savedScript.revision;
+  // Finish the initial projection before exposing editable rows. Otherwise a
+  // late projection response remounts the entire row list just as the user
+  // selects words, composes text or reaches for an Add row control.
+  const generation = ++projectionGeneration;
+  clearTimeout(projectionTimer);
+  visualProjection = null;
+  try {
+    const projection = await fetchProjection(scriptDocument);
+    if (generation !== projectionGeneration) return;
+    visualProjection = projection;
+  } catch {
+    // Projection is derived decoration; an unavailable service must not block
+    // access to the saved script.
+  }
   undoStack.length = 0;
   typingGroup = null;
   lastSplit = null;
   structuralFocus = null;
+  activeReselect = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -203,6 +218,21 @@ function renderEditor() {
   cardFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
+  const framingFocus = active?.matches("[data-visual-framing]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.closest("[data-slot-id]")?.dataset.slotId,
+    framing: active.dataset.visualFraming,
+  } : null;
+  const bracketFocus = active?.matches("[data-range-slot]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.dataset.rangeSlot,
+    edge: active.dataset.rangeEdge,
+  } : null;
+  const reselectFocus = active?.matches("[data-reselect-open]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.closest("[data-slot-id]")?.dataset.slotId,
+    opener: active.dataset.reselectOpen,
+  } : null;
   let caret = null;
   if (rowId && document.getSelection()?.rangeCount) {
     const selection = document.getSelection().getRangeAt(0);
@@ -213,7 +243,10 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument, projectionDocument === scriptDocument ? projected : null, flashVisualIds);
+  renderRows(root, scriptDocument, {
+    projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+    flashIds: flashVisualIds,
+  });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
@@ -223,6 +256,12 @@ function renderEditor() {
   });
   root.querySelectorAll('.script-row .narration-cell').forEach((cell) => {
     narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
+      projection: projectedPrimaryRow(cell.closest("[data-row-id]")?.dataset.rowId),
+      visualCommand: queueVisualCommand,
+      reselect: activeReselect?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeReselect : null,
+      cancelReselect,
+      commitReselect,
+      previewReselect,
       compositionChange(rowId, active) {
         if (active) composingRows.add(rowId);
         else { composingRows.delete(rowId); scheduleRender(); }
@@ -259,6 +298,112 @@ function renderEditor() {
       document.getSelection().addRange(range);
     }
   }
+  if (framingFocus) {
+    const button = [...root.querySelectorAll("[data-visual-framing]")].find((item) =>
+      item.dataset.visualFraming === framingFocus.framing &&
+      item.closest("[data-row-id]")?.dataset.rowId === framingFocus.rowId &&
+      item.closest("[data-slot-id]")?.dataset.slotId === framingFocus.slotId);
+    button?.focus();
+  }
+  if (bracketFocus) {
+    const handle = [...root.querySelectorAll("[data-range-slot]")].find((item) =>
+      item.dataset.rangeSlot === bracketFocus.slotId && item.dataset.rangeEdge === bracketFocus.edge &&
+      item.closest("[data-row-id]")?.dataset.rowId === bracketFocus.rowId);
+    handle?.focus();
+  }
+  if (reselectFocus) focusReselectOpener(reselectFocus);
+}
+
+function reselectOpener(state) {
+  return [...element("script-rows").querySelectorAll("[data-reselect-open]")].find((button) =>
+    button.dataset.reselectOpen === state.opener &&
+    button.closest("[data-row-id]")?.dataset.rowId === state.rowId &&
+    button.closest("[data-slot-id]")?.dataset.slotId === state.slotId);
+}
+
+function focusReselectOpener(state) {
+  const opener = reselectOpener(state);
+  // The distinct hover/focus action is not visible until its card receives
+  // focus; focusing a CSS-hidden button directly does nothing in Chromium.
+  opener?.closest(".visual-card")?.focus();
+  opener?.focus();
+}
+
+function beginReselect(rowId, slotId, opener) {
+  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  const projection = projectedPrimaryRow(rowId);
+  if (row?.type !== "narration" || !projection?.renderable ||
+      !projection.brackets?.some((bracket) => bracket.slotId === slotId)) {
+    setSaveStatus("That visual's word range is not available to reselect.");
+    return;
+  }
+  activeReselect = { rowId, slotId, opener, version: row.primaryVisualSequence?.version, text: row.text };
+  renderEditor();
+}
+
+function cancelReselect() {
+  if (!activeReselect) return;
+  const state = activeReselect;
+  activeReselect = null;
+  renderEditor();
+  focusReselectOpener(state);
+  setSaveStatus("Reselect cancelled. The range didn’t change.");
+}
+
+async function commitReselect(command, label) {
+  if (!activeReselect) return false;
+  const state = activeReselect;
+  const accepted = await queueVisualCommand((latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === state.rowId);
+    if (row?.type !== "narration" || row.text !== state.text ||
+        row.primaryVisualSequence?.version !== state.version) {
+      throw new Error("The narration or visual range changed; start Reselect again.");
+    }
+    return command;
+  }, label);
+  if (accepted && activeReselect === state) {
+    activeReselect = null;
+    renderEditor();
+    focusReselectOpener(state);
+  }
+  return accepted;
+}
+
+// A visual-command endpoint computes on a private document copy. Calling it
+// for review has no save/Undo side effect, and the exact immutable snapshot
+// is checked again before any later confirmation is committed.
+async function previewReselect(command) {
+  const state = activeReselect;
+  const snapshot = scriptDocument;
+  const row = snapshot?.activeDraft.blocks.find((item) => item.id === state?.rowId);
+  if (!state || row?.type !== "narration" || row.text !== state.text ||
+      row.primaryVisualSequence?.version !== state.version) {
+    throw new Error("The narration changed; start Reselect again.");
+  }
+  const result = await authoringVisualPost("visual-preview", {
+    document: snapshot, command, expectedSequenceVersion: state.version,
+  });
+  if (activeReselect !== state || scriptDocument !== snapshot) {
+    throw new Error("The narration changed while checking this range.");
+  }
+  const oldCards = projectedPrimaryRow(state.rowId)?.cards ?? [];
+  const newCards = result.projection?.rows?.find((entry) => entry.blockId === state.rowId)?.cards ?? [];
+  const returns = (cards) => cards.filter((card) => card.compact).map((card) => card.slotId);
+  const beforeReturns = returns(oldCards);
+  const afterReturns = returns(newCards);
+  const removed = beforeReturns.filter((slotId) => !afterReturns.includes(slotId)).length;
+  const created = afterReturns.filter((slotId) => !beforeReturns.includes(slotId)).length;
+  const oc = (cards) => cards.filter((card) => card.kind === "on_camera" &&
+    Number.isInteger(card.startTokenIndex) && Number.isInteger(card.endTokenIndexExclusive))
+    .reduce((count, card) => count + card.endTokenIndexExclusive - card.startTokenIndex, 0);
+  const beforeOc = oc(oldCards);
+  const afterOc = oc(newCards);
+  const parts = [];
+  if (created) parts.push(`${created} return ${created === 1 ? "point is" : "points are"} added.`);
+  if (removed) parts.push(`${removed} return ${removed === 1 ? "point is" : "points are"} removed.`);
+  if (afterOc !== beforeOc) parts.push(`On Camera changes from ${beforeOc} to ${afterOc} spoken words.`);
+  if (!parts.length) parts.push("The projected On Camera and return coverage remains coherent.");
+  return parts.join(" ");
 }
 
 function scheduleRender(force = false) {
@@ -268,7 +413,14 @@ function scheduleRender(force = false) {
   renderTimer = setTimeout(() => {
     renderTimer = undefined;
     if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
-    if (!forceRender && element("script-rows").contains(document.activeElement)) return;
+    const root = element("script-rows");
+    const selection = document.getSelection();
+    // Programmatic word selections do not necessarily focus the textbox, and
+    // pointer-driven row controls need to survive a pending projection refresh.
+    // Defer only decorative redraws; a committed structural edit still renders.
+    if (!forceRender && (root.contains(document.activeElement) || root.matches(":hover") ||
+        selection && !selection.isCollapsed && root.contains(selection.anchorNode) &&
+        root.contains(selection.focusNode))) return;
     renderRequested = false;
     forceRender = false;
     renderEditor();
@@ -277,6 +429,12 @@ function scheduleRender(force = false) {
 
 element("script-rows").addEventListener("focusout", () => {
   if (renderRequested) setTimeout(() => scheduleRender(), 0);
+});
+element("script-rows").addEventListener("pointerleave", () => {
+  if (renderRequested) scheduleRender();
+});
+document.addEventListener("selectionchange", () => {
+  if (renderRequested) scheduleRender();
 });
 
 async function saveDocument() {
@@ -315,15 +473,49 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
   return result;
 }
 
-async function fetchProjection(documentModel) {
-  const response = await fetch("/authoring/projection", {
+async function authoringVisualPost(path, body) {
+  await connecting;
+  try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep enrolled proof. */ }
+  const response = await fetch(`/authoring/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-    body: JSON.stringify({ document: documentModel }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(12_000),
   });
-  if (!response.ok) throw new Error("Couldn’t refresh visual cues. Reload to try again.");
   const result = await response.json();
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.diagnostics?.[0]?.message || result.error || "Visual edit could not be applied.");
+  }
+  return result;
+}
+
+// Projection is derived, never saved. In-flight responses are tied to the
+// exact object snapshot and generation; an older network response cannot
+// redraw brackets or On Camera after an edit, Undo or project switch.
+function invalidateProjection(refresh = true) {
+  ++projectionGeneration;
+  const snapshot = scriptDocument;
+  visualProjection = null;
+  clearTimeout(projectionTimer);
+  if (!snapshot || !refresh) return;
+  projectionTimer = setTimeout(() => {
+    projectionTimer = undefined;
+    void refreshProjection(snapshot, Boolean(activeReselect));
+  }, 30);
+}
+
+export function projectedPrimaryRow(rowId) {
+  return visualProjection?.rows?.find((row) => row.blockId === rowId) ?? null;
+}
+
+// A UI intent can be a function: resolve it *inside* the serialized queue,
+// after any typing or paragraph action has returned real current token IDs.
+export function queueVisualCommand(intent, label) {
+  return queueCommand(intent, label, { visual: true, structural: true });
+}
+
+async function fetchProjection(documentModel) {
+  const result = await authoringVisualPost("projection", { document: documentModel });
   if (!Array.isArray(result.projection?.rows)) throw new Error("Visual cues were not returned by the editor.");
   return result.projection;
 }
@@ -347,19 +539,18 @@ function changedCueIds(before, after) {
   return moved;
 }
 
-async function refreshProjection(documentModel, force) {
+async function refreshProjection(documentModel, force, previousProjection = visualProjection) {
+  const generation = projectionGeneration;
   try {
     const next = await fetchProjection(documentModel);
     // Typing and Undo can overtake a projection request. Never display a
     // read response for an older document (or an earlier open project).
-    if (scriptDocument !== documentModel) return;
-    flashVisualIds = changedCueIds(projected, next);
-    projected = next;
-    projectionDocument = documentModel;
+    if (scriptDocument !== documentModel || generation !== projectionGeneration) return;
+    flashVisualIds = changedCueIds(previousProjection, next);
+    visualProjection = next;
   } catch (error) {
-    if (scriptDocument !== documentModel) return;
-    projected = null;
-    projectionDocument = documentModel;
+    if (scriptDocument !== documentModel || generation !== projectionGeneration) return;
+    visualProjection = null;
     setSaveStatus(error.message || "Couldn’t refresh visual cues. Reload to try again.");
   }
   scheduleRender(force);
@@ -462,6 +653,32 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.visual) {
+      typingGroup = null;
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved?.blockId);
+      if (!row?.primaryVisualSequence) throw new Error("The visual's row is no longer available.");
+      const prior = scriptDocument;
+      const result = await authoringVisualPost("visual-command", {
+        document: prior, command: resolved, expectedSequenceVersion: row.primaryVisualSequence.version,
+      });
+      if (JSON.stringify(result.document) === JSON.stringify(prior)) {
+        throw new Error("This visual edit did not change the script.");
+      }
+      undoStack.push({ document: prior, label });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      ++projectionGeneration;
+      clearTimeout(projectionTimer);
+      visualProjection = result.projection ?? null;
+      flashVisualIds = visualProjection ? changedCueIds(previousProjection, visualProjection) : new Set();
+      if (!visualProjection) invalidateProjection();
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      scheduleRender(true);
+      return true;
+    }
     const sequenceVersion = visualCommandKinds.has(resolved?.kind) ? (() => {
       const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved.blockId);
       if (row?.type !== "narration" || !Number.isSafeInteger(row.primaryVisualSequence?.version)) {
@@ -477,13 +694,15 @@ function queueCommand(command, label, options = {}) {
         return true;
       }
       undoStack.push({ document: scriptDocument, label });
+      const previousProjection = visualProjection;
       scriptDocument = result.document;
+      invalidateProjection(false);
       lastSplit = null;
       structuralFocus = result.focusAfter;
       updateUndo();
       documentDirty = true;
       void saveDocument();
-      void refreshProjection(scriptDocument, true);
+      void refreshProjection(scriptDocument, true, previousProjection);
       return true;
     }
     const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
@@ -515,7 +734,9 @@ function queueCommand(command, label, options = {}) {
       endOffset: resolved.startOffset + resolved.insertedText.length,
       session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
     } : null;
+    const previousProjection = visualProjection;
     scriptDocument = result.document;
+    invalidateProjection(false);
     visualFeedback = Array.isArray(result.evidence?.dropped) && result.evidence.dropped.length
       ? result.evidence.dropped.map((item) => item.message).join(" ") : "";
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
@@ -530,7 +751,7 @@ function queueCommand(command, label, options = {}) {
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, options.structural);
+    void refreshProjection(scriptDocument, options.structural, previousProjection);
     return true;
   }).catch((error) => {
     typingGroup = null;
@@ -578,14 +799,16 @@ function undo() {
     // a typing group. Undo is a history boundary at *execution* as well.
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
+    const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
+    invalidateProjection(false);
     visualFeedback = "";
     lastSplit = null;
     structuralFocus = null;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    void refreshProjection(scriptDocument, true);
+    void refreshProjection(scriptDocument, true, previousProjection);
   }).finally(() => {
     commandsPending -= 1;
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;

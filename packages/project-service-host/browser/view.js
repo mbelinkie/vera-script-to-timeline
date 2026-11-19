@@ -81,7 +81,28 @@ function makePlaceholderArt(document, label, artKind) {
   return art;
 }
 
+function onCameraControls(document, blockId, slotId, framing, visualCommand) {
+  const group = makeElement(document, "div", "visual-card__framing");
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "On Camera framing");
+  for (const value of ["wide", "tight"]) {
+    const button = makeElement(document, "button", "visual-card__framing-choice", value === "wide" ? "Wide" : "Tight");
+    button.type = "button";
+    button.dataset.visualFraming = value;
+    button.setAttribute("aria-pressed", String(framing === value));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void visualCommand({ kind: "set_on_camera_framing", blockId, slotId, framing: value },
+        `Set On Camera ${value === "wide" ? "Wide" : "Tight"}`);
+    });
+    group.append(button);
+  }
+  return group;
+}
+
 function renderVisualCard(document, payload, researchClip, options = {}) {
+  const { blockId, slotId, framing, visualCommand, reselect } = options;
+  const isOnCamera = payload?.kind === "on_camera";
   const kind = visualKind(payload);
   const definition = visualKinds[kind];
   const kindLabel = payload && payload.kind === "on_camera"
@@ -115,6 +136,58 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   const meta = makeElement(document, "figcaption", "visual-card__meta");
   meta.append(makeElement(document, "span", "visual-card__type", kindLabel));
   if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
+  if (isOnCamera && slotId && visualCommand) {
+    meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));
+  }
+  if (reselect && blockId && slotId && payload?.kind === "visual") {
+    // Keep the menu stationary: exposing the separate hover/focus action may
+    // not move the dots under a pointer (S03 D171).
+    card.tabIndex = 0;
+    const action = makeElement(document, "button", "visual-card__reselect", "Reselect range");
+    action.type = "button";
+    action.dataset.reselectOpen = "button";
+    action.addEventListener("click", (event) => {
+      event.stopPropagation();
+      reselect(blockId, slotId, "button");
+    });
+    meta.append(action);
+    if (!options.editable) {
+      const menuButton = makeElement(document, "button", "visual-card__menu-button", "⋯");
+      menuButton.type = "button";
+      menuButton.dataset.reselectOpen = "menu";
+      menuButton.setAttribute("aria-label", "Visual options");
+      menuButton.setAttribute("aria-haspopup", "menu");
+      menuButton.setAttribute("aria-expanded", "false");
+      const menu = makeElement(document, "div", "visual-card__menu");
+      menu.id = `visual-options-${slotId}`;
+      menu.setAttribute("role", "menu");
+      menuButton.setAttribute("aria-controls", menu.id);
+      menu.hidden = true;
+      const menuAction = makeElement(document, "button", "visual-card__menu-action", "Reselect range");
+      menuAction.type = "button";
+      menuAction.setAttribute("role", "menuitem");
+      menuAction.addEventListener("click", (event) => {
+        event.stopPropagation();
+        reselect(blockId, slotId, "menu");
+      });
+      menu.append(menuAction);
+      menuButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        menu.hidden = !menu.hidden;
+        menuButton.setAttribute("aria-expanded", String(!menu.hidden));
+        if (!menu.hidden) menuAction.focus();
+      });
+      menu.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          menu.hidden = true;
+          menuButton.setAttribute("aria-expanded", "false");
+          menuButton.focus();
+        }
+      });
+      card.append(menuButton, menu);
+    }
+  }
   card.append(meta);
 
   if (options.editable) {
@@ -122,6 +195,9 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     const trigger = makeElement(document, "button", "visual-card__trigger", "⋯");
     trigger.type = "button";
     trigger.dataset.visualActionTrigger = "";
+    if (reselect && blockId && slotId && payload?.kind === "visual") {
+      trigger.dataset.reselectOpen = "menu";
+    }
     trigger.setAttribute("aria-label", `Visual actions for ${label}`);
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
@@ -139,6 +215,16 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     remove.type = "button";
     remove.dataset.visualDelete = "";
     remove.setAttribute("role", "menuitem");
+    if (reselect && blockId && slotId && payload?.kind === "visual") {
+      const reselectAction = makeElement(document, "button", "visual-card__menu-action", "Reselect range");
+      reselectAction.type = "button";
+      reselectAction.setAttribute("role", "menuitem");
+      reselectAction.addEventListener("click", (event) => {
+        event.stopPropagation();
+        reselect(blockId, slotId, "menu");
+      });
+      menu.append(reselectAction);
+    }
     menu.append(change, remove);
     const types = makeElement(document, "div", "visual-card__types");
     types.dataset.visualTypes = "";
@@ -174,7 +260,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projection, flashIds) {
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -185,15 +271,15 @@ function renderVisuals(document, block, projection, flashIds) {
       .filter((slot) => slot.kind === "content").map((slot) => [slot.id, slot.payload]));
     const waiting = new Map((block.unattachedVisuals ?? []).map((item) => [item.slotId, item.payload]));
     const overlays = new Map(block.overlayEvents.map((event) => [event.id, event.payload]));
-    const cues = (projection?.cards ?? []).map((card, index) => ({
+    const cues = (projectedRow?.cards ?? []).map((card, index) => ({
       card, index, start: card.startTokenIndex ?? Number.POSITIVE_INFINITY,
     }));
-    const overlayCues = (projection?.overlays ?? []).map((overlay, index) => ({
+    const overlayCues = (projectedRow?.overlays ?? []).map((overlay, index) => ({
       overlay, index, start: overlay.startTokenIndex ?? Number.POSITIVE_INFINITY,
     }));
     const ordered = [...cues, ...overlayCues].sort((a, b) =>
       a.start - b.start || (a.card ? -1 : 1) - (b.card ? -1 : 1) || a.index - b.index);
-    for (const entry of ordered) {
+    for (const entry of projectedRow?.renderable ? ordered : []) {
       if (entry.overlay) {
         const payload = overlays.get(entry.overlay.overlayEventId);
         if (payload) list.append(renderVisualCard(document, payload, payload.researchClip));
@@ -205,8 +291,12 @@ function renderVisuals(document, block, projection, flashIds) {
         const label = card.kind === "on_camera" ? "OC" : visualLabel(returning);
         const chip = makeElement(document, "div", "visual-return", `↩ ${label} resumes`);
         chip.dataset.slotId = card.slotId;
+        chip.dataset.kind = card.kind;
         chip.dataset.compact = "true";
         chip.setAttribute("aria-label", `${label} resumes`);
+        if (card.kind === "on_camera" && visualCommand) {
+          chip.append(onCameraControls(document, block.id, card.slotId, card.framing ?? "wide", visualCommand));
+        }
         list.append(chip);
         continue;
       }
@@ -214,11 +304,35 @@ function renderVisuals(document, block, projection, flashIds) {
         slots.get(card.slotId) ?? waiting.get(card.slotId);
       if (!payload) continue;
       list.append(renderVisualCard(document, payload, payload.researchClip, {
+        blockId: block.id,
         slotId: card.slotId,
+        framing: card.framing ?? "wide",
+        visualCommand,
+        reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
         startTokenIndex: card.startTokenIndex,
         flash: flashIds?.has(card.slotId),
         editable: card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual",
       }));
+    }
+    if (!projectedRow?.renderable) {
+      // A failed read-only projection must not hide previously saved art.
+      const byId = new Map((block.primaryVisualSequence?.slots ?? []).map((slot) => [slot.id, slot]));
+      for (const slot of block.primaryVisualSequence?.slots ?? []) {
+        if (slot.kind === "content") {
+          list.append(renderVisualCard(document, slot.payload, slot.payload.researchClip));
+        } else if (slot.kind === "return") {
+          const parent = byId.get(slot.parentSlotId);
+          const payload = parent?.kind === "content" ? parent.payload : null;
+          const label = payload?.kind === "on_camera" ? "OC" : visualLabel(payload);
+          list.append(makeElement(document, "div", "visual-return", `↩ ${label} resumes`));
+        }
+      }
+      for (const { payload } of block.overlayEvents ?? []) {
+        list.append(renderVisualCard(document, payload, payload.researchClip));
+      }
+      for (const { payload } of block.unattachedVisuals ?? []) {
+        list.append(renderVisualCard(document, payload, payload.researchClip));
+      }
     }
   }
   if (block.type === "visual_only") {
@@ -269,7 +383,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projection, flashIds) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -294,11 +408,11 @@ function renderRow(document, block, projection, flashIds) {
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projection, flashIds));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect));
   return row;
 }
 
-export function renderRows(root, document, projection, flashIds = new Set()) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -319,7 +433,7 @@ export function renderRows(root, document, projection, flashIds = new Set()) {
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect));
       rowCount += 1;
     }
   }

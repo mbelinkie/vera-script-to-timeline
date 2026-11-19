@@ -17,12 +17,18 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
   ["/narration-editor.js", ["narration-editor.js", "text/javascript; charset=utf-8"]],
+  ["/range-proposal.js", ["range-proposal.js", "text/javascript; charset=utf-8"]],
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
   ["/visual-selection.js", ["visual-selection.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+// #66 is allowed to change ranges and OC framing, not to create/move/delete
+// pictures. Other visual operations belong to separate browser stories.
+const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
+  "set_visual_range", "swap_ranges", "set_on_camera_framing",
+]);
 
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -122,11 +128,15 @@ export function createAuthoringHandler(
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
+    const isVisualCommand = path === "/visual-command" && request.method === "POST";
+    const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       (musicWarnings && request.method === "GET");
-    if ((!allowed && !startsSession && !isCommand && !isProjection) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
+      return Response.json({ error: "not_found" }, { status: 404 });
+    }
 
     // Cross-origin browser code cannot set this header without a successful
     // CORS preflight. Fetch Metadata also excludes other sites and local ports.
@@ -208,6 +218,29 @@ export function createAuthoringHandler(
         return Response.json(result);
       } catch {
         return Response.json({ error: "invalid_command" }, { status: 400 });
+      }
+    }
+    if (isVisualCommand || isVisualPreview) {
+      try {
+        const body = await request.json() as {
+          document?: ScriptDocumentV2;
+          command?: VisualSequenceEditCommandV2;
+          expectedSequenceVersion?: number;
+        };
+        const { document, command, expectedSequenceVersion } = body;
+        if (!record(body) || !exact(body, ["document", "command", "expectedSequenceVersion"]) ||
+            !document || !validateScriptDocumentV2(document).valid || !record(command) ||
+            !AUTHORING_VISUAL_KINDS.has(command.kind) ||
+            !Number.isSafeInteger(expectedSequenceVersion) || expectedSequenceVersion! < 0) {
+          return Response.json({ error: "invalid_visual_command" }, { status: 400 });
+        }
+        const result = applyVisualSequenceEditV2(document, expectedSequenceVersion!, command);
+        // Read-only Reselect previews must not consume the one-time proof for
+        // immediately restoring a split. Only a committed edit breaks it.
+        if (result.ok && isVisualCommand) lastSplit = null;
+        return Response.json(result.ok ? { ...result, projection: projectPrimarySequenceV2(result.document) } : result);
+      } catch {
+        return Response.json({ error: "invalid_visual_command" }, { status: 400 });
       }
     }
     const headers = new Headers({ authorization });

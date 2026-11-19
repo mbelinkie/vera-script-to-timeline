@@ -1,4 +1,5 @@
 import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+import { moveVisualBracket, proposeVisualRange, stepVisualBracket } from "./range-proposal.js";
 import { ADD_VISUAL_TYPES, selectedSpokenWords } from "./visual-selection.js";
 
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
@@ -431,12 +432,448 @@ function deletionRange(event, editor, oldText) {
   return range;
 }
 
+/** Range handles live above the editable text, never inside its DOM or offsets. */
+function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
+  if (!projectedRow?.renderable || !projectedRow.brackets?.length ||
+      typeof visualCommand !== "function") return () => undefined;
+  const words = projectedRow.tokens;
+  const byId = new Map(row.tokens.filter((token) => token.spoken !== false).map((token) => [token.id, token]));
+  if (!words.length || words.some((word) => !byId.has(word.tokenId))) return () => undefined;
+  const document = editor.ownerDocument;
+  const overlay = element(document, "div", "narration-range-overlay");
+  overlay.setAttribute("aria-label", "Visual range brackets");
+  overlay.contentEditable = "false";
+  const handles = [];
+  let mounted = true;
+  let pending = null;
+  let dragging = null;
+
+  function boundary(index, edge) {
+    const word = words[edge === "start" ? index : index - 1];
+    const token = byId.get(word?.tokenId);
+    if (!token) return null;
+    const offset = edge === "start" ? token.startOffset : token.endOffset;
+    const point = pointAtTextOffset(editor, offset);
+    const range = document.createRange();
+    range.setStart(point.node, point.offset);
+    range.collapse(true);
+    const box = range.getBoundingClientRect();
+    if (!box.height) return null;
+    return { x: box.left, y: box.top, height: box.height };
+  }
+
+  function positions() {
+    if (!mounted) return;
+    const container = surface.getBoundingClientRect();
+    // getBoundingClientRect is in viewport pixels, but absolute CSS offsets
+    // inside the zoomed script are in pre-zoom layout pixels. Without this
+    // conversion long rows overflow their parent and unstick the app header.
+    const scale = surface.offsetWidth ? container.width / surface.offsetWidth : 1;
+    for (const { bracket, edge, button } of handles) {
+      const selected = pending?.slotId === bracket.slotId ? pending.range : {
+        startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+      };
+      const index = edge === "start" ? selected.startIndex : selected.endIndexExclusive;
+      const box = boundary(index, edge);
+      if (!box) { button.hidden = true; continue; }
+      button.hidden = false;
+      button.style.left = `${(box.x - container.left) / scale}px`;
+      button.style.top = `${(box.y - container.top - 6) / scale}px`;
+      button.style.height = `${(box.height + 12) / scale}px`;
+      button.dataset.wordIndex = String(index);
+      button.dataset.pending = String(pending?.slotId === bracket.slotId);
+      button.setAttribute("aria-valuenow", String(index));
+      button.setAttribute("aria-valuetext", `${edge === "start" ? "Starts" : "Ends"} at word ${edge === "start" ? index + 1 : index} of ${words.length}`);
+    }
+  }
+
+  function setPending(bracket, edge, range) {
+    pending = { slotId: bracket.slotId, edge, range };
+    positions();
+  }
+
+  function reset() {
+    pending = null;
+    dragging = null;
+    positions();
+  }
+
+  function commit(bracket) {
+    const selection = pending?.slotId === bracket.slotId ? pending.range : null;
+    reset();
+    if (!selection) return;
+    const proposal = proposeVisualRange(projectedRow, bracket.slotId, selection.startIndex, selection.endIndexExclusive);
+    if (!proposal.ok) return;
+    // A queued text edit may have arrived while the pointer was down. Refuse
+    // stale gestures instead of substituting newer token identities.
+    void visualCommand((latest) => {
+      const actual = latest.activeDraft.blocks.find((block) => block.id === row.id);
+      if (actual?.type !== "narration" || actual.text !== row.text ||
+          actual.primaryVisualSequence?.version !== row.primaryVisualSequence?.version ||
+          !actual.tokens.some((token) => token.id === proposal.setCommand.startTokenId) ||
+          !actual.tokens.some((token) => token.id === proposal.setCommand.endTokenId)) {
+        throw new Error("The narration changed; adjust this bracket again.");
+      }
+      return proposal.setCommand;
+    }, "Adjust visual range");
+  }
+
+  function nearestBoundary(edge, x, y) {
+    const min = edge === "start" ? 0 : 1;
+    const max = edge === "start" ? words.length - 1 : words.length;
+    let chosen = min;
+    let distance = Infinity;
+    for (let index = min; index <= max; index += 1) {
+      const point = boundary(index, edge);
+      if (!point) continue;
+      const dx = x - point.x;
+      const dy = y - (point.y + point.height / 2);
+      const score = dx * dx + dy * dy * 4;
+      if (score < distance) { distance = score; chosen = index; }
+    }
+    return chosen;
+  }
+
+  for (const bracket of projectedRow.brackets) {
+    if (!Number.isInteger(bracket.startTokenIndex) || !Number.isInteger(bracket.endTokenIndexExclusive) ||
+        bracket.startTokenIndex < 0 || bracket.endTokenIndexExclusive > words.length ||
+        bracket.startTokenIndex >= bracket.endTokenIndexExclusive) continue;
+    for (const edge of ["start", "end"]) {
+      const button = element(document, "button", `narration-range-handle narration-range-handle--${edge}`);
+      button.type = "button";
+      button.dataset.rangeSlot = bracket.slotId;
+      button.dataset.rangeEdge = edge;
+      button.setAttribute("role", "slider");
+      button.setAttribute("aria-label", `${edge === "start" ? "Start" : "End"} bracket for visual ${projectedRow.brackets.indexOf(bracket) + 1}`);
+      button.setAttribute("aria-valuemin", String(edge === "start" ? 0 : 1));
+      button.setAttribute("aria-valuemax", String(edge === "start" ? words.length - 1 : words.length));
+      button.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight Home End Enter Escape");
+      button.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !mounted) return;
+        event.preventDefault();
+        event.stopPropagation();
+        button.focus();
+        dragging = { pointerId: event.pointerId, bracket, edge };
+        setPending(bracket, edge, {
+          startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+        });
+        button.setPointerCapture(event.pointerId);
+      });
+      button.addEventListener("pointermove", (event) => {
+        if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
+        event.preventDefault();
+        const index = nearestBoundary(edge, event.clientX, event.clientY);
+        setPending(bracket, edge, moveVisualBracket({
+          startTokenIndex: pending.range.startIndex, endTokenIndexExclusive: pending.range.endIndexExclusive,
+        }, edge, index, words.length));
+      });
+      button.addEventListener("pointerup", (event) => {
+        if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
+        event.preventDefault();
+        if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+        commit(bracket);
+      });
+      button.addEventListener("pointercancel", reset);
+      button.addEventListener("lostpointercapture", () => { if (dragging?.bracket === bracket) reset(); });
+      button.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault(); event.stopPropagation(); reset(); return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault(); event.stopPropagation(); commit(bracket); return;
+        }
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        const current = pending?.slotId === bracket.slotId ? pending.range : {
+          startIndex: bracket.startTokenIndex, endIndexExclusive: bracket.endTokenIndexExclusive,
+        };
+        const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 :
+          event.key === "Home" ? -words.length : words.length;
+        setPending(bracket, edge, stepVisualBracket({
+          startTokenIndex: current.startIndex, endTokenIndexExclusive: current.endIndexExclusive,
+        }, edge, delta, words.length));
+      });
+      button.addEventListener("blur", () => { if (!dragging && pending?.slotId === bracket.slotId) reset(); });
+      overlay.append(button);
+      handles.push({ bracket, edge, button });
+    }
+  }
+  surface.append(overlay);
+  const observer = new ResizeObserver(positions);
+  observer.observe(surface);
+  const mutations = new MutationObserver(positions);
+  mutations.observe(editor, { childList: true, characterData: true, subtree: true });
+  document.defaultView?.addEventListener("resize", positions);
+  positions();
+  return () => {
+    mounted = false;
+    observer.disconnect();
+    mutations.disconnect();
+    document.defaultView?.removeEventListener("resize", positions);
+    overlay.remove();
+  };
+}
+
+/** Reselect is a local proposal only; it never changes the editable text or document. */
+function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, commit, preview) {
+  const doc = editor.ownerDocument;
+  // A queued row edit temporarily invalidates derived projection. Preserve
+  // the pending review while the fresh projection is in flight; this is not
+  // a user cancellation or a malformed stored range.
+  if (!projectedRow) return null;
+  const words = projectedRow?.tokens ?? [];
+  const tokens = new Map(row.tokens.filter((token) => token.spoken !== false).map((token) => [token.id, token]));
+  const bracket = projectedRow?.brackets?.find((item) => item.slotId === state.slotId);
+  const valid = bracket && words.length && words.every((word) => tokens.has(word.tokenId));
+  if (!valid) { queueMicrotask(cancel); return null; }
+
+  const overlay = element(doc, "div", "narration-reselect-highlights");
+  overlay.setAttribute("aria-hidden", "true");
+  surface.append(overlay);
+  const panel = element(doc, "div", "narration-reselect-panel");
+  panel.dataset.reselectPanel = "true";
+  const message = element(doc, "p", "narration-reselect-panel__message");
+  message.id = `reselect-message-${row.id}`;
+  message.setAttribute("role", "status");
+  message.setAttribute("aria-live", "polite");
+  editor.setAttribute("aria-describedby", message.id);
+  editor.setAttribute("aria-keyshortcuts", "Alt+Shift+ArrowRight Alt+Shift+ArrowLeft Enter Escape");
+  const controls = element(doc, "div", "narration-reselect-panel__controls");
+  const swap = element(doc, "button", "narration-reselect-panel__primary", "Swap ranges");
+  swap.type = "button";
+  swap.dataset.reselectSwap = "true";
+  const set = element(doc, "button", "narration-reselect-panel__primary", "Set range");
+  set.type = "button";
+  set.dataset.reselectSet = "true";
+  const cancelButton = element(doc, "button", "narration-reselect-panel__cancel", "Cancel");
+  cancelButton.type = "button";
+  cancelButton.dataset.reselectCancel = "true";
+  controls.append(swap, set, cancelButton);
+  panel.append(message, controls);
+  surface.parentElement.append(panel);
+  let mounted = true;
+  let pending = state.pending ?? null;
+  let reviewing = state.review === true;
+  let proposal = pending ? proposeVisualRange(projectedRow, state.slotId, pending.startIndex, pending.endIndexExclusive) : null;
+  let impact = state.impact ?? "";
+  let previewed = state.previewed === true;
+  let availableSet = state.availableSet === true;
+  let availableSwap = state.availableSwap === true;
+
+  function display() {
+    controls.hidden = !reviewing;
+    cancelButton.hidden = !reviewing;
+    set.hidden = !reviewing;
+    swap.hidden = !reviewing || !proposal?.swapCommand;
+    set.disabled = !previewed || !availableSet;
+    swap.disabled = !previewed || !availableSwap;
+    if (reviewing && proposal?.ok) {
+      message.textContent = `${proposal.wordCount} ${proposal.wordCount === 1 ? "word" : "words"} selected · ` +
+        (impact || "Checking projected On Camera and returns…");
+    } else if (pending) {
+      const count = pending.endIndexExclusive - pending.startIndex;
+      message.textContent = `${count} ${count === 1 ? "word" : "words"} selected · Enter to review · Esc cancels`;
+    } else {
+      message.textContent = "Select new words · Enter to review · Esc keeps the current range";
+    }
+  }
+
+  function highlight() {
+    if (!mounted) return;
+    const boxes = [];
+    if (pending) {
+      const surfaceRect = surface.getBoundingClientRect();
+      const scale = surface.offsetWidth ? surfaceRect.width / surface.offsetWidth : 1;
+      for (let i = pending.startIndex; i < pending.endIndexExclusive; i += 1) {
+        const token = tokens.get(words[i]?.tokenId);
+        if (!token) continue;
+        const range = doc.createRange();
+        const start = pointAtTextOffset(editor, token.startOffset);
+        const end = pointAtTextOffset(editor, token.endOffset);
+        range.setStart(start.node, start.offset);
+        range.setEnd(end.node, end.offset);
+        for (const box of range.getClientRects()) {
+          if (!box.width || !box.height) continue;
+          const marker = element(doc, "span", "narration-reselect-highlight");
+          marker.dataset.reselectHighlight = String(i);
+          marker.style.left = `${(box.left - surfaceRect.left) / scale}px`;
+          marker.style.top = `${(box.top - surfaceRect.top) / scale}px`;
+          marker.style.width = `${box.width / scale}px`;
+          marker.style.height = `${box.height / scale}px`;
+          boxes.push(marker);
+        }
+      }
+    }
+    overlay.replaceChildren(...boxes);
+  }
+
+  function selectionProposal() {
+    const selection = rangeSelection(editor);
+    if (!selection) return null;
+    const selected = words.map((word, index) => ({ index, token: tokens.get(word.tokenId) }))
+      .filter(({ token }) => token && token.endOffset > selection.start && token.startOffset < selection.end);
+    if (!selected.length) return null;
+    return { startIndex: selected[0].index, endIndexExclusive: selected[selected.length - 1].index + 1 };
+  }
+
+  function updateSelection() {
+    if (!mounted || reviewing) return;
+    pending = selectionProposal();
+    state.pending = pending;
+    proposal = null;
+    display();
+    highlight();
+  }
+
+  function checkPreview() {
+    if (!proposal?.ok) return;
+    // Both options are checked by the real model on a private snapshot; a
+    // review refusal cannot create an Undo entry or save a document.
+    const choices = [
+      { label: "Set range", command: proposal.setCommand },
+      ...(proposal.swapCommand ? [{ label: "Swap ranges", command: proposal.swapCommand }] : []),
+    ];
+    void Promise.all(choices.map(async ({ label, command }) => {
+      try { return { label, ok: true, message: `${label}: ${await preview(command)}` }; }
+      catch (error) { return { label, ok: false, message: `${label} refused: ${error.message || "Invalid visual range."}` }; }
+    })).then((descriptions) => {
+      if (!mounted || !reviewing) return;
+      impact = descriptions.map((entry) => entry.message).join(" ");
+      state.impact = impact;
+      previewed = true;
+      state.previewed = true;
+      availableSet = descriptions.some((entry) => entry.label === "Set range" && entry.ok);
+      availableSwap = descriptions.some((entry) => entry.label === "Swap ranges" && entry.ok);
+      state.availableSet = availableSet;
+      state.availableSwap = availableSwap;
+      display();
+      (availableSwap ? swap : availableSet ? set : cancelButton).focus();
+    });
+  }
+
+  function review() {
+    if (reviewing) return;
+    updateSelection();
+    if (!pending) { message.textContent = "Select at least one spoken word, then press Enter to review."; return; }
+    proposal = proposeVisualRange(projectedRow, state.slotId, pending.startIndex, pending.endIndexExclusive);
+    if (!proposal.ok) { message.textContent = proposal.reason; return; }
+    reviewing = true;
+    state.review = true;
+    previewed = false;
+    state.previewed = false;
+    availableSet = false;
+    availableSwap = false;
+    impact = "";
+    display();
+    highlight();
+    checkPreview();
+  }
+
+  async function confirm(kind) {
+    if (!reviewing || !proposal?.ok || !previewed ||
+        (kind === "swap" ? !availableSwap : !availableSet)) return;
+    const intent = kind === "swap" ? proposal.swapCommand : proposal.setCommand;
+    if (!intent) return;
+    swap.disabled = true;
+    set.disabled = true;
+    const accepted = await commit(intent, kind === "swap" ? "Swap visual ranges" : "Set visual range");
+    if (mounted && !accepted) {
+      message.textContent = "The range was refused; the original brackets and Undo history are unchanged. " +
+        "Check the reason in Save status or Cancel to start again.";
+      swap.disabled = false;
+      set.disabled = false;
+    }
+  }
+
+  function onKeydown(event) {
+    if (event.key === "Escape") {
+      event.preventDefault(); event.stopPropagation(); cancel(); return true;
+    }
+    if (reviewing) {
+      if (event.target === editor) { event.preventDefault(); return true; }
+      return false;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault(); event.stopPropagation(); review(); return true;
+    }
+    // The exact r25 six-step action is word-stepping (Option/Alt+Shift+Arrow).
+    // Use model word offsets, not character or pixel guesses.
+    if (event.shiftKey && event.altKey && ["ArrowRight", "ArrowLeft"].includes(event.key)) {
+      event.preventDefault(); event.stopPropagation();
+      const base = bracket.startTokenIndex;
+      const currentEnd = pending?.startIndex === base ? pending.endIndexExclusive : base;
+      const nextEnd = Math.max(base, Math.min(words.length, currentEnd + (event.key === "ArrowRight" ? 1 : -1)));
+      const start = tokens.get(words[base].tokenId).startOffset;
+      const end = nextEnd > base ? tokens.get(words[nextEnd - 1].tokenId).endOffset : start;
+      setSelection(editor, start, end);
+      updateSelection();
+      return true;
+    }
+    return false;
+  }
+
+  function onPointerup(event) {
+    if (!reviewing && event.button === 0) queueMicrotask(() => {
+      if (mounted && selectionProposal()) review();
+    });
+  }
+  function onPanelKeydown(event) {
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); }
+  }
+  function onGlobalKeydown(event) {
+    if (event.key === "Escape" && mounted) {
+      event.preventDefault(); event.stopPropagation(); cancel();
+    }
+  }
+  doc.addEventListener("keydown", onGlobalKeydown, true);
+  panel.addEventListener("keydown", onPanelKeydown);
+  cancelButton.addEventListener("click", cancel);
+  swap.addEventListener("click", () => { void confirm("swap"); });
+  set.addEventListener("click", () => { void confirm("set"); });
+  const resize = new ResizeObserver(highlight);
+  resize.observe(surface);
+  const observer = new MutationObserver(highlight);
+  observer.observe(editor, { childList: true, characterData: true, subtree: true });
+  doc.defaultView?.addEventListener("resize", highlight);
+  display();
+  highlight();
+  // Another row may have triggered a rerender during an async preflight.
+  // The previous mount discards its response; restart against the current
+  // immutable snapshot rather than leaving Set/Swap disabled indefinitely.
+  if (reviewing && !previewed) checkPreview();
+  queueMicrotask(() => {
+    if (!mounted) return;
+    editor.focus();
+    const start = tokens.get(words[bracket.startTokenIndex].tokenId).startOffset;
+    if (pending) {
+      const first = tokens.get(words[pending.startIndex].tokenId).startOffset;
+      const last = tokens.get(words[pending.endIndexExclusive - 1].tokenId).endOffset;
+      setSelection(editor, first, last);
+    } else setSelection(editor, start, start);
+    highlight();
+  });
+  return {
+    onKeydown, onPointerup, updateSelection,
+    cleanup() {
+      mounted = false;
+      observer.disconnect();
+      resize.disconnect();
+      doc.defaultView?.removeEventListener("resize", highlight);
+      panel.removeEventListener("keydown", onPanelKeydown);
+      doc.removeEventListener("keydown", onGlobalKeydown, true);
+      overlay.remove();
+      panel.remove();
+    },
+  };
+}
+
 /** Install the writing controls for one existing narration cell. */
 export function mountNarration(root, scriptDocument, command, options = {}) {
   if (!root || !root.ownerDocument || typeof command !== "function") return () => undefined;
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
-  const { compositionChange, requestRender } = options && typeof options === "object" ? options : {};
+  const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect } =
+    options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
   editor.dataset.narrationEditor = "true";
@@ -487,7 +924,15 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     return button;
   });
   actions.append(visualButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
-  root.replaceChildren(editor, actions, hint);
+  const surface = element(document, "div", "narration-editor__surface");
+  surface.append(editor);
+  root.replaceChildren(surface, actions, hint);
+  const unmountBrackets = mountRangeBrackets(surface, editor, row, projection, visualCommand);
+  if (reselect) {
+    surface.querySelectorAll("[data-range-slot]").forEach((handle) => { handle.disabled = true; });
+  }
+  const reselectEditor = reselect && typeof cancelReselect === "function" && typeof commitReselect === "function"
+    ? mountReselectEditor(surface, editor, row, projection, reselect, cancelReselect, commitReselect, previewReselect) : null;
 
   let knownText = typeof row.text === "string" ? row.text : "";
   let localRow = { ...row, tokens: Array.isArray(row.tokens) ? row.tokens.map((token) => ({ ...token })) : [] };
@@ -509,6 +954,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function updateActions() {
+    if (reselect) { actions.hidden = true; return; }
     const action = selectedAction(localRow, savedSelection);
     const visual = !composing && selectedSpokenWords(localRow, savedSelection);
     const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
@@ -728,6 +1174,11 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function onStructuralKey(event) {
+    if (reselect) {
+      if (reselectEditor?.onKeydown(event)) return;
+      if (!reselectEditor && event.key === "Escape") cancelReselect?.();
+      event.preventDefault(); return;
+    }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
     if (event.key === "Escape") return leaveText(event);
     if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
@@ -748,6 +1199,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function onBeforeInput(event) {
+    if (reselect) { event.preventDefault(); return; }
     if (editingBlocked) {
       event.preventDefault();
       return;
@@ -818,6 +1270,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   function onPaste(event) {
     event.preventDefault();
+    if (reselect) return;
     const plain = event.clipboardData?.getData("text/plain");
     if (typeof plain === "string") pastePlainText(plain);
   }
@@ -945,6 +1398,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function onSelectionChange() {
+    if (reselect) { reselectEditor?.updateSelection(); actions.hidden = true; return; }
     if (selectionGuard || !selectionInside(editor, document.getSelection())) return;
     const selection = rangeSelection(editor);
     if (!selection) {
@@ -973,6 +1427,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("compositionend", onCompositionEnd);
   editor.addEventListener("keydown", onStructuralKey);
   editor.addEventListener("pointerdown", onTypingPointer);
+  if (reselectEditor) editor.addEventListener("pointerup", reselectEditor.onPointerup);
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", onPaste);
@@ -1001,6 +1456,11 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
 
   return () => {
     mounted = false;
+    unmountBrackets();
+    if (reselectEditor) {
+      editor.removeEventListener("pointerup", reselectEditor.onPointerup);
+      reselectEditor.cleanup();
+    }
     closeVisualMenu();
     editor.removeEventListener("beforeinput", onBeforeInput);
     editor.removeEventListener("input", fallbackInput);
