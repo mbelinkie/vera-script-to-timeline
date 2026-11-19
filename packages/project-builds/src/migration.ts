@@ -10,6 +10,12 @@ export const BUILD_REFUSALS_MIGRATION = "stt_project_builds_002_preflight_refusa
 const REFUSALS_SQL = readFileSync(new URL("../migrations/002_preflight_refusals.sql", import.meta.url), "utf8");
 export const BUILD_REFUSALS_MIGRATION_DIGEST =
   createHash("sha256").update(REFUSALS_SQL).digest("hex");
+export const LATEST_MUSIC_WARNINGS_MIGRATION = "stt_project_builds_003_latest_music_warnings";
+const MUSIC_WARNINGS_SQL = readFileSync(
+  new URL("../migrations/003_latest_music_warnings.sql", import.meta.url), "utf8",
+);
+export const LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST =
+  createHash("sha256").update(MUSIC_WARNINGS_SQL).digest("hex");
 
 /** Apply *after* authorization and project-documents migrations on one DB. */
 export async function applyProjectBuildsMigration(db: SqlClient): Promise<void> {
@@ -19,6 +25,8 @@ export async function applyProjectBuildsMigration(db: SqlClient): Promise<void> 
     for (const step of [
       { name: PROJECT_BUILDS_MIGRATION, sql: SQL, digest: PROJECT_BUILDS_MIGRATION_DIGEST },
       { name: BUILD_REFUSALS_MIGRATION, sql: REFUSALS_SQL, digest: BUILD_REFUSALS_MIGRATION_DIGEST },
+      { name: LATEST_MUSIC_WARNINGS_MIGRATION, sql: MUSIC_WARNINGS_SQL,
+        digest: LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST },
     ]) {
       const previous = await db.query<{ checksum: string; schema_version: number }>(
         "SELECT encode(checksum,'hex') AS checksum,schema_version " +

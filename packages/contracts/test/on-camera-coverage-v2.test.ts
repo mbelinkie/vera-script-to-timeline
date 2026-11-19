@@ -29,7 +29,7 @@ const SEQUENCE = id(9);
 const FRAMES_PER_WORD = 12;
 
 /** Readable slot names for assertions: S1 is the row's first still, OC1 its first stored On Camera slot. */
-const SLOT = { S1: id(101), S2: id(102), S3: id(103), OC1: id(201), OC2: id(202), R1: id(301), R2: id(302) } as const;
+const SLOT = { S1: id(101), S2: id(102), S3: id(103), OC1: id(201), OC2: id(202), R1: id(301), R2: id(302), ADD: id(401) } as const;
 type SlotName = keyof typeof SLOT;
 const nameOf = (slotId: string): string =>
   (Object.entries(SLOT).find(([, value]) => value === slotId)?.[0]) ?? `new:${slotId.slice(0, 8)}`;
@@ -95,6 +95,13 @@ const stored = (doc: ScriptDocumentV2, slot: SlotName): ContentSlot | ReturnSlot
 
 function setRange(slot: SlotName, doc: ScriptDocumentV2, first: number, last: number): VisualSequenceEditCommandV2 {
   return { kind: "set_visual_range", blockId: ROW, slotId: SLOT[slot], startTokenId: wordId(doc, first), endTokenId: wordId(doc, last) };
+}
+
+function addOnSelection(doc: ScriptDocumentV2, first: number, last: number): VisualSequenceEditCommandV2 {
+  return {
+    kind: "add_visual_on_selection", blockId: ROW, slotId: SLOT.ADD, payloadId: id(402),
+    startTokenId: wordId(doc, first), endTokenId: wordId(doc, last), visualType: "onscreen_placeholder",
+  };
 }
 
 /** The card stack as text: "S1 0-9", "OC wide 9-18", "OC wide resumes 12-20", "S1 resumes 14-20", "S2 unattached". */
@@ -250,6 +257,39 @@ function raincoat(): ScriptDocumentV2 {
     [{ at: 0, onCamera: "OC1" }, { at: 7, still: "S1", in: "OC1" }, { at: 15, resume: "R1", of: "OC1" }],
   ));
 }
+
+describe("#67 Add visual keeps coherent On Camera and cutaway coverage", () => {
+  it("splits Amber Lantern's still into a genuine cutaway and one return, without breaking the build", () => {
+    const start = amberLantern();
+    const session = createRowEditSessionV2(start);
+    const result = session.applyVisualEdit(addOnSelection(start, 4, 5));
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(cards(result.document)).toEqual(["S1 0-4", "ADD 4-6", `S1 resumes 6-${rowIn(start).tokens.length}`]);
+    expectCoherent(result.document);
+    expect(rowIn(result.document).primaryVisualSequence?.version).toBe(2);
+    expect(session.undoDepth).toBe(1);
+    expect(session.undo().document.activeDraft.blocks).toEqual(start.activeDraft.blocks);
+  });
+
+  it("cuts into Folded Letter's Tight On Camera passage and preserves its real return", () => {
+    const start = foldedLetter();
+    const result = edit(start, addOnSelection(start, 10, 12));
+    expect(cards(result)).toEqual([
+      "S1 0-9", "OC tight 9-10", "ADD 10-13", "OC tight resumes 13-18",
+      `S2 18-${rowIn(start).tokens.length}`,
+    ]);
+    expect(stored(result, "OC1")).toMatchObject({ payload: { kind: "on_camera", framing: "tight" } });
+  });
+
+  it("extends over the join of two existing cues without a phantom resume or an extra version", () => {
+    const start = foldedLetter();
+    const result = edit(start, addOnSelection(start, 8, 10));
+    expect(cards(result)).toEqual([
+      "S1 0-8", "ADD 8-11", "OC tight 11-18", `S2 18-${rowIn(start).tokens.length}`,
+    ]);
+    expect(rowIn(result).primaryVisualSequence?.version).toBe(2);
+  });
+});
 
 // "The recipe card was found…": On Camera, then Still Image 1 with Still Image 2 cutting away inside it.
 function recipeCard(): ScriptDocumentV2 {

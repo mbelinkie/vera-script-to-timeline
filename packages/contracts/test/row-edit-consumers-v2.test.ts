@@ -547,7 +547,8 @@ describe("row-edit consumers", () => {
     expect(compiled.report.status).toBe("ready");
     expect(compiled.report.diagnostics.some((diagnostic) => diagnostic.code === "MUSIC_FILE_MISSING" && diagnostic.severity === "warning")).toBe(true);
     expect(compiled.manifest.events.filter((event) => event.kind === "music")).toEqual([]);
-    expect(compiled.manifest.events).toEqual(baseline.manifest.events);
+    expect(compiled.manifest.events.filter((event) => event.kind !== "script_marker")).toEqual(baseline.manifest.events);
+    expect(compiled.manifest.events.filter((event) => event.kind === "script_marker")).toHaveLength(1);
     expect(compiled.manifest.sources).toEqual(baseline.manifest.sources);
     expect(document.rowAudioSpans).toEqual([span]);
 

@@ -26,6 +26,8 @@ import {
   applyProjectBuildsMigration,
   BUILD_REFUSALS_MIGRATION,
   BUILD_REFUSALS_MIGRATION_DIGEST,
+  LATEST_MUSIC_WARNINGS_MIGRATION,
+  LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST,
   PROJECT_BUILDS_MIGRATION,
   PROJECT_BUILDS_MIGRATION_DIGEST,
 } from "@vera/project-builds";
@@ -73,6 +75,7 @@ const ALLOWED_TABLES = new Set([
   "stt_build_events",
   "stt_build_evidence",
   "stt_build_preflight_refusals",
+  "stt_project_latest_music_warnings",
   "stt_live_heads",
   "stt_live_updates",
   "stt_live_clients",
@@ -88,6 +91,7 @@ const EXPECTED_MIGRATIONS = [
   { name: PROJECT_SUBTITLE_COPIES_MIGRATION, version: 5, checksum: PROJECT_SUBTITLE_COPIES_MIGRATION_DIGEST },
   { name: PROJECT_BUILDS_MIGRATION, version: 1, checksum: PROJECT_BUILDS_MIGRATION_DIGEST },
   { name: BUILD_REFUSALS_MIGRATION, version: 1, checksum: BUILD_REFUSALS_MIGRATION_DIGEST },
+  { name: LATEST_MUSIC_WARNINGS_MIGRATION, version: 1, checksum: LATEST_MUSIC_WARNINGS_MIGRATION_DIGEST },
   { name: PROJECT_COLLABORATION_MIGRATION, version: 1, checksum: PROJECT_COLLABORATION_MIGRATION_DIGEST },
 ] as const;
 

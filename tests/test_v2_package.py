@@ -64,6 +64,7 @@ def _music_package_case(
     missing: bool = False,
     short: bool = False,
     anchored: bool = False,
+    matched: bool = False,
     scenario: str = "default",
 ) -> tuple[Any, str, str]:
     """A real 48 kHz mono PCM bed under a synthetic visual-only program row."""
@@ -90,7 +91,7 @@ def _music_package_case(
         "contentHash": "sha256:" + "0" * 64,
     }
     wav_path = tmp_path / "media" / "bed.wav"
-    frames = 48000 if short else 48000 * 3
+    frames = 48000 if short else 48000 * (6 if matched else 3)
     if not missing:
         with wave.open(str(wav_path), "wb") as writer:
             writer.setnchannels(1)
@@ -176,6 +177,16 @@ def _music_package_case(
                 "startFrame": source_out - (end_frame - 30),
                 "endFrame": source_out,
             }
+        if matched:
+            document["activeDraft"]["blocks"][0]["visualOnlyTiming"][
+                "matchAudioDuration"
+            ] = {"cueId": span_id}
+            document["rowAudioSpans"][0]["timing"] = {
+                "sourceInFrame": 12,
+                "sourceOutFrame": 12 + end_frame,
+                "timelineIn": {"kind": "frame", "frame": 5},
+            }
+            music_event["sourceRange"] = {"startFrame": 12, "endFrame": 12 + end_frame}
         _append_report_event(manifest, report, music_event)
         report["summary"]["sourceCount"] += 1
         case.media_paths[f"source:{source_id}"] = wav_path
@@ -190,6 +201,39 @@ def _music_package_case(
     ):
         path.write_bytes(canonical_json_bytes(value))
     return case, event_id, source_id
+
+
+@pytest.mark.parametrize("shifted", [False, True])
+def test_matched_music_package_checks_visual_range(
+    tmp_path: Path, shifted: bool
+) -> None:
+    case, _, _ = _music_package_case(
+        tmp_path, matched=True, scenario="intentional-slate"
+    )
+    if not shifted:
+        built = case.build()
+        assert verify_v2_package(built.project_root).build_id == built.build_id
+        return
+    document = json.loads(case.document_path.read_text())
+    dependencies = json.loads(case.dependencies_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    report = json.loads(case.report_path.read_text())
+    music = next(event for event in manifest["events"] if event["kind"] == "music")
+    music["recordRange"]["startFrame"] += 5
+    music["sourceRange"]["startFrame"] += 5
+    next(item for item in report["eventResults"] if item["kind"] == "music")[
+        "recordRange"
+    ] = music["recordRange"]
+    _refresh_document_closure(document, dependencies, manifest, report)
+    for path, value in (
+        (case.document_path, document),
+        (case.dependencies_path, dependencies),
+        (case.manifest_path, manifest),
+        (case.report_path, report),
+    ):
+        path.write_bytes(canonical_json_bytes(value))
+    with pytest.raises(V2PackageError, match="signed visual match"):
+        case.build()
 
 
 @pytest.mark.parametrize("anchored", [False, True])

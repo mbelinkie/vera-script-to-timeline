@@ -1,6 +1,10 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { applyRowEditV2, createRowEditSessionV2, type RowEditCommandV2 } from "@vera/contracts/authoring-v2";
+import {
+  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2,
+  projectPrimarySequenceV2, validateScriptDocumentV2,
+  type RowEditCommandV2, type VisualSequenceEditCommandV2,
+} from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -14,9 +18,64 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
   ["/narration-editor.js", ["narration-editor.js", "text/javascript; charset=utf-8"]],
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
+  ["/visual-selection.js", ["visual-selection.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function exact(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function id(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256;
+}
+
+const VISUAL_KINDS = new Set([
+  "add_visual_on_selection", "change_visual_type", "delete_visual",
+  "set_visual_range", "set_on_camera_framing",
+]);
+
+/** Only the commands this browser editor can issue, with exact JSON shapes. */
+function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
+  if (!record(value) || !VISUAL_KINDS.has(String(value.kind)) || !id(value.blockId) || !id(value.slotId)) return null;
+  switch (value.kind) {
+    case "add_visual_on_selection":
+      if (!exact(value, ["kind", "blockId", "slotId", "payloadId", "startTokenId", "endTokenId", "visualType"]) ||
+          !id(value.payloadId) || !id(value.startTokenId) || !id(value.endTokenId) ||
+          !["onscreen_placeholder", "need_to_find", "visual_undefined"].includes(String(value.visualType))) return null;
+      break;
+    case "set_visual_range":
+      if (!exact(value, ["kind", "blockId", "slotId", "startTokenId", "endTokenId"]) ||
+          !id(value.startTokenId) || !id(value.endTokenId)) return null;
+      break;
+    case "set_on_camera_framing":
+      if (!exact(value, ["kind", "blockId", "slotId", "framing"]) ||
+          (value.framing !== "wide" && value.framing !== "tight")) return null;
+      break;
+    case "delete_visual":
+      if (!exact(value, ["kind", "blockId", "slotId"])) return null;
+      break;
+    case "change_visual_type": {
+      if (!exact(value, ["kind", "blockId", "slotId", "to"]) || !record(value.to)) return null;
+      const to = value.to;
+      if (to.type === "visual_undefined") {
+        if (!exact(to, ["type"])) return null;
+      } else if (to.type === "onscreen_placeholder" || to.type === "need_to_find") {
+        const optional = to.type === "onscreen_placeholder" ? "text" : "description";
+        if (!exact(to, Object.hasOwn(to, optional) ? ["type", optional] : ["type"]) ||
+            (Object.hasOwn(to, optional) && (typeof to[optional] !== "string" || to[optional].length > 4096))) return null;
+      } else return null; // Media-bearing type changes wait for the media-picker issues.
+      break;
+    }
+  }
+  return value as VisualSequenceEditCommandV2;
+}
 
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
@@ -60,11 +119,14 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const musicWarnings = MUSIC_WARNINGS.test(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
+    const isProjection = path === "/projection" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
-      route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
-    if ((!allowed && !startsSession && !isCommand) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
+      (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
+      (musicWarnings && request.method === "GET");
+    if ((!allowed && !startsSession && !isCommand && !isProjection) || url.search) return Response.json({ error: "not_found" }, { status: 404 });
 
     // Cross-origin browser code cannot set this header without a successful
     // CORS preflight. Fetch Metadata also excludes other sites and local ports.
@@ -80,10 +142,39 @@ export function createAuthoringHandler(
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return Response.json({ error: "authoring_browser_required" }, { status: 401 });
     }
+    if (isProjection) {
+      try {
+        const body: unknown = await request.json();
+        if (!record(body) || !exact(body, ["document"]) ||
+            !validateScriptDocumentV2(body.document).valid) {
+          return Response.json({ error: "invalid_projection" }, { status: 400 });
+        }
+        // Read-only: a projection cannot create, redeem or invalidate D124 split context.
+        return Response.json({ projection: projectPrimarySequenceV2(body.document) });
+      } catch {
+        return Response.json({ error: "invalid_projection" }, { status: 400 });
+      }
+    }
     if (isCommand) {
       try {
-        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2; splitProof?: string };
+        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2; splitProof?: string; expectedSequenceVersion?: unknown };
         const { command, document, splitProof } = body;
+        if (record(command) && VISUAL_KINDS.has(String(command.kind))) {
+          const visual = visualCommand(command);
+          if (!visual || !record(body) || !exact(body, ["document", "command", "expectedSequenceVersion"]) ||
+              !Number.isSafeInteger(body.expectedSequenceVersion) ||
+              (body.expectedSequenceVersion as number) < 0 ||
+              !validateScriptDocumentV2(document).valid) {
+            return Response.json({ error: "invalid_command" }, { status: 400 });
+          }
+          const result = applyVisualSequenceEditV2(document, body.expectedSequenceVersion as number, visual);
+          if (result.ok) lastSplit = null; // Any successful visual edit breaks immediate split restoration.
+          return Response.json(result);
+        }
+        if (!record(command) || typeof command.kind !== "string" ||
+            Object.hasOwn(body, "expectedSequenceVersion")) {
+          return Response.json({ error: "invalid_command" }, { status: 400 });
+        }
         if (splitProof !== undefined) {
           const validProof = typeof splitProof === "string" && PROOF.test(splitProof) && lastSplit &&
             timingSafeEqual(Buffer.from(splitProof, "hex"), Buffer.from(lastSplit.proof, "hex"));

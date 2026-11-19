@@ -1,4 +1,4 @@
-import { renderRows } from "./view.js";
+import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 
@@ -16,8 +16,18 @@ const retrySave = element("retry-save");
 const openSaved = element("conflict-open-saved");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
+const visualCommandKinds = new Set([
+  "add_visual_on_selection", "change_visual_type", "delete_visual",
+  "set_visual_range", "set_on_camera_framing",
+]);
 let project;
+let activeProjectId;
 let scriptDocument;
+let projected;
+let projectionDocument;
+let flashVisualIds = new Set();
+let visualFeedback = "";
+let cardFocus = null;
 let documentRevision;
 let pendingDocument;
 let documentSaving = false;
@@ -112,6 +122,10 @@ async function showScript(projectId) {
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
   scriptDocument = savedScript.document;
+  projected = await fetchProjection(scriptDocument);
+  projectionDocument = scriptDocument;
+  flashVisualIds = new Set();
+  visualFeedback = "";
   documentRevision = savedScript.revision;
   undoStack.length = 0;
   typingGroup = null;
@@ -120,6 +134,7 @@ async function showScript(projectId) {
   renderEditor();
   updateUndo();
   project = savedProject;
+  activeProjectId = projectId;
   element("script-title").textContent = savedScript.document.title;
   document.title = `${savedScript.document.title} · VERA Authoring`;
   projectTitle.value = project.title;
@@ -129,12 +144,63 @@ async function showScript(projectId) {
   authoring.hidden = false;
   setSaveStatus("Saved");
   element("script-title").focus();
+  void refreshMusicWarnings();
 }
+
+const musicWarningLabels = {
+  MUSIC_SOURCE_SHORTER: "Music ends early",
+  MUSIC_FILE_MISSING: "Music file missing",
+  MUSIC_SPAN_INVALID: "Music cue can’t be placed",
+  MUSIC_SETTINGS_UNSUPPORTED: "Music settings aren’t supported",
+  MORE_MUSIC_WARNINGS: "Additional warnings",
+};
+let musicWarningRequest = 0;
+
+async function refreshMusicWarnings() {
+  if (!activeProjectId) return;
+  const projectId = activeProjectId;
+  const request = ++musicWarningRequest;
+  const current = () => projectId === activeProjectId && request === musicWarningRequest;
+  const status = element("music-warning-status");
+  const list = element("music-warning-list");
+  try {
+    const { report } = await api(`/${projectId}/music-warnings`);
+    if (!current()) return;
+    list.replaceChildren();
+    if (!report) {
+      status.textContent = "No completed build report is available for this project yet.";
+      return;
+    }
+    const warnings = report.musicWarnings;
+    const overflow = warnings.some((warning) => warning.code === "MORE_MUSIC_WARNINGS");
+    const version = report.documentRevision === documentRevision ? "saved script" : "earlier script version";
+    status.textContent = `Build ${report.buildId.slice(0, 8)} · ${version} · ` +
+      (overflow ? "music warnings." : warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
+    for (const warning of warnings) {
+      const item = document.createElement("li");
+      const label = document.createElement("strong");
+      label.textContent = `${musicWarningLabels[warning.code] ?? "Music warning"}: `;
+      item.append(label, document.createTextNode(warning.message));
+      list.append(item);
+    }
+  } catch {
+    if (!current()) return;
+    list.replaceChildren();
+    status.textContent = "Latest build warnings could not be loaded.";
+  }
+}
+
+window.addEventListener("focus", () => { void refreshMusicWarnings(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void refreshMusicWarnings();
+});
 
 function renderEditor() {
   const root = element("script-rows");
   const requestedFocus = structuralFocus;
   structuralFocus = null;
+  const requestedCardFocus = cardFocus;
+  cardFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   let caret = null;
@@ -147,7 +213,10 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument);
+  renderRows(root, scriptDocument, projectionDocument === scriptDocument ? projected : null, flashVisualIds);
+  flashVisualIds = new Set();
+  narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
+    queueCommand(command, label, { structural: true, cardFocus: focus })));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -161,6 +230,16 @@ function renderEditor() {
       requestRender: scheduleRender,
     }));
   });
+  if (requestedCardFocus) {
+    const row = [...root.querySelectorAll("[data-row-id]")]
+      .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
+    const card = [...(row?.querySelectorAll(".visual-card") ?? [])]
+      .find((item) => item.dataset.slotId === requestedCardFocus.slotId);
+    (card?.querySelector("[data-visual-action-trigger]") ??
+      row?.querySelector("[data-visual-action-trigger]") ??
+      row?.querySelector(".visual-card"))?.focus();
+    return;
+  }
   const targetRowId = requestedFocus?.rowId ?? rowId;
   const targetCaret = requestedFocus?.offset ?? caret;
   if (targetRowId && targetCaret !== null) {
@@ -211,6 +290,7 @@ async function saveDocument() {
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
+    void refreshMusicWarnings();
     pendingDocument = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
@@ -223,15 +303,66 @@ async function saveDocument() {
   else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
-async function applyBrowserCommand(document, command, splitProof) {
+async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
   const response = await fetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}) }),
+    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
+      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();
   if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
   return result;
+}
+
+async function fetchProjection(documentModel) {
+  const response = await fetch("/authoring/projection", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    body: JSON.stringify({ document: documentModel }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error("Couldn’t refresh visual cues. Reload to try again.");
+  const result = await response.json();
+  if (!Array.isArray(result.projection?.rows)) throw new Error("Visual cues were not returned by the editor.");
+  return result.projection;
+}
+
+function changedCueIds(before, after) {
+  const previous = new Map();
+  for (const row of before?.rows ?? []) {
+    row.cards.forEach((card, index) => {
+      if (card.kind !== "on_camera" && !card.compact) {
+        previous.set(`${row.blockId}:${card.slotId}`, { index, start: card.startTokenIndex });
+      }
+    });
+  }
+  const moved = new Set();
+  for (const row of after.rows) {
+    row.cards.forEach((card, index) => {
+      const prior = previous.get(`${row.blockId}:${card.slotId}`);
+      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex)) moved.add(card.slotId);
+    });
+  }
+  return moved;
+}
+
+async function refreshProjection(documentModel, force) {
+  try {
+    const next = await fetchProjection(documentModel);
+    // Typing and Undo can overtake a projection request. Never display a
+    // read response for an older document (or an earlier open project).
+    if (scriptDocument !== documentModel) return;
+    flashVisualIds = changedCueIds(projected, next);
+    projected = next;
+    projectionDocument = documentModel;
+  } catch (error) {
+    if (scriptDocument !== documentModel) return;
+    projected = null;
+    projectionDocument = documentModel;
+    setSaveStatus(error.message || "Couldn’t refresh visual cues. Reload to try again.");
+  }
+  scheduleRender(force);
 }
 
 // Every intermediate document is private to this queued operation: a refusal
@@ -331,6 +462,13 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    const sequenceVersion = visualCommandKinds.has(resolved?.kind) ? (() => {
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved.blockId);
+      if (row?.type !== "narration" || !Number.isSafeInteger(row.primaryVisualSequence?.version)) {
+        throw new Error("The selected visual sequence is no longer available.");
+      }
+      return row.primaryVisualSequence.version;
+    })() : undefined;
     if (options.paste) {
       typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
@@ -345,7 +483,7 @@ function queueCommand(command, label, options = {}) {
       updateUndo();
       documentDirty = true;
       void saveDocument();
-      scheduleRender(true);
+      void refreshProjection(scriptDocument, true);
       return true;
     }
     const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
@@ -354,7 +492,7 @@ function queueCommand(command, label, options = {}) {
     const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
-    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof);
+    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
     // at the same caret are eligible; a changed cursor/session breaks the run.
@@ -378,6 +516,8 @@ function queueCommand(command, label, options = {}) {
       session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
     } : null;
     scriptDocument = result.document;
+    visualFeedback = Array.isArray(result.evidence?.dropped) && result.evidence.dropped.length
+      ? result.evidence.dropped.map((item) => item.message).join(" ") : "";
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
       proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
       revision: scriptDocument.rowEditRevision, caret: options.splitCaret,
@@ -386,10 +526,11 @@ function queueCommand(command, label, options = {}) {
     else if (previous?.type === "narration") structuralFocus = replay
       ? { rowId: replay.originalRowId, offset: replay.caret }
       : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
+    if (options.cardFocus) cardFocus = options.cardFocus;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    scheduleRender(options.structural);
+    void refreshProjection(scriptDocument, options.structural);
     return true;
   }).catch((error) => {
     typingGroup = null;
@@ -438,12 +579,13 @@ function undo() {
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
+    visualFeedback = "";
     lastSplit = null;
     structuralFocus = null;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    scheduleRender(true);
+    void refreshProjection(scriptDocument, true);
   }).finally(() => {
     commandsPending -= 1;
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
@@ -525,6 +667,7 @@ openForm.addEventListener("submit", (event) => {
 
 function setSaveStatus(message, action) {
   if (editRefused) message = refusedMessage;
+  else if (message === "Saved" && visualFeedback) message = `Saved · ${visualFeedback}`;
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
