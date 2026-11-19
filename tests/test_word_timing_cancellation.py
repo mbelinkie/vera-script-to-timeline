@@ -40,6 +40,8 @@ if engine == "reader":
 
 if engine == "mfa_engine.py":
     (root / "mfa.started").touch()
+    if "--use-sqlite" in sys.argv:
+        (root / "mfa.sqlite").touch()
 
 if engine == os.environ.get("VERA_TEST_HOLD_ENGINE"):
     subprocess.Popen([sys.executable, __file__, "reader"])
@@ -251,6 +253,22 @@ def test_cancel_during_mfa_lock_contention_preserves_the_incumbent(
         flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
+def test_reaped_engine_with_visible_group_cannot_confirm_shutdown(
+    job: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The old group ID can belong to another process once the leader is reaped.
+    monkeypatch.setattr(local_engines, "_group_alive", lambda _pid: True)
+
+    def refuse_to_signal(_proc: subprocess.Popen[str]) -> bool:
+        pytest.fail("a reaped engine's group must not be sent termination signals")
+
+    monkeypatch.setattr(local_engines, "_stop_group", refuse_to_signal)
+    assert _align(job) == 3
+    _refusal(capsys, "shutdown-unconfirmed")
+    assert not (job / "mfa.started").exists()
+    assert not (job / "alignment.json").exists()
+
+
 @pytest.mark.slow
 def test_opt_in_without_request_preserves_normal_alignment(
     job: Path, capsys: pytest.CaptureFixture[str]
@@ -261,7 +279,9 @@ def test_opt_in_without_request_preserves_normal_alignment(
     artifact = json.loads(baseline)
     assert schema_errors(artifact) == []
     assert artifact["words"][0]["status"] == "acoustic"
+    assert not (job / "mfa.sqlite").exists()
 
     assert _align(job) == 0
     assert output.read_bytes() == baseline
+    assert (job / "mfa.sqlite").exists()
     assert capsys.readouterr().out == ""

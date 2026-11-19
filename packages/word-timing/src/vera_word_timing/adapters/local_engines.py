@@ -141,7 +141,11 @@ def _group_alive(pgid: int) -> bool:
 def _stop_group(proc: subprocess.Popen[str]) -> bool:
     """Stop the entire engine group and confirm that it is gone."""
     try:
+        if proc.returncode is not None:
+            return not _group_alive(proc.pid)
         for sig, grace in _STOP_GRACE:
+            if proc.returncode is not None and not _group_alive(proc.pid):
+                return True
             with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.killpg(proc.pid, sig)
             deadline = time.monotonic() + grace
@@ -236,8 +240,9 @@ def run_engine(
         ) from error
     if cancel_file is not None:
         # A child can close its pipes and outlive the wrapper. Check before
-        # advancing to the next engine or acknowledging a late cancellation.
-        if _group_alive(proc.pid) and not _stop_group(proc):
+        # acknowledging a stop. Once reaped, the leader's ID can be reused,
+        # so don't send termination signals on this path.
+        if _group_alive(proc.pid):
             raise _shutdown_unconfirmed(port)
         check_cancelled(cancel_file, port)
     done = subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
@@ -647,6 +652,8 @@ class MfaAligner:
             ]
             if self.extra_dictionary is not None:
                 cmd += ["--extra-dict", str(self.extra_dictionary)]
+            if cancel_file is not None:
+                cmd.append("--use-sqlite")
             with _mfa_lock(home, cancel_file=cancel_file):
                 run_engine(
                     cmd,
