@@ -616,6 +616,10 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
 /** Reselect is a local proposal only; it never changes the editable text or document. */
 function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, commit, preview) {
   const doc = editor.ownerDocument;
+  // A queued row edit temporarily invalidates derived projection. Preserve
+  // the pending review while the fresh projection is in flight; this is not
+  // a user cancellation or a malformed stored range.
+  if (!projectedRow) return null;
   const words = projectedRow?.tokens ?? [];
   const tokens = new Map(row.tokens.filter((token) => token.spoken !== false).map((token) => [token.id, token]));
   const bracket = projectedRow?.brackets?.find((item) => item.slotId === state.slotId);
@@ -720,20 +724,8 @@ function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, 
     highlight();
   }
 
-  function review() {
-    if (reviewing) return;
-    updateSelection();
-    if (!pending) { message.textContent = "Select at least one spoken word, then press Enter to review."; return; }
-    proposal = proposeVisualRange(projectedRow, state.slotId, pending.startIndex, pending.endIndexExclusive);
-    if (!proposal.ok) { message.textContent = proposal.reason; return; }
-    reviewing = true;
-    state.review = true;
-    previewed = false;
-    availableSet = false;
-    availableSwap = false;
-    impact = "";
-    display();
-    highlight();
+  function checkPreview() {
+    if (!proposal?.ok) return;
     // Both options are checked by the real model on a private snapshot; a
     // review refusal cannot create an Undo entry or save a document.
     const choices = [
@@ -756,6 +748,24 @@ function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, 
       display();
       (availableSwap ? swap : availableSet ? set : cancelButton).focus();
     });
+  }
+
+  function review() {
+    if (reviewing) return;
+    updateSelection();
+    if (!pending) { message.textContent = "Select at least one spoken word, then press Enter to review."; return; }
+    proposal = proposeVisualRange(projectedRow, state.slotId, pending.startIndex, pending.endIndexExclusive);
+    if (!proposal.ok) { message.textContent = proposal.reason; return; }
+    reviewing = true;
+    state.review = true;
+    previewed = false;
+    state.previewed = false;
+    availableSet = false;
+    availableSwap = false;
+    impact = "";
+    display();
+    highlight();
+    checkPreview();
   }
 
   async function confirm(kind) {
@@ -826,6 +836,10 @@ function mountReselectEditor(surface, editor, row, projectedRow, state, cancel, 
   doc.defaultView?.addEventListener("resize", highlight);
   display();
   highlight();
+  // Another row may have triggered a rerender during an async preflight.
+  // The previous mount discards its response; restart against the current
+  // immutable snapshot rather than leaving Set/Swap disabled indefinitely.
+  if (reviewing && !previewed) checkPreview();
   queueMicrotask(() => {
     if (!mounted) return;
     editor.focus();
@@ -1097,7 +1111,11 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   }
 
   function onStructuralKey(event) {
-    if (reselect) { if (reselectEditor?.onKeydown(event)) return; event.preventDefault(); return; }
+    if (reselect) {
+      if (reselectEditor?.onKeydown(event)) return;
+      if (!reselectEditor && event.key === "Escape") cancelReselect?.();
+      event.preventDefault(); return;
+    }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) typingBoundary += 1;
     if (event.key === "Escape") return leaveText(event);
     if (editingBlocked || composing || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;

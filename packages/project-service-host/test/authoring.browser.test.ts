@@ -52,6 +52,8 @@ interface SavedDocument {
 interface BrowserVisualTestApi {
   queueVisualCommand(intent: unknown, label: string): Promise<boolean>;
   projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }> } | null;
+  renderEditor(): void;
+  invalidateProjection(): void;
 }
 
 declare global {
@@ -64,7 +66,7 @@ declare global {
 async function exposeVisualTestApi(page: Page): Promise<void> {
   await page.route("**/app.js", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, projectedPrimaryRow };` });
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, projectedPrimaryRow, renderEditor, invalidateProjection };` });
   });
 }
 
@@ -504,7 +506,7 @@ describe("browser authoring over the local project service", () => {
         startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[2]!.id },
     };
     const proof = await page.evaluate(() => localStorage.getItem("vera.authoring.sessionProof"));
-    for (const path of ["visual-command", "projection"]) {
+    for (const path of ["visual-command", "visual-preview", "projection"]) {
       const payload = path === "projection" ? { document: original } : body;
       const withoutSession = await fetch(`${origin}/authoring/${path}`, {
         method: "POST", headers: { "sec-fetch-site": "same-origin", "x-vera-authoring": "1", "content-type": "application/json" },
@@ -545,6 +547,9 @@ describe("browser authoring over the local project service", () => {
     expect(result.projection.rows[0]?.brackets).toEqual(expect.arrayContaining([
       expect.objectContaining({ slotId: slot.id, endTokenIndexExclusive: 3 }),
     ]));
+    const preview = await appRequest(page, "/authoring/visual-preview", "POST", body);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toMatchObject({ ok: true, document: result.document });
     // These two routes are pure: the browser must explicitly save a successful edit.
     const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
     expect((saved.body as SavedDocument).document).toEqual(original);
@@ -887,6 +892,28 @@ describe("browser authoring over the local project service", () => {
     await editor.press("Backspace");
     await editor.press("Backspace");
     await waitForNarrationText(page, projectId, seeded.rowId, "s");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
+    await page.getByRole("button", { name: "Undo Edit narration" }).click();
+    await waitForNarrationText(page, projectId, seeded.rowId, "sun");
+    await page.close();
+  }, 90_000);
+
+  it("does not remount focused typing after asynchronous visual projections", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Typing projection must preserve Undo grouping");
+    const seeded = editableDocumentFixture(projectId, "sun");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await placeCaret(editor, 3);
+    await editor.evaluate((node) => { node.setAttribute("data-typing-mount", "original"); });
+    // Each key is slower than the projection debounce, but still in the same
+    // author's typing group. A forced projection rerender used to split Undo.
+    await page.keyboard.type("light", { delay: 160 });
+    await waitForNarrationText(page, projectId, seeded.rowId, "sunlight");
+    await page.waitForTimeout(200);
+    expect(await editor.getAttribute("data-typing-mount")).toBe("original");
     expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Edit narration"]);
     await page.getByRole("button", { name: "Undo Edit narration" }).click();
     await waitForNarrationText(page, projectId, seeded.rowId, "sun");
@@ -1308,6 +1335,19 @@ describe("browser authoring over the local project service", () => {
     })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
     expect(changedRevision.ok).toBe(false);
     expect(changedRevision.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    // Read-only visual range preflight must leave the server's immediate
+    // D124 split proof intact so Cancel cannot make a later exact join stale.
+    const splitRow = split.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (splitRow?.type !== "narration" || !splitRow.primaryVisualSequence) throw new Error("missing split visual row");
+    const previewSlot = splitRow.primaryVisualSequence.slots[0];
+    if (previewSlot?.kind !== "content") throw new Error("missing split visual slot");
+    const readOnlyPreview = await appRequest(page, "/authoring/visual-preview", "POST", {
+      document: split.document, expectedSequenceVersion: splitRow.primaryVisualSequence.version,
+      command: { kind: "set_visual_range", blockId: splitRow.id, slotId: previewSlot.id,
+        startTokenId: splitRow.tokens[0]!.id, endTokenId: splitRow.tokens[1]!.id },
+    });
+    expect(readOnlyPreview.status).toBe(200);
+    expect(readOnlyPreview.body).toMatchObject({ ok: true });
     const exact = (await appRequest(page, "/authoring/command", "POST", {
       document: split.document, command: join, splitProof: split.splitProof,
     })).body as { ok: boolean; document: ScriptDocumentV2 };
@@ -1778,6 +1818,67 @@ describe("browser authoring over the local project service", () => {
     await page.reload();
     await expect.poll(async () => await row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="start"]`)
       .getAttribute("data-word-index")).toBe("3");
+    await page.close();
+  }, 90_000);
+
+  it("retains pending Reselect through projection gaps and restarts a remounted preview", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Reselect transient projection and review retry");
+    const seeded = foldedLetterRangeFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    await card.focus();
+    await card.locator("[data-reselect-open='button']").click();
+    const editor = row.locator("[data-narration-editor]");
+    for (let i = 0; i < 3; i += 1) await editor.press("Alt+Shift+ArrowRight");
+    const panel = row.locator("[data-reselect-panel]");
+    await expect.poll(async () => await panel.textContent()).toContain("3 words selected");
+
+    // Structural edits invalidate projection and force a render before the
+    // replacement projection arrives. This is not an explicit cancel.
+    let releaseProjection: () => void = () => undefined;
+    const projectionGate = new Promise<void>((resolve) => { releaseProjection = resolve; });
+    let projectionStarted: () => void = () => undefined;
+    const projectionRequested = new Promise<void>((resolve) => { projectionStarted = resolve; });
+    await page.route("**/authoring/projection", async (route) => {
+      projectionStarted();
+      await projectionGate;
+      await route.continue();
+    });
+    await page.evaluate(() => {
+      window.__veraVisualTest!.invalidateProjection();
+      window.__veraVisualTest!.renderEditor();
+    });
+    await projectionRequested;
+    expect(await panel.count()).toBe(0);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    releaseProjection();
+    await expect.poll(async () => await panel.textContent()).toContain("3 words selected");
+    await expect.poll(async () => await row.locator("[data-reselect-highlight]").count()).toBe(3);
+
+    // A second forced redraw while the first preview response is withheld
+    // must restart the read-only preflight and enable Set range again.
+    let releasePreview: () => void = () => undefined;
+    const previewGate = new Promise<void>((resolve) => { releasePreview = resolve; });
+    let previewStarted: () => void = () => undefined;
+    const previewRequested = new Promise<void>((resolve) => { previewStarted = resolve; });
+    let firstPreview = true;
+    await page.route("**/authoring/visual-preview", async (route) => {
+      if (firstPreview) { firstPreview = false; previewStarted(); await previewGate; }
+      await route.continue();
+    });
+    await editor.press("Enter");
+    await previewRequested;
+    await page.evaluate(() => window.__veraVisualTest!.renderEditor());
+    await expect.poll(async () => await row.locator("[data-reselect-set]").isEnabled()).toBe(true);
+    releasePreview();
+    expect(await panel.textContent()).toContain("3 words selected");
+    await row.locator("[data-reselect-set]").click();
+    await expect.poll(async () => await page.locator("#undo-history li").allTextContents()).toEqual(["Set visual range"]);
     await page.close();
   }, 90_000);
 

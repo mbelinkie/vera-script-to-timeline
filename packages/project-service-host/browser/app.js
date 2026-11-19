@@ -291,7 +291,7 @@ async function previewReselect(command) {
       row.primaryVisualSequence?.version !== state.version) {
     throw new Error("The narration changed; start Reselect again.");
   }
-  const result = await authoringVisualPost("visual-command", {
+  const result = await authoringVisualPost("visual-preview", {
     document: snapshot, command, expectedSequenceVersion: state.version,
   });
   if (activeReselect !== state || scriptDocument !== snapshot) {
@@ -400,7 +400,9 @@ function invalidateProjection() {
       const { projection } = await authoringVisualPost("projection", { document: snapshot });
       if (generation !== projectionGeneration || snapshot !== scriptDocument) return;
       visualProjection = projection;
-      scheduleRender(true);
+      // A projection of the current text must not remount a focused typing
+      // editor: remounting rotates its typing session and fragments Undo.
+      scheduleRender(Boolean(activeReselect));
     } catch { /* Keep editing without derived decorations if projection is unavailable. */ }
   }, 30);
 }

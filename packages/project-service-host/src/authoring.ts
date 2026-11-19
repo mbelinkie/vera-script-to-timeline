@@ -72,10 +72,11 @@ export function createAuthoringHandler(
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
+    const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"));
-    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isProjection) || url.search) {
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
 
@@ -132,7 +133,7 @@ export function createAuthoringHandler(
         return Response.json({ error: "invalid_command" }, { status: 400 });
       }
     }
-    if (isVisualCommand) {
+    if (isVisualCommand || isVisualPreview) {
       try {
         const body = await request.json() as {
           document?: ScriptDocumentV2;
@@ -145,7 +146,9 @@ export function createAuthoringHandler(
           return Response.json({ error: "invalid_visual_command" }, { status: 400 });
         }
         const result = applyVisualSequenceEditV2(document, expectedSequenceVersion!, command);
-        if (result.ok) lastSplit = null;
+        // Read-only Reselect previews must not consume the one-time proof for
+        // immediately restoring a split. Only a committed edit breaks it.
+        if (result.ok && isVisualCommand) lastSplit = null;
         return Response.json(result.ok ? { ...result, projection: projectPrimarySequenceV2(result.document) } : result);
       } catch {
         return Response.json({ error: "invalid_visual_command" }, { status: 400 });
