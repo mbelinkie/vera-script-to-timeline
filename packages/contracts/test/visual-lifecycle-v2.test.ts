@@ -270,6 +270,14 @@ describe("#67 atomic Add visual on selected words", () => {
     }
     refusedWith(start, { ...add(start, 2, 2, 3), visualType: "footage" as AddCommand["visualType"] }, "ADD_VISUAL_TYPE_INVALID");
     refusedWith(start, { ...add(start, 2, 2, 3), endTokenId: word(start, 1, 3) }, "RANGE_OUTSIDE_ROW");
+    // The pure model route, not just the session wrapper, must return the
+    // caller's exact document on a failed attach substep (atomic refusal).
+    const failedAttach = applyVisualSequenceEditV2(start, 1, {
+      ...add(start, 2, 2, 3), endTokenId: word(start, 1, 3),
+    });
+    expect(failedAttach.ok).toBe(false);
+    expect(failedAttach.diagnostics[0]?.code).toBe("RANGE_OUTSIDE_ROW");
+    expect(failedAttach.document).toBe(start);
     refusedWith(start, add(start, 2, 6, 3), "RANGE_REVERSED");
     const waiting = act(start, move("F")).document;
     refusedWith(waiting, { ...add(waiting, 2, 2, 3), slotId: slotId(1, "F") }, "VISUAL_SLOT_ID_DUPLICATE");
