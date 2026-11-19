@@ -555,6 +555,8 @@ export class NodePinnedTransport implements PinnedTransport {
       const client = request.url.protocol === "https:" ? https : http;
       const options: https.RequestOptions = {
         agent: false,
+        // Request a single address from the pinned lookup on dual-stack Node.
+        family: request.family,
         headers: request.headers,
         method: request.method,
         lookup: (_host, _options, callback) => {

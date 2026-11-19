@@ -32,9 +32,11 @@ import {
 } from "./policy.js";
 import {
   CAPTURE_PROFILE_V1_DIGEST,
+  CAPTURE_PROFILE_V2_DIGEST,
   OUTPUT_HEIGHT,
   OUTPUT_WIDTH,
 } from "./profile.js";
+import { locatePassage, type PassageRect } from "./passage.js";
 import type { CaptureService } from "./service.js";
 
 export type CaptureWorkerProtocolPort = Pick<
@@ -100,6 +102,7 @@ export type CaptureWorkerRunResult =
     };
 
 interface BrowserObservation {
+  readonly highlightRects: readonly PassageRect[];
   readonly raster: Buffer;
   readonly title: string | null;
   readonly warnings: readonly string[];
@@ -275,6 +278,11 @@ function workerRequest(
   at: Date,
 ): PublicPageCaptureProvenanceV1["request"] {
   const inspected = inspectPublicUrl(assignment.exactRequestedUrl);
+  const regionIntent = assignment.regionIntent ?? { kind: "full_viewport" };
+  const profileName =
+    assignment.profile.profileVersion === 2
+      ? "vera-public-page-capture-v2"
+      : "vera-public-page-capture-v1";
   return {
     triggerKind: "now",
     requestedUrl: inspected.canonicalUrl,
@@ -286,9 +294,9 @@ function workerRequest(
     ),
     queryKeyNames: [...inspected.queryKeys],
     settingsDigest: assignment.settingsDigest,
-    captureProfileId: "vera-public-page-capture-v1",
+    captureProfileId: profileName,
     captureProfileDigest: assignment.profile.profileDigest,
-    regionIntent: { kind: "full_viewport" },
+    regionIntent,
     idempotencyScopeDigest: sha256(assignment.jobId),
     idempotencyKeyDigest: sha256(assignment.leaseId),
     requestedAt: assignment.issuedAt,
@@ -301,6 +309,10 @@ function runtimeRecord(
   profile: CaptureProfileV1,
   cleanProfileId: string,
 ): PublicPageCaptureProvenanceV1["runtime"] {
+  const profileName =
+    profile.profileVersion === 2
+      ? "vera-public-page-capture-v2"
+      : "vera-public-page-capture-v1";
   return {
     workerBuildId: runtime.workerBuildId,
     workerBuildDigest: runtime.workerBuildDigest,
@@ -319,7 +331,7 @@ function runtimeRecord(
     javascriptMode: profile.render.javaScript,
     locale: "en-US",
     timezone: "UTC",
-    userAgentProfile: "vera-public-page-capture-v1",
+    userAgentProfile: profileName,
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 2,
     colorProfile: "srgb",
@@ -528,6 +540,7 @@ function buildRevisionProvenance(
         width: OUTPUT_WIDTH,
         height: OUTPUT_HEIGHT,
       },
+      highlightRects: observation.highlightRects,
       decoder: "pngjs-7",
       byteIdentity: "new_raster",
       baselineRevisionId: null,
@@ -722,10 +735,16 @@ export class LocalPublicPageCaptureWorker {
       messageType: "claim_lease",
       clientRequestId: this.id(),
       workerInstallationId: runtime.installationId,
-      supportedProfileDigests: [CAPTURE_PROFILE_V1_DIGEST],
+      supportedProfileDigests: [
+        CAPTURE_PROFILE_V1_DIGEST,
+        CAPTURE_PROFILE_V2_DIGEST,
+      ],
     });
     const assignment = claimed.assignment;
-    if (assignment.profile.profileDigest !== CAPTURE_PROFILE_V1_DIGEST) {
+    if (
+      assignment.profile.profileDigest !== CAPTURE_PROFILE_V1_DIGEST &&
+      assignment.profile.profileDigest !== CAPTURE_PROFILE_V2_DIGEST
+    ) {
       throw new Error("The claimed capture profile is not supported.");
     }
     const cleanProfileId = this.id();
@@ -1154,6 +1173,7 @@ export class LocalPublicPageCaptureWorker {
     readonly observation: BrowserObservation;
   }> {
     const { profile } = assignment;
+    const regionIntent = assignment.regionIntent ?? { kind: "full_viewport" };
     const topLevel = state.responses[0];
     if (!topLevel) {
       throw new Error("The admitted top-level response is unavailable.");
@@ -1185,6 +1205,19 @@ export class LocalPublicPageCaptureWorker {
         "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}",
     });
     await this.delay(profile.stability.settleMilliseconds);
+    const highlightRects =
+      regionIntent.kind === "passage"
+        ? await locatePassage(page, regionIntent)
+        : [];
+    if (regionIntent.kind === "full_viewport") {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    }
     const title = safeTitle(await page.title());
     const screenshot = await page.screenshot({
       animations: "disabled",
@@ -1215,6 +1248,7 @@ export class LocalPublicPageCaptureWorker {
         topLevel,
       },
       observation: {
+        highlightRects,
         raster: Buffer.from(screenshot),
         title,
         warnings: [...state.warnings].sort(),

@@ -28,6 +28,7 @@ import {
 import { RestrictedRequestCipher } from "../src/envelope.js";
 import { CaptureServiceError } from "../src/errors.js";
 import { MemoryImmutableObjectStore } from "../src/object-store.js";
+import { requestPublicPagePictures } from "../src/page-pictures.js";
 import { CAPTURE_PROFILE_V1 } from "../src/profile.js";
 import { CaptureService } from "../src/service.js";
 
@@ -595,4 +596,25 @@ describe("capture HTTP boundaries", () => {
     });
     expect(JSON.stringify(body)).not.toContain("not-a-capability");
   }, 20_000);
+});
+
+describe("public page pictures", () => {
+  it("shares the article job and keeps independent observations for different passages", async () => {
+    const { service } = await harness();
+    const url = "https://example.org/article";
+    const request = (prefix: string) => requestPublicPagePictures(service, PROJECT_ID, PRINCIPAL, url, {
+      exact: "repeated passage", prefix,
+    });
+    const first = await request("first");
+    const again = await request("first");
+    const other = await request("second");
+    expect(first.passage).not.toBeNull();
+    expect(again.passage?.jobId).toBe(first.passage?.jobId);
+    expect(other.passage?.captureId).not.toBe(first.passage?.captureId);
+    expect(other.top.jobId).toBe(first.top.jobId);
+    expect(first.top.captureId).not.toBe(first.passage?.captureId);
+    const pageOnly = await requestPublicPagePictures(service, PROJECT_ID, PRINCIPAL, url);
+    expect(pageOnly.passage).toBeNull();
+    expect(pageOnly.top.jobId).toBe(first.top.jobId);
+  }, 30_000);
 });

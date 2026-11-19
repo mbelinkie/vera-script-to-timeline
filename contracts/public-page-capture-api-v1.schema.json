@@ -215,10 +215,37 @@
         "height": { "type": "integer", "minimum": 1, "maximum": 32768 }
       }
     },
+    "PassageRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "exact"],
+      "properties": {
+        "kind": { "type": "string", "const": "passage" },
+        "exact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]+$"
+        },
+        "prefix": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+        },
+        "suffix": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+        }
+      }
+    },
     "RegionIntent": {
       "oneOf": [
         { "$ref": "#/$defs/FullViewportRegion" },
-        { "$ref": "#/$defs/RectangleRegion" }
+        { "$ref": "#/$defs/RectangleRegion" },
+        { "$ref": "#/$defs/PassageRegion" }
       ]
     },
     "ExecutableAcquisitionPolicy": {

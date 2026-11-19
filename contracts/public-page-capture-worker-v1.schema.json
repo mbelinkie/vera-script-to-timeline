@@ -344,6 +344,9 @@
         "expiresAt": { "$ref": "#/$defs/UtcTimestamp" },
         "exactRequestedUrl": { "$ref": "#/$defs/ExactRestrictedUrl" },
         "settingsDigest": { "$ref": "#/$defs/ContentDigest" },
+        "regionIntent": {
+          "$ref": "public-page-capture-api-v1.schema.json#/$defs/RegionIntent"
+        },
         "profile": { "$ref": "#/$defs/CaptureProfileV1" }
       }
     },

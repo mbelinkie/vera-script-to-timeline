@@ -161,6 +161,7 @@ class LeaseAssignment(TypedDict):
     expiresAt: UtcTimestamp
     exactRequestedUrl: ExactRestrictedUrl
     settingsDigest: ContentDigest
+    regionIntent: NotRequired[public_page_capture_api_v1_schema.RegionIntent]
     profile: CaptureProfileV1
 
 

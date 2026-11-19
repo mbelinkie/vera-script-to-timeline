@@ -17,9 +17,12 @@ import type {
   StandaloneVisualPayloadV2,
 } from "@vera/contracts/v2";
 
+import { stableUuid } from "./crypto.js";
 import { CaptureDenied, inspectPublicUrl } from "./policy.js";
-import { CAPTURE_PROFILE_V1 } from "./profile.js";
+import { requestPublicPagePictures } from "./page-pictures.js";
+import { CAPTURE_PROFILE_V1, CAPTURE_PROFILE_V2 } from "./profile.js";
 import type { CaptureService } from "./service.js";
+import { readSuppliedPicture, type SuppliedPictureReadOptions, type PictureRect } from "./supplied-picture.js";
 
 type CapturePort = Pick<CaptureService,
   "createCapture" | "getCapture" | "requestCaptureJob" | "getRevision" | "selectRevision" | "readRasterArtifact"
@@ -36,6 +39,8 @@ export interface WebpageCaptureResult {
   readonly captureId: string | null;
   readonly revisionId: string | null;
   readonly artifactDigest: string | null;
+  /** Coordinates on the unscaled PNG, measured from its top-left corner. */
+  readonly highlightRects?: readonly PictureRect[];
 }
 
 export interface WebpagePrepMediaOptions {
@@ -46,6 +51,10 @@ export interface WebpagePrepMediaOptions {
   /** The current authorized, versioned authored occurrence. */
   readonly reference: DraftOccurrenceReference;
   readonly service: CapturePort;
+  /** Capture IDs whose origin the trusted host recorded as user supplied. */
+  readonly suppliedPictures?: Pick<SuppliedPictureReadOptions, "authorization" | "references" | "store"> & {
+    readonly captureIds: ReadonlySet<string>;
+  };
 }
 
 export interface WebpagePrepMediaOutcome {
@@ -68,11 +77,6 @@ interface StoredStill {
 
 const digest = (value: string | Buffer): string =>
   `sha256:${createHash("sha256").update(value).digest("hex")}`;
-const stableId = (value: string): string => {
-  const hex = digest(value).slice(7, 39);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20)}`;
-};
-
 function validateStored(value: unknown, projectId: string, urlDigest: string): StoredStill {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid webpage still receipt");
   const record = value as Partial<StoredStill>;
@@ -173,20 +177,12 @@ async function prepareUrl(
   const label = inspected.redactedUrl;
   const urlDigest = digest(inspected.canonicalUrl);
   const cached = await store.read(options.projectId, urlDigest);
-  let captureId: string;
-  let revisionId: string | null = cached?.record.revisionId ?? null;
-  if (cached) {
-    captureId = cached.record.captureId;
-  } else {
-    const created = await options.service.createCapture({
-      schemaVersion: "public-page-capture-api/v1", messageType: "create_capture",
-      clientRequestId: randomUUID(), idempotencyKey: `webpage-prep/create/${urlDigest}`,
-      projectId: options.projectId, requestedUrl: inspected.canonicalUrl,
-      regionIntent: { kind: "full_viewport" }, acquisitionPolicy: { kind: "now" },
-      captureProfileId: CAPTURE_PROFILE_V1.profileId, captureProfileVersion: CAPTURE_PROFILE_V1.profileVersion,
-    }, options.principal);
-    captureId = created.capture.captureId;
-  }
+  const job = cached ? null : (await requestPublicPagePictures(
+    options.service, options.projectId, options.principal, inspected.canonicalUrl,
+  )).top;
+  const captureId = cached?.record.captureId ?? job?.captureId;
+  if (!captureId) throw new Error("webpage capture is missing its source");
+  let revisionId = cached?.record.revisionId ?? null;
   // Always reauthorize reads, including cache hits; a local receipt is not a
   // substitute for current membership or the selected occurrence authority.
   const capture = await options.service.getCapture(options.projectId, captureId, options.principal);
@@ -194,33 +190,26 @@ async function prepareUrl(
       capture.capture.lifecycle !== "active" ||
       capture.capture.configuration.requestedUrl.canonicalDigest !== urlDigest ||
       capture.capture.configuration.captureProfileId !== CAPTURE_PROFILE_V1.profileId ||
-      capture.capture.configuration.captureProfileVersion !== CAPTURE_PROFILE_V1.profileVersion) {
+      !(capture.capture.configuration.captureProfileVersion === CAPTURE_PROFILE_V2.profileVersion ||
+        (cached && capture.capture.configuration.captureProfileVersion === CAPTURE_PROFILE_V1.profileVersion))) {
     throw new Error("webpage capture is not the authorized source/profile");
   }
-  if (!revisionId) {
-    // Stable command and idempotency keys prevent every new build snapshot from
-    // causing a second browser fetch. The #39 worker executes this job separately.
-    const job = await options.service.requestCaptureJob({
-      schemaVersion: "public-page-capture-api/v1", messageType: "request_capture_job",
-      clientRequestId: randomUUID(), idempotencyKey: `webpage-prep/job/${urlDigest}`,
-      projectId: options.projectId, captureId, expectedCaptureRowVersion: capture.capture.rowVersion,
-      trigger: { kind: "now", commandId: stableId(`webpage-prep/job/${options.projectId}/${urlDigest}`),
-        selectionIntent: { kind: "none" } },
-    }, options.principal);
-    if (job.job.state === "failed" || job.job.state === "rejected" || job.job.state === "cancelled") {
-      return { ...base, label, status: "failed", reason: `Webpage capture ${job.job.state}`,
+  if (job) {
+    if (job.state === "failed" || job.state === "rejected" || job.state === "cancelled") {
+      return { ...base, label, status: "failed", reason: `Webpage capture ${job.state}`,
         rasterPath: null, captureId, revisionId: null, artifactDigest: null };
     }
-    if (job.job.state === "committed_review_required") {
+    if (job.state === "committed_review_required") {
       return { ...base, label, status: "review_required", reason: "Webpage capture requires review",
-        rasterPath: null, captureId, revisionId: job.job.outputRevisionId, artifactDigest: null };
+        rasterPath: null, captureId, revisionId: job.outputRevisionId, artifactDigest: null };
     }
-    if (job.job.state !== "committed_ready" || !job.job.outputRevisionId) {
+    if (job.state !== "committed_ready" || !job.outputRevisionId) {
       return { ...base, label, status: "pending", reason: "Webpage capture has not completed",
         rasterPath: null, captureId, revisionId: null, artifactDigest: null };
     }
-    revisionId = job.job.outputRevisionId;
+    revisionId = job.outputRevisionId;
   }
+  if (!revisionId) throw new Error("webpage capture is missing its revision");
   const revision = (await options.service.getRevision(options.projectId, revisionId, options.principal)).revision;
   if (revision.status !== "ready") {
     return { ...base, label, status: "review_required", reason: "Webpage capture requires review",
@@ -244,7 +233,9 @@ async function prepareUrl(
     await options.service.selectRevision({
       schemaVersion: "public-page-capture-api/v1", messageType: "select_revision",
       projectId: options.projectId, revisionId, clientRequestId: randomUUID(),
-      idempotencyKey: `webpage-prep/select/${digest(JSON.stringify(occurrenceReference))}/${revisionId}`,
+      idempotencyKey: stableUuid(["webpage-prep/select", occurrenceReference.projectId,
+        occurrenceReference.resourceId, occurrenceReference.resourceVersionDigest,
+        occurrenceReference.occurrenceId, revisionId]),
       target: occurrenceReference, expectedPreviousSelectionId: null,
       reason: "capture_and_use", requiredUseDecisionId: null,
     }, options.principal);
@@ -292,7 +283,22 @@ export async function preparePublicWebpageVisuals(
   const store = new ProjectWebpageStillStore(options.projectRoot);
   const captures: WebpageCaptureResult[] = [];
   const preparePayload = async (payload: VisualPayload): Promise<void> => {
-    if (payload.pictureKind !== "capture" || payload.source.kind !== "url") return;
+    if (payload.pictureKind !== "capture") return;
+    const source = payload.source;
+    if (source.kind === "capture_revision" && options.suppliedPictures?.captureIds.has(source.captureId)) {
+      const picture = await readSuppliedPicture({
+        ...options.suppliedPictures, captureId: source.captureId, revisionId: source.revisionId,
+        projectId: options.projectId, principal: options.principal,
+        reference: { ...options.reference, occurrenceId: payload.payloadId },
+      });
+      captures.push({
+        payloadId: payload.payloadId, label: "Supplied page picture", status: "reused", reason: null,
+        captureId: source.captureId, revisionId: source.revisionId, rasterPath: picture.rasterPath,
+        artifactDigest: picture.digest, highlightRects: picture.metadata.highlightRects,
+      });
+      return;
+    }
+    if (source.kind !== "url") return;
     // Every occurrence needs its own authorized selection, even if another
     // occurrence already requested this URL. #39 deduplicates capture jobs;
     // the verified disk cache deduplicates bytes.

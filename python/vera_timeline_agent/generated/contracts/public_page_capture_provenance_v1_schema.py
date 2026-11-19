@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 type SchemaVersion = Literal["public-page-capture-provenance/v1"]
 
@@ -67,6 +67,21 @@ class RegionIntent2(TypedDict):
     selector: str
 
 
+class RegionIntent3(TypedDict):
+    kind: Literal["rectangle"]
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class RegionIntent4(TypedDict):
+    kind: Literal["passage"]
+    exact: str
+    prefix: NotRequired[str]
+    suffix: NotRequired[str]
+
+
 class RequestRecord(TypedDict):
     triggerKind: Literal["now", "on_build"]
     requestedUrl: RawPublicUrl
@@ -75,9 +90,11 @@ class RequestRecord(TypedDict):
     requestedUrlFingerprint: HmacFingerprint
     queryKeyNames: list[QueryKeyName]
     settingsDigest: Digest
-    captureProfileId: Literal["vera-public-page-capture-v1"]
+    captureProfileId: Literal[
+        "vera-public-page-capture-v1", "vera-public-page-capture-v2"
+    ]
     captureProfileDigest: Digest
-    regionIntent: RegionIntent | RegionIntent2
+    regionIntent: RegionIntent | RegionIntent2 | RegionIntent3 | RegionIntent4
     idempotencyScopeDigest: Digest
     idempotencyKeyDigest: Digest
     requestedAt: Timestamp
@@ -188,7 +205,9 @@ class RuntimeRecord(TypedDict):
     javascriptMode: Literal["disabled", "sandboxed_bounded"]
     locale: Literal["en-US"]
     timezone: Literal["UTC"]
-    userAgentProfile: Literal["vera-public-page-capture-v1"]
+    userAgentProfile: Literal[
+        "vera-public-page-capture-v1", "vera-public-page-capture-v2"
+    ]
     viewport: Viewport
     deviceScaleFactor: Literal[2]
     colorProfile: Literal["srgb"]
@@ -267,12 +286,20 @@ class CapturedRegion(TypedDict):
     height: int
 
 
+class HighlightRect(TypedDict):
+    x: int
+    y: int
+    width: int
+    height: int
+
+
 class OutputRecord(TypedDict):
     raster: ArtifactDescriptor
     encoding: Literal["png"]
     width: Literal[3840]
     height: Literal[2160]
     capturedRegion: CapturedRegion
+    highlightRects: NotRequired[list[HighlightRect]]
     decoder: str
     byteIdentity: Literal["new_raster", "exact_byte_reuse"]
     baselineRevisionId: EntityId | None

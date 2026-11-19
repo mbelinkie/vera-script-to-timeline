@@ -132,6 +132,7 @@ function assignment(url = "https://capture.example.org/story"): LeaseAssignment 
     expiresAt: new Date(NOW.getTime() + 30_000).toISOString(),
     exactRequestedUrl: url,
     settingsDigest: `sha256:${"33".repeat(32)}`,
+    regionIntent: { kind: "full_viewport" },
     profile: CAPTURE_PROFILE_V1,
   };
 }

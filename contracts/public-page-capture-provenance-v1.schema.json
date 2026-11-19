@@ -249,7 +249,10 @@
           "$ref": "#/$defs/Digest"
         },
         "captureProfileId": {
-          "const": "vera-public-page-capture-v1"
+          "enum": [
+            "vera-public-page-capture-v1",
+            "vera-public-page-capture-v2"
+          ]
         },
         "captureProfileDigest": {
           "$ref": "#/$defs/Digest"
@@ -283,6 +286,64 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 1024
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "x", "y", "width", "height"],
+              "properties": {
+                "kind": {
+                  "const": "rectangle"
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 32767
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 32767
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32768
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32768
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "exact"],
+              "properties": {
+                "kind": {
+                  "const": "passage"
+                },
+                "exact": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]+$"
+                },
+                "prefix": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+                },
+                "suffix": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 512,
+                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
                 }
               }
             }
@@ -833,7 +894,10 @@
           "const": "UTC"
         },
         "userAgentProfile": {
-          "const": "vera-public-page-capture-v1"
+          "enum": [
+            "vera-public-page-capture-v1",
+            "vera-public-page-capture-v2"
+          ]
         },
         "viewport": {
           "type": "object",
@@ -1127,6 +1191,21 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 8192
+            }
+          }
+        },
+        "highlightRects": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "width", "height"],
+            "properties": {
+              "x": { "type": "integer", "minimum": 0, "maximum": 8192 },
+              "y": { "type": "integer", "minimum": 0, "maximum": 8192 },
+              "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+              "height": { "type": "integer", "minimum": 1, "maximum": 8192 }
             }
           }
         },

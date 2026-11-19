@@ -85,6 +85,17 @@ describe("public-page capture v1 contracts", () => {
     expect(validate(value), JSON.stringify(validate.errors, null, 2)).toBe(true);
   });
 
+  it("accepts empty surrounding words on both admission and stored provenance", () => {
+    const region = { kind: "passage", exact: "A line\nand another", prefix: "", suffix: "" };
+    const create = parseJson(`${exampleDirectory}api-create-capture.json`) as Record<string, unknown>;
+    const manifest = parseJson(`${exampleDirectory}provenance-revision-observation.json`) as { request: Record<string, unknown> };
+    create.captureProfileVersion = 2;
+    create.regionIntent = region;
+    manifest.request.regionIntent = region;
+    expect(validators.api!(create)).toBe(true);
+    expect(validators.provenance!(manifest)).toBe(true);
+  });
+
   it("rejects Periodic as an executable trigger", () => {
     const value = structuredClone(
       parseJson(`${exampleDirectory}api-request-now.json`),
