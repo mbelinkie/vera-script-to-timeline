@@ -2151,6 +2151,35 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("does not expose editable rows before their initial visual projection arrives", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Initial projection race project");
+    const seeded = editableDocumentFixture(projectId, "select before projection");
+    await saveDocumentFixture(page, projectId, seeded.document);
+
+    let releaseProjection!: () => void;
+    let projectionRequested!: () => void;
+    const holdProjection = new Promise<void>((resolve) => { releaseProjection = resolve; });
+    const reachedProjection = new Promise<void>((resolve) => { projectionRequested = resolve; });
+    await page.route("**/authoring/projection", async (route) => {
+      projectionRequested();
+      await holdProjection;
+      await route.continue();
+    });
+    try {
+      await page.goto(`${origin}/?project=${projectId}`);
+      await reachedProjection;
+      expect(await page.locator("#script-rows").isVisible()).toBe(false);
+    } finally {
+      releaseProjection();
+    }
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await editor.waitFor({ state: "visible" });
+    expect(await editor.textContent()).toBe("select before projection");
+    await page.close();
+  }, 90_000);
+
   it("hides a stale stage-direction toolbar when the narration selection collapses", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

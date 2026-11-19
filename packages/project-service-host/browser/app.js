@@ -117,7 +117,20 @@ async function showScript(projectId) {
   ]);
   scriptDocument = savedScript.document;
   documentRevision = savedScript.revision;
-  invalidateProjection();
+  // Finish the initial projection before exposing editable rows. Otherwise a
+  // late projection response remounts the entire row list just as the user
+  // selects words, composes text or reaches for an Add row control.
+  const generation = ++projectionGeneration;
+  clearTimeout(projectionTimer);
+  visualProjection = null;
+  try {
+    const { projection } = await authoringVisualPost("projection", { document: scriptDocument });
+    if (generation !== projectionGeneration) return;
+    visualProjection = projection;
+  } catch {
+    // Projection is derived decoration; an unavailable service must not block
+    // access to the saved script.
+  }
   undoStack.length = 0;
   typingGroup = null;
   lastSplit = null;
@@ -324,7 +337,14 @@ function scheduleRender(force = false) {
   renderTimer = setTimeout(() => {
     renderTimer = undefined;
     if (!renderRequested || editRefused || conflicted || commandsPending || composingRows.size) return;
-    if (!forceRender && element("script-rows").contains(document.activeElement)) return;
+    const root = element("script-rows");
+    const selection = document.getSelection();
+    // Programmatic word selections do not necessarily focus the textbox, and
+    // pointer-driven row controls need to survive a pending projection refresh.
+    // Defer only decorative redraws; a committed structural edit still renders.
+    if (!forceRender && (root.contains(document.activeElement) || root.matches(":hover") ||
+        selection && !selection.isCollapsed && root.contains(selection.anchorNode) &&
+        root.contains(selection.focusNode))) return;
     renderRequested = false;
     forceRender = false;
     renderEditor();
@@ -333,6 +353,12 @@ function scheduleRender(force = false) {
 
 element("script-rows").addEventListener("focusout", () => {
   if (renderRequested) setTimeout(() => scheduleRender(), 0);
+});
+element("script-rows").addEventListener("pointerleave", () => {
+  if (renderRequested) scheduleRender();
+});
+document.addEventListener("selectionchange", () => {
+  if (renderRequested) scheduleRender();
 });
 
 async function saveDocument() {
