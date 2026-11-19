@@ -3066,7 +3066,7 @@ export class CaptureService {
       evidence.request.captureProfileDigest !== claims.profileDigest ||
       evidence.request.captureProfileId !== expectedProfileName ||
       canonicalJson(evidence.request.regionIntent) !==
-        canonicalJson(configured.regionIntent) ||
+        canonicalJson(configured.regionIntent as unknown as JsonValue) ||
       evidence.output !== null ||
       evidence.change !== null ||
       terminal === null ||
@@ -3567,7 +3567,7 @@ export class CaptureService {
     const regionValid =
       output !== null &&
       canonicalJson(provenance.request.regionIntent) ===
-        canonicalJson(regionIntent) &&
+        canonicalJson(regionIntent as unknown as JsonValue) &&
       provenance.request.captureProfileId === profileName &&
       (regionIntent.kind === "passage"
         ? highlightRects.length > 0

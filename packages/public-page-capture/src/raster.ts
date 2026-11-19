@@ -41,6 +41,14 @@ const pngSignature = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 
+const validBitDepths: Readonly<Record<number, readonly number[]>> = Object.freeze({
+  0: [1, 2, 4, 8, 16],
+  2: [8, 16],
+  3: [1, 2, 4, 8],
+  4: [8, 16],
+  6: [8, 16],
+});
+
 function preflightDimensions(
   bytes: Buffer,
   limits: BoundedRasterLimits,
@@ -50,6 +58,48 @@ function preflightDimensions(
       bytes.byteLength < 33 ||
       bytes.readUInt32BE(8) !== 13 ||
       !bytes.subarray(12, 16).equals(Buffer.from("IHDR", "ascii"))) {
+    throw new RasterVerificationError("invalid_png");
+  }
+  // Walk chunk framing before pngjs sees untrusted compressed data. This keeps
+  // duplicate IHDRs, truncated lengths, trailing bytes, and unknown IHDR
+  // decode modes out of its allocation/decode path.
+  let offset = pngSignature.byteLength;
+  let ihdrCount = 0;
+  let idatCount = 0;
+  let sawIend = false;
+  while (offset < bytes.byteLength) {
+    if (offset > bytes.byteLength - 12) throw new RasterVerificationError("invalid_png");
+    const length = bytes.readUInt32BE(offset);
+    const chunkEnd = offset + 12 + length;
+    if (chunkEnd > bytes.byteLength) throw new RasterVerificationError("invalid_png");
+    const type = bytes.toString("ascii", offset + 4, offset + 8);
+    if (type === "IHDR") {
+      ihdrCount += 1;
+      if (ihdrCount !== 1 || offset !== pngSignature.byteLength || length !== 13) {
+        throw new RasterVerificationError("invalid_png");
+      }
+      const bitDepth = bytes[offset + 8 + 8]!;
+      const colorType = bytes[offset + 8 + 9]!;
+      const compression = bytes[offset + 8 + 10]!;
+      const filter = bytes[offset + 8 + 11]!;
+      const interlace = bytes[offset + 8 + 12]!;
+      if (compression !== 0 || filter !== 0 || (interlace !== 0 && interlace !== 1) ||
+          !validBitDepths[colorType]?.includes(bitDepth)) {
+        throw new RasterVerificationError("invalid_png");
+      }
+    } else if (ihdrCount !== 1) {
+      throw new RasterVerificationError("invalid_png");
+    }
+    if (type === "IDAT") idatCount += 1;
+    if (type === "IEND") {
+      if (length !== 0 || sawIend) throw new RasterVerificationError("invalid_png");
+      sawIend = true;
+      offset = chunkEnd;
+      break;
+    }
+    offset = chunkEnd;
+  }
+  if (ihdrCount !== 1 || idatCount === 0 || !sawIend || offset !== bytes.byteLength) {
     throw new RasterVerificationError("invalid_png");
   }
   const width = bytes.readUInt32BE(16);

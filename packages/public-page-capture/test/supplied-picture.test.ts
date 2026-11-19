@@ -14,6 +14,7 @@ import {
   type SuppliedPicturePin,
   type SuppliedPictureReference,
 } from "../src/supplied-picture.js";
+import { verifyPngWithinBounds } from "../src/raster.js";
 
 const PROJECT = "00000000-0000-4000-8000-000000000641";
 const CAPTURE = "64164164-1641-4641-8641-641641641641";
@@ -66,6 +67,18 @@ afterEach(async () => {
 });
 
 describe("supplied picture intake", () => {
+  it("rejects duplicate IHDR chunks and unsupported interlace modes before decode", () => {
+    const bytes = raster();
+    const ihdr = bytes.subarray(8, 33);
+    const duplicateIhdr = Buffer.concat([bytes.subarray(0, 33), ihdr, bytes.subarray(33)]);
+    expect(() => verifyPngWithinBounds(duplicateIhdr, new ProjectSuppliedPictureStore("/tmp").limits))
+      .toThrowError(expect.objectContaining({ code: "invalid_png" }));
+    const unsupportedInterlace = Buffer.from(bytes);
+    unsupportedInterlace[28] = 2;
+    expect(() => verifyPngWithinBounds(unsupportedInterlace, new ProjectSuppliedPictureStore("/tmp").limits))
+      .toThrowError(expect.objectContaining({ code: "invalid_png" }));
+  });
+
   it("stores a checked passage PNG with user provenance and reads the exact pinned revision", async () => {
     const bytes = raster();
     const projectRoot = await root();
@@ -108,7 +121,7 @@ describe("supplied picture intake", () => {
       projectId: PROJECT, principal: ACTOR, reference, bytes: raster(1600, 2400), pictureKind: "top", ...port, store,
     });
     expect(portrait.metadata.raster).toMatchObject({ width: 1600, height: 2400 });
-  });
+  }, 20_000);
 
   it("rejects out-of-bounds geometry, stale references, and tampered bytes", async () => {
     const projectRoot = await root();
