@@ -272,6 +272,7 @@ class MediaStagePort:
         if paths["needs"].read_bytes() != canonical_json(needs):
             raise BuildJobError("media-needs output changed")
         final = self._input_deps(context, snapshot)
+        frozen_duration = final["timeline"]["durationFrames"]
         descriptors = final["occurrenceResolutions"]
         still_rows = self._still_rows(needs, descriptors, snapshot)
         if still_rows:
@@ -288,6 +289,7 @@ class MediaStagePort:
         bindings = []
         outputs = dict(paths)
         expected_keys = set()
+        has_normalized_still = False
         for item, descriptor in still_rows:
             checked = prepare_still_media(
                 snapshot.file(f"source:{item['mediaReferenceId']}"),
@@ -307,6 +309,7 @@ class MediaStagePort:
             expected_keys.add(key)
             outputs[f"prep:{key}"] = checked.receipt_path
             if checked.binding["mode"] == "derived_cfr":
+                has_normalized_still = True
                 outputs[f"video:{key}"] = checked.video_path
         for item, _descriptor in rows:
             key = item["requirementKey"]
@@ -341,10 +344,18 @@ class MediaStagePort:
         if set(published) != expected_keys:
             raise BuildJobError("media preparation requirement keys changed")
         final["preparedMedia"] = bindings
-        if paths["dependencies"].read_bytes() != canonical_json(final):
-            raise BuildJobError(
-                "compiled media bindings differ from qualified receipts"
-            )
+        published_dependencies = paths["dependencies"].read_bytes()
+        if published_dependencies != canonical_json(final):
+            # Older preparations recorded the frozen duration verbatim.
+            final["timeline"]["durationFrames"] = frozen_duration
+            if (
+                not still_rows
+                or has_normalized_still
+                or published_dependencies != canonical_json(final)
+            ):
+                raise BuildJobError(
+                    "compiled media bindings differ from qualified receipts"
+                )
         return Inspection(
             EffectState.VERIFIED,
             StageEvidence(

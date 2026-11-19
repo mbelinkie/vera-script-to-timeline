@@ -142,8 +142,12 @@ def _normalize_still(raw: bytes, destination: Path) -> None:
         with Image.open(BytesIO(raw), formats=["PNG", "JPEG"]) as image:
             ImageOps.exif_transpose(image, in_place=True)
             output: Image.Image = image
-            icc = image.info.get("icc_profile")
-            if icc is not None:
+            if "icc_profile" in image.info:
+                icc = image.info["icc_profile"]
+                if not isinstance(icc, bytes) or not icc:
+                    raise MediaPreparationError(
+                        "unsupported_profile", "still has an invalid ICC profile"
+                    )
                 try:
                     profile = ImageCms.ImageCmsProfile(BytesIO(icc))
                     if profile.profile.xcolor_space != "RGB ":

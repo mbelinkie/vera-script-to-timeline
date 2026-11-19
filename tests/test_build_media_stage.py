@@ -19,6 +19,7 @@ from vera_timeline_agent.build_media_stage import (
     MediaStagePort,
 )
 from vera_timeline_agent.build_package_stage import PackageStagePort
+from vera_timeline_agent.build_stage_receipt import canonical_json
 from vera_timeline_agent.local_media_import import FFmpegDecoder
 from vera_timeline_agent.media_preparation import (
     MediaPreparationError,
@@ -215,6 +216,13 @@ def test_frozen_still_preparation_and_recovery(
     paths = port.paths(context, snapshot)
     result = json.loads(paths["dependencies"].read_bytes())
     assert result["timeline"]["durationFrames"] == 75
+    if prior_key is not None:
+        prepared_bytes = paths["dependencies"].read_bytes()
+        legacy = json.loads(prepared_bytes)
+        legacy["timeline"]["durationFrames"] = deps["timeline"]["durationFrames"]
+        paths["dependencies"].write_bytes(canonical_json(legacy))
+        assert port.inspect(context, snapshot).state == EffectState.VERIFIED
+        paths["dependencies"].write_bytes(prepared_bytes)
     key = result["occurrenceResolutions"][0]["preparedMediaRequirementKey"]
     assert result["preparedMedia"][0]["requirementKey"] == key
     assert (
