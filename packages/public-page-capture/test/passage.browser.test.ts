@@ -79,7 +79,8 @@ describe("locatePassage", () => {
           #outer { width: 170px; height: 110px; overflow: auto; scroll-behavior: smooth; }
           #inner { width: 300px; height: 300px; overflow: auto; }
           #inner::before, #inner::after { content: ""; display: block; height: 340px; }
-          #target { width: 130px; margin: 0; position: relative; top: 0.25px; font: 18px/20px monospace; }
+          /* Keep the wrapped passage short enough to fit across monospace fonts. */
+          #target { width: 14ch; margin: 0; position: relative; top: 0.25px; font: 18px/20px monospace; }
         </style>
         <div id="outer"><div id="inner"><p id="target">nested target phrase wraps across lines</p></div></div>
       `);
