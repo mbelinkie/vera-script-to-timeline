@@ -13,6 +13,7 @@ import copy
 import hashlib
 import json
 import math
+import shlex
 import struct
 import subprocess
 import uuid
@@ -34,9 +35,6 @@ from vera_timeline_agent.prep_media_inputs import prepare_still_media
 from vera_timeline_agent.v2_package import _compiler_hash
 
 ROOT = Path(__file__).resolve().parents[1]
-NODE_BIN = (
-    "/Users/matthewbelinkie/.local/share/vera/toolchains/node-v24.19.0-darwin-x64/bin"
-)
 TEMPLATE = (
     ROOT / "tests/data/authoring_v2/issue_173/compiler/"
     "visual-only-image-still-25fps-default.input.golden.json"
@@ -387,9 +385,11 @@ def prepare(root: Path) -> Path:
                 "report": compiled["report"],
             },
             "normalBuildCommand": (
-                f'PATH="{NODE_BIN}:$PATH" ctx-wire run uv run --frozen python -m '
-                f"vera_timeline_agent.build_timeline_cli --script {script_path} "
-                f"--inputs {inputs} --output {root / 'built'}"
+                "ctx-wire run uv run --frozen python -m "
+                "vera_timeline_agent.build_timeline_cli "
+                f"--script {shlex.quote(str(script_path))} "
+                f"--inputs {shlex.quote(str(inputs))} "
+                f"--output {shlex.quote(str(root / 'built'))}"
             ),
         },
     )
@@ -406,10 +406,12 @@ def main() -> int:
         parser.error(f"fixture preparation failed: {error}")
     print(f"Prepared offline issue #586 normal-build fixture at {root}")
     print(
-        f'Run: PATH="{NODE_BIN}:$PATH" ctx-wire run uv run --frozen python -m '
+        "Run with the project-pinned Node on PATH: "
+        "ctx-wire run uv run --frozen python -m "
         "vera_timeline_agent.build_timeline_cli "
-        f"--script {root / 'inputs/script-document.json'} "
-        f"--inputs {root / 'inputs'} --output {root / 'built'}"
+        f"--script {shlex.quote(str(root / 'inputs/script-document.json'))} "
+        f"--inputs {shlex.quote(str(root / 'inputs'))} "
+        f"--output {shlex.quote(str(root / 'built'))}"
     )
     return 0
 
