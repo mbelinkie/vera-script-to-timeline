@@ -11,6 +11,57 @@
   min-width: 0;
 }
 
+.narration-reselect-highlights {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.narration-reselect-highlight {
+  position: absolute;
+  border-radius: 0.12rem;
+  background: rgb(67 138 207 / 35%);
+  pointer-events: none;
+}
+
+.narration-reselect-panel {
+  margin-top: 0.7rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #adc7d4;
+  border-radius: 0.4rem;
+  background: #eef6fb;
+  color: #204358;
+  font-size: 0.78rem;
+}
+
+.narration-reselect-panel__message { margin: 0; }
+
+.narration-reselect-panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.narration-reselect-panel__controls[hidden],
+.narration-reselect-panel__controls button[hidden] { display: none; }
+
+.narration-reselect-panel__controls button {
+  padding: 0.32rem 0.55rem;
+  border: 1px solid #8cabb9;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #225367;
+  cursor: pointer;
+  font: inherit;
+}
+
+.narration-reselect-panel__controls .narration-reselect-panel__primary {
+  background: #d5eaf5;
+  font-weight: 650;
+}
+
 .narration-range-overlay {
   position: absolute;
   inset: 0;

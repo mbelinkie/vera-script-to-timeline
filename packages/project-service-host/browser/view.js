@@ -101,7 +101,7 @@ function onCameraControls(document, blockId, slotId, framing, visualCommand) {
 }
 
 function renderVisualCard(document, payload, researchClip, options = {}) {
-  const { blockId, slotId, framing, visualCommand } = options;
+  const { blockId, slotId, framing, visualCommand, reselect } = options;
   const isOnCamera = payload?.kind === "on_camera";
   const kind = visualKind(payload);
   const definition = visualKinds[kind];
@@ -142,6 +142,53 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   if (isOnCamera && slotId && visualCommand) {
     meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));
   }
+  if (reselect && blockId && slotId && payload?.kind === "visual") {
+    // Keep the menu stationary: exposing the separate hover/focus action may
+    // not move the dots under a pointer (S03 D171).
+    card.tabIndex = 0;
+    const action = makeElement(document, "button", "visual-card__reselect", "Reselect range");
+    action.type = "button";
+    action.dataset.reselectOpen = "button";
+    action.addEventListener("click", (event) => {
+      event.stopPropagation();
+      reselect(blockId, slotId, "button");
+    });
+    meta.append(action);
+    const menuButton = makeElement(document, "button", "visual-card__menu-button", "⋯");
+    menuButton.type = "button";
+    menuButton.dataset.reselectOpen = "menu";
+    menuButton.setAttribute("aria-label", "Visual options");
+    menuButton.setAttribute("aria-haspopup", "menu");
+    menuButton.setAttribute("aria-expanded", "false");
+    const menu = makeElement(document, "div", "visual-card__menu");
+    menu.id = `visual-options-${slotId}`;
+    menu.setAttribute("role", "menu");
+    menuButton.setAttribute("aria-controls", menu.id);
+    menu.hidden = true;
+    const menuAction = makeElement(document, "button", "visual-card__menu-action", "Reselect range");
+    menuAction.type = "button";
+    menuAction.setAttribute("role", "menuitem");
+    menuAction.addEventListener("click", (event) => {
+      event.stopPropagation();
+      reselect(blockId, slotId, "menu");
+    });
+    menu.append(menuAction);
+    menuButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+      menuButton.setAttribute("aria-expanded", String(!menu.hidden));
+      if (!menu.hidden) menuAction.focus();
+    });
+    menu.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        menu.hidden = true;
+        menuButton.setAttribute("aria-expanded", "false");
+        menuButton.focus();
+      }
+    });
+    card.append(menuButton, menu);
+  }
   card.append(meta);
 
   if (previewable) {
@@ -154,7 +201,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projectedRow, visualCommand) {
+function renderVisuals(document, block, projectedRow, visualCommand, reselect) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -186,6 +233,7 @@ function renderVisuals(document, block, projectedRow, visualCommand) {
       } else {
         list.append(renderVisualCard(document, payload, unattached?.researchClip ?? payload.researchClip, {
           blockId: block.id, slotId: card.slotId, framing: card.framing ?? "wide", visualCommand,
+          reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
         }));
       }
     }
@@ -265,7 +313,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, visualCommand) {
+function renderRow(document, block, projectedRow, visualCommand, reselect) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -290,11 +338,11 @@ function renderRow(document, block, projectedRow, visualCommand) {
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, visualCommand));
+  row.append(renderVisuals(document, block, projectedRow, visualCommand, reselect));
   return row;
 }
 
-export function renderRows(root, document, { projection, visualCommand } = {}) {
+export function renderRows(root, document, { projection, visualCommand, reselect } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -315,7 +363,7 @@ export function renderRows(root, document, { projection, visualCommand } = {}) {
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedById.get(block.id), visualCommand));
+      root.append(renderRow(ownerDocument, block, projectedById.get(block.id), visualCommand, reselect));
       rowCount += 1;
     }
   }

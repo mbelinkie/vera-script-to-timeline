@@ -413,6 +413,68 @@ input {
   background: #f1f5fb;
 }
 
+.visual-card__menu-button {
+  position: absolute;
+  top: 0.38rem;
+  right: 0.4rem;
+  z-index: 3;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: 1px solid #b8ccd0;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #354f55;
+  cursor: pointer;
+}
+
+.visual-card__reselect {
+  visibility: hidden;
+  min-height: 1.7rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #9fbfc4;
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #1b626e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.73rem;
+}
+
+.visual-card:hover .visual-card__reselect,
+.visual-card:focus-within .visual-card__reselect,
+.visual-card__reselect:focus-visible {
+  visibility: visible;
+}
+
+.visual-card__menu {
+  position: absolute;
+  top: 2.1rem;
+  right: 0.4rem;
+  z-index: 4;
+  min-width: 9rem;
+  padding: 0.22rem;
+  border: 1px solid #a8bac2;
+  border-radius: 0.35rem;
+  background: #fff;
+  box-shadow: 0 0.3rem 0.8rem rgb(0 0 0 / 14%);
+}
+
+.visual-card__menu[hidden] { display: none; }
+
+.visual-card__menu-action {
+  width: 100%;
+  padding: 0.4rem;
+  border: 0;
+  background: #fff;
+  color: #244b54;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.visual-card__menu-action:hover,
+.visual-card__menu-action:focus-visible { background: #e8f3f5; }
+
 .visual-card__framing {
   display: inline-flex;
   flex-wrap: wrap;

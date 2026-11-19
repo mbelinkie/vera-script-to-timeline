@@ -25,6 +25,7 @@ let documentDirty = false;
 let commandQueue = Promise.resolve();
 let commandsPending = 0;
 let visualProjection = null;
+let activeReselect = null;
 let projectionGeneration = 0;
 let projectionTimer;
 let editRefused = false;
@@ -121,6 +122,7 @@ async function showScript(projectId) {
   typingGroup = null;
   lastSplit = null;
   structuralFocus = null;
+  activeReselect = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -151,6 +153,11 @@ function renderEditor() {
     slotId: active.dataset.rangeSlot,
     edge: active.dataset.rangeEdge,
   } : null;
+  const reselectFocus = active?.matches("[data-reselect-open]") ? {
+    rowId: active.closest("[data-row-id]")?.dataset.rowId,
+    slotId: active.closest("[data-slot-id]")?.dataset.slotId,
+    opener: active.dataset.reselectOpen,
+  } : null;
   let caret = null;
   if (rowId && document.getSelection()?.rangeCount) {
     const selection = document.getSelection().getRangeAt(0);
@@ -161,7 +168,9 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument, { projection: visualProjection, visualCommand: queueVisualCommand });
+  renderRows(root, scriptDocument, {
+    projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+  });
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -170,6 +179,10 @@ function renderEditor() {
     narrationCleanup.push(mountNarration(cell, scriptDocument, queueCommand, {
       projection: projectedPrimaryRow(cell.closest("[data-row-id]")?.dataset.rowId),
       visualCommand: queueVisualCommand,
+      reselect: activeReselect?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeReselect : null,
+      cancelReselect,
+      commitReselect,
+      previewReselect,
       compositionChange(rowId, active) {
         if (active) composingRows.add(rowId);
         else { composingRows.delete(rowId); scheduleRender(); }
@@ -209,6 +222,99 @@ function renderEditor() {
       item.closest("[data-row-id]")?.dataset.rowId === bracketFocus.rowId);
     handle?.focus();
   }
+  if (reselectFocus) focusReselectOpener(reselectFocus);
+}
+
+function reselectOpener(state) {
+  return [...element("script-rows").querySelectorAll("[data-reselect-open]")].find((button) =>
+    button.dataset.reselectOpen === state.opener &&
+    button.closest("[data-row-id]")?.dataset.rowId === state.rowId &&
+    button.closest("[data-slot-id]")?.dataset.slotId === state.slotId);
+}
+
+function focusReselectOpener(state) {
+  const opener = reselectOpener(state);
+  // The distinct hover/focus action is not visible until its card receives
+  // focus; focusing a CSS-hidden button directly does nothing in Chromium.
+  opener?.closest(".visual-card")?.focus();
+  opener?.focus();
+}
+
+function beginReselect(rowId, slotId, opener) {
+  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  const projection = projectedPrimaryRow(rowId);
+  if (row?.type !== "narration" || !projection?.renderable ||
+      !projection.brackets?.some((bracket) => bracket.slotId === slotId)) {
+    setSaveStatus("That visual's word range is not available to reselect.");
+    return;
+  }
+  activeReselect = { rowId, slotId, opener, version: row.primaryVisualSequence?.version, text: row.text };
+  renderEditor();
+}
+
+function cancelReselect() {
+  if (!activeReselect) return;
+  const state = activeReselect;
+  activeReselect = null;
+  renderEditor();
+  focusReselectOpener(state);
+  setSaveStatus("Reselect cancelled. The range didn’t change.");
+}
+
+async function commitReselect(command, label) {
+  if (!activeReselect) return false;
+  const state = activeReselect;
+  const accepted = await queueVisualCommand((latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === state.rowId);
+    if (row?.type !== "narration" || row.text !== state.text ||
+        row.primaryVisualSequence?.version !== state.version) {
+      throw new Error("The narration or visual range changed; start Reselect again.");
+    }
+    return command;
+  }, label);
+  if (accepted && activeReselect === state) {
+    activeReselect = null;
+    renderEditor();
+    focusReselectOpener(state);
+  }
+  return accepted;
+}
+
+// A visual-command endpoint computes on a private document copy. Calling it
+// for review has no save/Undo side effect, and the exact immutable snapshot
+// is checked again before any later confirmation is committed.
+async function previewReselect(command) {
+  const state = activeReselect;
+  const snapshot = scriptDocument;
+  const row = snapshot?.activeDraft.blocks.find((item) => item.id === state?.rowId);
+  if (!state || row?.type !== "narration" || row.text !== state.text ||
+      row.primaryVisualSequence?.version !== state.version) {
+    throw new Error("The narration changed; start Reselect again.");
+  }
+  const result = await authoringVisualPost("visual-command", {
+    document: snapshot, command, expectedSequenceVersion: state.version,
+  });
+  if (activeReselect !== state || scriptDocument !== snapshot) {
+    throw new Error("The narration changed while checking this range.");
+  }
+  const oldCards = projectedPrimaryRow(state.rowId)?.cards ?? [];
+  const newCards = result.projection?.rows?.find((entry) => entry.blockId === state.rowId)?.cards ?? [];
+  const returns = (cards) => cards.filter((card) => card.compact).map((card) => card.slotId);
+  const beforeReturns = returns(oldCards);
+  const afterReturns = returns(newCards);
+  const removed = beforeReturns.filter((slotId) => !afterReturns.includes(slotId)).length;
+  const created = afterReturns.filter((slotId) => !beforeReturns.includes(slotId)).length;
+  const oc = (cards) => cards.filter((card) => card.kind === "on_camera" &&
+    Number.isInteger(card.startTokenIndex) && Number.isInteger(card.endTokenIndexExclusive))
+    .reduce((count, card) => count + card.endTokenIndexExclusive - card.startTokenIndex, 0);
+  const beforeOc = oc(oldCards);
+  const afterOc = oc(newCards);
+  const parts = [];
+  if (created) parts.push(`${created} return ${created === 1 ? "point is" : "points are"} added.`);
+  if (removed) parts.push(`${removed} return ${removed === 1 ? "point is" : "points are"} removed.`);
+  if (afterOc !== beforeOc) parts.push(`On Camera changes from ${beforeOc} to ${afterOc} spoken words.`);
+  if (!parts.length) parts.push("The projected On Camera and return coverage remains coherent.");
+  return parts.join(" ");
 }
 
 function scheduleRender(force = false) {

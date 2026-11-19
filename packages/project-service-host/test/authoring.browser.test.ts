@@ -212,9 +212,9 @@ function onCameraDocumentFixture(projectId: string, arrangement: "after-still" |
   return { ...seeded, firstCameraSlotId: first.id, lastCameraSlotId: last.id };
 }
 
-function foldedLetterRangeFixture(projectId: string) {
-  const seeded = editableDocumentFixture(projectId,
-    "A folded letter sat inside the sleeve for months. I think this was meant for whoever came next. The archivist placed a blank card beside it.");
+function foldedLetterRangeFixture(projectId: string, text =
+  "A folded letter sat inside the sleeve for months. I think this was meant for whoever came next. The archivist placed a blank card beside it.") {
+  const seeded = editableDocumentFixture(projectId, text);
   const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
   if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing narration sequence");
   const first = row.primaryVisualSequence.slots[0];
@@ -1647,6 +1647,190 @@ describe("browser authoring over the local project service", () => {
     await selectText(editor, 2, 15);
     expect(await editor.evaluate((node) => node.ownerDocument.getSelection()?.toString())).toBe("folded letter");
     expect(await editorText(editor)).toBe(seeded.firstRowText);
+    await page.close();
+  }, 90_000);
+
+  it("Reselects Amber Lantern with six native word steps, Enter review, and one Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Amber Lantern Reselect");
+    const seeded = foldedLetterRangeFixture(projectId,
+      "The amber lantern was never far from the crowded garden. When I returned it became a signal for friends by the quiet gate. Someone found a small handwritten story beside it.");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    const button = card.locator("[data-reselect-open='button']");
+    await button.waitFor({ state: "attached" });
+    await card.focus();
+    await expect.poll(async () => await button.isVisible()).toBe(true);
+    const original = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!original?.primaryVisualSequence) throw new Error("missing original Amber Lantern sequence");
+    await button.click();
+    const editor = row.locator("[data-narration-editor]");
+    const panel = row.locator("[data-reselect-panel]");
+    await expect.poll(async () => await panel.isVisible()).toBe(true);
+    expect(await editor.getAttribute("aria-describedby")).toBe(`reselect-message-${seeded.rowId}`);
+    expect(await editor.getAttribute("aria-keyshortcuts")).toContain("Alt+Shift+ArrowRight");
+    for (let i = 1; i <= 6; i += 1) {
+      await editor.press("Alt+Shift+ArrowRight");
+      await expect.poll(async () => await panel.textContent()).toContain(`${i} ${i === 1 ? "word" : "words"} selected · Enter to review`);
+    }
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await expect.poll(async () => await row.locator("[data-reselect-highlight]").count()).toBe(6);
+    await expect.poll(async () => await row.locator("[data-reselect-set]").isVisible()).toBe(false);
+    await editor.press("Enter");
+    await expect.poll(async () => await row.locator("[data-reselect-set]").isVisible()).toBe(true);
+    await expect.poll(async () => await panel.textContent()).toContain("6 words selected");
+    await row.locator("[data-reselect-set]").click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.version).toBe(original.primaryVisualSequence.version + 1);
+    await expect.poll(async () => await row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="end"]`)
+      .getAttribute("data-word-index")).toBe("6");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Set visual range"]);
+    await page.getByRole("button", { name: "Undo Set visual range" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(original.primaryVisualSequence);
+    await expect.poll(async () => await row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="end"]`)
+      .getAttribute("data-word-index")).toBe("9");
+
+    await card.focus();
+    await button.click();
+    await expect.poll(async () => await panel.isVisible()).toBe(true);
+    await editor.press("Alt+Shift+ArrowRight");
+    await editor.press("Escape");
+    await expect.poll(async () => await panel.count()).toBe(0);
+    await expect.poll(async () => await button.evaluate((node) => node === node.ownerDocument.activeElement)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(original.primaryVisualSequence);
+    await button.click();
+    await editor.press("Enter");
+    await expect.poll(async () => await panel.textContent()).toContain("Select at least one spoken word");
+    await selectText(editor, original.tokens[0]!.startOffset, original.tokens[8]!.endOffset);
+    await editor.press("Enter");
+    await expect.poll(async () => await panel.textContent()).toContain("already the visual's range");
+    expect(await row.locator(".narration-editor__actions").isVisible()).toBe(false);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await editor.press("Escape");
+    await page.close();
+  }, 90_000);
+
+  it("Paper Lanterns pointer Reselect reviews words, saves changed brackets, and menu Escape restores focus", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Paper Lanterns Reselect");
+    const seeded = foldedLetterRangeFixture(projectId,
+      "Paper lanterns were folded in the workshop one by one. Each one offered a tiny window of color to shine through. I pinned the last lantern to the board above the workbench.");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    const menu = card.locator("[data-reselect-open='menu']");
+    expect(await menu.getAttribute("aria-haspopup")).toBe("menu");
+    await menu.click();
+    await expect.poll(async () => await menu.getAttribute("aria-expanded")).toBe("true");
+    await card.locator(".visual-card__menu-action").click();
+    const panel = row.locator("[data-reselect-panel]");
+    await expect.poll(async () => await panel.isVisible()).toBe(true);
+    const editor = row.locator("[data-narration-editor]");
+    await editor.press("Escape");
+    await expect.poll(async () => await menu.evaluate((node) => node === node.ownerDocument.activeElement)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+
+    await menu.click();
+    await card.locator(".visual-card__menu-action").click();
+    const original = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!original?.primaryVisualSequence) throw new Error("missing original Paper Lanterns sequence");
+    // Real mouse input, not a selectionchange event injected by the test.
+    const points = await editor.evaluate((node, { start, end }) => {
+      const locate = (offset: number) => {
+        const walker = node.ownerDocument.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        let text = walker.nextNode();
+        let remaining = offset;
+        while (text && remaining > (text.textContent?.length ?? 0)) {
+          remaining -= text.textContent?.length ?? 0;
+          text = walker.nextNode();
+        }
+        if (!text) throw new Error("pointer word missing");
+        const range = node.ownerDocument.createRange();
+        range.setStart(text, remaining);
+        range.collapse(true);
+        const box = range.getBoundingClientRect();
+        return { x: box.x, y: box.y + box.height / 2 };
+      };
+      return { start: locate(start), end: locate(end) };
+    }, { start: original.tokens[3]!.startOffset, end: original.tokens[7]!.endOffset });
+    await page.mouse.move(points.start.x, points.start.y);
+    await page.mouse.down();
+    await page.mouse.move(points.end.x, points.end.y, { steps: 10 });
+    await page.mouse.up();
+    await expect.poll(async () => await row.locator("[data-reselect-set]").isVisible()).toBe(true);
+    await expect.poll(async () => await panel.textContent()).toContain("5 words selected");
+    await expect.poll(async () => await row.locator("[data-reselect-highlight]").count()).toBe(5);
+    await row.locator("[data-reselect-set]").click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.version).toBe(original.primaryVisualSequence.version + 1);
+    await expect.poll(async () => await row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="start"]`)
+      .getAttribute("data-word-index")).toBe("3");
+    await page.reload();
+    await expect.poll(async () => await row.locator(`[data-range-slot="${seeded.firstSlotId}"][data-range-edge="start"]`)
+      .getAttribute("data-word-index")).toBe("3");
+    await page.close();
+  }, 90_000);
+
+  it("exact-match Swap ranges keeps visual payload/source and trim attached to each ID", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Exact visual Swap");
+    const seeded = foldedLetterRangeFixture(projectId);
+    const modelRow = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (modelRow?.type !== "narration") throw new Error("missing exact Swap row");
+    for (const slot of modelRow.primaryVisualSequence?.slots ?? []) {
+      if (slot.kind !== "content" || slot.payload.kind !== "visual") continue;
+      if (slot.id === seeded.firstSlotId) {
+        slot.payload.selectedSourceRange = { startFrame: 10, durationFrames: 150 };
+        slot.payload.displayName = "First visual placement";
+      } else if (slot.id === seeded.secondSlotId) {
+        slot.payload.selectedSourceRange = { startFrame: 240, durationFrames: 75 };
+        slot.payload.displayName = "Second visual placement";
+      }
+    }
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const card = row.locator(`.visual-card[data-slot-id="${seeded.firstSlotId}"]`);
+    await card.focus();
+    await card.locator("[data-reselect-open='button']").click();
+    const original = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!original?.primaryVisualSequence) throw new Error("missing original Swap sequence");
+    const editor = row.locator("[data-narration-editor]");
+    await selectText(editor, original.tokens[18]!.startOffset, original.tokens[25]!.endOffset);
+    await editor.press("Enter");
+    await expect.poll(async () => await row.locator("[data-reselect-swap]").isVisible()).toBe(true);
+    await expect.poll(async () => await row.locator("[data-reselect-set]").isVisible()).toBe(true);
+    await row.locator("[data-reselect-swap]").click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.version).toBe(original.primaryVisualSequence.version + 1);
+    const after = await narrationRowFromApi(page, projectId, seeded.rowId);
+    // #577 currently exchanges payloads between the existing range slots;
+    // payload identity carries its full source/trim through the exchange.
+    const contentPayloads = (slots: typeof original.primaryVisualSequence.slots) => slots
+      .flatMap((slot) => slot.kind === "content" && slot.payload.kind === "visual" ? [slot.payload] : [])
+      .sort((a, b) => a.payloadId.localeCompare(b.payloadId));
+    expect(contentPayloads(after?.primaryVisualSequence?.slots ?? []))
+      .toEqual(contentPayloads(original.primaryVisualSequence.slots));
+    const firstBefore = original.primaryVisualSequence.slots.find((slot) => slot.id === seeded.firstSlotId);
+    const secondBefore = original.primaryVisualSequence.slots.find((slot) => slot.id === seeded.secondSlotId);
+    const firstAfter = after?.primaryVisualSequence?.slots.find((slot) => slot.id === seeded.firstSlotId);
+    expect(firstAfter?.kind === "content" && firstAfter.payload).toEqual(secondBefore?.kind === "content" && secondBefore.payload);
+    expect(firstBefore?.kind === "content" && firstBefore.payload).not.toEqual(firstAfter?.kind === "content" && firstAfter.payload);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Swap visual ranges"]);
+    await page.getByRole("button", { name: "Undo Swap visual ranges" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(original.primaryVisualSequence);
     await page.close();
   }, 90_000);
 
