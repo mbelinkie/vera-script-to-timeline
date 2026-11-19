@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { indexResearchClipUsageV2 } from "../src/authoring-v2.js";
+import { indexResearchClipUsageV2, insertResearchClipBrowserV2 } from "../src/authoring-v2.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
 import {
-  researchId, researchMirroredNote, researchNestedNote,
+  researchCandidate, researchId, researchMirroredNote, researchNestedNote, researchNote,
   researchOccurrence, researchStashFixture,
 } from "./issue-367-fixture.js";
 
@@ -30,6 +30,39 @@ function setText(row: NarrationBlockV2, text: string): void {
 }
 
 describe("Research clip usage derived from the saved document", () => {
+  it("counts browser-added gap and waiting placements separately from Stash-only occurrences", () => {
+    const { doc } = researchStashFixture(false);
+    const row = researchNote(764000);
+    delete row.plainDirection;
+    row.tokens.forEach((token) => { token.spoken = true; });
+    doc.activeDraft.blocks = [row];
+    const before = structuredClone(doc);
+    const candidate = researchCandidate();
+    const choose = (placement: Parameters<typeof insertResearchClipBrowserV2>[2]["placement"], expectedDocumentRevision: number) => ({
+      placement, expectedDocumentRevision, researchProjectId: candidate.projectId,
+      clipId: candidate.id, clipVersion: candidate.version,
+    });
+    const gap = insertResearchClipBrowserV2(doc, candidate, choose({
+      kind: "gap", destination: { sectionId: null, afterRowId: row.id, beforeRowId: null },
+    }, 0), (() => { let next = 764100; return () => researchId(next++); })());
+    expect(gap.ok, JSON.stringify(gap.diagnostics)).toBe(true);
+    const waiting = insertResearchClipBrowserV2(gap.document, candidate, choose({
+      kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence!.version,
+    }, 1), (() => { let next = 764200; return () => researchId(next++); })());
+    expect(waiting.ok, JSON.stringify(waiting.diagnostics)).toBe(true);
+    expect(indexResearchClipUsageV2(waiting.document)[0]).toMatchObject({
+      clipId: candidate.id, researchProjectId: candidate.projectId,
+      scriptCount: 2, stashCount: 1,
+      scriptUses: [
+        { rowId: row.id, placementId: researchId(764203), kind: "unattached" },
+        { rowId: researchId(764100), placementId: researchId(764100), kind: "visual_only" },
+      ],
+    });
+    expect(waiting.document.rowEditRevision).toBe(2);
+    expect(doc).toEqual(before);
+  });
+
   it("returns independent primary and overlay uses followed by one exact attached mirror", () => {
     const { doc, note } = researchStashFixture(false);
     const nested = researchNestedNote(760100);

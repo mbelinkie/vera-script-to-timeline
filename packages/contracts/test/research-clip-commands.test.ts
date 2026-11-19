@@ -7,6 +7,7 @@ import {
   insertLoggedResearchClipV2,
 } from "../src/research-clip-commands.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
+import { insertResearchClipBrowserV2 } from "../src/research-clip-browser-insert.js";
 import {
   researchCandidate, researchId, researchNote, researchStashFixture,
 } from "./issue-367-fixture.js";
@@ -17,6 +18,32 @@ const ids = (start: number) => {
 };
 
 describe("Research clip Draft commands", () => {
+  it("shares the CLI's exact Draft gap with the browser and refuses a displaced stale gap", () => {
+    const doc = researchStashFixture(false).doc;
+    const first = researchNote(820100);
+    const second = researchNote(820200);
+    doc.activeDraft.blocks = [first, second];
+    const before = structuredClone(doc);
+    const candidate = researchCandidate();
+    const destination = destinationAfterDraftRowV2(doc, first.id);
+    expect(destination).toEqual({ sectionId: null, afterRowId: first.id, beforeRowId: second.id });
+    const request = {
+      expectedDocumentRevision: 0, researchProjectId: candidate.projectId, clipId: candidate.id,
+      clipVersion: candidate.version, placement: { kind: "gap" as const, destination },
+    };
+    const created = insertResearchClipBrowserV2(doc, candidate, request, ids(860001));
+    expect(created.ok, JSON.stringify(created.diagnostics)).toBe(true);
+    expect(created.document.activeDraft.blocks.map((row) => row.id)).toEqual([
+      first.id, researchId(860001), second.id,
+    ]);
+    const stale = insertResearchClipBrowserV2(created.document, candidate, {
+      ...request, expectedDocumentRevision: 1,
+    }, ids(860101));
+    expect(stale.ok).toBe(false);
+    expect(stale.document).toBe(created.document);
+    expect(doc).toEqual(before);
+  });
+
   it("inserts after the named row with an immutable, unresolved source snapshot", () => {
     const doc = researchStashFixture(false).doc;
     const first = researchNote(820100);
