@@ -872,7 +872,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   if (!root || !root.ownerDocument || typeof command !== "function") return () => undefined;
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
-  const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect } =
+  const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect,
+    attaching, finishAttach, cancelAttach } =
     options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
@@ -893,6 +894,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   actions.setAttribute("aria-label", "Selected words");
   const visualButton = element(document, "button", "narration-editor__action", "Add visual");
   visualButton.type = "button";
+  const attachButton = element(document, "button", "narration-editor__action narration-editor__attach", "Attach visual");
+  attachButton.type = "button";
+  attachButton.hidden = true;
   visualButton.setAttribute("aria-haspopup", "menu");
   visualButton.setAttribute("aria-expanded", "false");
   const visualMenu = element(document, "div", "narration-editor__visual-menu");
@@ -923,7 +927,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     button.dataset.rowSelectionAction = kind;
     return button;
   });
-  actions.append(visualButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
+  actions.append(visualButton, attachButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
   const surface = element(document, "div", "narration-editor__surface");
   surface.append(editor);
   root.replaceChildren(surface, actions, hint);
@@ -960,7 +964,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
     if (!visual) closeVisualMenu();
     actions.hidden = !visual && !action && rowActions.length === 0;
-    visualButton.hidden = !visual;
+    visualButton.hidden = !visual || Boolean(attaching);
+    attachButton.hidden = !visual || !attaching;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
     actionDivider.hidden = (!action && !visual) || rowActions.length === 0;
@@ -1021,6 +1026,31 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     const pending = dispatch(intent, "Add visual", before, { structural: true });
     editingBlocked = true;
     void pending.then((accepted) => { if (!accepted) editingBlocked = false; });
+  }
+
+  function performAttachVisual() {
+    if (!attaching || editingBlocked || composing) return;
+    currentSelection();
+    const selection = savedSelection && { ...savedSelection };
+    const before = localRow;
+    if (!selectedSpokenWords(before, selection)) return;
+    const intent = (latest) => {
+      const actual = latest.activeDraft.blocks.find((item) => item.id === before.id);
+      if (actual?.type !== "narration" || !actual.unattachedVisuals?.some((item) => item.slotId === attaching.slotId)) {
+        throw new Error("The waiting visual is no longer available. Start Attach again.");
+      }
+      const words = selectedSpokenWords(actual, selection, true);
+      if (!words) throw new Error("The chosen spoken words are no longer available.");
+      return { kind: "attach_visual_to_words", blockId: actual.id, slotId: attaching.slotId,
+        startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+    };
+    actions.hidden = true;
+    const pending = dispatch(intent, "Attach visual", before, { structural: true });
+    editingBlocked = true;
+    void pending.then((accepted) => {
+      if (accepted) finishAttach?.(attaching);
+      else editingBlocked = false;
+    });
   }
 
   function expectedRow(rowSnapshot) {
@@ -1366,6 +1396,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     if (event.key !== "Escape" || composing) return;
     event.preventDefault();
     event.stopPropagation();
+    if (attaching) { cancelAttach?.(); return; }
     editor.blur();
     hint.hidden = true;
     const rowElement = root.closest("[data-row-id]");
@@ -1434,7 +1465,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   visualButton.addEventListener("mousedown", preserveActionSelection);
+  attachButton.addEventListener("mousedown", preserveActionSelection);
   visualButton.addEventListener("click", openVisualMenu);
+  attachButton.addEventListener("click", performAttachVisual);
   visualMenu.addEventListener("keydown", onVisualMenuKey);
   actions.addEventListener("focusout", onVisualMenuFocusOut);
   document.addEventListener("pointerdown", dismissVisualMenu, true);
@@ -1474,7 +1507,9 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     document.removeEventListener("selectionchange", onSelectionChange);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     visualButton.removeEventListener("mousedown", preserveActionSelection);
+    attachButton.removeEventListener("mousedown", preserveActionSelection);
     visualButton.removeEventListener("click", openVisualMenu);
+    attachButton.removeEventListener("click", performAttachVisual);
     visualMenu.removeEventListener("keydown", onVisualMenuKey);
     actions.removeEventListener("focusout", onVisualMenuFocusOut);
     document.removeEventListener("pointerdown", dismissVisualMenu, true);

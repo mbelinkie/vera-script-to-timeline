@@ -11,7 +11,12 @@ import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
 import { liftVisualV2 } from "./authoring-v2-visual-lifecycle.js";
+import {
+  appendWordlessV2, liftWordlessV2, newWordlessPlaceholderV2,
+  promoteWordlessNarrationV2, toNarratedPlacementV2, wordlessPlacementsV2,
+} from "./authoring-v2-wordless.js";
 import { spliceNarrationTextV2 } from "./authoring-v2-narration-text.js";
+import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { attachVisualV2, emptyRowCoverageV2, isCoverageRefusalV2, reconcileNarrationTextCoverageV2 } from "./authoring-v2-coverage.js";
 import {
   applySplitOrJoinV2,
@@ -98,7 +103,9 @@ function restoreClearedNarration(
     const slot = slots.get(visual.payload.payloadId);
     const { audioPolicy } = visual.payload;
     const { selectedSourceRange, durationOverrideMs } = visual.visualOnlyTiming;
-    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined) {
+    // Four seconds is the new source-free default, not an authored nondefault
+    // hold. It can be discarded when the restored visual waits for words.
+    if (!slot || audioPolicy === "full" || durationOverrideMs !== undefined && durationOverrideMs !== 4000) {
       return diagnostic("RANGE_SEQUENCE_UNRESOLVED", "Review this row’s picture timing and audio before adding narration.");
     }
     const payload: NarratedVisualPayloadV2 = {
@@ -171,6 +178,11 @@ export type RowEditCommandV2 =
   /** Reorder the first and additional visuals together without changing their metadata. */
   | { kind: "reorder_visual_only"; rowId: string; payloadIds: string[] }
   | { kind: "set_visual_only_hold"; rowId: string; payloadId: string; holdSeconds: number }
+  /** Add a new source-free picture or promote an empty narration row, in one saved revision. */
+  | { kind: "add_visual_to_wordless_row"; rowId: string; payloadId: string; slotId: string; visualType: "onscreen_placeholder" | "need_to_find" }
+  /** Move one whole wordless placement. A narrated target receives it waiting for words. */
+  | { kind: "move_wordless_visual"; sourceRowId: string; payloadId: string; destinationRowId: string;
+      destinationSlotId?: string; replacementPayloadId?: string; expectedDestinationSequenceVersion?: number }
   /** Explicitly match or unmatch one untimed visual to one saved music cue. */
   | { kind: "set_visual_only_audio_match"; rowId: string; payloadId: string; cueId: string | null }
   /** Delete one saved music cue and restore fixed holds for visuals explicitly matched to it. */
@@ -346,6 +358,23 @@ function validVisualOnlyCommand(value: unknown): boolean {
   if (!plainObject(value) || !isJsonValue(value)) return false;
   if (value.kind === "delete_row_audio_span") {
     return exactKeys(value, ["kind", "cueId"]) && typeof value.cueId === "string" && value.cueId.length > 0;
+  }
+  const uuid = (item: unknown): boolean => typeof item === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(item);
+  if (value.kind === "move_wordless_visual") {
+    const optional = ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"]
+      .filter((key) => Object.hasOwn(value, key));
+    return exactKeys(value, ["kind", "sourceRowId", "payloadId", "destinationRowId", ...optional]) &&
+      uuid(value.sourceRowId) && uuid(value.payloadId) && uuid(value.destinationRowId) &&
+      (!Object.hasOwn(value, "destinationSlotId") || uuid(value.destinationSlotId)) &&
+      (!Object.hasOwn(value, "replacementPayloadId") || uuid(value.replacementPayloadId)) &&
+      (!Object.hasOwn(value, "expectedDestinationSequenceVersion") ||
+        Number.isSafeInteger(value.expectedDestinationSequenceVersion) && (value.expectedDestinationSequenceVersion as number) >= 0);
+  }
+  if (value.kind === "add_visual_to_wordless_row") {
+    return exactKeys(value, ["kind", "rowId", "payloadId", "slotId", "visualType"]) &&
+      uuid(value.rowId) && uuid(value.payloadId) && uuid(value.slotId) &&
+      (value.visualType === "onscreen_placeholder" || value.visualType === "need_to_find");
   }
   if (typeof value.rowId !== "string" || value.rowId.length === 0) return false;
   if (value.kind === "reorder_visual_only") {
@@ -1424,7 +1453,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     }
     if (groupKind(command.kind) && !validGroupCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact Stash group command with distinct row IDs and an unambiguous location.");
     if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "create_row" || command.kind === "delete_rows") && !validAuthoredRowCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide a complete authored row edit command with exact row IDs and destinations.");
-    if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "delete_row_audio_span") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order, hold, audio-match, or music-cue deletion command.");
+    if ((command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "delete_row_audio_span" || command.kind === "add_visual_to_wordless_row" || command.kind === "move_wordless_visual") && !validVisualOnlyCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact visual order, hold, audio-match, or wordless picture command.");
     if (command.kind === "rename_visual_placement" && !validRenameVisualPlacementCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide one visual placement and a text name, with no extra fields.");
     if (draftSectionKind(command.kind) && !validDraftSectionCommand(command)) return refused(document, "ROW_COMMAND_INVALID", "Provide an exact script section command with a valid ID, nonblank title, and current row gap.");
     if ((command.kind === "rename_stash_section" || command.kind === "delete_stash_section") && !validStashSectionChangeCommand(command)) {
@@ -1462,7 +1491,8 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
 
   // Existing single-member edit routes cannot bypass the group's atomic Save boundary.
   const grouped = new Set((document.stashGroups ?? []).flatMap((group) => group.rowIds));
-  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match") && grouped.has(command.rowId) ||
+  if ((command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "add_visual_to_wordless_row") && grouped.has(command.rowId) ||
+    command.kind === "move_wordless_visual" && (grouped.has(command.sourceRowId) || grouped.has(command.destinationRowId)) ||
     isStageDirectionKind(command.kind) && grouped.has((command as StageDirectionEditCommandV2).blockId)) {
     return refused(document, "STASH_GROUP_ATOMIC_REQUIRED", "Edit grouped members with a single group Save, not an independent row command.");
   }
@@ -1941,6 +1971,90 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       block.version += 1;
       markStashOriginEditedV2(block);
     }
+  } else if (command.kind === "add_visual_to_wordless_row") {
+    const reserved = documentUuids(document);
+    if (reserved.has(command.payloadId.toLowerCase()) || reserved.has(command.slotId.toLowerCase()) ||
+        command.payloadId.toLowerCase() === command.slotId.toLowerCase()) {
+      return refused(document, "VISUAL_ID_DUPLICATE", "Use fresh and distinct picture and slot identities.");
+    }
+    const index = blocks.findIndex((item) => item.id === command.rowId);
+    const row = blocks[index];
+    if (row?.type === "visual_only") {
+      const issue = appendWordlessV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId);
+      if (issue) return refused(document, issue.code, issue.message);
+      markStashOriginEditedV2(row);
+    } else if (row?.type === "narration") {
+      const conversion = promoteWordlessNarrationV2(row, newWordlessPlaceholderV2(command.payloadId, command.visualType), command.slotId);
+      if (!("value" in conversion)) return refused(document, conversion.code, conversion.message);
+      blocks[index] = conversion.value;
+      markStashOriginEditedV2(conversion.value);
+    } else return refused(document, "ROW_NOT_FOUND", "Choose an existing wordless Draft row.");
+  } else if (command.kind === "move_wordless_visual") {
+    if (command.sourceRowId === command.destinationRowId) return refused(document, "CROSS_ROW_REQUIRED", "Use Reorder for visuals in the same row.");
+    const source = blocks.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.sourceRowId);
+    const destinationIndex = blocks.findIndex((item) => item.id === command.destinationRowId);
+    const target = blocks[destinationIndex];
+    if (!source || !target || target.type === "section" || target.type === "direction") {
+      return refused(document, "MOVE_DESTINATION_MISSING", "Choose an existing wordless source and Draft destination row.");
+    }
+    const reserved = documentUuids(document);
+    if (command.replacementPayloadId && reserved.has(command.replacementPayloadId.toLowerCase()) ||
+        command.destinationSlotId && reserved.has(command.destinationSlotId.toLowerCase()) ||
+        command.replacementPayloadId && command.replacementPayloadId.toLowerCase() === command.destinationSlotId?.toLowerCase()) {
+      return refused(document, "VISUAL_ID_DUPLICATE", "A fresh slot or replacement must not reuse an existing document identity.");
+    }
+    const destSequence = target.type === "narration" ? target.primaryVisualSequence : undefined;
+    if (destSequence && command.expectedDestinationSequenceVersion !== destSequence.version) {
+      return refused(document, "SEQUENCE_VERSION_STALE", "The destination picture sequence has changed.");
+    }
+    if (!destSequence && command.expectedDestinationSequenceVersion !== undefined) {
+      return refused(document, "ROW_COMMAND_INVALID", "A wordless destination has no narrated sequence version.");
+    }
+    const original = wordlessPlacementsV2(source).find((entry) => entry.payload.payloadId === command.payloadId);
+    if (!original) return refused(document, "VISUAL_NOT_FOUND", "The picture was not found in its source row.");
+    if (target.type === "narration" && spokenTokensV2(target).length > 0) {
+      if (!destSequence || destSequence.version === Number.MAX_SAFE_INTEGER || target.version === Number.MAX_SAFE_INTEGER || target.state !== "active" || target.plainDirection) {
+        return refused(document, "MOVE_DESTINATION_UNSAFE", "Choose an active narrated destination with a current picture sequence.");
+      }
+      const conversion = toNarratedPlacementV2(original);
+      if (!("value" in conversion)) return refused(document, conversion.code, conversion.message);
+      const mapped = source.clearedNarration?.slots.find((slot) => slot.visualId === command.payloadId);
+      if (!mapped && !command.destinationSlotId) return refused(document, "WORDLESS_DESTINATION_SLOT_REQUIRED", "Provide a fresh slot ID to attach this picture to narration later.");
+      if (mapped && command.destinationSlotId) return refused(document, "ROW_COMMAND_INVALID", "Keep the picture's original narration slot rather than minting another.");
+      const slotId = mapped?.id ?? command.destinationSlotId!;
+      const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
+      if (!("value" in taken)) return refused(document, taken.code, taken.message);
+      target.unattachedVisuals = [...(target.unattachedVisuals ?? []), { slotId, payload: conversion.value, version: mapped ? mapped.version + 1 : 1 }];
+      destSequence.version += 1;
+      target.version += 1;
+    } else if (target.type === "visual_only" || target.type === "narration") {
+      if (target.type === "narration" && !command.destinationSlotId && !source.clearedNarration?.slots.some((item) => item.visualId === command.payloadId)) {
+        return refused(document, "WORDLESS_DESTINATION_SLOT_REQUIRED", "Provide a fresh slot ID for the receiving blank row.");
+      }
+      const mapped = source.clearedNarration?.slots.find((item) => item.visualId === command.payloadId);
+      const slotId = mapped?.id ?? command.destinationSlotId ?? "";
+      // Verify the destination before lifting. A refused move must leave the source untouched.
+      if (target.type === "narration") {
+        const promoted = promoteWordlessNarrationV2(target, original, slotId, mapped ? mapped.version + 1 : 1);
+        if (!("value" in promoted)) return refused(document, promoted.code, promoted.message);
+        const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
+        if (!("value" in taken)) return refused(document, taken.code, taken.message);
+        blocks[destinationIndex] = promoted.value;
+      } else {
+        if (target.clearedNarration && !slotId) {
+          return refused(document, "WORDLESS_DESTINATION_SLOT_REQUIRED", "Provide a unique slot ID to preserve cleared narration.");
+        }
+        const preview = structuredClone(target);
+        const issue = appendWordlessV2(preview, original, slotId, mapped ? mapped.version + 1 : 1);
+        if (issue) return refused(document, issue.code, issue.message);
+        const taken = liftWordlessV2(source, command.payloadId, command.replacementPayloadId);
+        if (!("value" in taken)) return refused(document, taken.code, taken.message);
+        Object.assign(target, preview);
+      }
+    } else return refused(document, "MOVE_DESTINATION_UNSAFE", "The receiving row must be a visual or ordinary narration row.");
+    markStashOriginEditedV2(source);
+    const changedTarget = blocks[destinationIndex];
+    if (changedTarget && changedTarget.type !== "section") markStashOriginEditedV2(changedTarget);
   } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match") {
     const candidates = command.kind === "set_visual_only_audio_match" && command.cueId === null
       ? [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)]
@@ -2474,7 +2588,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
     return false;
   });
   if (errors.length) return { ok: false, document, diagnostics: errors };
-  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "delete_row_audio_span" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
+  if (command.kind === "edit_row" || command.kind === "edit_narration_text" || command.kind === "stash_selected_words" || command.kind === "insert_stash_note_words" || command.kind === "rename_visual_placement" || command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match" || command.kind === "add_visual_to_wordless_row" || command.kind === "move_wordless_visual" || command.kind === "delete_row_audio_span" || command.kind === "create_row" || command.kind === "delete_rows" || command.kind === "save_stash_group" ||
     command.kind === "split_row" || command.kind === "join_rows" || command.kind === "create_section" ||
     command.kind === "rename_section" || command.kind === "delete_section_break") {
     const saved = serializedDocument(working);

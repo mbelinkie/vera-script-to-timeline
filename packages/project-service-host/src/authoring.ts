@@ -20,6 +20,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/range-proposal.js", ["range-proposal.js", "text/javascript; charset=utf-8"]],
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
   ["/visual-selection.js", ["visual-selection.js", "text/javascript; charset=utf-8"]],
+  ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
@@ -42,15 +43,38 @@ function id(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 256;
 }
 
+function uuid(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
 const VISUAL_KINDS = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
-  "set_visual_range", "set_on_camera_framing",
+  "set_visual_range", "set_on_camera_framing", "move_visual_to_row", "attach_visual_to_words",
+]);
+const WORDLESS_ROW_KINDS = new Set([
+  "add_visual_to_wordless_row", "move_wordless_visual", "reorder_visual_only", "set_visual_only_hold",
 ]);
 
 /** Only the commands this browser editor can issue, with exact JSON shapes. */
 function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
   if (!record(value) || !VISUAL_KINDS.has(String(value.kind)) || !id(value.blockId) || !id(value.slotId)) return null;
   switch (value.kind) {
+    case "move_visual_to_row": {
+      const keys = ["kind", "blockId", "slotId", "destinationBlockId"];
+      if (Object.hasOwn(value, "expectedDestinationRowVersion")) keys.push("expectedDestinationRowVersion");
+      if (!exact(value, keys) || !uuid(value.blockId) || !uuid(value.slotId) ||
+          !uuid(value.destinationBlockId) ||
+          (Object.hasOwn(value, "expectedDestinationRowVersion") &&
+            (!Number.isSafeInteger(value.expectedDestinationRowVersion) ||
+              (value.expectedDestinationRowVersion as number) < 0))) return null;
+      break;
+    }
+    case "attach_visual_to_words":
+      if (!exact(value, ["kind", "blockId", "slotId", "startTokenId", "endTokenId"]) ||
+          !uuid(value.blockId) || !uuid(value.slotId) ||
+          !uuid(value.startTokenId) || !uuid(value.endTokenId)) return null;
+      break;
     case "add_visual_on_selection":
       if (!exact(value, ["kind", "blockId", "slotId", "payloadId", "startTokenId", "endTokenId", "visualType"]) ||
           !id(value.payloadId) || !id(value.startTokenId) || !id(value.endTokenId) ||
@@ -81,6 +105,42 @@ function visualCommand(value: unknown): VisualSequenceEditCommandV2 | null {
     }
   }
   return value as VisualSequenceEditCommandV2;
+}
+
+/** Strictly bounded Draft wordless operations; the model still owns all state changes/refusals. */
+function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
+  if (!record(value) || !WORDLESS_ROW_KINDS.has(String(value.kind))) return null;
+  switch (value.kind) {
+    case "add_visual_to_wordless_row":
+      if (!exact(value, ["kind", "rowId", "payloadId", "slotId", "visualType"]) ||
+          !uuid(value.rowId) || !uuid(value.payloadId) || !uuid(value.slotId) ||
+          (value.visualType !== "onscreen_placeholder" && value.visualType !== "need_to_find")) return null;
+      break;
+    case "move_wordless_visual": {
+      const keys = ["kind", "sourceRowId", "payloadId", "destinationRowId"];
+      for (const optional of ["destinationSlotId", "replacementPayloadId", "expectedDestinationSequenceVersion"]) {
+        if (Object.hasOwn(value, optional)) keys.push(optional);
+      }
+      if (!exact(value, keys) || !uuid(value.sourceRowId) || !uuid(value.payloadId) ||
+          !uuid(value.destinationRowId) ||
+          (Object.hasOwn(value, "destinationSlotId") && !uuid(value.destinationSlotId)) ||
+          (Object.hasOwn(value, "replacementPayloadId") && !uuid(value.replacementPayloadId)) ||
+          (Object.hasOwn(value, "expectedDestinationSequenceVersion") &&
+            (!Number.isSafeInteger(value.expectedDestinationSequenceVersion) ||
+              (value.expectedDestinationSequenceVersion as number) < 0))) return null;
+      break;
+    }
+    case "reorder_visual_only":
+      if (!exact(value, ["kind", "rowId", "payloadIds"]) || !uuid(value.rowId) ||
+          !Array.isArray(value.payloadIds) || !value.payloadIds.every(uuid)) return null;
+      break;
+    case "set_visual_only_hold":
+      if (!exact(value, ["kind", "rowId", "payloadId", "holdSeconds"]) ||
+          !uuid(value.rowId) || !uuid(value.payloadId) ||
+          typeof value.holdSeconds !== "number" || !Number.isFinite(value.holdSeconds)) return null;
+      break;
+  }
+  return value as RowEditCommandV2;
 }
 
 function matchesProof(value: string | null | undefined, expected: Buffer): boolean {
@@ -167,7 +227,8 @@ export function createAuthoringHandler(
     }
     if (isCommand) {
       try {
-        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2; splitProof?: string; expectedSequenceVersion?: unknown };
+        const body = await request.json() as { document: ScriptDocumentV2; command: RowEditCommandV2;
+          splitProof?: string; expectedSequenceVersion?: unknown; expectedRowEditRevision?: unknown };
         const { command, document, splitProof } = body;
         if (record(command) && VISUAL_KINDS.has(String(command.kind))) {
           const visual = visualCommand(command);
@@ -181,8 +242,19 @@ export function createAuthoringHandler(
           if (result.ok) lastSplit = null; // Any successful visual edit breaks immediate split restoration.
           return Response.json(result);
         }
+        if (record(command) && WORDLESS_ROW_KINDS.has(String(command.kind))) {
+          const rowCommand = wordlessRowCommand(command);
+          if (!rowCommand || !record(body) || !exact(body, ["document", "command", "expectedRowEditRevision"]) ||
+              !Number.isSafeInteger(body.expectedRowEditRevision) || (body.expectedRowEditRevision as number) < 0 ||
+              !validateScriptDocumentV2(document).valid) {
+            return Response.json({ error: "invalid_command" }, { status: 400 });
+          }
+          const result = applyRowEditV2(document, body.expectedRowEditRevision as number, rowCommand);
+          if (result.ok) lastSplit = null;
+          return Response.json(result);
+        }
         if (!record(command) || typeof command.kind !== "string" ||
-            Object.hasOwn(body, "expectedSequenceVersion")) {
+            Object.hasOwn(body, "expectedSequenceVersion") || Object.hasOwn(body, "expectedRowEditRevision")) {
           return Response.json({ error: "invalid_command" }, { status: 400 });
         }
         if (splitProof !== undefined) {

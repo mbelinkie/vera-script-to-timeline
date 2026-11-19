@@ -1,6 +1,7 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
+import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -19,7 +20,10 @@ const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
   "set_visual_range", "set_on_camera_framing",
+  "move_visual_to_row", "attach_visual_to_words",
 ]);
+const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
+  "reorder_visual_only", "set_visual_only_hold"]);
 let project;
 let activeProjectId;
 let scriptDocument;
@@ -34,6 +38,7 @@ let commandQueue = Promise.resolve();
 let commandsPending = 0;
 let visualProjection = null;
 let activeReselect = null;
+let activeAttach = null;
 let projectionGeneration = 0;
 let projectionTimer;
 let editRefused = false;
@@ -146,6 +151,7 @@ async function showScript(projectId) {
   lastSplit = null;
   structuralFocus = null;
   activeReselect = null;
+  activeAttach = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -245,11 +251,15 @@ function renderEditor() {
   narrationCleanup = [];
   renderRows(root, scriptDocument, {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+    attach: beginAttach, attaching: activeAttach,
+    addWordless: addWordlessVisual,
     flashIds: flashVisualIds,
   });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
+  narrationCleanup.push(mountVisualCardDragging(root));
+  narrationCleanup.push(mountWordlessControls(root));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -262,6 +272,8 @@ function renderEditor() {
       cancelReselect,
       commitReselect,
       previewReselect,
+      attaching: activeAttach?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeAttach : null,
+      finishAttach, cancelAttach,
       compositionChange(rowId, active) {
         if (active) composingRows.add(rowId);
         else { composingRows.delete(rowId); scheduleRender(); }
@@ -314,6 +326,254 @@ function renderEditor() {
   if (reselectFocus) focusReselectOpener(reselectFocus);
 }
 
+function beginAttach(rowId, slotId) {
+  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  if (row?.type !== "narration" || !row.unattachedVisuals?.some((item) => item.slotId === slotId)) {
+    setSaveStatus("The visual is no longer waiting for words.");
+    return;
+  }
+  activeReselect = null;
+  activeAttach = { rowId, slotId, projectId: activeProjectId };
+  renderEditor();
+  const editor = [...element("script-rows").querySelectorAll("[data-narration-editor]")]
+    .find((item) => item.closest("[data-row-id]")?.dataset.rowId === rowId);
+  editor?.focus();
+  setSaveStatus("Select the spoken words for this visual, then choose Attach visual. Esc cancels.");
+}
+
+function cancelAttach() {
+  if (!activeAttach) return;
+  activeAttach = null;
+  renderEditor();
+  setSaveStatus("Attach cancelled. The visual is still waiting for words.");
+}
+
+function finishAttach(state) {
+  if (activeAttach !== state) return;
+  activeAttach = null;
+  renderEditor();
+}
+
+function addWordlessVisual(rowId, visualType) {
+  const projectId = activeProjectId;
+  const payloadId = crypto.randomUUID();
+  const slotId = crypto.randomUUID();
+  void queueCommand((latest) => {
+    if (projectId !== activeProjectId) throw new Error("The project changed before adding the picture.");
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "visual_only" &&
+        !(row?.type === "narration" && row.text === "" && row.tokens.length === 0 && !row.plainDirection)) {
+      throw new Error("Add pictures only to rows without narration.");
+    }
+    return { kind: "add_visual_to_wordless_row", rowId, payloadId, slotId, visualType };
+  }, "Add visual", { structural: true });
+}
+
+function mountWordlessControls(root) {
+  const commitHold = (input) => {
+    if (input.dataset.holdCommitting) return;
+    const rowId = input.closest("[data-row-id]")?.dataset.rowId;
+    const payloadId = input.dataset.visualHold;
+    if (!rowId || !payloadId) return;
+    const seconds = parseHoldSeconds(input.value);
+    if (seconds === null) {
+      input.value = input.dataset.savedSeconds;
+      setSaveStatus(`Hold must be a positive number of seconds (up to three decimal places). Kept ${input.dataset.savedSeconds} s.`);
+      return;
+    }
+    if (seconds === Number(input.dataset.savedSeconds)) {
+      input.value = input.dataset.savedSeconds;
+      return;
+    }
+    input.dataset.holdCommitting = "true";
+    const projectId = activeProjectId;
+    void queueCommand((latest) => {
+      if (projectId !== activeProjectId) throw new Error("The project changed before saving the hold.");
+      const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+      if (!visualOnlyIds(row)?.includes(payloadId)) throw new Error("The picture is no longer in the row.");
+      return { kind: "set_visual_only_hold", rowId, payloadId, holdSeconds: seconds };
+    }, "Set visual hold", { structural: true }).then((ok) => {
+      if (input.isConnected) {
+        delete input.dataset.holdCommitting;
+        if (!ok) input.value = input.dataset.savedSeconds;
+      }
+    });
+  };
+  const onKeydown = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input && event.key === "Enter") {
+      event.preventDefault();
+      commitHold(input);
+    } else if (input && event.key === "Escape") {
+      event.preventDefault();
+      input.value = input.dataset.savedSeconds;
+      input.blur();
+    } else if (event.key === "Escape") {
+      const menu = event.target.closest(".visuals-wordless-choices");
+      if (menu && !menu.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        menu.hidden = true;
+        const trigger = menu.previousElementSibling;
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.focus();
+      }
+    }
+  };
+  const onBlur = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input) commitHold(input);
+  };
+  root.addEventListener("keydown", onKeydown);
+  root.addEventListener("focusout", onBlur);
+  return () => {
+    root.removeEventListener("keydown", onKeydown);
+    root.removeEventListener("focusout", onBlur);
+  };
+}
+
+// Native picture dragging is deliberately independent of rows-editor's row
+// handle and gap drag state. No model edit occurs before a valid cross-row drop.
+function mountVisualCardDragging(root) {
+  let dragging = null;
+  let target = null;
+  let reorderMarker = null;
+  const clear = () => {
+    target?.classList.remove("script-row--visual-drop-target");
+    reorderMarker?.classList.remove("visual-card--reorder-before");
+    root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
+    dragging = null;
+    target = null;
+    reorderMarker = null;
+  };
+  const rowFor = (id, doc = scriptDocument) => doc?.activeDraft.blocks.find((row) => row.id === id);
+  const onStart = (event) => {
+    if (event.target.closest("button, input, [contenteditable]")) return;
+    const card = event.target.closest("[data-visual-drag]");
+    const rowId = card?.closest("[data-row-id]")?.dataset.rowId;
+    const row = rowFor(rowId);
+    if (!card || !event.dataTransfer || !row || row.type !== "narration" && row.type !== "visual_only") return;
+    const slotId = card.dataset.slotId;
+    const payloadId = card.dataset.payloadId;
+    const content = row.type === "narration" && (row.primaryVisualSequence?.slots.some((slot) =>
+      slot.kind === "content" && slot.id === slotId && slot.payload.kind === "visual") ||
+      row.unattachedVisuals?.some((item) => item.slotId === slotId && item.payload.kind === "visual"));
+    if (row.type === "narration" && !content || row.type === "visual_only" &&
+      (!payloadId || !visualOnlyIds(row)?.includes(payloadId))) return;
+    dragging = { rowId, slotId, payloadId, projectId: activeProjectId, sourceType: row.type };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-vera-visual", "picture");
+    card.classList.add("visual-card--dragging");
+  };
+  const destination = (event) => {
+    const row = event.target.closest(".script-row");
+    const id = row?.dataset.rowId;
+    const model = rowFor(id);
+    return dragging && id && (id !== dragging.rowId || dragging.sourceType === "visual_only") &&
+      (model?.type === "narration" || model?.type === "visual_only") ? row : null;
+  };
+  const reorderBefore = (event, row) => {
+    const card = event.target.closest(".visual-card[data-payload-id]");
+    if (!card || !row.contains(card)) return null;
+    const box = card.getBoundingClientRect();
+    if (event.clientY <= box.top + box.height / 2) return card.dataset.payloadId;
+    return card.nextElementSibling?.matches(".visual-card[data-payload-id]")
+      ? card.nextElementSibling.dataset.payloadId : null;
+  };
+  const onOver = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    reorderMarker?.classList.remove("visual-card--reorder-before");
+    reorderMarker = null;
+    if (target !== next) {
+      target?.classList.remove("script-row--visual-drop-target");
+      target = next;
+      target?.classList.add("script-row--visual-drop-target");
+    }
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (next.dataset.rowId === dragging.rowId) {
+      const before = reorderBefore(event, next);
+      reorderMarker = before ? [...next.querySelectorAll(".visual-card[data-payload-id]")]
+        .find((card) => card.dataset.payloadId === before) : null;
+      reorderMarker?.classList.add("visual-card--reorder-before");
+    }
+    event.dataTransfer.dropEffect = "move";
+  };
+  const onDrop = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    const from = dragging;
+    const before = next && next.dataset.rowId === from.rowId ? reorderBefore(event, next) : null;
+    clear();
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const destinationId = next.dataset.rowId;
+    if (destinationId === from.rowId) {
+      // A drop back in its original position is cancellation, not a refused
+      // model edit or a new Undo entry.
+      if (!planVisualOnlyReorder(rowFor(from.rowId), from.payloadId, before)) return;
+      const projectId = from.projectId;
+      void queueCommand((latest) => {
+        if (activeProjectId !== projectId) throw new Error("The project changed during the reorder.");
+        const source = rowFor(from.rowId, latest);
+        const plan = planVisualOnlyReorder(source, from.payloadId, before);
+        if (!plan) throw new Error("The visual order was unchanged or is no longer available.");
+        return plan;
+      }, "Reorder visuals", { structural: true });
+      return;
+    }
+    const freshSlotId = crypto.randomUUID();
+    const replacementPayloadId = crypto.randomUUID();
+    const intent = (latest) => {
+      if (activeProjectId !== from.projectId) throw new Error("The script changed while dragging the visual.");
+      const source = rowFor(from.rowId, latest);
+      const dest = rowFor(destinationId, latest);
+      if (source?.type !== from.sourceType || !dest ||
+          dest.type !== "narration" && dest.type !== "visual_only") {
+        throw new Error("The source or destination row changed during the drag.");
+      }
+      if (source.type === "narration") return {
+        kind: "move_visual_to_row", blockId: from.rowId, slotId: from.slotId,
+        destinationBlockId: destinationId,
+        ...(dest.type === "visual_only" ? { expectedDestinationRowVersion: dest.version } : {}),
+      };
+      const ids = visualOnlyIds(source);
+      if (!ids?.includes(from.payloadId)) throw new Error("The dragged picture is no longer in its source row.");
+      const mapped = source.clearedNarration?.slots.some((item) => item.visualId === from.payloadId);
+      return { kind: "move_wordless_visual", sourceRowId: from.rowId, payloadId: from.payloadId,
+        destinationRowId: destinationId,
+        ...(ids.length === 1 ? { replacementPayloadId } : {}),
+        ...(!mapped && (dest.type === "narration" || dest.clearedNarration) ? { destinationSlotId: freshSlotId } : {}),
+        ...(dest.type === "narration" ? { expectedDestinationSequenceVersion: dest.primaryVisualSequence?.version } : {}),
+      };
+    };
+    void queueCommand(intent, "Move visual", { structural: true });
+  };
+  const onKey = (event) => {
+    if (event.key !== "Escape" || !dragging) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clear();
+    setSaveStatus("Visual move cancelled.");
+  };
+  root.addEventListener("dragstart", onStart);
+  root.addEventListener("dragover", onOver);
+  root.addEventListener("drop", onDrop);
+  root.addEventListener("dragend", clear);
+  root.addEventListener("keydown", onKey, true);
+  return () => {
+    clear();
+    root.removeEventListener("dragstart", onStart);
+    root.removeEventListener("dragover", onOver);
+    root.removeEventListener("drop", onDrop);
+    root.removeEventListener("dragend", clear);
+    root.removeEventListener("keydown", onKey, true);
+  };
+}
+
 function reselectOpener(state) {
   return [...element("script-rows").querySelectorAll("[data-reselect-open]")].find((button) =>
     button.dataset.reselectOpen === state.opener &&
@@ -337,6 +597,7 @@ function beginReselect(rowId, slotId, opener) {
     setSaveStatus("That visual's word range is not available to reselect.");
     return;
   }
+  activeAttach = null;
   activeReselect = { rowId, slotId, opener, version: row.primaryVisualSequence?.version, text: row.text };
   renderEditor();
 }
@@ -465,7 +726,8 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
   const response = await fetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
-      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }) }),
+      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }),
+      ...(wordlessCommandKinds.has(command.kind) ? { expectedRowEditRevision: document.rowEditRevision ?? 0 } : {}) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();
@@ -526,6 +788,7 @@ function changedCueIds(before, after) {
     row.cards.forEach((card, index) => {
       if (card.kind !== "on_camera" && !card.compact) {
         previous.set(`${row.blockId}:${card.slotId}`, { index, start: card.startTokenIndex });
+        previous.set(`slot:${card.slotId}`, { rowId: row.blockId });
       }
     });
   }
@@ -533,7 +796,9 @@ function changedCueIds(before, after) {
   for (const row of after.rows) {
     row.cards.forEach((card, index) => {
       const prior = previous.get(`${row.blockId}:${card.slotId}`);
-      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex)) moved.add(card.slotId);
+      const former = previous.get(`slot:${card.slotId}`);
+      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex) ||
+          former && former.rowId !== row.blockId) moved.add(card.slotId);
     });
   }
   return moved;
@@ -712,6 +977,7 @@ function queueCommand(command, label, options = {}) {
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
     const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
+    if (resolved.kind === "move_visual_to_row" || resolved.kind === "move_wordless_visual") activeAttach = null;
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
     // at the same caret are eligible; a changed cursor/session breaks the run.
@@ -792,6 +1058,7 @@ function updateUndo() {
 
 function undo() {
   if (composingRows.size) return;
+  activeAttach = null;
   typingGroup = null;
   commandsPending += 1;
   commandQueue = commandQueue.then(() => {
@@ -817,6 +1084,11 @@ function undo() {
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
+    event.preventDefault();
+    cancelAttach();
+    return;
+  }
   if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();

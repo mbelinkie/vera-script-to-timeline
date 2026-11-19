@@ -287,6 +287,34 @@ function multiNarrationDocumentFixture(
   return { document: seeded.document, rowIds: rows.map((row) => row.id) };
 }
 
+function draggableVisualFixture(projectId: string) {
+  const seeded = multiNarrationDocumentFixture(projectId, [
+    "one two three four five six seven eight nine ten",
+    "footage leaves this row for another passage",
+  ]);
+  const target = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowIds[0]);
+  const source = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowIds[1]);
+  if (target?.type !== "narration" || source?.type !== "narration") throw new Error("missing drag rows");
+  const first = target.primaryVisualSequence!.slots[0];
+  const moved = source.primaryVisualSequence!.slots[0];
+  if (first?.kind !== "content" || first.payload.kind !== "visual" ||
+      moved?.kind !== "content" || moved.payload.kind !== "visual") throw new Error("missing pictured slots");
+  target.primaryVisualSequence!.slots.push({ ...structuredClone(first), id: randomUUID(),
+    payload: { ...first.payload, payloadId: randomUUID() }, relation: { kind: "sequential" },
+    boundaryBefore: { kind: "spoken_word", anchor: {
+      blockId: target.id, tokenId: target.tokens[5]!.id, affinity: "before",
+      quotedWord: target.tokens[5]!.value, anchorVersion: 1,
+    } },
+  });
+  // The footage has a real in/out point. Moving it must not reset the trim.
+  moved.payload.selectedSourceRange = {
+    startFrame: moved.payload.sourceUsage?.sourceInFrame ?? 0, durationFrames: 25,
+  };
+  return { ...seeded, targetId: target.id, sourceId: source.id,
+    movedSlotId: moved.id, movedPayload: structuredClone(moved.payload),
+    targetTokenRange: { start: target.tokens[3]!.startOffset, end: target.tokens[6]!.endOffset } };
+}
+
 async function appRequest(
   page: Page,
   path: string,
@@ -960,6 +988,217 @@ describe("browser authoring over the local project service", () => {
       .getAttribute("class")).toContain("visual-card--moved");
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
       ?.primaryVisualSequence?.slots.length).toBeGreaterThan(1);
+    await page.close();
+  }, 90_000);
+
+  it("#621 promotes a blank row, adds two pictures, reorders, edits Hold and moves a wordless picture", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Wordless visual authoring");
+    const seeded = documentFixture(projectId);
+    const existingWordless = seeded.document.activeDraft.blocks.find((item) => item.type === "visual_only");
+    const narrated = seeded.document.activeDraft.blocks.find((item) => item.type === "narration");
+    if (!existingWordless || !narrated) throw new Error("missing source rows");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const narratedRow = page.locator(`[data-row-id="${narrated.id}"]`);
+    expect(await narratedRow.locator("[data-wordless-add]").count()).toBe(0);
+    await page.getByRole("button", { name: "Add row" }).last().click();
+    const read = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (response.body as SavedDocument).document;
+    };
+    await expect.poll(async () => (await read()).activeDraft.blocks.filter((item) => item.type === "narration").length).toBe(2);
+    const blank = (await read()).activeDraft.blocks.find((item) => item.type === "narration" && item.id !== narrated.id);
+    if (!blank) throw new Error("Add row did not create a blank narration row");
+    const row = page.locator(`[data-row-id="${blank.id}"]`);
+    const add = async (type: "Onscreen Placeholder" | "Need to Find") => {
+      await row.getByRole("button", { name: "+ Visual" }).click();
+      await row.getByRole("menu", { name: "Add wordless visual" }).getByRole("menuitem", { name: type }).click();
+    };
+    await add("Onscreen Placeholder");
+    await expect.poll(() => row.getAttribute("data-row-kind")).toBe("visual_only");
+    await add("Onscreen Placeholder");
+    const rowModel = async () => (await read()).activeDraft.blocks.find((item) => item.id === blank.id);
+    await expect.poll(async () => {
+      const current = await rowModel();
+      return current?.type === "visual_only" ? 1 + (current.additionalVisuals?.length ?? 0) : 0;
+    }).toBe(2);
+    let current = await rowModel();
+    if (!current || current.type !== "visual_only") throw new Error("blank row did not promote");
+    const firstId = current.payload.payloadId;
+    const secondId = current.additionalVisuals?.[0]?.payload.payloadId;
+    if (!secondId) throw new Error("wordless append missing");
+    expect(await row.locator(".visual-card__hold-input").evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value))).toEqual(["4.0", "4.0"]);
+    const secondHold = row.locator(`[data-visual-hold="${secondId}"]`);
+    await secondHold.fill("6");
+    await secondHold.press("Enter");
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.additionalVisuals?.[0]?.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(6000);
+    const undoBeforeBadHold = await page.locator("#undo-history li").allTextContents();
+    await row.locator(`[data-visual-hold="${secondId}"]`).fill("-2");
+    await row.locator(`[data-visual-hold="${secondId}"]`).press("Enter");
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(undoBeforeBadHold);
+    await row.locator(`[data-visual-hold="${firstId}"]`).fill("5.5");
+    await row.locator(`[data-visual-hold="${firstId}"]`).blur();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(5500);
+    await page.getByRole("button", { name: "Undo Set visual hold" }).click();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.visualOnlyTiming.durationOverrideMs : null;
+    }).toBe(4000);
+
+    const firstCard = row.locator(`.visual-card[data-payload-id="${firstId}"]`);
+    const secondCard = row.locator(`.visual-card[data-payload-id="${secondId}"]`);
+    await secondCard.dragTo(firstCard, { sourcePosition: { x: 12, y: 12 }, targetPosition: { x: 20, y: 4 } });
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(secondId);
+    expect(await row.locator(".visual-card[data-payload-id]").evaluateAll((cards) =>
+      cards.map((item) => (item as HTMLElement).dataset.payloadId))).toEqual([secondId, firstId]);
+    expect(await page.locator("#undo-history li").first().textContent()).toBe("Reorder visuals");
+    await page.getByRole("button", { name: "Undo Reorder visuals" }).click();
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(firstId);
+    await secondCard.dragTo(firstCard, { sourcePosition: { x: 12, y: 12 }, targetPosition: { x: 20, y: 4 } });
+    await expect.poll(async () => {
+      const model = await rowModel();
+      return model?.type === "visual_only" ? model.payload.payloadId : null;
+    }).toBe(secondId);
+
+    const destination = page.locator(`[data-row-id="${existingWordless.id}"]`);
+    await row.locator(`.visual-card[data-payload-id="${firstId}"]`).dragTo(destination.locator(".visuals-cell"), {
+      sourcePosition: { x: 12, y: 12 },
+      targetPosition: { x: 100, y: 45 },
+    });
+    await expect.poll(async () => {
+      const model = (await read()).activeDraft.blocks.find((item) => item.id === existingWordless.id);
+      return model?.type === "visual_only" ? model.additionalVisuals?.at(-1)?.payload.payloadId : null;
+    }).toBe(firstId);
+    current = await rowModel();
+    expect(current?.type === "visual_only" ? current.payload.payloadId : null).toBe(secondId);
+    expect(await destination.getByRole("button", { name: "Attach to words" }).count()).toBe(0);
+    await page.reload();
+    await expect.poll(() => row.locator(".visual-card[data-payload-id]").count()).toBe(1);
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
+    expect(await destination.locator(`.visual-card[data-payload-id="${firstId}"]`).count()).toBe(1);
+    const destinationModel = (await read()).activeDraft.blocks.find((item) => item.id === existingWordless.id);
+    expect(destinationModel?.type === "visual_only" ? destinationModel.additionalVisuals?.at(-1)?.visualOnlyTiming.durationOverrideMs : null)
+      .toBe(4000);
+    await page.close();
+  }, 150_000);
+
+  it("drags a trimmed picture into another narrated row, attaches across two cues, undoes and reloads", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Move trimmed visual and Attach");
+    const seeded = draggableVisualFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const source = page.locator(`[data-row-id="${seeded.sourceId}"]`);
+    const target = page.locator(`[data-row-id="${seeded.targetId}"]`);
+    const originalOrder = seeded.rowIds;
+    const saved = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (response.body as SavedDocument).document;
+    };
+    const waiting = async () => {
+      const row = (await saved()).activeDraft.blocks.find((item) => item.id === seeded.targetId);
+      return row?.type === "narration" ? row.unattachedVisuals?.find((item) => item.slotId === seeded.movedSlotId) : undefined;
+    };
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    expect((await saved()).activeDraft.blocks.filter((item) => item.type === "narration").map((item) => item.id))
+      .toEqual(originalOrder);
+    await expect.poll(() => target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+
+    await target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).click();
+    await selectText(target.locator("[data-narration-editor]"), seeded.targetTokenRange.start, seeded.targetTokenRange.end);
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(true);
+    await target.getByRole("button", { name: "Attach visual", exact: true }).click();
+    await expect.poll(async () => waiting()).toBeUndefined();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.targetId))
+      ?.primaryVisualSequence?.slots.some((item) => item.kind === "content" && item.id === seeded.movedSlotId)).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Attach visual", "Move visual"]);
+    const projected = await appRequest(page, "/authoring/projection", "POST", { document: await saved() });
+    const cards = (projected.body as { projection: { rows: Array<{ blockId: string; cards: Array<{
+      slotId: string; startTokenIndex: number; endTokenIndexExclusive: number; compact: boolean;
+    }> }> } }).projection.rows.find((item) => item.blockId === seeded.targetId)?.cards ?? [];
+    expect(cards.some((item) => item.slotId === seeded.movedSlotId && item.startTokenIndex === 3 &&
+      item.endTokenIndexExclusive === 7 && !item.compact)).toBe(true);
+
+    await page.getByRole("button", { name: "Undo Attach visual" }).click();
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.getByRole("button", { name: "Undo Move visual" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.sourceId))
+      ?.primaryVisualSequence?.slots.some((item) => item.kind === "content" && item.id === seeded.movedSlotId))
+      .toBe(true);
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(async () => waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.reload();
+    await expect.poll(() => target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await waiting()).toMatchObject({ payload: seeded.movedPayload });
+    await page.close();
+  }, 90_000);
+
+  it("cancels a waiting visual's Attach with Escape without changing rows or Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Cancel Attach visual");
+    const seeded = draggableVisualFixture(projectId);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const target = page.locator(`[data-row-id="${seeded.targetId}"]`);
+    const source = page.locator(`[data-row-id="${seeded.sourceId}"]`);
+    await source.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`).dragTo(target.locator(".visuals-cell"), {
+      targetPosition: { x: 110, y: 45 },
+    });
+    await expect.poll(() => target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    // Start a second *native* card drag, then Escape before dropping. A
+    // canceled card move must not accidentally become a row handle move.
+    const waitingCard = target.locator(`.visual-card[data-slot-id="${seeded.movedSlotId}"]`);
+    const dragBox = await waitingCard.boundingBox();
+    const dropBox = await source.locator(".visuals-cell").boundingBox();
+    if (!dragBox || !dropBox) throw new Error("missing native picture drag surfaces");
+    await page.evaluate(() => {
+      document.querySelector("#script-rows")?.addEventListener("dragstart", (event) => {
+        if ((event.target as Element)?.closest("[data-visual-drag]")) document.body.dataset.cardDragStarted = "true";
+      }, { once: true });
+    });
+    await page.mouse.move(dragBox.x + 18, dragBox.y + 17);
+    await page.mouse.down();
+    await page.mouse.move(dragBox.x + 58, dragBox.y + 35, { steps: 8 });
+    await expect.poll(() => page.locator("body").getAttribute("data-card-drag-started")).toBe("true");
+    await page.keyboard.press("Escape");
+    await page.mouse.move(dropBox.x + 50, dropBox.y + 45, { steps: 8 });
+    await page.mouse.up();
+    expect((await narrationRowFromApi(page, projectId, seeded.sourceId))?.unattachedVisuals).toBeUndefined();
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+    await target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).click();
+    const editor = target.locator("[data-narration-editor]");
+    await selectText(editor, seeded.targetTokenRange.start, seeded.targetTokenRange.end);
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(true);
+    await editor.press("Escape");
+    await expect.poll(() => target.getByRole("button", { name: "Attach visual", exact: true }).isVisible()).toBe(false);
+    await expect.poll(() => target.locator(`[data-slot-id="${seeded.movedSlotId}"] [data-attach-visual]`).isVisible()).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Move visual"]);
+    expect((await narrationRowFromApi(page, projectId, seeded.targetId))?.unattachedVisuals)
+      .toMatchObject([{ slotId: seeded.movedSlotId, payload: seeded.movedPayload }]);
     await page.close();
   }, 90_000);
 

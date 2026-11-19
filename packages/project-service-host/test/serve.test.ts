@@ -6,8 +6,8 @@ import { join } from "node:path";
 
 import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
-import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -25,6 +25,63 @@ const privateUrl = "postgresql://qa_test_actor:hidden-password@127.0.0.1:5432/ve
 const sourceFixture = JSON.parse(readFileSync(new URL(
   "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url,
 ), "utf8")) as { document: ScriptDocumentV2 };
+
+/** Three independent Draft rows: a visual source, narrated receiver and blank receiver. */
+function pictureMoveFixture() {
+  const document = structuredClone(sourceFixture.document);
+  const source = document.activeDraft.blocks[0];
+  if (source?.type !== "narration" || !source.primaryVisualSequence) throw new Error("missing source row");
+  const narrated = structuredClone(source);
+  narrated.id = randomUUID();
+  narrated.orderKey = "b0";
+  narrated.tokens = [{ ...source.tokens[0]!, id: randomUUID() }];
+  narrated.primaryVisualSequence!.id = randomUUID();
+  narrated.primaryVisualSequence!.slots = [{
+    id: randomUUID(), kind: "content", relation: { kind: "base" }, boundaryBefore: { kind: "row_start" },
+    payload: { kind: "on_camera", presenterChoiceId: null }, playoutPolicy: "match_structural_interval", version: 1,
+  }];
+  const blank = structuredClone(narrated);
+  blank.id = randomUUID();
+  blank.orderKey = "c0";
+  blank.text = "";
+  blank.tokens = [];
+  blank.primaryVisualSequence!.id = randomUUID();
+  blank.primaryVisualSequence!.slots[0]!.id = randomUUID();
+  document.activeDraft.blocks.push(narrated, blank);
+  expect(validateScriptDocumentV2(document).valid).toBe(true);
+  return { document, source, narrated, blank };
+}
+
+async function authoringRequests() {
+  const origin = "http://127.0.0.1:38429";
+  const projects = vi.fn(() => Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })));
+  const host = createAuthoringHandler(origin, `Bearer ${privateToken}`, projects);
+  const request = async (path: string, body: unknown, opts: { session?: string; origin?: string; site?: string } = {}) =>
+    await host.handle(new Request(`${origin}/authoring/${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", "X-VERA-Authoring": "1",
+        "Sec-Fetch-Site": opts.site ?? "same-origin", Origin: opts.origin ?? origin,
+        ...(opts.session ? { "X-VERA-Session": opts.session } : {}),
+        ...(path === "session" ? { "X-VERA-Launch": host.launchCode } : {}),
+      },
+      body: JSON.stringify(body),
+    })) as Response;
+  const session = await request("session", {});
+  expect(session.status).toBe(200);
+  const { sessionProof } = await session.json() as { sessionProof: string };
+  const authorized = (path: string, body: unknown, opts: { session?: string; origin?: string; site?: string } = {}) =>
+    request(path, body, { session: sessionProof, ...opts });
+  return { request, authorized, sessionProof, projects };
+}
+
+type CommandResult = { ok: boolean; document: ScriptDocumentV2; diagnostics: Array<{ code: string }>;
+  evidence?: { kind: string; blockIds: string[]; payloadIds: string[] } };
+
+async function commandResult(response: Response): Promise<CommandResult> {
+  expect(response.status).toBe(200);
+  return await response.json() as CommandResult;
+}
 
 async function setup(): Promise<QaConfig> {
   const dir = await mkdtemp(join(tmpdir(), "stt159-server-"));
@@ -157,6 +214,207 @@ describe("development QA service bootstrap and shutdown", () => {
     const deletedBody = await deleted.json() as { ok: boolean; diagnostics: Array<{ code: string }> };
     expect(deletedBody.ok, JSON.stringify(deletedBody.diagnostics)).toBe(true);
     expect(projects).not.toHaveBeenCalled();
+  });
+  it("authorizes exact move/Attach commands, checks source sequence and preserves refusals", async () => {
+    const { document, source, narrated } = pictureMoveFixture();
+    const { request, authorized, projects } = await authoringRequests();
+    const slotId = source.primaryVisualSequence!.slots[0]!.id;
+    const command = { kind: "move_visual_to_row", blockId: source.id, slotId,
+      destinationBlockId: narrated.id };
+    const envelope = { document, command, expectedSequenceVersion: 1 };
+    for (const path of ["command", "projection"]) {
+      const body = path === "command" ? envelope : { document };
+      expect((await request(path, body)).status).toBe(401);
+      expect((await authorized(path, body, { session: "f".repeat(64) })).status).toBe(401);
+      expect((await authorized(path, body, { origin: "http://127.0.0.1:38430" })).status).toBe(403);
+      expect((await authorized(path, body, { site: "cross-site" })).status).toBe(403);
+    }
+    for (const bad of [
+      { ...envelope, command: { ...command, unexpected: true } },
+      { ...envelope, command: { ...command, destinationBlockId: "not-uuid" } },
+      { ...envelope, command: { ...command, blockId: "not-uuid" } },
+      { ...envelope, command: { ...command, slotId: "" } },
+      { ...envelope, command: { ...command, expectedDestinationRowVersion: "1" } },
+      { ...envelope, command: { ...command, expectedDestinationRowVersion: -1 } },
+      { ...envelope, expectedSequenceVersion: undefined },
+      { ...envelope, expectedSequenceVersion: 1, splitProof: "f".repeat(64) },
+    ]) expect((await authorized("command", bad)).status).toBe(400);
+    expect((await authorized("visual-command", envelope)).status).toBe(400); // No broad /visual-command bypass.
+    for (const refused of [
+      await commandResult(await authorized("command", { ...envelope, expectedSequenceVersion: 0 })),
+      await commandResult(await authorized("command", { ...envelope, command: { ...command, blockId: randomUUID() } })),
+      await commandResult(await authorized("command", { ...envelope, command: { ...command, destinationBlockId: randomUUID() } })),
+    ]) {
+      expect(refused.ok).toBe(false);
+      expect(refused.document).toEqual(document);
+    }
+    const moved = await commandResult(await authorized("command", envelope));
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    expect(moved.evidence).toMatchObject({ kind: "move_visual_to_row", blockIds: [source.id, narrated.id] });
+    const destinationAfter = moved.document.activeDraft.blocks.find((row) => row.id === narrated.id) as NarrationBlockV2;
+    expect(destinationAfter.unattachedVisuals?.[0]?.slotId).toBe(slotId);
+    expect(destinationAfter.unattachedVisuals?.[0]?.payload).toEqual((source.primaryVisualSequence!.slots[0] as { payload: unknown }).payload);
+    expect(moved.document.activeDraft.blocks.find((row) => row.id === source.id)).not.toEqual(source);
+
+    const attach = { kind: "attach_visual_to_words", blockId: narrated.id, slotId,
+      startTokenId: narrated.tokens[0]!.id, endTokenId: narrated.tokens[0]!.id };
+    for (const bad of [
+      { ...attach, missingToken: true }, { ...attach, endTokenId: "invalid" },
+      { ...attach, startTokenId: undefined }, { ...attach, slotId: randomUUID(), extras: "no" },
+    ]) expect((await authorized("command", {
+      document: moved.document, command: bad, expectedSequenceVersion: destinationAfter.primaryVisualSequence!.version,
+    })).status).toBe(400);
+    const stale = await commandResult(await authorized("command", {
+      document: moved.document, command: attach, expectedSequenceVersion: 1,
+    }));
+    expect(stale).toMatchObject({ ok: false, document: moved.document });
+    expect(stale.diagnostics[0]?.code).toBe("SEQUENCE_VERSION_STALE");
+    const attached = await commandResult(await authorized("command", {
+      document: moved.document, command: attach, expectedSequenceVersion: destinationAfter.primaryVisualSequence!.version,
+    }));
+    expect(attached.ok, JSON.stringify(attached.diagnostics)).toBe(true);
+    expect(attached.evidence?.kind).toBe("attach_visual_to_words");
+    const attachedRow = attached.document.activeDraft.blocks.find((row) => row.id === narrated.id) as NarrationBlockV2;
+    expect(attachedRow.unattachedVisuals ?? []).toHaveLength(0);
+    expect(projects).not.toHaveBeenCalled();
+  });
+
+  it("routes wordless add, reorder, Hold and move through exact row revisions and model refusals", async () => {
+    const { document, source, blank } = pictureMoveFixture();
+    const { authorized, projects } = await authoringRequests();
+    const firstPayloadId = randomUUID();
+    const secondPayloadId = randomUUID();
+    const first = { kind: "add_visual_to_wordless_row", rowId: blank.id,
+      payloadId: firstPayloadId, slotId: randomUUID(), visualType: "onscreen_placeholder" };
+    const firstEnvelope = { document, command: first, expectedRowEditRevision: 0 };
+    for (const bad of [
+      { ...firstEnvelope, expectedRowEditRevision: undefined },
+      { ...firstEnvelope, expectedSequenceVersion: 0 },
+      { ...firstEnvelope, extra: true },
+      { ...firstEnvelope, command: { ...first, unexpected: true } },
+      { ...firstEnvelope, command: { ...first, rowId: "not-a-uuid" } },
+      { ...firstEnvelope, command: { ...first, slotId: "" } },
+      { ...firstEnvelope, command: { ...first, visualType: "footage" } },
+      { ...firstEnvelope, expectedRowEditRevision: -1 },
+      { ...firstEnvelope, expectedRowEditRevision: 1.5 },
+    ]) expect((await authorized("command", bad)).status).toBe(400);
+    const added = await commandResult(await authorized("command", firstEnvelope));
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    const wordless = added.document.activeDraft.blocks.find((row) => row.id === blank.id);
+    expect(wordless).toMatchObject({ type: "visual_only", payload: { payloadId: firstPayloadId },
+      visualOnlyTiming: { durationOverrideMs: 4000 } });
+    const staleRow = await commandResult(await authorized("command", {
+      document: added.document, command: { ...first, payloadId: randomUUID(), slotId: randomUUID() }, expectedRowEditRevision: 0,
+    }));
+    expect(staleRow).toMatchObject({ ok: false, document: added.document });
+    expect(staleRow.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    const second = await commandResult(await authorized("command", {
+      document: added.document, expectedRowEditRevision: 1,
+      command: { ...first, payloadId: secondPayloadId, slotId: randomUUID(), visualType: "need_to_find" },
+    }));
+    expect(second.ok, JSON.stringify(second.diagnostics)).toBe(true);
+    const wrongOrder = await commandResult(await authorized("command", {
+      document: second.document, expectedRowEditRevision: 2,
+      command: { kind: "reorder_visual_only", rowId: blank.id, payloadIds: [firstPayloadId, firstPayloadId] },
+    }));
+    expect(wrongOrder).toMatchObject({ ok: false, document: second.document });
+    const reordered = await commandResult(await authorized("command", {
+      document: second.document, expectedRowEditRevision: 2,
+      command: { kind: "reorder_visual_only", rowId: blank.id, payloadIds: [secondPayloadId, firstPayloadId] },
+    }));
+    expect(reordered.ok, JSON.stringify(reordered.diagnostics)).toBe(true);
+    const held = await commandResult(await authorized("command", {
+      document: reordered.document, expectedRowEditRevision: 3,
+      command: { kind: "set_visual_only_hold", rowId: blank.id, payloadId: firstPayloadId, holdSeconds: 6 },
+    }));
+    expect(held.ok, JSON.stringify(held.diagnostics)).toBe(true);
+    const invalidHold = await commandResult(await authorized("command", {
+      document: held.document, expectedRowEditRevision: 4,
+      command: { kind: "set_visual_only_hold", rowId: blank.id, payloadId: firstPayloadId, holdSeconds: -2 },
+    }));
+    expect(invalidHold).toMatchObject({ ok: false, document: held.document });
+    expect(invalidHold.diagnostics[0]?.code).toBe("VISUAL_HOLD_INVALID");
+    const oldProjection = await authorized("projection", { document: held.document });
+    expect(oldProjection.status).toBe(200);
+    expect((await oldProjection.json() as { projection: unknown }).projection)
+      .toEqual(projectPrimarySequenceV2(held.document));
+
+    const move = { kind: "move_wordless_visual", sourceRowId: blank.id,
+      payloadId: secondPayloadId, destinationRowId: source.id, destinationSlotId: randomUUID(),
+      expectedDestinationSequenceVersion: source.primaryVisualSequence!.version };
+    for (const bad of [
+      { ...move, destinationRowId: "bad-id" },
+      { ...move, expectedDestinationSequenceVersion: -1 },
+      { ...move, strange: "secret" },
+    ]) expect((await authorized("command", {
+      document: held.document, expectedRowEditRevision: 4, command: bad,
+    })).status).toBe(400);
+    for (const bad of [
+      { ...move, destinationRowId: randomUUID() },
+      { ...move, sourceRowId: randomUUID() },
+      { ...move, expectedDestinationSequenceVersion: source.primaryVisualSequence!.version + 1 },
+    ]) {
+      const refused = await commandResult(await authorized("command", {
+        document: held.document, expectedRowEditRevision: 4, command: bad,
+      }));
+      expect(refused.ok).toBe(false);
+      expect(refused.document).toEqual(held.document);
+    }
+    const moved = await commandResult(await authorized("command", {
+      document: held.document, expectedRowEditRevision: 4, command: move,
+    }));
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    const receiving = moved.document.activeDraft.blocks.find((row) => row.id === source.id) as NarrationBlockV2;
+    expect(receiving.unattachedVisuals?.[0]?.payload).toMatchObject({ payloadId: secondPayloadId });
+    expect(moved.document.activeDraft.blocks.find((row) => row.id === blank.id)).toMatchObject({
+      type: "visual_only", payload: { payloadId: firstPayloadId }, visualOnlyTiming: { durationOverrideMs: 6000 },
+    });
+    expect(projects).not.toHaveBeenCalled();
+  });
+
+  it("requires the destination wordless row revision when moving a narrated visual", async () => {
+    const { document, source, blank } = pictureMoveFixture();
+    const { authorized } = await authoringRequests();
+    const originalSlot = source.primaryVisualSequence!.slots[0]!;
+    if (originalSlot.kind !== "content") throw new Error("missing visual source");
+    // This move deliberately uses a source-free picture. The model separately
+    // refuses untrimmed footage to a wordless hold rather than guessing timing.
+    originalSlot.payload = { kind: "visual", payloadId: randomUUID(), pictureKind: "intentional_placeholder",
+      source: { kind: "intentional_placeholder", text: "Harbour" }, sourceUsage: null,
+      audioPolicy: "mute", framingPolicy: "contain" };
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const added = await commandResult(await authorized("command", {
+      document, expectedRowEditRevision: 0, command: { kind: "add_visual_to_wordless_row",
+        rowId: blank.id, payloadId: randomUUID(), slotId: randomUUID(), visualType: "onscreen_placeholder" },
+    }));
+    expect(added.ok).toBe(true);
+    const target = added.document.activeDraft.blocks.find((row) => row.id === blank.id);
+    if (target?.type !== "visual_only") throw new Error("expected visual-only destination");
+    const command = { kind: "move_visual_to_row", blockId: source.id, slotId: originalSlot.id,
+      destinationBlockId: blank.id };
+    for (const malformed of [{ ...command, expectedDestinationRowVersion: "2" },
+      { ...command, expectedDestinationRowVersion: -1 }, { ...command, nonsense: "extra" }]) {
+      expect((await authorized("command", { document: added.document, command: malformed,
+        expectedSequenceVersion: source.primaryVisualSequence!.version })).status).toBe(400);
+    }
+    for (const staleVersion of [undefined, target.version - 1, target.version + 1]) {
+      const refused = await commandResult(await authorized("command", {
+        document: added.document, expectedSequenceVersion: source.primaryVisualSequence!.version,
+        command: { ...command, ...(staleVersion === undefined ? {} : { expectedDestinationRowVersion: staleVersion }) },
+      }));
+      expect(refused.ok).toBe(false);
+      expect(refused.document).toEqual(added.document);
+      expect(refused.diagnostics[0]?.code).toBe("ROW_REVISION_STALE");
+    }
+    const moved = await commandResult(await authorized("command", {
+      document: added.document, expectedSequenceVersion: source.primaryVisualSequence!.version,
+      command: { ...command, expectedDestinationRowVersion: target.version },
+    }));
+    expect(moved.ok, JSON.stringify(moved.diagnostics)).toBe(true);
+    const receiving = moved.document.activeDraft.blocks.find((row) => row.id === blank.id);
+    expect(receiving).toMatchObject({ type: "visual_only", additionalVisuals: [{
+      payload: { payloadId: originalSlot.payload.payloadId }, visualOnlyTiming: { durationOverrideMs: 4000 },
+    }] });
   });
   it("authenticates only trusted bearer identities through existing API and authorization service", async () => {
     const config = await setup();

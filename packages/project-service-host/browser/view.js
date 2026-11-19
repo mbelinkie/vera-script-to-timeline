@@ -123,6 +123,12 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
       : definition.art;
   card.dataset.previewable = String(previewable);
   card.dataset.slotId = options.slotId ?? "";
+  if (options.payloadId) card.dataset.payloadId = options.payloadId;
+  if (options.draggable && payload?.kind === "visual") {
+    card.draggable = true;
+    card.dataset.visualDrag = "";
+    card.title = options.payloadId ? "Reorder in this row" : "Drag visual to another row";
+  }
   if (options.startTokenIndex !== undefined) card.dataset.cueStart = String(options.startTokenIndex);
   if (options.flash) card.classList.add("visual-card--moved");
   card.setAttribute("aria-label", kindLabel + ": " + label);
@@ -138,6 +144,31 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
   if (isOnCamera && slotId && visualCommand) {
     meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));
+  }
+  if (options.waiting) {
+    const waiting = makeElement(document, "span", "visual-card__waiting", "Waiting for words");
+    const attach = makeElement(document, "button", "visual-card__attach", "Attach to words");
+    attach.type = "button";
+    attach.dataset.attachVisual = "";
+    attach.setAttribute("aria-pressed", String(options.attaching === true));
+    attach.addEventListener("click", (event) => {
+      event.stopPropagation();
+      options.attach?.(blockId, slotId);
+    });
+    meta.append(waiting, attach);
+  }
+  if (options.holdSeconds !== undefined) {
+    const hold = makeElement(document, "label", "visual-card__hold", "Hold");
+    const input = makeElement(document, "input", "visual-card__hold-input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.dataset.visualHold = options.payloadId;
+    input.value = Number.isInteger(options.holdSeconds) ? options.holdSeconds.toFixed(1) : String(options.holdSeconds);
+    input.dataset.savedSeconds = input.value;
+    input.setAttribute("aria-label", `Hold in seconds for ${label}`);
+    const unit = makeElement(document, "span", "visual-card__hold-unit", "s");
+    hold.append(input, unit);
+    meta.append(hold);
   }
   if (reselect && blockId && slotId && payload?.kind === "visual") {
     // Keep the menu stationary: exposing the separate hover/focus action may
@@ -260,7 +291,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   return card;
 }
 
-function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect) {
+function renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
   const cell = makeElement(document, "section", "visuals-cell");
   cell.setAttribute("aria-label", "Visuals");
   const list = makeElement(document, "div", "visuals-list");
@@ -311,6 +342,10 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
         reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
         startTokenIndex: card.startTokenIndex,
         flash: flashIds?.has(card.slotId),
+        draggable: card.kind === "visual" || card.kind === "unattached_visual",
+        waiting: card.kind === "unattached_visual",
+        attaching: attaching?.rowId === block.id && attaching.slotId === card.slotId,
+        attach,
         editable: card.kind === "visual" || card.kind === "undefined" || card.kind === "unattached_visual",
       }));
     }
@@ -336,9 +371,15 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     }
   }
   if (block.type === "visual_only") {
-    list.append(renderVisualCard(document, block.payload, block.researchClip));
-    for (const visual of block.additionalVisuals ?? []) {
-      list.append(renderVisualCard(document, visual.payload, visual.researchClip));
+    for (const visual of [{ payload: block.payload, researchClip: block.researchClip, visualOnlyTiming: block.visualOnlyTiming },
+      ...(block.additionalVisuals ?? [])]) {
+      const timing = visual.visualOnlyTiming;
+      list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
+        payloadId: visual.payload.payloadId, draggable: true,
+        holdSeconds: timing?.durationOverrideMs !== undefined && !timing.matchAudioDuration &&
+          !timing.selectedSourceRange && visual.payload.pictureKind !== "unresolved_visual" &&
+          visual.payload.pictureKind !== "clip" ? timing.durationOverrideMs / 1000 : undefined,
+      }));
     }
   }
 
@@ -346,6 +387,43 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     cell.append(makeElement(document, "div", "visuals-empty"));
   } else {
     cell.append(list);
+  }
+  // A blank narration row promotes to a real visual-only row on the first add.
+  // Never offer a wordless action on a row with spoken narration.
+  if (addWordless && (block.type === "visual_only" ||
+      block.type === "narration" && block.state === "active" && block.text === "" &&
+      block.tokens.length === 0 && !block.plainDirection && !block.attachedFootage &&
+      !block.notes.length && !block.overlayEvents.length && !block.annotations?.length &&
+      !block.performanceBeats?.length && !block.unattachedVisuals?.length &&
+      block.primaryVisualSequence?.slots.length === 1 &&
+      block.primaryVisualSequence.slots[0]?.kind === "content" &&
+      block.primaryVisualSequence.slots[0].relation.kind === "base" &&
+      block.primaryVisualSequence.slots[0].boundaryBefore.kind === "row_start" &&
+      block.primaryVisualSequence.slots[0].playoutPolicy === "match_structural_interval")) {
+    const actions = makeElement(document, "div", "visuals-wordless-actions");
+    const button = makeElement(document, "button", "visuals-wordless-add", "+ Visual");
+    button.type = "button";
+    button.dataset.wordlessAdd = "";
+    button.setAttribute("aria-expanded", "false");
+    const choices = makeElement(document, "div", "visuals-wordless-choices");
+    choices.hidden = true;
+    choices.setAttribute("role", "menu");
+    choices.setAttribute("aria-label", "Add wordless visual");
+    for (const [type, label] of [["onscreen_placeholder", "Onscreen Placeholder"], ["need_to_find", "Need to Find"]]) {
+      const choice = makeElement(document, "button", "", label);
+      choice.type = "button";
+      choice.setAttribute("role", "menuitem");
+      choice.dataset.wordlessType = type;
+      choice.addEventListener("click", () => addWordless(block.id, type));
+      choices.append(choice);
+    }
+    button.addEventListener("click", () => {
+      choices.hidden = !choices.hidden;
+      button.setAttribute("aria-expanded", String(!choices.hidden));
+      if (!choices.hidden) choices.querySelector("button")?.focus();
+    });
+    actions.append(button, choices);
+    cell.append(actions);
   }
   return cell;
 }
@@ -383,7 +461,7 @@ function shortContent(text, fallback) {
   return clean.length > 96 ? clean.slice(0, 93) + "…" : clean;
 }
 
-function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect) {
+function renderRow(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless) {
   const row = makeElement(document, "article", "script-row");
   row.dataset.rowId = block.id || "";
   row.dataset.rowKind = block.type;
@@ -408,11 +486,11 @@ function renderRow(document, block, projectedRow, flashIds, visualCommand, resel
   }
 
   row.append(narration);
-  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect));
+  row.append(renderVisuals(document, block, projectedRow, flashIds, visualCommand, reselect, attach, attaching, addWordless));
   return row;
 }
 
-export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect } = {}) {
+export function renderRows(root, document, { projection, flashIds = new Set(), visualCommand, reselect, attach, attaching, addWordless } = {}) {
   if (!root || !root.ownerDocument) return;
   const ownerDocument = root.ownerDocument;
   const blocks = document && document.activeDraft && Array.isArray(document.activeDraft.blocks)
@@ -433,7 +511,7 @@ export function renderRows(root, document, { projection, flashIds = new Set(), v
       continue;
     }
     if (block.type === "narration" || block.type === "direction" || block.type === "note_draft" || block.type === "visual_only") {
-      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect));
+      root.append(renderRow(ownerDocument, block, projectedRows.get(block.id), flashIds, visualCommand, reselect, attach, attaching, addWordless));
       rowCount += 1;
     }
   }
