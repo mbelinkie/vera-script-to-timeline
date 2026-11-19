@@ -1,6 +1,7 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
+import { visualOnlyIds } from "./visual-only-actions.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -19,7 +20,10 @@ const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
   "add_visual_on_selection", "change_visual_type", "delete_visual",
   "set_visual_range", "set_on_camera_framing",
+  "move_visual_to_row", "attach_visual_to_words",
 ]);
+const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
+  "reorder_visual_only", "set_visual_only_hold"]);
 let project;
 let activeProjectId;
 let scriptDocument;
@@ -34,6 +38,7 @@ let commandQueue = Promise.resolve();
 let commandsPending = 0;
 let visualProjection = null;
 let activeReselect = null;
+let activeAttach = null;
 let projectionGeneration = 0;
 let projectionTimer;
 let editRefused = false;
@@ -146,6 +151,7 @@ async function showScript(projectId) {
   lastSplit = null;
   structuralFocus = null;
   activeReselect = null;
+  activeAttach = null;
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -245,11 +251,13 @@ function renderEditor() {
   narrationCleanup = [];
   renderRows(root, scriptDocument, {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
+    attach: beginAttach, attaching: activeAttach,
     flashIds: flashVisualIds,
   });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
+  narrationCleanup.push(mountVisualCardDragging(root));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -262,6 +270,8 @@ function renderEditor() {
       cancelReselect,
       commitReselect,
       previewReselect,
+      attaching: activeAttach?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeAttach : null,
+      finishAttach, cancelAttach,
       compositionChange(rowId, active) {
         if (active) composingRows.add(rowId);
         else { composingRows.delete(rowId); scheduleRender(); }
@@ -314,6 +324,142 @@ function renderEditor() {
   if (reselectFocus) focusReselectOpener(reselectFocus);
 }
 
+function beginAttach(rowId, slotId) {
+  const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+  if (row?.type !== "narration" || !row.unattachedVisuals?.some((item) => item.slotId === slotId)) {
+    setSaveStatus("The visual is no longer waiting for words.");
+    return;
+  }
+  activeReselect = null;
+  activeAttach = { rowId, slotId, projectId: activeProjectId };
+  renderEditor();
+  const editor = [...element("script-rows").querySelectorAll("[data-narration-editor]")]
+    .find((item) => item.closest("[data-row-id]")?.dataset.rowId === rowId);
+  editor?.focus();
+  setSaveStatus("Select the spoken words for this visual, then choose Attach visual. Esc cancels.");
+}
+
+function cancelAttach() {
+  if (!activeAttach) return;
+  activeAttach = null;
+  renderEditor();
+  setSaveStatus("Attach cancelled. The visual is still waiting for words.");
+}
+
+function finishAttach(state) {
+  if (activeAttach !== state) return;
+  activeAttach = null;
+  renderEditor();
+}
+
+// Native picture dragging is deliberately independent of rows-editor's row
+// handle and gap drag state. No model edit occurs before a valid cross-row drop.
+function mountVisualCardDragging(root) {
+  let dragging = null;
+  let target = null;
+  const clear = () => {
+    target?.classList.remove("script-row--visual-drop-target");
+    root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
+    dragging = null;
+    target = null;
+  };
+  const rowFor = (id, doc = scriptDocument) => doc?.activeDraft.blocks.find((row) => row.id === id);
+  const onStart = (event) => {
+    if (event.target.closest("button, input, [contenteditable]")) return;
+    const card = event.target.closest("[data-visual-drag]");
+    const rowId = card?.closest("[data-row-id]")?.dataset.rowId;
+    const row = rowFor(rowId);
+    if (!card || !event.dataTransfer || !row || row.type !== "narration" && row.type !== "visual_only") return;
+    const slotId = card.dataset.slotId;
+    const payloadId = card.dataset.payloadId;
+    const content = row.type === "narration" && (row.primaryVisualSequence?.slots.some((slot) =>
+      slot.kind === "content" && slot.id === slotId && slot.payload.kind === "visual") ||
+      row.unattachedVisuals?.some((item) => item.slotId === slotId && item.payload.kind === "visual"));
+    if (row.type === "narration" && !content || row.type === "visual_only" &&
+      (!payloadId || !visualOnlyIds(row)?.includes(payloadId))) return;
+    dragging = { rowId, slotId, payloadId, projectId: activeProjectId, sourceType: row.type };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-vera-visual", "picture");
+    card.classList.add("visual-card--dragging");
+  };
+  const destination = (event) => {
+    const row = event.target.closest(".script-row");
+    const id = row?.dataset.rowId;
+    const model = rowFor(id);
+    return dragging && id && id !== dragging.rowId &&
+      (model?.type === "narration" || model?.type === "visual_only") ? row : null;
+  };
+  const onOver = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    if (target !== next) {
+      target?.classList.remove("script-row--visual-drop-target");
+      target = next;
+      target?.classList.add("script-row--visual-drop-target");
+    }
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+  };
+  const onDrop = (event) => {
+    if (!dragging) return;
+    const next = destination(event);
+    const from = dragging;
+    clear();
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const destinationId = next.dataset.rowId;
+    const freshSlotId = crypto.randomUUID();
+    const replacementPayloadId = crypto.randomUUID();
+    const intent = (latest) => {
+      if (activeProjectId !== from.projectId) throw new Error("The script changed while dragging the visual.");
+      const source = rowFor(from.rowId, latest);
+      const dest = rowFor(destinationId, latest);
+      if (source?.type !== from.sourceType || !dest ||
+          dest.type !== "narration" && dest.type !== "visual_only") {
+        throw new Error("The source or destination row changed during the drag.");
+      }
+      if (source.type === "narration") return {
+        kind: "move_visual_to_row", blockId: from.rowId, slotId: from.slotId,
+        destinationBlockId: destinationId,
+        ...(dest.type === "visual_only" ? { expectedDestinationRowVersion: dest.version } : {}),
+      };
+      const ids = visualOnlyIds(source);
+      if (!ids?.includes(from.payloadId)) throw new Error("The dragged picture is no longer in its source row.");
+      const mapped = source.clearedNarration?.slots.some((item) => item.visualId === from.payloadId);
+      return { kind: "move_wordless_visual", sourceRowId: from.rowId, payloadId: from.payloadId,
+        destinationRowId: destinationId,
+        ...(ids.length === 1 ? { replacementPayloadId } : {}),
+        ...(!mapped && (dest.type === "narration" || dest.clearedNarration) ? { destinationSlotId: freshSlotId } : {}),
+        ...(dest.type === "narration" ? { expectedDestinationSequenceVersion: dest.primaryVisualSequence?.version } : {}),
+      };
+    };
+    void queueCommand(intent, "Move visual", { structural: true });
+  };
+  const onKey = (event) => {
+    if (event.key !== "Escape" || !dragging) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clear();
+    setSaveStatus("Visual move cancelled.");
+  };
+  root.addEventListener("dragstart", onStart);
+  root.addEventListener("dragover", onOver);
+  root.addEventListener("drop", onDrop);
+  root.addEventListener("dragend", clear);
+  root.addEventListener("keydown", onKey, true);
+  return () => {
+    clear();
+    root.removeEventListener("dragstart", onStart);
+    root.removeEventListener("dragover", onOver);
+    root.removeEventListener("drop", onDrop);
+    root.removeEventListener("dragend", clear);
+    root.removeEventListener("keydown", onKey, true);
+  };
+}
+
 function reselectOpener(state) {
   return [...element("script-rows").querySelectorAll("[data-reselect-open]")].find((button) =>
     button.dataset.reselectOpen === state.opener &&
@@ -337,6 +483,7 @@ function beginReselect(rowId, slotId, opener) {
     setSaveStatus("That visual's word range is not available to reselect.");
     return;
   }
+  activeAttach = null;
   activeReselect = { rowId, slotId, opener, version: row.primaryVisualSequence?.version, text: row.text };
   renderEditor();
 }
@@ -465,7 +612,8 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
   const response = await fetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
-      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }) }),
+      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }),
+      ...(wordlessCommandKinds.has(command.kind) ? { expectedRowEditRevision: document.rowEditRevision ?? 0 } : {}) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();
@@ -526,6 +674,7 @@ function changedCueIds(before, after) {
     row.cards.forEach((card, index) => {
       if (card.kind !== "on_camera" && !card.compact) {
         previous.set(`${row.blockId}:${card.slotId}`, { index, start: card.startTokenIndex });
+        previous.set(`slot:${card.slotId}`, { rowId: row.blockId });
       }
     });
   }
@@ -533,7 +682,9 @@ function changedCueIds(before, after) {
   for (const row of after.rows) {
     row.cards.forEach((card, index) => {
       const prior = previous.get(`${row.blockId}:${card.slotId}`);
-      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex)) moved.add(card.slotId);
+      const former = previous.get(`slot:${card.slotId}`);
+      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex) ||
+          former && former.rowId !== row.blockId) moved.add(card.slotId);
     });
   }
   return moved;
@@ -712,6 +863,7 @@ function queueCommand(command, label, options = {}) {
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
     const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
+    if (resolved.kind === "move_visual_to_row" || resolved.kind === "move_wordless_visual") activeAttach = null;
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
     // at the same caret are eligible; a changed cursor/session breaks the run.
@@ -792,6 +944,7 @@ function updateUndo() {
 
 function undo() {
   if (composingRows.size) return;
+  activeAttach = null;
   typingGroup = null;
   commandsPending += 1;
   commandQueue = commandQueue.then(() => {
@@ -817,6 +970,11 @@ function undo() {
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
+    event.preventDefault();
+    cancelAttach();
+    return;
+  }
   if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();
