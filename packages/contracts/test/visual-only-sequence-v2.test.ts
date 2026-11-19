@@ -147,11 +147,11 @@ describe("#585 visuals-only ordered cards", () => {
     const reloaded = deserializeAuthoringDocumentV2(saved);
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;
-    expect((reloaded.document.activeDraft.blocks[0] as VisualOnlyBlockV2).additionalVisuals![1]!.visualOnlyTiming.matchAudioDuration)
+    expect((reloaded.document.activeDraft.blocks[0] as VisualOnlyBlockV2).additionalVisuals![1].visualOnlyTiming.matchAudioDuration)
       .toEqual({ cueId: id(9501) });
     const session = createRowEditSessionV2(reloaded.document);
     const reordered = session.apply({
-      kind: "reorder_visual_only", rowId: row.id, payloadIds: [payloadId, row.payload.payloadId, row.additionalVisuals![0]!.payload.payloadId],
+      kind: "reorder_visual_only", rowId: row.id, payloadIds: [payloadId, row.payload.payloadId, row.additionalVisuals![0].payload.payloadId],
     });
     expect(reordered.ok, JSON.stringify(reordered.diagnostics)).toBe(true);
     const cleared = session.apply({
