@@ -256,6 +256,70 @@ input {
   gap: 1.25rem;
 }
 
+.prompter-trigger {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #aa874a;
+  border-radius: 0.35rem;
+  background: #352e23;
+  color: #f5deb0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prompter-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.prompter-dialog {
+  width: min(35rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #c9cfd7;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #202630;
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 30%);
+}
+
+.prompter-dialog::backdrop {
+  background: rgb(17 19 24 / 65%);
+}
+
+.prompter-dialog__heading,
+.prompter-downloads {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.prompter-dialog h2 { margin: 0; font-size: 1.2rem; }
+.prompter-dialog p { line-height: 1.5; font-size: 0.85rem; }
+.prompter-dialog__heading button { border: 0; background: transparent; cursor: pointer; }
+.prompter-option { display: block; margin: 0.8rem 0; font-size: 0.88rem; }
+.prompter-option input { accent-color: #906c30; }
+
+.prompter-primary,
+.prompter-downloads button {
+  min-height: 2.3rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ad874b;
+  border-radius: 0.35rem;
+  background: #d7ad5a;
+  color: #202126;
+  cursor: pointer;
+}
+
+.prompter-primary:disabled,
+.prompter-downloads button:disabled { cursor: not-allowed; opacity: 0.55; }
+#prompter-status { min-height: 1.4rem; color: #4d5662; }
+.prompter-result { border-top: 1px solid #dce1e5; padding-top: 0.4rem; }
+.prompter-result p { margin: 0.5rem 0; }
+.prompter-result code { overflow-wrap: anywhere; font-size: 0.72rem; }
+.prompter-downloads { justify-content: flex-start; flex-wrap: wrap; margin-top: 0.8rem; }
+
 .range-control {
   display: inline-flex;
   align-items: center;

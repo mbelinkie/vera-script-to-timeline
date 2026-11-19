@@ -6,6 +6,7 @@ import {
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import { prepareSavedPrompter } from "./prompter-authoring.js";
 import type { createResearchClient } from "@vera/contracts/research-clip-client";
 import {
   insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
@@ -32,6 +33,8 @@ const ASSETS = new Map<string, readonly [string, string]>([
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
+const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
+const SAVED_DIGEST = /^sha256:[0-9a-f]{64}$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
 const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
@@ -55,6 +58,13 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+/** The exported script is confidential, including validation and denial responses. */
+function prompterReply(body: unknown, status: number): Response {
+  return Response.json(body, { status, headers: {
+    "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+  } });
 }
 
 /** Reject client-supplied Research records, frame bindings and arbitrary row commands. */
@@ -272,6 +282,8 @@ export function createAuthoringHandler(
     const route = PROJECT.exec(path);
     const researchRoute = RESEARCH.exec(path);
     const musicWarnings = MUSIC_WARNINGS.test(path);
+    const prompterRoute = PROMPTER_EXPORT.exec(path);
+    const isPrompterExport = !!prompterRoute && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
@@ -282,8 +294,10 @@ export function createAuthoringHandler(
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
-    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection && !isResearchInsert) || url.search) {
-      return Response.json({ error: "not_found" }, { status: 404 });
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
+        !isProjection && !isPrompterExport && !isResearchInsert) || url.search) {
+      return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
+        Response.json({ error: "not_found" }, { status: 404 });
     }
 
     // Cross-origin browser code cannot set this header without a successful
@@ -292,13 +306,64 @@ export function createAuthoringHandler(
     if (request.headers.get("sec-fetch-site") !== "same-origin" ||
         request.headers.get("x-vera-authoring") !== "1" ||
         (suppliedOrigin !== null && suppliedOrigin !== origin)) {
-      return Response.json({ error: "same_origin_required" }, { status: 403 });
+      return isPrompterExport ? prompterReply({ error: "same_origin_required" }, 403) :
+        Response.json({ error: "same_origin_required" }, { status: 403 });
     }
     if (startsSession && matchesProof(request.headers.get("x-vera-launch"), launchProof)) {
       return Response.json({ sessionProof: browserProof.toString("hex") });
     }
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
-      return Response.json({ error: "authoring_browser_required" }, { status: 401 });
+      return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
+        Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (isPrompterExport) {
+      // Never accept a client-supplied document. The project API owns current
+      // saved-head reads, pending-collaboration flush and view_document permission.
+      let body: unknown;
+      try {
+        if (!/^application\/json(?:\s*;|\s*$)/iu.test(request.headers.get("content-type") ?? "")) {
+          return prompterReply({ error: "invalid_prompter_export" }, 400);
+        }
+        body = await request.json();
+      } catch {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      if (!record(body) ||
+          !exact(body, Object.hasOwn(body, "settings") ?
+            ["expectedRevision", "expectedDigest", "settings"] : ["expectedRevision", "expectedDigest"]) ||
+          !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
+          typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest)) {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      const requestedSettings = body.settings;
+      if (requestedSettings !== undefined &&
+          (!record(requestedSettings) ||
+            !exact(requestedSettings, ["includeSectionNavigation", "includeBeatNumbers"]) ||
+            typeof requestedSettings.includeSectionNavigation !== "boolean" ||
+            typeof requestedSettings.includeBeatNumbers !== "boolean")) {
+        return prompterReply({ error: "invalid_prompter_export" }, 400);
+      }
+      const settings = requestedSettings === undefined ?
+        { includeSectionNavigation: false, includeBeatNumbers: false } :
+        requestedSettings as { includeSectionNavigation: boolean; includeBeatNumbers: boolean };
+      try {
+        const saved = await projects(new Request(`${origin}/v1/projects/${prompterRoute[1]}/document`, {
+          method: "GET", headers: { authorization },
+        }));
+        if (!saved.ok) {
+          // Preserve the permission/not-found status without reflecting a
+          // possibly sensitive project API error body to the browser.
+          const status = [401, 403, 404].includes(saved.status) ? saved.status : 503;
+          return prompterReply({ error: "saved_script_unavailable" }, status);
+        }
+        const result = prepareSavedPrompter(await saved.json() as unknown, {
+          projectId: prompterRoute[1]!, revision: body.expectedRevision as number,
+          digest: body.expectedDigest,
+        }, settings);
+        return prompterReply(result.body, result.status);
+      } catch {
+        return prompterReply({ error: "saved_script_unavailable" }, 503);
+      }
     }
     if (researchRoute) {
       if (!research) return researchResponse(503, { error: "research_unavailable" });

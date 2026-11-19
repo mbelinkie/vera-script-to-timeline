@@ -17,6 +17,8 @@ const projectTitle = element("project-title");
 const saveStatus = element("save-status");
 const retrySave = element("retry-save");
 const openSaved = element("conflict-open-saved");
+const prompterDialog = element("prompter-dialog");
+const prompterStatus = element("prompter-status");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const visualCommandKinds = new Set([
@@ -33,6 +35,7 @@ let flashVisualIds = new Set();
 let visualFeedback = "";
 let cardFocus = null;
 let documentRevision;
+let documentDigest;
 let pendingDocument;
 let documentSaving = false;
 let documentDirty = false;
@@ -65,6 +68,9 @@ let conflicted = false;
 const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
 const sessionKey = "vera.authoring.sessionProof";
 let sessionProof = "";
+let prompterGeneration = 0;
+let prompterPreparing = false;
+let preparedPrompter = null;
 let researchPanel;
 
 async function api(path, method = "GET", data) {
@@ -76,16 +82,150 @@ async function api(path, method = "GET", data) {
     method, headers, body: data && JSON.stringify(data),
     signal: AbortSignal.timeout(12_000),
   });
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => null));
   return await response.json();
 }
 
 class ApiError extends Error {
-  constructor(status) {
+  constructor(status, body) {
     super("Project request failed.");
     this.status = status;
+    this.body = body;
   }
 }
+
+const savedDigestPattern = /^sha256:[0-9a-f]{64}$/u;
+
+function prompterReady() {
+  return Boolean(project && activeProjectId === project.projectId && scriptDocument &&
+    Number.isSafeInteger(documentRevision) && savedDigestPattern.test(documentDigest ?? "") &&
+    !opening && !saving && !pendingName && !pendingCreate && !conflicted && !editRefused &&
+    !documentSaving && !documentDirty && !pendingDocument && !commandsPending &&
+    !composingRows.size && projectTitle.value.trim() === project.title);
+}
+
+function currentPrompterPair() {
+  return preparedPrompter && prompterReady() &&
+    preparedPrompter.projectId === activeProjectId &&
+    preparedPrompter.revision === documentRevision &&
+    preparedPrompter.digest === documentDigest ? preparedPrompter : null;
+}
+
+function updatePrompterControls() {
+  const ready = prompterReady();
+  element("open-prompter").disabled = !ready;
+  element("open-prompter").title = ready ? "Export the saved script" : "Save your script before exporting";
+  element("prepare-prompter").disabled = !ready || prompterPreparing;
+  const pair = currentPrompterPair();
+  element("download-prompter-text").disabled = !pair;
+  element("download-prompter-sidecar").disabled = !pair;
+  element("prompter-ready").hidden = !pair;
+}
+
+function clearPreparedPrompter(message = "") {
+  ++prompterGeneration;
+  preparedPrompter = null;
+  prompterStatus.textContent = message;
+  updatePrompterControls();
+}
+
+function prompterDiagnostics(error) {
+  if (error?.status === 409) return "The saved script changed. Reload the script, finish saving and prepare again.";
+  if (error?.status === 422) {
+    const diagnostics = error.body?.diagnostics;
+    if (Array.isArray(diagnostics) && diagnostics.length) {
+      return `Prompter validation failed: ${diagnostics.map((item) =>
+        typeof item?.message === "string" ? item.message : String(item?.code ?? "Invalid script")).join("; ")}`;
+    }
+    return "Prompter validation failed. Resolve the incomplete or conflicting narration and try again.";
+  }
+  if (error?.status === 401 || error?.status === 403) return "Access to this saved script was refused. Reconnect your browser or check permissions.";
+  if (error?.status === 404) return "The saved script is no longer available. Reload to check its status.";
+  return "Couldn’t prepare the prompter files. Check the saved script and the local service, then try again.";
+}
+
+async function preparePrompter() {
+  if (prompterPreparing) return;
+  clearPreparedPrompter();
+  // Queued edits and their saves must settle before we pin a saved head;
+  // never fall back to the current, potentially unsaved, browser document.
+  await commandQueue;
+  if (!prompterReady() || !prompterDialog.open) {
+    prompterStatus.textContent = "Save your script before preparing an export.";
+    return;
+  }
+  const projectId = activeProjectId;
+  const revision = documentRevision;
+  const digest = documentDigest;
+  const generation = prompterGeneration;
+  prompterPreparing = true;
+  prompterStatus.textContent = `Preparing saved revision ${revision}…`;
+  updatePrompterControls();
+  const current = () => generation === prompterGeneration && prompterDialog.open &&
+    prompterReady() && activeProjectId === projectId &&
+    documentRevision === revision && documentDigest === digest;
+  try {
+    const pair = await api(`/${projectId}/prompter-export`, "POST", {
+      expectedRevision: revision, expectedDigest: digest,
+      settings: {
+        includeSectionNavigation: element("prompter-sections").checked,
+        includeBeatNumbers: element("prompter-beats").checked,
+      },
+    });
+    if (!current()) return;
+    if (pair.projectId !== projectId || pair.revision !== revision || pair.digest !== digest ||
+        typeof pair.text !== "string" || typeof pair.sidecarJson !== "string" ||
+        !savedDigestPattern.test(pair.textSha256) || !savedDigestPattern.test(pair.sidecarSha256)) {
+      throw new Error("Invalid saved prompter export response");
+    }
+    preparedPrompter = Object.freeze({ projectId, revision, digest,
+      text: pair.text, sidecarJson: pair.sidecarJson,
+      textSha256: pair.textSha256, sidecarSha256: pair.sidecarSha256 });
+    element("prompter-snapshot").textContent = `Saved revision ${revision} · ${digest}`;
+    element("prompter-text-hash").textContent = pair.textSha256;
+    element("prompter-sidecar-hash").textContent = pair.sidecarSha256;
+    prompterStatus.textContent = pair.text ? "Both files are ready to download separately." :
+      "This saved script has no spoken narration. The empty text and matching sidecar are ready.";
+  } catch (error) {
+    if (current()) prompterStatus.textContent = prompterDiagnostics(error);
+  } finally {
+    prompterPreparing = false;
+    updatePrompterControls();
+  }
+}
+
+function downloadPrompter(kind) {
+  const pair = currentPrompterPair();
+  if (!pair) return;
+  const content = kind === "text" ? pair.text : pair.sidecarJson;
+  const file = kind === "text" ? "txt" : "beats.json";
+  const objectUrl = URL.createObjectURL(new Blob([content], { type: kind === "text" ?
+    "text/plain;charset=utf-8" : "application/json;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = `vera-prompter-r${pair.revision}.${file}`;
+  link.click();
+  // Chrome must have time to take the blob before its object URL is revoked.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+element("open-prompter").addEventListener("click", () => {
+  if (!prompterReady()) return;
+  clearPreparedPrompter();
+  prompterDialog.showModal();
+  element("prepare-prompter").focus();
+});
+element("close-prompter").addEventListener("click", () => prompterDialog.close());
+prompterDialog.addEventListener("close", () => {
+  clearPreparedPrompter();
+  element("open-prompter").focus();
+});
+for (const name of ["prompter-sections", "prompter-beats"]) {
+  element(name).addEventListener("change", () => clearPreparedPrompter("Settings changed. Prepare again to download the new files."));
+}
+element("prepare-prompter").addEventListener("click", () => { void preparePrompter(); });
+element("download-prompter-text").addEventListener("click", () => downloadPrompter("text"));
+element("download-prompter-sidecar").addEventListener("click", () => downloadPrompter("sidecar"));
 
 function viewPreference(id, property, defaultValue) {
   const input = element(id);
@@ -128,6 +268,8 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  clearPreparedPrompter();
+  if (prompterDialog.open) prompterDialog.close();
   const [{ project: savedProject }, savedScript] = await Promise.all([
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
@@ -135,6 +277,7 @@ async function showScript(projectId) {
   flashVisualIds = new Set();
   visualFeedback = "";
   documentRevision = savedScript.revision;
+  documentDigest = savedScript.digest;
   // Finish the initial projection before exposing editable rows. Otherwise a
   // late projection response remounts the entire row list just as the user
   // selects words, composes text or reaches for an Add row control.
@@ -280,8 +423,9 @@ function renderEditor() {
       attaching: activeAttach?.rowId === cell.closest("[data-row-id]")?.dataset.rowId ? activeAttach : null,
       finishAttach, cancelAttach,
       compositionChange(rowId, active) {
-        if (active) composingRows.add(rowId);
+        if (active) { composingRows.add(rowId); clearPreparedPrompter("Save your script before exporting."); }
         else { composingRows.delete(rowId); scheduleRender(); }
+        updatePrompterControls();
       },
       requestRender: scheduleRender,
       chooseFootage: openFootageForWords,
@@ -706,6 +850,7 @@ document.addEventListener("selectionchange", () => {
 
 async function saveDocument() {
   if (!project || documentSaving || conflicted || (!documentDirty && !pendingDocument)) return;
+  clearPreparedPrompter("Save your script before exporting.");
   if (!pendingDocument) {
     pendingDocument = { expectedRevision: documentRevision, clientMutationId: crypto.randomUUID(), document: scriptDocument };
     documentDirty = false;
@@ -715,6 +860,7 @@ async function saveDocument() {
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
+    documentDigest = receipt.digest;
     void refreshMusicWarnings();
     pendingDocument = undefined;
   } catch (error) {
@@ -1024,6 +1170,7 @@ function queueCommand(command, label, options = {}) {
   if (options.structural && composingRows.size) return Promise.resolve(false);
   const inputAt = performance.now();
   commandsPending += 1;
+  clearPreparedPrompter("Save your script before exporting.");
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
     if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
@@ -1181,6 +1328,7 @@ function queueCommand(command, label, options = {}) {
     return false;
   }).finally(() => {
     commandsPending -= 1;
+    updatePrompterControls();
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
@@ -1207,7 +1355,8 @@ function updateUndo() {
 }
 
 function undo() {
-  if (composingRows.size) return;
+  if (prompterDialog.open || composingRows.size) return;
+  clearPreparedPrompter("Save your script before exporting.");
   activeAttach = null;
   typingGroup = null;
   commandsPending += 1;
@@ -1229,12 +1378,15 @@ function undo() {
     void refreshProjection(scriptDocument, true, previousProjection);
   }).finally(() => {
     commandsPending -= 1;
+    updatePrompterControls();
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
+  // A modal export must not dispatch (or swallow) editor shortcuts behind it.
+  if (prompterDialog.open) return;
   if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
     event.preventDefault();
     cancelAttach();
@@ -1283,7 +1435,7 @@ async function openScript(projectId) {
   opening = true;
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
-  finally { opening = false; }
+  finally { opening = false; updatePrompterControls(); }
 }
 
 function newScript(title) {
@@ -1323,6 +1475,7 @@ newForm.addEventListener("submit", async (event) => {
   } finally {
     newTitle.readOnly = false;
     opening = false;
+    updatePrompterControls();
   }
 });
 
@@ -1339,6 +1492,7 @@ function setSaveStatus(message, action) {
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
+  updatePrompterControls();
 }
 
 element("discard-edit").addEventListener("click", () => {
@@ -1394,6 +1548,7 @@ async function saveName() {
 }
 
 projectTitle.addEventListener("input", () => {
+  clearPreparedPrompter("Save your script before exporting.");
   if (saving || conflicted || pendingName) return;
   clearTimeout(saveTimer);
   setSaveStatus("Unsaved changes");
