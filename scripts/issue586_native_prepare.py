@@ -40,12 +40,12 @@ TEMPLATE = (
     "visual-only-image-still-25fps-default.input.golden.json"
 )
 RATE = Fraction(24, 1)
-STILL_SIZE = (320, 180)
+STILL_SIZE = (1600, 900)
 MUSIC_SAMPLE_RATE = 48_000
 MUSIC_SAMPLES = MUSIC_SAMPLE_RATE * 5
 SOURCE_IN_FRAME = 24
-SOURCE_OUT_FRAME = 96
-TIMELINE_IN_FRAME = 0
+SOURCE_OUT_FRAME = 120
+ORIGINAL_TIMELINE_IN_FRAME = 12
 EXPECTED_DURATION_FRAMES = SOURCE_OUT_FRAME - SOURCE_IN_FRAME
 Json = dict[str, Any]
 
@@ -235,7 +235,7 @@ def prepare(root: Path) -> Path:
         "timing": {
             "sourceInFrame": SOURCE_IN_FRAME,
             "sourceOutFrame": SOURCE_OUT_FRAME,
-            "timelineIn": {"kind": "frame", "frame": TIMELINE_IN_FRAME},
+            "timelineIn": {"kind": "frame", "frame": ORIGINAL_TIMELINE_IN_FRAME},
         },
     }
     document["rowAudioSpans"] = [span]
@@ -372,7 +372,7 @@ def prepare(root: Path) -> Path:
                 "durationSamples": MUSIC_SAMPLES,
                 "sourceInFrame": SOURCE_IN_FRAME,
                 "sourceOutFrame": SOURCE_OUT_FRAME,
-                "timelineInFrame": TIMELINE_IN_FRAME,
+                "originalTimelineInFrame": ORIGINAL_TIMELINE_IN_FRAME,
                 "expectedFrames": EXPECTED_DURATION_FRAMES,
             },
             "match": {

@@ -460,21 +460,59 @@ describe("#100 verified A5 music compilation", () => {
     const result = compile(doc, deps);
     const still = result.manifest.events.find((event) => event.kind === "placeholder" && event.provenance.blockId === row.id)!;
     const music = result.manifest.events.find((event) => event.kind === "music")!;
-    expect(still.recordRange.endFrame - still.recordRange.startFrame).toBe(144);
-    expect(music.recordRange).toEqual({ startFrame: 0, endFrame: 144 });
-    expect(music.recordRange.endFrame - music.recordRange.startFrame).toBe(still.recordRange.endFrame - still.recordRange.startFrame);
+    expect(still.recordRange).toEqual({ startFrame: 96, endFrame: 240 });
+    expect(music.recordRange).toEqual(still.recordRange);
+    expect(music.provenance.blockId).toBe(row.id);
     expect(music.sourceRange).toEqual({ startFrame: 48, endFrame: 192 });
   });
 
-  it("blocks a match when the resolved cue does not overlap the visual", () => {
+  it("attaches the cue to the specific visual, then restores its saved placement when cleared", () => {
     const { doc, deps } = threeRowMusicFixture();
     const row = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
     const span = doc.rowAudioSpans![0]!;
-    span.timing = { sourceInFrame: 0, sourceOutFrame: 48, timelineIn: { kind: "frame", frame: 0 } };
-    row.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
-    const result = compile(doc, deps);
-    expect(result.report.status).toBe("blocked");
-    expect(JSON.stringify(result.report.diagnostics)).toContain("not placed over this visual");
+    const visual = {
+      payload: { ...row.payload, payloadId: id(189) },
+      visualOnlyTiming: { kind: "visual_only" as const, durationOverrideMs: 4000, matchAudioDuration: { cueId: span.id } },
+    };
+    row.additionalVisuals = [visual];
+    span.timing = { sourceInFrame: 24, sourceOutFrame: 72, timelineOut: { kind: "frame", frame: 48 } };
+    for (const [hold, expectedStart] of [[4000, 192], [2000, 144]] as const) {
+      row.visualOnlyTiming.durationOverrideMs = hold;
+      const { manifest } = compile(doc, deps);
+      const still = manifest.events.find((event) => event.provenance.payloadId === visual.payload.payloadId)!;
+      expect(still.recordRange).toEqual({ startFrame: expectedStart, endFrame: expectedStart + 48 });
+      expect(manifest.events.find((event) => event.kind === "music")).toMatchObject({
+        recordRange: still.recordRange,
+        sourceRange: { startFrame: 24, endFrame: 72 },
+      });
+    }
+    Reflect.deleteProperty(visual.visualOnlyTiming, "matchAudioDuration");
+    const { manifest } = compile(doc, deps);
+    expect(manifest.events.find((event) => event.kind === "music")?.recordRange).toEqual({ startFrame: 0, endFrame: 48 });
+    expect(manifest.events.find((event) => event.provenance.payloadId === visual.payload.payloadId)?.recordRange)
+      .toEqual({ startFrame: 144, endFrame: 240 });
+  });
+
+  it("blocks an A5 collision after matching and allows different cues on adjacent visuals", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const firstRow = doc.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const secondRow = doc.activeDraft.blocks[1] as VisualOnlyBlockV2;
+    const firstCue = doc.rowAudioSpans![0]!;
+    firstCue.timing = { sourceInFrame: 24, sourceOutFrame: 72, timelineIn: { kind: "frame", frame: 80 } };
+    const secondCue = { ...firstCue, id: id(190) };
+    doc.rowAudioSpans!.push(secondCue);
+    deps.musicBindings!.push({ ...deps.musicBindings![0]!, spanId: secondCue.id });
+
+    secondRow.visualOnlyTiming.matchAudioDuration = { cueId: secondCue.id };
+    const blocked = compile(doc, deps);
+    expect(blocked.report.status).toBe("blocked");
+    expect(JSON.stringify(blocked.report.diagnostics)).toContain("overlaps another cue on the music track");
+
+    firstRow.visualOnlyTiming.matchAudioDuration = { cueId: firstCue.id };
+    const { manifest, report } = compile(doc, deps);
+    expect(report.status).toBe("ready");
+    expect(manifest.events.filter((event) => event.kind === "music").map((event) => event.recordRange))
+      .toEqual([{ startFrame: 0, endFrame: 48 }, { startFrame: 48, endFrame: 96 }]);
   });
 
   it("blocks a matched still when its cue cannot provide verified audio", () => {

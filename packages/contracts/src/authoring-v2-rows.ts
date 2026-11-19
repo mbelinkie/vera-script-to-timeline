@@ -2000,13 +2000,11 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
           entityId: target.payload.payloadId,
         }];
       } else {
-        const activeRows = blocks.filter((item): item is Row => item.type !== "section");
         const span = working.rowAudioSpans?.find((item) => item.id === command.cueId);
-        const startIndex = span ? activeRows.findIndex((item) => item.id === span.startRowId) : -1;
-        const endIndex = span ? activeRows.findIndex((item) => item.id === span.endRowId) : -1;
-        const rowIndex = activeRows.findIndex((item) => item.id === row.id);
-        if (!span || startIndex < 0 || endIndex < startIndex || rowIndex < startIndex || rowIndex > endIndex) {
-          return refused(document, "VISUAL_AUDIO_MATCH_INVALID", "Choose a saved music cue that spans this active visuals-only row.");
+        const sourceIn = span?.timing?.sourceInFrame;
+        const sourceOut = span?.timing?.sourceOutFrame;
+        if (sourceIn === undefined || sourceOut === undefined || sourceOut <= sourceIn) {
+          return refused(document, "VISUAL_AUDIO_MATCH_INVALID", "Choose a saved music cue with fixed source in and out points.");
         }
         if (target.visualOnlyTiming.matchAudioDuration?.cueId === command.cueId) {
           return refused(document, "ROW_EDIT_NO_CHANGE", "This visual already matches that music cue.");

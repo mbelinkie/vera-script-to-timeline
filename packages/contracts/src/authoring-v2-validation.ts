@@ -59,8 +59,8 @@ export function validateScriptDocumentV2(
       block.type === "narration" ? block.overlayEvents.map((event) => event.id) : [],
     ),
   );
-  const activeRows = document.activeDraft.blocks.filter((block): block is Exclude<DraftBlock, { type: "section" }> => block.type !== "section");
-  const audioSpans = new Map((document.rowAudioSpans ?? []).map((span) => [span.id, span] as const));
+  const cueIds = new Set((document.rowAudioSpans ?? []).map((span) => span.id));
+  const matchedCues = new Set<string>();
   const validateAudioMatch = (
     timing: { matchAudioDuration?: { cueId: string } },
     pictureKind: string,
@@ -77,23 +77,18 @@ export function validateScriptDocumentV2(
         blockId,
       });
     }
-    const span = audioSpans.get(match.cueId);
-    const start = span ? activeRows.findIndex((row) => row.id === span.startRowId) : -1;
-    const end = span ? activeRows.findIndex((row) => row.id === span.endRowId) : -1;
-    const rowIndex = activeRows.findIndex((row) => row.id === blockId);
-    const startPosition = span ? document.activeDraft.blocks.findIndex((row) => row.id === span.startRowId) : -1;
-    const endPosition = span ? document.activeDraft.blocks.findIndex((row) => row.id === span.endRowId) : -1;
-    const crossesSection = startPosition >= 0 && endPosition >= startPosition &&
-      document.activeDraft.blocks.slice(startPosition, endPosition + 1).some((row) => row.type === "section");
-    if (!span || start < 0 || end < start || rowIndex < start || rowIndex > end || crossesSection) {
+    if (!cueIds.has(match.cueId) || matchedCues.has(match.cueId)) {
       diagnostics.push({
         code: "MUSIC_MATCH_INVALID",
-        message: "The matched music cue must exist and span this active visuals-only row.",
+        message: cueIds.has(match.cueId)
+          ? "A music cue can match only one visual. Clear the other visual's match first."
+          : "The matched music cue is missing. Choose another cue or clear the match.",
         jsonPath: `${path}/visualOnlyTiming/matchAudioDuration/cueId`,
         blockId,
         entityId: match.cueId,
       });
     }
+    matchedCues.add(match.cueId);
   };
 
   const addId = (id: string, path: string, owner?: string): void => {

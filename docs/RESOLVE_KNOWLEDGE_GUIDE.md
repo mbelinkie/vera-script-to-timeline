@@ -955,6 +955,15 @@ and the cut. Save, close, and reopen took 9.35 seconds. This qualifies the
 bounded music route on that build with moving picture. Mixed still treatments
 and other music rates keep their existing gates.
 
+**#586 matched-still delta, Studio 21.2.0 build 6.** The normal exact-24-fps
+Build saved, closed and reopened one generated 1600×900 RGB PNG with default
+Fill/Dynamic Zoom and one generated mono PCM16 WAV on A5. Both clips occupied
+record frames `[0,96)` and A5 retained source frames `[24,120)` with verified
+gain and fades. This measures the mixed still/music route on that build and
+rate. [Native result](https://github.com/mbelinkie/vera-script-to-timeline/issues/586#issuecomment-6998102361).
+[Other standard music rates](https://github.com/mbelinkie/vera-script-to-timeline/issues/658)
+require separate native verification.
+
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
@@ -1174,6 +1183,15 @@ at [0,72). Independent connected readback matched the source clock, frame
 boundaries, enabled native Dynamic Zoom and its exported Type-59 center and
 scale endpoints and their spacing against the attested OTIO. No render or other source profile
 was tested. See [#633](https://github.com/mbelinkie/vera-script-to-timeline/issues/633).
+
+**#586 exact-24-fps preparation.** #508's measured square, wide, tall and
+Fit/None recipes now also admit verified still-preparation PNGs at 24 fps on
+Studio 21.2.0 build 6. Before the fix, the package refused the separate
+prepared-image probe profile even for the measured 1600×900/96-frame recipe.
+That still-only package now verifies offline. The live wide-still check added
+trimmed A5 music and reopened at exactly 96 frames (RK-42).
+[General still preparation and admission](https://github.com/mbelinkie/vera-script-to-timeline/issues/657)
+tracks original dimensions, ordinary formats and arbitrary holds.
 
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 

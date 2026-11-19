@@ -255,6 +255,12 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
   const events: TimelineEventV2[] = [];
   const diagnostics: BuildDiagnosticV2[] = [];
   const bindings = new Map((deps.musicBindings ?? []).map((binding) => [binding.spanId, binding]));
+  const matchedVisuals = new Map<string, VisualOnlyTimedRow>();
+  for (const row of rows) {
+    if (row.kind !== "visual_only") continue;
+    const match = (row.visual?.visualOnlyTiming ?? row.block.visualOnlyTiming).matchAudioDuration;
+    if (match) matchedVisuals.set(match.cueId, row);
+  }
   let section: string | undefined;
   const sections = new Map<string, string | undefined>();
   for (const block of document.activeDraft.blocks) {
@@ -307,12 +313,15 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
       continue;
     }
     let geometry;
+    const matchedVisual = matchedVisuals.get(span.id);
     try {
       const timing = span.timing;
       geometry = timing
         ? planAnchoredMusicFrames(
           timing.sourceInFrame, timing.sourceOutFrame,
-          fixedFrame(timing.timelineIn, "timeline in"), fixedFrame(timing.timelineOut, "timeline out"),
+          // Use the selected occurrence's start. The saved pins resume when the match is cleared.
+          matchedVisual?.startFrame ?? fixedFrame(timing.timelineIn, "timeline in"),
+          matchedVisual ? undefined : fixedFrame(timing.timelineOut, "timeline out"),
           availableMusicFrames(binding.durationSamples, binding.sampleRate, deps.timeline.frameRate), timelineLength,
         )
         : planMusicSpanFrames(bounds, span.startRowId, span.endRowId, binding.durationSamples, binding.sampleRate, deps.timeline.frameRate);
@@ -340,7 +349,7 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
     const eventId = stableId(`music:${document.id}:${span.id}:${span.source.artifactId}`);
     sources.push({ id: sourceId, musicAudio: binding });
     events.push({ eventId, kind: "music", trackId, trackRole: "music", recordRange: geometry.recordRange,
-      provenance: { documentId: document.id, blockId: span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId,
+      provenance: { documentId: document.id, blockId: matchedVisual?.block.id ?? span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId,
         originalSourceHash: span.source.contentHash, deliveredSourceHash: span.source.contentHash, timingMapHash: null, compilerVersion: deps.compiler.version },
       sourceRange: geometry.sourceRange, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
       music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: (settings.gainDb as number | undefined) ?? -12,
@@ -2120,8 +2129,11 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       const match = (row.visual?.visualOnlyTiming ?? row.block.visualOnlyTiming).matchAudioDuration;
       if (!match) continue;
       const cue = music.events.find((event) => event.music?.spanId === match.cueId);
-      if (!cue || cue.recordRange.startFrame >= row.startFrame + row.durationFrames || cue.recordRange.endFrame <= row.startFrame) {
-        resolved.diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "The matched music cue was not placed over this visual. Review its timing or clear the match.", entity("block", row.block.id, "visualOnlyTiming"), undefined, ["repair_document"]));
+      if (!cue || cue.recordRange.startFrame !== row.startFrame || cue.recordRange.endFrame !== row.startFrame + row.durationFrames) {
+        resolved.diagnostics.push(diagnostic("SOURCE_MAPPING_MISMATCH", "The matched music cue must start and end with this visual. Review its timing or clear the match.", entity("block", row.block.id, "visualOnlyTiming"), undefined, ["repair_document"]));
+      } else if (music.events.some((other) => other !== cue &&
+        other.recordRange.startFrame < cue.recordRange.endFrame && other.recordRange.endFrame > cue.recordRange.startFrame)) {
+        resolved.diagnostics.push(diagnostic("MUSIC_SPAN_INVALID", "The matched music cue overlaps another cue on the music track. Move or trim the other cue, or clear the match.", entity("block", row.block.id, "visualOnlyTiming"), undefined, ["manual_review"]));
       }
     }
     for (const source of music.sources) sourcesById.set(source.id, source);

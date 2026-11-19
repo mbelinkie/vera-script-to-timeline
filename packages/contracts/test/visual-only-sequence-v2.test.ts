@@ -63,6 +63,7 @@ function musicCue(cueId: number, rowId: string): RowAudioSpanIntentV2 {
       contentHash: `sha256:${"b".repeat(64)}`,
     },
     settings: { gainDb: -12 },
+    timing: { sourceInFrame: 24, sourceOutFrame: 96, timelineIn: { kind: "row_edge", blockId: rowId, edge: "start" } },
   };
 }
 
@@ -87,6 +88,11 @@ describe("#585 visuals-only ordered cards", () => {
     const hold = session.apply({ kind: "set_visual_only_hold", rowId: row.id, payloadId: row.payload.payloadId, holdSeconds: 5 });
     expect(hold.ok).toBe(false);
     expect(hold.diagnostics.map((item) => item.code)).toContain("VISUAL_HOLD_MATCHED");
+    const duplicate = session.apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId: row.additionalVisuals![1]!.payload.payloadId, cueId: second.id,
+    });
+    expect(duplicate.ok).toBe(false);
+    expect(duplicate.diagnostics).toContainEqual(expect.objectContaining({ code: "MUSIC_MATCH_INVALID", entityId: second.id }));
     expect(session.undoDepth).toBe(1);
   });
 
