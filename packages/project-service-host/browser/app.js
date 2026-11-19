@@ -362,7 +362,7 @@ function addWordlessVisual(rowId, visualType) {
     if (projectId !== activeProjectId) throw new Error("The project changed before adding the picture.");
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
     if (row?.type !== "visual_only" &&
-        !(row?.type === "narration" && !row.text.trim() && !row.plainDirection)) {
+        !(row?.type === "narration" && row.text === "" && row.tokens.length === 0 && !row.plainDirection)) {
       throw new Error("Add pictures only to rows without narration.");
     }
     return { kind: "add_visual_to_wordless_row", rowId, payloadId, slotId, visualType };
@@ -378,7 +378,7 @@ function mountWordlessControls(root) {
     const seconds = parseHoldSeconds(input.value);
     if (seconds === null) {
       input.value = input.dataset.savedSeconds;
-      setSaveStatus("Hold must be a positive number of seconds (up to three decimal places).");
+      setSaveStatus(`Hold must be a positive number of seconds (up to three decimal places). Kept ${input.dataset.savedSeconds} s.`);
       return;
     }
     if (seconds === Number(input.dataset.savedSeconds)) {
@@ -393,7 +393,10 @@ function mountWordlessControls(root) {
       if (!visualOnlyIds(row)?.includes(payloadId)) throw new Error("The picture is no longer in the row.");
       return { kind: "set_visual_only_hold", rowId, payloadId, holdSeconds: seconds };
     }, "Set visual hold", { structural: true }).then((ok) => {
-      if (!ok && input.isConnected) input.value = input.dataset.savedSeconds;
+      if (input.isConnected) {
+        delete input.dataset.holdCommitting;
+        if (!ok) input.value = input.dataset.savedSeconds;
+      }
     });
   };
   const onKeydown = (event) => {

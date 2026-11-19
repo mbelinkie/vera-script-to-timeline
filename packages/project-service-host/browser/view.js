@@ -163,7 +163,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
     input.type = "text";
     input.inputMode = "decimal";
     input.dataset.visualHold = options.payloadId;
-    input.value = String(options.holdSeconds);
+    input.value = Number.isInteger(options.holdSeconds) ? options.holdSeconds.toFixed(1) : String(options.holdSeconds);
     input.dataset.savedSeconds = input.value;
     input.setAttribute("aria-label", `Hold in seconds for ${label}`);
     const unit = makeElement(document, "span", "visual-card__hold-unit", "s");
@@ -391,7 +391,15 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
   // A blank narration row promotes to a real visual-only row on the first add.
   // Never offer a wordless action on a row with spoken narration.
   if (addWordless && (block.type === "visual_only" ||
-      block.type === "narration" && !block.text.trim() && !block.plainDirection)) {
+      block.type === "narration" && block.state === "active" && block.text === "" &&
+      block.tokens.length === 0 && !block.plainDirection && !block.attachedFootage &&
+      !block.notes.length && !block.overlayEvents.length && !block.annotations?.length &&
+      !block.performanceBeats?.length && !block.unattachedVisuals?.length &&
+      block.primaryVisualSequence?.slots.length === 1 &&
+      block.primaryVisualSequence.slots[0]?.kind === "content" &&
+      block.primaryVisualSequence.slots[0].relation.kind === "base" &&
+      block.primaryVisualSequence.slots[0].boundaryBefore.kind === "row_start" &&
+      block.primaryVisualSequence.slots[0].playoutPolicy === "match_structural_interval")) {
     const actions = makeElement(document, "div", "visuals-wordless-actions");
     const button = makeElement(document, "button", "visuals-wordless-add", "+ Visual");
     button.type = "button";

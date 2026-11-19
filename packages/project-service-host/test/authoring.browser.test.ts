@@ -1030,7 +1030,7 @@ describe("browser authoring over the local project service", () => {
     const secondId = current.additionalVisuals?.[0]?.payload.payloadId;
     if (!secondId) throw new Error("wordless append missing");
     expect(await row.locator(".visual-card__hold-input").evaluateAll((inputs) =>
-      inputs.map((input) => (input as HTMLInputElement).value))).toEqual(["4", "4"]);
+      inputs.map((input) => (input as HTMLInputElement).value))).toEqual(["4.0", "4.0"]);
     const secondHold = row.locator(`[data-visual-hold="${secondId}"]`);
     await secondHold.fill("6");
     await secondHold.press("Enter");
@@ -1041,7 +1041,7 @@ describe("browser authoring over the local project service", () => {
     const undoBeforeBadHold = await page.locator("#undo-history li").allTextContents();
     await row.locator(`[data-visual-hold="${secondId}"]`).fill("-2");
     await row.locator(`[data-visual-hold="${secondId}"]`).press("Enter");
-    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6");
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
     expect(await page.locator("#undo-history li").allTextContents()).toEqual(undoBeforeBadHold);
     await row.locator(`[data-visual-hold="${firstId}"]`).fill("5.5");
     await row.locator(`[data-visual-hold="${firstId}"]`).blur();
@@ -1090,7 +1090,7 @@ describe("browser authoring over the local project service", () => {
     expect(await destination.getByRole("button", { name: "Attach to words" }).count()).toBe(0);
     await page.reload();
     await expect.poll(() => row.locator(".visual-card[data-payload-id]").count()).toBe(1);
-    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6");
+    expect(await row.locator(`[data-visual-hold="${secondId}"]`).inputValue()).toBe("6.0");
     expect(await destination.locator(`.visual-card[data-payload-id="${firstId}"]`).count()).toBe(1);
     const destinationModel = (await read()).activeDraft.blocks.find((item) => item.id === existingWordless.id);
     expect(destinationModel?.type === "visual_only" ? destinationModel.additionalVisuals?.at(-1)?.visualOnlyTiming.durationOverrideMs : null)
