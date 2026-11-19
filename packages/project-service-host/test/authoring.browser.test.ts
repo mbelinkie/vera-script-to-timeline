@@ -999,6 +999,81 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("dispatches visual edits and cue-ordered projection without bypassing D124 split history or saving", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual command projection protection");
+    const seeded = editableDocumentFixture(projectId, "the harbor sleeps the harbor wakes", true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const row = saved.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!row || row.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing visual test sequence");
+    const before = await appRequest(page, "/authoring/projection", "POST", { document: saved.document });
+    expect(before.status).toBe(200);
+    const priorProjection = before.body as { projection: { rows: Array<{
+      blockId: string; cards: Array<{ kind: string; startTokenIndex: number | null }>;
+    }> } };
+    const pictured = priorProjection.projection.rows.find((candidate) => candidate.blockId === row.id)?.cards ?? [];
+    expect(pictured.filter((card) => card.kind === "visual").length).toBeGreaterThanOrEqual(2);
+    const cueIndices = pictured.map((card) => card.startTokenIndex).filter((n): n is number => n !== null);
+    expect(cueIndices).toEqual([...cueIndices].sort((a, b) => a - b));
+
+    const splitCommand = { kind: "split_row", rowId: row.id, newRowId: randomUUID(),
+      at: { beforeTokenId: row.tokens[3]!.id } };
+    const split = (await appRequest(page, "/authoring/command", "POST", {
+      document: saved.document, command: splitCommand,
+    })).body as { ok: boolean; document: ScriptDocumentV2; splitProof: string };
+    expect(split.ok).toBe(true);
+    const reading = await appRequest(page, "/authoring/projection", "POST", { document: split.document });
+    expect(reading.status).toBe(200); // Read-only projection preserves the immediate split proof.
+    const join = { kind: "join_rows", rowId: splitCommand.newRowId, direction: "previous", words: null };
+    const restored = (await appRequest(page, "/authoring/command", "POST", {
+      document: split.document, command: join, splitProof: split.splitProof,
+    })).body as { ok: boolean; document: ScriptDocumentV2 };
+    expect(restored.ok).toBe(true);
+    expect(restored.document.activeDraft.blocks).toEqual(saved.document.activeDraft.blocks);
+
+    const splitAgain = (await appRequest(page, "/authoring/command", "POST", {
+      document: saved.document, command: { ...splitCommand, newRowId: randomUUID() },
+    })).body as { ok: boolean; document: ScriptDocumentV2; splitProof: string };
+    expect(splitAgain.ok).toBe(true);
+    const editedRow = splitAgain.document.activeDraft.blocks.find((block) => block.id === row.id);
+    if (!editedRow || editedRow.type !== "narration" || !editedRow.primaryVisualSequence) {
+      throw new Error("split lost the visual source row");
+    }
+    const visual = { kind: "add_visual_on_selection", blockId: editedRow.id,
+      slotId: randomUUID(), payloadId: randomUUID(), startTokenId: editedRow.tokens[0]!.id,
+      endTokenId: editedRow.tokens[1]!.id, visualType: "need_to_find" };
+    const version = editedRow.primaryVisualSequence.version;
+    const added = await appRequest(page, "/authoring/command", "POST", {
+      document: splitAgain.document, expectedSequenceVersion: version, command: visual,
+    });
+    expect(added.status).toBe(200);
+    const result = added.body as { ok: boolean; diagnostics: Array<{ code: string }>; document: ScriptDocumentV2;
+      evidence: { afterSequenceVersions: Record<string, number> } };
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.evidence.afterSequenceVersions[editedRow.id]).toBe(version + 1);
+    const staleVersion = (await appRequest(page, "/authoring/command", "POST", {
+      document: result.document, expectedSequenceVersion: version, command: {
+        kind: "delete_visual", blockId: editedRow.id, slotId: visual.slotId,
+      },
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }>; document: ScriptDocumentV2 };
+    expect(staleVersion.ok).toBe(false);
+    expect(staleVersion.diagnostics[0]?.code).toBe("SEQUENCE_VERSION_STALE");
+    expect(staleVersion.document).toEqual(result.document);
+    const oldJoin = (await appRequest(page, "/authoring/command", "POST", {
+      document: splitAgain.document, splitProof: splitAgain.splitProof,
+      command: { ...join, rowId: splitAgain.document.activeDraft.blocks.find((candidate) =>
+        candidate.id !== editedRow.id && candidate.type === "narration")?.id },
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(oldJoin.ok).toBe(false);
+    expect(oldJoin.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    const after = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    expect(after.document).toEqual(saved.document); // Commands are pure; the separate revision-guarded PUT is required.
+    await page.close();
+  }, 90_000);
+
   it("creates, saves, reloads, restarts, exports, and preserves view settings", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
