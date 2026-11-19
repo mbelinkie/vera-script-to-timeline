@@ -931,6 +931,80 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
   clip-path: inset(50%);
 }
 
+/* The Footage catalog is a local, read-only browser of Research. Nothing here
+   makes media available without a separate authorized player contract. */
+.footage-panel {
+  position: fixed;
+  z-index: 20;
+  top: 5.2rem;
+  right: 0.9rem;
+  bottom: 1rem;
+  width: min(21rem, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  padding: 0.85rem;
+  overflow-y: auto;
+  border: 1px solid #c8d6d9;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.75rem rgb(24 30 38 / 16%);
+}
+.footage-panel__heading { display: flex; justify-content: space-between; align-items: center; }
+.footage-panel h2, .footage-panel h3 { margin: 0; font-size: 1rem; }
+.footage-panel label { color: #354047; font-size: 0.78rem; font-weight: 650; }
+.footage-panel input[type="search"], .footage-panel select {
+  width: 100%; min-width: 0; padding: 0.5rem; border: 1px solid #c9d5db;
+  border-radius: 0.35rem; background: white; color: var(--ink);
+}
+.footage-panel button { cursor: pointer; }
+.footage-panel__filters { display: flex; align-items: center; gap: 0.5rem; }
+.footage-panel__filters select { width: auto; flex: 1; }
+.footage-panel .footage-panel__checkbox { white-space: nowrap; font-weight: 500; }
+.footage-panel [data-footage-status] { color: #52636c; font-size: 0.8rem; margin: 0; }
+.footage-panel__results { overflow-y: auto; min-height: 4rem; flex: 1; }
+.footage-item { margin: 0 0 0.55rem; padding: 0.65rem; border: 1px solid #dbe2e5; border-radius: 0.4rem; }
+.footage-item__title { display: block; width: 100%; padding: 0; border: 0; background: transparent;
+  color: #1e5360; text-align: left; font-weight: 700; }
+.footage-item__title:hover { text-decoration: underline; }
+.footage-item__transcript { margin: 0.4rem 0; max-height: 3.5rem; overflow: auto;
+  font-size: 0.75rem; color: #4d565e; white-space: pre-wrap; overflow-wrap: anywhere; }
+.footage-item__usage { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 1rem;
+  background: #e3eff1; color: #285864; font-size: 0.72rem; }
+.visual-card__source-state { font-size: 0.68rem; color: #6d5660; }
+.footage-item__links { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.footage-item__jump { border: 0; background: transparent; color: #285864; text-decoration: underline; }
+.footage-panel__placement { display: grid; gap: 0.4rem; padding-top: 0.6rem; border-top: 1px solid #ccd5d9; }
+.footage-panel__placement-buttons { display: flex; gap: 0.5rem; }
+.footage-panel__placement-buttons button { padding: 0.4rem; }
+.footage-panel__hint { margin: 0; color: #67747d; font-size: 0.72rem; }
+/* Normally zero-height row dividers expand into actual hit targets while a
+   source clip can be dragged from Footage. A zero-height divider cannot be
+   the target of a native drop or accessible keyboard navigation. */
+.authoring-view:has(.footage-panel:not([hidden])) .row-divider {
+  height: 1.65rem;
+  pointer-events: auto;
+  border-top: 1px dashed #d1dadd;
+  border-bottom: 1px dashed #d1dadd;
+}
+.authoring-view:has(.footage-panel:not([hidden])) .row-divider__add {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.row-divider--footage-target {
+  outline: 3px solid #c89b45;
+  outline-offset: -3px;
+  background: #fff4d8;
+}
+.script-row--footage-target .visuals-cell { outline: 3px solid #c89b45; outline-offset: -3px; }
+@media (min-width: 1000px) {
+  .authoring-view:has(.footage-panel:not([hidden])) .script-stage { margin-right: 22rem; }
+}
+@media (max-width: 999px) {
+  .footage-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
+}
+
 @media (max-width: 1024px) {
   .app-bar {
     padding: 0.8rem 1.1rem;

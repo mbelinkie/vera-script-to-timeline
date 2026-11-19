@@ -6,6 +6,11 @@ import {
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { createResearchClient } from "@vera/contracts/research-clip-client";
+import {
+  insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
+} from "@vera/contracts/research-clip-browser-insert";
+import { ProjectAuthError } from "@vera/project-authorization";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
 
@@ -13,6 +18,8 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
+  ["/research-search.js", ["research-search.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
@@ -23,8 +30,10 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
 // pictures. Other visual operations belong to separate browser stories.
 const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
@@ -46,6 +55,39 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+/** Reject client-supplied Research records, frame bindings and arbitrary row commands. */
+function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & { timelineProjectId: string;
+  document: ScriptDocumentV2 }) | null {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "clipId",
+    "clipVersion", "expectedDocumentRevision", "placement"]) ||
+    !uuid(value.timelineProjectId) || !uuid(value.researchProjectId) || !uuid(value.clipId) ||
+    !Number.isSafeInteger(value.clipVersion) || (value.clipVersion as number) < 1 ||
+    !Number.isSafeInteger(value.expectedDocumentRevision) || (value.expectedDocumentRevision as number) < 0 ||
+    !validateScriptDocumentV2(value.document).valid ||
+    (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
+    !record(value.placement)) return null;
+  const placement = value.placement;
+  if (placement.kind === "gap") {
+    const destination = placement.destination;
+    if (!exact(placement, ["kind", "destination"]) || !record(destination) ||
+        !exact(destination, ["sectionId", "afterRowId", "beforeRowId"]) ||
+        !["sectionId", "afterRowId", "beforeRowId"].every((key) =>
+          destination[key] === null || uuid(destination[key]))) return null;
+  } else if (placement.kind === "unattached" || placement.kind === "selected_words") {
+    if (!exact(placement, placement.kind === "unattached"
+      ? ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"]
+      : ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
+      !uuid(placement.rowId) || !Number.isSafeInteger(placement.expectedRowVersion) ||
+      (placement.expectedRowVersion as number) < 0 ||
+      !Number.isSafeInteger(placement.expectedSequenceVersion) ||
+      (placement.expectedSequenceVersion as number) < 0 ||
+      (placement.kind === "selected_words" && (!uuid(placement.startTokenId) || !uuid(placement.endTokenId)))) return null;
+  } else return null;
+  return value as unknown as ResearchClipBrowserInsertV2 & {
+    timelineProjectId: string; document: ScriptDocumentV2;
+  };
 }
 
 const VISUAL_KINDS = new Set([
@@ -147,11 +189,54 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
 }
 
+/** No quote mutation, request transport or bearer crosses this browser-facing seam. */
+export type AuthoringReadOnlyResearchCatalog = Pick<ReturnType<typeof createResearchClient>,
+  "projects" | "clips" | "clip">;
+
+export interface AuthoringResearchAccess {
+  catalog: AuthoringReadOnlyResearchCatalog;
+  /** A Research read needs view permission; a script insertion needs edit permission. */
+  authorizeTimelineProject(projectId: string, action?: "view_document" | "edit_document"): Promise<void>;
+}
+
+const RESEARCH_HEADERS = {
+  "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8",
+  "X-Content-Type-Options": "nosniff",
+};
+
+function researchResponse(status: number, body: unknown): Response {
+  return Response.json(body, { status, headers: RESEARCH_HEADERS });
+}
+
+/** Project-scoped transcript DTO only: upstream extras never reach the browser. */
+function publicResearchClip(candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>) {
+  const { id, projectId, catalogVideoId, version, createdBy, createdAt, updatedAt,
+    englishText, originalText } = candidate;
+  const { youtubeVideoId, canonicalUrl, title, channel, sourceLanguage } = candidate.video;
+  const { trackId, transcriptVersion, firstSegmentId, lastSegmentId, firstTokenId, lastTokenId,
+    transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision } = candidate.selection;
+  return {
+    id, projectId, catalogVideoId, version,
+    ...(createdBy === undefined ? {} : { createdBy }),
+    ...(createdAt === undefined ? {} : { createdAt }),
+    ...(updatedAt === undefined ? {} : { updatedAt }),
+    video: { youtubeVideoId, canonicalUrl, title,
+      ...(channel === undefined ? {} : { channel }),
+      ...(sourceLanguage === undefined ? {} : { sourceLanguage }) },
+    selection: { trackId, transcriptVersion, firstSegmentId, lastSegmentId,
+      ...(firstTokenId === undefined ? {} : { firstTokenId }),
+      ...(lastTokenId === undefined ? {} : { lastTokenId }),
+      transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision },
+    englishText, ...(originalText === undefined ? {} : { originalText }),
+  };
+}
+
 /** Same-origin access to only the single-writer project/document routes. */
 export function createAuthoringHandler(
   origin: string,
   authorization: string,
   projects: (request: Request) => Promise<Response>,
+  research?: AuthoringResearchAccess,
 ) {
   const launchProof = randomBytes(32);
   // Keep the enrolled browser working after host restart. Tie it to the
@@ -185,16 +270,19 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const researchRoute = RESEARCH.exec(path);
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
     const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
+    const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
-      (musicWarnings && request.method === "GET");
-    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
+      (musicWarnings && request.method === "GET") ||
+      (researchRoute && request.method === "GET" && request.body === null);
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection && !isResearchInsert) || url.search) {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
 
@@ -211,6 +299,69 @@ export function createAuthoringHandler(
     }
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (researchRoute) {
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      const timelineProjectId = researchRoute[1]!;
+      const researchProjectId = researchRoute[2];
+      const clipId = researchRoute[3];
+      // The browser session proves only that this is the local editor. It never
+      // substitutes for a fresh Timeline membership/permission check.
+      try {
+        await research.authorizeTimelineProject(timelineProjectId);
+      } catch (error) {
+        if (error instanceof ProjectAuthError) {
+          return researchResponse(error.status, { error: error.code });
+        }
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        // Independently recheck Research visibility on EVERY catalog/clip read;
+        // neither a UUID supplied by the browser nor a previous list is proof.
+        const visible = await research.catalog.projects();
+        if (!researchProjectId) {
+          return researchResponse(200, { projects: visible.map(({ id, name }) => ({ id, name })) });
+        }
+        if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        if (clipId) {
+          return researchResponse(200, { clip: publicResearchClip(
+            await research.catalog.clip(researchProjectId, clipId),
+          ) });
+        }
+        return researchResponse(200, { clips: (await research.catalog.clips(researchProjectId))
+          .map(publicResearchClip) });
+      } catch {
+        // Research's errors and headers can contain user data or credentials.
+        return researchResponse(503, { error: "research_unavailable" });
+      }
+    }
+    if (isResearchInsert) {
+      let body: ReturnType<typeof researchInsertRequest>;
+      try { body = researchInsertRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      let candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>;
+      try {
+        // A previous GET/list is never sufficient authorization to mutate a script.
+        const projects = await research.catalog.projects();
+        if (!projects.some(({ id }) => id.toLowerCase() === body.researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        candidate = await research.catalog.clip(body.researchProjectId, body.clipId);
+      } catch {
+        return researchResponse(503, { error: "research_unavailable" });
+      }
+      const result = insertResearchClipBrowserV2(body.document, candidate, body);
+      if (result.ok) lastSplit = null;
+      return researchResponse(200, result);
     }
     if (isProjection) {
       try {

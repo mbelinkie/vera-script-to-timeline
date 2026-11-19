@@ -142,6 +142,9 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   const meta = makeElement(document, "figcaption", "visual-card__meta");
   meta.append(makeElement(document, "span", "visual-card__type", kindLabel));
   if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
+  if (researchClip && !payload?.frameBinding) {
+    meta.append(makeElement(document, "span", "visual-card__source-state", "Research · Playback unavailable"));
+  }
   if (isOnCamera && slotId && visualCommand) {
     meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));
   }

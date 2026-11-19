@@ -51,6 +51,7 @@
 
         <div class="toolbar-controls" role="group" aria-label="View settings">
           <button id="undo" type="button" disabled>↶ Undo</button>
+          <button id="open-footage" type="button" aria-controls="footage-panel" aria-expanded="false" aria-keyshortcuts="Control+Shift+F Meta+Shift+F">Footage</button>
           <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
           <label class="range-control range-control--authoring">
             <span class="range-control__mark" aria-hidden="true">Aa</span>
@@ -64,6 +65,36 @@
           </label>
         </div>
       </header>
+
+      <aside id="footage-panel" class="footage-panel" aria-label="Research footage" hidden>
+        <div class="footage-panel__heading">
+          <h2 data-footage-heading>Footage</h2>
+          <button type="button" data-footage-close aria-label="Close footage">Close</button>
+        </div>
+        <label for="footage-project">Research project</label>
+        <select id="footage-project" data-footage-project><option value="">Choose project…</option></select>
+        <label for="footage-search">Search title or transcript</label>
+        <input id="footage-search" data-footage-search type="search" autocomplete="off" placeholder="Search logged footage">
+        <div class="footage-panel__filters">
+          <label for="footage-sort">Sort</label>
+          <select id="footage-sort" data-footage-sort><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title</option></select>
+          <label class="footage-panel__checkbox"><input type="checkbox" data-footage-used> Show used</label>
+        </div>
+        <p data-footage-status role="status" aria-live="polite"></p>
+        <div data-footage-results class="footage-panel__results" aria-label="Logged clips"></div>
+        <div data-footage-placement class="footage-panel__placement" hidden>
+          <h3 data-footage-selected>Place footage</h3>
+          <label><input data-footage-gap-choice type="radio" name="footage-destination" checked> Place in script gap</label>
+          <select data-footage-gaps aria-label="Destination gap"></select>
+          <label><input type="radio" name="footage-destination"> Add unattached to narration</label>
+          <select data-footage-rows aria-label="Destination narration row" disabled></select>
+          <div class="footage-panel__placement-buttons">
+            <button type="button" data-footage-place>Place in script</button>
+            <button type="button" data-footage-cancel>Cancel choice</button>
+          </div>
+        </div>
+        <p class="footage-panel__hint">Drag a clip to a narration row or a + Add row gap. Footage without authorized media is not playable yet.</p>
+      </aside>
 
       <main class="script-stage">
         <div class="save-feedback">
