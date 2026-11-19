@@ -8,7 +8,7 @@ import {
 } from "./authoring-v2-coverage.js";
 import { spokenTokensV2 } from "./authoring-v2-stage-directions.js";
 import { retypeVisualPayloadV2 } from "./authoring-v2-visual-type.js";
-import type { DroppedVisualDetailV2, VisualTypeChangeV2 } from "./authoring-v2.js";
+import type { DroppedVisualDetailV2, VisualSequenceEditCommandV2, VisualTypeChangeV2 } from "./authoring-v2.js";
 
 /**
  * The life of one visual card after it exists (S03 §4, #578): move it to
@@ -140,6 +140,62 @@ export function attachVisualToWordsV2(
   if (attached.unattached.length > 0) row.unattachedVisuals = [...(row.unattachedVisuals ?? []), ...attached.unattached];
   bump(row);
   return { slotIds: attached.changedSlotIds, payloadIds: attached.payloadIds };
+}
+
+/** Add a source-free visual on selected spoken words as one atomic sequence edit (D94). */
+export function addVisualOnSelectionV2(
+  row: NarrationBlockV2,
+  slotId: string,
+  payloadId: string,
+  startTokenId: string,
+  endTokenId: string,
+  visualType: Extract<VisualSequenceEditCommandV2, { kind: "add_visual_on_selection" }>["visualType"],
+): VisualLifecycleResultV2 {
+  const version = row.primaryVisualSequence?.version;
+  if (version === undefined) return refusal("PRIMARY_SEQUENCE_MISSING", "The row has no picture sequence.", row.id);
+  // A command from JSON is not guaranteed to respect its TypeScript discriminant.
+  if (visualType !== "onscreen_placeholder" && visualType !== "need_to_find" && visualType !== "visual_undefined") {
+    return refusal("ADD_VISUAL_TYPE_INVALID", "Choose an available source-free visual type.", slotId);
+  }
+  if (version >= Number.MAX_SAFE_INTEGER) {
+    return refusal("SEQUENCE_VERSION_EXHAUSTED", "This picture sequence cannot advance its version.", row.id);
+  }
+  if (row.primaryVisualSequence!.slots.some((slot) => slot.id === slotId) ||
+      (row.unattachedVisuals ?? []).some((item) => item.slotId === slotId)) {
+    return refusal("VISUAL_SLOT_ID_DUPLICATE", "Use a fresh visual identity for the selected words.", slotId);
+  }
+
+  // The existing Attach/Change functions mutate rows on success; never expose
+  // their intermediate changes or version bumps to the caller on failure.
+  const scratch = structuredClone(row);
+  const source = { kind: "undefined" as const, payloadId, description: "No visual has been chosen for these words." };
+  const initial = retypeVisualPayloadV2(source, {
+    type: visualType === "visual_undefined" ? "need_to_find" : visualType,
+  });
+  if (!initial.ok) return refusal(initial.code, initial.message, slotId);
+  if (initial.payload.kind !== "visual") {
+    return refusal("VISUAL_ADD_SOURCE_MISSING", "The new visual cannot be placed on words.", slotId);
+  }
+  scratch.unattachedVisuals = [...(scratch.unattachedVisuals ?? []), { slotId, payload: initial.payload, version: 1 }];
+  const attached = attachVisualToWordsV2(scratch, slotId, startTokenId, endTokenId);
+  if (isCoverageRefusalV2(attached)) return attached;
+
+  let outcome = attached;
+  if (visualType === "visual_undefined") {
+    // Undefined cannot wait unattached; attach an ephemeral Need to Find,
+    // then change its placed payload. Neither temporary state is published.
+    const changed = changeVisualTypeV2(scratch, slotId, { type: "visual_undefined" });
+    if (isCoverageRefusalV2(changed)) return changed;
+    outcome = {
+      slotIds: [...new Set([...attached.slotIds, ...changed.slotIds])],
+      payloadIds: [...new Set([...attached.payloadIds, ...changed.payloadIds])],
+    };
+  }
+
+  scratch.primaryVisualSequence!.version = version + 1;
+  if (scratch.unattachedVisuals === undefined) delete row.unattachedVisuals;
+  Object.assign(row, scratch);
+  return outcome;
 }
 
 /** Delete (D100): On Camera fills the words; the row's last visual leaves Visual Undefined on them instead. */

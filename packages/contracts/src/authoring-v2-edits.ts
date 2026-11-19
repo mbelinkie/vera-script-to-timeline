@@ -22,6 +22,7 @@ import {
   type CoverageRefusalV2,
 } from "./authoring-v2-coverage.js";
 import {
+  addVisualOnSelectionV2,
   attachVisualToWordsV2,
   changeVisualTypeV2,
   deleteVisualV2,
@@ -180,6 +181,10 @@ function applyCommand(
     }
     case "attach_visual_to_words":
       return lifecycleInRow(document, command.blockId, command.slotId, (row) => attachVisualToWordsV2(row, command.slotId, command.startTokenId, command.endTokenId));
+    case "add_visual_on_selection":
+      return lifecycleInRow(document, command.blockId, command.slotId, (row) => addVisualOnSelectionV2(
+        row, command.slotId, command.payloadId, command.startTokenId, command.endTokenId, command.visualType,
+      ));
     case "change_visual_type":
       return lifecycleInRow(document, command.blockId, command.slotId, (row) => changeVisualTypeV2(row, command.slotId, command.to));
     case "delete_visual":

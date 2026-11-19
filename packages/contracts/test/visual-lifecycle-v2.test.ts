@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  applyVisualSequenceEditV2,
   applyCommentOperationV2,
   createCommentStateV2,
   createRowEditSessionV2,
@@ -26,6 +27,7 @@ import type { RowEditCommandV2, VisualSequenceEditCommandV2, VisualSequenceEditR
 
 type MoveCommand = Extract<VisualSequenceEditCommandV2, { kind: "move_visual_to_row" }>;
 type AttachCommand = Extract<VisualSequenceEditCommandV2, { kind: "attach_visual_to_words" }>;
+type AddCommand = Extract<VisualSequenceEditCommandV2, { kind: "add_visual_on_selection" }>;
 type ChangeCommand = Extract<VisualSequenceEditCommandV2, { kind: "change_visual_type" }>;
 type StashCommand = Extract<RowEditCommandV2, { kind: "stash_visual" }>;
 
@@ -42,7 +44,7 @@ const id = (value: number): string => `00000000-0000-4000-8000-${value.toString(
 const digest = (value: string): string => `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 const rowId = (row: number): string => id(row * 10_000);
 const slotId = (row: number, name: string): string => id(row * 10_000 + NAMES.indexOf(name) + 1);
-const NAMES = ["F", "S1", "S2", "S3", "OC1", "OC2", "R1"];
+const NAMES = ["F", "S1", "S2", "S3", "OC1", "OC2", "R1", "ADD"];
 const MEDIA = id(777);
 
 const nameOf = (value: string): string => {
@@ -160,7 +162,7 @@ function act(
 }
 
 function isVisualCommand(command: VisualSequenceEditCommandV2 | RowEditCommandV2): command is VisualSequenceEditCommandV2 {
-  return ["move_visual_to_row", "attach_visual_to_words", "change_visual_type", "delete_visual"].includes(command.kind);
+  return ["move_visual_to_row", "attach_visual_to_words", "add_visual_on_selection", "change_visual_type", "delete_visual"].includes(command.kind);
 }
 
 function refusedWith(start: ScriptDocumentV2, command: VisualSequenceEditCommandV2 | RowEditCommandV2, code: string): string {
@@ -185,6 +187,95 @@ function twoRows(): ScriptDocumentV2 {
     rowOf(2, TEN, [{ at: 0, visual: "S1" }, { at: 5, visual: "S2" }]),
   ]);
 }
+
+const addedPayloadId = id(800001);
+const add = (doc: ScriptDocumentV2, row: number, first: number, last: number,
+  visualType: AddCommand["visualType"] = "onscreen_placeholder"): AddCommand => ({
+  kind: "add_visual_on_selection", blockId: rowId(row), slotId: slotId(row, "ADD"), payloadId: addedPayloadId,
+  startTokenId: word(doc, row, first), endTokenId: word(doc, row, last), visualType,
+});
+
+describe("#67 atomic Add visual on selected words", () => {
+  it("takes the first and final word, without disturbing the next cue or adding a return at row end", () => {
+    const start = twoRows();
+    const first = act(start, add(start, 2, 0, 0)).document;
+    expect(cards(first, 2)).toEqual(["ADD 0-1", "S1 1-5", "S2 5-10"]);
+    const last = act(start, add(start, 2, 9, 9)).document;
+    expect(cards(last, 2)).toEqual(["S1 0-5", "S2 5-9", "ADD 9-10"]);
+    expect(find(first, 2).primaryVisualSequence?.version).toBe(2);
+    expect(find(last, 2).primaryVisualSequence?.version).toBe(2);
+  });
+
+  it("becomes a cutaway inside one picture and returns to the unchanged neighbour", () => {
+    const start = twoRows();
+    const result = applyVisualSequenceEditV2(start, 1, add(start, 2, 2, 3));
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(cards(result.document, 2)).toEqual(["S1 0-2", "ADD 2-4", "S1 resumes 4-5", "S2 5-10"]);
+    expect(result.evidence).toMatchObject({
+      kind: "add_visual_on_selection",
+      beforeSequenceVersions: { [rowId(2)]: 1 }, afterSequenceVersions: { [rowId(2)]: 2 },
+    });
+    act(start, add(start, 2, 2, 3)); // one session Undo and exact save/reload
+  });
+
+  it("cuts across two visuals while preserving the unused starts and ends", () => {
+    const start = twoRows();
+    expect(cards(act(start, add(start, 2, 3, 6)).document, 2)).toEqual([
+      "S1 0-3", "ADD 3-7", "S2 7-10",
+    ]);
+  });
+
+  it("adds all three source-free types, and Undefined has no leftover temporary waiting visual", () => {
+    for (const type of ["onscreen_placeholder", "need_to_find", "visual_undefined"] as const) {
+      const start = twoRows();
+      const result = act(start, add(start, 2, 3, 6, type)).document;
+      const row = result.activeDraft.blocks[1];
+      const slot = row?.type === "narration"
+        ? row.primaryVisualSequence!.slots.find((candidate) => candidate.id === slotId(2, "ADD"))
+        : undefined;
+      expect(slot?.kind).toBe("content");
+      if (slot?.kind !== "content") continue;
+      if (slot.payload.kind === "on_camera") throw new Error("Added visual must not be On Camera");
+      expect(slot.payload.payloadId).toBe(addedPayloadId);
+      expect(slot.payload.kind).toBe(type === "visual_undefined" ? "undefined" : "visual");
+      if (slot.payload.kind === "visual") {
+        expect(slot.payload.pictureKind).toBe(type === "need_to_find" ? "unresolved_visual" : "intentional_placeholder");
+      }
+      expect(cards(result, 2)).toEqual([
+        "S1 0-3", type === "visual_undefined" ? "undefined(ADD) 3-7" : "ADD 3-7", "S2 7-10",
+      ]);
+      expect(find(result, 2).unattachedVisuals).toBeUndefined();
+      expect(find(result, 2).primaryVisualSequence!.version).toBe(2);
+    }
+  });
+
+  it("refuses stale versions, duplicate slot/payload IDs, malformed types and invalid word anchors without mutation", () => {
+    const start = twoRows();
+    const before = JSON.stringify(start);
+    const stale = applyVisualSequenceEditV2(start, 0, add(start, 2, 2, 3));
+    expect(stale.ok).toBe(false);
+    expect(stale.document).toBe(start);
+    expect(stale.diagnostics[0]?.code).toBe("SEQUENCE_VERSION_STALE");
+
+    refusedWith(start, { ...add(start, 2, 2, 3), slotId: slotId(2, "S1") }, "VISUAL_SLOT_ID_DUPLICATE");
+    for (const collision of [
+      { ...add(start, 2, 2, 3), slotId: slotId(1, "F") },
+      { ...add(start, 2, 2, 3), payloadId: placeholder(2, "S1").payloadId },
+    ]) {
+      const session = createRowEditSessionV2(start);
+      const result = session.applyVisualEdit(collision);
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics.map((item) => item.code)).toContain("ENTITY_ID_DUPLICATE");
+      expect(session.undoDepth).toBe(0);
+    }
+    refusedWith(start, { ...add(start, 2, 2, 3), visualType: "footage" as AddCommand["visualType"] }, "ADD_VISUAL_TYPE_INVALID");
+    refusedWith(start, { ...add(start, 2, 2, 3), endTokenId: word(start, 1, 3) }, "RANGE_OUTSIDE_ROW");
+    refusedWith(start, add(start, 2, 6, 3), "RANGE_REVERSED");
+    const waiting = act(start, move("F")).document;
+    refusedWith(waiting, { ...add(waiting, 2, 2, 3), slotId: slotId(1, "F") }, "VISUAL_SLOT_ID_DUPLICATE");
+    expect(JSON.stringify(start)).toBe(before);
+  });
+});
 
 describe("#578 move a visual to another row", () => {
   it("keeps the trim and source, lets On Camera fill the gap, and lands unattached", () => {
