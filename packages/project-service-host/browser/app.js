@@ -1,4 +1,4 @@
-import { renderRows } from "./view.js";
+import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 
@@ -22,6 +22,11 @@ const visualCommandKinds = new Set([
 ]);
 let project;
 let scriptDocument;
+let projected;
+let projectionDocument;
+let flashVisualIds = new Set();
+let visualFeedback = "";
+let cardFocus = null;
 let documentRevision;
 let pendingDocument;
 let documentSaving = false;
@@ -116,6 +121,10 @@ async function showScript(projectId) {
     api(`/${projectId}`), api(`/${projectId}/document`),
   ]);
   scriptDocument = savedScript.document;
+  projected = await fetchProjection(scriptDocument);
+  projectionDocument = scriptDocument;
+  flashVisualIds = new Set();
+  visualFeedback = "";
   documentRevision = savedScript.revision;
   undoStack.length = 0;
   typingGroup = null;
@@ -139,6 +148,8 @@ function renderEditor() {
   const root = element("script-rows");
   const requestedFocus = structuralFocus;
   structuralFocus = null;
+  const requestedCardFocus = cardFocus;
+  cardFocus = null;
   const active = document.activeElement;
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   let caret = null;
@@ -151,7 +162,10 @@ function renderEditor() {
   }
   narrationCleanup.forEach((cleanup) => cleanup());
   narrationCleanup = [];
-  renderRows(root, scriptDocument);
+  renderRows(root, scriptDocument, projectionDocument === scriptDocument ? projected : null, flashVisualIds);
+  flashVisualIds = new Set();
+  narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
+    queueCommand(command, label, { structural: true, cardFocus: focus })));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -165,6 +179,16 @@ function renderEditor() {
       requestRender: scheduleRender,
     }));
   });
+  if (requestedCardFocus) {
+    const row = [...root.querySelectorAll("[data-row-id]")]
+      .find((item) => item.dataset.rowId === requestedCardFocus.rowId);
+    const card = [...(row?.querySelectorAll(".visual-card") ?? [])]
+      .find((item) => item.dataset.slotId === requestedCardFocus.slotId);
+    (card?.querySelector("[data-visual-action-trigger]") ??
+      row?.querySelector("[data-visual-action-trigger]") ??
+      row?.querySelector(".visual-card"))?.focus();
+    return;
+  }
   const targetRowId = requestedFocus?.rowId ?? rowId;
   const targetCaret = requestedFocus?.offset ?? caret;
   if (targetRowId && targetCaret !== null) {
@@ -237,6 +261,56 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
   const result = await response.json();
   if (!response.ok || !result.ok) throw new Error(result.diagnostics?.[0]?.message || "Edit could not be applied.");
   return result;
+}
+
+async function fetchProjection(documentModel) {
+  const response = await fetch("/authoring/projection", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    body: JSON.stringify({ document: documentModel }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error("Couldn’t refresh visual cues. Reload to try again.");
+  const result = await response.json();
+  if (!Array.isArray(result.projection?.rows)) throw new Error("Visual cues were not returned by the editor.");
+  return result.projection;
+}
+
+function changedCueIds(before, after) {
+  const previous = new Map();
+  for (const row of before?.rows ?? []) {
+    row.cards.forEach((card, index) => {
+      if (card.kind !== "on_camera" && !card.compact) {
+        previous.set(`${row.blockId}:${card.slotId}`, { index, start: card.startTokenIndex });
+      }
+    });
+  }
+  const moved = new Set();
+  for (const row of after.rows) {
+    row.cards.forEach((card, index) => {
+      const prior = previous.get(`${row.blockId}:${card.slotId}`);
+      if (prior && (prior.index !== index || prior.start !== card.startTokenIndex)) moved.add(card.slotId);
+    });
+  }
+  return moved;
+}
+
+async function refreshProjection(documentModel, force) {
+  try {
+    const next = await fetchProjection(documentModel);
+    // Typing and Undo can overtake a projection request. Never display a
+    // read response for an older document (or an earlier open project).
+    if (scriptDocument !== documentModel) return;
+    flashVisualIds = changedCueIds(projected, next);
+    projected = next;
+    projectionDocument = documentModel;
+  } catch (error) {
+    if (scriptDocument !== documentModel) return;
+    projected = null;
+    projectionDocument = documentModel;
+    setSaveStatus(error.message || "Couldn’t refresh visual cues. Reload to try again.");
+  }
+  scheduleRender(force);
 }
 
 // Every intermediate document is private to this queued operation: a refusal
@@ -357,7 +431,7 @@ function queueCommand(command, label, options = {}) {
       updateUndo();
       documentDirty = true;
       void saveDocument();
-      scheduleRender(true);
+      void refreshProjection(scriptDocument, true);
       return true;
     }
     const replay = resolved.kind === "join_rows" && resolved.direction === "previous" &&
@@ -390,6 +464,8 @@ function queueCommand(command, label, options = {}) {
       session: options.typingSession, boundary: options.typingBoundary, at: inputAt,
     } : null;
     scriptDocument = result.document;
+    visualFeedback = Array.isArray(result.evidence?.dropped) && result.evidence.dropped.length
+      ? result.evidence.dropped.map((item) => item.message).join(" ") : "";
     lastSplit = resolved.kind === "split_row" && typeof result.splitProof === "string" ? {
       proof: result.splitProof, newRowId: resolved.newRowId, originalRowId: resolved.rowId,
       revision: scriptDocument.rowEditRevision, caret: options.splitCaret,
@@ -398,10 +474,11 @@ function queueCommand(command, label, options = {}) {
     else if (previous?.type === "narration") structuralFocus = replay
       ? { rowId: replay.originalRowId, offset: replay.caret }
       : { rowId: previous.id, offset: previous.text.length + (previous.text.endsWith("\n") ? 0 : 1) };
+    if (options.cardFocus) cardFocus = options.cardFocus;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    scheduleRender(options.structural);
+    void refreshProjection(scriptDocument, options.structural);
     return true;
   }).catch((error) => {
     typingGroup = null;
@@ -450,12 +527,13 @@ function undo() {
     typingGroup = null;
     if (conflicted || editRefused || !undoStack.length) return;
     scriptDocument = undoStack.pop().document;
+    visualFeedback = "";
     lastSplit = null;
     structuralFocus = null;
     updateUndo();
     documentDirty = true;
     void saveDocument();
-    scheduleRender(true);
+    void refreshProjection(scriptDocument, true);
   }).finally(() => {
     commandsPending -= 1;
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
@@ -537,6 +615,7 @@ openForm.addEventListener("submit", (event) => {
 
 function setSaveStatus(message, action) {
   if (editRefused) message = refusedMessage;
+  else if (message === "Saved" && visualFeedback) message = `Saved · ${visualFeedback}`;
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";

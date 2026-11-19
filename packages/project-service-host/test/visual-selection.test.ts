@@ -40,7 +40,10 @@ describe("selected spoken picture cues", () => {
     expect(selectedSpokenWords(row, { start: 9, end: 20 }, true)).toMatchObject({
       startTokenId: "middle", endTokenId: "middle",
     });
-    const optimistic = { ...row, tokens: words.map((token) => ({ ...token, id: undefined })) };
+    const optimistic = { ...row, tokens: words.map((token) => ({
+      startOffset: token.startOffset, endOffset: token.endOffset,
+      ...("spoken" in token ? { spoken: token.spoken } : {}),
+    })) };
     expect(selectedSpokenWords(optimistic, { start: 16, end: 20 })).toMatchObject({
       startOffset: 16, endOffset: 20, startTokenId: null,
     });
