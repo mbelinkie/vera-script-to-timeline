@@ -593,7 +593,7 @@ class LocalBuildAgentService:
                     digest,
                     self.accepted_source_roots,
                     path,
-                    preserve_png_suffix=True,
+                    preserve_image_suffix=True,
                 )
                 assert frozen is not None
                 source_inputs[f"source:{source_id}"] = frozen

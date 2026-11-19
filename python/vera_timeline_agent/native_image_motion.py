@@ -26,6 +26,9 @@ class MotionRefusal(ValueError):
 
 _HEX_TO_LETTERS = str.maketrans("0123456789abcdef", "abcdefghijklmnop")
 _SOURCE_ID = re.compile(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\Z")
+MAX_STILL_EDGE = 8192
+MAX_STILL_PIXELS = 16_777_216  # Same decoded pixel budget as Local Media Import.
+MAX_STILL_PNG_BYTES = 56 * 1024 * 1024  # RGB8 plus PNG container overhead.
 
 # Start slightly inside the fill crop so the centered move has margin at
 # both ends. The native effect interpolates over the authored clip length.
@@ -122,42 +125,40 @@ def production_qualification(
     delivered_probe: dict[str, Any] | None = None,
     frame_rate: tuple[int, int] | None = None,
 ) -> Qualification | None:
-    """Admit only hash-verified, untransformed RGB PNGs in the measured Studio lane.
+    """Admit verified RGB PNGs in the measured Studio lanes.
 
     The caller must supply a verified package asset and its independently
     validated preparation receipt. A standalone authored motion dictionary
-    cannot grant a qualification. The deliberately narrow 16:9 route
-    excludes unmeasured codecs, color transforms, aspect ratios, durations,
-    backgrounds, and moving contain (which needs a proven derived matte).
+    cannot grant a qualification. RK-43 covers centered Fill/Zoom and static
+    Fit for prepared stills. Older packages keep their original admission.
     """
     duration = binding.record_end - binding.record_start
     prepared_image = (
         delivered_probe is not None and delivered_probe.get("kind") == "image"
     )
-    qualified_default = (
-        prepared_image
-        and frame_rate in {(24, 1), (24000, 1001), (25, 1), (30, 1)}
-        and (
-            duration in {48, 72, 96}
-            or (frame_rate, duration) in {((25, 1), 75), ((30, 1), 90)}
-        )
-        and motion in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
-    )
     if (
         verified_asset is None
         or delivered_probe is None
-        or (frame_rate != (24, 1) and delivered_probe.get("kind") != "image")
-        or (frame_rate != (24, 1) and not qualified_default)
         or (binding.timeline_width, binding.timeline_height) != (1920, 1080)
+        or duration <= 0
+        or framing not in {"contain", "cover"}
+    ):
+        return None
+    if prepared_image:
+        if frame_rate not in {(24, 1), (24000, 1001), (25, 1), (30, 1)} or (
+            (framing, motion)
+            not in (("cover", DEFAULT_IMAGE_MOTION), ("contain", {"mode": "none"}))
+        ):
+            return None
+    elif (
+        frame_rate != (24, 1)
         or binding.original_hash != binding.source_hash
         or (
             duration not in {24, 48, 96, 144}
-            and not qualified_default
             and (
                 duration != 72 or motion not in (DEFAULT_IMAGE_MOTION, {"mode": "none"})
             )
         )
-        or framing not in {"contain", "cover"}
     ):
         return None
     dimensions = _verified_rgb_png_dimensions(
@@ -166,33 +167,12 @@ def production_qualification(
     if dimensions is None:
         return None
     width, height = dimensions
-    if prepared_image and not qualified_default:
-        return None
-    if qualified_default:
-        measured = (
-            motion == DEFAULT_IMAGE_MOTION
-            and framing == "cover"
-            and (
-                (dimensions, duration)
-                in {((1000, 1000), 48), ((1600, 900), 96), ((900, 1600), 72)}
-                or (
-                    dimensions in {(1000, 1000), (1600, 900), (900, 1600)}
-                    and (frame_rate, duration)
-                    in {((24000, 1001), 72), ((25, 1), 75), ((30, 1), 90)}
-                )
-            )
-        ) or (
-            motion == {"mode": "none"}
-            and framing == "contain"
-            and dimensions == (1000, 1000)
-            and duration == 48
-        )
-        if not measured:
-            return None
-    version = "21.2.0.6" if qualified_default else "21.1.1.10"
-    # Do not generalize a handful of decoded public aspect/size fixtures into
-    # native raster proof for every resolution sharing the same aspect ratio.
-    if (width, height) not in {(1000, 1000), (1600, 900), (900, 1600)}:
+    version = "21.2.0.6" if prepared_image else "21.1.1.10"
+    if not prepared_image and dimensions not in {
+        (1000, 1000),
+        (1600, 900),
+        (900, 1600),
+    }:
         return None
     if motion == {"mode": "none"}:
         return Qualification(
@@ -261,7 +241,7 @@ def _verified_rgb_png_dimensions(
     if not isinstance(asset, Path) or asset.suffix.lower() != ".png":
         return None
     try:
-        if asset.stat().st_size > 24 * 1024 * 1024:
+        if asset.stat().st_size > MAX_STILL_PNG_BYTES:
             return None
         raw = asset.read_bytes()
     except OSError:
@@ -291,8 +271,8 @@ def _verified_rgb_png_dimensions(
                 struct.unpack(">IIBBBBB", data)
             )
             if (
-                not (1 <= width <= 4096 and 1 <= height <= 4096)
-                or width * height > 8_000_000
+                not (1 <= width <= MAX_STILL_EDGE and 1 <= height <= MAX_STILL_EDGE)
+                or width * height > MAX_STILL_PIXELS
                 or (depth, kind, compression, filtering, interlace) != (8, 2, 0, 0, 0)
             ):
                 return None

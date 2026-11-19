@@ -36,6 +36,7 @@ from .local_media_import_model import (
 _DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 _READ = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
 _NEW = os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
 _CHUNK = 1024 * 1024
 _UNSUPPORTED_CLONE = {
     errno.EOPNOTSUPP,
