@@ -32,4 +32,6 @@ The CLI checks the marker about every 100 ms during an engine wait or MFA lock
 wait. A launch or input read already in progress must return before the next
 check. An active engine gets up to 15 seconds to stop on SIGTERM and 10 more
 seconds after SIGKILL. Configured local engines must keep their children in the
-engine's process group for the CLI to supervise them.
+engine's process group for the CLI to supervise them. A group still visible at
+the deadline is unconfirmed, including when the OS has yet to reap an exited
+child.
