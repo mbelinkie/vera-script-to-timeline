@@ -140,7 +140,7 @@ def _send(request: Request, timeout: float) -> int:
     # The token must never reach an environment-configured proxy.
     opener = build_opener(ProxyHandler({}), _NoRedirect())
     with opener.open(request, timeout=timeout) as response:
-        return response.status
+        return int(response.status)
 
 
 def publish_latest_music_warnings(

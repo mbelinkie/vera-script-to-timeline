@@ -159,10 +159,8 @@ def _music_recovery_actions(diagnostics: list[Json], manifest: Json) -> list[Jso
             )
         elif kind == "manual_review":
             manifest_document = manifest.get("document")
-            _require(
-                type(manifest_document) is dict,
-                "manifest document identity is required",
-            )
+            if type(manifest_document) is not dict:
+                raise OutputConsistencyError("manifest document identity is required")
             document_id = _identity(manifest_document.get("documentId"))
             actions.append(
                 {
