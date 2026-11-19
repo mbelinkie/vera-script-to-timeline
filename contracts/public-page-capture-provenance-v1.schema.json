@@ -337,13 +337,13 @@
                   "type": "string",
                   "minLength": 0,
                   "maxLength": 512,
-                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]+$"
+                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
                 },
                 "suffix": {
                   "type": "string",
                   "minLength": 0,
                   "maxLength": 512,
-                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]+$"
+                  "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
                 }
               }
             }

@@ -243,6 +243,7 @@ export class ProjectSuppliedPictureStore {
   }
 
   async read(projectId: string, captureId: string, revisionId: string): Promise<{ readonly record: SuppliedPictureMetadata; readonly path: string } | null> {
+    const directory = this.directory(projectId, captureId, revisionId);
     const root = join(this.projectRoot, "Supplied Pictures");
     let rootStat;
     try { rootStat = await lstat(root); } catch (error) {
@@ -264,7 +265,6 @@ export class ProjectSuppliedPictureStore {
       throw error;
     }
     if (!captureStat.isDirectory() || captureStat.isSymbolicLink()) throw new Error("unsafe supplied picture capture directory");
-    const directory = this.directory(projectId, captureId, revisionId);
     let directoryStat;
     try { directoryStat = await lstat(directory); } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -276,6 +276,9 @@ export class ProjectSuppliedPictureStore {
     await this.checkedFile(metadataPath, "receipt");
     await this.checkedFile(rasterPath, "raster");
     const record = checkRecord(JSON.parse(await readFile(metadataPath, "utf8")) as unknown, projectId, this.limits);
+    if (record.captureId !== captureId || record.revisionId !== revisionId) {
+      throw new Error("supplied picture receipt does not match the pinned revision");
+    }
     const bytes = await readFile(rasterPath);
     let verified: VerifiedRaster;
     try {

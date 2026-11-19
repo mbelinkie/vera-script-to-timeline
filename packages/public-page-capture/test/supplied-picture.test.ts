@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import type { AuthorizationDecisionRef, PrincipalRef } from "@vera/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -117,6 +117,9 @@ describe("supplied picture intake", () => {
     expect(top.metadata.captureId).toBe(second.metadata.captureId);
     expect(top.metadata.revisionId).not.toBe(second.metadata.revisionId);
     expect(top.metadata.highlightRects).toEqual([]);
+    await writeFile(join(dirname(top.rasterPath), "receipt.json"), JSON.stringify(second.metadata));
+    await expect(store.read(PROJECT, top.metadata.captureId, top.metadata.revisionId))
+      .rejects.toThrow("does not match the pinned revision");
     const portrait = await intakeSuppliedPicture({
       projectId: PROJECT, principal: ACTOR, reference, bytes: raster(1600, 2400), pictureKind: "top", ...port, store,
     });
