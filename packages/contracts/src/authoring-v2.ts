@@ -306,6 +306,16 @@ export type VisualSequenceEditCommandV2 =
       destinationBlockId: string;
     }
   | {
+      /** Add one source-free visual on selected spoken words, with all range changes in one Undo step (D94). */
+      kind: "add_visual_on_selection";
+      blockId: string;
+      slotId: string;
+      payloadId: string;
+      startTokenId: string;
+      endTokenId: string;
+      visualType: "onscreen_placeholder" | "need_to_find" | "visual_undefined";
+    }
+  | {
       /** Attach to words (D113): give a waiting visual the whole selection; neighbours make room as for a range change. */
       kind: "attach_visual_to_words";
       blockId: string;
