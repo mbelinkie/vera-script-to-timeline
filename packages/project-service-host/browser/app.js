@@ -2,6 +2,8 @@ import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
+import { mountResearchPanel } from "./research-panel.js";
+import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -63,6 +65,7 @@ let conflicted = false;
 const browserRequired = "Open the private link printed by VERA Authoring to connect this browser.";
 const sessionKey = "vera.authoring.sessionProof";
 let sessionProof = "";
+let researchPanel;
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -152,6 +155,7 @@ async function showScript(projectId) {
   structuralFocus = null;
   activeReselect = null;
   activeAttach = null;
+  researchPanel?.close();
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -259,6 +263,7 @@ function renderEditor() {
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
   narrationCleanup.push(mountVisualCardDragging(root));
+  narrationCleanup.push(mountResearchDragging(root));
   narrationCleanup.push(mountWordlessControls(root));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
@@ -279,6 +284,7 @@ function renderEditor() {
         else { composingRows.delete(rowId); scheduleRender(); }
       },
       requestRender: scheduleRender,
+      chooseFootage: openFootageForWords,
     }));
   });
   if (requestedCardFocus) {
@@ -781,6 +787,92 @@ export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion
   }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
 }
 
+function openFootageForWords({ rowId, text, selection, seed, from }) {
+  void researchPanel.open({ quick: true, seed, from, placement: (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "narration" || row.text !== text) {
+      throw new Error("The selected narration changed. Choose the words again.");
+    }
+    const words = selectedSpokenWords(row, selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", rowId, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version,
+      startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  } });
+}
+
+function availableGaps() {
+  const blocks = scriptDocument?.activeDraft?.blocks ?? [];
+  return rowGaps(blocks).map((destination, index) => ({
+    destination, label: `Gap ${index + 1} · ${destination.afterRowId ? "after row" : "section start"}`,
+  }));
+}
+
+function availableNarrationRows() {
+  return (scriptDocument?.activeDraft?.blocks ?? []).filter((row) => row.type === "narration")
+    .map((row, index) => ({ rowId: row.id, label: `Row ${index + 1}: ${(row.text || "Blank narration").slice(0, 45)}` }));
+}
+
+function mountResearchDragging(root) {
+  let target = null;
+  const clear = () => { target?.classList.remove("script-row--footage-target", "row-divider--footage-target"); target = null; };
+  const destinationNode = (event) => event.target.closest?.("[data-row-gap], .script-row[data-row-kind='narration']");
+  const draggingFootage = (event) => [...(event.dataTransfer?.types ?? [])].includes("application/x-vera-research-clip");
+  const over = (event) => {
+    if (!draggingFootage(event)) return;
+    const next = destinationNode(event);
+    clear();
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    target = next;
+    target.classList.add(next.matches("[data-row-gap]") ? "row-divider--footage-target" : "script-row--footage-target");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  };
+  const drop = (event) => {
+    if (!draggingFootage(event)) return;
+    const next = destinationNode(event);
+    const clip = researchPanel.dropClip(event.dataTransfer?.getData("application/x-vera-research-clip"));
+    clear();
+    if (!next || !clip) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const currentProject = activeProjectId;
+    const targetRowId = next.dataset.rowId;
+    const expected = targetRowId ? scriptDocument.activeDraft.blocks.find((row) => row.id === targetRowId) : null;
+    const gap = targetRowId ? null : {
+      sectionId: next.dataset.sectionId || null,
+      afterRowId: next.dataset.afterRowId || null, beforeRowId: next.dataset.beforeRowId || null,
+    };
+    void queueResearchClipInsert({ researchProjectId: clip.projectId, clipId: clip.id, clipVersion: clip.version,
+      placement: (latest) => {
+        if (currentProject !== activeProjectId) throw new Error("The open script changed during the drag.");
+        if (gap) {
+          if (!rowGaps(latest.activeDraft.blocks).some((candidate) =>
+            candidate.sectionId === gap.sectionId && candidate.afterRowId === gap.afterRowId &&
+            candidate.beforeRowId === gap.beforeRowId)) throw new Error("The script gap moved during the drag.");
+          return { kind: "gap", destination: gap };
+        }
+        const row = latest.activeDraft.blocks.find((item) => item.id === targetRowId);
+        if (row?.type !== "narration" || row.version !== expected?.version) {
+          throw new Error("The destination narration changed during the drag.");
+        }
+        return { kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
+          expectedSequenceVersion: row.primaryVisualSequence.version };
+      },
+    }).then((success) => { if (success) researchPanel.update(); });
+  };
+  root.addEventListener("dragover", over, true);
+  root.addEventListener("drop", drop, true);
+  root.addEventListener("dragend", clear, true);
+  return () => {
+    clear();
+    root.removeEventListener("dragover", over, true);
+    root.removeEventListener("drop", drop, true);
+    root.removeEventListener("dragend", clear, true);
+  };
+}
+
 // Projection is derived, never saved. In-flight responses are tied to the
 // exact object snapshot and generation; an older network response cannot
 // redraw brackets or On Camera after an edit, Undo or project switch.
@@ -968,6 +1060,7 @@ function queueCommand(command, label, options = {}) {
       undoStack.push({ document: prior, label });
       const previousProjection = visualProjection;
       scriptDocument = result.document;
+      researchPanel?.update();
       lastSplit = null;
       updateUndo();
       documentDirty = true;
@@ -1125,6 +1218,7 @@ function undo() {
     if (conflicted || editRefused || !undoStack.length) return;
     const previousProjection = visualProjection;
     scriptDocument = undoStack.pop().document;
+    researchPanel?.update();
     invalidateProjection(false);
     visualFeedback = "";
     lastSplit = null;
@@ -1149,6 +1243,28 @@ document.addEventListener("keydown", (event) => {
   if (!event.isComposing && (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo();
+  }
+  if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    if (!activeProjectId) return;
+    const selection = document.getSelection();
+    const text = selection && !selection.isCollapsed ? selection.toString().trim() : "";
+    const editor = selection?.anchorNode?.parentElement?.closest?.("[data-narration-editor]");
+    if (text && editor && editor.contains(selection.focusNode)) {
+      const range = selection.getRangeAt(0);
+      const prefix = range.cloneRange();
+      prefix.selectNodeContents(editor);
+      prefix.setEnd(range.startContainer, range.startOffset);
+      const rowId = editor.closest("[data-row-id]")?.dataset.rowId;
+      const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+      if (row?.type === "narration") {
+        openFootageForWords({ rowId, text: row.text, selection: {
+          start: prefix.toString().length, end: prefix.toString().length + range.toString().length,
+        }, seed: text, from: editor });
+        return;
+      }
+    }
+    void researchPanel.open({ from: document.activeElement });
   }
 });
 
@@ -1322,6 +1438,15 @@ async function connectBrowser() {
 }
 
 const connecting = connectBrowser();
+researchPanel = mountResearchPanel({
+  root: element("footage-panel"),
+  catalog: researchCatalogGet,
+  getDocument: () => scriptDocument,
+  insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
+    clipId: clip.id, clipVersion: clip.version, placement }),
+  gapChoices: availableGaps, rowChoices: availableNarrationRows,
+  onStatus: (message) => setSaveStatus(message),
+});
 const initialProject = new URLSearchParams(location.search).get("project");
 if (initialProject !== null) {
   openLink.value = initialProject;

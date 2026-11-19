@@ -873,7 +873,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
   const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect,
-    attaching, finishAttach, cancelAttach } =
+    attaching, finishAttach, cancelAttach, chooseFootage } =
     options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
@@ -911,6 +911,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     visualMenu.append(button);
     return button;
   });
+  if (typeof chooseFootage === "function") {
+    const footage = element(document, "button", "narration-editor__visual-choice narration-editor__visual-choice--footage", "Footage…");
+    footage.type = "button";
+    footage.dataset.visualType = "footage";
+    footage.setAttribute("role", "menuitem");
+    visualMenu.append(footage);
+    visualChoices.push(footage);
+  }
   const stageButton = element(document, "button", "narration-editor__action", "Make stage direction");
   stageButton.type = "button";
   const spokenButton = element(document, "button", "narration-editor__action", "Make spoken");
@@ -1472,7 +1480,15 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   actions.addEventListener("focusout", onVisualMenuFocusOut);
   document.addEventListener("pointerdown", dismissVisualMenu, true);
   const visualListeners = visualChoices.map((button) => {
-    const onClick = () => performAddVisual(button.dataset.visualType);
+    const onClick = () => {
+      if (button.dataset.visualType !== "footage") { performAddVisual(button.dataset.visualType); return; }
+      const selection = savedSelection && { ...savedSelection };
+      if (!selectedSpokenWords(localRow, selection)) return;
+      closeVisualMenu();
+      actions.hidden = true;
+      chooseFootage?.({ rowId: localRow.id, text: localRow.text, selection,
+        seed: localRow.text.slice(selection.start, selection.end), from: visualButton });
+    };
     button.addEventListener("mousedown", preserveActionSelection);
     button.addEventListener("click", onClick);
     return { button, onClick };

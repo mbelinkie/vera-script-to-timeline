@@ -627,6 +627,147 @@ describe("browser authoring over the local project service", () => {
     } finally { researchVisible = true; await page.close(); }
   });
 
+  it("shows r29 Footage project/search/usage, does not mutate on cancel, and saves one exact gap placement", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research Footage sidebar");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await expect.poll(() => page.getByRole("combobox", { name: "Research project" }).inputValue())
+      .toBe(loggedClip.projectId);
+    const search = page.getByRole("searchbox", { name: "Search title or transcript" });
+    await search.fill("English text");
+    await expect.poll(() => page.locator(".footage-item").count()).toBe(1);
+    await search.fill("synthetic"); // URL and other metadata must not be searchable.
+    await expect.poll(() => page.locator(".footage-item").count()).toBe(0);
+    await search.fill("Frozen research source");
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await page.getByRole("button", { name: "Cancel choice" }).click();
+    await page.getByRole("button", { name: "Close footage" }).click();
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`)).body).toMatchObject({ document: seeded.document });
+
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await page.getByRole("combobox", { name: "Destination gap" }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Place in script", exact: true }).click();
+    await expect.poll(async () => {
+      const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (result.body as SavedDocument).document.activeDraft.blocks.some((item) =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id);
+    }).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    await page.getByLabel("Show used").check();
+    await expect.poll(() => page.locator(".footage-item__usage").first().textContent()).toBe("Used 1×");
+    await page.getByRole("button", { name: "Jump to use 1" }).click();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"]:focus').count()).toBe(1);
+    const scriptBox = await page.locator(".script-paper").boundingBox();
+    expect(scriptBox?.width).toBeGreaterThan(400);
+    await page.reload();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card__source-state').first().textContent())
+      .toBe("Research · Playback unavailable");
+    await page.close();
+  }, 90_000);
+
+  it("opens word-selection quick footage, cancels by Escape, then inserts one selected-word picture", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Research quick footage picker");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Footage…" }).click();
+    await expect.poll(() => page.getByRole("heading", { name: "Choose footage for words" }).isVisible()).toBe(true);
+    await page.getByRole("searchbox", { name: "Search title or transcript" }).press("Escape");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Footage…" }).click();
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      return row?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === loggedClip.id);
+    }).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Undo Add footage" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual((seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId) as
+        Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>).primaryVisualSequence);
+    await page.close();
+  }, 90_000);
+
+  it("drags authorized Research footage to narration and an exact row gap with one Undo per placement", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const projectId = await createProject(page, origin, "Research drag to script");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.getByRole("button", { name: "Footage", exact: true }).click();
+    const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    await clip.dragTo(row.locator(".visuals-cell"));
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length).toBe(1);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
+    await page.getByRole("button", { name: "Undo Add footage" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.unattachedVisuals?.length ?? 0).toBe(0);
+    await clip.dragTo(page.locator("[data-row-gap]").first());
+    await expect.poll(async () => {
+      const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      return (result.body as SavedDocument).document.activeDraft.blocks.filter((item) =>
+        item.type === "visual_only" && item.researchClip?.clipId === loggedClip.id).length;
+    }).toBe(1);
+    await page.reload();
+    await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card').count()).toBeGreaterThan(0);
+    await page.close();
+  }, 90_000);
+
+  it("opens Footage by keyboard at 1024px, restores focus on Escape and reports no authorized project", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Keyboard accessible Research Footage");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator(`[data-row-id="${seeded.rowId}"]`).waitFor({ state: "visible" });
+    await page.locator("#script-title").focus();
+    await page.keyboard.press("Control+Shift+F");
+    await expect.poll(() => page.getByRole("searchbox", { name: "Search title or transcript" }).evaluate((node) =>
+      document.activeElement === node)).toBe(true);
+    expect((await page.locator(".script-paper").boundingBox())?.width).toBeGreaterThan(400);
+    await page.getByRole("searchbox", { name: "Search title or transcript" }).press("Escape");
+    expect(await page.getByRole("button", { name: "Footage", exact: true }).getAttribute("aria-expanded")).toBe("false");
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("script-title");
+    researchVisible = false;
+    try {
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator("[data-footage-status]").textContent())
+        .toContain("No logged Research projects");
+      expect(await page.locator(".footage-item").count()).toBe(0);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+      researchVisible = true;
+      await page.getByRole("button", { name: "Close footage" }).click();
+      await page.route("**/authoring/research/**", (route) => route.fulfill({ status: 503,
+        contentType: "application/json", body: JSON.stringify({ error: "research_unavailable" }) }));
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator("[data-footage-status]").textContent())
+        .toContain("Research projects could not be loaded");
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { researchVisible = true; await page.close(); }
+  }, 90_000);
+
   it("protects pure projection and range commands with the browser session and exact sequence version", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
