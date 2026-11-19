@@ -6,6 +6,8 @@ import {
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
+import type { createResearchClient } from "@vera/contracts/research-clip-client";
+import { ProjectAuthError } from "@vera/project-authorization";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
 
@@ -23,6 +25,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/visual-only-actions.js", ["visual-only-actions.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
+const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/u;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
@@ -147,11 +150,54 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
   return !!value && PROOF.test(value) && timingSafeEqual(Buffer.from(value, "hex"), expected);
 }
 
+/** No quote mutation, request transport or bearer crosses this browser-facing seam. */
+export type AuthoringReadOnlyResearchCatalog = Pick<ReturnType<typeof createResearchClient>,
+  "projects" | "clips" | "clip">;
+
+export interface AuthoringResearchAccess {
+  catalog: AuthoringReadOnlyResearchCatalog;
+  /** Fresh Timeline view_document permission for the trusted local authoring identity. */
+  authorizeTimelineProject(projectId: string): Promise<void>;
+}
+
+const RESEARCH_HEADERS = {
+  "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8",
+  "X-Content-Type-Options": "nosniff",
+};
+
+function researchResponse(status: number, body: unknown): Response {
+  return Response.json(body, { status, headers: RESEARCH_HEADERS });
+}
+
+/** Project-scoped transcript DTO only: upstream extras never reach the browser. */
+function publicResearchClip(candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>) {
+  const { id, projectId, catalogVideoId, version, createdBy, createdAt, updatedAt,
+    englishText, originalText } = candidate;
+  const { youtubeVideoId, canonicalUrl, title, channel, sourceLanguage } = candidate.video;
+  const { trackId, transcriptVersion, firstSegmentId, lastSegmentId, firstTokenId, lastTokenId,
+    transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision } = candidate.selection;
+  return {
+    id, projectId, catalogVideoId, version,
+    ...(createdBy === undefined ? {} : { createdBy }),
+    ...(createdAt === undefined ? {} : { createdAt }),
+    ...(updatedAt === undefined ? {} : { updatedAt }),
+    video: { youtubeVideoId, canonicalUrl, title,
+      ...(channel === undefined ? {} : { channel }),
+      ...(sourceLanguage === undefined ? {} : { sourceLanguage }) },
+    selection: { trackId, transcriptVersion, firstSegmentId, lastSegmentId,
+      ...(firstTokenId === undefined ? {} : { firstTokenId }),
+      ...(lastTokenId === undefined ? {} : { lastTokenId }),
+      transcriptStartMs, transcriptEndMs, exportStartMs, exportEndMs, text, timingPrecision },
+    englishText, ...(originalText === undefined ? {} : { originalText }),
+  };
+}
+
 /** Same-origin access to only the single-writer project/document routes. */
 export function createAuthoringHandler(
   origin: string,
   authorization: string,
   projects: (request: Request) => Promise<Response>,
+  research?: AuthoringResearchAccess,
 ) {
   const launchProof = randomBytes(32);
   // Keep the enrolled browser working after host restart. Tie it to the
@@ -185,6 +231,7 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
+    const researchRoute = RESEARCH.exec(path);
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
@@ -193,7 +240,8 @@ export function createAuthoringHandler(
     const isProjection = path === "/projection" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
-      (musicWarnings && request.method === "GET");
+      (musicWarnings && request.method === "GET") ||
+      (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
@@ -211,6 +259,43 @@ export function createAuthoringHandler(
     }
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (researchRoute) {
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      const timelineProjectId = researchRoute[1]!;
+      const researchProjectId = researchRoute[2];
+      const clipId = researchRoute[3];
+      // The browser session proves only that this is the local editor. It never
+      // substitutes for a fresh Timeline membership/permission check.
+      try {
+        await research.authorizeTimelineProject(timelineProjectId);
+      } catch (error) {
+        if (error instanceof ProjectAuthError) {
+          return researchResponse(error.status, { error: error.code });
+        }
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        // Independently recheck Research visibility on EVERY catalog/clip read;
+        // neither a UUID supplied by the browser nor a previous list is proof.
+        const visible = await research.catalog.projects();
+        if (!researchProjectId) {
+          return researchResponse(200, { projects: visible.map(({ id, name }) => ({ id, name })) });
+        }
+        if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        if (clipId) {
+          return researchResponse(200, { clip: publicResearchClip(
+            await research.catalog.clip(researchProjectId, clipId),
+          ) });
+        }
+        return researchResponse(200, { clips: (await research.catalog.clips(researchProjectId))
+          .map(publicResearchClip) });
+      } catch {
+        // Research's errors and headers can contain user data or credentials.
+        return researchResponse(503, { error: "research_unavailable" });
+      }
     }
     if (isProjection) {
       try {
