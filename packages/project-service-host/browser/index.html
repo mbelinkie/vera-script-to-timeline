@@ -49,9 +49,10 @@
           </label>
         </div>
 
-        <div class="toolbar-controls" role="group" aria-label="View settings">
+        <div class="toolbar-controls" role="group" aria-label="Script actions and view settings">
           <button id="undo" type="button" disabled>↶ Undo</button>
           <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
+          <button id="open-prompter" class="prompter-trigger" type="button" disabled>Export prompter…</button>
           <label class="range-control range-control--authoring">
             <span class="range-control__mark" aria-hidden="true">Aa</span>
             <input id="authoring-size" type="range" min="80" max="150" step="5" value="100" aria-label="Authoring size">
@@ -93,6 +94,27 @@
           <div id="script-rows" class="script-rows"></div>
         </section>
       </main>
+
+      <dialog id="prompter-dialog" class="prompter-dialog" aria-labelledby="prompter-heading">
+        <div class="prompter-dialog__heading">
+          <h2 id="prompter-heading">Export prompter</h2>
+          <button id="close-prompter" type="button" aria-label="Close prompter export">✕</button>
+        </div>
+        <p>Prepare the current saved script as spoken text and a matching performance-beat sidecar. Directions and Stash content are excluded.</p>
+        <label class="prompter-option"><input id="prompter-sections" type="checkbox"> Include section navigation</label>
+        <label class="prompter-option"><input id="prompter-beats" type="checkbox"> Include beat numbers</label>
+        <button id="prepare-prompter" class="prompter-primary" type="button">Prepare saved script</button>
+        <p id="prompter-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div id="prompter-ready" class="prompter-result" hidden>
+          <p id="prompter-snapshot"></p>
+          <p>Text SHA-256: <code id="prompter-text-hash"></code></p>
+          <p>Sidecar SHA-256: <code id="prompter-sidecar-hash"></code></p>
+          <div class="prompter-downloads">
+            <button id="download-prompter-text" type="button">Download text (.txt)</button>
+            <button id="download-prompter-sidecar" type="button">Download beat sidecar (.json)</button>
+          </div>
+        </div>
+      </dialog>
     </div>
   </body>
 </html>

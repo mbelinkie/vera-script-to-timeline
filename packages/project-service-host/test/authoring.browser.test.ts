@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
+import { exportPrompter } from "@vera/contracts/prompter-export";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -60,6 +61,7 @@ interface ApiResult {
 interface SavedDocument {
   readonly document: ScriptDocumentV2;
   readonly revision: number;
+  readonly digest: string;
 }
 
 interface BrowserVisualTestApi {
@@ -156,6 +158,35 @@ function narrationWords(text: string): Array<{ id: string; value: string; startO
   return [...text.matchAll(/[^\s[\]]+/gu)].map((match) => ({
     id: randomUUID(), value: match[0], startOffset: match.index, endOffset: match.index + match[0].length,
   }));
+}
+
+/** Valid, saved v2 narration: the expected bytes come from #37, not UI text assembly. */
+function prompterBrowserFixture(document: ScriptDocumentV2): ScriptDocumentV2 {
+  const result = structuredClone(document);
+  const rowId = randomUUID();
+  const text = "Spoken words. Another sentence!";
+  result.activeDraft.blocks = [{
+    type: "section", id: randomUUID(), title: "Act One", orderKey: "0", version: 1,
+  }, {
+    type: "narration", id: rowId, orderKey: "1", text, tokens: narrationWords(text),
+    primaryVisualSequence: { id: randomUUID(), version: 1, slots: [{
+      id: randomUUID(), version: 1, kind: "content", relation: { kind: "base" },
+      boundaryBefore: { kind: "row_start" },
+      payload: { kind: "on_camera", presenterChoiceId: null },
+      playoutPolicy: "match_structural_interval",
+    }] },
+    overlayEvents: [], timingPolicy: "narration_spine", state: "active", notes: [], version: 1,
+  }, {
+    type: "direction", id: randomUUID(), orderKey: "2", text: "NEVER SPEAK THIS DIRECTION",
+    buildBehavior: "none", version: 1,
+  }];
+  const savedId = randomUUID();
+  result.stash = [{ id: randomUUID(), rows: [{
+    type: "note_draft", id: savedId, orderKey: "parked", text: "STASH PRIVATE",
+    state: "excluded", version: 1,
+  }], supportingItems: [] }];
+  result.stashOutline = [{ rowId: savedId, kind: "row", parentRowId: null, sectionId: null }];
+  return result;
 }
 
 function editableDocumentFixture(
@@ -528,6 +559,231 @@ describe("browser authoring over the local project service", () => {
     await browser?.close();
     await host?.stop();
     await rm(directory, { recursive: true, force: true });
+  });
+
+  it("downloads the exact saved #37 text and sidecar bytes with matching hashes, without Stash or directions", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Saved prompter pair");
+    const initial = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const document = prompterBrowserFixture((initial.body as SavedDocument).document);
+    await saveDocumentFixture(page, projectId, document);
+    let prepareRequests = 0;
+    page.on("request", (request) => {
+      if (request.url().endsWith(`/${projectId}/prompter-export`) && request.method() === "POST") prepareRequests += 1;
+    });
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("ready to download");
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const expected = exportPrompter(saved.document, {
+      includeSectionNavigation: false, includeBeatNumbers: false,
+    });
+    expect(expected.ok).toBe(true);
+    if (!expected.ok) throw new Error("The saved fixture must be exportable");
+    expect(await page.locator("#prompter-snapshot").textContent()).toContain(saved.digest);
+    const downloadText = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    const textFile = await downloadText;
+    expect(textFile.suggestedFilename()).toBe(`vera-prompter-r${saved.revision}.txt`);
+    const textBytes = await readFile(await textFile.path());
+    expect(textBytes.equals(Buffer.from(expected.text, "utf8"))).toBe(true);
+    const downloadSidecar = page.waitForEvent("download");
+    await page.locator("#download-prompter-sidecar").click();
+    const sidecarFile = await downloadSidecar;
+    expect(sidecarFile.suggestedFilename()).toBe(`vera-prompter-r${saved.revision}.beats.json`);
+    const sidecarBytes = await readFile(await sidecarFile.path());
+    expect(sidecarBytes.equals(Buffer.from(expected.sidecarJson, "utf8"))).toBe(true);
+    expect(prepareRequests).toBe(1); // Both independent clicks consume the one pinned HTTP response.
+    const sha256 = (bytes: Buffer) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    expect(await page.locator("#prompter-text-hash").textContent()).toBe(sha256(textBytes));
+    expect(await page.locator("#prompter-sidecar-hash").textContent()).toBe(sha256(sidecarBytes));
+    const sidecar = JSON.parse(sidecarBytes.toString("utf8")) as {
+      sourceDocument: { liveHeadSequence: number };
+    };
+    expect(sidecar.sourceDocument.liveHeadSequence)
+      .toBe(saved.document.liveHeadSequence);
+    expect(textBytes.toString("utf8")).toContain("Spoken words.");
+    expect(textBytes.toString("utf8")).not.toMatch(/STASH PRIVATE|NEVER SPEAK THIS DIRECTION|\[SECTION:|\[BEAT /u);
+    expect(sidecarBytes.toString("utf8")).not.toMatch(/STASH PRIVATE|NEVER SPEAK THIS DIRECTION/u);
+
+    await page.locator("#prompter-sections").check();
+    await page.locator("#prompter-beats").check();
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("ready to download");
+    const withOptions = exportPrompter(saved.document, {
+      includeSectionNavigation: true, includeBeatNumbers: true,
+    });
+    expect(withOptions.ok).toBe(true);
+    if (!withOptions.ok) throw new Error("Fixture must support prompter options");
+    const optionalTextDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    const optionalText = await optionalTextDownload;
+    expect(await readFile(await optionalText.path())).toEqual(Buffer.from(withOptions.text, "utf8"));
+    expect(withOptions.text).toContain("[SECTION: Act One]");
+    expect(withOptions.text).toContain("[BEAT ");
+    const optionalSidecarDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-sidecar").click();
+    const optionalSidecar = await optionalSidecarDownload;
+    expect(await readFile(await optionalSidecar.path())).toEqual(Buffer.from(withOptions.sidecarJson, "utf8"));
+    expect(prepareRequests).toBe(2); // Settings require a new Prepare, not new download requests.
+    await page.locator("#close-prompter").click();
+    expect(await page.locator("#open-prompter").evaluate((el) => el === el.ownerDocument.activeElement)).toBe(true);
+    await page.close();
+  });
+
+  it("blocks prepared downloads during an unsaved edit, a pending PUT, and a conflict; reload recovers", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter unsafe states");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    let releasePut: () => void = () => undefined;
+    const heldPut = new Promise<void>((resolve) => { releasePut = resolve; });
+    let intercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() === "PUT" && !intercepted) {
+        intercepted = true;
+        await heldPut;
+      }
+      await route.continue();
+    });
+    // The modal must be closed to type; closing it also clears the pinned pair.
+    await page.locator("#close-prompter").click();
+    const editor = page.locator('[data-row-kind="narration"] [data-narration-editor]').first();
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("x");
+    await expect.poll(() => intercepted).toBe(true);
+    await expect.poll(() => page.locator("#open-prompter").isDisabled()).toBe(true);
+    releasePut();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+    await page.unroute(`**/authoring/projects/${projectId}/document`);
+
+    // A second writer updates the saved head without notifying this tab.
+    const latest = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const changed = structuredClone(latest.document);
+    changed.title = "Remote changed the script";
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: latest.revision, clientMutationId: randomUUID(), document: changed,
+    })).status).toBe(200);
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("y");
+    await expect.poll(() => page.locator("#save-status").textContent()).toContain("newer script");
+    await expect.poll(() => page.locator("#open-prompter").isDisabled()).toBe(true);
+    await page.reload();
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    await page.close();
+  });
+
+  it("reports 409 stale head and 422 validation without allowing either download", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter stale and invalid");
+    const original = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(original.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    const current = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const changed = structuredClone(current.document);
+    changed.title = "An updated title elsewhere";
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: current.revision, clientMutationId: randomUUID(), document: changed,
+    })).status).toBe(200);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Reload the script");
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await expect.poll(() => page.locator("#download-prompter-sidecar").isDisabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+
+    const newest = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const invalid = structuredClone(newest.document);
+    const narration = invalid.activeDraft.blocks.find((block) => block.type === "narration");
+    if (narration?.type !== "narration" || !narration.primaryVisualSequence) throw new Error("Missing narration");
+    narration.primaryVisualSequence.slots = [];
+    expect((await appRequest(page, `/authoring/projects/${projectId}/document`, "PUT", {
+      expectedRevision: newest.revision, clientMutationId: randomUUID(), document: invalid,
+    })).status).toBe(200);
+    await page.reload();
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Prompter validation failed");
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("primary visual");
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.close();
+  });
+
+  it("drops delayed export responses after settings change and project navigation; empty narration is honest", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Delayed prompter response");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let intercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/prompter-export`, async (route) => {
+      const response = await route.fetch();
+      intercepted = true;
+      await held;
+      await route.fulfill({ response });
+    });
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => intercepted).toBe(true);
+    await page.locator("#prompter-beats").check();
+    release();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("Settings changed");
+    await expect.poll(() => page.locator("#prepare-prompter").isEnabled()).toBe(true);
+    await expect.poll(() => page.locator("#download-prompter-text").isDisabled()).toBe(true);
+    await page.locator("#close-prompter").click();
+    await page.unroute(`**/authoring/projects/${projectId}/prompter-export`);
+    const emptyProjectId = await createProject(page, origin, "Empty narration export");
+
+    // A response belonging to a different project must not surface after navigation.
+    await page.goto(`${origin}/?project=${projectId}`);
+    let releaseNavigation: () => void = () => undefined;
+    const heldNavigation = new Promise<void>((resolve) => { releaseNavigation = resolve; });
+    let navigationIntercepted = false;
+    await page.route(`**/authoring/projects/${projectId}/prompter-export`, async (route) => {
+      const response = await route.fetch();
+      navigationIntercepted = true;
+      await heldNavigation;
+      await route.fulfill({ response }).catch(() => { /* Navigation may cancel the old request. */ });
+    });
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => navigationIntercepted).toBe(true);
+    await page.goto(`${origin}/?project=${emptyProjectId}`);
+    releaseNavigation();
+    await expect.poll(() => page.locator("#script-title").textContent()).toContain("Empty narration export");
+    expect(await page.locator("#prompter-dialog").evaluate((el) => (el as HTMLDialogElement).open)).toBe(false);
+    expect(await page.locator("#prompter-ready").isHidden()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prepare-prompter").click();
+    await expect.poll(() => page.locator("#prompter-status").textContent()).toContain("no spoken narration");
+    await expect.poll(() => page.locator("#download-prompter-text").isEnabled()).toBe(true);
+    const emptyDownload = page.waitForEvent("download");
+    await page.locator("#download-prompter-text").click();
+    expect(await readFile(await (await emptyDownload).path())).toEqual(Buffer.alloc(0));
+    await page.close();
   });
 
   it("protects pure projection and range commands with the browser session and exact sequence version", async () => {
