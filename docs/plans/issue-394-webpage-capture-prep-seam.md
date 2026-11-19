@@ -47,3 +47,25 @@ Deterministic focused evidence:
 capture-still golden fixtures under
 `tests/data/authoring_v2/issue_173/compiler/`. Phase 2 independently performs
 the full fast gate, integrity/authorization mutation checks and self-review.
+
+## Article and quote pictures (#641)
+
+For a public URL, the trusted host calls `requestPublicPagePictures` with the
+URL and, optionally, the exact passage and its prefix or suffix. It returns a
+top-of-page job and, when a passage was requested, a separate passage job.
+Poll each with `getJob` and retain its output revision ID. A missing or
+ambiguous passage can fail independently of the article picture. Manual
+recapture uses the existing job API with a fresh command ID and idempotency
+key. Earlier uses continue to name their original revisions.
+
+A passage PNG has one or more highlight rectangles in the revision’s
+restricted provenance at `output.highlightRects`. Each rectangle uses integer
+pixels from the top-left of the saved PNG. The pixels already include display
+scaling. The full article picture has no highlights.
+
+For an extension picture, call `intakeSuppliedPicture` with the supplied PNG
+bytes, picture kind and image-pixel rectangles. Save the returned capture and
+revision IDs as the authored `capture_revision` source. Supply the project
+store, authorization and reference ports, and the set of user-supplied capture
+IDs to `preparePublicWebpageVisuals`. It returns the verified PNG path,
+digest and highlight rectangles for that occurrence. It never fetches the source page.

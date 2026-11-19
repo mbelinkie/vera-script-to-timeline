@@ -1371,7 +1371,7 @@ export interface CreateCaptureRequest {
   clientRequestId: string;
   idempotencyKey: string;
   requestedUrl: string;
-  regionIntent: FullViewportRegion | RectangleRegion;
+  regionIntent: FullViewportRegion | RectangleRegion | PassageRegion;
   acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
   captureProfileId: string;
   captureProfileVersion: number;
@@ -1385,6 +1385,12 @@ export interface RectangleRegion {
   y: number;
   width: number;
   height: number;
+}
+export interface PassageRegion {
+  kind: "passage";
+  exact: string;
+  prefix?: string;
+  suffix?: string;
 }
 export interface ExecutableAcquisitionPolicy {
   kind: "now" | "on_build";
@@ -1402,7 +1408,7 @@ export interface CreateConfigurationVersionRequest {
   idempotencyKey: string;
   expectedCaptureRowVersion: number;
   requestedUrl: string;
-  regionIntent: FullViewportRegion | RectangleRegion;
+  regionIntent: FullViewportRegion | RectangleRegion | PassageRegion;
   acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
   captureProfileId: string;
   captureProfileVersion: number;
@@ -1485,7 +1491,7 @@ export interface CaptureConfigurationView {
   captureId: string;
   configurationVersion: number;
   requestedUrl: RedactedUrl;
-  regionIntent: FullViewportRegion | RectangleRegion;
+  regionIntent: FullViewportRegion | RectangleRegion | PassageRegion;
   acquisitionPolicy: ExecutableAcquisitionPolicy | ReservedPeriodicPolicy;
   captureProfileId: string;
   captureProfileVersion: number;
@@ -1700,6 +1706,7 @@ export interface LeaseAssignment {
   expiresAt: string;
   exactRequestedUrl: string;
   settingsDigest: string;
+  regionIntent?: FullViewportRegion | RectangleRegion | PassageRegion;
   profile: CaptureProfileV1;
 }
 export interface CaptureProfileV1 {
@@ -1744,7 +1751,7 @@ export interface CaptureProfileV1 {
     viewportWidth: number;
     viewportHeight: number;
     deviceScaleFactor: number;
-    region: FullViewportRegion | RectangleRegion;
+    region: FullViewportRegion | RectangleRegion | PassageRegion;
     encoding: "png";
     color: "srgb";
     background: "opaque_white";
@@ -2012,7 +2019,7 @@ export interface RequestRecord {
    */
   queryKeyNames: string[];
   settingsDigest: string;
-  captureProfileId: "vera-public-page-capture-v1";
+  captureProfileId: "vera-public-page-capture-v1" | "vera-public-page-capture-v2";
   captureProfileDigest: string;
   regionIntent:
     | {
@@ -2021,6 +2028,19 @@ export interface RequestRecord {
     | {
         kind: "element";
         selector: string;
+      }
+    | {
+        kind: "rectangle";
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }
+    | {
+        kind: "passage";
+        exact: string;
+        prefix?: string;
+        suffix?: string;
       };
   idempotencyScopeDigest: string;
   idempotencyKeyDigest: string;
@@ -2108,7 +2128,7 @@ export interface RuntimeRecord {
   javascriptMode: "disabled" | "sandboxed_bounded";
   locale: "en-US";
   timezone: "UTC";
-  userAgentProfile: "vera-public-page-capture-v1";
+  userAgentProfile: "vera-public-page-capture-v1" | "vera-public-page-capture-v2";
   viewport: {
     width: 1920;
     height: 1080;
@@ -2427,6 +2447,15 @@ export interface OutputRecord {
     width: number;
     height: number;
   };
+  /**
+   * @maxItems 64
+   */
+  highlightRects?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }[];
   decoder: string;
   byteIdentity: "new_raster" | "exact_byte_reuse";
   baselineRevisionId: string | null;

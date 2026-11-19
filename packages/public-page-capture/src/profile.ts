@@ -118,6 +118,27 @@ export const CAPTURE_PROFILE_V1 = deepFreeze({
   profileDigest: CAPTURE_PROFILE_V1_DIGEST,
 }) as unknown as Readonly<CaptureProfileV1>;
 
+/*
+ * v2 keeps the same public egress and raster envelope as v1.  The versioned
+ * profile adds passage targeting; the immutable job configuration supplies the
+ * actual region for each lease.
+ */
+const profileV2WithoutDigest = {
+  ...profileWithoutDigest,
+  profileVersion: 2,
+  render: {
+    ...profileWithoutDigest.render,
+    userAgent: "VERA Public Page Capture/2",
+  },
+} as const;
+
+export const CAPTURE_PROFILE_V2_DIGEST = sha256(profileV2WithoutDigest);
+
+export const CAPTURE_PROFILE_V2 = deepFreeze({
+  ...profileV2WithoutDigest,
+  profileDigest: CAPTURE_PROFILE_V2_DIGEST,
+}) as unknown as Readonly<CaptureProfileV1>;
+
 export const OUTPUT_WIDTH =
   profileWithoutDigest.render.viewportWidth *
   profileWithoutDigest.render.deviceScaleFactor;

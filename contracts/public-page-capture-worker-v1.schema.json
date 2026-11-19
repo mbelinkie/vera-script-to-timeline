@@ -326,7 +326,6 @@
         "expiresAt",
         "exactRequestedUrl",
         "settingsDigest",
-        "regionIntent",
         "profile"
       ],
       "properties": {

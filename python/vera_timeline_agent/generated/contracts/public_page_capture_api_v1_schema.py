@@ -102,7 +102,14 @@ class RectangleRegion(TypedDict):
     height: int
 
 
-type RegionIntent = FullViewportRegion | RectangleRegion
+class PassageRegion(TypedDict):
+    kind: Literal["passage"]
+    exact: str
+    prefix: NotRequired[str]
+    suffix: NotRequired[str]
+
+
+type RegionIntent = FullViewportRegion | RectangleRegion | PassageRegion
 
 
 class ExecutableAcquisitionPolicy(TypedDict):

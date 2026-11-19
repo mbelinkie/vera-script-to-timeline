@@ -79,6 +79,8 @@ import { CaptureDenied, inspectPublicUrl } from "./policy.js";
 import {
   CAPTURE_PROFILE_V1,
   CAPTURE_PROFILE_V1_DIGEST,
+  CAPTURE_PROFILE_V2,
+  CAPTURE_PROFILE_V2_DIGEST,
   OUTPUT_HEIGHT,
   OUTPUT_WIDTH,
 } from "./profile.js";
@@ -91,6 +93,80 @@ type SelectionIntent = Extract<
   RequestCaptureJobRequest["trigger"],
   { kind: "now" }
 >["selectionIntent"];
+
+type SupportedCaptureProfile = Readonly<CaptureProfileV1>;
+
+function profileFor(
+  profileId: string,
+  profileVersion: number,
+): SupportedCaptureProfile | null {
+  if (
+    profileId === CAPTURE_PROFILE_V1.profileId &&
+    profileVersion === CAPTURE_PROFILE_V1.profileVersion
+  ) {
+    return CAPTURE_PROFILE_V1;
+  }
+  if (
+    profileId === CAPTURE_PROFILE_V2.profileId &&
+    profileVersion === CAPTURE_PROFILE_V2.profileVersion
+  ) {
+    return CAPTURE_PROFILE_V2;
+  }
+  return null;
+}
+
+function profileForDigest(profileDigest: string): SupportedCaptureProfile | null {
+  if (profileDigest === CAPTURE_PROFILE_V1_DIGEST) return CAPTURE_PROFILE_V1;
+  if (profileDigest === CAPTURE_PROFILE_V2_DIGEST) return CAPTURE_PROFILE_V2;
+  return null;
+}
+
+function assertRegionForProfile(
+  profileVersion: number,
+  region: CreateCaptureRequest["regionIntent"],
+): void {
+  const isPassageText = (
+    value: unknown,
+    maximum: number,
+    requireNonblank: boolean,
+  ): value is string =>
+    typeof value === "string" &&
+    value.length <= maximum &&
+    (!requireNonblank || value.trim().length > 0) &&
+    // eslint-disable-next-line no-control-regex -- Authored passage text cannot contain controls.
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value);
+  if (profileVersion === 1 && region.kind === "passage") {
+    throw new CaptureServiceError(
+      "request_invalid",
+      "Passage capture requires the v2 capture profile.",
+      false,
+      ["/regionIntent"],
+    );
+  }
+  if (profileVersion === 2 && region.kind === "rectangle") {
+    throw new CaptureServiceError(
+      "request_invalid",
+      "The v2 capture profile accepts only full-viewport or passage regions.",
+      false,
+      ["/regionIntent"],
+    );
+  }
+  if (
+    region.kind === "passage" &&
+    (!isPassageText(region.exact, 4096, true) ||
+      (region.prefix !== undefined &&
+        !isPassageText(region.prefix, 512, false)) ||
+      (region.suffix !== undefined &&
+        !isPassageText(region.suffix, 512, false)))
+  ) {
+    throw new CaptureServiceError(
+      "request_invalid",
+      "The passage selector is malformed or exceeds its limit.",
+      false,
+      ["/regionIntent"],
+    );
+  }
+}
 
 interface CaptureRow {
   readonly acquisition_policy: "now" | "on_build" | "periodic_reserved";
@@ -141,6 +217,7 @@ interface JobRow {
   readonly request_id: string;
   readonly requested_at: Date | string;
   readonly retry_budget: number;
+  readonly region_intent: unknown;
   readonly row_version: string | number;
   readonly settings_digest: Uint8Array;
   readonly state: CaptureJobView["state"];
@@ -428,6 +505,10 @@ export class CaptureService {
       "capture_create",
     );
     this.assertProfile(request.captureProfileId, request.captureProfileVersion);
+    assertRegionForProfile(
+      request.captureProfileVersion,
+      request.regionIntent,
+    );
     const inspected = this.inspectOrDeny(request.requestedUrl);
     const captureId = this.id();
     const settings = this.captureSettings(
@@ -602,6 +683,10 @@ export class CaptureService {
       "capture_configure",
     );
     this.assertProfile(request.captureProfileId, request.captureProfileVersion);
+    assertRegionForProfile(
+      request.captureProfileVersion,
+      request.regionIntent,
+    );
     const inspected = this.inspectOrDeny(request.requestedUrl);
     const keyDigest = sha256(request.idempotencyKey);
     const fingerprint = sha256({
@@ -927,6 +1012,18 @@ export class CaptureService {
           current.capture_profile_id,
           integer(current.capture_profile_version),
         );
+        const profile = profileFor(
+          current.capture_profile_id,
+          integer(current.capture_profile_version),
+        );
+        if (!profile) {
+          throw new CaptureServiceError(
+            "request_invalid",
+            "The capture profile is not supported.",
+            false,
+            ["/captureProfileId"],
+          );
+        }
         const triggerReference =
           request.trigger.kind === "now"
             ? {
@@ -987,9 +1084,9 @@ export class CaptureService {
             current.settings_digest,
             current.capture_profile_id,
             integer(current.capture_profile_version),
-            JSON.stringify(CAPTURE_PROFILE_V1),
-            digestBytes(CAPTURE_PROFILE_V1_DIGEST),
-            CAPTURE_PROFILE_V1.limits.retries,
+            JSON.stringify(profile),
+            digestBytes(profile.profileDigest),
+            profile.limits.retries,
             selectionIntent === null ? null : JSON.stringify(selectionIntent),
             now,
           ],
@@ -1810,6 +1907,7 @@ export class CaptureService {
         >(
           `SELECT j.*, cfg.canonical_url_digest,
                   cfg.restricted_request_envelope,
+                  cfg.region_intent,
                   j.capture_profile_json
              FROM capture_jobs j
              JOIN capture_configurations cfg
@@ -1834,7 +1932,12 @@ export class CaptureService {
         }
         const profile = json<CaptureProfileV1>(job.capture_profile_json);
         this.assertProfile(profile.profileId, profile.profileVersion);
-        if (profile.profileDigest !== digestString(job.profile_digest)) {
+        const expectedProfile = profileForDigest(profile.profileDigest);
+        if (
+          !expectedProfile ||
+          profile.profileDigest !== expectedProfile.profileDigest ||
+          profile.profileDigest !== digestString(job.profile_digest)
+        ) {
           throw new CaptureServiceError(
             "object_verification_unavailable",
             "The queued capture profile could not be verified.",
@@ -1965,6 +2068,9 @@ export class CaptureService {
           expiresAt: expiresAt.toISOString(),
           exactRequestedUrl,
           settingsDigest: digestString(job.settings_digest),
+          regionIntent: json<CreateCaptureRequest["regionIntent"]>(
+            job.region_intent,
+          ),
           profile,
         };
       },
@@ -2502,7 +2608,27 @@ export class CaptureService {
       }
       throw error;
     }
-    this.assertRevisionProvenance(provenance, claims, verifiedRaster, request);
+    const configured = await this.captureConfigurationForCapability(claims);
+    const expectedProfile = profileForDigest(claims.profileDigest);
+    if (
+      !expectedProfile ||
+      configured.captureProfileId !== expectedProfile.profileId ||
+      configured.captureProfileVersion !== expectedProfile.profileVersion
+    ) {
+      throw new CaptureServiceError(
+        "object_verification_unavailable",
+        "The capture profile no longer matches the immutable job configuration.",
+        false,
+      );
+    }
+    this.assertRevisionProvenance(
+      provenance,
+      claims,
+      verifiedRaster,
+      request,
+      configured.regionIntent,
+      expectedProfile,
+    );
 
     const job = await this.loadJobForCapability(claims);
     const initiatingPrincipal: PrincipalRef = {
@@ -2918,6 +3044,12 @@ export class CaptureService {
     );
     const evidence = this.parseProvenance(candidate.bytes);
     const terminal = evidence.terminal;
+    const configured = await this.captureConfigurationForCapability(claims);
+    const expectedProfile = profileForDigest(claims.profileDigest);
+    const expectedProfileName =
+      expectedProfile?.profileVersion === CAPTURE_PROFILE_V2.profileVersion
+        ? "vera-public-page-capture-v2"
+        : "vera-public-page-capture-v1";
     if (
       evidence.recordType !== "terminal_attempt_evidence" ||
       evidence.identity.projectId !== claims.projectId ||
@@ -2927,6 +3059,14 @@ export class CaptureService {
       evidence.identity.attemptId !== claims.plannedAttemptId ||
       evidence.identity.revisionId !== null ||
       evidence.runtime.installationId !== claims.workerInstallationId ||
+      !expectedProfile ||
+      configured.captureProfileId !== expectedProfile.profileId ||
+      configured.captureProfileVersion !== expectedProfile.profileVersion ||
+      evidence.request.settingsDigest !== claims.settingsDigest ||
+      evidence.request.captureProfileDigest !== claims.profileDigest ||
+      evidence.request.captureProfileId !== expectedProfileName ||
+      canonicalJson(evidence.request.regionIntent) !==
+        canonicalJson(configured.regionIntent) ||
       evidence.output !== null ||
       evidence.change !== null ||
       terminal === null ||
@@ -3358,13 +3498,80 @@ export class CaptureService {
     return value as PublicPageCaptureProvenanceV1;
   }
 
+  private async captureConfigurationForCapability(
+    claims: LeaseClaims,
+  ): Promise<{
+    readonly captureProfileId: string;
+    readonly captureProfileVersion: number;
+    readonly regionIntent: CreateCaptureRequest["regionIntent"];
+  }> {
+    return await this.dependencies.database.transaction(async (client) => {
+      const result = await client.query<{
+        capture_profile_id: string;
+        capture_profile_version: string | number;
+        region_intent: unknown;
+      }>(
+        `SELECT capture_profile_id, capture_profile_version, region_intent
+           FROM capture_configurations
+          WHERE project_id = $1 AND capture_id = $2
+            AND configuration_version = $3`,
+        [claims.projectId, claims.captureId, claims.configurationVersion],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new CaptureServiceError(
+          "object_verification_unavailable",
+          "The immutable capture configuration is unavailable.",
+          false,
+        );
+      }
+      return {
+        captureProfileId: row.capture_profile_id,
+        captureProfileVersion: integer(row.capture_profile_version),
+        regionIntent: json<CreateCaptureRequest["regionIntent"]>(
+          row.region_intent,
+        ),
+      };
+    });
+  }
+
   private assertRevisionProvenance(
     provenance: PublicPageCaptureProvenanceV1,
     claims: LeaseClaims,
     raster: ReturnType<typeof verifyPng>,
     request: CommitAttemptRequest,
+    regionIntent: CreateCaptureRequest["regionIntent"],
+    profile: SupportedCaptureProfile,
   ): void {
     const output = provenance.output;
+    const profileName =
+      profile.profileVersion === CAPTURE_PROFILE_V2.profileVersion
+        ? "vera-public-page-capture-v2"
+        : "vera-public-page-capture-v1";
+    const highlightRects = output?.highlightRects ?? [];
+    const geometryValid =
+      output !== null &&
+      output.capturedRegion.x === 0 &&
+      output.capturedRegion.y === 0 &&
+      output.capturedRegion.width === raster.width &&
+      output.capturedRegion.height === raster.height &&
+      highlightRects.every(
+        (rect) =>
+          rect.x >= 0 &&
+          rect.y >= 0 &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.x + rect.width <= raster.width &&
+          rect.y + rect.height <= raster.height,
+      );
+    const regionValid =
+      output !== null &&
+      canonicalJson(provenance.request.regionIntent) ===
+        canonicalJson(regionIntent) &&
+      provenance.request.captureProfileId === profileName &&
+      (regionIntent.kind === "passage"
+        ? highlightRects.length > 0
+        : highlightRects.length === 0);
     if (
       provenance.recordType !== "revision_observation" ||
       provenance.identity.projectId !== claims.projectId ||
@@ -3381,6 +3588,8 @@ export class CaptureService {
       provenance.identity.revisionId === null ||
       provenance.request.settingsDigest !== claims.settingsDigest ||
       provenance.request.captureProfileDigest !== claims.profileDigest ||
+      !geometryValid ||
+      !regionValid ||
       provenance.runtime.installationId !== claims.workerInstallationId ||
       !output ||
       output.raster.digest !== raster.digest ||
@@ -3841,12 +4050,15 @@ export class CaptureService {
   ): Promise<PublicPageCaptureProvenanceV1> {
     const configuration = await client.query<
       ConfigurationSecretRow & {
+        readonly capture_profile_id: string;
+        readonly capture_profile_version: string | number;
         readonly query_key_names: unknown;
         readonly redacted_url_display: string;
         readonly region_intent: unknown;
       }
     >(
       `SELECT canonical_url_digest, configuration_version,
+              capture_profile_id, capture_profile_version,
               restricted_request_envelope, redacted_url_display,
               query_key_names, region_intent
          FROM capture_configurations
@@ -3870,17 +4082,24 @@ export class CaptureService {
         canonicalUrlDigest,
       },
     );
-    const region = json<
-      | { kind: "full_viewport" }
-      | { height: number; kind: "rectangle"; width: number; x: number; y: number }
-    >(config.region_intent);
-    const provenanceRegion =
-      region.kind === "full_viewport"
-        ? region
-        : {
-            kind: "element" as const,
-            selector: `vera-rectangle-${region.x}-${region.y}-${region.width}-${region.height}`,
-          };
+    const region = json<CreateCaptureRequest["regionIntent"]>(
+      config.region_intent,
+    );
+    const profile = profileFor(
+      config.capture_profile_id,
+      integer(config.capture_profile_version),
+    );
+    if (!profile || profile.profileDigest !== current.claims.profileDigest) {
+      throw new CaptureServiceError(
+        "object_verification_unavailable",
+        "The final provenance profile does not match the immutable configuration.",
+        false,
+      );
+    }
+    const profileName =
+      profile.profileVersion === CAPTURE_PROFILE_V2.profileVersion
+        ? "vera-public-page-capture-v2"
+        : "vera-public-page-capture-v1";
     const classification =
       change.signal === "initial_observation"
         ? "first_observation"
@@ -3951,9 +4170,9 @@ export class CaptureService {
         ).replace("hmac-sha256-v1:", "hmac-sha256:"),
         queryKeyNames: json<string[]>(config.query_key_names),
         settingsDigest: current.claims.settingsDigest,
-        captureProfileId: "vera-public-page-capture-v1" as const,
+        captureProfileId: profileName,
         captureProfileDigest: current.claims.profileDigest,
-        regionIntent: provenanceRegion,
+        regionIntent: region,
         idempotencyScopeDigest: sha256({
           projectId: current.claims.projectId,
           captureId: current.claims.captureId,
@@ -3992,6 +4211,7 @@ export class CaptureService {
           width: OUTPUT_WIDTH,
           height: OUTPUT_HEIGHT,
         },
+        highlightRects: candidate.output?.highlightRects ?? [],
         decoder: "pngjs-7",
         byteIdentity: rasterReused
           ? ("exact_byte_reuse" as const)
@@ -4586,7 +4806,15 @@ export class CaptureService {
       [job.project_id, job.job_id],
     );
     const profile = json<CaptureProfileV1>(result.rows[0]?.capture_profile_json);
-    if (!profile || profile.profileDigest !== digestString(job.profile_digest)) {
+    const expectedProfile = profile
+      ? profileFor(profile.profileId, profile.profileVersion)
+      : null;
+    if (
+      !profile ||
+      !expectedProfile ||
+      profile.profileDigest !== expectedProfile.profileDigest ||
+      profile.profileDigest !== digestString(job.profile_digest)
+    ) {
       throw new CaptureServiceError(
         "object_verification_unavailable",
         "The frozen capture profile could not be verified.",
@@ -4606,10 +4834,7 @@ export class CaptureService {
   }
 
   private assertProfile(profileId: string, profileVersion: number): void {
-    if (
-      profileId !== CAPTURE_PROFILE_V1.profileId ||
-      profileVersion !== CAPTURE_PROFILE_V1.profileVersion
-    ) {
+    if (!profileFor(profileId, profileVersion)) {
       throw new CaptureServiceError(
         "request_invalid",
         "The capture profile is not supported.",
