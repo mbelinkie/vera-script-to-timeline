@@ -67,6 +67,8 @@ VAD_SETTINGS = {
     "padS": PAD_S,
     "maxSegmentS": MAX_SEGMENT_S,
 }
+_CANCEL_POLL_S = 0.1
+_STOP_GRACE = ((signal.SIGTERM, 15.0), (signal.SIGKILL, 10.0))
 
 
 @dataclass(frozen=True)
@@ -136,27 +138,76 @@ def _group_alive(pgid: int) -> bool:
     return True
 
 
-def _stop_group(proc: subprocess.Popen[str]) -> None:
-    """SIGTERM the engine's process group, then SIGKILL whatever survives."""
-    for sig, grace in ((signal.SIGTERM, 15.0), (signal.SIGKILL, 10.0)):
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(proc.pid, sig)
-        deadline = time.monotonic() + grace
-        while time.monotonic() < deadline:
-            proc.poll()  # reap the leader so it does not linger as a zombie
-            if not _group_alive(proc.pid):
-                break
-            time.sleep(0.05)
-        else:
-            continue
-        break
-    with contextlib.suppress(subprocess.TimeoutExpired):
-        proc.communicate(timeout=1.0)
+def _stop_group(proc: subprocess.Popen[str]) -> bool:
+    """Stop the entire engine group and confirm that it is gone."""
+    try:
+        if proc.returncode is not None:
+            return not _group_alive(proc.pid)
+        for sig, grace in _STOP_GRACE:
+            if proc.returncode is not None and not _group_alive(proc.pid):
+                return True
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(proc.pid, sig)
+            deadline = time.monotonic() + grace
+            while time.monotonic() < deadline:
+                if proc.poll() is not None and not _group_alive(proc.pid):
+                    return True
+                time.sleep(0.05)
+        return proc.poll() is not None and not _group_alive(proc.pid)
+    finally:
+        # Discard engine output without waiting for EOF from any surviving child.
+        for pipe in (proc.stdout, proc.stderr):
+            if pipe is not None:
+                pipe.close()
+
+
+def check_cancelled(cancel_file: Path | None, port: Port = "aligner") -> None:
+    if cancel_file is None:
+        return
+    try:
+        cancel_file.stat()
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        raise PortRefusal(
+            port, "input-invalid", "Could not check the cancellation file."
+        ) from error
+    raise PortRefusal(
+        port, "cancelled", "Alignment was cancelled and its engines have stopped."
+    )
+
+
+def _communicate(
+    proc: subprocess.Popen[str], timeout: float, cancel_file: Path | None, port: Port
+) -> tuple[str, str]:
+    if cancel_file is None:
+        return proc.communicate(timeout=timeout)
+    deadline = time.monotonic() + timeout
+    while True:
+        check_cancelled(cancel_file, port)
+        remaining = max(0.0, deadline - time.monotonic())
+        try:
+            return proc.communicate(timeout=min(_CANCEL_POLL_S, remaining))
+        except subprocess.TimeoutExpired:
+            if time.monotonic() >= deadline:
+                raise
+
+
+def _shutdown_unconfirmed(port: Port) -> PortRefusal:
+    return PortRefusal(
+        port, "shutdown-unconfirmed", "Could not confirm that all job engines stopped."
+    )
 
 
 def run_engine(
-    cmd: list[str], *, port: Port, env: dict[str, str] | None, timeout: float
+    cmd: list[str],
+    *,
+    port: Port,
+    env: dict[str, str] | None,
+    timeout: float,
+    cancel_file: Path | None = None,
 ) -> str:
+    check_cancelled(cancel_file, port)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -167,20 +218,33 @@ def run_engine(
             start_new_session=True,  # its own process group, so timeouts reach children
         )
     except FileNotFoundError as error:
+        check_cancelled(cancel_file, port)
         raise PortRefusal(
             port, "runtime-missing", f"Engine runtime not found: {Path(cmd[0]).name}"
         ) from error
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired as error:
-        # Stop the whole engine process tree (MFA spawns children) and wait until
-        # no member of the group is left, so callers holding the MFA lock only
-        # release it once every engine process is gone. The wrapper exiting is
-        # not enough: a child can ignore SIGTERM and outlive it.
-        _stop_group(proc)
+        stdout, stderr = _communicate(proc, timeout, cancel_file, port)
+    except (PortRefusal, subprocess.TimeoutExpired, OSError, UnicodeError) as error:
+        if cancel_file is None and not isinstance(error, subprocess.TimeoutExpired):
+            raise
+        stopped = _stop_group(proc)
+        if cancel_file is not None and not stopped:
+            raise _shutdown_unconfirmed(port) from error
+        if isinstance(error, PortRefusal):
+            raise
+        check_cancelled(cancel_file, port)
+        if not isinstance(error, subprocess.TimeoutExpired):
+            raise
         raise PortRefusal(
             port, "timeout", "Engine run timed out.", retryable=True
         ) from error
+    if cancel_file is not None:
+        # A child can close its pipes and outlive the wrapper. Check before
+        # acknowledging a stop. Once reaped, the leader's ID can be reused,
+        # so don't send termination signals on this path.
+        if _group_alive(proc.pid):
+            raise _shutdown_unconfirmed(port)
+        check_cancelled(cancel_file, port)
     done = subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
     if done.returncode != 0:
         # Engine output can contain private paths, so it goes to a local log,
@@ -201,7 +265,11 @@ def run_engine(
 
 
 def speech_segments(
-    config: EngineConfig, audio: AudioRef, port: Port
+    config: EngineConfig,
+    audio: AudioRef,
+    port: Port,
+    *,
+    cancel_file: Path | None = None,
 ) -> list[tuple[float, float]]:
     if config.tools_python is None or not config.tools_python.exists():
         raise PortRefusal(
@@ -219,6 +287,7 @@ def speech_segments(
             port=port,
             env=None,
             timeout=config.timeout_s,
+            cancel_file=cancel_file,
         )
     )
     regions = [(float(s), float(e)) for s, e in out["speechRegions"]]
@@ -429,13 +498,24 @@ class CanaryRecognizer:
 
 
 @contextmanager
-def _mfa_lock(home: Path) -> Iterator[None]:
+def _mfa_lock(home: Path, *, cancel_file: Path | None = None) -> Iterator[None]:
+    check_cancelled(cancel_file)
     home.mkdir(parents=True, exist_ok=True)
     with (home / ".vera-mfa.lock").open("w") as f:
-        fcntl.flock(
-            f, fcntl.LOCK_EX
-        )  # MFA runs share temp state; never run two at once
+        # MFA runs share temp state; never run two at once.
+        if cancel_file is None:
+            fcntl.flock(f, fcntl.LOCK_EX)
+        else:
+            while True:
+                check_cancelled(cancel_file)
+                try:
+                    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    time.sleep(_CANCEL_POLL_S)
+                else:
+                    break
         try:
+            check_cancelled(cancel_file)
             yield
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
@@ -446,6 +526,8 @@ def prepare_segments(
     audio: AudioRef,
     recognition: Json,
     reconciliation: Json | None,
+    *,
+    cancel_file: Path | None = None,
 ) -> tuple[list[Segment], Json]:
     """Aligner units grouped into VAD segments, plus the aligner-contract payload.
 
@@ -463,7 +545,11 @@ def prepare_segments(
             units.append(Unit(t["index"], sub, texts.get((t["index"], sub), text)))
             s, e = t["anchorStartMs"], t["anchorEndMs"]
             anchors.append(None if s is None or e is None else (s / 1000, e / 1000))
-    segments = assign_units(units, anchors, speech_segments(config, audio, "aligner"))
+    segments = assign_units(
+        units,
+        anchors,
+        speech_segments(config, audio, "aligner", cancel_file=cancel_file),
+    )
     if units and not segments:
         raise PortRefusal(
             "aligner",
@@ -529,7 +615,9 @@ class MfaAligner:
         *,
         policy: ProjectPolicy,
         reconciliation: Json | None = None,
+        cancel_file: Path | None = None,
     ) -> Json:
+        check_cancelled(cancel_file)
         require_language(
             self.capabilities(), recognition["identity"]["language"], "aligner"
         )
@@ -543,7 +631,9 @@ class MfaAligner:
                 "MFA runtime (VERA_MFA_COMMAND) is not configured.",
             )
         _check_wav(audio, "aligner")
-        segments, payload = prepare_segments(cfg, audio, recognition, reconciliation)
+        segments, payload = prepare_segments(
+            cfg, audio, recognition, reconciliation, cancel_file=cancel_file
+        )
         home = cfg.mfa_home or Path(tempfile.gettempdir()) / "vera-mfa"
         with tempfile.TemporaryDirectory(prefix="vera-mfa-in-") as tmp:
             seg_file, out = Path(tmp) / "segments.json", Path(tmp) / "result.json"
@@ -562,12 +652,15 @@ class MfaAligner:
             ]
             if self.extra_dictionary is not None:
                 cmd += ["--extra-dict", str(self.extra_dictionary)]
-            with _mfa_lock(home):
+            if cancel_file is not None:
+                cmd.append("--use-sqlite")
+            with _mfa_lock(home, cancel_file=cancel_file):
                 run_engine(
                     cmd,
                     port="aligner",
                     env={**cfg.mfa_env, "VERA_MFA_HOME": str(home)},
                     timeout=cfg.timeout_s,
+                    cancel_file=cancel_file,
                 )
             result = json.loads(out.read_text())
         rows = {(r["i"], r.get("sub", 0)): r for r in result["words"]}

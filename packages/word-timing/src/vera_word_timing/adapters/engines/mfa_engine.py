@@ -76,6 +76,7 @@ def main():
         "dictionary's entries for those words",
     )
     ap.add_argument("-j", "--jobs", type=int, default=min(4, os.cpu_count() or 1))
+    ap.add_argument("--use-sqlite", action="store_true")
     a = ap.parse_args()
     v = VARIANTS[a.variant]
     t0 = time.time()
@@ -152,6 +153,9 @@ def main():
         "--output_format",
         "long_textgrid",
     ]
+    if a.use_sqlite:
+        # MFA's PostgreSQL server can detach from the supervised process group.
+        cmd.append("--no_use_postgres")
     r = subprocess.run(cmd, env=env, capture_output=True, text=True)
     log = HOME / "cache" / f"mfa-last-{a.variant}.log"
     log.parent.mkdir(parents=True, exist_ok=True)

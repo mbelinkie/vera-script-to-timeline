@@ -22,6 +22,7 @@ RefusalCode = Literal[
     "provider-failed",
     "timeout",
     "cancelled",
+    "shutdown-unconfirmed",
 ]
 
 
