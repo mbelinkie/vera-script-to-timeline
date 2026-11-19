@@ -18,6 +18,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/rows-editor.css", ["rows-editor.css", "text/css; charset=utf-8"]],
   ["/narration-editor.js", ["narration-editor.js", "text/javascript; charset=utf-8"]],
   ["/narration-editor.css", ["narration-editor.css", "text/css; charset=utf-8"]],
+  ["/visual-selection.js", ["visual-selection.js", "text/javascript; charset=utf-8"]],
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const PROOF = /^[0-9a-f]{64}$/u;

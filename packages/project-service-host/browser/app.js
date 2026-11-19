@@ -16,6 +16,10 @@ const retrySave = element("retry-save");
 const openSaved = element("conflict-open-saved");
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
+const visualCommandKinds = new Set([
+  "add_visual_on_selection", "change_visual_type", "delete_visual",
+  "set_visual_range", "set_on_camera_framing",
+]);
 let project;
 let scriptDocument;
 let documentRevision;
@@ -223,10 +227,11 @@ async function saveDocument() {
   else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
-async function applyBrowserCommand(document, command, splitProof) {
+async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
   const response = await fetch("/authoring/command", {
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
-    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}) }),
+    body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
+      ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();
@@ -331,6 +336,13 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    const sequenceVersion = visualCommandKinds.has(resolved?.kind) ? (() => {
+      const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved.blockId);
+      if (row?.type !== "narration" || !Number.isSafeInteger(row.primaryVisualSequence?.version)) {
+        throw new Error("The selected visual sequence is no longer available.");
+      }
+      return row.primaryVisualSequence.version;
+    })() : undefined;
     if (options.paste) {
       typingGroup = null;
       const result = await applyPlainPaste(scriptDocument, resolved);
@@ -354,7 +366,7 @@ function queueCommand(command, label, options = {}) {
     const previous = options.focusPrevious ? scriptDocument.activeDraft.blocks[
       scriptDocument.activeDraft.blocks.findIndex((item) => item.id === resolved.rowId) - 1
     ] : null;
-    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof);
+    const result = await applyBrowserCommand(scriptDocument, resolved, replay?.proof, sequenceVersion);
     // Never join a paragraph, paste, selection replacement, stage action or
     // structural command to typing. Consecutive scalar insertions/backspaces
     // at the same caret are eligible; a changed cursor/session breaks the run.

@@ -1837,6 +1837,117 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([
+    ["first", 0, 5, "Onscreen Placeholder", "intentional_placeholder"],
+    ["middle", 6, 10, "Need to Find", "unresolved_visual"],
+    ["last", 17, 22, "Visual Undefined", "undefined"],
+  ])("adds a %s selected-word visual via type menu, one Undo and a saved reload", async (
+    _edge, start, end, label, pictureKind,
+  ) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, `Add visual ${_edge}`);
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    const source = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (source?.type !== "narration") throw new Error("missing source narration row");
+    const originalIds = new Set(source.primaryVisualSequence?.slots.map((slot) => slot.id));
+    const added = async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.slots
+      .filter((slot) => slot.kind === "content" && !originalIds.has(slot.id)) ?? [];
+
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(true);
+    expect(await page.getByRole("menuitem").allTextContents()).toEqual([
+      "Onscreen Placeholder", "Need to Find", "Visual Undefined",
+    ]);
+    await page.getByRole("menuitem", { name: label }).click();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    const slot = (await added())[0];
+    if (!slot || slot.kind !== "content") throw new Error("Add did not create a content slot");
+    if (pictureKind === "undefined") expect(slot.payload.kind).toBe("undefined");
+    else expect(slot.payload).toMatchObject({ kind: "visual", pictureKind });
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add visual"]);
+
+    await page.getByRole("button", { name: "Undo Add visual" }).click();
+    await expect.poll(async () => (await added()).length).toBe(0);
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: label }).click();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    await page.reload();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    expect(await page.locator(`[data-row-id="${seeded.rowId}"] .visual-card`).count()).toBeGreaterThan(1);
+    await page.close();
+  }, 90_000);
+
+  it("hides Add on stage-only/collapsed selection; Escape and outside click cancel with no history", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Add visual cancellation");
+    const seeded = editableDocumentFixture(projectId, "alpha [quiet] beta");
+    const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (row?.type !== "narration") throw new Error("missing stage direction fixture row");
+    row.tokens.find((token) => token.value === "quiet")!.spoken = false;
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 7, 12);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).isVisible()).toBe(false);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Need to Find" }).press("Escape");
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(false);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).evaluate((node) =>
+      document.activeElement === node)).toBe(true);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.locator("#script-title").click();
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(false);
+    await placeCaret(editor, 3);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).isVisible()).toBe(false);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    const stored = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(stored?.primaryVisualSequence?.slots).toEqual(row.primaryVisualSequence?.slots);
+    await page.close();
+  }, 90_000);
+
+  it("resolves selected token IDs after earlier queued typing instead of using optimistic IDs", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Queued typing before Add visual");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let slowed = false;
+    await page.route("**/authoring/command", async (route) => {
+      const input = route.request().postDataJSON() as { command: { kind: string } };
+      if (!slowed && input.command.kind === "edit_narration_text") {
+        slowed = true;
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+      await route.continue();
+    });
+    await placeCaret(editor, "alpha beta gamma".length);
+    await editor.press(" ");
+    await editor.type("zeta");
+    await selectText(editor, "alpha beta gamma ".length, "alpha beta gamma zeta".length);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Need to Find" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe("alpha beta gamma zeta");
+    await expect.poll(async () => {
+      const stored = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const appended = stored?.tokens.find((token) => token.value === "zeta");
+      return stored?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.pictureKind === "unresolved_visual" &&
+        slot.boundaryBefore.kind === "spoken_word" && slot.boundaryBefore.anchor.tokenId === appended?.id);
+    }).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add visual", "Edit narration"]);
+    await page.close();
+  }, 90_000);
+
   it("offers selection structure actions in accepted order for first, last, whole and interior words", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -1848,13 +1959,13 @@ describe("browser authoring over the local project service", () => {
     const visible = () => page.locator(`[data-row-id="${seeded.rowIds[1]}"] .narration-editor__actions button:visible`).allTextContents();
 
     await selectText(editor, 0, "alpha beta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to previous row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row"]);
     await selectText(editor, "gamma".length + "alpha beta ".length, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row"]);
     await selectText(editor, 0, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Join to previous row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row"]);
     await selectText(editor, "alpha ".length, "alpha beta gamma".length);
-    await expect.poll(visible).toEqual(["Make stage direction"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction"]);
     await page.close();
   }, 90_000);
 
