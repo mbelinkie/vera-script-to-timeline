@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { PrincipalRef } from "@vera/contracts";
+import type { AuthorizationDecisionRef, PrincipalRef } from "@vera/contracts";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,7 @@ import { PNG } from "pngjs";
 
 import { inspectPublicUrl } from "../src/policy.js";
 import { preparePublicWebpageVisuals, ProjectWebpageStillStore, type WebpagePrepMediaOptions } from "../src/prep-media.js";
+import { intakeSuppliedPicture, ProjectSuppliedPictureStore } from "../src/supplied-picture.js";
 import { CAPTURE_PROFILE_V2 } from "../src/profile.js";
 
 const PROJECT = "00000000-0000-4000-8000-000000000002";
@@ -249,4 +250,35 @@ describe("#394 public webpage capture for Prep Media", () => {
     await expect(store.read("another-project", hash(inspectPublicUrl(PAGE_URL).canonicalUrl)))
       .rejects.toThrow("invalid webpage still receipt");
   });
+});
+
+it("prepares a pinned extension passage after recapture without requesting a public job", async () => {
+  const projectRoot = await root();
+  const document = await authored();
+  const block = document.activeDraft.blocks[0];
+  if (block?.type !== "visual_only") throw new Error("expected visual fixture");
+  const service = new FakeCaptureService();
+  const prep = options(projectRoot, service, document);
+  const store = new ProjectSuppliedPictureStore(projectRoot);
+  const authorization = { authorize: async (projectId: string, principal: PrincipalRef, action: string): Promise<AuthorizationDecisionRef> => ({
+    projectId, principal, action, role: "editor", decisionId: "55555555-5555-4555-8555-555555555556",
+    membershipVersion: 1, decidedAt: "2026-11-18T12:00:00Z", recheckMode: "every_request",
+  }) };
+  const references = { validate: vi.fn(async () => undefined), validatePicturePin: vi.fn(async () => undefined) };
+  const upload = { projectId: PROJECT, principal: ACTOR, store, authorization, references,
+    reference: { ...prep.reference, resourceVersionDigest: hash("before placement") },
+    pictureKind: "passage" as const, bytes: raster, highlightRects: [{ x: 0, y: 1, width: 2, height: 1 }] };
+  const first = await intakeSuppliedPicture(upload);
+  const { captureId, revisionId } = first.metadata;
+  const recapture = await intakeSuppliedPicture({ ...upload, captureId });
+  expect(recapture.metadata.revisionId).not.toBe(revisionId);
+  block.payload.source = { kind: "capture_revision", captureId, revisionId };
+  const result = await preparePublicWebpageVisuals(document, { ...prep,
+    suppliedPictures: { store, authorization, references, captureIds: new Set([captureId]) } });
+  expect(result.captures).toHaveLength(1);
+  expect(result.captures[0]).toMatchObject({ status: "reused", captureId, revisionId,
+    highlightRects: upload.highlightRects, artifactDigest: hash(raster) });
+  expect(await readFile(result.captures[0]!.rasterPath!)).toEqual(raster);
+  expect(service.job).not.toHaveBeenCalled();
+  expect(references.validatePicturePin).toHaveBeenCalledWith(PROJECT, prep.reference, { captureId, revisionId });
 });

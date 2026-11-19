@@ -14,3 +14,4 @@ export * from "./profile.js";
 export * from "./raster.js";
 export * from "./service.js";
 export * from "./worker.js";
+export * from "./supplied-picture.js";

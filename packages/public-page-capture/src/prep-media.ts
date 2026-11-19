@@ -17,10 +17,12 @@ import type {
   StandaloneVisualPayloadV2,
 } from "@vera/contracts/v2";
 
+import { stableUuid } from "./crypto.js";
 import { CaptureDenied, inspectPublicUrl } from "./policy.js";
 import { requestPublicPagePictures } from "./page-pictures.js";
 import { CAPTURE_PROFILE_V1, CAPTURE_PROFILE_V2 } from "./profile.js";
 import type { CaptureService } from "./service.js";
+import { readSuppliedPicture, type SuppliedPictureReadOptions, type PictureRect } from "./supplied-picture.js";
 
 type CapturePort = Pick<CaptureService,
   "createCapture" | "getCapture" | "requestCaptureJob" | "getRevision" | "selectRevision" | "readRasterArtifact"
@@ -37,6 +39,8 @@ export interface WebpageCaptureResult {
   readonly captureId: string | null;
   readonly revisionId: string | null;
   readonly artifactDigest: string | null;
+  /** Coordinates on the unscaled PNG, measured from its top-left corner. */
+  readonly highlightRects?: readonly PictureRect[];
 }
 
 export interface WebpagePrepMediaOptions {
@@ -47,6 +51,10 @@ export interface WebpagePrepMediaOptions {
   /** The current authorized, versioned authored occurrence. */
   readonly reference: DraftOccurrenceReference;
   readonly service: CapturePort;
+  /** Capture IDs whose origin the trusted host recorded as user supplied. */
+  readonly suppliedPictures?: Pick<SuppliedPictureReadOptions, "authorization" | "references" | "store"> & {
+    readonly captureIds: ReadonlySet<string>;
+  };
 }
 
 export interface WebpagePrepMediaOutcome {
@@ -225,7 +233,9 @@ async function prepareUrl(
     await options.service.selectRevision({
       schemaVersion: "public-page-capture-api/v1", messageType: "select_revision",
       projectId: options.projectId, revisionId, clientRequestId: randomUUID(),
-      idempotencyKey: `webpage-prep/select/${digest(JSON.stringify(occurrenceReference))}/${revisionId}`,
+      idempotencyKey: stableUuid(["webpage-prep/select", occurrenceReference.projectId,
+        occurrenceReference.resourceId, occurrenceReference.resourceVersionDigest,
+        occurrenceReference.occurrenceId, revisionId]),
       target: occurrenceReference, expectedPreviousSelectionId: null,
       reason: "capture_and_use", requiredUseDecisionId: null,
     }, options.principal);
@@ -273,7 +283,22 @@ export async function preparePublicWebpageVisuals(
   const store = new ProjectWebpageStillStore(options.projectRoot);
   const captures: WebpageCaptureResult[] = [];
   const preparePayload = async (payload: VisualPayload): Promise<void> => {
-    if (payload.pictureKind !== "capture" || payload.source.kind !== "url") return;
+    if (payload.pictureKind !== "capture") return;
+    const source = payload.source;
+    if (source.kind === "capture_revision" && options.suppliedPictures?.captureIds.has(source.captureId)) {
+      const picture = await readSuppliedPicture({
+        ...options.suppliedPictures, captureId: source.captureId, revisionId: source.revisionId,
+        projectId: options.projectId, principal: options.principal,
+        reference: { ...options.reference, occurrenceId: payload.payloadId },
+      });
+      captures.push({
+        payloadId: payload.payloadId, label: "Supplied page picture", status: "reused", reason: null,
+        captureId: source.captureId, revisionId: source.revisionId, rasterPath: picture.rasterPath,
+        artifactDigest: picture.digest, highlightRects: picture.metadata.highlightRects,
+      });
+      return;
+    }
+    if (source.kind !== "url") return;
     // Every occurrence needs its own authorized selection, even if another
     // occurrence already requested this URL. #39 deduplicates capture jobs;
     // the verified disk cache deduplicates bytes.
