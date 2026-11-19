@@ -1,7 +1,7 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
-import { visualOnlyIds } from "./visual-only-actions.js";
+import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 
 const element = (id) => document.getElementById(id);
 const home = element("home-view");
@@ -252,12 +252,14 @@ function renderEditor() {
   renderRows(root, scriptDocument, {
     projection: visualProjection, visualCommand: queueVisualCommand, reselect: beginReselect,
     attach: beginAttach, attaching: activeAttach,
+    addWordless: addWordlessVisual,
     flashIds: flashVisualIds,
   });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
   narrationCleanup.push(mountVisualCardDragging(root));
+  narrationCleanup.push(mountWordlessControls(root));
   mountRowsEditor(root, scriptDocument, {
     createBlankRow: createBlankNarrationRow,
     command: (command, label) => queueCommand(command, label, { structural: true }),
@@ -352,16 +354,94 @@ function finishAttach(state) {
   renderEditor();
 }
 
+function addWordlessVisual(rowId, visualType) {
+  const projectId = activeProjectId;
+  const payloadId = crypto.randomUUID();
+  const slotId = crypto.randomUUID();
+  void queueCommand((latest) => {
+    if (projectId !== activeProjectId) throw new Error("The project changed before adding the picture.");
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "visual_only" &&
+        !(row?.type === "narration" && !row.text.trim() && !row.plainDirection)) {
+      throw new Error("Add pictures only to rows without narration.");
+    }
+    return { kind: "add_visual_to_wordless_row", rowId, payloadId, slotId, visualType };
+  }, "Add visual", { structural: true });
+}
+
+function mountWordlessControls(root) {
+  const commitHold = (input) => {
+    if (input.dataset.holdCommitting) return;
+    const rowId = input.closest("[data-row-id]")?.dataset.rowId;
+    const payloadId = input.dataset.visualHold;
+    if (!rowId || !payloadId) return;
+    const seconds = parseHoldSeconds(input.value);
+    if (seconds === null) {
+      input.value = input.dataset.savedSeconds;
+      setSaveStatus("Hold must be a positive number of seconds (up to three decimal places).");
+      return;
+    }
+    if (seconds === Number(input.dataset.savedSeconds)) {
+      input.value = input.dataset.savedSeconds;
+      return;
+    }
+    input.dataset.holdCommitting = "true";
+    const projectId = activeProjectId;
+    void queueCommand((latest) => {
+      if (projectId !== activeProjectId) throw new Error("The project changed before saving the hold.");
+      const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+      if (!visualOnlyIds(row)?.includes(payloadId)) throw new Error("The picture is no longer in the row.");
+      return { kind: "set_visual_only_hold", rowId, payloadId, holdSeconds: seconds };
+    }, "Set visual hold", { structural: true }).then((ok) => {
+      if (!ok && input.isConnected) input.value = input.dataset.savedSeconds;
+    });
+  };
+  const onKeydown = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input && event.key === "Enter") {
+      event.preventDefault();
+      commitHold(input);
+    } else if (input && event.key === "Escape") {
+      event.preventDefault();
+      input.value = input.dataset.savedSeconds;
+      input.blur();
+    } else if (event.key === "Escape") {
+      const menu = event.target.closest(".visuals-wordless-choices");
+      if (menu && !menu.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        menu.hidden = true;
+        const trigger = menu.previousElementSibling;
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.focus();
+      }
+    }
+  };
+  const onBlur = (event) => {
+    const input = event.target.closest("[data-visual-hold]");
+    if (input) commitHold(input);
+  };
+  root.addEventListener("keydown", onKeydown);
+  root.addEventListener("focusout", onBlur);
+  return () => {
+    root.removeEventListener("keydown", onKeydown);
+    root.removeEventListener("focusout", onBlur);
+  };
+}
+
 // Native picture dragging is deliberately independent of rows-editor's row
 // handle and gap drag state. No model edit occurs before a valid cross-row drop.
 function mountVisualCardDragging(root) {
   let dragging = null;
   let target = null;
+  let reorderMarker = null;
   const clear = () => {
     target?.classList.remove("script-row--visual-drop-target");
+    reorderMarker?.classList.remove("visual-card--reorder-before");
     root.querySelectorAll(".visual-card--dragging").forEach((card) => card.classList.remove("visual-card--dragging"));
     dragging = null;
     target = null;
+    reorderMarker = null;
   };
   const rowFor = (id, doc = scriptDocument) => doc?.activeDraft.blocks.find((row) => row.id === id);
   const onStart = (event) => {
@@ -386,12 +466,22 @@ function mountVisualCardDragging(root) {
     const row = event.target.closest(".script-row");
     const id = row?.dataset.rowId;
     const model = rowFor(id);
-    return dragging && id && id !== dragging.rowId &&
+    return dragging && id && (id !== dragging.rowId || dragging.sourceType === "visual_only") &&
       (model?.type === "narration" || model?.type === "visual_only") ? row : null;
+  };
+  const reorderBefore = (event, row) => {
+    const card = event.target.closest(".visual-card[data-payload-id]");
+    if (!card || !row.contains(card)) return null;
+    const box = card.getBoundingClientRect();
+    if (event.clientY <= box.top + box.height / 2) return card.dataset.payloadId;
+    return card.nextElementSibling?.matches(".visual-card[data-payload-id]")
+      ? card.nextElementSibling.dataset.payloadId : null;
   };
   const onOver = (event) => {
     if (!dragging) return;
     const next = destination(event);
+    reorderMarker?.classList.remove("visual-card--reorder-before");
+    reorderMarker = null;
     if (target !== next) {
       target?.classList.remove("script-row--visual-drop-target");
       target = next;
@@ -400,17 +490,38 @@ function mountVisualCardDragging(root) {
     if (!next) return;
     event.preventDefault();
     event.stopPropagation();
+    if (next.dataset.rowId === dragging.rowId) {
+      const before = reorderBefore(event, next);
+      reorderMarker = before ? [...next.querySelectorAll(".visual-card[data-payload-id]")]
+        .find((card) => card.dataset.payloadId === before) : null;
+      reorderMarker?.classList.add("visual-card--reorder-before");
+    }
     event.dataTransfer.dropEffect = "move";
   };
   const onDrop = (event) => {
     if (!dragging) return;
     const next = destination(event);
     const from = dragging;
+    const before = next && next.dataset.rowId === from.rowId ? reorderBefore(event, next) : null;
     clear();
     if (!next) return;
     event.preventDefault();
     event.stopPropagation();
     const destinationId = next.dataset.rowId;
+    if (destinationId === from.rowId) {
+      // A drop back in its original position is cancellation, not a refused
+      // model edit or a new Undo entry.
+      if (!planVisualOnlyReorder(rowFor(from.rowId), from.payloadId, before)) return;
+      const projectId = from.projectId;
+      void queueCommand((latest) => {
+        if (activeProjectId !== projectId) throw new Error("The project changed during the reorder.");
+        const source = rowFor(from.rowId, latest);
+        const plan = planVisualOnlyReorder(source, from.payloadId, before);
+        if (!plan) throw new Error("The visual order was unchanged or is no longer available.");
+        return plan;
+      }, "Reorder visuals", { structural: true });
+      return;
+    }
     const freshSlotId = crypto.randomUUID();
     const replacementPayloadId = crypto.randomUUID();
     const intent = (latest) => {
