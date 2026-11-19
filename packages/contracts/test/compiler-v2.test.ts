@@ -8,6 +8,7 @@ import { compileTimelineV2, resolveMediaRequirementsV2 } from "../src/compiler-c
 import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
+import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
 import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
@@ -2744,6 +2745,24 @@ describe("Quote box compiler bindings", () => {
     expect(background!.recordRange.startFrame).toBeLessThanOrEqual(quote!.recordRange.startFrame);
     expect(background!.recordRange.endFrame).toBeGreaterThanOrEqual(quote!.recordRange.endFrame);
     expect(compiled.manifest.sources.some((source) => source.id === quote!.provenance.sourceId)).toBe(false);
+  });
+
+  it("carries the edited publication span from Research through compilation", () => {
+    const { doc, deps, overlayId } = quoteBoxFixture();
+    const citation = researchQuoteCitation({
+      kind: "web_page", details: {},
+      bibliography: { title: { value: "🔎 First account" }, publication: { value: "Café Nord" } },
+    }, {});
+    const refreshed = refreshResearchQuoteCitations(doc, new Map([[id(34), citation]]));
+    const edited = editResearchQuoteUseCitation(refreshed, overlayId, { text: "🗞️ Edited lead. Café Nord." });
+    const compiled = compileTimelineV2(edited, deps);
+    if (!compiled.ok) throw new Error(JSON.stringify(compiled.diagnostics));
+    expect(compiled.report.status, JSON.stringify(compiled.report.diagnostics)).toBe("ready");
+    const event = compiled.manifest.events.find((candidate) => candidate.kind === "quote_box");
+    expect(event?.quoteBox).toMatchObject({
+      citationText: "🗞️ Edited lead. Café Nord.", italicSpan: { start: 16, end: 25 },
+      speakerName: "Ada Lovelace", speakerTitle: "Mathematician",
+    });
   });
 
   it("blocks a quote whose linked background occurrence is missing without emitting fake media", () => {

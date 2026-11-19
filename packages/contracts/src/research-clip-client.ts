@@ -1,5 +1,5 @@
 /**
- * Read-only, development-only bridge to Research's logged clip API.
+ * Development-only bridge to the local Research API.
  * The bearer is deliberately confined to loopback HTTP requests and is never
  * included in errors or returned values.
  */
@@ -7,6 +7,7 @@ import {
   snapshotResearchCandidateV2,
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
+import { readResearchLibraryItem, readResearchLibrarySource } from "./research-library-records.js";
 
 export interface ResearchProject {
   id: string;
@@ -75,30 +76,41 @@ export function createResearchClient(options: {
   }
   const request = options.request ?? fetch;
 
-  async function get(path: string): Promise<unknown> {
+  async function requestJson(path: string, update?: { expectedVersion: number; content: object }): Promise<unknown> {
     let response: Response;
     try {
       response = await request(new URL(path, origin), {
-        method: "GET",
+        method: update ? "PATCH" : "GET",
         redirect: "manual",
-        headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+        headers: {
+          Accept: "application/json", Authorization: `Bearer ${bearer}`,
+          ...(update ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(update ? { body: JSON.stringify(update) } : {}),
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
       // Fetch errors may embed the full request URL or headers, including secrets.
-      throw new Error("Research is unavailable on this Mac.");
+      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current citation."
+        : "Research is unavailable on this Mac.");
     }
     if (response.status >= 300 && response.status < 400 || response.redirected) {
-      throw new Error("Research redirected the read-only request; no redirect was followed.");
+      throw new Error(update ? "Research redirected the edit; no redirect was followed."
+        : "Research redirected the read-only request; no redirect was followed.");
     }
     if (response.status === 401 || response.status === 403) {
       throw new Error("Research refused the credential or project access.");
     }
     if (response.status === 404) {
-      throw new Error("Research project or clip was not found.");
+      throw new Error(path.includes("/clips") ? "Research project or clip was not found."
+        : "Research project or record was not found.");
+    }
+    if (update && response.status === 409) {
+      throw new Error("Research quote changed before the edit was saved. Reload the quote and retry.");
     }
     if (!response.ok) {
-      throw new Error("Research could not complete this read-only request.");
+      throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current citation."
+        : "Research could not complete this read-only request.");
     }
     try {
       return await response.json() as unknown;
@@ -106,6 +118,8 @@ export function createResearchClient(options: {
       throw new Error("Research returned invalid JSON.");
     }
   }
+
+  const get = (path: string) => requestJson(path);
 
   function validatedCandidate(input: unknown): ResearchLoggedCandidateInputV2 {
     try {
@@ -117,7 +131,39 @@ export function createResearchClient(options: {
     }
   }
 
+  async function item(projectId: string, itemId: string, kind: "quote" | "clip") {
+    const path = libraryPath(projectId, "items", itemId);
+    return readResearchLibraryItem(await get(path), projectId, itemId, kind);
+  }
+
   return {
+    item,
+
+    async source(projectId: string, sourceId: string) {
+      return readResearchLibrarySource(
+        await get(libraryPath(projectId, "sources", sourceId)), projectId, sourceId,
+      );
+    },
+
+    async setQuoteCitation(projectId: string, quoteId: string, text: string | undefined) {
+      if (text !== undefined && (text.length > 20_000 || /[\0\p{Surrogate}]/u.test(text))) {
+        throw new Error("Research citation text is invalid or too long.");
+      }
+      const quote = await item(projectId, quoteId, "quote");
+      if (text === quote.content.citationOverride) return;
+      const content = { ...quote.content };
+      delete content.latestDisplayText;
+      if (text === undefined) delete content.citationOverride;
+      else content.citationOverride = text;
+      const result = await requestJson(libraryPath(projectId, "items", quoteId), {
+        expectedVersion: quote.version, content,
+      });
+      const saved = readResearchLibraryItem(result, projectId, quoteId, "quote");
+      if (saved.sourceId !== quote.sourceId || saved.content.citationOverride !== text) {
+        throw new Error("Research could not confirm the quote edit. Reload the quote to check its current citation.");
+      }
+    },
+
     async projects(): Promise<ResearchProject[]> {
       const result = await get("/api/projects");
       if (!Array.isArray(result) || !result.every((project: unknown) =>
@@ -155,4 +201,11 @@ export function createResearchClient(options: {
       return clip;
     },
   };
+}
+
+function libraryPath(projectId: string, kind: "items" | "sources", recordId: string): string {
+  if (!UUID.test(projectId) || !UUID.test(recordId)) {
+    throw new Error("Research project and record IDs must be UUIDs.");
+  }
+  return `/api/projects/${projectId}/${kind}/${recordId}`;
 }

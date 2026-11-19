@@ -11,7 +11,8 @@ import {
   type ResearchClipCliIo,
 } from "../src/research-clip-cli.js";
 import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
-import { researchCandidate, researchId, researchNote, researchStashFixture } from "./issue-367-fixture.js";
+import type { QuoteBoxV2, ScriptDocumentV2 } from "../src/generated/contracts-v2.js";
+import { researchCandidate, researchId, researchNestedNote, researchNote, researchStashFixture } from "./issue-367-fixture.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const cliPath = join(root, "packages/contracts/src/research-clip-cli.ts");
@@ -299,4 +300,92 @@ catch { process.exitCode = 0; }`;
       expect(`${result.stdout}${result.stderr}`).not.toContain(SECRET);
     }
   }, 90_000);
+});
+
+describe("Research citation CLI", () => {
+  it("reads a saved source, edits all uses or one use, and exports the original bibliography once", async () => {
+    const file = makeScript();
+    const quoteId = researchId(880010);
+    const otherQuoteId = researchId(880011);
+    const sourceId = researchId(880020);
+    const doc = researchStashFixture(false).doc;
+    const rows = [880100, 880200, 880300].map(researchNestedNote);
+    for (const [index, row] of rows.entries()) {
+      const primary = row.primaryVisualSequence!.slots[0]!;
+      if (primary.kind !== "content" || primary.payload.kind !== "visual") throw new Error("Missing test background");
+      delete primary.payload.researchClip;
+      const overlay = row.overlayEvents[0]!;
+      overlay.payload = {
+        kind: "visual", payloadId: overlay.payload.payloadId, pictureKind: "graphic",
+        source: { kind: "graphic_revision", graphicId: researchId(880001), revisionId: researchId(880002) },
+        sourceUsage: null, audioPolicy: "mute", framingPolicy: "contain",
+      };
+      overlay.quoteBox = {
+        researchQuoteId: index === 2 ? otherQuoteId : quoteId, displayText: "It held up.",
+        speakerName: "", speakerTitle: "", citationText: "", italicSpan: null,
+        backgroundPayloadId: primary.payload.payloadId, templateRevision: `sha256:${"a".repeat(64)}`,
+      };
+    }
+    doc.activeDraft.blocks = rows;
+    expect(validateScriptDocumentV2(doc).diagnostics).toEqual([]);
+    writeFileSync(file.path, JSON.stringify(doc));
+
+    const source = {
+      projectId: PROJECT, id: sourceId, kind: "web_page", details: {},
+      bibliography: {
+        title: { value: "🔎 First account" }, authors: { value: ["Zoë Pérez"] },
+        publication: { value: "Café Nord" }, date: { value: "2023-03-14" },
+        url: { value: "https://example.com/article" },
+      },
+    };
+    const sharedCitation = "Edited 🎬 from Café Nord, 14 Mar. 2023.";
+    const individualCitation = "Longer 🗞️ lead-in about Café Nord, 14 Mar. 2023.";
+    const originalQuote = {
+      id: quoteId, projectId: PROJECT, sourceId, kind: "quote", version: 3,
+      content: { text: "It held up.", latestDisplayText: "It held up!", speakerTitle: "Archivist" },
+    };
+    let quote = originalQuote;
+    const requests: string[] = [];
+    const request: typeof fetch = (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      requests.push(`${init?.method} ${url.pathname}`);
+      if (url.pathname.endsWith(`/sources/${sourceId}`)) return Promise.resolve(Response.json(source));
+      if (url.pathname.endsWith(`/items/${otherQuoteId}`)) return Promise.resolve(Response.json({ ...originalQuote, id: otherQuoteId }));
+      if (!url.pathname.endsWith(`/items/${quoteId}`)) return Promise.resolve(new Response(null, { status: 404 }));
+      if (init?.method === "PATCH") {
+        if (typeof init.body !== "string") throw new Error("Expected JSON update");
+        const payload = JSON.parse(init.body) as { expectedVersion: number; content: typeof quote.content };
+        expect(payload).toEqual({
+          expectedVersion: 3, content: { text: "It held up.", speakerTitle: "Archivist", citationOverride: sharedCitation },
+        });
+        quote = { ...quote, version: 4, content: { ...payload.content, latestDisplayText: quote.content.latestDisplayText } };
+      }
+      return Promise.resolve(Response.json(quote));
+    };
+    const h = harness({}, { request });
+    const getBoxes = () => (JSON.parse(readFileSync(file.path, "utf8")) as ScriptDocumentV2).activeDraft.blocks
+      .flatMap((row) => row.type === "narration" ? [row.overlayEvents[0]!.quoteBox!] : []);
+    const verifyItalic = (box: QuoteBoxV2) => {
+      expect(box.italicSpan).not.toBeNull();
+      expect([...box.citationText].slice(box.italicSpan!.start, box.italicSpan!.end).join("")).toBe("Café Nord");
+      expect(box.speakerName).toBe("");
+      expect(box.citationText).not.toContain("https://");
+    };
+    expect(await h.run("refresh-citations", PROJECT, file.path)).toBe(0);
+    expect(requests.filter((call) => call.includes("/sources/"))).toHaveLength(1);
+    const originalCitation = 'Pérez, Zoë. "🔎 First account." Café Nord, 14 Mar. 2023.';
+    expect(getBoxes().map((box) => box.citationText)).toEqual([originalCitation, originalCitation, originalCitation]);
+    expect(await h.run("edit-use-citation", PROJECT, file.path, rows[0]!.overlayEvents[0]!.id, individualCitation)).toBe(0);
+    expect(await h.run("edit-quote-citation", PROJECT, quoteId, sharedCitation)).toBe(0);
+    expect(await h.run("refresh-citations", PROJECT, file.path)).toBe(0);
+    const boxes = getBoxes();
+    expect(boxes.map((box) => box.citationText)).toEqual([individualCitation, sharedCitation, originalCitation]);
+    boxes.forEach(verifyItalic);
+    expect(await h.run("edit-use-citation", PROJECT, file.path, rows[0]!.overlayEvents[0]!.id, "--reset")).toBe(0);
+    expect(getBoxes()[0]).toMatchObject({ citationText: sharedCitation, italicSpan: boxes[1]!.italicSpan });
+    expect(getBoxes()[0]?.citationOverridden).toBeUndefined();
+    expect(await h.run("source-list", PROJECT, file.path)).toBe(0);
+    expect(h.output.at(-1)).toBe('Pérez, Zoë. "🔎 First account." Café Nord, 14 Mar. 2023, https://example.com/article.\n');
+    expect(h.errors).toEqual([]);
+  });
 });

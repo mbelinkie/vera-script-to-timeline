@@ -1008,6 +1008,10 @@ export interface QuoteBoxV2 {
   speakerName: string;
   speakerTitle: string;
   citationText: string;
+  /**
+   * The per-use citationText and italicSpan were edited locally and survive a refresh from Research.
+   */
+  citationOverridden?: true;
   italicSpan: null | {
     start: number;
     end: number;

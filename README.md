@@ -98,6 +98,23 @@ IFS= read -r PROJECT_ID
 npm run export:script -- "$PROJECT_ID" "/absolute/path/to/script-document.json"
 ```
 
+For scripts with Research quote boxes, set `VERA_RESEARCH_BEARER` for the local
+Research service. Refresh their on-screen citations in the exported script and
+print a source list for the YouTube description. The Research project can be a
+name or ID.
+
+```sh
+npm run research:refresh-citations -- "$RESEARCH_PROJECT" "$SCRIPT_JSON"
+npm run --silent export:source-list -- "$RESEARCH_PROJECT" "$SCRIPT_JSON"
+```
+
+To edit the citation shared by all uses of a quote, run
+`research:edit-quote-citation -- <project> <Research quote ID> <text>` and then
+refresh the exported script. To edit one box, run
+`research:edit-use-citation -- <project> <script.json> <overlay event ID> <text>`.
+Both commands accept `--reset` in place of the text. A per-use edit survives
+refreshes. Source lists use the Library's bibliography for each used source.
+
 To prepare narration and standalone logged Research clip rows ahead of the build, use
 `prep_media`. It takes the v2 script and its frozen compiler settings and
 prints the prepared script and input directory to pass to the build command.

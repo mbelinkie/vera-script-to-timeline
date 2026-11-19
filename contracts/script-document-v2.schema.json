@@ -1434,6 +1434,10 @@
         "citationText": {
           "type": "string"
         },
+        "citationOverridden": {
+          "description": "The per-use citationText and italicSpan were edited locally and survive a refresh from Research.",
+          "const": true
+        },
         "italicSpan": {
           "oneOf": [
             {
