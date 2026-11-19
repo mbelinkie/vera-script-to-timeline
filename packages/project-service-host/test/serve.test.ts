@@ -1,14 +1,18 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
+import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
 import { startQaServer, QaStartupRefusal, type QaRunningServer } from "../src/serve.js";
+import { createAuthoringHandler } from "../src/authoring.js";
 import { unusedLoopbackPort } from "./loopback-port.js";
 
 const dirs: string[] = [];
@@ -17,6 +21,10 @@ const sha = "a".repeat(40);
 const privateToken = randomBytes(32).toString("hex");
 const subject = "synthetic-owner";
 const privateUrl = "postgresql://qa_test_actor:hidden-password@127.0.0.1:5432/vera_stt_qa_fake";
+
+const sourceFixture = JSON.parse(readFileSync(new URL(
+  "../../../tests/data/authoring_v2/issue_173/compiler/flat.input.golden.json", import.meta.url,
+), "utf8")) as { document: ScriptDocumentV2 };
 
 async function setup(): Promise<QaConfig> {
   const dir = await mkdtemp(join(tmpdir(), "stt159-server-"));
@@ -61,6 +69,95 @@ afterEach(async () => {
 });
 
 describe("development QA service bootstrap and shutdown", () => {
+  it("protects visual commands and projections with the same browser session and exact envelopes", async () => {
+    const origin = "http://127.0.0.1:38429";
+    const projects = vi.fn(() => Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })));
+    const host = createAuthoringHandler(origin, `Bearer ${privateToken}`, projects);
+    const document = structuredClone(sourceFixture.document);
+    const row = document.activeDraft.blocks.find((block) => block.type === "narration");
+    if (!row?.primaryVisualSequence || row.tokens.length < 1) throw new Error("missing visual fixture row");
+    const command = {
+      kind: "add_visual_on_selection", blockId: row.id, slotId: randomUUID(), payloadId: randomUUID(),
+      startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[0]!.id, visualType: "need_to_find",
+    };
+    const request = async (path: string, body: unknown, opts: {
+      origin?: string; session?: string; site?: string; launch?: string;
+    } = {}) => await host.handle(new Request(`${origin}/authoring/${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", "X-VERA-Authoring": "1",
+        "Sec-Fetch-Site": opts.site ?? "same-origin", Origin: opts.origin ?? origin,
+        ...(opts.session ? { "X-VERA-Session": opts.session } : {}),
+        ...(opts.launch ? { "X-VERA-Launch": opts.launch } : {}),
+      },
+      body: JSON.stringify(body),
+    })) as Response;
+    const session = await request("session", {}, { launch: host.launchCode });
+    expect(session.status).toBe(200);
+    const { sessionProof } = await session.json() as { sessionProof: string };
+    const valid = { document, command, expectedSequenceVersion: row.primaryVisualSequence.version };
+    for (const path of ["command", "projection"]) {
+      const envelope = path === "command" ? valid : { document };
+      expect((await request(path, envelope)).status).toBe(401);
+      expect((await request(path, envelope, { session: "a".repeat(64) })).status).toBe(401);
+      expect((await request(path, envelope, { origin: "http://127.0.0.1:10", session: sessionProof })).status).toBe(403);
+      expect((await request(path, envelope, { site: "cross-site", session: sessionProof })).status).toBe(403);
+    }
+    const malformed = [
+      { ...valid, expectedSequenceVersion: "0" },
+      { ...valid, expectedSequenceVersion: -1 },
+      { ...valid, expectedSequenceVersion: 1.2 },
+      { document, command },
+      { ...valid, splitProof: "f".repeat(64) },
+      { ...valid, command: { ...command, visualType: "footage" } },
+      { ...valid, command: { ...command, extra: true } },
+      { ...valid, command: { ...command, kind: "arbitrary_visual" } },
+      { ...valid, command: { kind: "change_visual_type", blockId: row.id,
+        slotId: command.slotId, to: { type: "need_to_find", source: { secret: true } } } },
+    ];
+    for (const envelope of malformed) {
+      const response = await request("command", envelope, { session: sessionProof });
+      expect(response.status, JSON.stringify(envelope.command)).toBe(400);
+    }
+    const noDocument = await request("projection", { document: {} }, { session: sessionProof });
+    expect(noDocument.status).toBe(400);
+    const forgedOptions = await request("projection", { document, options: { secret: true } }, { session: sessionProof });
+    expect(forgedOptions.status).toBe(400);
+    const projection = await request("projection", { document }, { session: sessionProof });
+    expect(projection.status).toBe(200);
+    const projectionBody = await projection.json() as { projection: ReturnType<typeof projectPrimarySequenceV2> };
+    expect(projectionBody.projection).toEqual(projectPrimarySequenceV2(document));
+    expect(projectionBody.projection.rows.flatMap((item) => item.cards).map((card) => card.startTokenIndex)
+      .filter((item): item is number => item !== null)).toEqual(
+        [...projectionBody.projection.rows.flatMap((item) => item.cards).map((card) => card.startTokenIndex)
+          .filter((item): item is number => item !== null)].sort((a, b) => a - b),
+      );
+    expect(JSON.stringify(projectionBody)).not.toContain(privateToken);
+    const applied = await request("command", valid, { session: sessionProof });
+    expect(applied.status).toBe(200);
+    const outcome = await applied.json() as { ok: boolean; document: ScriptDocumentV2; diagnostics: Array<{ code: string }> };
+    expect(outcome.ok, JSON.stringify(outcome.diagnostics)).toBe(true);
+    const stale = await request("command", { ...valid, document: outcome.document }, { session: sessionProof });
+    expect(stale.status).toBe(200);
+    expect((await stale.json() as { diagnostics: Array<{ code: string }> }).diagnostics[0]?.code).toBe("SEQUENCE_VERSION_STALE");
+    const changed = await request("command", { document: outcome.document,
+      expectedSequenceVersion: row.primaryVisualSequence.version + 1,
+      command: { kind: "change_visual_type", blockId: row.id, slotId: command.slotId,
+        to: { type: "onscreen_placeholder" } },
+    }, { session: sessionProof });
+    expect(changed.status).toBe(200);
+    const changedBody = await changed.json() as { ok: boolean; document: ScriptDocumentV2;
+      diagnostics: Array<{ code: string }> };
+    expect(changedBody.ok, JSON.stringify(changedBody.diagnostics)).toBe(true);
+    const deleted = await request("command", { document: changedBody.document,
+      expectedSequenceVersion: row.primaryVisualSequence.version + 2,
+      command: { kind: "delete_visual", blockId: row.id, slotId: command.slotId },
+    }, { session: sessionProof });
+    expect(deleted.status).toBe(200);
+    const deletedBody = await deleted.json() as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(deletedBody.ok, JSON.stringify(deletedBody.diagnostics)).toBe(true);
+    expect(projects).not.toHaveBeenCalled();
+  });
   it("authenticates only trusted bearer identities through existing API and authorization service", async () => {
     const config = await setup();
     const h = infra();

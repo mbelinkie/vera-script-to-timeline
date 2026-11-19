@@ -39,6 +39,18 @@ const VISUAL_ONLY_FIXTURE = new URL(
   "../../../tests/data/authoring_v2/issue_173/compiler/visual-only-image-still-25fps-default.input.golden.json",
   import.meta.url,
 );
+const CAPTURE_FIXTURE = new URL(
+  "../../../tests/data/authoring_v2/issue_173/compiler/visual-only-capture-still-25fps-default.input.golden.json",
+  import.meta.url,
+);
+const GRAPHIC_FIXTURE = new URL(
+  "../../../tests/data/authoring_v2/issue_173/compiler/visual-only-graphic-still-25fps-default.input.golden.json",
+  import.meta.url,
+);
+const RETURN_FIXTURE = new URL(
+  "../../../tests/data/authoring_v2/issue_173/compiler/root-child-overlay-return.input.golden.json",
+  import.meta.url,
+);
 
 interface ApiResult {
   readonly status: number;
@@ -450,6 +462,165 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(async () => await page.locator("#music-warning-status").textContent())
       .toContain("no music warnings");
     expect(await page.locator("#music-warning-list li").count()).toBe(0);
+    await page.close();
+  }, 90_000);
+
+  it("renders projected cue order and a genuine compact return, with no OC actions or phantom return", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Projected cue order");
+    const seeded = documentFixture(projectId);
+    const original = JSON.parse(readFileSync(RETURN_FIXTURE, "utf8")) as { document: ScriptDocumentV2 };
+    seeded.document.activeDraft.blocks[0] = structuredClone(original.document.activeDraft.blocks[0]!);
+    const first = seeded.document.activeDraft.blocks[0];
+    if (first?.type !== "narration" || first.primaryVisualSequence?.slots[0]?.kind !== "content" ||
+        first.primaryVisualSequence.slots[0].payload.kind !== "visual") throw new Error("missing first cue");
+    first.primaryVisualSequence.slots[0].payload.pictureKind = "image";
+    first.primaryVisualSequence.slots[0].payload.sourceUsage = null;
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator('[data-row-kind="narration"]').first();
+    await expect.poll(() => row.locator(".visual-card__type").allTextContents())
+      .toEqual(["Still image", "On Camera", "Footage"]);
+    await expect.poll(() => row.locator(".visual-return").allTextContents())
+      .toEqual(["↩ Still image resumes"]);
+    expect(await row.locator('.visual-card[data-kind="on-camera"] [data-visual-action-trigger]').count()).toBe(0);
+    expect(await row.locator('.visual-return [data-visual-action-trigger]').count()).toBe(0);
+    await page.reload();
+    expect(await row.locator(".visual-card__type").allTextContents())
+      .toEqual(["Still image", "On Camera", "Footage"]);
+    await page.close();
+  }, 90_000);
+
+  it("shows existing footage, still, web capture and graphic cards with sample preview tiles", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Stored media kind cards");
+    const seeded = documentFixture(projectId);
+    const visualOnly = seeded.document.activeDraft.blocks.find((block) => block.type === "visual_only");
+    if (!visualOnly || visualOnly.type !== "visual_only" || !visualOnly.additionalVisuals) {
+      throw new Error("missing visual-only fixture");
+    }
+    for (const source of [CAPTURE_FIXTURE, GRAPHIC_FIXTURE]) {
+      const fixture = JSON.parse(readFileSync(source, "utf8")) as { document: ScriptDocumentV2 };
+      const block = fixture.document.activeDraft.blocks.find((item) => item.type === "visual_only");
+      if (!block || block.type !== "visual_only") throw new Error("missing saved media fixture");
+      visualOnly.additionalVisuals.push({ payload: { ...block.payload, payloadId: randomUUID() },
+        visualOnlyTiming: { kind: "visual_only" } });
+    }
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const cards = page.locator('[data-row-kind="visual_only"] .visual-card');
+    await expect.poll(() => cards.locator(".visual-card__type").allTextContents())
+      .toEqual(["Still image", "Footage", "Web capture", "Graphic"]);
+    expect(await cards.locator(".visual-card__image .visual-art").count()).toBe(4);
+    expect(await cards.locator("[data-visual-action-trigger]").count()).toBe(0);
+    await page.close();
+  }, 90_000);
+
+  it("changes type, reports dropped media, deletes the final cue, and undoes and reloads each saved edit", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual card changes");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    const menu = async () => {
+      await row.getByRole("button", { name: /^Visual actions for /u }).first().click();
+    };
+    await menu();
+    await expect.poll(() => row.getByRole("menuitem", { name: "Change type" }).isVisible()).toBe(true);
+    await row.getByRole("menuitem", { name: "Change type" }).press("Escape");
+    await expect.poll(() => row.getByRole("menuitem", { name: "Change type" }).isVisible()).toBe(false);
+    await expect.poll(() => row.getByRole("button", { name: /^Visual actions for /u }).first()
+      .evaluate((node) => node === document.activeElement)).toBe(true);
+    await menu();
+    await row.getByRole("menuitem", { name: "Change type" }).click();
+    await row.getByRole("menu", { name: "Change visual type" }).getByRole("menuitem", { name: "Need to Find" }).click();
+    const payload = async () => {
+      const slot = (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.slots[0];
+      return slot?.kind === "content" ? slot.payload : null;
+    };
+    await expect.poll(payload)
+      .toMatchObject({ kind: "visual", pictureKind: "unresolved_visual" });
+    await expect.poll(() => page.locator("#save-status").textContent()).toContain("dropped");
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Change visual type"]);
+    await page.getByRole("button", { name: "Undo Change visual type" }).click();
+    await expect.poll(payload)
+      .toMatchObject({ kind: "visual", pictureKind: "clip" });
+    await menu();
+    await row.getByRole("menuitem", { name: "Delete", exact: true }).click();
+    await expect.poll(() => row.locator('.visual-card[data-kind="undefined"]').count()).toBe(1);
+    const afterDelete = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(afterDelete?.primaryVisualSequence?.slots[0]?.kind).toBe("content");
+    if (afterDelete?.primaryVisualSequence?.slots[0]?.kind === "content") {
+      expect(afterDelete.primaryVisualSequence.slots[0].payload.kind).toBe("undefined");
+    }
+    expect(await row.locator(".visual-card__type").allTextContents()).toEqual(["Visual undefined"]);
+    await page.getByRole("button", { name: "Undo Delete visual" }).click();
+    await expect.poll(() => row.locator(".visual-card__type").allTextContents()).toEqual(["Footage"]);
+    await page.reload();
+    expect(await row.locator(".visual-card__type").allTextContents()).toEqual(["Footage"]);
+    await page.close();
+  }, 90_000);
+
+  it("preserves saved 0% hover and keyboard previews and 50/100 image scaling", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Zero thumbnail previews");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const card = page.locator(`[data-row-id="${seeded.rowId}"] .visual-card`).first();
+    const thumb = card.locator(".visual-card__image");
+    const width = async () => await thumb.evaluate((node) => node.getBoundingClientRect().width);
+    await setSlider(page, "#thumbnail-size", 50);
+    const halfWidth = await width();
+    expect(halfWidth).toBeGreaterThan(0);
+    await setSlider(page, "#thumbnail-size", 100);
+    await expect.poll(width).toBeGreaterThan(halfWidth);
+    await setSlider(page, "#thumbnail-size", 0);
+    await page.reload();
+    expect(await page.locator("#thumbnail-size").inputValue()).toBe("0");
+    await expect.poll(width).toBe(0);
+    await card.hover();
+    await card.locator(".visual-card__preview").waitFor({ state: "visible" });
+    await page.mouse.move(0, 0);
+    await card.locator(".visual-card__preview").waitFor({ state: "hidden" });
+    await card.focus();
+    await card.locator(".visual-card__preview").waitFor({ state: "visible" });
+    await card.press("Tab");
+    await card.locator(".visual-card__preview").waitFor({ state: "hidden" });
+    expect(await card.locator("[data-visual-action-trigger]").count()).toBe(1);
+    // Other cases in this suite share the same browser profile and expect the
+    // initial 22% preference. The saved-0% reload is already asserted above.
+    await setSlider(page, "#thumbnail-size", 22);
+    await page.close();
+  }, 90_000);
+
+  it("flashes the existing cue gold when a selected-word Add moves it later in the projected order", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual cue reorder flash");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    const source = seeded.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (source?.type !== "narration" || source.primaryVisualSequence?.slots[0]?.kind !== "content") {
+      throw new Error("missing original cue");
+    }
+    const originalSlotId = source.primaryVisualSequence.slots[0].id;
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const row = page.locator(`[data-row-id="${seeded.rowId}"]`);
+    await selectText(row.locator("[data-narration-editor]"), 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menu", { name: "Visual type" }).getByRole("menuitem", { name: "Need to Find" }).click();
+    await expect.poll(() => row.locator(".visual-card__type").allTextContents())
+      .toEqual(["Need to find", "Footage"]);
+    await expect.poll(() => row.locator(`.visual-card[data-slot-id="${originalSlotId}"]`)
+      .getAttribute("class")).toContain("visual-card--moved");
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))
+      ?.primaryVisualSequence?.slots.length).toBeGreaterThan(1);
     await page.close();
   }, 90_000);
 
@@ -1032,6 +1203,81 @@ describe("browser authoring over the local project service", () => {
     })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
     expect(stale.ok).toBe(false);
     expect(stale.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    await page.close();
+  }, 90_000);
+
+  it("dispatches visual edits and cue-ordered projection without bypassing D124 split history or saving", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Visual command projection protection");
+    const seeded = editableDocumentFixture(projectId, "the harbor sleeps the harbor wakes", true);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    const row = saved.document.activeDraft.blocks.find((block) => block.id === seeded.rowId);
+    if (!row || row.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing visual test sequence");
+    const before = await appRequest(page, "/authoring/projection", "POST", { document: saved.document });
+    expect(before.status).toBe(200);
+    const priorProjection = before.body as { projection: { rows: Array<{
+      blockId: string; cards: Array<{ kind: string; startTokenIndex: number | null }>;
+    }> } };
+    const pictured = priorProjection.projection.rows.find((candidate) => candidate.blockId === row.id)?.cards ?? [];
+    expect(pictured.filter((card) => card.kind === "visual").length).toBeGreaterThanOrEqual(2);
+    const cueIndices = pictured.map((card) => card.startTokenIndex).filter((n): n is number => n !== null);
+    expect(cueIndices).toEqual([...cueIndices].sort((a, b) => a - b));
+
+    const splitCommand = { kind: "split_row", rowId: row.id, newRowId: randomUUID(),
+      at: { beforeTokenId: row.tokens[3]!.id } };
+    const split = (await appRequest(page, "/authoring/command", "POST", {
+      document: saved.document, command: splitCommand,
+    })).body as { ok: boolean; document: ScriptDocumentV2; splitProof: string };
+    expect(split.ok).toBe(true);
+    const reading = await appRequest(page, "/authoring/projection", "POST", { document: split.document });
+    expect(reading.status).toBe(200); // Read-only projection preserves the immediate split proof.
+    const join = { kind: "join_rows", rowId: splitCommand.newRowId, direction: "previous", words: null };
+    const restored = (await appRequest(page, "/authoring/command", "POST", {
+      document: split.document, command: join, splitProof: split.splitProof,
+    })).body as { ok: boolean; document: ScriptDocumentV2 };
+    expect(restored.ok).toBe(true);
+    expect(restored.document.activeDraft.blocks).toEqual(saved.document.activeDraft.blocks);
+
+    const splitAgain = (await appRequest(page, "/authoring/command", "POST", {
+      document: saved.document, command: { ...splitCommand, newRowId: randomUUID() },
+    })).body as { ok: boolean; document: ScriptDocumentV2; splitProof: string };
+    expect(splitAgain.ok).toBe(true);
+    const editedRow = splitAgain.document.activeDraft.blocks.find((block) => block.id === row.id);
+    if (!editedRow || editedRow.type !== "narration" || !editedRow.primaryVisualSequence) {
+      throw new Error("split lost the visual source row");
+    }
+    const visual = { kind: "add_visual_on_selection", blockId: editedRow.id,
+      slotId: randomUUID(), payloadId: randomUUID(), startTokenId: editedRow.tokens[0]!.id,
+      endTokenId: editedRow.tokens[1]!.id, visualType: "need_to_find" };
+    const version = editedRow.primaryVisualSequence.version;
+    const added = await appRequest(page, "/authoring/command", "POST", {
+      document: splitAgain.document, expectedSequenceVersion: version, command: visual,
+    });
+    expect(added.status).toBe(200);
+    const result = added.body as { ok: boolean; diagnostics: Array<{ code: string }>; document: ScriptDocumentV2;
+      evidence: { afterSequenceVersions: Record<string, number> } };
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.evidence.afterSequenceVersions[editedRow.id]).toBe(version + 1);
+    const staleVersion = (await appRequest(page, "/authoring/command", "POST", {
+      document: result.document, expectedSequenceVersion: version, command: {
+        kind: "delete_visual", blockId: editedRow.id, slotId: visual.slotId,
+      },
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }>; document: ScriptDocumentV2 };
+    expect(staleVersion.ok).toBe(false);
+    expect(staleVersion.diagnostics[0]?.code).toBe("SEQUENCE_VERSION_STALE");
+    expect(staleVersion.document).toEqual(result.document);
+    const oldJoin = (await appRequest(page, "/authoring/command", "POST", {
+      document: splitAgain.document, splitProof: splitAgain.splitProof,
+      command: { ...join, rowId: splitAgain.document.activeDraft.blocks.find((candidate) =>
+        candidate.id !== editedRow.id && candidate.type === "narration")?.id },
+    })).body as { ok: boolean; diagnostics: Array<{ code: string }> };
+    expect(oldJoin.ok).toBe(false);
+    expect(oldJoin.diagnostics[0]?.code).toBe("ROW_SPLIT_CONTEXT_STALE");
+    const after = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    expect(after.document).toEqual(saved.document); // Commands are pure; the separate revision-guarded PUT is required.
     await page.close();
   }, 90_000);
 
@@ -1798,6 +2044,117 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it.each([
+    ["first", 0, 5, "Onscreen Placeholder", "intentional_placeholder"],
+    ["middle", 6, 10, "Need to Find", "unresolved_visual"],
+    ["last", 17, 22, "Visual Undefined", "undefined"],
+  ])("adds a %s selected-word visual via type menu, one Undo and a saved reload", async (
+    _edge, start, end, label, pictureKind,
+  ) => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, `Add visual ${_edge}`);
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    const source = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (source?.type !== "narration") throw new Error("missing source narration row");
+    const originalIds = new Set(source.primaryVisualSequence?.slots.map((slot) => slot.id));
+    const added = async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence?.slots
+      .filter((slot) => slot.kind === "content" && !originalIds.has(slot.id)) ?? [];
+
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(true);
+    expect(await page.getByRole("menuitem").allTextContents()).toEqual([
+      "Onscreen Placeholder", "Need to Find", "Visual Undefined",
+    ]);
+    await page.getByRole("menuitem", { name: label }).click();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    const slot = (await added())[0];
+    if (!slot || slot.kind !== "content") throw new Error("Add did not create a content slot");
+    if (pictureKind === "undefined") expect(slot.payload.kind).toBe("undefined");
+    else expect(slot.payload).toMatchObject({ kind: "visual", pictureKind });
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add visual"]);
+
+    await page.getByRole("button", { name: "Undo Add visual" }).click();
+    await expect.poll(async () => (await added()).length).toBe(0);
+    await selectText(editor, start, end);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: label }).click();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    await page.reload();
+    await expect.poll(async () => (await added()).length).toBe(1);
+    expect(await page.locator(`[data-row-id="${seeded.rowId}"] .visual-card`).count()).toBeGreaterThan(1);
+    await page.close();
+  }, 90_000);
+
+  it("hides Add on stage-only/collapsed selection; Escape and outside click cancel with no history", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Add visual cancellation");
+    const seeded = editableDocumentFixture(projectId, "alpha [quiet] beta");
+    const row = seeded.document.activeDraft.blocks.find((item) => item.id === seeded.rowId);
+    if (row?.type !== "narration") throw new Error("missing stage direction fixture row");
+    row.tokens.find((token) => token.value === "quiet")!.spoken = false;
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 7, 12);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).isVisible()).toBe(false);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Need to Find" }).press("Escape");
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(false);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).evaluate((node) =>
+      document.activeElement === node)).toBe(true);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.locator("#script-title").click();
+    await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(false);
+    await placeCaret(editor, 3);
+    await expect.poll(() => page.getByRole("button", { name: "Add visual" }).isVisible()).toBe(false);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    const stored = await narrationRowFromApi(page, projectId, seeded.rowId);
+    expect(stored?.primaryVisualSequence?.slots).toEqual(row.primaryVisualSequence?.slots);
+    await page.close();
+  }, 90_000);
+
+  it("resolves selected token IDs after earlier queued typing instead of using optimistic IDs", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Queued typing before Add visual");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    let slowed = false;
+    await page.route("**/authoring/command", async (route) => {
+      const input = route.request().postDataJSON() as { command: { kind: string } };
+      if (!slowed && input.command.kind === "edit_narration_text") {
+        slowed = true;
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+      await route.continue();
+    });
+    await placeCaret(editor, "alpha beta gamma".length);
+    await editor.press(" ");
+    await editor.type("zeta");
+    await selectText(editor, "alpha beta gamma ".length, "alpha beta gamma zeta".length);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Need to Find" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe("alpha beta gamma zeta");
+    await expect.poll(async () => {
+      const stored = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const appended = stored?.tokens.find((token) => token.value === "zeta");
+      return stored?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.pictureKind === "unresolved_visual" &&
+        slot.boundaryBefore.kind === "spoken_word" && slot.boundaryBefore.anchor.tokenId === appended?.id);
+    }).toBe(true);
+    expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add visual", "Edit narration"]);
+    await page.close();
+  }, 90_000);
+
   it("offers selection structure actions in accepted order for first, last, whole and interior words", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -1809,13 +2166,13 @@ describe("browser authoring over the local project service", () => {
     const visible = () => page.locator(`[data-row-id="${seeded.rowIds[1]}"] .narration-editor__actions button:visible`).allTextContents();
 
     await selectText(editor, 0, "alpha beta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to previous row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row"]);
     await selectText(editor, "gamma".length + "alpha beta ".length, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Split into new row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row"]);
     await selectText(editor, 0, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Make stage direction", "Join to previous row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row"]);
     await selectText(editor, "alpha ".length, "alpha beta gamma".length);
-    await expect.poll(visible).toEqual(["Make stage direction"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction"]);
     await page.close();
   }, 90_000);
 

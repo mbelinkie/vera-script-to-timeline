@@ -453,6 +453,87 @@ input {
   outline-offset: 2px;
 }
 
+.visual-card--moved {
+  animation: visual-cue-moved 1.25s ease-out;
+}
+
+@keyframes visual-cue-moved {
+  0%, 35% { border-color: #bc8527; background: #ffe6a6; box-shadow: 0 0 0 3px rgb(212 158 50 / 32%); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual-card--moved { animation: none; border-color: #bc8527; }
+}
+
+.visual-card__actions {
+  position: relative;
+  align-self: start;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  z-index: 4;
+}
+
+.visual-card__meta { padding-right: 1.9rem; }
+
+.visual-card__trigger {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0.15rem;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: #285766;
+  cursor: pointer;
+}
+
+.visual-card__trigger:hover,
+.visual-card__trigger:focus-visible {
+  border-color: #8bb9be;
+  background: #fff;
+}
+
+.visual-card__menu,
+.visual-card__types {
+  position: absolute;
+  top: 1.8rem;
+  right: 0;
+  z-index: 10;
+  width: max-content;
+  min-width: 10rem;
+  padding: 0.3rem;
+  border: 1px solid #c9d7dc;
+  border-radius: 0.4rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.4rem rgb(25 35 45 / 18%);
+}
+
+.visual-card__menu[hidden],
+.visual-card__types[hidden] { display: none; }
+
+.visual-card__menu button,
+.visual-card__types button {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #27343a;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.visual-card__menu button:hover,
+.visual-card__types button:hover,
+.visual-card__menu button:focus-visible,
+.visual-card__types button:focus-visible { background: #e9f3f4; }
+
+.visual-card__types button:disabled { color: #88939a; cursor: default; }
+
 .visual-card__image {
   display: block;
   width: 100%;
@@ -614,6 +695,8 @@ html[data-thumbnail-scale="0"] .visual-card__image {
   height: 0;
   visibility: hidden;
 }
+
+html[data-thumbnail-scale="0"] .visual-card { grid-template-columns: 0 minmax(0, 1fr); }
 
 html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:hover {
   z-index: 3;
