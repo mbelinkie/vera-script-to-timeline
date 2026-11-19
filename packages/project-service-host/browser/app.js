@@ -1205,7 +1205,7 @@ function updateUndo() {
 }
 
 function undo() {
-  if (composingRows.size) return;
+  if (prompterDialog.open || composingRows.size) return;
   clearPreparedPrompter("Save your script before exporting.");
   activeAttach = null;
   typingGroup = null;
@@ -1234,6 +1234,8 @@ function undo() {
 }
 element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
+  // A modal export must not dispatch (or swallow) editor shortcuts behind it.
+  if (prompterDialog.open) return;
   if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
     event.preventDefault();
     cancelAttach();

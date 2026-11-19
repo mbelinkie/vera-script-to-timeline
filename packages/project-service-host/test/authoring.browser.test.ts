@@ -635,6 +635,37 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   });
 
+  it("does not undo the saved script with keyboard shortcuts while the prompter dialog is open", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Prompter modal undo isolation");
+    const initial = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await saveDocumentFixture(page, projectId, prompterBrowserFixture(initial.document));
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator('[data-row-kind="narration"] [data-narration-editor]').first();
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("x");
+    await expect.poll(async () => {
+      const saved = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+      return saved.document.activeDraft.blocks.find((block) => block.type === "narration")?.text;
+    }).toContain("sentence!x");
+    const beforeDialog = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-prompter").click();
+    await page.locator("#prompter-sections").check();
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Meta+z");
+    // The old global Undo listener used to autosave a hidden script reversal.
+    await page.waitForTimeout(1_000);
+    const afterDialog = (await appRequest(page, `/authoring/projects/${projectId}/document`)).body as SavedDocument;
+    expect(afterDialog.revision).toBe(beforeDialog.revision);
+    expect(afterDialog.digest).toBe(beforeDialog.digest);
+    expect(afterDialog.document).toEqual(beforeDialog.document);
+    expect(await page.locator("#prompter-dialog").evaluate((element) => (element as HTMLDialogElement).open)).toBe(true);
+    await page.close();
+  });
+
   it("blocks prepared downloads during an unsaved edit, a pending PUT, and a conflict; reload recovers", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
