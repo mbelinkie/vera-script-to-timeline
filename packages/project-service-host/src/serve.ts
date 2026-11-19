@@ -128,7 +128,7 @@ export async function startQaServer(
           /^\/v1\/projects\/[^/]+\/(agent-pairing-offers|agent-readiness|agents\/)/u.test(path)) {
         return pairing(request);
       }
-      if (/^\/v1\/projects\/[^/]+\/builds(?:\/|$)/u.test(path) ||
+      if (/^\/v1\/projects\/[^/]+\/(?:builds(?:\/|$)|music-warnings$)/u.test(path) ||
           /^\/v1\/agent\/projects\/[^/]+\/(jobs\/|queue$)/u.test(path)) return builds(request);
       return projects(request);
     };

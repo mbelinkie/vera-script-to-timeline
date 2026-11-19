@@ -19,13 +19,14 @@ const names = [
   "stt_project_settings", "stt_settings_revisions", "stt_project_title_mutations",
   "stt_build_pairing_offers", "stt_project_build_agents", "stt_build_submissions",
   "stt_build_source_pins", "stt_build_dispatches", "stt_build_events",
-  "stt_build_evidence", "stt_build_preflight_refusals",
+  "stt_build_evidence", "stt_build_preflight_refusals", "stt_project_latest_music_warnings",
 ];
 const receipts = [
   ["stt_project_documents_001", "packages/project-documents/migrations/001_stt_projects_documents.sql"],
   ["vera_project_identity_membership_001", "packages/project-authorization/migrations/001_identity_membership.sql"],
   ["stt_project_builds_001", "packages/project-builds/migrations/001_project_builds.sql"],
   ["stt_project_builds_002_preflight_refusals", "packages/project-builds/migrations/002_preflight_refusals.sql"],
+  ["stt_project_builds_003_latest_music_warnings", "packages/project-builds/migrations/003_latest_music_warnings.sql"],
 ].map(([name, file]) => `${name}|1|${createHash("sha256").update(readFileSync(join(root, file!))).digest("hex")}`);
 receipts.sort((a, b) => a.split("|")[0]!.localeCompare(b.split("|")[0]!));
 
@@ -116,7 +117,7 @@ touch '${join(scratch, "restored")}'`;
     expect(backup.status, backup.stderr).toBe(0);
     const manifest = readManifest(join(archive, "manifest.json"));
     expect(manifest.archiveSha256).toBe(createHash("sha256").update("PRIVATE_FAKE_DUMP_159").digest("hex"));
-    expect(manifest.inventory.migrations).toHaveLength(4);
+    expect(manifest.inventory.migrations).toHaveLength(receipts.length);
     expect(Object.keys(manifest.inventory.tables)).toEqual(names);
     expect(manifest.inventory.tables.stt_document_heads).toEqual({ rows: 0, sha256: emptySha });
     expect(run("restore").status).toBe(0);

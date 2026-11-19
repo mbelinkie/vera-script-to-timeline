@@ -49,7 +49,9 @@ from vera_timeline_agent.placeholder_slate import (
     transparent_graphic_carrier,
 )
 from vera_timeline_agent.presenter_warning_validation import (
+    _MUSIC_WARNING_CODES,
     OutputConsistencyError,
+    _stable_compiler_id,
     validate_temporary_presenter_report,
 )
 from vera_timeline_agent.source_audio_endpoint import endpoint_plan, endpoint_wav
@@ -2747,12 +2749,20 @@ def _delivery_view(
         }
         if kind == "script_marker":
             marker = cast(JsonObject, event["marker"])
+            marker_prefix = (
+                f"music-warning:{manifest['document']['documentId']}:"
+                f"{marker['supportingItemId']}:"
+            )
+            music_warning = any(
+                event_id == _stable_compiler_id(marker_prefix + code)
+                for code in _MUSIC_WARNING_CODES
+            )
             markers.append(
                 {
                     "id": event_id,
                     "frame": record_start,
                     "color": "YELLOW",
-                    "name": marker["text"],
+                    "name": "Music warning" if music_warning else marker["text"],
                     "note": marker["text"],
                     "provenance": event,
                 }

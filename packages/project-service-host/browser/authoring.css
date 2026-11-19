@@ -138,6 +138,35 @@ input {
   font-size: 0.78rem;
 }
 
+.music-warning-panel {
+  max-width: 72rem;
+  margin: 0.75rem auto;
+  padding: 0.65rem 1rem;
+  border: 1px solid #454039;
+  border-radius: 0.5rem;
+  background: #22221f;
+  color: #ede4d2;
+  font-size: 0.82rem;
+}
+
+.music-warning-panel h2 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.music-warning-panel p {
+  margin: 0.25rem 0;
+}
+
+.music-warning-panel ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.music-warning-panel li + li {
+  margin-top: 0.2rem;
+}
+
 .authoring-view {
   min-height: 100vh;
 }

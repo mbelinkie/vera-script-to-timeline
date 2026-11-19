@@ -204,6 +204,7 @@ def prepare_project(
     ):
         if raw_document[document_key] != frozen[frozen_key]:
             raise ValueError("Compiler inputs belong to a different frozen script")
+    authored_digest = _compiler_hash(raw_document)
     freeze_quote_box_inputs(raw_document, dependencies)
     media_root = _plain(project_root / "Media")
     media_root.mkdir(exist_ok=True)
@@ -218,7 +219,7 @@ def prepare_project(
     root.mkdir(exist_ok=True)
     key = identity_hash(
         {
-            "version": 1,
+            "version": 2,
             "document": raw_document,
             "dependencies": dependencies,
             "preparations": preparations,
@@ -384,6 +385,8 @@ def prepare_project(
             canonical_json(
                 {
                     "reusable": not failed,
+                    "authoredDocumentDigest": authored_digest,
+                    "preparedScriptSha256": hash_file(prepared_script),
                     "assets": {
                         path: hash_file(_plain(Path(path))) for path in sorted(assets)
                     },

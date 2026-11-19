@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
+
 import {
   type ProjectAuthorizationService, type SqlClient, type SqlPool,
 } from "@vera/project-authorization";
@@ -23,6 +25,62 @@ interface DispatchRow {
   assigned_agent_id: string | null;
   lease_expires_at: string | Date | null;
 }
+const MUSIC_WARNING_CODES = new Set([
+  "MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER", "MUSIC_SPAN_INVALID", "MUSIC_SETTINGS_UNSUPPORTED", "MORE_MUSIC_WARNINGS",
+]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.codePointAt(0)!;
+    return code < 32 || code === 127;
+  });
+}
+export interface MusicBuildWarning {
+  readonly code: string;
+  readonly message: string;
+}
+export interface LatestMusicWarnings {
+  readonly buildId: string;
+  readonly documentId: string;
+  readonly documentRevision: number;
+  readonly musicWarnings: readonly MusicBuildWarning[];
+  readonly updatedAt: string;
+}
+interface MusicWarningsInput extends Omit<LatestMusicWarnings, "updatedAt" | "documentRevision"> {
+  readonly documentDigest: string;
+  readonly builtAt: string;
+  readonly projectId: string;
+}
+
+function parseMusicWarningsInput(projectId: string, value: unknown): MusicWarningsInput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+  const input = value as Record<string, unknown>;
+  const keys = ["projectId", "documentId", "documentDigest", "buildId", "builtAt", "musicWarnings"];
+  if (Object.keys(input).length !== keys.length || keys.some((key) => !Object.hasOwn(input, key)) ||
+      typeof input.projectId !== "string" || input.projectId.toLowerCase() !== projectId ||
+      typeof input.documentId !== "string" || !UUID.test(input.documentId) ||
+      typeof input.buildId !== "string" || !UUID.test(input.buildId) ||
+      typeof input.documentDigest !== "string" || !DIGEST.test(input.documentDigest) ||
+      typeof input.builtAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(input.builtAt) ||
+      !Number.isFinite(Date.parse(input.builtAt)) || !Array.isArray(input.musicWarnings) || input.musicWarnings.length > 32) {
+    return invalid();
+  }
+  const musicWarnings = input.musicWarnings.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+    const warning = value as Record<string, unknown>;
+    if (Object.keys(warning).length !== 2 || !Object.hasOwn(warning, "code") ||
+        !Object.hasOwn(warning, "message") || typeof warning.code !== "string" ||
+        !MUSIC_WARNING_CODES.has(warning.code) || typeof warning.message !== "string" ||
+        warning.message.length < 1 || warning.message.length > 1000 ||
+        hasControlCharacter(warning.message)) return invalid();
+    return { code: warning.code, message: warning.message };
+  });
+  return {
+    projectId, documentId: input.documentId.toLowerCase(),
+    documentDigest: input.documentDigest, builtAt: input.builtAt, buildId: input.buildId.toLowerCase(), musicWarnings,
+  };
+}
+
 export interface StageProgress {
   readonly leaseEpoch: number;
   readonly status: "running" | "needs_action" | "waiting_reconcile" | "failed";
@@ -99,6 +157,52 @@ export class ProjectBuildStatusService {
     private readonly clock: BuildClock = () => new Date(),
     private readonly evidenceInspector?: IndependentEvidenceInspector,
   ) {}
+
+  /** Store only the music-warning projection of a local successful build report. */
+  async publishMusicWarnings(projectId: string, editor: UserPrincipal, raw: unknown): Promise<void> {
+    if (!validId(projectId)) return invalid();
+    const input = parseMusicWarningsInput(projectId.toLowerCase(), raw);
+    await this.auth.withAuthorizedMutation(projectId, editor, "preview_build", async (db) => {
+      const head = (await db.query<{ document_json: string; revision: number | string }>(
+        "SELECT document_json,revision FROM stt_document_heads WHERE project_id=$1 AND document_id=$2 FOR SHARE",
+        [projectId, input.documentId],
+      )).rows[0];
+      if (!head || sha256CanonicalJson(JSON.parse(head.document_json)) !== input.documentDigest) return invalid();
+      const now = checkedNow(this.clock);
+      if (Date.parse(input.builtAt) > Date.parse(now) + 60_000) return invalid();
+      await db.query(
+        "INSERT INTO stt_project_latest_music_warnings(project_id,document_id,document_revision," +
+          "build_id,music_warnings,built_at,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7) " +
+          "ON CONFLICT(project_id) DO UPDATE SET document_id=EXCLUDED.document_id," +
+          "document_revision=EXCLUDED.document_revision,build_id=EXCLUDED.build_id," +
+          "music_warnings=EXCLUDED.music_warnings,built_at=EXCLUDED.built_at,updated_at=EXCLUDED.updated_at " +
+          "WHERE (stt_project_latest_music_warnings.document_revision,stt_project_latest_music_warnings.built_at) " +
+          "< (EXCLUDED.document_revision,EXCLUDED.built_at)",
+        [projectId, input.documentId, safeNumber(head.revision), input.buildId,
+          JSON.stringify(input.musicWarnings), input.builtAt, now],
+      );
+    });
+  }
+
+  async latestMusicWarnings(projectId: string, viewer: UserPrincipal): Promise<LatestMusicWarnings | null> {
+    if (!validId(projectId)) return invalid();
+    return await this.auth.withAuthorizedMutation(projectId, viewer, "view_build_results", async (db) => {
+      const row = (await db.query<{
+        document_id: string; document_revision: number | string; build_id: string;
+        music_warnings: MusicBuildWarning[] | string; updated_at: Date | string;
+      }>(
+        "SELECT document_id,document_revision,build_id,music_warnings,updated_at " +
+          "FROM stt_project_latest_music_warnings WHERE project_id=$1",
+        [projectId],
+      )).rows[0];
+      if (!row) return null;
+      const warnings = typeof row.music_warnings === "string" ? JSON.parse(row.music_warnings) as unknown : row.music_warnings;
+      return { buildId: row.build_id, documentId: row.document_id,
+        documentRevision: safeNumber(row.document_revision),
+        musicWarnings: warnings as MusicBuildWarning[],
+        updatedAt: new Date(row.updated_at).toISOString() };
+    });
+  }
 
   /** Scoped discovery only; discovering a job never assigns or authorizes an effect. */
   async pollQueued(input: AgentCredentialInput): Promise<readonly string[]> {

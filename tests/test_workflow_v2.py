@@ -1623,6 +1623,28 @@ def test_music_native_configuration_is_exact_and_reopened_readback_agrees() -> N
     assert adapter.verify(view) == ()
 
 
+def test_music_exclusive_end_requires_matching_source_times_and_speed() -> None:
+    adapter, item, view = _native_music_fixture()
+    event = view["events"][0]
+    rate = {"numerator": 24, "denominator": 1}
+    adapter._v2_timeline["frameRate"] = rate
+    view["timeline"]["frameRate"] = rate
+    item.source_end = 10
+    item.GetSourceStartTime = lambda: 0.0
+    item.GetSourceEndTime = lambda: 10 / 24
+    item.GetSpeed = lambda: {"Percentage": 100.0}
+    adapter._configure_native_music(event)
+    adapter.expected_source_ranges[event["id"]] = (0, 9)
+    adapter.expected_stamps[event["id"]] = "bound-event-stamp"
+    item.AddMarker(0, "Cyan", "VERA v2 event", event["id"], 1, "bound-event-stamp")
+    assert adapter.verify(view) == ()
+
+    item.GetSourceEndTime = lambda: 11 / 24
+    assert "event-source-end" in adapter.verify(view)
+    with pytest.raises(workflow_v2.WorkflowV2Error, match="source trim"):
+        adapter._configure_native_music(event)
+
+
 @pytest.mark.parametrize(
     ("attribute", "mutated", "expected"),
     [

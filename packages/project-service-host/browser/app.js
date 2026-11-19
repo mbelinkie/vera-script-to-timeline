@@ -21,6 +21,7 @@ const visualCommandKinds = new Set([
   "set_visual_range", "set_on_camera_framing",
 ]);
 let project;
+let activeProjectId;
 let scriptDocument;
 let projected;
 let projectionDocument;
@@ -133,6 +134,7 @@ async function showScript(projectId) {
   renderEditor();
   updateUndo();
   project = savedProject;
+  activeProjectId = projectId;
   element("script-title").textContent = savedScript.document.title;
   document.title = `${savedScript.document.title} · VERA Authoring`;
   projectTitle.value = project.title;
@@ -142,7 +144,56 @@ async function showScript(projectId) {
   authoring.hidden = false;
   setSaveStatus("Saved");
   element("script-title").focus();
+  void refreshMusicWarnings();
 }
+
+const musicWarningLabels = {
+  MUSIC_SOURCE_SHORTER: "Music ends early",
+  MUSIC_FILE_MISSING: "Music file missing",
+  MUSIC_SPAN_INVALID: "Music cue can’t be placed",
+  MUSIC_SETTINGS_UNSUPPORTED: "Music settings aren’t supported",
+  MORE_MUSIC_WARNINGS: "Additional warnings",
+};
+let musicWarningRequest = 0;
+
+async function refreshMusicWarnings() {
+  if (!activeProjectId) return;
+  const projectId = activeProjectId;
+  const request = ++musicWarningRequest;
+  const current = () => projectId === activeProjectId && request === musicWarningRequest;
+  const status = element("music-warning-status");
+  const list = element("music-warning-list");
+  try {
+    const { report } = await api(`/${projectId}/music-warnings`);
+    if (!current()) return;
+    list.replaceChildren();
+    if (!report) {
+      status.textContent = "No completed build report is available for this project yet.";
+      return;
+    }
+    const warnings = report.musicWarnings;
+    const overflow = warnings.some((warning) => warning.code === "MORE_MUSIC_WARNINGS");
+    const version = report.documentRevision === documentRevision ? "saved script" : "earlier script version";
+    status.textContent = `Build ${report.buildId.slice(0, 8)} · ${version} · ` +
+      (overflow ? "music warnings." : warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
+    for (const warning of warnings) {
+      const item = document.createElement("li");
+      const label = document.createElement("strong");
+      label.textContent = `${musicWarningLabels[warning.code] ?? "Music warning"}: `;
+      item.append(label, document.createTextNode(warning.message));
+      list.append(item);
+    }
+  } catch {
+    if (!current()) return;
+    list.replaceChildren();
+    status.textContent = "Latest build warnings could not be loaded.";
+  }
+}
+
+window.addEventListener("focus", () => { void refreshMusicWarnings(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void refreshMusicWarnings();
+});
 
 function renderEditor() {
   const root = element("script-rows");
@@ -239,6 +290,7 @@ async function saveDocument() {
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
+    void refreshMusicWarnings();
     pendingDocument = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {

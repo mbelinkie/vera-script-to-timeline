@@ -369,6 +369,7 @@ describe("#100 verified A5 music compilation", () => {
     expect(compiled.manifest.sources.filter((source) => "musicAudio" in source)).toEqual([{ id: event.provenance.sourceId, musicAudio: deps.musicBindings![0] }]);
     expect(compiled.report.eventResults.find((item) => item.eventId === event.eventId)).toMatchObject({ disposition: "placed", kind: "music" });
     expect(compiled.report.status).toBe("ready");
+    expect(compiled.manifest.events.some((item) => item.kind === "script_marker")).toBe(false);
     expect(JSON.stringify([doc, deps])).toBe(frozen);
   });
 
@@ -383,6 +384,31 @@ describe("#100 verified A5 music compilation", () => {
     expect(result.report.status).toBe("ready");
   });
 
+  it("keeps all music diagnostics when warning markers share a frame", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    doc.rowAudioSpans!.push({ ...span, id: id(9900), source: { ...span.source, artifactId: id(9901) } });
+    deps.musicBindings = [];
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("ready");
+    expect(result.report.diagnostics.filter((item) => item.code === "MUSIC_FILE_MISSING")).toHaveLength(2);
+    expect(result.manifest.events.filter((item) => item.kind === "script_marker").map((item) => item.recordRange.startFrame)).toEqual([0]);
+  });
+
+  it("preserves the authored note when a short cue ends on the same frame", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 4);
+    const [first, second] = doc.activeDraft.blocks;
+    doc.activeDraft.supportingItems.push({
+      id: id(9902), version: 1, orderKey: "a0", role: "editor_note", content: "Check this cut.",
+      placement: { kind: "point", anchor: { kind: "between_blocks", beforeBlockId: first!.id, afterBlockId: second!.id } },
+    });
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("ready");
+    expect(result.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    const markers = result.manifest.events.filter((item) => item.kind === "script_marker");
+    expect(markers.map((marker) => [marker.recordRange.startFrame, marker.marker?.text])).toEqual([[96, "Check this cut."]]);
+  });
+
   it("clips short files, warns with requested/delivered frames, never loops, and omits subframe audio", () => {
     const { doc, deps } = threeRowMusicFixture(48000 * 7);
     const result = compile(doc, deps);
@@ -390,6 +416,9 @@ describe("#100 verified A5 music compilation", () => {
     expect(event.recordRange).toEqual({ startFrame: 0, endFrame: 168 });
     expect(event.sourceRange).toEqual({ startFrame: 0, endFrame: 168 });
     expect(result.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    const warningMarker = result.manifest.events.find((item) => item.kind === "script_marker");
+    expect(warningMarker?.recordRange).toEqual({ startFrame: 168, endFrame: 169 });
+    expect(warningMarker?.marker?.text).toContain("120 frames are uncovered");
     deps.musicBindings![0] = { ...deps.musicBindings![0]!, durationSamples: 1 } as never;
     const tooShort = compile(doc, deps);
     expect(tooShort.manifest.events.some((item) => item.kind === "music")).toBe(false);
