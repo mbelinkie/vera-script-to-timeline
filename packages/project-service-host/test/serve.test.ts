@@ -8,6 +8,7 @@ import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
+import { checkedDocument } from "@vera/project-documents";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -52,9 +53,9 @@ function pictureMoveFixture() {
   return { document, source, narrated, blank };
 }
 
-async function authoringRequests() {
+async function authoringRequests(projects: (request: Request) => Promise<Response> = vi.fn(() =>
+  Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })))) {
   const origin = "http://127.0.0.1:38429";
-  const projects = vi.fn(() => Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })));
   const host = createAuthoringHandler(origin, `Bearer ${privateToken}`, projects);
   const request = async (path: string, body: unknown, opts: { session?: string; origin?: string; site?: string } = {}) =>
     await host.handle(new Request(`${origin}/authoring/${path}`, {
@@ -72,8 +73,143 @@ async function authoringRequests() {
   const { sessionProof } = await session.json() as { sessionProof: string };
   const authorized = (path: string, body: unknown, opts: { session?: string; origin?: string; site?: string } = {}) =>
     request(path, body, { session: sessionProof, ...opts });
-  return { request, authorized, sessionProof, projects };
+  return { request, authorized, sessionProof, projects, host };
 }
+
+describe("saved prompter export HTTP boundary", () => {
+  const origin = "http://127.0.0.1:38429";
+  const saved = checkedDocument(sourceFixture.document, sourceFixture.document.projectId);
+  const projectId = saved.document.projectId;
+  const path = `projects/${projectId}/prompter-export`;
+  const view = { projectId, revision: 7, digest: saved.digest, document: saved.document };
+  const settings = { includeSectionNavigation: false, includeBeatNumbers: false };
+  const body = { expectedRevision: view.revision, expectedDigest: view.digest, settings };
+
+  it("delegates exactly one authorized GET of the current saved head and returns a pinned, no-store pair", async () => {
+    const projects = vi.fn((request: Request) => {
+      expect(request.method).toBe("GET");
+      expect(request.url).toBe(`${origin}/v1/projects/${projectId}/document`);
+      expect(request.headers.get("authorization")).toBe(`Bearer ${privateToken}`);
+      expect(request.headers.get("x-vera-session")).toBeNull();
+      expect(request.body).toBeNull();
+      return Promise.resolve(Response.json(view));
+    });
+    const { authorized } = await authoringRequests(projects);
+    const first = await authorized(path, body);
+    const second = await authorized(path, body);
+    expect(first.status).toBe(200);
+    expect(first.headers.get("cache-control")).toBe("no-store");
+    expect(first.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(second.status).toBe(200);
+    const pair = await first.json() as { projectId: string; revision: number; digest: string;
+      text: string; sidecarJson: string; textSha256: string; sidecarSha256: string;
+      sourceDocument: { liveHeadSequence: number } };
+    expect(pair).toMatchObject({ projectId, revision: 7, digest: view.digest });
+    expect(pair.text).toContain("hello");
+    expect(pair.sidecarJson).toContain("prompter");
+    expect(pair.textSha256).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    expect(pair.sidecarSha256).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    expect(await second.json()).toEqual(pair);
+    const defaultSettings = await authorized(path, {
+      expectedRevision: view.revision, expectedDigest: view.digest,
+    });
+    expect(defaultSettings.status).toBe(200);
+    expect(await defaultSettings.json()).toEqual(pair);
+    expect(JSON.stringify(pair)).not.toContain(privateToken);
+    expect(projects).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses missing enrollment, other origins/sites, wrong paths and forged input before any saved read", async () => {
+    const { request, authorized, projects, sessionProof, host } = await authoringRequests();
+    for (const response of [
+      await request(path, body),
+      await authorized(path, body, { session: "a".repeat(64) }),
+      await authorized(path, body, { origin: "http://127.0.0.1:38430" }),
+      await authorized(path, body, { site: "cross-site" }),
+    ]) {
+      expect([401, 403]).toContain(response.status);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    }
+    const bad = [
+      null, [], {}, { ...body, expectedRevision: -1 }, { ...body, expectedRevision: 1.5 },
+      { ...body, expectedRevision: "7" }, { ...body, expectedDigest: "sha256:bad" },
+      { ...body, expectedDigest: view.digest.toUpperCase() },
+      { ...body, document: view.document }, { ...body, projectId }, { ...body, extra: true },
+      { ...body, settings: null }, { ...body, settings: {} },
+      { ...body, settings: { ...settings, extra: 1 } },
+      { ...body, settings: { ...settings, includeBeatNumbers: "false" } },
+      { ...body, settings: { includeBeatNumbers: true } },
+    ];
+    for (const invalid of bad) {
+      const response = await authorized(path, invalid);
+      expect(response.status, JSON.stringify(invalid)).toBe(400);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({ error: "invalid_prompter_export" });
+    }
+    const raw = async (url: string, method: string, payload = JSON.stringify(body), contentType = "application/json") =>
+      await host.handle(new Request(url, {
+        method, headers: { Origin: origin, "Sec-Fetch-Site": "same-origin", "X-VERA-Authoring": "1",
+          "X-VERA-Session": sessionProof, "Content-Type": contentType }, body: method === "POST" ? payload : null,
+      })) as Response;
+    for (const url of [
+      `${origin}/authoring/${path}?debug=1`, `${origin}/authoring/${path}/`,
+      `${origin}/authoring/projects/not-uuid/prompter-export`,
+    ]) expect((await raw(url, "POST")).status).toBe(404);
+    expect((await raw(`${origin}/authoring/${path}`, "GET")).status).toBe(404);
+    expect((await raw(`${origin}/authoring/${path}`, "POST", "{not json")).status).toBe(400);
+    expect((await raw(`${origin}/authoring/${path}`, "POST", JSON.stringify(body), "text/plain")).status).toBe(400);
+    expect(projects).not.toHaveBeenCalled();
+  });
+
+  it("preserves permission denials and refuses stale, inaccessible or corrupted saved heads without output", async () => {
+    let upstream: Response = Response.json(view);
+    const projects = vi.fn(() => Promise.resolve(upstream.clone()));
+    const { authorized } = await authoringRequests(projects);
+    for (const invalid of [
+      { ...body, expectedRevision: 6 }, { ...body, expectedDigest: `sha256:${"0".repeat(64)}` },
+    ]) {
+      const response = await authorized(path, invalid);
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ error: "saved_script_changed" });
+    }
+    for (const status of [401, 403, 404]) {
+      upstream = Response.json({ error: "private information", document: view.document }, { status });
+      const response = await authorized(path, body);
+      expect(response.status).toBe(status);
+      expect(await response.json()).not.toHaveProperty("document");
+      expect(JSON.stringify(await authorized(path, body).then((r) => r.json()))).not.toContain("private information");
+    }
+    for (const invalid of [
+      { ...view, digest: `sha256:${"0".repeat(64)}` },
+      { ...view, document: { ...view.document, title: "tampered" } },
+      { ...view, projectId: randomUUID() },
+      { ...view, document: { ...view.document, activeDraft: null } },
+    ]) {
+      upstream = Response.json(invalid);
+      const response = await authorized(path, body);
+      expect(response.status).toBe(503);
+      expect(await response.json()).not.toHaveProperty("text");
+    }
+    upstream = new Response("broken", { status: 200, headers: { "Content-Type": "application/json" } });
+    expect((await authorized(path, body)).status).toBe(503);
+    const unexportable = structuredClone(view.document);
+    const row = unexportable.activeDraft.blocks[0];
+    if (row?.type !== "narration" || !row.primaryVisualSequence) throw new Error("missing fixture narration");
+    row.primaryVisualSequence.slots = [];
+    const savedInvalid = checkedDocument(unexportable, projectId);
+    upstream = Response.json({ ...view, digest: savedInvalid.digest, document: savedInvalid.document });
+    const refused = await authorized(path, { ...body, expectedDigest: savedInvalid.digest });
+    expect(refused.status).toBe(422);
+    const validation = await refused.json() as { error: string; diagnostics: Array<{ code: string }>;
+      text?: string; sidecarJson?: string };
+    expect(validation.error).toBe("prompter_validation_failed");
+    expect(validation.diagnostics.map(({ code }) => code)).toContain("PRIMARY_SEQUENCE_EMPTY");
+    expect(validation).not.toHaveProperty("text");
+    expect(validation).not.toHaveProperty("sidecarJson");
+    expect(projects).toHaveBeenCalled();
+  });
+});
 
 type CommandResult = { ok: boolean; document: ScriptDocumentV2; diagnostics: Array<{ code: string }>;
   evidence?: { kind: string; blockIds: string[]; payloadIds: string[] } };
