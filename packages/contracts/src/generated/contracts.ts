@@ -1357,7 +1357,8 @@ export interface PortRefusalV1 {
     | "input-invalid"
     | "provider-failed"
     | "timeout"
-    | "cancelled";
+    | "cancelled"
+    | "shutdown-unconfirmed";
   /**
    * Human-readable; never contains credentials or private paths.
    */

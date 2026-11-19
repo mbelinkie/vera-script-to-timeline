@@ -17,6 +17,7 @@ class PortRefusalV1(TypedDict):
         "provider-failed",
         "timeout",
         "cancelled",
+        "shutdown-unconfirmed",
     ]
     message: str
     retryable: bool
