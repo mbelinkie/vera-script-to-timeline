@@ -289,10 +289,10 @@ def test_prepared_png_accepts_any_positive_hold_and_exact_studio_rate(
     assert proof.binding.record_end == start_frame + frames
     effects = native_effect_records(DEFAULT_IMAGE_MOTION, proof)
     assert [item["Type"] for item in effects] == [59, 22]
-    assert [
-        parameter["Parameter ID"]
-        for parameter in effects[0]["Parameters"]
-    ] == ["dynamicZoomCenter", "dynamicZoomScale"]
+    assert [parameter["Parameter ID"] for parameter in effects[0]["Parameters"]] == [
+        "dynamicZoomCenter",
+        "dynamicZoomScale",
+    ]
     assert effects[0]["Parameters"][0]["Key Frames"].keys() == {
         "-86400",
         "-85400",
@@ -513,9 +513,7 @@ def test_legacy_video_probe_keeps_bounded_duration_and_geometry_profile(
         )
         is None
     )
-    wide_source, wide_binding, wide_probe = _verified_png_case(
-        tmp_path, 800, 450, 48
-    )
+    wide_source, wide_binding, wide_probe = _verified_png_case(tmp_path, 800, 450, 48)
     assert (
         production_qualification(
             DEFAULT_IMAGE_MOTION,
