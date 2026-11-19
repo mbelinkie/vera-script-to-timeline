@@ -1168,7 +1168,7 @@ function updateRelationships(before: ScriptDocumentV2, after: ScriptDocumentV2, 
       retainedEndRowId = oldRows[offset]!;
     }
     const retainedRows = covered(nextLocations, span.startRowId, retainedEndRowId) ?? [];
-    const stranded = matchedRows(before, span.id).filter((rowId) => !retainedRows.includes(rowId));
+    const stranded = matchedRows(before, span.id).filter((rowId) => oldRows.includes(rowId) && !retainedRows.includes(rowId));
     if (stranded.length > 0) {
       return {
         ...diagnostic("MUSIC_MATCH_STRANDED", "This move would shorten a music cue away from a matched still. Clear Match audio duration on the affected visual or keep it inside the cue, then try again."),
@@ -1905,7 +1905,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   } else if (command.kind === "delete_row_audio_span") {
     const spanIndex = working.rowAudioSpans?.findIndex((span) => span.id === command.cueId) ?? -1;
     if (spanIndex < 0) return refused(document, "MUSIC_CUE_NOT_FOUND", "Choose an existing music cue to remove.");
-    const matched = blocks.flatMap((block) => {
+    const matched = [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)].flatMap((block) => {
       if (block.type !== "visual_only") return [];
       const visuals = [
         { payload: block.payload, visualOnlyTiming: block.visualOnlyTiming },
@@ -1942,7 +1942,10 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       markStashOriginEditedV2(block);
     }
   } else if (command.kind === "reorder_visual_only" || command.kind === "set_visual_only_hold" || command.kind === "set_visual_only_audio_match") {
-    const row = blocks.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.rowId);
+    const candidates = command.kind === "set_visual_only_audio_match" && command.cueId === null
+      ? [...blocks, ...(working.stash ?? []).flatMap((bundle) => bundle.rows)]
+      : blocks;
+    const row = candidates.find((item): item is VisualOnlyBlockV2 => item.type === "visual_only" && item.id === command.rowId);
     if (!row) return refused(document, "ROW_NOT_FOUND", "Choose an existing visuals-only Draft row.");
     if (row.version === Number.MAX_SAFE_INTEGER) return refused(document, "ROW_CONTENT_INVALID", "The visual row version cannot advance safely.");
     const visuals = [
@@ -2453,6 +2456,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
   invalidateChangedStashSourceLinksV2(document, working);
   const after = validateScriptDocumentV2(working);
   const signature = (document: ScriptDocumentV2, item: AuthoringDiagnosticV2) => {
+    if (item.code === "MUSIC_MATCH_INVALID") return JSON.stringify([item.code, item.blockId, item.entityId, item.message]);
     const path = item.jsonPath.replace(/^\/activeDraft\/(blocks|supportingItems)\/(\d+)(?=\/|$)/, (_match: string, collection: "blocks" | "supportingItems", index: string) => `/activeDraft/${collection}/${document.activeDraft[collection][Number(index)]?.id ?? index}`);
     return JSON.stringify([item.code, item.blockId, item.entityId, item.message, path]);
   };

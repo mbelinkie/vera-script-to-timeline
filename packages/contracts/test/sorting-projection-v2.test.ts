@@ -227,12 +227,15 @@ describe("Sorting selective projections", () => {
 
   it("keeps an authored music-cue deletion in edits-only while restoring it sorting-only", () => {
     const sourceRow = row(66);
+    const still = clip(70);
+    still.payload.pictureKind = "image";
     const cue = {
       id: id(67), startRowId: sourceRow.id, endRowId: sourceRow.id,
       source: { mediaReferenceId: id(68), artifactId: id(69), artifactVersion: 1, contentHash: `sha256:${"b".repeat(64)}` },
       settings: { gainDb: -12 },
     };
-    const baseline = { ...document(), activeDraft: { blocks: [sourceRow], supportingItems: [] }, rowAudioSpans: [cue] };
+    still.visualOnlyTiming = { kind: "visual_only", durationOverrideMs: 3500, matchAudioDuration: { cueId: cue.id } };
+    const baseline = { ...document(), activeDraft: { blocks: [sourceRow, still], supportingItems: [] }, rowAudioSpans: [cue] };
     const deleted = apply(baseline, { kind: "delete_row_audio_span", cueId: cue.id });
     const state = updateSortingProjectionV2(createSortingProjectionV2(baseline), baseline, deleted, {
       kind: "delete_row_audio_span", cueId: cue.id,
@@ -241,10 +244,33 @@ describe("Sorting selective projections", () => {
     const edits = projectSortingDocumentV2(state, deleted, "edits_only");
     expect(edits.ok, JSON.stringify(edits.diagnostics)).toBe(true);
     expect(edits.document.rowAudioSpans).toBeUndefined();
+    expect(edits.document.activeDraft.blocks[1]).toMatchObject({
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 3500 },
+    });
+    expect(edits.document.activeDraft.blocks[1]).not.toHaveProperty("visualOnlyTiming.matchAudioDuration");
 
     const sorting = projectSortingDocumentV2(state, deleted, "sorting_only");
     expect(sorting.ok, JSON.stringify(sorting.diagnostics)).toBe(true);
     expect(sorting.document.rowAudioSpans).toEqual([cue]);
+    expect(sorting.document.activeDraft.blocks[1]).toMatchObject({ visualOnlyTiming: still.visualOnlyTiming });
+  });
+
+  it("keeps the music edit caused by a move only when accepting the row order", () => {
+    const [a, b, c, d, e] = [row(71), row(72), row(73), row(74), row(75)] as const;
+    const cue = {
+      id: id(76), startRowId: a.id, endRowId: d.id,
+      source: { mediaReferenceId: id(77), artifactId: id(78), artifactVersion: 1, contentHash: `sha256:${"b".repeat(64)}` },
+      settings: { gainDb: -12 },
+    };
+    const baseline = { ...document(), activeDraft: { blocks: [a, b, c, d, e], supportingItems: [] }, rowAudioSpans: [cue] };
+    const command: RowEditCommandV2 = { kind: "move_rows", rowIds: [d.id], destination: gap(e.id, null) };
+    const moved = apply(baseline, command);
+    const state = updateSortingProjectionV2(createSortingProjectionV2(baseline), baseline, moved, command);
+    const edits = projectSortingDocumentV2(state, moved, "edits_only");
+    const sorting = projectSortingDocumentV2(state, moved, "sorting_only");
+    expect(edits.ok && sorting.ok).toBe(true);
+    expect(edits.document.rowAudioSpans).toEqual([cue]);
+    expect(sorting.document.rowAudioSpans).toMatchObject([{ endRowId: c.id, review: { previousEndRowId: d.id } }]);
   });
 
   it("keeps a surviving birth when edits-only removes its deleted birth anchor", () => {

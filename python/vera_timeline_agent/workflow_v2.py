@@ -125,7 +125,7 @@ class VerifiedPackageV2:
     manifest: dict[str, Any]
     view: dict[str, Any]
     attestation: dict[str, Any]
-    prepared_image_motion: bool = False
+    prepared_motion_sources: frozenset[str] = frozenset()
 
 
 def _digest(payload: bytes) -> str:
@@ -562,18 +562,19 @@ def load_verified_package_v2(path: Path, expected_sha256: str) -> VerifiedPackag
         if "imageMotion" in (event.get("pictureTreatment") or {})
     }
     preparations = receipt["preparations"]
-    prepared_image_motion = any(
-        _read_package_json(root, preparations[key]["path"])["deliveredProbe"].get(
-            "kind"
-        )
-        == "image"
+    prepared_motion_sources = frozenset(
+        source["id"]
         for source in manifest["sources"]
         if source["id"] in motion_sources
         and (key := source.get("preparationRequirementKey")) in preparations
+        and _read_package_json(root, preparations[key]["path"])["deliveredProbe"].get(
+            "kind"
+        )
+        == "image"
     )
     if _inventory(root) != inventory:
         raise WorkflowV2Error("package changed while it was being loaded")
-    return VerifiedPackageV2(root, manifest, view, attestation, prepared_image_motion)
+    return VerifiedPackageV2(root, manifest, view, attestation, prepared_motion_sources)
 
 
 def _validate_receipt(
@@ -4016,7 +4017,7 @@ def run_workflow_delivery_v2(
                     "native source-audio requires measured Studio 21.2.0 build 6"
                 )
         if native_otio and connected_identity == ("21.1.1", "10"):
-            if package.prepared_image_motion or (
+            if package.prepared_motion_sources or (
                 _frame_rate(timeline) != (24, 1)
                 and any(
                     isinstance(picture := event.get("pictureTreatment"), Mapping)
@@ -4039,7 +4040,7 @@ def run_workflow_delivery_v2(
         elif native_otio:
             # The package separately checks the prepared still recipe and A5 PCM.
             stills = [
-                picture
+                event
                 for event in view["events"]
                 if isinstance(picture := event.get("pictureTreatment"), Mapping)
                 and "imageMotion" in picture
@@ -4049,16 +4050,19 @@ def run_workflow_delivery_v2(
                 or (
                     has_music
                     and (
-                        (stills and not package.prepared_image_motion)
+                        any(
+                            event["sourceId"] not in package.prepared_motion_sources
+                            for event in stills
+                        )
                         or has_quote_boxes
                         or not result["nativeMusicRateQualified"]
                     )
                 )
                 or (not has_music and not stills)
                 or any(
-                    picture["imageMotion"]
+                    event["pictureTreatment"]["imageMotion"]
                     not in (native_image_motion.DEFAULT_IMAGE_MOTION, {"mode": "none"})
-                    for picture in stills
+                    for event in stills
                 )
             ):
                 raise WorkflowV2Error(
