@@ -155,6 +155,9 @@ function checkRects(value: unknown, width: number, height: number, required: boo
   if (!Array.isArray(value) || (required && value.length === 0)) {
     throw new Error(required ? "passage pictures require a highlight rectangle" : "invalid supplied picture rectangles");
   }
+  if ((!required && value.length > 0) || value.length > 64) {
+    throw new Error("invalid highlight rectangle count for supplied picture");
+  }
   return value.map((rect) => checkRect(rect, width, height));
 }
 
@@ -298,6 +301,9 @@ export class ProjectSuppliedPictureStore {
     if (canonicalJson(asJson(verified)) !== canonicalJson(asJson(checked.raster))) {
       throw new Error("supplied picture bytes do not match verified descriptor");
     }
+    // The caller retains its upload buffer while publication awaits the filesystem.
+    const snapshot = Buffer.from(bytes);
+    const receipt = JSON.stringify(record);
     const existing = await this.read(record.projectId, record.captureId, record.revisionId);
     if (existing) {
       if (!sameRecord(existing.record, record)) throw new Error("supplied picture identity conflict");
@@ -315,8 +321,8 @@ export class ProjectSuppliedPictureStore {
     const scratch = await mkdtemp(join(root, ".staging-"));
     const target = this.directory(record.projectId, record.captureId, record.revisionId);
     try {
-      await writeFile(join(scratch, "capture.png"), Buffer.from(bytes), { flag: "wx", mode: 0o600 });
-      await writeFile(join(scratch, "receipt.json"), `${JSON.stringify(record)}\n`, { flag: "wx", mode: 0o600 });
+      await writeFile(join(scratch, "capture.png"), snapshot, { flag: "wx", mode: 0o600 });
+      await writeFile(join(scratch, "receipt.json"), `${receipt}\n`, { flag: "wx", mode: 0o600 });
       try {
         await rename(scratch, target);
       } catch (error) {

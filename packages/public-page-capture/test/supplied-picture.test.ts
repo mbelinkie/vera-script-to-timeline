@@ -112,6 +112,10 @@ describe("supplied picture intake", () => {
     const port = ports();
     await expect(intakeSuppliedPicture({ projectId: PROJECT, principal: ACTOR, reference, bytes: raster(), pictureKind: "passage", ...port, store }))
       .rejects.toThrow("require a highlight rectangle");
+    await expect(intakeSuppliedPicture({
+      projectId: PROJECT, principal: ACTOR, reference, bytes: raster(), pictureKind: "top",
+      highlightRects: [{ x: 0, y: 0, width: 1, height: 1 }], ...port, store,
+    })).rejects.toThrow("rectangle count");
     const top = await intakeSuppliedPicture({ projectId: PROJECT, principal: ACTOR, reference, captureId: CAPTURE, bytes: raster(), pictureKind: "top", ...port, store });
     const second = await intakeSuppliedPicture({ projectId: PROJECT, principal: ACTOR, reference, captureId: CAPTURE, bytes: raster(), pictureKind: "top", ...port, store });
     expect(top.metadata.captureId).toBe(second.metadata.captureId);
