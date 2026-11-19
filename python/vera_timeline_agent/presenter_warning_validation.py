@@ -75,7 +75,7 @@ def _require(condition: bool, message: str) -> None:
 def _identity(value: Any) -> str:
     _require(type(value) is str and 0 < len(value) <= 512, "bounded identity required")
     _require(
-        all(unicodedata.category(c) not in {"Cc", "Cf", "Cs"} for c in value),
+        all(unicodedata.category(c) not in {"Cc", "Cs"} for c in value),
         "unsupported Unicode control",
     )
     return value  # type: ignore[no-any-return]

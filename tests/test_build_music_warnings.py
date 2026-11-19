@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
+from http.client import BadStatusLine
 from pathlib import Path
 from typing import Any
 
@@ -142,3 +143,37 @@ def test_unverified_offline_report_cannot_replace_the_latest_build(
 
     with pytest.raises(FileNotFoundError):
         report_music_warnings(report_path)
+
+
+def test_oversized_warning_list_can_still_replace_the_latest_build(
+    tmp_path: Path,
+) -> None:
+    ids = [str(uuid.uuid4()) for _ in range(3)]
+    report_path = tmp_path / "build-report.json"
+    _write_report(report_path, *ids)
+    raw = report(*ids)
+    raw["diagnostics"] = raw["diagnostics"][:1] * 33
+    report_path.write_text(json.dumps(raw))
+    packaged = tmp_path / "package" / "Builds" / ids[2] / report_path.name
+    packaged.write_bytes(report_path.read_bytes())
+
+    warnings = report_music_warnings(report_path)["musicWarnings"]
+    assert len(warnings) == 32
+    assert warnings[-1] == {
+        "code": "MORE_MUSIC_WARNINGS",
+        "message": "2 more in the build report.",
+    }
+
+
+def test_malformed_http_response_is_an_optional_publish_failure(tmp_path: Path) -> None:
+    ids = [str(uuid.uuid4()) for _ in range(3)]
+    report_path = tmp_path / "build-report.json"
+    _write_report(report_path, *ids)
+
+    def send(_request: Any, _timeout: int) -> int:
+        raise BadStatusLine("not HTTP")
+
+    published, message = publish_latest_music_warnings(
+        report_path, {"VERA_STT_QA_AUTHORING_TOKEN": "a" * 64}, send
+    )
+    assert not published and "could not receive" in message

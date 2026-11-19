@@ -26,7 +26,7 @@ interface DispatchRow {
   lease_expires_at: string | Date | null;
 }
 const MUSIC_WARNING_CODES = new Set([
-  "MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER", "MUSIC_SPAN_INVALID", "MUSIC_SETTINGS_UNSUPPORTED",
+  "MUSIC_FILE_MISSING", "MUSIC_SOURCE_SHORTER", "MUSIC_SPAN_INVALID", "MUSIC_SETTINGS_UNSUPPORTED", "MORE_MUSIC_WARNINGS",
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 function hasControlCharacter(value: string): boolean {

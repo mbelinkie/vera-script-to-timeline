@@ -139,6 +139,7 @@ const musicWarningLabels = {
   MUSIC_FILE_MISSING: "Music file missing",
   MUSIC_SPAN_INVALID: "Music cue can’t be placed",
   MUSIC_SETTINGS_UNSUPPORTED: "Music settings aren’t supported",
+  MORE_MUSIC_WARNINGS: "Additional warnings",
 };
 let musicWarningRequest = 0;
 
@@ -158,9 +159,10 @@ async function refreshMusicWarnings() {
       return;
     }
     const warnings = report.musicWarnings;
+    const overflow = warnings.some((warning) => warning.code === "MORE_MUSIC_WARNINGS");
     const version = report.documentRevision === documentRevision ? "saved script" : "earlier script version";
     status.textContent = `Build ${report.buildId.slice(0, 8)} · ${version} · ` +
-      (warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
+      (overflow ? "music warnings." : warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
     for (const warning of warnings) {
       const item = document.createElement("li");
       const label = document.createElement("strong");

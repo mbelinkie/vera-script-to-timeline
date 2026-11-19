@@ -7,6 +7,7 @@ import os
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from http.client import HTTPException
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -86,10 +87,14 @@ def report_music_warnings(report_path: Path) -> dict[str, Any]:
         raise ValueError("build has no matching completed timeline")
 
     warnings: list[dict[str, str]] = []
+    warning_count = 0
     for diagnostic_value in diagnostics:
         diagnostic = _record(diagnostic_value)
         code = diagnostic.get("code") if diagnostic else None
         if not diagnostic or not isinstance(code, str) or code not in MUSIC_CODES:
+            continue
+        warning_count += 1
+        if warning_count > 32:
             continue
         message = diagnostic.get("message")
         if not isinstance(message, str) or not message:
@@ -102,8 +107,11 @@ def report_music_warnings(report_path: Path) -> dict[str, Any]:
                 "message": message[:499] + "…" if len(message) > 500 else message,
             }
         )
-        if len(warnings) > 32:
-            raise ValueError("build report has too many music warnings")
+    if warning_count > 32:
+        warnings[-1] = {
+            "code": "MORE_MUSIC_WARNINGS",
+            "message": f"{warning_count - 31} more in the build report.",
+        }
 
     authored_path = report_path.parent / "authored-document-digest.txt"
     authored_digest = authored_path.read_text() if authored_path.is_file() else None
@@ -167,6 +175,6 @@ def publish_latest_music_warnings(
                 False,
                 "the local service did not accept the warning report",
             )
-    except (OSError, ValueError, UnicodeError, HTTPError, URLError, TimeoutError):
+    except (OSError, ValueError, HTTPException, HTTPError, URLError):
         return False, "the local service could not receive the warning report"
     return True, ""

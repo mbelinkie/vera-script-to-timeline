@@ -955,6 +955,17 @@ and the cut. Save, close, and reopen took 9.35 seconds. This qualifies the
 bounded music route on that build with moving picture. Mixed still treatments
 and other music rates keep their existing gates.
 
+**#576 short music on 21.2, partial import.** A generated 24 fps package
+with H.264 picture and two adjacent mono PCM WAV cues imported A5 at
+`[0,72)` and `[72,96)`, with one timeline marker at frame 96.
+In the retained target, the first cue reported source end frame 72 for
+an interior three-second cut, and the second reported frame 23 for an
+end-of-file one-second cut. Both reported source start zero, exact source
+end times of 3.0 and 1.0 seconds, and 100% speed. The first cue failed
+the inclusive-frame check before gain and fades were applied. Verify
+exact source times and speed when accepting the alternate frame convention.
+This import did not reach save or reopen.
+
 [#307 / PR #308](https://github.com/mbelinkie/vera-script-to-timeline/pull/308)
 and [#310 / PR #315](https://github.com/mbelinkie/vera-script-to-timeline/pull/315)
 prove contiguous row/run/section operations, Stash exclusion/restore, Undo and
