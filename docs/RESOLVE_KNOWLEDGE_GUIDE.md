@@ -175,6 +175,11 @@ an emoji and accented text. At width 1600, the measured sample fit 7, 9 and
 11 quote lines at sizes 70, 58 and 50. Evaluate `Controls.PanelH` for the
 actual text and attribution. [Studio result and test conditions](https://github.com/mbelinkie/vera-script-to-timeline/issues/629#issuecomment-6985290208).
 
+**#630 citation spans.** Studio 21.2 build 6 with Local scripting reopened
+the pinned EV24 Quote Box graph for both a generated MLA citation and an edit
+to its preceding text. The V4 controls selected *Café Nord* at 32–40 and
+17–25 inclusive, respectively, with emoji before the title. [Studio result](https://github.com/mbelinkie/vera-script-to-timeline/issues/630#issuecomment-7003099397).
+
 ### RK-05 — Fairlight state readback is weaker than audible/rendered attachment
 
 **Historical native subset; delivered integration unproved.**

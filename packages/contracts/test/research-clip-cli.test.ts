@@ -303,6 +303,17 @@ catch { process.exitCode = 0; }`;
 });
 
 describe("Research citation CLI", () => {
+  it("preserves an exported script with malformed UTF-8", async () => {
+    const file = makeScript();
+    const damaged = Buffer.from(file.before);
+    damaged[damaged.indexOf("Look closer")] = 0xff;
+    writeFileSync(file.path, damaged);
+    const h = harness();
+    expect(await h.run("refresh-citations", PROJECT, file.path)).toBe(RESEARCH_CLI_EXIT.parse);
+    expect(h.calls).toHaveLength(0);
+    expect(readFileSync(file.path)).toEqual(damaged);
+  });
+
   it("reads a saved source, edits all uses or one use, and exports the original bibliography once", async () => {
     const file = makeScript();
     const quoteId = researchId(880010);
@@ -387,5 +398,9 @@ describe("Research citation CLI", () => {
     expect(await h.run("source-list", PROJECT, file.path)).toBe(0);
     expect(h.output.at(-1)).toBe('Pérez, Zoë. "🔎 First account." Café Nord, 14 Mar. 2023, https://example.com/article.\n');
     expect(h.errors).toEqual([]);
+    const outputCount = h.output.length;
+    source.bibliography.url.value += "\nEXTRA";
+    expect(await h.run("source-list", PROJECT, file.path)).toBe(RESEARCH_CLI_EXIT.refused);
+    expect(h.output).toHaveLength(outputCount);
   });
 });

@@ -248,20 +248,20 @@ function formatLocation(value: string | undefined): string | undefined {
 }
 
 function platformFor(source: MlaSource, publication: string | undefined): string | undefined {
-  if (publication) return publication;
-  const provider = source.sourceIdentity?.provider?.trim().toLowerCase();
-  if (provider) return VIDEO_PLATFORMS.get(provider);
   if (source.kind === "youtube") return "YouTube";
-  return undefined;
+  const provider = source.sourceIdentity?.provider?.trim().toLowerCase();
+  return (provider ? VIDEO_PLATFORMS.get(provider) : undefined) ?? publication;
+}
+
+export function isCitationUrl(value: unknown): value is string {
+  if (typeof value !== "string" || !/^https?:\/\//iu.test(value) || /[\p{Cc}\p{Surrogate}\s]/u.test(value)) return false;
+  const url = URL.parse(value);
+  return url !== null && url.username === "" && url.password === "";
 }
 
 function fullUrl(source: MlaSource): string | undefined {
-  const bibliographyUrl = source.bibliography.url?.value;
-  if (typeof bibliographyUrl === "string" && bibliographyUrl.trim()) return bibliographyUrl.trim();
-  const submittedUrl = source.details.submittedUrl;
-  if (typeof submittedUrl === "string" && submittedUrl.trim()) return submittedUrl.trim();
-  const canonicalUrl = source.sourceIdentity?.canonicalUrl;
-  return canonicalUrl?.trim() || undefined;
+  return [source.bibliography.url?.value, source.details.submittedUrl, source.sourceIdentity?.canonicalUrl]
+    .find(isCitationUrl);
 }
 
 function makeCitation(segments: readonly CitationSegment[]): {

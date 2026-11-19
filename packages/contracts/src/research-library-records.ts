@@ -1,4 +1,4 @@
-import type { MlaSource } from "./mla-citation.js";
+import { isCitationUrl, type MlaSource } from "./mla-citation.js";
 import type { ResearchQuoteCitationDetails } from "./research-quote-citations.js";
 
 export type ResearchLibrarySource = MlaSource & { id: string; projectId: string };
@@ -24,6 +24,10 @@ function validOptionalText(value: unknown): boolean {
   return value === undefined || typeof value === "string" && !/[\0\p{Surrogate}]/u.test(value);
 }
 
+function validOptionalUrl(value: unknown): boolean {
+  return value === undefined || isCitationUrl(value);
+}
+
 export function readResearchLibraryItem(
   value: unknown, projectId: string, itemId: string, kind: "quote" | "clip",
 ): ResearchLibraryItem {
@@ -44,11 +48,12 @@ export function readResearchLibrarySource(value: unknown, projectId: string, sou
       typeof value.kind !== "string" || !kinds.has(value.kind) || !record(value.bibliography) ||
       !record(value.details) || (
         value.sourceIdentity !== undefined && (!record(value.sourceIdentity) ||
-          !validOptionalText(value.sourceIdentity.provider) || !validOptionalText(value.sourceIdentity.canonicalUrl))
+          !validOptionalText(value.sourceIdentity.provider) || !validOptionalUrl(value.sourceIdentity.canonicalUrl))
       )) {
     throw new Error("Research returned an invalid or different Library source.");
   }
-  for (const key of ["subtype", "channel", "accessedDate", "submittedUrl"] as const) {
+  if (!validOptionalUrl(value.details.submittedUrl)) throw new Error("Research returned invalid source details.");
+  for (const key of ["subtype", "channel", "accessedDate"] as const) {
     if (!validOptionalText(value.details[key])) throw new Error("Research returned invalid source details.");
   }
   for (const key of ["title", "authors", "publication", "publisher", "date", "url", "credit"] as const) {
@@ -56,7 +61,7 @@ export function readResearchLibrarySource(value: unknown, projectId: string, sou
     if (field === undefined) continue;
     if (!record(field) || (key === "authors"
       ? !Array.isArray(field.value) || !field.value.every((author) => typeof author === "string" && validOptionalText(author))
-      : typeof field.value !== "string" || !validOptionalText(field.value))) {
+      : key === "url" ? !isCitationUrl(field.value) : typeof field.value !== "string" || !validOptionalText(field.value))) {
       throw new Error("Research returned invalid bibliography fields.");
     }
   }

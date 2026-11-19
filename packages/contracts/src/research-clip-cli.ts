@@ -210,7 +210,7 @@ export async function runResearchClipCli(
     }
     let document: unknown;
     try {
-      document = JSON.parse(snapshot.bytes.toString("utf8")) as unknown;
+      document = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(snapshot.bytes)) as unknown;
     } catch {
       err("The script is not valid JSON; no changes were written.");
       return RESEARCH_CLI_EXIT.parse;

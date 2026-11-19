@@ -46,6 +46,13 @@ describe("formatMlaCitation", () => {
     });
   });
 
+  it("omits unsafe URL fields from full citations", () => {
+    expect(formatMlaCitation(source({
+      bibliography: { title: { value: "Title" }, url: { value: "https://example.test/article\nEXTRA" } },
+      details: {},
+    }), { full: true }).citationText).toBe('"Title."');
+  });
+
   it("formats a book title as the container and includes its page", () => {
     const result = formatMlaCitation(
       source({
@@ -154,6 +161,7 @@ describe("formatMlaCitation", () => {
         kind: "youtube",
         bibliography: {
           title: { value: "A Video Essay" },
+          publication: { value: "Creator Site" },
           date: { value: "July 4, 2024" },
           url: { value: "https://youtu.be/example" },
         },
