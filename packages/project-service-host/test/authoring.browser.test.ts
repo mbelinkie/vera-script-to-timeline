@@ -490,9 +490,11 @@ describe("browser authoring over the local project service", () => {
     host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite,
       researchCatalog: {
         projects: () => Promise.resolve(researchVisible ? [{ id: loggedClip.projectId, name: "Browser test catalog" }] : []),
-        clips: (projectId) => Promise.resolve(projectId === loggedClip.projectId && researchVisible ? [loggedClip] : []),
+        clips: (projectId) => Promise.resolve(projectId.toLowerCase() === loggedClip.projectId.toLowerCase() &&
+          researchVisible ? [loggedClip] : []),
         clip: (projectId, clipId) => {
-          if (!researchVisible || projectId !== loggedClip.projectId || clipId !== loggedClip.id) {
+          if (!researchVisible || projectId.toLowerCase() !== loggedClip.projectId.toLowerCase() ||
+            clipId.toLowerCase() !== loggedClip.id.toLowerCase()) {
             return Promise.reject(new Error("The Research clip is no longer accessible."));
           }
           return Promise.resolve(structuredClone(loggedClip));
@@ -688,16 +690,21 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("menuitem", { name: "Footage…" }).click();
     await expect.poll(() => page.getByRole("heading", { name: "Choose footage for words" }).isVisible()).toBe(true);
     await page.getByRole("searchbox", { name: "Search title or transcript" }).press("Escape");
+    await expect.poll(() => editor.evaluate((node) => document.activeElement === node)).toBe(true);
     expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
     await selectText(editor, 0, 5);
     await page.getByRole("button", { name: "Add visual" }).click();
     await page.getByRole("menuitem", { name: "Footage…" }).click();
-    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+    await page.getByRole("button", { name: "Choose footage: Frozen research source" }).evaluate((node) => {
+      // Two clicks before the queued server edit resolves must commit only once.
+      node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
     await expect.poll(async () => {
       const row = await narrationRowFromApi(page, projectId, seeded.rowId);
-      return row?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
-        slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === loggedClip.id);
-    }).toBe(true);
+      return row?.primaryVisualSequence?.slots.filter((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === loggedClip.id).length;
+    }).toBe(1);
     expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Add footage"]);
     await page.getByRole("button", { name: "Undo Add footage" }).click();
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
@@ -713,6 +720,10 @@ describe("browser authoring over the local project service", () => {
     const projectId = await createProject(page, origin, "Research drag to script");
     const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
     await saveDocumentFixture(page, projectId, seeded.document);
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({
+      status: 200,
+      json: { clips: [{ ...loggedClip, projectId: loggedClip.projectId.toUpperCase() }] },
+    }));
     await page.goto(`${origin}/?project=${projectId}`);
     await page.getByRole("button", { name: "Footage", exact: true }).click();
     const clip = page.getByRole("button", { name: "Choose footage: Frozen research source" });

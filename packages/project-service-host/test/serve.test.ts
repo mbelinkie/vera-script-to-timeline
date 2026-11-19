@@ -223,6 +223,16 @@ describe("same-origin, independently authorized Research catalog", () => {
     expect(JSON.stringify(clips)).not.toContain(RESEARCH_SECRET);
   });
 
+  it("accepts mixed-case UUIDs in read-only Research routes without bypassing membership", async () => {
+    const h = await researchBrowserRequests();
+    h.authorizeTimelineProject.mockImplementation((id) => id.toLowerCase() === TIMELINE_PROJECT
+      ? Promise.resolve() : Promise.reject(new ProjectAuthError("action_not_allowed", 403)));
+    const response = await h.read(`research/${TIMELINE_PROJECT.toUpperCase()}/projects`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ projects: [{ id: RESEARCH_PROJECT, name: "Field research" }] });
+    expect(h.authorizeTimelineProject).toHaveBeenCalledWith(TIMELINE_PROJECT.toUpperCase());
+  });
+
   it("rejects other origins, missing/bad session, unsafe methods, paths, and query fields before Research", async () => {
     const h = await researchBrowserRequests();
     for (const response of [

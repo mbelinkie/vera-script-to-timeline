@@ -85,6 +85,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   let mode = "browse";
   let selection = null;
   let opener = openButton;
+  let committing = false;
 
   const close = () => {
     ++generation;
@@ -131,9 +132,24 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     gaps.focus();
   };
   const commit = async (clip, placement) => {
-    const success = await insert(clip, placement);
-    if (success) { close(); onStatus("Footage added to script."); }
-    else { onStatus("Footage was not added. The source or script may have changed."); update(); }
+    if (committing) return;
+    committing = true;
+    const started = generation;
+    place.disabled = true;
+    render();
+    try {
+      const success = await insert(clip, placement);
+      if (success) {
+        if (generation === started) close();
+        onStatus("Footage added to script.");
+      } else onStatus("Footage was not added. The source or script may have changed.");
+    } catch {
+      onStatus("Footage was not added. The source or script may have changed.");
+    } finally {
+      committing = false;
+      place.disabled = false;
+      render();
+    }
   };
   const render = () => {
     if (!visible) return;
@@ -154,6 +170,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
       const card = make(doc, "article", "footage-item");
       const title = make(doc, "button", "footage-item__title", clip.video.title);
       title.type = "button";
+      title.disabled = committing;
       title.draggable = true;
       title.dataset.footageDrag = clip.id;
       title.setAttribute("aria-label", `Choose footage: ${clip.video.title}`);
@@ -235,7 +252,8 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
       if (request === generation && visible) status.textContent = "Research projects could not be loaded. Close and retry.";
     }
   };
-  const dropClip = (clipId) => clips.find((clip) => clip.id === clipId && clip.projectId === projects.value) ?? null;
+  const dropClip = (clipId) => clips.find((clip) => clip.id === clipId &&
+    clip.projectId.toLowerCase() === projects.value.toLowerCase()) ?? null;
   openButton.addEventListener("click", () => visible ? close() : void open());
   closeButton.addEventListener("click", close);
   cancel.addEventListener("click", () => { chosen = null; chooser.hidden = true; search.focus(); });
@@ -249,15 +267,18 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     rows.disabled = gap;
   }));
   place.addEventListener("click", () => {
-    if (!chosen) return;
+    if (!chosen || committing) return;
     const gap = root.querySelector("[data-footage-gap-choice]").checked;
     if (gap && gaps.value) void commit(chosen, { kind: "gap", destination: JSON.parse(gaps.value) });
-    else if (!gap && rows.value) void commit(chosen, (latest) => {
-      const row = latest.activeDraft.blocks.find((item) => item.id === rows.value);
-      if (row?.type !== "narration") throw new Error("The narration row is no longer available.");
-      return { kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
-        expectedSequenceVersion: row.primaryVisualSequence.version };
-    });
+    else if (!gap && rows.value) {
+      const rowId = rows.value;
+      void commit(chosen, (latest) => {
+        const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+        if (row?.type !== "narration") throw new Error("The narration row is no longer available.");
+        return { kind: "unattached", rowId: row.id, expectedRowVersion: row.version,
+          expectedSequenceVersion: row.primaryVisualSequence.version };
+      });
+    }
   });
   root.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {

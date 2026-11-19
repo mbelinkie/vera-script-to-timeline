@@ -1487,7 +1487,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       closeVisualMenu();
       actions.hidden = true;
       chooseFootage?.({ rowId: localRow.id, text: localRow.text, selection,
-        seed: localRow.text.slice(selection.start, selection.end), from: visualButton });
+        seed: localRow.text.slice(selection.start, selection.end), from: editor });
     };
     button.addEventListener("mousedown", preserveActionSelection);
     button.addEventListener("click", onClick);
