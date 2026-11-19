@@ -10,7 +10,7 @@ import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contra
 import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
-import { researchCandidate, researchId } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId, researchNote, researchStashFixture } from "../../contracts/test/issue-367-fixture.js";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -164,15 +164,16 @@ function fakeResearchCatalog() {
 async function researchBrowserRequests() {
   const origin = "http://127.0.0.1:38429";
   const fake = fakeResearchCatalog();
-  const authorizeTimelineProject = vi.fn((id: string) => id === TIMELINE_PROJECT
-    ? Promise.resolve() : Promise.reject(new ProjectAuthError("action_not_allowed", 403)));
+  const authorizeTimelineProject = vi.fn((id: string, action: "view_document" | "edit_document" = "view_document") =>
+    id === TIMELINE_PROJECT && (action === "view_document" || action === "edit_document")
+      ? Promise.resolve() : Promise.reject(new ProjectAuthError("action_not_allowed", 403)));
   const projects = vi.fn(() => Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })));
   const host = createAuthoringHandler(origin, `Bearer ${privateToken}`, projects, {
     catalog: fake.catalog, authorizeTimelineProject,
   });
   const browser = async (path: string, opts: {
     method?: "GET" | "POST" | "DELETE"; session?: string; launch?: string;
-    origin?: string; site?: string; marker?: string;
+    origin?: string; site?: string; marker?: string; body?: unknown;
   } = {}) => await host.handle(new Request(`${origin}/authoring/${path}`, {
     method: opts.method ?? "GET",
     headers: {
@@ -181,7 +182,7 @@ async function researchBrowserRequests() {
       ...(opts.session ? { "X-VERA-Session": opts.session } : {}),
       ...(opts.launch ? { "X-VERA-Launch": opts.launch } : {}),
     },
-    ...(opts.method === "POST" ? { body: "{}" } : {}),
+    ...(opts.method === "POST" ? { body: JSON.stringify(opts.body ?? {}) } : {}),
   })) as Response;
   const session = await browser("session", { method: "POST", launch: host.launchCode });
   expect(session.status).toBe(200);
@@ -333,6 +334,116 @@ describe("same-origin, independently authorized Research catalog", () => {
     active = false;
     expect((await get()).status).toBe(403);
     expect(fake.calls).toHaveLength(1);
+  });
+});
+
+describe("protected Research clip insertion", () => {
+  function insertionFixture() {
+    const document = researchStashFixture(false).doc;
+    document.projectId = TIMELINE_PROJECT;
+    const first = researchNote(880100);
+    const second = researchNote(880200);
+    for (const row of [first, second]) {
+      delete row.plainDirection;
+      row.tokens.forEach((token) => { token.spoken = true; });
+    }
+    document.activeDraft.blocks = [first, second];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const candidate = researchCandidate();
+    const common = { timelineProjectId: TIMELINE_PROJECT, document,
+      researchProjectId: RESEARCH_PROJECT, clipId: RESEARCH_CLIP,
+      clipVersion: candidate.version, expectedDocumentRevision: document.rowEditRevision ?? 0 };
+    const gap = { kind: "gap", destination: { sectionId: null, afterRowId: first.id, beforeRowId: second.id } };
+    const selected = { kind: "selected_words", rowId: first.id, expectedRowVersion: first.version,
+      expectedSequenceVersion: first.primaryVisualSequence!.version,
+      startTokenId: first.tokens[0]!.id, endTokenId: first.tokens[0]!.id };
+    return { document, common, gap, selected, first, second };
+  }
+
+  it("refetches exact clip and independently authorizes both projects for gap and selected words", async () => {
+    const h = await researchBrowserRequests();
+    const f = insertionFixture();
+    const post = (body: unknown) => h.read("research-insert", { method: "POST", body });
+    const original = structuredClone(f.document);
+    const gap = await post({ ...f.common, placement: f.gap });
+    expect(gap.status).toBe(200);
+    const added = await gap.json() as CommandResult;
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document.activeDraft.blocks.map((item) => item.id)).toEqual([
+      f.first.id, expect.any(String), f.second.id,
+    ]);
+    expect(added.document.activeDraft.blocks[1]).toMatchObject({ type: "visual_only",
+      researchClip: { clipId: RESEARCH_CLIP, researchProjectId: RESEARCH_PROJECT } });
+    expect(added.document.rowEditRevision).toBe(1);
+    const words = await post({ ...f.common, placement: f.selected });
+    expect(words.status).toBe(200);
+    const selected = await words.json() as CommandResult;
+    expect(selected.ok, JSON.stringify(selected.diagnostics)).toBe(true);
+    const row = selected.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.primaryVisualSequence!.slots.some((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === RESEARCH_CLIP)).toBe(true);
+    expect(f.document).toEqual(original);
+    expect(h.authorizeTimelineProject).toHaveBeenCalledTimes(2);
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(1, TIMELINE_PROJECT, "edit_document");
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(2, TIMELINE_PROJECT, "edit_document");
+    expect(h.fake.calls.map(({ pathname }) => pathname)).toEqual([
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`,
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`,
+    ]);
+    expect(h.projects).not.toHaveBeenCalled();
+  });
+
+  it("refuses forged source, stale version, wrong project and unsafe browser/session without Research read", async () => {
+    const h = await researchBrowserRequests();
+    const f = insertionFixture();
+    const valid = { ...f.common, placement: f.selected };
+    const insert = (body: unknown, opts: Parameters<typeof h.read>[1] = {}) =>
+      h.read("research-insert", { method: "POST", body, ...opts });
+    for (const body of [
+      { ...valid, candidate: researchCandidate() },
+      { ...valid, source: { secret: "forged" } },
+      { ...valid, placement: { ...f.selected, frameBinding: { startFrame: 1 } } },
+      { ...valid, placement: { ...f.gap, destination: { ...f.gap.destination, extra: 1 } } },
+      { ...valid, document: { ...f.document, projectId: randomUUID() } },
+      { ...valid, expectedDocumentRevision: "0" },
+    ]) expect((await insert(body)).status).toBe(400);
+    expect((await insert(valid, { session: "f".repeat(64) })).status).toBe(401);
+    expect((await insert(valid, { origin: "http://127.0.0.1:9999" })).status).toBe(403);
+    expect((await insert(valid, { site: "cross-site" })).status).toBe(403);
+    expect((await h.read("research-insert", { method: "GET" })).status).toBe(404);
+    const otherProject = randomUUID();
+    const otherTimeline = await insert({ ...valid, timelineProjectId: otherProject,
+      document: { ...f.document, projectId: otherProject } });
+    expect(otherTimeline.status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    const crossResearch = await insert({ ...valid, researchProjectId: randomUUID() });
+    expect(crossResearch.status).toBe(403);
+    h.fake.state.visible = false;
+    const revoked = await insert(valid);
+    expect(revoked.status).toBe(403);
+    h.fake.state.visible = true;
+    const stale = await insert({ ...valid, clipVersion: valid.clipVersion + 1 });
+    const refusal = await stale.json() as CommandResult;
+    expect(stale.status).toBe(200);
+    expect(refusal.ok).toBe(false);
+    expect(refusal.document).toEqual(f.document);
+    expect(refusal.diagnostics[0]?.code).toBe("RESEARCH_CLIP_STALE");
+    expect(JSON.stringify(refusal)).not.toContain(RESEARCH_SECRET);
+    expect(h.fake.calls).toHaveLength(4);
+  });
+
+  it("allows a viewer to read catalog but refuses insertion without Timeline edit permission", async () => {
+    const h = await researchBrowserRequests();
+    h.authorizeTimelineProject.mockImplementation((_id, action) => action === "edit_document"
+      ? Promise.reject(new ProjectAuthError("action_not_allowed", 403)) : Promise.resolve());
+    expect((await h.read(`research/${TIMELINE_PROJECT}/projects`)).status).toBe(200);
+    const f = insertionFixture();
+    const insertion = await h.read("research-insert", { method: "POST", body: {
+      ...f.common, placement: f.selected,
+    } });
+    expect(insertion.status).toBe(403);
+    expect(h.fake.calls).toHaveLength(1); // The protected insert must not touch Research.
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(2, TIMELINE_PROJECT, "edit_document");
   });
 });
 

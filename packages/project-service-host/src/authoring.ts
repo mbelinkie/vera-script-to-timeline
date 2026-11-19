@@ -7,6 +7,9 @@ import {
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import type { createResearchClient } from "@vera/contracts/research-clip-client";
+import {
+  insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
+} from "@vera/contracts/research-clip-browser-insert";
 import { ProjectAuthError } from "@vera/project-authorization";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -28,6 +31,7 @@ const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/docu
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/u;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
+const RESEARCH_INSERT = "/research-insert";
 // #66 is allowed to change ranges and OC framing, not to create/move/delete
 // pictures. Other visual operations belong to separate browser stories.
 const AUTHORING_VISUAL_KINDS = new Set<VisualSequenceEditCommandV2["kind"]>([
@@ -49,6 +53,39 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+/** Reject client-supplied Research records, frame bindings and arbitrary row commands. */
+function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & { timelineProjectId: string;
+  document: ScriptDocumentV2 }) | null {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "clipId",
+    "clipVersion", "expectedDocumentRevision", "placement"]) ||
+    !uuid(value.timelineProjectId) || !uuid(value.researchProjectId) || !uuid(value.clipId) ||
+    !Number.isSafeInteger(value.clipVersion) || (value.clipVersion as number) < 1 ||
+    !Number.isSafeInteger(value.expectedDocumentRevision) || (value.expectedDocumentRevision as number) < 0 ||
+    !validateScriptDocumentV2(value.document).valid ||
+    (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
+    !record(value.placement)) return null;
+  const placement = value.placement;
+  if (placement.kind === "gap") {
+    const destination = placement.destination;
+    if (!exact(placement, ["kind", "destination"]) || !record(destination) ||
+        !exact(destination, ["sectionId", "afterRowId", "beforeRowId"]) ||
+        !["sectionId", "afterRowId", "beforeRowId"].every((key) =>
+          destination[key] === null || uuid(destination[key]))) return null;
+  } else if (placement.kind === "unattached" || placement.kind === "selected_words") {
+    if (!exact(placement, placement.kind === "unattached"
+      ? ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion"]
+      : ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
+      !uuid(placement.rowId) || !Number.isSafeInteger(placement.expectedRowVersion) ||
+      (placement.expectedRowVersion as number) < 0 ||
+      !Number.isSafeInteger(placement.expectedSequenceVersion) ||
+      (placement.expectedSequenceVersion as number) < 0 ||
+      (placement.kind === "selected_words" && (!uuid(placement.startTokenId) || !uuid(placement.endTokenId)))) return null;
+  } else return null;
+  return value as unknown as ResearchClipBrowserInsertV2 & {
+    timelineProjectId: string; document: ScriptDocumentV2;
+  };
 }
 
 const VISUAL_KINDS = new Set([
@@ -156,8 +193,8 @@ export type AuthoringReadOnlyResearchCatalog = Pick<ReturnType<typeof createRese
 
 export interface AuthoringResearchAccess {
   catalog: AuthoringReadOnlyResearchCatalog;
-  /** Fresh Timeline view_document permission for the trusted local authoring identity. */
-  authorizeTimelineProject(projectId: string): Promise<void>;
+  /** A Research read needs view permission; a script insertion needs edit permission. */
+  authorizeTimelineProject(projectId: string, action?: "view_document" | "edit_document"): Promise<void>;
 }
 
 const RESEARCH_HEADERS = {
@@ -238,11 +275,12 @@ export function createAuthoringHandler(
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
     const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
+    const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
-    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection) || url.search) {
+    if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview && !isProjection && !isResearchInsert) || url.search) {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
 
@@ -296,6 +334,32 @@ export function createAuthoringHandler(
         // Research's errors and headers can contain user data or credentials.
         return researchResponse(503, { error: "research_unavailable" });
       }
+    }
+    if (isResearchInsert) {
+      let body: ReturnType<typeof researchInsertRequest>;
+      try { body = researchInsertRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      let candidate: Awaited<ReturnType<AuthoringReadOnlyResearchCatalog["clip"]>>;
+      try {
+        // A previous GET/list is never sufficient authorization to mutate a script.
+        const projects = await research.catalog.projects();
+        if (!projects.some(({ id }) => id.toLowerCase() === body.researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        candidate = await research.catalog.clip(body.researchProjectId, body.clipId);
+      } catch {
+        return researchResponse(503, { error: "research_unavailable" });
+      }
+      const result = insertResearchClipBrowserV2(body.document, candidate, body);
+      if (result.ok) lastSplit = null;
+      return researchResponse(200, result);
     }
     if (isProjection) {
       try {

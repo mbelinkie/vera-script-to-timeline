@@ -152,10 +152,10 @@ export async function startQaServer(
     };
     const research = authorization && infrastructure.researchCatalog ? {
       catalog: infrastructure.researchCatalog,
-      authorizeTimelineProject: async (projectId: string): Promise<void> => {
+      authorizeTimelineProject: async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
         const request = new Request(origin, { headers: { authorization } });
         const principal = await auth.authenticateRequest(request, identity);
-        await auth.authorizeRequest(projectId, principal, "view_document");
+        await auth.authorizeRequest(projectId, principal, action);
       },
     } : undefined;
     const authoring = authorization === undefined ? undefined :

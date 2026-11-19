@@ -751,6 +751,36 @@ async function authoringVisualPost(path, body) {
   return result;
 }
 
+/** The browser never connects to Research's port or receives its bearer. */
+export async function researchCatalogGet(researchProjectId, clipId) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") ||
+      (researchProjectId !== undefined && !uuid.test(researchProjectId)) ||
+      (clipId !== undefined && (!researchProjectId || !uuid.test(clipId)))) {
+    throw new Error("Choose a current script and Research project.");
+  }
+  await connecting;
+  const path = `/authoring/research/${timelineId}/projects` +
+    (researchProjectId ? `/${researchProjectId}/clips${clipId ? `/${clipId}` : ""}` : "");
+  const response = await fetch(path, {
+    headers: { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
+  if (!response.ok) throw new Error("Research footage is unavailable or no longer authorized.");
+  const catalog = await response.json();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
+  return catalog;
+}
+
+/** Resolves placement only after earlier typing has produced actual current token IDs. */
+export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion, placement }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => ({ researchProjectId, clipId, clipVersion,
+    placement: typeof placement === "function" ? placement(latest) : placement,
+  }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
+}
+
 // Projection is derived, never saved. In-flight responses are tied to the
 // exact object snapshot and generation; an older network response cannot
 // redraw brackets or On Camera after an edit, Undo or project switch.
@@ -904,6 +934,10 @@ function queueCommand(command, label, options = {}) {
   commandsPending += 1;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
+    if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
+        scriptDocument?.projectId !== options.expectedProjectId)) {
+      throw new Error("The open script changed before the footage was inserted.");
+    }
     if (options.expectedRow) {
       const expected = options.expectedRow;
       const row = scriptDocument.activeDraft.blocks.find((item) => item.id === expected.id);
@@ -918,6 +952,29 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
+    if (options.research) {
+      typingGroup = null;
+      const prior = scriptDocument;
+      const result = await authoringVisualPost("research-insert", {
+        timelineProjectId: options.expectedProjectId, document: prior,
+        expectedDocumentRevision: prior.rowEditRevision ?? 0, ...resolved,
+      });
+      if (activeProjectId !== options.expectedProjectId || scriptDocument !== prior) {
+        throw new Error("The open script changed before the footage was inserted.");
+      }
+      if (JSON.stringify(result.document) === JSON.stringify(prior)) {
+        throw new Error("Footage insertion did not change the script.");
+      }
+      undoStack.push({ document: prior, label });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      updateUndo();
+      documentDirty = true;
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+      return true;
+    }
     if (options.visual) {
       typingGroup = null;
       const row = scriptDocument.activeDraft.blocks.find((item) => item.id === resolved?.blockId);
