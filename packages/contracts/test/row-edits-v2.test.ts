@@ -1394,6 +1394,29 @@ describe("authoring v2 whole-row edits", () => {
     }]);
   });
 
+  it("refuses shortening a matched cue instead of stranding its visual", () => {
+    const [a, b, c, d, e] = [row(184), row(185), row(186), visualOnly(187), row(188)];
+    const sectionId = id(189);
+    const span = audioSpan(190, a.id, d.id);
+    d.visualOnlyTiming.matchAudioDuration = { cueId: span.id };
+    const document = documentWith([section(189, "First"), a, b, c, d, e], {
+      rowAudioSpans: [span],
+    });
+
+    expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });
+    const result = applyRowEditV2(document, 0, {
+      kind: "move_rows", rowIds: [d.id], destination: gap(sectionId, e.id, null),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "MUSIC_MATCH_STRANDED", blockId: d.id, entityId: span.id,
+    }));
+    expect(result.diagnostics[0]?.message).toContain("Clear Match audio duration");
+    expect(result.document).toBe(document);
+    expect(rows(document)).toEqual([a.id, b.id, c.id, d.id, e.id]);
+  });
+
   it("keeps a moved audio starting row as a one-row span with the original endpoint review details", () => {
     const [a, b, c, d, e] = [row(177), row(178), row(179), row(180), row(181)];
     const sectionId = id(182);

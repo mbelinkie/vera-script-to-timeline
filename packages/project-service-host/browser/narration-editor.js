@@ -1,5 +1,6 @@
 import { createBlankNarrationRow, rowGaps } from "./rows-editor.js";
 import { moveVisualBracket, proposeVisualRange, stepVisualBracket } from "./range-proposal.js";
+import { ADD_VISUAL_TYPES, selectedSpokenWords } from "./visual-selection.js";
 
 const FOCUS_HINT = "Return: paragraph · Tab: split row · Esc: leave text";
 
@@ -889,6 +890,23 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   const actions = element(document, "div", "narration-editor__actions");
   actions.hidden = true;
   actions.setAttribute("role", "toolbar");
+  actions.setAttribute("aria-label", "Selected words");
+  const visualButton = element(document, "button", "narration-editor__action", "Add visual");
+  visualButton.type = "button";
+  visualButton.setAttribute("aria-haspopup", "menu");
+  visualButton.setAttribute("aria-expanded", "false");
+  const visualMenu = element(document, "div", "narration-editor__visual-menu");
+  visualMenu.hidden = true;
+  visualMenu.setAttribute("role", "menu");
+  visualMenu.setAttribute("aria-label", "Visual type");
+  const visualChoices = ADD_VISUAL_TYPES.map(({ type, label }) => {
+    const button = element(document, "button", "narration-editor__visual-choice", label);
+    button.type = "button";
+    button.dataset.visualType = type;
+    button.setAttribute("role", "menuitem");
+    visualMenu.append(button);
+    return button;
+  });
   const stageButton = element(document, "button", "narration-editor__action", "Make stage direction");
   stageButton.type = "button";
   const spokenButton = element(document, "button", "narration-editor__action", "Make spoken");
@@ -905,14 +923,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     button.dataset.rowSelectionAction = kind;
     return button;
   });
-  actions.append(stageButton, spokenButton, actionDivider, ...rowButtons);
+  actions.append(visualButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
   const surface = element(document, "div", "narration-editor__surface");
   surface.append(editor);
   root.replaceChildren(surface, actions, hint);
   const unmountBrackets = mountRangeBrackets(surface, editor, row, projection, visualCommand);
   if (reselect) {
-    // Show the existing anchors for comparison, but do not allow a separate
-    // bracket gesture to change the document during the pending review.
     surface.querySelectorAll("[data-range-slot]").forEach((handle) => { handle.disabled = true; });
   }
   const reselectEditor = reselect && typeof cancelReselect === "function" && typeof commitReselect === "function"
@@ -929,6 +945,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   const typingSession = newId();
   let typingBoundary = 0;
   let expectedCaret = null;
+  let visualMenuOpen = false;
 
   function currentSelection() {
     const selection = rangeSelection(editor);
@@ -939,11 +956,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   function updateActions() {
     if (reselect) { actions.hidden = true; return; }
     const action = selectedAction(localRow, savedSelection);
+    const visual = !composing && selectedSpokenWords(localRow, savedSelection);
     const rowActions = selectionRowActions(localRow, savedSelection, scriptDocument);
-    actions.hidden = !action && rowActions.length === 0;
+    if (!visual) closeVisualMenu();
+    actions.hidden = !visual && !action && rowActions.length === 0;
+    visualButton.hidden = !visual;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
-    actionDivider.hidden = !action || rowActions.length === 0;
+    actionDivider.hidden = (!action && !visual) || rowActions.length === 0;
     rowButtons.forEach((button) => {
       const option = rowActions.find((entry) => entry.kind === button.dataset.rowSelectionAction);
       button.hidden = !option;
@@ -958,6 +978,49 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     (action.kind === "make_spoken" ? spokenButton : stageButton).setAttribute(
       "aria-label", `${action.kind === "make_spoken" ? "Make spoken" : "Make stage direction"}${suffix}`,
     );
+  }
+
+  function closeVisualMenu(restoreFocus = false) {
+    if (!visualMenuOpen) return;
+    visualMenuOpen = false;
+    visualMenu.hidden = true;
+    visualButton.setAttribute("aria-expanded", "false");
+    if (restoreFocus && !visualButton.hidden && mounted) visualButton.focus();
+  }
+
+  function openVisualMenu() {
+    currentSelection();
+    if (editingBlocked || composing || !selectedSpokenWords(localRow, savedSelection)) return;
+    visualMenuOpen = true;
+    visualMenu.hidden = false;
+    visualButton.setAttribute("aria-expanded", "true");
+    visualChoices[0].focus();
+  }
+
+  function performAddVisual(type) {
+    if (!ADD_VISUAL_TYPES.some((entry) => entry.type === type) || editingBlocked || composing) return;
+    const selection = savedSelection && { ...savedSelection };
+    const before = localRow;
+    if (!selectedSpokenWords(before, selection)) return;
+    // Allocate identities once, but resolve token IDs from the latest document
+    // after queued edits; the optimistic tokenizer deliberately has no IDs.
+    const slotId = newId();
+    const payloadId = newId();
+    const intent = (latest) => {
+      const actual = latest.activeDraft.blocks.find((item) => item.id === before.id);
+      if (!actual || actual.type !== "narration" || !actual.primaryVisualSequence) {
+        throw new Error("The selected row changed before the visual was added.");
+      }
+      const words = selectedSpokenWords(actual, selection, true);
+      if (!words) throw new Error("The selected spoken words are no longer available.");
+      return { kind: "add_visual_on_selection", blockId: actual.id, slotId, payloadId,
+        startTokenId: words.startTokenId, endTokenId: words.endTokenId, visualType: type };
+    };
+    closeVisualMenu();
+    actions.hidden = true;
+    const pending = dispatch(intent, "Add visual", before, { structural: true });
+    editingBlocked = true;
+    void pending.then((accepted) => { if (!accepted) editingBlocked = false; });
   }
 
   function expectedRow(rowSnapshot) {
@@ -1270,6 +1333,30 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     currentSelection();
   }
 
+  function onVisualMenuKey(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeVisualMenu(true);
+    } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const index = visualChoices.indexOf(document.activeElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? visualChoices.length - 1 :
+        (index + (event.key === "ArrowUp" ? -1 : 1) + visualChoices.length) % visualChoices.length;
+      visualChoices[next].focus();
+    }
+  }
+
+  function dismissVisualMenu(event) {
+    if (visualMenuOpen && !actions.contains(event.target)) closeVisualMenu();
+  }
+
+  function onVisualMenuFocusOut() {
+    queueMicrotask(() => {
+      if (mounted && visualMenuOpen && !actions.contains(document.activeElement)) closeVisualMenu();
+    });
+  }
+
   function activateAction() {
     const action = selectedAction(localRow, savedSelection);
     performAction(action);
@@ -1346,6 +1433,17 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("paste", onPaste);
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
+  visualButton.addEventListener("mousedown", preserveActionSelection);
+  visualButton.addEventListener("click", openVisualMenu);
+  visualMenu.addEventListener("keydown", onVisualMenuKey);
+  actions.addEventListener("focusout", onVisualMenuFocusOut);
+  document.addEventListener("pointerdown", dismissVisualMenu, true);
+  const visualListeners = visualChoices.map((button) => {
+    const onClick = () => performAddVisual(button.dataset.visualType);
+    button.addEventListener("mousedown", preserveActionSelection);
+    button.addEventListener("click", onClick);
+    return { button, onClick };
+  });
   stageButton.addEventListener("click", activateAction);
   spokenButton.addEventListener("click", activateAction);
   const rowActionListeners = rowButtons.map((button) => {
@@ -1363,6 +1461,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
       editor.removeEventListener("pointerup", reselectEditor.onPointerup);
       reselectEditor.cleanup();
     }
+    closeVisualMenu();
     editor.removeEventListener("beforeinput", onBeforeInput);
     editor.removeEventListener("input", fallbackInput);
     editor.removeEventListener("compositionstart", onCompositionStart);
@@ -1374,6 +1473,15 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("paste", onPaste);
     document.removeEventListener("selectionchange", onSelectionChange);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
+    visualButton.removeEventListener("mousedown", preserveActionSelection);
+    visualButton.removeEventListener("click", openVisualMenu);
+    visualMenu.removeEventListener("keydown", onVisualMenuKey);
+    actions.removeEventListener("focusout", onVisualMenuFocusOut);
+    document.removeEventListener("pointerdown", dismissVisualMenu, true);
+    for (const { button, onClick } of visualListeners) {
+      button.removeEventListener("mousedown", preserveActionSelection);
+      button.removeEventListener("click", onClick);
+    }
     spokenButton.removeEventListener("mousedown", preserveActionSelection);
     stageButton.removeEventListener("click", activateAction);
     spokenButton.removeEventListener("click", activateAction);
