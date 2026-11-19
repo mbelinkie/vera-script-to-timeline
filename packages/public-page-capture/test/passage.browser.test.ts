@@ -77,8 +77,9 @@ describe("locatePassage", () => {
         <style>
           html, body { margin: 0; }
           #outer { width: 170px; height: 110px; overflow: auto; scroll-behavior: smooth; }
-          #inner { width: 300px; height: 300px; overflow: auto; padding-top: 340px; box-sizing: border-box; }
-          #target { width: 130px; margin: 0; font: 18px/20px monospace; }
+          #inner { width: 300px; height: 300px; overflow: auto; }
+          #inner::before, #inner::after { content: ""; display: block; height: 340px; }
+          #target { width: 130px; margin: 0; position: relative; top: 0.25px; font: 18px/20px monospace; }
         </style>
         <div id="outer"><div id="inner"><p id="target">nested target phrase wraps across lines</p></div></div>
       `);
@@ -89,7 +90,13 @@ describe("locatePassage", () => {
       }));
       expect(scrollState.outer).toBeGreaterThan(0);
       expect(scrollState.inner).toBeGreaterThan(0);
-      expect(rects.every((rect) => rect.x >= 0 && rect.y >= 0)).toBe(true);
+      expect(rects.length).toBeGreaterThan(1);
+      for (const rect of rects) {
+        expect(rect.x).toBeGreaterThanOrEqual(0);
+        expect(rect.y).toBeGreaterThanOrEqual(0);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(170 * 2);
+        expect(rect.y + rect.height).toBeLessThanOrEqual(110 * 2);
+      }
 
       await page.setContent(`
         <style>
