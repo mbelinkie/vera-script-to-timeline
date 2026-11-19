@@ -451,6 +451,11 @@ export {
   type FrameIntervalV2,
 } from "./authoring-v2-research-snapshot.js";
 export {
+  insertResearchClipBrowserV2,
+  type ResearchClipBrowserDestinationV2,
+  type ResearchClipBrowserInsertV2,
+} from "./research-clip-browser-insert.js";
+export {
   indexResearchClipUsageV2,
   type ResearchClipLocationKindV2,
   type ResearchClipUseLocationV2,

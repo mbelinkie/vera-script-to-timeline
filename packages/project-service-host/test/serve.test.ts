@@ -7,8 +7,11 @@ import { join } from "node:path";
 import type { SqlClient } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectPrimarySequenceV2, validateScriptDocumentV2 } from "@vera/contracts/authoring-v2";
+import { createResearchClient } from "@vera/contracts/research-clip-client";
+import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { checkedDocument } from "@vera/project-documents";
+import { researchCandidate, researchId, researchNote, researchStashFixture } from "../../contracts/test/issue-367-fixture.js";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -259,6 +262,335 @@ function infra() {
 afterEach(async () => {
   for (const server of running.splice(0)) await server.stop();
   for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
+});
+
+const TIMELINE_PROJECT = researchId(900080);
+const RESEARCH_PROJECT = researchId(710002);
+const RESEARCH_CLIP = researchId(710001);
+const RESEARCH_SECRET = "private-research-test-bearer-never-send";
+
+function fakeResearchCatalog() {
+  const calls: Array<{ pathname: string; method: string | undefined;
+    redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
+  const state = { visible: true, failStatus: 0, offline: false };
+  const request: typeof fetch = (input, init) => {
+    const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
+    const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
+    calls.push({ pathname, method: init?.method, redirect: init?.redirect, bearer });
+    if (state.offline) return Promise.reject(new Error(`private request failed with ${RESEARCH_SECRET}`));
+    if (state.failStatus) return Promise.resolve(new Response(null, {
+      status: state.failStatus,
+      ...(state.failStatus >= 300 && state.failStatus < 400 ?
+        { headers: { Location: `https://${RESEARCH_SECRET}.example.org/steal` } } : {}),
+    }));
+    if (pathname === "/api/projects") return Promise.resolve(Response.json(state.visible ? [
+      { id: RESEARCH_PROJECT, name: "Field research", hiddenBearer: RESEARCH_SECRET },
+    ] : []));
+    const candidate = researchCandidate();
+    const clip = { ...candidate, hiddenBearer: RESEARCH_SECRET,
+      video: { ...candidate.video, hiddenBearer: RESEARCH_SECRET },
+      selection: { ...candidate.selection, hiddenBearer: RESEARCH_SECRET } };
+    if (pathname === `/api/projects/${RESEARCH_PROJECT}/clips`) return Promise.resolve(Response.json([clip]));
+    if (pathname === `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`) return Promise.resolve(Response.json(clip));
+    return Promise.resolve(Response.json({ error: "unexpected_research_path" }, { status: 500 }));
+  };
+  return { catalog: createResearchClient({ bearer: RESEARCH_SECRET, request }), state, calls };
+}
+
+async function researchBrowserRequests() {
+  const origin = "http://127.0.0.1:38429";
+  const fake = fakeResearchCatalog();
+  const authorizeTimelineProject = vi.fn((id: string, action: "view_document" | "edit_document" = "view_document") =>
+    id === TIMELINE_PROJECT && (action === "view_document" || action === "edit_document")
+      ? Promise.resolve() : Promise.reject(new ProjectAuthError("action_not_allowed", 403)));
+  const projects = vi.fn(() => Promise.resolve(Response.json({ error: "unexpected_project_route" }, { status: 500 })));
+  const host = createAuthoringHandler(origin, `Bearer ${privateToken}`, projects, {
+    catalog: fake.catalog, authorizeTimelineProject,
+  });
+  const browser = async (path: string, opts: {
+    method?: "GET" | "POST" | "DELETE"; session?: string; launch?: string;
+    origin?: string; site?: string; marker?: string; body?: unknown;
+  } = {}) => await host.handle(new Request(`${origin}/authoring/${path}`, {
+    method: opts.method ?? "GET",
+    headers: {
+      "X-VERA-Authoring": opts.marker ?? "1", "Sec-Fetch-Site": opts.site ?? "same-origin",
+      Origin: opts.origin ?? origin,
+      ...(opts.session ? { "X-VERA-Session": opts.session } : {}),
+      ...(opts.launch ? { "X-VERA-Launch": opts.launch } : {}),
+    },
+    ...(opts.method === "POST" ? { body: JSON.stringify(opts.body ?? {}) } : {}),
+  })) as Response;
+  const session = await browser("session", { method: "POST", launch: host.launchCode });
+  expect(session.status).toBe(200);
+  const { sessionProof } = await session.json() as { sessionProof: string };
+  const read = (path: string, opts: Parameters<typeof browser>[1] = {}) =>
+    browser(path, { session: sessionProof, ...opts });
+  return { browser, read, sessionProof, fake, authorizeTimelineProject, projects };
+}
+
+describe("same-origin, independently authorized Research catalog", () => {
+  const base = `research/${TIMELINE_PROJECT}/projects`;
+  const clipList = `${base}/${RESEARCH_PROJECT}/clips`;
+  const detail = `${clipList}/${RESEARCH_CLIP}`;
+
+  it("reads visible Research projects, clips and exact detail only after Timeline authorization", async () => {
+    const h = await researchBrowserRequests();
+    const projectResponse = await h.read(base);
+    expect(projectResponse.status).toBe(200);
+    expect(await projectResponse.json()).toEqual({ projects: [
+      { id: RESEARCH_PROJECT, name: "Field research" },
+    ] });
+    const list = await h.read(clipList);
+    expect(list.status).toBe(200);
+    const clips = await list.json() as { clips: unknown[] };
+    expect(clips.clips).toEqual([researchCandidate()]);
+    const one = await h.read(detail);
+    expect(one.status).toBe(200);
+    expect(await one.json()).toEqual({ clip: researchCandidate() });
+    expect(h.authorizeTimelineProject).toHaveBeenCalledTimes(3);
+    expect(h.authorizeTimelineProject).toHaveBeenCalledWith(TIMELINE_PROJECT);
+    expect(h.fake.calls.map((call) => call.pathname)).toEqual([
+      "/api/projects", "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips`,
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`,
+    ]);
+    expect(h.fake.calls.every((call) => call.method === "GET" && call.redirect === "manual" &&
+      call.bearer === `Bearer ${RESEARCH_SECRET}`)).toBe(true);
+    expect(h.projects).not.toHaveBeenCalled();
+    expect(JSON.stringify(clips)).not.toContain(RESEARCH_SECRET);
+  });
+
+  it("accepts mixed-case UUIDs in read-only Research routes without bypassing membership", async () => {
+    const h = await researchBrowserRequests();
+    h.authorizeTimelineProject.mockImplementation((id) => id.toLowerCase() === TIMELINE_PROJECT
+      ? Promise.resolve() : Promise.reject(new ProjectAuthError("action_not_allowed", 403)));
+    const response = await h.read(`research/${TIMELINE_PROJECT.toUpperCase()}/projects`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ projects: [{ id: RESEARCH_PROJECT, name: "Field research" }] });
+    expect(h.authorizeTimelineProject).toHaveBeenCalledWith(TIMELINE_PROJECT.toUpperCase());
+  });
+
+  it("rejects other origins, missing/bad session, unsafe methods, paths, and query fields before Research", async () => {
+    const h = await researchBrowserRequests();
+    for (const response of [
+      await h.browser(base),
+      await h.read(base, { session: "a".repeat(64) }),
+      await h.read(base, { origin: "http://127.0.0.1:9000" }),
+      await h.read(base, { site: "cross-site" }),
+      await h.read(base, { marker: "0" }),
+      await h.read(base, { method: "POST" }),
+      await h.read(base, { method: "DELETE" }),
+      await h.read(`${base}?query=private`),
+      await h.read(`${base}/${RESEARCH_PROJECT}/clips?sort=newest`),
+      await h.read(`${base}/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}/extra`),
+      await h.read(`research/${TIMELINE_PROJECT}/anything`),
+    ]) expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(h.fake.calls).toHaveLength(0);
+    expect(h.authorizeTimelineProject).not.toHaveBeenCalled();
+  });
+
+  it("refuses another Timeline project and revoked Timeline permission without invoking Research", async () => {
+    const h = await researchBrowserRequests();
+    const foreign = await h.read(`research/${researchId(900081)}/projects`);
+    expect(foreign.status).toBe(403);
+    expect(await foreign.json()).toEqual({ error: "action_not_allowed" });
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await h.read(clipList)).status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    expect(h.projects).not.toHaveBeenCalled();
+  });
+
+  it("rechecks Research visibility for every clip request and refuses foreign project ids", async () => {
+    const h = await researchBrowserRequests();
+    expect((await h.read(clipList)).status).toBe(200);
+    h.fake.state.visible = false; // Revoked independently after the initial catalog read.
+    const revoked = await h.read(clipList);
+    expect(revoked.status).toBe(403);
+    expect(await revoked.json()).toEqual({ error: "research_project_forbidden" });
+    expect((await h.read(detail)).status).toBe(403);
+    expect((await h.read(`research/${TIMELINE_PROJECT}/projects/${researchId(900082)}/clips`)).status)
+      .toBe(403);
+    expect(h.fake.calls.filter((call) => call.pathname.endsWith("/clips"))).toHaveLength(1);
+    expect(h.fake.calls.filter((call) => call.pathname.endsWith(`/${RESEARCH_CLIP}`))).toHaveLength(0);
+  });
+
+  it("keeps browser writing available without Research and redacts Research denied, redirect and offline errors", async () => {
+    const origin = "http://127.0.0.1:38429";
+    const absent = createAuthoringHandler(origin, `Bearer ${privateToken}`,
+      () => Promise.resolve(Response.json({})));
+    const session = await absent.handle(new Request(`${origin}/authoring/session`, {
+      method: "POST", headers: { "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin",
+        Origin: origin, "X-VERA-Launch": absent.launchCode },
+    })) as Response;
+    const { sessionProof } = await session.json() as { sessionProof: string };
+    const disabled = await absent.handle(new Request(`${origin}/authoring/${base}`, { headers: {
+      "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin,
+      "X-VERA-Session": sessionProof,
+    } })) as Response;
+    expect(disabled.status).toBe(503);
+    expect(await disabled.json()).toEqual({ error: "research_unavailable" });
+
+    const h = await researchBrowserRequests();
+    for (const status of [401, 403, 404, 500, 302, 307, 308]) {
+      h.fake.state.failStatus = status;
+      const response = await h.read(clipList);
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: "research_unavailable" });
+      expect(response.headers.get("location")).toBeNull();
+    }
+    h.fake.state.failStatus = 0;
+    h.fake.state.offline = true;
+    const outage = await h.read(base);
+    expect(outage.status).toBe(503);
+    expect(await outage.text()).not.toContain(RESEARCH_SECRET);
+    expect(h.fake.calls.every((call) => call.redirect === "manual")).toBe(true);
+  });
+
+  it("connects the real QA Timeline membership check before any Research catalog exposure", async () => {
+    const config = await setup();
+    const h = infra();
+    const fake = fakeResearchCatalog();
+    const server = await startQaServer({ ...config, authoringToken: privateToken }, {
+      ...h, researchCatalog: fake.catalog,
+    });
+    running.push(server);
+    const origin = `http://127.0.0.1:${config.port}`;
+    const headers = { "X-VERA-Authoring": "1", "Sec-Fetch-Site": "same-origin", Origin: origin };
+    const session = await fetch(`${origin}/authoring/session`, { method: "POST", headers: {
+      ...headers, "X-VERA-Launch": server.authoringLaunchCode!,
+    } });
+    expect(session.status).toBe(200);
+    const { sessionProof } = await session.json() as { sessionProof: string };
+    const get = () => fetch(`${origin}/authoring/${base}`, {
+      headers: { ...headers, "X-VERA-Session": sessionProof },
+    });
+    const forbidden = await get();
+    expect(forbidden.status).toBe(403);
+    expect(fake.calls).toHaveLength(0);
+    expect(h.query).toHaveBeenCalledWith(expect.stringContaining("SELECT m.role"),
+      expect.arrayContaining([TIMELINE_PROJECT]));
+    // The same actor can see a project only when the membership record is active.
+    const baselineQuery = h.query.getMockImplementation()!;
+    let active = true;
+    h.query.mockImplementation((sql: string) => sql.includes("SELECT m.role") ? Promise.resolve({
+      rows: active ? [{ id: randomUUID(), role: "viewer", active: true, version: 1, disabled_at: null }] : [],
+    }) : baselineQuery(sql));
+    const allowed = await get();
+    expect(allowed.status).toBe(200);
+    expect(await allowed.json()).toEqual({ projects: [{ id: RESEARCH_PROJECT, name: "Field research" }] });
+    active = false;
+    expect((await get()).status).toBe(403);
+    expect(fake.calls).toHaveLength(1);
+  });
+});
+
+describe("protected Research clip insertion", () => {
+  function insertionFixture() {
+    const document = researchStashFixture(false).doc;
+    document.projectId = TIMELINE_PROJECT;
+    const first = researchNote(880100);
+    const second = researchNote(880200);
+    for (const row of [first, second]) {
+      delete row.plainDirection;
+      row.tokens.forEach((token) => { token.spoken = true; });
+    }
+    document.activeDraft.blocks = [first, second];
+    expect(validateScriptDocumentV2(document).valid).toBe(true);
+    const candidate = researchCandidate();
+    const common = { timelineProjectId: TIMELINE_PROJECT, document,
+      researchProjectId: RESEARCH_PROJECT, clipId: RESEARCH_CLIP,
+      clipVersion: candidate.version, expectedDocumentRevision: document.rowEditRevision ?? 0 };
+    const gap = { kind: "gap", destination: { sectionId: null, afterRowId: first.id, beforeRowId: second.id } };
+    const selected = { kind: "selected_words", rowId: first.id, expectedRowVersion: first.version,
+      expectedSequenceVersion: first.primaryVisualSequence!.version,
+      startTokenId: first.tokens[0]!.id, endTokenId: first.tokens[0]!.id };
+    return { document, common, gap, selected, first, second };
+  }
+
+  it("refetches exact clip and independently authorizes both projects for gap and selected words", async () => {
+    const h = await researchBrowserRequests();
+    const f = insertionFixture();
+    const post = (body: unknown) => h.read("research-insert", { method: "POST", body });
+    const original = structuredClone(f.document);
+    const gap = await post({ ...f.common, placement: f.gap });
+    expect(gap.status).toBe(200);
+    const added = await gap.json() as CommandResult;
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document.activeDraft.blocks.map((item) => item.id)).toEqual([
+      f.first.id, expect.any(String), f.second.id,
+    ]);
+    expect(added.document.activeDraft.blocks[1]).toMatchObject({ type: "visual_only",
+      researchClip: { clipId: RESEARCH_CLIP, researchProjectId: RESEARCH_PROJECT } });
+    expect(added.document.rowEditRevision).toBe(1);
+    const words = await post({ ...f.common, placement: f.selected });
+    expect(words.status).toBe(200);
+    const selected = await words.json() as CommandResult;
+    expect(selected.ok, JSON.stringify(selected.diagnostics)).toBe(true);
+    const row = selected.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(row.primaryVisualSequence!.slots.some((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchClip?.clipId === RESEARCH_CLIP)).toBe(true);
+    expect(f.document).toEqual(original);
+    expect(h.authorizeTimelineProject).toHaveBeenCalledTimes(2);
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(1, TIMELINE_PROJECT, "edit_document");
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(2, TIMELINE_PROJECT, "edit_document");
+    expect(h.fake.calls.map(({ pathname }) => pathname)).toEqual([
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`,
+      "/api/projects", `/api/projects/${RESEARCH_PROJECT}/clips/${RESEARCH_CLIP}`,
+    ]);
+    expect(h.projects).not.toHaveBeenCalled();
+  });
+
+  it("refuses forged source, stale version, wrong project and unsafe browser/session without Research read", async () => {
+    const h = await researchBrowserRequests();
+    const f = insertionFixture();
+    const valid = { ...f.common, placement: f.selected };
+    const insert = (body: unknown, opts: Parameters<typeof h.read>[1] = {}) =>
+      h.read("research-insert", { method: "POST", body, ...opts });
+    for (const body of [
+      { ...valid, candidate: researchCandidate() },
+      { ...valid, source: { secret: "forged" } },
+      { ...valid, placement: { ...f.selected, frameBinding: { startFrame: 1 } } },
+      { ...valid, placement: { ...f.gap, destination: { ...f.gap.destination, extra: 1 } } },
+      { ...valid, document: { ...f.document, projectId: randomUUID() } },
+      { ...valid, expectedDocumentRevision: "0" },
+    ]) expect((await insert(body)).status).toBe(400);
+    expect((await insert(valid, { session: "f".repeat(64) })).status).toBe(401);
+    expect((await insert(valid, { origin: "http://127.0.0.1:9999" })).status).toBe(403);
+    expect((await insert(valid, { site: "cross-site" })).status).toBe(403);
+    expect((await h.read("research-insert", { method: "GET" })).status).toBe(404);
+    const otherProject = randomUUID();
+    const otherTimeline = await insert({ ...valid, timelineProjectId: otherProject,
+      document: { ...f.document, projectId: otherProject } });
+    expect(otherTimeline.status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+    const crossResearch = await insert({ ...valid, researchProjectId: randomUUID() });
+    expect(crossResearch.status).toBe(403);
+    h.fake.state.visible = false;
+    const revoked = await insert(valid);
+    expect(revoked.status).toBe(403);
+    h.fake.state.visible = true;
+    const stale = await insert({ ...valid, clipVersion: valid.clipVersion + 1 });
+    const refusal = await stale.json() as CommandResult;
+    expect(stale.status).toBe(200);
+    expect(refusal.ok).toBe(false);
+    expect(refusal.document).toEqual(f.document);
+    expect(refusal.diagnostics[0]?.code).toBe("RESEARCH_CLIP_STALE");
+    expect(JSON.stringify(refusal)).not.toContain(RESEARCH_SECRET);
+    expect(h.fake.calls).toHaveLength(4);
+  });
+
+  it("allows a viewer to read catalog but refuses insertion without Timeline edit permission", async () => {
+    const h = await researchBrowserRequests();
+    h.authorizeTimelineProject.mockImplementation((_id, action) => action === "edit_document"
+      ? Promise.reject(new ProjectAuthError("action_not_allowed", 403)) : Promise.resolve());
+    expect((await h.read(`research/${TIMELINE_PROJECT}/projects`)).status).toBe(200);
+    const f = insertionFixture();
+    const insertion = await h.read("research-insert", { method: "POST", body: {
+      ...f.common, placement: f.selected,
+    } });
+    expect(insertion.status).toBe(403);
+    expect(h.fake.calls).toHaveLength(1); // The protected insert must not touch Research.
+    expect(h.authorizeTimelineProject).toHaveBeenNthCalledWith(2, TIMELINE_PROJECT, "edit_document");
+  });
 });
 
 describe("development QA service bootstrap and shutdown", () => {

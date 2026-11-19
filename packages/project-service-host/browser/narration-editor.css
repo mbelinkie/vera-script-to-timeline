@@ -193,6 +193,8 @@
   text-align: left;
 }
 
+.narration-editor__visual-choice--footage { border-top: 1px solid #d6c5a7; font-weight: 700; }
+
 .narration-editor__visual-choice:hover,
 .narration-editor__visual-choice:focus-visible {
   outline: 2px solid #c49b50;

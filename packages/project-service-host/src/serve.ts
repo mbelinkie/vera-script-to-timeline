@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ProjectAuthorizationService } from "@vera/project-authorization";
+import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { createProjectBuildHttpHandler, createProjectBuildPairingApiHandler,
   type AcceptedSourceAuthority, type IndependentEvidenceInspector,
   ProjectAgentAuthenticationService, ProjectAgentPairingService,
@@ -19,7 +20,8 @@ import { loadQaIdentity } from "./qa-identity.js";
 import { parseQaConfig, type QaConfig } from "./qa-config.js";
 import { applyQaMigrations } from "./migrate.js";
 import { createQaPgPool, type QaPgPool } from "./pg-pool.js";
-import { createAuthoringHandler, DEFAULT_AUTHORING_PORT } from "./authoring.js";
+import { createAuthoringHandler, DEFAULT_AUTHORING_PORT,
+  type AuthoringReadOnlyResearchCatalog } from "./authoring.js";
 
 export class QaStartupRefusal extends Error {
   override readonly name = "QaStartupRefusal";
@@ -51,6 +53,8 @@ export interface QaHostInfrastructure {
   acceptedSources?: AcceptedSourceAuthority;
   /** No built-in native inspector: never infer Resolve success from agent HTTP. */
   evidenceInspector?: IndependentEvidenceInspector;
+  /** Optional, host-owned read-only Research interface; never exposed as a proxy. */
+  researchCatalog?: AuthoringReadOnlyResearchCatalog;
 }
 
 /** Fail before binding if credentials, migrations or database checks fail. */
@@ -146,7 +150,16 @@ export async function startQaServer(
       }
       return response;
     };
-    const authoring = authorization === undefined ? undefined : createAuthoringHandler(origin, authorization, handleApi);
+    const research = authorization && infrastructure.researchCatalog ? {
+      catalog: infrastructure.researchCatalog,
+      authorizeTimelineProject: async (projectId: string, action: "view_document" | "edit_document" = "view_document"): Promise<void> => {
+        const request = new Request(origin, { headers: { authorization } });
+        const principal = await auth.authenticateRequest(request, identity);
+        await auth.authorizeRequest(projectId, principal, action);
+      },
+    } : undefined;
+    const authoring = authorization === undefined ? undefined :
+      createAuthoringHandler(origin, authorization, handleApi, research);
     server = await listenQaHttp(config.bindHost, config.port,
       async (request) => await authoring?.handle(request) ?? await handleApi(request),
       createCollaborationUpgradeHandler({ identity, authorization: auth, hub: live, expectedHost: host }));
@@ -181,7 +194,20 @@ export async function serveQaFromEnvironment(
       VERA_STT_QA_PORT: env.VERA_STT_QA_PORT ?? DEFAULT_AUTHORING_PORT,
       VERA_STT_SOURCE_SHA: sha,
     }, sha, REPOSITORY_ROOT);
-    return await startQaServer({ ...config, authoringToken });
+    // Research is optional: missing/invalid credentials disable Footage, not writing.
+    // The existing Research client constrains outbound requests to loopback,
+    // sends a server-owned bearer and refuses redirects.
+    let researchCatalog: AuthoringReadOnlyResearchCatalog | undefined;
+    if (env.VERA_RESEARCH_BEARER) {
+      try {
+        researchCatalog = createResearchClient({ bearer: env.VERA_RESEARCH_BEARER,
+          ...(env.VERA_RESEARCH_URL === undefined ? {} : { url: env.VERA_RESEARCH_URL }) });
+      } catch {
+        // An unavailable Research service must not prevent local authoring.
+      }
+    }
+    return await startQaServer({ ...config, authoringToken },
+      researchCatalog ? { researchCatalog } : {});
   } catch {
     throw new QaStartupRefusal();
   }
