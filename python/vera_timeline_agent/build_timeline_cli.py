@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .build_music_warnings import publish_latest_music_warnings
 from .build_jobs import BuildJobError, NeedsAction, UncertainResult
+from .build_music_warnings import publish_latest_music_warnings
 from .build_timeline_once import BuildOptions, StageTimings, build_once
 
 
@@ -63,7 +64,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("Latest build warnings published in VERA.")
             return 0
         print(f"Build report was not published to VERA: {reason}", file=sys.stderr)
-        return 3
+        return 2
     if args.script is None or args.output is None:
         command.error("--script and --output are required for a Resolve build")
     if args.existing_project is not None and (
@@ -96,11 +97,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             published, publish_reason = publish_latest_music_warnings(
                 options.output / "build-report.json"
             )
-        elif completed.music_warnings:
-            published, publish_reason = (
-                False,
-                "VERA_STT_QA_AUTHORING_TOKEN is not set to the local authoring token",
-            )
         else:
             published, publish_reason = True, ""
         timings.finish(
@@ -110,14 +106,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             passed=True,
         )
         if not published:
+            report_arg = shlex.quote(str(options.output / "build-report.json"))
             print(
-                "Resolve timeline was built and saved, but its music warnings were not "
-                f"published to VERA: {publish_reason}. Do not rerun; retry with "
-                f"--publish-report {options.output / 'build-report.json'}.",
+                "The timeline was verified. Latest build warnings were not published "
+                f"to VERA: {publish_reason}. Retry publishing with "
+                f"--publish-report {report_arg}",
                 file=sys.stderr,
             )
-            return 3
-        if token_configured:
+        elif token_configured:
             print("Latest build warnings published in VERA.")
         print(
             "New timeline in named Studio project saved and independently verified."

@@ -384,6 +384,31 @@ describe("#100 verified A5 music compilation", () => {
     expect(result.report.status).toBe("ready");
   });
 
+  it("keeps all music diagnostics when warning markers share a frame", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    const span = doc.rowAudioSpans![0]!;
+    doc.rowAudioSpans!.push({ ...span, id: id(9900), source: { ...span.source, artifactId: id(9901) } });
+    deps.musicBindings = [];
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("ready");
+    expect(result.report.diagnostics.filter((item) => item.code === "MUSIC_FILE_MISSING")).toHaveLength(2);
+    expect(result.manifest.events.filter((item) => item.kind === "script_marker").map((item) => item.recordRange.startFrame)).toEqual([0]);
+  });
+
+  it("preserves the authored note when a short cue ends on the same frame", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 4);
+    const [first, second] = doc.activeDraft.blocks;
+    doc.activeDraft.supportingItems.push({
+      id: id(9902), version: 1, orderKey: "a0", role: "editor_note", content: "Check this cut.",
+      placement: { kind: "point", anchor: { kind: "between_blocks", beforeBlockId: first!.id, afterBlockId: second!.id } },
+    });
+    const result = compile(doc, deps);
+    expect(result.report.status).toBe("ready");
+    expect(result.report.diagnostics.map((item) => item.code)).toContain("MUSIC_SOURCE_SHORTER");
+    const markers = result.manifest.events.filter((item) => item.kind === "script_marker");
+    expect(markers.map((marker) => [marker.recordRange.startFrame, marker.marker?.text])).toEqual([[96, "Check this cut."]]);
+  });
+
   it("clips short files, warns with requested/delivered frames, never loops, and omits subframe audio", () => {
     const { doc, deps } = threeRowMusicFixture(48000 * 7);
     const result = compile(doc, deps);

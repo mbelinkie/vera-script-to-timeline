@@ -134,28 +134,43 @@ async function showScript(projectId) {
   void refreshMusicWarnings();
 }
 
+const musicWarningLabels = {
+  MUSIC_SOURCE_SHORTER: "Music ends early",
+  MUSIC_FILE_MISSING: "Music file missing",
+  MUSIC_SPAN_INVALID: "Music cue can’t be placed",
+  MUSIC_SETTINGS_UNSUPPORTED: "Music settings aren’t supported",
+};
+let musicWarningRequest = 0;
+
 async function refreshMusicWarnings() {
   if (!activeProjectId) return;
+  const projectId = activeProjectId;
+  const request = ++musicWarningRequest;
+  const current = () => projectId === activeProjectId && request === musicWarningRequest;
   const status = element("music-warning-status");
   const list = element("music-warning-list");
-  list.replaceChildren();
   try {
-    const { report } = await api(`/${activeProjectId}/music-warnings`);
+    const { report } = await api(`/${projectId}/music-warnings`);
+    if (!current()) return;
+    list.replaceChildren();
     if (!report) {
       status.textContent = "No completed build report is available for this project yet.";
       return;
     }
     const warnings = report.musicWarnings;
-    status.textContent = `Build ${report.buildId.slice(0, 8)} · script revision ${report.documentRevision} · ` +
+    const version = report.documentRevision === documentRevision ? "saved script" : "earlier script version";
+    status.textContent = `Build ${report.buildId.slice(0, 8)} · ${version} · ` +
       (warnings.length ? `${warnings.length} music warning${warnings.length === 1 ? "" : "s"}.` : "no music warnings.");
     for (const warning of warnings) {
       const item = document.createElement("li");
-      const code = document.createElement("strong");
-      code.textContent = `${warning.code}: `;
-      item.append(code, document.createTextNode(warning.message));
+      const label = document.createElement("strong");
+      label.textContent = `${musicWarningLabels[warning.code] ?? "Music warning"}: `;
+      item.append(label, document.createTextNode(warning.message));
       list.append(item);
     }
   } catch {
+    if (!current()) return;
+    list.replaceChildren();
     status.textContent = "Latest build warnings could not be loaded.";
   }
 }
@@ -245,6 +260,7 @@ async function saveDocument() {
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
+    void refreshMusicWarnings();
     pendingDocument = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {

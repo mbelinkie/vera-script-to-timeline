@@ -8,5 +8,6 @@ CREATE TABLE stt_project_latest_music_warnings (
   music_warnings jsonb NOT NULL CHECK (
     jsonb_typeof(music_warnings) = 'array' AND jsonb_array_length(music_warnings) <= 32
   ),
+  built_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );

@@ -117,7 +117,7 @@ touch '${join(scratch, "restored")}'`;
     expect(backup.status, backup.stderr).toBe(0);
     const manifest = readManifest(join(archive, "manifest.json"));
     expect(manifest.archiveSha256).toBe(createHash("sha256").update("PRIVATE_FAKE_DUMP_159").digest("hex"));
-    expect(manifest.inventory.migrations).toHaveLength(4);
+    expect(manifest.inventory.migrations).toHaveLength(receipts.length);
     expect(Object.keys(manifest.inventory.tables)).toEqual(names);
     expect(manifest.inventory.tables.stt_document_heads).toEqual({ rows: 0, sha256: emptySha });
     expect(run("restore").status).toBe(0);

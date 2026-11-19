@@ -431,6 +431,7 @@ def _build(
     transitions: list[dict[str, Any]] | None = None,
     voices: dict[str, str] | None = None,
     bed: str | None = None,
+    short_bed: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """A document, manifest and delivery view with one picture per row.
 
@@ -507,22 +508,27 @@ def _build(
             }
         start += length
     if bed:
-        # A music cue from the first row to the end of the last, as #100 builds it.
+        cue_row = order[-1] if short_bed else order[0]
+        cue_start = start - pictures[cue_row][1] if short_bed else 0
+        cue_length = 6 if short_bed else start
         cue = {
             "eventId": "music-cue",
             "kind": "music",
             "trackId": "m",
             "provenance": {
                 "documentId": DOCUMENT,
-                "blockId": order[0],
+                "blockId": cue_row,
                 "sourceId": f"src-{bed}",
                 "deliveredSourceHash": f"sha256:{bed}",
             },
-            "recordRange": {"startFrame": 0, "endFrame": start},
-            "sourceRange": {"startFrame": 0, "endFrame": start},
+            "recordRange": {
+                "startFrame": cue_start,
+                "endFrame": cue_start + cue_length,
+            },
+            "sourceRange": {"startFrame": 0, "endFrame": cue_length},
             "music": {
                 "spanId": "span-1",
-                "startRowId": order[0],
+                "startRowId": cue_row,
                 "endRowId": order[-1],
                 "gainDb": -12,
                 "requestedEndFrame": start,
@@ -536,8 +542,8 @@ def _build(
                 "kind": "music",
                 "trackId": "m",
                 "trackKind": "audio",
-                "recordRange": {"startFrame": 0, "durationFrames": start},
-                "sourceRange": {"startFrame": 0, "durationFrames": start},
+                "recordRange": {"startFrame": cue_start, "durationFrames": cue_length},
+                "sourceRange": {"startFrame": 0, "durationFrames": cue_length},
                 "v2Event": cue,
             }
         )
@@ -611,13 +617,19 @@ class Case:
         voices: dict[str, str] | None = None,
         bed: str | None = None,
         new_bed: str | None = None,
+        short_bed: bool = False,
         new_voices: dict[str, str] | None = None,
         old_transitions: list[dict[str, Any]] | None = None,
         **current: Any,
     ) -> None:
         original = {row: (f"clip-{row}", 10) for row in ROWS}
         document, manifest, view = _build(
-            "build-1", original, voices=voices, transitions=old_transitions, bed=bed
+            "build-1",
+            original,
+            voices=voices,
+            transitions=old_transitions,
+            bed=bed,
+            short_bed=short_bed,
         )
         if bed:
             current["bed"] = new_bed or bed
@@ -625,7 +637,7 @@ class Case:
             current["voices"] = new_voices or voices
         self.old_view = view
         self.document, self.manifest, self.view = _build(
-            "build-2", {**original, **changed}, **current
+            "build-2", {**original, **changed}, short_bed=short_bed, **current
         )
         self.project = Project()
         self.timeline = Timeline(self.project, "T", "t-uid", 30)
@@ -1151,14 +1163,14 @@ def test_shorter_row_trims_first_and_pulls_later_rows_earlier(
 def test_length_change_moves_music_warning_marker_and_refreshes_its_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    case = Case(tmp_path, monkeypatch, LONGER, version=V212)
+    case = Case(
+        tmp_path, monkeypatch, LONGER, version=V212, bed="theme", short_bed=True
+    )
     baseline_marker = _attach_music_warning_marker(
-        case.package.manifest, case.package.view, 10, "120 frames are uncovered"
+        case.package.manifest, case.package.view, 26, "Music ends at frame 26"
     )
-    _attach_music_warning_marker(
-        case.manifest, case.view, 14, "168 frames are uncovered"
-    )
-    case.timeline.markers[10] = {
+    _attach_music_warning_marker(case.manifest, case.view, 30, "Music ends at frame 30")
+    case.timeline.markers[26] = {
         "color": "Yellow",
         "name": baseline_marker["name"],
         "note": baseline_marker["note"],
@@ -1166,11 +1178,13 @@ def test_length_change_moves_music_warning_marker_and_refreshes_its_note(
         "customData": _marker_stamp(baseline_marker),
     }
 
+    bed = _bed(case)
     report = case.run("safe")
 
     assert report["status"] == "updated"
-    assert list(case.timeline.markers) == [14]
-    assert case.timeline.markers[14]["note"] == "168 frames are uncovered"
+    assert list(case.timeline.markers) == [30]
+    assert case.timeline.markers[30]["note"] == "Music ends at frame 30"
+    assert _bed(case) is bed and (bed.start, bed.duration) == (24, 6)
     assert not any("markers are not updated" in line for line in case.said)
 
 

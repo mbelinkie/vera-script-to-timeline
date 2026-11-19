@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
+import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { PGlite } from "@electric-sql/pglite";
 import { compileTimelineV2, resolveMediaRequirementsV2 } from "@vera/contracts/compiler-core-v2";
 import type { CompilerDependenciesV2, ScriptDocumentV2 } from "@vera/contracts/v2";
@@ -502,8 +503,8 @@ describe("latest local music-warning projection", () => {
   it("keeps only the newest authorized report and lets project viewers read it", async () => {
     const h = await buildHarness();
     const service = h.status();
-    const first = { projectId: h.projectId, documentId: h.document.id, documentRevision: 0,
-      buildId: randomUUID(), musicWarnings: [
+    const first = { projectId: h.projectId, documentId: h.document.id, documentDigest: sha256CanonicalJson(h.document),
+      builtAt: "2025-01-01T00:00:00.000Z", buildId: randomUUID(), musicWarnings: [
         { code: "MUSIC_SOURCE_SHORTER", message: "bed.wav ended before the selected rows" },
       ] };
     await expect(service.publishMusicWarnings(h.projectId, h.viewer, first))
@@ -514,25 +515,26 @@ describe("latest local music-warning projection", () => {
       musicWarnings: first.musicWarnings,
     });
 
-    const latest = { ...first, buildId: randomUUID(), musicWarnings: [] };
+    const latest = { ...first, builtAt: "2025-01-01T00:00:01.000Z", buildId: randomUUID(), musicWarnings: [] };
     await service.publishMusicWarnings(h.projectId, h.producer, latest);
+    await service.publishMusicWarnings(h.projectId, h.editor, first);
     expect(await service.latestMusicWarnings(h.projectId, h.viewer)).toMatchObject({
       buildId: latest.buildId, documentRevision: 0, musicWarnings: [],
     });
     await expect(service.latestMusicWarnings(h.projectId, h.outsider)).rejects.toMatchObject({ status: 403 });
   });
 
-  it("rejects warnings for another project, unsupported codes, and unknown revisions", async () => {
+  it("rejects warnings for another project, unsupported codes, and mismatched script contents", async () => {
     const h = await buildHarness();
     const service = h.status();
-    const valid = { projectId: h.projectId, documentId: h.document.id, documentRevision: 0,
-      buildId: randomUUID(), musicWarnings: [] };
+    const valid = { projectId: h.projectId, documentId: h.document.id, documentDigest: sha256CanonicalJson(h.document),
+      builtAt: "2025-01-01T00:00:00.000Z", buildId: randomUUID(), musicWarnings: [] };
     await expect(service.publishMusicWarnings(h.projectId, h.editor, { ...valid, projectId: randomUUID() }))
       .rejects.toMatchObject({ status: 400 });
     await expect(service.publishMusicWarnings(h.projectId, h.editor, { ...valid,
       musicWarnings: [{ code: "UNTRUSTED", message: "no" }] }))
       .rejects.toMatchObject({ status: 400 });
-    await expect(service.publishMusicWarnings(h.projectId, h.editor, { ...valid, documentRevision: 99 }))
+    await expect(service.publishMusicWarnings(h.projectId, h.editor, { ...valid, documentDigest: "sha256:" + "f".repeat(64) }))
       .rejects.toMatchObject({ status: 400 });
   });
 });

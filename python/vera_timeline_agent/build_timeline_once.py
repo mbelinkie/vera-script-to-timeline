@@ -9,6 +9,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import stat
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -403,6 +404,22 @@ def compile_prepared(
     report = output / "build-report.json"
     publish_immutable_output(manifest, result.result["manifestJson"].encode("utf-8"))
     publish_immutable_output(report, result.result["reportJson"].encode("utf-8"))
+    receipt = (options.inputs or inputs.script.parent) / "prep-media.json"
+    if receipt.is_file() and not receipt.is_symlink():
+        try:
+            preparation = _read_json(receipt)
+            authored_digest = preparation.get("authoredDocumentDigest")
+            if (
+                preparation.get("preparedScriptSha256") == source_hash
+                and isinstance(authored_digest, str)
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", authored_digest)
+            ):
+                publish_immutable_output(
+                    output / "authored-document-digest.txt", authored_digest.encode()
+                )
+        except (OSError, ValueError, BuildJobError):
+            # Warnings can still use the packaged document for an unmodified script.
+            pass
     return CompileResult(inputs, output, manifest, report, needs, music)
 
 

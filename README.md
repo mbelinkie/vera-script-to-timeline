@@ -166,9 +166,9 @@ Keep the authoring host running and use the same terminal where
 only its music warnings to the local project service, where they appear under
 **Latest build** in VERA. If Resolve finishes but the host cannot accept the
 report, the command says the timeline was built and gives a `--publish-report`
-retry command; retry the report without rebuilding the timeline. Standalone
-builds without the authoring token still work, and report any music warnings
-that could not be shown in VERA.
+retry command. The report matches the saved version of the script that was
+built. Standalone builds without the authoring token print music warnings
+in the terminal.
 
 For a versioned installation, open that copy of Resolve and add
 `--resolve-app "/absolute/path/to/DaVinci Resolve.app"` to the command, using

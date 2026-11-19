@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
+
 import {
   type ProjectAuthorizationService, type SqlClient, type SqlPool,
 } from "@vera/project-authorization";
@@ -44,20 +46,23 @@ export interface LatestMusicWarnings {
   readonly musicWarnings: readonly MusicBuildWarning[];
   readonly updatedAt: string;
 }
-interface MusicWarningsInput extends Omit<LatestMusicWarnings, "updatedAt"> {
+interface MusicWarningsInput extends Omit<LatestMusicWarnings, "updatedAt" | "documentRevision"> {
+  readonly documentDigest: string;
+  readonly builtAt: string;
   readonly projectId: string;
 }
 
 function parseMusicWarningsInput(projectId: string, value: unknown): MusicWarningsInput {
   if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
   const input = value as Record<string, unknown>;
-  const keys = ["projectId", "documentId", "documentRevision", "buildId", "musicWarnings"];
+  const keys = ["projectId", "documentId", "documentDigest", "buildId", "builtAt", "musicWarnings"];
   if (Object.keys(input).length !== keys.length || keys.some((key) => !Object.hasOwn(input, key)) ||
       typeof input.projectId !== "string" || input.projectId.toLowerCase() !== projectId ||
       typeof input.documentId !== "string" || !UUID.test(input.documentId) ||
       typeof input.buildId !== "string" || !UUID.test(input.buildId) ||
-      typeof input.documentRevision !== "number" || !Number.isSafeInteger(input.documentRevision) ||
-      input.documentRevision < 0 || !Array.isArray(input.musicWarnings) || input.musicWarnings.length > 32) {
+      typeof input.documentDigest !== "string" || !DIGEST.test(input.documentDigest) ||
+      typeof input.builtAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(input.builtAt) ||
+      !Number.isFinite(Date.parse(input.builtAt)) || !Array.isArray(input.musicWarnings) || input.musicWarnings.length > 32) {
     return invalid();
   }
   const musicWarnings = input.musicWarnings.map((value) => {
@@ -72,7 +77,7 @@ function parseMusicWarningsInput(projectId: string, value: unknown): MusicWarnin
   });
   return {
     projectId, documentId: input.documentId.toLowerCase(),
-    documentRevision: input.documentRevision, buildId: input.buildId.toLowerCase(), musicWarnings,
+    documentDigest: input.documentDigest, builtAt: input.builtAt, buildId: input.buildId.toLowerCase(), musicWarnings,
   };
 }
 
@@ -158,19 +163,23 @@ export class ProjectBuildStatusService {
     if (!validId(projectId)) return invalid();
     const input = parseMusicWarningsInput(projectId.toLowerCase(), raw);
     await this.auth.withAuthorizedMutation(projectId, editor, "preview_build", async (db) => {
-      const revision = (await db.query<{ document_id: string }>(
-        "SELECT document_id FROM stt_document_revisions WHERE project_id=$1 AND revision=$2",
-        [projectId, input.documentRevision],
+      const head = (await db.query<{ document_json: string; revision: number | string }>(
+        "SELECT document_json,revision FROM stt_document_heads WHERE project_id=$1 AND document_id=$2 FOR SHARE",
+        [projectId, input.documentId],
       )).rows[0];
-      if (!revision || revision.document_id !== input.documentId) return invalid();
+      if (!head || sha256CanonicalJson(JSON.parse(head.document_json)) !== input.documentDigest) return invalid();
+      const now = checkedNow(this.clock);
+      if (Date.parse(input.builtAt) > Date.parse(now) + 60_000) return invalid();
       await db.query(
         "INSERT INTO stt_project_latest_music_warnings(project_id,document_id,document_revision," +
-          "build_id,music_warnings,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6) " +
+          "build_id,music_warnings,built_at,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7) " +
           "ON CONFLICT(project_id) DO UPDATE SET document_id=EXCLUDED.document_id," +
           "document_revision=EXCLUDED.document_revision,build_id=EXCLUDED.build_id," +
-          "music_warnings=EXCLUDED.music_warnings,updated_at=EXCLUDED.updated_at",
-        [projectId, input.documentId, input.documentRevision, input.buildId,
-          JSON.stringify(input.musicWarnings), checkedNow(this.clock)],
+          "music_warnings=EXCLUDED.music_warnings,built_at=EXCLUDED.built_at,updated_at=EXCLUDED.updated_at " +
+          "WHERE (stt_project_latest_music_warnings.document_revision,stt_project_latest_music_warnings.built_at) " +
+          "< (EXCLUDED.document_revision,EXCLUDED.built_at)",
+        [projectId, input.documentId, safeNumber(head.revision), input.buildId,
+          JSON.stringify(input.musicWarnings), input.builtAt, now],
       );
     });
   }
@@ -188,12 +197,9 @@ export class ProjectBuildStatusService {
       )).rows[0];
       if (!row) return null;
       const warnings = typeof row.music_warnings === "string" ? JSON.parse(row.music_warnings) as unknown : row.music_warnings;
-      const checked = parseMusicWarningsInput(projectId.toLowerCase(), {
-        projectId, documentId: row.document_id, documentRevision: safeNumber(row.document_revision),
-        buildId: row.build_id, musicWarnings: warnings,
-      });
-      return { buildId: checked.buildId, documentId: checked.documentId,
-        documentRevision: checked.documentRevision, musicWarnings: checked.musicWarnings,
+      return { buildId: row.build_id, documentId: row.document_id,
+        documentRevision: safeNumber(row.document_revision),
+        musicWarnings: warnings as MusicBuildWarning[],
         updatedAt: new Date(row.updated_at).toISOString() };
     });
   }

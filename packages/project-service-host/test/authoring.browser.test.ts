@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
+import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -423,26 +424,26 @@ describe("browser authoring over the local project service", () => {
     const projectId = await createProject(page, origin, "Music warning report");
     const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
     const document = (saved.body as SavedDocument).document;
-    const publish = async (buildId: string, musicWarnings: unknown[]) => await fetch(
+    const publish = async (buildId: string, musicWarnings: unknown[], builtAt: string) => await fetch(
       `${origin}/v1/projects/${projectId}/music-warnings`,
       { method: "POST", headers: { Authorization: `Bearer ${authoringToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, documentId: document.id, documentRevision: (saved.body as SavedDocument).revision,
-          buildId, musicWarnings }) },
+        body: JSON.stringify({ projectId, documentId: document.id, documentDigest: sha256CanonicalJson(document),
+          buildId, builtAt, musicWarnings }) },
     );
     const firstBuild = randomUUID();
     expect((await publish(firstBuild, [
       { code: "MUSIC_SOURCE_SHORTER", message: "ambient.wav ends before the selected rows; no loop was used." },
-    ])).status).toBe(201);
+    ], "2025-01-01T00:00:00.000Z")).status).toBe(201);
     await page.goto(`${origin}/?project=${projectId}`);
     await expect.poll(async () => await page.locator("#music-warning-status").textContent())
       .toContain(firstBuild.slice(0, 8));
     await expect.poll(async () => await page.locator("#music-warning-list").textContent())
-      .toContain("MUSIC_SOURCE_SHORTER");
+      .toContain("Music ends early");
     await expect.poll(async () => await page.locator("#music-warning-list").textContent())
       .toContain("ambient.wav ends before the selected rows");
 
     const latestBuild = randomUUID();
-    expect((await publish(latestBuild, [])).status).toBe(201);
+    expect((await publish(latestBuild, [], "2025-01-01T00:00:01.000Z")).status).toBe(201);
     await page.reload();
     await expect.poll(async () => await page.locator("#music-warning-status").textContent())
       .toContain(latestBuild.slice(0, 8));
