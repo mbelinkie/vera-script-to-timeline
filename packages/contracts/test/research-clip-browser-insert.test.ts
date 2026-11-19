@@ -171,10 +171,14 @@ describe("Research clip browser insertion: one atomic script edit", () => {
       expect(result.diagnostics.length).toBeGreaterThan(0);
       expect(doc).toEqual(before);
     }
-    for (const duplicate of [first.id, doc.stash![0]!.rows[0].id, candidate.id]) {
+    // Reject collisions at the Research insertion boundary, rather than only
+    // relying on the downstream document validator to catch them later.
+    for (const duplicate of [first.id, doc.stash![0]!.rows[0].id, candidate.id, researchId(990005)]) {
       const result = insertResearchClipBrowserV2(doc, candidate, request(selected), () => duplicate);
       expect(result.ok).toBe(false);
       expect(result.document).toBe(doc);
+      expect(result.diagnostics[0]?.code).toBe("RESEARCH_INSERT_INVALID");
+      expect(result.diagnostics[0]?.message).toContain("unused UUID");
     }
   });
 });
