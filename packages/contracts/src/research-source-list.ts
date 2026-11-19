@@ -1,0 +1,71 @@
+import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
+import { indexResearchClipUsageV2 } from "./research-clip-usage-v2.js";
+import { formatMlaCitation, type MlaSource } from "./mla-citation.js";
+
+export interface ResearchLibraryItemReference {
+  projectId: string;
+  itemId: string;
+  kind: "quote" | "clip";
+}
+
+/**
+ * Format each used Research source once, retaining the order of first use.
+ * Source-level citations deliberately have no quote location.
+ */
+export function formatResearchSourceList(
+  sources: readonly (MlaSource & { id: string; projectId?: string })[],
+): string {
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  for (const source of sources) {
+    // Research library IDs are scoped by project when the client returns a
+    // project-bearing source record; plain citation fixtures remain ID-only.
+    const key = `${source.projectId ?? ""}\u0000${source.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const citation = formatMlaCitation(source, { full: true }).citationText;
+    if (citation.trim()) entries.push(citation);
+  }
+  return entries.join("\n");
+}
+
+/**
+ * Collect exact Research item identities from active script rows only.
+ * Quote boxes carry their item ID; clip usage indexing supplies the stable
+ * (Research project, clip) identity and knows how to collapse attached mirrors.
+ */
+export function usedResearchLibraryItems(
+  document: ScriptDocumentV2,
+  quoteProjectId: string,
+): ResearchLibraryItemReference[] {
+  const items: ResearchLibraryItemReference[] = [];
+  const seen = new Set<string>();
+  const add = (item: ResearchLibraryItemReference): void => {
+    const key = JSON.stringify([item.projectId, item.itemId, item.kind]);
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push(item);
+  };
+
+  const activeOnly: ScriptDocumentV2 = {
+    ...document,
+    activeDraft: {
+      ...document.activeDraft,
+      blocks: document.activeDraft.blocks.filter((block) => block.type !== "narration" || block.state === "active"),
+    },
+  };
+  delete activeOnly.stash;
+  delete activeOnly.stashOutline;
+  for (const block of activeOnly.activeDraft.blocks) {
+    if (block.type !== "narration") continue;
+    for (const event of block.overlayEvents) {
+      const quote = event.quoteBox;
+      if (quote) add({ projectId: quoteProjectId, itemId: quote.researchQuoteId, kind: "quote" });
+    }
+  }
+  for (const usage of indexResearchClipUsageV2(activeOnly)) {
+    if (!usage.scriptUses.some((use) => use.kind !== "unattached")) continue;
+    add({ projectId: usage.researchProjectId, itemId: usage.clipId, kind: "clip" });
+  }
+  return items;
+}

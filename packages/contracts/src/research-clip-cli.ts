@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Read-only Research listing and guarded, atomic script-v2 insertion. */
+/** Local Research commands and guarded, atomic script-v2 edits. */
 import {
   closeSync, constants, fchmodSync, fchownSync, fstatSync, fsyncSync, lstatSync,
   openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
@@ -16,6 +16,15 @@ import type { ScriptDocumentV2 } from "./generated/contracts-v2.js";
 export const RESEARCH_CLI_EXIT = {
   ok: 0, refused: 1, usage: 64, parse: 65, read: 66, internal: 70, write: 73,
 } as const;
+
+const usageByMode = new Map<string, [number, string]>([
+  ["clips", [2, "research:clips -- <project>"]],
+  ["add-clip", [5, "research:add-clip -- <project> <clip UUID> <script.json> <after row UUID>"]],
+  ["refresh-citations", [3, "research:refresh-citations -- <project> <script.json>"]],
+  ["source-list", [3, "export:source-list -- <project> <script.json>"]],
+  ["edit-use-citation", [5, "research:edit-use-citation -- <project> <script.json> <quote box ID> <text or --reset>"]],
+  ["edit-quote-citation", [4, "research:edit-quote-citation -- <project> <quote UUID> <text or --reset>"]],
+]);
 
 export interface ResearchScriptSnapshot {
   readonly bytes: Buffer;
@@ -123,11 +132,13 @@ async function loadCommands() {
     },
   });
   try {
-    const [client, commands] = await Promise.all([
+    const [client, commands, citations, validation] = await Promise.all([
       import("./research-clip-client.ts"),
       import("./research-clip-commands.ts"),
+      import("./research-citation-commands.ts"),
+      import("./authoring-v2-validation.ts"),
     ]);
-    return { ...client, ...commands };
+    return { ...client, ...commands, ...citations, ...validation };
   } finally {
     hooks.deregister();
   }
@@ -156,21 +167,24 @@ export async function runResearchClipCli(
   const out = (message: string) => io.stdout(redact(message));
   const err = (message: string) => io.stderr(redact(message) + "\n");
   const mode = args[0];
-  if (!(mode === "clips" && args.length === 2 || mode === "add-clip" && args.length === 5)) {
-    err("Usage: research:clips -- <project> OR research:add-clip -- <project> <clip UUID> <script.json> <after row UUID>.");
+  const usage = usageByMode.get(mode ?? "");
+  if (args.length !== usage?.[0]) {
+    err(usage ? `Usage: npm run ${usage[1]}.` : "Choose a Research command from npm run.");
     return RESEARCH_CLI_EXIT.usage;
   }
 
   try {
-    const { createResearchClient, isResearchId, resolveProjectName, formatLoggedResearchClipV2, insertLoggedResearchClipV2 } = await loadCommands();
+    const {
+      createResearchClient, isResearchId, resolveProjectName, formatLoggedResearchClipV2, insertLoggedResearchClipV2,
+      refreshScriptCitations, editScriptCitation, exportScriptSources, validateScriptDocumentV2,
+    } = await loadCommands();
     const api = createResearchClient({
       bearer: io.env.bearer,
       ...(io.env.url === undefined ? {} : { url: io.env.url }),
       ...(io.request === undefined ? {} : { request: io.request }),
     });
     const projectArg = args[1]!;
-    // An explicit UUID is checked by the clips endpoint itself. A broken or
-    // unrelated project list must not prevent that authorized direct lookup.
+    // Record endpoints authorize explicit project IDs without a project-list request.
     const projectId = resolveProjectName(projectArg, isResearchId(projectArg) ? [] : await api.projects());
     if (mode === "clips") {
       const clips = await api.clips(projectId);
@@ -178,9 +192,15 @@ export async function runResearchClipCli(
       else for (const clip of clips) out(`${formatLoggedResearchClipV2(clip)}\n`);
       return RESEARCH_CLI_EXIT.ok;
     }
+    if (mode === "edit-quote-citation") {
+      const text = args[3]!;
+      await api.setQuoteCitation(projectId, args[2]!, text === "--reset" ? undefined : text);
+      out("Research quote citation saved. Refresh placed citations to apply it to an existing script.\n");
+      return RESEARCH_CLI_EXIT.ok;
+    }
 
-    const clip = await api.clip(projectId, args[2]!);
-    const path = args[3]!;
+    const clip = mode === "add-clip" ? await api.clip(projectId, args[2]!) : undefined;
+    const path = (mode === "add-clip" ? args[3] : args[2])!;
     let snapshot: ResearchScriptSnapshot;
     try {
       snapshot = io.readScript(path);
@@ -190,7 +210,7 @@ export async function runResearchClipCli(
     }
     let document: unknown;
     try {
-      document = JSON.parse(snapshot.bytes.toString("utf8")) as unknown;
+      document = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(snapshot.bytes)) as unknown;
     } catch {
       err("The script is not valid JSON; no changes were written.");
       return RESEARCH_CLI_EXIT.parse;
@@ -200,14 +220,30 @@ export async function runResearchClipCli(
       err("The script must be a ScriptDocument v2; no changes were written.");
       return RESEARCH_CLI_EXIT.refused;
     }
-    const next = insertLoggedResearchClipV2(document as ScriptDocumentV2, clip, args[4]!);
+    const script = document as ScriptDocumentV2;
+    if (mode !== "add-clip" && !validateScriptDocumentV2(script).valid) {
+      throw new Error("Script validation failed");
+    }
+    if (mode === "source-list") {
+      const list = await exportScriptSources(script, projectId, api);
+      if (list) out(`${list.replace(/\p{Cc}/gu, (character) => character === "\n" ? "\n" : "")}\n`);
+      return RESEARCH_CLI_EXIT.ok;
+    }
+    const next = clip ? insertLoggedResearchClipV2(script, clip, args[4]!) : mode === "edit-use-citation"
+      ? await editScriptCitation(script, projectId, api, args[3]!, args[4]!)
+      : await refreshScriptCitations(script, projectId, api);
+    if (next === script) {
+      out("Script citations are already current.\n");
+      return RESEARCH_CLI_EXIT.ok;
+    }
+    if (!clip && !validateScriptDocumentV2(next).valid) throw new Error("Script validation failed after citation edit");
     try {
       io.replaceScript(path, snapshot, `${JSON.stringify(next, null, 2)}\n`);
     } catch {
       err("The script changed or could not be written; no replacement was made.");
       return RESEARCH_CLI_EXIT.write;
     }
-    out("Research clip added to the script.\n");
+    out(clip ? "Research clip added to the script.\n" : "Script citations saved.\n");
     return RESEARCH_CLI_EXIT.ok;
   } catch (error: unknown) {
     err(failureMessage(error));

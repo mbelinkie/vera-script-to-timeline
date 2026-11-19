@@ -193,6 +193,7 @@ class QuoteBoxV2(TypedDict):
     speakerName: str
     speakerTitle: str
     citationText: str
+    citationOverridden: NotRequired[Literal[True]]
     italicSpan: ItalicSpan | None
     templateRevision: str
     backgroundPayloadId: EntityId
