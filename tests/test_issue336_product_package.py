@@ -31,8 +31,8 @@ from scripts.issue336_studio_qualify import png
 
 NATIVE = {
     "mode": "native_dynamic_zoom",
-    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.25},
-    "end": {"focusX": 0.53, "focusY": 0.52, "scale": 1.2},
+    "start": {"focusX": 0.5, "focusY": 0.5, "scale": 1.05},
+    "end": {"focusX": 0.5, "focusY": 0.5, "scale": 1.2},
     "easing": "linear",
 }
 
@@ -44,6 +44,9 @@ def _authored_png_case(
     motion: dict[str, Any],
     framing: str,
     hide_bars: bool = False,
+    size: tuple[int, int] = (1600, 900),
+    frame_rate: tuple[int, int] = (24, 1),
+    prepared_image: bool = False,
 ) -> Any:
     case = make_package_case(root, rate="25fps")
     document = json.loads(case.document_path.read_text())
@@ -53,19 +56,23 @@ def _authored_png_case(
     receipt_path = next(iter(case.preparation_paths.values()))
     receipt = json.loads(receipt_path.read_text())
 
-    source_path = root / "public-1600x900.png"
-    png(source_path, 1600, 900)
+    source_path = root / f"public-{size[0]}x{size[1]}.png"
+    png(source_path, *size)
     source_hash = "sha256:" + hashlib.sha256(source_path.read_bytes()).hexdigest()
     source_id = manifest["sources"][0]["id"]
     case.media_paths[f"source:{source_id}"] = source_path
     case.media_paths[f"original:{source_id}"] = source_path
 
-    rate = {"numerator": 24, "denominator": 1}
+    rate = {"numerator": frame_rate[0], "denominator": frame_rate[1]}
     for record in (dependencies, manifest, report):
         record["timeline"]["frameRate"] = copy.deepcopy(rate)
         record["timeline"]["durationFrames"] = frames
     for record in (dependencies, manifest):
-        record["authoringDefaults"]["visualOnlyStillDurationMs"] = frames * 1000 // 24
+        record["authoringDefaults"]["visualOnlyStillDurationMs"] = (
+            max(1, round(frames * 1000 * frame_rate[1] / frame_rate[0]))
+            if prepared_image
+            else frames * 1000 // 24
+        )
     document["activeDraft"]["blocks"][0]["payload"]["imageMotion"] = motion
     document["activeDraft"]["blocks"][0]["payload"]["framingPolicy"] = framing
     event = manifest["events"][0]
@@ -83,27 +90,41 @@ def _authored_png_case(
     prep_binding.pop("derivation")
     prep_binding["artifactLocator"] = "prepared/still.png"
     prep_binding["targetRate"] = copy.deepcopy(rate)
-    prep_binding["requestedRange"]["duration"] = {"numerator": 1, "denominator": 24}
+    prep_binding["requestedRange"]["duration"] = {
+        "numerator": frame_rate[1],
+        "denominator": frame_rate[0],
+    }
     prep_binding["verification"]["decodedFrameCount"] = 1
     prep_binding["verification"]["decodedFrameRate"] = copy.deepcopy(rate)
     prep_binding["verification"]["videoTimeBase"] = {
-        "numerator": 1,
-        "denominator": 24,
+        "numerator": frame_rate[1],
+        "denominator": frame_rate[0],
     }
 
-    stream_probe = {
-        "streams": [
-            {
-                "codec_type": "video",
-                "codec_name": "png",
-                "width": 1600,
-                "height": 900,
-                "avg_frame_rate": "24/1",
-                "time_base": "1/24",
-            }
-        ],
-        "frames": [{"pts": 0, "best_effort_timestamp": 0, "duration": 1}],
-    }
+    stream_probe = (
+        {
+            "kind": "image",
+            "demuxer": "image2pipe",
+            "codec": "png",
+            "width": size[0],
+            "height": size[1],
+            "frames": 1,
+        }
+        if prepared_image
+        else {
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "png",
+                    "width": size[0],
+                    "height": size[1],
+                    "avg_frame_rate": f"{frame_rate[0]}/{frame_rate[1]}",
+                    "time_base": f"{frame_rate[1]}/{frame_rate[0]}",
+                }
+            ],
+            "frames": [{"pts": 0, "best_effort_timestamp": 0, "duration": 1}],
+        }
+    )
     probe_hash = identity_hash(stream_probe)
     prep_binding["originalSource"]["contentHash"] = source_hash
     prep_binding["originalSource"]["probeHash"] = probe_hash
@@ -120,7 +141,10 @@ def _authored_png_case(
     snapshot["probeHash"] = probe_hash
     frame_map = mapping["sourceFrameMap"]
     frame_map["decodedPackageFrameRate"] = copy.deepcopy(rate)
-    frame_map["packageVideoTimeBase"] = {"numerator": 1, "denominator": 24}
+    frame_map["packageVideoTimeBase"] = {
+        "numerator": frame_rate[1],
+        "denominator": frame_rate[0],
+    }
     frame_map["probeHash"] = probe_hash
     frame_map["descriptorHash"] = identity_hash(
         {"snapshot": snapshot, "probe": stream_probe}
@@ -150,6 +174,20 @@ def _authored_png_case(
     receipt["inputs"]["targetRate"] = copy.deepcopy(rate)
     receipt["sourceProbe"] = copy.deepcopy(stream_probe)
     receipt["deliveredProbe"] = copy.deepcopy(stream_probe)
+    if prepared_image:
+        receipt["inputs"]["stillInterpretation"] = (
+            "one_png_frame_held_at_timeline_rate/v1"
+        )
+        receipt["stillEvidence"] = {
+            "version": "one_png_frame_held_at_timeline_rate/v1",
+            "sourceProbeHash": probe_hash,
+            "strictPng": {
+                "sourceHash": source_hash,
+                "width": size[0],
+                "height": size[1],
+                "decodedFrameCount": 1,
+            },
+        }
     receipt["commands"] = []
     receipt["geometry"] = _preparation_geometry(prep_binding, occurrence)
 
@@ -174,7 +212,13 @@ def _authored_png_case(
 def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
     tmp_path: Path, frames: int
 ) -> None:
-    case = _authored_png_case(tmp_path, frames=frames, motion=NATIVE, framing="cover")
+    case = _authored_png_case(
+        tmp_path,
+        frames=frames,
+        motion=NATIVE,
+        framing="cover",
+        prepared_image=True,
+    )
     built = case.build()
     assert verify_v2_package(case.project_root).build_id == built.build_id
     # The initial installed-Studio test caught real basename collision:
@@ -209,6 +253,59 @@ def test_real_package_qualifies_hash_bound_png_motion_and_rebuild(
     assert clips[0].metadata["vera"]["motion_qualification"].startswith("sha256:")
 
 
+@pytest.mark.parametrize(
+    ("size", "frames", "frame_rate"),
+    [
+        ((4097, 3), 1, (24000, 1001)),
+        ((1, 4096), 3, (25, 1)),
+        ((8192, 1), 1001, (30, 1)),
+        ((1600, 900), 7, (24, 1)),
+    ],
+)
+def test_real_package_admits_prepared_still_hold_extents_and_rates(
+    tmp_path: Path,
+    size: tuple[int, int],
+    frames: int,
+    frame_rate: tuple[int, int],
+) -> None:
+    case = _authored_png_case(
+        tmp_path,
+        frames=frames,
+        motion=NATIVE,
+        framing="cover",
+        size=size,
+        frame_rate=frame_rate,
+        prepared_image=True,
+    )
+    built = case.build()
+    manifest = json.loads(case.manifest_path.read_text())
+    event = manifest["events"][0]
+    source = manifest["sources"][0]
+    assert event["recordRange"] == {"startFrame": 0, "endFrame": frames}
+    assert event["sourceRange"] == {"startFrame": 0, "endFrame": 1}
+    delivered_path = case.media_paths[f"source:{source['id']}"]
+    assert source["deliveredHash"] == (
+        "sha256:" + hashlib.sha256(delivered_path.read_bytes()).hexdigest()
+    )
+    assert verify_v2_package(case.project_root).build_id == built.build_id
+    timeline = otio.adapters.read_from_file(
+        str(case.project_root / "Builds" / built.build_id / "timeline.otio")
+    )
+    clips = [
+        item
+        for track in timeline.tracks
+        for item in track
+        if isinstance(item, otio.schema.Clip)
+    ]
+    assert len(clips) == 1
+    assert clips[0].source_range.start_time.value == 0
+    assert clips[0].source_range.duration.value == frames
+    assert [effect.metadata["Resolve_OTIO"]["Type"] for effect in clips[0].effects] == [
+        59,
+        22,
+    ]
+
+
 @pytest.mark.parametrize("hide_bars", [False, True])
 def test_real_package_static_none_keeps_contain_without_motion(
     tmp_path: Path,
@@ -220,13 +317,20 @@ def test_real_package_static_none_keeps_contain_without_motion(
         motion={"mode": "none"},
         framing="contain",
         hide_bars=hide_bars,
+        prepared_image=True,
     )
     built = case.build()
     assert verify_v2_package(case.project_root).build_id == built.build_id
 
 
 def test_real_package_refuses_native_contain_before_publish(tmp_path: Path) -> None:
-    case = _authored_png_case(tmp_path, frames=48, motion=NATIVE, framing="contain")
+    case = _authored_png_case(
+        tmp_path,
+        frames=48,
+        motion=NATIVE,
+        framing="contain",
+        prepared_image=True,
+    )
     with pytest.raises(V2PackageError, match="no qualified output"):
         case.build()
     assert not case.project_root.exists()

@@ -278,11 +278,14 @@ def test_accepted_source_is_copied_and_pinned_in_local_snapshot(tmp_path: Path) 
     )
 
 
-def test_accepted_png_keeps_suffix_in_frozen_snapshot(tmp_path: Path) -> None:
+@pytest.mark.parametrize("suffix", [".png", ".jpg", ".JPEG"])
+def test_accepted_image_keeps_suffix_in_frozen_snapshot(
+    tmp_path: Path, suffix: str
+) -> None:
     transport, port = FakeTransport(), FakePort()
     authority, directory = _accepted(tmp_path, transport)
     record = authority.accepted[TARGET]
-    image = record.path.with_suffix(".png")
+    image = record.path.with_suffix(suffix)
     record.path.rename(image)
     authority.accepted[TARGET] = AcceptedSourceFile(
         record.project_id, record.source_id, record.revision, record.sha256, image
@@ -296,7 +299,7 @@ def test_accepted_png_keeps_suffix_in_frozen_snapshot(tmp_path: Path) -> None:
     )
     assert agent.run_one(JOB) == "queued"
     assert (
-        agent.root / "inputs" / JOB / f"source-{TARGET}.png"
+        agent.root / "inputs" / JOB / f"source-{TARGET}{suffix.lower()}"
     ).read_bytes() == image.read_bytes()
 
 
@@ -321,7 +324,7 @@ def test_existing_frozen_bin_path_is_preserved_for_png(tmp_path: Path) -> None:
             record.sha256,
             (directory,),
             destination,
-            preserve_png_suffix=True,
+            preserve_image_suffix=True,
         )
         == destination
     )

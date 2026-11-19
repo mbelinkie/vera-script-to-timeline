@@ -21,6 +21,7 @@ from typing import Any, Protocol
 import jsonschema  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 
+from .local_media_import import IMAGE_SUFFIXES
 from .v2_package import _compiler_hash
 
 _SOURCE_LIMIT = 8 * 1024**3
@@ -194,7 +195,7 @@ def frozen_source_file(
     roots: tuple[Path, ...],
     destination: Path | None,
     *,
-    preserve_png_suffix: bool = False,
+    preserve_image_suffix: bool = False,
 ) -> Path | None:
     """Recheck accepted record and bytes; optionally create an immutable copy.
 
@@ -207,13 +208,13 @@ def frozen_source_file(
         raise FrozenInputRefusal("accepted source lookup failed") from None
     fd = _source_descriptor(record, project_id, source_id, revision, digest, roots)
     if (
-        preserve_png_suffix
+        preserve_image_suffix
         and destination is not None
         and record is not None
-        and record.path.suffix.lower() == ".png"
+        and record.path.suffix.lower() in IMAGE_SUFFIXES
         and not destination.exists()
     ):
-        destination = destination.with_suffix(".png")
+        destination = destination.with_suffix(record.path.suffix.lower())
     output_fd: int | None = None
     staged: Path | None = None
     try:

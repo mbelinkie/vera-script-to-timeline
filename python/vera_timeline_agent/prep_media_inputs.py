@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -9,9 +10,13 @@ import stat
 import tempfile
 from collections.abc import Callable, Mapping
 from fractions import Fraction
+from io import BytesIO
 from pathlib import Path
 from time import monotonic
 from typing import Any, cast
+
+from PIL import Image, ImageCms, ImageOps
+from PIL import __version__ as PILLOW_VERSION
 
 from .build_compiler_bridge import invoke_bridge
 from .build_jobs import BuildJobError, publish_immutable_output
@@ -22,7 +27,8 @@ from .generated.contracts.compiler_dependencies_v2_schema import (
     RationalRate,
     RequestedPreparationRangeV1,
 )
-from .local_media_import import FFmpegDecoder
+from .local_media_import import IMAGE_SUFFIXES, FFmpegDecoder
+from .local_media_import_model import DecodedMediaFacts
 from .media_preparation import (
     POLICY,
     POLICY_HASH,
@@ -43,9 +49,154 @@ from .media_preparation import (
     wire,
 )
 from .narration.models import identity_hash
-from .native_image_motion import _verified_rgb_png_dimensions
+from .native_image_motion import (
+    MAX_STILL_EDGE,
+    MAX_STILL_PIXELS,
+    MAX_STILL_PNG_BYTES,
+    _verified_rgb_png_dimensions,
+)
 
 Json = dict[str, Any]
+
+_LEGACY_STILL_INTERPRETATION = "one_png_frame_held_at_timeline_rate/v1"
+_NORMALIZED_STILL_INTERPRETATION = "one_normalized_png_frame_held_at_timeline_rate/v1"
+
+
+def _still_probe(codec: str, width: int, height: int) -> Json:
+    return {
+        "kind": "image",
+        "demuxer": "image2pipe",
+        "codec": codec,
+        "width": width,
+        "height": height,
+        "frames": 1,
+    }
+
+
+def _image_orientation(raw: bytes, facts: DecodedMediaFacts, source_probe: Json) -> int:
+    if (
+        max(facts.width, facts.height) > MAX_STILL_EDGE
+        or facts.width * facts.height > MAX_STILL_PIXELS
+    ):
+        raise MediaPreparationError(
+            "unsupported_dimensions",
+            f"stills must fit {MAX_STILL_EDGE} pixels per edge "
+            f"and {MAX_STILL_PIXELS} total",
+        )
+    codec = source_probe["codec"]
+    # Pillow reads some 16-bit RGB PNGs into its 8-bit RGB mode.
+    if codec == "png" and (len(raw) < 29 or raw[12:16] != b"IHDR" or raw[24] != 8):
+        raise MediaPreparationError(
+            "unsupported_profile", "PNG must use 8-bit channel precision"
+        )
+
+    try:
+        with Image.open(BytesIO(raw), formats=["PNG", "JPEG"]) as image:
+            expected_format = "PNG" if codec == "png" else "JPEG"
+            if image.format != expected_format or image.size != (
+                facts.width,
+                facts.height,
+            ):
+                raise MediaPreparationError(
+                    "source_hash_mismatch",
+                    "still dimensions or format differ from import",
+                )
+            if getattr(image, "n_frames", 1) != 1:
+                raise MediaPreparationError(
+                    "unsupported_profile", "animated stills are unsupported"
+                )
+            if image.mode != "RGB" or "transparency" in image.info:
+                raise MediaPreparationError(
+                    "unsupported_profile",
+                    "still must be opaque RGB (alpha, grayscale, indexed and CMYK)",
+                )
+            orientation = image.getexif().get(274, 1)
+            if type(orientation) is not int or orientation not in range(1, 9):
+                raise MediaPreparationError(
+                    "unsupported_orientation", "EXIF orientation is outside 1..8"
+                )
+            if codec == "png" and not {"icc_profile", "srgb"}.intersection(image.info):
+                gamma = image.info.get("gamma", 0.45455)
+                srgb_chromaticity = (0.3127, 0.329, 0.64, 0.33, 0.30, 0.60, 0.15, 0.06)
+                chromaticity = image.info.get("chromaticity", srgb_chromaticity)
+                if abs(gamma - 0.45455) > 0.00005 or any(
+                    abs(actual - expected) > 0.00005
+                    for actual, expected in zip(
+                        chromaticity, srgb_chromaticity, strict=True
+                    )
+                ):
+                    raise MediaPreparationError(
+                        "unsupported_profile",
+                        "non-sRGB PNG color requires an RGB ICC profile",
+                    )
+    except (OSError, ValueError) as error:
+        raise MediaPreparationError(
+            "invalid_still", "still metadata cannot be read"
+        ) from error
+    return orientation
+
+
+def _normalize_still(raw: bytes, destination: Path) -> None:
+    """Apply EXIF orientation and embedded color before encoding RGB PNG."""
+    try:
+        with Image.open(BytesIO(raw), formats=["PNG", "JPEG"]) as image:
+            ImageOps.exif_transpose(image, in_place=True)
+            output: Image.Image = image
+            icc = image.info.get("icc_profile")
+            if icc is not None:
+                try:
+                    profile = ImageCms.ImageCmsProfile(BytesIO(icc))
+                    if profile.profile.xcolor_space != "RGB ":
+                        raise MediaPreparationError(
+                            "unsupported_profile", "still ICC profile must be RGB"
+                        )
+                    converted = ImageCms.profileToProfile(
+                        image, profile, ImageCms.createProfile("sRGB"), outputMode="RGB"
+                    )
+                    if converted is None:
+                        raise MediaPreparationError(
+                            "unsupported_profile",
+                            "still ICC profile conversion returned no image",
+                        )
+                    output = converted
+                except (ImageCms.PyCMSError, OSError, TypeError, ValueError) as error:
+                    raise MediaPreparationError(
+                        "unsupported_profile", "still ICC profile conversion failed"
+                    ) from error
+            output.info.clear()
+            output.save(destination, format="PNG")
+    except (OSError, ValueError) as error:
+        raise MediaPreparationError(
+            "decode_or_tool_failure", "still normalization failed"
+        ) from error
+
+
+def _verify_still_output(
+    path: Path, width: int, height: int, tools: MediaTools
+) -> tuple[str, Json]:
+    output_hash = file_hash(path)
+    probe = _still_probe("png", width, height)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
+            fd, "image"
+        )
+    except (OSError, ValueError) as error:
+        raise MediaPreparationError(
+            "output_verification_failed", "normalized still is not a decodable PNG"
+        ) from error
+    finally:
+        os.close(fd)
+    if (
+        facts.probe_hash != identity_hash(probe)
+        or (facts.width, facts.height) != (width, height)
+        or _verified_rgb_png_dimensions(path, output_hash, probe) != (width, height)
+        or file_hash(path) != output_hash
+    ):
+        raise MediaPreparationError(
+            "output_verification_failed", "normalized still is not strict RGB PNG"
+        )
+    return output_hash, probe
 
 
 def _reuse_cut(
@@ -100,7 +251,7 @@ def prepare_still_media(
     tools: MediaTools | None = None,
     verify_only: bool = False,
 ) -> PreparedMedia:
-    """Prepare one imported PNG without assigning a measured source rate."""
+    """Prepare one imported still while keeping the delivered asset strict RGB PNG."""
     tools = tools or MediaTools()
     _validate(descriptor, "OccurrenceMediaResolutionV2")
     _validate(requested_range, "RequestedPreparationRangeV1")
@@ -124,7 +275,7 @@ def prepare_still_media(
     bounds = descriptor["logicalSourceBounds"]
     if (
         snapshot["system"] != "local_import"
-        or source.suffix.lower() != ".png"
+        or source.suffix.lower() not in IMAGE_SUFFIXES
         or bounds["startFrame"] != 0
         or bounds["endFrame"] != 1
         or rational(bounds["frameRate"], positive=True) != target
@@ -146,22 +297,35 @@ def prepare_still_media(
             "invalid_still_mapping", "still must bind exactly one frame at target rate"
         )
 
-    # Keep the qualified preparation profile; no still-specific tool profile is
-    # qualified yet, even though its encoder capabilities are broader than needed.
     fingerprint = tools.fingerprint()
     tool_hash = identity_hash(fingerprint)
     if tool_hash != authorization.tool_hash:
         raise MediaPreparationError("invalidated_tools", "tool fingerprint changed")
     _qualified_tools(tool_hash)
 
-    source_hash = file_hash(source)
-    fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
             raise MediaPreparationError(
-                "unsafe_media", "regular singly linked PNG required"
+                "unsafe_media", "regular singly linked still required"
             )
+        if before.st_size > MAX_STILL_PNG_BYTES:
+            raise MediaPreparationError(
+                "unsupported_dimensions", "still exceeds file limit"
+            )
+        chunks: list[bytes] = []
+        offset = 0
+        while offset < before.st_size:
+            chunk = os.pread(fd, min(1024 * 1024, before.st_size - offset), offset)
+            if not chunk:
+                raise MediaPreparationError(
+                    "changed_media", "still truncated during verification"
+                )
+            chunks.append(chunk)
+            offset += len(chunk)
+        raw = b"".join(chunks)
+        source_hash = "sha256:" + hashlib.sha256(raw).hexdigest()
         facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
             fd, "image"
         )
@@ -179,39 +343,48 @@ def prepare_still_media(
 
         if identity(before) != identity(after) or identity(after) != identity(current):
             raise MediaPreparationError(
-                "changed_media", "PNG changed during verification"
+                "changed_media", "still changed during verification"
             )
     except (OSError, ValueError) as error:
-        raise MediaPreparationError("invalid_still", "PNG import probe failed") from (
-            error
-        )
+        raise MediaPreparationError(
+            "invalid_still", "still import probe failed"
+        ) from error
     finally:
         os.close(fd)
 
-    source_probe = {
-        "kind": "image",
-        "demuxer": "image2pipe",
-        "codec": "png",
-        "width": facts.width,
-        "height": facts.height,
-        "frames": 1,
-    }
+    source_probe: Json | None = None
+    for codec in ("png", "mjpeg"):
+        candidate = _still_probe(codec, facts.width, facts.height)
+        if facts.probe_hash == identity_hash(candidate):
+            source_probe = candidate
+            break
+    if facts.kind != "image" or source_probe is None:
+        raise MediaPreparationError(
+            "source_hash_mismatch", "image import facts do not match PNG/JPEG source"
+        )
     probe_hash = identity_hash(source_probe)
+    orientation = _image_orientation(raw, facts, source_probe)
+    dimensions_from_probe = (facts.width, facts.height)
+    displayed_size = (
+        dimensions_from_probe[::-1] if orientation >= 5 else dimensions_from_probe
+    )
     dimensions = _verified_rgb_png_dimensions(source, source_hash, source_probe)
+    strict_source = orientation == 1 and dimensions == dimensions_from_probe
     if (
-        facts.kind != "image"
-        or facts.probe_hash != probe_hash
-        or snapshot["contentHash"] != source_hash
+        snapshot["contentHash"] != source_hash
         or snapshot["probeHash"] != probe_hash
         or frame_map["probeHash"] != probe_hash
         or frame_map["descriptorHash"]
         != identity_hash({"snapshot": snapshot, "probe": source_probe})
-        or dimensions != (facts.width, facts.height)
         or file_hash(source) != source_hash
         or identity_hash(tools.fingerprint()) != tool_hash
     ):
         raise MediaPreparationError(
-            "source_hash_mismatch", "PNG import facts or strict RGB decode differ"
+            "source_hash_mismatch", "PNG import facts or source bytes differ"
+        )
+    if not strict_source and not authorization.allow_conversion:
+        raise MediaPreparationError(
+            "conversion_needed", "still requires normalization to strict RGB PNG"
         )
 
     profile = {
@@ -220,6 +393,11 @@ def prepare_still_media(
         "toolHash": tool_hash,
         "profileVersion": PROFILE["version"],
     }
+    interpretation = (
+        _LEGACY_STILL_INTERPRETATION
+        if strict_source
+        else _NORMALIZED_STILL_INTERPRETATION
+    )
     inputs = {
         "mediaReferenceId": descriptor["mediaReferenceId"],
         "sourceSnapshot": snapshot,
@@ -229,9 +407,11 @@ def prepare_still_media(
         "requestedRange": requested_range,
         "targetRate": wire(target),
         "profile": profile,
-        "stillInterpretation": "one_png_frame_held_at_timeline_rate/v1",
+        "stillInterpretation": interpretation,
         "authorizationReference": authorization.reference,
     }
+    if not strict_source:
+        inputs["normalizerVersion"] = PILLOW_VERSION
     key = identity_hash(inputs)
     geometry = preparation_geometry(
         source_rate=target,
@@ -250,11 +430,45 @@ def prepare_still_media(
         "sourceFrameMap": frame_map,
     }
     mapping["mappingHash"] = identity_hash(mapping)
+
+    root = _assert_under(authorization.write_root, (authorization.write_root,))
+    published_root = root / "published"
+    published = published_root / key.removeprefix("sha256:")
+    receipt_path = _assert_under(published / "receipt.json", (root,))
+    delivered_path = (
+        source if strict_source else _assert_under(published / "picture.png", (root,))
+    )
+    reused = receipt_path.exists()
+    if verify_only and not reused:
+        raise MediaPreparationError("missing_receipt", "still receipt missing")
+    if not reused:
+        root.mkdir(parents=True, exist_ok=True)
+
+    output_bytes = None
+    if strict_source:
+        delivered_hash, delivered_probe = source_hash, source_probe
+    elif reused:
+        if not delivered_path.is_file():
+            raise MediaPreparationError(
+                "missing_receipt", "normalized still output missing"
+            )
+        delivered_hash, delivered_probe = _verify_still_output(
+            delivered_path, *displayed_size, tools
+        )
+    else:
+        with tempfile.TemporaryDirectory(prefix=".still-", dir=root) as attempt:
+            temporary = Path(attempt) / "picture.png"
+            _normalize_still(raw, temporary)
+            delivered_hash, delivered_probe = _verify_still_output(
+                temporary, *displayed_size, tools
+            )
+            output_bytes = temporary.read_bytes()
+
     binding = cast(
         PreparedMediaBindingV1,
         {
             "requirementKey": key,
-            "mode": "verified_reuse",
+            "mode": "verified_reuse" if strict_source else "derived_cfr",
             "originalSource": {
                 "mediaReferenceId": descriptor["mediaReferenceId"],
                 "contentHash": source_hash,
@@ -265,8 +479,8 @@ def prepare_still_media(
             "profile": profile,
             "timeMapping": mapping,
             "verification": {
-                "deliveredHash": source_hash,
-                "probeHash": probe_hash,
+                "deliveredHash": delivered_hash,
+                "probeHash": identity_hash(delivered_probe),
                 "decodedFrameCount": 1,
                 "decodedFrameRate": wire(target),
                 "videoTimeBase": wire(frame_time),
@@ -278,21 +492,56 @@ def prepare_still_media(
                 },
             },
             "authorizationReference": authorization.reference,
-            "artifactLocator": f"still:sha256:{source_hash.removeprefix('sha256:')}",
+            "artifactLocator": (
+                f"still:sha256:{source_hash.removeprefix('sha256:')}"
+                if strict_source
+                else delivered_path.as_uri()
+            ),
         },
     )
+    commands: list[list[str]] = []
+    if not strict_source:
+        commands = [
+            [
+                "Pillow",
+                PILLOW_VERSION,
+                "EXIF transpose",
+                "RGB to sRGB if profiled",
+                "RGB PNG",
+            ]
+        ]
+        binding["derivation"] = {
+            "method": "cfr_sample/v1",
+            "sourceHash": source_hash,
+            "outputHash": delivered_hash,
+            "toolHash": tool_hash,
+            "profileHash": PROFILE_HASH,
+            "commandHash": identity_hash(commands),
+        }
     _validate(binding, "PreparedMediaBindingV1")
+    evidence: Json = {
+        "version": interpretation,
+        "sourceProbeHash": probe_hash,
+        "strictPng": {
+            "sourceHash": delivered_hash,
+            "width": displayed_size[0],
+            "height": displayed_size[1],
+            "decodedFrameCount": 1,
+        },
+    }
+    if not strict_source:
+        evidence["orientation"] = orientation
     record: Json = {
         "recordVersion": "authoring-media-preparation/v1",
         "requirementKey": key,
         "inputs": inputs,
         "binding": binding,
         "sourceProbe": source_probe,
-        "deliveredProbe": source_probe,
+        "deliveredProbe": delivered_probe,
         "tools": fingerprint,
         "profile": PROFILE,
         "policy": POLICY,
-        "commands": [],
+        "commands": commands,
         "audio": None,
         "geometry": {
             "packageStart": wire(geometry.start),
@@ -302,46 +551,34 @@ def prepare_still_media(
             "terminalQuantization": wire(geometry.terminal_quantization),
             "selectedPackageFrames": [geometry.selected_package_frame(0)],
         },
-        "stillEvidence": {
-            "version": "one_png_frame_held_at_timeline_rate/v1",
-            "sourceProbeHash": probe_hash,
-            "strictPng": {
-                "sourceHash": source_hash,
-                "width": facts.width,
-                "height": facts.height,
-                "decodedFrameCount": 1,
-            },
-        },
+        "stillEvidence": evidence,
     }
-    root = _assert_under(authorization.write_root, (authorization.write_root,))
-    published_root = root / "published"
-    published = published_root / key.removeprefix("sha256:")
-    receipt_path = published / "receipt.json"
-    reused = receipt_path.exists()
-    if verify_only:
-        _assert_under(receipt_path, (root,))
-        if not reused:
-            raise MediaPreparationError("missing_receipt", "still receipt missing")
-    else:
-        root.mkdir(parents=True, exist_ok=True)
-        if (
-            shutil.disk_usage(root).free
-            < len(canonical_json(record)) + authorization.minimum_free_bytes
-        ):
+    if not reused:
+        raw_receipt = canonical_json(record)
+        needed = len(raw_receipt) + (
+            len(output_bytes) if output_bytes is not None else 0
+        )
+        if shutil.disk_usage(root).free < needed + authorization.minimum_free_bytes:
             raise MediaPreparationError(
-                "insufficient_disk", "still receipt exceeds free-space reserve"
+                "insufficient_disk", "still preparation exceeds free-space reserve"
             )
-        _assert_under(published_root, (root,)).mkdir(exist_ok=True)
-        _assert_under(published, (root,)).mkdir(exist_ok=True)
+        published_root.mkdir(exist_ok=True)
+        published.mkdir(exist_ok=True)
         try:
-            publish_immutable_output(receipt_path, canonical_json(record))
+            if output_bytes is not None:
+                publish_immutable_output(delivered_path, output_bytes)
+            publish_immutable_output(receipt_path, raw_receipt)
         except BuildJobError as error:
             raise MediaPreparationError(
-                "published_conflict", "still receipt differs"
+                "published_conflict", "still preparation publication differs"
             ) from error
-    if read_json_object(receipt_path) != record or file_hash(source) != source_hash:
-        raise MediaPreparationError("published_conflict", "still receipt differs")
-    return PreparedMedia(binding, receipt_path, source, None, reused)
+    if (
+        read_json_object(receipt_path) != record
+        or file_hash(delivered_path) != delivered_hash
+        or file_hash(source) != source_hash
+    ):
+        raise MediaPreparationError("published_conflict", "still preparation differs")
+    return PreparedMedia(binding, receipt_path, delivered_path, None, reused)
 
 
 def prepare_cut_inputs(
@@ -460,7 +697,7 @@ def prepare_still_inputs(
         if not isinstance(locator, str) or not Path(locator).is_absolute():
             continue
         source = Path(locator)
-        if source.suffix.lower() != ".png":
+        if source.suffix.lower() not in IMAGE_SUFFIXES:
             continue
         if payload_id in seen:
             raise ValueError("Compiler planned a local still more than once")

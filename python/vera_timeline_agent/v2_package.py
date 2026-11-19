@@ -1822,6 +1822,92 @@ class _Preparation:
     relative_path: str
 
 
+def _validate_still_preparation(
+    requirement_key: str,
+    record: JsonObject,
+    binding: JsonObject,
+    source: JsonObject,
+    delivered: JsonObject,
+) -> None:
+    original = binding["originalSource"]
+    verification = binding["verification"]
+    inputs = record["inputs"]
+    evidence = record.get("stillEvidence")
+    if not isinstance(evidence, dict):
+        raise _error(f"prep {requirement_key} lacks verified PNG evidence")
+    version = evidence.get("version")
+    width, height = source.get("width"), source.get("height")
+    if (
+        source.get("kind") != "image"
+        or source.get("demuxer") != "image2pipe"
+        or type(source.get("frames")) is not int
+        or source["frames"] != 1
+        or type(width) is not int
+        or type(height) is not int
+        or min(width, height) <= 0
+        or inputs.get("stillInterpretation") != version
+        or evidence.get("sourceProbeHash") != original.get("probeHash")
+    ):
+        raise _error(f"prep {requirement_key} lacks verified PNG evidence")
+
+    if version == "one_png_frame_held_at_timeline_rate/v1":
+        if binding.get("mode") != "verified_reuse" or source != delivered:
+            raise _error(f"prep {requirement_key} lacks verified PNG reuse evidence")
+    elif version == "one_normalized_png_frame_held_at_timeline_rate/v1":
+        orientation = evidence.get("orientation")
+        if (
+            binding.get("mode") != "derived_cfr"
+            or source.get("codec") not in {"png", "mjpeg"}
+            or type(orientation) is not int
+            or not 1 <= orientation <= 8
+            or identity_hash(inputs) != requirement_key
+        ):
+            raise _error(f"prep {requirement_key} has invalid still normalization")
+        if orientation >= 5:
+            width, height = height, width
+    else:
+        raise _error(f"prep {requirement_key} has an unsupported still receipt")
+
+    strict = evidence.get("strictPng")
+    if (
+        type(delivered.get("frames")) is not int
+        or delivered
+        != {
+            "kind": "image",
+            "demuxer": "image2pipe",
+            "codec": "png",
+            "width": width,
+            "height": height,
+            "frames": 1,
+        }
+        or not isinstance(strict, dict)
+        or type(strict.get("decodedFrameCount")) is not int
+        or strict
+        != {
+            "sourceHash": verification.get("deliveredHash"),
+            "width": width,
+            "height": height,
+            "decodedFrameCount": 1,
+        }
+    ):
+        raise _error(f"prep {requirement_key} lacks verified PNG evidence")
+    rate = _fraction(binding.get("targetRate"), "still target rate", positive=True)
+    if (
+        type(verification.get("decodedFrameCount")) is not int
+        or verification["decodedFrameCount"] != 1
+        or _fraction(
+            verification.get("decodedFrameRate"), "still decoded rate", positive=True
+        )
+        != rate
+        or _fraction(
+            verification.get("videoTimeBase"), "still time base", positive=True
+        )
+        * rate
+        != 1
+    ):
+        raise _error(f"prep {requirement_key} has invalid PNG logical timing")
+
+
 def _validate_preparations(
     document: JsonObject,
     dependencies: JsonObject,
@@ -1938,54 +2024,10 @@ def _validate_preparations(
             raise _error(
                 f"prep {requirement_key} probe/profile/tool hashes do not bind"
             )
-        if source_probe.get("kind") == "image":
-            evidence = record.get("stillEvidence")
-            if (
-                source_probe.get("demuxer") != "image2pipe"
-                or source_probe.get("codec") != "png"
-                or type(source_probe.get("frames")) is not int
-                or source_probe.get("frames") != 1
-                or binding.get("mode") != "verified_reuse"
-                or not isinstance(evidence, dict)
-                or evidence.get("version") != "one_png_frame_held_at_timeline_rate/v1"
-                or inputs.get("stillInterpretation") != evidence.get("version")
-                or evidence.get("sourceProbeHash") != original.get("probeHash")
-                or not isinstance(evidence.get("strictPng"), dict)
-                or type(
-                    cast(JsonObject, evidence.get("strictPng", {})).get(
-                        "decodedFrameCount"
-                    )
-                )
-                is not int
-                or evidence.get("strictPng")
-                != {
-                    "sourceHash": original.get("contentHash"),
-                    "width": source_probe.get("width"),
-                    "height": source_probe.get("height"),
-                    "decodedFrameCount": 1,
-                }
-            ):
-                raise _error(f"prep {requirement_key} lacks verified PNG evidence")
-            if (
-                type(verification.get("decodedFrameCount")) is not int
-                or verification.get("decodedFrameCount") != 1
-                or _fraction(
-                    verification.get("decodedFrameRate"),
-                    "still decoded rate",
-                    positive=True,
-                )
-                != _fraction(
-                    binding.get("targetRate"), "still target rate", positive=True
-                )
-                or _fraction(
-                    verification.get("videoTimeBase"), "still time base", positive=True
-                )
-                * _fraction(
-                    binding.get("targetRate"), "still target rate", positive=True
-                )
-                != 1
-            ):
-                raise _error(f"prep {requirement_key} has invalid PNG logical timing")
+        if "image" in (source_probe.get("kind"), delivered_probe.get("kind")):
+            _validate_still_preparation(
+                requirement_key, record, binding, source_probe, delivered_probe
+            )
         if mapping.get("sourceFrameMap") != descriptor.get(
             "sourceFrameMap"
         ) or mapping.get("mappingHash") != identity_hash(
@@ -3311,18 +3353,12 @@ def _native_motion_for_event(
                 motion, binding, framing
             )
         else:
-            probe = preparation.record["deliveredProbe"]
-            if (
-                probe.get("kind") == "image"
-                and preparation.record.get("sourceProbe") != probe
-            ):
-                probe = None
             proof = native_image_motion.production_qualification(
                 motion,
                 binding,
                 framing,
                 verified_asset=source_artifact.origin,
-                delivered_probe=cast(JsonObject | None, probe),
+                delivered_probe=cast(JsonObject, preparation.record["deliveredProbe"]),
                 frame_rate=(
                     cast(int, timeline["frameRate"]["numerator"]),
                     cast(int, timeline["frameRate"]["denominator"]),

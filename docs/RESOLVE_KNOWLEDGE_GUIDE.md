@@ -1206,8 +1206,19 @@ Studio 21.2.0 build 6. Before the fix, the package refused the separate
 prepared-image probe profile even for the measured 1600×900/96-frame recipe.
 That still-only package now verifies offline. The live wide-still check added
 trimmed A5 music and reopened at exactly 96 frames (RK-42).
-[General still preparation and admission](https://github.com/mbelinkie/vera-script-to-timeline/issues/657)
-tracks original dimensions, ordinary formats and arbitrary holds.
+
+**#657 ordinary still delta — Studio 21.2.0 build 6, Local scripting.**
+Normal Prep Media and Build saved, closed and reopened four generated
+1920×1080 timelines at exact 24000/1001, 24, 25 and 30 fps. Their respective
+record extents were 57, 63, 261 and 21 frames. The twelve still occurrences
+retained exact record boundaries, with holds from one frame through 241
+frames. Reopened Media Pool dimensions matched the prepared sources, from
+82×64 through 8192×2048. A 605×361 JPEG rotated 90° to display at 361×605,
+and a 668×384 JPEG preserved its dimensions. Resolve retained the signed
+centered Fill/Dynamic Zoom keys and Fit/None settings. Classification and
+preparation use opaque RGB PNG/JPEG with a 16,777,216-pixel decode budget
+and an 8192-pixel edge limit. These are preparation bounds. The live check
+was structural. See [#657](https://github.com/mbelinkie/vera-script-to-timeline/issues/657).
 
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 

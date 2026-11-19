@@ -219,7 +219,7 @@ def prepare_project(
     root.mkdir(exist_ok=True)
     key = identity_hash(
         {
-            "version": 2,
+            "version": 3,
             "document": raw_document,
             "dependencies": dependencies,
             "preparations": preparations,
@@ -347,6 +347,9 @@ def prepare_project(
         )
         manifest = built.result["manifest"]
         delivered = {}
+        for source in manifest["sources"]:
+            if source.get("preparationRequirementKey") in still_delivery:
+                media_paths.pop(f"source:{source['mediaReferenceId']}", None)
         for source in manifest["sources"]:
             pair = delivery.get(source.get("preparationRequirementKey"))
             if pair is None:

@@ -2,6 +2,8 @@
 
 import json
 import os
+import subprocess
+from dataclasses import replace
 from fractions import Fraction
 from pathlib import Path
 
@@ -24,6 +26,7 @@ from vera_timeline_agent.media_preparation import (
     PreparationAuthorization,
 )
 from vera_timeline_agent.narration.models import identity_hash
+from vera_timeline_agent.v2_package import _compiler_hash
 
 from scripts.issue336_studio_qualify import png
 
@@ -84,9 +87,12 @@ def test_stage_req_matching_refuses_duplicate_conflict_and_missing_source() -> N
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("prior_key", [None, "sha256:" + "1" * 64])
+@pytest.mark.parametrize(
+    ("suffix", "prior_key"),
+    [(".png", None), (".png", "sha256:" + "1" * 64), (".jpg", None)],
+)
 def test_frozen_still_preparation_and_recovery(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prior_key: str | None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, suffix: str, prior_key: str | None
 ) -> None:
     fixture = json.loads(
         (ROOT / "visual-only-image-still-25fps-default.input.golden.json").read_bytes()
@@ -96,6 +102,28 @@ def test_frozen_still_preparation_and_recovery(
     source = tmp_path / "source.png"
     png(source, 32, 24)
     tools = MediaTools()
+    if suffix == ".jpg":
+        jpeg = source.with_suffix(suffix)
+        subprocess.run(
+            [
+                tools.ffmpeg,
+                "-v",
+                "error",
+                "-i",
+                str(source),
+                "-frames:v",
+                "1",
+                str(jpeg),
+            ],
+            check=True,
+        )
+        source = jpeg
+        authored = fixture["document"]
+        authored["activeDraft"]["blocks"][0]["payload"].pop("framingPolicy")
+        authored.pop("liveContentHash")
+        authored["liveContentHash"] = deps["document"]["contentHash"] = _compiler_hash(
+            authored
+        )
     fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
@@ -126,7 +154,7 @@ def test_frozen_still_preparation_and_recovery(
         b"",
         "project",
         "studio",
-        "build",
+        deps["build"]["buildId"],
         "test",
         "rev",
         0,
@@ -171,9 +199,22 @@ def test_frozen_still_preparation_and_recovery(
     CompileStagePort().execute(context, snapshot)
     package = PackageStagePort()
     media = package._media(context, snapshot, package._preparations(context, snapshot))
-    assert source in media.values()
+    (compiled_source,) = compiled.result["manifest"]["sources"]
+    source_id = compiled_source["id"]
+    assert media[f"original:{source_id}"] == source
+    delivered = media[f"source:{source_id}"]
+    assert delivered.suffix == ".png"
+    if suffix == ".jpg":
+        assert delivered.is_relative_to(output)
+        assert compiled_source["deliveredHash"] != compiled_source["originalHash"]
+        packaging = replace(context, stage="writing_interchange")
+        package.execute(packaging, snapshot)
+        assert package.inspect(packaging, snapshot).state == EffectState.VERIFIED
+    else:
+        assert delivered == source
     paths = port.paths(context, snapshot)
     result = json.loads(paths["dependencies"].read_bytes())
+    assert result["timeline"]["durationFrames"] == 75
     key = result["occurrenceResolutions"][0]["preparedMediaRequirementKey"]
     assert result["preparedMedia"][0]["requirementKey"] == key
     assert (

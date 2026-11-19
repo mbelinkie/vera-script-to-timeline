@@ -87,7 +87,12 @@ def test_resolve_still_filename_has_no_numeric_sequence_tokens() -> None:
 
 
 def _verified_png_case(
-    tmp_path: Path, width: int, height: int, frames: int
+    tmp_path: Path,
+    width: int,
+    height: int,
+    frames: int,
+    *,
+    start_frame: int = 0,
 ) -> tuple[Path, MotionBinding, dict[str, Any]]:
     source = tmp_path / f"public-{width}x{height}.png"
     png(source, width, height)
@@ -98,7 +103,8 @@ def _verified_png_case(
         original_hash=digest,
         timeline_width=1920,
         timeline_height=1080,
-        record_end=frames,
+        record_start=start_frame,
+        record_end=start_frame + frames,
     )
     probe = {
         "streams": [
@@ -251,31 +257,87 @@ def test_default_prepared_still_proof_is_specific_to_studio_212(
 
 
 @pytest.mark.parametrize(
-    ("size", "frames", "motion", "framing"),
+    ("size", "frames", "start_frame", "rate"),
     [
-        ((900, 1600), 96, DEFAULT_IMAGE_MOTION, "cover"),
-        ((1600, 900), 48, {"mode": "none"}, "contain"),
-        ((1000, 1000), 75, {"mode": "none"}, "contain"),
-        ((1000, 1000), 48, {"mode": "none"}, "cover"),
+        ((1, 1), 1, 7, (24, 1)),
+        ((17, 23), 3, 11, (24000, 1001)),
+        ((4096, 1), 1001, 19, (25, 1)),
+        ((1, 4096), 1001, 2, (30, 1)),
     ],
 )
-def test_unmeasured_rate_combinations_refuse(
+def test_prepared_png_accepts_any_positive_hold_and_exact_studio_rate(
     tmp_path: Path,
     size: tuple[int, int],
     frames: int,
-    motion: dict[str, Any],
-    framing: str,
+    start_frame: int,
+    rate: tuple[int, int],
 ) -> None:
-    source, binding, probe = _verified_png_case(tmp_path, *size, frames)
-    probe = _import_probe(size)
+    source, binding, _ = _verified_png_case(
+        tmp_path, *size, frames, start_frame=start_frame
+    )
+    proof = production_qualification(
+        DEFAULT_IMAGE_MOTION,
+        binding,
+        "cover",
+        verified_asset=source,
+        delivered_probe=_import_probe(size),
+        frame_rate=rate,
+    )
+    assert proof is not None
+    assert proof.version == "21.2.0.6"
+    assert proof.binding.record_start == start_frame
+    assert proof.binding.record_end == start_frame + frames
+    effects = native_effect_records(DEFAULT_IMAGE_MOTION, proof)
+    assert [item["Type"] for item in effects] == [59, 22]
+    assert [
+        parameter["Parameter ID"]
+        for parameter in effects[0]["Parameters"]
+    ] == ["dynamicZoomCenter", "dynamicZoomScale"]
+    assert effects[0]["Parameters"][0]["Key Frames"].keys() == {
+        "-86400",
+        "-85400",
+    }
+
+
+@pytest.mark.parametrize(
+    ("size", "frames", "rate"),
+    [((1, 4096), 1, (24, 1)), ((17, 23), 1001, (24000, 1001))],
+)
+def test_prepared_png_fit_none_accepts_any_positive_hold(
+    tmp_path: Path,
+    size: tuple[int, int],
+    frames: int,
+    rate: tuple[int, int],
+) -> None:
+    source, binding, _ = _verified_png_case(tmp_path, *size, frames)
+    motion = {"mode": "none"}
+    proof = production_qualification(
+        motion,
+        binding,
+        "contain",
+        verified_asset=source,
+        delivered_probe=_import_probe(size),
+        frame_rate=rate,
+    )
+    assert proof is not None and proof.version == "21.2.0.6"
+    effects = native_effect_records(motion, proof)
+    assert effects[0]["Enabled"] is False
+    assert effects[1]["Parameters"][0]["Parameter Value"] == 2
+
+
+@pytest.mark.parametrize("size", [(8193, 1), (1, 8193)])
+def test_prepared_png_rejects_geometry_beyond_verified_axis_budget(
+    tmp_path: Path, size: tuple[int, int]
+) -> None:
+    source, binding, _ = _verified_png_case(tmp_path, *size, 1)
     assert (
         production_qualification(
-            motion,
+            DEFAULT_IMAGE_MOTION,
             binding,
-            framing,
+            "cover",
             verified_asset=source,
-            delivered_probe=probe,
-            frame_rate=(25, 1),
+            delivered_probe=_import_probe(size),
+            frame_rate=(24, 1),
         )
         is None
     )
@@ -349,13 +411,11 @@ def test_centered_default_covers_verified_square_wide_and_tall_pngs(
     [
         "wrong-rate",
         "wrong-resolution",
-        "unmeasured-duration",
         "unmeasured-framing",
         "unmeasured-easing",
         "different-probe",
         "stale-source-bytes",
-        "derived-source",
-        "unmeasured-resolution",
+        "unsupported-treatments",
     ],
 )
 def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
@@ -366,11 +426,9 @@ def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
     framing = "cover"
     frame_rate = (24, 1)
     if change == "wrong-rate":
-        frame_rate = (25, 1)
+        frame_rate = (60, 1)
     elif change == "wrong-resolution":
         binding = replace(binding, timeline_width=1280)
-    elif change == "unmeasured-duration":
-        binding = replace(binding, record_end=72)
     elif change == "unmeasured-framing":
         framing = "contain"
     elif change == "unmeasured-easing":
@@ -379,10 +437,8 @@ def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
         probe["streams"][0]["width"] = 1000
     elif change == "stale-source-bytes":
         source.write_bytes(source.read_bytes() + b"tampered")
-    elif change == "derived-source":
-        binding = replace(binding, original_hash=P)
-    elif change == "unmeasured-resolution":
-        source, binding, probe = _verified_png_case(tmp_path, 800, 450, 48)
+    elif change == "unsupported-treatments":
+        motion = {"mode": "unsupported"}
     assert (
         production_qualification(
             motion,
@@ -394,6 +450,122 @@ def test_unqualified_png_profile_source_and_motion_remain_fail_closed(
         )
         is None
     )
+
+
+def test_legacy_video_probe_keeps_bounded_duration_and_geometry_profile(
+    tmp_path: Path,
+) -> None:
+    source, binding, legacy_probe = _verified_png_case(tmp_path, 1600, 900, 48)
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            verified_asset=source,
+            delivered_probe=legacy_probe,
+            frame_rate=(24, 1),
+        )
+        is not None
+    )
+    for frames in (1, 3, 1001):
+        changed = replace(binding, record_end=frames)
+        assert (
+            production_qualification(
+                DEFAULT_IMAGE_MOTION,
+                changed,
+                "cover",
+                verified_asset=source,
+                delivered_probe=legacy_probe,
+                frame_rate=(24, 1),
+            )
+            is None
+        )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            replace(binding, original_hash=P),
+            "cover",
+            verified_asset=source,
+            delivered_probe=legacy_probe,
+            frame_rate=(24, 1),
+        )
+        is None
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "cover",
+            verified_asset=source,
+            delivered_probe=legacy_probe,
+            frame_rate=(25, 1),
+        )
+        is None
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            binding,
+            "contain",
+            verified_asset=source,
+            delivered_probe=legacy_probe,
+            frame_rate=(24, 1),
+        )
+        is None
+    )
+    wide_source, wide_binding, wide_probe = _verified_png_case(
+        tmp_path, 800, 450, 48
+    )
+    assert (
+        production_qualification(
+            DEFAULT_IMAGE_MOTION,
+            wide_binding,
+            "cover",
+            verified_asset=wide_source,
+            delivered_probe=wide_probe,
+            frame_rate=(24, 1),
+        )
+        is None
+    )
+
+
+def test_prepared_png_rejects_incompatible_profile_rate_and_treatment(
+    tmp_path: Path,
+) -> None:
+    source, binding, _ = _verified_png_case(tmp_path, 1600, 900, 48)
+    probe = _import_probe((1600, 900))
+    for rate, motion, framing in (
+        ((60, 1), DEFAULT_IMAGE_MOTION, "cover"),
+        ((25, 1), DEFAULT_IMAGE_MOTION, "contain"),
+        ((24, 1), {"mode": "none"}, "cover"),
+        ((24, 1), {**DEFAULT_IMAGE_MOTION, "easing": "ease_in"}, "cover"),
+    ):
+        assert (
+            production_qualification(
+                motion,
+                binding,
+                framing,
+                verified_asset=source,
+                delivered_probe=probe,
+                frame_rate=rate,
+            )
+            is None
+        )
+
+
+def test_prepared_png_accepts_recomputed_derivative_provenance(
+    tmp_path: Path,
+) -> None:
+    source, binding, _ = _verified_png_case(tmp_path, 1600, 900, 48)
+    proof = production_qualification(
+        DEFAULT_IMAGE_MOTION,
+        replace(binding, original_hash=P),
+        "cover",
+        verified_asset=source,
+        delivered_probe=_import_probe((1600, 900)),
+        frame_rate=(24, 1),
+    )
+    assert proof is not None and proof.version == "21.2.0.6"
 
 
 def test_synthetic_qualified_dynamic_metadata_is_exact_and_duration_independent() -> (

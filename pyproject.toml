@@ -8,6 +8,7 @@ dependencies = [
     "jsonschema==4.25.1",
     "numpy==2.3.4",
     "opentimelineio==0.18.1",
+    "pillow==13.0.0",
     "vera-word-timing",
 ]
 

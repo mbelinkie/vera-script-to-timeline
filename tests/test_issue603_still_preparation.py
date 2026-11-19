@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from PIL import Image, ImageCms
 from test_issue336_product_package import _authored_png_case
 from vera_timeline_agent import prep_media, prep_media_inputs
 from vera_timeline_agent.build_compiler_bridge import invoke_bridge
 from vera_timeline_agent.generated.contracts.compiler_dependencies_v2_schema import (
+    OccurrenceMediaResolutionV2,
     RationalRate,
     RequestedPreparationRangeV1,
 )
@@ -128,6 +130,142 @@ def test_normal_prep_media_binds_selected_project_local_png(
     assert output_media["event:unrelated"] == media_paths["event:unrelated"]
 
 
+@pytest.mark.slow
+def test_normalized_jpeg_preserves_display_orientation_and_frozen_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "Media" / "Local Images" / "still.jpg"
+    source.parent.mkdir(parents=True)
+    exif = Image.Exif()
+    exif[274] = 6
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    image = Image.new("RGB", (32, 24), (20, 30, 40))
+    image.paste((220, 45, 30), (0, 0, 16, 12))
+    image.save(source, format="JPEG", exif=exif.tobytes(), icc_profile=profile)
+
+    class CachedFingerprintTools(MediaTools):
+        cached_fingerprint: dict[str, Any] | None = None
+
+        def fingerprint(self) -> dict[str, Any]:
+            if self.cached_fingerprint is None:
+                self.cached_fingerprint = super().fingerprint()
+            return self.cached_fingerprint
+
+    tools = CachedFingerprintTools()
+    fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
+            fd, "image"
+        )
+    finally:
+        os.close(fd)
+    rate = Fraction(25)
+    descriptor = _descriptor(source, facts, rate)
+    monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
+    authorization = PreparationAuthorization(
+        reference="issue-657-jpeg-test",
+        read_roots=(tmp_path,),
+        write_root=tmp_path / "Media" / "Prepared Stills",
+        tool_hash=identity_hash(tools.fingerprint()),
+        minimum_free_bytes=0,
+    )
+
+    prepared = prep_media_inputs.prepare_still_media(
+        source,
+        cast(OccurrenceMediaResolutionV2, descriptor),
+        _request(rate),
+        cast(RationalRate, wire(rate)),
+        authorization=authorization,
+        tools=tools,
+    )
+    record = json.loads(prepared.receipt_path.read_bytes())
+    assert prepared.binding["mode"] == "derived_cfr"
+    assert record["sourceProbe"]["codec"] == "mjpeg"
+    assert record["deliveredProbe"] == {
+        "kind": "image",
+        "demuxer": "image2pipe",
+        "codec": "png",
+        "width": 24,
+        "height": 32,
+        "frames": 1,
+    }
+    assert record["stillEvidence"] == {
+        "version": "one_normalized_png_frame_held_at_timeline_rate/v1",
+        "sourceProbeHash": record["binding"]["originalSource"]["probeHash"],
+        "orientation": 6,
+        "strictPng": {
+            "sourceHash": record["binding"]["verification"]["deliveredHash"],
+            "width": 24,
+            "height": 32,
+            "decodedFrameCount": 1,
+        },
+    }
+    assert record["binding"]["artifactLocator"].startswith("file://")
+    output = prepared.video_path
+    with Image.open(source) as original, Image.open(output) as normalized:
+        assert normalized.getpixel((15, 8)) == original.getpixel((8, 8))
+    output_bytes = output.read_bytes()
+    reused = prep_media_inputs.prepare_still_media(
+        source,
+        cast(OccurrenceMediaResolutionV2, descriptor),
+        _request(rate),
+        cast(RationalRate, wire(rate)),
+        authorization=authorization,
+        tools=tools,
+        verify_only=True,
+    )
+    assert reused.reused is True
+    assert reused.video_path == output
+    assert output.read_bytes() == output_bytes
+
+
+@pytest.mark.slow
+def test_still_normalization_refuses_alpha_and_grayscale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class CachedFingerprintTools(MediaTools):
+        cached_fingerprint: dict[str, Any] | None = None
+
+        def fingerprint(self) -> dict[str, Any]:
+            if self.cached_fingerprint is None:
+                self.cached_fingerprint = super().fingerprint()
+            return self.cached_fingerprint
+
+    tools = CachedFingerprintTools()
+    monkeypatch.setattr(prep_media_inputs, "_qualified_tools", lambda _: None)
+    authorization = PreparationAuthorization(
+        reference="issue-657-unsupported-test",
+        read_roots=(tmp_path,),
+        write_root=tmp_path / "Media" / "Prepared Stills",
+        tool_hash=identity_hash(tools.fingerprint()),
+        minimum_free_bytes=0,
+    )
+    for suffix, mode, message in (
+        ("alpha.png", "RGBA", "alpha"),
+        ("gray.png", "L", "grayscale"),
+    ):
+        source = tmp_path / "Media" / "Local Images" / suffix
+        source.parent.mkdir(parents=True, exist_ok=True)
+        Image.new(mode, (32, 24), 20).save(source, format="PNG")
+        fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            facts = FFmpegDecoder(ffprobe=tools.ffprobe, ffmpeg=tools.ffmpeg).decode(
+                fd, "image"
+            )
+        finally:
+            os.close(fd)
+        descriptor = _descriptor(source, facts, Fraction(25))
+        with pytest.raises(MediaPreparationError, match=message):
+            prep_media_inputs.prepare_still_media(
+                source,
+                cast(OccurrenceMediaResolutionV2, descriptor),
+                _request(Fraction(25)),
+                cast(RationalRate, wire(Fraction(25))),
+                authorization=authorization,
+                tools=tools,
+            )
+
+
 def test_prep_media_refuses_local_png_outside_project_media(
     tmp_path: Path,
 ) -> None:
@@ -163,10 +301,11 @@ def test_prep_media_refuses_local_png_outside_project_media(
 
 
 def _descriptor(source: Path, facts: Any, rate: Fraction) -> dict[str, Any]:
+    codec = "mjpeg" if source.suffix.lower() in {".jpg", ".jpeg"} else "png"
     probe = {
         "kind": "image",
         "demuxer": "image2pipe",
-        "codec": "png",
+        "codec": codec,
         "width": facts.width,
         "height": facts.height,
         "frames": 1,

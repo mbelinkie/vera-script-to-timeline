@@ -14,6 +14,7 @@ from .build_composition import (
     StageEvidence,
 )
 from .build_jobs import BuildJobError, StageContext, publish_immutable_output
+from .local_media_import import IMAGE_SUFFIXES
 
 
 class CompileStagePort:
@@ -69,7 +70,7 @@ class CompileStagePort:
                 len(matches) == len(final) == 1
                 and matches[0]["sourceSnapshot"]["system"] == "local_import"
                 and snapshot.file(f"source:{row['mediaReferenceId']}").suffix.lower()
-                == ".png"
+                in IMAGE_SUFFIXES
                 and matches[0]["preparedMediaRequirementKey"]
                 == row.get("requirementKey")
             ):

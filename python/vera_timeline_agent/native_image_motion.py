@@ -26,6 +26,9 @@ class MotionRefusal(ValueError):
 
 _HEX_TO_LETTERS = str.maketrans("0123456789abcdef", "abcdefghijklmnop")
 _SOURCE_ID = re.compile(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\Z")
+MAX_STILL_EDGE = 8192
+MAX_STILL_PIXELS = 16_777_216  # Same decoded pixel budget as Local Media Import.
+MAX_STILL_PNG_BYTES = 56 * 1024 * 1024  # RGB8 plus PNG container overhead.
 
 # Start slightly inside the fill crop so the centered move has margin at
 # both ends. The native effect interpolates over the authored clip length.
@@ -238,7 +241,7 @@ def _verified_rgb_png_dimensions(
     if not isinstance(asset, Path) or asset.suffix.lower() != ".png":
         return None
     try:
-        if asset.stat().st_size > 24 * 1024 * 1024:
+        if asset.stat().st_size > MAX_STILL_PNG_BYTES:
             return None
         raw = asset.read_bytes()
     except OSError:
@@ -268,8 +271,8 @@ def _verified_rgb_png_dimensions(
                 struct.unpack(">IIBBBBB", data)
             )
             if (
-                not (1 <= width <= 4096 and 1 <= height <= 4096)
-                or width * height > 8_000_000
+                not (1 <= width <= MAX_STILL_EDGE and 1 <= height <= MAX_STILL_EDGE)
+                or width * height > MAX_STILL_PIXELS
                 or (depth, kind, compression, filtering, interlace) != (8, 2, 0, 0, 0)
             ):
                 return None
