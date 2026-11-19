@@ -2187,6 +2187,17 @@
         "durationOverrideMs": {
           "$ref": "#/$defs/PositiveSafeInteger"
         },
+        "matchAudioDuration": {
+          "type": "object",
+          "description": "Explicit opt-in to match this untimed visual's duration to one saved music cue. The fixed hold remains the fallback if the match is cleared.",
+          "additionalProperties": false,
+          "required": ["cueId"],
+          "properties": {
+            "cueId": {
+              "$ref": "#/$defs/EntityId"
+            }
+          }
+        },
         "selectedSourceRange": {
           "type": "object",
           "additionalProperties": false,

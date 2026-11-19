@@ -166,7 +166,7 @@ def test_png_qualification_accepts_verified_import_facts(tmp_path: Path) -> None
             verified_asset=source,
             delivered_probe=probe,
         )
-        is None
+        is not None
     )
     assert (
         production_qualification(
@@ -222,8 +222,8 @@ def test_bounded_verified_png_has_reusable_real_source_bound_proof(
         ((1000, 1000), 48, {"mode": "none"}, "contain"),
     ],
 )
-@pytest.mark.parametrize("rate", [(24000, 1001), (25, 1), (30, 1)])
-def test_default_fractional_still_proof_is_specific_to_studio_212(
+@pytest.mark.parametrize("rate", [(24, 1), (24000, 1001), (25, 1), (30, 1)])
+def test_default_prepared_still_proof_is_specific_to_studio_212(
     tmp_path: Path,
     size: tuple[int, int],
     frames: int,

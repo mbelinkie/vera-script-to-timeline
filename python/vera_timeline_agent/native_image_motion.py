@@ -131,8 +131,12 @@ def production_qualification(
     backgrounds, and moving contain (which needs a proven derived matte).
     """
     duration = binding.record_end - binding.record_start
+    prepared_image = (
+        delivered_probe is not None and delivered_probe.get("kind") == "image"
+    )
     qualified_default = (
-        frame_rate in {(24000, 1001), (25, 1), (30, 1)}
+        prepared_image
+        and frame_rate in {(24, 1), (24000, 1001), (25, 1), (30, 1)}
         and (
             duration in {48, 72, 96}
             or (frame_rate, duration) in {((25, 1), 75), ((30, 1), 90)}
@@ -162,7 +166,7 @@ def production_qualification(
     if dimensions is None:
         return None
     width, height = dimensions
-    if frame_rate == (24, 1) and delivered_probe.get("kind") == "image":
+    if prepared_image and not qualified_default:
         return None
     if qualified_default:
         measured = (

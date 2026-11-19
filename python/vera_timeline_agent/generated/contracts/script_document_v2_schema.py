@@ -198,9 +198,14 @@ class QuoteBoxV2(TypedDict):
     backgroundPayloadId: EntityId
 
 
+class MatchAudioDuration(TypedDict):
+    cueId: EntityId
+
+
 class VisualOnlyTimingV2(TypedDict):
     kind: Literal["visual_only"]
     durationOverrideMs: NotRequired[PositiveSafeInteger]
+    matchAudioDuration: NotRequired[MatchAudioDuration]
     selectedSourceRange: NotRequired[SelectedSourceRange]
 
 

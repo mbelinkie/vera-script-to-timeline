@@ -102,6 +102,28 @@ function twoVisualOnlyRows(ms: number): { doc: ScriptDocumentV2; deps: CompilerD
   return { doc, deps };
 }
 
+function matchedVisualOnlyRow(): { doc: ScriptDocumentV2; deps: CompilerDependenciesV2 } {
+  const result = twoVisualOnlyRows(1000);
+  const row = result.doc.activeDraft.blocks[0] as VisualOnlyBlockV2;
+  const cueId = id(34);
+  const source = {
+    mediaReferenceId: id(35), artifactId: id(36), artifactVersion: 1,
+    contentHash: digest("matched music"),
+  };
+  result.doc.rowAudioSpans = [{
+    id: cueId, startRowId: row.id, endRowId: row.id, source, settings: { gainDb: -12 },
+    timing: { sourceInFrame: 0, sourceOutFrame: 72, timelineIn: { kind: "frame", frame: 0 } },
+  }];
+  result.deps.musicBindings = [{
+    spanId: cueId, source: structuredClone(source), displayFilename: "matched.wav", status: "ready",
+    sampleRate: 48000, channels: 1, durationSamples: 192000,
+  }];
+  result.deps.roles.musicTrackId = "music-a5";
+  result.deps.tracks.push({ id: "music-a5", kind: "audio", index: 5, name: "A5 Music" });
+  row.visualOnlyTiming.matchAudioDuration = { cueId };
+  return result;
+}
+
 function refusal(code: SecondaryTimingComparisonErrorV2["code"], before: TimelineManifestV2, after: TimelineManifestV2): void {
   expect(() => compareSecondaryTimingV2(before, after)).toThrow(SecondaryTimingComparisonErrorV2);
   try {
@@ -342,6 +364,19 @@ describe("#391 fail-closed secondary timing reconciliation", () => {
     ]);
     expect(result.comparison.frameRate).toEqual({ numerator: 24000, denominator: 1001 });
     expect(previewSecondaryTimingReconcileV2(doc, deps, before, op)).toEqual(result);
+    expect(JSON.stringify([doc, deps, before])).toBe(frozen);
+  });
+
+  it("refuses a fixed-hold edit for a visual matched to a music cue", () => {
+    const { doc, deps } = matchedVisualOnlyRow();
+    const before = compiled(doc, deps);
+    const frozen = JSON.stringify([doc, deps, before]);
+    const event = before.events.find((item) => item.provenance.blockId === id(30))!;
+    const result = previewSecondaryTimingReconcileV2(doc, deps, before, {
+      kind: "visual_only_duration", blockId: id(30), expectedBlockVersion: 1,
+      expectedRange: event.recordRange, durationOverrideMs: 1084,
+    });
+    expect(result).toMatchObject({ ok: false, disposition: "refused", code: "UNSUPPORTED_TIMING_EDIT" });
     expect(JSON.stringify([doc, deps, before])).toBe(frozen);
   });
 

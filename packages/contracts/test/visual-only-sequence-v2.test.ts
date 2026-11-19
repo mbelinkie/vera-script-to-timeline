@@ -6,7 +6,7 @@ import { validateScriptDocumentV2 } from "../src/authoring-v2-validation.js";
 import { compileTimelineV2 } from "../src/compiler-core-v2.js";
 import { createRowEditSessionV2, deserializeAuthoringDocumentV2, serializeAuthoringDocumentV2 } from "../src/authoring-v2-rows.js";
 import { indexResearchClipUsageV2 } from "../src/research-clip-usage-v2.js";
-import type { CompilerDependenciesV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import type { CompilerDependenciesV2, RowAudioSpanIntentV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 import { researchOccurrence } from "./issue-367-fixture.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -55,7 +55,140 @@ function sequence(): Frozen {
   return { document, dependencies };
 }
 
+function musicCue(cueId: number, rowId: string): RowAudioSpanIntentV2 {
+  return {
+    id: id(cueId), startRowId: rowId, endRowId: rowId,
+    source: {
+      mediaReferenceId: id(cueId + 1), artifactId: id(cueId + 2), artifactVersion: 1,
+      contentHash: `sha256:${"b".repeat(64)}`,
+    },
+    settings: { gainDb: -12 },
+    timing: { sourceInFrame: 24, sourceOutFrame: 96, timelineIn: { kind: "row_edge", blockId: rowId, edge: "start" } },
+  };
+}
+
 describe("#585 visuals-only ordered cards", () => {
+  it("stores an explicit selected music cue, keeps the fixed hold, and makes it read-only", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const first = musicCue(9101, row.id);
+    const second = musicCue(9201, row.id);
+    row.visualOnlyTiming.durationOverrideMs = 2500;
+    document.rowAudioSpans = [first, second];
+    const session = createRowEditSessionV2(document);
+
+    const matched = session.apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId: row.payload.payloadId, cueId: second.id,
+    });
+    expect(matched.ok, JSON.stringify(matched.diagnostics)).toBe(true);
+    const changed = matched.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(changed.visualOnlyTiming).toMatchObject({ durationOverrideMs: 2500, matchAudioDuration: { cueId: second.id } });
+    expect(changed.visualOnlyTiming.matchAudioDuration?.cueId).not.toBe(first.id);
+
+    const hold = session.apply({ kind: "set_visual_only_hold", rowId: row.id, payloadId: row.payload.payloadId, holdSeconds: 5 });
+    expect(hold.ok).toBe(false);
+    expect(hold.diagnostics.map((item) => item.code)).toContain("VISUAL_HOLD_MATCHED");
+    const duplicate = session.apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId: row.additionalVisuals![1]!.payload.payloadId, cueId: second.id,
+    });
+    expect(duplicate.ok).toBe(false);
+    expect(duplicate.diagnostics).toContainEqual(expect.objectContaining({ code: "MUSIC_MATCH_INVALID", entityId: row.additionalVisuals![1]!.payload.payloadId }));
+    expect(session.undoDepth).toBe(1);
+  });
+
+  it("does not opt into matching when a cue is merely added, and refuses an absent cue", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const cue = musicCue(9301, row.id);
+    document.rowAudioSpans = [cue];
+    expect(validateScriptDocumentV2(document)).toEqual({ valid: true, diagnostics: [] });
+    expect(row.visualOnlyTiming.matchAudioDuration).toBeUndefined();
+
+    const result = createRowEditSessionV2(document).apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId: row.payload.payloadId, cueId: id(9399),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((item) => item.code)).toContain("VISUAL_AUDIO_MATCH_INVALID");
+  });
+
+  it("deleting a matched cue clears the link, restores the fixed hold, and reports it", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const cue = musicCue(9401, row.id);
+    delete row.visualOnlyTiming.durationOverrideMs;
+    document.rowAudioSpans = [cue];
+    const session = createRowEditSessionV2(document);
+    expect(session.apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId: row.payload.payloadId, cueId: cue.id,
+    }).ok).toBe(true);
+
+    const deleted = session.apply({ kind: "delete_row_audio_span", cueId: cue.id });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(deleted.diagnostics.some((item) => item.code === "VISUAL_AUDIO_MATCH_CLEARED" &&
+      item.severity === "warning" && item.message.includes("4 s"))).toBe(true);
+    const restored = deleted.document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    expect(restored.visualOnlyTiming).toEqual({ kind: "visual_only", durationOverrideMs: 4000 });
+    expect(deleted.document.rowAudioSpans).toBeUndefined();
+    expect(session.undo().document.activeDraft.blocks[0]).toMatchObject({
+      visualOnlyTiming: { durationOverrideMs: 4000, matchAudioDuration: { cueId: cue.id } },
+    });
+  });
+
+  it("keeps a concurrent missing-cue match recoverable for materialization and explicit clearing", () => {
+    const { document } = sequence();
+    const row = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const still = row.additionalVisuals![1]!;
+    const payloadId = still.payload.payloadId;
+    still.visualOnlyTiming = { kind: "visual_only", matchAudioDuration: { cueId: id(9501) } };
+    const validation = validateScriptDocumentV2(document);
+    expect(validation.valid).toBe(false);
+    expect(validation.diagnostics).toContainEqual(expect.objectContaining({ code: "MUSIC_MATCH_INVALID" }));
+    const saved = serializeAuthoringDocumentV2(document);
+    const reloaded = deserializeAuthoringDocumentV2(saved);
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect((reloaded.document.activeDraft.blocks[0] as VisualOnlyBlockV2).additionalVisuals?.[1]?.visualOnlyTiming.matchAudioDuration)
+      .toEqual({ cueId: id(9501) });
+    const session = createRowEditSessionV2(reloaded.document);
+    const reordered = session.apply({
+      kind: "reorder_visual_only", rowId: row.id, payloadIds: [payloadId, row.payload.payloadId, row.additionalVisuals![0].payload.payloadId],
+    });
+    expect(reordered.ok, JSON.stringify(reordered.diagnostics)).toBe(true);
+    const cleared = session.apply({
+      kind: "set_visual_only_audio_match", rowId: row.id, payloadId, cueId: null,
+    });
+    expect(cleared.ok, JSON.stringify(cleared.diagnostics)).toBe(true);
+    expect(cleared.diagnostics).toContainEqual(expect.objectContaining({ code: "VISUAL_AUDIO_MATCH_CLEARED", severity: "warning" }));
+    expect((cleared.document.activeDraft.blocks[0] as VisualOnlyBlockV2).visualOnlyTiming)
+      .toEqual({ kind: "visual_only", durationOverrideMs: 4000 });
+  });
+
+  it("clears a matched still when deleting its cue while the row is in Stash", () => {
+    const { document } = sequence();
+    const still = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const anchor: VisualOnlyBlockV2 = {
+      type: "visual_only", id: id(9601), orderKey: "z0", version: 1,
+      payload: { ...still.payload, payloadId: id(9602) },
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    };
+    document.activeDraft.blocks.push(anchor);
+    const cue = musicCue(9610, anchor.id);
+    document.rowAudioSpans = [cue];
+    const session = createRowEditSessionV2(document);
+    const matched = session.apply({
+      kind: "set_visual_only_audio_match", rowId: still.id, payloadId: still.payload.payloadId, cueId: cue.id,
+    });
+    expect(matched.ok, JSON.stringify(matched.diagnostics)).toBe(true);
+    const stashed = session.apply({ kind: "stash_rows", rowIds: [still.id], bundleId: id(9620) });
+    expect(stashed.ok, JSON.stringify(stashed.diagnostics)).toBe(true);
+    const deleted = session.apply({ kind: "delete_row_audio_span", cueId: cue.id });
+    expect(deleted.ok, JSON.stringify(deleted.diagnostics)).toBe(true);
+    expect(deleted.document.stash?.[0]?.rows[0]).toMatchObject({
+      visualOnlyTiming: { kind: "visual_only", durationOverrideMs: 4000 },
+    });
+    expect(deleted.document.stash?.[0]?.rows[0]).not.toHaveProperty("visualOnlyTiming.matchAudioDuration");
+  });
+
   it("keeps distinct placement names with each held visual and never changes compiled events or report", () => {
     const { document, dependencies } = sequence();
     const baseline = compileTimelineV2(document, dependencies);

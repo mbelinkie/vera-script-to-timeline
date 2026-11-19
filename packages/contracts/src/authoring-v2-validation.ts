@@ -59,6 +59,39 @@ export function validateScriptDocumentV2(
       block.type === "narration" ? block.overlayEvents.map((event) => event.id) : [],
     ),
   );
+  const cueIds = new Set((document.rowAudioSpans ?? []).map((span) => span.id));
+  const matchedCues = new Set<string>();
+  const validateAudioMatch = (
+    timing: { matchAudioDuration?: { cueId: string } },
+    pictureKind: string,
+    path: string,
+    blockId: string,
+    payloadId: string,
+  ): void => {
+    const match = timing.matchAudioDuration;
+    if (!match) return;
+    if (!["image", "capture", "graphic", "intentional_placeholder"].includes(pictureKind)) {
+      diagnostics.push({
+        code: "MUSIC_MATCH_INVALID",
+        message: "Only a still or other untimed visual can match a music cue.",
+        jsonPath: `${path}/visualOnlyTiming/matchAudioDuration`,
+        blockId,
+        entityId: payloadId,
+      });
+    }
+    if (!cueIds.has(match.cueId) || matchedCues.has(match.cueId)) {
+      diagnostics.push({
+        code: "MUSIC_MATCH_INVALID",
+        message: cueIds.has(match.cueId)
+          ? "A music cue can match only one visual. Clear the other visual's match first."
+          : "The matched music cue is missing. Choose another cue or clear the match.",
+        jsonPath: `${path}/visualOnlyTiming/matchAudioDuration/cueId`,
+        blockId,
+        entityId: payloadId,
+      });
+    }
+    matchedCues.add(match.cueId);
+  };
 
   const addId = (id: string, path: string, owner?: string): void => {
     const prior = ids.get(id);
@@ -235,7 +268,7 @@ export function validateScriptDocumentV2(
       });
     });
     const parked = validateScriptDocumentV2({ ...document, stash: undefined, stashSections: undefined, stashOutline: undefined, stashGroups: undefined, rowTransitions: undefined, rowAudioSpans: undefined, rowReferences: undefined, activeDraft: { blocks: bundle.rows, supportingItems: bundle.supportingItems } });
-    diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE"].includes(item.code)).map((item) => ({
+    diagnostics.push(...parked.diagnostics.filter((item) => !["ENTITY_ID_DUPLICATE", "BLOCK_ID_DUPLICATE", "MUSIC_MATCH_INVALID"].includes(item.code)).map((item) => ({
       ...item,
       // Parked narration may have unfinished authoring work, but corrupt plain
       // direction intent is never safe to import or later place in the Draft.
@@ -310,6 +343,7 @@ export function validateScriptDocumentV2(
     const sourceId = row.payload.source.kind === "media_reference" ? row.payload.source.mediaReferenceId : undefined;
     validateBoundedResearch(row.researchClip, row.frameBinding,
       row.visualOnlyTiming.selectedSourceRange, row.payload.pictureKind, sourceId, path, row.id);
+    validateAudioMatch(row.visualOnlyTiming, row.payload.pictureKind, path, row.id, row.payload.payloadId);
     if (row.additionalVisuals?.length) {
       const payloadIds = new Set([row.payload.payloadId]);
       row.additionalVisuals.forEach((visual, index) => {
@@ -323,6 +357,7 @@ export function validateScriptDocumentV2(
         validateBoundedResearch(visual.researchClip, visual.frameBinding,
           visual.visualOnlyTiming.selectedSourceRange, visual.payload.pictureKind, mediaReferenceId,
           visualPath, row.id);
+        validateAudioMatch(visual.visualOnlyTiming, visual.payload.pictureKind, visualPath, row.id, visual.payload.payloadId);
       });
     }
     if (row.stashOrigin?.originalAttachedNoteRowId && row.stashOrigin.kind !== "clip") {
