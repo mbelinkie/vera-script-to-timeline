@@ -2268,6 +2268,8 @@ describe("browser authoring over the local project service", () => {
       .toEqual(original.primaryVisualSequence);
     await button.click();
     await editor.press("Enter");
+    // The browser can deliver the selection change from opening Reselect after Enter.
+    await editor.evaluate((node) => node.ownerDocument.dispatchEvent(new Event("selectionchange")));
     await expect.poll(async () => await panel.textContent()).toContain("Select at least one spoken word");
     await selectText(editor, original.tokens[0]!.startOffset, original.tokens[8]!.endOffset);
     await editor.press("Enter");
