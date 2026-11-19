@@ -69,13 +69,21 @@ export function createProjectBuildHttpHandler(deps: BuildHttpDependencies):
       const url = new URL(request.url);
       if (url.search) return invalid();
       const path = url.pathname;
+      const musicWarnings = /^\/v1\/projects\/([^/]+)\/music-warnings$/u.exec(path);
       const userList = /^\/v1\/projects\/([^/]+)\/builds$/u.exec(path);
       const userJob = /^\/v1\/projects\/([^/]+)\/builds\/([^/]+)(\/cancel)?$/u.exec(path);
       const agentClaim = /^\/v1\/agent\/projects\/([^/]+)\/jobs\/([^/]+)\/claim$/u.exec(path);
       const agentQueue = /^\/v1\/agent\/projects\/([^/]+)\/queue$/u.exec(path);
       const agentLease = /^\/v1\/agent\/projects\/([^/]+)\/jobs\/([^/]+)\/leases\/([1-9]\d*)\/(frozen|progress|inspect)$/u.exec(path);
-      if (userList || userJob) {
+      if (musicWarnings || userList || userJob) {
         const principal = await deps.authorization.authenticateRequest(request, deps.identity);
+        if (musicWarnings && request.method === "GET" && request.body === null) {
+          return reply(200, { report: await deps.status.latestMusicWarnings(musicWarnings[1]!, principal) });
+        }
+        if (musicWarnings && request.method === "POST") {
+          await deps.status.publishMusicWarnings(musicWarnings[1]!, principal, await body(request));
+          return reply(201, { published: true });
+        }
         if (userList && request.method === "POST") {
           return reply(202, await deps.submissions.submit(userList[1]!, principal, await body(request)));
         }

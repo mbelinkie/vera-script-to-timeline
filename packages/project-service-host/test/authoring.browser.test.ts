@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
+import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -765,6 +766,41 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(async () => await page.evaluate((rowId) => {
       return window.__veraVisualTest!.projectedPrimaryRow(rowId)?.brackets[0]?.endTokenIndexExclusive;
     }, seeded.rowId)).toBe(3);
+    await page.close();
+  }, 90_000);
+
+  it("shows the latest build's music warnings in the authoring view", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Music warning report");
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const document = (saved.body as SavedDocument).document;
+    const publish = async (buildId: string, musicWarnings: unknown[], builtAt: string) => await fetch(
+      `${origin}/v1/projects/${projectId}/music-warnings`,
+      { method: "POST", headers: { Authorization: `Bearer ${authoringToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, documentId: document.id, documentDigest: sha256CanonicalJson(document),
+          buildId, builtAt, musicWarnings }) },
+    );
+    const firstBuild = randomUUID();
+    expect((await publish(firstBuild, [
+      { code: "MUSIC_SOURCE_SHORTER", message: "ambient.wav ends before the selected rows; no loop was used." },
+    ], "2025-01-01T00:00:00.000Z")).status).toBe(201);
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain(firstBuild.slice(0, 8));
+    await expect.poll(async () => await page.locator("#music-warning-list").textContent())
+      .toContain("Music ends early");
+    await expect.poll(async () => await page.locator("#music-warning-list").textContent())
+      .toContain("ambient.wav ends before the selected rows");
+
+    const latestBuild = randomUUID();
+    expect((await publish(latestBuild, [], "2025-01-01T00:00:01.000Z")).status).toBe(201);
+    await page.reload();
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain(latestBuild.slice(0, 8));
+    await expect.poll(async () => await page.locator("#music-warning-status").textContent())
+      .toContain("no music warnings");
+    expect(await page.locator("#music-warning-list li").count()).toBe(0);
     await page.close();
   }, 90_000);
 

@@ -955,6 +955,17 @@ and the cut. Save, close, and reopen took 9.35 seconds. This qualifies the
 bounded music route on that build with moving picture. Mixed still treatments
 and other music rates keep their existing gates.
 
+**#576 short music on 21.2.** Studio **21.2.0 build 6** with Local
+scripting saved, closed, and reopened a disposable 24 fps timeline with
+generated H.264 picture and two adjacent mono PCM WAV cues. Readback found
+A5 at `[0,72)` and `[72,96)` with exactly one stamped timeline marker
+at frame 96, identifying the short WAV and its 48 uncovered frames.
+The adequate cue had no marker. Resolve reported an exclusive source
+end for the first cue's interior three-second cut (frame 72) and an
+inclusive source end for the second cue at EOF (frame 23). VERA verifies
+the alternate convention against matching source times and 100% speed.
+The native check took 34.83 seconds with zero readback discrepancies.
+
 **#586 matched-still delta, Studio 21.2.0 build 6.** The normal exact-24-fps
 Build saved, closed and reopened one generated 1600×900 RGB PNG with default
 Fill/Dynamic Zoom and one generated mono PCM16 WAV on A5. Both clips occupied

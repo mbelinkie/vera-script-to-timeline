@@ -250,7 +250,9 @@ function musicSettingsSupported(settings: Record<string, unknown>): boolean {
 
 function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependenciesV2, rows: ProgramRow[]): {
   sources: TimelineManifestV2["sources"]; events: TimelineEventV2[]; diagnostics: BuildDiagnosticV2[];
+  markers: { event: TimelineEventV2; short: boolean }[];
 } {
+  const markers: { event: TimelineEventV2; short: boolean }[] = [];
   const sources: TimelineManifestV2["sources"] = [];
   const events: TimelineEventV2[] = [];
   const diagnostics: BuildDiagnosticV2[] = [];
@@ -299,8 +301,16 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
   };
   for (const span of document.rowAudioSpans ?? []) {
     const target = entity("block", span.id, `rowAudioSpans/${span.id}`);
-    const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string): void => {
+    const warn = (code: "MUSIC_FILE_MISSING" | "MUSIC_SOURCE_SHORTER" | "MUSIC_SPAN_INVALID" | "MUSIC_SETTINGS_UNSUPPORTED", message: string, frame = bounds.find((row) => row.id === span.startRowId)?.startFrame): void => {
       diagnostics.push(diagnostic(code, message, target, { kind: "details", message }, ["none"], "warning"));
+      const trackId = deps.roles.markerTrackId;
+      if (frame === undefined || frame < 0 || frame >= (bounds.at(-1)?.endFrame ?? 0) || !deps.tracks.some((track) => track.id === trackId)) return;
+      markers.push({ short: code === "MUSIC_SOURCE_SHORTER", event: { eventId: stableId(`music-warning:${document.id}:${span.id}:${code}`), kind: "script_marker", trackId, trackRole: "marker",
+        recordRange: { startFrame: frame, endFrame: frame + 1 },
+        provenance: { documentId: document.id, blockId: span.startRowId, sequenceId: null, slotId: null, payloadId: null, overlayEventId: null, sourceId: null,
+          originalSourceHash: null, deliveredSourceHash: null, timingMapHash: null, compilerVersion: deps.compiler.version },
+        sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
+        marker: { supportingItemId: span.id, text: message } } });
     };
     const settings = span.settings as Record<string, unknown>;
     if (!musicSettingsSupported(settings)) {
@@ -354,9 +364,9 @@ function compileMusicSpans(document: ScriptDocumentV2, deps: CompilerDependencie
       sourceRange: geometry.sourceRange, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
       music: { spanId: span.id, startRowId: span.startRowId, endRowId: span.endRowId, audioHash: span.source.contentHash, gainDb: (settings.gainDb as number | undefined) ?? -12,
         fadeInFrames: geometry.fadeInFrames, fadeOutFrames: geometry.fadeOutFrames, requestedEndFrame: geometry.requestedEndFrame } });
-    if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends after ${geometry.sourceRange.endFrame} frames, before requested ${geometry.requestedEndFrame - geometry.recordRange.startFrame} frames; no loop was used.`);
+    if (geometry.shorterThanRows) warn("MUSIC_SOURCE_SHORTER", `Music file ${binding.displayFilename} ends early at timeline frame ${geometry.recordRange.endFrame}; ${geometry.requestedEndFrame - geometry.recordRange.endFrame} frames are uncovered.`, geometry.recordRange.endFrame);
   }
-  return { sources, events, diagnostics };
+  return { sources, events, diagnostics, markers };
 }
 
 /** Never time an unresolved logged clip as a default still or a preview slate. */
@@ -2141,6 +2151,16 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
     resolved.diagnostics.push(...music.diagnostics);
     const supporting = compileSupportingItems(document, dependencies, resolved.timedRows, resolved.events);
     resolved.events.push(...supporting.events);
+    // Resolve supports one timeline marker per frame. Keep authored notes and
+    // prefer short-cue markers over other music warnings at the same frame.
+    const markerFrames = new Set(supporting.events.filter((event) => event.kind === "script_marker").map((event) => event.recordRange.startFrame));
+    for (const { event: marker } of music.markers.sort((a, b) =>
+      Number(b.short) - Number(a.short) || compareText(a.event.eventId, b.event.eventId))) {
+      const frame = marker.recordRange.startFrame;
+      if (markerFrames.has(frame)) continue;
+      markerFrames.add(frame);
+      resolved.events.push(marker);
+    }
     for (const event of resolved.events) {
       const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === event.provenance.payloadId);
       if (descriptor?.graphicContentClass === "derived" && descriptor.graphicContentBinding) {

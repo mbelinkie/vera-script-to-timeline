@@ -21,7 +21,7 @@ from vera_timeline_agent.row_timeline_map import (
     make_row_timeline_map,
     observe_item_details,
 )
-from vera_timeline_agent.workflow_v2 import _stamp
+from vera_timeline_agent.workflow_v2 import _marker_stamp, _stamp
 
 DOCUMENT = "doc-1"
 ROWS = ("row-1", "row-2", "row-3")
@@ -241,7 +241,13 @@ class Timeline:
     ) -> bool:
         if frame in self.markers:
             return False
-        self.markers[frame] = {"color": color, "name": name, "customData": data}
+        self.markers[frame] = {
+            "color": color,
+            "name": name,
+            "note": note,
+            "duration": duration,
+            "customData": data,
+        }
         return True
 
     def _cuts(self) -> dict[Item, tuple[Item | None, Item | None]]:
@@ -313,6 +319,7 @@ class Timeline:
     def DuplicateTimeline(self, name: str) -> Timeline:
         number = len(self.project.timelines)
         clone = Timeline(self.project, name, f"{self.uid}-copy{number}", self.length)
+        clone.markers = copy.deepcopy(self.markers)
         for slot, items in self.tracks.items():
             clone.tracks[slot] = []
             for item in items:
@@ -424,6 +431,7 @@ def _build(
     transitions: list[dict[str, Any]] | None = None,
     voices: dict[str, str] | None = None,
     bed: str | None = None,
+    short_bed: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """A document, manifest and delivery view with one picture per row.
 
@@ -500,22 +508,27 @@ def _build(
             }
         start += length
     if bed:
-        # A music cue from the first row to the end of the last, as #100 builds it.
+        cue_row = order[-1] if short_bed else order[0]
+        cue_start = start - pictures[cue_row][1] if short_bed else 0
+        cue_length = 6 if short_bed else start
         cue = {
             "eventId": "music-cue",
             "kind": "music",
             "trackId": "m",
             "provenance": {
                 "documentId": DOCUMENT,
-                "blockId": order[0],
+                "blockId": cue_row,
                 "sourceId": f"src-{bed}",
                 "deliveredSourceHash": f"sha256:{bed}",
             },
-            "recordRange": {"startFrame": 0, "endFrame": start},
-            "sourceRange": {"startFrame": 0, "endFrame": start},
+            "recordRange": {
+                "startFrame": cue_start,
+                "endFrame": cue_start + cue_length,
+            },
+            "sourceRange": {"startFrame": 0, "endFrame": cue_length},
             "music": {
                 "spanId": "span-1",
-                "startRowId": order[0],
+                "startRowId": cue_row,
                 "endRowId": order[-1],
                 "gainDb": -12,
                 "requestedEndFrame": start,
@@ -529,8 +542,8 @@ def _build(
                 "kind": "music",
                 "trackId": "m",
                 "trackKind": "audio",
-                "recordRange": {"startFrame": 0, "durationFrames": start},
-                "sourceRange": {"startFrame": 0, "durationFrames": start},
+                "recordRange": {"startFrame": cue_start, "durationFrames": cue_length},
+                "sourceRange": {"startFrame": 0, "durationFrames": cue_length},
                 "v2Event": cue,
             }
         )
@@ -604,13 +617,19 @@ class Case:
         voices: dict[str, str] | None = None,
         bed: str | None = None,
         new_bed: str | None = None,
+        short_bed: bool = False,
         new_voices: dict[str, str] | None = None,
         old_transitions: list[dict[str, Any]] | None = None,
         **current: Any,
     ) -> None:
         original = {row: (f"clip-{row}", 10) for row in ROWS}
         document, manifest, view = _build(
-            "build-1", original, voices=voices, transitions=old_transitions, bed=bed
+            "build-1",
+            original,
+            voices=voices,
+            transitions=old_transitions,
+            bed=bed,
+            short_bed=short_bed,
         )
         if bed:
             current["bed"] = new_bed or bed
@@ -618,7 +637,7 @@ class Case:
             current["voices"] = new_voices or voices
         self.old_view = view
         self.document, self.manifest, self.view = _build(
-            "build-2", {**original, **changed}, **current
+            "build-2", {**original, **changed}, short_bed=short_bed, **current
         )
         self.project = Project()
         self.timeline = Timeline(self.project, "T", "t-uid", 30)
@@ -734,6 +753,37 @@ class Case:
 
     def read(self, name: str) -> Any:
         return json.loads((self.output / name).read_text())
+
+
+def _attach_music_warning_marker(
+    manifest: dict[str, Any], view: dict[str, Any], frame: int, note: str
+) -> dict[str, Any]:
+    event = {
+        "eventId": "warning-music-span-short",
+        "kind": "script_marker",
+        "trackId": "markers",
+        "trackRole": "marker",
+        "provenance": {
+            "documentId": DOCUMENT,
+            "blockId": "row-2",
+            "sourceId": None,
+        },
+        "recordRange": {"startFrame": frame, "endFrame": frame + 1},
+        "marker": {"supportingItemId": "music-span-1", "text": note},
+    }
+    if not any(track["id"] == "markers" for track in manifest["tracks"]):
+        manifest["tracks"].append({"id": "markers"})
+    manifest["events"].append(event)
+    marker = {
+        "id": event["eventId"],
+        "frame": frame,
+        "color": "YELLOW",
+        "name": "Music warning",
+        "note": note,
+        "provenance": event,
+    }
+    view["markers"].append(marker)
+    return marker
 
 
 SWAP = {"row-2": ("new-picture", 10)}
@@ -1108,6 +1158,34 @@ def test_shorter_row_trims_first_and_pulls_later_rows_earlier(
         (item.start, item.duration) for item in case.timeline.tracks["video", 1]
     ] == [(0, 6), (6, 10), (16, 10)]
     assert case.timeline.GetEndFrame() == 26
+
+
+def test_length_change_moves_music_warning_marker_and_refreshes_its_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = Case(
+        tmp_path, monkeypatch, LONGER, version=V212, bed="theme", short_bed=True
+    )
+    baseline_marker = _attach_music_warning_marker(
+        case.package.manifest, case.package.view, 26, "Music ends at frame 26"
+    )
+    _attach_music_warning_marker(case.manifest, case.view, 30, "Music ends at frame 30")
+    case.timeline.markers[26] = {
+        "color": "Yellow",
+        "name": baseline_marker["name"],
+        "note": baseline_marker["note"],
+        "duration": 1,
+        "customData": _marker_stamp(baseline_marker),
+    }
+
+    bed = _bed(case)
+    report = case.run("safe")
+
+    assert report["status"] == "updated"
+    assert list(case.timeline.markers) == [30]
+    assert case.timeline.markers[30]["note"] == "Music ends at frame 30"
+    assert _bed(case) is bed and (bed.start, bed.duration) == (24, 6)
+    assert not any("markers are not updated" in line for line in case.said)
 
 
 def test_new_longer_narration_replaces_the_clip_and_carries_its_settings(

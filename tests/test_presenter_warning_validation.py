@@ -184,3 +184,104 @@ def test_package_admits_only_canonical_speech_cut_warnings() -> None:
         OutputConsistencyError, match="non-canonical speech cut warning"
     ):
         validate_temporary_presenter_report(document, manifest, report)
+
+
+def _music_warning_case(
+    code: str = "MUSIC_SOURCE_SHORTER",
+    *,
+    severity: str = "warning",
+    recovery: list[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    from vera_timeline_agent.presenter_warning_validation import _stable_compiler_id
+
+    message = f"Synthetic compiler message for {code}."
+    document = {
+        "id": "doc",
+        "activeDraft": {"blocks": []},
+        "rowAudioSpans": [{"id": "span"}],
+    }
+    diagnostic = {
+        "id": _stable_compiler_id(f"{code}:block:span:rowAudioSpans/span:{message}"),
+        "severity": severity,
+        "code": code,
+        "message": message,
+        "entity": {"id": "span", "kind": "block", "path": "rowAudioSpans/span"},
+        "evidence": {"kind": "details", "message": message},
+        "recoveryActionKinds": recovery or ["none"],
+    }
+    recovery_actions = (
+        [{"kind": "none", "instruction": "No repair action is required."}]
+        if diagnostic["recoveryActionKinds"] == ["none"]
+        else [
+            {
+                "kind": "manual_review",
+                "entity": {"id": "doc", "kind": "document", "path": "document"},
+                "instruction": "Review the compiler diagnostic.",
+            }
+        ]
+    )
+    return (
+        document,
+        {"events": [], "document": {"documentId": "doc"}},
+        {"diagnostics": [diagnostic], "recoveryActions": recovery_actions},
+    )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "MUSIC_FILE_MISSING",
+        "MUSIC_SOURCE_SHORTER",
+        "MUSIC_SPAN_INVALID",
+        "MUSIC_SETTINGS_UNSUPPORTED",
+    ],
+)
+def test_package_admits_canonical_compiler_music_warnings(code: str) -> None:
+    assert validate_temporary_presenter_report(*_music_warning_case(code)) == set()
+
+
+def test_package_admits_canonical_invalid_music_timing_for_manual_review() -> None:
+    case = _music_warning_case(
+        "MUSIC_SPAN_INVALID", severity="blocking", recovery=["manual_review"]
+    )
+    assert validate_temporary_presenter_report(*case) == set()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason"),
+    [
+        ("wrong_id", "non-canonical music warning"),
+        ("wrong_entity", "non-canonical music warning"),
+        ("wrong_evidence", "non-canonical music warning"),
+        ("wrong_recovery", "severity or recovery action"),
+        ("unbound_span", "does not name an authored span"),
+        ("unsupported_code", "non-canonical presenter warning"),
+    ],
+)
+def test_package_refuses_noncanonical_music_warning(mutation: str, reason: str) -> None:
+    document, manifest, report = _music_warning_case()
+    diagnostic = report["diagnostics"][0]
+    if mutation == "wrong_id":
+        diagnostic["id"] = "not-the-compiler-id"
+    elif mutation == "wrong_entity":
+        diagnostic["entity"]["path"] = "rowAudioSpans/other"
+    elif mutation == "wrong_evidence":
+        diagnostic["evidence"]["message"] = "different text"
+    elif mutation == "wrong_recovery":
+        diagnostic["recoveryActionKinds"] = ["manual_review"]
+    elif mutation == "unbound_span":
+        diagnostic["entity"]["id"] = "other"
+    elif mutation == "unsupported_code":
+        diagnostic["code"] = "MUSIC_UNTRUSTED"
+    with pytest.raises(OutputConsistencyError, match=reason):
+        validate_temporary_presenter_report(document, manifest, report)
+
+
+def test_music_recovery_action_must_match_canonical_no_op() -> None:
+    document, manifest, report = _music_warning_case()
+    report["recoveryActions"] = []
+    with pytest.raises(
+        OutputConsistencyError,
+        match="recovery actions are not canonical for music diagnostics",
+    ):
+        validate_temporary_presenter_report(document, manifest, report)

@@ -2647,7 +2647,17 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
         item = matching[0]
         start = source_range["startFrame"]
         end = start + source_range["durationFrames"] - 1
-        if item.GetSourceStartFrame() != start or item.GetSourceEndFrame() != end:
+        actual_start = item.GetSourceStartFrame()
+        actual_end = item.GetSourceEndFrame()
+        if actual_start != start or (
+            actual_end != end
+            and (
+                actual_end != end + 1
+                or not _music_exclusive_end_matches(
+                    item, _frame_rate(self._v2_timeline), start, end + 1, actual_end
+                )
+            )
+        ):
             raise WorkflowV2Error("native music source trim differs before writes")
         properties = {"AudioVolumeEnabled": True, "AudioVolume": treatment["gainDb"]}
         fades = {
@@ -3141,19 +3151,35 @@ class PublicResolveAdapter(AcceptedDeliveryAdapter):
                                 else:
                                     if actual_start != expected_source_range[0]:
                                         discrepancies.append("event-source-start")
-                                    if actual_end != expected_source_range[1] and not (
-                                        source_clock_rate == _QUALIFIED_FRACTIONAL_RATE
-                                        and event["kind"] == "source_audio"
-                                        and source_record.get("kind") == "audio"
-                                        and actual_start
-                                        == expected_source_range[0]
-                                        == 0
-                                        and type(actual_end) is int
-                                        and actual_end
-                                        == expected_source_range[1] + 1
-                                        == record["durationFrames"]
-                                        and _fractional_audio_edges_match(
-                                            item, actual_end
+                                    music_exclusive_end_matches = (
+                                        event["kind"] == "music"
+                                        and actual_start == expected_source_range[0]
+                                        and _music_exclusive_end_matches(
+                                            item,
+                                            source_clock_rate,
+                                            expected_source_range[0],
+                                            expected_source_range[1] + 1,
+                                            actual_end,
+                                        )
+                                    )
+                                    if (
+                                        actual_end != expected_source_range[1]
+                                        and not music_exclusive_end_matches
+                                        and not (
+                                            source_clock_rate
+                                            == _QUALIFIED_FRACTIONAL_RATE
+                                            and event["kind"] == "source_audio"
+                                            and source_record.get("kind") == "audio"
+                                            and actual_start
+                                            == expected_source_range[0]
+                                            == 0
+                                            and type(actual_end) is int
+                                            and actual_end
+                                            == expected_source_range[1] + 1
+                                            == record["durationFrames"]
+                                            and _fractional_audio_edges_match(
+                                                item, actual_end
+                                            )
                                         )
                                     ):
                                         discrepancies.append("event-source-end")
@@ -3371,9 +3397,30 @@ def _source_time_error_samples(
 
 
 def _fractional_audio_edges_match(item: Any, frames: int) -> bool:
+    return _audio_edges_match(item, Fraction(0), Fraction(frames * 1001, 24_000))
+
+
+def _music_exclusive_end_matches(
+    item: Any,
+    rate: tuple[int, int] | None,
+    start: int,
+    end: int,
+    actual_end: object,
+) -> bool:
+    # Studio 21.2 reports an exclusive frame at interior source cuts. Accept
+    # it only when the independent source times and speed verify the range.
+    return (
+        rate == (24, 1)
+        and type(actual_end) is int
+        and actual_end == end
+        and _audio_edges_match(item, Fraction(start, 24), Fraction(end, 24))
+    )
+
+
+def _audio_edges_match(item: Any, start: Fraction, end: Fraction) -> bool:
     for name, expected in (
-        ("GetSourceStartTime", Fraction(0)),
-        ("GetSourceEndTime", Fraction(frames * 1001, 24000)),
+        ("GetSourceStartTime", start),
+        ("GetSourceEndTime", end),
     ):
         getter = getattr(item, name, None)
         error = (
