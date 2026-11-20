@@ -4035,7 +4035,7 @@ describe("browser authoring over the local project service", () => {
     await page.getByRole("button", { name: "Add visual" }).click();
     await expect.poll(() => page.getByRole("menu", { name: "Visual type" }).isVisible()).toBe(true);
     expect(await page.getByRole("menuitem").allTextContents()).toEqual([
-      "Onscreen Placeholder", "Need to Find", "Visual Undefined", "Footage…",
+      "Onscreen Placeholder", "Need to Find", "Visual Undefined", "Footage…", "Saved Research still…",
     ]);
     await page.getByRole("menuitem", { name: label }).click();
     await expect.poll(async () => (await added()).length).toBe(1);
