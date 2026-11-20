@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,6 @@ class FakeReader:
 
 
 def _webp() -> bytes:
-    from io import BytesIO
-
     output = BytesIO()
     Image.new("RGB", (8, 6), (20, 40, 80)).save(output, format="WEBP", lossless=True)
     return output.getvalue()
@@ -102,6 +101,24 @@ def test_kept_webp_materializes_without_following_dead_origin(tmp_path: Path) ->
     assert materialized.source_hash != materialized.original_hash
     assert Image.open(materialized.source_path).size == (8, 6)
     assert "gone.invalid" not in str(materialized.source_path)
+
+
+def test_rotated_kept_webp_preserves_original_and_materializes_display_size(
+    tmp_path: Path,
+) -> None:
+    image = Image.new("RGB", (8, 6), (20, 40, 80))
+    exif = image.getexif()
+    exif[274] = 6
+    data = BytesIO()
+    image.save(data, format="WEBP", lossless=True, exif=exif.tobytes())
+    snapshot, reader = _case(data.getvalue())
+
+    result = materialize_research_still(snapshot, tmp_path / "Media", reader=reader)
+
+    assert result.original_path.read_bytes() == data.getvalue()
+    with Image.open(result.source_path) as normalized:
+        assert normalized.size == (6, 8)
+        assert normalized.getexif().get(274) is None
 
 
 @pytest.mark.parametrize("mutation", ["project", "version"])

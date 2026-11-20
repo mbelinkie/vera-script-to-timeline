@@ -282,7 +282,7 @@ function fakeResearchCatalog() {
   const calls: Array<{ pathname: string; method: string | undefined;
     redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
   const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3,
-    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false };
+    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false };
   const request: typeof fetch = (input, init) => {
     const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
     const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
@@ -309,7 +309,8 @@ function fakeResearchCatalog() {
       return Promise.resolve(new Response(null, { status: 404 }));
     }
     if (pathname === `${project}/stills/${RESEARCH_STILL}/assets`) return Promise.resolve(Response.json({
-      assets: { thumbnail: keptStillAsset, original: keptStillAsset, display: keptStillAsset },
+      assets: { thumbnail: keptStillAsset, display: keptStillAsset,
+        original: state.oversizedStill ? { ...keptStillAsset, width: 6000, height: 4000 } : keptStillAsset },
       provenance: { ...stillProvenance, hiddenBearer: RESEARCH_SECRET },
     }));
     if (pathname === `${project}/stills/${RESEARCH_STILL}/assets/thumbnail`) return Promise.resolve(new Response(
@@ -609,6 +610,9 @@ describe("protected kept Research stills", () => {
     h.fake.state.missingStill = false;
     h.fake.state.corruptThumbnail = true;
     expect((await h.read(preview)).status).toBe(503);
+    h.fake.state.oversizedStill = true;
+    expect(await (await h.read(base)).json()).toEqual({ stills: [], nextOffset: null });
+    expect((await insert()).status).toBe(422);
     expect(h.projects).not.toHaveBeenCalled();
   });
 });

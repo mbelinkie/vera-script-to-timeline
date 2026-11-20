@@ -9,7 +9,7 @@ import {
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
 import { readResearchLibraryItem, readResearchLibrarySource } from "./research-library-records.js";
-import { readKeptStillManifest, readStillItem, type ResearchStillChoice } from "./research-still-records.js";
+import { readKeptStillManifest, readStillItem, UnsupportedKeptStillError, type ResearchStillChoice } from "./research-still-records.js";
 
 export interface ResearchProject {
   id: string;
@@ -139,7 +139,12 @@ export function createResearchClient(options: {
   async function keptStill(projectId: string, itemId: string, version: number) {
     const item = readStillItem(await get(libraryPath(projectId, "items", itemId)), projectId, itemId);
     if (item.itemVersion !== version) throw new ResearchReadError(409, "The saved still has changed.");
-    return { item, kept: await manifest(projectId, itemId) };
+    try {
+      return { item, kept: await manifest(projectId, itemId) };
+    } catch (error) {
+      if (error instanceof UnsupportedKeptStillError) throw new ResearchReadError(422, error.message);
+      throw error;
+    }
   }
 
   function validatedCandidate(input: unknown): ResearchLoggedCandidateInputV2 {
@@ -235,7 +240,7 @@ export function createResearchClient(options: {
           const { itemId, itemVersion, title, credit } = item;
           return { itemId, itemVersion, title, ...(credit === undefined ? {} : { credit }) };
         } catch (error) {
-          if (error instanceof ResearchReadError && error.status === 404) return null;
+          if (error instanceof UnsupportedKeptStillError || error instanceof ResearchReadError && error.status === 404) return null;
           throw error;
         }
       }));

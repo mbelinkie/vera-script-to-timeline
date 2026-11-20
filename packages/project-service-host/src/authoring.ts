@@ -255,6 +255,7 @@ function researchStillError(error: unknown): Response {
   if (error instanceof ResearchReadError) {
     if (error.status === 404) return researchResponse(404, { error: "research_still_unavailable" });
     if (error.status === 409) return researchResponse(409, { error: "research_still_changed" });
+    if (error.status === 422) return researchResponse(422, { error: "research_still_size_unsupported" });
     if (error.status === 401 || error.status === 403) {
       return researchResponse(403, { error: "research_project_forbidden" });
     }

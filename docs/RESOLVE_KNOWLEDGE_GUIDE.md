@@ -1220,6 +1220,12 @@ preparation use opaque RGB PNG/JPEG with a 16,777,216-pixel decode budget
 and an 8192-pixel edge limit. These are preparation bounds. The live check
 was structural. See [#657](https://github.com/mbelinkie/vera-script-to-timeline/issues/657).
 
+**#673 kept Research still, same Studio build.** Normal Prep Media converted
+an authenticated, kept 640×360 WebP to a pixel-identical RGB PNG with the origin
+unavailable. Normal Build saved, closed and reopened a disposable 24 fps
+timeline with one still at frames 0–95. The record range and one-frame source
+matched structural readback. [External result](https://github.com/mbelinkie/vera-script-to-timeline/issues/673#issuecomment-7045731858)
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)

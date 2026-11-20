@@ -93,6 +93,7 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
     if (error?.status === 403) return "You don’t have access to this Research project.";
     if (error?.status === 404) return "This saved still is no longer available.";
     if (error?.status === 409) return "This saved still changed. Close and choose it again.";
+    if (error?.status === 422) return "This saved still is too large for a Timeline build.";
     return "Saved Research thumbnails are unavailable right now.";
   };
 
@@ -127,6 +128,7 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
 
   const render = () => {
     if (!visible) return;
+    projects.disabled = committing;
     results.replaceChildren();
     thumbnailTargets.clear();
     loadMore.hidden = nextOffset === null;
@@ -260,6 +262,8 @@ export function mountResearchStillPanel({ root, catalog, thumbnail, insert, onSt
   };
 
   const open = async ({ placement: selectedPlacement, from = doc.activeElement } = {}) => {
+    committing = false;
+    projects.disabled = false;
     opener = from;
     placement = selectedPlacement;
     visible = true;

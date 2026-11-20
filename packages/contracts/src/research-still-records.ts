@@ -4,6 +4,7 @@ type StillItem = Omit<ResearchStillSnapshotV2, "original" | "provenance">;
 type Asset = ResearchStillSnapshotV2["original"];
 type Provenance = ResearchStillSnapshotV2["provenance"];
 export type ResearchStillChoice = Pick<StillItem, "itemId" | "itemVersion" | "title" | "credit">;
+export class UnsupportedKeptStillError extends Error {}
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -47,8 +48,8 @@ export function readStillItem(value: unknown, projectId: string, itemId?: string
   }
   const { content } = value;
   const title = optionalText(content.title, 500)?.trim() || "Saved still";
-  const credit = optionalText(content.credit, 2000);
-  const licence = optionalText(content.licence, 2000);
+  const credit = optionalText(content.credit, 2000)?.trim() || undefined;
+  const licence = optionalText(content.licence, 2000)?.trim() || undefined;
   const usageNote = optionalText(content.usageNote, 20_000);
   return { researchProjectId: value.projectId.toLowerCase(), itemId: value.id.toLowerCase(),
     itemVersion: value.version, sourceId: value.sourceId.toLowerCase(), title,
@@ -98,7 +99,12 @@ function readProvenance(value: unknown): Provenance {
 
 export function readKeptStillManifest(value: unknown) {
   if (!record(value) || !record(value.assets)) throw new Error("Research returned an invalid kept still manifest.");
-  return { original: readAsset(value.assets.original, 20 * 1024 * 1024, 25_000_000),
+  const original = readAsset(value.assets.original, 20 * 1024 * 1024, 25_000_000);
+  // Match Timeline's ordinary still-preparation raster limits.
+  if (original.width > 8192 || original.height > 8192 || original.width * original.height > 16_777_216) {
+    throw new UnsupportedKeptStillError("The kept image exceeds Timeline's still size limits.");
+  }
+  return { original,
     thumbnail: readAsset(value.assets.thumbnail, 1024 * 1024, 320),
     provenance: readProvenance(value.provenance) };
 }

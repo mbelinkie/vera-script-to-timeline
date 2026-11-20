@@ -130,9 +130,13 @@ class AuthenticatedKeptStillReader:
                 f"Research kept still original request failed (HTTP {binary[0]})"
             )
         if binary[3] or len(binary[1]) != original["byteCount"]:
-            raise ResearchStillError("Research kept still byte count differs from its pin")
+            raise ResearchStillError(
+                "Research kept still byte count differs from its pin"
+            )
         if _content_type(binary[2]) != original["mimeType"]:
-            raise ResearchStillError("Research kept still MIME type differs from its pin")
+            raise ResearchStillError(
+                "Research kept still MIME type differs from its pin"
+            )
         second_item = self._json(item_path, "Research still item")
         second_manifest = self._json(manifest_path, "Research still manifest")
         if first_item != second_item or first_manifest != second_manifest:
@@ -276,7 +280,7 @@ def materialize_research_still(
         source_mime = verified.mime_type
     _publish_same(source_path, source_bytes)
     width, height = _dimensions(source_bytes, source_mime)
-    if (width, height) != (
+    if verified.mime_type != "image/webp" and (width, height) != (
         verified.snapshot["original"]["width"],
         verified.snapshot["original"]["height"],
     ):
@@ -431,7 +435,7 @@ def _verify_item(snapshot: Mapping[str, Any], item: Mapping[str, Any]) -> None:
         raise ResearchStillError("Research saved still identity or version changed")
     content = item.get("content")
     title = content.get("title") if isinstance(content, Mapping) else None
-    if title is None:
+    if title is None or isinstance(title, str) and not title.strip():
         title = "Saved still"
     if (
         not isinstance(content, Mapping)
@@ -440,7 +444,10 @@ def _verify_item(snapshot: Mapping[str, Any], item: Mapping[str, Any]) -> None:
     ):
         raise ResearchStillError("Research saved still metadata changed")
     for key in ("credit", "licence", "usageNote"):
-        if content.get(key) != snapshot.get(key):
+        value = content.get(key)
+        if key != "usageNote" and isinstance(value, str):
+            value = value.strip() or None
+        if value != snapshot.get(key):
             raise ResearchStillError(f"Research saved still {key} changed")
 
 
@@ -451,7 +458,26 @@ def _verify_manifest(snapshot: Mapping[str, Any], manifest: Mapping[str, Any]) -
         expected = str(frozen[key]).lower() if key == "sha256" else frozen[key]
         if original[key] != expected:
             raise ResearchStillError(f"Research kept still original {key} changed")
-    if manifest.get("provenance") != snapshot.get("provenance"):
+    provenance = manifest.get("provenance")
+    if not isinstance(provenance, Mapping):
+        raise ResearchStillError("Research kept still provenance is unavailable")
+    fields = (
+        "kind",
+        "inputSha256",
+        "sourceUrl",
+        "resolvedUrl",
+        "pageUrl",
+        "altText",
+        "parentItemId",
+        "crop",
+    )
+    projected = {key: provenance[key] for key in fields if key in provenance}
+    crop = projected.get("crop")
+    if isinstance(crop, Mapping):
+        projected["crop"] = {
+            key: crop[key] for key in ("x", "y", "width", "height") if key in crop
+        }
+    if projected != snapshot.get("provenance"):
         raise ResearchStillError("Research kept still provenance changed")
     return original
 
@@ -517,7 +543,17 @@ def _normalize_webp(body: bytes, asset: Mapping[str, Any]) -> bytes:
                 )
             if image.mode in {"RGBA", "LA"} or "transparency" in image.info:
                 raise ResearchStillError("Research kept WebP still must be opaque")
+            orientation = image.getexif().get(274, 1)
+            if type(orientation) is not int or orientation not in range(1, 9):
+                raise ResearchStillError(
+                    "Research WebP EXIF orientation is outside 1..8"
+                )
             ImageOps.exif_transpose(image, in_place=True)
+            expected = (asset["width"], asset["height"])
+            if image.size != (
+                expected[::-1] if orientation in range(5, 9) else expected
+            ):
+                raise ResearchStillError("Research WebP conversion changed dimensions")
             output = image.convert("RGB")
             icc_profile = image.info.get("icc_profile")
             if isinstance(icc_profile, bytes) and icc_profile:
@@ -550,9 +586,6 @@ def _normalize_webp(body: bytes, asset: Mapping[str, Any]) -> bytes:
         raise
     except (OSError, ValueError) as error:
         raise ResearchStillError("Research WebP still conversion failed") from error
-    with Image.open(BytesIO(result)) as normalized:
-        if normalized.size != (asset["width"], asset["height"]):
-            raise ResearchStillError("Research WebP conversion changed dimensions")
     return result
 
 
