@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -26,7 +27,7 @@ class FakeReader:
     manifest: dict[str, Any]
     body: bytes
 
-    def read(self, snapshot: dict[str, Any]) -> KeptStillResponse:
+    def read(self, snapshot: Mapping[str, Any]) -> KeptStillResponse:
         return KeptStillResponse(self.item, self.manifest, self.body, "image/webp")
 
 
