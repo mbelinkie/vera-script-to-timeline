@@ -22,7 +22,12 @@ const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
 const STILL_PAGE_SIZE = 12;
 
 export class ResearchReadError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 export function isResearchId(value: string): boolean {
