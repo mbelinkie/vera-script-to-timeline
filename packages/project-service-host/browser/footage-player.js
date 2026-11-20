@@ -1,6 +1,7 @@
 // The only external media surface in authoring. No Research URLs, tokens,
 // transcript, project identity or private script content enter the iframe.
 const YOUTUBE_ORIGIN = "https://www.youtube-nocookie.com";
+const WIDGET_ID = 1;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/u;
 const MAX_VIDEO_MS = 24 * 60 * 60 * 1000;
 
@@ -26,21 +27,23 @@ export function mountFootagePlayer(root) {
   const close = root.querySelector("[data-footage-preview-close]");
   let range = null;
   let frame = null;
-  let poll = null;
+  let handshake = null;
   let watchdog = null;
   let playing = false;
   let ended = false;
   let ready = false;
 
-  const command = (func, args = []) => {
-    if (!frame?.contentWindow) return;
-    frame.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), YOUTUBE_ORIGIN);
+  const send = (message) => {
+    frame?.contentWindow?.postMessage(JSON.stringify({
+      ...message, id: WIDGET_ID, channel: "widget",
+    }), YOUTUBE_ORIGIN);
   };
+  const command = (func, args = []) => send({ event: "command", func, args });
   const teardown = () => {
     window.removeEventListener("message", receive);
-    window.clearInterval(poll);
+    window.clearInterval(handshake);
     window.clearTimeout(watchdog);
-    poll = null;
+    handshake = null;
     watchdog = null;
     // Removing the frame, rather than just pausing it, stops playback when
     // the panel/preview closes or its Research project changes.
@@ -53,26 +56,19 @@ export function mountFootagePlayer(root) {
   const unavailable = (reason) => {
     teardown();
     status.textContent = reason;
+    play.disabled = false;
     play.textContent = "Try playback again";
     replay.hidden = true;
   };
-  const finished = () => {
-    command("pauseVideo");
-    playing = false;
-    ended = true;
-    play.textContent = "Replay saved range";
-    status.textContent = "Saved range finished.";
-  };
-  const begin = () => {
-    if (ready) return;
-    ready = true;
-    window.clearTimeout(watchdog);
-    if (playing) {
-      command("seekTo", [range.startMs / 1000, true]);
-      command("playVideo");
-      replay.hidden = false;
-      status.textContent = "Playing saved range…";
-    } else command("pauseVideo");
+  const playRange = () => {
+    // Reload the bounds on replay. YouTube's seekTo drops a queued end time.
+    command("loadVideoById", [{
+      videoId: range.id, startSeconds: range.startMs / 1000, endSeconds: range.endMs / 1000,
+    }]);
+    playing = true;
+    ended = false;
+    play.textContent = "Pause";
+    status.textContent = "Starting saved range…";
   };
   function receive(event) {
     if (!frame || event.origin !== YOUTUBE_ORIGIN || event.source !== frame.contentWindow) return;
@@ -85,30 +81,40 @@ export function mountFootagePlayer(root) {
       unavailable("YouTube can't play this clip here (removed or restricted). You can still place it.");
       return;
     }
-    if (message.event === "onReady" ||
-      (typeof message.info?.playerState === "number" && message.info.playerState >= 0)) begin();
-    const currentTime = message.info?.currentTime;
-    if (playing && Number.isFinite(currentTime) && currentTime >= range.endMs / 1000 - 0.03) {
-      finished();
+    if (message.event === "onAutoplayBlocked") {
+      unavailable("The browser blocked YouTube playback. You can still place this clip.");
+      return;
+    }
+    if (message.event === "onReady" && !ready) {
+      ready = true;
+      window.clearInterval(handshake);
+      window.clearTimeout(watchdog);
+      command("addEventListener", ["onError"]);
+      command("addEventListener", ["onAutoplayBlocked"]);
+      play.disabled = false;
+      playRange();
+    }
+    if (!ready || message.event !== "infoDelivery" || !playing) return;
+    if (message.info?.playerState === 1) {
+      replay.hidden = false;
+      status.textContent = "Playing saved range…";
+    } else if (message.info?.playerState === 0) {
+      playing = false;
+      ended = true;
+      play.textContent = "Replay saved range";
+      status.textContent = "Saved range finished.";
     }
   }
   const load = () => {
     if (!range) return;
     teardown();
-    playing = true;
-    play.textContent = "Pause";
+    play.disabled = true;
     status.textContent = "Loading YouTube player…";
-    // start/end are a coarse provider backstop. Exact milliseconds are sent
-    // via seekTo and polled for the end; the external service owns precision.
     const url = new URL(`${YOUTUBE_ORIGIN}/embed/${range.id}`);
     url.searchParams.set("enablejsapi", "1");
     url.searchParams.set("playsinline", "1");
-    url.searchParams.set("autoplay", "1"); // Only created by the Play gesture.
     url.searchParams.set("origin", window.location.origin);
-    // Match the ID/channel used by YouTube's iframe widget handshake.
-    url.searchParams.set("widgetid", "1");
-    url.searchParams.set("start", String(Math.floor(range.startMs / 1000)));
-    url.searchParams.set("end", String(Math.ceil(range.endMs / 1000)));
+    url.searchParams.set("widgetid", String(WIDGET_ID));
     const createdFrame = doc.createElement("iframe");
     frame = createdFrame;
     createdFrame.title = "YouTube saved-range preview";
@@ -118,24 +124,15 @@ export function mountFootagePlayer(root) {
     // one). Send only this app's origin, never a project path, query or launch
     // fragment. The host's other responses stay on the no-referrer policy.
     createdFrame.referrerPolicy = "strict-origin-when-cross-origin";
-    createdFrame.addEventListener("load", () => {
-      // An old frame can finish loading after a fast clip switch. Its event
-      // must never send commands to (or report an error for) the new player.
-      if (frame !== createdFrame) return;
-      createdFrame.contentWindow?.postMessage(JSON.stringify({
-        event: "listening", id: 1, channel: "widget",
-      }), YOUTUBE_ORIGIN);
-      command("addEventListener", ["onReady"]);
-      command("addEventListener", ["onError"]);
-      command("getCurrentTime");
-    });
     createdFrame.addEventListener("error", () => {
       if (frame === createdFrame) unavailable("YouTube player could not load. You can still place this clip.");
     });
     window.addEventListener("message", receive);
     createdFrame.src = url.href;
     playerMount.append(createdFrame);
-    poll = window.setInterval(() => { if (playing) command("getCurrentTime"); }, 250);
+    // Like YouTube's wrapper, retry until the widget has initialized. An
+    // iframe load event does not tell us when its message listener is ready.
+    handshake = window.setInterval(() => send({ event: "listening" }), 250);
     watchdog = window.setTimeout(() => {
       if (!ready) unavailable("YouTube player did not respond. You can still place this clip.");
     }, 15_000);
@@ -148,24 +145,17 @@ export function mountFootagePlayer(root) {
       playing = false;
       play.textContent = "Resume";
       status.textContent = "Paused.";
+    } else if (ended) {
+      playRange();
     } else {
-      if (ended) command("seekTo", [range.startMs / 1000, true]);
       command("playVideo");
       playing = true;
-      ended = false;
-      replay.hidden = false;
       play.textContent = "Pause";
-      status.textContent = "Playing saved range…";
+      status.textContent = "Starting saved range…";
     }
   });
   replay.addEventListener("click", () => {
-    if (!frame || !range) return;
-    command("seekTo", [range.startMs / 1000, true]);
-    command("playVideo");
-    playing = true;
-    ended = false;
-    play.textContent = "Pause";
-    status.textContent = "Replaying saved range…";
+    if (ready) playRange();
   });
   close.addEventListener("click", () => hide());
 
