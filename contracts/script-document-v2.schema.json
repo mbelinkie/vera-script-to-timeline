@@ -1140,26 +1140,6 @@
         },
         {
           "if": {
-            "type": "object",
-            "properties": {
-              "pictureKind": {
-                "not": {
-                  "const": "image"
-                }
-              }
-            },
-            "required": [
-              "pictureKind"
-            ]
-          },
-          "then": {
-            "properties": {
-              "researchStill": false
-            }
-          }
-        },
-        {
-          "if": {
             "properties": { "pictureKind": { "not": { "enum": ["image", "capture", "graphic"] } } },
             "required": ["pictureKind"]
           },
