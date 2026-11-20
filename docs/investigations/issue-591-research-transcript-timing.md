@@ -1,6 +1,14 @@
 # Research transcript timing for a logged clip
 
-Source findings for [Timeline #591](https://github.com/mbelinkie/vera-script-to-timeline/issues/591). The live one-clip check is pending. The documented loopback Research API had no listener, and the Timeline CLI stopped at its missing-bearer check. The findings below describe the linked source revisions.
+For [Timeline #591](https://github.com/mbelinkie/vera-script-to-timeline/issues/591), we logged one clip from a public NASA Marshall video in a private local Research project, using the source's manual captions. An authorized clip detail read and Timeline's normal `npm run research:clips` both succeeded. Only the caption file was acquired.
+
+| Live check | Result |
+| --- | --- |
+| Research clip detail | Transcript selection **0.133–5.205 s**, export **0.033–5.305 s**. Precision `cue` with first/last segment IDs. There were no word IDs, segment intervals, or word intervals. |
+| Timeline CLI | Read back the one logged clip with export bounds **0.033–5.305 s**. |
+| Inward trim against the source captions | A trim to **0.800–3.336 s** crossed cues **0.133–1.468 s** and **1.468–5.205 s**. Showing every overlapping cue would include both full cues, whose intervals extend **0.667 s** before the trim and **1.869 s** after it. Those overhangs describe cue coverage. The source captions supply no exact word cuts at either edge. |
+
+The trim was calculated from the normalized source captions. The clip detail response and the Timeline snapshot alone cannot reproduce it. The separate published-transcript endpoint below was traced in source. This check logged a clip directly from the normalized captions and did not publish the full track. [Public NASA source](https://www.youtube.com/watch?v=p0W_cxbbTQA)
 
 | Path | Timing available |
 | --- | --- |
