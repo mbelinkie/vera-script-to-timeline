@@ -113,12 +113,13 @@ class AuthenticatedKeptStillReader:
             f"{quote(item_id, safe='')}/assets"
         )
         first_item = self._json(item_path, "Research still item")
+        _verify_item(snapshot, first_item)
         first_manifest = self._json(manifest_path, "Research still manifest")
-        original = _manifest_asset(first_manifest)
+        original = _verify_manifest(snapshot, first_manifest)
         binary = self._request(
             f"{manifest_path}/original",
             original["mimeType"],
-            MAX_RESEARCH_STILL_BYTES + 1,
+            original["byteCount"],
         )
         if binary[0] in (401, 403):
             raise ResearchStillError(
@@ -128,6 +129,10 @@ class AuthenticatedKeptStillReader:
             raise ResearchStillError(
                 f"Research kept still original request failed (HTTP {binary[0]})"
             )
+        if binary[3] or len(binary[1]) != original["byteCount"]:
+            raise ResearchStillError("Research kept still byte count differs from its pin")
+        if _content_type(binary[2]) != original["mimeType"]:
+            raise ResearchStillError("Research kept still MIME type differs from its pin")
         second_item = self._json(item_path, "Research still item")
         second_manifest = self._json(manifest_path, "Research still manifest")
         if first_item != second_item or first_manifest != second_manifest:

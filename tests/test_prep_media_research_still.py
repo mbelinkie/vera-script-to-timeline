@@ -116,9 +116,24 @@ def test_changed_or_cross_project_item_is_refused(mutation: str) -> None:
         acquire_research_still(snapshot, reader=reader)
 
 
-def test_corrupt_kept_bytes_are_refused() -> None:
+def test_missing_kept_manifest_is_refused() -> None:
     snapshot, reader = _case()
-    reader.body = b"not-an-image"
+    reader.manifest["assets"] = {}
 
-    with pytest.raises(ResearchStillError, match=r"byte count|SHA-256|decodable"):
+    with pytest.raises(ResearchStillError, match="original"):
+        acquire_research_still(snapshot, reader=reader)
+
+
+@pytest.mark.parametrize("truncate", [True, False])
+def test_corrupt_kept_bytes_are_refused(truncate: bool) -> None:
+    snapshot, reader = _case()
+    reader.body = (
+        reader.body[:-1]
+        if truncate
+        else reader.body[:-1] + bytes([reader.body[-1] ^ 1])
+    )
+
+    with pytest.raises(
+        ResearchStillError, match="byte count" if truncate else "SHA-256"
+    ):
         acquire_research_still(snapshot, reader=reader)
