@@ -474,6 +474,14 @@ export {
   type NarrationTextSpliceResultV2,
 } from "./authoring-v2-narration-text.js";
 export { applyVisualSequenceEditV2 } from "./authoring-v2-edits.js";
+export {
+  prepareResearchQuotePlacementV2,
+  placeResearchQuoteV2,
+  type AuthorizedResearchQuoteV2,
+  type ResearchQuoteBackgroundV2,
+  type ResearchQuotePlacementV2,
+  type PreparedResearchQuotePlacementV2,
+} from "./research-quote-placement.js";
 export { visualTypeLabelV2 } from "./authoring-v2-visual-type.js";
 export {
   applyStageDirectionEditV2,
