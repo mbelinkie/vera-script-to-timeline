@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unicodedata
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -30,6 +30,12 @@ from .prep_media_inputs import (
     prepare_cut_inputs,
     prepare_still_inputs,
     read_json_object,
+)
+from .prep_media_research_still import (
+    KeptStillReader,
+    ResearchStillError,
+    bind_research_still_descriptor,
+    materialize_research_still,
 )
 from .quote_box_inputs import freeze_quote_box_inputs
 from .research_cut_binding import bind_research_cut, copy_cut, verify_cut
@@ -165,6 +171,128 @@ def _check_narrated_research(document: Json) -> None:
                 )
 
 
+def _research_still_occurrences(document: Json) -> list[tuple[Json, Json]]:
+    """Return active kept-still payloads with their compiler occurrence owner."""
+    occurrences: list[tuple[Json, Json]] = []
+
+    def add(value: Any, owner: Json) -> None:
+        if isinstance(value, dict) and value.get("researchStill") is not None:
+            occurrences.append((value, owner))
+
+    draft = document.get("activeDraft")
+    blocks = draft.get("blocks") if isinstance(draft, dict) else None
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict) or (block.get("type"), block.get("state")) != (
+            "narration",
+            "active",
+        ):
+            continue
+        sequence = block.get("primaryVisualSequence")
+        if isinstance(sequence, dict) and isinstance(
+            slots := sequence.get("slots"), list
+        ):
+            for slot in slots:
+                if isinstance(slot, dict) and slot.get("kind") == "content":
+                    add(
+                        slot.get("payload"),
+                        {
+                            "kind": "primary_slot",
+                            "sequenceId": sequence.get("id"),
+                            "slotId": slot.get("id"),
+                        },
+                    )
+        overlays = block.get("overlayEvents")
+        for overlay in overlays if isinstance(overlays, list) else []:
+            if isinstance(overlay, dict):
+                add(
+                    overlay.get("payload"),
+                    {
+                        "kind": "overlay_event",
+                        "blockId": block.get("id"),
+                        "overlayEventId": overlay.get("id"),
+                    },
+                )
+    return occurrences
+
+
+def _prepare_research_stills(
+    occurrences: list[tuple[Json, Json]],
+    dependencies: Json,
+    media_paths: Json,
+    media_root: Path,
+    *,
+    tools: MediaTools,
+    research_origin: str,
+    reader: KeptStillReader | None,
+) -> None:
+    """Resolve kept stills before compiler needs and ordinary still preparation."""
+    for payload, owner in occurrences:
+        snapshot = payload.get("researchStill")
+        source = payload.get("source")
+        if (
+            not isinstance(snapshot, Mapping)
+            or not isinstance(source, Mapping)
+            or source.get("kind") != "media_reference"
+            or not isinstance(source.get("mediaReferenceId"), str)
+            or payload.get("pictureKind") != "image"
+        ):
+            raise ResearchStillError(
+                "Research still must use an ordinary image media reference"
+            )
+        payload_id = payload.get("payloadId")
+        media_reference_id = source["mediaReferenceId"]
+        matches = [
+            (index, descriptor)
+            for index, descriptor in enumerate(dependencies["occurrenceResolutions"])
+            if descriptor.get("payloadId") == payload_id
+        ]
+        if len(matches) > 1:
+            raise ResearchStillError(
+                "Research still occurrence has no unique frozen source descriptor"
+            )
+        foreign = [
+            descriptor
+            for descriptor in dependencies["occurrenceResolutions"]
+            if descriptor.get("mediaReferenceId") == media_reference_id
+            and descriptor.get("payloadId") != payload_id
+        ]
+        if foreign:
+            raise ResearchStillError(
+                "Research still media reference is already bound to another occurrence"
+            )
+        if matches:
+            index, descriptor = matches[0]
+            if descriptor.get("owner") != owner:
+                raise ResearchStillError(
+                    "Research still descriptor owner differs from its saved occurrence"
+                )
+        else:
+            index = len(dependencies["occurrenceResolutions"])
+            descriptor = {
+                "payloadId": payload_id,
+                "owner": owner,
+                "mediaReferenceId": media_reference_id,
+            }
+            dependencies["occurrenceResolutions"].append(descriptor)
+        if descriptor.get("mediaReferenceId") != media_reference_id:
+            raise ResearchStillError(
+                "Research still source identity differs from its occurrence descriptor"
+            )
+        materialized = materialize_research_still(
+            snapshot,
+            media_root,
+            reader=reader,
+            research_origin=research_origin,
+        )
+        dependencies["occurrenceResolutions"][index] = bind_research_still_descriptor(
+            descriptor,
+            materialized,
+            tools=tools,
+            frame_rate=dependencies["timeline"]["frameRate"],
+        )
+        media_paths[f"source:{media_reference_id}"] = str(materialized.source_path)
+
+
 def prepare_project(
     script: Path,
     input_root: Path,
@@ -176,6 +304,9 @@ def prepare_project(
     tools: MediaTools | None = None,
     narration_key: str = "default",
     speech_cuts: bool = False,
+    research_origin: str = "http://127.0.0.1:43110",
+    catalog_origin: str = "http://127.0.0.1:43111",
+    research_still_reader: KeptStillReader | None = None,
 ) -> Path:
     """Prepare the active draft; the input script and previous builds stay intact.
 
@@ -206,6 +337,18 @@ def prepare_project(
             raise ValueError("Compiler inputs belong to a different frozen script")
     authored_digest = _compiler_hash(raw_document)
     freeze_quote_box_inputs(raw_document, dependencies)
+
+    def validated_document() -> Json:
+        document, diagnostics = _validate_script(script)
+        if (
+            document != raw_document
+            or raw_document.get("schemaVersion") != "script-document/v2"
+        ):
+            raise ValueError(
+                f"Prep Media requires a valid v2 script: {diagnostics[:500]}"
+            )
+        return raw_document
+
     media_root = _plain(project_root / "Media")
     media_root.mkdir(exist_ok=True)
 
@@ -215,6 +358,19 @@ def prepare_project(
 
     preparations = companion("preparation-paths.json")
     media_paths = companion("media-paths.json")
+    tools = tools or MediaTools()
+    kept_stills = _research_still_occurrences(raw_document)
+    if kept_stills:
+        validated_document()
+        _prepare_research_stills(
+            kept_stills,
+            dependencies,
+            media_paths,
+            media_root,
+            tools=tools,
+            research_origin=catalog_origin,
+            reader=research_still_reader,
+        )
     root = _plain(media_root / "Build Inputs")
     root.mkdir(exist_ok=True)
     key = identity_hash(
@@ -231,18 +387,11 @@ def prepare_project(
     if prior is not None:
         report(f"Reused prepared build inputs; total {monotonic() - started:.2f}s")
         return prior
-    document, diagnostics = _validate_script(script)
-    if (
-        document is None
-        or document != raw_document
-        or document.get("schemaVersion") != "script-document/v2"
-    ):
-        raise ValueError(f"Prep Media requires a valid v2 script: {diagnostics[:500]}")
+    document = raw_document if kept_stills else validated_document()
     _check_narrated_research(document)
     cut_sources: dict[str, Path] = {}
     clip_times: dict[str, tuple[str, str, float]] = {}
     mappings = dependencies["occurrenceResolutions"]
-    tools = tools or MediaTools()
     ready = reused = failed = 0
     # A failed acquisition is reused within a single run, but a later run retries.
     failed_revisions: set[tuple[str, int]] = set()
@@ -512,6 +661,8 @@ def main(argv: list[str] | None = None) -> int:
             narration=narration,
             narration_key=f"{args.voice_profile}:{args.data_policy}",
             speech_cuts=True,
+            research_origin=args.research_origin,
+            catalog_origin=args.catalog_origin,
         )
     except (
         BuildJobError,

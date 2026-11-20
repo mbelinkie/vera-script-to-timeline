@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
+import { projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
 import { researchCandidate } from "../../contracts/test/issue-367-fixture.js";
@@ -69,8 +70,13 @@ interface BrowserVisualTestApi {
   queueVisualCommand(intent: unknown, label: string): Promise<boolean>;
   queueResearchClipInsert(request: { researchProjectId: string; clipId: string; clipVersion: number;
     placement: unknown }): Promise<boolean>;
+  queueResearchStillInsert(request: { researchProjectId: string; itemId: string; itemVersion: number;
+    placement: unknown }): Promise<boolean>;
   researchCatalogGet(researchProjectId?: string, clipId?: string): Promise<unknown>;
-  projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }> } | null;
+  researchStillCatalogGet(researchProjectId: string, offset?: number): Promise<unknown>;
+  projectedPrimaryRow(rowId: string): { brackets: Array<{ endTokenIndexExclusive: number }>; cards?: Array<{
+    kind: string; startTokenIndex?: number; endTokenIndexExclusive?: number; slotId?: string;
+  }> } | null;
   renderEditor(): void;
   invalidateProjection(): void;
 }
@@ -85,7 +91,7 @@ declare global {
 async function exposeVisualTestApi(page: Page): Promise<void> {
   await page.route("**/app.js", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, researchCatalogGet, projectedPrimaryRow, renderEditor, invalidateProjection };` });
+    await route.fulfill({ response, body: `${await response.text()}\nwindow.__veraVisualTest = { queueVisualCommand, queueResearchClipInsert, queueResearchStillInsert, researchCatalogGet, researchStillCatalogGet, projectedPrimaryRow, renderEditor, invalidateProjection };` });
   });
 }
 
@@ -504,6 +510,22 @@ async function setSlider(page: Page, selector: string, value: number): Promise<v
 
 describe("browser authoring over the local project service", () => {
   const loggedClip = researchCandidate();
+  const browserStillBytes = Buffer.from("UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAAcQBSxg/wMR0f8A", "base64");
+  const browserStillHash = createHash("sha256").update(browserStillBytes).digest("hex");
+  const loggedStill = {
+    researchProjectId: loggedClip.projectId,
+    itemId: randomUUID(), itemVersion: 3, sourceId: randomUUID(),
+    title: "Saved browser still", credit: "Synthetic still credit",
+    licence: "Synthetic permission", usageNote: "Synthetic retained fixture",
+    provenance: {
+      kind: "url" as const, sourceUrl: "https://offline.example.invalid/still.webp",
+      pageUrl: "https://offline.example.invalid/article", inputSha256: browserStillHash,
+    },
+    original: {
+      versionId: "browser-still-original-v3", sha256: browserStillHash,
+      byteCount: browserStillBytes.length, mimeType: "image/webp" as const, width: 1, height: 1,
+    },
+  };
   let researchVisible = true;
   let directory: string;
   let databaseDirectory: string;
@@ -529,6 +551,27 @@ describe("browser authoring over the local project service", () => {
             return Promise.reject(new Error("The Research clip is no longer accessible."));
           }
           return Promise.resolve(structuredClone(loggedClip));
+        },
+        stills: (projectId) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
+            return Promise.reject(new Error("The Research still project is no longer accessible."));
+          }
+          return Promise.resolve({ stills: [{ itemId: loggedStill.itemId, itemVersion: loggedStill.itemVersion,
+            title: loggedStill.title, credit: loggedStill.credit }], nextOffset: null });
+        },
+        still: (projectId, itemId, itemVersion) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase() ||
+              itemId.toLowerCase() !== loggedStill.itemId.toLowerCase() || itemVersion !== loggedStill.itemVersion) {
+            return Promise.reject(new Error("The Research still is no longer accessible."));
+          }
+          return Promise.resolve(structuredClone(loggedStill));
+        },
+        stillThumbnail: (projectId, itemId, itemVersion) => {
+          if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase() ||
+              itemId.toLowerCase() !== loggedStill.itemId.toLowerCase() || itemVersion !== loggedStill.itemVersion) {
+            return Promise.reject(new Error("The Research still thumbnail is no longer accessible."));
+          }
+          return Promise.resolve({ mimeType: "image/webp", bytes: new Uint8Array(browserStillBytes) });
         },
       },
     });
@@ -996,6 +1039,86 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
       .toEqual((seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId) as
         Extract<ScriptDocumentV2["activeDraft"]["blocks"][number], { type: "narration" }>).primaryVisualSequence);
+    await page.close();
+  }, 90_000);
+
+  it("picks a kept Research still for selected words, fetches its thumbnail, and saves one adjustable image", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const projectId = await createProject(page, origin, "Research still picker browser proof");
+    const seeded = editableDocumentFixture(projectId, "alpha beta gamma delta");
+    await saveDocumentFixture(page, projectId, seeded.document);
+    let thumbnailRequests = 0;
+    let thumbnailSession = "";
+    page.on("request", (request) => {
+      if (request.url().includes(`/stills/${loggedStill.itemId}/thumbnail?version=${loggedStill.itemVersion}`)) {
+        thumbnailRequests += 1;
+        thumbnailSession = request.headers()["x-vera-session"] ?? "";
+      }
+    });
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Saved Research still…" }).click();
+    await expect.poll(() => page.getByRole("heading", { name: "Choose saved Research still" }).isVisible()).toBe(true);
+    await expect.poll(() => page.locator("[data-research-still-project]").inputValue())
+      .toBe(loggedStill.researchProjectId);
+    await expect.poll(() => page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).isVisible()).toBe(true);
+    await expect.poll(() => page.locator(".research-still-item img").count()).toBe(1);
+    expect(await page.locator(".research-still-item img").getAttribute("src")).toMatch(/^blob:/u);
+    expect(thumbnailRequests).toBeGreaterThan(0);
+    expect(thumbnailSession).toHaveLength(64);
+
+    await page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).click();
+    await expect.poll(() => page.locator("#undo-history li").allTextContents())
+      .toEqual(["Add still"]);
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      const payload = row?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+      return payload?.kind === "content" ? payload.payload : null;
+    }).toMatchObject({
+      pictureKind: "image", source: { kind: "media_reference" }, sourceUsage: null, audioPolicy: "mute",
+      researchStill: loggedStill,
+    });
+    const placed = await narrationRowFromApi(page, projectId, seeded.rowId);
+    if (!placed?.primaryVisualSequence) throw new Error("missing placed still sequence");
+    const placedSlot = placed.primaryVisualSequence.slots.find((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    if (placedSlot?.kind !== "content") throw new Error("missing placed still slot");
+    expect(placedSlot.boundaryBefore).toEqual({ kind: "row_start" });
+    const saved = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    const range = projectPrimarySequenceV2((saved.body as SavedDocument).document).rows
+      .find((row) => row.blockId === seeded.rowId)?.brackets.find((bracket) => bracket.slotId === placedSlot.id);
+    expect(range).toMatchObject({ startTokenIndex: 0, endTokenIndexExclusive: 1 });
+    await page.getByRole("button", { name: "Undo Add still" }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
+      .toEqual(seeded.document.activeDraft.blocks.find((row) => row.type === "narration" &&
+        row.id === seeded.rowId && "primaryVisualSequence" in row && row.primaryVisualSequence)?.primaryVisualSequence);
+
+    await selectText(editor, 0, 5);
+    await page.getByRole("button", { name: "Add visual" }).click();
+    await page.getByRole("menuitem", { name: "Saved Research still…" }).click();
+    await page.getByRole("button", { name: `Choose saved Research still: ${loggedStill.title}` }).click();
+    await expect.poll(async () => {
+      const row = await narrationRowFromApi(page, projectId, seeded.rowId);
+      return row?.primaryVisualSequence?.slots.some((slot) => slot.kind === "content" &&
+        slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    }).toBe(true);
+    const savedBeforeReload = await narrationRowFromApi(page, projectId, seeded.rowId);
+
+    await page.reload();
+    const card = page.getByLabel(`Still image: ${loggedStill.title}`);
+    await expect.poll(() => card.isVisible()).toBe(true);
+    expect(await card.locator(".visual-card__source-state").textContent()).toContain(loggedStill.credit);
+    expect(await card.locator(".visual-card__source-state").textContent()).toContain(loggedStill.provenance.kind);
+    const reopened = await narrationRowFromApi(page, projectId, seeded.rowId);
+    const reopenedSlot = reopened?.primaryVisualSequence?.slots.find((slot) => slot.kind === "content" &&
+      slot.payload.kind === "visual" && slot.payload.researchStill?.itemId === loggedStill.itemId);
+    expect(reopenedSlot).toBeDefined();
+    expect(reopened?.primaryVisualSequence).toEqual(savedBeforeReload?.primaryVisualSequence);
     await page.close();
   }, 90_000);
 
