@@ -3,11 +3,13 @@
  * The bearer is deliberately confined to loopback HTTP requests and is never
  * included in errors or returned values.
  */
+import { createHash } from "node:crypto";
 import {
   snapshotResearchCandidateV2,
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
 import { readResearchLibraryItem, readResearchLibrarySource } from "./research-library-records.js";
+import { readKeptStillManifest, readStillItem, type ResearchStillChoice } from "./research-still-records.js";
 
 export interface ResearchProject {
   id: string;
@@ -17,6 +19,11 @@ export interface ResearchProject {
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const DEFAULT_ORIGIN = "http://127.0.0.1:43111";
+const STILL_PAGE_SIZE = 12;
+
+export class ResearchReadError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
 
 export function isResearchId(value: string): boolean {
   return UUID.test(value);
@@ -76,14 +83,14 @@ export function createResearchClient(options: {
   }
   const request = options.request ?? fetch;
 
-  async function requestJson(path: string, update?: { expectedVersion: number; content: object }): Promise<unknown> {
+  async function send(path: string, accept: string, update?: { expectedVersion: number; content: object }): Promise<Response> {
     let response: Response;
     try {
       response = await request(new URL(path, origin), {
         method: update ? "PATCH" : "GET",
         redirect: "manual",
         headers: {
-          Accept: "application/json", Authorization: `Bearer ${bearer}`,
+          Accept: accept, Authorization: `Bearer ${bearer}`,
           ...(update ? { "Content-Type": "application/json" } : {}),
         },
         ...(update ? { body: JSON.stringify(update) } : {}),
@@ -99,10 +106,10 @@ export function createResearchClient(options: {
         : "Research redirected the read-only request; no redirect was followed.");
     }
     if (response.status === 401 || response.status === 403) {
-      throw new Error("Research refused the credential or project access.");
+      throw new ResearchReadError(response.status, "Research refused the credential or project access.");
     }
     if (response.status === 404) {
-      throw new Error(path.includes("/clips") ? "Research project or clip was not found."
+      throw new ResearchReadError(404, path.includes("/clips") ? "Research project or clip was not found."
         : "Research project or record was not found.");
     }
     if (update && response.status === 409) {
@@ -112,6 +119,11 @@ export function createResearchClient(options: {
       throw new Error(update ? "Research could not confirm the quote edit. Reload the quote to check its current citation."
         : "Research could not complete this read-only request.");
     }
+    return response;
+  }
+
+  async function requestJson(path: string, update?: { expectedVersion: number; content: object }): Promise<unknown> {
+    const response = await send(path, "application/json", update);
     try {
       return await response.json() as unknown;
     } catch {
@@ -120,6 +132,15 @@ export function createResearchClient(options: {
   }
 
   const get = (path: string) => requestJson(path);
+
+  const manifest = async (projectId: string, itemId: string) =>
+    readKeptStillManifest(await get(`${libraryPath(projectId, "stills", itemId)}/assets`));
+
+  async function keptStill(projectId: string, itemId: string, version: number) {
+    const item = readStillItem(await get(libraryPath(projectId, "items", itemId)), projectId, itemId);
+    if (item.itemVersion !== version) throw new ResearchReadError(409, "The saved still has changed.");
+    return { item, kept: await manifest(projectId, itemId) };
+  }
 
   function validatedCandidate(input: unknown): ResearchLoggedCandidateInputV2 {
     try {
@@ -200,10 +221,64 @@ export function createResearchClient(options: {
       }
       return clip;
     },
+
+    async stills(projectId: string, offset: number): Promise<{ stills: ResearchStillChoice[]; nextOffset: number | null }> {
+      if (!UUID.test(projectId) || !Number.isSafeInteger(offset) || offset < 0 || offset > 100_000) {
+        throw new Error("Invalid Research still page.");
+      }
+      const items = await get(`/api/projects/${projectId}/items?kind=still&limit=${STILL_PAGE_SIZE + 1}&offset=${offset}`);
+      if (!Array.isArray(items) || items.length > STILL_PAGE_SIZE + 1) throw new Error("Invalid Research still page.");
+      const choices = await Promise.all(items.slice(0, STILL_PAGE_SIZE).map(async (entry: unknown) => {
+        const item = readStillItem(entry, projectId);
+        try {
+          await manifest(projectId, item.itemId);
+          const { itemId, itemVersion, title, credit } = item;
+          return { itemId, itemVersion, title, ...(credit === undefined ? {} : { credit }) };
+        } catch (error) {
+          if (error instanceof ResearchReadError && error.status === 404) return null;
+          throw error;
+        }
+      }));
+      const more = offset + STILL_PAGE_SIZE;
+      return { stills: choices.filter((choice) => choice !== null),
+        nextOffset: items.length > STILL_PAGE_SIZE && more <= 100_000 ? more : null };
+    },
+
+    async still(projectId: string, itemId: string, version: number) {
+      const { item, kept } = await keptStill(projectId, itemId, version);
+      return { ...item, original: kept.original, provenance: kept.provenance };
+    },
+
+    async stillThumbnail(projectId: string, itemId: string, version: number) {
+      const { kept: { thumbnail } } = await keptStill(projectId, itemId, version);
+      const response = await send(`${libraryPath(projectId, "stills", itemId)}/assets/thumbnail`, thumbnail.mimeType);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Research returned an empty thumbnail.");
+      const bytes = new Uint8Array(thumbnail.byteCount);
+      let offset = 0;
+      try {
+        const length = response.headers.get("content-length");
+        if (response.status !== 200 || response.headers.get("content-type") !== thumbnail.mimeType ||
+            (length !== null && length !== String(thumbnail.byteCount))) throw new Error("Invalid Research thumbnail headers.");
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (offset + value.length > bytes.length) throw new Error("Research thumbnail exceeds its kept size.");
+          bytes.set(value, offset);
+          offset += value.length;
+        }
+      } finally {
+        await reader.cancel().catch(() => undefined);
+      }
+      if (offset !== bytes.length || createHash("sha256").update(bytes).digest("hex") !== thumbnail.sha256) {
+        throw new Error("Research thumbnail does not match the kept copy.");
+      }
+      return { bytes, mimeType: thumbnail.mimeType };
+    },
   };
 }
 
-function libraryPath(projectId: string, kind: "items" | "sources", recordId: string): string {
+function libraryPath(projectId: string, kind: "items" | "sources" | "stills", recordId: string): string {
   if (!UUID.test(projectId) || !UUID.test(recordId)) {
     throw new Error("Research project and record IDs must be UUIDs.");
   }

@@ -325,6 +325,33 @@ class OpaqueRowReferenceV2(TypedDict):
     anchor: dict[str, Any]
 
 
+class ResearchStillAssetV2(TypedDict):
+    versionId: str
+    sha256: str
+    byteCount: PositiveSafeInteger
+    mimeType: Literal["image/jpeg", "image/png", "image/webp"]
+    width: PositiveSafeInteger
+    height: PositiveSafeInteger
+
+
+class Crop(TypedDict):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class ResearchStillProvenanceV2(TypedDict):
+    kind: Literal["url", "file", "page_picture", "still_crop"]
+    sourceUrl: NotRequired[str]
+    resolvedUrl: NotRequired[str]
+    pageUrl: NotRequired[str]
+    altText: NotRequired[str]
+    parentItemId: NotRequired[EntityId]
+    crop: NotRequired[Crop]
+    inputSha256: str
+
+
 class Video(TypedDict):
     youtubeVideoId: str
     canonicalUrl: str
@@ -434,60 +461,11 @@ type SourceReference = (
 )
 
 
-class NarratedVisualPayloadV2(TypedDict):
-    kind: Literal["visual"]
-    payloadId: EntityId
-    displayName: NotRequired[str]
-    pictureKind: Literal[
-        "unresolved_visual",
-        "clip",
-        "image",
-        "capture",
-        "graphic",
-        "intentional_placeholder",
-    ]
-    source: SourceReference
-    sourceUsage: SourceUsage | None
-    audioPolicy: Literal["mute", "quiet"]
-    framingPolicy: NotRequired[Literal["contain", "cover", "native"]]
-    imageMotion: NotRequired[ImageMotionV1]
-    researchClip: NotRequired[ResearchClipSnapshotV2]
-    frameBinding: NotRequired[ResearchFrameBindingV2]
-    selectedSourceRange: NotRequired[SelectedSourceRange]
-
-
-type PrimaryVisualPayload = (
-    PrimaryVisualPayload1 | NarratedVisualPayloadV2 | PrimaryVisualPayload2
-)
-
-
-class ContentSlot(TypedDict):
-    id: EntityId
-    kind: Literal["content"]
-    relation: SlotRelation
-    boundaryBefore: BoundaryBefore
-    payload: PrimaryVisualPayload
-    playoutPolicy: Literal["match_structural_interval", "complete_logged_clip"]
-    version: EntityVersion
-
-
-class UnattachedVisualV2(TypedDict):
-    slotId: EntityId
-    payload: NarratedVisualPayloadV2
-    version: EntityVersion
-
-
 class ReturnSlot(TypedDict):
     id: EntityId
     kind: Literal["return"]
     parentSlotId: EntityId
     inpoint: WordInpointAnchor | WordAudibleEndAnchor | None
-    version: EntityVersion
-
-
-class PrimaryVisualSequence(TypedDict):
-    id: EntityId
-    slots: list[ContentSlot | ReturnSlot]
     version: EntityVersion
 
 
@@ -564,14 +542,6 @@ class SupportingItemV2(TypedDict):
     displayAttachment: NotRequired[DisplayAttachment]
 
 
-class OverlayEventV2(TypedDict):
-    id: EntityId
-    payload: NarratedVisualPayloadV2
-    timing: TimedPlacement
-    quoteBox: NotRequired[QuoteBoxV2]
-    version: EntityVersion
-
-
 class StandaloneVisualPayloadV2(TypedDict):
     kind: Literal["visual"]
     payloadId: EntityId
@@ -624,8 +594,79 @@ class MusicCueTimingV2(TypedDict):
     timelineOut: NotRequired[MusicTimelinePointV2]
 
 
+class ResearchStillSnapshotV2(TypedDict):
+    researchProjectId: EntityId
+    itemId: EntityId
+    itemVersion: PositiveSafeInteger
+    sourceId: EntityId
+    title: str
+    credit: NotRequired[str]
+    licence: NotRequired[str]
+    usageNote: NotRequired[str]
+    provenance: ResearchStillProvenanceV2
+    original: ResearchStillAssetV2
+
+
 class ScriptSettings(TypedDict):
     presenterStillOverride: NotRequired[PresenterStillReference]
+
+
+class NarratedVisualPayloadV2(TypedDict):
+    kind: Literal["visual"]
+    payloadId: EntityId
+    displayName: NotRequired[str]
+    pictureKind: Literal[
+        "unresolved_visual",
+        "clip",
+        "image",
+        "capture",
+        "graphic",
+        "intentional_placeholder",
+    ]
+    source: SourceReference
+    sourceUsage: SourceUsage | None
+    audioPolicy: Literal["mute", "quiet"]
+    framingPolicy: NotRequired[Literal["contain", "cover", "native"]]
+    imageMotion: NotRequired[ImageMotionV1]
+    researchClip: NotRequired[ResearchClipSnapshotV2]
+    researchStill: NotRequired[ResearchStillSnapshotV2]
+    frameBinding: NotRequired[ResearchFrameBindingV2]
+    selectedSourceRange: NotRequired[SelectedSourceRange]
+
+
+type PrimaryVisualPayload = (
+    PrimaryVisualPayload1 | NarratedVisualPayloadV2 | PrimaryVisualPayload2
+)
+
+
+class ContentSlot(TypedDict):
+    id: EntityId
+    kind: Literal["content"]
+    relation: SlotRelation
+    boundaryBefore: BoundaryBefore
+    payload: PrimaryVisualPayload
+    playoutPolicy: Literal["match_structural_interval", "complete_logged_clip"]
+    version: EntityVersion
+
+
+class UnattachedVisualV2(TypedDict):
+    slotId: EntityId
+    payload: NarratedVisualPayloadV2
+    version: EntityVersion
+
+
+class PrimaryVisualSequence(TypedDict):
+    id: EntityId
+    slots: list[ContentSlot | ReturnSlot]
+    version: EntityVersion
+
+
+class OverlayEventV2(TypedDict):
+    id: EntityId
+    payload: NarratedVisualPayloadV2
+    timing: TimedPlacement
+    quoteBox: NotRequired[QuoteBoxV2]
+    version: EntityVersion
 
 
 class DirectionBlock(TypedDict):

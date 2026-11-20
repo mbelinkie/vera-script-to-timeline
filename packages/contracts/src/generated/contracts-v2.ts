@@ -81,6 +81,7 @@ export type NarratedVisualPayloadV2 = {
         easing: "linear" | "ease_in" | "ease_out" | "ease_in_out";
       };
   researchClip?: ResearchClipSnapshotV2;
+  researchStill?: ResearchStillSnapshotV2;
   frameBinding?: ResearchFrameBindingV2;
   selectedSourceRange?: {
     startFrame: number;
@@ -987,6 +988,44 @@ export interface ResearchClipSnapshotV2 {
   originalText?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+/**
+ * Immutable Research kept-still identity and original asset pin for this image occurrence. Display and thumbnail assets are acquired later and are never persisted here.
+ */
+export interface ResearchStillSnapshotV2 {
+  researchProjectId: string;
+  itemId: string;
+  itemVersion: number;
+  sourceId: string;
+  title: string;
+  credit?: string;
+  licence?: string;
+  usageNote?: string;
+  provenance: ResearchStillProvenanceV2;
+  original: ResearchStillAssetV2;
+}
+export interface ResearchStillProvenanceV2 {
+  kind: "url" | "file" | "page_picture" | "still_crop";
+  sourceUrl?: string;
+  resolvedUrl?: string;
+  pageUrl?: string;
+  altText?: string;
+  parentItemId?: string;
+  crop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  inputSha256: string;
+}
+export interface ResearchStillAssetV2 {
+  versionId: string;
+  sha256: string;
+  byteCount: number;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+  width: number;
+  height: number;
 }
 export interface ResearchFrameBindingV2 {
   clipId: string;

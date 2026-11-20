@@ -30,6 +30,9 @@ function setPlacements(row: VisualOnlyBlockV2, placements: WordlessPlacementV2[]
 
 /** No unrepresented clip out-point, audio policy or source metadata may be dropped. */
 export function toWordlessPlacementV2(payload: NarratedVisualPayloadV2): Converted<WordlessPlacementV2> {
+  if (payload.researchStill) {
+    return problem("WORDLESS_RESEARCH_STILL_UNSUPPORTED", "Keep this saved Research still on narration words; wordless rows cannot represent it without losing its kept-copy provenance.");
+  }
   const { selectedSourceRange, sourceUsage, researchClip, frameBinding, ...standalone } = payload;
   if (payload.pictureKind === "clip") {
     if (!selectedSourceRange || !sourceUsage ||
