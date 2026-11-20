@@ -83,6 +83,19 @@
         </div>
         <p data-footage-status role="status" aria-live="polite"></p>
         <div data-footage-results class="footage-panel__results" aria-label="Logged clips"></div>
+        <section data-footage-preview class="footage-panel__preview" aria-label="Saved footage preview" hidden>
+          <div class="footage-panel__preview-heading">
+            <h3 data-footage-preview-title></h3>
+            <button type="button" data-footage-preview-close aria-label="Close preview">Close preview</button>
+          </div>
+          <p data-footage-preview-range class="footage-panel__hint"></p>
+          <div data-footage-player-mount class="footage-panel__player-mount"></div>
+          <p data-footage-player-status class="footage-panel__hint" role="status" aria-live="polite"></p>
+          <div class="footage-panel__player-controls">
+            <button type="button" data-footage-play>Play saved range</button>
+            <button type="button" data-footage-replay hidden>Replay from start</button>
+          </div>
+        </section>
         <div data-footage-placement class="footage-panel__placement" hidden>
           <h3 data-footage-selected>Place footage</h3>
           <label><input data-footage-gap-choice type="radio" name="footage-destination" checked> Place in script gap</label>
@@ -94,7 +107,7 @@
             <button type="button" data-footage-cancel>Cancel choice</button>
           </div>
         </div>
-        <p class="footage-panel__hint">Drag a clip to a narration row or a + Add row gap. Footage without authorized media is not playable yet.</p>
+        <p class="footage-panel__hint">Preview uses the clip's saved export range. Drag a clip to a narration row or a + Add row gap.</p>
       </aside>
 
       <main class="script-stage">
