@@ -51,6 +51,10 @@ function visualLabel(payload, researchClip) {
   if (researchClip && researchClip.video && typeof researchClip.video.title === "string") {
     return researchClip.video.title;
   }
+  if (payload?.researchStill && typeof payload.researchStill.title === "string" &&
+      payload.researchStill.title.trim()) {
+    return payload.researchStill.title.trim();
+  }
   if (payload && typeof payload.title === "string" && payload.title.trim()) return payload.title.trim();
 
   const kind = visualKinds[visualKind(payload)];
@@ -144,6 +148,16 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
   if (researchClip && !payload?.frameBinding) {
     meta.append(makeElement(document, "span", "visual-card__source-state", "Research · Playback unavailable"));
+  }
+  const researchStill = payload?.researchStill;
+  if (researchStill && typeof researchStill === "object") {
+    const credit = typeof researchStill.credit === "string" ? researchStill.credit.trim() : "";
+    const provenance = researchStill.provenance && typeof researchStill.provenance === "object"
+      ? (typeof researchStill.provenance.kind === "string" ? researchStill.provenance.kind : "") :
+      typeof researchStill.provenance === "string" ? researchStill.provenance.trim() : "";
+    const details = [credit, provenance].filter(Boolean).join(" · ");
+    meta.append(makeElement(document, "span", "visual-card__source-state",
+      details ? `Saved Research · ${details}` : "Saved Research"));
   }
   if (isOnCamera && slotId && visualCommand) {
     meta.append(onCameraControls(document, blockId, slotId, framing, visualCommand));

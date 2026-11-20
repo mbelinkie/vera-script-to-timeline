@@ -267,12 +267,22 @@ afterEach(async () => {
 const TIMELINE_PROJECT = researchId(900080);
 const RESEARCH_PROJECT = researchId(710002);
 const RESEARCH_CLIP = researchId(710001);
+const RESEARCH_STILL = researchId(710003);
+const LEGACY_STILL = researchId(710004);
+const RESEARCH_STILL_SOURCE = researchId(710005);
+// A tiny generated WebP thumbnail. No source page is part of the kept API.
+const thumbnailBytes = Buffer.from("UklGRhwAAABXRUJQVlA4TBAAAAAvAAAAAAcQBSxg/wMR0f8A", "base64");
+const keptStillAsset = { versionId: "immutable-kept-still", sha256: createHash("sha256").update(thumbnailBytes).digest("hex"),
+  byteCount: thumbnailBytes.length, mimeType: "image/webp", width: 1, height: 1 };
+const stillProvenance = { kind: "url", sourceUrl: "https://offline.example.invalid/still.webp",
+  pageUrl: "https://offline.example.invalid/article", inputSha256: keptStillAsset.sha256 };
 const RESEARCH_SECRET = "private-research-test-bearer-never-send";
 
 function fakeResearchCatalog() {
   const calls: Array<{ pathname: string; method: string | undefined;
     redirect: RequestRedirect | undefined; bearer: string | undefined }> = [];
-  const state = { visible: true, failStatus: 0, offline: false };
+  const state = { visible: true, failStatus: 0, offline: false, stillVersion: 3,
+    stillProject: RESEARCH_PROJECT, missingStill: false, corruptThumbnail: false, oversizedStill: false };
   const request: typeof fetch = (input, init) => {
     const pathname = new URL(input instanceof Request ? input.url : String(input)).pathname;
     const bearer = (init?.headers as Record<string, string> | undefined)?.Authorization;
@@ -286,6 +296,27 @@ function fakeResearchCatalog() {
     if (pathname === "/api/projects") return Promise.resolve(Response.json(state.visible ? [
       { id: RESEARCH_PROJECT, name: "Field research", hiddenBearer: RESEARCH_SECRET },
     ] : []));
+    const project = `/api/projects/${RESEARCH_PROJECT}`;
+    const still = { kind: "still", id: RESEARCH_STILL, projectId: state.stillProject,
+      sourceId: RESEARCH_STILL_SOURCE, version: state.stillVersion, content: { title: "Saved photo",
+        credit: "Test photographer", licence: "Test permission", hiddenBearer: RESEARCH_SECRET } };
+    if (pathname === `${project}/items`) return Promise.resolve(Response.json([
+      still, { ...still, id: LEGACY_STILL },
+    ]));
+    if (pathname === `${project}/items/${RESEARCH_STILL}`) return Promise.resolve(Response.json(still));
+    if (pathname === `${project}/stills/${LEGACY_STILL}/assets` ||
+        (state.missingStill && pathname === `${project}/stills/${RESEARCH_STILL}/assets`)) {
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }
+    if (pathname === `${project}/stills/${RESEARCH_STILL}/assets`) return Promise.resolve(Response.json({
+      assets: { thumbnail: keptStillAsset, display: keptStillAsset,
+        original: state.oversizedStill ? { ...keptStillAsset, width: 6000, height: 4000 } : keptStillAsset },
+      provenance: { ...stillProvenance, hiddenBearer: RESEARCH_SECRET },
+    }));
+    if (pathname === `${project}/stills/${RESEARCH_STILL}/assets/thumbnail`) return Promise.resolve(new Response(
+      state.corruptThumbnail ? Buffer.alloc(thumbnailBytes.length) : thumbnailBytes,
+      { headers: { "Content-Type": "image/webp", "Content-Length": String(thumbnailBytes.length) } },
+    ));
     const candidate = researchCandidate();
     const clip = { ...candidate, hiddenBearer: RESEARCH_SECRET,
       video: { ...candidate.video, hiddenBearer: RESEARCH_SECRET },
@@ -495,6 +526,94 @@ describe("same-origin, independently authorized Research catalog", () => {
     active = false;
     expect((await get()).status).toBe(403);
     expect(fake.calls).toHaveLength(1);
+  });
+});
+
+describe("protected kept Research stills", () => {
+  const base = `research/${TIMELINE_PROJECT}/projects/${RESEARCH_PROJECT}/stills`;
+  const preview = `${base}/${RESEARCH_STILL}/thumbnail?version=3`;
+
+  function requestFixture() {
+    const document = researchStashFixture(false).doc;
+    const row = researchNote(880100);
+    delete row.plainDirection;
+    row.tokens.forEach((token) => { token.spoken = true; });
+    document.projectId = TIMELINE_PROJECT;
+    document.activeDraft.blocks = [row];
+    return { timelineProjectId: TIMELINE_PROJECT, document, researchProjectId: RESEARCH_PROJECT,
+      itemId: RESEARCH_STILL, itemVersion: 3, expectedDocumentRevision: document.rowEditRevision ?? 0,
+      placement: { kind: "selected_words", rowId: row.id, expectedRowVersion: row.version,
+        expectedSequenceVersion: row.primaryVisualSequence!.version,
+        startTokenId: row.tokens[0]!.id, endTokenId: row.tokens[0]!.id } };
+  }
+
+  it("lists kept stills only, verifies the thumbnail and inserts a normal image with server-owned metadata", async () => {
+    const h = await researchBrowserRequests();
+    const list = await h.read(`${base}?offset=0`);
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ stills: [{ itemId: RESEARCH_STILL, itemVersion: 3,
+      title: "Saved photo", credit: "Test photographer" }], nextOffset: null });
+    const thumbnail = await h.read(preview);
+    expect(thumbnail.headers.get("Content-Type")).toBe("image/webp");
+    expect(thumbnail.headers.get("Cache-Control")).toBe("no-store");
+    expect(Buffer.from(await thumbnail.arrayBuffer())).toEqual(thumbnailBytes);
+    const body = requestFixture();
+    const inserted = await h.read("research-still-insert", { method: "POST", body });
+    expect(inserted.status).toBe(200);
+    const result = await inserted.json() as CommandResult;
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(validateScriptDocumentV2(result.document).valid).toBe(true);
+    const row = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    const stillSlot = row.primaryVisualSequence?.slots.find((slot) =>
+      slot.kind === "content" && slot.payload.kind === "visual" && slot.payload.pictureKind === "image");
+    expect(stillSlot?.kind === "content" ? stillSlot.payload : null).toMatchObject({
+      pictureKind: "image", sourceUsage: null, audioPolicy: "mute",
+      researchStill: { researchProjectId: RESEARCH_PROJECT, itemId: RESEARCH_STILL, itemVersion: 3,
+        sourceId: RESEARCH_STILL_SOURCE, title: "Saved photo", credit: "Test photographer",
+        licence: "Test permission", provenance: stillProvenance, original: keptStillAsset },
+    });
+    expect(result.document.rowEditRevision).toBe(body.expectedDocumentRevision + 1);
+    expect(JSON.stringify(result)).not.toContain(RESEARCH_SECRET);
+    expect(h.authorizeTimelineProject).toHaveBeenLastCalledWith(TIMELINE_PROJECT, "edit_document");
+    expect(h.fake.calls.every(({ method, bearer, redirect }) => method === "GET" &&
+      bearer === `Bearer ${RESEARCH_SECRET}` && redirect === "manual")).toBe(true);
+  });
+
+  it("rechecks both memberships and the exact item, and refuses unavailable or corrupt kept data", async () => {
+    const h = await researchBrowserRequests();
+    const body = requestFixture();
+    const insert = (request: unknown = body) => h.read("research-still-insert", { method: "POST", body: request });
+    expect((await h.browser(preview)).status).toBe(401);
+    expect((await h.read(preview, { site: "cross-site" })).status).toBe(403);
+    expect((await h.read(`${preview}&version=3`)).status).toBe(404);
+    expect((await insert({ ...body, original: keptStillAsset })).status).toBe(400);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await h.read(preview)).status).toBe(403);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await insert()).status).toBe(403);
+    expect(h.fake.calls).toHaveLength(0);
+
+    h.fake.state.visible = false;
+    expect((await h.read(preview)).status).toBe(403);
+    expect((await insert()).status).toBe(403);
+    expect(h.fake.calls.map(({ pathname }) => pathname)).toEqual(["/api/projects", "/api/projects"]);
+    h.fake.state.visible = true;
+    h.fake.state.stillVersion = 4;
+    expect((await h.read(preview)).status).toBe(409);
+    expect((await insert()).status).toBe(409);
+    h.fake.state.stillVersion = 3;
+    h.fake.state.stillProject = researchId(900081);
+    expect((await insert()).status).toBe(503);
+    h.fake.state.stillProject = RESEARCH_PROJECT;
+    h.fake.state.missingStill = true;
+    expect((await insert()).status).toBe(404);
+    h.fake.state.missingStill = false;
+    h.fake.state.corruptThumbnail = true;
+    expect((await h.read(preview)).status).toBe(503);
+    h.fake.state.oversizedStill = true;
+    expect(await (await h.read(base)).json()).toEqual({ stills: [], nextOffset: null });
+    expect((await insert()).status).toBe(422);
+    expect(h.projects).not.toHaveBeenCalled();
   });
 });
 
