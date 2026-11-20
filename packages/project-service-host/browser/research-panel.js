@@ -1,4 +1,5 @@
 import { filterLoggedResearchClips } from "./research-search.js";
+import { mountFootagePlayer } from "./footage-player.js";
 
 const make = (doc, tag, className, content) => {
   const node = doc.createElement(tag);
@@ -78,6 +79,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   const rows = root.querySelector("[data-footage-rows]");
   const place = root.querySelector("[data-footage-place]");
   const cancel = root.querySelector("[data-footage-cancel]");
+  const player = mountFootagePlayer(root.querySelector("[data-footage-preview]"));
   let visible = false;
   let generation = 0;
   let clips = [];
@@ -89,6 +91,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
 
   const close = () => {
     ++generation;
+    player.hide();
     visible = false;
     clips = [];
     chosen = null;
@@ -111,6 +114,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     row.focus();
   };
   const pickClip = (clip) => {
+    player.show(clip);
     chosen = clip;
     chooser.hidden = false;
     gaps.replaceChildren();
@@ -186,7 +190,18 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
       const usage = usageOf(clip);
       const count = usage?.scriptCount ?? 0;
       const pill = make(doc, "span", "footage-item__usage", count ? `Used ${count}×` : "Unused");
-      card.append(title, transcript, pill);
+      const preview = make(doc, "button", "footage-item__preview", "Preview");
+      preview.type = "button";
+      preview.disabled = committing;
+      preview.setAttribute("aria-label", `Preview footage: ${clip.video.title}`);
+      preview.addEventListener("click", () => {
+        // Inspecting a different source must not leave a stale "Place" choice
+        // pointing at the previously previewed clip.
+        chosen = null;
+        chooser.hidden = true;
+        player.show(clip);
+      });
+      card.append(title, transcript, pill, preview);
       if (count) {
         const navigation = make(doc, "div", "footage-item__links");
         for (const [index, use] of usage.scriptUses.entries()) {
@@ -202,6 +217,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   };
   const loadClips = async () => {
     const request = ++generation;
+    player.hide();
     const projectId = projects.value;
     clips = [];
     status.textContent = "Loading logged footage…";
@@ -220,6 +236,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     }
   };
   const open = async ({ quick = false, placement = null, seed = "", from = openButton } = {}) => {
+    player.hide();
     opener = from;
     mode = quick ? "quick" : "browse";
     selection = quick ? { placement, seed } : null;
@@ -256,7 +273,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     clip.projectId.toLowerCase() === projects.value.toLowerCase()) ?? null;
   openButton.addEventListener("click", () => visible ? close() : void open());
   closeButton.addEventListener("click", close);
-  cancel.addEventListener("click", () => { chosen = null; chooser.hidden = true; search.focus(); });
+  cancel.addEventListener("click", () => { chosen = null; chooser.hidden = true; player.hide(); search.focus(); });
   projects.addEventListener("change", () => { void loadClips(); });
   search.addEventListener("input", render);
   sort.addEventListener("change", render);
@@ -284,7 +301,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      if (!chooser.hidden) { chosen = null; chooser.hidden = true; search.focus(); }
+      if (!chooser.hidden) { chosen = null; chooser.hidden = true; player.hide(); search.focus(); }
       else close();
     }
   });
