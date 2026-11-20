@@ -435,7 +435,7 @@ def _verify_item(snapshot: Mapping[str, Any], item: Mapping[str, Any]) -> None:
         raise ResearchStillError("Research saved still identity or version changed")
     content = item.get("content")
     title = content.get("title") if isinstance(content, Mapping) else None
-    if title is None or isinstance(title, str) and not title.strip():
+    if title is None or (isinstance(title, str) and not title.strip()):
         title = "Saved still"
     if (
         not isinstance(content, Mapping)
