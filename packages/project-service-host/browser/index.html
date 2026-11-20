@@ -97,6 +97,23 @@
         <p class="footage-panel__hint">Drag a clip to a narration row or a + Add row gap. Footage without authorized media is not playable yet.</p>
       </aside>
 
+      <aside id="research-still-panel" class="research-still-panel" role="dialog" aria-modal="false"
+        aria-label="Saved Research still picker" hidden>
+        <div class="research-still-panel__heading">
+          <h2>Choose saved Research still</h2>
+          <button type="button" data-research-still-close aria-label="Close saved Research still picker">Close</button>
+        </div>
+        <label for="research-still-project">Research project</label>
+        <select id="research-still-project" data-research-still-project>
+          <option value="">Choose project…</option>
+        </select>
+        <p data-research-still-status role="status" aria-live="polite" aria-atomic="true"></p>
+        <div data-research-still-results class="research-still-panel__results" role="list"
+          aria-label="Saved Research stills"></div>
+        <button type="button" data-research-still-load-more hidden>Load more saved stills</button>
+        <p class="research-still-panel__hint">Only kept Research stills are shown. Choose one to add it to the selected spoken words.</p>
+      </aside>
+
       <main class="script-stage">
         <div class="save-feedback">
           <p id="save-status" class="save-status" role="status" aria-live="polite" aria-atomic="true"></p>

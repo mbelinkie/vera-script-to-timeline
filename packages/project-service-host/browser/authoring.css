@@ -1043,6 +1043,47 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .footage-panel__placement-buttons { display: flex; gap: 0.5rem; }
 .footage-panel__placement-buttons button { padding: 0.4rem; }
 .footage-panel__hint { margin: 0; color: #67747d; font-size: 0.72rem; }
+
+/* A selected-words-only picker for immutable, already-kept Research stills. */
+.research-still-panel {
+  position: fixed;
+  z-index: 21;
+  top: 5.2rem;
+  right: 0.9rem;
+  bottom: 1rem;
+  width: min(20rem, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  padding: 0.85rem;
+  overflow-y: auto;
+  border: 1px solid #c8d6d9;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.75rem rgb(24 30 38 / 16%);
+}
+.research-still-panel__heading { display: flex; justify-content: space-between; align-items: center; }
+.research-still-panel h2 { margin: 0; font-size: 1rem; }
+.research-still-panel label { color: #354047; font-size: 0.78rem; font-weight: 650; }
+.research-still-panel select { width: 100%; min-width: 0; padding: 0.5rem; border: 1px solid #c9d5db;
+  border-radius: 0.35rem; background: white; color: var(--ink); }
+.research-still-panel [data-research-still-status] { color: #52636c; font-size: 0.8rem; margin: 0; }
+.research-still-panel__results { overflow-y: auto; min-height: 4rem; flex: 1; }
+.research-still-item { margin: 0 0 0.55rem; border: 1px solid #dbe2e5; border-radius: 0.4rem; }
+.research-still-item__choose { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr); gap: 0.6rem;
+  width: 100%; padding: 0.55rem; border: 0; border-radius: 0.4rem; background: transparent;
+  color: var(--ink); text-align: left; cursor: pointer; }
+.research-still-item__choose:hover, .research-still-item__choose:focus-visible { background: #f0f7f8; }
+.research-still-item__thumbnail { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: 0.25rem; background: #e8eff0; color: #496168; font-size: 0.7rem; }
+.research-still-item__thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.research-still-item__copy { display: flex; min-width: 0; flex-direction: column; gap: 0.22rem; justify-content: center; }
+.research-still-item__title { font-weight: 700; overflow-wrap: anywhere; }
+.research-still-item__credit { color: #52636c; font-size: 0.72rem; overflow-wrap: anywhere; }
+.research-still-panel__hint { margin: 0; color: #67747d; font-size: 0.72rem; }
+.research-still-panel [data-research-still-load-more] { padding: 0.4rem; }
+
 /* Normally zero-height row dividers expand into actual hit targets while a
    source clip can be dragged from Footage. A zero-height divider cannot be
    the target of a native drop or accessible keyboard navigation. */
@@ -1064,9 +1105,11 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .script-row--footage-target .visuals-cell { outline: 3px solid #c89b45; outline-offset: -3px; }
 @media (min-width: 1000px) {
   .authoring-view:has(.footage-panel:not([hidden])) .script-stage { margin-right: 22rem; }
+  .authoring-view:has(.research-still-panel:not([hidden])) .script-stage { margin-right: 21rem; }
 }
 @media (max-width: 999px) {
   .footage-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
+  .research-still-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
 }
 
 @media (max-width: 1024px) {

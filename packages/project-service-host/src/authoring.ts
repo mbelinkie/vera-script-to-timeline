@@ -7,10 +7,13 @@ import {
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { prepareSavedPrompter } from "./prompter-authoring.js";
-import type { createResearchClient } from "@vera/contracts/research-clip-client";
+import { ResearchReadError, type createResearchClient } from "@vera/contracts/research-clip-client";
 import {
   insertResearchClipBrowserV2, type ResearchClipBrowserInsertV2,
 } from "@vera/contracts/research-clip-browser-insert";
+import {
+  insertResearchStillBrowserV2, type ResearchStillBrowserInsertV2,
+} from "@vera/contracts/research-still-browser-insert";
 import { ProjectAuthError } from "@vera/project-authorization";
 
 export const DEFAULT_AUTHORING_PORT = "38429";
@@ -20,6 +23,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/authoring.css", ["authoring.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
+  ["/research-still-panel.js", ["research-still-panel.js", "text/javascript; charset=utf-8"]],
   ["/research-search.js", ["research-search.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
@@ -32,6 +36,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
 ]);
 const PROJECT = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(\/document)?$/u;
 const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/clips(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?)?$/iu;
+const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
 const SAVED_DIGEST = /^sha256:[0-9a-f]{64}$/u;
@@ -58,6 +63,14 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+function stillReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
+  if (!thumbnail && params.size === 0) return 0;
+  const raw = params.get(thumbnail ? "version" : "offset");
+  if (params.size !== 1 || raw === null || !/^\d+$/u.test(raw)) return null;
+  const number = Number(raw);
+  return Number.isSafeInteger(number) && (thumbnail ? number > 0 : number <= 100_000) ? number : null;
 }
 
 /** The exported script is confidential, including validation and denial responses. */
@@ -98,6 +111,24 @@ function researchInsertRequest(value: unknown): (ResearchClipBrowserInsertV2 & {
   return value as unknown as ResearchClipBrowserInsertV2 & {
     timelineProjectId: string; document: ScriptDocumentV2;
   };
+}
+
+function stillInsertRequest(value: unknown): (ResearchStillBrowserInsertV2 & {
+  timelineProjectId: string; document: ScriptDocumentV2;
+}) | null {
+  if (!record(value) || !exact(value, ["timelineProjectId", "document", "researchProjectId", "itemId",
+    "itemVersion", "expectedDocumentRevision", "placement"]) || !uuid(value.timelineProjectId) ||
+    !uuid(value.researchProjectId) || !uuid(value.itemId) || !Number.isSafeInteger(value.itemVersion) ||
+    (value.itemVersion as number) < 1 || !Number.isSafeInteger(value.expectedDocumentRevision) ||
+    (value.expectedDocumentRevision as number) < 0 || !validateScriptDocumentV2(value.document).valid ||
+    (value.document as ScriptDocumentV2).projectId?.toLowerCase() !== value.timelineProjectId.toLowerCase() ||
+    !record(value.placement)) return null;
+  const p = value.placement;
+  if (!exact(p, ["kind", "rowId", "expectedRowVersion", "expectedSequenceVersion", "startTokenId", "endTokenId"]) ||
+      p.kind !== "selected_words" || !uuid(p.rowId) || !uuid(p.startTokenId) || !uuid(p.endTokenId) ||
+      !Number.isSafeInteger(p.expectedRowVersion) || (p.expectedRowVersion as number) < 0 ||
+      !Number.isSafeInteger(p.expectedSequenceVersion) || (p.expectedSequenceVersion as number) < 0) return null;
+  return value as unknown as NonNullable<ReturnType<typeof stillInsertRequest>>;
 }
 
 const VISUAL_KINDS = new Set([
@@ -200,8 +231,9 @@ function matchesProof(value: string | null | undefined, expected: Buffer): boole
 }
 
 /** No quote mutation, request transport or bearer crosses this browser-facing seam. */
-export type AuthoringReadOnlyResearchCatalog = Pick<ReturnType<typeof createResearchClient>,
-  "projects" | "clips" | "clip">;
+type ResearchClient = ReturnType<typeof createResearchClient>;
+export type AuthoringReadOnlyResearchCatalog = Pick<ResearchClient, "projects" | "clips" | "clip"> &
+  Partial<Pick<ResearchClient, "stills" | "still" | "stillThumbnail">>;
 
 export interface AuthoringResearchAccess {
   catalog: AuthoringReadOnlyResearchCatalog;
@@ -216,6 +248,17 @@ const RESEARCH_HEADERS = {
 
 function researchResponse(status: number, body: unknown): Response {
   return Response.json(body, { status, headers: RESEARCH_HEADERS });
+}
+
+function researchStillError(error: unknown): Response {
+  if (error instanceof ResearchReadError) {
+    if (error.status === 404) return researchResponse(404, { error: "research_still_unavailable" });
+    if (error.status === 409) return researchResponse(409, { error: "research_still_changed" });
+    if (error.status === 401 || error.status === 403) {
+      return researchResponse(403, { error: "research_project_forbidden" });
+    }
+  }
+  return researchResponse(503, { error: "research_unavailable" });
 }
 
 /** Project-scoped transcript DTO only: upstream extras never reach the browser. */
@@ -280,7 +323,9 @@ export function createAuthoringHandler(
     if (!url.pathname.startsWith("/authoring/")) return undefined;
     const path = url.pathname.slice("/authoring".length);
     const route = PROJECT.exec(path);
-    const researchRoute = RESEARCH.exec(path);
+    const stillRoute = RESEARCH_STILLS.exec(path);
+    const researchRoute = stillRoute ?? RESEARCH.exec(path);
+    const stillNumber = stillRoute ? stillReadNumber(url.searchParams, Boolean(stillRoute[3])) : null;
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const prompterRoute = PROMPTER_EXPORT.exec(path);
     const isPrompterExport = !!prompterRoute && request.method === "POST";
@@ -290,12 +335,14 @@ export function createAuthoringHandler(
     const isVisualPreview = path === "/visual-preview" && request.method === "POST";
     const isProjection = path === "/projection" && request.method === "POST";
     const isResearchInsert = path === RESEARCH_INSERT && request.method === "POST";
+    const isStillInsert = path === "/research-still-insert" && request.method === "POST";
     const allowed = path === "/projects" ? request.method === "POST" :
       (route && (request.method === "GET" || request.method === (route[1] ? "PUT" : "PATCH"))) ||
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isProjection && !isPrompterExport && !isResearchInsert) || url.search) {
+        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert) ||
+        (stillRoute ? stillNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
     }
@@ -390,6 +437,18 @@ export function createAuthoringHandler(
         if (!visible.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
           return researchResponse(403, { error: "research_project_forbidden" });
         }
+        if (stillRoute && stillNumber !== null) {
+          const stillId = stillRoute[3];
+          if (stillId && research.catalog.stillThumbnail) {
+            const { bytes, mimeType } = await research.catalog.stillThumbnail(researchProjectId, stillId, stillNumber);
+            return new Response(Buffer.from(bytes), { headers: { ...RESEARCH_HEADERS, "Content-Type": mimeType,
+              "Cross-Origin-Resource-Policy": "same-origin" } });
+          }
+          if (!stillId && research.catalog.stills) {
+            return researchResponse(200, await research.catalog.stills(researchProjectId, stillNumber));
+          }
+          return researchResponse(503, { error: "research_unavailable" });
+        }
         if (clipId) {
           return researchResponse(200, { clip: publicResearchClip(
             await research.catalog.clip(researchProjectId, clipId),
@@ -397,9 +456,34 @@ export function createAuthoringHandler(
         }
         return researchResponse(200, { clips: (await research.catalog.clips(researchProjectId))
           .map(publicResearchClip) });
-      } catch {
+      } catch (error) {
         // Research's errors and headers can contain user data or credentials.
-        return researchResponse(503, { error: "research_unavailable" });
+        return stillRoute ? researchStillError(error) : researchResponse(503, { error: "research_unavailable" });
+      }
+    }
+    if (isStillInsert) {
+      let body: ReturnType<typeof stillInsertRequest>;
+      try { body = stillInsertRequest(await request.json()); } catch { body = null; }
+      if (!body) return researchResponse(400, { error: "invalid_research_insert" });
+      if (!research?.catalog.still) return researchResponse(503, { error: "research_unavailable" });
+      try {
+        await research.authorizeTimelineProject(body.timelineProjectId, "edit_document");
+      } catch (error) {
+        if (error instanceof ProjectAuthError) return researchResponse(error.status, { error: error.code });
+        return researchResponse(503, { error: "timeline_authorization_unavailable" });
+      }
+      try {
+        const projects = await research.catalog.projects();
+        const { document, researchProjectId, itemId, itemVersion } = body;
+        if (!projects.some(({ id }) => id.toLowerCase() === researchProjectId.toLowerCase())) {
+          return researchResponse(403, { error: "research_project_forbidden" });
+        }
+        const snapshot = await research.catalog.still(researchProjectId, itemId, itemVersion);
+        const result = insertResearchStillBrowserV2(document, snapshot, body);
+        if (result.ok) lastSplit = null;
+        return researchResponse(200, result);
+      } catch (error) {
+        return researchStillError(error);
       }
     }
     if (isResearchInsert) {

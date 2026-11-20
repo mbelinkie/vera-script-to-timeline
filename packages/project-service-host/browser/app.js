@@ -3,6 +3,7 @@ import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor
 import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel } from "./research-panel.js";
+import { mountResearchStillPanel } from "./research-still-panel.js";
 import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
@@ -72,6 +73,7 @@ let prompterGeneration = 0;
 let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
+let researchStillPanel;
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -299,6 +301,7 @@ async function showScript(projectId) {
   activeReselect = null;
   activeAttach = null;
   researchPanel?.close();
+  researchStillPanel?.close();
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -429,6 +432,7 @@ function renderEditor() {
       },
       requestRender: scheduleRender,
       chooseFootage: openFootageForWords,
+      chooseStill: openStillForWords,
     }));
   });
   if (requestedCardFocus) {
@@ -919,10 +923,73 @@ export async function researchCatalogGet(researchProjectId, clipId) {
     signal: AbortSignal.timeout(12_000),
   });
   if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
-  if (!response.ok) throw new Error("Research footage is unavailable or no longer authorized.");
+  if (!response.ok) {
+    const error = new Error("Research footage is unavailable or no longer authorized.");
+    error.status = response.status;
+    throw error;
+  }
   const catalog = await response.json();
   if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the footage list.");
   return catalog;
+}
+
+class ResearchStillApiError extends Error {
+  constructor(status, body) {
+    super("Saved Research still request failed.");
+    this.status = status;
+    this.body = body;
+  }
+}
+
+function researchStillRequestHeaders() {
+  try { sessionProof = localStorage.getItem(sessionKey) ?? sessionProof; } catch { /* Keep the current proof. */ }
+  return { "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof };
+}
+
+async function researchStillRequest(path) {
+  await connecting;
+  const response = await fetch(path, {
+    headers: researchStillRequestHeaders(),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) {
+    throw new ResearchStillApiError(response.status, await response.json().catch(() => null));
+  }
+  return response;
+}
+
+/** The browser never connects to Research's port or receives its bearer. */
+export async function researchStillCatalogGet(researchProjectId, offset = 0) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !Number.isSafeInteger(offset) || offset < 0) {
+    throw new Error("Choose a current script and Research project.");
+  }
+  const path = `/authoring/research/${timelineId}/projects/${researchProjectId}/stills?offset=${offset}`;
+  const response = await researchStillRequest(path);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  const page = await response.json();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  return page;
+}
+
+/** Fetch a kept thumbnail through the same-origin authoring session. */
+export async function researchStillThumbnailGet(researchProjectId, itemId, itemVersion) {
+  const timelineId = activeProjectId;
+  if (!uuid.test(timelineId ?? "") || !uuid.test(researchProjectId ?? "") ||
+      !uuid.test(itemId ?? "") || !Number.isSafeInteger(itemVersion) || itemVersion < 1) {
+    throw new Error("Choose a current script and saved Research still.");
+  }
+  const query = new URLSearchParams({ version: String(itemVersion) });
+  const response = await researchStillRequest(
+    `/authoring/research/${timelineId}/projects/${researchProjectId}/stills/${itemId}/thumbnail?${query}`);
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  const bytes = await response.arrayBuffer();
+  if (timelineId !== activeProjectId) throw new Error("The open script changed. Reload the still list.");
+  return {
+    mimeType: response.headers.get("content-type")?.split(";", 1)[0] || "application/octet-stream",
+    bytes,
+  };
 }
 
 /** Resolves placement only after earlier typing has produced actual current token IDs. */
@@ -933,8 +1000,30 @@ export function queueResearchClipInsert({ researchProjectId, clipId, clipVersion
   }), "Add footage", { structural: true, research: true, expectedProjectId: projectId });
 }
 
+/** Resolves selected words only after earlier typing has produced current IDs. */
+export function queueResearchStillInsert({ researchProjectId, itemId, itemVersion, placement }) {
+  const projectId = activeProjectId;
+  return queueCommand((latest) => ({ researchProjectId, itemId, itemVersion,
+    placement: typeof placement === "function" ? placement(latest) : placement,
+  }), "Add still", { structural: true, researchStill: true, expectedProjectId: projectId });
+}
+
 function openFootageForWords({ rowId, text, selection, seed, from }) {
   void researchPanel.open({ quick: true, seed, from, placement: (latest) => {
+    const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
+    if (row?.type !== "narration" || row.text !== text) {
+      throw new Error("The selected narration changed. Choose the words again.");
+    }
+    const words = selectedSpokenWords(row, selection, true);
+    if (!words) throw new Error("The selected spoken words are no longer available.");
+    return { kind: "selected_words", rowId, expectedRowVersion: row.version,
+      expectedSequenceVersion: row.primaryVisualSequence.version,
+      startTokenId: words.startTokenId, endTokenId: words.endTokenId };
+  } });
+}
+
+function openStillForWords({ rowId, text, selection, from }) {
+  void researchStillPanel.open({ from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
     if (row?.type !== "narration" || row.text !== text) {
       throw new Error("The selected narration changed. Choose the words again.");
@@ -1175,7 +1264,7 @@ function queueCommand(command, label, options = {}) {
     if (conflicted || editRefused) return false;
     if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
         scriptDocument?.projectId !== options.expectedProjectId)) {
-      throw new Error("The open script changed before the footage was inserted.");
+      throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
     }
     if (options.expectedRow) {
       const expected = options.expectedRow;
@@ -1191,23 +1280,24 @@ function queueCommand(command, label, options = {}) {
     // A keyboard structural intent is resolved against the latest document,
     // after any earlier typed words have received their real model token IDs.
     const resolved = typeof command === "function" ? command(scriptDocument) : command;
-    if (options.research) {
+    if (options.research || options.researchStill) {
       typingGroup = null;
       const prior = scriptDocument;
-      const result = await authoringVisualPost("research-insert", {
+      const result = await authoringVisualPost(options.researchStill ? "research-still-insert" : "research-insert", {
         timelineProjectId: options.expectedProjectId, document: prior,
         expectedDocumentRevision: prior.rowEditRevision ?? 0, ...resolved,
       });
       if (activeProjectId !== options.expectedProjectId || scriptDocument !== prior) {
-        throw new Error("The open script changed before the footage was inserted.");
+        throw new Error(`The open script changed before the ${options.researchStill ? "still" : "footage"} was inserted.`);
       }
       if (JSON.stringify(result.document) === JSON.stringify(prior)) {
-        throw new Error("Footage insertion did not change the script.");
+        throw new Error(`${options.researchStill ? "Still" : "Footage"} insertion did not change the script.`);
       }
       undoStack.push({ document: prior, label });
       const previousProjection = visualProjection;
       scriptDocument = result.document;
       researchPanel?.update();
+      researchStillPanel?.update();
       lastSplit = null;
       updateUndo();
       documentDirty = true;
@@ -1600,6 +1690,17 @@ researchPanel = mountResearchPanel({
   insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,
     clipId: clip.id, clipVersion: clip.version, placement }),
   gapChoices: availableGaps, rowChoices: availableNarrationRows,
+  onStatus: (message) => setSaveStatus(message),
+});
+researchStillPanel = mountResearchStillPanel({
+  root: element("research-still-panel"),
+  catalog: async (researchProjectId, offset) => researchProjectId === undefined
+    ? await researchCatalogGet() : await researchStillCatalogGet(researchProjectId, offset),
+  thumbnail: researchStillThumbnailGet,
+  insert: (still, placement, researchProjectId) => queueResearchStillInsert({
+    researchProjectId,
+    itemId: still.itemId, itemVersion: still.itemVersion, placement,
+  }),
   onStatus: (message) => setSaveStatus(message),
 });
 const initialProject = new URLSearchParams(location.search).get("project");

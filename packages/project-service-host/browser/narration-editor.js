@@ -876,7 +876,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
   const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect,
-    attaching, finishAttach, cancelAttach, chooseFootage } =
+    attaching, finishAttach, cancelAttach, chooseFootage, chooseStill } =
     options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
@@ -921,6 +921,14 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     footage.setAttribute("role", "menuitem");
     visualMenu.append(footage);
     visualChoices.push(footage);
+  }
+  if (typeof chooseStill === "function") {
+    const still = element(document, "button", "narration-editor__visual-choice narration-editor__visual-choice--still", "Saved Research still…");
+    still.type = "button";
+    still.dataset.visualType = "research-still";
+    still.setAttribute("role", "menuitem");
+    visualMenu.append(still);
+    visualChoices.push(still);
   }
   const stageButton = element(document, "button", "narration-editor__action", "Make stage direction");
   stageButton.type = "button";
@@ -1484,13 +1492,19 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   document.addEventListener("pointerdown", dismissVisualMenu, true);
   const visualListeners = visualChoices.map((button) => {
     const onClick = () => {
-      if (button.dataset.visualType !== "footage") { performAddVisual(button.dataset.visualType); return; }
+      if (button.dataset.visualType !== "footage" && button.dataset.visualType !== "research-still") {
+        performAddVisual(button.dataset.visualType); return;
+      }
       const selection = savedSelection && { ...savedSelection };
       if (!selectedSpokenWords(localRow, selection)) return;
       closeVisualMenu();
       actions.hidden = true;
-      chooseFootage?.({ rowId: localRow.id, text: localRow.text, selection,
-        seed: localRow.text.slice(selection.start, selection.end), from: editor });
+      if (button.dataset.visualType === "research-still") {
+        chooseStill?.({ rowId: localRow.id, text: localRow.text, selection, from: editor });
+      } else {
+        chooseFootage?.({ rowId: localRow.id, text: localRow.text, selection,
+          seed: localRow.text.slice(selection.start, selection.end), from: editor });
+      }
     };
     button.addEventListener("mousedown", preserveActionSelection);
     button.addEventListener("click", onClick);
