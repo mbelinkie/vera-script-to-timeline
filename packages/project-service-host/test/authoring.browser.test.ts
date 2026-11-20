@@ -1396,9 +1396,10 @@ describe("browser authoring over the local project service", () => {
       .find((row) => row.blockId === seeded.rowId)?.brackets.find((bracket) => bracket.slotId === placedSlot.id);
     expect(range).toMatchObject({ startTokenIndex: 0, endTokenIndexExclusive: 1 });
     await page.getByRole("button", { name: "Undo Add still" }).click();
+    const initial = seeded.document.activeDraft.blocks.find((row) => row.id === seeded.rowId);
+    if (initial?.type !== "narration") throw new Error("missing seeded narration row");
     await expect.poll(async () => (await narrationRowFromApi(page, projectId, seeded.rowId))?.primaryVisualSequence)
-      .toEqual(seeded.document.activeDraft.blocks.find((row) => row.type === "narration" &&
-        row.id === seeded.rowId && "primaryVisualSequence" in row && row.primaryVisualSequence)?.primaryVisualSequence);
+      .toEqual(initial.primaryVisualSequence);
 
     await selectText(editor, 0, 5);
     await page.getByRole("button", { name: "Add visual" }).click();
