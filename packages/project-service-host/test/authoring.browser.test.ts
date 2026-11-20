@@ -983,7 +983,8 @@ describe("browser authoring over the local project service", () => {
         window.listenMessages = [];
         let ready = false;
         const emit = (event, info) => parent.postMessage(JSON.stringify({ event, info }), '*');
-        window.emitEnd = () => emit('infoDelivery', { playerState: 0 });
+        window.emitState = (playerState) => emit('infoDelivery', { playerState });
+        window.emitAutoplayBlocked = () => emit('onAutoplayBlocked');
         addEventListener('message', (event) => {
           let item; try { item = JSON.parse(event.data); } catch { return; }
           if (item.event === 'listening') {
@@ -996,7 +997,10 @@ describe("browser authoring over the local project service", () => {
           }
           if (item.event === 'command' && ready) {
             window.commands.push({ func: item.func, args: item.args });
-            if (item.func === 'loadVideoById') emit('infoDelivery', { playerState: 1 });
+            if (item.func === 'loadVideoById') {
+              window.emitState(window.holdNextPlay ? 0 : 1);
+              window.holdNextPlay = false;
+            }
           }
         });
       </script></body></html>` });
@@ -1029,18 +1033,39 @@ describe("browser authoring over the local project service", () => {
         (window as unknown as { commands: Array<{ func: string; args: unknown[] }> }).commands);
       const rangeLoads = async () => (await commands()).filter((entry) => entry.func === "loadVideoById");
       const loadRange = { func: "loadVideoById", args: [{ videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 }] };
+      const status = page.locator("[data-footage-player-status]");
+      const emitState = (state: number) => playerDocument.evaluate((_, value) =>
+        (window as unknown as { emitState: (playerState: number) => void }).emitState(value), state);
       await expect.poll(() => playerDocument.evaluate(() =>
         (window as unknown as { listenMessages: unknown[] }).listenMessages.slice(0, 3)))
         .toEqual(Array.from({ length: 3 }, () => ({ event: "listening", id: 1, channel: "widget" })));
       await expect.poll(rangeLoads).toEqual([loadRange]);
+      await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
+      expect(externalRequests).toHaveLength(1);
+      await emitState(2);
+      await expect.poll(() => status.textContent()).toBe("Paused.");
+      await emitState(1);
       await page.getByRole("button", { name: "Pause", exact: true }).click();
       await expect.poll(async () => (await commands()).some((entry) => entry.func === "pauseVideo")).toBe(true);
+      await playerDocument.evaluate(() => {
+        (window as unknown as { holdNextPlay: boolean }).holdNextPlay = true;
+      });
       await page.getByRole("button", { name: "Replay from start" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange]);
-      await playerDocument.evaluate(() => (window as unknown as { emitEnd: () => void }).emitEnd());
-      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toBe("Saved range finished.");
+      // A late ended event from the previous run must not finish a replay.
+      expect(await status.textContent()).toBe("Starting saved range…");
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+      await emitState(0);
+      await expect.poll(() => status.textContent()).toBe("Saved range finished.");
       await page.getByRole("button", { name: "Replay saved range" }).click();
       await expect.poll(rangeLoads).toEqual([loadRange, loadRange, loadRange]);
+      await playerDocument.evaluate(() =>
+        (window as unknown as { emitAutoplayBlocked: () => void }).emitAutoplayBlocked());
+      await expect.poll(() => status.textContent()).toBe("Press Play inside the YouTube player.");
+      await expect.poll(commands).toContainEqual({ ...loadRange, func: "cueVideoById" });
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
 
       await page.evaluate(() => {
         (window as unknown as { oldFrame: HTMLIFrameElement | undefined }).oldFrame =
