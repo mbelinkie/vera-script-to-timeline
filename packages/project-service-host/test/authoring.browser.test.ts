@@ -11,7 +11,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId } from "../../contracts/test/issue-367-fixture.js";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -527,6 +527,8 @@ describe("browser authoring over the local project service", () => {
     },
   };
   let researchVisible = true;
+  let researchProjects = [{ id: loggedClip.projectId, name: "Browser test catalog" }];
+  let researchClips = [loggedClip];
   let directory: string;
   let databaseDirectory: string;
   let browser: Browser;
@@ -542,15 +544,16 @@ describe("browser authoring over the local project service", () => {
     const pool = pglitePool(database);
     host = await startQaServer(config, { createPool: () => pool, migrate: migratePGlite,
       researchCatalog: {
-        projects: () => Promise.resolve(researchVisible ? [{ id: loggedClip.projectId, name: "Browser test catalog" }] : []),
-        clips: (projectId) => Promise.resolve(projectId.toLowerCase() === loggedClip.projectId.toLowerCase() &&
-          researchVisible ? [loggedClip] : []),
+        projects: () => Promise.resolve(researchVisible ? researchProjects : []),
+        clips: (projectId) => Promise.resolve(researchVisible ? researchClips.filter((clip) =>
+          clip.projectId.toLowerCase() === projectId.toLowerCase()) : []),
         clip: (projectId, clipId) => {
-          if (!researchVisible || projectId.toLowerCase() !== loggedClip.projectId.toLowerCase() ||
-            clipId.toLowerCase() !== loggedClip.id.toLowerCase()) {
+          const clip = researchClips.find((candidate) => candidate.projectId.toLowerCase() === projectId.toLowerCase() &&
+            candidate.id.toLowerCase() === clipId.toLowerCase());
+          if (!researchVisible || !clip) {
             return Promise.reject(new Error("The Research clip is no longer accessible."));
           }
-          return Promise.resolve(structuredClone(loggedClip));
+          return Promise.resolve(structuredClone(clip));
         },
         stills: (projectId) => {
           if (!researchVisible || projectId.toLowerCase() !== loggedStill.researchProjectId.toLowerCase()) {
@@ -1003,6 +1006,305 @@ describe("browser authoring over the local project service", () => {
     await expect.poll(() => page.locator('[data-row-kind="visual_only"] .visual-card__source-state').first().textContent())
       .toBe("Research · Playback unavailable");
     await page.close();
+  }, 90_000);
+
+  it("loads a sandboxed public YouTube preview only on Play, honors saved bounds, replays and tears down on switch/close", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const playable = { ...loggedClip, id: researchId(711001),
+      video: { ...loggedClip.video, title: "Public playback test", youtubeVideoId: "p0W_cxbbTQA" } };
+    const other = { ...playable, id: researchId(711002),
+      video: { ...playable.video, title: "Second public playback", youtubeVideoId: "M7lc1UVf-VE" },
+      selection: { ...playable.selection, exportStartMs: 1250, exportEndMs: 3750 } };
+    const externalRequests: Array<{ url: string; referer: string | undefined }> = [];
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
+      contentType: "application/json", body: JSON.stringify({ clips: [playable, other, loggedClip] }) }));
+    await page.route("https://www.youtube-nocookie.com/**", (route) => {
+      externalRequests.push({ url: route.request().url(), referer: route.request().headers()["referer"] });
+      return route.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><html><body><script>
+        window.commands = [];
+        window.listenMessages = [];
+        let ready = false;
+        const emit = (event, info) => parent.postMessage(JSON.stringify({ event, info }), '*');
+        window.emitState = (playerState) => emit('infoDelivery', { playerState });
+        window.emitAutoplayBlocked = () => emit('onAutoplayBlocked');
+        addEventListener('message', (event) => {
+          let item; try { item = JSON.parse(event.data); } catch { return; }
+          if (item.event === 'listening') {
+            window.listenMessages.push(item);
+            // Ignore early handshakes to model a player that initializes after iframe load.
+            if (window.listenMessages.length === 3) {
+              ready = true;
+              emit('onReady');
+            }
+          }
+          if (item.event === 'command' && ready) {
+            window.commands.push({ func: item.func, args: item.args });
+            if (item.func === 'loadVideoById') {
+              window.emitState(window.holdNextPlay ? 0 : 1);
+              window.holdNextPlay = false;
+            }
+          }
+        });
+      </script></body></html>` });
+    });
+    try {
+      const projectId = await createProject(page, origin, "Saved range playback browser proof");
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await expect.poll(() => page.locator(".footage-item").count()).toBe(3);
+      await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
+      expect(externalRequests).toHaveLength(0);
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      const url = new URL(externalRequests[0]!.url);
+      expect(url.pathname).toBe("/embed/p0W_cxbbTQA");
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        enablejsapi: "1", playsinline: "1", widgetid: "1", origin,
+      });
+      expect(externalRequests[0]!.referer).toBe(`${origin}/`);
+      expect(url.href).not.toContain(loggedClip.id);
+      expect(url.href).not.toContain(loggedClip.selection.text);
+      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("sandbox"))
+        .toBe("allow-scripts allow-same-origin allow-presentation");
+      expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("referrerpolicy"))
+        .toBe("strict-origin-when-cross-origin");
+      const playerDocument = page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html");
+      const commands = () => playerDocument.evaluate(() =>
+        (window as unknown as { commands: Array<{ func: string; args: unknown[] }> }).commands);
+      const rangeLoads = async () => (await commands()).filter((entry) => entry.func === "loadVideoById");
+      const loadRange = { func: "loadVideoById", args: [{ videoId: "p0W_cxbbTQA", startSeconds: 0.5, endSeconds: 4.5 }] };
+      const status = page.locator("[data-footage-player-status]");
+      const emitState = (state: number) => playerDocument.evaluate((_, value) =>
+        (window as unknown as { emitState: (playerState: number) => void }).emitState(value), state);
+      await expect.poll(() => playerDocument.evaluate(() =>
+        (window as unknown as { listenMessages: unknown[] }).listenMessages.slice(0, 3)))
+        .toEqual(Array.from({ length: 3 }, () => ({ event: "listening", id: 1, channel: "widget" })));
+      await expect.poll(rangeLoads).toEqual([loadRange]);
+      await page.getByRole("button", { name: "Choose footage: Public playback test" }).click();
+      expect(externalRequests).toHaveLength(1);
+      await emitState(2);
+      await expect.poll(() => status.textContent()).toBe("Paused.");
+      await emitState(1);
+      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      await expect.poll(async () => (await commands()).some((entry) => entry.func === "pauseVideo")).toBe(true);
+      await playerDocument.evaluate(() => {
+        (window as unknown as { holdNextPlay: boolean }).holdNextPlay = true;
+      });
+      await page.getByRole("button", { name: "Replay from start" }).click();
+      await expect.poll(rangeLoads).toEqual([loadRange, loadRange]);
+      // A late ended event from the previous run must not finish a replay.
+      expect(await status.textContent()).toBe("Starting saved range…");
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+      await emitState(0);
+      await expect.poll(() => status.textContent()).toBe("Saved range finished.");
+      await page.getByRole("button", { name: "Replay saved range" }).click();
+      await expect.poll(rangeLoads).toEqual([loadRange, loadRange, loadRange]);
+      await playerDocument.evaluate(() =>
+        (window as unknown as { emitAutoplayBlocked: () => void }).emitAutoplayBlocked());
+      await expect.poll(() => status.textContent()).toBe("Press Play inside the YouTube player.");
+      await expect.poll(commands).toContainEqual({ ...loadRange, func: "cueVideoById" });
+      await emitState(1);
+      await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+
+      await page.evaluate(() => {
+        (window as unknown as { oldFrame: HTMLIFrameElement | undefined }).oldFrame =
+          document.querySelector<HTMLIFrameElement>('[data-footage-player-mount] iframe') ?? undefined;
+      });
+      await page.getByRole("button", { name: "Preview footage: Second public playback" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 1.250–3.750 s");
+      await expect.poll(() => page.locator("[data-footage-placement]").isHidden()).toBe(true);
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      await page.evaluate(() => {
+        (window as unknown as { oldFrame?: HTMLIFrameElement }).oldFrame?.dispatchEvent(new Event("error"));
+      });
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
+      expect(new URL(externalRequests[1]!.url).pathname).toBe("/embed/M7lc1UVf-VE");
+      await page.getByRole("button", { name: "Close preview" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
+      await expect.poll(() => page.getByRole("button", { name: "Play saved range" }).isDisabled()).toBe(true);
+      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("Playback unavailable");
+      expect(externalRequests).toHaveLength(2);
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
+      await page.getByRole("button", { name: "Close footage" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { await page.close(); }
+  }, 90_000);
+
+  // An opt-in external gate: no player mocking and no private Research source.
+  // CI keeps the deterministic fixture above; locally run with VERA_LIVE_YOUTUBE=1.
+  it.runIf(process.env.VERA_LIVE_YOUTUBE === "1")(
+    "plays and replays the saved range in the real YouTube Chromium iframe (@slow external)", async () => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      const startSeconds = 5.375;
+      const endSeconds = 9.625;
+      const videoId = "M7lc1UVf-VE"; // The public sample from YouTube's IFrame API docs.
+      const publicClip = { ...loggedClip, id: researchId(711003),
+        video: { ...loggedClip.video, title: "YouTube IFrame API public sample",
+          youtubeVideoId: videoId, canonicalUrl: `https://youtu.be/${videoId}` },
+        selection: { ...loggedClip.selection, transcriptStartMs: 6000, transcriptEndMs: 9000,
+          exportStartMs: startSeconds * 1000,
+          exportEndMs: endSeconds * 1000 } };
+      const secondClip = { ...publicClip, id: researchId(711004),
+        video: { ...publicClip.video, title: "Second saved range" } };
+      const missingId = "___________";
+      const missingClip = { ...publicClip, id: researchId(711005),
+        video: { ...publicClip.video, title: "Missing YouTube video",
+          youtubeVideoId: missingId, canonicalUrl: `https://youtu.be/${missingId}` } };
+      const otherProject = { id: researchId(711006), name: "Second browser test catalog" };
+      const previousProjects = researchProjects;
+      const previousClips = researchClips;
+      researchProjects = [...researchProjects, otherProject];
+      researchClips = [...researchClips, publicClip, secondClip, missingClip];
+
+      const requests: string[] = [];
+      const failures: string[] = [];
+      const isProvider = (url: string) => /(^|\.)(youtube(-nocookie)?|googlevideo|ytimg)\.com$/u.test(new URL(url).hostname);
+      page.on("request", (request) => {
+        if (isProvider(request.url())) requests.push(new URL(request.url()).pathname);
+      });
+      page.on("requestfailed", (request) => {
+        if (isProvider(request.url())) failures.push(`${new URL(request.url()).hostname}: ${request.failure()?.errorText}`);
+      });
+      const preview = page.locator("[data-footage-preview]");
+      const status = preview.locator("[data-footage-player-status]");
+      const iframe = preview.locator("iframe");
+      const playerFrame = () => page.frames().find((frame) =>
+        frame.url().startsWith(`https://www.youtube-nocookie.com/embed/${videoId}?`));
+      const readMedia = async () => playerFrame()?.evaluate(() => {
+        const video = document.querySelector("video.html5-main-video");
+        return video instanceof HTMLVideoElement ?
+          { seconds: video.currentTime, paused: video.paused, ready: video.readyState, seeking: video.seeking } : null;
+      });
+      const waitForMedia = async (paused: boolean, after = 0) => {
+        let seconds = NaN;
+        await expect.poll(async () => {
+          const state = await readMedia();
+          if (!state || state.paused !== paused || state.seeking || state.ready < 2 || state.seconds <= after) return false;
+          seconds = state.seconds;
+          return true;
+        }, { timeout: 20_000, interval: 25 }).toBe(true);
+        return seconds;
+      };
+      const assertStart = (seconds: number) => {
+        expect(Math.abs(seconds - startSeconds)).toBeLessThan(0.25);
+      };
+      const waitForEnd = async () => {
+        await expect.poll(() => status.textContent(), { timeout: 15_000 }).toBe("Saved range finished.");
+        const seconds = await waitForMedia(true);
+        expect(Math.abs(seconds - endSeconds)).toBeLessThan(0.15);
+        return seconds;
+      };
+      const playSavedRange = page.getByRole("button", { name: "Play saved range" });
+      const replaySavedRange = page.getByRole("button", { name: "Replay saved range" });
+      const catalog = page.getByRole("combobox", { name: "Research project" });
+      const expectTeardown = async () => {
+        await expect.poll(() => iframe.count()).toBe(0);
+        await expect.poll(playerFrame).toBeUndefined();
+      };
+      try {
+        const projectId = await createProject(page, origin, "External public playback acceptance");
+        await page.goto(`${origin}/?project=${projectId}`);
+        await page.getByRole("button", { name: "Footage", exact: true }).click();
+        await catalog.selectOption(loggedClip.projectId);
+        await page.getByRole("button", { name: "Preview footage: YouTube IFrame API public sample" }).click();
+        expect(await preview.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 5.375–9.625 s");
+        expect(await iframe.count()).toBe(0);
+        expect(requests).toEqual([]);
+
+        await playSavedRange.click();
+        const first = await waitForMedia(false);
+        console.info(`[live-youtube] start=${first.toFixed(6)}s`);
+        assertStart(first);
+        await expect.poll(() => status.textContent()).toBe("Playing saved range…");
+        await waitForMedia(false, first + 0.2);
+        await page.getByRole("button", { name: "Pause", exact: true }).click();
+        const paused = await waitForMedia(true);
+        expect(paused).toBeLessThan(endSeconds - 0.5);
+        // Allow time for the clock to visibly advance if our Pause was ignored.
+        await page.waitForTimeout(350);
+        expect(await readMedia()).toMatchObject({ seconds: paused, paused: true });
+        await page.getByRole("button", { name: "Resume", exact: true }).click();
+        await waitForMedia(false, paused);
+        const stopped = await waitForEnd();
+
+        await replaySavedRange.click();
+        const replayed = await waitForMedia(false);
+        console.info(`[live-youtube] replay start=${replayed.toFixed(6)}s`);
+        assertStart(replayed);
+        const replayStopped = await waitForEnd();
+        console.info(`[live-youtube] saved=${startSeconds}–${endSeconds}s, pause=${paused.toFixed(6)}s, ` +
+          `stop=${stopped.toFixed(6)}s, replay stop=${replayStopped.toFixed(6)}s`);
+
+        await replaySavedRange.click();
+        await waitForMedia(false);
+        await page.getByRole("button", { name: "Preview footage: Second saved range" }).click();
+        await expectTeardown();
+        await playSavedRange.click();
+        await waitForMedia(false);
+        await catalog.selectOption(otherProject.id);
+        await expectTeardown();
+        await catalog.selectOption(loggedClip.projectId);
+        await page.getByRole("button", { name: "Preview footage: YouTube IFrame API public sample" }).click();
+        await playSavedRange.click();
+        await waitForMedia(false);
+        await page.getByRole("button", { name: "Close preview" }).click();
+        await expectTeardown();
+
+        await page.getByRole("button", { name: "Choose footage: Missing YouTube video" }).click();
+        await playSavedRange.click();
+        await expect.poll(() => status.textContent(), { timeout: 20_000 }).toContain("removed or restricted");
+        expect(await iframe.count()).toBe(0);
+        await page.getByRole("button", { name: "Place in script", exact: true }).click();
+        await expect.poll(async () => {
+          const result = await appRequest(page, `/authoring/projects/${projectId}/document`);
+          return (result.body as SavedDocument).document.activeDraft.blocks.some((item) =>
+            item.type === "visual_only" && item.researchClip?.clipId === missingClip.id);
+        }).toBe(true);
+      } catch (error) {
+        console.info(`[live-youtube] status=${await status.textContent()}, media=${JSON.stringify(await readMedia().catch(() => null))}, ` +
+          `request failures=${JSON.stringify(failures.slice(0, 12))}`);
+        throw error;
+      } finally {
+        researchProjects = previousProjects;
+        researchClips = previousClips;
+        await page.close();
+      }
+    }, 90_000);
+
+  it("shows provider-denied playback without making insertion unavailable", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
+      contentType: "application/json", body: JSON.stringify({ clips: [{ ...loggedClip,
+        video: { ...loggedClip.video, youtubeVideoId: "p0W_cxbbTQA" } }] }) }));
+    await page.route("https://www.youtube-nocookie.com/**", (route) => route.fulfill({ status: 200,
+      contentType: "text/html", body: `<!doctype html><script>
+        addEventListener('message', (event) => {
+          if (event.data.includes('listening')) parent.postMessage(JSON.stringify({ event: 'onError', info: 150 }), '*');
+        });
+      </script>` }));
+    try {
+      const projectId = await createProject(page, origin, "Restricted footage browser proof");
+      await page.goto(`${origin}/?project=${projectId}`);
+      await page.getByRole("button", { name: "Footage", exact: true }).click();
+      await page.getByRole("button", { name: "Choose footage: Frozen research source" }).click();
+      await page.getByRole("button", { name: "Play saved range" }).click();
+      await expect.poll(() => page.locator("[data-footage-player-status]").textContent()).toContain("removed or restricted");
+      await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
+      await expect.poll(() => page.getByRole("button", { name: "Place in script" }).isEnabled()).toBe(true);
+      await page.getByRole("button", { name: "Close footage" }).click();
+      expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
+    } finally { await page.close(); }
   }, 90_000);
 
   it("opens word-selection quick footage, cancels by Escape, then inserts one selected-word picture", async () => {

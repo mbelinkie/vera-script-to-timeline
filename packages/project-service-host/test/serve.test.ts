@@ -359,6 +359,21 @@ async function researchBrowserRequests() {
 }
 
 describe("same-origin, independently authorized Research catalog", () => {
+  it("allows just the isolated no-cookie frame, retaining same-origin API and no-referrer policy", async () => {
+    const origin = "http://127.0.0.1:38429";
+    const host = createAuthoringHandler(origin, `Bearer ${privateToken}`,
+      vi.fn(() => Promise.resolve(Response.json({ error: "unexpected" }, { status: 500 }))));
+    for (const path of ["/", "/research-panel.js", "/footage-player.js"]) {
+      const response = await host.handle(new Request(`${origin}${path}`));
+      expect(response?.status).toBe(200);
+      const csp = response?.headers.get("Content-Security-Policy");
+      expect(csp).toContain("default-src 'none'; script-src 'self'; style-src 'self'");
+      expect(csp).toContain("connect-src 'self'; frame-src https://www.youtube-nocookie.com;");
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).not.toContain("https://www.youtube.com");
+      expect(response?.headers.get("Referrer-Policy")).toBe("no-referrer");
+    }
+  });
   const base = `research/${TIMELINE_PROJECT}/projects`;
   const clipList = `${base}/${RESEARCH_PROJECT}/clips`;
   const detail = `${clipList}/${RESEARCH_CLIP}`;

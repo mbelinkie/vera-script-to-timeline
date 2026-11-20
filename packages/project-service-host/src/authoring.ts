@@ -24,6 +24,7 @@ const ASSETS = new Map<string, readonly [string, string]>([
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/research-panel.js", ["research-panel.js", "text/javascript; charset=utf-8"]],
   ["/research-still-panel.js", ["research-still-panel.js", "text/javascript; charset=utf-8"]],
+  ["/footage-player.js", ["footage-player.js", "text/javascript; charset=utf-8"]],
   ["/research-search.js", ["research-search.js", "text/javascript; charset=utf-8"]],
   ["/view.js", ["view.js", "text/javascript; charset=utf-8"]],
   ["/rows-editor.js", ["rows-editor.js", "text/javascript; charset=utf-8"]],
@@ -314,7 +315,8 @@ export function createAuthoringHandler(
       return new Response(contents, { headers: {
         "Content-Type": mime,
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; " +
-          "connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; " +
+          "connect-src 'self'; frame-src https://www.youtube-nocookie.com; " +
+          "img-src 'self' data: blob:; font-src 'self' data:; " +
           "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         "Cross-Origin-Resource-Policy": "same-origin",
         "Referrer-Policy": "no-referrer",

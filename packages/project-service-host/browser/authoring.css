@@ -995,8 +995,7 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
   clip-path: inset(50%);
 }
 
-/* The Footage catalog is a local, read-only browser of Research. Nothing here
-   makes media available without a separate authorized player contract. */
+/* Footage browsing is local; the isolated YouTube frame is only created on Play. */
 .footage-panel {
   position: fixed;
   z-index: 20;
@@ -1036,6 +1035,18 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
   font-size: 0.75rem; color: #4d565e; white-space: pre-wrap; overflow-wrap: anywhere; }
 .footage-item__usage { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 1rem;
   background: #e3eff1; color: #285864; font-size: 0.72rem; }
+.footage-item__preview { margin-left: 0.65rem; border: 0; background: none; color: #285864;
+  text-decoration: underline; font-size: 0.76rem; }
+.footage-panel__preview { display: grid; gap: 0.4rem; border-top: 1px solid #ccd5d9;
+  padding-top: 0.55rem; }
+.footage-panel__preview[hidden] { display: none; }
+.footage-panel__preview-heading { display: flex; gap: 0.5rem; align-items: start; justify-content: space-between; }
+.footage-panel__preview-heading h3 { overflow-wrap: anywhere; }
+.footage-panel__preview-heading button { flex-shrink: 0; }
+.footage-panel__player-mount iframe { display: block; width: 100%; aspect-ratio: 16 / 9;
+  border: 0; background: #10151a; }
+.footage-panel__player-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.footage-panel__player-controls button { padding: 0.4rem; }
 .visual-card__source-state { font-size: 0.68rem; color: #6d5660; }
 .footage-item__links { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
 .footage-item__jump { border: 0; background: transparent; color: #285864; text-decoration: underline; }
