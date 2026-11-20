@@ -105,6 +105,8 @@ export function mountFootagePlayer(root) {
     url.searchParams.set("playsinline", "1");
     url.searchParams.set("autoplay", "1"); // Only created by the Play gesture.
     url.searchParams.set("origin", window.location.origin);
+    // Match the ID/channel used by YouTube's iframe widget handshake.
+    url.searchParams.set("widgetid", "1");
     url.searchParams.set("start", String(Math.floor(range.startMs / 1000)));
     url.searchParams.set("end", String(Math.ceil(range.endMs / 1000)));
     const createdFrame = doc.createElement("iframe");
@@ -112,12 +114,17 @@ export function mountFootagePlayer(root) {
     createdFrame.title = "YouTube saved-range preview";
     createdFrame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
     createdFrame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
-    createdFrame.referrerPolicy = "no-referrer";
+    // YouTube requires an HTTP Referer for embedded playback (error 153 without
+    // one). Send only this app's origin, never a project path, query or launch
+    // fragment. The host's other responses stay on the no-referrer policy.
+    createdFrame.referrerPolicy = "strict-origin-when-cross-origin";
     createdFrame.addEventListener("load", () => {
       // An old frame can finish loading after a fast clip switch. Its event
       // must never send commands to (or report an error for) the new player.
       if (frame !== createdFrame) return;
-      createdFrame.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), YOUTUBE_ORIGIN);
+      createdFrame.contentWindow?.postMessage(JSON.stringify({
+        event: "listening", id: 1, channel: "widget",
+      }), YOUTUBE_ORIGIN);
       command("addEventListener", ["onReady"]);
       command("addEventListener", ["onError"]);
       command("getCurrentTime");

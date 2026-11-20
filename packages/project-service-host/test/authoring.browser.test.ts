@@ -970,19 +970,23 @@ describe("browser authoring over the local project service", () => {
     const other = { ...playable, id: researchId(711002),
       video: { ...playable.video, title: "Second public playback", youtubeVideoId: "M7lc1UVf-VE" },
       selection: { ...playable.selection, exportStartMs: 1250, exportEndMs: 3750 } };
-    const externalRequests: string[] = [];
+    const externalRequests: Array<{ url: string; referer: string | undefined }> = [];
     await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
       contentType: "application/json", body: JSON.stringify({ clips: [playable, other, loggedClip] }) }));
     await page.route("https://www.youtube-nocookie.com/**", (route) => {
-      externalRequests.push(route.request().url());
+      externalRequests.push({ url: route.request().url(), referer: route.request().headers()["referer"] });
       return route.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><html><body><script>
         window.commands = [];
+        window.listenMessages = [];
         const emit = (info) => parent.postMessage(JSON.stringify(info), '*');
         window.emitTime = (seconds) => emit({ info: { currentTime: seconds, playerState: 1 } });
         window.emitError = () => emit({ event: 'onError', info: 150 });
         addEventListener('message', (event) => {
           let item; try { item = JSON.parse(event.data); } catch { return; }
-          if (item.event === 'listening') emit({ event: 'onReady' });
+          if (item.event === 'listening') {
+            window.listenMessages.push(item);
+            emit({ event: 'onReady' });
+          }
           if (item.event === 'command') {
             window.commands.push({ func: item.func, args: item.args });
             if (item.func === 'playVideo') emit({ info: { currentTime: 0.5, playerState: 1 } });
@@ -1001,18 +1005,22 @@ describe("browser authoring over the local project service", () => {
       await expect.poll(() => page.locator("[data-footage-preview-range]").textContent()).toBe("Saved range: 0.500–4.500 s");
       await page.getByRole("button", { name: "Play saved range" }).click();
       await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
-      const url = new URL(externalRequests[0]!);
+      const url = new URL(externalRequests[0]!.url);
       expect(url.pathname).toBe("/embed/p0W_cxbbTQA");
       expect(Object.fromEntries(url.searchParams)).toMatchObject({ start: "0", end: "5", autoplay: "1",
-        enablejsapi: "1", origin });
+        enablejsapi: "1", widgetid: "1", origin });
+      expect(externalRequests[0]!.referer).toBe(`${origin}/`);
       expect(url.href).not.toContain(loggedClip.id);
       expect(url.href).not.toContain(loggedClip.selection.text);
       expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("sandbox"))
         .toBe("allow-scripts allow-same-origin allow-presentation");
       expect(await page.locator("[data-footage-player-mount] iframe").getAttribute("referrerpolicy"))
-        .toBe("no-referrer");
+        .toBe("strict-origin-when-cross-origin");
       const commands = () => page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html")
         .evaluate(() => (window as unknown as { commands: Array<{ func: string; args: number[] }> }).commands);
+      await expect.poll(() => page.frameLocator('iframe[title="YouTube saved-range preview"]').locator("html")
+        .evaluate(() => (window as unknown as { listenMessages: unknown[] }).listenMessages))
+        .toContainEqual({ event: "listening", id: 1, channel: "widget" });
       await expect.poll(async () => (await commands()).some((entry) =>
         entry.func === "seekTo" && entry.args[0] === 0.5)).toBe(true);
       await expect.poll(async () => (await commands()).some((entry) => entry.func === "playVideo")).toBe(true);
@@ -1042,7 +1050,7 @@ describe("browser authoring over the local project service", () => {
         (window as unknown as { oldFrame?: HTMLIFrameElement }).oldFrame?.dispatchEvent(new Event("error"));
       });
       await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(1);
-      expect(new URL(externalRequests[1]!).pathname).toBe("/embed/M7lc1UVf-VE");
+      expect(new URL(externalRequests[1]!.url).pathname).toBe("/embed/M7lc1UVf-VE");
       await page.getByRole("button", { name: "Close preview" }).click();
       await expect.poll(() => page.locator("[data-footage-player-mount] iframe").count()).toBe(0);
       await page.getByRole("button", { name: "Preview footage: Frozen research source" }).click();
@@ -1056,6 +1064,124 @@ describe("browser authoring over the local project service", () => {
       expect(await page.locator("#undo-history li").allTextContents()).toEqual(["Nothing to undo in this session"]);
     } finally { await page.close(); }
   }, 90_000);
+
+  // An opt-in external gate: no player mocking and no private Research source.
+  // CI keeps the deterministic fixture above; locally run with VERA_LIVE_YOUTUBE=1.
+  it.runIf(process.env.VERA_LIVE_YOUTUBE === "1")(
+    "plays and replays the saved range in the real YouTube Chromium iframe (@slow external)", async () => {
+      const origin = `http://127.0.0.1:${config.port}`;
+      const page = await context.newPage();
+      const startSeconds = 5;
+      const endSeconds = 9;
+      // The public sample video in YouTube's IFrame API documentation.
+      const publicClip = { ...loggedClip, id: researchId(711003),
+        video: { ...loggedClip.video, title: "YouTube IFrame API public sample", youtubeVideoId: "M7lc1UVf-VE" },
+        selection: { ...loggedClip.selection, exportStartMs: startSeconds * 1000,
+          exportEndMs: endSeconds * 1000 } };
+      const failures: string[] = [];
+      const providerResponses: string[] = [];
+      const playerUrl = "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE";
+      page.on("response", (response) => {
+        const requestUrl = new URL(response.url());
+        if (requestUrl.hostname.endsWith("youtube-nocookie.com") ||
+          requestUrl.hostname.endsWith("youtube.com")) {
+          providerResponses.push(`${requestUrl.hostname}${requestUrl.pathname}: ${response.status()}`);
+        }
+      });
+      page.on("requestfailed", (request) => {
+        if (request.url().startsWith("https://www.youtube") || request.url().includes("googlevideo.com")) {
+          failures.push(`${new URL(request.url()).hostname}: ${request.failure()?.errorText ?? "failed"}`);
+        }
+      });
+      await page.route("**/authoring/research/**/clips", (route) => route.fulfill({ status: 200,
+        contentType: "application/json", body: JSON.stringify({ clips: [publicClip] }) }));
+      const readMedia = async (): Promise<{ seconds: number; paused: boolean; ready: number } | null> => {
+        const frame = page.frames().find((item) => item.url().startsWith(playerUrl));
+        if (!frame) return null;
+        try {
+          return await frame.evaluate(() => {
+            const video = document.querySelector("video");
+            return video ? { seconds: video.currentTime, paused: video.paused, ready: video.readyState } : null;
+          });
+        } catch { return null; } // Detached/replaced frame while loading.
+      };
+      try {
+        const projectId = await createProject(page, origin, "External public playback acceptance");
+        await page.goto(`${origin}/?project=${projectId}`);
+        await page.getByRole("button", { name: "Footage", exact: true }).click();
+        await page.getByRole("button", { name: "Preview footage: YouTube IFrame API public sample" }).click();
+        expect(page.frames().some((frame) => frame.url().startsWith(playerUrl))).toBe(false);
+        await page.evaluate(() => {
+          (window as unknown as { youtubeEvents: unknown[] }).youtubeEvents = [];
+          window.addEventListener("message", (event) => {
+            if (!event.origin.includes("youtube")) return;
+            let data: unknown = event.data;
+            try { if (typeof data === "string") data = JSON.parse(data); } catch { return; }
+            const value = data as { event?: string; info?: { playerState?: number; currentTime?: number } };
+            (window as unknown as { youtubeEvents: unknown[] }).youtubeEvents.push({
+              origin: event.origin,
+              fromIframe: event.source === document.querySelector<HTMLIFrameElement>(
+                '[data-footage-player-mount] iframe')?.contentWindow,
+              event: value?.event, playerState: value?.info?.playerState,
+              currentTime: value?.info?.currentTime,
+            });
+          });
+        });
+        await page.getByRole("button", { name: "Play saved range" }).click();
+        await expect.poll(() => page.frames().some((frame) => frame.url().startsWith(playerUrl)),
+          { timeout: 10_000 }).toBe(true);
+        // Preserve the provider's visible error before the 15s teardown.
+        await page.waitForTimeout(1_000);
+        const providerFrame = page.frames().find((frame) => frame.url().startsWith(playerUrl));
+        const visibleProviderText = await providerFrame?.evaluate(() => document.body?.innerText.slice(0, 500))
+          .catch(() => "inaccessible");
+        console.info(`[live-youtube] checkpoint: ${JSON.stringify({ visibleProviderText,
+          media: await readMedia(), responses: providerResponses.slice(0, 15),
+          events: await page.evaluate(() => (window as unknown as { youtubeEvents: unknown[] }).youtubeEvents.slice(0, 12)) })}`);
+        // Chromium creates a video with paused=false/currentTime=0/readyState=0
+        // before any media is decoded; that is not evidence of playback.
+        await expect.poll(() => page.locator("[data-footage-player-status]").textContent(),
+          { timeout: 20_000 }).toBe("Playing saved range…");
+        await expect.poll(async () => {
+          const state = await readMedia();
+          return state && !state.paused && state.ready >= 2 && state.seconds >= startSeconds - 0.5;
+        }, { timeout: 25_000, interval: 100 }).toBe(true);
+        const first = await readMedia();
+        expect(first).not.toBeNull();
+        console.info(`[live-youtube] first playing time=${first?.seconds.toFixed(3)}s, ready=${first?.ready}`);
+        expect(first!.seconds).toBeGreaterThanOrEqual(startSeconds - 0.5);
+        expect(first!.seconds).toBeLessThan(startSeconds + 2);
+        await expect.poll(() => page.locator("[data-footage-player-status]").textContent(),
+          { timeout: 20_000 }).toBe("Saved range finished.");
+        const stopped = await readMedia();
+        console.info(`[live-youtube] stopped time=${stopped?.seconds.toFixed(3)}s, paused=${stopped?.paused}`);
+        expect(stopped?.seconds).toBeGreaterThanOrEqual(endSeconds - 0.5);
+        expect(stopped?.seconds).toBeLessThan(endSeconds + 1.5);
+        await expect.poll(async () => (await readMedia())?.paused).toBe(true);
+        await page.getByRole("button", { name: "Replay saved range" }).click();
+        await expect.poll(async () => {
+          const state = await readMedia();
+          return state && !state.paused && state.seconds >= startSeconds - 0.5 && state.seconds < startSeconds + 2;
+        }, { timeout: 15_000, interval: 100 }).toBe(true);
+        const replayed = await readMedia();
+        console.info(`[live-youtube] replay time=${replayed?.seconds.toFixed(3)}s`);
+        await expect.poll(() => page.locator("[data-footage-player-status]").textContent(),
+          { timeout: 20_000 }).toBe("Saved range finished.");
+        const replayStopped = await readMedia();
+        console.info(`[live-youtube] replay stopped time=${replayStopped?.seconds.toFixed(3)}s, paused=${replayStopped?.paused}`);
+        expect(replayStopped?.seconds).toBeGreaterThanOrEqual(endSeconds - 0.5);
+        expect(replayStopped?.seconds).toBeLessThan(endSeconds + 1.5);
+        await expect.poll(async () => (await readMedia())?.paused).toBe(true);
+        await page.getByRole("button", { name: "Close preview" }).click();
+        expect(page.frames().some((frame) => frame.url().startsWith(playerUrl))).toBe(false);
+      } catch (error) {
+        console.info(`[live-youtube] external failure: ${JSON.stringify(failures.slice(0, 12))}`);
+        console.info(`[live-youtube] visible status: ${await page.locator("[data-footage-player-status]").textContent().catch(() => "unavailable")}`);
+        console.info(`[live-youtube] last media: ${JSON.stringify(await readMedia())}`);
+        console.info(`[live-youtube] responses: ${JSON.stringify(providerResponses.slice(0, 25))}`);
+        throw error;
+      } finally { await page.close(); }
+    }, 90_000);
 
   it("shows provider-denied playback without making insertion unavailable", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
