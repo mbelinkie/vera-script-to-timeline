@@ -155,3 +155,20 @@ return on cancel. Check the caret and range cues without color.
 Return the pilot link and export, what passed at each size, and
 anything still limited to fixtures. Stop at these two flows.
 ```
+
+## Independent B pilot review
+
+Reviewed the [live B pilot](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+r30+B+Pilot.dc.html) with browser pointer and keyboard input at 1280×800 and 1024×768. The pilot needs a correction before expansion.
+
+| Check | Result |
+| --- | --- |
+| Insert at the existing sentence boundary | Passed at both sizes. The quote card's visible action opens Insert quote. The narration and Graphic card use the same 12 words, the picture and Graphic cover the inserted range, and Channel light remains present. One Undo restores the original. |
+| Attach after selecting the first sentence by hand | Passed at 1024×768, including exact first/last anchors and one Undo. At 1280×800 a native drag attached both cards and duplicated the existing sentence. The live message said narration was unchanged. The next Undo removed the duplicate, and a second removed the cards. An off-target drop left the row intact. |
+| Quote in its own row | **Fails at both sizes.** Add row creates and focuses a blank narration row. At that caret, Place in script… says “No place chosen in the script” and offers Close. A direct quote drop between rows at 1024×768 made no new row. |
+| Keyboard and focus | Tab reached the quote card action. Place in script… focused Insert quote and Escape returned to its button. The compact ⌘⇧F flow attached the selected sentence, Escape restored focus and selection, and Enter plus one Undo passed. ⌘⇧F insertion passed after a clean reload at 1280×800 and at 1024×768. At 1280×800 it also offered Insert on a visibly highlighted full sentence. In an earlier wide trial after changing sizes, Escape → reopen → Enter left the dialog open and put a paragraph break into the narration. At 1024×768, ⌘⇧F inside a sentence gave only a live-region message. |
+| Compact presentation | The quote text is legible on the Graphic card at 1024×768. The Insert dialog covers the Library card's action. Undo restores the row and leaves a stale placement message in the live region. The visible caret/outline and the action names carry the distinction without depending on color. |
+| Library | Kind switching and searches for quote text, speaker and publication worked. An unmatched query gave a no-results message and the quote stayed legible at 0% thumbnails. Footage still appeared in its own filter. The logger choices omit the quote's fixture logger, Maya Chen. “Research: none logged” still shows the synthetic quote, so it exercises a footage-empty state. Reset sample removes the pilot narration row until reload. |
+
+The one-quote pilot has no fixtures for adjacent quotes, missing pictures, media unavailability or denied access. Quote-box editing, multiple-use stepping, and the delivered kept-still picker are still due for the broader r30 review. Claude reported a single-file export. This review used the live pilot and browser accessibility state.
+
+For the correction, keep B and give the blank narration row's caret the same Insert quote action as a sentence boundary. Validate that a browser drop cannot create a text edit in addition to the quote command. Use the currently visible selection for ⌘⇧F and keep Enter inside the active placement dialog. Show a visible unavailable-target message and clear the placement announcement on Undo. Retest the three placement cases with physical selections at both sizes before expanding.
