@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { PGlite } from "@electric-sql/pglite";
-import { projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
+import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
 import { researchCandidate, researchId } from "../../contracts/test/issue-367-fixture.js";
@@ -881,6 +881,124 @@ describe("browser authoring over the local project service", () => {
     expect(await readFile(await (await emptyDownload).path())).toEqual(Buffer.alloc(0));
     await page.close();
   });
+  it("#674 opens saved Stash, adds a sectioned note, stashes words, reloads, drops at an interior gap and undoes", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Saved Stash browser proof");
+    const document = prompterBrowserFixture(documentFixture(projectId).document);
+    const row = document.activeDraft.blocks.find((block) => block.type === "narration");
+    if (!row || row.type !== "narration") throw new Error("Missing synthetic narration");
+    row.text = "alpha beta gamma delta echo";
+    row.tokens = narrationWords(row.text);
+    const sectionId = randomUUID();
+    const sectioned = applyRowEditV2(document, document.rowEditRevision ?? 0, {
+      kind: "create_stash_section", sectionId, title: "Ideas",
+    });
+    expect(sectioned.ok).toBe(true);
+    await saveDocumentFixture(page, projectId, sectioned.document);
+    const load = async () => {
+      const response = await appRequest(page, `/authoring/projects/${projectId}/document`);
+      expect(response.status).toBe(200);
+      return (response.body as SavedDocument).document;
+    };
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${row.id}"] [data-narration-editor]`);
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await page.locator("#stash-section").selectOption(sectionId);
+    await page.locator("#stash-note").fill("[cold open] now");
+    await page.getByRole("button", { name: "Add note", exact: true }).click();
+    const ideas = page.locator(`[data-stash-section="${sectionId}"]`);
+    await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
+    await expect.poll(async () => (await load()).stashOutline?.filter((entry) => entry.sectionId === sectionId).length).toBe(1);
+    await selectText(editor, 6, 16);
+    await page.getByRole("button", { name: "Stash words", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo");
+    const unsectioned = page.locator('[data-stash-section=""]');
+    await expect.poll(() => unsectioned.locator(".stash-entry-text").allTextContents()).toContain("beta gamma");
+    const before = await load();
+    const remaining = before.activeDraft.blocks.find((item) => item.id === row.id);
+    if (remaining?.type !== "narration") throw new Error("Missing source");
+    expect(remaining.tokens.map((token) => token.id)).toEqual([row.tokens[0]!.id, row.tokens[3]!.id, row.tokens[4]!.id]);
+    const savedNote = before.stashOutline?.find((entry) => entry.sectionId === sectionId);
+    if (!savedNote) throw new Error("Saved note missing");
+    const original = before.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === savedNote.rowId);
+    expect(original).toMatchObject({ text: "[cold open] now", stashChecklist: { completed: false } });
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await expect.poll(() => ideas.locator(".stash-entry-text").allTextContents()).toEqual(["[cold open] now"]);
+    await expect.poll(() => unsectioned.locator(".stash-entry-text").allTextContents()).toContain("beta gamma");
+    const note = page.locator(`[data-stash-row-id="${savedNote.rowId}"]`);
+    // Native browser drag to the beginning of the third spoken word (not the first available gap).
+    const position = await editor.evaluate((element) => {
+      const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let offset = 12;
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = node as Text;
+        if (offset < text.length) {
+          const range = element.ownerDocument.createRange();
+          range.setStart(text, offset);
+          range.collapse(true);
+          const rect = range.getBoundingClientRect();
+          const bounds = element.getBoundingClientRect();
+          return { x: rect.x - bounds.x + 1, y: rect.y - bounds.y + rect.height / 2 };
+        }
+        offset -= text.length;
+      }
+      throw new Error("Missing exact drop point");
+    });
+    await note.dragTo(editor, { targetPosition: position });
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta [cold open] now echo");
+    const inserted = await load();
+    const retained = inserted.stash?.flatMap((bundle) => bundle.rows).find((item) => item.id === savedNote.rowId);
+    expect(retained).toMatchObject({ id: original?.id, text: "[cold open] now", stashChecklist: { completed: true } });
+    if (retained?.type !== "narration" || original?.type !== "narration") throw new Error("Missing retained note");
+    expect(retained.tokens).toEqual(original.tokens);
+    expect(await note.locator('[aria-label="Completed"]').count()).toBe(1);
+    await page.getByRole("button", { name: "Undo Insert Stash note", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo");
+    await expect.poll(async () => (await load()).stash).toEqual(before.stash);
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    await expect.poll(() => note.locator('[aria-label="Not completed"]').count()).toBe(1);
+    // A destination selected before a later edit must not silently land at a new point.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.locator("#stash-destination").selectOption("1");
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("!");
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha delta echo!");
+    const changed = await load();
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("changed");
+    expect(await load()).toEqual(changed);
+    await page.getByRole("button", { name: /^Undo / }).click();
+    await expect.poll(async () => (await load()).activeDraft.blocks).toEqual(before.activeDraft.blocks);
+    await page.reload();
+    await editor.waitFor();
+    await page.getByRole("button", { name: "Stash", exact: true }).click();
+    // Keyboard-accessible exact destination fallback works without a pointer drag.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.locator("#stash-destination").selectOption("0");
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(async () => (await narrationRowFromApi(page, projectId, row.id))?.text).toBe("alpha [cold open] now delta echo");
+    await page.getByRole("button", { name: "Undo Insert Stash note", exact: true }).click();
+    await expect.poll(async () => (await load()).stash).toEqual(before.stash);
+    // A denied host command must not save or make Undo.
+    await note.getByRole("button", { name: /Place note/ }).click();
+    await page.route("**/authoring/command", (route) => route.fulfill({
+      status: 403, contentType: "application/json", body: JSON.stringify({ ok: false, diagnostics: [{ message: "Denied" }] }),
+    }));
+    await page.getByRole("button", { name: "Insert note", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").textContent()).toContain("not inserted");
+    expect(await load()).toEqual(before);
+    expect(await page.getByRole("button", { name: "Undo", exact: true }).isDisabled()).toBe(true);
+    await page.close();
+  }, 60_000);
+
   it("inserts selected-word and exact-gap Research footage through one Undo/save queue and survives reload", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

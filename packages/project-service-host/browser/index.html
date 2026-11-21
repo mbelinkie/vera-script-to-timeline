@@ -52,6 +52,7 @@
         <div class="toolbar-controls" role="group" aria-label="Script actions and view settings">
           <button id="undo" type="button" disabled>↶ Undo</button>
           <button id="open-footage" type="button" aria-controls="footage-panel" aria-expanded="false" aria-keyshortcuts="Control+Shift+F Meta+Shift+F">Footage</button>
+          <button id="open-stash" type="button" aria-controls="stash-panel" aria-expanded="false">Stash</button>
           <details class="undo-menu"><summary aria-label="Recent actions">▾</summary><ol id="undo-history"></ol></details>
           <button id="open-prompter" class="prompter-trigger" type="button" disabled>Export prompter…</button>
           <label class="range-control range-control--authoring">
@@ -108,6 +109,28 @@
           </div>
         </div>
         <p class="footage-panel__hint">Preview uses the clip's saved export range. Drag a clip to a narration row or a + Add row gap.</p>
+      </aside>
+
+      <aside id="stash-panel" class="stash-panel" aria-labelledby="stash-heading" hidden>
+        <div class="stash-panel__heading">
+          <h2 id="stash-heading">Stash <span data-stash-count></span></h2>
+          <button type="button" data-stash-close aria-label="Close Stash">Close</button>
+        </div>
+        <form data-stash-form>
+          <label for="stash-note">Add note</label>
+          <textarea id="stash-note" rows="2" required></textarea>
+          <label for="stash-section">Section</label>
+          <select id="stash-section"></select>
+          <button type="submit">Add note</button>
+        </form>
+        <p data-stash-status role="status" aria-live="polite"></p>
+        <div data-stash-entries></div>
+        <form data-stash-place hidden>
+          <label for="stash-destination">Insert note before word</label>
+          <select id="stash-destination" required></select>
+          <button type="submit">Insert note</button>
+          <button type="button" data-stash-cancel>Cancel</button>
+        </form>
       </aside>
 
       <aside id="research-still-panel" class="research-still-panel" role="dialog" aria-modal="false"
