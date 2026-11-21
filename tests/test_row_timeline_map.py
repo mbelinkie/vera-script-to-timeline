@@ -497,7 +497,19 @@ def test_compiler_marker_is_not_mistaken_for_a_timeline_item() -> None:
 
 def test_compiler_multi_block_golden_retains_each_row_extent() -> None:
     manifest, row_map = _compiler_map("editor-note-between-unknown-duration")
-    assert len(manifest["events"]) == 3
+    events = [event for event in manifest["events"] if event["kind"] != "script_marker"]
+    markers = [
+        event for event in manifest["events"] if event["kind"] == "script_marker"
+    ]
+    assert len(events) == 3
+    assert len(markers) == 1
+    marker = markers[0]
+    assert marker["marker"] == {
+        "supportingItemId": "00000000-0000-4000-8000-00000000004b",
+        "text": "Undurationed spacer",
+    }
+    assert marker["provenance"]["blockId"] == marker["marker"]["supportingItemId"]
+    assert marker["recordRange"] == {"startFrame": 96, "endFrame": 97}
     assert len(row_map["rows"]) == 2
     assert [(row["startFrame"], row["lengthFrames"]) for row in row_map["rows"]] == [
         (0, 96),
@@ -505,5 +517,8 @@ def test_compiler_multi_block_golden_retains_each_row_extent() -> None:
     ]
     assert [len(row["items"]) for row in row_map["rows"]] == [2, 1]
     assert {row["rowId"] for row in row_map["rows"]} == {
-        event["provenance"]["blockId"] for event in manifest["events"]
+        event["provenance"]["blockId"] for event in events
+    }
+    assert {item["eventId"] for row in row_map["rows"] for item in row["items"]} == {
+        event["eventId"] for event in events
     }

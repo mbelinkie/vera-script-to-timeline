@@ -27,6 +27,7 @@ _SCENARIOS = {
     "root-child-overlay-return": "root-child-overlay-return",
     "shared-preparation": "issue531-shared-preparation",
     "intentional-slate": "visual-only-default-25fps",
+    "named-section-markers": "named-section-markers",
     "verified-reuse": "reuse-nonzero-inpoint",
     "source-audio-quiet": "selected-clip-ntsc",
     "source-audio-full": "selected-clip-ntsc",
@@ -1041,22 +1042,22 @@ def make_package_case(
                     event["provenance"]["originalSourceHash"] = narration_hash
                     event["provenance"]["deliveredSourceHash"] = narration_hash
 
-    if scenario == "intentional-slate":
+    if scenario in {"intentional-slate", "named-section-markers"}:
         from vera_timeline_agent.placeholder_slate import render_placeholder_slate
 
-        placeholder_event = next(
+        for placeholder_event in (
             event for event in manifest["events"] if event["kind"] == "placeholder"
-        )
-        treatment = placeholder_event["pictureTreatment"]
-        slate_path = media_dir / f"slate-{placeholder_event['eventId']}.png"
-        slate_path.write_bytes(
-            render_placeholder_slate(
-                treatment["text"],
-                manifest["timeline"]["width"],
-                manifest["timeline"]["height"],
+        ):
+            treatment = placeholder_event["pictureTreatment"]
+            slate_path = media_dir / f"slate-{placeholder_event['eventId']}.png"
+            slate_path.write_bytes(
+                render_placeholder_slate(
+                    treatment["text"],
+                    manifest["timeline"]["width"],
+                    manifest["timeline"]["height"],
+                )
             )
-        )
-        media_paths[f"event:{placeholder_event['eventId']}"] = slate_path
+            media_paths[f"event:{placeholder_event['eventId']}"] = slate_path
 
     manifest["tracks"] = copy.deepcopy(dependencies["tracks"])
     manifest["roles"] = copy.deepcopy(dependencies["roles"])
