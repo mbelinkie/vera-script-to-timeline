@@ -68,7 +68,7 @@ Claude and Sol recommend a labeled cursor or range outline. The target stays in 
 
 - [Research PR #112](https://github.com/mbelinkie/vera-research-video-clips/pull/112) records r14 approval after the older in-project log. [Timeline #673](https://github.com/mbelinkie/vera-script-to-timeline/pull/679) delivered the kept-still picker in the editor. The quote's article picture comes from its source.
 - [Research Sources §8.2–8.5](../../../plans/research-sources-spec.md#82-the-quote-box-is-a-transparent-graphic-no-new-layering-design) applies the accepted transparent Graphic precedent to S03 and specifies the Need to Find fallback. The background takes ordinary picture coverage. The overlay has its own range and keeps the base visible. A conflict with an existing clip follows the ordinary background coverage rules. The comparison keeps the clip outside the target so that it tests the two cues directly.
-- Limit quote destinations to one narration row, keeping r29 row-gap behavior for footage. Preserve the open Library query and original focus on Escape. Quick search attaches on an exact selection and inserts at a valid collapsed caret. Give keyboard destinations the same text as pointer destinations. Count actual quote placements in usage, with speaker and citation visible on the Library quote card.
+- The A/B comparison used one narration row. Preserve the open Library query and original focus on Escape. Quick search attaches on an exact selection and inserts at a valid collapsed caret. Give keyboard destinations the same text as pointer destinations. Count actual quote placements in usage, with speaker and citation visible on the Library quote card. See the Producer's later decision below for the row-divider target.
 
 ## Focused comparison prompt
 
@@ -182,4 +182,15 @@ Verified the [live B Pilot r2](https://claude.ai/design/p/011eee38-8b6b-48aa-a15
 - **Keyboard:** ⌘⇧F opened Attach on a hand-selected sentence at both sizes. Escape restored text focus and the selected range, and Enter after reopening committed once. Insert passed with a chosen caret and one Undo, including the wide clicked caret after switching sizes. The wide test helper “Caret before sentence 2” targeted the first word once immediately after switching from compact. Clicking the intended caret selected the correct location.
 - **Feedback:** The compact placement dialog cleared the quote action. Undo cleared the stale success announcement. A mid-sentence shortcut in the wide test displayed “Not a place for a quote” and left the script intact.
 
-This review covers the live corrected pilot. The broader Library cases and the standalone export still need review. Awaiting Matthew's notes before the next design pass.
+This review covers the live corrected pilot. The broader Library cases and the standalone export still need review.
+
+## Producer notes after B Pilot r2
+
+On November 21, Matthew asked for a highlighted boundary that creates a new narration row when the writer drops a quote between rows, and quotation marks around every quote inserted into the narration. The row boundary reuses the accepted r29 D185 insertion line, labeled **Insert quote as new row** for a quote. User direction fixes the destination and behavior, so reuse the established treatment in the next focused B pass.
+
+| Promised action | Evidence and limit |
+| --- | --- |
+| Create a complete quote row at a valid boundary in one Undo | #80 accepts an exact row gap, and the existing authored row command creates a complete row in one edit. A focused synthetic contract check prepared a new row with #680's quote edit, then committed it to the original document once through the exact gap. Validation passed and Undo restored the original block list. Browser integration belongs to #643. |
+| Wrap only the inserted narration in quotation marks | The same check verified a single pair of curly double quotation marks in the saved narration and independent display copy in the overlay. Treat those marks as punctuation. Retain interior punctuation and avoid doubling a matched outer pair. |
+
+The fresh pilot should cover a drop at an existing row seam between two rows in the same section, a quote inserted at a caret, and attachment to existing words. Check a loss or cancellation of the seam, one Undo for the whole new row, one Undo for the in-row insert, the approved B target label without color, and preservation of the adjacent footage. For the separate-row keyboard path, use Add row and the existing Place in script… action. The new [footage replacement issue #686](https://github.com/mbelinkie/vera-script-to-timeline/issues/686) owns the clip-on-card gesture.
