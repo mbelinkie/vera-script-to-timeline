@@ -117,6 +117,11 @@ describe("Stash browser command binding (#674 phase 1)", () => {
     const changed = structuredClone(document);
     (changed.activeDraft.blocks[0] as NarrationBlockV2).version += 1;
     expect(() => stashWordsCommand(changed, words)).toThrow(/changed/u);
+    // A locally changed token that forgot to bump row.version must not be
+    // applied against a selection captured before that change.
+    const changedWithoutVersion = structuredClone(document);
+    (changedWithoutVersion.activeDraft.blocks[0] as NarrationBlockV2).tokens[1]!.value = "changed";
+    expect(() => stashWordsCommand(changedWithoutVersion, words)).toThrow(/changed/u);
     const noteCreated = apply(document, createStashNoteCommand(document, "saved note", {}, ids(900)));
     const noteId = noteCreated.stash?.[0]?.rows[0]?.id ?? "";
     expect(captureStashNoteDrop(noteCreated, id(9999), target.id, target.tokens[1]!.id)).toBeNull();
