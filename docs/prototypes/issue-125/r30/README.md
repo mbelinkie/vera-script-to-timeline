@@ -218,3 +218,21 @@ Reviewed the [combined r30 source preview](https://claude.ai/design/p/011eee38-8
 Claude reported 165 of 169 scripted passes. Its handoff identified the compact thumbnail legibility gap and a Stash failure in the full sequence at each size. It also flagged that quote attribution marks do not track later typing edits. Preserve attribution during document edits in #643 and verify compact placement, Stash and the existing kept-still entry point there. The prototype's ⌘⇧F opens the quote picker first and offers a Footage handoff for selected words. The implementation should preserve direct footage discovery for selected words and quote insertion at a valid caret under the accepted mixed search spec.
 
 Recommend Producer review of this exact revision. Confirm the new-row drop and Undo, the two quotes over one picture, and the typed-quote background fallback. An unavailable picture can use the same placeholder because the available quote stays useful and the dialog says the picture is missing before placement. Producer acceptance and the PR merge are pending.
+
+### Producer notes on the Gazette fixture
+
+Two Gazette quotes is a stress test for a shared full-frame article picture, two
+independent overlays and neighboring footage. The default row showed numbered
+visuals 1–4 in this review. Matthew reported a later 5 → 7 gap. Verify that
+every shown range number identifies a visible card in a crowded row. Preserve
+the recovery card for a deliberately placed visual displaced from its words.
+Derived On Camera passages carry no visual number (r29 D193).
+
+The default preset has two real cutaways, one to the full-frame article still
+and one to Channel light. Removing the article still in a disposable preview
+left one full On Camera card, then both independently timed Graphic cards,
+then Channel light and its one genuine “OC resumes.” The rule applies to
+transparent visuals generally. Compute On Camera coverage and framing from the
+base picture. Put an overlay that starts during a continuous On Camera passage
+after that passage's card and use its own brackets to show when it disappears.
+Keep this case and the ordinal check in the implementation handoff.
