@@ -406,7 +406,11 @@ describe("#676 exact section markers", () => {
     doc.activeDraft.blocks = [empty, timed, ...doc.activeDraft.blocks, tail];
     const result = compile(doc, deps);
     expect(markers(result)).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 1 }, marker: { supportingItemId: timed.id, text: timed.title } }]);
-    expect(result.report.diagnostics).toEqual(expect.arrayContaining([empty, tail].map((heading) => expect.objectContaining({ code: "STALE_ANCHOR", severity: "warning", entity: expect.objectContaining({ kind: "block", id: heading.id }), message: expect.stringContaining("no duration-bearing Draft row") }))));
+    for (const heading of [empty, tail]) {
+      const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+      expect(diagnostic).toMatchObject({ code: "STALE_ANCHOR", severity: "warning", entity: { kind: "block", id: heading.id } });
+      expect(diagnostic?.message).toContain("no duration-bearing Draft row");
+    }
     expect(result.manifest.timeline.durationFrames).toBe(48);
   });
 
@@ -435,7 +439,11 @@ describe("#676 exact section markers", () => {
     const result = compile(doc, deps);
     expect(markers(result)).toHaveLength(0);
     expect(result.report.status).toBe("blocked");
-    expect(result.report.diagnostics).toEqual(expect.arrayContaining([missing, later].map((heading) => expect.objectContaining({ code: "STALE_ANCHOR", severity: "blocking", entity: expect.objectContaining({ id: heading.id }), message: expect.stringContaining("no exact timed Draft row start") }))));
+    for (const heading of [missing, later]) {
+      const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+      expect(diagnostic).toMatchObject({ code: "STALE_ANCHOR", severity: "blocking", entity: { id: heading.id } });
+      expect(diagnostic?.message).toContain("no exact timed Draft row start");
+    }
   });
 
   it("preserves an exact editor note on a section's frame and blocks readiness with a section diagnostic", () => {
@@ -450,7 +458,9 @@ describe("#676 exact section markers", () => {
     expect(markers(result)).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 1 }, marker: { supportingItemId: id(9910), text: "Existing note" } }]);
     expect(result.report.itemResults).toMatchObject([{ itemId: id(9910), disposition: "placed" }]);
     expect(result.report.status).toBe("blocked");
-    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: expect.objectContaining({ id: heading.id }), message: expect.stringContaining("exact frame 0") }));
+    const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+    expect(diagnostic).toMatchObject({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: { id: heading.id } });
+    expect(diagnostic?.message).toContain("exact frame 0");
   });
 
   it("preserves the existing music warning marker and reports a section collision at its exact frame", () => {
@@ -462,10 +472,10 @@ describe("#676 exact section markers", () => {
     const result = compile(doc, deps);
     expect(markers(result)).toEqual(markers(baseline));
     expect(result.report.status).toBe("blocked");
-    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "MUSIC_FILE_MISSING", severity: "warning" }),
-      expect.objectContaining({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: expect.objectContaining({ id: heading.id }), message: expect.stringContaining("exact frame 0") }),
-    ]));
+    expect(result.report.diagnostics.find((item) => item.code === "MUSIC_FILE_MISSING")).toMatchObject({ severity: "warning" });
+    const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+    expect(diagnostic).toMatchObject({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: { id: heading.id } });
+    expect(diagnostic?.message).toContain("exact frame 0");
   });
 });
 
