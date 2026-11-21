@@ -109,3 +109,11 @@ after this comparison.
 Return the comparison link and export, the hardest case for each
 option and your recommendation. Stop for Matthew's choice.
 ```
+
+## Producer feedback on the comparison
+
+Matthew reported difficulty with both drag destinations on November 21. His usual task is to have the host read the same quote seen on screen. Put that case first in the review. A single insertion should put matching quote text in the narration and quote box, place the article picture and graphic over the inserted words, and take one Undo. On first placement, use the same quote wording in both columns. If a previously shortened quote is offered as the default, verify that the inserted text matches the box for this read-aloud workflow. Later edits to either remain independent.
+
+Recommend making the existing **Place in script…** action easy to find on quote cards and letting it insert at a chosen caret. The user should be able to complete the main task without aiming at a narrow drop zone. For attachment, test Matthew's exact sequence: select a sentence, start dragging a Library quote, confirm the sentence remains visibly targeted, and drop on it. Check that the words stay intact and one Undo removes both visuals. Include the case where dragging from the sidebar clears the browser selection. In that case the editor needs to retain the target range and must refuse a lost or stale target.
+
+The link or export is needed to reproduce the drag problem and review the comparison before choosing a pilot.
