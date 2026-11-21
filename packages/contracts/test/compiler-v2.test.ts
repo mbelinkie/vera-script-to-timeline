@@ -381,6 +381,9 @@ describe("#676 exact section markers", () => {
     expect(compile(doc, deps).manifestJson).toBe(initial.manifestJson);
     expect(compile(doc, deps).reportJson).toBe(initial.reportJson);
     expect(doc).toEqual(frozen);
+    readFrozenInput("named-section-markers", doc, deps);
+    readGolden("named-section-markers.manifest", initial.manifestJson);
+    readGolden("named-section-markers.report", initial.reportJson);
 
     opening.title = "Renamed opening";
     opening.version++;

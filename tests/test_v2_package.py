@@ -1786,6 +1786,70 @@ def test_build_round_trips_accepted_24000_over_1001_timeline(tmp_path: Path) -> 
     assert view["timeline"]["frameRate"] == {"numerator": 24000, "denominator": 1001}
 
 
+def test_named_section_markers_round_trip_without_frame_drift(tmp_path: Path) -> None:
+    case = make_package_case(tmp_path, scenario="named-section-markers")
+    document = json.loads(case.document_path.read_text())
+    manifest = json.loads(case.manifest_path.read_text())
+    sections = [b for b in document["activeDraft"]["blocks"] if b["type"] == "section"]
+    events = [e for e in manifest["events"] if e["kind"] == "script_marker"]
+    built = case.build()
+    verified = verify_v2_package(case.project_root)
+    root = case.project_root / BUILD_DIRECTORY / built.build_id
+    view = json.loads((root / "delivery-view.json").read_text())
+    path = root / OTIO_FILENAME
+    timeline = otio.adapters.read_from_file(str(path))
+
+    assert verified.build_id == built.build_id
+    assert verified.marker_count == 2
+    assert verified.event_count == 3
+    assert [m.name for m in timeline.tracks.markers] == ["Opening — 第一章", "Closing"]
+    assert [m.marked_range.start_time.to_frames() for m in timeline.tracks.markers] == [
+        0,
+        144,
+    ]
+    assert len(sections) == len(events) == len(view["markers"]) == 2
+    for section, event, marker, actual, frame in zip(
+        sections,
+        events,
+        view["markers"],
+        timeline.tracks.markers,
+        [0, 144],
+        strict=True,
+    ):
+        assert event["provenance"]["blockId"] == section["id"]
+        assert event["marker"] == {
+            "supportingItemId": section["id"],
+            "text": section["title"],
+        }
+        assert event["recordRange"] == {"startFrame": frame, "endFrame": frame + 1}
+        assert marker == {
+            "id": event["eventId"],
+            "frame": frame,
+            "name": section["title"],
+            "note": section["title"],
+            "color": "YELLOW",
+            "provenance": event,
+        }
+        assert actual.metadata["vera"] == marker
+        assert actual.marked_range.duration.to_frames() == 0
+    assert view["timeline"]["durationFrames"] == 168
+
+    # A rehashed OTIO with a shifted marker must still fail semantic readback.
+    actual = timeline.tracks.markers[1]
+    actual.marked_range = otio.opentime.TimeRange(
+        otio.opentime.RationalTime(145, 24), actual.marked_range.duration
+    )
+    otio.adapters.write_to_file(timeline, str(path), adapter_name="otio_json")
+    receipt_path = root / VERIFICATION_FILENAME
+    receipt = json.loads(receipt_path.read_text())
+    receipt["fileHashes"][
+        (Path(BUILD_DIRECTORY) / built.build_id / OTIO_FILENAME).as_posix()
+    ] = "sha256:" + sha256(path)
+    receipt_path.write_bytes(canonical_json_bytes(receipt))
+    with pytest.raises(V2PackageError, match="OTIO marker differs from delivery view"):
+        verify_v2_package(case.project_root)
+
+
 def test_public_root_child_overlay_return_package_round_trip_without_source_audio(
     tmp_path: Path,
 ) -> None:
