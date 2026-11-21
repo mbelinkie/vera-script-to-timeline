@@ -233,7 +233,14 @@ turn over one long background are simply two transparent Graphics.
    those words;
 3. adds a **quote box** overlay on the same words.
 
-- The narration is ordinary text afterwards; editing it never touches the box.
+- Inserted narration is wrapped in quotation marks. Use a single outer pair
+  and preserve the quote's wording and punctuation. The narration is ordinary
+  text afterwards; editing it never touches the box.
+- When the quote is dragged over an eligible boundary between rows, highlight
+  the boundary and label it **Insert quote as new row**. Dropping there creates
+  a narration row containing the quoted text, background and quote box. One
+  Undo removes the new row and both visuals. This and the quotation marks
+  reflect the Producer's November 21 feedback on #642.
 - Both visuals keep their own range brackets: drag the background's start
   earlier so the article shows first, then the box comes in.
 - Placing right after another quote from the same article extends the
