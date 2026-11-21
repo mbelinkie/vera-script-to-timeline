@@ -41,7 +41,7 @@ function caretRect(editor, offset) {
 }
 
 /** The panel only projects saved state; all writes go through the ordinary editor queue. */
-export function mountStashPanel({ root, script, actions, getDocument, onOpen }) {
+export function mountStashPanel({ root, script, actions, getDocument, onOpen, readOnly = () => false }) {
   const doc = root.ownerDocument;
   const toggle = doc.getElementById("open-stash");
   const form = root.querySelector("[data-stash-form]");
@@ -105,7 +105,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen }) 
   }
 
   async function insert(intent) {
-    if (pending || !intent) return;
+    if (readOnly() || pending || !intent) return;
     const current = captureStashNoteDrop(getDocument(), intent.noteRowId, intent.rowId, intent.beforeTokenId);
     if (JSON.stringify(current) !== JSON.stringify(intent)) {
       status.textContent = "The note or its receiving row changed. Choose the point again.";
@@ -127,7 +127,9 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen }) 
   function update() {
     if (root.hidden) return;
     const sections = actions.view();
-    const signature = JSON.stringify(sections);
+    const readonly = readOnly();
+    form.hidden = readonly;
+    const signature = JSON.stringify([readonly, sections]);
     if (signature === rendered) return;
     rendered = signature;
     const previous = section.value;
@@ -166,8 +168,8 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen }) 
           button.type = "button";
           button.setAttribute("aria-label", `Place note ${label} in script`);
           button.addEventListener("click", () => choose(entry.rowId, button));
-          li.append(button);
-          li.draggable = true;
+          if (!readonly) li.append(button);
+          li.draggable = !readonly;
           li.addEventListener("dragstart", (event) => {
             drag = { id: entry.rowId, snapshot: JSON.stringify(row), projectId: getDocument()?.projectId };
             event.dataTransfer.setData(dragType, entry.rowId);
@@ -249,7 +251,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen }) 
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (pending || !input.value.trim()) return;
+    if (readOnly() || pending || !input.value.trim()) return;
     pending = true;
     const text = input.value;
     const started = generation;

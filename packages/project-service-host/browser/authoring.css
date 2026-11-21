@@ -376,7 +376,8 @@ input {
   font-size: 0.7rem;
 }
 
-.script-paper {
+.script-paper,
+.sorting-view {
   overflow: visible;
   /* Scale all script text, cards and inter-row space without moving the bar. */
   zoom: var(--authoring-zoom);
@@ -1237,3 +1238,19 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 @media (max-width: 999px) {
   .stash-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
 }
+
+/* #675: reorder-only Sorting outline, independent from the Draft renderer. */
+.sorting-mode #open-sorting, #sorting-accept {
+  background: var(--gold);
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.sorting-view { padding: 1.5rem; }
+.sorting-view h2 { margin-top: 0; }
+.sorting-actions { display: flex; gap: .6rem; }
+.sorting-view button { min-height: 2.25rem; padding: .35rem .7rem; border: 1px solid var(--line); border-radius: .3rem; background: white; color: var(--ink); }
+.sorting-view button:disabled { opacity: .5; }
+.sorting-view ol { list-style: none; padding: 0; }
+.sorting-view li { display: flex; align-items: center; gap: .45rem; padding: .65rem; border-bottom: 1px solid var(--line); }
+.sorting-view li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sorting-row--moved { border-left: 3px solid var(--gold); }

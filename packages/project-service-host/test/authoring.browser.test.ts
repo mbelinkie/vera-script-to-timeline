@@ -4102,6 +4102,122 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#675 Sorting isolates keyboard moves, discards without saving, accepts once and survives reload", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Sorting trial project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["Opening words", "Middle words", "Closing words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const saved = async () => (await appRequest(page, path)).body as SavedDocument;
+    const baseline = await saved();
+    const original = baseline.document.activeDraft.blocks.map((row) => row.id);
+    const reordered = [original[1], original[0], ...original.slice(2)];
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    const draftOrder = () => page.locator("#script-rows .script-row").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-row-id")));
+    const trialOrder = () => page.locator("[data-sorting-row-id]").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-sorting-row-id")));
+    const open = async () => {
+      await page.locator("#open-sorting").click();
+      expect(await page.locator("#sorting-heading").evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await page.locator("#script-rows").isVisible()).toBe(false);
+      expect(await page.locator(".script-paper").count()).toBe(1);
+      expect(await page.locator("#sorting-view").evaluate((el) => getComputedStyle(el).zoom))
+        .toBe(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom));
+      expect(await trialOrder()).toEqual(original);
+      expect(await page.locator("#undo").isVisible()).toBe(false);
+    };
+    const move = async () => {
+      const up = page.getByRole("button", { name: "Move Middle words up" });
+      await up.focus();
+      await up.press("Enter");
+      await expect.poll(trialOrder).toEqual(reordered);
+      const down = page.getByRole("button", { name: "Move Middle words down" });
+      expect(await down.evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await saved()).toEqual(baseline);
+      expect(puts).toBe(0);
+    };
+    await page.reload();
+    await open();
+    await move();
+    await page.locator("#open-stash").click();
+    expect(await page.locator("#stash-panel").isVisible()).toBe(true);
+    expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+    await page.locator("[data-stash-close]").click();
+    page.once("dialog", async (dialog) => await dialog.dismiss());
+    await page.locator("#open-sorting").click();
+    expect(await trialOrder()).toEqual(reordered);
+    expect(await saved()).toEqual(baseline);
+    await page.locator("#sorting-discard").click();
+    expect(await page.locator("#open-sorting").evaluate((el) => el === document.activeElement)).toBe(true);
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await draftOrder()).toEqual(original);
+    expect(await saved()).toEqual(baseline);
+    await open();
+    await move();
+    // Escape is a discard path, never an acceptance shortcut.
+    page.once("dialog", async (dialog) => await dialog.accept());
+    await page.keyboard.press("Escape");
+    expect(await page.locator("#sorting-view").isVisible()).toBe(false);
+    expect(await saved()).toEqual(baseline);
+    await open();
+    await move();
+    await page.locator("#sorting-accept").click();
+    await expect.poll(async () => (await saved()).document.activeDraft.blocks.map((row) => row.id)).toEqual(reordered);
+    expect(puts).toBe(1);
+    expect(await page.locator("#undo").getAttribute("aria-label")).toBe("Undo Sort rows");
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await draftOrder()).toEqual(reordered);
+    expect((await saved()).revision).toBe(baseline.revision + 1);
+    await page.close();
+  }, 90_000);
+
+  it("#675 Sorting refuses acceptance after another saved revision", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Stale Sorting project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["Opening words", "Middle words", "Closing words"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.reload();
+    await page.locator("#open-sorting").click();
+    await page.getByRole("button", { name: "Move Middle words up" }).click();
+    await expect.poll(() => page.locator("#sorting-accept").isEnabled()).toBe(true);
+    const path = `/authoring/projects/${projectId}/document`;
+    const baseline = (await appRequest(page, path)).body as SavedDocument;
+    const other = await context.newPage();
+    await other.goto(`${origin}/?project=${projectId}`);
+    await other.locator("#script-rows").waitFor({ state: "visible" });
+    const changed = await appRequest(other, path, "PUT", {
+      expectedRevision: baseline.revision, clientMutationId: randomUUID(),
+      document: { ...baseline.document, title: "Newer saved revision" },
+    });
+    expect(changed.status).toBe(200);
+    const newer = (await appRequest(other, path)).body as SavedDocument;
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    await page.locator("#sorting-accept").click();
+    await expect.poll(() => page.locator("#sorting-status").textContent()).toContain("saved script changed");
+    expect(await page.locator("#sorting-view").isVisible()).toBe(true);
+    expect(puts).toBe(0);
+    expect((await appRequest(page, path)).body).toEqual(newer);
+    await page.locator("#sorting-discard").click();
+    await page.reload();
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    expect(await page.locator("#script-title").textContent()).toBe("Newer saved revision");
+    expect(await page.locator("#script-rows .script-row").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-row-id")))).toEqual(baseline.document.activeDraft.blocks.map((row) => row.id));
+    await other.close();
+    await page.close();
+  }, 90_000);
+
   it("reorders rows by dragging the row handle and restores their order with Undo", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

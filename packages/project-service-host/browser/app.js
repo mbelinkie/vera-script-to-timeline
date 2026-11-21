@@ -1,5 +1,5 @@
 import { mountVisualCardMenus, renderRows } from "./view.js";
-import { mountRowsEditor, createBlankNarrationRow, rowGaps } from "./rows-editor.js";
+import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel } from "./research-panel.js";
@@ -76,6 +76,7 @@ let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
 let researchStillPanel;
+let sortingTrial = null;
 let stashPanel;
 
 async function api(path, method = "GET", data) {
@@ -106,7 +107,7 @@ function prompterReady() {
     Number.isSafeInteger(documentRevision) && savedDigestPattern.test(documentDigest ?? "") &&
     !opening && !saving && !pendingName && !pendingCreate && !conflicted && !editRefused &&
     !documentSaving && !documentDirty && !pendingDocument && !commandsPending &&
-    !composingRows.size && projectTitle.value.trim() === project.title);
+    !composingRows.size && !sortingTrial && projectTitle.value.trim() === project.title);
 }
 
 function currentPrompterPair() {
@@ -118,6 +119,7 @@ function currentPrompterPair() {
 
 function updatePrompterControls() {
   const ready = prompterReady();
+  element("open-sorting").disabled = sortingTrial ? sortingTrial.busy : !ready;
   element("open-prompter").disabled = !ready;
   element("open-prompter").title = ready ? "Export the saved script" : "Save your script before exporting";
   element("prepare-prompter").disabled = !ready || prompterPreparing;
@@ -273,6 +275,8 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  sortingTrial = null;
+  setSortingMode(false);
   clearPreparedPrompter();
   if (prompterDialog.open) prompterDialog.close();
   const [{ project: savedProject }, savedScript] = await Promise.all([
@@ -1273,8 +1277,216 @@ async function applyPlainPaste(document, intent) {
   return { document: working, focusAfter: { rowId: currentRowId, offset: Math.max(0, caret) } };
 }
 
+// Sorting is a separate, in-memory working view of a pinned saved head.
+export function currentSortingTrial() {
+  return sortingTrial && {
+    document: sortingTrial.document, movedRowIds: [...sortingTrial.movedRowIds],
+    busy: sortingTrial.busy,
+  };
+}
+
+export function beginSortingTrial() {
+  if (!prompterReady()) return false;
+  sortingTrial = {
+    projectId: activeProjectId, revision: documentRevision, digest: documentDigest,
+    baseline: scriptDocument, document: structuredClone(scriptDocument), moves: [], movedRowIds: [], busy: false,
+  };
+  typingGroup = null;
+  clearPreparedPrompter();
+  return true;
+}
+
+function sortingBaselineCurrent(trial) {
+  return sortingTrial === trial && activeProjectId === trial.projectId &&
+    scriptDocument === trial.baseline && documentRevision === trial.revision &&
+    documentDigest === trial.digest && !conflicted && !editRefused &&
+    !documentSaving && !documentDirty && !pendingDocument && !commandsPending;
+}
+
+async function sortingRequest(trial, moves, action) {
+  try {
+    const result = await api(`/${trial.projectId}/sorting-trial`, "POST", {
+      expectedRevision: trial.revision, expectedDigest: trial.digest, moves, action,
+    });
+    if (!result.ok) throw new Error(result.diagnostics?.[0]?.message || "Sorting could not be applied.");
+    return result;
+  } catch (error) {
+    throw new Error(error.body?.diagnostics?.[0]?.message || error.message || "Sorting could not be applied.");
+  }
+}
+
+export async function moveSortingTrial(command) {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || command?.kind !== "move_rows" || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const moves = [...trial.moves, structuredClone(command)];
+    const result = await sortingRequest(trial, moves, "preview");
+    if (!sortingBaselineCurrent(trial)) return false;
+    trial.moves = moves;
+    trial.document = result.document;
+    trial.movedRowIds = result.movedRowIds;
+    return true;
+  } finally { trial.busy = false; }
+}
+
+export function discardSortingTrial() {
+  if (!sortingTrial) return false;
+  sortingTrial = null;
+  updatePrompterControls();
+  return true;
+}
+
+export async function acceptSortingTrial() {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const result = await sortingRequest(trial, trial.moves, "accept");
+    if (!sortingBaselineCurrent(trial)) return false;
+    sortingTrial = null;
+    if (result.changed) {
+      undoStack.push({ document: scriptDocument, label: "Sort rows" });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      invalidateProjection(false);
+      updateUndo();
+      documentDirty = true;
+      // documentRevision still equals the original baseline. The existing
+      // save queue enforces CAS even if another writer saves after projection.
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+    }
+    updatePrompterControls();
+    return true;
+  } finally { trial.busy = false; }
+}
+
+// A separate read-only outline: normal Draft controls never edit a trial.
+function setSortingMode(active) {
+  authoring.classList.toggle("sorting-mode", active);
+  element("sorting-view").hidden = !active;
+  element("script-rows").closest(".script-paper").hidden = active;
+  projectTitle.readOnly = active;
+  for (const id of ["undo", "open-footage", "open-prompter"]) element(id).hidden = active;
+  element("undo").parentElement.querySelector(".undo-menu").hidden = active;
+  const toggle = element("open-sorting");
+  toggle.textContent = active ? "← Back to script" : "Sort rows";
+  toggle.setAttribute("aria-expanded", String(active));
+  if (!active) element("sorting-rows").replaceChildren();
+}
+
+function leaveSorting() {
+  if (!sortingTrial || sortingTrial.busy) return;
+  if (sortingTrial.moves.length && !window.confirm("Discard this Sorting trial and return to the script?")) return;
+  finishSorting(false);
+}
+
+function finishSorting(accepted) {
+  if (!accepted) discardSortingTrial();
+  setSortingMode(false);
+  if (accepted) renderEditor();
+  stashPanel?.close(false);
+  updatePrompterControls();
+  // Accept may start a save, so focus the script heading while the toggle is disabled.
+  (element("open-sorting").disabled ? element("script-title") : element("open-sorting")).focus();
+}
+
+function sortingStatus(message) {
+  element("sorting-status").textContent = message;
+}
+
+function sortingButton(label, text) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = text;
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+function renderSorting(focusRowId, direction) {
+  const trial = currentSortingTrial();
+  if (!trial) return;
+  const blocks = trial.document.activeDraft.blocks;
+  const gaps = rowGaps(blocks);
+  const root = element("sorting-rows");
+  root.replaceChildren();
+  for (const section of rowSections(blocks)) {
+    if (!section.rows.length && !section.sectionId) continue;
+    const group = document.createElement("section");
+    const heading = document.createElement("h3");
+    heading.textContent = blocks.find((block) => block.id === section.sectionId)?.title ?? "Unsectioned";
+    group.append(heading);
+    const list = document.createElement("ol");
+    for (const row of section.rows) {
+      const item = document.createElement("li");
+      item.dataset.sortingRowId = row.id;
+      const label = document.createElement("span");
+      label.textContent = rowLabel(row);
+      if (trial.movedRowIds.includes(row.id)) item.classList.add("sorting-row--moved");
+      item.append(label);
+      const before = gaps.findIndex((gap) => gap.beforeRowId === row.id);
+      const after = gaps.findIndex((gap) => gap.afterRowId === row.id);
+      for (const [step, destination] of [["up", gaps[before - 1]], ["down", gaps[after + 1]]]) {
+        const button = sortingButton(`Move ${rowLabel(row)} ${step}`, step === "up" ? "↑" : "↓");
+        button.dataset.sortingMove = step;
+        button.disabled = !destination || trial.busy;
+        button.addEventListener("click", () => {
+          void runSortingAction(() => moveSortingTrial({ kind: "move_rows", rowIds: [row.id], destination }), row.id, step);
+        });
+        item.append(button);
+      }
+      list.append(item);
+    }
+    group.append(list);
+    root.append(group);
+  }
+  element("sorting-accept").disabled = trial.busy || !sortingTrial.moves.length;
+  element("sorting-discard").disabled = trial.busy;
+  updatePrompterControls();
+  if (focusRowId) {
+    const row = [...root.querySelectorAll("[data-sorting-row-id]")].find((item) => item.dataset.sortingRowId === focusRowId);
+    const buttons = [...(row?.querySelectorAll("button:not(:disabled)") ?? [])];
+    (buttons.find((button) => button.dataset.sortingMove === direction) ?? buttons[0] ?? element("sorting-discard")).focus();
+  }
+}
+
+async function runSortingAction(action, rowId, direction) {
+  const trial = sortingTrial;
+  if (!trial || trial.busy) return;
+  const pending = action();
+  renderSorting();
+  sortingStatus("Checking trial…");
+  try {
+    if (!await pending) sortingStatus("The saved script changed. Discard this trial and reload before sorting again.");
+    else if (!sortingTrial) { finishSorting(true); return; }
+    else sortingStatus("Trial only. Accept to save this order, or discard to keep the original.");
+  } catch (error) { sortingStatus(error.message); }
+  if (sortingTrial === trial) {
+    renderSorting(rowId, direction);
+    if (!rowId) element("sorting-accept").focus();
+  }
+}
+
+element("open-sorting").addEventListener("click", () => {
+  if (sortingTrial) { leaveSorting(); return; }
+  if (!beginSortingTrial()) return;
+  researchPanel?.close();
+  researchStillPanel?.close();
+  stashPanel?.close(false);
+  activeAttach = null;
+  activeReselect = null;
+  setSortingMode(true);
+  sortingStatus("Trial only. Your saved Draft is unchanged.");
+  renderSorting();
+  element("sorting-heading").focus();
+});
+element("sorting-discard").addEventListener("click", () => finishSorting(false));
+element("sorting-accept").addEventListener("click", () => { void runSortingAction(acceptSortingTrial); });
+
 function queueCommand(command, label, options = {}) {
-  if (options.structural && composingRows.size) return Promise.resolve(false);
+  if (sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
   const inputAt = performance.now();
   commandsPending += 1;
   clearPreparedPrompter("Save your script before exporting.");
@@ -1463,7 +1675,7 @@ function updateUndo() {
 }
 
 function undo() {
-  if (prompterDialog.open || composingRows.size) return;
+  if (sortingTrial || prompterDialog.open || composingRows.size) return;
   clearPreparedPrompter("Save your script before exporting.");
   activeAttach = null;
   typingGroup = null;
@@ -1495,6 +1707,13 @@ element("undo").addEventListener("click", undo);
 document.addEventListener("keydown", (event) => {
   // A modal export must not dispatch (or swallow) editor shortcuts behind it.
   if (prompterDialog.open) return;
+  if (sortingTrial) {
+    if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+      event.preventDefault();
+      if (!sortingTrial.busy) leaveSorting();
+    }
+    return;
+  }
   if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && activeAttach) {
     event.preventDefault();
     cancelAttach();
@@ -1711,7 +1930,7 @@ const stashActions = createStashActions((command, label, options) => {
 }, () => scriptDocument);
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
-  getDocument: () => scriptDocument, onOpen: () => {
+  getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial), onOpen: () => {
     if (!element("footage-panel").hidden) researchPanel.close();
     if (!element("research-still-panel").hidden) researchStillPanel.close();
   },
