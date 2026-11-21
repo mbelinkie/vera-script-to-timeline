@@ -1,6 +1,10 @@
-# S03 r30 Library design brief
+# S03 r30 Library design
 
 [#642](https://github.com/mbelinkie/vera-script-to-timeline/issues/642) revises the exact accepted [S03 r29](../r29/README.md) for a writer who wants to turn a saved Research quote into narration and timed visuals while staying in the script. The behavior comes from the [accepted Research Sources spec §8](../../../plans/research-sources-spec.md#8-editor-the-125-r30-design-642). The [Research #75 r14 handoff](https://github.com/mbelinkie/vera-research-video-clips/blob/321910eaf4819c2a9249e2dbd8c4c40c3d5405ab/docs/design/claude-design/RESEARCH-R14-HANDOFF.md) supplies Library language, excerpt-first reading order, separate row actions, compact focus behavior and the project-wide Hide rule for future placements. Research has Sources and Library as its two approved tabs.
+
+## Accepted artifact
+
+Matthew accepted the [combined S03 r30 prototype](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+Integrated+Authoring+r30.dc.html) on November 21, 2026. [Download the exact r30 source and export](S03%20Integrated%20Authoring%20r30.zip). Open `S03 Integrated Authoring r30 - export.html` inside `exports/issue-642-r30-integrated/`. The editable `.dc.html`, support scripts and synthetic article image are in `source/`. The export offers 1280×800 and 1024×768.
 
 ## Capability evidence
 
@@ -217,7 +221,7 @@ Reviewed the [combined r30 source preview](https://claude.ai/design/p/011eee38-8
 
 Claude reported 165 of 169 scripted passes. Its handoff identified the compact thumbnail legibility gap and a Stash failure in the full sequence at each size. It also flagged that quote attribution marks do not track later typing edits. Preserve attribution during document edits in #643 and verify compact placement, Stash and the existing kept-still entry point there. The prototype's ⌘⇧F opens the quote picker first and offers a Footage handoff for selected words. The implementation should preserve direct footage discovery for selected words and quote insertion at a valid caret under the accepted mixed search spec.
 
-Recommend Producer review of this exact revision. Confirm the new-row drop and Undo, the two quotes over one picture, and the typed-quote background fallback. An unavailable picture can use the same placeholder because the available quote stays useful and the dialog says the picture is missing before placement. Producer acceptance and the PR merge are pending.
+An unavailable picture uses the same placeholder because the quote remains available and the placement dialog says the picture is missing. Matthew accepted this exact combined revision after reviewing the overlay behavior and card indentation. The thumbnail, mixed Library controls and live range-handle checks remain part of the implementation handoff.
 
 ### Producer notes on the Gazette fixture
 
