@@ -4251,13 +4251,13 @@ describe("browser authoring over the local project service", () => {
     const visible = () => page.locator(`[data-row-id="${seeded.rowIds[1]}"] .narration-editor__actions button:visible`).allTextContents();
 
     await selectText(editor, 0, "alpha beta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to previous row", "Stash words"]);
     await selectText(editor, "gamma".length + "alpha beta ".length, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Split into new row", "Join to next row", "Stash words"]);
     await selectText(editor, 0, "alpha beta gamma delta".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Join to previous row", "Join to next row", "Stash words"]);
     await selectText(editor, "alpha ".length, "alpha beta gamma".length);
-    await expect.poll(visible).toEqual(["Add visual", "Make stage direction"]);
+    await expect.poll(visible).toEqual(["Add visual", "Make stage direction", "Stash words"]);
     await page.close();
   }, 90_000);
 
