@@ -122,4 +122,36 @@ Inspected the [Claude Design comparison](https://claude.ai/design/p/011eee38-8b6
 
 In the 1280×800 prototype page, pointer insertion just before “second” worked. Dragging onto “second gauge.” after choosing the test helper **Select “second gauge.”** attached both cards. Selecting the full first sentence by hand and dropping on the selection left the script unchanged, including when the drop was on “second gauge.” The comparison only demonstrates the two preset destinations. The “Open interactive” link returned “preview token required.” The prototype page opened inside Claude Design through the page picker.
 
-Recommend B with **Place in script… → Insert quote** easy to find for the read-aloud case. The current Graphic preview is a placeholder with the type and speaker. Before accepting a pilot, show the matching quote wording in both columns and verify a normal sentence boundary, a hand-selected full sentence, Undo, and compact keyboard and pointer behavior. Keep the attach label off the narration it describes. Producer choice is pending.
+Recommend B with **Place in script… → Insert quote** easy to find for the read-aloud case. The current Graphic preview is a placeholder with the type and speaker. Before accepting a pilot, show the matching quote wording in both columns and verify a normal sentence boundary, a hand-selected full sentence, Undo, and compact keyboard and pointer behavior. Keep the attach label off the narration it describes.
+
+## Producer choice and pilot
+
+Matthew chose B on November 21, 2026. The labeled caret and range outline preserve the row layout while placing. A's ghost narration and pending cards reflowed the compact row before commit. The remaining risks are a hidden placement action, a lost sentence selection and a label that covers the narration. The choice authorizes the bounded pilot.
+
+```text
+Matthew chose B, the labeled caret or range outline. Copy
+S03 r30 Quote Placement Prototype.dc.html to a separate
+S03 r30 - B quote placement pilot.dc.html. Preserve r29 and the A/B
+comparison. Use the existing synthetic quote and “Across the channel”
+row, keeping the later Channel light clip.
+
+1. Read-aloud. Click a sentence boundary in the narration. Make
+   Place in script… visible on the Library quote card and lead with
+   Insert quote at that caret. Commit the same quote wording in the
+   narration and the Graphic preview. The article picture and Graphic
+   each cover the inserted words. Show the actual quote text in the
+   Graphic preview. One Undo restores the original row.
+2. Attach. Select the full first sentence by hand, then drag the
+   quote onto it. Retain the intended sentence while dragging from
+   the Library. Show B's range outline and Attach quote label without
+   obscuring the text. Add both visuals to exactly that range while
+   leaving the narration intact. One Undo removes both. A cancelled
+   drag or lost target leaves the document intact.
+
+Run both flows at 1280×800 and 1024×768 with real pointer input.
+Check the keyboard paths through Place in script… and ⌘⇧F, including
+visible focus, equivalent destinations, Enter and Escape, and focus
+return on cancel. Check the caret and range cues without color.
+Return the pilot link and export, what passed at each size, and
+anything still limited to fixtures. Stop at these two flows.
+```
