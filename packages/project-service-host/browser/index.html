@@ -65,6 +65,7 @@
             <input id="thumbnail-size" type="range" min="0" max="100" step="1" value="22" aria-label="Thumbnail size">
             <output id="thumbnail-size-value" for="thumbnail-size">22%</output>
           </label>
+          <button id="open-sorting" type="button" aria-controls="sorting-view" aria-expanded="false" disabled>Sort rows</button>
         </div>
       </header>
 
@@ -174,6 +175,16 @@
           <ul id="music-warning-list"></ul>
         </section>
 
+        <section id="sorting-view" class="sorting-view script-paper" aria-labelledby="sorting-heading" hidden>
+          <h2 id="sorting-heading" tabindex="-1">Sorting</h2>
+          <p>Try a different row order without changing the saved Draft.</p>
+          <div class="sorting-actions">
+            <button id="sorting-accept" type="button">Accept</button>
+            <button id="sorting-discard" type="button">Discard all</button>
+          </div>
+          <p id="sorting-status" role="status" aria-live="polite"></p>
+          <div id="sorting-rows"></div>
+        </section>
         <section class="script-paper" aria-label="Script">
           <div id="script-rows" class="script-rows"></div>
         </section>
