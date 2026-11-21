@@ -14,22 +14,50 @@
 | Show Audio cards and add a Mac file to the shared Library | The [extension](https://github.com/mbelinkie/vera-research-video-clips/pull/93) can register an audio-link source. Timeline [#381](https://github.com/mbelinkie/vera-script-to-timeline/issues/381) supplies project-media preparation. | Research waveform and role placement are later [Research #83](https://github.com/mbelinkie/vera-research-video-clips/issues/83) and [Timeline #646](https://github.com/mbelinkie/vera-script-to-timeline/issues/646) work. Editor file registration, sharing and relink are later [Timeline #85](https://github.com/mbelinkie/vera-script-to-timeline/issues/85) and [Research #84](https://github.com/mbelinkie/vera-research-video-clips/issues/84) work. A waveform fixture or file-picker mock cannot verify either path. |
 | Turn on “Highlight the passage” and return to the top picture when off | #641 proved the capture inputs. [#169's Studio probe](https://github.com/mbelinkie/vera-script-to-timeline/issues/169#issuecomment-6933622488) verified precomposed synthetic Spotlight stills after reopen through probe-only OTIO. | **Open proof in #644.** Build one public or synthetic quote using its actual saved passage picture and rectangle. Reopen and verify the visible highlight with the transparent box and drift, then verify that off restores the pinned top picture. This is independent of the Library UI. |
 
-The Q200 design recommendation is footage plus quotes, with the delivered kept-still picker available. Quotes are a target pending #643 browser integration. The accepted full Library also specifies All, Footage, Quotes, Stills and Audio, kind-specific cards, “+ Add file” and the off-by-default Spotlight option. The Producer can defer the later controls from this r30 pass and keep those original requirements on the roadmap. A Q200 view should show only the controls that Q200 can use.
+Matthew approved the Q200 scope on November 20, 2026. The Library shows All, Footage and Quotes, and the existing kept-still picker remains available through the visual picker. Quote placement is the design target for #643. Audio, “+ Add file,” full still placement from the Library and “Highlight the passage” are deferred to the issues above. The Spotlight build proof gates that later control.
 
 ## Representative scenario
 
-Use one r29 narration row with a clip, one kept still and two short, synthetic quotes from the same article in the Library fixture. Show a single quote approaching the space between two spoken words and an existing two-word selection in that same row. Hold the panel, data and surrounding script constant. Compare how clearly the two destinations show what will change. Use one consistent mechanism for pointer and keyboard. The existing **Place in script…** action can reuse the destination flow and selection conventions. The decision is how to show insertion versus attachment at the destination. Both options use the same quote placement behavior.
+Use one r29 narration row with a clip and a short synthetic article quote in the Library. Show the quote approaching the space between two spoken words and an existing two-word selection in that same row. Hold the panel, data and surrounding script constant. Compare how clearly the two destinations show what will change. Use one consistent mechanism for pointer and keyboard. The existing **Place in script…** action can reuse the destination flow and selection conventions. The decision is how to show insertion versus attachment at the destination. Both options use the same quote placement behavior. Add the same-article second quote and the existing kept-still picker to the coverage after the focused comparison.
 
 A gap inserts the source quote as spoken words and places its background and dashed transparent quote box. A selected word range keeps the spoken text and attaches the two visuals. Reject stale or invalid targets before any visible edit. One Undo restores the previous words, visuals and ranges and restores both the script target and the Library user's place. The quote box follows the accepted #123 layer rules, keeps its own brackets and never creates an On Camera return. An adjacent second quote from the same article keeps one continuous background and adds an independent box. Undoing the second use restores the first background extent.
 
 ## Coverage and review
 
-- Preserve the r29 panel geometry and compact cards, clip transcript and preview, search, logger, Topic, usage, Sort, thumbnail sizing, usage jumps and the existing clip-specific row and gap placement. Rename **Show footage** to **Show library**. Keep **Footage** as a kind. Search should match quote text, speaker and source title as well as clip titles and transcripts and still credits. Preserve query and filters across placement and Undo.
+- Preserve the r29 panel geometry and compact cards, clip transcript and preview, search, logger, Topic, usage, Sort, thumbnail sizing, usage jumps and the existing clip-specific row and gap placement. Rename **Show footage** to **Show library**. Search should match quote text, speaker and source title as well as clip titles and transcripts. Preserve query and filters across placement and Undo.
 - For the pilot after Producer selection, exercise gap insertion, attach, and safe cancel or refusal at 1280×800 and 1024×768. From the keyboard use ⌘⇧F and Place in script…, confirm or Escape, and check focus return. Use an inline caret versus word brackets and plain-language feedback so color alone carries no meaning. Keep the compact script target visible when the Library is open.
 - For expansion, cover the adjacent second quote and Undo, the typed quote with a picture, and **Need to Find** for a typed quote without a picture. Show an editable quote box with per-use display text, speaker name and title, citation and the template. A display edit leaves the saved source and narration intact. Preserve the latest-used default and the source link when both cards are removed.
 - Distinguish an empty Library, no search matches, unavailable media and denied access. Retain the r29 Open in VERA Research and recovery patterns where appropriate. Denied access must disclose no quote or image. A thumbnail at 0% must leave the card type and quote text legible. No placement action may silently insert text when attaching was intended.
 - Keep every unrelated r29 surface, including Stash, Sorting, playback, On Camera and the existing #125 range-review fixtures. Use synthetic material or approved public sources. Retain the exact Claude Design source and export after review at both sizes. The Producer chooses between focused options before the pilot, then accepts the exact full revision.
 
-## Checkpoint
+## Claude Design consultation
 
-The accepted source is `S03 Integrated Authoring r29.dc.html` with `support.js` in the [r29 archive](../r29/S03%20Integrated%20Authoring%20r29.zip). Start the consultation from that source and the approved Research r14 handoff once the scope or evidence clears the design gate. Ask Claude for two controlled treatments of the drop-target cues, the failure case for each and a recommendation. Review the returned options before requesting a visual pilot.
+Use [S03 Integrated Authoring r29.dc.html](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+Integrated+Authoring+r29.dc.html), with `support.js` in the [r29 archive](../r29/S03%20Integrated%20Authoring%20r29.zip), and the [approved Research r14 review](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=VERA+Research+r14+-+Final+review.dc.html). Bring back Claude’s written recommendation for review before requesting a visual comparison.
+
+```text
+Act as co-designer for VERA Timeline #642, S03 r30. Use the exact
+S03 Integrated Authoring r29.dc.html and the approved VERA Research r14
+- Final review.dc.html as references. Leave the design files untouched
+for this consultation.
+
+The writer wants to place a saved Research quote without leaving the
+script. For the approved Q200 scope, repurpose the r29 Footage panel as
+Show library with All, Footage and Quotes. Reuse the r29 panel, cards
+and placement controls, and r14's excerpt-first quote hierarchy.
+Keep the existing kept-still picker. Spotlight, Audio, + Add file
+and still placement directly from the Library are follow-up work.
+
+Compare only the cues for two destinations within the same r29
+narration row. Hold the viewport, row, clip and synthetic article
+quote constant. At a word gap, placement inserts spoken quote text
+and adds the article background and transparent quote box. On an
+existing word range it attaches both visuals and keeps the narration.
+Each is one Undo. Keyboard placement through Place in script… and
+quick search must communicate the same distinction.
+
+Return two materially different cue approaches, the most likely
+misread for each, and your recommendation. Consider 1280×800 and
+1024×768, keyboard focus and how the cue reads without color. Flag
+any conflict with the accepted designs. Stop after the written
+consultation. We will choose the visual comparison with Matthew.
+```
