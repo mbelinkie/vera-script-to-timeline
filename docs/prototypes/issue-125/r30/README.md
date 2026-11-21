@@ -172,3 +172,14 @@ Reviewed the [live B pilot](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d
 The one-quote pilot has no fixtures for adjacent quotes, missing pictures, media unavailability or denied access. Quote-box editing, multiple-use stepping, and the delivered kept-still picker are still due for the broader r30 review. Claude reported a single-file export. This review used the live pilot and browser accessibility state.
 
 For the correction, keep B and give the blank narration row's caret the same Insert quote action as a sentence boundary. Validate that a browser drop cannot create a text edit in addition to the quote command. Use the currently visible selection for ⌘⇧F and keep Enter inside the active placement dialog. Show a visible unavailable-target message and clear the placement announcement on Undo. Retest the three placement cases with physical selections at both sizes before expanding.
+
+## B Pilot r2 correction review
+
+Verified the [live B Pilot r2](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+r30+B+Pilot+r2.dc.html&present=1) in Chrome at 1280×800 and 1024×768.
+
+- **Separate row:** Add row focused the new blank narration. Place in script… named that blank row and Insert quote added matching spoken and displayed wording, with an article picture and Graphic. The previous row stayed unchanged. One Undo restored the blank row and left Add row as the next Undo.
+- **Full-sentence drag:** On a hand-selected first sentence at both sizes, the picture and Graphic attached from “Across” through “gauge.” The spoken words stayed identical and one Undo restored the original rendered narration, with Channel light present. A wide drop off the target changed nothing.
+- **Keyboard:** ⌘⇧F opened Attach on a hand-selected sentence at both sizes. Escape restored text focus and the selected range, and Enter after reopening committed once. Insert passed with a chosen caret and one Undo, including the wide clicked caret after switching sizes. The wide test helper “Caret before sentence 2” targeted the first word once immediately after switching from compact. Clicking the intended caret selected the correct location.
+- **Feedback:** The compact placement dialog cleared the quote action. Undo cleared the stale success announcement. A mid-sentence shortcut in the wide test displayed “Not a place for a quote” and left the script intact.
+
+This review covers the live corrected pilot. The broader Library cases and the standalone export still need review. Awaiting Matthew's notes before the next design pass.
