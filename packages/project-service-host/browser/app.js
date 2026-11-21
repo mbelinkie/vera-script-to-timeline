@@ -74,6 +74,7 @@ let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
 let researchStillPanel;
+let sortingTrial = null;
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -103,7 +104,7 @@ function prompterReady() {
     Number.isSafeInteger(documentRevision) && savedDigestPattern.test(documentDigest ?? "") &&
     !opening && !saving && !pendingName && !pendingCreate && !conflicted && !editRefused &&
     !documentSaving && !documentDirty && !pendingDocument && !commandsPending &&
-    !composingRows.size && projectTitle.value.trim() === project.title);
+    !composingRows.size && !sortingTrial && projectTitle.value.trim() === project.title);
 }
 
 function currentPrompterPair() {
@@ -270,6 +271,7 @@ function readProjectId(text) {
 }
 
 async function showScript(projectId) {
+  sortingTrial = null;
   clearPreparedPrompter();
   if (prompterDialog.open) prompterDialog.close();
   const [{ project: savedProject }, savedScript] = await Promise.all([
@@ -1255,8 +1257,94 @@ async function applyPlainPaste(document, intent) {
   return { document: working, focusAfter: { rowId: currentRowId, offset: Math.max(0, caret) } };
 }
 
+// Sorting is a separate, in-memory working view of a pinned saved head.
+export function currentSortingTrial() {
+  return sortingTrial && {
+    document: sortingTrial.document, movedRowIds: [...sortingTrial.movedRowIds],
+    busy: sortingTrial.busy,
+  };
+}
+
+export function beginSortingTrial() {
+  if (!prompterReady()) return false;
+  sortingTrial = {
+    projectId: activeProjectId, revision: documentRevision, digest: documentDigest,
+    baseline: scriptDocument, document: structuredClone(scriptDocument), moves: [], movedRowIds: [], busy: false,
+  };
+  typingGroup = null;
+  clearPreparedPrompter();
+  return true;
+}
+
+function sortingBaselineCurrent(trial) {
+  return sortingTrial === trial && activeProjectId === trial.projectId &&
+    scriptDocument === trial.baseline && documentRevision === trial.revision &&
+    documentDigest === trial.digest && !conflicted && !editRefused &&
+    !documentSaving && !documentDirty && !pendingDocument && !commandsPending;
+}
+
+async function sortingRequest(trial, moves, action) {
+  try {
+    const result = await api(`/${trial.projectId}/sorting-trial`, "POST", {
+      expectedRevision: trial.revision, expectedDigest: trial.digest, moves, action,
+    });
+    if (!result.ok) throw new Error(result.diagnostics?.[0]?.message || "Sorting could not be applied.");
+    return result;
+  } catch (error) {
+    throw new Error(error.body?.diagnostics?.[0]?.message || error.message || "Sorting could not be applied.");
+  }
+}
+
+export async function moveSortingTrial(command) {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || command?.kind !== "move_rows" || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const moves = [...trial.moves, structuredClone(command)];
+    const result = await sortingRequest(trial, moves, "preview");
+    if (!sortingBaselineCurrent(trial)) return false;
+    trial.moves = moves;
+    trial.document = result.document;
+    trial.movedRowIds = result.movedRowIds;
+    return true;
+  } finally { trial.busy = false; }
+}
+
+export function discardSortingTrial() {
+  if (!sortingTrial) return false;
+  sortingTrial = null;
+  updatePrompterControls();
+  return true;
+}
+
+export async function acceptSortingTrial() {
+  const trial = sortingTrial;
+  if (!trial || trial.busy || !sortingBaselineCurrent(trial)) return false;
+  trial.busy = true;
+  try {
+    const result = await sortingRequest(trial, trial.moves, "accept");
+    if (!sortingBaselineCurrent(trial)) return false;
+    sortingTrial = null;
+    if (result.changed) {
+      undoStack.push({ document: scriptDocument, label: "Sort rows" });
+      const previousProjection = visualProjection;
+      scriptDocument = result.document;
+      lastSplit = null;
+      invalidateProjection(false);
+      updateUndo();
+      documentDirty = true;
+      // documentRevision still equals the original baseline. The existing
+      // save queue enforces CAS even if another writer saves after projection.
+      void saveDocument();
+      void refreshProjection(scriptDocument, true, previousProjection);
+    }
+    updatePrompterControls();
+    return true;
+  } finally { trial.busy = false; }
+}
+
 function queueCommand(command, label, options = {}) {
-  if (options.structural && composingRows.size) return Promise.resolve(false);
+  if (sortingTrial || options.structural && composingRows.size) return Promise.resolve(false);
   const inputAt = performance.now();
   commandsPending += 1;
   clearPreparedPrompter("Save your script before exporting.");
@@ -1445,7 +1533,7 @@ function updateUndo() {
 }
 
 function undo() {
-  if (prompterDialog.open || composingRows.size) return;
+  if (sortingTrial || prompterDialog.open || composingRows.size) return;
   clearPreparedPrompter("Save your script before exporting.");
   activeAttach = null;
   typingGroup = null;

@@ -79,6 +79,85 @@ async function authoringRequests(projects: (request: Request) => Promise<Respons
   return { request, authorized, sessionProof, projects, host };
 }
 
+describe("browser Sorting trial HTTP boundary", () => {
+  function fixture() {
+    const { document, source, narrated, blank } = pictureMoveFixture();
+    const checked = checkedDocument(document, document.projectId);
+    const head = { projectId: document.projectId, revision: 7, digest: checked.digest, document: checked.document };
+    const move = { kind: "move_rows", rowIds: [blank.id],
+      destination: { sectionId: null, afterRowId: null, beforeRowId: source.id } };
+    const original = document.activeDraft.blocks.map((row) => row.id);
+    const reordered = [blank.id, source.id, narrated.id];
+    const body = { expectedRevision: head.revision, expectedDigest: head.digest, moves: [move], action: "preview" };
+    const projects = vi.fn((request: Request) => {
+      expect(request.method).toBe("GET");
+      expect(new URL(request.url).pathname).toBe(`/v1/projects/${head.projectId}/document`);
+      expect(request.headers.get("authorization")).toBe(`Bearer ${privateToken}`);
+      return Promise.resolve(Response.json(head));
+    });
+    return { head, body, move, projects, original, reordered, path: `projects/${head.projectId}/sorting-trial` };
+  }
+
+  it("isolates a reorder preview; discarding commands leaves the saved Draft exactly intact; acceptance projects only order", async () => {
+    const f = fixture();
+    const before = structuredClone(f.head.document);
+    const { authorized } = await authoringRequests(f.projects);
+    const preview = await authorized(f.path, f.body);
+    expect(preview.status).toBe(200);
+    const trial = await preview.json() as CommandResult & { movedRowIds: string[] };
+    expect(trial.ok, JSON.stringify(trial.diagnostics)).toBe(true);
+    expect(trial.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(trial.movedRowIds).toEqual(f.move.rowIds);
+    expect(f.head.document).toEqual(before);
+    const discarded = await (await authorized(f.path, { ...f.body, moves: [], action: "preview" })).json() as CommandResult;
+    expect(discarded.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.original);
+    expect(discarded.document).toEqual(before);
+    const noChange: unknown = await (await authorized(f.path, { ...f.body, moves: [], action: "accept" })).json();
+    expect(noChange).toMatchObject({ ok: true, changed: false, document: before });
+    const accepted = await (await authorized(f.path, { ...f.body, action: "accept" })).json() as CommandResult & { changed: boolean };
+    expect(accepted.ok, JSON.stringify(accepted.diagnostics)).toBe(true);
+    expect(accepted.changed).toBe(true);
+    expect(accepted.document.activeDraft.blocks.map((row: { id: string }) => row.id)).toEqual(f.reordered);
+    expect(accepted.document.rowEditRevision).toBe((before.rowEditRevision ?? 0) + 1);
+    expect(f.head.document).toEqual(before);
+    expect(f.projects).toHaveBeenCalledTimes(4);
+  });
+
+  it("rejects stale revision and digest, illegal gaps, arbitrary edits and unenrolled requests", async () => {
+    const f = fixture();
+    const before = structuredClone(f.head.document);
+    const { authorized } = await authoringRequests(f.projects);
+    const illegal = await authorized(f.path, { ...f.body, moves: [{ ...f.move,
+      destination: { sectionId: null, afterRowId: null, beforeRowId: randomUUID() } }] });
+    expect((await illegal.json() as CommandResult).ok).toBe(false);
+    for (const body of [
+      { ...f.body, moves: [{ kind: "delete_rows", rowIds: f.move.rowIds }] },
+      { ...f.body, document: before },
+      { ...f.body, moves: [{ ...f.move, rowIds: [...f.move.rowIds, ...f.move.rowIds] }] },
+      { ...f.body, moves: [{ ...f.move, destination: { ...f.move.destination, extra: null } }] },
+    ]) expect((await authorized(f.path, body)).status).toBe(400);
+    expect((await authorized(f.path, f.body, { session: "f".repeat(64) })).status).toBe(401);
+    expect((await authorized(f.path, f.body, { site: "cross-site" })).status).toBe(403);
+    expect(f.projects).toHaveBeenCalledTimes(1);
+    f.head.revision += 1;
+    const stale = await authorized(f.path, { ...f.body, action: "accept" });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ diagnostics: [{ code: "SORTING_BASELINE_CHANGED" }] });
+    f.head.revision -= 1;
+    f.head.digest = `sha256:${"a".repeat(64)}`;
+    expect((await authorized(f.path, { ...f.body, action: "accept" })).status).toBe(409);
+    expect(f.head.document).toEqual(before);
+  });
+
+  it("honors the authorized saved-document read boundary", async () => {
+    const f = fixture();
+    const projects = vi.fn(() => Promise.resolve(Response.json({ error: "denied" }, { status: 403 })));
+    const { authorized } = await authoringRequests(projects);
+    expect((await authorized(f.path, f.body)).status).toBe(403);
+    expect(projects).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("saved prompter export HTTP boundary", () => {
   const origin = "http://127.0.0.1:38429";
   const saved = checkedDocument(sourceFixture.document, sourceFixture.document.projectId);

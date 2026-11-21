@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
-  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2,
+  applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
   projectPrimarySequenceV2, validateScriptDocumentV2,
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
@@ -40,6 +40,7 @@ const RESEARCH = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/pr
 const RESEARCH_STILLS = /^\/research\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/stills(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/thumbnail)?$/iu;
 const MUSIC_WARNINGS = /^\/projects\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/music-warnings$/u;
 const PROMPTER_EXPORT = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/prompter-export$/u;
+const SORTING_TRIAL = /^\/projects\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/sorting-trial$/u;
 const SAVED_DIGEST = /^sha256:[0-9a-f]{64}$/u;
 const PROOF = /^[0-9a-f]{64}$/u;
 const RESEARCH_INSERT = "/research-insert";
@@ -64,6 +65,16 @@ function id(value: unknown): value is string {
 function uuid(value: unknown): value is string {
   return typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value);
+}
+
+/** Only Draft row moves belong to this browser trial. */
+function sortingMove(value: unknown): value is Extract<RowEditCommandV2, { kind: "move_rows" }> {
+  return record(value) && exact(value, ["kind", "rowIds", "destination"]) &&
+    value.kind === "move_rows" && Array.isArray(value.rowIds) &&
+    value.rowIds.length > 0 && value.rowIds.every(uuid) &&
+    new Set(value.rowIds).size === value.rowIds.length &&
+    record(value.destination) && exact(value.destination, ["sectionId", "afterRowId", "beforeRowId"]) &&
+    Object.values(value.destination).every((item) => item === null || uuid(item));
 }
 
 function stillReadNumber(params: URLSearchParams, thumbnail: boolean): number | null {
@@ -332,6 +343,8 @@ export function createAuthoringHandler(
     const musicWarnings = MUSIC_WARNINGS.test(path);
     const prompterRoute = PROMPTER_EXPORT.exec(path);
     const isPrompterExport = !!prompterRoute && request.method === "POST";
+    const sortingRoute = SORTING_TRIAL.exec(path);
+    const isSortingTrial = !!sortingRoute && request.method === "POST";
     const startsSession = path === "/session" && request.method === "POST";
     const isCommand = path === "/command" && request.method === "POST";
     const isVisualCommand = path === "/visual-command" && request.method === "POST";
@@ -344,7 +357,7 @@ export function createAuthoringHandler(
       (musicWarnings && request.method === "GET") ||
       (researchRoute && request.method === "GET" && request.body === null);
     if ((!allowed && !startsSession && !isCommand && !isVisualCommand && !isVisualPreview &&
-        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert) ||
+        !isProjection && !isPrompterExport && !isResearchInsert && !isStillInsert && !isSortingTrial) ||
         (stillRoute ? stillNumber === null : url.search)) {
       return isPrompterExport ? prompterReply({ error: "not_found" }, 404) :
         Response.json({ error: "not_found" }, { status: 404 });
@@ -365,6 +378,54 @@ export function createAuthoringHandler(
     if (startsSession || !matchesProof(request.headers.get("x-vera-session"), browserProof)) {
       return isPrompterExport ? prompterReply({ error: "authoring_browser_required" }, 401) :
         Response.json({ error: "authoring_browser_required" }, { status: 401 });
+    }
+    if (isSortingTrial) {
+      let body: unknown;
+      try { body = await request.json(); } catch { body = null; }
+      if (!record(body) || !exact(body, ["expectedRevision", "expectedDigest", "moves", "action"]) ||
+          !Number.isSafeInteger(body.expectedRevision) || (body.expectedRevision as number) < 0 ||
+          typeof body.expectedDigest !== "string" || !SAVED_DIGEST.test(body.expectedDigest) ||
+          (body.action !== "preview" && body.action !== "accept") ||
+          !Array.isArray(body.moves) || body.moves.length > 1000 || !body.moves.every(sortingMove)) {
+        return researchResponse(400, { error: "invalid_sorting_trial" });
+      }
+      try {
+        // Rebuild from the exact authorized saved head every time; browser
+        // commands cannot replace content and trial requests never write.
+        const projectId = sortingRoute[1]!;
+        const saved = await projects(new Request(`${origin}/v1/projects/${projectId}/document`, {
+          method: "GET", headers: { authorization },
+        }));
+        if (!saved.ok) {
+          return researchResponse([401, 403, 404].includes(saved.status) ? saved.status : 503,
+            { error: "saved_script_unavailable" });
+        }
+        const head: unknown = await saved.json();
+        if (!record(head) || head.projectId !== projectId ||
+            !validateScriptDocumentV2(head.document).valid ||
+            (head.document as ScriptDocumentV2).projectId !== projectId) {
+          return researchResponse(503, { error: "saved_script_unavailable" });
+        }
+        if (head.revision !== body.expectedRevision || head.digest !== body.expectedDigest) {
+          return researchResponse(409, { ok: false, diagnostics: [{
+            code: "SORTING_BASELINE_CHANGED", jsonPath: "/activeDraft",
+            message: "The saved script changed. Discard this trial and reload before sorting again.",
+          }] });
+        }
+        const baseline = head.document as ScriptDocumentV2;
+        const trial = createSortingTrialV2(baseline);
+        for (const move of body.moves) {
+          const result = trial.apply(move);
+          if (!result.ok) return researchResponse(200, result);
+        }
+        if (body.action === "preview") {
+          return researchResponse(200, { ok: true, document: trial.document, movedRowIds: trial.movedRowIds });
+        }
+        // The normal authorized document PUT still uses the original revision.
+        return researchResponse(200, trial.accept(baseline, "sorting_only"));
+      } catch {
+        return researchResponse(503, { error: "sorting_trial_unavailable" });
+      }
     }
     if (isPrompterExport) {
       // Never accept a client-supplied document. The project API owns current
