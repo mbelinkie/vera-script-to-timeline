@@ -376,7 +376,8 @@ input {
   font-size: 0.7rem;
 }
 
-.script-paper {
+.script-paper,
+.sorting-view {
   overflow: visible;
   /* Scale all script text, cards and inter-row space without moving the bar. */
   zoom: var(--authoring-zoom);

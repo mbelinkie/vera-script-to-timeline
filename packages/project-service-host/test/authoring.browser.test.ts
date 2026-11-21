@@ -4125,6 +4125,9 @@ describe("browser authoring over the local project service", () => {
       await page.locator("#open-sorting").click();
       expect(await page.locator("#sorting-heading").evaluate((el) => el === document.activeElement)).toBe(true);
       expect(await page.locator("#script-rows").isVisible()).toBe(false);
+      expect(await page.locator(".script-paper").count()).toBe(1);
+      expect(await page.locator("#sorting-view").evaluate((el) => getComputedStyle(el).zoom))
+        .toBe(await page.locator(".script-paper").evaluate((el) => getComputedStyle(el).zoom));
       expect(await trialOrder()).toEqual(original);
       expect(await page.locator("#undo").isVisible()).toBe(false);
     };
