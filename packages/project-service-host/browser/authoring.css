@@ -1201,3 +1201,39 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Saved Stash: narrow companion to the script, independent of the footage picker. */
+.stash-panel {
+  position: fixed;
+  z-index: 20;
+  top: 5.2rem;
+  right: 0.9rem;
+  bottom: 1rem;
+  width: min(19rem, calc(100vw - 2rem));
+  padding: 0.85rem;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #c8d6d9;
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1.75rem rgb(24 30 38 / 16%);
+}
+.stash-panel__heading { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; }
+.stash-panel h2, .stash-panel h3 { font-size: 1rem; margin: 0 0 0.5rem; }
+.stash-panel [data-stash-count] { font-size: 0.72rem; font-weight: normal; }
+.stash-panel form { display: grid; gap: 0.35rem; margin-bottom: 0.75rem; }
+.stash-panel form[hidden] { display: none; }
+.stash-panel textarea, .stash-panel select { width: 100%; font: inherit; }
+.stash-panel [data-stash-status] { font-size: 0.8rem; }
+.stash-panel ul { padding: 0; list-style: none; }
+.stash-panel li { margin: 0.4rem 0 0.4rem calc(var(--stash-depth) * 0.65rem); padding: 0.4rem; border-bottom: 1px solid #d5dddf; }
+.stash-panel li[draggable] { cursor: grab; }
+.stash-panel li button { display: block; margin-top: 0.35rem; font-size: 0.75rem; }
+.stash-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
+#open-stash[aria-expanded="true"] { outline: 2px solid #c89b45; }
+.stash-drop-cursor { position: fixed; width: 3px; background: #c89b45; z-index: 40; pointer-events: none; }
+@media (min-width: 1000px) {
+  .authoring-view:has(.stash-panel:not([hidden])) .script-stage { margin-right: 20rem; }
+}
+@media (max-width: 999px) {
+  .stash-panel { top: 4.5rem; right: 0.4rem; max-height: calc(100vh - 5rem); }
+}

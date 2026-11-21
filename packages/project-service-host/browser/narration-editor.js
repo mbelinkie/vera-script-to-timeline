@@ -876,7 +876,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   const row = narrationRow(scriptDocument, root);
   if (!row) return () => undefined;
   const { compositionChange, requestRender, projection, visualCommand, reselect, cancelReselect, commitReselect, previewReselect,
-    attaching, finishAttach, cancelAttach, chooseFootage, chooseStill } =
+    attaching, finishAttach, cancelAttach, chooseFootage, chooseStill, stashWords } =
     options && typeof options === "object" ? options : {};
   const document = root.ownerDocument;
   const editor = element(document, "p", "narration-text narration-editor");
@@ -946,7 +946,10 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     button.dataset.rowSelectionAction = kind;
     return button;
   });
-  actions.append(visualButton, attachButton, stageButton, spokenButton, actionDivider, ...rowButtons, visualMenu);
+  const stashButton = element(document, "button", "narration-editor__action", "Stash words");
+  stashButton.type = "button";
+  stashButton.hidden = true;
+  actions.append(visualButton, attachButton, stageButton, spokenButton, actionDivider, ...rowButtons, stashButton, visualMenu);
   const surface = element(document, "div", "narration-editor__surface");
   surface.append(editor);
   root.replaceChildren(surface, actions, hint);
@@ -984,6 +987,7 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     if (!visual) closeVisualMenu();
     actions.hidden = !visual && !action && rowActions.length === 0;
     visualButton.hidden = !visual || Boolean(attaching);
+    stashButton.hidden = !visual || Boolean(attaching) || typeof stashWords !== "function";
     attachButton.hidden = !visual || !attaching;
     stageButton.hidden = !action || action.kind !== "make_stage_direction";
     spokenButton.hidden = !action || action.kind !== "make_spoken";
@@ -1481,6 +1485,12 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
   editor.addEventListener("focus", onFocus);
   editor.addEventListener("blur", onBlur);
   editor.addEventListener("paste", onPaste);
+  const onStashWords = () => {
+    if (editingBlocked || composing || !selectedSpokenWords(localRow, savedSelection)) return;
+    stashWords?.(localRow.id, { ...savedSelection }, localRow.text);
+  };
+  stashButton.addEventListener("mousedown", preserveActionSelection);
+  stashButton.addEventListener("click", onStashWords);
   stageButton.addEventListener("mousedown", preserveActionSelection);
   spokenButton.addEventListener("mousedown", preserveActionSelection);
   visualButton.addEventListener("mousedown", preserveActionSelection);
@@ -1538,6 +1548,8 @@ export function mountNarration(root, scriptDocument, command, options = {}) {
     editor.removeEventListener("blur", onBlur);
     editor.removeEventListener("paste", onPaste);
     document.removeEventListener("selectionchange", onSelectionChange);
+    stashButton.removeEventListener("mousedown", preserveActionSelection);
+    stashButton.removeEventListener("click", onStashWords);
     stageButton.removeEventListener("mousedown", preserveActionSelection);
     visualButton.removeEventListener("mousedown", preserveActionSelection);
     attachButton.removeEventListener("mousedown", preserveActionSelection);

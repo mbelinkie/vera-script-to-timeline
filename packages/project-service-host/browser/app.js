@@ -4,6 +4,8 @@ import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
 import { mountResearchPanel } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
+import { createStashActions } from "./stash-actions.js";
+import { mountStashPanel } from "./stash-panel.js";
 import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
@@ -74,7 +76,11 @@ let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
 let researchStillPanel;
+<<<<<<< HEAD
 let sortingTrial = null;
+=======
+let stashPanel;
+>>>>>>> origin/main
 
 async function api(path, method = "GET", data) {
   await connecting;
@@ -304,6 +310,7 @@ async function showScript(projectId) {
   activeAttach = null;
   researchPanel?.close();
   researchStillPanel?.close();
+  stashPanel?.close(false, true);
   renderEditor();
   updateUndo();
   project = savedProject;
@@ -369,6 +376,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderEditor() {
+  stashPanel?.update();
   const root = element("script-rows");
   const requestedFocus = structuralFocus;
   structuralFocus = null;
@@ -435,6 +443,17 @@ function renderEditor() {
       requestRender: scheduleRender,
       chooseFootage: openFootageForWords,
       chooseStill: openStillForWords,
+      stashWords(rowId, selection, displayedText) {
+        const row = scriptDocument?.activeDraft.blocks.find((item) => item.id === rowId);
+        if (row?.text !== displayedText) {
+          setSaveStatus("Finish saving the current narration before stashing words.");
+          return;
+        }
+        const projectId = activeProjectId;
+        void stashActions.stashWords(rowId, selection).then((ok) => {
+          if (ok && activeProjectId === projectId) stashPanel.open();
+        });
+      },
     }));
   });
   if (requestedCardFocus) {
@@ -1011,6 +1030,7 @@ export function queueResearchStillInsert({ researchProjectId, itemId, itemVersio
 }
 
 function openFootageForWords({ rowId, text, selection, seed, from }) {
+  stashPanel.close(false);
   void researchPanel.open({ quick: true, seed, from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
     if (row?.type !== "narration" || row.text !== text) {
@@ -1025,6 +1045,7 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
+  stashPanel.close(false);
   void researchStillPanel.open({ from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
     if (row?.type !== "narration" || row.text !== text) {
@@ -1594,6 +1615,7 @@ document.addEventListener("keydown", (event) => {
         return;
       }
     }
+    stashPanel.close(false);
     void researchPanel.open({ from: document.activeElement });
   }
 });
@@ -1771,6 +1793,21 @@ async function connectBrowser() {
 }
 
 const connecting = connectBrowser();
+const stashActions = createStashActions((command, label, options) => {
+  const projectId = activeProjectId;
+  return queueCommand((current) => {
+    if (current.projectId !== projectId) throw new Error("The open script changed.");
+    return command(current);
+  }, label, options);
+}, () => scriptDocument);
+stashPanel = mountStashPanel({
+  root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
+  getDocument: () => scriptDocument, onOpen: () => {
+    if (!element("footage-panel").hidden) researchPanel.close();
+    if (!element("research-still-panel").hidden) researchStillPanel.close();
+  },
+});
+element("open-footage").addEventListener("click", () => stashPanel.close(false));
 researchPanel = mountResearchPanel({
   root: element("footage-panel"),
   catalog: researchCatalogGet,
