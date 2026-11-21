@@ -59,5 +59,53 @@ Return two materially different cue approaches, the most likely
 misread for each, and your recommendation. Consider 1280×800 and
 1024×768, keyboard focus and how the cue reads without color. Flag
 any conflict with the accepted designs. Stop after the written
-consultation. We will choose the visual comparison with Matthew.
+consultation. We will review both treatments with Matthew.
+```
+
+## Consultation review
+
+Claude and Sol recommend a labeled cursor or range outline. The target stays in place under the pointer at compact width, and the two verbs communicate the result without color. Compare it with an in-place outcome preview, which shows more detail before committing and may compete with the existing words and brackets. The Producer decision follows the rendered comparison.
+
+- [Research PR #112](https://github.com/mbelinkie/vera-research-video-clips/pull/112) records r14 approval after the older in-project log. [Timeline #673](https://github.com/mbelinkie/vera-script-to-timeline/pull/679) delivered the kept-still picker in the editor. The quote's article picture comes from its source.
+- [Research Sources §8.2–8.5](../../../plans/research-sources-spec.md#82-the-quote-box-is-a-transparent-graphic-no-new-layering-design) applies the accepted transparent Graphic precedent to S03 and specifies the Need to Find fallback. The background takes ordinary picture coverage. The overlay has its own range and keeps the base visible. A conflict with an existing clip follows the ordinary background coverage rules. The comparison keeps the clip outside the target so that it tests the two cues directly.
+- Limit quote destinations to one narration row, keeping r29 row-gap behavior for footage. Preserve the open Library query and original focus on Escape. Quick search attaches on an exact selection and inserts at a valid collapsed caret. Give keyboard destinations the same text as pointer destinations. Count actual quote placements in usage, with speaker and citation visible on the Library quote card.
+
+## Focused comparison prompt
+
+```text
+In Claude Design create a separate page, S03 r30 — Quote placement
+comparison, from the exact S03 Integrated Authoring r29.dc.html.
+Preserve the accepted source and shared components. Use the approved
+Research r14 handoff for excerpt-first quote cards with speaker and
+citation. Its approval is recorded in Research PR #112.
+
+Compare two treatments at 1024×768 on one screen or through an A/B
+switch. Use Show library with All, Footage and Quotes, the same
+synthetic quote and the same r29 row beginning “Across the channel”.
+Use the gap before “second” and the range “second gauge.” in its
+first sentence. The Channel light clip later in the row stays as-is.
+At the gap, insert the quote as spoken text with the article picture
+and dashed transparent quote box. On the range, attach both visuals
+and keep the words. Give each one Undo. The picture owns primary
+coverage and the box has its own word range under the §8.2 rules.
+
+A · In-place outcome preview. Show ghost narration only for the gap,
+the proposed words for the range, and the two pending visuals.
+Make the preview recognizable as uncommitted without color.
+
+B · Labeled target. Show a caret for “Insert quote” or an outline for
+“Attach quote · narration unchanged”. Keep the row still and keep
+the label readable beside a compact column edge.
+
+Use the same drop and keyboard semantics. Show the corresponding
+keyboard destination and visible focus, with the same action wording
+in Place in script… and ⌘⇧F. On Escape restore the initiating control.
+Keep all other r29 content and controls intact. Reuse r29 word
+selection and keyboard conventions. Row gaps remain footage targets. Spotlight,
+audio, file registration, and direct Library still placement are
+future work. Need to Find and adjacent same-article placement come
+after this comparison.
+
+Return the comparison link and export, the hardest case for each
+option and your recommendation. Stop for Matthew's choice.
 ```
