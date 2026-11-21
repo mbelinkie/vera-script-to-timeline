@@ -157,6 +157,37 @@
     },
     {
       "audio": null,
+      "eventId": "5761b8a0-4f55-57f8-8eba-67bd7f574290",
+      "kind": "script_marker",
+      "marker": {
+        "supportingItemId": "00000000-0000-4000-8000-00000000004b",
+        "text": "Undurationed spacer"
+      },
+      "preparationBindingHash": null,
+      "provenance": {
+        "blockId": "00000000-0000-4000-8000-00000000004b",
+        "compilerVersion": "compiler/v2",
+        "deliveredSourceHash": null,
+        "documentId": "00000000-0000-4000-8000-000000000001",
+        "originalSourceHash": null,
+        "overlayEventId": null,
+        "payloadId": null,
+        "sequenceId": null,
+        "slotId": null,
+        "sourceId": null,
+        "timingMapHash": null
+      },
+      "recordRange": {
+        "endFrame": 97,
+        "startFrame": 96
+      },
+      "sourceRange": null,
+      "sourceTimeMapping": null,
+      "trackId": "markers",
+      "trackRole": "marker"
+    },
+    {
+      "audio": null,
       "eventId": "77758ef8-c6da-55fc-8e89-b50fe29dcaf1",
       "kind": "placeholder",
       "pictureTreatment": {

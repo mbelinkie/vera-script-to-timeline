@@ -30,6 +30,7 @@ import type {
   RationalTime,
   ReturnSlot,
   ScriptDocumentV2,
+  SectionBlock,
   QuoteBoxV2,
   StandaloneVisualPayloadV2,
   TimelineEventV2,
@@ -1980,6 +1981,73 @@ function compileSupportingItems(
   return { items, events, diagnostics };
 }
 
+/** Project the active Draft's section breaks onto exact programme boundaries.
+ * The existing marker envelope carries the authored origin ID (here a section
+ * block, not a synthetic supporting item). Keep the event ID stable across edits.
+ */
+function compileSectionMarkers(
+  document: ScriptDocumentV2,
+  dependencies: CompilerDependenciesV2,
+  rows: ProgramRow[],
+  existingEvents: TimelineEventV2[],
+): { events: TimelineEventV2[]; diagnostics: BuildDiagnosticV2[] } {
+  const events: TimelineEventV2[] = [];
+  const diagnostics: BuildDiagnosticV2[] = [];
+  const occupied = new Set(existingEvents.filter((event) => event.kind === "script_marker").map((event) => event.recordRange.startFrame));
+  const rowsByBlock = new Map<string, ProgramRow[]>();
+  for (const row of rows) {
+    const group = rowsByBlock.get(row.block.id);
+    if (group) group.push(row);
+    else rowsByBlock.set(row.block.id, [row]);
+  }
+  let pending: SectionBlock | undefined;
+  let exactSpine = true;
+  const target = (section: SectionBlock): EntityReferenceV2 => entity("block", section.id, `/activeDraft/blocks/${section.id}`);
+  const unavailable = (section: SectionBlock, message: string, severity: BuildDiagnosticV2["severity"]): void => {
+    diagnostics.push(diagnostic("STALE_ANCHOR", message, target(section), undefined, ["manual_review"], severity));
+  };
+  const empty = (section: SectionBlock): void => unavailable(section, `Section “${section.title}” has no duration-bearing Draft row; its marker was omitted.`, "warning");
+  for (const block of document.activeDraft.blocks) {
+    if (block.type === "section") {
+      if (pending) empty(pending);
+      pending = block;
+      continue;
+    }
+    if (block.type !== "visual_only" && !(block.type === "narration" && block.state === "active")) continue;
+    const timed = rowsByBlock.get(block.id) ?? [];
+    const first = timed[0];
+    // A missing primary visual or earlier duration invalidates the start; a
+    // later successful row/visual must never stand in for that missing time.
+    const exactStart = exactSpine && first && (first.kind !== "visual_only" || !first.visual);
+    if (pending) {
+      const section = pending;
+      pending = undefined;
+      if (!section.title.trim()) {
+        unavailable(section, "A blank section title cannot name a timeline marker; its marker was omitted.", "warning");
+      } else if (!exactStart) {
+        unavailable(section, `Section “${section.title}” has no exact timed Draft row start; its marker was omitted.`, "blocking");
+      } else if (occupied.has(first.startFrame)) {
+        diagnostics.push(diagnostic("COLLAPSED_BOUNDARY", `Section “${section.title}” cannot be marked at exact frame ${first.startFrame}: another timeline marker occupies that frame. Its section marker was omitted.`, target(section), undefined, ["manual_review"]));
+      } else {
+        occupied.add(first.startFrame);
+        events.push({
+          eventId: stableId(`section-marker:${document.id}:${section.id}`),
+          kind: "script_marker", trackId: dependencies.roles.markerTrackId, trackRole: "marker",
+          recordRange: { startFrame: first.startFrame, endFrame: safe(BigInt(first.startFrame) + 1n, "section marker endpoint") },
+          provenance: { documentId: document.id, blockId: section.id, sequenceId: null, slotId: null, payloadId: null,
+            overlayEventId: null, sourceId: null, originalSourceHash: null, deliveredSourceHash: null, timingMapHash: null,
+            compilerVersion: dependencies.compiler.version },
+          sourceRange: null, sourceTimeMapping: null, preparationBindingHash: null, audio: null,
+          marker: { supportingItemId: section.id, text: section.title },
+        });
+      }
+    }
+    if (timed.length !== (block.type === "visual_only" ? 1 + (block.additionalVisuals?.length ?? 0) : 1)) exactSpine = false;
+  }
+  if (pending) empty(pending);
+  return { events, diagnostics };
+}
+
 function requiredSourceEnd(descriptor: OccurrenceMediaResolutionV2, recordFrames: number, targetRateWire: RationalRate): number | null {
   try {
     const fs = rateFraction(descriptor.logicalSourceBounds.frameRate); const target = rateFraction(targetRateWire);
@@ -2161,6 +2229,11 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       markerFrames.add(frame);
       resolved.events.push(marker);
     }
+    // Section markers are additive: preserve the existing note/music marker
+    // priorities, and report a collision instead of moving either marker.
+    const sections = compileSectionMarkers(document, dependencies, resolved.timedRows, resolved.events);
+    resolved.events.push(...sections.events);
+    resolved.diagnostics.push(...sections.diagnostics);
     for (const event of resolved.events) {
       const descriptor = dependencies.occurrenceResolutions.find((item) => item.payloadId === event.provenance.payloadId);
       if (descriptor?.graphicContentClass === "derived" && descriptor.graphicContentBinding) {
@@ -2213,8 +2286,9 @@ export function compileTimelineV2(documentInput: unknown, dependenciesInput: unk
       const intentionalSlate = event.kind === "placeholder" && event.pictureTreatment?.kind === "slate" && event.pictureTreatment.purpose === "intentional";
       const disposition = blocked ? "blocked" as const : temporaryPresenter ? "manual_completion" as const : event.kind === "placeholder" && !intentionalSlate ? "placeholder" as const : "placed" as const;
       const markerItem = event.marker ? document.activeDraft.supportingItems.find((item) => item.id === event.marker!.supportingItemId) : undefined;
+      const markerSection = event.marker ? document.activeDraft.blocks.find((block): block is SectionBlock => block.type === "section" && block.id === event.marker!.supportingItemId) : undefined;
       const slate = event.pictureTreatment?.kind === "slate" ? event.pictureTreatment : null;
-      const message = markerItem ? markerItem.content
+      const message = markerItem ? markerItem.content : markerSection ? markerSection.title
         : temporaryPresenter ? "Temporary presenter still requires manual replacement when an accepted presenter source is available."
           : event.kind === "placeholder" && intentionalSlate ? `Intentional picture slate: ${slate?.text ?? ""}`
             : event.kind === "placeholder" ? `Blocked ${slate?.purpose === "undefined" ? "undefined visual" : "unresolved visual request"}; the preview slate is explicit and does not make this row build-ready.`

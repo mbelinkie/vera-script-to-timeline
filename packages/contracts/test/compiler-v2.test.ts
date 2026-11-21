@@ -9,7 +9,7 @@ import { validateScriptDocumentV2 } from "../src/authoring-v2.js";
 import { applyRowEditV2, createRowEditSessionV2 } from "../src/authoring-v2-rows.js";
 import { withResearchClipUseRangeV2 } from "../src/authoring-v2-research-snapshot.js";
 import { editResearchQuoteUseCitation, refreshResearchQuoteCitations, researchQuoteCitation } from "../src/research-quote-citations.js";
-import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
+import type { CompilerDependenciesV2, NarrationBlockV2, ScriptDocumentV2, SectionBlock, SupportingItemV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const fixture = (name: string): string => `${repo}tests/data/authoring_v2/${name}`;
@@ -348,6 +348,139 @@ function threeRowMusicFixture(samples = 48000 * 16, lengths = [4000, 4000, 4000]
   deps.tracks.push({ id: "music-a5", kind: "audio", index: 5, name: "A5 Music" });
   return { doc, deps };
 }
+
+describe("#676 exact section markers", () => {
+  const section = (n: number, title: string, orderKey: string): SectionBlock => ({ type: "section", id: id(n), orderKey, title, version: 1 });
+  const compile = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => {
+    const result = compileTimelineV2(doc, deps);
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    return result;
+  };
+  const markers = (result: ReturnType<typeof compile>) => result.manifest.events.filter((event) => event.kind === "script_marker");
+
+  it("emits stable section IDs, exact titles and one-frame ranges without changing programme events", () => {
+    const { doc, deps } = threeRowMusicFixture(48000 * 16, [4000, 2000, 1000]);
+    delete doc.rowAudioSpans;
+    delete deps.musicBindings;
+    const baseline = compile(doc, deps);
+    const [first, second, third] = doc.activeDraft.blocks;
+    const opening = section(9903, "Opening — 第一章", "Zz");
+    const closing = section(9904, "Closing", "a1z");
+    doc.activeDraft.blocks = [opening, first!, second!, closing, third!];
+    const frozen = structuredClone(doc);
+    const initial = compile(doc, deps);
+    expect(initial.report.status).toBe("ready");
+    expect(initial.manifest.timeline).toEqual(baseline.manifest.timeline);
+    expect(initial.manifest.events.filter((event) => event.kind !== "script_marker")).toEqual(baseline.manifest.events);
+    expect(initial.report.itemResults).toEqual(baseline.report.itemResults);
+    expect(markers(initial)).toMatchObject([
+      { trackId: deps.roles.markerTrackId, trackRole: "marker", recordRange: { startFrame: 0, endFrame: 1 }, provenance: { blockId: opening.id }, marker: { supportingItemId: opening.id, text: opening.title } },
+      { trackId: deps.roles.markerTrackId, trackRole: "marker", recordRange: { startFrame: 144, endFrame: 145 }, provenance: { blockId: closing.id }, marker: { supportingItemId: closing.id, text: closing.title } },
+    ]);
+    for (const marker of markers(initial)) expect(initial.report.eventResults.find((event) => event.eventId === marker.eventId)).toMatchObject({ kind: "script_marker", disposition: "placed", recordRange: marker.recordRange, message: marker.marker!.text });
+    expect(compile(doc, deps).manifestJson).toBe(initial.manifestJson);
+    expect(compile(doc, deps).reportJson).toBe(initial.reportJson);
+    expect(doc).toEqual(frozen);
+    readFrozenInput("named-section-markers", doc, deps);
+    readGolden("named-section-markers.manifest", initial.manifestJson);
+    readGolden("named-section-markers.report", initial.reportJson);
+
+    opening.title = "Renamed opening";
+    opening.version++;
+    const renamed = compile(doc, deps);
+    expect(markers(renamed)).toEqual([{ ...markers(initial)[0]!, marker: { supportingItemId: opening.id, text: opening.title } }, markers(initial)[1]]);
+
+    doc.activeDraft.blocks = [closing, third!, opening, first!, second!];
+    doc.activeDraft.blocks.forEach((block, index) => { block.orderKey = `a${index}`; });
+    const reordered = compile(doc, deps);
+    expect(markers(reordered)).toMatchObject([
+      { eventId: markers(initial)[1]!.eventId, marker: { supportingItemId: closing.id }, recordRange: { startFrame: 0, endFrame: 1 } },
+      { eventId: markers(initial)[0]!.eventId, marker: { supportingItemId: opening.id, text: opening.title }, recordRange: { startFrame: 24, endFrame: 25 } },
+    ]);
+    expect(reordered.manifest.timeline.durationFrames).toBe(initial.manifest.timeline.durationFrames);
+  });
+
+  it("reports empty sections separately and does not borrow the next section's row or extend the programme", () => {
+    const doc = visualOnlyDocument(intentionalSlateBlock(2000));
+    const deps = visualOnlyDependencies();
+    const empty = section(9905, "Empty", "Zx");
+    const timed = section(9906, "Timed", "Zy");
+    const tail = section(9907, "Tail", "a1");
+    doc.activeDraft.blocks = [empty, timed, ...doc.activeDraft.blocks, tail];
+    const result = compile(doc, deps);
+    expect(markers(result)).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 1 }, marker: { supportingItemId: timed.id, text: timed.title } }]);
+    for (const heading of [empty, tail]) {
+      const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+      expect(diagnostic).toMatchObject({ code: "STALE_ANCHOR", severity: "warning", entity: { kind: "block", id: heading.id } });
+      expect(diagnostic?.message).toContain("no duration-bearing Draft row");
+    }
+    expect(result.manifest.timeline.durationFrames).toBe(48);
+  });
+
+  it("keeps the existing compiler refusal when narration duration is unknown", () => {
+    const doc = document();
+    doc.activeDraft.blocks.unshift(section(9908, "Untimed", "Zz"));
+    const deps = dependencies();
+    deps.narrationTimingMaps = [];
+    const result = compileTimelineV2(doc, deps);
+    expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "NARRATION_DURATION_UNKNOWN", entityId: id(6) }] });
+  });
+
+  it("does not shift a section past a duration-bearing row with unresolved timing, or guess later starts", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    delete doc.rowAudioSpans;
+    delete deps.musicBindings;
+    const [first, second, third] = doc.activeDraft.blocks as VisualOnlyBlockV2[];
+    first!.payload = {
+      kind: "visual", payloadId: first!.payload.payloadId, pictureKind: "clip",
+      source: { kind: "media_reference", mediaReferenceId: id(9912) }, audioPolicy: "mute", framingPolicy: "contain",
+    };
+    first!.visualOnlyTiming = { kind: "visual_only", selectedSourceRange: { startFrame: 0, durationFrames: 24 } };
+    const missing = section(9913, "Missing source rate", "Zz");
+    const later = section(9914, "Later section", "a1z");
+    doc.activeDraft.blocks = [missing, first!, second!, later, third!];
+    const result = compile(doc, deps);
+    expect(markers(result)).toHaveLength(0);
+    expect(result.report.status).toBe("blocked");
+    for (const heading of [missing, later]) {
+      const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+      expect(diagnostic).toMatchObject({ code: "STALE_ANCHOR", severity: "blocking", entity: { id: heading.id } });
+      expect(diagnostic?.message).toContain("no exact timed Draft row start");
+    }
+  });
+
+  it("preserves an exact editor note on a section's frame and blocks readiness with a section diagnostic", () => {
+    const doc = document();
+    const heading = section(9909, "Opening", "Zz");
+    doc.activeDraft.blocks.unshift(heading);
+    doc.activeDraft.supportingItems.push({
+      id: id(9910), orderKey: "a1", version: 1, role: "editor_note", content: "Existing note",
+      placement: { kind: "point", anchor: { kind: "word", anchor: { blockId: id(6), tokenId: id(7), affinity: "before", quotedWord: "hello", anchorVersion: 1 } } },
+    });
+    const result = compile(doc, dependencies());
+    expect(markers(result)).toMatchObject([{ recordRange: { startFrame: 0, endFrame: 1 }, marker: { supportingItemId: id(9910), text: "Existing note" } }]);
+    expect(result.report.itemResults).toMatchObject([{ itemId: id(9910), disposition: "placed" }]);
+    expect(result.report.status).toBe("blocked");
+    const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+    expect(diagnostic).toMatchObject({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: { id: heading.id } });
+    expect(diagnostic?.message).toContain("exact frame 0");
+  });
+
+  it("preserves the existing music warning marker and reports a section collision at its exact frame", () => {
+    const { doc, deps } = threeRowMusicFixture();
+    deps.musicBindings = [];
+    const baseline = compile(doc, deps);
+    const heading = section(9911, "Opening", "Zz");
+    doc.activeDraft.blocks.unshift(heading);
+    const result = compile(doc, deps);
+    expect(markers(result)).toEqual(markers(baseline));
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.diagnostics.find((item) => item.code === "MUSIC_FILE_MISSING")).toMatchObject({ severity: "warning" });
+    const diagnostic = result.report.diagnostics.find((item) => item.entity.id === heading.id);
+    expect(diagnostic).toMatchObject({ code: "COLLAPSED_BOUNDARY", severity: "blocking", entity: { id: heading.id } });
+    expect(diagnostic?.message).toContain("exact frame 0");
+  });
+});
 
 describe("#100 verified A5 music compilation", () => {
   const compile = (doc: ScriptDocumentV2, deps: CompilerDependenciesV2) => {
@@ -2339,7 +2472,7 @@ describe("pure v2 compiler", () => {
     const between = compileTimelineV2(betweenDocument, betweenDeps);
     expect(between.ok).toBe(true);
     if (between.ok) {
-      expect(between.manifest.events.filter((event) => event.kind === "script_marker")).toHaveLength(0);
+      expect(between.manifest.events.filter((event) => event.kind === "script_marker")).toMatchObject([{ recordRange: { startFrame: 96, endFrame: 97 }, marker: { supportingItemId: id(75), text: "Undurationed spacer" } }]);
       const noteResult = between.report.itemResults.find((item) => item.itemId === id(76));
       expect(noteResult?.disposition).toBe("unplaced");
       expect(noteResult?.reason).toContain("no exact timeline time");
