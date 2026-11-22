@@ -696,7 +696,25 @@ assumptions; authenticate the actual job, MOV bytes, complete decode and predict
 for each output. A Complete job or setter readback alone cannot replace that
 comparison. #325 even observed a Complete wrong-timeline output; corrected
 selection/file/frame checks were necessary. New codec/settings/range needs its
-output delta; #329 owns continuous section/saved-preset integration, still open.
+output delta.
+
+**#329 delta — exact continuous video range, conditional preset load.**
+[Native render check](verification/issue-329-studio-render.md), Studio **21.2.0
+build 6**, local scripting on Intel Mac. After save/close/reopen, the 24 fps
+timeline started at frame 86400. Whole and Section B jobs queued absolute
+inclusive marks 86400–86447 and 86424–86447 and decoded to all 48 and 24 expected
+frame labels respectively. Explicit MP4/H.264 High, AAC 48 kHz stereo, 1280x720 and
+exact directory/name were verified in the job and file. The section's exported
+current settings stored `h264_datarate=3500`; the job row omitted numeric
+quality. Use absolute inclusive marks for this tested lane and bind the output
+to the job, timeline and path. AAC sample alignment was unverified.
+
+The reopened MOV/ProRes 422 preset was listed and exportable. Loading it
+returned true both when the format stayed MP4/H.264 and when it returned to
+MOV/ProRes 422. Explicit overrides yielded a `Custom` job. Missing names refused,
+and the probe guarded invalid ranges, unsupported formats and existing files
+before queueing. Verify effective settings independently and use a new local
+destination. Unverifiable preset settings fall back to Resolve's Deliver page.
 
 ### RK-22 — A canceled render can retry on a reverified target with fresh authority
 
@@ -1526,7 +1544,7 @@ clearance. Later #325 and #326 conclusions qualify the older matrix's wording.
 | B01/B03/B11 reviewed selection, skips, conflicts | RK-16–RK-18 is not outbound selection. #328 must prove frozen selection and bounded conflict composition. |
 | B07 replacement/Resolve-only items; B17 finishing | RK-41/RK-42/RK-45; arbitrary opaque effect/grade/Fusion preservation remains #327, not proved by fresh rebuild. |
 | B15/B16 partial failure/same-attempt retry | RK-20 and RK-22 prove components; O09 item-level plan/baseline transaction remains #328/#104/#157. |
-| B18/B19 render settings/ranges/waiting | RK-20–RK-22; #329 still owns continuous section range and saved-preset/override/output proof. Stage cancellation is not active-render cancellation. |
+| B18/B19 render settings/ranges/waiting | RK-20–RK-22 and #329 cover the bounded explicit Studio range and settings path. Arbitrary saved/last-used preset restoration and other format combinations remain unverified. RK-22 is the active native cancellation evidence. |
 
 A01–A03, A12–A15 and display-only parts of A24 are authoring, service or UI
 questions covered by the matrix, not missing native experiments. Their absence
