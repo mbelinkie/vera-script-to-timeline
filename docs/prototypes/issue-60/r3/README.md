@@ -2,6 +2,12 @@
 
 Matthew accepted the [F19 Compare interaction](https://github.com/mbelinkie/vera-script-to-timeline/issues/60#issuecomment-7084069824) on November 22, 2026, in the separate [Claude Design r3 pilot](https://claude.ai/design/p/011eee38-8b6b-48aa-a154-d6c0060d4f23?file=S03+60+F19+Compare+pilot+r3.dc.html). It uses the accepted [r36 authoring design](../../issue-59/r36/README.md) as its reference.
 
+[Download the exact r3 handoff ZIP](issue-60-r3-handoff.zip). Open
+`S03 60 F19 Compare pilot r3 - standalone.html` inside `issue-60-r3/` in a browser.
+The `source/` folder holds the original editable Claude file, its support script,
+and the generated sample video. The standalone embeds the same sample and support script.
+Archive SHA-256 `8502ac6dd0a36fa31a982414370c954cf5d796f76f926e2c1d187289d93330ef`.
+
 ## Try it
 
 Open **Update available** on the clip in the script. Preview either range in the same dialog. Playback leaves the saved range intact. **Keep this range** keeps the script's trim. **Use this range** changes that use to the Research range and confirms the change on the card. Closing keeps the old range. On access denial, the comparison clears and focus returns to the update control or the card. Routine media preparation stays in the background, and a failure offers **Try again**.
