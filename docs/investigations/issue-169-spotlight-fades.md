@@ -50,6 +50,7 @@ was rendered.
 | Replace B, same frames | 62/108/155/202/248 |
 | Accumulate A, same frames | 248/248/248/248/248 |
 | Accumulate B, same frames | 62/108/155/202/248 |
+| Control marker travel from frame 0 to frame 95 | 119.54101 pixels for each of the four markers |
 | Four marker centroid distances from the continuous-zoom control | 0.0 pixels at all sampled frames |
 | Fully bright opening edges against marker-projected source boxes | Worst absolute edge error 0.55449 pixels |
 | Gap between A's two wrapped lines | Stayed dim at RGB 62 throughout the samples |
