@@ -1244,6 +1244,21 @@ unavailable. Normal Build saved, closed and reopened a disposable 24 fps
 timeline with one still at frames 0–95. The record range and one-frame source
 matched structural readback. [External result](https://github.com/mbelinkie/vera-script-to-timeline/issues/673#issuecomment-7045731858)
 
+**2026-11-22 #169 Spotlight fade delta — Studio 21.2.0 build 6.**
+A probe-only native OTIO still with an explicitly imported Fusion composition
+retained two linear Dissolve curves after save/close/reopen. Over one 96-frame
+1920×1080/24 fps occurrence, the initial highlight faded in over frames 0–8;
+at frames 40–48, the second highlight either replaced the first or accumulated
+with it. All 33 reopened PNG samples matched the continuous native-zoom
+control's four marker centroids at 0.0 pixels. Bright-opening edges stayed
+within 0.55449 pixels of projected source boxes, and the wrapped-line gap
+stayed dim. Direct AddFusionComp-only changes were lost on the first reopen;
+explicit `.comp` import was the successful route. This proves the stated
+native fade/zoom envelope. Product timed-treatment storage, materialization,
+compiler/delivery integration and admission remain #169 work. Free, tall-page
+framing, other timing/motion profiles and movie output were not tested.
+[Probe and limits](investigations/issue-169-spotlight-fades.md).
+
 ### RK-44 — Scene detection mutates its analysis timeline and has false positives
 
 **Diagnostic-only / API plus native.** [#283 / PR #322](https://github.com/mbelinkie/vera-script-to-timeline/pull/322)
