@@ -47,8 +47,8 @@ for the smallest action.
    `claude/<issue>-<slug>`) from freshly fetched `origin/main`; bootstrap with
    `npm ci` and `uv sync --frozen`. Never edit the main project folder; it
    stays on `main`. Claim with `npm run roadmap -- claim <issue> --branch
-   <branch>` (marks it In progress so two agents don't collide). Push early and
-   open a draft PR.
+   <branch>` (marks it In progress so two agents don't collide). Push the first
+   commit and open a draft PR targeting `main`.
 3. **Build.** Prefer small unit tests; compiler output keeps byte-identical
    goldens (update them in the same PR when output changes on purpose).
    Contracts, fixtures and dependencies may change when needed: say what and
@@ -59,14 +59,27 @@ for the smallest action.
 5. **Review.** For >50 lines of code, money, Matthew's data, Resolve writes or
    concurrency, write brief notes and run `npm run review -- notes.md` once.
    Fix findings; summarize in the PR. If unavailable, say so and continue.
-6. **Deliver.** Mark the PR ready, put `Closes #<issue>` in the body, and turn
-   on auto-merge: `gh pr merge --auto --merge`. It merges when the required
+6. **Deliver.** Bring the branch up to date with `main`, mark the PR ready, put
+   `Closes #<issue>` in the body, and turn on auto-merge:
+   `gh pr merge --auto --merge`. It merges when the required
    `TypeScript and Python` check passes, the issue closes itself, and your job
    is done. Keep the PR body short: what changed, how it was tested, choices
    made.
 
 **Done means merged into `main`.** Don't end a task with unpushed work; if you
 must stop, push and say what's left in the issue.
+
+## Branch upkeep
+
+- Deploy pilots from a recorded commit already on `main`. Send pilot fixes
+  through PRs to `main`, then advance the deployment to a new commit.
+- Review each open PR by day seven. Merge it when ready, split it into a
+  smaller PR to `main`, or record the blocker, owner, and next review date
+  in the PR. Review overdue PRs at the start of the next work session. Close
+  superseded or abandoned PRs after preserving their unique work and linking
+  its location.
+- After merge, clean up the delivered branch and worktree once any unique
+  local work is preserved.
 
 ## Acceptance
 
