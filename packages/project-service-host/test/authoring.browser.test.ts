@@ -3235,6 +3235,135 @@ describe("browser authoring over the local project service", () => {
     expect(await retryPage.locator("#project-title").inputValue()).toBe(failedDraft);
   }, 90_000);
 
+  it("keeps a failed script save and Retry after unchanged name blur", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Script retry project");
+    const initialText = "initial narration";
+    const editedText = "narration retained after failed save";
+    const seeded = editableDocumentFixture(projectId, initialText);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    await page.goto(`${origin}/?project=${projectId}`);
+    const editor = page.locator(`[data-row-id="${seeded.rowId}"] [data-narration-editor]`);
+    const mutationIds: string[] = [];
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() !== "PUT") return await route.continue();
+      mutationIds.push((route.request().postDataJSON() as { clientMutationId: string }).clientMutationId);
+      if (mutationIds.length === 1) {
+        return await route.fulfill({ status: 503, contentType: "application/json",
+          body: JSON.stringify({ error: "service_unavailable" }) });
+      }
+      return await route.continue();
+    });
+    const status = page.locator("#save-status");
+    const retry = page.locator("#retry-save");
+    const failure = "Couldn’t save the script. Your unsaved changes are still here.";
+    try {
+      await editor.fill(editedText);
+      await expect.poll(() => status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(initialText);
+      await page.locator("#project-title").focus();
+      await page.locator("#project-title").blur();
+      expect(await status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      // A real, successful name PATCH must not clear the document failure either.
+      const title = page.locator("#project-title");
+      const renamed = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Renamed while narration is unsaved");
+      await title.blur();
+      expect((await renamed).status()).toBe(200);
+      expect(await status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      // Both independent failed mutations can coexist; Retry must target the
+      // document first, then expose the outstanding name failure.
+      const nameMutationIds: string[] = [];
+      await page.route(`**/authoring/projects/${projectId}`, async (route) => {
+        if (route.request().method() !== "PATCH") return await route.continue();
+        nameMutationIds.push((route.request().postDataJSON() as { clientMutationId: string }).clientMutationId);
+        if (nameMutationIds.length === 1) return await route.fulfill({ status: 503,
+          contentType: "application/json", body: JSON.stringify({ error: "service_unavailable" }) });
+        return await route.continue();
+      });
+      const failedName = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Second name retained for retry");
+      await title.blur();
+      expect((await failedName).status()).toBe(503);
+      expect(await status.textContent()).toBe(failure);
+      await retry.click();
+      await expect.poll(() => status.textContent()).toBe("Couldn’t save the project name. Your unsaved name is still here.");
+      expect(await retry.isVisible()).toBe(true);
+      expect(mutationIds).toHaveLength(2);
+      expect(mutationIds[1]).toBe(mutationIds[0]);
+      await retry.click();
+      await expect.poll(() => status.textContent()).toBe("Saved");
+      expect(mutationIds).toHaveLength(2);
+      expect(mutationIds[1]).toBe(mutationIds[0]);
+      expect(nameMutationIds).toHaveLength(2);
+      expect(nameMutationIds[1]).toBe(nameMutationIds[0]);
+      expect(await retry.isVisible()).toBe(false);
+      await page.reload();
+      await expect.poll(() => editorText(editor)).toBe(editedText);
+      expect(await title.inputValue()).toBe("Second name retained for retry");
+      expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(editedText);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+
+  it("keeps the save status pending when a PUT finishes before a queued command", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Queued save project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["first row", "second row"]);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const musicWarningResponse = () => page.waitForResponse((response) =>
+      response.url() === `${origin}/authoring/projects/${projectId}/music-warnings`);
+    const initialWarnings = musicWarningResponse();
+    await page.goto(`${origin}/?project=${projectId}`);
+    await initialWarnings;
+    let releasePut: () => void = () => undefined;
+    const heldPut = new Promise<void>((resolve) => { releasePut = resolve; });
+    let releaseCommand: () => void = () => undefined;
+    const heldCommand = new Promise<void>((resolve) => { releaseCommand = resolve; });
+    let puts = 0;
+    let commands = 0;
+    await page.route(`**/authoring/projects/${projectId}/document`, async (route) => {
+      if (route.request().method() === "PUT" && ++puts === 1) await heldPut;
+      await route.continue();
+    });
+    await page.route("**/authoring/command", async (route) => {
+      if (route.request().method() === "POST" && ++commands === 2) await heldCommand;
+      await route.continue();
+    });
+    const status = page.locator("#save-status");
+    try {
+      await page.locator(`[data-row-id="${seeded.rowIds[0]}"] [data-narration-editor]`).fill("first row saved");
+      await expect.poll(() => puts).toBe(1);
+      await page.locator(`[data-row-id="${seeded.rowIds[1]}"] [data-narration-editor]`).fill("second row queued");
+      await expect.poll(() => commands).toBe(2);
+      // A music-warning refresh is requested by the browser after processing the PUT receipt.
+      const receiptProcessed = musicWarningResponse();
+      releasePut();
+      await receiptProcessed;
+      expect(await status.textContent()).toBe("Saving…");
+      await page.locator("#project-title").focus();
+      await page.locator("#project-title").blur();
+      expect(await status.textContent()).toBe("Saving…");
+      releaseCommand();
+      await expect.poll(() => status.textContent()).toBe("Saved");
+      expect((await narrationRowsFromApi(page, projectId)).map((row) => row.text))
+        .toEqual(["first row saved", "second row queued"]);
+      expect(puts).toBe(2);
+    } finally {
+      releasePut();
+      releaseCommand();
+      await page.close();
+    }
+  }, 90_000);
+
   it("edits repeated and Unicode narration, keeps visual anchors, undoes by keyboard and button, and reloads", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();

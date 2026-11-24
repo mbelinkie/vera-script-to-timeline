@@ -40,6 +40,7 @@ let cardFocus = null;
 let documentRevision;
 let documentDigest;
 let pendingDocument;
+let documentSaveFailure;
 let documentSaving = false;
 let documentDirty = false;
 let commandQueue = Promise.resolve();
@@ -63,6 +64,7 @@ let narrationCleanup = [];
 let structuralFocus = null;
 let lastSplit = null;
 let pendingName;
+let nameSaveFailure;
 let pendingCreate;
 let saveTimer;
 let saving = false;
@@ -883,22 +885,25 @@ async function saveDocument() {
     documentDirty = false;
   }
   documentSaving = true;
-  setSaveStatus("Saving…");
+  setSaveStatus();
   try {
     const receipt = await api(`/${project.projectId}/document`, "PUT", pendingDocument);
     documentRevision = receipt.revision;
     documentDigest = receipt.digest;
     void refreshMusicWarnings();
     pendingDocument = undefined;
+    documentSaveFailure = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
-      setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
-    } else setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
+      documentSaveFailure = { message: "A newer script was saved elsewhere. Your unsaved changes are still here.", action: "conflict" };
+    } else documentSaveFailure = { message: "Couldn’t save the script. Your unsaved changes are still here.", action: "retry" };
     return;
-  } finally { documentSaving = false; }
+  } finally {
+    documentSaving = false;
+    setSaveStatus();
+  }
   if (documentDirty) void saveDocument();
-  else if (!editRefused && !conflicted) setSaveStatus("Saved");
 }
 
 async function applyBrowserCommand(document, command, splitProof, expectedSequenceVersion) {
@@ -1493,6 +1498,8 @@ function queueCommand(command, label, options = {}) {
   const inputAt = performance.now();
   commandsPending += 1;
   clearPreparedPrompter("Save your script before exporting.");
+  setSaveStatus();
+  let commandError;
   commandQueue = commandQueue.then(async () => {
     if (conflicted || editRefused) return false;
     if (options.expectedProjectId && (activeProjectId !== options.expectedProjectId ||
@@ -1647,11 +1654,11 @@ function queueCommand(command, label, options = {}) {
       element("discard-edit").hidden = false;
       element("discard-edit").disabled = true;
     }
-    setSaveStatus(refusedMessage || error.message || "Edit could not be applied.");
+    commandError = refusedMessage || error.message || "Edit could not be applied.";
     return false;
   }).finally(() => {
     commandsPending -= 1;
-    updatePrompterControls();
+    setSaveStatus(commandError);
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
@@ -1683,6 +1690,7 @@ function undo() {
   activeAttach = null;
   typingGroup = null;
   commandsPending += 1;
+  setSaveStatus();
   commandQueue = commandQueue.then(() => {
     // Earlier requests may have completed after Undo was queued, restoring
     // a typing group. Undo is a history boundary at *execution* as well.
@@ -1701,7 +1709,7 @@ function undo() {
     void refreshProjection(scriptDocument, true, previousProjection);
   }).finally(() => {
     commandsPending -= 1;
-    updatePrompterControls();
+    setSaveStatus();
     if (editRefused && commandsPending === 0) element("discard-edit").disabled = false;
     if (renderRequested) scheduleRender();
   });
@@ -1817,9 +1825,21 @@ openForm.addEventListener("submit", (event) => {
   else homeStatus.textContent = "Enter a saved script link or project ID.";
 });
 
-function setSaveStatus(message, action) {
-  if (editRefused) message = refusedMessage;
-  else if (message === "Saved" && visualFeedback) message = `Saved · ${visualFeedback}`;
+function setSaveStatus(message = "Saved") {
+  // A failure belongs to its outstanding mutation, not the last UI event.
+  // A conflict prevents either retry; otherwise document Retry takes priority.
+  const failure = [documentSaveFailure, nameSaveFailure].find((item) => item?.action === "conflict") ??
+    documentSaveFailure ?? nameSaveFailure;
+  let action;
+  if (failure) ({ message, action } = failure);
+  else if (editRefused) message = refusedMessage;
+  else if (message === "Saved") {
+    if (documentSaving || saving || commandsPending) message = "Saving…";
+    else if (project && !projectTitle.value.trim()) message = "Project name is required. Your change is unsaved.";
+    else if (pendingDocument || documentDirty || pendingName || composingRows.size ||
+        (project && projectTitle.value.trim() !== project.title)) message = "Unsaved changes";
+    else if (visualFeedback) message = `Saved · ${visualFeedback}`;
+  }
   saveStatus.textContent = message;
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
@@ -1834,9 +1854,7 @@ element("discard-edit").addEventListener("click", () => {
   forceRender = false;
   renderRequested = false;
   renderEditor();
-  if (conflicted) setSaveStatus("A newer script was saved elsewhere. Your unsaved changes are still here.", "conflict");
-  else if (pendingDocument || documentDirty) setSaveStatus("Couldn’t save the script. Your unsaved changes are still here.", "retry");
-  else setSaveStatus("Saved");
+  setSaveStatus();
 });
 
 async function saveName() {
@@ -1845,11 +1863,11 @@ async function saveName() {
   const title = projectTitle.value.trim();
   if (!pendingName) {
     if (!title) {
-      setSaveStatus("Project name is required. Your change is unsaved.");
+      setSaveStatus();
       return;
     }
     if (title === project.title) {
-      setSaveStatus("Saved");
+      setSaveStatus();
       return;
     }
     pendingName = {
@@ -1857,32 +1875,35 @@ async function saveName() {
     };
   }
   saving = true;
-  setSaveStatus("Saving…");
+  setSaveStatus();
   try {
     ({ project } = await api(`/${project.projectId}`, "PATCH", pendingName));
     pendingName = undefined;
+    nameSaveFailure = undefined;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       conflicted = true;
-      setSaveStatus("A newer project name was saved elsewhere. Your unsaved name is still here.", "conflict");
+      nameSaveFailure = { message: "A newer project name was saved elsewhere. Your unsaved name is still here.", action: "conflict" };
     } else if (error instanceof ApiError && error.status === 401) {
-      setSaveStatus("Your unsaved name is still here. Open the private VERA launch link in another tab, then retry here.", "retry");
+      nameSaveFailure = { message: "Your unsaved name is still here. Open the private VERA launch link in another tab, then retry here.", action: "retry" };
     } else {
-      setSaveStatus("Couldn’t save the project name. Your unsaved name is still here.", "retry");
+      nameSaveFailure = { message: "Couldn’t save the project name. Your unsaved name is still here.", action: "retry" };
     }
     return;
-  } finally { saving = false; }
+  } finally {
+    saving = false;
+    setSaveStatus();
+  }
   // Replay the same receipt after a failed request. Any newer typing is saved
   // only after that request confirms the next project version.
   if (projectTitle.value.trim() !== project.title) void saveName();
-  else setSaveStatus("Saved");
 }
 
 projectTitle.addEventListener("input", () => {
   clearPreparedPrompter("Save your script before exporting.");
   if (saving || conflicted || pendingName) return;
   clearTimeout(saveTimer);
-  setSaveStatus("Unsaved changes");
+  setSaveStatus();
   saveTimer = setTimeout(() => { void saveName(); }, 350);
 });
 projectTitle.addEventListener("blur", () => {
@@ -1894,7 +1915,10 @@ projectTitle.addEventListener("keydown", (event) => {
     projectTitle.blur();
   }
 });
-retrySave.addEventListener("click", () => { if (pendingDocument || documentDirty) void saveDocument(); else void saveName(); });
+retrySave.addEventListener("click", () => {
+  if (documentSaveFailure) void saveDocument();
+  else if (nameSaveFailure) void saveName();
+});
 
 function protectDraft(event) {
   if (pendingCreate || pendingName || pendingDocument || documentDirty || documentSaving || commandsPending || editRefused || composingRows.size || (project && projectTitle.value.trim() !== project.title)) {
