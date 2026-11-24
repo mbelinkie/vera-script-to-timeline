@@ -11,6 +11,7 @@ import {
   plannedGraphqlPoints,
 } from "./roadmap-rate-limit.mjs";
 import { acquireRoadmapLock } from "./roadmap-lock.mjs";
+import { PENDING } from "./issue-policy.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -584,7 +585,9 @@ async function main() {
     const graphqlMutations = ["projectAdd", "lifecycleMutation"];
     if (parsed.flags.has("parent")) graphqlMutations.push("subIssueLink");
     guardMutation(parsed.flags.has("parent") ? 2 : 1, graphqlMutations);
-    const created = createIssue(settings, title, body, [`model:${model}`, `effort:${effort}`, `type:${type}`]);
+    const labels = [`model:${model}`, `effort:${effort}`, `type:${type}`];
+    if (type === "design") labels.push(PENDING);
+    const created = createIssue(settings, title, body, labels);
     const context = addToProject(metadata, created.id);
     applyLifecycleMutation(context, created.id, { status: "Inbox" });
     if (parsed.flags.has("parent")) await linkSubIssue(settings, Number(parsed.flags.get("parent")), created.id);

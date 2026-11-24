@@ -1,8 +1,6 @@
 # Repository agent instructions
 
-For every agent (Codex, Claude, helpers). Simplified 2026-11-04
-([D-0018](DECISIONS.md)); this file overrides older plans, issues or records
-asking for more process.
+These rules supersede older plans and issues. See [D-0018](DECISIONS.md).
 
 ## How we work
 
@@ -18,8 +16,7 @@ technical things (schemas, contracts, fixtures, goldens, dependencies, tests,
 model choice, reviews, merges). Between two reasonable technical options,
 pick the more reversible, note it in one PR line, and continue.
 
-Do mechanical steps yourself. If blocked, name the missing capability and ask
-for the smallest action.
+If blocked, name the missing capability and smallest action.
 
 ## Operating principles
 
@@ -110,7 +107,8 @@ fix or delete a wrong test and say why.
   test and test only the open question. Verify real behaviour in the app,
   not in simulation. Update the guide when a finding
   changes.
-- Visual design stories must pass the
+- Enroll product designs in [#692](https://github.com/mbelinkie/vera-script-to-timeline/issues/692) for
+  [shipped verification](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#shipped-product-verification). Visual stories must pass the
   [capability-evidence gate](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#capability-evidence-before-design)
   first.
 - Audio timing review: [the audio timing workflow](docs/AUDIO_TIMING_REVIEW_WORKFLOW.md).
