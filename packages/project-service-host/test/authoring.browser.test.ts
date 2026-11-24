@@ -3267,13 +3267,46 @@ describe("browser authoring over the local project service", () => {
       await page.locator("#project-title").blur();
       expect(await status.textContent()).toBe(failure);
       expect(await retry.isVisible()).toBe(true);
+      // A real, successful name PATCH must not clear the document failure either.
+      const title = page.locator("#project-title");
+      const renamed = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Renamed while narration is unsaved");
+      await title.blur();
+      expect((await renamed).status()).toBe(200);
+      expect(await status.textContent()).toBe(failure);
+      expect(await retry.isVisible()).toBe(true);
+      // Both independent failed mutations can coexist; Retry must target the
+      // document first, then expose the outstanding name failure.
+      const nameMutationIds: string[] = [];
+      await page.route(`**/authoring/projects/${projectId}`, async (route) => {
+        if (route.request().method() !== "PATCH") return await route.continue();
+        nameMutationIds.push((route.request().postDataJSON() as { clientMutationId: string }).clientMutationId);
+        if (nameMutationIds.length === 1) return await route.fulfill({ status: 503,
+          contentType: "application/json", body: JSON.stringify({ error: "service_unavailable" }) });
+        return await route.continue();
+      });
+      const failedName = page.waitForResponse((response) => response.url() ===
+        `${origin}/authoring/projects/${projectId}` && response.request().method() === "PATCH");
+      await title.fill("Second name retained for retry");
+      await title.blur();
+      expect((await failedName).status()).toBe(503);
+      expect(await status.textContent()).toBe(failure);
+      await retry.click();
+      await expect.poll(() => status.textContent()).toBe("Couldn’t save the project name. Your unsaved name is still here.");
+      expect(await retry.isVisible()).toBe(true);
+      expect(mutationIds).toHaveLength(2);
+      expect(mutationIds[1]).toBe(mutationIds[0]);
       await retry.click();
       await expect.poll(() => status.textContent()).toBe("Saved");
       expect(mutationIds).toHaveLength(2);
       expect(mutationIds[1]).toBe(mutationIds[0]);
+      expect(nameMutationIds).toHaveLength(2);
+      expect(nameMutationIds[1]).toBe(nameMutationIds[0]);
       expect(await retry.isVisible()).toBe(false);
       await page.reload();
       await expect.poll(() => editorText(editor)).toBe(editedText);
+      expect(await title.inputValue()).toBe("Second name retained for retry");
       expect((await narrationRowFromApi(page, projectId, seeded.rowId))?.text).toBe(editedText);
     } finally {
       await page.close();
