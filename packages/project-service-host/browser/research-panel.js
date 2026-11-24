@@ -63,6 +63,59 @@ export function footageUsage(model) {
   return [...entries.values()];
 }
 
+function jumpToScriptUse(target, focus) {
+  target.scrollIntoView({ block: "center" });
+  focus.focus({ preventScroll: true });
+}
+
+export function renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard }) {
+  const key = (rowId, placementId) => JSON.stringify([rowId, placementId]);
+  const cardKey = (card) => key(card.closest("[data-row-id]").dataset.rowId, card.dataset.footagePlacement);
+  const cards = new Map([...root.querySelectorAll("[data-footage-placement]")].map((card) =>
+    [cardKey(card), card]));
+  if (!cards.size) return;
+
+  const doc = root.ownerDocument;
+  const rowNumbers = new Map([...root.querySelectorAll("[data-row-id]")].map((row, index) =>
+    [row.dataset.rowId, index + 1]));
+  const highlight = "visual-card--footage-use-target";
+  for (const { scriptUses } of footageUsage(model)) {
+    // Legacy attachments can exist in the Library list without a rendered script card.
+    const uses = scriptUses.filter((use) => cards.has(key(use.rowId, use.placementId)));
+    if (uses.length < 2) continue;
+    for (const [index, use] of uses.entries()) {
+      const card = cards.get(key(use.rowId, use.placementId));
+      const returnsToFirst = index === uses.length - 1;
+      const next = uses[(index + 1) % uses.length];
+      const ordinal = `Use ${index + 1} of ${uses.length}`;
+      const action = returnsToFirst ? "Back to use 1" : "Next use";
+      const group = make(doc, "div", "visual-card__footage-use");
+      const shortcut = make(doc, "button", "", `${action} ${returnsToFirst ? "↺" : "→"}`);
+      shortcut.type = "button";
+      shortcut.dataset.footageUse = "";
+      shortcut.title = `${action}, row ${rowNumbers.get(next.rowId)}`;
+      shortcut.setAttribute("aria-label", `${ordinal}. ${shortcut.title}`);
+      shortcut.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") event.stopPropagation();
+      });
+      shortcut.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const target = cards.get(key(next.rowId, next.placementId));
+        root.querySelector(`.${highlight}`)?.classList.remove(highlight);
+        target.classList.add(highlight);
+        jumpToScriptUse(target, target.querySelector("[data-footage-use]"));
+      });
+      group.append(make(doc, "span", "", ordinal), shortcut);
+      card.querySelector(".visual-card__meta").append(group);
+    }
+  }
+
+  const highlighted = highlightedCard && cards.get(cardKey(highlightedCard));
+  if (highlighted?.querySelector("[data-footage-use]")) highlighted.classList.add(highlight);
+  const focused = focusedCard && cards.get(cardKey(focusedCard));
+  (focused?.querySelector("[data-footage-use]") ?? focused)?.focus({ preventScroll: true });
+}
+
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
 export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoices, rowChoices, onStatus }) {
   const doc = root.ownerDocument;
@@ -106,13 +159,6 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   const usageOf = (clip) => currentUsage().find((item) =>
     item.researchProjectId.toLowerCase() === clip.projectId.toLowerCase() &&
     item.clipId.toLowerCase() === clip.id.toLowerCase());
-  const jump = (rowId) => {
-    const row = [...doc.querySelectorAll("#script-rows [data-row-id]")].find((item) => item.dataset.rowId === rowId);
-    if (!row) return;
-    row.scrollIntoView({ block: "center" });
-    row.tabIndex = 0;
-    row.focus();
-  };
   const pickClip = (clip) => {
     player.show(clip);
     chosen = clip;
@@ -207,7 +253,13 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
         for (const [index, use] of usage.scriptUses.entries()) {
           const link = make(doc, "button", "footage-item__jump", `Jump to use ${index + 1}`);
           link.type = "button";
-          link.addEventListener("click", () => jump(use.rowId));
+          link.addEventListener("click", () => {
+            const row = [...doc.querySelectorAll("#script-rows [data-row-id]")]
+              .find((item) => item.dataset.rowId === use.rowId);
+            if (!row) return;
+            row.tabIndex = 0;
+            jumpToScriptUse(row, row);
+          });
           navigation.append(link);
         }
         card.append(navigation);

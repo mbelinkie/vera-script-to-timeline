@@ -11,7 +11,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate, researchId } from "../../contracts/test/issue-367-fixture.js";
+import { researchCandidate, researchId, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -1961,6 +1961,96 @@ describe("browser authoring over the local project service", () => {
       .toEqual(["Still image", "Footage", "Web capture", "Graphic"]);
     expect(await cards.locator(".visual-card__image .visual-art").count()).toBe(4);
     expect(await cards.locator("[data-visual-action-trigger]").count()).toBe(0);
+    await page.close();
+  }, 90_000);
+
+  it("cycles repeated footage uses from the card without changing the saved script", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 420 });
+    const projectId = await createProject(page, origin, "Footage use shortcuts");
+    const seeded = documentFixture(projectId);
+    const visualIndex = seeded.document.activeDraft.blocks.findIndex((block) => block.type === "visual_only");
+    if (visualIndex < 0) throw new Error("missing saved visual-only fixture");
+    const uses = [
+      researchOccurrence(710020, false),
+      researchOccurrence(710030, false),
+      researchOccurrence(710040, false),
+      researchOccurrence(710050, false),
+    ];
+    const singleClip = uses[3]!.researchClip;
+    if (!singleClip) throw new Error("missing single-use Research clip snapshot");
+    singleClip.clipId = researchId(710099);
+    singleClip.video.title = "Single-use source";
+    uses.forEach((row, index) => { row.orderKey = index === 0 ? "z" : `z${index}`; });
+    seeded.document.activeDraft.blocks.splice(visualIndex, 1, ...uses);
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const savedBefore = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect(savedBefore.status).toBe(200);
+    await exposeVisualTestApi(page);
+    await page.goto(`${origin}/?project=${projectId}`);
+
+    const cards = page.locator("#script-rows [data-row-kind='visual_only'] .visual-card[data-footage-placement]");
+    await expect.poll(() => cards.count()).toBe(4);
+    const renderedRowIds = await cards.evaluateAll((items) => items.map((card) =>
+      card.closest("[data-row-id]")?.getAttribute("data-row-id")));
+    expect(renderedRowIds).toEqual(uses.map((row) => row.id));
+    expect(new Set(renderedRowIds).size).toBe(4);
+    const first = cards.nth(0).locator("[data-footage-use]");
+    const second = cards.nth(1).locator("[data-footage-use]");
+    const third = cards.nth(2).locator("[data-footage-use]");
+    const singleUse = cards.nth(3);
+    for (const [card, button, ordinal, action] of [
+      [cards.nth(0), first, 1, "Next use"],
+      [cards.nth(1), second, 2, "Next use"],
+      [cards.nth(2), third, 3, "Back to use 1"],
+    ] as const) {
+      expect(await card.locator(".visual-card__footage-use").innerText()).toContain(`Use ${ordinal} of 3`);
+      expect(await card.locator(".visual-card__footage-use").innerText()).toContain(action);
+      expect(await button.getAttribute("aria-label")).toMatch(
+        new RegExp(`^Use ${ordinal} of 3\\. ${action}(?:, row \\d+)?$`, "u"),
+      );
+      expect(await button.evaluate((element) => element instanceof HTMLButtonElement && element.type === "button"))
+        .toBe(true);
+    }
+    expect(await singleUse.locator("[data-footage-use]").count()).toBe(0);
+
+    await cards.nth(0).scrollIntoViewIfNeeded();
+    const firstBox = await cards.nth(0).boundingBox();
+    if (!firstBox) throw new Error("first footage use is not rendered");
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    await page.evaluate(({ top, height, viewport }) => {
+      window.scrollBy(0, top + height - viewport + 1);
+    }, { top: firstBox.y, height: firstBox.height, viewport: viewportHeight });
+    const offscreenBox = await cards.nth(1).boundingBox();
+    if (!offscreenBox) throw new Error("second footage use is not rendered");
+    expect(offscreenBox.y >= viewportHeight || offscreenBox.y + offscreenBox.height <= 0).toBe(true);
+
+    await first.click();
+    await expect.poll(() => cards.nth(1).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => second.evaluate((button) => button === document.activeElement)).toBe(true);
+    await expect.poll(async () => {
+      const box = await cards.nth(1).boundingBox();
+      return box !== null && box.y >= 0 && box.y + box.height <= viewportHeight;
+    }).toBe(true);
+    await page.evaluate(() => window.__veraVisualTest!.renderEditor());
+    expect(await second.evaluate((button) => button === document.activeElement)).toBe(true);
+    expect(await cards.nth(1).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await second.press("Enter");
+    await expect.poll(() => cards.nth(2).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => third.evaluate((button) => button === document.activeElement)).toBe(true);
+    await third.press("Space");
+    await expect.poll(() => cards.nth(0).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
+    await expect.poll(() => first.evaluate((button) => button === document.activeElement)).toBe(true);
+
+    const savedAfter = await appRequest(page, `/authoring/projects/${projectId}/document`);
+    expect(savedAfter).toEqual(savedBefore);
+    expect(await page.locator("#undo-history li").allTextContents())
+      .toEqual(["Nothing to undo in this session"]);
     await page.close();
   }, 90_000);
 
