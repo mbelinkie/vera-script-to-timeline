@@ -297,9 +297,9 @@ describe("persisted Stash note and clip checklist (issue #373)", () => {
     for (const row of [nested, checkedClip, checkedNote]) {
       row.stashChecklist = { completed: true, manualRevision: 1 };
     }
-    doc.stash!.push(...[nested, grandchild, checkedClip, checkedNote].map((row, i) => ({
-      id: id(703 + i), rows: [row], supportingItems: [],
-    })));
+    [nested, grandchild, checkedClip, checkedNote].forEach((row, i) => {
+      doc.stash!.push({ id: id(703 + i), rows: [row], supportingItems: [] });
+    });
     doc.stashOutline = [
       { rowId: source.id, kind: "note", parentRowId: null, sectionId: null },
       { rowId: child.id, kind: "note", parentRowId: source.id, sectionId: null },
