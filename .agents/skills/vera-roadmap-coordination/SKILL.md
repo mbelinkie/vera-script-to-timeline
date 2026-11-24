@@ -9,6 +9,10 @@ The GitHub Project in `.github/vera-roadmap.json` is the live roadmap. How work
 is done is in `AGENTS.md`; this covers only the board.
 
 - **Inspect:** `npm run roadmap -- inspect <issue>`.
+- **Filing designs:** use `type:design` and `design:prod-pending`. Enroll
+  mixed designs explicitly and update the [#692 register](https://github.com/mbelinkie/vera-script-to-timeline/issues/692).
+- **Filing bugs:** follow the [classification policy](../../../docs/ISSUE_FILING.md).
+  Inbox accepts incomplete bugs. Correct their classification before Ready or a new claim.
 - **Dependencies:** under `## Dependencies`, one `- Blocked by #123` (or
   `owner/repo#123`) line per prerequisite, or `None`. Parent/sub-issue links
   don't imply order.

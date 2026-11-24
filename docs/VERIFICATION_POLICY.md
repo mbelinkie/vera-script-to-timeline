@@ -16,3 +16,5 @@ The working rules live in [AGENTS.md](../AGENTS.md) (simplified on 2026-11-04,
 - **Evidence:** the PR (diff, short description, CI result), plus one comment
   for real-application checks. Nothing else: no receipts, hash bundles,
   approval records or evidence manifests.
+
+For confirmed bugs, see the [issue filing and readiness policy](ISSUE_FILING.md).

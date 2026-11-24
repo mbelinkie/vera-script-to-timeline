@@ -165,9 +165,14 @@ const query = args.find((value) => value.startsWith("query=")) || "";
 const approved = process.env.FAKE_CHAT_APPROVED === "true";
 const nativeWrite = process.stdout.write.bind(process.stdout);
 process.stdout.write = (text) => {
-  if (approved && query.includes("RoadmapIssue")) {
+  if (query.includes("RoadmapIssue")) {
     const result = JSON.parse(text);
-    result.data.repository.issue.labels.nodes.push({name:"chat-reviewed"});
+    const issue = result.data.repository.issue;
+    if (approved) issue.labels.nodes.push({name:"chat-reviewed"});
+    for (const name of JSON.parse(process.env.FAKE_LABELS)) issue.labels.nodes.push({name});
+    if (process.env.FAKE_PRIORITY) {
+      issue.projectItems.nodes[0].fieldValues.nodes.push({name:process.env.FAKE_PRIORITY,field:{name:"Priority"}});
+    }
     return nativeWrite(JSON.stringify(result));
   }
   return nativeWrite(text);
@@ -203,7 +208,7 @@ if (query.includes("RoadmapRateLimit")) {
   writeFileSync(fakeGh, fakeSource);
   chmodSync(fakeGh, 0o755);
 
-  const run = (command, status, expectedExit = 0, approved = false, issueBody = "") => {
+  const run = (command, status, expectedExit = 0, approved = false, issueBody = "", classification = {}) => {
     writeFileSync(logPath, "");
     const lockPath = path.join(temporary, `${command[0]}.lock`);
     const result = spawnSync(process.execPath, [path.join(repositoryRoot, "scripts", "roadmap.mjs"), ...command], {
@@ -216,10 +221,13 @@ if (query.includes("RoadmapRateLimit")) {
         FAKE_ROADMAP_STATUS: status,
         FAKE_CHAT_APPROVED: String(approved),
         FAKE_ISSUE_BODY: issueBody,
+        FAKE_LABELS: JSON.stringify(classification.labels ?? []),
+        FAKE_PRIORITY: classification.priority ?? "",
         VERA_ROADMAP_LOCK_PATH: lockPath,
       },
     });
     assert.equal(result.status, expectedExit, result.stderr);
+    if (classification.error) assert.match(result.stderr, classification.error);
     return readFileSync(logPath, "utf8").trim().split("\n").map(JSON.parse);
   };
 
@@ -244,4 +252,16 @@ if (query.includes("RoadmapRateLimit")) {
   assert.match(claimCalls[1].join(" "), /RoadmapIssue/);
   assert.equal(claimCalls.some((args) => args.includes("--paginate")), false, "claim needs no approval record");
   assert.match(claimCalls.at(-1).join(" "), /RoadmapLifecycle/);
+
+  for (const command of [["ready", "23"], ["claim", "23", "--branch", "codex/test"]]) {
+    const mutations = (calls) => calls.filter((args) => args.join(" ").includes("RoadmapLifecycle")).length;
+    const classified = { labels: ["type:bug", "severity:medium", "priority:P2"], priority: "P2" };
+    assert.equal(mutations(run(command, "Ready", 0, false, "", classified)), 1);
+    assert.equal(mutations(run(command, "Ready", 1, false, "", {
+      labels: ["bug"], error: /type:bug.*severity:medium.*priority:P2/,
+    })), 0);
+    assert.equal(mutations(run(command, "Ready", 1, false, "", {
+      ...classified, priority: "P1", error: /Project Priority/,
+    })), 0);
+  }
 });

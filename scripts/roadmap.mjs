@@ -11,6 +11,7 @@ import {
   plannedGraphqlPoints,
 } from "./roadmap-rate-limit.mjs";
 import { acquireRoadmapLock } from "./roadmap-lock.mjs";
+import { PENDING, bugProblems } from "./issue-policy.mjs";
 
 export const MODEL_CLASSES = ["luna", "terra", "sol"];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -517,6 +518,11 @@ export function assertPreWorkCheck(body) {
   }
 }
 
+function assertBugClassification(issue, item) {
+  const problems = bugProblems(new Set(labelsOf(issue)), issue.body, item.priority);
+  if (problems.length) throw new Error(problems.join(" "));
+}
+
 function validateReadyRequirements(settings, issue) {
   if (issue.state !== "OPEN") throw new Error("Only open issues can become or remain Ready");
   const labels = labelsOf(issue);
@@ -584,7 +590,9 @@ async function main() {
     const graphqlMutations = ["projectAdd", "lifecycleMutation"];
     if (parsed.flags.has("parent")) graphqlMutations.push("subIssueLink");
     guardMutation(parsed.flags.has("parent") ? 2 : 1, graphqlMutations);
-    const created = createIssue(settings, title, body, [`model:${model}`, `effort:${effort}`, `type:${type}`]);
+    const labels = [`model:${model}`, `effort:${effort}`, `type:${type}`];
+    if (type === "design") labels.push(PENDING);
+    const created = createIssue(settings, title, body, labels);
     const context = addToProject(metadata, created.id);
     applyLifecycleMutation(context, created.id, { status: "Inbox" });
     if (parsed.flags.has("parent")) await linkSubIssue(settings, Number(parsed.flags.get("parent")), created.id);
@@ -638,6 +646,7 @@ async function main() {
       throw new Error(`Issue cannot move to Ready from ${item.status ?? "unknown"}`);
     }
     assertPreWorkCheck(issue.body);
+    assertBugClassification(issue, item);
     validateReadyRequirements(settings, issue);
     assertClaimAvailable(issue.comments);
     guardMutation(0, ["lifecycleMutation"]);
@@ -663,6 +672,7 @@ async function main() {
       throw new Error(`Issue is ${item.status ?? "in an unknown state"}; only Inbox, Backlog or Ready issues can be claimed`);
     }
     if (issue.state !== "OPEN") throw new Error("Only open issues can be claimed");
+    assertBugClassification(issue, item);
     assertDependenciesResolved(dependencyStates(settings, issue.number, issue.body));
     assertClaimAvailable(issue.comments);
     const claim = {
