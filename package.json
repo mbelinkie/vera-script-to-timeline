@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "roadmap": "node scripts/roadmap.mjs",
-    "test:roadmap": "node --test scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs scripts/roadmap-transport-154.test.mjs scripts/session-docs.test.mjs scripts/cleanup-worktrees.test.mjs",
+    "test:roadmap": "node --test scripts/issue-policy.test.mjs scripts/roadmap.test.mjs scripts/roadmap-rate-limit.test.mjs scripts/roadmap-lock.test.mjs scripts/roadmap-transport-154.test.mjs scripts/session-docs.test.mjs scripts/cleanup-worktrees.test.mjs",
     "test:agent-safety": "node --test scripts/agent-safety.test.mjs",
     "prep": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prep-board.mjs",
     "review": "bash scripts/review.sh",

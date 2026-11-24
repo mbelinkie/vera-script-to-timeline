@@ -107,6 +107,7 @@ fix or delete a wrong test and say why.
   test and test only the open question. Verify real behaviour in the app,
   not in simulation. Update the guide when a finding
   changes.
+- Classify confirmed bugs before Ready or claim. Follow the [filing policy](docs/ISSUE_FILING.md).
 - Enroll product designs in [#692](https://github.com/mbelinkie/vera-script-to-timeline/issues/692) for
   [shipped verification](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#shipped-product-verification). Visual stories must pass the
   [capability-evidence gate](docs/CLAUDE_DESIGN_STORY_PLAYBOOK.md#capability-evidence-before-design)
