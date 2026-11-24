@@ -64,9 +64,8 @@ export function footageUsage(model) {
 }
 
 function jumpToScriptRow(row, card) {
-  const target = card ?? row;
-  if (!target) return;
-  target.scrollIntoView({ block: "center" });
+  if (!row) return;
+  (card ?? row).scrollIntoView({ block: "center" });
   const shortcut = card?.querySelector("[data-footage-use]");
   if (shortcut) shortcut.focus({ preventScroll: true });
   else {
@@ -99,7 +98,7 @@ export function renderFootageUseShortcuts(root, model) {
       const action = returnsToFirst ? "Back to use 1" : "Next use";
       const destination = rows.get(next.rowId);
       const group = make(doc, "div", "visual-card__footage-use");
-      const shortcut = make(doc, "button", "", action);
+      const shortcut = make(doc, "button", "", `${action} ${returnsToFirst ? "↺" : "→"}`);
       shortcut.type = "button";
       shortcut.dataset.footageUse = "";
       if (destination) shortcut.title = `${action}, row ${destination.number}`;
