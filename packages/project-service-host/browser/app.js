@@ -382,6 +382,8 @@ function renderEditor() {
   const requestedCardFocus = cardFocus;
   cardFocus = null;
   const active = document.activeElement;
+  const focusedCard = active?.matches("[data-footage-use]") ? active.closest("[data-footage-placement]") : null;
+  const highlightedCard = root.querySelector(".visual-card--footage-use-target");
   const rowId = active?.matches("[data-narration-editor]") ? active.closest("[data-row-id]")?.dataset.rowId : null;
   const framingFocus = active?.matches("[data-visual-framing]") ? {
     rowId: active.closest("[data-row-id]")?.dataset.rowId,
@@ -414,7 +416,7 @@ function renderEditor() {
     addWordless: addWordlessVisual,
     flashIds: flashVisualIds,
   });
-  renderFootageUseShortcuts(root, scriptDocument);
+  renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));

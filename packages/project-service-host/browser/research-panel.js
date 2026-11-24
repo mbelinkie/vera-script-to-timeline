@@ -63,57 +63,57 @@ export function footageUsage(model) {
   return [...entries.values()];
 }
 
-function jumpToScriptRow(row, card) {
-  if (!row) return;
-  (card ?? row).scrollIntoView({ block: "center" });
-  const shortcut = card?.querySelector("[data-footage-use]");
-  if (shortcut) shortcut.focus({ preventScroll: true });
-  else {
-    row.tabIndex = 0;
-    row.focus({ preventScroll: true });
-  }
+function jumpToScriptUse(target, focus) {
+  target.scrollIntoView({ block: "center" });
+  focus.focus({ preventScroll: true });
 }
 
-export function renderFootageUseShortcuts(root, model) {
-  const cards = new Map();
-  const key = ({ rowId, placementId }) => JSON.stringify([rowId, placementId]);
-  for (const card of root.querySelectorAll("[data-footage-placement]")) {
-    const rowId = card.closest("[data-row-id]").dataset.rowId;
-    cards.set(key({ rowId, placementId: card.dataset.footagePlacement }), card);
-  }
+export function renderFootageUseShortcuts(root, model, { focusedCard, highlightedCard }) {
+  const key = (rowId, placementId) => JSON.stringify([rowId, placementId]);
+  const cardKey = (card) => key(card.closest("[data-row-id]").dataset.rowId, card.dataset.footagePlacement);
+  const cards = new Map([...root.querySelectorAll("[data-footage-placement]")].map((card) =>
+    [cardKey(card), card]));
   if (!cards.size) return;
 
   const doc = root.ownerDocument;
-  const rows = new Map([...root.querySelectorAll("[data-row-id]")].map((row, index) =>
-    [row.dataset.rowId, { row, number: index + 1 }]));
+  const rowNumbers = new Map([...root.querySelectorAll("[data-row-id]")].map((row, index) =>
+    [row.dataset.rowId, index + 1]));
   const highlight = "visual-card--footage-use-target";
   for (const { scriptUses } of footageUsage(model)) {
-    if (scriptUses.length < 2) continue;
-    for (const [index, use] of scriptUses.entries()) {
-      const card = cards.get(key(use));
-      if (!card) continue;
-      const returnsToFirst = index === scriptUses.length - 1;
-      const next = scriptUses[(index + 1) % scriptUses.length];
-      const ordinal = `Use ${index + 1} of ${scriptUses.length}`;
+    // Legacy attachments can exist in the Library list without a rendered script card.
+    const uses = scriptUses.filter((use) => cards.has(key(use.rowId, use.placementId)));
+    if (uses.length < 2) continue;
+    for (const [index, use] of uses.entries()) {
+      const card = cards.get(key(use.rowId, use.placementId));
+      const returnsToFirst = index === uses.length - 1;
+      const next = uses[(index + 1) % uses.length];
+      const ordinal = `Use ${index + 1} of ${uses.length}`;
       const action = returnsToFirst ? "Back to use 1" : "Next use";
-      const destination = rows.get(next.rowId);
       const group = make(doc, "div", "visual-card__footage-use");
       const shortcut = make(doc, "button", "", `${action} ${returnsToFirst ? "↺" : "→"}`);
       shortcut.type = "button";
       shortcut.dataset.footageUse = "";
-      if (destination) shortcut.title = `${action}, row ${destination.number}`;
-      shortcut.setAttribute("aria-label", `${ordinal}. ${shortcut.title || action}`);
-      shortcut.addEventListener("click", () => {
-        const targetCard = cards.get(key(next));
+      shortcut.title = `${action}, row ${rowNumbers.get(next.rowId)}`;
+      shortcut.setAttribute("aria-label", `${ordinal}. ${shortcut.title}`);
+      shortcut.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") event.stopPropagation();
+      });
+      shortcut.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const target = cards.get(key(next.rowId, next.placementId));
         root.querySelector(`.${highlight}`)?.classList.remove(highlight);
-        // A legacy occurrence can have a script row without its own rendered card.
-        (targetCard ?? destination?.row)?.classList.add(highlight);
-        jumpToScriptRow(destination?.row, targetCard);
+        target.classList.add(highlight);
+        jumpToScriptUse(target, target.querySelector("[data-footage-use]"));
       });
       group.append(make(doc, "span", "", ordinal), shortcut);
       card.querySelector(".visual-card__meta").append(group);
     }
   }
+
+  const highlighted = highlightedCard && cards.get(cardKey(highlightedCard));
+  if (highlighted?.querySelector("[data-footage-use]")) highlighted.classList.add(highlight);
+  const focused = focusedCard && cards.get(cardKey(focusedCard));
+  (focused?.querySelector("[data-footage-use]") ?? focused)?.focus({ preventScroll: true });
 }
 
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
@@ -256,7 +256,9 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
           link.addEventListener("click", () => {
             const row = [...doc.querySelectorAll("#script-rows [data-row-id]")]
               .find((item) => item.dataset.rowId === use.rowId);
-            jumpToScriptRow(row);
+            if (!row) return;
+            row.tabIndex = 0;
+            jumpToScriptUse(row, row);
           });
           navigation.append(link);
         }

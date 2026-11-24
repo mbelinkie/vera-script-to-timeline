@@ -1987,6 +1987,7 @@ describe("browser authoring over the local project service", () => {
     await saveDocumentFixture(page, projectId, seeded.document);
     const savedBefore = await appRequest(page, `/authoring/projects/${projectId}/document`);
     expect(savedBefore.status).toBe(200);
+    await exposeVisualTestApi(page);
     await page.goto(`${origin}/?project=${projectId}`);
 
     const cards = page.locator("#script-rows [data-row-kind='visual_only'] .visual-card[data-footage-placement]");
@@ -2033,6 +2034,10 @@ describe("browser authoring over the local project service", () => {
       const box = await cards.nth(1).boundingBox();
       return box !== null && box.y >= 0 && box.y + box.height <= viewportHeight;
     }).toBe(true);
+    await page.evaluate(() => window.__veraVisualTest!.renderEditor());
+    expect(await second.evaluate((button) => button === document.activeElement)).toBe(true);
+    expect(await cards.nth(1).evaluate((card) =>
+      card.classList.contains("visual-card--footage-use-target"))).toBe(true);
     await second.press("Enter");
     await expect.poll(() => cards.nth(2).evaluate((card) =>
       card.classList.contains("visual-card--footage-use-target"))).toBe(true);
