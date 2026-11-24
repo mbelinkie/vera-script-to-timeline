@@ -127,7 +127,8 @@ export function projectStashChecklistV2(document: ScriptDocumentV2, hideComplete
     const row = rows.get(rowId);
     if (!row) return false;
     const unfinished = !stashChecklistV2(row).completed;
-    const hasUnfinishedDescendant = (children.get(rowId) ?? []).some(needed);
+    // needed() also records visibility, so visit every child before aggregating.
+    const hasUnfinishedDescendant = (children.get(rowId) ?? []).map(needed).some(Boolean);
     if (!hideCompleted || unfinished || hasUnfinishedDescendant) visible.add(rowId);
     return unfinished || hasUnfinishedDescendant;
   };
