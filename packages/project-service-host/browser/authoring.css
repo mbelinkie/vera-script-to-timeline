@@ -821,6 +821,30 @@ input {
   gap: 0.28rem;
 }
 
+.visual-card__footage-use {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.visual-card__footage-use button {
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--teal-line);
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #236c77;
+  font: inherit;
+  text-align: start;
+}
+
+.visual-card--footage-use-target {
+  outline: 2px solid #bc8527;
+  outline-offset: 2px;
+}
+
 .visual-card__type {
   display: inline-flex;
   align-items: center;

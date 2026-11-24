@@ -128,6 +128,7 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   card.dataset.previewable = String(previewable);
   card.dataset.slotId = options.slotId ?? "";
   if (options.payloadId) card.dataset.payloadId = options.payloadId;
+  if (researchClip && options.footagePlacementId) card.dataset.footagePlacement = options.footagePlacementId;
   if (options.draggable && payload?.kind === "visual") {
     card.draggable = true;
     card.dataset.visualDrag = "";
@@ -330,7 +331,9 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
     for (const entry of projectedRow?.renderable ? ordered : []) {
       if (entry.overlay) {
         const payload = overlays.get(entry.overlay.overlayEventId);
-        if (payload) list.append(renderVisualCard(document, payload, payload.researchClip));
+        if (payload) list.append(renderVisualCard(document, payload, payload.researchClip, {
+          footagePlacementId: entry.overlay.overlayEventId,
+        }));
         continue;
       }
       const card = entry.card;
@@ -354,6 +357,7 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       list.append(renderVisualCard(document, payload, payload.researchClip, {
         blockId: block.id,
         slotId: card.slotId,
+        footagePlacementId: card.slotId,
         framing: card.framing ?? "wide",
         visualCommand,
         reselect: projectedRow.brackets?.some((bracket) => bracket.slotId === card.slotId) ? reselect : null,
@@ -371,7 +375,9 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       const byId = new Map((block.primaryVisualSequence?.slots ?? []).map((slot) => [slot.id, slot]));
       for (const slot of block.primaryVisualSequence?.slots ?? []) {
         if (slot.kind === "content") {
-          list.append(renderVisualCard(document, slot.payload, slot.payload.researchClip));
+          list.append(renderVisualCard(document, slot.payload, slot.payload.researchClip, {
+            footagePlacementId: slot.id,
+          }));
         } else if (slot.kind === "return") {
           const parent = byId.get(slot.parentSlotId);
           const payload = parent?.kind === "content" ? parent.payload : null;
@@ -379,20 +385,20 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
           list.append(makeElement(document, "div", "visual-return", `↩ ${label} resumes`));
         }
       }
-      for (const { payload } of block.overlayEvents ?? []) {
-        list.append(renderVisualCard(document, payload, payload.researchClip));
+      for (const { id, payload } of block.overlayEvents ?? []) {
+        list.append(renderVisualCard(document, payload, payload.researchClip, { footagePlacementId: id }));
       }
-      for (const { payload } of block.unattachedVisuals ?? []) {
-        list.append(renderVisualCard(document, payload, payload.researchClip));
+      for (const { slotId, payload } of block.unattachedVisuals ?? []) {
+        list.append(renderVisualCard(document, payload, payload.researchClip, { footagePlacementId: slotId }));
       }
     }
   }
   if (block.type === "visual_only") {
-    for (const visual of [{ payload: block.payload, researchClip: block.researchClip, visualOnlyTiming: block.visualOnlyTiming },
-      ...(block.additionalVisuals ?? [])]) {
+    for (const visual of [block, ...(block.additionalVisuals ?? [])]) {
       const timing = visual.visualOnlyTiming;
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
         payloadId: visual.payload.payloadId, draggable: true,
+        footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
         holdSeconds: timing?.durationOverrideMs !== undefined && !timing.matchAudioDuration &&
           !timing.selectedSourceRange && visual.payload.pictureKind !== "unresolved_visual" &&
           visual.payload.pictureKind !== "clip" ? timing.durationOverrideMs / 1000 : undefined,

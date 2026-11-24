@@ -63,6 +63,60 @@ export function footageUsage(model) {
   return [...entries.values()];
 }
 
+function jumpToScriptRow(row, card) {
+  const target = card ?? row;
+  if (!target) return;
+  target.scrollIntoView({ block: "center" });
+  const shortcut = card?.querySelector("[data-footage-use]");
+  if (shortcut) shortcut.focus({ preventScroll: true });
+  else {
+    row.tabIndex = 0;
+    row.focus({ preventScroll: true });
+  }
+}
+
+export function renderFootageUseShortcuts(root, model) {
+  const cards = new Map();
+  const key = ({ rowId, placementId }) => JSON.stringify([rowId, placementId]);
+  for (const card of root.querySelectorAll("[data-footage-placement]")) {
+    const rowId = card.closest("[data-row-id]").dataset.rowId;
+    cards.set(key({ rowId, placementId: card.dataset.footagePlacement }), card);
+  }
+  if (!cards.size) return;
+
+  const doc = root.ownerDocument;
+  const rows = new Map([...root.querySelectorAll("[data-row-id]")].map((row, index) =>
+    [row.dataset.rowId, { row, number: index + 1 }]));
+  const highlight = "visual-card--footage-use-target";
+  for (const { scriptUses } of footageUsage(model)) {
+    if (scriptUses.length < 2) continue;
+    for (const [index, use] of scriptUses.entries()) {
+      const card = cards.get(key(use));
+      if (!card) continue;
+      const returnsToFirst = index === scriptUses.length - 1;
+      const next = scriptUses[(index + 1) % scriptUses.length];
+      const ordinal = `Use ${index + 1} of ${scriptUses.length}`;
+      const action = returnsToFirst ? "Back to use 1" : "Next use";
+      const destination = rows.get(next.rowId);
+      const group = make(doc, "div", "visual-card__footage-use");
+      const shortcut = make(doc, "button", "", action);
+      shortcut.type = "button";
+      shortcut.dataset.footageUse = "";
+      if (destination) shortcut.title = `${action}, row ${destination.number}`;
+      shortcut.setAttribute("aria-label", `${ordinal}. ${shortcut.title || action}`);
+      shortcut.addEventListener("click", () => {
+        const targetCard = cards.get(key(next));
+        root.querySelector(`.${highlight}`)?.classList.remove(highlight);
+        // A legacy occurrence can have a script row without its own rendered card.
+        (targetCard ?? destination?.row)?.classList.add(highlight);
+        jumpToScriptRow(destination?.row, targetCard);
+      });
+      group.append(make(doc, "span", "", ordinal), shortcut);
+      card.querySelector(".visual-card__meta").append(group);
+    }
+  }
+}
+
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
 export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoices, rowChoices, onStatus }) {
   const doc = root.ownerDocument;
@@ -106,13 +160,6 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
   const usageOf = (clip) => currentUsage().find((item) =>
     item.researchProjectId.toLowerCase() === clip.projectId.toLowerCase() &&
     item.clipId.toLowerCase() === clip.id.toLowerCase());
-  const jump = (rowId) => {
-    const row = [...doc.querySelectorAll("#script-rows [data-row-id]")].find((item) => item.dataset.rowId === rowId);
-    if (!row) return;
-    row.scrollIntoView({ block: "center" });
-    row.tabIndex = 0;
-    row.focus();
-  };
   const pickClip = (clip) => {
     player.show(clip);
     chosen = clip;
@@ -207,7 +254,11 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
         for (const [index, use] of usage.scriptUses.entries()) {
           const link = make(doc, "button", "footage-item__jump", `Jump to use ${index + 1}`);
           link.type = "button";
-          link.addEventListener("click", () => jump(use.rowId));
+          link.addEventListener("click", () => {
+            const row = [...doc.querySelectorAll("#script-rows [data-row-id]")]
+              .find((item) => item.dataset.rowId === use.rowId);
+            jumpToScriptRow(row);
+          });
           navigation.append(link);
         }
         card.append(navigation);

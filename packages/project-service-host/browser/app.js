@@ -2,7 +2,7 @@ import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
-import { mountResearchPanel } from "./research-panel.js";
+import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
 import { createStashActions } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
@@ -414,6 +414,7 @@ function renderEditor() {
     addWordless: addWordlessVisual,
     flashIds: flashVisualIds,
   });
+  renderFootageUseShortcuts(root, scriptDocument);
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
