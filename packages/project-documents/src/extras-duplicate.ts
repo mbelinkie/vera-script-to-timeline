@@ -72,6 +72,10 @@ function inventory(rows: SavedRow[], items: SupportingItemV2[]): Ref[] {
           if (slot.kind === "content" && slot.payload.kind !== "on_camera") payload(slot.payload);
         });
       }
+      row.unattachedVisuals?.forEach((slot) => {
+        refs.push({ id: slot.slotId, assign: (value) => { slot.slotId = value; } });
+        payload(slot.payload);
+      });
       row.overlayEvents.forEach((event) => { own(event); payload(event.payload); });
       if (row.attachedFootage) visit(row.attachedFootage.clip);
     }
