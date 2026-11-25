@@ -933,9 +933,10 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
-  it("#78 restores and duplicates a cited Research row at an exact gap in another section", async () => {
+  it.each([{ width: 1280, height: 800 }, { width: 1024, height: 768 }])("#78 restores and duplicates a cited Research row at an exact gap in another section ($width x $height)", async (viewport) => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
+    await page.setViewportSize(viewport);
     const projectId = await createProject(page, origin, "Extras restore and duplicate");
     const model = prompterBrowserFixture(documentFixture(projectId).document);
     const source = researchNestedNote(820000);
@@ -974,6 +975,10 @@ describe("browser authoring over the local project service", () => {
     await restore.focus();
     await restore.press("Enter");
     expect(await chooser.evaluate((el) => el === document.activeElement)).toBe(true);
+    expect(await chooser.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= window.innerWidth && rect.width > 0;
+    })).toBe(true);
     expect(await chooser.locator("option:checked").innerText()).toContain("Act One");
     await chooser.press("Escape");
     expect(await restore.evaluate((el) => el === document.activeElement)).toBe(true);
