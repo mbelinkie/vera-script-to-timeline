@@ -79,6 +79,69 @@ async function authoringRequests(projects: (request: Request) => Promise<Respons
   return { request, authorized, sessionProof, projects, host };
 }
 
+describe("browser Extras operation boundary (#78)", () => {
+  const origin = "http://127.0.0.1:38429";
+  const projectId = randomUUID();
+  const path = `projects/${projectId}/document/extras-operations`;
+  const body = { expectedRevision: 7, clientMutationId: randomUUID(),
+    operation: { kind: "stash_rows", rowIds: [randomUUID()], bundleId: randomUUID() } };
+
+  it("delegates the exact enrolled POST and preserves the durable service result", async () => {
+    const receipt = { projectId, clientMutationId: body.clientMutationId, revision: 8,
+      digest: `sha256:${"a".repeat(64)}`, duplicateDelivery: false };
+    let upstream = Response.json(receipt);
+    const projects = vi.fn(async (request: Request) => {
+      expect(request.method).toBe("POST");
+      expect(request.url).toBe(`${origin}/v1/${path}`);
+      expect(request.headers.get("authorization")).toBe(`Bearer ${privateToken}`);
+      expect(request.headers.get("content-type")).toBe("application/json; charset=utf-8");
+      expect(request.headers.get("x-vera-session")).toBeNull();
+      expect(request.headers.get("x-vera-authoring")).toBeNull();
+      expect(await request.json()).toEqual(body);
+      return upstream.clone();
+    });
+    const { host, sessionProof } = await authoringRequests(projects);
+    const post = () => host.handle(new Request(`${origin}/authoring/${path}`, {
+      method: "POST", headers: { Origin: origin, "Sec-Fetch-Site": "same-origin",
+        "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof,
+        "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify(body),
+    })) as Promise<Response>;
+    const accepted = await post();
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toEqual(receipt);
+    for (const status of [400, 403, 404, 409]) {
+      upstream = Response.json({ error: "operation_refused" }, { status });
+      const refused = await post();
+      expect(refused.status).toBe(status);
+      expect(await refused.json()).toEqual({ error: "operation_refused" });
+    }
+    expect(projects).toHaveBeenCalledTimes(5);
+  });
+
+  it("requires the existing enrollment and origin boundary and the exact JSON POST route", async () => {
+    const { request, authorized, projects, host, sessionProof } = await authoringRequests();
+    expect((await request(path, body)).status).toBe(401);
+    expect((await authorized(path, body, { session: "a".repeat(64) })).status).toBe(401);
+    expect((await authorized(path, body, { origin: "http://127.0.0.1:38430" })).status).toBe(403);
+    expect((await authorized(path, body, { site: "cross-site" })).status).toBe(403);
+    const raw = async (suffix: string, method = "POST", contentType = "application/json",
+      site = "same-origin", proof = "1") => await host.handle(new Request(`${origin}/authoring/${suffix}`, {
+      method, headers: { Origin: origin, "Sec-Fetch-Site": site, "X-VERA-Authoring": proof,
+        "X-VERA-Session": sessionProof, "Content-Type": contentType },
+      body: method === "POST" || method === "PUT" ? JSON.stringify(body) : null,
+    })) as Response;
+    for (const suffix of [`${path}/`, `${path}?extra=1`,
+      "projects/not-uuid/document/extras-operations", `projects/${projectId}/extras-operations`]) {
+      expect((await raw(suffix)).status).toBe(404);
+    }
+    for (const method of ["GET", "PUT", "DELETE", "OPTIONS"]) expect((await raw(path, method)).status).toBe(404);
+    expect((await raw(path, "POST", "text/plain")).status).toBe(400);
+    expect((await raw(path, "POST", "application/json", "", "1")).status).toBe(403);
+    expect((await raw(path, "POST", "application/json", "same-origin", "")).status).toBe(403);
+    expect(projects).not.toHaveBeenCalled();
+  });
+});
+
 describe("browser Sorting trial HTTP boundary", () => {
   function fixture() {
     const { document, source, narrated, blank } = pictureMoveFixture();

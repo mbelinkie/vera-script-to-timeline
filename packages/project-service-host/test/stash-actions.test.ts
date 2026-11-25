@@ -8,6 +8,8 @@ import { createAuthoringHandler } from "../src/authoring.js";
 import {
   captureStashNoteDrop, captureStashWords, createStashActions, createStashNoteCommand,
   insertStashNoteCommand, projectStash, stashWordsCommand,
+  captureWholeRowStash, wholeRowStashCommand, captureSavedPlacement, savedPlacementCommand,
+  originalDraftLocation, draftGapChoices,
 } from "../browser/stash-actions.js";
 
 const id = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -50,6 +52,125 @@ function apply(document: ScriptDocumentV2, command: Parameters<typeof applyRowEd
   expect(validateScriptDocumentV2(result.document).valid).toBe(true);
   return result.document;
 }
+
+describe("whole-row Extras intent and provenance (#78)", () => {
+  it("captures an ordered selection, parks and restores the exact row without changing its identity", () => {
+    const { document, source, target } = fixture();
+    const intent = captureWholeRowStash(document, [source.id])!;
+    expect(Object.isFrozen(intent)).toBe(true);
+    expect(Object.isFrozen(intent.rowIds)).toBe(true);
+    const command = wholeRowStashCommand(document, intent, ids(2000));
+    expect(command).toEqual({ kind: "stash_rows", rowIds: [source.id], bundleId: id(2000) });
+    const parked = apply(document, command);
+    const bundle = parked.stash![0]!;
+    const before = structuredClone(parked);
+    expect(originalDraftLocation(parked, bundle)).toEqual({
+      label: "Before first section", available: true,
+      gap: { sectionId: null, afterRowId: null, beforeRowId: target.id },
+    });
+    expect(projectStash(parked)[0]?.entries[0]).toMatchObject({
+      bundleId: bundle.id, rowId: source.id, originalDraft: originalDraftLocation(parked, bundle),
+    });
+    expect(parked).toEqual(before);
+    expect(parked.extras).toEqual([]);
+    const restore = captureSavedPlacement(parked, "restore_stash_rows", [source.id], bundle.originalGap!)!;
+    expect(Object.isFrozen(restore.destination)).toBe(true);
+    expect(savedPlacementCommand(parked, restore)).toEqual({
+      kind: "restore_stash_rows", rowIds: [source.id], destination: bundle.originalGap,
+    });
+    const restored = apply(parked, savedPlacementCommand(parked, restore));
+    expect(restored.activeDraft.blocks.map((row) => row.id)).toEqual([source.id, target.id]);
+    expect((restored.activeDraft.blocks[0] as NarrationBlockV2).tokens).toEqual(source.tokens);
+    expect(parked).toEqual(before);
+  });
+
+  it("projects a renamed or missing original Draft heading independently of the Stash section", () => {
+    const { document, source, target } = fixture();
+    const section = { type: "section" as const, id: id(2100), title: "Original Draft", orderKey: "a", version: 1 };
+    document.activeDraft.blocks.unshift(section);
+    const stashSectionId = id(2190);
+    const sectioned = apply(document, { kind: "create_stash_section", sectionId: stashSectionId, title: "Stash heading" });
+    const command = wholeRowStashCommand(sectioned, captureWholeRowStash(sectioned, [source.id])!, ids(2101));
+    const parked = apply(sectioned, { ...command,
+      destination: { sectionId: stashSectionId, afterRowId: null, beforeRowId: null, parentRowId: null } });
+    const bundle = parked.stash![0]!;
+    expect(originalDraftLocation(parked, bundle)).toMatchObject({
+      label: "Original Draft", available: true, gap: { sectionId: section.id, beforeRowId: target.id },
+    });
+    expect(projectStash(parked)[1]?.entries[0]).toMatchObject({
+      sectionId: stashSectionId, originalDraft: { label: "Original Draft", available: true },
+    });
+    const renamed = structuredClone(parked);
+    const heading = renamed.activeDraft.blocks[0];
+    if (heading?.type !== "section") throw new Error("missing heading");
+    heading.title = "Renamed Draft";
+    expect(originalDraftLocation(renamed, bundle)).toMatchObject({ label: "Renamed Draft", available: true });
+    expect(draftGapChoices(renamed)).toContainEqual({ gap: bundle.originalGap,
+      label: "Renamed Draft — Before Harbor morning returns" });
+    renamed.activeDraft.blocks.shift();
+    expect(originalDraftLocation(renamed, bundle)).toMatchObject({ label: "Original section unavailable", available: false });
+    const note = apply(parked, createStashNoteCommand(parked, "independent note", {}, ids(2200)));
+    expect(projectStash(note)[0]?.entries.find((entry) => entry.kind === "note")?.originalDraft)
+      .toEqual({ label: "Original section not recorded", gap: null, available: false });
+  });
+
+  it("refuses changed, missing, reversed or cross-section source without allocating a bundle", () => {
+    const { document, source, target } = fixture();
+    const intent = captureWholeRowStash(document, [source.id])!;
+    const makeId = vi.fn(ids(2300));
+    expect(captureWholeRowStash(document, [])).toBeNull();
+    expect(captureWholeRowStash(document, [source.id, source.id])).toBeNull();
+    expect(captureWholeRowStash(document, [target.id, source.id])).toBeNull();
+    expect(captureWholeRowStash(document, [id(9999)])).toBeNull();
+    const altered = structuredClone(document);
+    (altered.activeDraft.blocks[0] as NarrationBlockV2).text += " changed";
+    const crossSection = structuredClone(document);
+    crossSection.activeDraft.blocks.splice(1, 0, {
+      type: "section", id: id(2301), title: "Other", orderKey: "a", version: 1,
+    });
+    expect(captureWholeRowStash(crossSection, [source.id, target.id])).toBeNull();
+    for (const changed of [altered, { ...document, projectId: id(9999) }, { ...document, id: id(9998) }]) {
+      expect(() => wholeRowStashCommand(changed, intent, makeId)).toThrow(/changed/u);
+    }
+    expect(makeId).not.toHaveBeenCalled();
+  });
+
+  it("refuses stale saved material and exact destination, even with unchanged versions", () => {
+    const { document, source, target } = fixture();
+    const anchor = { kind: "word" as const, anchor: {
+      blockId: source.id, tokenId: source.tokens[0]!.id, affinity: "before" as const,
+      quotedWord: source.tokens[0]!.value, anchorVersion: 1,
+    } };
+    document.activeDraft.supportingItems.push({
+      id: id(2401), version: 1, orderKey: "citation", role: "citation", content: "Source evidence",
+      placement: { kind: "point", anchor }, displayAttachment: anchor,
+    });
+    const parked = apply(document, wholeRowStashCommand(document, captureWholeRowStash(document, [source.id])!, ids(2400)));
+    const gap = parked.stash![0]!.originalGap!;
+    const selection = [source.id];
+    const intent = captureSavedPlacement(parked, "duplicate_stash_rows", selection, gap)!;
+    selection[0] = target.id;
+    expect(savedPlacementCommand(parked, intent)).toEqual({ kind: "duplicate_stash_rows",
+      rowIds: [source.id], destination: gap });
+    const placement = captureSavedPlacement(parked, "place_stash_rows", [source.id], gap, false)!;
+    expect(savedPlacementCommand(parked, placement)).toEqual({ kind: "place_stash_rows",
+      rowIds: [source.id], destination: gap, includeDescendants: false });
+    expect(captureSavedPlacement(parked, "restore_stash_rows", [source.id], gap, false)).toBeNull();
+    expect(captureSavedPlacement(parked, "restore_stash_rows", [target.id], gap)).toBeNull();
+    const changedSaved = structuredClone(parked);
+    (changedSaved.stash![0]!.rows[0] as NarrationBlockV2).text += " changed";
+    const changedCitation = structuredClone(parked);
+    changedCitation.stash![0]!.supportingItems[0]!.content = "Changed evidence";
+    const changedGap = structuredClone(parked);
+    (changedGap.activeDraft.blocks[0] as NarrationBlockV2).text += " changed";
+    const removedGap = structuredClone(parked);
+    removedGap.activeDraft.blocks.length = 0;
+    expect(captureSavedPlacement(removedGap, "restore_stash_rows", [source.id], gap)).toBeNull();
+    for (const changed of [changedSaved, changedCitation, changedGap, removedGap, { ...parked, projectId: id(9999) }]) {
+      expect(() => savedPlacementCommand(changed, intent)).toThrow(/changed/u);
+    }
+  });
+});
 
 describe("Stash browser command binding (#674 phase 1)", () => {
   it("builds one saved literal note in its section, retaining row and token identities", () => {

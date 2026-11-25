@@ -284,6 +284,13 @@ function makeRowActions(state, rowElement) {
   menu.setAttribute("role", "menu");
   menu.hidden = true;
 
+  if (typeof state.stashRow === "function") {
+    const stash = button(state.root.ownerDocument, "", "Stash row");
+    stash.dataset.rowStash = rowId;
+    stash.dataset.rowAction = "stash";
+    stash.setAttribute("role", "menuitem");
+    menu.append(stash);
+  }
   const deleteButton = button(state.root.ownerDocument, "", "Delete row");
   deleteButton.dataset.rowDelete = rowId;
   deleteButton.dataset.rowAction = "delete";
@@ -322,7 +329,7 @@ function updateRowActions(state, selected) {
     row.querySelectorAll("[data-row-range-action]").forEach((action) => {
       action.hidden = !isSelected || !groupSelected;
     });
-    row.querySelectorAll("[data-row-action='delete'], [data-row-action='select-range']").forEach((action) => {
+    row.querySelectorAll("[data-row-action='stash'], [data-row-action='delete'], [data-row-action='select-range']").forEach((action) => {
       action.hidden = isSelected && groupSelected;
     });
   }
@@ -619,6 +626,16 @@ function handleClick(state, event) {
     return;
   }
 
+  const stash = target.closest("[data-row-stash]");
+  if (stash) {
+    const rowId = stash.dataset.rowStash;
+    if (!state.busy && rowId && typeof state.stashRow === "function") {
+      closeMenus(state.root);
+      void state.stashRow(rowId);
+    }
+    return;
+  }
+
   const deleteButton = target.closest("[data-row-delete]");
   if (deleteButton) {
     const rowId = deleteButton.dataset.rowDelete;
@@ -793,6 +810,7 @@ export function mountRowsEditor(root, scriptDocument, options = {}) {
       root,
       scriptDocument,
       command: options.command,
+      stashRow: options.stashRow,
       createBlankRow: options.createBlankRow,
       confirmDelete: options.confirmDelete,
       idFactory: options.idFactory,
