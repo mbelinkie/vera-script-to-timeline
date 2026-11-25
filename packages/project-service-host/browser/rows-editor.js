@@ -97,6 +97,61 @@ function gapKey(gap) {
   return [gap.sectionId ?? "", gap.afterRowId ?? "", gap.beforeRowId ?? ""].join("|");
 }
 
+// Mirrors the contract's structural row shape; verified source handles are
+// decided only by the compiler, not by the browser.
+function transitionClipRow(row) {
+  const mutedClip = (payload) => payload?.kind === "visual" &&
+    payload.pictureKind === "clip" && payload.audioPolicy === "mute";
+  if (row.type === "visual_only") return !row.additionalVisuals?.length && mutedClip(row.payload);
+  if (row.type !== "narration" || row.state !== "active" || row.plainDirection === true ||
+      row.overlayEvents?.length !== 0 || row.primaryVisualSequence?.slots.length !== 1) return false;
+  const slot = row.primaryVisualSequence.slots[0];
+  return slot.kind === "content" && slot.relation.kind === "base" &&
+    slot.boundaryBefore.kind === "row_start" && slot.playoutPolicy === "match_structural_interval" &&
+    mutedClip(slot.payload);
+}
+
+// Capture the identities and versions from the rendered document, rather
+// than looking up a new neighbor when the command eventually runs.
+const transitionCommands = new WeakMap();
+
+function decorateTransition(state, divider, gap, blocks) {
+  if (!gap.afterRowId || !gap.beforeRowId) return;
+  const index = blocks.findIndex((block) => block.id === gap.afterRowId);
+  const from = blocks[index];
+  const to = blocks[index + 1];
+  if (!isRow(from) || !isRow(to) || to.id !== gap.beforeRowId) return;
+  const intents = state.scriptDocument.rowTransitions ?? [];
+  const pair = (intent) => intent.fromRowId === from.id && intent.toRowId === to.id;
+  const saved = intents.find((intent) => pair(intent) && intent.state === "active");
+  const occupied = intents.some((intent) => pair(intent) || intent.state === "active" &&
+    [intent.fromRowId, intent.toRowId].some((id) => id === from.id || id === to.id));
+  if (!saved && (occupied || !transitionClipRow(from) || !transitionClipRow(to))) return;
+  divider.classList.add("row-divider--transition");
+  const context = `between “${rowLabel(from)}” and “${rowLabel(to)}”`;
+  const control = button(state.root.ownerDocument, "row-divider__transition",
+    saved ? `Remove transition ${context}` : `Add transition ${context}`,
+    saved ? "Remove" : "Add transition");
+  control.dataset.rowTransition = saved ? "remove" : "add";
+  transitionCommands.set(control, {
+    kind: saved ? "remove_row_transition" : "add_row_transition",
+    ...(saved ? { transitionId: saved.id } : {}),
+    fromRowId: from.id, toRowId: to.id,
+    expectedFromVersion: from.version, expectedToVersion: to.version,
+  });
+  if (saved) {
+    const chip = state.root.ownerDocument.createElement("span");
+    chip.className = "row-divider__transition-chip";
+    chip.dataset.rowTransitionId = saved.id;
+    const caption = state.root.ownerDocument.createElement("span");
+    caption.textContent = saved.effect;
+    chip.append(caption, control);
+    divider.append(chip);
+  } else {
+    divider.append(control);
+  }
+}
+
 function rowsInRoot(root) {
   return [...root.children].filter((child) => child.classList?.contains("script-row"));
 }
@@ -418,6 +473,7 @@ function decorateGaps(state) {
       menu.append(section);
       divider.append(trigger, menu);
     }
+    decorateTransition(state, divider, gap, blocks);
 
     const before = gap.beforeRowId ? rows.get(gap.beforeRowId) : null;
     const after = gap.afterRowId ? rows.get(gap.afterRowId) : null;
@@ -562,6 +618,16 @@ function handleClick(state, event) {
   const target = eventElement(event);
   if (!target) return;
 
+  const transition = target.closest("[data-row-transition]");
+  if (transition) {
+    const intent = transitionCommands.get(transition);
+    if (!intent || state.busy) return;
+    const adding = intent.kind === "add_row_transition";
+    void emit(state, adding ? { ...intent, transitionId: randomId(state) } : intent,
+      adding ? "Add transition" : "Remove transition");
+    return;
+  }
+
   const gapTrigger = target.closest("[data-row-add-options]");
   if (gapTrigger) {
     const menu = gapTrigger.parentElement?.querySelector("[data-row-gap-menu]");
@@ -687,7 +753,7 @@ function handleKeydown(state, event) {
     }
     return;
   }
-  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu], [data-row-action-trigger], .row-range-toolbar")) return;
+  if (!state.range || eventElement(event)?.closest("[contenteditable], textarea, input, select, [data-row-action-menu], [data-row-action-trigger], .row-range-toolbar, .row-divider button")) return;
   if (event.key === "ArrowUp") {
     event.preventDefault();
     moveRangeFocus(state, -1);

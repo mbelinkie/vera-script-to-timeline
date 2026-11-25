@@ -405,6 +405,8 @@ function renderEditor() {
     slotId: active.closest("[data-slot-id]")?.dataset.slotId,
     opener: active.dataset.reselectOpen,
   } : null;
+  const transitionFocus = active?.matches("[data-row-transition]")
+    ? active.closest("[data-row-gap]")?.dataset.rowGap : null;
   let caret = null;
   if (rowId && document.getSelection()?.rangeCount) {
     const selection = document.getSelection().getRangeAt(0);
@@ -507,6 +509,11 @@ function renderEditor() {
     handle?.focus();
   }
   if (reselectFocus) focusReselectOpener(reselectFocus);
+  if (transitionFocus) {
+    const divider = [...root.querySelectorAll("[data-row-gap]")]
+      .find((item) => item.dataset.rowGap === transitionFocus);
+    (divider?.querySelector("[data-row-transition]") ?? divider?.querySelector("[data-row-add]"))?.focus();
+  }
 }
 
 function beginAttach(rowId, slotId) {
