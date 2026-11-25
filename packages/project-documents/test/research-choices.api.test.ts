@@ -244,6 +244,84 @@ const choice = (occurrenceId: string, choiceKind: "keep" | "update", expectedRev
   });
 
 describe("Research choices: explicit keep/update CAS", () => {
+  it("compares, keeps and updates individual additional visuals in active and Stash stacks (#718)", async () => {
+    const h = await setup();
+    const next = structuredClone(h.document);
+    const active = next.activeDraft.blocks[0];
+    const stashed = next.stash![0]!.rows[0];
+    if (active?.type !== "visual_only" || stashed?.type !== "visual_only") throw new Error("Expected visual rows");
+    const placement = (n: number) => {
+      const clip = researchOccurrence(n, true);
+      return { payload: clip.payload, visualOnlyTiming: clip.visualOnlyTiming,
+        researchClip: clip.researchClip!, frameBinding: clip.frameBinding! };
+    };
+    active.additionalVisuals = [placement(780100), placement(780200)];
+    stashed.additionalVisuals = [placement(780300), placement(780400)];
+    await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: next,
+    });
+    const before = await h.service.getDocument(h.projectId, h.owner);
+    const route = `/${h.projectId}/research-choices`;
+    const expectedOwners = [active.id, ...active.additionalVisuals.map((v) => v.payload.payloadId),
+      h.second.id, stashed.id, ...stashed.additionalVisuals.map((v) => v.payload.payloadId)];
+    expect(enumerateResearchOccurrences(before.document).map((v) => v.occurrenceId)).toEqual(expectedOwners);
+    const listing = await json(await h.api(request(route)));
+    expect(listing.occurrences).toMatchObject(expectedOwners.map((occurrenceId) => ({ occurrenceId })));
+    let revision = 1;
+    for (const row of [active, stashed]) {
+      const index = row === active ? 0 : 1;
+      const child = row.additionalVisuals![index]!;
+      const target = child.payload.payloadId;
+      const location = row === active ? { kind: "active_visual", rowId: row.id } :
+        { kind: "stash_visual", rowId: row.id, stashBundleId: h.bundleId };
+      expect(await json(await h.api(request(`${route}/compare?occurrenceId=${target}`))))
+        .toMatchObject({ occurrenceId: target, location, assessment: { kind: "update_available",
+          pinned: { clipVersion: 3 }, latest: { clipVersion: 4 } } });
+      const preChoice = await h.service.getDocument(h.projectId, h.owner);
+      expect((await h.api(choiceRequest(h.projectId, choice(target, "keep", revision)))).status).toBe(200);
+      expect(await h.service.getDocument(h.projectId, h.owner)).toEqual(preChoice);
+      const update = await h.api(choiceRequest(h.projectId, choice(target, "update", revision, randomUUID())));
+      expect(update.status, await update.text()).toBe(200);
+      const after = await h.service.getDocument(h.projectId, h.owner);
+      expect(after.revision).toBe(++revision);
+      const expected = structuredClone(preChoice.document);
+      const changed = row === active ? expected.activeDraft.blocks[0] : expected.stash![0]!.rows[0];
+      if (changed?.type !== "visual_only") throw new Error("Expected visual row");
+      const selected = changed.additionalVisuals![index]!;
+      selected.researchClip = snapshotResearchCandidateV2({ ...researchCandidate(), version: 4,
+        englishText: "Changed text in Research" });
+      delete selected.frameBinding;
+      delete selected.visualOnlyTiming.selectedSourceRange;
+      selected.payload.pictureKind = "unresolved_visual";
+      selected.payload.source = { kind: "unresolved_visual", description: "Research clip lacks verified Timeline media/frame binding" };
+      changed.version++;
+      expect(after.document.activeDraft).toEqual(expected.activeDraft);
+      expect(after.document.stash).toEqual(expected.stash);
+      expect(after.document.stashOutline).toEqual(expected.stashOutline);
+      expect(enumerateResearchOccurrences(after.document).map((v) => v.occurrenceId)).toEqual(expectedOwners);
+      expect(await h.service.getDocumentRevision(h.projectId, h.owner, preChoice.revision))
+        .toMatchObject({ document: preChoice.document, digest: preChoice.digest });
+      expect(await h.service.getDocumentRevision(h.projectId, h.owner, 1))
+        .toMatchObject({ document: before.document, digest: before.digest });
+    }
+    // Removing one additional placement is a normal edit, not a change to the
+    // root or the other child merely because they share the same row location.
+    const afterChoices = await h.service.getDocument(h.projectId, h.owner);
+    const removed = structuredClone(afterChoices.document);
+    const stack = removed.activeDraft.blocks[0];
+    if (stack?.type !== "visual_only") throw new Error("Expected visual row");
+    const removedId = stack.additionalVisuals![0].payload.payloadId;
+    stack.additionalVisuals = [stack.additionalVisuals![1]!];
+    stack.version++;
+    await h.service.putDocument(h.projectId, h.owner, {
+      expectedRevision: revision, clientMutationId: randomUUID(), document: removed,
+    });
+    const afterRemoval = await h.service.getDocument(h.projectId, h.owner);
+    expect(afterRemoval.document).toEqual(removed);
+    expect(enumerateResearchOccurrences(afterRemoval.document).map((v) => v.occurrenceId))
+      .toEqual(expectedOwners.filter((id) => id !== removedId));
+  });
+
   it("lists and independently updates nested visuals, the active mirror and grouped/attached Stash owners", async () => {
     const h = await setup();
     const original = await h.service.getDocument(h.projectId, h.owner);
