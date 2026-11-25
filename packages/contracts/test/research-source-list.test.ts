@@ -8,7 +8,7 @@ import {
   usedResearchLibraryItems,
 } from "../src/research-source-list.js";
 import type { MlaSource } from "../src/mla-citation.js";
-import { researchId, researchNestedNote, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
+import { researchId, researchNestedNote, researchOccurrence, researchStashFixture, researchStillFixture } from "./issue-367-fixture.js";
 
 type TestSource = MlaSource & { id: string; label: string; projectId?: string };
 
@@ -69,4 +69,29 @@ describe("Research source list", () => {
     ]);
     expect(doc.stash).toBeDefined();
   });
+});
+
+it("collects placed stills from primary slots and overlays, but not parked, excluded or waiting visuals", () => {
+  const first = researchStillFixture(982000);
+  const other = researchStillFixture(982100, researchId(982900), first.still.itemId);
+  const overlay = researchNestedNote(982200);
+  delete overlay.primaryVisualSequence;
+  overlay.overlayEvents[0]!.payload = other.payload;
+  const duplicate = researchStillFixture(982300, first.still.researchProjectId, first.still.itemId);
+  const excluded = researchStillFixture(982400);
+  excluded.row.state = "excluded";
+  const loose = researchStillFixture(982500);
+  delete loose.row.primaryVisualSequence;
+  loose.row.unattachedVisuals = [{ slotId: researchId(982599), payload: loose.payload, version: 1 }];
+  const parked = researchStillFixture(982600);
+  first.doc.stash = [{ id: researchId(982699), rows: [parked.row], supportingItems: [] }];
+  first.doc.activeDraft.blocks = [first.row, overlay, duplicate.row, excluded.row, loose.row];
+  const before = structuredClone(first.doc);
+  const expected = [
+    { projectId: first.still.researchProjectId, itemId: first.still.itemId, kind: "still" },
+    { projectId: other.still.researchProjectId, itemId: other.still.itemId, kind: "still" },
+  ];
+  expect(usedResearchLibraryItems(first.doc, researchId(982999))).toEqual(expected);
+  expect(usedResearchLibraryItems(first.doc, researchId(982999))).toEqual(expected);
+  expect(first.doc).toEqual(before);
 });

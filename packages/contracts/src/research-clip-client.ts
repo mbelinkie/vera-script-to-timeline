@@ -8,7 +8,7 @@ import {
   snapshotResearchCandidateV2,
   type ResearchLoggedCandidateInputV2,
 } from "./authoring-v2-research-snapshot.js";
-import { readResearchLibraryItem, readResearchLibrarySource } from "./research-library-records.js";
+import { readResearchLibraryItem, readResearchLibrarySource, type ResearchLibraryItemKind } from "./research-library-records.js";
 import { readKeptStillManifest, readStillItem, UnsupportedKeptStillError, type ResearchStillChoice } from "./research-still-records.js";
 
 export interface ResearchProject {
@@ -162,7 +162,7 @@ export function createResearchClient(options: {
     }
   }
 
-  async function item(projectId: string, itemId: string, kind: "quote" | "clip") {
+  async function item(projectId: string, itemId: string, kind: ResearchLibraryItemKind) {
     const path = libraryPath(projectId, "items", itemId);
     return readResearchLibraryItem(await get(path), projectId, itemId, kind);
   }
