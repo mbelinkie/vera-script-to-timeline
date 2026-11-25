@@ -29,8 +29,8 @@ const visualCommandKinds = new Set([
   "set_visual_range", "set_on_camera_framing",
   "move_visual_to_row", "attach_visual_to_words",
 ]);
-const wordlessCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
-  "reorder_visual_only", "set_visual_only_hold"]);
+const revisionedRowCommandKinds = new Set(["move_wordless_visual", "add_visual_to_wordless_row",
+  "reorder_visual_only", "set_visual_only_hold", "add_row_transition", "remove_row_transition"]);
 let project;
 let activeProjectId;
 let scriptDocument;
@@ -922,7 +922,7 @@ async function applyBrowserCommand(document, command, splitProof, expectedSequen
     method: "POST", headers: { "Content-Type": "application/json", "X-VERA-Authoring": "1", "X-VERA-Session": sessionProof },
     body: JSON.stringify({ document, command, ...(splitProof ? { splitProof } : {}),
       ...(expectedSequenceVersion === undefined ? {} : { expectedSequenceVersion }),
-      ...(wordlessCommandKinds.has(command.kind) ? { expectedRowEditRevision: document.rowEditRevision ?? 0 } : {}) }),
+      ...(revisionedRowCommandKinds.has(command.kind) ? { expectedRowEditRevision: document.rowEditRevision ?? 0 } : {}) }),
     signal: AbortSignal.timeout(12_000),
   });
   const result = await response.json();

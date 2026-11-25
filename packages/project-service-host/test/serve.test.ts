@@ -364,6 +364,51 @@ async function commandResult(response: Response): Promise<CommandResult> {
   return await response.json() as CommandResult;
 }
 
+describe("browser transition commands (#677)", () => {
+  it("projects the named pair through the enrolled host and removes only that intent", async () => {
+    const { document, source, narrated, blank } = pictureMoveFixture();
+    const root = source.primaryVisualSequence!.slots[0]!;
+    if (root.kind !== "content" || root.payload.kind !== "visual") throw new Error("missing clip root");
+    narrated.primaryVisualSequence!.slots[0] = {
+      ...structuredClone(root), id: randomUUID(),
+      payload: { ...root.payload, payloadId: randomUUID() },
+    };
+    const { authorized, projects } = await authoringRequests();
+    const command = { kind: "add_row_transition", transitionId: randomUUID(), fromRowId: source.id,
+      toRowId: narrated.id, expectedFromVersion: source.version, expectedToVersion: narrated.version };
+    const envelope = { document, command, expectedRowEditRevision: document.rowEditRevision ?? 0 };
+    const added = await commandResult(await authorized("command", envelope));
+    expect(added.ok, JSON.stringify(added.diagnostics)).toBe(true);
+    expect(added.document.rowTransitions).toEqual([{ id: command.transitionId, fromRowId: source.id,
+      toRowId: narrated.id, effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" }]);
+    expect(added.document.activeDraft).toEqual(document.activeDraft);
+    expect(added.document.rowEditRevision).toBe(envelope.expectedRowEditRevision + 1);
+    const removed = await commandResult(await authorized("command", {
+      document: added.document, command: { ...command, kind: "remove_row_transition" },
+      expectedRowEditRevision: added.document.rowEditRevision,
+    }));
+    expect(removed.ok, JSON.stringify(removed.diagnostics)).toBe(true);
+    expect(removed.document.rowTransitions ?? []).toEqual([]);
+    expect(removed.document.activeDraft).toEqual(document.activeDraft);
+    const sectioned = structuredClone(document);
+    sectioned.activeDraft.blocks.splice(1, 0, {
+      type: "section", id: randomUUID(), title: "Second act", orderKey: "a5", version: 1,
+    });
+    for (const [input, edit, code] of [
+      [document, { ...command, expectedToVersion: narrated.version + 1 }, "ROW_TRANSITION_STALE"],
+      [document, { ...command, fromRowId: narrated.id, toRowId: blank.id,
+        expectedFromVersion: narrated.version, expectedToVersion: blank.version }, "ROW_TRANSITION_INELIGIBLE"],
+      [sectioned, command, "ROW_TRANSITION_PAIR_INVALID"],
+    ] as const) {
+      const refused = await commandResult(await authorized("command", {
+        document: input, command: edit, expectedRowEditRevision: input.rowEditRevision ?? 0,
+      }));
+      expect(refused).toMatchObject({ ok: false, document: input, diagnostics: [{ code }] });
+    }
+    expect(projects).not.toHaveBeenCalled();
+  });
+});
+
 async function setup(): Promise<QaConfig> {
   const dir = await mkdtemp(join(tmpdir(), "stt159-server-"));
   dirs.push(dir);

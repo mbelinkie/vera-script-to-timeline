@@ -4833,6 +4833,89 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#677 transition saves at the chosen divider, reloads, removes and supports session Undo", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Transition divider project");
+    const seeded = multiNarrationDocumentFixture(projectId, ["First clip", "Second clip", "Third clip", "Fourth clip", "Fifth clip"]);
+    seeded.document.activeDraft.blocks.splice(4, 0, {
+      type: "section", id: randomUUID(), title: "Another act", orderKey: "section-transition-test", version: 1,
+    });
+    await saveDocumentFixture(page, projectId, seeded.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => {
+      const response = await appRequest(page, path);
+      expect(response.status).toBe(200);
+      return response.body as SavedDocument;
+    };
+    const before = await read();
+    await page.goto(`${origin}/?project=${projectId}`);
+    await page.locator("#script-rows").waitFor({ state: "visible" });
+    const divider = (index: number) => page.locator(
+      `[data-after-row-id="${seeded.rowIds[index]}"][data-before-row-id="${seeded.rowIds[index + 1]}"]`);
+    const chosen = divider(0);
+    const other = divider(2);
+    const add = chosen.getByRole("button", { name: /^Add transition /u });
+    const remove = chosen.getByRole("button", { name: /^Remove transition /u });
+    await add.waitFor({ state: "visible" });
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    expect(await chosen.getByRole("button", { name: "Add row", exact: true }).count()).toBe(1);
+    expect(await chosen.locator("[data-row-add-options]").count()).toBe(1);
+    let puts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().endsWith(path)) puts++;
+    });
+    const waitRevision = async (revision: number) => {
+      await expect.poll(async () => (await read()).revision).toBe(revision);
+      const saved = await read();
+      expect(saved.document.activeDraft).toEqual(before.document.activeDraft);
+      return saved;
+    };
+    await add.focus();
+    await add.press("Enter");
+    const first = await waitRevision(before.revision + 1);
+    const intent = first.document.rowTransitions?.[0];
+    expect(first.document.rowTransitions).toEqual([{ id: expect.any(String), fromRowId: seeded.rowIds[0],
+      toRowId: seeded.rowIds[1], effect: "Cross Dissolve", settings: { durationFrames: 24, alignment: "center" }, state: "active" }]);
+    expect(first.document.rowEditRevision).toBe((before.document.rowEditRevision ?? 0) + 1);
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    expect(await divider(1).locator("[data-row-transition]").count()).toBe(0);
+    await page.getByRole("button", { name: "Undo Add transition", exact: true }).click();
+    expect((await waitRevision(before.revision + 2)).document.rowTransitions ?? []).toEqual([]);
+    await add.click();
+    const again = await waitRevision(before.revision + 3);
+    const savedIntent = again.document.rowTransitions?.[0];
+    expect(savedIntent).toMatchObject({ ...intent, id: expect.any(String) });
+    await page.reload();
+    await remove.waitFor({ state: "visible" });
+    expect(await chosen.locator("[data-row-transition-id]").textContent()).toContain("Cross Dissolve");
+    expect(await other.getByRole("button", { name: /^Add transition /u }).count()).toBe(1);
+    await remove.click();
+    expect((await waitRevision(before.revision + 4)).document.rowTransitions ?? []).toEqual([]);
+    await page.getByRole("button", { name: "Undo Remove transition", exact: true }).click();
+    expect((await waitRevision(before.revision + 5)).document.rowTransitions).toEqual([savedIntent]);
+    expect(puts).toBe(5);
+    await page.reload();
+    await remove.waitFor({ state: "visible" });
+    expect(await other.locator("[data-row-transition-id]").count()).toBe(0);
+    expect(await divider(3).locator("[data-row-transition]").count()).toBe(0);
+    const current = await read();
+    const row = current.document.activeDraft.blocks.find((block) => block.id === seeded.rowIds[2])!;
+    const next = current.document.activeDraft.blocks.find((block) => block.id === seeded.rowIds[3])!;
+    const stale = await appRequest(page, "/authoring/command", "POST", {
+      document: current.document, expectedRowEditRevision: current.document.rowEditRevision ?? 0,
+      command: { kind: "add_row_transition", transitionId: randomUUID(), fromRowId: row.id, toRowId: next.id,
+        expectedFromVersion: row.version, expectedToVersion: next.version + 1 },
+    });
+    expect(stale.status).toBe(200);
+    expect(stale.body).toMatchObject({ ok: false, document: current.document,
+      diagnostics: [{ code: "ROW_TRANSITION_STALE" }] });
+    expect(await read()).toEqual(current);
+    expect(puts).toBe(5);
+    expect(await page.locator("#undo").isEnabled()).toBe(false);
+    await page.close();
+  }, 90_000);
+
   it("adds and deletes rows, with one Undo restoring each row operation", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
