@@ -538,6 +538,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
     if (!Number.isInteger(bracket.startTokenIndex) || !Number.isInteger(bracket.endTokenIndexExclusive) ||
         bracket.startTokenIndex < 0 || bracket.endTokenIndexExclusive > words.length ||
         bracket.startTokenIndex >= bracket.endTokenIndexExclusive) continue;
+    const bracketContext = { originalRange: bracket, brackets: projectedRow.brackets };
     for (const edge of ["start", "end"]) {
       const button = element(document, "button", `narration-range-handle narration-range-handle--${edge}`);
       button.type = "button";
@@ -565,7 +566,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
         const index = nearestBoundary(edge, event.clientX, event.clientY);
         setPending(bracket, edge, moveVisualBracket({
           startTokenIndex: pending.range.startIndex, endTokenIndexExclusive: pending.range.endIndexExclusive,
-        }, edge, index, words.length));
+        }, edge, index, words.length, bracketContext));
       });
       button.addEventListener("pointerup", (event) => {
         if (!dragging || dragging.pointerId !== event.pointerId || dragging.bracket !== bracket) return;
@@ -591,7 +592,7 @@ function mountRangeBrackets(surface, editor, row, projectedRow, visualCommand) {
           event.key === "Home" ? -words.length : words.length;
         setPending(bracket, edge, stepVisualBracket({
           startTokenIndex: current.startIndex, endTokenIndexExclusive: current.endIndexExclusive,
-        }, edge, delta, words.length));
+        }, edge, delta, words.length, bracketContext));
       });
       button.addEventListener("blur", () => { if (!dragging && pending?.slotId === bracket.slotId) reset(); });
       overlay.append(button);

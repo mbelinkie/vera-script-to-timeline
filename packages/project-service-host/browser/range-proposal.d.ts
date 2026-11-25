@@ -10,6 +10,11 @@ export interface RangeProjection {
 }
 
 export type PendingRange = { startIndex: number; endIndexExclusive: number };
+/** Fixed projected non-camera ranges for the lifetime of a bracket gesture. */
+export interface BracketContext {
+  originalRange: BracketRange;
+  brackets: readonly BracketRange[];
+}
 
 export declare function proposeVisualRange(row: RangeProjection, slotId: string,
   startIndex: number, endIndexExclusive: number):
@@ -19,6 +24,6 @@ export declare function proposeVisualRange(row: RangeProjection, slotId: string,
       swapCommand: { kind: "swap_ranges"; blockId: string; firstSlotId: string; secondSlotId: string } | null };
 
 export declare function stepVisualBracket(range: BracketRange, edge: "start" | "end",
-  delta: number, wordCount: number): PendingRange;
+  delta: number, wordCount: number, context: BracketContext): PendingRange;
 export declare function moveVisualBracket(range: BracketRange, edge: "start" | "end",
-  wordIndex: number, wordCount: number): PendingRange;
+  wordIndex: number, wordCount: number, context: BracketContext): PendingRange;

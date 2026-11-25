@@ -26,26 +26,35 @@ export function proposeVisualRange(row, slotId, startIndex, endIndexExclusive) {
   };
 }
 
-export function stepVisualBracket(range, edge, delta, wordCount) {
-  if (edge === "start") return {
-    startIndex: Math.max(0, Math.min(range.startTokenIndex + delta, range.endTokenIndexExclusive - 1)),
-    endIndexExclusive: range.endTokenIndexExclusive,
-  };
-  return {
-    startIndex: range.startTokenIndex,
-    endIndexExclusive: Math.min(wordCount, Math.max(range.startTokenIndex + 1, range.endTokenIndexExclusive + delta)),
-  };
+export function stepVisualBracket(range, edge, delta, wordCount, context) {
+  const index = edge === "start" ? range.startTokenIndex : range.endTokenIndexExclusive;
+  return moveVisualBracket(range, edge, index + delta, wordCount, context);
 }
 
-export function moveVisualBracket(range, edge, wordIndex, wordCount) {
+export function moveVisualBracket(range, edge, wordIndex, wordCount, context) {
   if (!Number.isInteger(wordIndex) || wordCount < 1) return {
     startIndex: range.startTokenIndex, endIndexExclusive: range.endTokenIndexExclusive,
   };
+  // D192: the projection has brackets for placed non-camera visuals only.
+  // Use the original range, not the moving preview, to identify neighbours:
+  // repeated pointer/keyboard moves must not cross a neighbour once overlapped.
+  // The opening bracket stops at the previous visual's end (#715); the
+  // closing bracket may shorten the next visual but leaves its last word.
+  let minStart = 0;
+  let maxEnd = wordCount;
+  for (const neighbour of context.brackets) {
+    if (neighbour.endTokenIndexExclusive <= context.originalRange.startTokenIndex) {
+      minStart = Math.max(minStart, neighbour.endTokenIndexExclusive);
+    }
+    if (neighbour.startTokenIndex >= context.originalRange.endTokenIndexExclusive) {
+      maxEnd = Math.min(maxEnd, neighbour.endTokenIndexExclusive - 1);
+    }
+  }
   return edge === "start" ? {
-    startIndex: Math.max(0, Math.min(wordIndex, range.endTokenIndexExclusive - 1)),
+    startIndex: Math.max(minStart, Math.min(wordIndex, range.endTokenIndexExclusive - 1)),
     endIndexExclusive: range.endTokenIndexExclusive,
   } : {
     startIndex: range.startTokenIndex,
-    endIndexExclusive: Math.max(range.startTokenIndex + 1, Math.min(wordCount, wordIndex)),
+    endIndexExclusive: Math.max(range.startTokenIndex + 1, Math.min(maxEnd, wordIndex)),
   };
 }
