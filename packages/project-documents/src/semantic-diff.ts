@@ -30,11 +30,38 @@ function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
   return indexed;
 }
 
+/** Mark both endpoints of each relative-order inversion, not shifted absolute indices.
+ * Snapshots cannot tell which of two inverted blocks the editor actually moved.
+ */
+function relativeOrderChanges<T extends { id: string }>(
+  before: readonly T[], after: readonly T[],
+): Set<string> {
+  const positions = new Map(before.map((item, index) => [item.id, index]));
+  const retained = after.flatMap(({ id }) => {
+    const index = positions.get(id);
+    return index === undefined ? [] : [{ id, index }];
+  });
+  const reordered = new Set<string>();
+  let highest = -1;
+  for (const { id, index } of retained) {
+    if (index < highest) reordered.add(id);
+    highest = Math.max(highest, index);
+  }
+  let lowest = before.length;
+  for (let i = retained.length - 1; i >= 0; i--) {
+    const { id, index } = retained[i]!;
+    if (index > lowest) reordered.add(id);
+    lowest = Math.min(lowest, index);
+  }
+  return reordered;
+}
+
 function compareEntities<T extends { id: string }>(
   surface: "draft_block" | "supporting_item", before: readonly T[], after: readonly T[],
 ): SemanticChange[] {
   const left = byId(before);
   const right = byId(after);
+  const reordered = surface === "draft_block" ? relativeOrderChanges(before, after) : new Set<string>();
   const result: SemanticChange[] = [];
   for (const id of [...new Set([...left.keys(), ...right.keys()])].sort(byCodeUnit)) {
     const old = left.get(id);
@@ -45,8 +72,12 @@ function compareEntities<T extends { id: string }>(
       result.push({ surface, entityId: id, kind: "removed", fields: [] });
     } else {
       const fields = changedFields(old, next);
+      // "order" describes the Draft sequence; "orderKey" remains an actual stored field.
+      if (reordered.has(id)) fields.push("order");
+      fields.sort(byCodeUnit);
       if (fields.length) result.push({ surface, entityId: id,
-        kind: fields.length === 1 && fields[0] === "orderKey" ? "reordered" : "modified", fields });
+        kind: fields.every((field) => field === "orderKey" || field === "order")
+          ? "reordered" : "modified", fields });
     }
   }
   return result;

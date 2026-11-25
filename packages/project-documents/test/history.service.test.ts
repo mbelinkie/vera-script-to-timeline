@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { NarrationBlockV2 } from "@vera/contracts/v2";
+import { applyRowEditV2 } from "@vera/contracts/authoring-v2";
 import { ProjectAuthorizationService, type SqlClient, type SqlPool } from "@vera/project-authorization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -118,6 +119,34 @@ describe("project-scoped attributed revision history", () => {
       .toEqual(diff.changes);
     await expect(service.compareDocumentRevisions(projectId, owner, 0, 100))
       .rejects.toMatchObject({ status: 404 });
+  });
+
+  it("reports a saved move_rows edit even when the persisted order keys do not change", async () => {
+    const { service, owner } = await setup();
+    const initial = initialProject();
+    const a = { ...narration(), orderKey: "a" };
+    const b = { ...narration(), orderKey: "b" };
+    const c = { ...narration(), orderKey: "c" };
+    initial.document.activeDraft.blocks = [a, b, c];
+    await service.createProject(owner, initial);
+    const moved = applyRowEditV2(initial.document, 0, {
+      kind: "move_rows", rowIds: [a.id],
+      destination: { sectionId: null, afterRowId: b.id, beforeRowId: c.id },
+    });
+    expect(moved.ok).toBe(true);
+    expect(moved.document.activeDraft.blocks.map(({ id, orderKey }) => [id, orderKey]))
+      .toEqual([[b.id, "b"], [a.id, "a"], [c.id, "c"]]);
+    await service.putDocument(initial.projectId, owner, {
+      expectedRevision: 0, clientMutationId: randomUUID(), document: moved.document,
+    });
+    const diff = await service.compareDocumentRevisions(initial.projectId, owner, 0, 1);
+    const expected = [a.id, b.id].sort().map((entityId) => ({
+      surface: "draft_block", entityId, kind: "reordered", fields: ["order"],
+    }));
+    expect(diff.totalChanges).toBe(2);
+    expect(diff.changes).toEqual(expected);
+    expect((await service.compareDocumentRevisions(initial.projectId, owner, 1, 0)).changes)
+      .toEqual(expected);
   });
 
   it("reports exact total and stable first 200 changes when the semantic response is bounded", async () => {
