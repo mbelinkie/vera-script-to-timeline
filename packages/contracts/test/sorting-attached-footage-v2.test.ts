@@ -274,12 +274,26 @@ describe("issue 367 attached footage in Sorting", () => {
     expect(validateScriptDocumentV2(all.document).valid).toBe(true);
   });
 
+  it("replays atomic range and reset as distinct valid Sorting operations", () => {
+    const { doc, clip, note } = researchStashFixture();
+    const trial = createSortingTrialV2(doc);
+    apply(trial, { kind: "trim_research_clip", clipRowId: clip.id, edge: "range", startFrame: 66, endFrame: 90 });
+    apply(trial, { kind: "trim_research_clip", clipRowId: clip.id, edge: "reset" });
+    const resumed = resumeSortingTrialV2(trial.serialize());
+    expect(resumed.document).toEqual(trial.document);
+    expect(noteAt(resumed.document, note.id).attachedFootage?.clip.visualOnlyTiming.selectedSourceRange)
+      .toEqual({ startFrame: 12, durationFrames: 96 });
+  });
+
   it("rejects malformed attachment replay and key-smuggling without changing a pending Sorting trial", () => {
     const { doc, note, clip } = researchStashFixture();
     const trial = createSortingTrialV2(doc);
     const before = trial.document;
     const invalid = [
       { kind: "trim_research_clip", clipRowId: clip.id, edge: "clear_out", frame: 50 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "reset", frame: 50 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "range", startFrame: 50 },
+      { kind: "trim_research_clip", clipRowId: clip.id, edge: "range", startFrame: 30, endFrame: 50, frame: 40 },
       { kind: "trim_research_clip", clipRowId: clip.id, edge: "out", frame: -1 },
       { kind: "place_attached_footage", noteRowId: note.id, destination: gap(), extra: true },
       { kind: "place_stash_rows", rowIds: [note.id], destination: gap(), includeDescendants: "false" },

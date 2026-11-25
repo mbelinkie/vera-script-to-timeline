@@ -209,12 +209,26 @@ export function withResearchClipUseRangeV2(
   return copy;
 }
 
+/** Restore both ends in one edit, never infer a range from logged milliseconds. */
+export function resetResearchClipOccurrenceV2(row: VisualOnlyBlockV2): VisualOnlyBlockV2 {
+  const binding = row.frameBinding;
+  if (!binding) throw new RangeError("A verified Research frame binding is required for trimming");
+  return withResearchClipUseRangeV2(row, {
+    startFrame: binding.loggedStartFrame, endFrame: binding.loggedEndFrame,
+  });
+}
+
+export type ResearchClipTrimChangeV2 =
+  | { edge: "in" | "out"; frame: number }
+  | { edge: "clear_out" | "reset" }
+  | ({ edge: "range" } & FrameIntervalV2);
+
 /** Change just one occurrence's in/out. The source candidate and frame mapping are immutable. */
 export function trimResearchClipOccurrenceV2(
   row: VisualOnlyBlockV2,
-  change: { edge: "in" | "out"; frame: number } | { edge: "clear_out" },
+  change: ResearchClipTrimChangeV2,
 ): VisualOnlyBlockV2 {
-  if (!change || !(change.edge === "clear_out" ||
+  if (!change || !(change.edge === "clear_out" || change.edge === "reset" || change.edge === "range" ||
     ((change.edge === "in" || change.edge === "out") && Number.isSafeInteger(change.frame)))) {
     throw new RangeError("An exact source-frame trim is required");
   }
@@ -222,6 +236,10 @@ export function trimResearchClipOccurrenceV2(
   if (!selected || !Number.isSafeInteger(selected.startFrame + selected.durationFrames)) {
     throw new RangeError("An existing valid source-frame selection is required");
   }
+  if (change.edge === "reset") return resetResearchClipOccurrenceV2(row);
+  if (change.edge === "range") return withResearchClipUseRangeV2(row, {
+    startFrame: change.startFrame, endFrame: change.endFrame,
+  });
   const startFrame = change.edge === "in" ? change.frame : selected.startFrame;
   const endFrame = change.edge === "out" ? change.frame :
     change.edge === "clear_out" ? row.frameBinding?.loggedEndFrame : selected.startFrame + selected.durationFrames;

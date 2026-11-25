@@ -134,7 +134,8 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
   const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
   const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
-    kind === "trim_research_clip" && value.edge !== "clear_out" ? ["frame"] : [];
+    kind === "trim_research_clip" ? value.edge === "range" ? ["startFrame", "endFrame"] :
+      value.edge === "in" || value.edge === "out" ? ["frame"] : [] : [];
   if (!allowed || !allowed.every((key) => Object.hasOwn(value, key)) || !Object.keys(value).every((key) => allowed.includes(key) || optional.includes(key))) return false;
   if ("row" in value && (!value.row || typeof value.row !== "object" || Array.isArray(value.row))) return false;
   if (kind === "set_stash_completion") return typeof value.rowId === "string" && value.rowId.length > 0 && typeof value.completed === "boolean";
@@ -149,7 +150,10 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     if (kind !== "place_attached_footage") return true;
   }
   if (kind === "trim_research_clip") return typeof value.clipRowId === "string" && !!value.clipRowId &&
-    (["in", "out"].includes(value.edge as string) && Object.hasOwn(value, "frame") && Number.isSafeInteger(value.frame) && (value.frame as number) >= 0 || value.edge === "clear_out");
+    (["in", "out"].includes(value.edge as string) && Object.hasOwn(value, "frame") && Number.isSafeInteger(value.frame) && (value.frame as number) >= 0 || value.edge === "clear_out" || value.edge === "reset" ||
+      value.edge === "range" && Object.hasOwn(value, "startFrame") && Object.hasOwn(value, "endFrame") &&
+      Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&
+      Number.isSafeInteger(value.endFrame) && (value.endFrame as number) >= 0);
   if (kind === "make_stage_direction" || kind === "make_spoken" || kind === "delete_direction_delimiter") {
     return typeof value.blockId === "string" && (kind === "delete_direction_delimiter" ? Number.isSafeInteger(value.offset) : Number.isSafeInteger(value.startOffset) && Number.isSafeInteger(value.endOffset));
   }

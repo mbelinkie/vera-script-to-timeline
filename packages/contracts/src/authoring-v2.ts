@@ -446,6 +446,8 @@ export {
   createResearchClipOccurrenceV2,
   withResearchClipUseRangeV2,
   trimResearchClipOccurrenceV2,
+  resetResearchClipOccurrenceV2,
+  type ResearchClipTrimChangeV2,
   type ResearchLoggedCandidateInputV2,
   type ResearchClipOccurrenceInputV2,
   type FrameIntervalV2,

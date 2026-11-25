@@ -6,7 +6,7 @@ import { applyStageDirectionEditV2, defaultDirectionNarrationRowV2, type StageDi
 import { applyStashRowEditV2 } from "./authoring-v2-stash.js";
 import { markStashOriginEditedV2, preserveStashOriginAfterEditV2 } from "./authoring-v2-stash-origin.js";
 import { copyStashNoteAsSpokenV2, invalidateChangedStashSourceLinksV2, stashChecklistV2, stashNoteContentStampV2 } from "./authoring-v2-stash-checklist.js";
-import { trimResearchClipOccurrenceV2 } from "./authoring-v2-research-snapshot.js";
+import { trimResearchClipOccurrenceV2, type ResearchClipTrimChangeV2 } from "./authoring-v2-research-snapshot.js";
 import { sameAuthoringJsonV2 } from "./authoring-v2-json.js";
 import { chooseReturnSlotV2, freezeOriginalParentContextV2, freezeOriginalSiblingCandidatesV2 } from "./authoring-v2-stash-return-location.js";
 import type { SaveStashGroupCommandV2 } from "./authoring-v2-stash-groups.js";
@@ -165,8 +165,7 @@ export type RowEditCommandV2 =
   | { kind: "replace_stash_footage"; noteRowId: string; clipRowId: string; releasedBundleId: string }
   | { kind: "detach_stash_footage"; noteRowId: string; bundleId: string }
   | { kind: "cleanup_blank_stash_note"; noteRowId: string; clipBundleId: string }
-  | { kind: "trim_research_clip"; clipRowId: string; edge: "in" | "out"; frame: number }
-  | { kind: "trim_research_clip"; clipRowId: string; edge: "clear_out" }
+  | ({ kind: "trim_research_clip"; clipRowId: string } & ResearchClipTrimChangeV2)
   | { kind: "place_attached_footage"; noteRowId: string; destination: RowGapV2 }
   | { kind: "set_stash_outline"; entries: StashOutlineEntryV2[] }
   | { kind: "place_stash_rows"; rowIds: string[]; destination: RowGapV2; includeDescendants?: boolean }
@@ -443,7 +442,11 @@ function validAttachmentCommand(value: unknown): boolean {
   if (!plainObject(value) || typeof value.kind !== "string") return false;
   if (value.kind === "trim_research_clip") {
     return typeof value.clipRowId === "string" && value.clipRowId.length > 0 &&
-      (value.edge === "clear_out" ? exactKeys(value, ["kind", "clipRowId", "edge"]) :
+      (value.edge === "clear_out" || value.edge === "reset" ? exactKeys(value, ["kind", "clipRowId", "edge"]) :
+        value.edge === "range" ?
+          exactKeys(value, ["kind", "clipRowId", "edge", "startFrame", "endFrame"]) &&
+          Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&
+          Number.isSafeInteger(value.endFrame) && (value.endFrame as number) >= 0 :
         (value.edge === "in" || value.edge === "out") &&
         exactKeys(value, ["kind", "clipRowId", "edge", "frame"]) &&
         Number.isSafeInteger(value.frame) && (value.frame as number) >= 0);
@@ -2206,8 +2209,7 @@ export function applyRowEditV2(document: ScriptDocumentV2, expectedRevision: num
       if (!clip) return refused(document, "RESEARCH_CLIP_NOT_FOUND", "Choose an existing Research clip occurrence, including an attached one.");
       let trimmed: VisualOnlyBlockV2;
       try {
-        trimmed = trimResearchClipOccurrenceV2(clip, attachmentCommand.edge === "clear_out"
-          ? { edge: "clear_out" } : { edge: attachmentCommand.edge, frame: attachmentCommand.frame });
+        trimmed = trimResearchClipOccurrenceV2(clip, attachmentCommand);
       } catch {
         return refused(document, "RESEARCH_CLIP_TRIM_INVALID", "The selected source frame must remain inside the original evidenced logged interval, with a positive duration.");
       }

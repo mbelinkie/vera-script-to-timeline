@@ -284,6 +284,25 @@ describe("#389 bounded Research clip occurrence survives media requirements and 
     expect(JSON.stringify([doc, deps])).toBe(before);
   };
 
+  it("compiles the exact atomic range and reset, with one Undo restoring the selected source interval", () => {
+    const { document, dependenciesFor } = researchTrimBuildFixture();
+    const clip = document.activeDraft.blocks[0] as VisualOnlyBlockV2;
+    const command = { kind: "trim_research_clip", clipRowId: clip.id } as const;
+    const session = createRowEditSessionV2(document);
+    const refined = session.apply({ ...command, edge: "range", startFrame: 66, endFrame: 90 });
+    expect(refined.ok, JSON.stringify(refined.diagnostics)).toBe(true);
+    expect(refined.document.rowEditRevision).toBe(1);
+    verify(refined.document, dependenciesFor, [[66, 90], [24, 60]]);
+    const reset = session.apply({ ...command, edge: "reset" });
+    expect(reset.ok, JSON.stringify(reset.diagnostics)).toBe(true);
+    expect(reset.document.rowEditRevision).toBe(2);
+    verify(reset.document, dependenciesFor, [[12, 108], [24, 60]]);
+    expect(reset.document.activeDraft.blocks[0]).toMatchObject({ researchClip: clip.researchClip, frameBinding: clip.frameBinding, payload: clip.payload });
+    expect(reset.document.activeDraft.blocks[1]).toEqual(document.activeDraft.blocks[1]);
+    expect(session.undo().document).toEqual({ ...refined.document, rowEditRevision: 3 });
+    verify(session.document, dependenciesFor, [[66, 90], [24, 60]]);
+  });
+
   it("builds an inward trim without touching the Research snapshot or another use; clearing restores the full clip", () => {
     const { document: original, dependenciesFor } = researchTrimBuildFixture();
     const clip = original.activeDraft.blocks[0] as VisualOnlyBlockV2;
