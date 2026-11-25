@@ -304,7 +304,7 @@ describe("public authored row edits", () => {
 
 // #367 phase 3: authoritative Research occurrence edits and independent return.
 import { createResearchClipOccurrenceV2, serializeAuthoringDocumentV2, deserializeAuthoringDocumentV2, validateScriptDocumentV2 } from "../src/authoring-v2.js";
-import { researchCandidate, researchId, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
+import { boundPrimaryFixture, researchCandidate, researchId, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
 
 describe("Research footage occurrence edits and original-note return (issue 367)", () => {
   const rev = (doc: ScriptDocumentV2) => doc.rowEditRevision ?? 0;
@@ -538,5 +538,51 @@ describe("Research footage occurrence edits and original-note return (issue 367)
     expect(fallback.document.activeDraft.blocks).toEqual([]);
     expect(validateScriptDocumentV2(fallback.document).valid).toBe(true);
     expect(ambiguous.activeDraft.blocks).toHaveLength(1);
+  });
+});
+
+describe("bound primary Research occurrence checkpoint", () => {
+  it("trims a primary payload by stable identity, preserves its anchor and waiting sibling, and resets with one Undo", () => {
+    const { doc, row, first, slot } = boundPrimaryFixture();
+    const session = createRowEditSessionV2(doc);
+    const command = { kind: "trim_research_clip", payloadId: first.payload.payloadId } as const;
+    const result = session.apply({ ...command, edge: "range", startFrame: 35, endFrame: 51 });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    const edited = result.document.activeDraft.blocks[0] as NarrationBlockV2;
+    expect(edited).toEqual({
+      ...row, version: row.version + 1,
+      primaryVisualSequence: { ...row.primaryVisualSequence!, version: row.primaryVisualSequence!.version + 1,
+        slots: [{ ...slot, version: slot.version + 1, payload: {
+          ...slot.payload, sourceUsage: { sourceInFrame: 35 }, selectedSourceRange: { startFrame: 35, durationFrames: 16 },
+        } }] },
+    });
+    expect(deserializeAuthoringDocumentV2(serializeAuthoringDocumentV2(result.document))).toEqual({ ok: true, document: result.document });
+    const invalid = session.apply({ ...command, edge: "range", startFrame: 1, endFrame: 51 });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.document).toEqual(result.document);
+    const stale = session.apply({ ...command, edge: "reset" }, 0);
+    expect(stale.ok).toBe(false);
+    expect(stale.document).toEqual(result.document);
+    const reset = session.apply({ ...command, edge: "reset" });
+    expect(reset.ok, JSON.stringify(reset.diagnostics)).toBe(true);
+    expect(reset.document.activeDraft.blocks[0]).toMatchObject({ primaryVisualSequence: { slots: [{ payload: {
+      sourceUsage: { sourceInFrame: 12 }, selectedSourceRange: { startFrame: 12, durationFrames: 96 },
+    } }] } });
+    expect(session.undo().document).toEqual({ ...result.document, rowEditRevision: 3 });
+  });
+
+  it("trims waiting footage without changing the existing anchored slot", () => {
+    const { doc, row, second } = boundPrimaryFixture();
+    const result = applyRowEditV2(doc, 0, { kind: "trim_research_clip", payloadId: second.payload.payloadId,
+      edge: "range", startFrame: 32, endFrame: 46 });
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.document.activeDraft.blocks[0]).toEqual({
+      ...row, version: row.version + 1,
+      primaryVisualSequence: { ...row.primaryVisualSequence!, version: row.primaryVisualSequence!.version + 1 },
+      unattachedVisuals: [{ ...row.unattachedVisuals![0]!, version: 2, payload: {
+        ...row.unattachedVisuals![0]!.payload, sourceUsage: { sourceInFrame: 32 },
+        selectedSourceRange: { startFrame: 32, durationFrames: 14 },
+      } }],
+    });
   });
 });

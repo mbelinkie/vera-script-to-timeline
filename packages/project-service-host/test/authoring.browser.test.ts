@@ -11,7 +11,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { applyRowEditV2, projectPrimarySequenceV2 } from "@vera/contracts/authoring-v2";
 import { sha256CanonicalJson } from "@vera/contracts/compiler-core";
 import { exportPrompter } from "@vera/contracts/prompter-export";
-import { researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { boundPrimaryFixture, researchCandidate, researchId, researchNestedNote, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
 import { applyProjectAuthorizationMigration, type SqlClient } from "@vera/project-authorization";
 import { applyProjectBuildsMigration } from "@vera/project-builds";
@@ -1626,6 +1626,53 @@ describe("browser authoring over the local project service", () => {
       await noIframe();
       expect((await read()).document).toEqual(trimmed.document);
     } finally { browserTrimCues = false; await page.close(); }
+  }, 90_000);
+
+  it("#83 primary checkpoint saves, resets, undoes and reloads a bound narrated use", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    try {
+      const projectId = await createProject(page, origin, "Bound primary trim checkpoint");
+      const { doc, row, first } = boundPrimaryFixture();
+      const model = editableDocumentFixture(projectId, "alpha beta").document;
+      model.activeDraft = doc.activeDraft;
+      await saveDocumentFixture(page, projectId, model);
+      const path = `/authoring/projects/${projectId}/document`;
+      const read = async () => (await appRequest(page, path)).body as SavedDocument;
+      const before = await read();
+      await exposeVisualTestApi(page);
+      await page.goto(`${origin}/?project=${projectId}`);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const apply = async (command: unknown) => page.evaluate(async (intent) => {
+        const app = window.__veraVisualTest!;
+        return await app.queueResearchTrim(app.researchTrimBasis(), intent);
+      }, command);
+      const selector = { kind: "trim_research_clip", payloadId: first.payload.payloadId };
+      expect(await apply({ ...selector, edge: "range", startFrame: 30, endFrame: 50 })).toBe(true);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const trimmed = await read();
+      expect(trimmed.revision).toBe(before.revision + 1);
+      expect(trimmed.document.activeDraft.blocks[0]).toMatchObject({
+        id: row.id, version: row.version + 1, tokens: row.tokens, unattachedVisuals: row.unattachedVisuals!,
+        primaryVisualSequence: { slots: [{ payload: {
+          selectedSourceRange: { startFrame: 30, durationFrames: 20 }, sourceUsage: { sourceInFrame: 30 },
+          frameBinding: first.frameBinding, researchClip: first.researchClip,
+        } }] },
+      });
+      expect(await apply({ ...selector, edge: "reset" })).toBe(true);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      const reset = await read();
+      expect(reset.revision).toBe(trimmed.revision + 1);
+      expect(reset.document.activeDraft.blocks[0]).toMatchObject({ primaryVisualSequence: { slots: [{ payload: {
+        sourceUsage: { sourceInFrame: 12 }, selectedSourceRange: { startFrame: 12, durationFrames: 96 },
+      } }] } });
+      await page.getByRole("button", { name: "Undo Trim footage" }).first().click();
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      expect((await read()).document).toEqual(trimmed.document);
+      await page.reload();
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      expect((await read()).document).toEqual(trimmed.document);
+    } finally { await page.close(); }
   }, 90_000);
 
   it("#83 commits one verified occurrence trim/Undo and discards a response after a project switch", async () => {

@@ -5,7 +5,7 @@ import {
   type RowEditCommandV2,
 } from "../src/authoring-v2.js";
 import type { NarrationBlockV2, ScriptDocumentV2, VisualOnlyBlockV2 } from "../src/generated/contracts-v2.js";
-import { researchId as id, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
+import { boundPrimaryFixture, researchId as id, researchOccurrence, researchStashFixture } from "./issue-367-fixture.js";
 
 const gap = (afterRowId: string | null = null, beforeRowId: string | null = null) => ({ sectionId: null, afterRowId, beforeRowId });
 const ordinaryRows = (doc: ScriptDocumentV2) => [
@@ -377,5 +377,20 @@ describe("issue 367 attached footage in Sorting", () => {
       expect(owned?.frameBinding).toBeUndefined();
       expect(owned?.visualOnlyTiming.selectedSourceRange).toBeUndefined();
     }
+  });
+});
+
+describe("bound primary footage checkpoint replay", () => {
+  it("replays a saved payload-selected range and retains the other use", () => {
+    const { doc, row, first } = boundPrimaryFixture();
+    const trial = createSortingTrialV2(doc);
+    apply(trial, { kind: "trim_research_clip", payloadId: first.payload.payloadId,
+      edge: "range", startFrame: 30, endFrame: 50 });
+    const accepted = saveAndAccept(trial, doc, "all");
+    const edited = noteAt(accepted, row.id);
+    expect(edited.primaryVisualSequence?.slots[0]).toMatchObject({ payload: {
+      selectedSourceRange: { startFrame: 30, durationFrames: 20 }, sourceUsage: { sourceInFrame: 30 },
+    } });
+    expect(edited.unattachedVisuals).toEqual(row.unattachedVisuals);
   });
 });

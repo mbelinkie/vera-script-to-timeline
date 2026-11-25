@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   applyRowEditV2, applyVisualSequenceEditV2, createRowEditSessionV2, createSortingTrialV2,
-  projectPrimarySequenceV2, validateScriptDocumentV2,
+  findPrimaryResearchOwnerV2, projectPrimarySequenceV2, validateScriptDocumentV2,
   type RowEditCommandV2, type VisualSequenceEditCommandV2,
 } from "@vera/contracts/authoring-v2";
 import type { ScriptDocumentV2 } from "@vera/contracts/v2";
@@ -245,8 +245,10 @@ function wordlessRowCommand(value: unknown): RowEditCommandV2 | null {
 type TrimCommand = Extract<RowEditCommandV2, { kind: "trim_research_clip" }>;
 
 function trimCommand(value: unknown): value is TrimCommand {
-  if (!record(value) || value.kind !== "trim_research_clip" || !uuid(value.clipRowId)) return false;
-  const keys = ["kind", "clipRowId", "edge"];
+  if (!record(value) || value.kind !== "trim_research_clip") return false;
+  const selector = Object.hasOwn(value, "payloadId") ? "payloadId" : "clipRowId";
+  if (!uuid(value[selector])) return false;
+  const keys = ["kind", selector, "edge"];
   return value.edge === "reset" ? exact(value, keys) :
     value.edge === "range" && exact(value, [...keys, "startFrame", "endFrame"]) &&
     Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&
@@ -441,7 +443,9 @@ export function createAuthoringHandler(
           return researchResponse(409, { error: "research_trim_stale" });
         }
         const command = body.command as TrimCommand;
-        const clip = occurrence(document, isTrim ? command.clipRowId : body.clipRowId as string);
+        const clip = isTrim && command.payloadId !== undefined
+          ? findPrimaryResearchOwnerV2(document, command.payloadId)?.payload
+          : occurrence(document, isTrim ? command.clipRowId! : body.clipRowId as string);
         if (!clip?.researchClip) return researchResponse(404, { error: "research_occurrence_unavailable" });
         if (isTrim) {
           const result = applyRowEditV2(document, body.expectedRowEditRevision, command);

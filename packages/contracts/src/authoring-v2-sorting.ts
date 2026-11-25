@@ -119,7 +119,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     replace_stash_footage: ["kind", "noteRowId", "clipRowId", "releasedBundleId"],
     detach_stash_footage: ["kind", "noteRowId", "bundleId"],
     cleanup_blank_stash_note: ["kind", "noteRowId", "clipBundleId"],
-    trim_research_clip: ["kind", "clipRowId", "edge"],
+    trim_research_clip: ["kind", "edge"],
     place_attached_footage: ["kind", "noteRowId", "destination"],
     edit_row: ["kind", "rowId", "row"],
     create_row: ["kind", "row", "destination"],
@@ -131,8 +131,9 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     delete_direction_delimiter: ["kind", "blockId", "offset"],
   };
   const kind = (command as { kind: string }).kind;
-  const allowed = Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const value = command as Record<string, unknown>;
+  const selector = Object.hasOwn(value, "payloadId") ? "payloadId" : "clipRowId";
+  const allowed = kind === "trim_research_clip" ? [...keys.trim_research_clip!, selector] : Object.hasOwn(keys, kind) ? keys[kind] : undefined;
   const optional = kind === "create_stash_note" ? ["mode"] : kind === "place_stash_rows" ? ["includeDescendants"] : kind === "stash_rows" ? ["destination"] :
     kind === "trim_research_clip" ? value.edge === "range" ? ["startFrame", "endFrame"] :
       value.edge === "in" || value.edge === "out" ? ["frame"] : [] : [];
@@ -149,7 +150,7 @@ function commandAllowed(command: unknown): command is RowEditCommandV2 {
     if (kind === "cleanup_blank_stash_note" && (typeof value.clipBundleId !== "string" || !value.clipBundleId)) return false;
     if (kind !== "place_attached_footage") return true;
   }
-  if (kind === "trim_research_clip") return typeof value.clipRowId === "string" && !!value.clipRowId &&
+  if (kind === "trim_research_clip") return typeof value[selector] === "string" && !!value[selector] &&
     (["in", "out"].includes(value.edge as string) && Object.hasOwn(value, "frame") && Number.isSafeInteger(value.frame) && (value.frame as number) >= 0 || value.edge === "clear_out" || value.edge === "reset" ||
       value.edge === "range" && Object.hasOwn(value, "startFrame") && Object.hasOwn(value, "endFrame") &&
       Number.isSafeInteger(value.startFrame) && (value.startFrame as number) >= 0 &&

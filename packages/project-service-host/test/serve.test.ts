@@ -11,7 +11,7 @@ import { createResearchClient } from "@vera/contracts/research-clip-client";
 import { ProjectAuthError } from "@vera/project-authorization";
 import type { NarrationBlockV2, ScriptDocumentV2 } from "@vera/contracts/v2";
 import { checkedDocument } from "@vera/project-documents";
-import { researchCandidate, researchId, researchNote, researchStashFixture, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
+import { boundPrimaryFixture, researchCandidate, researchId, researchNote, researchStashFixture, researchOccurrence } from "../../contracts/test/issue-367-fixture.js";
 
 import { parseQaConfig, type QaConfig } from "../src/qa-config.js";
 import { type QaPgPool } from "../src/pg-pool.js";
@@ -1381,6 +1381,34 @@ describe("saved occurrence trim HTTP boundary", () => {
     h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
     expect((await post({ ...f.body, command: f.command })).status).toBe(403);
     expect(f.head.document.activeDraft.blocks[0]).toEqual(f.first);
+  });
+
+  it("previews the exact bound primary payload against the saved revision", async () => {
+    const h = await researchBrowserRequests();
+    const { doc, first, row } = boundPrimaryFixture();
+    doc.projectId = TIMELINE_PROJECT;
+    const saved = checkedDocument(doc, TIMELINE_PROJECT);
+    const head = { projectId: TIMELINE_PROJECT, revision: 7, digest: saved.digest, document: saved.document };
+    h.projects.mockImplementation(() => Promise.resolve(Response.json(head)));
+    const body = {
+      timelineProjectId: TIMELINE_PROJECT, expectedRevision: head.revision,
+      expectedDigest: head.digest, expectedRowEditRevision: doc.rowEditRevision ?? 0,
+      command: { kind: "trim_research_clip", payloadId: first.payload.payloadId,
+        edge: "range", startFrame: 30, endFrame: 50 },
+    };
+    const response = await h.read("research-trim", { method: "POST", body });
+    expect(response.status).toBe(200);
+    const result = await response.json() as { ok: boolean; document: ScriptDocumentV2 };
+    expect(result.ok).toBe(true);
+    expect(result.document.activeDraft.blocks[0]).toMatchObject({
+      id: row.id, version: row.version + 1, unattachedVisuals: row.unattachedVisuals!,
+      primaryVisualSequence: { slots: [{ payload: { sourceUsage: { sourceInFrame: 30 },
+        selectedSourceRange: { startFrame: 30, durationFrames: 20 } } }] },
+    });
+    expect((await h.read("research-trim", { method: "POST", body: { ...body, expectedRevision: 6 } })).status).toBe(409);
+    h.authorizeTimelineProject.mockRejectedValueOnce(new ProjectAuthError("action_not_allowed", 403));
+    expect((await h.read("research-trim", { method: "POST", body })).status).toBe(403);
+
   });
 
   it("reads only matched active published English cues after both authorization checks", async () => {
