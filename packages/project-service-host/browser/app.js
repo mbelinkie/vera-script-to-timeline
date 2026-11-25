@@ -2,10 +2,11 @@ import { mountVisualCardMenus, renderRows } from "./view.js";
 import { mountRowsEditor, createBlankNarrationRow, rowGaps, rowLabel, rowSections } from "./rows-editor.js";
 import { mountNarration } from "./narration-editor.js";
 import { parseHoldSeconds, planVisualOnlyReorder, visualOnlyIds } from "./visual-only-actions.js";
-import { mountResearchPanel, renderFootageUseShortcuts } from "./research-panel.js";
+import { mountResearchPanel, renderFootageUseShortcuts, mountOccurrenceFootage } from "./research-panel.js";
 import { mountResearchStillPanel } from "./research-still-panel.js";
 import { createStashActions } from "./stash-actions.js";
 import { mountStashPanel } from "./stash-panel.js";
+import { cueExcerpt } from "./footage-trim-timing.js";
 import { selectedSpokenWords } from "./visual-selection.js";
 
 const element = (id) => document.getElementById(id);
@@ -80,6 +81,7 @@ let prompterGeneration = 0;
 let prompterPreparing = false;
 let preparedPrompter = null;
 let researchPanel;
+let occurrenceFootage;
 let researchStillPanel;
 let sortingTrial = null;
 let stashPanel;
@@ -312,6 +314,7 @@ async function showScript(projectId) {
   structuralFocus = null;
   activeReselect = null;
   activeAttach = null;
+  occurrenceFootage?.close(false);
   researchPanel?.close();
   researchStillPanel?.close();
   stashPanel?.close(false, true);
@@ -422,6 +425,7 @@ function renderEditor() {
     flashIds: flashVisualIds,
   });
   renderFootageUseShortcuts(root, scriptDocument, { focusedCard, highlightedCard });
+  occurrenceFootage?.update();
   flashVisualIds = new Set();
   narrationCleanup.push(mountVisualCardMenus(root, (command, label, focus) =>
     queueCommand(command, label, { structural: true, cardFocus: focus })));
@@ -1095,6 +1099,7 @@ function openFootageForWords({ rowId, text, selection, seed, from }) {
 }
 
 function openStillForWords({ rowId, text, selection, from }) {
+  occurrenceFootage?.close(false);
   stashPanel.close(false);
   void researchStillPanel.open({ from, placement: (latest) => {
     const row = latest.activeDraft.blocks.find((item) => item.id === rowId);
@@ -1523,6 +1528,7 @@ async function runSortingAction(action, rowId, direction) {
 element("open-sorting").addEventListener("click", () => {
   if (sortingTrial) { leaveSorting(); return; }
   if (!beginSortingTrial()) return;
+  occurrenceFootage?.close(false);
   researchPanel?.close();
   researchStillPanel?.close();
   stashPanel?.close(false);
@@ -1979,6 +1985,7 @@ function showOpenError(error) {
 
 async function openScript(projectId) {
   if (opening || pendingExtras) return;
+  occurrenceFootage?.close(false);
   opening = true;
   homeStatus.textContent = "Opening script…";
   try { await showScript(projectId); } catch (error) { showOpenError(error); }
@@ -2052,6 +2059,7 @@ function setSaveStatus(message = "Saved") {
   retrySave.hidden = action !== "retry";
   openSaved.hidden = action !== "conflict";
   updatePrompterControls();
+  occurrenceFootage?.update();
 }
 
 element("discard-edit").addEventListener("click", () => {
@@ -2167,13 +2175,28 @@ const stashActions = createStashActions((command, label, options) => {
 stashPanel = mountStashPanel({
   root: element("stash-panel"), script: element("script-rows"), actions: stashActions,
   getDocument: () => scriptDocument, readOnly: () => Boolean(sortingTrial || pendingExtras), onOpen: () => {
+    occurrenceFootage?.close(false);
     if (!element("footage-panel").hidden) researchPanel.close();
     if (!element("research-still-panel").hidden) researchStillPanel.close();
   },
 });
 element("open-footage").addEventListener("click", () => stashPanel.close(false));
+occurrenceFootage = mountOccurrenceFootage({
+  root: element("occurrence-footage"), getDocument: () => scriptDocument,
+  getBasis: researchTrimBasis, commit: queueResearchTrim, readTiming: researchTrimTiming, excerpt: cueExcerpt,
+});
+element("script-rows").addEventListener("click", event => {
+  const card = event.target.closest("[data-footage-placement]");
+  if (!card || (event.target.closest("button,input,a") && !event.target.closest("[data-inspect-footage]"))) return;
+  if (sortingTrial || pendingExtras) return;
+  researchPanel?.close();
+  researchStillPanel?.close();
+  stashPanel?.close(false);
+  occurrenceFootage.show(card.closest("[data-row-id]").dataset.rowId, card.dataset.footagePlacement);
+});
 researchPanel = mountResearchPanel({
   root: element("footage-panel"),
+  onOpen: () => occurrenceFootage.close(false),
   catalog: researchCatalogGet,
   getDocument: () => scriptDocument,
   insert: (clip, placement) => queueResearchClipInsert({ researchProjectId: clip.projectId,

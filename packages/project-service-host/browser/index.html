@@ -112,6 +112,35 @@
         <p class="footage-panel__hint">Preview uses the clip's saved export range. Drag a clip to a narration row or a + Add row gap.</p>
       </aside>
 
+      <aside id="occurrence-footage" class="occurrence-footage footage-panel" aria-label="Footage in this script" hidden>
+        <section data-occurrence-preview class="footage-panel__preview" aria-label="Occurrence playback">
+          <div class="footage-panel__preview-heading">
+            <h3 data-occurrence-preview-title></h3>
+            <button type="button" data-occurrence-preview-close aria-label="Close occurrence footage">Close</button>
+          </div>
+          <p data-occurrence-preview-range class="footage-panel__hint"></p>
+          <div data-occurrence-player-mount class="footage-panel__player-mount"></div>
+          <p data-occurrence-player-status class="footage-panel__hint" role="status" aria-live="polite"></p>
+          <div class="footage-panel__player-controls">
+            <button type="button" data-occurrence-play>Play saved range</button>
+            <button type="button" data-occurrence-replay hidden>Replay from start</button>
+            <button type="button" data-occurrence-toggle aria-expanded="false" aria-controls="occurrence-trim-controls">Trim</button>
+          </div>
+        </section>
+        <p data-occurrence-range role="status"></p>
+        <div id="occurrence-trim-controls" hidden>
+          <label>In boundary (source frame)<input type="range" data-occurrence-in></label>
+          <label>Out boundary (exclusive source frame)<input type="range" data-occurrence-out></label>
+          <button type="button" data-occurrence-reset>Reset to logged range</button>
+          <p class="footage-panel__hint">Frame boundaries edit the saved interval only. YouTube audition is approximate. Decoded frame stepping and word snapping are unavailable.</p>
+        </div>
+        <p data-occurrence-feedback role="status" class="footage-panel__hint"></p>
+        <div class="occurrence-footage__transcript">
+          <p data-occurrence-transcript></p>
+          <p data-occurrence-timing class="footage-panel__hint"></p>
+        </div>
+      </aside>
+
       <aside id="stash-panel" class="stash-panel" aria-labelledby="stash-heading" hidden>
         <div class="stash-panel__heading">
           <h2 id="stash-heading">Stash <span data-stash-count></span></h2>

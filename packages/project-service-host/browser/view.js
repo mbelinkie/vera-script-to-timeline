@@ -147,7 +147,21 @@ function renderVisualCard(document, payload, researchClip, options = {}) {
   const meta = makeElement(document, "figcaption", "visual-card__meta");
   meta.append(makeElement(document, "span", "visual-card__type", kindLabel));
   if (label !== kindLabel) meta.append(makeElement(document, "span", "visual-card__label", label));
-  if (researchClip && !payload?.frameBinding) {
+  if (researchClip && options.footagePlacementId) {
+    const binding = options.frameBinding ?? payload?.frameBinding;
+    const range = options.selectedSourceRange ?? payload?.selectedSourceRange;
+    const end = range?.startFrame + range?.durationFrames;
+    if (binding && range && Number.isSafeInteger(end)) {
+      meta.append(makeElement(document, "span", "visual-card__source-state",
+        `Frames ${range.startFrame}–${end} (end exclusive)`));
+    }
+    const inspect = makeElement(document, "button", "visual-card__inspect-footage",
+      binding && range ? "Refine clip" : "Inspect footage");
+    inspect.type = "button";
+    inspect.dataset.inspectFootage = "";
+    meta.append(inspect);
+  }
+  if (researchClip && !payload?.frameBinding && !options.frameBinding) {
     meta.append(makeElement(document, "span", "visual-card__source-state", "Research · Playback unavailable"));
   }
   const researchStill = payload?.researchStill;
@@ -399,6 +413,8 @@ function renderVisuals(document, block, projectedRow, flashIds, visualCommand, r
       list.append(renderVisualCard(document, visual.payload, visual.researchClip, {
         payloadId: visual.payload.payloadId, draggable: true,
         footagePlacementId: visual === block ? block.id : visual.payload.payloadId,
+        frameBinding: visual.frameBinding,
+        selectedSourceRange: timing?.selectedSourceRange,
         holdSeconds: timing?.durationOverrideMs !== undefined && !timing.matchAudioDuration &&
           !timing.selectedSourceRange && visual.payload.pictureKind !== "unresolved_visual" &&
           visual.payload.pictureKind !== "clip" ? timing.durationOverrideMs / 1000 : undefined,

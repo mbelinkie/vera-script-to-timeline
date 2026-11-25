@@ -117,7 +117,7 @@ export function renderFootageUseShortcuts(root, model, { focusedCard, highlighte
 }
 
 /** Sidebar & quick picker share one authorized catalog and one cancellation path. */
-export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoices, rowChoices, onStatus }) {
+export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoices, rowChoices, onStatus, onOpen }) {
   const doc = root.ownerDocument;
   const openButton = doc.getElementById("open-footage");
   const closeButton = root.querySelector("[data-footage-close]");
@@ -288,6 +288,7 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     }
   };
   const open = async ({ quick = false, placement = null, seed = "", from = openButton } = {}) => {
+    onOpen?.();
     player.hide();
     opener = from;
     mode = quick ? "quick" : "browse";
@@ -358,4 +359,250 @@ export function mountResearchPanel({ root, catalog, getDocument, insert, gapChoi
     }
   });
   return { open, close, update: render, dropClip, currentProject: () => projects.value };
+}
+
+// Resolve the rendered card against the current document, never against a
+// catalog candidate. Only the existing authoritative root/attachment owns a
+// writable range. Other saved pins are inspectable but not editable.
+function occurrenceFor(model, rowId, placementId) {
+  const row = model?.activeDraft?.blocks.find(item => item.id === rowId);
+  if (row?.type === "visual_only") {
+    if (row.id === placementId) return { snapshot: row.researchClip, owner: row };
+    const visual = row.additionalVisuals?.find(item => item.payload.payloadId === placementId);
+    return visual && { snapshot: visual.researchClip };
+  }
+  if (row?.type !== "narration") return null;
+  const slots = row.primaryVisualSequence?.slots ?? [];
+  const slot = slots.find(item => item.id === placementId && item.kind === "content");
+  const payload = slot?.payload ?? row.unattachedVisuals?.find(item => item.slotId === placementId)?.payload ??
+    row.overlayEvents?.find(item => item.id === placementId)?.payload;
+  const clip = row.attachedFootage?.clip;
+  const range = clip?.visualOnlyTiming?.selectedSourceRange;
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const mirror = clip && slot && slots.length === 1 && payload?.kind === "visual" &&
+    payload.pictureKind === clip.payload.pictureKind &&
+    payload.framingPolicy === clip.payload.framingPolicy &&
+    payload.audioPolicy === (clip.payload.audioPolicy === "quiet" ? "quiet" : "mute") &&
+    same(payload.source, clip.payload.source) && same(payload.researchClip, clip.researchClip) &&
+    same(payload.frameBinding, clip.frameBinding) && same(payload.selectedSourceRange, range) &&
+    same(payload.sourceUsage, range ? { sourceInFrame: range.startFrame } : null);
+  return { snapshot: payload?.researchClip, owner: mirror ? clip : null };
+}
+
+function boundInterval(owner) {
+  const b = owner?.frameBinding;
+  const s = owner?.visualOnlyTiming?.selectedSourceRange;
+  const pin = owner?.researchClip;
+  if (!b || !s || !pin || b.clipId !== pin.clipId || b.clipVersion !== pin.clipVersion ||
+    owner.payload.pictureKind !== "clip" || owner.payload.source.kind !== "media_reference" ||
+    owner.payload.source.mediaReferenceId !== b.mediaReferenceId ||
+    ![b.loggedStartFrame, b.loggedEndFrame, s.startFrame, s.durationFrames,
+      s.startFrame + s.durationFrames].every(Number.isSafeInteger) ||
+    b.loggedStartFrame < 0 || s.startFrame < b.loggedStartFrame || s.durationFrames <= 0 ||
+    s.startFrame + s.durationFrames > b.loggedEndFrame) return null;
+  return { min: b.loggedStartFrame, max: b.loggedEndFrame, start: s.startFrame, end: s.startFrame + s.durationFrames };
+}
+
+export function mountOccurrenceFootage({ root, getDocument, getBasis, commit, readTiming, excerpt }) {
+  const find = selector => root.querySelector(selector);
+  const toggle = find("[data-occurrence-toggle]");
+  const controls = find("#occurrence-trim-controls");
+  const inputIn = find("[data-occurrence-in]");
+  const inputOut = find("[data-occurrence-out]");
+  const reset = find("[data-occurrence-reset]");
+  const feedback = find("[data-occurrence-feedback]");
+  const rangeLabel = find("[data-occurrence-range]");
+  const transcript = find("[data-occurrence-transcript]");
+  const timingNote = find("[data-occurrence-timing]");
+  const player = mountFootagePlayer(find("[data-occurrence-preview]"), { prefix: "occurrence", onClose: () => close() });
+  let selected = null, model = null, occurrence = null, interval = null;
+  let openTrim = false, pending = false, gesture = null, generation = 0, timingRequested = false;
+  let cues = null;
+  let savedHeadReady = false;
+
+  function close(restoreFocus = true) {
+    const prior = selected;
+    selected = null;
+    ++generation;
+    gesture = null;
+    pending = false;
+    player.hide();
+    root.hidden = true;
+    if (restoreFocus && prior) {
+      const card = [...root.ownerDocument.querySelectorAll("[data-footage-placement]")].find(node =>
+        node.dataset.footagePlacement === prior.placementId &&
+        node.closest("[data-row-id]")?.dataset.rowId === prior.rowId);
+      card?.querySelector("[data-inspect-footage]")?.focus();
+    }
+  }
+  const whole = () => interval && interval.start === interval.min && interval.end === interval.max;
+  function renderExcerpt() {
+    const pin = occurrence.snapshot;
+    const fullText = pin.englishText || pin.loggedSelection.text || "No saved transcript";
+    // Without an original-video-to-cut map a refined frame interval has no
+    // lawful millisecond bounds, even if the transcript read matched exactly.
+    const result = excerpt(whole() ? cues : null, pin.loggedSelection.exportStartMs,
+      pin.loggedSelection.exportEndMs, fullText);
+    transcript.textContent = result.text;
+    timingNote.textContent = result.note;
+  }
+  function renderPlayer() {
+    const pin = occurrence.snapshot;
+    const clip = { video: pin.video, selection: pin.loggedSelection };
+    const allowed = openTrim || (whole() && getBasis());
+    player.show(clip, { logged: openTrim, ...(allowed ? {} : {
+      playbackRange: null,
+      unavailableReason: whole() ?
+        "Finish saving the script before playing the saved occurrence." : interval ?
+        "Saved trim playback unavailable: no verified mapping to original-video time. Open Trim to audition the whole logged clip." :
+        "Saved occurrence playback unavailable: no verified media binding. Audition the logged source instead.",
+    }) });
+  }
+  function resetInputs() {
+    if (!interval) return;
+    inputIn.min = String(interval.min); inputIn.max = String(interval.end - 1);
+    inputOut.min = String(interval.start + 1); inputOut.max = String(interval.max);
+    inputIn.value = String(interval.start); inputOut.value = String(interval.end);
+    inputIn.setAttribute("aria-valuetext", `Source frame ${interval.start}`);
+    inputOut.setAttribute("aria-valuetext", `Source frame ${interval.end}, exclusive`);
+    renderRange();
+  }
+  function renderRange() {
+    if (!interval) return;
+    rangeLabel.textContent = `${getBasis() ? "Saved" : "Current"} frames ${interval.start}–${interval.end} (end exclusive) · Logged ${interval.min}–${interval.max}`;
+  }
+  function update() {
+    if (!selected) return;
+    const current = getDocument();
+    if (current !== model) {
+      if (current?.projectId !== model?.projectId) { close(false); return; }
+      const next = occurrenceFor(current, selected.rowId, selected.placementId);
+      if (!next?.snapshot) { close(false); return; }
+      model = current;
+      occurrence = next;
+      interval = boundInterval(next.owner);
+      ++generation;
+      gesture = null;
+      feedback.textContent = "";
+      timingRequested = false;
+      cues = null;
+      resetInputs();
+      renderPlayer();
+      renderExcerpt();
+    }
+    const basis = getBasis();
+    if (savedHeadReady !== Boolean(basis)) {
+      savedHeadReady = Boolean(basis);
+      if (!openTrim && whole()) renderPlayer();
+    }
+    renderRange();
+    const editable = Boolean(interval && basis && !pending);
+    inputIn.disabled = inputOut.disabled = !editable;
+    reset.disabled = !editable || whole();
+    // Keep the toggle available for a logged-source audition even for unbound pins.
+    controls.hidden = !openTrim || !interval;
+    toggle.textContent = interval ? (openTrim ? "Hide trim" : "Trim") :
+      (openTrim ? "Hide audition" : "Audition logged clip");
+    if (!interval) rangeLabel.textContent = "Refinement unavailable: this use has no verified, editable frame binding.";
+    if (basis && !timingRequested && occurrence.owner) {
+      timingRequested = true;
+      const started = generation;
+      void readTiming(occurrence.owner.id).then(result => {
+        if (selected && generation === started && getDocument() === model) {
+          cues = result;
+          renderExcerpt();
+        }
+      });
+    }
+  }
+  function show(rowId, placementId) {
+    close(false);
+    model = getDocument();
+    occurrence = occurrenceFor(model, rowId, placementId);
+    if (!occurrence?.snapshot) return;
+    selected = { rowId, placementId };
+    interval = boundInterval(occurrence.owner);
+    savedHeadReady = Boolean(getBasis());
+    openTrim = false;
+    timingRequested = false;
+    cues = null;
+    root.hidden = false;
+    toggle.setAttribute("aria-expanded", "false");
+    feedback.textContent = "";
+    resetInputs();
+    renderPlayer();
+    renderExcerpt();
+    update();
+    toggle.focus();
+  }
+  toggle.addEventListener("click", () => {
+    openTrim = !openTrim;
+    gesture = null;
+    feedback.textContent = "";
+    resetInputs();
+    toggle.setAttribute("aria-expanded", String(openTrim));
+    renderPlayer();
+    update();
+  });
+  const begin = () => {
+    if (!gesture && interval && !pending) {
+      const basis = getBasis();
+      if (basis && basis.document === model) gesture = { basis, generation };
+    }
+  };
+  async function apply(command, proof) {
+    if (!selected || !proof || proof.generation !== generation || pending ||
+        getDocument() !== model || !interval) { resetInputs(); return; }
+    const target = selected;
+    pending = true;
+    feedback.textContent = "Saving trim…";
+    update();
+    try {
+      const ok = await commit(proof.basis, { kind: "trim_research_clip", clipRowId: occurrence.owner.id, ...command });
+      if (selected === target) feedback.textContent = ok ? "Trim updated. See script save status." : "Trim not applied. Reopen or finish saving the script.";
+    } finally {
+      if (selected === target) { pending = false; resetInputs(); update(); }
+    }
+  }
+  for (const input of [inputIn, inputOut]) {
+    input.addEventListener("pointerdown", begin);
+    input.addEventListener("keydown", event => {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key)) begin();
+    });
+    input.addEventListener("input", () => {
+      // A transient handle movement is presentation only.
+      if (!gesture) { resetInputs(); return; }
+      input.setAttribute("aria-valuetext", `Source frame ${input.value}${input === inputOut ? ", exclusive" : ""}`);
+      feedback.textContent = `Proposed frames ${inputIn.value}–${inputOut.value} (not yet saved)`;
+    });
+    const cancelGesture = () => { if (gesture) feedback.textContent = ""; gesture = null; resetInputs(); };
+    input.addEventListener("pointercancel", cancelGesture);
+    // A pointer press that never changes the handle is not an edit.
+    input.addEventListener("pointerup", () => {
+      if (interval && Number(inputIn.value) === interval.start && Number(inputOut.value) === interval.end) cancelGesture();
+    });
+    input.addEventListener("blur", cancelGesture);
+    input.addEventListener("keyup", () => { if (gesture) cancelGesture(); });
+    input.addEventListener("change", () => {
+      const proof = gesture;
+      gesture = null;
+      const startFrame = Number(inputIn.value), endFrame = Number(inputOut.value);
+      if (!interval || (startFrame === interval.start && endFrame === interval.end)) { feedback.textContent = ""; return; }
+      void apply({ edge: "range", startFrame, endFrame }, proof);
+    });
+  }
+  reset.addEventListener("click", () => {
+    begin();
+    const proof = gesture;
+    gesture = null;
+    void apply({ edge: "reset" }, proof);
+  });
+  root.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (gesture) { gesture = null; feedback.textContent = ""; resetInputs(); }
+    else close();
+  });
+  return { show, close, update };
 }
