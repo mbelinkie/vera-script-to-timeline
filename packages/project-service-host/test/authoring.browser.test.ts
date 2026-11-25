@@ -933,6 +933,196 @@ describe("browser authoring over the local project service", () => {
     await page.close();
   }, 90_000);
 
+  it("#78 restores and duplicates a cited Research row at an exact gap in another section", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras restore and duplicate");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const source = researchNestedNote(820000);
+    source.orderKey = "1";
+    model.activeDraft.blocks[1] = source;
+    const targetSection = { type: "section" as const, id: randomUUID(), title: "Act Two", orderKey: "3", version: 1 };
+    const target = researchNestedNote(830000);
+    target.orderKey = "4";
+    target.text = "Look closer";
+    model.activeDraft.blocks.push(targetSection, target);
+    const anchor = { kind: "word" as const, anchor: { blockId: source.id, tokenId: source.tokens[0]!.id,
+      affinity: "before" as const, quotedWord: source.tokens[0]!.value, anchorVersion: 1 } };
+    const citation = { id: randomUUID(), version: 1, orderKey: "citation", role: "citation" as const,
+      content: "Synthetic citation", placement: { kind: "point" as const, anchor }, displayAttachment: anchor };
+    model.activeDraft.supportingItems = [citation];
+    const parked = applyRowEditV2(model, model.rowEditRevision ?? 0, {
+      kind: "stash_rows", rowIds: [source.id], bundleId: randomUUID(),
+    });
+    expect(parked.ok, JSON.stringify(parked.diagnostics)).toBe(true);
+    await saveDocumentFixture(page, projectId, parked.document);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const before = await read();
+    const open = async () => {
+      await page.goto(`${origin}/?project=${projectId}`);
+      await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+      await page.locator("#open-stash").click();
+    };
+    await open();
+    const entry = page.locator(`[data-stash-row-id="${source.id}"]`);
+    const restore = entry.getByRole("button", { name: /^Restore/ });
+    const duplicate = entry.getByRole("button", { name: /^Duplicate as new/ });
+    const chooser = page.locator("#stash-saved-destination");
+    const status = page.locator("[data-stash-status]");
+    expect(await entry.locator(".stash-entry-origin").innerText()).toContain("Act One · Original gap available");
+    await restore.focus();
+    await restore.press("Enter");
+    expect(await chooser.evaluate((el) => el === document.activeElement)).toBe(true);
+    expect(await chooser.locator("option:checked").innerText()).toContain("Act One");
+    await chooser.press("Escape");
+    expect(await restore.evaluate((el) => el === document.activeElement)).toBe(true);
+    expect(await read()).toEqual(before);
+    await restore.click();
+    await chooser.selectOption({ label: "Act Two — Before Look closer" });
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect.poll(() => entry.count()).toBe(0);
+    const restored = await read();
+    expect(restored.revision).toBe(before.revision + 1);
+    expect(restored.document.activeDraft.blocks.slice(-3)).toEqual([targetSection, source, target]);
+    expect(restored.document.activeDraft.supportingItems).toEqual([citation]);
+    expect(restored.document.stash?.some((bundle) => bundle.rows.some((row) => row.id === source.id))).toBe(false);
+    await page.getByRole("button", { name: "Undo Restore saved row", exact: true }).click();
+    await expect.poll(() => entry.count()).toBe(1);
+    const undone = await read();
+    expect(undone.document).toEqual(before.document);
+    await open();
+    await duplicate.click();
+    await chooser.selectOption({ label: "Act Two — After Look closer" });
+    await page.getByRole("button", { name: "Duplicate as new", exact: true }).click();
+    await expect.poll(() => status.innerText()).toContain("original kept");
+    const duplicated = await read();
+    expect(duplicated.revision).toBe(undone.revision + 1);
+    expect(duplicated.document.stash).toEqual(before.document.stash);
+    expect(duplicated.document.stashOutline).toEqual(before.document.stashOutline);
+    const copy = duplicated.document.activeDraft.blocks.at(-1);
+    if (copy?.type !== "narration") throw new Error("Expected copied narration");
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.text).toBe(source.text);
+    expect(copy.tokens.map((token) => token.id)).not.toEqual(source.tokens.map((token) => token.id));
+    expect(copy.primaryVisualSequence?.id).not.toBe(source.primaryVisualSequence?.id);
+    const slot = copy.primaryVisualSequence?.slots[0];
+    const original = source.primaryVisualSequence?.slots[0];
+    if (slot?.kind !== "content" || slot.payload.kind !== "visual" ||
+        original?.kind !== "content" || original.payload.kind !== "visual") throw new Error("Expected visual payload");
+    expect(slot.id).not.toBe(original.id);
+    expect(slot.payload.payloadId).not.toBe(original.payload.payloadId);
+    expect(slot.payload.source).toEqual(original.payload.source);
+    expect(slot.payload.researchClip).toEqual(original.payload.researchClip);
+    const copiedCitation = duplicated.document.activeDraft.supportingItems[0]!;
+    expect(copiedCitation.id).not.toBe(citation.id);
+    expect(copiedCitation.placement).toMatchObject({ kind: "point", anchor: { anchor: {
+      blockId: copy.id, tokenId: copy.tokens[0]!.id,
+    } } });
+    await open();
+    expect(await read()).toEqual(duplicated);
+    expect(await duplicate.count()).toBe(1);
+    await page.close();
+  }, 90_000);
+
+  it("#78 refuses an old chooser after Draft edits and a stale saved-head restore", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras stale chooser");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const saved = model.stash![0]!.rows[0];
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-stash").click();
+    const entry = page.locator(`[data-stash-row-id="${saved.id}"]`);
+    const restore = entry.getByRole("button", { name: /^Restore/ });
+    const chooser = page.locator("#stash-saved-destination");
+    await restore.click();
+    expect(await chooser.inputValue()).toBe("");
+    expect(await entry.locator(".stash-entry-origin").innerText()).toContain("not recorded");
+    await chooser.selectOption("0");
+    const editor = page.locator("[data-narration-editor]").first();
+    await editor.focus();
+    await editor.press("End");
+    await editor.press("!");
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    const changed = await read();
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").innerText()).toContain("changed");
+    expect(await read()).toEqual(changed);
+    expect(await entry.count()).toBe(1);
+    await restore.click();
+    await chooser.selectOption("0");
+    const concurrent = structuredClone(changed.document);
+    concurrent.title = "Concurrent title";
+    expect((await appRequest(page, path, "PUT", { expectedRevision: changed.revision,
+      clientMutationId: randomUUID(), document: concurrent })).status).toBe(200);
+    const current = await read();
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect.poll(() => page.locator("#save-status").innerText()).toContain("newer script");
+    expect(await read()).toEqual(current);
+    expect(await entry.count()).toBe(1);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await page.close();
+  }, 90_000);
+
+  it("#78 places a compact clip, keeps groups unavailable and refuses a crossing saved citation", async () => {
+    const origin = `http://127.0.0.1:${config.port}`;
+    const page = await context.newPage();
+    const projectId = await createProject(page, origin, "Extras compact placement");
+    const model = prompterBrowserFixture(documentFixture(projectId).document);
+    const clip = researchOccurrence(840000, false);
+    const first = model.stash![0]!.rows[0];
+    const second = { ...first, id: randomUUID(), text: "Grouped companion" };
+    model.stash!.push({ id: randomUUID(), rows: [second], supportingItems: [] });
+    model.stashOutline!.push({ rowId: second.id, kind: "row", parentRowId: null, sectionId: null });
+    model.stashGroups = [{ id: randomUUID(), rowIds: [first.id, second.id] }];
+    model.stash!.push({ id: randomUUID(), rows: [clip], supportingItems: [] });
+    model.stashOutline!.push({ rowId: clip.id, kind: "clip", parentRowId: null, sectionId: null });
+    const a = researchNestedNote(850000);
+    const b = researchNestedNote(860000);
+    model.stash!.push({ id: randomUUID(), rows: [a, b], supportingItems: [{
+      id: randomUUID(), role: "reference", content: "Both rows", version: 1, orderKey: "cross",
+      placement: { kind: "point", anchor: { kind: "between_blocks", beforeBlockId: a.id, afterBlockId: b.id } },
+    }] });
+    model.stashOutline!.push(...[a, b].map((row) => ({
+      rowId: row.id, kind: "row" as const, parentRowId: null, sectionId: null,
+    })));
+    await saveDocumentFixture(page, projectId, model);
+    const path = `/authoring/projects/${projectId}/document`;
+    const read = async () => (await appRequest(page, path)).body as SavedDocument;
+    const before = await read();
+    await page.goto(`${origin}/?project=${projectId}`);
+    await expect.poll(() => page.locator("#open-prompter").isEnabled()).toBe(true);
+    await page.locator("#open-stash").click();
+    const entry = (id: string) => page.locator(`[data-stash-row-id="${id}"]`);
+    for (const grouped of [first, second]) {
+      expect(await entry(grouped.id).innerText()).toContain("whole-group editing is unavailable");
+      expect(await entry(grouped.id).locator("button").count()).toBe(0);
+    }
+    await entry(a.id).getByRole("button", { name: /^Duplicate as new/ }).click();
+    await page.locator("#stash-saved-destination").selectOption("0");
+    await page.getByRole("button", { name: "Duplicate as new", exact: true }).click();
+    await expect.poll(() => page.locator("[data-stash-status]").innerText()).toContain("Review saved references");
+    expect(await read()).toEqual(before);
+    expect(await page.locator("#undo").isDisabled()).toBe(true);
+    await entry(clip.id).getByRole("button", { name: /^Place in script/ }).click();
+    await page.locator("#stash-saved-destination").selectOption("0");
+    await page.getByRole("button", { name: "Place in script", exact: true }).click();
+    await expect.poll(() => entry(clip.id).count()).toBe(0);
+    const placed = await read();
+    expect(placed.revision).toBe(before.revision + 1);
+    expect(placed.document.activeDraft.blocks.find((row) => row.id === clip.id))
+      .toMatchObject({ id: clip.id, payload: clip.payload, researchClip: clip.researchClip });
+    expect(placed.document.stashGroups).toEqual(before.document.stashGroups);
+    expect(placed.document.stash?.filter((bundle) => bundle.rows.some((row) => [a.id, b.id].includes(row.id))))
+      .toEqual(before.document.stash?.filter((bundle) => bundle.rows.some((row) => [a.id, b.id].includes(row.id))));
+    await page.close();
+  }, 90_000);
+
   it("#78 refuses during an ordinary PUT, retains exact lost-receipt retry and retries readback only", async () => {
     const origin = `http://127.0.0.1:${config.port}`;
     const page = await context.newPage();
@@ -4730,6 +4920,10 @@ describe("browser authoring over the local project service", () => {
     const page = await context.newPage();
     const projectId = await createProject(page, origin, "Sorting trial project");
     const seeded = multiNarrationDocumentFixture(projectId, ["Opening words", "Middle words", "Closing words"]);
+    const parkedRow = { type: "note_draft" as const, id: randomUUID(), orderKey: "parked",
+      text: "Saved sorting material", state: "excluded" as const, version: 1 };
+    seeded.document.stash = [{ id: randomUUID(), rows: [parkedRow], supportingItems: [] }];
+    seeded.document.stashOutline = [{ rowId: parkedRow.id, kind: "row", parentRowId: null, sectionId: null }];
     await saveDocumentFixture(page, projectId, seeded.document);
     const path = `/authoring/projects/${projectId}/document`;
     const saved = async () => (await appRequest(page, path)).body as SavedDocument;
@@ -4770,6 +4964,8 @@ describe("browser authoring over the local project service", () => {
     await page.locator("#open-stash").click();
     expect(await page.locator("#stash-panel").isVisible()).toBe(true);
     expect(await page.locator("[data-stash-form]").isVisible()).toBe(false);
+    expect(await page.locator(`[data-stash-row-id="${parkedRow.id}"]`).innerText()).toContain(parkedRow.text);
+    expect(await page.locator("[data-saved-action]").count()).toBe(0);
     await page.locator("[data-stash-close]").click();
     page.once("dialog", async (dialog) => await dialog.dismiss());
     await page.locator("#open-sorting").click();

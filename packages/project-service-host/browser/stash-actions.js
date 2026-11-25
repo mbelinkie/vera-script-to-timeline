@@ -106,11 +106,31 @@ export function projectStash(documentModel) {
   const outline = documentModel?.stashOutline ?? [...saved.keys()].map((rowId) => ({
     rowId, kind: "row", parentRowId: null, sectionId: legacySections.get(rowId) ?? null,
   }));
+  const grouped = new Set((documentModel?.stashGroups ?? []).flatMap((group) => group.rowIds));
+  const children = new Map();
+  for (const entry of outline) {
+    const siblings = children.get(entry.parentRowId) ?? [];
+    siblings.push(entry.rowId);
+    children.set(entry.parentRowId, siblings);
+  }
+  function branch(id) {
+    const seen = new Set();
+    const pending = [id];
+    while (pending.length) {
+      const next = pending.pop();
+      if (seen.has(next)) continue;
+      seen.add(next);
+      pending.push(...(children.get(next) ?? []));
+    }
+    return [...seen];
+  }
   for (const entry of outline) {
     const item = saved.get(entry.rowId);
     if (item) bySection.get(entry.sectionId)?.entries.push({
       ...entry, row: item.row, bundleId: item.bundle.id,
       originalDraft: originalDraftLocation(documentModel, item.bundle),
+      hasDescendants: (children.get(entry.rowId) ?? []).length > 0,
+      groupRestricted: branch(entry.rowId).some((id) => grouped.has(id)),
     });
   }
   return sections;
@@ -207,6 +227,12 @@ export function createStashActions(queueCommand, getDocument, makeId = uuid, que
       const intent = captureWholeRowStash(getDocument(), [rowId]);
       return intent && queueExtras ? queueExtras((current) => wholeRowStashCommand(current, intent, makeId),
         "Stash row") : Promise.resolve(false);
+    },
+    placeSaved: (intent) => {
+      const label = intent?.kind === "duplicate_stash_rows" ? "Duplicate saved row" :
+        intent?.kind === "place_stash_rows" ? "Place saved material" : "Restore saved row";
+      return intent && queueExtras ? queueExtras((current) => savedPlacementCommand(current, intent), label) :
+        Promise.resolve(false);
     },
     addNote: (text, location) => queueCommand(
       (current) => createStashNoteCommand(current, text, location, makeId), "Add Stash note", { structural: true }),

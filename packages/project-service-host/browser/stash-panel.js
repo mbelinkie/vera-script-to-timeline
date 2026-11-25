@@ -1,4 +1,4 @@
-import { captureStashNoteDrop } from "./stash-actions.js";
+import { captureStashNoteDrop, captureSavedPlacement, draftGapChoices, savedPlacementCommand } from "./stash-actions.js";
 
 const dragType = "application/x-vera-stash-note";
 const make = (doc, tag, text) => {
@@ -51,6 +51,9 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   const status = root.querySelector("[data-stash-status]");
   const place = root.querySelector("[data-stash-place]");
   const destinations = root.querySelector("#stash-destination");
+  const savedPlace = root.querySelector("[data-stash-saved-place]");
+  const savedDestinations = root.querySelector("#stash-saved-destination");
+  const savedConfirm = root.querySelector("[data-stash-saved-confirm]");
   const marker = make(doc, "span");
   marker.className = "stash-drop-cursor";
   marker.hidden = true;
@@ -61,10 +64,19 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   let preview = null;
   let choices = [];
   let chosen = null;
+  let savedChoice = null;
   let pending = false;
   let generation = 0;
   const clearDrag = () => { drag = null; preview = null; marker.hidden = true; };
   const cancelPlace = () => { chosen = null; choices = []; place.hidden = true; };
+
+  const cancelSaved = () => { savedChoice = null; savedPlace.hidden = true; };
+  function focusOpener(opener, rowId, action) {
+    if (opener?.isConnected) { opener.focus(); return; }
+    const entry = [...entries.querySelectorAll("[data-stash-row-id]")]
+      .find((item) => item.dataset.stashRowId === rowId);
+    (entry?.querySelector(`[data-saved-action="${action}"]`) ?? toggle).focus();
+  }
 
   function close(focus = true, reset = false) {
     generation += 1;
@@ -72,6 +84,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     toggle.setAttribute("aria-expanded", "false");
     clearDrag();
     cancelPlace();
+    cancelSaved();
     if (reset) { input.value = ""; section.value = ""; }
     status.textContent = "";
     if (focus) toggle.focus();
@@ -88,6 +101,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
   }
 
   function choose(noteId, opener) {
+    cancelSaved();
     chosen = { noteId, opener };
     choices = noteGaps(getDocument(), noteId);
     destinations.replaceChildren(...choices.map(({ label }, index) => {
@@ -104,8 +118,76 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     destinations.focus();
   }
 
+  function chooseSaved(entry, kind, opener) {
+    if (readOnly() || pending || entry.groupRestricted) return;
+    cancelPlace();
+    cancelSaved();
+    const model = getDocument();
+    const gaps = draftGapChoices(model);
+    const first = gaps.length && captureSavedPlacement(model, kind, [entry.rowId], gaps[0].gap,
+      kind === "place_stash_rows" ? true : undefined);
+    if (!first) {
+      status.textContent = "No exact Draft destination is available.";
+      return;
+    }
+    // Every option shares the source and Draft snapshots captured at opening,
+    // rather than recomputing an intent against a possibly changed head.
+    const options = gaps.map(({ gap, label }) => ({
+      label, intent: Object.freeze({ ...first, destination: gap }),
+    }));
+    const original = entry.originalDraft;
+    const originalIndex = original.available ? options.findIndex(({ intent }) =>
+      JSON.stringify(intent.destination) === JSON.stringify(original.gap)) : -1;
+    savedChoice = { rowId: entry.rowId, opener, kind, options };
+    const action = kind === "duplicate_stash_rows" ? "Duplicate as new" :
+      kind === "place_stash_rows" ? "Place in script" : "Restore";
+    root.querySelector("[data-stash-saved-description]").textContent =
+      kind === "duplicate_stash_rows" ? "Create new authored identities; keep the saved original." :
+        kind === "place_stash_rows" ? "Place this branch: notes are copied and checked; unfinished rows and clips move." :
+          "Move the saved row back into Draft with its original identity.";
+    savedConfirm.textContent = action;
+    const placeholder = make(doc, "option", "Choose an exact Draft gap…");
+    placeholder.value = "";
+    savedDestinations.replaceChildren(placeholder, ...options.map(({ label }, index) => {
+      const option = make(doc, "option", label);
+      option.value = String(index);
+      return option;
+    }));
+    savedDestinations.value = originalIndex < 0 ? "" : String(originalIndex);
+    savedPlace.hidden = false;
+    status.textContent = original.available ? "" : "Original gap unavailable. Choose a current Draft location.";
+    savedDestinations.focus();
+  }
+
+  async function placeSaved() {
+    if (readOnly() || pending || !savedChoice || savedDestinations.value === "") return;
+    const selection = savedChoice;
+    const intent = selection.options[Number(savedDestinations.value)]?.intent;
+    if (!intent) return;
+    try {
+      savedPlacementCommand(getDocument(), intent);
+    } catch {
+      cancelSaved();
+      status.textContent = "The saved material or destination changed. Choose again.";
+      focusOpener(selection.opener, selection.rowId, selection.kind);
+      return;
+    }
+    pending = true;
+    const started = generation;
+    const ok = await actions.placeSaved(intent);
+    pending = false;
+    if (generation !== started) return;
+    cancelSaved();
+    update();
+    status.textContent = ok ? (selection.kind === "duplicate_stash_rows" ?
+      "New copy placed; original kept in Stash." : "Saved material placed in Draft.") :
+      "Placement not confirmed. Review saved references or script status before trying again.";
+    focusOpener(selection.opener, selection.rowId, selection.kind);
+  }
+
   async function insert(intent) {
     if (readOnly() || pending || !intent) return;
+    cancelSaved();
     const current = captureStashNoteDrop(getDocument(), intent.noteRowId, intent.rowId, intent.beforeTokenId);
     if (JSON.stringify(current) !== JSON.stringify(intent)) {
       status.textContent = "The note or its receiving row changed. Choose the point again.";
@@ -129,6 +211,7 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     const sections = actions.view();
     const readonly = readOnly();
     form.hidden = readonly;
+    if (readonly && !pending) { cancelPlace(); cancelSaved(); clearDrag(); }
     const signature = JSON.stringify([readonly, sections]);
     if (signature === rendered) return;
     rendered = signature;
@@ -160,6 +243,14 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         const label = row.text ?? row.title ?? row.researchClip?.title ?? "Saved visual";
         const text = make(doc, "span", label);
         text.className = "stash-entry-text";
+        const actionButton = (kind, caption) => {
+          const button = make(doc, "button", caption);
+          button.type = "button";
+          button.dataset.savedAction = kind;
+          button.setAttribute("aria-label", `${caption}: ${label}`);
+          button.addEventListener("click", () => chooseSaved(entry, kind, button));
+          li.append(button);
+        };
         if (entry.kind === "note") {
           const checked = make(doc, "span", row.stashChecklist?.completed ? "☑" : "☐");
           checked.setAttribute("aria-label", row.stashChecklist?.completed ? "Completed" : "Not completed");
@@ -179,12 +270,29 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
         } else {
           li.append(make(doc, "span", entry.kind === "clip" ? "Clip · " : "Saved row · "), text);
         }
+        const origin = make(doc, "span", `Original Draft: ${entry.originalDraft.label} · ${entry.originalDraft.available ? "Original gap available" : "Choose a current gap"}`);
+        origin.className = "stash-entry-origin";
+        if (entry.kind !== "note" || entry.originalDraft.gap) li.append(origin);
+        if (entry.groupRestricted) {
+          const limit = make(doc, "span", "Saved group: whole-group editing is unavailable here.");
+          limit.className = "stash-entry-origin";
+          li.append(limit);
+        } else if (!readonly) {
+          if (entry.kind === "note") {
+            if (entry.hasDescendants) actionButton("place_stash_rows", "Place note and items below…");
+          } else {
+            const outlinePlacement = entry.kind !== "row" || entry.parentRowId !== null || entry.hasDescendants;
+            actionButton(outlinePlacement ? "place_stash_rows" : "restore_stash_rows",
+              outlinePlacement ? "Place in script…" : "Restore…");
+            actionButton("duplicate_stash_rows", "Duplicate as new…");
+          }
+        }
         list.append(li);
       }
       group.append(list);
       return group;
     }));
-    if (focusedId && !chosen) {
+    if (focusedId && !chosen && !savedChoice) {
       const focused = [...entries.querySelectorAll("[data-stash-row-id]")]
         .find((item) => item.dataset.stashRowId === focusedId);
       (focused?.querySelector("button") ?? toggle).focus();
@@ -243,7 +351,11 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      if (chosen) { const opener = chosen.opener; cancelPlace(); opener.focus(); }
+      if (savedChoice) {
+        const { opener, rowId, kind } = savedChoice;
+        cancelSaved();
+        focusOpener(opener, rowId, kind);
+      } else if (chosen) { const opener = chosen.opener; cancelPlace(); opener.focus(); }
       else close();
     }
     // Native text Undo belongs to the unsaved note field, not the script.
@@ -263,6 +375,16 @@ export function mountStashPanel({ root, script, actions, getDocument, onOpen, re
       update();
     }
     status.textContent = ok ? "Note added." : "Note was not saved. See script status.";
+  });
+  savedPlace.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void placeSaved();
+  });
+  root.querySelector("[data-stash-saved-cancel]").addEventListener("click", () => {
+    if (!savedChoice) return;
+    const { opener, rowId, kind } = savedChoice;
+    cancelSaved();
+    focusOpener(opener, rowId, kind);
   });
   place.addEventListener("submit", (event) => {
     event.preventDefault();

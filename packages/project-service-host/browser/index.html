@@ -126,6 +126,13 @@
         </form>
         <p data-stash-status role="status" aria-live="polite"></p>
         <div data-stash-entries></div>
+        <form data-stash-saved-place hidden>
+          <p data-stash-saved-description></p>
+          <label for="stash-saved-destination">Draft destination</label>
+          <select id="stash-saved-destination" required></select>
+          <button type="submit" data-stash-saved-confirm>Restore</button>
+          <button type="button" data-stash-saved-cancel>Cancel</button>
+        </form>
         <form data-stash-place hidden>
           <label for="stash-destination">Insert note before word</label>
           <select id="stash-destination" required></select>

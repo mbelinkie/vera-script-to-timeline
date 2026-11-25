@@ -1253,6 +1253,10 @@ html[data-thumbnail-scale="0"] .visual-card[data-previewable="true"]:focus-visib
 .stash-panel li { margin: 0.4rem 0 0.4rem calc(var(--stash-depth) * 0.65rem); padding: 0.4rem; border-bottom: 1px solid #d5dddf; }
 .stash-panel li[draggable] { cursor: grab; }
 .stash-panel li button { display: block; margin-top: 0.35rem; font-size: 0.75rem; }
+.stash-entry-origin { display: block; font-size: 0.75rem; margin: 0.25rem 0; overflow-wrap: anywhere; }
+.stash-panel select { min-width: 0; max-width: 100%; }
+.stash-panel [data-stash-saved-place] { position: sticky; bottom: 0; background: #fff; border: 1px solid #c8d6d9; padding: 0.5rem; }
+.stash-panel [data-stash-saved-description] { margin: 0; font-size: 0.8rem; overflow-wrap: anywhere; }
 .stash-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-left: 0.2rem; }
 #open-stash[aria-expanded="true"] { outline: 2px solid #c89b45; }
 .stash-drop-cursor { position: fixed; width: 3px; background: #c89b45; z-index: 40; pointer-events: none; }

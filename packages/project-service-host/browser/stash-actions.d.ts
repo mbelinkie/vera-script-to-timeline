@@ -54,7 +54,7 @@ export interface StashSectionView {
   title: string;
   entries: Array<{ rowId: string; kind: string; sectionId: string | null;
     parentRowId: string | null; row: NonNullable<ScriptDocumentV2["stash"]>[number]["rows"][number];
-    bundleId: string; originalDraft: OriginalDraftLocation }>;
+    bundleId: string; originalDraft: OriginalDraftLocation; hasDescendants: boolean; groupRestricted: boolean }>;
 }
 export type StashEditorQueue = (command: (document: ScriptDocumentV2) => RowEditCommandV2,
   label: string, options: { structural: true }) => Promise<boolean>;
@@ -87,6 +87,7 @@ export function createStashActions(queue: StashEditorQueue, getDocument: () => S
     Extract<RowEditCommandV2, { kind: "stash_rows" }> | SavedPlacementCommand, label: string) => Promise<boolean>): {
     view: () => StashSectionView[];
     stashRow: (rowId: string) => Promise<boolean>;
+    placeSaved: (intent: SavedPlacementIntent) => Promise<boolean>;
     addNote: (text: string, location?: StashLocation) => Promise<boolean>;
     stashWords: (rowId: string, selection: StashWordSelection) => Promise<boolean>;
     dropNote: (noteRowId: string, rowId: string, beforeTokenId: string) => Promise<boolean>;
