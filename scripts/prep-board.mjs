@@ -4,7 +4,7 @@
 //   npm run prep -- --no-open
 //   npm run prep -- --next    print the next prepped ticket for Codex/Claude and exit
 // Stages: To groom -> DeepSeek running -> Ready for Codex / Needs a look, plus
-// "Not ready" (dependencies open, design work, already owned...) with no buttons.
+// "Tagged for Zodex but Blocked" shows only unstarted Zodex work with open gates.
 // A "Your next step" panel names the one thing to do now, and while the board
 // runs it checks every 5 minutes and pops a Mac notification when a run ends.
 // Read-only: reads GitHub through the local `gh` CLI. DeepSeek is only ever
@@ -74,6 +74,23 @@ export function notReadyReasons(item) {
 // deepseek-excluded tickets such as real-Resolve work, a Chat brief for Codex.
 export function prepPath(labels = []) {
   return labels.some((label) => EXCLUDE_LABELS.has(label)) ? "codex" : "deepseek";
+}
+
+// This is a view filter, not a new pipeline stage: only tickets explicitly
+// assigned to Zodex, still waiting on a real readiness gate, belong here.
+// Tickets already under active review or implementation are not "not yet" work.
+export function isZodexBlocked(row) {
+  return (row.labels ?? []).includes("Zodex")
+    && row.stage === "blocked" && !BUSY.has(row.status);
+}
+
+export function zodexBlockedRows(rows) {
+  return rows.filter(isZodexBlocked);
+}
+
+export function rowsForTab(rows, tab) {
+  if (tab === "zodex-blocked") return zodexBlockedRows(rows);
+  return tab === "all" ? rows : rows.filter((row) => row.stage === tab);
 }
 
 export function stageOf(row) {
@@ -159,6 +176,7 @@ export function buildBoard(models, dependencies, pulls, templates = {}) {
       reasons: notReadyReasons({ ...item, labels }),
     };
     row.stage = stageOf(row);
+    row.zodexBlocked = isZodexBlocked(row);
     row.canGroom = row.reasons.length === 0 && (row.stage === "groom" || row.stage === "failed");
     const template = templates[row.path];
     if (row.canGroom && template) row.chatPrompt = chatPrompt(template, row);
@@ -167,6 +185,13 @@ export function buildBoard(models, dependencies, pulls, templates = {}) {
   }
   rows.sort(compareRows);
 
+  // Count open issues from both project boards, including goal issues that
+  // have no conductor card. Deduplicate cross-project appearances by URL.
+  const openIssueKeys = new Set(models.flatMap((model) => [
+    ...(model.goals ?? []), ...(model.workItems ?? []),
+  ]).filter((item) => item.status !== "Done" && item.type !== "historical")
+    .map((item) => locate(item.url))
+    .filter(Boolean).map(({ repo, number }) => `${repo}#${number}`));
   const projects = models.map((model) => ({
     name: /research/i.test(model.projectTitle ?? "") ? "Research" : "Timeline",
     done: model.doneCount,
@@ -202,6 +227,7 @@ export function buildBoard(models, dependencies, pulls, templates = {}) {
     summary: {
       done,
       total,
+      openIssues: openIssueKeys.size,
       percent: total ? Math.round((100 * done) / total) : 0,
       projects,
       productionLines: projects.every((p) => p.productionLines === null) ? null : projects.reduce((sum, p) => sum + (p.productionLines ?? 0), 0),
@@ -250,7 +276,7 @@ export function nextStep(rows) {
       detail: "Nothing to do. You'll get a Mac notification when a draft is ready or a run fails." };
   }
   return { kind: "idle", row: null, title: "Nothing to prep right now",
-    detail: "Every open ticket is blocked, in progress, or not DeepSeek work. See the Not ready tab." };
+    detail: "No prep is actionable. See All open for the full backlog, or Tagged for Zodex but Blocked for Zodex work awaiting prerequisites." };
 }
 
 // Tickets whose DeepSeek run just finished or failed since the last look.
@@ -352,7 +378,7 @@ li{background:var(--card);border:1px solid var(--line);border-radius:10px;paddin
 <select id="milestone"><option value="">All milestones</option></select></div>
 <ol id="list"></ol></main><div class="toast" id="toast"></div>
 <script>
-const STAGES=[["groom","To groom"],["running","DeepSeek running"],["ready","Ready for Codex"],["failed","Needs a look"],["blocked","Not ready"],["all","All open"]];
+const STAGES=[["groom","To groom"],["running","DeepSeek running"],["ready","Ready for Codex"],["failed","Needs a look"],["zodex-blocked","Tagged for Zodex but Blocked"],["all","All open"]];
 const opened=JSON.parse((()=>{try{return localStorage.getItem("vera-prep-opened")||"{}"}catch{return"{}"}})());
 let data={rows:[],errors:[],summary:null},stage="groom";
 const $=(id)=>document.getElementById(id);
@@ -388,10 +414,12 @@ function render(){
   $("errors").innerHTML=data.errors.map((e)=>'<div class="err">'+esc(e)+'</div>').join("");
   $("meta").textContent="Updated "+new Date(data.at).toLocaleTimeString()+" · refreshes every 3 min";
   stats();nextBox();
-  const counts=Object.fromEntries(STAGES.map(([k])=>[k,k==="all"?data.rows.length:data.rows.filter((r)=>r.stage===k).length]));
-  $("tabs").innerHTML=STAGES.map(([k,n])=>'<button data-stage="'+k+'" aria-pressed="'+(k===stage)+'">'+n+' ('+counts[k]+')</button>').join("");
+  const tabMatches=(r,k)=>k==="zodex-blocked"?r.zodexBlocked===true:k==="all"||r.stage===k;
+  const counts=Object.fromEntries(STAGES.map(([k])=>[k,data.rows.filter((r)=>tabMatches(r,k)).length]));
+  const openTotal=data.summary?.openIssues??data.rows.length;
+  $("tabs").innerHTML=STAGES.map(([k,n])=>'<button data-stage="'+k+'" aria-pressed="'+(k===stage)+'">'+n+' ('+counts[k]+(k==="zodex-blocked"?' of '+openTotal+' total open issues':'')+')</button>').join("");
   const q=$("search").value.trim().toLowerCase(),repo=$("repo").value,ms=$("milestone").value;
-  const rows=data.rows.filter((r)=>(stage==="all"||r.stage===stage)&&(!repo||r.repo===repo)&&(!ms||(ms==="__none"?!r.milestone:r.milestone===ms))&&(!q||(r.title+" #"+r.number).toLowerCase().includes(q)));
+  const rows=data.rows.filter((r)=>(tabMatches(r,stage))&&(!repo||r.repo===repo)&&(!ms||(ms==="__none"?!r.milestone:r.milestone===ms))&&(!q||(r.title+" #"+r.number).toLowerCase().includes(q)));
   $("list").innerHTML=rows.length?rows.map(row).join(""):'<li class="empty" style="display:block">Nothing here.</li>';
 }
 function row(r){

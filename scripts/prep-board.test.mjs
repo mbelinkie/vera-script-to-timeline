@@ -4,7 +4,7 @@ import test from "node:test";
 import { URL } from "node:url";
 
 import { buildProgressModel, parseProjectItems } from "./project-progress-lib.mjs";
-import { buildBoard, chatPrompt, codexPrompt, compareRows, deepseekState, finishedSince, nextPrepped, nextStep, notReadyReasons, prepPath, prsByIssue } from "./prep-board.mjs";
+import { buildBoard, chatPrompt, codexPrompt, compareRows, deepseekState, finishedSince, nextPrepped, nextStep, notReadyReasons, prepPath, prsByIssue, rowsForTab, zodexBlockedRows } from "./prep-board.mjs";
 import { buildPrompt, estimateCost, ineligibleReason, readAgentResult } from "../.github/deepseek/job.mjs";
 
 const TL = "vera-script-to-timeline";
@@ -70,6 +70,33 @@ test("only implementation/bug issues with finished dependencies are groomable", 
   assert.equal(byNumber[6].stage, "ready");
   assert.equal(byNumber[6].pr.url, "pr66");
   assert.equal(byNumber[7].stage, "running");
+});
+
+test("Zodex-blocked tab excludes other models, workable and active Zodex issues", () => {
+  const timeline = model("VERA Script-to-Timeline Roadmap", [
+    issue(TL, 1, { status: "Done", queue: 1 }),
+    issue(TL, 2, { status: "Blocked", queue: 2, labels: ["Zodex"] }),
+    issue(TL, 3, { status: "Blocked", queue: 3, labels: ["model:sol"] }),
+    issue(TL, 4, { status: "In progress", queue: 4, labels: ["Zodex"] }),
+    issue(TL, 5, { status: "Ready", queue: 5, labels: ["Zodex"] }),
+    issue(TL, 6, { status: "Backlog", queue: 6, labels: ["Zodex"] }),
+    issue(TL, 7, { status: "In review", queue: 7, labels: ["Zodex"] }),
+    issue(TL, 8, { type: "goal", status: "Blocked", queue: 8 }),
+  ]);
+  const research = model("VERA Research Roadmap", [
+    issue(RS, 40, { status: "Blocked", queue: 9, labels: ["Zodex"] }),
+  ]);
+  const keys = [2, 3, 4, 5, 6, 7].map((n) => url(TL, n)).concat(url(RS, 40));
+  const board = buildBoard([timeline, research], {
+    verified: keys, dependencies: Object.fromEntries(keys.map((key) => [key, []])),
+  }, { [TL]: [], [RS]: [] });
+  assert.deepEqual(zodexBlockedRows(board.rows).map((r) => r.key), [`${TL}#2`, `${RS}#40`]);
+  assert.deepEqual(board.rows.filter((r) => r.zodexBlocked).map((r) => r.key), [`${TL}#2`, `${RS}#40`],
+    "the API flag drives the tab count and list from the same predicate");
+  assert.deepEqual(rowsForTab(board.rows, "zodex-blocked"), zodexBlockedRows(board.rows));
+  assert.equal(rowsForTab(board.rows, "all").length, 7, "the board excludes Done and goals");
+  assert.equal(board.summary.openIssues, 8, "the denominator includes open goals from both repositories");
+  assert.equal(rowsForTab(board.rows, "groom").length, 2, "ready Zodex work stays in normal tabs");
 });
 
 test("conductor prep rows preserve fractional order without promoting design work", () => {
