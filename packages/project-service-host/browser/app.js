@@ -382,6 +382,12 @@ document.addEventListener("visibilitychange", () => {
 function renderEditor() {
   stashPanel?.update();
   const root = element("script-rows");
+  if (sortingTrial?.preview) {
+    narrationCleanup.forEach((cleanup) => cleanup());
+    narrationCleanup = [];
+    renderRows(root, sortingTrial.document, { projection: visualProjection });
+    return;
+  }
   const requestedFocus = structuralFocus;
   structuralFocus = null;
   const requestedCardFocus = cardFocus;
@@ -1377,14 +1383,16 @@ export async function acceptSortingTrial() {
 
 // A separate read-only outline: normal Draft controls never edit a trial.
 function setSortingMode(active) {
+  const preview = active && sortingTrial.preview;
   authoring.classList.toggle("sorting-mode", active);
   element("sorting-view").hidden = !active;
-  element("script-rows").closest(".script-paper").hidden = active;
+  element("sorting-rows").hidden = preview;
+  element("script-rows").closest(".script-paper").hidden = active && !preview;
   projectTitle.readOnly = active;
   for (const id of ["undo", "open-footage", "open-prompter"]) element(id).hidden = active;
   element("undo").parentElement.querySelector(".undo-menu").hidden = active;
   const toggle = element("open-sorting");
-  toggle.textContent = active ? "← Back to script" : "Sort rows";
+  toggle.textContent = preview ? "Return to Sorting" : active ? "← Back to script" : "Sort rows";
   toggle.setAttribute("aria-expanded", String(active));
   if (!active) element("sorting-rows").replaceChildren();
 }
@@ -1398,8 +1406,8 @@ function leaveSorting() {
 function finishSorting(accepted) {
   if (!accepted) discardSortingTrial();
   setSortingMode(false);
-  if (accepted) renderEditor();
-  stashPanel?.close(false);
+  renderEditor();
+  stashPanel?.update();
   updatePrompterControls();
   // Accept may start a save, so focus the script heading while the toggle is disabled.
   (element("open-sorting").disabled ? element("script-title") : element("open-sorting")).focus();
@@ -1482,7 +1490,16 @@ async function runSortingAction(action, rowId, direction) {
 }
 
 element("open-sorting").addEventListener("click", () => {
-  if (sortingTrial) { leaveSorting(); return; }
+  if (sortingTrial) {
+    sortingTrial.preview = !sortingTrial.preview;
+    setSortingMode(true);
+    if (sortingTrial.preview) renderEditor();
+    else renderSorting();
+    sortingStatus(sortingTrial.preview ? "Previewing the pending script. Return to Sorting to make changes." :
+      "Trial only. Your saved Draft is unchanged.");
+    stashPanel?.update();
+    return;
+  }
   if (!beginSortingTrial()) return;
   researchPanel?.close();
   researchStillPanel?.close();

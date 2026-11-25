@@ -4972,8 +4972,11 @@ describe("browser authoring over the local project service", () => {
     expect(await page.locator(`[data-stash-row-id="${parkedRow.id}"]`).innerText()).toContain(parkedRow.text);
     expect(await page.locator("[data-saved-action]").count()).toBe(0);
     await page.locator("[data-stash-close]").click();
-    page.once("dialog", async (dialog) => await dialog.dismiss());
-    await page.locator("#open-sorting").click();
+    await page.getByRole("button", { name: "← Back to script" }).click();
+    expect(await page.locator("#script-rows").isVisible()).toBe(true);
+    expect(await draftOrder()).toEqual(reordered);
+    expect(await page.locator("#script-rows [contenteditable]").count()).toBe(0);
+    await page.getByRole("button", { name: "Return to Sorting" }).click();
     expect(await trialOrder()).toEqual(reordered);
     expect(await saved()).toEqual(baseline);
     await page.locator("#sorting-discard").click();
